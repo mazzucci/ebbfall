@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f16">
+<title>Endfall</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f16'/%3E%3Cpath d='M8 2l5 6-5 6-5-6z' fill='%23f5a524'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand">ENDFALL</div>
+    <div class="res" id="resShard"><span class="dot shard"></span><b id="rShard">50</b></div>
+    <div class="res" id="resEther"><span class="dot ether"></span><b id="rEther">0</b></div>
+    <div class="res" id="resSup"><span class="lbl">SUPPLY</span><b id="rSupply">4/10</b></div>
+    <div class="spacer"></div>
+    <div id="clock">00:00</div>
+    <button class="ib" id="btnSound" aria-label="Toggle sound">SOUND ON</button>
+    <button class="ib" id="btnHelp" aria-label="Help">HELP</button>
+  </header>
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="msg"></div>
+    <div id="hint"></div>
+    <div id="selMini"><b id="selMiniName"></b><span id="selMiniHp"></span></div>
+  </div>
+  <footer id="hud">
+    <canvas id="minimap" width="168" height="168"></canvas>
+    <div id="info">
+      <div class="title"><h2 id="selName">Nothing selected</h2><span class="sub" id="selSub">Click a unit or drag a box</span></div>
+      <div class="bar" id="hpBar" hidden><i id="hpFill"></i></div>
+      <div id="stats"></div>
+      <div id="queue"></div>
+      <div id="group"></div>
+    </div>
+    <div id="cmd"></div>
+  </footer>
+  <div class="screen" id="start">
+    <div class="card">
+      <h1>ENDFALL</h1>
+      <div class="tag">A browser RTS in the 1998 mold. One faction, one map, one opponent. Pre-alpha.</div>
+      <p>Mine <b style="color:var(--shard)">shards</b> and <b style="color:var(--ether)">ether</b>, build supply, raise an army, and level the enemy Command Core before their waves level yours. The enemy base is in the far corner.</p>
+      <ul>
+        <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point. <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group.</li>
+        <li><b>Touch:</b> tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather. Two fingers pan. Drag on the minimap to scroll.</li>
+        <li>Select a Harvester and tap <b>Build</b> to place structures. The Ether Extractor must sit on an ether vent.</li>
+      </ul>
+      <div class="row">
+        <span class="sub" style="font:12px var(--mono);color:var(--muted)">OPPONENT</span>
+        <div class="diff" id="diff">
+          <button class="ib" data-d="0">EASY</button>
+          <button class="ib on" data-d="1">NORMAL</button>
+          <button class="ib" data-d="2">HARD</button>
+        </div>
+        <span class="spacer"></span>
+        <button class="ib big" id="btnStart">START GAME</button>
+      </div>
+    </div>
+  </div>
+  <div class="screen" id="end" hidden>
+    <div class="card">
+      <h2 id="result">VICTORY</h2>
+      <div class="tag" id="endSub"></div>
+      <div id="endStats" class="row"></div>
+      <div class="row"><button class="ib big" id="btnAgain">PLAY AGAIN</button></div>
+    </div>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

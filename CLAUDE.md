@@ -1,0 +1,81 @@
+# Endfall: notes for coding agents
+
+A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. Plain JavaScript
+ES modules, Vite, Canvas 2D, no framework and no game engine. The simulation is written to be deterministic so
+that lockstep multiplayer can be added without rewriting it. See `docs/PLAN.md` for the roadmap and open questions
+and `README.md` for the player-facing description.
+
+## Prerequisites (on the Mac)
+
+- Node 22 (`.nvmrc`), npm. Nothing else: no global tools, no Homebrew packages.
+- `npm install` once after cloning (installs Vite only).
+
+## Commands (from the repo root)
+
+```sh
+npm run dev        # Vite dev server with hot reload, http://localhost:5173 (also on the LAN for phone testing)
+npm run build      # production build into dist/ (static files, deploy anywhere)
+npm run preview    # serve dist/ on http://localhost:4173
+npm test           # headless sim tests (node --test), no browser needed
+npm run sim        # scripted 10-minute game per difficulty, prints economy/army snapshots (scripts/headless.js)
+```
+
+A change to anything under `src/sim/` must keep `npm test` green, in particular the determinism test (same seed and
+commands produce the same `stateHash()`).
+
+## Layout
+
+```
+index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays
+src/main.js           entry: wires sim to client, fixed-step loop, start/end screens, drains sim events
+src/style.css         all styling; design tokens at the top of :root
+src/sim/              THE GAME. Pure logic, no DOM, no Math.random, no Date. Runs in Node.
+  constants.js        unit/building/difficulty data, map size, tick rate. Balance changes go here.
+  util.js             clamp/dist/lerp, seeded PRNG (mulberry32), value noise
+  ids.js              entity id counter
+  map.js              terrain generation, resource nodes, occupancy grid, nearestFree
+  path.js             A* with LOS smoothing (8-way, no corner cutting, 5000-node cap)
+  state.js            G (the world), entity factories, placement rules, economy, supply, production, fog, damage/death
+  commands.js         orders: move, attack-move, attack, stop, hold, gather, build, placeBuilding, formation
+  update.js           step(dt): unit behaviour state machine, separation, buildings, projectiles; stateHash()
+  ai.js               scripted opponent (build order, worker saturation, defense, waves)
+  index.js            the sim's public surface; the client imports only from here
+src/client/           everything that touches the browser
+  render.js           Canvas 2D renderer, camera, minimap, fog overlay
+  hud.js              top bar, selection panel, command card, client UI state (ui.sel, ui.mode, ui.place)
+  input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
+  audio.js            Web Audio synthesized sfx
+  fx.js               particles and markers (client-only, fed by sim events)
+test/sim.test.js      headless tests
+scripts/headless.js   scripted bot-vs-AI run for balance checks
+docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored in Notion)
+```
+
+## Rules that keep the sim multiplayer-ready
+
+- `src/sim/` never imports from `src/client/` and never touches `document`, `window`, `performance`, `Date` or
+  `Math.random`. Randomness in the sim comes from `G.rng` (seeded in `resetGame`).
+- The sim advances only through `step(DT)` with the fixed `DT` from `constants.js`. Never pass a variable dt.
+- Anything the player should see or hear that is not world state (sounds, toasts, explosions) is an event:
+  `emit({t:'sfx'|'toast'|'burst'|'hit', ...})`. The client drains `G.events` each frame in `main.js`.
+- Player intent enters the sim only through the functions in `commands.js` (plus `queueUnit`/`cancelQueue`).
+  Those are the calls that become network commands later, so keep their arguments plain data (ids, numbers,
+  strings), not closures or DOM objects. Today they take entity objects; converting to ids is on the plan.
+- Iteration order matters for determinism: iterate arrays, not `Set`/`Map` built from object identity, and sort
+  with total orderings (tie-break on `id`).
+- `G` is a module-level singleton for now (one game per page). Rollback netcode would need the world to be a
+  value you can snapshot and restore; see PLAN.md before introducing more module-level mutable state.
+
+## Conventions
+
+- Teams: `PLAYER = 0`, `ENEMY = 1`. Fog of war is currently computed from the PLAYER's point of view only.
+- Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
+- Costs are `[shards, ether]`.
+- Keep files small and single-purpose; dense one-liners are acceptable in hot loops but not in rules code.
+- Commit messages: imperative, one line, what and why. Do not commit `dist/` or `node_modules/`.
+
+## Testing a change by hand
+
+`npm run dev`, open the URL, Normal difficulty. A sanity run: select harvesters, `B` then `D`, place a Depot near the
+Core, train Troopers from a Barracks, `A`-move into the enemy base in the far corner. On a phone on the same
+network, open the LAN URL Vite prints (touch controls: tap/drag to select, tap to command, two fingers to pan).

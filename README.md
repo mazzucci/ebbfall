@@ -1,0 +1,24 @@
+# Endfall
+
+A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
+the enemy Command Core before their waves level yours. One faction, one map, one opponent. Pre-alpha.
+
+```sh
+npm install
+npm run dev      # http://localhost:5173
+npm test         # headless simulation tests
+```
+
+**Mouse:** left-click or drag to select, right-click to move / attack / gather / set a rally point. `A` attack-move,
+`S` stop, `H` hold, `B` build (with Harvesters selected), `Ctrl`+`1`–`9` saves a control group, `Backspace` jumps to
+your Core.
+
+**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather.
+Two fingers pan. Drag on the minimap to scroll.
+
+The simulation (`src/sim/`) is deterministic and runs without a browser; the plan is lockstep multiplayer on top of
+it. See `docs/PLAN.md` for the roadmap and `CLAUDE.md` for how the code is organised.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

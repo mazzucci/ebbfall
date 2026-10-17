@@ -1,0 +1,18 @@
+{
+  "name": "endfall",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Endfall: a browser real-time strategy game in the 1998 mold.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.js",
+    "sim": "node scripts/headless.js"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

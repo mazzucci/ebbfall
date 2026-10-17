@@ -1,7 +1,7 @@
 // The Rust sim (WASM) behind the same surface the client used with src/sim: a live `G` and `map`, entity
 // objects with stable identity (selections hold them), and order functions that take those objects.
-// State is mirrored from flat snapshot arrays: right away after an order (so entity objects in hand are
-// current), and lazily after a step (the next read of G or map refreshes it). Requires the WASM module to be initialised first (index.js does it in the browser,
+// State is mirrored from flat snapshot arrays after every step and order, so entity objects in hand are
+// always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game } from './pkg/endfall_sim.js';
 import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS } from '../sim/constants.js';
@@ -69,7 +69,8 @@ function sync() {
     S.bldgs.push(b);
   }
   retire(bldgs, seenB);
-  for (const n of M.nodes) n.extractor = bldgs.get(n.extractorId) || null;
+  for (const b of S.bldgs) b.vent = null;
+  for (const n of M.nodes) { n.extractor = bldgs.get(n.extractorId) || null; if (n.extractor) n.extractor.vent = n; }
 
   const U = game.units(), seenU = new Set(), attacks = []; S.units = [];
   for (let o = 0; o < U.length; o += US) {
@@ -106,7 +107,7 @@ export function resetGame(seed, diff) {
   M.rock.set(game.rock()); M.shade.set(game.shade());
   dirty = true; sync();
 }
-export function step() { game.step(); dirty = true; }
+export function step() { game.step(); dirty = true; sync(); }
 export function stateHash() { return game.stateHash(); }
 
 // ---- orders (the future network command set) ----

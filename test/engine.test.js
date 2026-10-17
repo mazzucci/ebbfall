@@ -171,3 +171,18 @@ test('out-of-range teams are rejected without poisoning the game', { skip }, () 
   E.step(); E.resetGame(4, 1);
   assert.equal(E.G.units.length, 8);
 });
+
+test('an extractor knows its vent, and harvesters ordered to the vent mine ether', { skip }, () => {
+  E.resetGame(11, 1);
+  E.setResources(E.PLAYER, 1000, 0);
+  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => a.y - b.y).pop(); // the player's (south) vent
+  const hs = E.G.units.filter(u => u.team === E.PLAYER);
+  assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
+  const ext = E.G.bldgs.find(b => b.type === 'extractor');
+  assert.equal(ext.vent, vent);
+  runSeconds(60); // walk over, then 25 s of construction
+  assert.ok(ext.done, 'extractor built');
+  for (const h of hs) E.startGather(h, ext.vent);
+  runSeconds(40);
+  assert.ok(E.G.res[E.PLAYER][1] > 0, 'ether mined: ' + E.G.res[E.PLAYER][1]);
+});

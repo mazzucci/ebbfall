@@ -1,0 +1,12 @@
+{
+  "name": "Endfall",
+  "short_name": "Endfall",
+  "description": "A browser real-time strategy game in the 1998 mold.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0f16",
+  "theme_color": "#0b0f16",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

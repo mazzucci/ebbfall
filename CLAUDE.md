@@ -2,7 +2,7 @@
 
 A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. The simulation is
 Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite and PixiJS 8 (WebGL)
-over a code-generated pixel-art sprite sheet; no framework and no game engine. The simulation is deterministic so that lockstep multiplayer can be added without
+over code-generated sprite sheets (pre-rendered 3D units and buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer can be added without
 rewriting it. See `docs/PLAN.md` for the roadmap and open questions
 and `README.md` for the player-facing description.
 
@@ -25,7 +25,8 @@ npm test           # headless sim tests (node --test), no browser needed
 npm run sim        # scripted 10-minute game per difficulty on the Rust sim, prints economy/army snapshots
 npm run parity     # JS reference sim vs Rust sim, state hash compared every tick over many seeds
 cargo test         # Rust sim unit tests (native, no WASM needed)
-node tools/art/generate.mjs  # regenerate public/art/atlas.{png,json} after changing tools/art (output is committed)
+node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
+                             # the 3D part needs a Chromium, see docs/ART.md)
 ```
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test` and `npm run build` on
@@ -76,8 +77,9 @@ test/engine.test.js   the WASM sim through src/engine in Node: data/RNG/hypot pa
 scripts/parity.mjs    runs both sims with the same seed and orders, reports the first tick whose hashes differ
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
-tools/art/            the sprite generator (pure Node rasterizer + PNG encoder); see docs/ART.md
-public/art/           generated atlas.png + atlas.json (PixiJS spritesheet format), committed
+tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js)
+tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see docs/ART.md
+public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 docs/ART.md           art style guide, palette, frame names
 docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored in Notion)
 ```

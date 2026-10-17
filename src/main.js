@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
-import { G, DT, PLAYER, resetGame, step, fmt } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ALLY, FOE } from './client/render.js';
+import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
+import { resize, render, renderTerrain, centerOn, boom, sparkAt, cam, toWorld, ALLY, FOE } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard } from './client/hud.js';
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
@@ -17,7 +17,7 @@ function newGame() {
   resetGame(seed, ui.diff ?? 1);
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard();
   renderTerrain();
-  const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x, core.y + 60);
+  const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   toast('Mine shards. Build a Depot before supply caps.');
   armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
@@ -33,8 +33,8 @@ function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
-    else if (e.t === 'burst') burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, e.n);
-    else if (e.t === 'hit') hit(e.x, e.y, e.big);
+    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); }
+    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); }
   }
   G.events.length = 0;
 }
@@ -77,4 +77,6 @@ function loop(now) {
 }
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
+// A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
+window.endfall = { G, ui, cam, toWorld, centerOn, setResources };
 bindInput(); resize(); requestAnimationFrame(loop);

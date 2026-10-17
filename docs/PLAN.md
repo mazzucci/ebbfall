@@ -21,7 +21,7 @@ loop feels right.
 | Simulation | Rust compiled to WASM (`crates/endfall-sim`) | Deterministic core for lockstep, small download. Ported from the JS sim with bit-exact parity (`npm run parity`). |
 | Sim numerics | f64 with JS semantics + libm, not fixed-point | WASM floats are deterministic across browsers/CPUs; everyone runs the same .wasm. Keeping the JS arithmetic made tick-by-tick parity checking possible. Revisit only if a native (non-WASM) peer ever has to agree. |
 | Client | JavaScript ES modules | Fast UI iteration; `src/engine` mirrors the sim for the renderer, HUD and input. |
-| Rendering | Canvas 2D | Enough for hundreds of units; WebGL (PixiJS) when sprite art and unit counts demand it. |
+| Rendering | PixiJS 8 (WebGL) over a generated pixel-art atlas | Batching, filters and blend modes for free; the art is produced by `tools/art` (docs/ART.md) so it is versioned and replaceable. |
 | Build | Vite | Zero config, HMR, static `dist/`. |
 | Simulation | Fixed 30 Hz tick, deterministic | Prerequisite for lockstep multiplayer and replays. |
 | Sim/client boundary | Events out, commands in | Client renders state and events; player intent only enters through `commands.js`. |

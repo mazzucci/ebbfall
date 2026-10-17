@@ -4,14 +4,13 @@ import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard } f
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
-import { cv, mm, cam, view, clampCam, centerOn, ALLY, FOE } from './render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE } from './gl/render.js';
 
 export const drag = { down: false, box: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
 const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
 /** Set by main.js: whether input should reach the game right now. */
 export const input = { enabled: () => true };
 
-const toWorld = (cx, cy) => ({ x: cx + cam.x, y: cy + cam.y });
 function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
 
 function pick(wx, wy) {
@@ -102,14 +101,20 @@ export function bindInput() {
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
-    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; return; } if (pointers.size > 2) return; }
+    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { ui.place = null; ui.mode = null; setHint(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
     drag.down = true; drag.box = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
-    if (pan && pointers.size >= 2) { const [a, b] = [...pointers.values()]; const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; cam.x -= c.x - pan.x; cam.y -= c.y - pan.y; clampCam(); pan = c; return; }
+    if (pan && pointers.size >= 2) {
+      // Two fingers: pan with the midpoint, pinch to zoom around it.
+      const [a, b] = [...pointers.values()]; const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
+      cam.x -= (c.x - pan.x) / cam.zoom; cam.y -= (c.y - pan.y) / cam.zoom; clampCam();
+      if (pan.d > 20 && c.d > 20) zoomAt(c.d / pan.d, c.x, c.y);
+      pan = c; return;
+    }
     if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
     if (drag.down) { drag.cx = p.x; drag.cy = p.y; if (!drag.box && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) drag.box = !ui.place && !ui.mode; }
     if (ev.pointerType === 'mouse') { const m = 14; edge.x = p.x < m ? -1 : p.x > view.w - m ? 1 : 0; edge.y = p.y < m ? -1 : p.y > view.h - m ? 1 : 0; }
@@ -126,7 +131,12 @@ export function bindInput() {
   cv.addEventListener('pointerup', endPointer);
   cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; drag.down = false; drag.box = false; });
   cv.addEventListener('pointerleave', () => { edge.x = 0; edge.y = 0; });
-  cv.addEventListener('wheel', ev => { ev.preventDefault(); cam.x += ev.deltaX; cam.y += ev.deltaY; clampCam(); }, { passive: false });
+  // Wheel pans; Ctrl+wheel (and trackpad pinch, which arrives as Ctrl+wheel) zooms around the cursor.
+  cv.addEventListener('wheel', ev => {
+    ev.preventDefault();
+    if (ev.ctrlKey) { const p = canvasPos(ev); zoomAt(Math.exp(-ev.deltaY * 0.01), p.x, p.y); return; }
+    cam.x += ev.deltaX / cam.zoom; cam.y += ev.deltaY / cam.zoom; clampCam();
+  }, { passive: false });
 
   // Minimap: left drag scrolls, right click (or armed move/attack) orders.
   let mmDown = false;
@@ -171,5 +181,5 @@ export function camKeys(dt) {
   if (keys.arrowleft || (keys.a && free)) dx -= 1; if (keys.arrowright || (keys.d && free)) dx += 1;
   if (keys.arrowup || keys.w) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;
   if (drag.ptype === 'mouse' && !drag.down) { dx += edge.x; dy += edge.y; }
-  if (dx || dy) { cam.x += dx * 620 * dt; cam.y += dy * 620 * dt; clampCam(); }
+  if (dx || dy) { cam.x += dx * 620 * dt / cam.zoom; cam.y += dy * 620 * dt / cam.zoom; clampCam(); }
 }

@@ -10,7 +10,9 @@ import { drag } from '../input.js';
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
 export const view = { w: 800, h: 500, dpr: 1 };
-export const cam = { x: 0, y: 0 };
+/** Camera: top-left corner in world px, and zoom (screen px per world px). */
+export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.5 : innerWidth >= 1100 ? 2 : 1.5 };
+export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const ALLY = '#f5a524', ALLY2 = '#ffd27a', FOE = '#e2457a', FOE2 = '#ff8bb0';
 const hexn = (s) => parseInt(s.slice(1), 16);
 
@@ -42,8 +44,17 @@ export function resize() {
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   app.renderer.resize(view.w, view.h); clampCam();
 }
-export function clampCam() { cam.x = clamp(cam.x, 0, Math.max(0, WW - view.w)); cam.y = clamp(cam.y, 0, Math.max(0, WH - view.h)); }
-export function centerOn(x, y) { cam.x = x - view.w / 2; cam.y = y - view.h / 2; clampCam(); }
+const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
+export function clampCam() { cam.x = clamp(cam.x, 0, Math.max(0, WW - vw())); cam.y = clamp(cam.y, 0, Math.max(0, WH - vh())); }
+export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
+/** Screen (canvas css px) → world px. */
+export const toWorld = (sx, sy) => ({ x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y });
+/** Zoom by `factor`, keeping the world point under screen point (sx, sy) fixed. */
+export function zoomAt(factor, sx, sy) {
+  const before = toWorld(sx, sy);
+  cam.zoom = clamp(cam.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+  cam.x = before.x - sx / cam.zoom; cam.y = before.y - sy / cam.zoom; clampCam();
+}
 
 // ---- terrain (once per map) ----
 const thumb = document.createElement('canvas'); thumb.width = MW; thumb.height = MH;
@@ -60,7 +71,7 @@ export function renderTerrain() {
   for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
     const m = rock(i, j) | rock(i + 1, j) << 1 | rock(i, j + 1) << 2 | rock(i + 1, j + 1) << 3;
     const r = rnd();
-    const name = m === 0 ? `ground_${r < 0.7 ? 0 : 1 + ((r * 100) | 0) % 5}` : `rock_${m}_${((r * 3) | 0)}`;
+    const name = m === 0 ? `ground_${r < 0.88 ? 0 : 1 + ((r * 100) | 0) % 5}` : `rock_${m}_${((r * 3) | 0)}`;
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); L.terrain.addChild(s);
   }
   // Large-scale variation so the tiles never read as a grid.
@@ -69,6 +80,8 @@ export function renderTerrain() {
   nc.putImageData(img, 0, 0);
   const vt = Texture.from(n); vt.source.scaleMode = 'linear';
   const vs = new Sprite(vt); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.terrain.addChild(vs);
+  // Bake the ~4k tile sprites and the overlay into one texture at 1:1 (the camera scales it with nearest filtering).
+  L.terrain.cacheAsTexture(false); L.terrain.cacheAsTexture({ resolution: 1, antialias: false, scaleMode: 'nearest' });
   // Minimap background.
   const th = thumb.getContext('2d');
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
@@ -223,10 +236,11 @@ let lastT = 0;
 /** sel: the client's current selection; place: pending building placement or null. */
 export function render(selList, place) {
   const t = G.time, now = performance.now() / 1000, dt = Math.min(0.1, lastT ? now - lastT : 0.016); lastT = now;
-  const sel = new Set(selList), VW = view.w, VH = view.h;
+  const sel = new Set(selList), VW = vw(), VH = vh();
   shake *= Math.pow(0.02, dt);
   const sx = shake > 0.3 ? (Math.random() - 0.5) * shake : 0, sy = shake > 0.3 ? (Math.random() - 0.5) * shake : 0;
-  world.position.set(Math.round(-cam.x + sx), Math.round(-cam.y + sy));
+  world.scale.set(cam.zoom);
+  world.position.set(Math.round((-cam.x + sx) * cam.zoom), Math.round((-cam.y + sy) * cam.zoom));
   const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
   const explored = G.explored;
   bars.clear(); lines.clear();
@@ -298,5 +312,5 @@ function renderMinimap() {
   for (const b of G.bldgs) { if (b.team === ENEMY && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === PLAYER ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * S, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * S)); }
   for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; c.fillStyle = u.team === PLAYER ? (u.type === 'harvester' ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * S - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
-  c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 1; c.strokeRect(cam.x * S + 0.5, cam.y * S + 0.5, view.w * S, view.h * S);
+  c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 1; c.strokeRect(cam.x * S + 0.5, cam.y * S + 0.5, vw() * S, vh() * S);
 }

@@ -78,5 +78,5 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, ui, cam, toWorld, centerOn, setResources };
+window.endfall = { G, ui, cam, toWorld, centerOn, setResources, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
 bindInput(); resize(); requestAnimationFrame(loop);

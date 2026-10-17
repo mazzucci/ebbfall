@@ -17,6 +17,8 @@
     "parity": "npm run build:wasm && node scripts/parity.mjs"
   },
   "devDependencies": {
+    "playwright-core": "^1.64.1",
+    "three": "^0.186.1",
     "vite": "^6.3.5"
   },
   "dependencies": {

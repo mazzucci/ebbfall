@@ -34,10 +34,12 @@ export function nearestNode(u, type, maxD = 900) {
   return best;
 }
 
+/** Returns whether the order took effect (it is refused for non-harvesters and vents without our extractor). */
 export function startGather(u, node) {
-  if (u.type !== 'harvester') return;
-  if (node.type === 'ether' && !(node.extractor && node.extractor.done && node.extractor.team === u.team)) { if (u.team === PLAYER) emit({ t: 'toast', msg: 'Build an Extractor on the vent first', bad: true }); return; }
+  if (u.type !== 'harvester') return false;
+  if (node.type === 'ether' && !(node.extractor && node.extractor.done && node.extractor.team === u.team)) { if (u.team === PLAYER) emit({ t: 'toast', msg: 'Build an Extractor on the vent first', bad: true }); return false; }
   releaseMine(u); u.lastNode = node; u.task = { t: 'gather', node, phase: u.carry ? 'return' : 'go' }; u.path = null; u.repath = 0;
+  return true;
 }
 export function startBuild(u, b) { releaseMine(u); u.task = { t: 'build', b }; u.path = null; u.repath = 0; }
 

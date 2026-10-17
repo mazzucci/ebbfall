@@ -1,5 +1,5 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
-import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation } from '../sim/index.js';
+import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally } from '../engine/index.js';
 import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
@@ -40,7 +40,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 function commandAt(wx, wy) {
   const sel = playerSel(); if (!sel.length) return;
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
-  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) b.rally = { x: wx, y: wy, node: hit && hit.kind === 'node' ? hit : null }; marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
+  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) attackEnt(u, hit); marker(hit.x, hit.y, FOE); sfx('attack'); }
   else if (hit && hit.kind === 'node') { for (const u of units) if (u.type === 'harvester') startGather(u, hit); else moveTo(u, wx, wy); marker(wx, wy, '#4fd1c5'); sfx('move'); }
   else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); sfx('move'); }

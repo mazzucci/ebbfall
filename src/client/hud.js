@@ -1,5 +1,5 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
-import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit } from '../sim/index.js';
+import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit } from '../engine/index.js';
 import { sfx } from './audio.js';
 
 export const $ = (id) => document.getElementById(id);

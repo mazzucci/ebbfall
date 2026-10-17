@@ -13,7 +13,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
-    "sim": "node scripts/headless.js"
+    "sim": "npm run build:wasm && node scripts/headless.js",
+    "parity": "npm run build:wasm && node scripts/parity.mjs"
   },
   "devDependencies": {
     "vite": "^6.3.5"

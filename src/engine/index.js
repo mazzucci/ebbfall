@@ -1,12 +1,8 @@
-// Loads the Rust simulation (crates/endfall-sim) compiled to WASM. The generated bindings live in ./pkg/,
-// produced by `npm run build:wasm`. The client will move onto this surface as the Rust port reaches parity
-// with src/sim/; until then the game still runs on the JS sim and this only proves the WASM build loads.
-import init, * as sim from './pkg/endfall_sim.js';
+// Browser entry for the Rust simulation: instantiate the WASM (built by `npm run build:wasm` into ./pkg/)
+// before anything touches the game, then expose the sim surface from core.js.
+import init, { version } from './pkg/endfall_sim.js';
 
-let ready = null;
+await init();
+console.info('Endfall: Rust sim ' + version() + ' (WASM)');
 
-/** Fetch and instantiate the WASM module once; resolves to the bindings (Game, version, ...). */
-export function loadEngine() {
-  ready ??= init().then(() => sim);
-  return ready;
-}
+export * from './core.js';

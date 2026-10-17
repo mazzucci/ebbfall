@@ -1,0 +1,66 @@
+// Compiles crates/endfall-sim to WASM and generates the JS bindings in src/engine/pkg/.
+// Needs Rust via rustup (rust-toolchain.toml pulls the right toolchain and the wasm32 target on first use).
+// The wasm-bindgen CLI must match the crate's pinned wasm-bindgen exactly; a prebuilt release is downloaded
+// into .tools/ on first use (checksum verified), with `cargo install` as the fallback on other platforms.
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('..', import.meta.url));
+const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, stdio: 'inherit' });
+const has = (cmd, args = ['--version']) => {
+  try { return execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; }
+};
+const fail = (msg) => { console.error('\nbuild:wasm: ' + msg + '\n'); process.exit(1); };
+
+// Install the pinned toolchain + wasm32 target up front with visible progress (a first run downloads ~150 MB).
+if (has('rustup')) run('rustup', ['toolchain', 'install']);
+if (!has('cargo')) fail('Rust is not installed. Install it from https://rustup.rs, then run this again.');
+
+const lock = readFileSync(join(root, 'Cargo.lock'), 'utf8');
+const want = lock.match(/name = "wasm-bindgen"\nversion = "([^"]+)"/)?.[1];
+if (!want) fail('could not find the wasm-bindgen version in Cargo.lock.');
+
+const TRIPLES = {
+  'darwin-arm64': 'aarch64-apple-darwin', 'darwin-x64': 'x86_64-apple-darwin',
+  'linux-x64': 'x86_64-unknown-linux-musl', 'linux-arm64': 'aarch64-unknown-linux-musl',
+  'win32-x64': 'x86_64-pc-windows-msvc',
+};
+const exe = process.platform === 'win32' ? 'wasm-bindgen.exe' : 'wasm-bindgen';
+const triple = TRIPLES[process.platform + '-' + process.arch];
+const tools = join(root, '.tools');
+const bindgen = triple ? join(tools, `wasm-bindgen-${want}-${triple}`, exe) : join(tools, 'bin', exe);
+
+async function download() {
+  const name = `wasm-bindgen-${want}-${triple}.tar.gz`;
+  const base = `https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${want}/`;
+  console.log(`build:wasm: downloading ${name} into .tools/ (first run only)`);
+  const get = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) fail(`download failed (${res.status}): ${url}`);
+    return Buffer.from(await res.arrayBuffer());
+  };
+  const [tgz, sum] = await Promise.all([get(base + name), get(base + name + '.sha256sum')]);
+  if (createHash('sha256').update(tgz).digest('hex') !== sum.toString().split(/\s+/)[0]) fail('checksum mismatch for ' + name);
+  mkdirSync(tools, { recursive: true });
+  writeFileSync(join(tools, name), tgz);
+  run('tar', ['-xzf', join(tools, name), '-C', tools]);
+  rmSync(join(tools, name));
+}
+
+if (!(has(bindgen) ?? '').includes(want)) {
+  if (triple) await download();
+  else {
+    console.log(`build:wasm: installing wasm-bindgen-cli ${want} into .tools/ (first run only, takes a few minutes)`);
+    run('cargo', ['install', 'wasm-bindgen-cli', '--version', want, '--locked', '--root', tools]);
+  }
+  if (!(has(bindgen) ?? '').includes(want)) fail(`wasm-bindgen ${want} is not runnable at ${bindgen}.`);
+}
+
+run('cargo', ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'endfall-sim']);
+const wasm = join(root, 'target', 'wasm32-unknown-unknown', 'release', 'endfall_sim.wasm');
+if (!existsSync(wasm)) fail('cargo finished but ' + wasm + ' is missing.');
+run(bindgen, ['--target', 'web', '--out-dir', join(root, 'src', 'engine', 'pkg'), wasm]);
+console.log('build:wasm: wrote src/engine/pkg/');

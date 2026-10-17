@@ -1,0 +1,14 @@
+[package]
+name = "endfall-sim"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Endfall's deterministic simulation, compiled to WASM for the browser."
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Pinned exactly: the wasm-bindgen CLI used by scripts/build-wasm.mjs must be the same version.
+wasm-bindgen = "=0.2.129"

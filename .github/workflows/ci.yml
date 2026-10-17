@@ -24,8 +24,24 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+            .tools
+          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
+      # Installs the toolchain, clippy, rustfmt and the wasm32 target pinned in rust-toolchain.toml.
+      - run: rustup toolchain install
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
       - run: npm ci
+      - run: npm run build:wasm
       - run: npm test
+        env:
+          ENDFALL_REQUIRE_WASM: '1'
       - run: npm run build
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

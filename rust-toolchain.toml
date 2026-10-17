@@ -1,0 +1,6 @@
+# rustup reads this and installs the toolchain and the WASM target on first use.
+[toolchain]
+channel = "1.99"
+targets = ["wasm32-unknown-unknown"]
+components = ["rustfmt", "clippy"]
+profile = "minimal"

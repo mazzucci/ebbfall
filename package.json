@@ -6,7 +6,10 @@
   "type": "module",
   "description": "Endfall: a browser real-time strategy game in the 1998 mold.",
   "scripts": {
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "predev": "npm run build:wasm",
     "dev": "vite",
+    "prebuild": "npm run build:wasm",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",

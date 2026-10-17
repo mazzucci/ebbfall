@@ -62,6 +62,8 @@ const fogCv = document.createElement('canvas'); fogCv.width = MW; fogCv.height =
 const fogCtx = fogCv.getContext('2d'), fogImg = fogCtx.createImageData(MW, MH);
 const fogTex = Texture.from(fogCv); fogTex.source.scaleMode = 'linear';
 const fog = new Sprite(fogTex); fog.scale.set(TILE); L.fog.addChild(fog);
+const shadeCv = document.createElement('canvas'); shadeCv.width = MW; shadeCv.height = MH;
+const shadeCtx = shadeCv.getContext('2d'), shadeTex = Texture.from(shadeCv); shadeTex.source.scaleMode = 'linear';
 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy());
@@ -75,18 +77,19 @@ export function renderTerrain() {
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); L.terrain.addChild(s);
   }
   // Large-scale variation so the tiles never read as a grid.
-  const n = document.createElement('canvas'); n.width = MW; n.height = MH; const nc = n.getContext('2d'), img = nc.createImageData(MW, MH);
+  const img = shadeCtx.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) { const s = map.shade[i]; const v = 200 + Math.round(55 * Math.min(1, Math.max(0, (s - 0.25) * 2))); img.data.set([v, v, Math.min(255, v + 8), 255], i * 4); }
-  nc.putImageData(img, 0, 0);
-  const vt = Texture.from(n); vt.source.scaleMode = 'linear';
-  const vs = new Sprite(vt); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.terrain.addChild(vs);
+  shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
+  const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.terrain.addChild(vs);
   // Bake the ~4k tile sprites and the overlay into one texture at 1:1 (the camera scales it with nearest filtering).
+  L.terrain.boundsArea = new Rectangle(0, 0, WW, WH); // exactly the map, so the cache is 2048², not rounded up to 4096²
   L.terrain.cacheAsTexture(false); L.terrain.cacheAsTexture({ resolution: 1, antialias: false, scaleMode: 'nearest' });
   // Minimap background.
   const th = thumb.getContext('2d');
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
-  L.decals.removeChildren().forEach(c => c.destroy()); effects.length = 0;
+  L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
+  for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
 }
 
 // ---- entity display objects, keyed by sim id ----
@@ -144,19 +147,20 @@ class BldgObj {
     this.shadow.position.set(b.tx * TILE + 7, b.ty * TILE + 8);
     const z = (b.ty + b.h) * TILE; this.found.zIndex = z - 2; this.body.zIndex = z; this.scaffold.zIndex = z + 1; if (this.head) this.head.zIndex = z + 2;
   }
-  update(b, t, dt) {
+  /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
+  update(b, t, dt, live) {
     const name = `bldg_${b.type}_${b.team}`;
     this.found.visible = !b.done;
     this.scaffold.visible = !b.done;
     if (b.done) { this.body.texture = tex(name); this.body.y = b.ty * TILE; }
     else { const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); this.body.texture = stage(name, k); this.body.y = b.ty * TILE + b.h * TILE - this.body.texture.frame.height; }
-    this.body.tint = b.flash > 0 ? 0xffffff : 0xffffff; this.body.alpha = b.flash > 0 ? 0.75 : 1;
+    this.body.alpha = b.flash > 0 ? 0.75 : 1; // hit flash
     if (this.head) { this.head.visible = b.done; const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS; this.head.texture = tex(`turret_head_${b.team}_${dir}`); this.head.position.set(b.x, b.y - 2); }
     if (this.glow) { this.glow.visible = b.done; this.glow.position.set(b.x, b.y); this.glow.alpha = (this.type === 'forge' ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5)); }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
-    if (b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
-    if (this.type === 'forge' && b.done && Math.random() < dt * 2.5) addEffect('puff', b.tx * TILE + (Math.random() < 0.5 ? 26 : 70), b.ty * TILE + 40, { vy: -22, life: 1.5 });
+    if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
+    if (live && this.type === 'forge' && b.done && Math.random() < dt * 2.5) addEffect('puff', b.tx * TILE + (Math.random() < 0.5 ? 26 : 70), b.ty * TILE + 40, { vy: -22, life: 1.5 });
   }
   show(v) { for (const s of [this.found, this.body, this.scaffold, this.shadow]) s.visible = s.visible && v; if (!v) { if (this.head) this.head.visible = false; if (this.glow) this.glow.visible = false; } }
   destroy() { for (const s of [this.found, this.body, this.scaffold, this.shadow, this.head, this.glow]) if (s) s.destroy(); }
@@ -243,24 +247,26 @@ export function render(selList, place) {
   world.position.set(Math.round((-cam.x + sx) * cam.zoom), Math.round((-cam.y + sy) * cam.zoom));
   const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
   const explored = G.explored;
-  bars.clear(); lines.clear();
+  bars.clear(); lines.clear(); flag.visible = false;
+  for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
   syncPool(bldgObjs, G.bldgs, b => new BldgObj(b), (o, b) => {
+    const seen = b.team === PLAYER || visibleEnt(b);
     let v = inView(b.x, b.y, b.r + 40);
-    if (v && b.team === ENEMY && !visibleEnt(b)) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
-    o.found.visible = o.body.visible = o.scaffold.visible = o.shadow.visible = true; o.update(b, t, dt); o.show(v);
+    if (v && !seen) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
+    o.found.visible = o.body.visible = o.scaffold.visible = o.shadow.visible = true;
+    if (v) o.update(b, t, dt, seen);
+    o.show(v);
     if (!v) return;
     if (sel.has(b)) { lines.rect(b.tx * TILE - 1, b.ty * TILE - 1, b.w * TILE + 2, b.h * TILE + 2).stroke({ width: 2, color: b.team === PLAYER ? 0x5ad67d : 0xff5a5a, alpha: 0.9 }); }
-    if (b.rally && sel.has(b)) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
-    if (sel.has(b) || b.hp < b.maxhp) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp);
+    if (seen && (sel.has(b) || b.hp < b.maxhp)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp);
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 32) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
     if (sel.has(u) || u.hp < u.maxhp) hpBar(u.x - u.r - 2, u.y - u.r - 10, u.r * 2 + 4, u.hp, u.maxhp);
   });
-  if (!sel.size || ![...sel].some(e => e.kind === 'bldg' && e.rally)) flag.visible = false;
 
   let pi = 0;
   for (const p of G.projs) {

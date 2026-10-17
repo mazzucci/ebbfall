@@ -134,7 +134,7 @@ export function bindInput() {
   // Wheel pans; Ctrl+wheel (and trackpad pinch, which arrives as Ctrl+wheel) zooms around the cursor.
   cv.addEventListener('wheel', ev => {
     ev.preventDefault();
-    if (ev.ctrlKey) { const p = canvasPos(ev); zoomAt(Math.exp(-ev.deltaY * 0.01), p.x, p.y); return; }
+    if (ev.ctrlKey) { const p = canvasPos(ev), d = Math.max(-25, Math.min(25, ev.deltaMode ? ev.deltaY * 25 : ev.deltaY)); zoomAt(Math.exp(-d * 0.01), p.x, p.y); return; }
     cam.x += ev.deltaX / cam.zoom; cam.y += ev.deltaY / cam.zoom; clampCam();
   }, { passive: false });
 

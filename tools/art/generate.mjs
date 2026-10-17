@@ -8,7 +8,7 @@ import { buildingSprites, resourceSprites, effectSprites } from './props.js';
 
 const sprites = [...terrainSprites(), ...resourceSprites(), ...buildingSprites(), ...unitSprites(), ...effectSprites()];
 
-// Shelf packing, tallest first, 1 px transparent gutter (2 px for terrain to stop sampling bleed at zoom).
+// Shelf packing, tallest first, 2 px transparent gutter (stops sampling bleed when zoomed).
 const W = 2048, PAD = 2;
 const order = sprites.map((s, i) => i).sort((a, b) => sprites[b].img.h - sprites[a].img.h || sprites[b].img.w - sprites[a].img.w || a - b);
 let x = 0, y = 0, shelf = 0;

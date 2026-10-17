@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0b0f16">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Endfall">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Endfall</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f16'/%3E%3Cpath d='M8 2l5 6-5 6-5-6z' fill='%23f5a524'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,6 +23,7 @@
     <div class="res" id="resSup"><span class="lbl">SUPPLY</span><b id="rSupply">4/10</b></div>
     <div class="spacer"></div>
     <div id="clock">00:00</div>
+    <button class="ib" id="btnFull" aria-label="Toggle full screen">FULL SCREEN</button>
     <button class="ib" id="btnSound" aria-label="Toggle sound">SOUND ON</button>
     <button class="ib" id="btnHelp" aria-label="Help">HELP</button>
   </header>
@@ -46,8 +52,9 @@
       <ul>
         <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point. <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group.</li>
         <li><b>Touch:</b> tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather. Two fingers pan. Drag on the minimap to scroll.</li>
-        <li>Select a Harvester and tap <b>Build</b> to place structures. The Ether Extractor must sit on an ether vent.</li>
+        <li>Select a Harvester and tap <b>Build</b> to place structures. The Ether Extractor must sit on an ether vent; then send Harvesters to the Extractor to mine ether.</li>
       </ul>
+      <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>
       <div class="row">
         <span class="sub" style="font:12px var(--mono);color:var(--muted)">OPPONENT</span>
         <div class="diff" id="diff">
@@ -58,6 +65,13 @@
         <span class="spacer"></span>
         <button class="ib big" id="btnStart">START GAME</button>
       </div>
+    </div>
+  </div>
+  <div class="screen" id="leave" hidden>
+    <div class="card small">
+      <h2>Leave the game?</h2>
+      <div class="tag">The game is paused. If you leave, this game is lost.</div>
+      <div class="row"><button class="ib big" id="btnStay">KEEP PLAYING</button><span class="spacer"></span><button class="ib" id="btnLeave">LEAVE</button></div>
     </div>
   </div>
   <div class="screen" id="end" hidden>

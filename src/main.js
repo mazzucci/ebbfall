@@ -6,10 +6,11 @@ import { $, ui, toast, updateHud, setHint, invalidateCard } from './client/hud.j
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
+import { initScreen, initLeaveDialog, enterFullscreen, armLeaveGuard, disarmLeaveGuard, touchDevice } from './client/screen.js';
 
 let started = false;
-const running = () => started && $('start').hidden && !G.over;
-input.enabled = () => started && $('start').hidden;
+const running = () => started && $('start').hidden && $('leave').hidden && !G.over;
+input.enabled = () => started && $('start').hidden && $('leave').hidden;
 
 function newGame() {
   const seed = (Math.random() * 1e9) | 0;
@@ -19,6 +20,12 @@ function newGame() {
   const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x, core.y + 60);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   toast('Mine shards. Build a Depot before supply caps.');
+  armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
+}
+
+/** Leave the current game for the title screen (the next back gesture then really leaves the page). */
+function quitToTitle() {
+  started = false; $('end').hidden = true; $('start').hidden = false; $('btnStart').textContent = 'START GAME';
 }
 
 /** Turn sim events into client effects. */
@@ -38,14 +45,15 @@ function endGame() {
   $('endSub').textContent = win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
   const S = G.stats;
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
-  $('end').hidden = false; sfx(win ? 'done' : 'boom');
+  $('end').hidden = false; sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
 }
 
 // ---- screens ----
 ui.diff = 1;
 document.querySelectorAll('#diff .ib').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('#diff .ib').forEach(x => x.classList.remove('on')); b.classList.add('on'); ui.diff = +b.dataset.d; }));
-$('btnStart').addEventListener('click', () => { sfx('select'); if ($('btnStart').textContent === 'RESUME') { $('start').hidden = true; last = performance.now(); } else newGame(); });
-$('btnAgain').addEventListener('click', () => newGame());
+$('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); if ($('btnStart').textContent === 'RESUME') { $('start').hidden = true; last = performance.now(); } else newGame(); });
+$('btnAgain').addEventListener('click', () => { if (touchDevice) enterFullscreen(); newGame(); });
+initScreen(); initLeaveDialog();
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; $('btnSound').textContent = audio.muted ? 'SOUND OFF' : 'SOUND ON'; if (!audio.muted) sfx('select'); });
 $('btnHelp').addEventListener('click', () => { $('start').hidden = false; $('btnStart').textContent = started ? 'RESUME' : 'START GAME'; });
 
@@ -53,7 +61,7 @@ $('btnHelp').addEventListener('click', () => { $('start').hidden = false; $('btn
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false;
 function loop(now) {
   const el = Math.min(0.1, (now - last) / 1000); last = now;
-  camKeys(el);
+  if (input.enabled()) camKeys(el);
   if (running()) {
     acc += el; let n = 0;
     while (acc >= DT && n++ < 5) { step(DT); acc -= DT; }

@@ -3,6 +3,7 @@ import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, 
 import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
+import { askLeave } from './screen.js';
 import { cv, mm, cam, view, clampCam, centerOn, ALLY, FOE } from './render.js';
 
 export const drag = { down: false, box: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
@@ -116,6 +117,7 @@ export function bindInput() {
   const endPointer = ev => {
     const p = canvasPos(ev); pointers.delete(ev.pointerId); if (pointers.size < 2) pan = null;
     if (!drag.down) return; drag.down = false;
+    if (!input.enabled()) { drag.box = false; return; }
     if (drag.box) { drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift); return; }
     const w = toWorld(p.x, p.y);
     if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
@@ -155,7 +157,8 @@ export function bindInput() {
       return;
     }
     if (k === 'Escape') { doCommand('esc'); return; }
-    if (k === 'Backspace') { const c = G.bldgs.find(b => b.team === PLAYER && b.type === 'core'); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
+    if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
+    if (k === 'Home') { const c = G.bldgs.find(b => b.team === PLAYER && b.type === 'core'); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
     const items = cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); }
   });

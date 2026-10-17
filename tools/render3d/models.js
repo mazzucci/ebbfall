@@ -150,7 +150,8 @@ export function vanguard(M, f) {
 }
 
 export const UNIT_MODELS = {
-  harvester: { build: harvester, frames: 2, r: 15, h: 15 },
-  trooper: { build: trooper, frames: 4, r: 13, h: 16 },
-  vanguard: { build: vanguard, frames: 4, r: 24, h: 24 },
+  // r: the farthest any part reaches from the centre (any facing must fit), h: height
+  harvester: { build: harvester, frames: 2, r: 23, h: 15 },
+  trooper: { build: trooper, frames: 4, r: 18, h: 16 },
+  vanguard: { build: vanguard, frames: 4, r: 26, h: 24 },
 };

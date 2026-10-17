@@ -73,7 +73,8 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true }) {
 }
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const isShadow = (d, i) => d[i + 3] < 250 && d[i] < 40 && d[i + 1] < 40 && d[i + 2] < 40;
+// The catcher draws pure black at opacity 0.65 (alpha ≈ 166); anti-aliased model edges are coloured or more opaque.
+const isShadow = (d, i) => d[i + 3] <= 180 && d[i] < 24 && d[i + 1] < 24 && d[i + 2] < 24;
 /**
  * The late-90s render look: hard cast shadows, dark ink along silhouettes and sharp internal edges, a contrast
  * S-curve and 5-bit-per-channel banding (like an 8-bit render, without pixel-art chunkiness).

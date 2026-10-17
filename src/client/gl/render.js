@@ -219,7 +219,7 @@ export function boom(x, y, r) {
   for (let i = 0; i < (big ? 10 : 4); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
   const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24); scorch.position.set(x, y + 2); L.decals.addChild(scorch);
   decals.push({ s: scorch, t: 0, life: 25 });
-  if (big) { shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 32)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
+  if (big) { shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
@@ -269,7 +269,7 @@ export function render(selList, place) {
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
   syncPool(bldgObjs, G.bldgs, b => new BldgObj(b), (o, b) => {
     const seen = b.team === PLAYER || visibleEnt(b);
-    let v = inView(b.x, b.y, b.r + 40);
+    let v = inView(b.x, b.y, b.r + 90);
     if (v && !seen) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
     o.found.visible = o.body.visible = o.scaffold.visible = true;
     if (v) o.update(b, t, dt, seen);
@@ -279,7 +279,7 @@ export function render(selList, place) {
     if (seen && (sel.has(b) || b.hp < b.maxhp)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp);
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
-    const v = inView(u.x, u.y, 32) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
+    const v = inView(u.x, u.y, 64) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
     if (sel.has(u) || u.hp < u.maxhp) hpBar(u.x - u.r - 2, u.y - u.r - 10, u.r * 2 + 4, u.hp, u.maxhp);
   });

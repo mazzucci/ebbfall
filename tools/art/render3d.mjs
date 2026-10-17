@@ -1,11 +1,12 @@
 // Runs tools/render3d/ in headless Chromium (playwright-core) and returns its sprites as { name, img, anchor }.
-// Needs a Chromium: CHROMIUM_PATH, or Playwright's (`npx playwright install chromium`).
+// Needs a Chromium: CHROMIUM_PATH, or the one matching playwright-core (`npx playwright-core install chromium`).
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { chromium } from 'playwright-core';
 
-const root = new URL('../../', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../../', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript' };
 
 function findChromium() {
@@ -13,8 +14,9 @@ function findChromium() {
   const base = join(homedir(), process.platform === 'darwin' ? 'Library/Caches/ms-playwright' : '.cache/ms-playwright');
   if (!existsSync(base)) return undefined;
   for (const d of readdirSync(base).sort().reverse()) {
-    for (const rel of ['chrome-headless-shell-linux64/chrome-headless-shell', 'chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium',
-      'chrome-headless-shell-mac-arm64/chrome-headless-shell', 'chrome-headless-shell-mac-x64/chrome-headless-shell', 'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing']) {
+    for (const rel of ['chrome-headless-shell-linux64/chrome-headless-shell', 'chrome-linux/chrome', 'chrome-headless-shell-mac-arm64/chrome-headless-shell',
+      'chrome-headless-shell-mac-x64/chrome-headless-shell', 'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+      'chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing']) {
       const p = join(base, d, rel); if (existsSync(p)) return p;
     }
   }
@@ -22,7 +24,11 @@ function findChromium() {
 }
 
 export async function render3d(filter = '') {
-  const browser = await chromium.launch({ executablePath: findChromium(), args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+  // Prefer an explicit CHROMIUM_PATH, then playwright-core's own revision, then any installed Playwright browser.
+  let browser;
+  try { browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args }); }
+  catch { browser = await chromium.launch({ executablePath: findChromium(), args }); }
   const page = await browser.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.route('http://art.local/**', (route) => {

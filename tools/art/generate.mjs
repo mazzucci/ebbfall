@@ -11,9 +11,9 @@ import { render3d } from './render3d.mjs';
 const FACINGS = 16, UNIT_FRAMES = { harvester: 2, trooper: 4, vanguard: 4 };
 const sprites = [...terrainSprites(), ...effectSprites(), ...await render3d()];
 
-// Shelf packing into 2048x2048 pages, tallest first, 2 px gutters. Terrain tiles get 4 px gutters filled with their
+// Shelf packing into 2048x2048 pages, tallest first, 4 px gutters. Terrain tiles get 4 px gutters filled with their
 // own edge pixels, so filtering and mipmaps never pull in transparency (which would draw a grid on the ground).
-const W = 2048, H = 2048, PAD = 2, EXT = 4;
+const W = 2048, H = 2048, PAD = 4, EXT = 4; // 4 px gutters keep mip levels 0-2 clean
 const isTile = (s) => /^(ground|rock)_/.test(s.name);
 for (const s of sprites) if (isTile(s)) {
   const { w, h, data } = s.img, W2 = w + EXT * 2, H2 = h + EXT * 2, out = new Uint8ClampedArray(W2 * H2 * 4);
@@ -28,6 +28,7 @@ const pages = [];
 let page = null;
 for (const i of order) {
   const { w, h } = sprites[i].img;
+  if (w > W || h > H) throw new Error(`${sprites[i].name} is ${w}x${h}, larger than a ${W}x${H} page`);
   if (!page) pages.push(page = { x: 0, y: 0, shelf: 0, items: [] });
   if (page.x + w > W) { page.x = 0; page.y += page.shelf + PAD; page.shelf = 0; }
   if (page.y + h > H) { pages.push(page = { x: 0, y: 0, shelf: 0, items: [] }); }

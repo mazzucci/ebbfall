@@ -44,7 +44,7 @@ window.render = async function (filter = '') {
   for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) for (let team = 0; team < 2; team++) push(`bldg_${type}_${team}`, build(makeMats(team)), bldgCell(n, h));
   for (let team = 0; team < 2; team++) for (let dir = 0; dir < FACINGS; dir++) {
     const head = B.turretHead(makeMats(team)); head.rotation.y = -dir / FACINGS * Math.PI * 2;
-    push(`turret_head_${team}_${dir}`, head, bldgCell(2, 30));
+    push(`turret_head_${team}_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
   }
   const neutral = makeMats(0);
   for (const n of [2, 3, 4]) {

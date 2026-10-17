@@ -9,7 +9,8 @@ node tools/art/generate.mjs      # writes public/art/atlas.json + atlas-<n>.{png
 
 Units, buildings, resources and debris are 3D models rendered in headless Chromium with three.js
 (`tools/render3d/`); terrain and effects are painted in Node (`tools/art/terrain2.js`, `effects2.js`). The generator
-needs a Chromium for the 3D part: Playwright's (`npx playwright install chromium`) or `CHROMIUM_PATH=/path/to/chrome`.
+needs a Chromium for the 3D part: the one matching playwright-core (`npx playwright-core install chromium`) or
+`CHROMIUM_PATH=/path/to/chrome`. Regenerating on another machine changes the PNGs slightly (software GL differs).
 Players never need any of this; only the PNG/JSON output ships.
 
 ## Pipeline

@@ -1,5 +1,5 @@
 // Canvas 2D renderer: terrain is pre-painted once per map; entities, fog, overlays every frame.
-import { G, map, idx, TILE, MW, MH, WW, WH, PLAYER, ENEMY, BUILDINGS, clamp, mulberry, closestPt, canPlace, findTarget, visibleEnt } from '../sim/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, PLAYER, ENEMY, BUILDINGS, clamp, mulberry, canPlace, visibleEnt } from '../engine/index.js';
 import { fx } from './fx.js';
 import { drag } from './input.js';
 
@@ -167,7 +167,7 @@ export function render(sel, place) {
   }
   for (const p of G.projs) {
     if (p.team === ENEMY && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
-    const tp = p.target.kind === 'bldg' ? closestPt(p.target, p) : p.target; const a = Math.atan2(tp.y - p.y, tp.x - p.x); const len = p.type === 'shell' ? 6 : 9;
+    const a = Math.atan2(p.ay - p.y, p.ax - p.x); const len = p.type === 'shell' ? 6 : 9;
     ctx.strokeStyle = p.type === 'shell' ? '#ffb545' : '#fff4c2'; ctx.lineWidth = p.type === 'shell' ? 3 : 2;
     ctx.beginPath(); ctx.moveTo(p.x - Math.cos(a) * len, p.y - Math.sin(a) * len); ctx.lineTo(p.x, p.y); ctx.stroke();
   }

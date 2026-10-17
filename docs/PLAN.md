@@ -18,7 +18,9 @@ loop feels right.
 
 | Decision | Choice | Why |
 | --- | --- | --- |
-| Language | JavaScript ES modules | Fastest iteration; the sim is small. TypeScript or Rust/WASM only when a measured need appears. |
+| Simulation | Rust compiled to WASM (`crates/endfall-sim`) | Deterministic core for lockstep, small download. Ported from the JS sim with bit-exact parity (`npm run parity`). |
+| Sim numerics | f64 with JS semantics + libm, not fixed-point | WASM floats are deterministic across browsers/CPUs; everyone runs the same .wasm. Keeping the JS arithmetic made tick-by-tick parity checking possible. Revisit only if a native (non-WASM) peer ever has to agree. |
+| Client | JavaScript ES modules | Fast UI iteration; `src/engine` mirrors the sim for the renderer, HUD and input. |
 | Rendering | Canvas 2D | Enough for hundreds of units; WebGL (PixiJS) when sprite art and unit counts demand it. |
 | Build | Vite | Zero config, HMR, static `dist/`. |
 | Simulation | Fixed 30 Hz tick, deterministic | Prerequisite for lockstep multiplayer and replays. |
@@ -30,8 +32,11 @@ loop feels right.
 ### M1. Project hygiene (now)
 - [x] Split prototype into `src/sim` and `src/client`
 - [x] Headless tests incl. determinism
-- [ ] Commands take entity ids instead of object references
-- [ ] Replace float positions with fixed-point integers in the sim (determinism across browsers/CPUs)
+- [x] Rust/WASM simulation with CI build and GitHub Pages deploy (https://mazzucci.github.io/endfall/)
+- [x] Commands take entity ids instead of object references (the `Game` orders)
+- [x] ~~Fixed-point positions~~: not needed in WASM, see the numerics decision above
+- [x] Per-player fog layers in the sim
+- [ ] Delete the JS reference sim once nothing needs it for parity
 - [ ] `stateHash()` every N ticks in dev mode, logged to console
 
 ### M2. Make the single-player game good

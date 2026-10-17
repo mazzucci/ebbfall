@@ -39,7 +39,7 @@ function fire(u, t) {
 }
 
 function resumeAfter(u) {
-  if (u.type === 'harvester') { const nd = u.lastNode && u.lastNode.amount > 0 ? u.lastNode : nearestNode(u, 'shard', 500); if (nd) { startGather(u, nd); return; } }
+  if (u.type === 'harvester') { const nd = u.lastNode && u.lastNode.amount > 0 ? u.lastNode : nearestNode(u, 'shard', 500); if (nd && startGather(u, nd)) return; }
   u.task = { t: 'idle' }; u.path = null;
 }
 

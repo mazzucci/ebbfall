@@ -1,6 +1,9 @@
-// Scripted bot vs. the AI for ten minutes per difficulty. Prints snapshots for balance tuning.
-// Usage: node scripts/headless.js [seed]
-import { G, DT, PLAYER, ENEMY, resetGame, step, queueUnit, placeBuilding, canPlace, attackMove } from '../src/sim/index.js';
+// Scripted bot vs. the AI for ten minutes per difficulty, on the Rust sim (WASM). Prints snapshots for balance
+// tuning. Usage: node scripts/headless.js [seed]   (needs npm run build:wasm)
+import { readFileSync } from 'node:fs';
+const pkg = new URL('../src/engine/pkg/', import.meta.url);
+(await import(new URL('endfall_sim.js', pkg))).initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
+const { G, DT, PLAYER, ENEMY, resetGame, step, queueUnit, placeBuilding, canPlace, attackMove } = await import('../src/engine/core.js');
 
 const seed = +(process.argv[2] || 1);
 for (let diff = 0; diff < 3; diff++) {

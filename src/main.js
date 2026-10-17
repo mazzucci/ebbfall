@@ -1,15 +1,11 @@
-// Entry point: wires the sim to the client, runs the fixed-step loop, handles start/end screens.
+// Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
-import { G, DT, PLAYER, resetGame, step, fmt } from './sim/index.js';
+import { G, DT, PLAYER, resetGame, step, fmt } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ALLY, FOE } from './client/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard } from './client/hud.js';
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
-import { loadEngine } from './engine/index.js';
-
-// The game still runs on the JS sim; this proves the Rust/WASM build ships and loads alongside it.
-loadEngine().then(e => console.info('Endfall: Rust sim ' + e.version() + ' loaded (WASM)'), err => console.warn('Endfall: WASM sim failed to load', err));
 
 let started = false;
 const running = () => started && $('start').hidden && !G.over;

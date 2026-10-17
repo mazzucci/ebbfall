@@ -1,5 +1,5 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
-import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation } from '../sim/index.js';
+import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally } from '../engine/index.js';
 import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
@@ -36,13 +36,27 @@ function boxSelect(x0, y0, x1, y1, add) {
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
 }
 
+/** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
+const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.type === 'extractor' && e.done ? e.vent : null;
+
+/** Top-left tile for placing `type` with the cursor at (wx, wy); extractors snap onto a nearby free vent. */
+function placeTile(type, wx, wy) {
+  const d = BUILDINGS[type];
+  if (d.onVent) {
+    let best = null, bd = 72;
+    for (const n of map.nodes) if (n.type === 'ether' && !n.extractor) { const dd = dist(n, { x: wx, y: wy }); if (dd < bd) { bd = dd; best = n; } }
+    if (best) return { tx: best.tx, ty: best.ty };
+  }
+  return { tx: Math.round(wx / TILE - d.w / 2), ty: Math.round(wy / TILE - d.h / 2) };
+}
+
 /** Right-click / tap-on-ground semantics: context-sensitive order for the selection. */
 function commandAt(wx, wy) {
   const sel = playerSel(); if (!sel.length) return;
-  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
-  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) b.rally = { x: wx, y: wy, node: hit && hit.kind === 'node' ? hit : null }; marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
+  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
+  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) attackEnt(u, hit); marker(hit.x, hit.y, FOE); sfx('attack'); }
-  else if (hit && hit.kind === 'node') { for (const u of units) if (u.type === 'harvester') startGather(u, hit); else moveTo(u, wx, wy); marker(wx, wy, '#4fd1c5'); sfx('move'); }
+  else if ((hit && hit.kind === 'node') || vent) { const node = vent || hit; for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy); marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move'); }
   else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); sfx('move'); }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); }
   ui.mode = null; setHint();
@@ -75,7 +89,7 @@ function touchTap(wx, wy) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
-    if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && !hit.done) { commandAt(wx, wy); return; }
+    if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
     select([hit]); return;
   }
   if (units.length || bl.length) { commandAt(wx, wy); return; }
@@ -95,7 +109,7 @@ export function bindInput() {
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
     if (pan && pointers.size >= 2) { const [a, b] = [...pointers.values()]; const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; cam.x -= c.x - pan.x; cam.y -= c.y - pan.y; clampCam(); pan = c; return; }
-    if (ui.place) { const w = toWorld(p.x, p.y), d = BUILDINGS[ui.place.type]; ui.place.tx = Math.round(w.x / TILE - d.w / 2); ui.place.ty = Math.round(w.y / TILE - d.h / 2); }
+    if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
     if (drag.down) { drag.cx = p.x; drag.cy = p.y; if (!drag.box && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) drag.box = !ui.place && !ui.mode; }
     if (ev.pointerType === 'mouse') { const m = 14; edge.x = p.x < m ? -1 : p.x > view.w - m ? 1 : 0; edge.y = p.y < m ? -1 : p.y > view.h - m ? 1 : 0; }
   });
@@ -104,7 +118,7 @@ export function bindInput() {
     if (!drag.down) return; drag.down = false;
     if (drag.box) { drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift); return; }
     const w = toWorld(p.x, p.y);
-    if (ui.place) { const d = BUILDINGS[ui.place.type]; ui.place.tx = Math.round(w.x / TILE - d.w / 2); ui.place.ty = Math.round(w.y / TILE - d.h / 2); }
+    if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
     if (ev.pointerType === 'touch') touchTap(w.x, w.y); else leftAction(w.x, w.y, ev.shiftKey);
   };
   cv.addEventListener('pointerup', endPointer);

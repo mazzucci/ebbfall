@@ -3,6 +3,11 @@
 A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
 the enemy Command Core before their waves level yours. One faction, one map, one opponent. Pre-alpha.
 
+**Play in your browser:** https://mazzucci.github.io/endfall/ (desktop or phone in landscape, nothing to install).
+Every merge to `main` is built and published there by GitHub Actions.
+
+To run it from source:
+
 ```sh
 npm install
 npm run dev      # http://localhost:5173

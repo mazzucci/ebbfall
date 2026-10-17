@@ -1,8 +1,8 @@
 # Endfall: notes for coding agents
 
 A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. The simulation is
-Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite, Canvas 2D, no
-framework and no game engine. The simulation is deterministic so that lockstep multiplayer can be added without
+Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite and PixiJS 8 (WebGL)
+over a code-generated pixel-art sprite sheet; no framework and no game engine. The simulation is deterministic so that lockstep multiplayer can be added without
 rewriting it. See `docs/PLAN.md` for the roadmap and open questions
 and `README.md` for the player-facing description.
 
@@ -12,7 +12,7 @@ and `README.md` for the player-facing description.
 - Rust via rustup (https://rustup.rs). `rust-toolchain.toml` pins the toolchain and makes rustup add the
   `wasm32-unknown-unknown` target automatically. The matching `wasm-bindgen` CLI is downloaded into `.tools/` by
   `npm run build:wasm` on first use. No Homebrew packages.
-- `npm install` once after cloning (installs Vite only).
+- `npm install` once after cloning (installs Vite and PixiJS).
 
 ## Commands (from the repo root)
 
@@ -25,6 +25,7 @@ npm test           # headless sim tests (node --test), no browser needed
 npm run sim        # scripted 10-minute game per difficulty on the Rust sim, prints economy/army snapshots
 npm run parity     # JS reference sim vs Rust sim, state hash compared every tick over many seeds
 cargo test         # Rust sim unit tests (native, no WASM needed)
+node tools/art/generate.mjs  # regenerate public/art/atlas.{png,json} after changing tools/art (output is committed)
 ```
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test` and `npm run build` on
@@ -64,7 +65,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/ai.rs           scripted opponent
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
 src/client/           everything that touches the browser
-  render.js           Canvas 2D renderer, camera, minimap, fog overlay
+  gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
+  screen.js           full screen / landscape lock, the leave-game guard
   hud.js              top bar, selection panel, command card, client UI state (ui.sel, ui.mode, ui.place)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
@@ -74,6 +76,9 @@ test/engine.test.js   the WASM sim through src/engine in Node: data/RNG/hypot pa
 scripts/parity.mjs    runs both sims with the same seed and orders, reports the first tick whose hashes differ
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
+tools/art/            the sprite generator (pure Node rasterizer + PNG encoder); see docs/ART.md
+public/art/           generated atlas.png + atlas.json (PixiJS spritesheet format), committed
+docs/ART.md           art style guide, palette, frame names
 docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored in Notion)
 ```
 
@@ -108,6 +113,7 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 
 ## Testing a change by hand
 
-`npm run dev`, open the URL, Normal difficulty. A sanity run: select harvesters, `B` then `D`, place a Depot near the
+`npm run dev`, open the URL, Normal difficulty. `window.endfall` in the console exposes `G`, `ui`, the camera and
+`setResources` for poking at a running game (scripted playtests use it too). A sanity run: select harvesters, `B` then `D`, place a Depot near the
 Core, train Troopers from a Barracks, `A`-move into the enemy base in the far corner. On a phone on the same
 network, open the LAN URL Vite prints (touch controls: tap/drag to select, tap to command, two fingers to pan).

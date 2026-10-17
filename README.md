@@ -18,6 +18,8 @@ npm test         # headless simulation tests
 `S` stop, `H` hold, `B` build (with Harvesters selected), `Ctrl`+`1`–`9` saves a control group, `Home` jumps to
 your Core. `Backspace` (or the browser's back gesture) asks before leaving a game.
 
+**Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
+
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
 **Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather.

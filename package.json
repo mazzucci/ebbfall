@@ -18,5 +18,8 @@
   },
   "devDependencies": {
     "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "pixi.js": "^8.22.0"
   }
 }

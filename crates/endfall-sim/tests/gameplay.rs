@@ -592,6 +592,44 @@ fn walkers_and_flyers_pass_under_and_over_each_other() {
 }
 
 #[test]
+fn units_sent_onto_a_building_stop_beside_it() {
+    let mut w = arena(15);
+    let core = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().clone(); // our own: nothing to attack
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, core.x - 200.0, core.y + 150.0);
+    let medic = w.make_unit(UnitKind::Medic, PLAYER, core.x - 220.0, core.y + 150.0);
+    w.move_to(trooper, core.x, core.y);
+    w.attack_move(medic, core.x, core.y);
+    run(&mut w, 20);
+    assert_eq!(
+        w.unit(trooper).unwrap().task,
+        Task::Idle,
+        "a move onto a building ends beside it"
+    );
+    assert_eq!(
+        w.unit(medic).unwrap().task,
+        Task::Idle,
+        "so does an attack-move by an unarmed unit"
+    );
+}
+
+#[test]
+fn the_ai_keeps_training_troopers_when_short_of_ether() {
+    let mut w = World::new(31, 1);
+    run(&mut w, 150);
+    let id = w.make_unit(UnitKind::Wasp, PLAYER, 60.0, 60.0); // a flyer far away makes it want Lancers
+    w.hold_unit(id);
+    let before = count(&w, ENEMY, UnitKind::Trooper);
+    for _ in 0..90 * TPS {
+        w.res[ENEMY as usize][1] = 0; // no ether at all
+        w.step();
+    }
+    assert!(
+        count(&w, ENEMY, UnitKind::Trooper) > before + 2,
+        "barracks fall back to Troopers"
+    );
+}
+
+#[test]
 fn the_ai_answers_flyers_with_lancers() {
     let mut w = World::new(31, 0); // Easy: its first attack comes late enough to watch it react
     run(&mut w, 150); // let it build a barracks

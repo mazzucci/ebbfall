@@ -368,14 +368,20 @@ impl World {
                     UnitKind::Lancer
                 }
                 BldgKind::Barracks
-                    if self.has_req(e, BldgKind::Airfield)
-                        && done(self, BldgKind::Forge) >= 1
-                        && mine(self, UnitKind::Medic) * 6 < mine(self, UnitKind::Trooper) =>
+                    if done(self, BldgKind::Forge) >= 1
+                        && (mine(self, UnitKind::Medic) + 1) * 6
+                            <= mine(self, UnitKind::Trooper) =>
                 {
                     UnitKind::Medic
                 }
                 BldgKind::Airfield if mine(self, UnitKind::Wasp) >= 6 => continue,
                 _ => b.kind.def().trains[0],
+            };
+            // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks.
+            let u = if self.can_afford(e, u.def().cost) {
+                u
+            } else {
+                b.kind.def().trains[0]
             };
             let qlen = b.queue.len();
             if b.rally.is_none() {
@@ -413,8 +419,8 @@ impl World {
                     Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
                     _ => false,
                 };
-                if go {
-                    self.engage(a, intr);
+                if go && self.can_hit(a, intr) {
+                    self.attack_ent(a, intr); // units that cannot hit it (a flyer, say) are not dragged around
                 }
             }
         }

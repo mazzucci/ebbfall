@@ -63,6 +63,8 @@ pub struct Unit {
     pub anchor: (f64, f64),
     /// Game time before which this harvester is not picked as a builder again (it just failed to reach a site).
     pub no_build_until: f64,
+    /// Medic: seconds until the next heal effect event.
+    pub heal_fx: f64,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -466,6 +468,7 @@ impl World {
             stuck: 0.0,
             anchor: (x, y),
             no_build_until: 0.0,
+            heal_fx: 0.0,
         });
         id
     }
@@ -1635,9 +1638,9 @@ impl World {
             let (tx, ty) = (p.x, p.y);
             let u = self.um(uid);
             u.face = jsmath::atan2(ty - my, tx - mx);
-            u.aggro_cd -= dt;
-            if u.aggro_cd <= 0.0 {
-                u.aggro_cd = 0.4;
+            u.heal_fx -= dt;
+            if u.heal_fx <= 0.0 {
+                u.heal_fx = 0.4;
                 self.emit(Event::Heal {
                     x: mx,
                     y: my,
@@ -1657,10 +1660,9 @@ impl World {
             self.path_to(uid, x, y);
         }
         if self.u(uid).path.is_none() || self.step_path(uid, dt) {
-            let u = self.u(uid);
-            if dist(u.x, u.y, x, y) < 40.0 || u.path.is_none() {
-                self.set_idle(uid);
-            }
+            // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends
+            // at the nearest free tile, and that is as close as we get).
+            self.set_idle(uid);
         }
     }
 

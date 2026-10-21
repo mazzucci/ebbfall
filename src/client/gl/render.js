@@ -6,6 +6,7 @@ import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, T
 import { G, map, idx, TILE, MW, MH, WW, WH, PLAYER, ENEMY, BUILDINGS, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
 import { fx } from '../fx.js';
 import { drag } from '../input.js';
+import { scatterDoodads } from '../scenery.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -38,7 +39,7 @@ const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFr
 // ---- scene ----
 const world = new Container();
 const L = {};
-for (const k of ['terrain', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
+for (const k of ['terrain', 'scenery', 'shade', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
 L.units.sortableChildren = true; L.bldgs.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
@@ -81,6 +82,16 @@ const shadeCv = document.createElement('canvas'); shadeCv.width = MW; shadeCv.he
 const shadeCtx = shadeCv.getContext('2d'), shadeTex = Texture.from(shadeCv); shadeTex.source.scaleMode = 'linear';
 
 const chunks = [];
+const doodads = [];
+let doodadCheck = 0, doodadBldgs = -1; // wall-clock time of the last check, building count then
+/** Ground props under a building (its footprint or the tiles around their centre) are hidden. */
+function hideCoveredDoodads() {
+  for (const d of doodads) if (d.ground) {
+    let covered = false;
+    for (let dy = -1; dy <= 1 && !covered; dy++) for (let dx = -1; dx <= 1; dx++) if (map.occ[idx(d.tx + dx, d.ty + dy)] > 0) { covered = true; break; }
+    d.s.visible = !covered;
+  }
+}
 function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1; }
 
 export function renderTerrain() {
@@ -102,7 +113,15 @@ export function renderTerrain() {
   const img = shadeCtx.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) { const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)); img.data.set([Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s), 255], i * 4); }
   shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
-  const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.terrain.addChild(vs);
+  L.shade.removeChildren().forEach(c => c.destroy());
+  const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
+  // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
+  L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
+  const cores = G.bldgs.filter(b => b.type === 'core').map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
+  for (const d of scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry })) {
+    const s = new Sprite(); setTex(s, tex(`doodad_${d.name}`)); s.position.set(d.x, d.y); L.scenery.addChild(s);
+    doodads.push({ s, tx: d.tx, ty: d.ty, ground: d.ground });
+  }
   // Minimap background.
   const th = thumb.getContext('2d');
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
@@ -288,6 +307,7 @@ export function render(selList, place) {
   const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
   const explored = G.explored;
   cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH);
+  if (now - doodadCheck > 0.25 || now < doodadCheck || G.bldgs.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = G.bldgs.length; hideCoveredDoodads(); }
   bars.clear(); lines.clear(); flag.visible = false;
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 

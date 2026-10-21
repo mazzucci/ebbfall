@@ -4,6 +4,7 @@ import { makeMats } from './materials.js';
 import * as THREE from 'three';
 import { UNIT_MODELS } from './models.js';
 import * as B from './buildings.js';
+import { DOODADS } from './doodads.js';
 
 const FACINGS = 16;
 const enc = (img) => { let s = ''; const b = img.data; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
@@ -54,6 +55,7 @@ window.render = async function (filter = '') {
   }
   for (let st = 0; st < 4; st++) push(`shard_${st}`, B.shardField(st, RES), unitCell(15, 20));
   for (let f = 0; f < 4; f++) push(`vent_${f}`, B.vent(f, RES), unitCell(30, 8));
+  for (const list of Object.values(DOODADS)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
   return out;
 };
 window.ready = true;

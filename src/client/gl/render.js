@@ -307,6 +307,7 @@ export function render(selList, place) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
       if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); }
       else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
+      if (b.done && b.research) progressBar(bx, by - 7, bw, b.research.prog, 0xb48cff);
     }
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {

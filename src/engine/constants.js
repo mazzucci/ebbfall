@@ -32,6 +32,14 @@ export const BUILDINGS = {
   airfield: { name: 'Airfield', cost: [150, 100], w: 3, h: 3, hp: 760, armor: 1, build: 50, sight: 8, trains: ['wasp'], hot: 'A', req: 'forge', desc: 'Trains Wasps. Requires War Forge.' },
 };
 
+/** Team-wide upgrades researched at the War Forge; per level: shards = ether cost, seconds. */
+export const UPGRADES = {
+  weapons: { name: 'Weapons', hot: 'W', cost: [100, 175, 250], time: [60, 75, 90], desc: 'More damage for every weapon (Trooper +1, Lancer +2, Vanguard +3, Wasp +1, Turret +2 per level).' },
+  armor: { name: 'Armor', hot: 'E', cost: [100, 175, 250], time: [60, 75, 90], desc: '+1 armor per level for all units.' },
+};
+/** Extra damage per Weapons level, by unit or building type. */
+export const UP_DMG = { trooper: 1, lancer: 2, vanguard: 3, wasp: 1, turret: 2 };
+
 /** Order the Build command card lists structures in. */
 export const BUILD_ORDER = ['depot', 'barracks', 'extractor', 'forge', 'turret', 'airfield', 'core'];
 

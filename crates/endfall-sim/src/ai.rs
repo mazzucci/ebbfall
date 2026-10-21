@@ -338,6 +338,39 @@ impl World {
         }
         self.tend_sites(&harv);
 
+        // Research comes first: weapons and armor in turn, starting earlier on harder levels. Until it can
+        // afford the next level it saves up (no new units) so production does not eat every shard.
+        let research_from = [600.0, 420.0, 300.0][self.diff];
+        let mut saving = false;
+        if t > research_from {
+            for &bid in &my_b {
+                let b = self.bldg(bid).unwrap();
+                if b.kind != BldgKind::Forge || !b.done || b.research.is_some() {
+                    continue;
+                }
+                let [wl, al] = self.upgrades[e as usize];
+                let up = if wl <= al {
+                    Upgrade::Weapons
+                } else {
+                    Upgrade::Armor
+                };
+                let level = self.upgrades[e as usize][up.index()] + 1;
+                if level > MAX_UPGRADE
+                    || self
+                        .bldgs
+                        .iter()
+                        .any(|o| o.team == e && o.research.is_some_and(|(u, _)| u == up))
+                {
+                    continue;
+                }
+                if self.can_afford(e, up.cost(level)) {
+                    let _ = self.start_research(bid, up);
+                } else {
+                    saving = true;
+                }
+            }
+        }
+
         // Production. Barracks answer enemy flyers with Lancers and bring a Medic per six Troopers.
         let enemy_air = self
             .units
@@ -387,7 +420,7 @@ impl World {
             if b.rally.is_none() {
                 self.set_rally(bid, rally.x, rally.y, None);
             }
-            if qlen < 2 {
+            if qlen < 2 && !saving {
                 let c = u.def().cost;
                 if self.can_afford(e, c)
                     && (want != Some(BldgKind::Depot) || self.res[e as usize][0] > c[0] + 100)

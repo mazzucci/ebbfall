@@ -2,6 +2,7 @@
 //! ether can be mined, supply and refunds behave, turrets defend, and a long randomized run (random orders,
 //! including stale and nonsense ids, across many seeds) never breaks the world's invariants.
 
+use endfall_sim::data::Upgrade;
 use endfall_sim::data::*;
 use endfall_sim::map::Id;
 #[allow(unused_imports)]
@@ -712,6 +713,161 @@ fn two_simultaneous_fights_alert_once_each() {
     assert_eq!(alerts, 2, "one per fight, not one per hit");
 }
 
+// ---------------- upgrades ----------------
+
+/// A finished forge for the player in a quiet arena with plenty of resources.
+fn forge_arena(seed: u32) -> (World, Id) {
+    let mut w = arena(seed);
+    w.res[PLAYER as usize] = [5000, 5000];
+    let f = w.make_building(BldgKind::Forge, PLAYER, 20, 40, true);
+    (w, f)
+}
+
+fn research_level(w: &mut World, forge: Id, up: Upgrade) {
+    w.start_research(forge, up).unwrap();
+    let level = w.upgrades[PLAYER as usize][up.index()] + 1;
+    run(w, up.time(level) as u32 + 1);
+    assert_eq!(w.upgrades[PLAYER as usize][up.index()], level);
+}
+
+/// Damage of the first hit a `shooter` lands on a target of kind `target`.
+fn first_hit(w: &mut World, shooter: UnitKind, shooter_team: u8, target: UnitKind) -> f64 {
+    let t = w.make_unit(target, 1 - shooter_team, 900.0, 1200.0);
+    w.hold_unit(t);
+    let s = w.make_unit(shooter, shooter_team, 900.0 - 100.0, 1200.0);
+    w.attack_ent(s, t);
+    let hp0 = w.unit(t).unwrap().hp;
+    for _ in 0..10 * TPS {
+        w.step();
+        let hp = w.unit(t).unwrap().hp;
+        if hp < hp0 {
+            return hp0 - hp;
+        }
+    }
+    panic!("no hit");
+}
+
+#[test]
+fn weapons_upgrades_add_each_units_bonus() {
+    let (mut w, f) = forge_arena(30);
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Vanguard),
+        7.0 - 2.0
+    );
+    research_level(&mut w, f, Upgrade::Weapons);
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Vanguard),
+        7.0 + 1.0 - 2.0,
+        "Trooper +1"
+    );
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Vanguard, PLAYER, UnitKind::Vanguard),
+        30.0 + 3.0 - 2.0,
+        "Vanguard +3"
+    );
+}
+
+#[test]
+fn armor_upgrades_soak_one_more_point_per_level() {
+    let (mut w, f) = forge_arena(31);
+    research_level(&mut w, f, Upgrade::Armor);
+    research_level(&mut w, f, Upgrade::Armor);
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Trooper, ENEMY, UnitKind::Trooper),
+        7.0 - 2.0,
+        "two armor levels"
+    );
+}
+
+#[test]
+fn research_rules_and_refunds() {
+    let (mut w, f) = forge_arena(32);
+    let rax = w.make_building(BldgKind::Barracks, PLAYER, 26, 40, true);
+    assert!(
+        w.start_research(rax, Upgrade::Weapons).is_err(),
+        "only at a War Forge"
+    );
+    let f2 = w.make_building(BldgKind::Forge, PLAYER, 20, 46, true);
+    w.start_research(f, Upgrade::Weapons).unwrap();
+    assert_eq!(w.res[PLAYER as usize], [4900, 4900]);
+    assert!(
+        w.start_research(f, Upgrade::Armor).is_err(),
+        "one research per forge"
+    );
+    assert!(
+        w.start_research(f2, Upgrade::Weapons).is_err(),
+        "not the same upgrade twice at once"
+    );
+    w.start_research(f2, Upgrade::Armor).unwrap();
+    w.cancel_research(f2);
+    assert_eq!(
+        w.res[PLAYER as usize],
+        [4900, 4900],
+        "cancel refunds in full"
+    );
+    // Losing the forge mid-research refunds too.
+    let hp = w.bldg(f).unwrap().hp;
+    let foe = w.make_unit(
+        UnitKind::Vanguard,
+        ENEMY,
+        20.0 * TILE + 48.0,
+        40.0 * TILE + 140.0,
+    );
+    w.units.iter_mut().find(|u| u.id == foe).unwrap().hp = 1e9; // a very determined vanguard
+    w.units.iter_mut().find(|u| u.id == foe).unwrap().maxhp = 1e9;
+    w.attack_ent(foe, f);
+    for _ in 0..120 * TPS {
+        if w.bldg(f).is_none() {
+            break;
+        }
+        w.step();
+    }
+    let _ = hp;
+    assert!(w.bldg(f).is_none(), "the forge fell");
+    w.units.retain(|u| u.id != foe); // and the vanguard goes home before it finds the other forge
+    assert_eq!(
+        w.res[PLAYER as usize],
+        [5000, 5000],
+        "its research was refunded"
+    );
+    for _ in 0..3 {
+        research_level(&mut w, f2, Upgrade::Weapons);
+    }
+    assert!(
+        w.start_research(f2, Upgrade::Weapons).is_err(),
+        "three levels at most"
+    );
+}
+
+#[test]
+fn the_ai_researches_upgrades_in_a_long_game() {
+    let mut w = World::new(33, 1);
+    // A player whose core cannot fall, so the game lasts long enough to watch the AI's later behaviour.
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 720);
+    assert!(!w.over, "the game is still on");
+    let [wl, al] = w.upgrades[ENEMY as usize];
+    assert!(
+        wl + al >= 1
+            || w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.research.is_some()),
+        "AI researched something by 12 min: res {:?}, forges {:?}",
+        w.res[1],
+        w.bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Forge)
+            .map(|b| (b.done, b.research))
+            .collect::<Vec<_>>()
+    );
+}
+
 // ---------------- randomized orders + invariants ----------------
 
 fn check_invariants(w: &World, ctx: &str) {
@@ -766,6 +922,26 @@ fn check_invariants(w: &World, ctx: &str) {
             b.progress
         );
         assert!(b.queue.len() <= 5);
+        if let Some((up, p)) = b.research {
+            assert!(
+                b.kind == BldgKind::Forge && b.done,
+                "{ctx}: research at {:?}",
+                b.kind
+            );
+            assert!((0.0..1.0).contains(&p), "{ctx}: research progress {p}");
+            assert!(
+                w.upgrades[b.team as usize][up.index()] < 3,
+                "{ctx}: researching past level 3"
+            );
+            assert_eq!(
+                w.bldgs
+                    .iter()
+                    .filter(|o| o.team == b.team && o.research.is_some_and(|(u, _)| u == up))
+                    .count(),
+                1,
+                "{ctx}: {up:?} researched twice"
+            );
+        }
         assert!(
             (0.0..=1.0).contains(&b.prog),
             "{ctx}: building {} prog {}",
@@ -910,7 +1086,7 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
     let pick = |r: &mut Mulberry32| ids[r.below(ids.len() as u32) as usize];
     let (x, y) = (r.below(2200) as f64 - 60.0, r.below(2200) as f64 - 60.0);
     let (a, b) = (pick(r), pick(r));
-    match r.below(15) {
+    match r.below(17) {
         0 => g.move_to(a, x, y),
         1 => g.attack_move(a, x, y),
         2 => g.attack_ent(a, b),
@@ -935,6 +1111,10 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
         11 => g.formation(&[a, b, pick(r)], x, y),
         12 => g.set_resources(PLAYER, r.below(3000) as i32, r.below(1000) as i32),
         13 => g.cancel_construction(a),
+        14 => {
+            let _ = g.research(a, ["weapons", "armor", "nonsense"][r.below(3) as usize]);
+        }
+        15 => g.cancel_research(a),
         _ => {}
     }
 }

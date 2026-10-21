@@ -74,6 +74,49 @@ pub struct UnitDef {
     pub heal: f64,
     /// A finished building of this kind is needed to train the unit.
     pub req: Option<BldgKind>,
+    /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
+    pub up_dmg: f64,
+}
+
+/// Team-wide upgrades researched at the War Forge, three levels each.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Upgrade {
+    Weapons,
+    Armor,
+}
+
+pub const MAX_UPGRADE: u8 = 3;
+
+impl Upgrade {
+    pub fn key(self) -> &'static str {
+        match self {
+            Upgrade::Weapons => "weapons",
+            Upgrade::Armor => "armor",
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Upgrade::Weapons => "Weapons",
+            Upgrade::Armor => "Armor",
+        }
+    }
+    pub fn parse(s: &str) -> Option<Upgrade> {
+        [Upgrade::Weapons, Upgrade::Armor]
+            .into_iter()
+            .find(|u| u.key() == s)
+    }
+    pub fn index(self) -> usize {
+        self as usize
+    }
+    /// Cost of researching `level` (1..=3).
+    pub fn cost(self, level: u8) -> [i32; 2] {
+        let c = [100, 175, 250][(level.clamp(1, 3) - 1) as usize];
+        [c, c]
+    }
+    /// Research time in seconds for `level` (1..=3).
+    pub fn time(self, level: u8) -> f64 {
+        [60.0, 75.0, 90.0][(level.clamp(1, 3) - 1) as usize]
+    }
 }
 
 pub struct BldgDef {
@@ -96,6 +139,8 @@ pub struct BldgDef {
     pub dmg_air: f64,
     pub cd: f64,
     pub proj: Option<ProjKind>,
+    /// Extra damage per Weapons upgrade level (turrets).
+    pub up_dmg: f64,
 }
 
 pub const UNIT_KINDS: [UnitKind; 6] = [
@@ -136,6 +181,7 @@ const UNIT: UnitDef = UnitDef {
     bio: false,
     heal: 0.0,
     req: None,
+    up_dmg: 0.0,
 };
 const HARVESTER: UnitDef = UnitDef {
     key: "harvester",
@@ -162,6 +208,7 @@ const TROOPER: UnitDef = UnitDef {
     build: 15.0,
     proj: Some(ProjKind::Bolt),
     bio: true,
+    up_dmg: 1.0,
     ..UNIT
 };
 const VANGUARD: UnitDef = UnitDef {
@@ -178,6 +225,7 @@ const VANGUARD: UnitDef = UnitDef {
     r: 14.0,
     build: 28.0,
     proj: Some(ProjKind::Shell),
+    up_dmg: 3.0,
     ..UNIT
 };
 const LANCER: UnitDef = UnitDef {
@@ -193,6 +241,7 @@ const LANCER: UnitDef = UnitDef {
     build: 18.0,
     proj: Some(ProjKind::Missile),
     bio: true,
+    up_dmg: 2.0,
     ..UNIT
 };
 const MEDIC: UnitDef = UnitDef {
@@ -220,6 +269,7 @@ const WASP: UnitDef = UnitDef {
     build: 24.0,
     proj: Some(ProjKind::Bolt),
     air: true,
+    up_dmg: 1.0,
     ..UNIT
 };
 
@@ -243,6 +293,7 @@ const BLDG: BldgDef = BldgDef {
     dmg_air: 0.0,
     cd: 0.0,
     proj: None,
+    up_dmg: 0.0,
 };
 const CORE: BldgDef = BldgDef {
     key: "core",
@@ -315,6 +366,7 @@ const TURRET: BldgDef = BldgDef {
     dmg_air: 18.0,
     cd: 1.1,
     proj: Some(ProjKind::Bolt),
+    up_dmg: 2.0,
     ..BLDG
 };
 const AIRFIELD: BldgDef = BldgDef {
@@ -445,9 +497,9 @@ pub fn data_json() -> String {
         .map(|k| {
             let d = k.def();
             format!(
-                "\"{}\":{{\"cost\":[{},{}],\"supply\":{},\"hp\":{},\"armor\":{},\"speed\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"sight\":{},\"r\":{},\"build\":{},\"melee\":{},\"proj\":{},\"air\":{},\"bio\":{},\"heal\":{},\"req\":{}}}",
+                "\"{}\":{{\"cost\":[{},{}],\"supply\":{},\"hp\":{},\"armor\":{},\"speed\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"sight\":{},\"r\":{},\"build\":{},\"melee\":{},\"proj\":{},\"air\":{},\"bio\":{},\"heal\":{},\"req\":{},\"upDmg\":{}}}",
                 d.key, d.cost[0], d.cost[1], d.supply, d.hp, d.armor, d.speed, d.range, d.dmg, d.dmg_air, d.cd, d.sight, d.r, d.build, d.melee,
-                opt(d.proj), d.air, d.bio, d.heal, key_or_null(d.req)
+                opt(d.proj), d.air, d.bio, d.heal, key_or_null(d.req), d.up_dmg
             )
         })
         .collect();
@@ -457,9 +509,9 @@ pub fn data_json() -> String {
             let d = k.def();
             let trains: Vec<String> = d.trains.iter().map(|u| format!("\"{}\"", u.def().key)).collect();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{}}}",
+                "\"{}\":{{\"name\":\"{}\",\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
                 d.key, d.name, d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
-                key_or_null(d.req), d.range, d.dmg, d.dmg_air, d.cd, opt(d.proj)
+                key_or_null(d.req), d.range, d.dmg, d.dmg_air, d.cd, opt(d.proj), d.up_dmg
             )
         })
         .collect();
@@ -472,10 +524,26 @@ pub fn data_json() -> String {
             )
         })
         .collect();
+    let ups: Vec<String> = [Upgrade::Weapons, Upgrade::Armor]
+        .iter()
+        .map(|u| {
+            format!(
+                "\"{}\":{{\"cost\":[{},{},{}],\"time\":[{},{},{}]}}",
+                u.key(),
+                u.cost(1)[0],
+                u.cost(2)[0],
+                u.cost(3)[0],
+                u.time(1),
+                u.time(2),
+                u.time(3)
+            )
+        })
+        .collect();
     format!(
-        "{{\"units\":{{{}}},\"buildings\":{{{}}},\"diff\":[{}],\"bases\":[{{\"x\":{},\"y\":{}}},{{\"x\":{},\"y\":{}}}]}}",
+        "{{\"units\":{{{}}},\"buildings\":{{{}}},\"upgrades\":{{{}}},\"diff\":[{}],\"bases\":[{{\"x\":{},\"y\":{}}},{{\"x\":{},\"y\":{}}}]}}",
         units.join(","),
         bldgs.join(","),
+        ups.join(","),
         diffs.join(","),
         BASES[0].0,
         BASES[0].1,

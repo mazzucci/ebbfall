@@ -162,6 +162,24 @@ impl Game {
             self.w.cancel_queue(bldg, i as usize);
         }
     }
+    /// Research the next level of "weapons" or "armor" at one of our War Forges ("" = started).
+    pub fn research(&mut self, bldg: u32, upgrade: &str) -> String {
+        let Some(up) = data::Upgrade::parse(upgrade) else {
+            return "Unknown upgrade".into();
+        };
+        if !self.my_bldg(bldg) {
+            return "Not yours".into();
+        }
+        res(self.w.start_research(bldg, up))
+    }
+    /// Stop the research at one of our buildings (full refund).
+    #[wasm_bindgen(js_name = cancelResearch)]
+    pub fn cancel_research(&mut self, bldg: u32) {
+        if self.my_bldg(bldg) {
+            self.w.cancel_research(bldg);
+        }
+    }
+
     /// Cancel one of our unfinished buildings (75% refund).
     #[wasm_bindgen(js_name = cancelConstruction)]
     pub fn cancel_construction(&mut self, bldg: u32) {
@@ -222,7 +240,7 @@ impl Game {
 
     // ---- snapshot for the renderer and HUD ----
     /// [time, tick, res P shards, res P ether, res E shards, res E ether, sup P used, sup P cap, sup E used,
-    ///  sup E cap, over, winner, built, lost, killed, razed, seed, diff]
+    ///  sup E cap, over, winner, built, lost, killed, razed, seed, diff, P weapons, P armor, E weapons, E armor]
     pub fn info(&self) -> Vec<f64> {
         let w = &self.w;
         let s = w.stats;
@@ -245,6 +263,10 @@ impl Game {
             s.razed as f64,
             w.seed as f64,
             w.diff as f64,
+            w.upgrades[0][0] as f64,
+            w.upgrades[0][1] as f64,
+            w.upgrades[1][0] as f64,
+            w.upgrades[1][1] as f64,
         ]
     }
 
@@ -295,7 +317,7 @@ impl Game {
     }
 
     /// Per building: [id, kind, team, tx, ty, hp, maxhp, progress, done, prog, flash, aim, hasRally, rallyX,
-    /// rallyY, rallyNode, queueLen, q0..q4 (unit kind or -1), 0, 0].
+    /// rallyY, rallyNode, queueLen, q0..q4 (unit kind or -1), research (0 none, 1 weapons, 2 armor), research progress].
     pub fn buildings(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.w.bldgs.len() * BLDG_STRIDE);
         for b in &self.w.bldgs {
@@ -325,7 +347,10 @@ impl Game {
             for i in 0..5 {
                 out.push(b.queue.get(i).map_or(-1.0, |k| k.index() as f64));
             }
-            out.extend_from_slice(&[0.0, 0.0]);
+            let (rk, rp) = b
+                .research
+                .map_or((0.0, 0.0), |(u, p)| (u.index() as f64 + 1.0, p));
+            out.extend_from_slice(&[rk, rp]);
         }
         out
     }

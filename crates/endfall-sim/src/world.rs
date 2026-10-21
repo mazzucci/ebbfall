@@ -103,6 +103,8 @@ pub struct Bldg {
     pub r: f64,
     pub vent: Option<Id>,
     pub aim: f64,
+    /// Upgrade being researched here and its progress (0..1).
+    pub research: Option<(Upgrade, f64)>,
 }
 
 #[derive(Clone, Debug)]
@@ -241,6 +243,8 @@ pub struct World {
     pub over: bool,
     pub winner: i32,
     pub stats: Stats,
+    /// Upgrade levels per team: [weapons, armor].
+    pub upgrades: [[u8; 2]; 2],
     /// Recent "under attack" alerts (time, x, y, was a building), for throttling.
     alerts: Vec<(f64, f64, f64, bool)>,
     pub events: Vec<Event>,
@@ -273,6 +277,7 @@ impl World {
             over: false,
             winner: -1,
             stats: Stats::default(),
+            upgrades: [[0; 2]; 2],
             alerts: Vec::new(),
             events: Vec::new(),
             map: Map::empty(),
@@ -308,6 +313,7 @@ impl World {
         self.over = false;
         self.winner = -1;
         self.stats = Stats::default();
+        self.upgrades = [[0; 2]; 2];
         self.alerts.clear();
         self.events.clear();
         self.map = Map::generate(seed, &mut self.next_id);
@@ -509,6 +515,7 @@ impl World {
             r: d.w.max(d.h) as f64 * TILE / 2.0,
             vent: None,
             aim: 0.0,
+            research: None,
         };
         for y in 0..d.h {
             for x in 0..d.w {
@@ -677,6 +684,54 @@ impl World {
         let team = b.team;
         self.pay(team, t.def().cost, 1);
         self.recalc_supply(team);
+    }
+
+    /// Start researching the next level of `up` at a finished War Forge; Err carries the message to show.
+    pub fn start_research(&mut self, bid: Id, up: Upgrade) -> Result<(), String> {
+        let Some(b) = self.bldg(bid) else {
+            return Err("Gone".into());
+        };
+        let team = b.team;
+        if b.kind != BldgKind::Forge || !b.done {
+            return Err("Research happens at a finished War Forge".into());
+        }
+        if b.research.is_some() {
+            return Err("Already researching here".into());
+        }
+        let level = self.upgrades[team as usize][up.index()] + 1;
+        if level > MAX_UPGRADE {
+            return Err(format!("{} is fully upgraded", up.name()));
+        }
+        if self
+            .bldgs
+            .iter()
+            .any(|o| o.team == team && o.research.is_some_and(|(u, _)| u == up))
+        {
+            return Err(format!("{} is already being researched", up.name()));
+        }
+        let cost = up.cost(level);
+        if !self.can_afford(team, cost) {
+            return Err(self.short_of(team, cost));
+        }
+        self.pay(team, cost, -1);
+        self.bm(bid).unwrap().research = Some((up, 0.0));
+        Ok(())
+    }
+
+    /// Stop the research at a building, refunding it in full.
+    pub fn cancel_research(&mut self, bid: Id) {
+        let Some(b) = self.bm(bid) else { return };
+        let Some((up, _)) = b.research.take() else {
+            return;
+        };
+        let team = b.team;
+        let level = self.upgrades[team as usize][up.index()] + 1;
+        self.pay(team, up.cost(level), 1);
+    }
+
+    /// Extra damage a unit kind deals with its team's Weapons upgrades.
+    pub fn weapon_bonus(&self, team: u8, per_level: f64) -> f64 {
+        per_level * self.upgrades[team as usize][Upgrade::Weapons.index()] as f64
     }
 
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
@@ -906,8 +961,10 @@ impl World {
             self.alert_attacked(target);
         }
         if let Some(i) = self.ui(target) {
+            let armor_up =
+                self.upgrades[self.units[i].team as usize][Upgrade::Armor.index()] as f64;
             let u = &mut self.units[i];
-            u.hp -= (amt - u.kind.def().armor).max(1.0);
+            u.hp -= (amt - u.kind.def().armor - armor_up).max(1.0);
             u.flash = 0.12;
             if let Some(by) = by {
                 let (ux, uy, team) = (u.x, u.y, u.team);
@@ -999,6 +1056,10 @@ impl World {
             }
             for q in &b.queue {
                 self.pay(team, q.def().cost, 1);
+            }
+            if let Some((up, _)) = b.research {
+                let level = self.upgrades[team as usize][up.index()] + 1;
+                self.pay(team, up.cost(level), 1);
             }
             for u in self.units.iter_mut() {
                 if u.task == (Task::Build { b: id }) {
@@ -1412,17 +1473,18 @@ impl World {
 
     fn fire(&mut self, shooter: Id, target: Id) {
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
-        let (x, y, team, dmg, cd, proj) = if let Some(u) = self.unit(shooter) {
+        let (x, y, team, dmg, cd, proj, up) = if let Some(u) = self.unit(shooter) {
             let d = u.kind.def();
-            (u.x, u.y, u.team, d.damage_vs(air), d.cd, d.proj)
+            (u.x, u.y, u.team, d.damage_vs(air), d.cd, d.proj, d.up_dmg)
         } else {
             let b = self.bldg(shooter).unwrap();
             let d = b.kind.def();
-            (b.x, b.y, b.team, d.damage_vs(air), d.cd, d.proj)
+            (b.x, b.y, b.team, d.damage_vs(air), d.cd, d.proj, d.up_dmg)
         };
         if dmg <= 0.0 {
             return; // this weapon cannot hit that target
         }
+        let dmg = dmg + self.weapon_bonus(team, up);
         if let Some(i) = self.ui(shooter) {
             self.units[i].cd = cd;
         } else if let Some(b) = self.bm(shooter) {
@@ -1936,6 +1998,29 @@ impl World {
                 b.prog = 0.0;
                 b.queue.remove(0);
                 self.spawn_from(bid, q);
+            }
+        }
+        let b = self.bm(bid).unwrap();
+        if let Some((up, p)) = b.research {
+            let team = b.team;
+            let level = self.upgrades[team as usize][up.index()] + 1;
+            let p = p + dt / up.time(level);
+            if p >= 1.0 {
+                self.bm(bid).unwrap().research = None;
+                self.upgrades[team as usize][up.index()] = level;
+                if team == PLAYER {
+                    self.toast(
+                        format!(
+                            "{} {} researched",
+                            up.name(),
+                            ["I", "II", "III"][(level - 1) as usize]
+                        ),
+                        false,
+                    );
+                    self.emit(Event::Sfx("done"));
+                }
+            } else {
+                self.bm(bid).unwrap().research = Some((up, p));
             }
         }
     }

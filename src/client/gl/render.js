@@ -363,6 +363,7 @@ function dashed(x0, y0, x1, y1) {
 const pings = [];
 /** Flash a spot on the minimap (attack alerts). */
 export function ping(x, y) { pings.push({ x, y, t: performance.now() }); }
+export function clearPings() { pings.length = 0; }
 
 function renderMinimap() {
   const S = mm.width / WW, c = mctx; c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);

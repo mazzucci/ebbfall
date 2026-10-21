@@ -690,6 +690,28 @@ fn the_player_hears_about_attacks_once_per_fight() {
     assert_eq!(more, 1, "a new fight elsewhere is reported");
 }
 
+#[test]
+fn two_simultaneous_fights_alert_once_each() {
+    use endfall_sim::world::Event;
+    let mut w = arena(18);
+    for (x, y) in [(500.0, 900.0), (1600.0, 400.0)] {
+        let mine = w.make_unit(UnitKind::Vanguard, PLAYER, x, y);
+        w.hold_unit(mine);
+        let foe = w.make_unit(UnitKind::Trooper, ENEMY, x + 80.0, y);
+        w.attack_ent(foe, mine);
+    }
+    let mut alerts = 0;
+    for _ in 0..8 * TPS {
+        w.step();
+        alerts += w
+            .events
+            .drain(..)
+            .filter(|e| matches!(e, Event::Attacked { .. }))
+            .count();
+    }
+    assert_eq!(alerts, 2, "one per fight, not one per hit");
+}
+
 // ---------------- randomized orders + invariants ----------------
 
 fn check_invariants(w: &World, ctx: &str) {

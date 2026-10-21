@@ -7,7 +7,7 @@ import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './c
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
-import { initTools, updateTools, onAttacked, initPause, paused } from './client/tools.js';
+import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
 import { initScreen, initLeaveDialog, enterFullscreen, armLeaveGuard, disarmLeaveGuard, touchDevice } from './client/screen.js';
 
 let started = false;
@@ -19,7 +19,7 @@ const urlSeed = new URLSearchParams(location.search).get('seed');
 function newGame() {
   const seed = urlSeed !== null ? +urlSeed | 0 : (Math.random() * 1e9) | 0;
   resetGame(seed, ui.diff ?? 1);
-  ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard();
+  ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools();
   renderTerrain();
   const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
@@ -29,7 +29,7 @@ function newGame() {
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
 function quitToTitle() {
-  started = false; $('end').hidden = true; $('start').hidden = false; $('btnStart').textContent = 'START GAME';
+  started = false; $('pause').hidden = true; $('end').hidden = true; $('start').hidden = false; $('btnStart').textContent = 'START GAME';
 }
 
 /** Turn sim events into client effects. */

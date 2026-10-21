@@ -4,7 +4,7 @@
 import { G, PLAYER } from '../engine/index.js';
 import { $, ui, setHint, updateHud, toast } from './hud.js';
 import { sfx } from './audio.js';
-import { centerOn, ping, cam, view } from './gl/render.js';
+import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 
 export const alerts = { last: null };
 const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
@@ -12,11 +12,15 @@ const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
 /** The sim reported an attack on something of ours. */
 export function onAttacked(e) {
   alerts.last = { x: e.x, y: e.y, t: performance.now() };
-  toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true);
-  sfx('alert'); ping(e.x, e.y);
+  ping(e.x, e.y);
+  // A fight you are looking at needs no siren; the ping and the ⚠ chip still mark it.
+  const onScreen = e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
+  if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); }
   updateTools();
 }
-export function jumpToAlert() { if (alerts.last) centerOn(alerts.last.x, alerts.last.y); }
+export function jumpToAlert() { if (alerts.last) centerOn(alerts.last.x, alerts.last.y); else toast('No recent attacks'); }
+/** Forget alerts and pings from a previous game. */
+export function resetTools() { alerts.last = null; clearPings(); idleIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 
 function choose(list) { ui.sel = list; ui.mode = null; ui.place = null; setHint(); updateHud(); if (list.length) sfx('select'); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -33,9 +37,10 @@ export function selectIdle() {
 /** Select every combat unit. */
 export function selectArmy() { const a = army(); if (!a.length) { toast('No army yet'); return; } choose(a); }
 /** Select all of our units of the same type that are on screen (double-click / double-tap). */
-export function selectSameType(u) {
+export function selectSameType(u, add = false) {
   const x1 = cam.x + view.w / cam.zoom, y1 = cam.y + view.h / cam.zoom;
-  choose(G.units.filter(o => o.team === PLAYER && o.type === u.type && o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1));
+  const same = G.units.filter(o => o.team === PLAYER && o.type === u.type && o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1);
+  choose(add ? [...new Set([...ui.sel.filter(e => !e.dead && e.kind === 'unit'), ...same])] : same);
 }
 
 // ---- control groups ----
@@ -55,6 +60,8 @@ export function recallGroup(k, forceCentre = false) {
 }
 
 const touch = matchMedia('(pointer: coarse)').matches;
+/** The group tab being pressed (kept outside the element: tabs are rebuilt when counts change). */
+const press = { k: 0, held: false, timer: 0 };
 let groupsKey = '';
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
@@ -70,11 +77,14 @@ export function updateTools() {
   for (const [k, n] of tabs) {
     const b = document.createElement('button'); b.className = 'tb grp' + (n ? '' : ' empty'); b.dataset.k = k;
     b.innerHTML = `<span>${k}</span>${n ? `<b>${n}</b>` : ''}`; b.title = n ? `Group ${k}: tap to select, long-press to replace` : `Long-press to save the selection as group ${k}`;
-    let timer = 0, held = false;
-    b.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); held = false; timer = setTimeout(() => { held = true; saveGroup(k); }, 500); });
-    const cancel = () => clearTimeout(timer);
-    b.addEventListener('pointerup', cancel); b.addEventListener('pointerleave', cancel); b.addEventListener('pointercancel', cancel);
-    b.addEventListener('click', (ev) => { if (held) return; if (ev.ctrlKey || ev.metaKey) saveGroup(k); else if (!recallGroup(k)) toast('Long-press (or Ctrl+click) to save the selection here'); });
+    b.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); clearTimeout(press.timer); press.k = k; press.held = false; press.timer = setTimeout(() => { press.held = true; saveGroup(k); }, 500); });
+    const cancel = () => clearTimeout(press.timer);
+    b.addEventListener('pointerup', cancel); b.addEventListener('pointercancel', cancel);
+    b.addEventListener('contextmenu', (ev) => { ev.preventDefault(); if (!press.held) { clearTimeout(press.timer); press.held = true; press.k = k; saveGroup(k); } });
+    b.addEventListener('click', (ev) => {
+      if (press.held && press.k === k) { press.held = false; return; } // the release after a long-press (even on a rebuilt tab)
+      if (ev.ctrlKey || ev.metaKey) saveGroup(k); else if (!recallGroup(k)) toast('Long-press (or Ctrl+click) to save the selection here');
+    });
     box.appendChild(b);
   }
 }

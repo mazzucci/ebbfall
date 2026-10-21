@@ -241,8 +241,8 @@ pub struct World {
     pub over: bool,
     pub winner: i32,
     pub stats: Stats,
-    /// Time and place of the last "under attack" alert, for throttling.
-    alert: (f64, f64, f64),
+    /// Recent "under attack" alerts (time, x, y, was a building), for throttling.
+    alerts: Vec<(f64, f64, f64, bool)>,
     pub events: Vec<Event>,
     pub map: Map,
     pub(crate) ai: Option<Ai>,
@@ -273,7 +273,7 @@ impl World {
             over: false,
             winner: -1,
             stats: Stats::default(),
-            alert: (-1e9, 0.0, 0.0),
+            alerts: Vec::new(),
             events: Vec::new(),
             map: Map::empty(),
             ai: None,
@@ -308,7 +308,7 @@ impl World {
         self.over = false;
         self.winner = -1;
         self.stats = Stats::default();
-        self.alert = (-1e9, 0.0, 0.0);
+        self.alerts.clear();
         self.events.clear();
         self.map = Map::generate(seed, &mut self.next_id);
         for team in [PLAYER, ENEMY] {
@@ -871,8 +871,9 @@ impl World {
         (d.dmg > 0.0, d.dmg_air > 0.0)
     }
 
-    /// Tell the player when something of theirs comes under attack: at most once every ALERT_GAP seconds,
-    /// sooner if the new fight is more than ALERT_DIST px from the last one.
+    /// Tell the player when something of theirs comes under attack: once per fight. A hit is quiet if any alert in
+    /// the last ALERT_GAP seconds was within ALERT_DIST px (so several simultaneous fights each alert once), except
+    /// that the first hit on a building gets through after alerts about units only.
     fn alert_attacked(&mut self, target: Id) {
         const ALERT_GAP: f64 = 12.0;
         const ALERT_DIST: f64 = 480.0;
@@ -886,11 +887,16 @@ impl World {
         if team != PLAYER {
             return;
         }
-        let (t0, ax, ay) = self.alert;
-        if self.time - t0 < ALERT_GAP && dist(x, y, ax, ay) < ALERT_DIST {
+        let now = self.time;
+        self.alerts.retain(|a| now - a.0 < ALERT_GAP);
+        let quiet = self
+            .alerts
+            .iter()
+            .any(|&(_, ax, ay, ab)| dist(x, y, ax, ay) < ALERT_DIST && (ab || !building));
+        if quiet {
             return;
         }
-        self.alert = (self.time, x, y);
+        self.alerts.push((now, x, y, building));
         self.emit(Event::Attacked { x, y, building });
     }
 

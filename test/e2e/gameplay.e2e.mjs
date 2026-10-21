@@ -201,11 +201,10 @@ test('an attack raises an alert, and Space jumps to it', async () => {
   try {
     const s = await d.state(), h = mine(s, 'harvester')[0];
     const spot = { x: h.x + 60, y: h.y };
+    await d.centerOn(1800, 200); await d.page.mouse.move(640, 300); // look away: a fight on screen gets no siren
     await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'trooper', x, y), [spot.x, spot.y]);
     await until(d, async () => (await d.toasts()).some(t => /under attack/.test(t)), { seconds: 10, step: 1, what: 'the attack alert' });
     assert.ok(await d.page.locator('#btnAlert').isVisible(), 'the ⚠ chip shows');
-    await d.centerOn(1800, 200);                    // look elsewhere, then jump back
-    await d.page.mouse.move(640, 300);
     await d.key(' ');
     const view = await d.eval(() => { const c = endfall.cam; return { x0: c.x, y0: c.y, x1: c.x + 1280 / c.zoom, y1: c.y + 480 / c.zoom }; });
     assert.ok(spot.x > view.x0 && spot.x < view.x1 && spot.y > view.y0 && spot.y < view.y1, `camera shows the fight: ${JSON.stringify(view)}`);
@@ -223,11 +222,15 @@ test('idle and army buttons, and double-click selects all of a type on screen', 
     // Make a harvester idle, then find it with the IDLE button.
     const h = mine(s, 'harvester')[0];
     await d.clickEntity(h.id); await d.key('s');
-    await d.page.waitForTimeout(250);
+    await d.key('Escape');
+    assert.equal((await d.selection()).length, 0);
     await d.page.locator('#btnIdle').click();
-    assert.equal((await d.selection())[0]?.type, 'harvester', 'IDLE selects an idle harvester');
-    // Double-click one trooper: all three are selected.
-    await d.clickEntity(ids[0]); await d.clickEntity(ids[0]);
+    const picked = await d.eval(() => endfall.ui.sel.map(u => ({ type: u.type, task: u.task.t })));
+    assert.deepEqual(picked, [{ type: 'harvester', task: 'idle' }], 'IDLE selects an idle harvester');
+    // Double-click one trooper (two clicks on one precomputed point, back to back): all three are selected.
+    await d.key('Escape');
+    const [px, py] = await d.screen((await d.state()).units.find(u => u.id === ids[0]).x, (await d.state()).units.find(u => u.id === ids[0]).y);
+    await d.page.mouse.click(px, py); await d.page.mouse.click(px, py);
     assert.equal((await d.selection()).filter(u => u.type === 'trooper').length, 3, 'double-click selects all troopers on screen');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -242,7 +245,8 @@ test('pause stops the game and restart begins a new one', async () => {
     const t0 = await d.eval(() => endfall.G.time);
     await d.page.waitForTimeout(1200);
     assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while paused');
-    await d.page.locator('#btnResume').click();
+    await d.key('p');
+    assert.ok(!(await d.page.locator('#pause').isVisible()), 'P resumes');
     await d.page.waitForTimeout(1200);
     assert.ok(await d.eval(() => endfall.G.time) > t0, 'time runs again');
     await d.page.locator('#btnPause').click();
@@ -267,7 +271,8 @@ test('phone: long-press a group tab saves the selection, tapping it recalls it',
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await d.page.waitForTimeout(150);
     assert.match((await d.toasts()).join(' '), /Group 1 saved/);
-    await d.eval(() => { endfall.ui.sel = []; });
+    await d.page.locator('#cmd button', { hasText: 'Deselect' }).tap();
+    assert.equal((await d.selection()).length, 0);
     await tab.tap();
     assert.equal((await d.selection())[0]?.id, h.id, 'tapping the tab selects the group');
     assert.deepEqual(d.errors, []);

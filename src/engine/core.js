@@ -1,14 +1,14 @@
-// The Rust sim (WASM) behind the same surface the client used with src/sim: a live `G` and `map`, entity
+// The Rust sim (WASM) behind the surface the client reads: a live `G` and `map`, entity
 // objects with stable identity (selections hold them), and order functions that take those objects.
 // State is mirrored from flat snapshot arrays after every step and order, so entity objects in hand are
 // always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game } from './pkg/endfall_sim.js';
-import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS } from '../sim/constants.js';
-import { clamp } from '../sim/util.js';
+import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS } from './constants.js';
+import { clamp } from './util.js';
 
-export * from '../sim/constants.js';
-export { clamp, dist, lerp, fmt, mulberry } from '../sim/util.js';
+export * from './constants.js';
+export { clamp, dist, lerp, fmt, mulberry } from './util.js';
 
 // Snapshot record layouts; keep in sync with UNIT_STRIDE etc. in crates/endfall-sim/src/lib.rs.
 const US = 16, BS = 24, PS = 8, NS = 12;
@@ -124,6 +124,8 @@ export const placeBuilding = (team, type, tx, ty, builder) => touch(err(game.pla
 /** Returns an error string, or null on success. */
 export const queueUnit = (b, type) => touch(err(game.queueUnit(b.id, type)));
 export const cancelQueue = (b, i) => touch(game.cancelQueue(b.id, i));
+/** Cancel an unfinished building (75% refund). */
+export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
 export const setResources = (team, shards, ether) => touch(game.setResources(team, shards, ether));

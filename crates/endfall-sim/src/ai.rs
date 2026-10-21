@@ -21,6 +21,7 @@ impl World {
             attacking: false,
             attackers: None,
             rally: None,
+            sites: Vec::new(),
         });
     }
 
@@ -46,7 +47,7 @@ impl World {
                 let a = a0 + k as f64 / 20.0 * PI * 2.0;
                 let tx = jsmath::round(cx + jsmath::cos(a) * r - d.w as f64 / 2.0) as i32;
                 let ty = jsmath::round(cy + jsmath::sin(a) * r - d.h as f64 / 2.0) as i32;
-                if !self.can_place(kind, tx, ty, ENEMY) {
+                if !self.can_place(kind, tx, ty, ENEMY) || !self.walkway_around(tx, ty, d.w, d.h) {
                     continue;
                 }
                 let (mx, my) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
@@ -62,6 +63,72 @@ impl World {
             r += 1.0;
         }
         None
+    }
+
+    /// The AI keeps a free one-tile walkway around everything it builds, so it never walls its own units in.
+    fn walkway_around(&self, tx: i32, ty: i32, w: i32, h: i32) -> bool {
+        for y in -1..=h {
+            for x in -1..=w {
+                if x >= 0 && y >= 0 && x < w && y < h {
+                    continue;
+                }
+                let (xx, yy) = (tx + x, ty + y);
+                if !crate::map::in_map(xx, yy) || self.map.blocked(xx, yy) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// The nearest harvester that is free to build: not carrying, not already building, not just failed to reach a site.
+    fn free_builder(&self, harv: &[Id], x: f64, y: f64) -> Option<Id> {
+        let mut best: Option<(f64, Id)> = None;
+        for &h in harv {
+            let u = self.unit(h).unwrap();
+            if matches!(u.task, Task::Build { .. }) || u.carry != 0 || u.no_build_until > self.time
+            {
+                continue;
+            }
+            let dd = dist(u.x, u.y, x, y);
+            if best.is_none_or(|(bd, _)| dd < bd) {
+                best = Some((dd, h));
+            }
+        }
+        best.map(|(_, h)| h)
+    }
+
+    /// Keep construction moving: give unattended sites a builder, cancel sites that have not advanced for a minute.
+    fn tend_sites(&mut self, harv: &[Id]) {
+        let t = self.time;
+        let open: Vec<(Id, f64, f64, f64)> = self
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && !b.done)
+            .map(|b| (b.id, b.progress, b.x, b.y))
+            .collect();
+        let mut sites = std::mem::take(&mut self.ai.as_mut().unwrap().sites);
+        sites.retain(|s| open.iter().any(|o| o.0 == s.0));
+        for &(id, progress, x, y) in &open {
+            match sites.iter_mut().find(|s| s.0 == id) {
+                Some(s) if progress > s.1 + 1e-9 => {
+                    s.1 = progress;
+                    s.2 = t;
+                }
+                Some(s) if t - s.2 > 60.0 => {
+                    self.cancel_construction(id);
+                    continue;
+                }
+                Some(_) => {}
+                None => sites.push((id, progress, t)),
+            }
+            let attended = self.units.iter().any(|u| u.task == (Task::Build { b: id }));
+            if !attended && let Some(h) = self.free_builder(harv, x, y) {
+                self.start_build(h, id);
+            }
+        }
+        sites.retain(|s| self.bldg(s.0).is_some());
+        self.ai.as_mut().unwrap().sites = sites;
     }
 
     fn gathering_ether(&self, id: Id) -> Option<bool> {
@@ -250,21 +317,11 @@ impl World {
             && let Some(spot) = self.find_spot(w, cx, cy)
         {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
-            let mut best: Option<(f64, Id)> = None;
-            for &h in &harv {
-                let u = self.unit(h).unwrap();
-                if matches!(u.task, Task::Build { .. }) || u.carry != 0 {
-                    continue;
-                }
-                let dd = dist(u.x, u.y, sx, sy);
-                if best.is_none_or(|(bd, _)| dd < bd) {
-                    best = Some((dd, h));
-                }
-            }
-            if let Some((_, b)) = best {
+            if let Some(b) = self.free_builder(&harv, sx, sy) {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
+        self.tend_sites(&harv);
 
         // Production.
         for &bid in &my_b {

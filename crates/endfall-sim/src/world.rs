@@ -58,7 +58,18 @@ pub struct Unit {
     pub repath: f64,
     pub flash: f64,
     pub aggro_cd: f64,
+    /// Seconds a builder has stayed within STUCK_RADIUS of `anchor` without reaching its site.
+    pub stuck: f64,
+    pub anchor: (f64, f64),
+    /// Game time before which this harvester is not picked as a builder again (it just failed to reach a site).
+    pub no_build_until: f64,
 }
+
+/// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
+/// site gives up. Walking (even away from the site, around an obstacle) leaves the radius within a fraction of a
+/// second; jittering against a corner or being walled in does not.
+pub const BUILDER_PATIENCE: f64 = 6.0;
+pub const STUCK_RADIUS: f64 = 12.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rally {
@@ -140,6 +151,8 @@ pub(crate) struct Ai {
     pub attacking: bool,
     pub attackers: Option<Vec<Id>>,
     pub rally: Option<Pt>,
+    /// Own buildings under construction: (id, progress last seen, time it last advanced).
+    pub sites: Vec<(Id, f64, f64)>,
 }
 
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.
@@ -443,6 +456,9 @@ impl World {
             repath: 0.0,
             flash: 0.0,
             aggro_cd: 0.0,
+            stuck: 0.0,
+            anchor: (x, y),
+            no_build_until: 0.0,
         });
         id
     }
@@ -600,6 +616,9 @@ impl World {
             return Err("Gone".into());
         };
         let (team, qlen) = (b.team, b.queue.len());
+        if !b.done || b.kind.def().trains != Some(kind) {
+            return Err(format!("{} cannot train that", b.kind.def().name));
+        }
         let d = kind.def();
         if qlen >= 5 {
             return Err("Queue is full".into());
@@ -1059,12 +1078,57 @@ impl World {
         true
     }
 
-    pub fn start_build(&mut self, uid: Id, b: Id) {
+    /// Whether `uid` may work on building `b`: a harvester of the same team, and the building is unfinished.
+    pub fn can_build(&self, uid: Id, b: Id) -> bool {
+        match (self.unit(uid), self.bldg(b)) {
+            (Some(u), Some(bd)) => u.kind == UnitKind::Harvester && u.team == bd.team && !bd.done,
+            _ => false,
+        }
+    }
+
+    /// Send a harvester to work on an unfinished building of its team; other requests are ignored.
+    pub fn start_build(&mut self, uid: Id, b: Id) -> bool {
+        if !self.can_build(uid, b) {
+            return false;
+        }
         self.release_mine(uid);
         let u = self.um(uid);
         u.task = Task::Build { b };
         u.path = None;
         u.repath = 0.0;
+        u.stuck = 0.0;
+        u.anchor = (u.x, u.y);
+        true
+    }
+
+    /// Cancel an unfinished building: it is removed and 75% of its cost comes back.
+    pub fn cancel_construction(&mut self, bid: Id) -> bool {
+        let Some(i) = self.bi(bid).filter(|&i| !self.bldgs[i].done) else {
+            return false;
+        };
+        let b = self.bldgs.remove(i);
+        for y in 0..b.h {
+            for x in 0..b.w {
+                self.map.occ[idx(b.tx + x, b.ty + y)] = b.vent.map_or(0, |v| -(v as i32));
+            }
+        }
+        if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
+            n.extractor = None;
+        }
+        let cost = b.kind.def().cost;
+        self.pay(b.team, [cost[0] * 3 / 4, cost[1] * 3 / 4], 1);
+        for u in self.units.iter_mut() {
+            if u.task == (Task::Build { b: bid }) {
+                u.task = Task::Idle;
+                u.path = None;
+            }
+        }
+        if b.team == PLAYER {
+            self.toast(format!("{} cancelled", b.kind.def().name), false);
+        }
+        self.recalc_supply(b.team);
+        self.check_end();
+        true
     }
 
     /// Place and pay for a building; Err carries the message to show.
@@ -1088,7 +1152,7 @@ impl World {
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);
-        if let Some(h) = builder.filter(|&h| self.ui(h).is_some()) {
+        if let Some(h) = builder {
             self.start_build(h, b);
         }
         for u in self.units.iter_mut() {
@@ -1163,9 +1227,8 @@ impl World {
         let u = self.um(uid);
         u.repath -= dt;
         if u.path.is_none() || u.repath <= 0.0 {
-            if target.is_rect() {
-                let (t, g) = (Self::tile_of(ux, uy), Self::tile_of(p.0, p.1));
-                let path = astar(&self.map, &mut self.scratch, t.0, t.1, g.0, g.1);
+            if let Geo::Rect { tx, ty, w, h, .. } = target {
+                let path = self.path_to_rect(ux, uy, (tx, ty, w, h), p);
                 let u = self.um(uid);
                 u.path = path;
                 u.repath = 0.7;
@@ -1190,6 +1253,49 @@ impl World {
             }
         }
         false
+    }
+
+    /// A path to a free tile beside a building footprint that can actually be reached: the free tiles around
+    /// it are tried nearest first (a free tile can be cut off by rock), falling back to the old nearest-free goal.
+    fn path_to_rect(
+        &mut self,
+        ux: f64,
+        uy: f64,
+        (tx, ty, w, h): (i32, i32, i32, i32),
+        aim: (f64, f64),
+    ) -> Option<Vec<Pt>> {
+        let start = Self::tile_of(ux, uy);
+        let mut ring: Vec<(f64, i32, i32)> = Vec::new();
+        for y in ty - 1..=ty + h {
+            for x in tx - 1..=tx + w {
+                if (x >= tx && x < tx + w && y >= ty && y < ty + h) || self.map.blocked(x, y) {
+                    continue;
+                }
+                let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+                ring.push((dist(cx, cy, ux, uy), x, y));
+            }
+        }
+        ring.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .unwrap()
+                .then((a.1, a.2).cmp(&(b.1, b.2)))
+        });
+        for &(_, x, y) in ring.iter().take(4) {
+            if (x, y) == start {
+                return Some(Vec::new());
+            }
+            if let Some(path) = astar(&self.map, &mut self.scratch, start.0, start.1, x, y) {
+                let goal = Pt {
+                    x: x as f64 * TILE + 16.0,
+                    y: y as f64 * TILE + 16.0,
+                };
+                if path.last() == Some(&goal) {
+                    return Some(path);
+                }
+            }
+        }
+        let g = Self::tile_of(aim.0, aim.1);
+        astar(&self.map, &mut self.scratch, start.0, start.1, g.0, g.1)
     }
 
     fn fire(&mut self, shooter: Id, target: Id) {
@@ -1363,7 +1469,30 @@ impl World {
                     y: bd.y,
                     r: bd.r,
                 };
-                if self.approach(uid, g, r + 8.0, dt) {
+                let reached = self.approach(uid, g, r + 8.0, dt);
+                if !reached {
+                    // A builder that stays put (walled in, site cut off, jammed on a corner) gives up instead of
+                    // waiting forever. The position includes last tick's separation push.
+                    let (time, team) = (self.time, team);
+                    let u = self.um(uid);
+                    if dist(u.x, u.y, u.anchor.0, u.anchor.1) > STUCK_RADIUS {
+                        u.anchor = (u.x, u.y);
+                        u.stuck = 0.0;
+                    } else {
+                        u.stuck += dt;
+                    }
+                    if u.stuck > BUILDER_PATIENCE {
+                        u.stuck = 0.0;
+                        u.no_build_until = time + 30.0;
+                        if team == PLAYER {
+                            self.toast("A Harvester cannot reach its building site", true);
+                        }
+                        self.set_idle(uid);
+                        return;
+                    }
+                }
+                if reached {
+                    self.um(uid).stuck = 0.0;
                     let bd = self.bm(b).unwrap();
                     let build = bd.kind.def().build;
                     bd.progress += dt / build;

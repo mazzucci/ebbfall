@@ -82,6 +82,24 @@ test('a building under construction shows its progress, and a stalled one can be
   } finally { await d.close(); }
 });
 
+test('an unfinished building can be cancelled for a 75% refund', async () => {
+  const d = await newGame(DESKTOP);
+  try {
+    await d.grant(1000, 0);
+    const s = await d.state(), core = coreOf(s), spot = await d.findSpot('barracks', { tx: core.tx + 1, ty: core.ty + 1 });
+    await d.buildWithUI('b', 'barracks', spot.tx, spot.ty, mine(s, 'harvester')[0].id);
+    const rax = myBldg(await d.state(), 'barracks')[0];
+    assert.ok(rax && !rax.done, 'barracks under construction');
+    const before = (await d.state()).res[0];
+    await d.clickEntity(rax.id);
+    await d.pressCard('Cancel');
+    const after = await d.state();
+    assert.ok(!after.bldgs.some(b => b.id === rax.id), 'the site is gone');
+    assert.ok(after.res[0] - before >= 112 && after.res[0] - before < 130, `refund ${after.res[0] - before} (75% of 150, plus any mining)`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('training shows progress and the queue in the panel', async () => {
   const d = await newGame(DESKTOP);
   try {

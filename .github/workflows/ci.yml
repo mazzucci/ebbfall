@@ -36,7 +36,9 @@ jobs:
       - run: rustup toolchain install
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
-      - run: cargo test --locked
+      - run: cargo test --locked -- --skip random_play
+      - name: Gameplay tests including randomized play (release mode, more seeds)
+        run: cargo test --release --locked --test gameplay
       - run: npm ci
       - run: npm run build:wasm
       - run: npm test
@@ -45,6 +47,10 @@ jobs:
       - name: JS and Rust sims agree tick for tick
         run: node scripts/parity.mjs 9000 1,2,3
       - run: npm run build
+      - name: Gameplay tests in a real browser
+        run: |
+          npx playwright-core install --with-deps chromium
+          npm run test:e2e
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5

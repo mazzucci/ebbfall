@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
     "sim": "npm run build:wasm && node scripts/headless.js",
-    "parity": "npm run build:wasm && node scripts/parity.mjs"
+    "parity": "npm run build:wasm && node scripts/parity.mjs",
+    "test:e2e": "node --test --test-concurrency=1 test/e2e/*.e2e.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.64.1",

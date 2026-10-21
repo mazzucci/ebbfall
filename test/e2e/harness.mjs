@@ -1,0 +1,146 @@
+// Browser test harness: serves dist/ on a local port, launches headless Chromium, and gives tests helpers that
+// drive the real UI (mouse, keyboard, touch). The window.endfall debug handle is used only to read positions,
+// fast-forward time and grant resources; every game action goes through clicks, taps and keys.
+import { createServer } from 'node:http';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { join, extname, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { launchChromium } from '../../tools/chromium.mjs';
+
+const dist = fileURLToPath(new URL('../../dist/', import.meta.url));
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json' };
+
+let server, browser, base;
+export async function start() {
+  if (!existsSync(join(dist, 'index.html'))) throw new Error('dist/ is missing: run npm run build first');
+  server = createServer((req, res) => {
+    let p = normalize(join(dist, decodeURIComponent(new URL(req.url, 'http://x').pathname)));
+    if (!p.startsWith(dist)) { res.writeHead(403); return res.end(); }
+    if (existsSync(p) && statSync(p).isDirectory()) p = join(p, 'index.html');
+    if (!existsSync(p)) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream' }); res.end(readFileSync(p));
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${server.address().port}/`;
+  browser = await launchChromium();
+}
+export async function stop() { await browser?.close(); server?.close(); }
+
+export const DESKTOP = { viewport: { width: 1280, height: 720 } };
+export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
+
+/** A fresh game in a new page. Returns a driver with helpers bound to it. */
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242) {
+  const ctx = await browser.newContext(device);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
+  const touch = !!device.hasTouch;
+  if (diff !== 1) await page.locator(`#diff [data-d="${diff}"]`).click();
+  await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
+  await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
+  const cdp = touch ? await ctx.newCDPSession(page) : null;
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+
+  const d = {
+    page, errors, touch,
+    close: () => ctx.close(),
+    eval: ev,
+    /** Read world state (plain data). */
+    state: () => ev(() => ({
+      res: endfall.G.res[0].slice(), sup: endfall.G.sup[0].slice(), over: endfall.G.over, winner: endfall.G.winner,
+      units: endfall.G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, task: u.task.t })),
+      bldgs: endfall.G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, tx: b.tx, ty: b.ty, x: b.x, y: b.y, w: b.w, h: b.h, done: b.done, progress: b.progress, queue: b.queue.slice() })),
+      nodes: endfall.map.nodes.map(n => ({ id: n.id, type: n.type, tx: n.tx, ty: n.ty, x: n.x, y: n.y })),
+    })),
+    skip: (s) => ev((s) => endfall.skip(s), s),
+    grant: (shards, ether) => ev(([a, b]) => endfall.setResources(0, a, b), [shards, ether]),
+    centerOn: (x, y) => ev(([x, y]) => endfall.centerOn(x, y), [x, y]),
+    /** World point → page pixel (after centring the camera there, so it is on screen). */
+    async screen(wx, wy, center = true) {
+      // Fresh layout every time (full screen and rotation resize the canvas), and park the mouse mid-canvas so
+      // edge scrolling cannot move the camera between measuring and clicking.
+      const canvas = await page.locator('#game').boundingBox();
+      if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+      if (center) await d.centerOn(wx, wy);
+      const c = await ev(() => ({ x: endfall.cam.x, y: endfall.cam.y, z: endfall.cam.zoom }));
+      return [canvas.x + (wx - c.x) * c.z, canvas.y + (wy - c.y) * c.z];
+    },
+    async tapAt(x, y) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForTimeout(60);
+    },
+    /** Left click (or tap) on a world point. */
+    async clickWorld(wx, wy, opts = {}) { const [x, y] = await d.screen(wx, wy); if (touch) return d.tapAt(x, y); await page.mouse.click(x, y, opts); await page.waitForTimeout(60); },
+    async rightClickWorld(wx, wy) { const [x, y] = await d.screen(wx, wy); await page.mouse.click(x, y, { button: 'right' }); await page.waitForTimeout(60); },
+    /** Click on an entity by id, reading its position right before clicking. */
+    async clickEntity(id) {
+      // Units move ~3 px per frame: centre on the live position and get its screen point in one round trip,
+      // then click right away.
+      const canvas = await page.locator('#game').boundingBox();
+      if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+      const p = await ev((id) => {
+        const e = endfall.G.units.find(u => u.id === id) || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
+        endfall.centerOn(e.x, e.y); const c = endfall.cam; return { x: (e.x - c.x) * c.zoom, y: (e.y - c.y) * c.zoom };
+      }, id);
+      if (!p) throw new Error('no entity ' + id);
+      const [x, y] = [canvas.x + p.x, canvas.y + p.y];
+      if (touch) return d.tapAt(x, y);
+      await page.mouse.click(x, y); await page.waitForTimeout(60);
+    },
+    /** Drag a selection box (mouse) around a world rectangle. */
+    async boxSelect(x0, y0, x1, y1) {
+      const canvas = await page.locator('#game').boundingBox();
+      const [sx, sy] = await d.screen((x0 + x1) / 2, (y0 + y1) / 2);
+      const z = await ev(() => endfall.cam.zoom), hw = (x1 - x0) / 2 * z, hh = (y1 - y0) / 2 * z;
+      await page.mouse.move(sx - hw, sy - hh); await page.mouse.down(); await page.mouse.move(sx + hw, sy + hh, { steps: 6 }); await page.mouse.up();
+      await page.waitForTimeout(60);
+    },
+    key: (k) => page.keyboard.press(k),
+    selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
+    /** Labels of the command card buttons as the player sees them, with their enabled state. */
+    card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('span:nth-child(2)').textContent, enabled: !b.disabled }))),
+    async pressCard(label) {
+      const b = page.locator('#cmd button:not([disabled])', { hasText: label }).first();
+      await b.waitFor({ timeout: 5000 });
+      await (touch ? b.tap() : b.click()); await page.waitForTimeout(120);
+    },
+    /** A free spot for a building type near (x, y) in tiles, found with the game's own placement rule. */
+    findSpot: (type, near) => ev(([type, near]) => {
+      for (let r = 2; r < 14; r++) for (let a = 0; a < 24; a++) {
+        const tx = Math.round(near.tx + Math.cos(a / 24 * 6.283) * r), ty = Math.round(near.ty + Math.sin(a / 24 * 6.283) * r);
+        if (endfall.engine.canPlace(type, tx, ty, 0)) return { tx, ty };
+      }
+      return null;
+    }, [type, near]),
+    /** Select a harvester by clicking it, then place `type` (by its hotkey) at tile (tx, ty) by clicking. */
+    async buildWithUI(hotkey, type, tx, ty, harvesterId) {
+      await d.clickEntity(harvesterId);
+      if (touch) { await d.pressCard('Build'); await d.pressCard(BUILD_LABEL[type]); }
+      else { await d.key('b'); await d.key(hotkey); }
+      const w = await ev((t) => endfall.engine.BUILDINGS[t], type);
+      const [x, y] = await d.screen((tx + w.w / 2) * 32, (ty + w.h / 2) * 32);
+      if (touch) await d.tapAt(x, y); else { await page.mouse.move(x, y); await page.mouse.click(x, y); }
+      await page.waitForTimeout(80);
+    },
+    /** Wait (up to 5 s of real time) until a HUD element's text matches. Returns the text. */
+    async hudText(selector, re) {
+      const loc = page.locator(selector);
+      await loc.filter({ hasText: re }).waitFor({ timeout: 5000 }).catch(() => {});
+      return loc.textContent();
+    },
+    toasts: () => page.$$eval('#msg .toast', ts => ts.map(t => t.textContent)),
+  };
+  return d;
+}
+const BUILD_LABEL = { depot: 'Depot', barracks: 'Barracks', extractor: 'Extractor', forge: 'Forge', turret: 'Turret', core: 'Core' };
+
+/** Poll until fn() is truthy (fn runs in Node; use d.state() inside), fast-forwarding the game between checks. */
+export async function until(d, fn, { seconds = 120, step = 2, what = 'condition' } = {}) {
+  for (let t = 0; t <= seconds; t += step) { const v = await fn(); if (v) return v; await d.skip(step); }
+  throw new Error(`timed out after ${seconds}s of game time waiting for ${what}`);
+}

@@ -1,10 +1,10 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
 import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally } from '../engine/index.js';
-import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard } from './hud.js';
+import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE } from './gl/render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE, UNIT_SCALE } from './gl/render.js';
 
 export const drag = { down: false, box: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
 const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
@@ -13,8 +13,12 @@ export const input = { enabled: () => true };
 
 function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
 
+/** What is under (wx, wy): the nearest unit within reach (generous for fingers), else a building, else a node. */
 function pick(wx, wy) {
-  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; if (dist(u, { x: wx, y: wy }) <= u.r + 5) return u; }
+  const reach = drag.ptype === 'touch' ? 16 : 6, p = { x: wx, y: wy };
+  let best = null, bd = Infinity;
+  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; const d = dist(u, p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
+  if (best) return best;
   for (const b of G.bldgs) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) { if (b.team === ENEMY && !G.explored[idx(b.tx, b.ty)]) continue; return b; } }
   for (const n of map.nodes) { if (G.explored[idx(n.tx, n.ty)] && dist(n, { x: wx, y: wy }) <= n.r + 6) return n; }
   return null;
@@ -26,11 +30,12 @@ function select(list, add) {
   if (ui.sel.length > 1 && ui.sel.some(e => e.team === PLAYER)) ui.sel = ui.sel.filter(e => e.team === PLAYER);
   if (ui.sel.length > 1 && ui.sel.some(e => e.kind === 'unit')) ui.sel = ui.sel.filter(e => e.kind === 'unit');
   ui.mode = null; ui.place = null; setHint(); if (list.length) sfx('select');
+  updateHud(); // the command card must match the selection right away, not on the next HUD tick
 }
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => u.team === PLAYER && u.x >= a.x - u.r && u.x <= b.x + u.r && u.y >= a.y - u.r && u.y <= b.y + u.r);
+  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE; return u.team === PLAYER && u.x >= a.x - r && u.x <= b.x + r && u.y >= a.y - r && u.y <= b.y + r; });
   if (us.length) { select(us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === PLAYER && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
@@ -79,7 +84,7 @@ function leftAction(wx, wy, add) {
   }
   if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
   const hit = pick(wx, wy);
-  if (hit && hit.kind !== 'node') select([hit], add); else if (!add) { ui.sel = []; ui.mode = null; }
+  if (hit && hit.kind !== 'node') select([hit], add); else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
 }
 
 /** Single-finger tap: select own things, otherwise command the current selection. */
@@ -93,7 +98,7 @@ function touchTap(wx, wy) {
     select([hit]); return;
   }
   if (units.length || bl.length) { commandAt(wx, wy); return; }
-  if (hit && hit.kind !== 'node') select([hit]); else ui.sel = [];
+  if (hit && hit.kind !== 'node') select([hit]); else { ui.sel = []; updateHud(); }
 }
 
 export function bindInput() {
@@ -161,7 +166,7 @@ export function bindInput() {
         if (g.length) {
           ui.sel = g.slice();
           if (ev.shiftKey || (ui.lastGroup === k && performance.now() - ui.lastGroupT < 400)) { const c = g.reduce((a, e) => ({ x: a.x + e.x / g.length, y: a.y + e.y / g.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); }
-          ui.lastGroup = k; ui.lastGroupT = performance.now(); ui.mode = null; ui.place = null; setHint();
+          ui.lastGroup = k; ui.lastGroupT = performance.now(); ui.mode = null; ui.place = null; setHint(); updateHud();
         }
       }
       return;

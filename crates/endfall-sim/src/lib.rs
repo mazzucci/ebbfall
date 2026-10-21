@@ -361,6 +361,13 @@ impl Game {
     }
 }
 
+impl Game {
+    /// The world behind the WASM surface, for Rust-side tests and tools.
+    pub fn world(&self) -> &World {
+        &self.w
+    }
+}
+
 /// Crate version, so the client can log which sim build it loaded.
 #[wasm_bindgen]
 pub fn version() -> String {

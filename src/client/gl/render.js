@@ -11,9 +11,11 @@ export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
 export const view = { w: 800, h: 500, dpr: 1 };
 /** Camera: top-left corner in world px, and zoom (screen px per world px). */
-export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.5 : innerWidth >= 1100 ? 2 : 1.5 };
+export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.75 : innerWidth >= 1100 ? 2 : 1.5 };
 export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const ALLY = '#f5a524', ALLY2 = '#ffd27a', FOE = '#e2457a', FOE2 = '#ff8bb0';
+/** Units are drawn larger than their collision radius so they are easy to see and to tap. */
+export const UNIT_SCALE = 1.2;
 const hexn = (s) => parseInt(s.slice(1), 16);
 
 TextureSource.defaultOptions.scaleMode = 'linear';
@@ -53,7 +55,10 @@ export function resize() {
   app.renderer.resize(view.w, view.h); clampCam();
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
-export function clampCam() { cam.x = clamp(cam.x, 0, Math.max(0, WW - vw())); cam.y = clamp(cam.y, 0, Math.max(0, WH - vh())); }
+/** On touch screens the HUD floats over the map, so the camera may scroll that far past the edges. */
+const coarse = matchMedia('(pointer: coarse)');
+const overscroll = () => coarse.matches ? 120 / cam.zoom : 0;
+export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** Screen (canvas css px) → world px. */
 export const toWorld = (sx, sy) => ({ x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y });
@@ -110,11 +115,11 @@ const light = (tint, scale, alpha) => { const s = new Sprite(tex('light')); s.an
 
 class UnitObj {
   constructor(u) {
-    this.body = new Sprite(); L.units.addChild(this.body);
-    this.flash = new Sprite(); this.flash.blendMode = 'add'; L.units.addChild(this.flash);
+    this.body = new Sprite(); this.body.scale.set(UNIT_SCALE); L.units.addChild(this.body);
+    this.flash = new Sprite(); this.flash.scale.set(UNIT_SCALE); this.flash.blendMode = 'add'; L.units.addChild(this.flash);
     this.ring = new Sprite(); this.ring.anchor.set(0.5); L.sel.addChild(this.ring);
     this.cargo = light(0x4fd1c5, 0.18, 0.9);
-    this.px = u.x; this.py = u.y; this.walk = 0; this.size = u.r > 12 ? 26 : u.r > 9 ? 18 : 12;
+    this.px = u.x; this.py = u.y; this.walk = 0; this.size = u.r > 12 ? 26 : 18;
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
@@ -250,6 +255,18 @@ function hpBar(x, y, w, hp, max) {
   bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
 }
+/** A progress bar with an optional count of queued items (small pips) after it. */
+function progressBar(x, y, w, f, color, pips = 0) {
+  bars.rect(x, y, w, 5).fill({ color: 0x000000, alpha: 0.7 });
+  bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), 3).fill(color);
+  for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, 5).fill(color);
+}
+/** Two bars: construction is paused because nobody is building. */
+function pauseMark(x, y, t) {
+  const a = 0.55 + 0.45 * Math.sin(t * 5);
+  bars.roundRect(x - 9, y - 9, 18, 18, 4).fill({ color: 0x000000, alpha: 0.6 * a });
+  bars.rect(x - 4, y - 5, 3, 10).fill({ color: 0xffb545, alpha: a }); bars.rect(x + 1, y - 5, 3, 10).fill({ color: 0xffb545, alpha: a });
+}
 
 let lastT = 0;
 /** sel: the client's current selection; place: pending building placement or null. */
@@ -277,11 +294,17 @@ export function render(selList, place) {
     if (!v) return;
     if (sel.has(b)) { lines.rect(b.tx * TILE - 1, b.ty * TILE - 1, b.w * TILE + 2, b.h * TILE + 2).stroke({ width: 2, color: b.team === PLAYER ? 0x5ad67d : 0xff5a5a, alpha: 0.9 }); }
     if (seen && (sel.has(b) || b.hp < b.maxhp)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp);
+    // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
+    if (b.team === PLAYER) {
+      const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
+      if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); }
+      else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
+    }
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
-    if (sel.has(u) || u.hp < u.maxhp) hpBar(u.x - u.r - 2, u.y - u.r - 10, u.r * 2 + 4, u.hp, u.maxhp);
+    if (sel.has(u) || u.hp < u.maxhp) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12, r * 2 + 4, u.hp, u.maxhp); }
   });
 
   let pi = 0;

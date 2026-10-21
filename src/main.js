@@ -1,8 +1,9 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
+import * as engine from './engine/index.js';
 import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, cam, toWorld, ALLY, FOE } from './client/gl/render.js';
-import { $, ui, toast, updateHud, setHint, invalidateCard } from './client/hud.js';
+import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
@@ -12,8 +13,10 @@ let started = false;
 const running = () => started && $('start').hidden && $('leave').hidden && !G.over;
 input.enabled = () => started && $('start').hidden && $('leave').hidden;
 
+/** ?seed=N in the URL plays a fixed map (tests use it); otherwise every game gets a new one. */
+const urlSeed = new URLSearchParams(location.search).get('seed');
 function newGame() {
-  const seed = (Math.random() * 1e9) | 0;
+  const seed = urlSeed !== null ? +urlSeed | 0 : (Math.random() * 1e9) | 0;
   resetGame(seed, ui.diff ?? 1);
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard();
   renderTerrain();
@@ -67,9 +70,10 @@ function loop(now) {
     while (acc >= DT && n++ < 5) { step(DT); acc -= DT; }
     if (acc > DT * 5) acc = 0;
     drainEvents();
-    if (G.over && !ended) { ended = true; endGame(); }
-    if (!G.over) ended = false;
   }
+  // Checked every frame, not only while running: the game can end between frames too.
+  if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); }
+  if (!G.over) ended = false;
   updateFx(el);
   if (started) render(ui.sel, ui.place);
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) updateHud(); }
@@ -78,5 +82,5 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, ui, cam, toWorld, centerOn, setResources, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
+window.endfall = { G, map: engine.map, ui, cam, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
 bindInput(); resize(); requestAnimationFrame(loop);

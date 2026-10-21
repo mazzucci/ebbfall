@@ -8,6 +8,11 @@ use crate::path::Pt;
 use crate::world::{Ai, Phase, Task, World};
 
 impl World {
+    /// Switch the opponent off (tests of the player's own abilities should not race the AI's attacks).
+    pub fn disable_ai(&mut self) {
+        self.ai = None;
+    }
+
     pub(crate) fn init_ai(&mut self) {
         self.ai = Some(Ai {
             t: 0.0,

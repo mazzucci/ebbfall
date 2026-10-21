@@ -39,7 +39,7 @@ const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFr
 // ---- scene ----
 const world = new Container();
 const L = {};
-for (const k of ['terrain', 'scenery', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
+for (const k of ['terrain', 'scenery', 'shade', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
 L.units.sortableChildren = true; L.bldgs.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
@@ -83,7 +83,7 @@ const shadeCtx = shadeCv.getContext('2d'), shadeTex = Texture.from(shadeCv); sha
 
 const chunks = [];
 const doodads = [];
-let doodadCheck = 0; // wall-clock time of the last check
+let doodadCheck = 0, doodadBldgs = -1; // wall-clock time of the last check, building count then
 /** Ground props under a building (its footprint or the tiles around their centre) are hidden. */
 function hideCoveredDoodads() {
   for (const d of doodads) if (d.ground) {
@@ -113,10 +113,11 @@ export function renderTerrain() {
   const img = shadeCtx.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) { const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)); img.data.set([Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s), 255], i * 4); }
   shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
-  const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.terrain.addChild(vs);
+  L.shade.removeChildren().forEach(c => c.destroy());
+  const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
-  const cores = G.bldgs.filter(b => b.type === 'core');
+  const cores = G.bldgs.filter(b => b.type === 'core').map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
   for (const d of scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry })) {
     const s = new Sprite(); setTex(s, tex(`doodad_${d.name}`)); s.position.set(d.x, d.y); L.scenery.addChild(s);
     doodads.push({ s, tx: d.tx, ty: d.ty, ground: d.ground });
@@ -306,7 +307,7 @@ export function render(selList, place) {
   const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
   const explored = G.explored;
   cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH);
-  if (now - doodadCheck > 0.25 || now < doodadCheck) { doodadCheck = now; hideCoveredDoodads(); }
+  if (now - doodadCheck > 0.25 || now < doodadCheck || G.bldgs.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = G.bldgs.length; hideCoveredDoodads(); }
   bars.clear(); lines.clear(); flag.visible = false;
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 

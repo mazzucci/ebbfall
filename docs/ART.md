@@ -42,7 +42,7 @@ ground point: unit centre, building footprint centre.
 | `turret_head_<team>_<dir>` | rotating gun, 16 facings |
 | `foundation_<n>`, `scaffold_<n>`, `rubble_<n>` | construction and destruction, n = 2, 3, 4 tiles |
 | `shard_0..3`, `vent_0..3` | crystal field (full → nearly mined out), ether vent swirl |
-| `doodad_<name>` | scenery (`tools/render3d/doodads.js`): on plateaus `boulders_0..2`, `spire_0..1`, `ruin_0..1`; on open ground `crater_0..1`, `wreck_0..1`, `debris_0..1`. Placed by the client from the map seed (`src/client/scenery.js`) |
+| `doodad_<name>` | scenery (`tools/render3d/doodads.js`): on plateaus `boulders_0..2`, `spire_0..1`, `ruin_0..1`, `wreck_0..1`; on open ground (flat, walked over) `crater_0..1`, `debris_0..1`. Placed by the client from the map seed (`src/client/scenery.js`) |
 | `boom_big_0..7`, `boom_small_0..5`, `puff_0..3`, `flash_0..2`, `spark_0..3` | effects |
 | `flag_0..3`, `sel_<r>_<0|1>`, `bolt`, `shell`, `missile`, `light`, `heal_0..2` | rally flag, selection rings (r = 12, 18, 26), projectiles, additive light, Medic heal sparkle |
 

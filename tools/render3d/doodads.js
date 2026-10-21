@@ -1,5 +1,5 @@
-// Scenery ("doodads"): neutral props the client scatters over the map. Tall ones (boulders, spires, ruins) stand on
-// rock plateaus, which nothing walks on; low ones (craters, wrecks, debris) lie on open ground and are walked over.
+// Scenery ("doodads"): neutral props the client scatters over the map. Solid ones (boulders, spires, ruins, wrecks)
+// stand on rock plateaus, which nothing walks on; flat ones (craters, debris) lie on open ground and are walked over.
 // All are centred on their anchor; `v` picks a variant and seeds the shapes.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, limb } from './models.js';
@@ -11,8 +11,8 @@ export const DMATS = {
   rockDark: std({ color: 0x363b46, roughness: 0.95, metalness: 0.05, flatShading: true }),
   dirt: std({ color: 0x45382c, roughness: 1, flatShading: true }),
   scorch: std({ color: 0x2e251d, roughness: 1 }),
-  rust: std({ color: 0x5a3c2a, roughness: 0.75, metalness: 0.45 }),
-  rustDark: std({ color: 0x33271f, roughness: 0.8, metalness: 0.5 }),
+  rust: std({ color: 0x4a3a30, roughness: 0.9, metalness: 0.2 }),
+  rustDark: std({ color: 0x2f2620, roughness: 0.9, metalness: 0.25 }),
   hull: std({ color: 0x353b43, roughness: 0.6, metalness: 0.6 }),
   concrete: std({ color: 0x67645f, roughness: 0.95, metalness: 0.02, flatShading: true }),
   steel: std({ color: 0x585e66, roughness: 0.4, metalness: 0.85 }),
@@ -64,13 +64,14 @@ export function crater(v) {
   const g = grp(); s = 401 + v * 31;
   const r = 14 + v * 6;
   add(g, new THREE.CircleGeometry(r, 24), M.scorch, 0, 0.2, 0, -Math.PI / 2);
-  const rim = add(g, new THREE.TorusGeometry(r, 1.8 + v * 0.6, 6, 22), M.dirt, 0, 0.2, 0, Math.PI / 2);
-  rim.scale.set(1, 1, 0.45);
+  const rim = add(g, new THREE.TorusGeometry(r, 1.8 + v * 0.6, 6, 22), M.dirt, 0, 0.2, 0, Math.PI / 2, 0, rnd() * 3);
+  rim.scale.set(1.12, 0.9, 0.45); // a little oval, not a manhole
+  for (let k = 0; k < 3; k++) { const a = rnd() * Math.PI * 2, c = 3 + rnd() * 2; add(g, stone(c), M.dirt, Math.cos(a) * r * 1.05, c * 0.3, Math.sin(a) * r * 0.95, rnd(), rnd() * 3, 0).scale.set(1.6, 0.5, 1); }
   for (let k = 0; k < 9 + v * 4; k++) { const a = rnd() * Math.PI * 2, d = r + 3 + rnd() * 8, c = 1 + rnd() * 1.8; add(g, stone(c), M.dirt, Math.cos(a) * d, c * 0.4, Math.sin(a) * d, rnd() * 3, rnd() * 3, 0); }
   return g;
 }
 
-/** A tank hull half sunk into the ground, its turret thrown beside it. */
+/** A tank hull half sunk into the ground, its turret thrown beside it (crashed on a plateau). */
 export function wreck(v) {
   const g = grp(); s = 503 + v * 37;
   const hull = grp(); hull.rotation.set(0.12, v ? 0.9 : -0.5, v ? -0.18 : 0.15); hull.position.y = -1.5; g.add(hull);
@@ -94,7 +95,12 @@ export function debris(v) {
     const w = 3 + rnd() * 7, d = 2 + rnd() * 5, x = (rnd() - 0.5) * 34, z = (rnd() - 0.5) * 24;
     add(g, rbox(w, 0.8, d, 0.3), [M.hull, M.rust, M.steel][k % 3], x, 0.5 + rnd() * 0.8, z, (rnd() - 0.5) * 0.4, rnd() * 3, (rnd() - 0.5) * 0.4);
   }
-  for (let k = 0; k < 2 + v; k++) add(g, rbox(24 + rnd() * 8, 1.6, 2.2, 0.3), M.rustDark, (rnd() - 0.5) * 14, 1.2, (rnd() - 0.5) * 16, 0, rnd() * 3, (rnd() - 0.5) * 0.2);
+  for (let k = 0; k < 2 + v; k++) { // I-beams: a web and two flanges
+    const beam = grp(), L = 24 + rnd() * 8;
+    add(beam, rbox(L, 2.4, 0.6, 0.15), M.steel, 0, 1.2, 0);
+    for (const y of [0.3, 2.4]) add(beam, rbox(L, 0.5, 2.6, 0.15), k % 2 ? M.steel : M.hull, 0, y, 0);
+    beam.position.set((rnd() - 0.5) * 14, 0.2, (rnd() - 0.5) * 16); beam.rotation.set(0, rnd() * 3, (rnd() - 0.5) * 0.12); g.add(beam);
+  }
   const drum = add(g, cyl(2.6, 2.6, 6, 12), M.rust, v ? -10 : 9, 2.6, v ? 7 : -6, Math.PI / 2, rnd() * 3, 0);
   drum.scale.set(1, 1, 0.85);
   return g;
@@ -103,7 +109,8 @@ export function debris(v) {
 /** [name, model, radius (game units), height]: what the client may place, by where it may stand. */
 export const DOODADS = {
   rock: [['boulders_0', () => boulders(0), 26, 22], ['boulders_1', () => boulders(1), 28, 22], ['boulders_2', () => boulders(2), 30, 24],
-    ['spire_0', () => spire(0), 22, 42], ['spire_1', () => spire(1), 24, 54], ['ruin_0', () => ruin(0), 26, 28], ['ruin_1', () => ruin(1), 26, 38]],
-  ground: [['crater_0', () => crater(0), 26, 6], ['crater_1', () => crater(1), 34, 7], ['wreck_0', () => wreck(0), 34, 14], ['wreck_1', () => wreck(1), 34, 14],
+    ['spire_0', () => spire(0), 22, 42], ['spire_1', () => spire(1), 24, 54], ['ruin_0', () => ruin(0), 26, 28], ['ruin_1', () => ruin(1), 26, 38],
+    ['wreck_0', () => wreck(0), 30, 14], ['wreck_1', () => wreck(1), 30, 14]],
+  ground: [['crater_0', () => crater(0), 26, 6], ['crater_1', () => crater(1), 34, 7],
     ['debris_0', () => debris(0), 26, 6], ['debris_1', () => debris(1), 28, 6]],
 };

@@ -28,8 +28,36 @@ await app.init({ canvas: cv, background: 0x0b0f16, antialias: false, roundPixels
 // atlas.json indexes the pages (each a PixiJS spritesheet at scale 2) and the animations, which may span pages.
 const artBase = new URL('art/', document.baseURI).href;
 const index = await (await fetch(artBase + 'atlas.json')).json();
-const textures = {};
-for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)))) Object.assign(textures, sh.textures);
+const textures = {}, frames = {};
+for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)))) {
+  Object.assign(textures, sh.textures);
+  // HUD portraits are cut from a plain decoded copy of the page (the browser has it cached): reading back Pixi's
+  // GPU-side texture costs about a second per page.
+  const img = new Image(); img.src = new URL(sh.data.meta.image, artBase).href;
+  for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 } };
+}
+await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
+const iconCache = new Map();
+/**
+ * A small portrait of a sprite for the HTML HUD, as a data URL: the frame scaled so its larger side is `zoom` x
+ * `size` css px, centred a little above its ground point, cut to a size x size square. Cached.
+ */
+export function artIcon(name, size = 28, zoom = 1) {
+  const key = `${name}|${size}|${zoom}`;
+  if (iconCache.has(key)) return iconCache.get(key);
+  const fr = frames[name]; let url = '';
+  if (fr) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), n = Math.round(size * dpr), { x, y, w, h } = fr.f;
+    const c = document.createElement('canvas'); c.width = c.height = n;
+    const ctx = c.getContext('2d', { willReadFrequently: true }), k = n * zoom / Math.max(w, h); // a CPU canvas: no GPU upload of the page
+    const cx = w * fr.a.x, cy = h * fr.a.y - h * 0.08;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(fr.img, x, y, w, h, n / 2 - cx * k, n / 2 - cy * k, w * k, h * k);
+    url = c.toDataURL();
+  }
+  iconCache.set(key, url);
+  return url;
+}
 const tex = (name) => textures[name] || Texture.EMPTY;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 const FACINGS = index.facings || 16;

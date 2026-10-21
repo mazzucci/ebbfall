@@ -44,11 +44,15 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());
+  // Games start fully zoomed out; the scenarios play closer in (as players do, and software WebGL draws the wide
+  // view slowly enough to stretch a double-click past its window).
+  const startZoom = await page.evaluate(() => endfall.cam.zoom);
+  await page.evaluate((z) => { const c = endfall.G.bldgs.find(b => b.team === 0); endfall.cam.zoom = z; endfall.centerOn(c.x + 40, c.y); }, touch ? 1.75 : 2);
   const cdp = touch ? await ctx.newCDPSession(page) : null;
   const ev = (fn, arg) => page.evaluate(fn, arg);
 
   const d = {
-    page, errors, touch,
+    page, errors, touch, startZoom,
     close: () => ctx.close(),
     eval: ev,
     /** Read world state (plain data). */
@@ -105,7 +109,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     key: (k) => page.keyboard.press(k),
     selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
     /** Labels of the command card buttons as the player sees them, with their enabled state. */
-    card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('span:nth-child(2)').textContent, enabled: !b.disabled }))),
+    card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('.l').textContent, enabled: !b.disabled }))),
     async pressCard(label) {
       const b = page.locator('#cmd button:not([disabled])', { hasText: label }).first();
       await b.waitFor({ timeout: 5000 });

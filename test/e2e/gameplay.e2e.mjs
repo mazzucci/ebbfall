@@ -171,6 +171,13 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     await d.clickEntity(h.id);
     assert.equal((await d.selection())[0]?.type, 'harvester', 'tapping a harvester selects it');
     assert.equal(await d.hudText('#selMiniName', /^Harvester$/), 'Harvester');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Move', 'Stop', 'Attack', 'Hold', 'Deselect'], 'a Harvester card leads with Build');
+    await d.pressCard('Build');
+    const depot = d.page.locator('#cmd button', { hasText: 'Depot' });
+    assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
+    assert.equal(await depot.locator('.c .s').textContent(), '100');
+    assert.ok(await depot.locator('img.por').count(), 'the Depot button has a portrait');
+    await d.pressCard('Back');
     await d.clickEntity(coreOf(s).id);
     await d.pressCard('Harvester');
     await d.skip(2);
@@ -217,6 +224,7 @@ test('idle and army buttons, and double-click selects all of a type on screen', 
   try {
     const s = await d.state(), core = coreOf(s);
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 140, core.y - 40]);
+    assert.equal(d.startZoom, 0.75, 'the game starts fully zoomed out');
     await d.page.locator('#btnArmy').click();
     assert.deepEqual((await d.selection()).map(u => u.id).sort(), ids.slice().sort(), 'ARMY selects every combat unit');
     // Make a harvester idle, then find it with the IDLE button.

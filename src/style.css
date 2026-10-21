@@ -26,6 +26,15 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #clock{font-family:var(--mono);font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
 .ib:hover{border-color:var(--ally)} .ib:focus-visible{outline:2px solid var(--ally);outline-offset:1px}
+.ib.icon{display:flex;align-items:center;gap:6px;padding:4px 8px} .ib.icon .ico{width:16px;height:16px}
+@media (max-width:1099px){.ib.icon .t{display:none}}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.por{display:block;flex:none;pointer-events:none}
+/* Idle-harvester and army chips in the top bar: a portrait and a count. */
+.chip{display:flex;align-items:center;gap:3px;background:none;border:1px solid transparent;border-radius:4px;padding:1px 6px 1px 2px;color:var(--fg);cursor:pointer;font:15px var(--mono);font-variant-numeric:tabular-nums}
+.chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%} .chip b{font-weight:400}
+.chip.zero{opacity:.6} .chip.warn{border-color:var(--warn);color:var(--warn);animation:pulse-warn 1.2s infinite alternate}
+@keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 #msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);pointer-events:none;display:flex;flex-direction:column;gap:4px;align-items:center;width:max-content;max-width:90%}
@@ -38,7 +47,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 #info{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-width:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}
-#info .title{display:flex;align-items:baseline;gap:10px;min-width:0}
+#info .title{display:flex;align-items:center;gap:10px;min-width:0} #selPor:empty{display:none}
 #info h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap}
 .bar{height:8px;background:#0a0e14;border:1px solid var(--line);border-radius:2px;overflow:hidden;position:relative}
@@ -47,18 +56,24 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:4px 10px;font:12px var(--mono);color:var(--muted)}
 #stats b{color:var(--fg);font-weight:400}
 #queue{display:flex;gap:4px;flex-wrap:wrap}
-.qi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 11px var(--display);color:var(--ally2)}
+.qi{width:32px;height:32px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 11px var(--display);color:var(--ally2)}
 #group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start}
-.gi{width:26px;height:26px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
+.gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
-#cmd{display:grid;grid-template-columns:repeat(4,52px);grid-template-rows:repeat(3,50px);gap:4px;align-content:start}
-.cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0;font:600 10.5px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}
+#cmd{display:grid;grid-template-columns:repeat(4,62px);grid-auto-rows:54px;gap:4px;align-content:start}
+.cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0 2px;font:600 10px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;overflow:hidden}
+.cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico,.cb .por{order:1} .cb .c{order:3}
+.cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)}
+.cb.gap{visibility:hidden}
 .cb:hover{border-color:var(--ally)} .cb:focus-visible{outline:2px solid var(--ally)}
 .cb.active{border-color:var(--ally);background:#2a2415}
 .cb:disabled{opacity:.38;cursor:default}
-.cb .k{position:absolute;top:2px;right:4px;font:10px var(--mono);color:var(--ally2)}
+.cb .k{position:absolute;top:2px;right:3px;font:9px var(--mono);color:var(--ally2)}
 .cb .c{font:10px var(--mono);color:var(--muted);display:flex;gap:5px}
 .cb .c .s{color:var(--shard)} .cb .c .e{color:var(--ether)}
+.cb.poor{opacity:.45} /* can't afford it yet: looks inactive, a tap explains */
+.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* shards always in the left column */
+.cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:5px;height:5px;flex:none}
 .cb.cancel{color:var(--foe2)}
 .screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;padding:16px;box-sizing:border-box}
 .card{background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:22px 24px;max-width:520px;width:100%;box-sizing:border-box;max-height:100%;overflow:auto}
@@ -79,7 +94,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #hud{height:156px;grid-template-columns:auto minmax(0,1fr)}
   #minimap{width:156px;height:156px}
   #info{display:none}
-  #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,46px);grid-column:2;grid-row:1}
+  #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:1}
   #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
 }
 #upg{gap:10px;font-size:12px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:3px}
@@ -95,16 +110,17 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 @media (max-height:500px) and (orientation:landscape) and (pointer:coarse){
   #app{gap:4px;padding-top:max(4px,env(safe-area-inset-top,0px));padding-bottom:max(4px,env(safe-area-inset-bottom,0px))}
   #top{height:30px;gap:10px;padding:0 8px} .brand{display:none} .res{font-size:14px} #clock{font-size:13px}
-  .ib:not(.big){padding:4px 7px;font-size:10px}
+  .ib:not(.big){padding:4px 7px;font-size:10px} .ib.icon{padding:3px 7px}
+  .chip{font-size:13px} .chip .pic{width:20px;height:20px}
   /* The HUD floats over the battlefield: minimap bottom-left, command card bottom-right (thumb zones). */
   #hud{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));
     bottom:max(10px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}
   #hud>*{pointer-events:auto}
   #info{display:none}
   #minimap{width:104px;height:104px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
-  #cmd{grid-template-columns:repeat(4,50px);grid-template-rows:none;grid-auto-rows:42px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #cmd{grid-template-columns:repeat(4,54px);grid-auto-rows:52px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
-  .cb{font-size:9.5px} .cb .c{display:none}
+  .cb{font-size:9px} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
   #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
   #hint{left:126px;bottom:14px}
   .tb{padding:7px 10px;font-size:12px} .tb.grp{min-width:42px;min-height:34px}

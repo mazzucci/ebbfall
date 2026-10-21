@@ -24,7 +24,10 @@ npm run preview    # serve dist/ on http://localhost:4173
 npm test           # headless sim tests (node --test), no browser needed
 npm run sim        # scripted 10-minute game per difficulty on the Rust sim, prints economy/army snapshots
 npm run parity     # JS reference sim vs Rust sim, state hash compared every tick over many seeds
-cargo test         # Rust sim unit tests (native, no WASM needed)
+cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay.rs), native, no WASM needed
+cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
+npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and
+                   # a browser: npx playwright-core install chromium)
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
                              # the 3D part needs a Chromium, see docs/ART.md)
 ```
@@ -74,6 +77,8 @@ src/client/           everything that touches the browser
   fx.js               particles and markers (client-only, fed by sim events)
 test/sim.test.js      headless tests
 test/engine.test.js   the WASM sim through src/engine in Node: data/RNG/hypot parity, gameplay, JS-vs-Rust hashes
+test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios)
+tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 scripts/parity.mjs    runs both sims with the same seed and orders, reports the first tick whose hashes differ
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
@@ -112,6 +117,17 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   or `src/engine/pkg/`.
 - Rust sim: f64 rules through `jsmath` helpers, no `HashMap`/`HashSet` iteration, validate ids/teams coming from JS
   (a panic poisons the `Game`), `wasm-bindgen` stays pinned with `=`.
+
+## Tests that guard gameplay
+
+- `crates/endfall-sim/tests/gameplay.rs`: every building can be built and every unit trained, requirements,
+  construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
+  games, and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,
+  resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
+- `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command
+  card buttons) on desktop and a landscape phone. The debug handle may only be used to read state, fast-forward
+  (`endfall.skip`) and grant resources; actions must go through the UI. Add a scenario for every new UI flow.
 
 ## Testing a change by hand
 

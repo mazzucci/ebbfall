@@ -1,0 +1,147 @@
+// End-to-end gameplay through the real UI in headless Chromium. Run: npm run build && npm run test:e2e
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
+
+before(start);
+after(stop);
+
+const mine = (s, type) => s.units.filter(u => u.team === 0 && u.type === type);
+const myBldg = (s, type) => s.bldgs.filter(b => b.team === 0 && b.type === type);
+const coreOf = (s) => myBldg(s, 'core')[0];
+
+/** Build `type` through the UI next to the core and wait until it is finished. Returns the building. */
+async function buildAndFinish(d, hotkey, type, harvesterIndex = 0) {
+  let s = await d.state();
+  const core = coreOf(s), spot = await d.findSpot(type, { tx: core.tx + 1, ty: core.ty + 1 });
+  assert.ok(spot, `room for a ${type}`);
+  const h = mine(s, 'harvester')[harvesterIndex];
+  await d.buildWithUI(hotkey, type, spot.tx, spot.ty, h.id);
+  s = await d.state();
+  const b = s.bldgs.find(b => b.team === 0 && b.type === type && b.tx === spot.tx && b.ty === spot.ty);
+  assert.ok(b, `${type} placed (toasts: ${(await d.toasts()).join(' | ')})`);
+  await until(d, async () => (await d.state()).bldgs.find(x => x.id === b.id)?.done, { seconds: 120, what: `${type} to finish` });
+  return b;
+}
+
+test('a depot built through the UI finishes and raises supply', async () => {
+  const d = await newGame(DESKTOP);
+  try {
+    await d.grant(500, 0);
+    await buildAndFinish(d, 'd', 'depot');
+    assert.deepEqual((await d.state()).sup[1], 18);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('every finished production building offers its unit, and pressing it trains one', async () => {
+  const d = await newGame(DESKTOP);
+  try {
+    await d.grant(5000, 5000);
+    const rax = await buildAndFinish(d, 'b', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    await buildAndFinish(d, 'r', 'turret', 2);
+    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [forge, 'Vanguard', 'vanguard']]) {
+      await d.clickEntity(b.id);
+      const card = await d.card();
+      const why = async () => JSON.stringify({ card, sel: await d.selection(), ui: await d.eval(() => [endfall.ui.mode, endfall.ui.place]), at: b, near: (await d.state()).units.filter(u => Math.hypot(u.x - b.x, u.y - b.y) < 70).map(u => [u.type, Math.round(u.x - b.x), Math.round(u.y - b.y)]) });
+      assert.ok(card.some(c => c.label === label && c.enabled), `${b.type} offers ${label}: ${card.some(c => c.label === label) ? '' : await why()}`);
+      const before = mine(await d.state(), unit).length;
+      await d.pressCard(label);
+      assert.equal((await d.state()).bldgs.find(x => x.id === b.id).queue[0], unit, `${label} queued`);
+      await until(d, async () => mine(await d.state(), unit).length > before, { seconds: 40, what: `${label} to be trained` });
+    }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a building under construction shows its progress, and a stalled one can be resumed', async () => {
+  const d = await newGame(DESKTOP);
+  try {
+    await d.grant(1000, 0);
+    let s = await d.state();
+    const core = coreOf(s), spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    const h = mine(s, 'harvester')[0];
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await d.skip(10);
+    // Pull the builder away: construction must stop and say so.
+    await d.clickEntity(h.id);
+    await d.rightClickWorld(core.x - 120, core.y - 120);
+    s = await d.state();
+    const depot = myBldg(s, 'depot')[0];
+    await d.skip(8);
+    const stalled = (await d.state()).bldgs.find(b => b.id === depot.id);
+    assert.ok(!stalled.done && Math.abs(stalled.progress - depot.progress) < 1e-9, 'no builder, no progress');
+    await d.clickEntity(depot.id);
+    assert.match(await d.hudText('#selSub', /paused/), /paused/, 'the panel says construction is paused');
+    assert.ok((await d.card()).some(c => c.label === 'Resume'), 'a Resume button is offered');
+    await d.pressCard('Resume');
+    await until(d, async () => (await d.state()).bldgs.find(b => b.id === depot.id)?.done, { seconds: 60, what: 'the resumed depot to finish' });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('training shows progress and the queue in the panel', async () => {
+  const d = await newGame(DESKTOP);
+  try {
+    await d.grant(1000, 0);
+    const core = coreOf(await d.state());
+    await d.clickEntity(core.id);
+    await d.pressCard('Harvester'); await d.pressCard('Harvester');
+    await d.skip(3);
+    assert.match(await d.hudText('#selSub', /Training Harvester \d+% \+1/), /Training Harvester \d+% \+1/);
+    assert.equal(await d.page.locator('#queue .qi').count(), 2);
+  } finally { await d.close(); }
+});
+
+test('harvesters mine ether once an extractor stands on the vent', async () => {
+  const d = await newGame(DESKTOP);
+  try {
+    await d.grant(1000, 0);
+    let s = await d.state();
+    const core = coreOf(s);
+    const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+    const h = mine(s, 'harvester');
+    // Click a little off the vent: placement snaps onto it.
+    await d.clickEntity(h[0].id); await d.key('b'); await d.key('e');
+    const [x, y] = await d.screen(vent.x + 14, vent.y + 10); await d.page.mouse.move(x, y); await d.page.mouse.click(x, y);
+    s = await d.state();
+    const ext = myBldg(s, 'extractor')[0];
+    assert.ok(ext, `extractor placed (${(await d.toasts()).join(' | ')})`);
+    await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the extractor' });
+    for (const u of h.slice(1, 4)) { await d.clickEntity(u.id); await d.rightClickWorld(ext.x, ext.y); }
+    await until(d, async () => (await d.state()).res[1] > 0, { seconds: 60, what: 'ether income' });
+  } finally { await d.close(); }
+});
+
+test('phone: tap selects, the command card works, the HUD shows status, back asks before leaving', async () => {
+  const d = await newGame(PHONE);
+  try {
+    await d.grant(1000, 0);
+    const s = await d.state();
+    const h = mine(s, 'harvester')[0];
+    await d.clickEntity(h.id);
+    assert.equal((await d.selection())[0]?.type, 'harvester', 'tapping a harvester selects it');
+    assert.equal(await d.hudText('#selMiniName', /^Harvester$/), 'Harvester');
+    await d.clickEntity(coreOf(s).id);
+    await d.pressCard('Harvester');
+    await d.skip(2);
+    const mini = await d.hudText('#selMiniHp', /Training Harvester/);
+    const diag = mini.includes('Training') ? '' : JSON.stringify({ core: (await d.state()).bldgs.find(b => b.type === 'core' && b.team === 0), card: await d.card(), sel: await d.selection(), toasts: await d.toasts(), res: (await d.state()).res });
+    assert.match(mini, /Training Harvester/, diag);
+    await d.page.goBack(); await d.page.waitForTimeout(300);
+    assert.ok(await d.page.locator('#leave').isVisible(), 'the leave dialog opens instead of leaving');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a whole game against the AI runs to the end without errors', async () => {
+  const d = await newGame(DESKTOP, 2);
+  try {
+    await until(d, async () => (await d.state()).over, { seconds: 1500, step: 30, what: 'the game to end' });
+    await d.page.waitForTimeout(400);
+    assert.ok(await d.page.locator('#end').isVisible(), 'the end screen shows');
+    assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

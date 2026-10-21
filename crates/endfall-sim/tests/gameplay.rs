@@ -110,6 +110,7 @@ fn every_building_and_unit_can_be_made() {
         let _turret = build(&mut w, BldgKind::Turret, h[3], 90);
         let _ext = build(&mut w, BldgKind::Extractor, h[0], 90);
         let _second_core = build(&mut w, BldgKind::Core, h[1], 150);
+        let airfield = build(&mut w, BldgKind::Airfield, h[2], 150);
         assert!(w.bldg(depot).unwrap().done);
         let core_id = w
             .bldgs
@@ -125,7 +126,13 @@ fn every_building_and_unit_can_be_made() {
         w.queue_unit(core_id, UnitKind::Harvester).unwrap();
         w.queue_unit(rax, UnitKind::Trooper).unwrap();
         w.queue_unit(forge, UnitKind::Vanguard).unwrap();
-        run(&mut w, 35);
+        w.queue_unit(rax, UnitKind::Lancer).unwrap();
+        w.queue_unit(rax, UnitKind::Medic).unwrap();
+        w.queue_unit(airfield, UnitKind::Wasp).unwrap();
+        run(&mut w, 70);
+        for k in [UnitKind::Lancer, UnitKind::Medic, UnitKind::Wasp] {
+            assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
+        }
         assert_eq!(
             count(&w, PLAYER, UnitKind::Harvester),
             before[0] + 1,
@@ -408,6 +415,200 @@ fn cancelling_construction_refunds_three_quarters() {
     );
 }
 
+// ---------------- flyers, anti-air and healing ----------------
+
+/// A quiet world with no starting units, for duels.
+fn arena(seed: u32) -> World {
+    let mut w = World::new(seed, 1);
+    w.disable_ai();
+    w.units.clear();
+    w.recalc_supply(PLAYER);
+    w.recalc_supply(ENEMY);
+    w
+}
+
+#[test]
+fn flyers_cross_cliffs_in_a_straight_line() {
+    let mut w = arena(4242);
+    // Find a straight segment whose middle crosses rock.
+    let mut found = None;
+    'search: for y in 4..60 {
+        for x in 4..50 {
+            let blocked_mid = (x + 4..x + 9).any(|xx| w.map.rock[(y * MW + xx) as usize] != 0);
+            if !w.map.blocked(x, y) && !w.map.blocked(x + 13, y) && blocked_mid {
+                found = Some((x, y));
+                break 'search;
+            }
+        }
+    }
+    let (x, y) = found.expect("a cliff to fly over");
+    let (sx, sy, tx) = (
+        x as f64 * TILE + 16.0,
+        y as f64 * TILE + 16.0,
+        (x + 13) as f64 * TILE + 16.0,
+    );
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, sx, sy);
+    w.move_to(wasp, tx, sy);
+    let mut over_rock = false;
+    let secs = (tx - sx) / UnitKind::Wasp.def().speed + 1.0;
+    for _ in 0..(secs * TPS as f64) as u32 {
+        w.step();
+        let u = w.unit(wasp).unwrap();
+        let (cx, cy) = World::tile_of(u.x, u.y);
+        over_rock |= w.map.rock[(cy * MW + cx) as usize] != 0;
+        assert!((u.y - sy).abs() < 1.0, "flies straight");
+    }
+    assert!(over_rock, "it flew over rock");
+    assert!(
+        (w.unit(wasp).unwrap().x - tx).abs() < 40.0,
+        "arrived in straight-line time"
+    );
+}
+
+#[test]
+fn ground_only_weapons_cannot_touch_flyers() {
+    let mut w = arena(7);
+    let van = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 680.0, 900.0);
+    w.attack_ent(van, wasp);
+    assert_eq!(
+        w.unit(van).unwrap().task,
+        Task::Idle,
+        "an order to shoot a flyer is refused"
+    );
+    w.hold_unit(wasp); // the wasp just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
+    run(&mut w, 8);
+    let v = w.unit(van).unwrap();
+    assert!(
+        !matches!(v.task, Task::Attack { .. }),
+        "the vanguard neither auto-targets nor retaliates against the wasp"
+    );
+    assert!(
+        w.unit(wasp).is_some_and(|u| u.hp == u.maxhp),
+        "and never hurts it"
+    );
+}
+
+#[test]
+fn lancers_troopers_and_turrets_shoot_flyers_down() {
+    for shooter in ["lancer", "trooper", "turret"] {
+        let mut w = arena(9);
+        match shooter {
+            "turret" => {
+                w.make_building(BldgKind::Turret, PLAYER, 20, 30, true);
+            }
+            k => {
+                w.make_unit(
+                    UnitKind::parse(k).unwrap(),
+                    PLAYER,
+                    21.0 * TILE,
+                    31.0 * TILE,
+                );
+            }
+        }
+        // The wasp hovers just outside its own reach; anything that can hit the air should bring it down.
+        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 21.0 * TILE + 170.0, 31.0 * TILE);
+        w.hold_unit(wasp);
+        run(&mut w, 40);
+        assert!(w.unit(wasp).is_none(), "{shooter} shot the wasp down");
+    }
+}
+
+#[test]
+fn a_lancer_beats_a_wasp_up_close() {
+    let mut w = arena(10);
+    let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 900.0);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 660.0, 900.0);
+    w.attack_ent(wasp, lancer);
+    run(&mut w, 20);
+    assert!(
+        w.unit(wasp).is_none() && w.unit(lancer).is_some(),
+        "anti-air wins its duel"
+    );
+}
+
+#[test]
+fn medics_heal_infantry_but_not_machines() {
+    let mut w = arena(11);
+    let medic = w.make_unit(UnitKind::Medic, PLAYER, 600.0, 900.0);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 630.0, 900.0);
+    let van = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 940.0);
+    for (id, hp) in [(trooper, 10.0), (van, 50.0)] {
+        w.units.iter_mut().find(|u| u.id == id).unwrap().hp = hp;
+    }
+    let _ = medic;
+    run(&mut w, 10);
+    assert_eq!(
+        w.unit(trooper).unwrap().hp,
+        w.unit(trooper).unwrap().maxhp,
+        "trooper healed to full"
+    );
+    assert_eq!(w.unit(van).unwrap().hp, 50.0, "vanguards are machines");
+}
+
+#[test]
+fn medics_walk_to_hurt_infantry_they_can_see() {
+    let mut w = arena(12);
+    let medic = w.make_unit(UnitKind::Medic, PLAYER, 600.0, 900.0);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 780.0, 900.0);
+    w.units.iter_mut().find(|u| u.id == trooper).unwrap().hp = 5.0;
+    run(&mut w, 15);
+    assert!(
+        w.unit(trooper).unwrap().hp > 40.0,
+        "the medic came over and healed"
+    );
+    assert!(w.unit(medic).unwrap().x > 650.0);
+}
+
+#[test]
+fn medics_need_a_forge_and_airfields_need_a_forge() {
+    let mut w = rich(13);
+    let h = harvesters(&w, PLAYER);
+    let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
+    assert_eq!(
+        w.queue_unit(rax, UnitKind::Medic),
+        Err("Requires War Forge".into())
+    );
+    let (tx, ty) = spot(&w, BldgKind::Airfield);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
+        Err("Requires War Forge".into())
+    );
+    build(&mut w, BldgKind::Forge, h[1], 120);
+    assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
+}
+
+#[test]
+fn walkers_and_flyers_pass_under_and_over_each_other() {
+    let mut w = arena(14);
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 700.0, 900.0);
+    w.hold_unit(wasp);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
+    w.move_to(trooper, 800.0, 900.0);
+    run(&mut w, 4);
+    let (tx, wx) = (w.unit(trooper).unwrap().x, w.unit(wasp).unwrap().x);
+    assert!(tx > 760.0, "the trooper walked under the wasp: {tx}");
+    assert_eq!(wx, 700.0, "and did not push it");
+}
+
+#[test]
+fn the_ai_answers_flyers_with_lancers() {
+    let mut w = World::new(31, 0); // Easy: its first attack comes late enough to watch it react
+    run(&mut w, 150); // let it build a barracks
+    for k in 0..3 {
+        let id = w.make_unit(UnitKind::Wasp, PLAYER, 300.0 + k as f64 * 30.0, 1500.0);
+        w.hold_unit(id);
+    }
+    run(&mut w, 120);
+    assert!(
+        count(&w, ENEMY, UnitKind::Lancer) > 0
+            || w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
+        "AI trains lancers against flyers"
+    );
+}
+
 // ---------------- randomized orders + invariants ----------------
 
 fn check_invariants(w: &World, ctx: &str) {
@@ -474,7 +675,7 @@ fn check_invariants(w: &World, ctx: &str) {
             b.id
         );
         assert!(
-            b.queue.iter().all(|&k| b.kind.def().trains == Some(k)),
+            b.queue.iter().all(|k| b.kind.def().trains.contains(k)),
             "{ctx}: building {} queues {:?}",
             b.id,
             b.queue
@@ -572,16 +773,25 @@ fn check_invariants(w: &World, ctx: &str) {
     }
 }
 
-const KINDS_B: [&str; 7] = [
+const KINDS_B: [&str; 8] = [
     "depot",
     "barracks",
     "extractor",
     "forge",
     "turret",
     "core",
+    "airfield",
     "nonsense",
 ];
-const KINDS_U: [&str; 4] = ["harvester", "trooper", "vanguard", "nonsense"];
+const KINDS_U: [&str; 7] = [
+    "harvester",
+    "trooper",
+    "vanguard",
+    "lancer",
+    "medic",
+    "wasp",
+    "nonsense",
+];
 
 /// One random order through the same Game API the browser uses, with ids that may be stale or garbage.
 fn random_order(g: &mut Game, r: &mut Mulberry32) {
@@ -608,14 +818,14 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
         7 => {
             let _ = g.place_building(
                 r.below(3) as u8,
-                KINDS_B[r.below(7) as usize],
+                KINDS_B[r.below(8) as usize],
                 (x / 32.0) as i32,
                 (y / 32.0) as i32,
                 a,
             );
         }
         8 => {
-            let _ = g.queue_unit(a, KINDS_U[r.below(4) as usize]);
+            let _ = g.queue_unit(a, KINDS_U[r.below(7) as usize]);
         }
         9 => g.cancel_queue(a, r.below(7)),
         10 => g.set_rally(a, x, y, if r.below(2) == 0 { b } else { 0 }),

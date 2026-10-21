@@ -2,7 +2,7 @@
 import './style.css';
 import * as engine from './engine/index.js';
 import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, boom, sparkAt, cam, toWorld, ALLY, FOE } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, toWorld, ALLY, FOE } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
@@ -38,6 +38,7 @@ function drainEvents() {
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); }
     else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); }
+    else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty);
   }
   G.events.length = 0;
 }

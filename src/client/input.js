@@ -1,10 +1,12 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
-import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally } from '../engine/index.js';
+import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE, UNIT_SCALE } from './gl/render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE, UNIT_SCALE, AIR_LIFT } from './gl/render.js';
+/** Where a unit appears on screen (flyers are drawn above the ground point they occupy). */
+const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
 
 export const drag = { down: false, box: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
 const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
@@ -17,7 +19,7 @@ function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.cl
 function pick(wx, wy) {
   const reach = drag.ptype === 'touch' ? 16 : 6, p = { x: wx, y: wy };
   let best = null, bd = Infinity;
-  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; const d = dist(u, p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
+  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
   if (best) return best;
   for (const b of G.bldgs) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) { if (b.team === ENEMY && !G.explored[idx(b.tx, b.ty)]) continue; return b; } }
   for (const n of map.nodes) { if (G.explored[idx(n.tx, n.ty)] && dist(n, { x: wx, y: wy }) <= n.r + 6) return n; }
@@ -35,7 +37,7 @@ function select(list, add) {
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE; return u.team === PLAYER && u.x >= a.x - r && u.x <= b.x + r && u.y >= a.y - r && u.y <= b.y + r; });
+  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE, s = shown(u); return u.team === PLAYER && s.x >= a.x - r && s.x <= b.x + r && s.y >= a.y - r && s.y <= b.y + r; });
   if (us.length) { select(us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === PLAYER && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
@@ -60,7 +62,7 @@ function commandAt(wx, wy) {
   const sel = playerSel(); if (!sel.length) return;
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
-  if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) attackEnt(u, hit); marker(hit.x, hit.y, FOE); sfx('attack'); }
+  if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack'); }
   else if ((hit && hit.kind === 'node') || vent) { const node = vent || hit; for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy); marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move'); }
   else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); sfx('move'); }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); }
@@ -79,7 +81,7 @@ function leftAction(wx, wy, add) {
   }
   if (ui.mode === 'attack') {
     const hit = pick(wx, wy);
-    if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) attackEnt(u, hit); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
+    if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
     sfx('attack'); ui.mode = null; setHint(); return;
   }
   if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
@@ -184,7 +186,7 @@ export function bindInput() {
 export function camKeys(dt) {
   let dx = 0, dy = 0; const free = !ui.sel.length;
   if (keys.arrowleft || (keys.a && free)) dx -= 1; if (keys.arrowright || (keys.d && free)) dx += 1;
-  if (keys.arrowup || keys.w) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;
+  if (keys.arrowup || (keys.w && free)) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;
   if (drag.ptype === 'mouse' && !drag.down) { dx += edge.x; dy += edge.y; }
   if (dx || dy) { cam.x += dx * 620 * dt / cam.zoom; cam.y += dy * 620 * dt / cam.zoom; clampCam(); }
 }

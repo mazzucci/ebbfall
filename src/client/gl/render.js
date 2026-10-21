@@ -16,6 +16,8 @@ export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const ALLY = '#f5a524', ALLY2 = '#ffd27a', FOE = '#e2457a', FOE2 = '#ff8bb0';
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
+/** Flyers are drawn this many world px above the ground point they occupy (their art hovers). */
+export const AIR_LIFT = 12;
 const hexn = (s) => parseInt(s.slice(1), 16);
 
 TextureSource.defaultOptions.scaleMode = 'linear';
@@ -36,8 +38,8 @@ const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFr
 // ---- scene ----
 const world = new Container();
 const L = {};
-for (const k of ['terrain', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
-L.units.sortableChildren = true; L.bldgs.sortableChildren = true;
+for (const k of ['terrain', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
+L.units.sortableChildren = true; L.bldgs.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
 app.stage.addChild(world, screen);
@@ -115,20 +117,24 @@ const light = (tint, scale, alpha) => { const s = new Sprite(tex('light')); s.an
 
 class UnitObj {
   constructor(u) {
-    this.body = new Sprite(); this.body.scale.set(UNIT_SCALE); L.units.addChild(this.body);
-    this.flash = new Sprite(); this.flash.scale.set(UNIT_SCALE); this.flash.blendMode = 'add'; L.units.addChild(this.flash);
+    const layer = u.d.air ? L.air : L.units;
+    this.air = !!u.d.air;
+    this.frames = (sheet.animations[`${u.type}_${u.team}_0`] || [0]).length;
+    this.body = new Sprite(); this.body.scale.set(UNIT_SCALE); layer.addChild(this.body);
+    this.flash = new Sprite(); this.flash.scale.set(UNIT_SCALE); this.flash.blendMode = 'add'; layer.addChild(this.flash);
     this.ring = new Sprite(); this.ring.anchor.set(0.5); L.sel.addChild(this.ring);
     this.cargo = light(0x4fd1c5, 0.18, 0.9);
     this.px = u.x; this.py = u.y; this.walk = 0; this.size = u.r > 12 ? 26 : 18;
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
-    if (moved > 0.05) this.walk += dt * 8;
-    const frames = u.type === 'harvester' ? 2 : 4, f = Math.floor(this.walk) % frames;
+    if (moved > 0.05 || this.air) this.walk += dt * (this.air ? 14 : 8); // rotors always spin
+    const frames = this.frames, f = Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     const tx = tex(`${u.type}_${u.team}_${dir}_${f}`);
     setTex(this.body, tx); setTex(this.flash, tx);
-    this.body.position.set(u.x, u.y); this.flash.position.set(u.x, u.y);
+    const bob = this.air ? Math.sin(t * 3 + u.id) * 1.2 : 0;
+    this.body.position.set(u.x, u.y + bob); this.flash.position.set(u.x, u.y + bob);
     this.body.zIndex = u.y; this.flash.zIndex = u.y + 0.1;
     this.flash.visible = u.flash > 0; this.flash.alpha = 0.6;
     const s = sel.has(u);
@@ -226,6 +232,8 @@ export function boom(x, y, r) {
   decals.push({ s: scorch, t: 0, life: 25 });
   if (big) { shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
+/** A Medic heals: a green sparkle on the patient and a faint light. */
+export function healFx(x, y, tx, ty) { addEffect('heal', tx, ty - 6, { life: 0.4, light: 0x6dff9a, lightScale: 0.35 }); void x; void y; }
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
 
@@ -304,14 +312,15 @@ export function render(selList, place) {
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
-    if (sel.has(u) || u.hp < u.maxhp) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12, r * 2 + 4, u.hp, u.maxhp); }
+    if (sel.has(u) || u.hp < u.maxhp) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12 - (u.d.air ? AIR_LIFT : 0), r * 2 + 4, u.hp, u.maxhp); }
   });
 
   let pi = 0;
   for (const p of G.projs) {
     if (p.team === ENEMY && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
     const s = pooled(projPool, pi++, () => { const s = new Sprite(); s.anchor.set(0.5); L.projs.addChild(s); s.l = light(0xffd27a, 0.25, 0.7); return s; });
-    s.texture = tex(p.type === 'shell' ? 'shell' : 'bolt'); s.anchor.set(p.type === 'shell' ? 0.5 : 1, 0.5);
+    s.texture = tex(p.type); s.anchor.set(p.type === 'shell' ? 0.5 : p.type === 'missile' ? 0.9 : 1, 0.5);
+    if (p.type === 'missile' && Math.random() < dt * 25) addEffect('puff', p.x, p.y, { life: 0.5, scale: 0.45 });
     s.position.set(p.x, p.y); s.rotation = Math.atan2(p.ay - p.y, p.ax - p.x); s.l.visible = true; s.l.position.set(p.x, p.y); s.l.scale.set(p.type === 'shell' ? 0.4 : 0.25);
   }
   for (let i = pi; i < projPool.length; i++) { projPool[i].visible = false; projPool[i].l.visible = false; }

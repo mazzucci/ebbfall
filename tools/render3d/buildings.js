@@ -119,6 +119,28 @@ export function forge(M) {
   return g;
 }
 
+/** Airfield: a landing pad with a hazard H, a round-roofed hangar to the north and a control tower. */
+export function airfield(M) {
+  const g = grp();
+  add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
+  add(g, rbox(52, 1, 44, 0.4), M.dark, 8, 3.2, 16);                                    // pad
+  for (const z of [6, 26]) add(g, rbox(30, 0.6, 3, 0.2), M.hazard, 8, 3.9, z);
+  add(g, rbox(3, 0.6, 20, 0.2), M.hazard, -5, 3.9, 16); add(g, rbox(3, 0.6, 20, 0.2), M.hazard, 21, 3.9, 16);
+  add(g, rbox(26, 0.6, 3, 0.2), M.hazard, 8, 3.9, 16);
+  for (const [x, z] of [[-18, -4], [34, -4], [-18, 36], [34, 36]]) add(g, sph(1.1, 8, 6), M.lamp, x, 4.2, z);
+  const hangar = add(g, new THREE.CylinderGeometry(14, 14, 56, 28, 1, false, 0, Math.PI), M.trim, 0, 3, -26, 0, 0, Math.PI / 2);
+  hangar.rotation.set(0, 0, Math.PI / 2); hangar.rotation.order = 'ZYX';
+  add(g, rbox(56, 3, 2, 0.6), M.paint, 0, 15, -12.5);
+  add(g, rbox(20, 12, 2, 1), M.dark, 0, 7, -12);                                       // hangar door
+  for (let x = -24; x <= 24; x += 8) add(g, rbox(1, 1.4, 28, 0.3), M.steel, x, 16.8, -26);
+  add(g, rbox(12, 26, 12, 1.6), M.trim, -34, 13, 30);                                  // control tower
+  add(g, rbox(15, 7, 15, 1.6), M.glass, -34, 29, 30);
+  add(g, rbox(16, 2, 16, 0.6), M.paint, -34, 33.5, 30);
+  add(g, cyl(0.4, 0.4, 12, 6), M.steel, -30, 40, 26); add(g, sph(1, 8, 6), M.lamp, -30, 46.5, 26);
+  for (const z of [-4, 6]) add(g, cyl(4, 4, 10, 16), M.steel, 40, 5, z);              // fuel tanks
+  return g;
+}
+
 export function turretBase(M) {
   const g = grp();
   add(g, rbox(60, 3, 60, 1.2), M.concrete, 0, 1.5, 0);

@@ -2,7 +2,8 @@
  "pages": [
   "atlas-0.json",
   "atlas-1.json",
-  "atlas-2.json"
+  "atlas-2.json",
+  "atlas-3.json"
  ],
  "animations": {
   "boom_big": [
@@ -51,6 +52,11 @@
    "vent_1",
    "vent_2",
    "vent_3"
+  ],
+  "heal": [
+   "heal_0",
+   "heal_1",
+   "heal_2"
   ],
   "harvester_0_0": [
    "harvester_0_0_0",
@@ -563,6 +569,518 @@
    "vanguard_1_15_1",
    "vanguard_1_15_2",
    "vanguard_1_15_3"
+  ],
+  "lancer_0_0": [
+   "lancer_0_0_0",
+   "lancer_0_0_1",
+   "lancer_0_0_2",
+   "lancer_0_0_3"
+  ],
+  "lancer_0_1": [
+   "lancer_0_1_0",
+   "lancer_0_1_1",
+   "lancer_0_1_2",
+   "lancer_0_1_3"
+  ],
+  "lancer_0_2": [
+   "lancer_0_2_0",
+   "lancer_0_2_1",
+   "lancer_0_2_2",
+   "lancer_0_2_3"
+  ],
+  "lancer_0_3": [
+   "lancer_0_3_0",
+   "lancer_0_3_1",
+   "lancer_0_3_2",
+   "lancer_0_3_3"
+  ],
+  "lancer_0_4": [
+   "lancer_0_4_0",
+   "lancer_0_4_1",
+   "lancer_0_4_2",
+   "lancer_0_4_3"
+  ],
+  "lancer_0_5": [
+   "lancer_0_5_0",
+   "lancer_0_5_1",
+   "lancer_0_5_2",
+   "lancer_0_5_3"
+  ],
+  "lancer_0_6": [
+   "lancer_0_6_0",
+   "lancer_0_6_1",
+   "lancer_0_6_2",
+   "lancer_0_6_3"
+  ],
+  "lancer_0_7": [
+   "lancer_0_7_0",
+   "lancer_0_7_1",
+   "lancer_0_7_2",
+   "lancer_0_7_3"
+  ],
+  "lancer_0_8": [
+   "lancer_0_8_0",
+   "lancer_0_8_1",
+   "lancer_0_8_2",
+   "lancer_0_8_3"
+  ],
+  "lancer_0_9": [
+   "lancer_0_9_0",
+   "lancer_0_9_1",
+   "lancer_0_9_2",
+   "lancer_0_9_3"
+  ],
+  "lancer_0_10": [
+   "lancer_0_10_0",
+   "lancer_0_10_1",
+   "lancer_0_10_2",
+   "lancer_0_10_3"
+  ],
+  "lancer_0_11": [
+   "lancer_0_11_0",
+   "lancer_0_11_1",
+   "lancer_0_11_2",
+   "lancer_0_11_3"
+  ],
+  "lancer_0_12": [
+   "lancer_0_12_0",
+   "lancer_0_12_1",
+   "lancer_0_12_2",
+   "lancer_0_12_3"
+  ],
+  "lancer_0_13": [
+   "lancer_0_13_0",
+   "lancer_0_13_1",
+   "lancer_0_13_2",
+   "lancer_0_13_3"
+  ],
+  "lancer_0_14": [
+   "lancer_0_14_0",
+   "lancer_0_14_1",
+   "lancer_0_14_2",
+   "lancer_0_14_3"
+  ],
+  "lancer_0_15": [
+   "lancer_0_15_0",
+   "lancer_0_15_1",
+   "lancer_0_15_2",
+   "lancer_0_15_3"
+  ],
+  "lancer_1_0": [
+   "lancer_1_0_0",
+   "lancer_1_0_1",
+   "lancer_1_0_2",
+   "lancer_1_0_3"
+  ],
+  "lancer_1_1": [
+   "lancer_1_1_0",
+   "lancer_1_1_1",
+   "lancer_1_1_2",
+   "lancer_1_1_3"
+  ],
+  "lancer_1_2": [
+   "lancer_1_2_0",
+   "lancer_1_2_1",
+   "lancer_1_2_2",
+   "lancer_1_2_3"
+  ],
+  "lancer_1_3": [
+   "lancer_1_3_0",
+   "lancer_1_3_1",
+   "lancer_1_3_2",
+   "lancer_1_3_3"
+  ],
+  "lancer_1_4": [
+   "lancer_1_4_0",
+   "lancer_1_4_1",
+   "lancer_1_4_2",
+   "lancer_1_4_3"
+  ],
+  "lancer_1_5": [
+   "lancer_1_5_0",
+   "lancer_1_5_1",
+   "lancer_1_5_2",
+   "lancer_1_5_3"
+  ],
+  "lancer_1_6": [
+   "lancer_1_6_0",
+   "lancer_1_6_1",
+   "lancer_1_6_2",
+   "lancer_1_6_3"
+  ],
+  "lancer_1_7": [
+   "lancer_1_7_0",
+   "lancer_1_7_1",
+   "lancer_1_7_2",
+   "lancer_1_7_3"
+  ],
+  "lancer_1_8": [
+   "lancer_1_8_0",
+   "lancer_1_8_1",
+   "lancer_1_8_2",
+   "lancer_1_8_3"
+  ],
+  "lancer_1_9": [
+   "lancer_1_9_0",
+   "lancer_1_9_1",
+   "lancer_1_9_2",
+   "lancer_1_9_3"
+  ],
+  "lancer_1_10": [
+   "lancer_1_10_0",
+   "lancer_1_10_1",
+   "lancer_1_10_2",
+   "lancer_1_10_3"
+  ],
+  "lancer_1_11": [
+   "lancer_1_11_0",
+   "lancer_1_11_1",
+   "lancer_1_11_2",
+   "lancer_1_11_3"
+  ],
+  "lancer_1_12": [
+   "lancer_1_12_0",
+   "lancer_1_12_1",
+   "lancer_1_12_2",
+   "lancer_1_12_3"
+  ],
+  "lancer_1_13": [
+   "lancer_1_13_0",
+   "lancer_1_13_1",
+   "lancer_1_13_2",
+   "lancer_1_13_3"
+  ],
+  "lancer_1_14": [
+   "lancer_1_14_0",
+   "lancer_1_14_1",
+   "lancer_1_14_2",
+   "lancer_1_14_3"
+  ],
+  "lancer_1_15": [
+   "lancer_1_15_0",
+   "lancer_1_15_1",
+   "lancer_1_15_2",
+   "lancer_1_15_3"
+  ],
+  "medic_0_0": [
+   "medic_0_0_0",
+   "medic_0_0_1",
+   "medic_0_0_2",
+   "medic_0_0_3"
+  ],
+  "medic_0_1": [
+   "medic_0_1_0",
+   "medic_0_1_1",
+   "medic_0_1_2",
+   "medic_0_1_3"
+  ],
+  "medic_0_2": [
+   "medic_0_2_0",
+   "medic_0_2_1",
+   "medic_0_2_2",
+   "medic_0_2_3"
+  ],
+  "medic_0_3": [
+   "medic_0_3_0",
+   "medic_0_3_1",
+   "medic_0_3_2",
+   "medic_0_3_3"
+  ],
+  "medic_0_4": [
+   "medic_0_4_0",
+   "medic_0_4_1",
+   "medic_0_4_2",
+   "medic_0_4_3"
+  ],
+  "medic_0_5": [
+   "medic_0_5_0",
+   "medic_0_5_1",
+   "medic_0_5_2",
+   "medic_0_5_3"
+  ],
+  "medic_0_6": [
+   "medic_0_6_0",
+   "medic_0_6_1",
+   "medic_0_6_2",
+   "medic_0_6_3"
+  ],
+  "medic_0_7": [
+   "medic_0_7_0",
+   "medic_0_7_1",
+   "medic_0_7_2",
+   "medic_0_7_3"
+  ],
+  "medic_0_8": [
+   "medic_0_8_0",
+   "medic_0_8_1",
+   "medic_0_8_2",
+   "medic_0_8_3"
+  ],
+  "medic_0_9": [
+   "medic_0_9_0",
+   "medic_0_9_1",
+   "medic_0_9_2",
+   "medic_0_9_3"
+  ],
+  "medic_0_10": [
+   "medic_0_10_0",
+   "medic_0_10_1",
+   "medic_0_10_2",
+   "medic_0_10_3"
+  ],
+  "medic_0_11": [
+   "medic_0_11_0",
+   "medic_0_11_1",
+   "medic_0_11_2",
+   "medic_0_11_3"
+  ],
+  "medic_0_12": [
+   "medic_0_12_0",
+   "medic_0_12_1",
+   "medic_0_12_2",
+   "medic_0_12_3"
+  ],
+  "medic_0_13": [
+   "medic_0_13_0",
+   "medic_0_13_1",
+   "medic_0_13_2",
+   "medic_0_13_3"
+  ],
+  "medic_0_14": [
+   "medic_0_14_0",
+   "medic_0_14_1",
+   "medic_0_14_2",
+   "medic_0_14_3"
+  ],
+  "medic_0_15": [
+   "medic_0_15_0",
+   "medic_0_15_1",
+   "medic_0_15_2",
+   "medic_0_15_3"
+  ],
+  "medic_1_0": [
+   "medic_1_0_0",
+   "medic_1_0_1",
+   "medic_1_0_2",
+   "medic_1_0_3"
+  ],
+  "medic_1_1": [
+   "medic_1_1_0",
+   "medic_1_1_1",
+   "medic_1_1_2",
+   "medic_1_1_3"
+  ],
+  "medic_1_2": [
+   "medic_1_2_0",
+   "medic_1_2_1",
+   "medic_1_2_2",
+   "medic_1_2_3"
+  ],
+  "medic_1_3": [
+   "medic_1_3_0",
+   "medic_1_3_1",
+   "medic_1_3_2",
+   "medic_1_3_3"
+  ],
+  "medic_1_4": [
+   "medic_1_4_0",
+   "medic_1_4_1",
+   "medic_1_4_2",
+   "medic_1_4_3"
+  ],
+  "medic_1_5": [
+   "medic_1_5_0",
+   "medic_1_5_1",
+   "medic_1_5_2",
+   "medic_1_5_3"
+  ],
+  "medic_1_6": [
+   "medic_1_6_0",
+   "medic_1_6_1",
+   "medic_1_6_2",
+   "medic_1_6_3"
+  ],
+  "medic_1_7": [
+   "medic_1_7_0",
+   "medic_1_7_1",
+   "medic_1_7_2",
+   "medic_1_7_3"
+  ],
+  "medic_1_8": [
+   "medic_1_8_0",
+   "medic_1_8_1",
+   "medic_1_8_2",
+   "medic_1_8_3"
+  ],
+  "medic_1_9": [
+   "medic_1_9_0",
+   "medic_1_9_1",
+   "medic_1_9_2",
+   "medic_1_9_3"
+  ],
+  "medic_1_10": [
+   "medic_1_10_0",
+   "medic_1_10_1",
+   "medic_1_10_2",
+   "medic_1_10_3"
+  ],
+  "medic_1_11": [
+   "medic_1_11_0",
+   "medic_1_11_1",
+   "medic_1_11_2",
+   "medic_1_11_3"
+  ],
+  "medic_1_12": [
+   "medic_1_12_0",
+   "medic_1_12_1",
+   "medic_1_12_2",
+   "medic_1_12_3"
+  ],
+  "medic_1_13": [
+   "medic_1_13_0",
+   "medic_1_13_1",
+   "medic_1_13_2",
+   "medic_1_13_3"
+  ],
+  "medic_1_14": [
+   "medic_1_14_0",
+   "medic_1_14_1",
+   "medic_1_14_2",
+   "medic_1_14_3"
+  ],
+  "medic_1_15": [
+   "medic_1_15_0",
+   "medic_1_15_1",
+   "medic_1_15_2",
+   "medic_1_15_3"
+  ],
+  "wasp_0_0": [
+   "wasp_0_0_0",
+   "wasp_0_0_1"
+  ],
+  "wasp_0_1": [
+   "wasp_0_1_0",
+   "wasp_0_1_1"
+  ],
+  "wasp_0_2": [
+   "wasp_0_2_0",
+   "wasp_0_2_1"
+  ],
+  "wasp_0_3": [
+   "wasp_0_3_0",
+   "wasp_0_3_1"
+  ],
+  "wasp_0_4": [
+   "wasp_0_4_0",
+   "wasp_0_4_1"
+  ],
+  "wasp_0_5": [
+   "wasp_0_5_0",
+   "wasp_0_5_1"
+  ],
+  "wasp_0_6": [
+   "wasp_0_6_0",
+   "wasp_0_6_1"
+  ],
+  "wasp_0_7": [
+   "wasp_0_7_0",
+   "wasp_0_7_1"
+  ],
+  "wasp_0_8": [
+   "wasp_0_8_0",
+   "wasp_0_8_1"
+  ],
+  "wasp_0_9": [
+   "wasp_0_9_0",
+   "wasp_0_9_1"
+  ],
+  "wasp_0_10": [
+   "wasp_0_10_0",
+   "wasp_0_10_1"
+  ],
+  "wasp_0_11": [
+   "wasp_0_11_0",
+   "wasp_0_11_1"
+  ],
+  "wasp_0_12": [
+   "wasp_0_12_0",
+   "wasp_0_12_1"
+  ],
+  "wasp_0_13": [
+   "wasp_0_13_0",
+   "wasp_0_13_1"
+  ],
+  "wasp_0_14": [
+   "wasp_0_14_0",
+   "wasp_0_14_1"
+  ],
+  "wasp_0_15": [
+   "wasp_0_15_0",
+   "wasp_0_15_1"
+  ],
+  "wasp_1_0": [
+   "wasp_1_0_0",
+   "wasp_1_0_1"
+  ],
+  "wasp_1_1": [
+   "wasp_1_1_0",
+   "wasp_1_1_1"
+  ],
+  "wasp_1_2": [
+   "wasp_1_2_0",
+   "wasp_1_2_1"
+  ],
+  "wasp_1_3": [
+   "wasp_1_3_0",
+   "wasp_1_3_1"
+  ],
+  "wasp_1_4": [
+   "wasp_1_4_0",
+   "wasp_1_4_1"
+  ],
+  "wasp_1_5": [
+   "wasp_1_5_0",
+   "wasp_1_5_1"
+  ],
+  "wasp_1_6": [
+   "wasp_1_6_0",
+   "wasp_1_6_1"
+  ],
+  "wasp_1_7": [
+   "wasp_1_7_0",
+   "wasp_1_7_1"
+  ],
+  "wasp_1_8": [
+   "wasp_1_8_0",
+   "wasp_1_8_1"
+  ],
+  "wasp_1_9": [
+   "wasp_1_9_0",
+   "wasp_1_9_1"
+  ],
+  "wasp_1_10": [
+   "wasp_1_10_0",
+   "wasp_1_10_1"
+  ],
+  "wasp_1_11": [
+   "wasp_1_11_0",
+   "wasp_1_11_1"
+  ],
+  "wasp_1_12": [
+   "wasp_1_12_0",
+   "wasp_1_12_1"
+  ],
+  "wasp_1_13": [
+   "wasp_1_13_0",
+   "wasp_1_13_1"
+  ],
+  "wasp_1_14": [
+   "wasp_1_14_0",
+   "wasp_1_14_1"
+  ],
+  "wasp_1_15": [
+   "wasp_1_15_0",
+   "wasp_1_15_1"
   ]
  },
  "facings": 16,

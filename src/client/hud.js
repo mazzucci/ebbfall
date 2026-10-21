@@ -45,7 +45,8 @@ export function updateHud() {
     sub.textContent = x.team === PLAYER ? (x.kind === 'unit' ? taskName(x) : bldgStatus(x)) : 'Enemy';
     hb.hidden = false; $('hpFill').style.width = (x.hp / x.maxhp * 100) + '%';
     let st = `<span>HP <b>${Math.ceil(x.hp)}/${x.maxhp}</b></span><span>Armor <b>${x.d.armor || 0}</b></span>`;
-    if (x.d.dmg) st += `<span>Damage <b>${x.d.dmg}</b></span><span>Range <b>${x.d.range}</b></span>`;
+    if (x.d.dmg || x.d.dmgAir) st += `<span>Damage <b>${x.d.dmg || '–'}${x.d.dmgAir ? ' / air ' + x.d.dmgAir : ''}</b></span><span>Range <b>${x.d.range}</b></span>`;
+    if (x.d.heal) st += `<span>Heals <b>${x.d.heal}/s</b></span>`;
     if (x.kind === 'unit' && x.carry) st += `<span>Carrying <b>${x.carry} ${x.carryType}</b></span>`;
     stats.innerHTML = st;
     q.innerHTML = x.kind === 'bldg' && x.queue.length ? `<div class="bar prod" style="flex:1 1 100%"><i style="width:${x.prog * 100}%"></i></div>` + x.queue.map(t => `<div class="qi" title="${UNITS[t].name}">${UNITS[t].hot}</div>`).join('') : '';
@@ -85,7 +86,10 @@ export function cardItems() {
     const b = bl[0];
     if (!b.done && !buildersOf(b).length) items.push({ id: 'resume', label: 'Resume', key: 'R', tip: 'Send the nearest Harvester to finish construction' });
     if (!b.done) items.push({ id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, tip: 'Cancel construction (75% refund)' });
-    if (b.done && b.d.trains) for (const t of b.d.trains) { const d = UNITS[t]; items.push({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, tip: d.desc }); }
+    if (b.done && b.d.trains) for (const t of b.d.trains) {
+      const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === PLAYER && o.type === d.req && o.done);
+      items.push({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, dis: !!missing, tip: d.desc + (missing ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
+    }
     if (b.queue.length) items.push({ id: 'cancelq', label: 'Cancel last', key: 'X', cancel: true });
     if (b.done && b.d.trains) items.push({ id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', tip: 'Then click where new units should go' });
     items.push({ id: 'esc', label: 'Deselect', key: 'Esc', cancel: true });

@@ -13,6 +13,7 @@ export { clamp, dist, lerp, fmt, mulberry } from './util.js';
 // Snapshot record layouts; keep in sync with UNIT_STRIDE etc. in crates/endfall-sim/src/lib.rs.
 const US = 16, BS = 24, PS = 8, NS = 12;
 const UNIT_KEYS = Object.keys(UNITS), BLDG_KEYS = Object.keys(BUILDINGS);
+const PROJ_KINDS = ['bolt', 'shell', 'missile'];
 const TASKS = ['idle', 'hold', 'move', 'amove', 'attack', 'gather', 'build'], PHASES = ['go', 'wait', 'mine', 'return'];
 
 let game = null, dirty = true;
@@ -90,7 +91,7 @@ function sync() {
   for (const [u, id] of attacks) u.task.target = units.get(id) || bldgs.get(id) || null;
 
   const P = game.projectiles(); S.projs = [];
-  for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o], y: P[o + 1], type: P[o + 2] ? 'shell' : 'bolt', team: P[o + 3], ax: P[o + 4], ay: P[o + 5] });
+  for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o], y: P[o + 1], type: PROJ_KINDS[P[o + 2]], team: P[o + 3], ax: P[o + 4], ay: P[o + 5] });
 
   for (const e of JSON.parse(game.drainEvents())) S.events.push(e);
 }
@@ -128,12 +129,21 @@ export const cancelQueue = (b, i) => touch(game.cancelQueue(b.id, i));
 export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
+export const disableAi = () => game.disableAi();
+/** Tests and tools only. */
 export const setResources = (team, shards, ether) => touch(game.setResources(team, shards, ether));
 
 // ---- rule queries ----
 export const canPlace = (type, tx, ty, team) => game.canPlace(type, tx, ty, team);
 export const hasReq = (team, type) => game.hasReq(team, type);
 export const canAfford = (team, cost) => game.canAfford(team, cost[0], cost[1]);
+
+/** Whether `shooter` (a unit or building object) has a weapon that can hit `target`. */
+export function canHit(shooter, target) {
+  if (!target || target.kind === 'node') return false;
+  const air = target.kind === 'unit' && !!target.d.air;
+  return (air ? shooter.d.dmgAir : shooter.d.dmg) > 0;
+}
 
 /** Whether the human player can see this unit or building right now. */
 export function visibleEnt(e) {

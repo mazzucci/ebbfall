@@ -34,6 +34,12 @@ function flash(f) { return image(32, 32, (x, y) => { const dx = Math.abs(x + 0.5
 function spark(f) { return image(16, 16, (x, y) => { const dx = Math.abs(x + 0.5 - 8), dy = Math.abs(y + 0.5 - 8), r = 2 + f * 1.5; const v = Math.max(0, 1 - dx / r - dy * 1.4, 1 - dy / r - dx * 1.4, 1 - Math.hypot(dx, dy) / 2.4); if (v <= 0) return [0, 0, 0, 0]; const c = ramp(FIRE, 0.15 + f * 0.15); return [c[0], c[1], c[2], Math.round(clamp01(v) * 255 * (1 - f * 0.18))]; }); }
 function light() { return image(128, 128, (x, y) => { const d = Math.hypot(x + 0.5 - 64, y + 0.5 - 64) / 64; const a = Math.max(0, 1 - d) ** 2; return [255, 255, 255, Math.round(255 * a)]; }); }
 function bolt() { return image(24, 8, (x, y) => { const t = x / 23, dy = Math.abs(y + 0.5 - 4); const core = clamp01(1 - dy / 1.6) * t, glow = clamp01(1 - dy / 4) * t * 0.6; return [255, 240 - (1 - core) * 40, 190 - (1 - core) * 90, Math.round(Math.max(core, glow) * 255)]; }); }
+function missile() { // 20x8 rocket with a hot tail, pointing +x
+  return image(20, 8, (x, y) => { const dy = Math.abs(y + 0.5 - 4); if (x >= 8 && dy < 1.6) return x > 17 ? [240, 240, 240, 255] : [150, 156, 166, 255]; if (x < 8 && dy < 2.6 - (8 - x) * 0.25) { const c = ramp(FIRE, 1 - x / 8); return [c[0], c[1], c[2], Math.round(255 * x / 8)]; } return [0, 0, 0, 0]; });
+}
+function heal(f) { // 24x24 green sparkle for healing
+  return image(24, 24, (x, y) => { const dx = Math.abs(x + 0.5 - 12), dy = Math.abs(y + 0.5 - 12), r = 4 + f * 3; const v = Math.max(0, 1 - Math.hypot(dx, dy) / r) * (1 - f * 0.25), plus = (dx < 1.2 && dy < r) || (dy < 1.2 && dx < r) ? 1 : 0; const a = Math.max(v * 0.6, plus * (1 - f * 0.3)); return [120, 255, 160, Math.round(a * 255)]; });
+}
 function shell() { return image(16, 16, (x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8); const a = clamp01(1 - (d - 3) / 4); const c = ramp(FIRE, d / 7); return [c[0], c[1], c[2], Math.round(a * 255)]; }); }
 function ring(r, rgb) { const W = r * 4 + 8, H = Math.round(r * 2.4) + 8; return image(W, H, (x, y) => { const v = Math.hypot((x + 0.5 - W / 2) / (r * 2), (y + 0.5 - H / 2) / (r * 1.2)); const a = clamp01(1 - Math.abs(v - 0.92) * r * 2 / 2.2); return [...rgb, Math.round(a * 240)]; }); }
 function flag(f) {
@@ -56,6 +62,8 @@ export function effectSprites() {
   out.push({ name: 'light', img: light(), anchor: c });
   out.push({ name: 'bolt', img: bolt(), anchor: { x: 1, y: 0.5 } });
   out.push({ name: 'shell', img: shell(), anchor: c });
+  out.push({ name: 'missile', img: missile(), anchor: { x: 0.9, y: 0.5 } });
+  for (let f = 0; f < 3; f++) out.push({ name: `heal_${f}`, img: heal(f), anchor: c });
   for (const r of [12, 18, 26]) { out.push({ name: `sel_${r}_0`, img: ring(r, [90, 214, 125]), anchor: c }); out.push({ name: `sel_${r}_1`, img: ring(r, [255, 90, 90]), anchor: c }); }
   return out;
 }

@@ -73,5 +73,9 @@ export function makeMats(team) {
     slag: std({ color: 0x2a0a00, emissive: 0xd8501a, emissiveIntensity: 1.1, roughness: 0.4 }),
     cloth: std({ color: 0x4a4f45, roughness: 0.95 }),
     skinDark: std({ color: 0x2e3238, metalness: 0.4, roughness: 0.6 }),
+    medWhite: std({ color: 0xd8dde3, map: panel, bumpMap: bump, bumpScale: 0.6, metalness: 0.3, roughness: 0.45 }),
+    medRed: std({ color: 0xc8242c, metalness: 0.1, roughness: 0.5 }),
+    healGlow: std({ color: 0x103018, emissive: 0x6dff9a, emissiveIntensity: 2.4 }),
+    rotor: std({ color: 0x15181d, metalness: 0.5, roughness: 0.5 }),
   };
 }

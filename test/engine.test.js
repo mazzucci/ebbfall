@@ -40,15 +40,16 @@ test('the Rust data tables match the client constants', { skip }, () => {
   const d = JSON.parse(sim.dataJson());
   for (const [k, u] of Object.entries(C.UNITS)) {
     const r = d.units[k]; assert.ok(r, k);
-    for (const f of ['cost', 'supply', 'hp', 'armor', 'speed', 'range', 'dmg', 'cd', 'sight', 'r', 'build']) assert.deepEqual(r[f], u[f], `${k}.${f}`);
+    for (const f of ['cost', 'supply', 'hp', 'armor', 'speed', 'range', 'dmg', 'dmgAir', 'cd', 'sight', 'r', 'build']) assert.deepEqual(r[f], u[f], `${k}.${f}`);
     assert.equal(r.melee, !!u.melee, k + '.melee'); assert.equal(r.proj, u.proj ?? null, k + '.proj');
+    assert.equal(r.air, !!u.air, k + '.air'); assert.equal(r.bio, !!u.bio, k + '.bio'); assert.equal(r.heal, u.heal ?? 0, k + '.heal'); assert.equal(r.req, u.req ?? null, k + '.req');
   }
   for (const [k, b] of Object.entries(C.BUILDINGS)) {
     const r = d.buildings[k]; assert.ok(r, k);
     for (const f of ['name', 'cost', 'w', 'h', 'hp', 'armor', 'build', 'sight']) assert.deepEqual(r[f], b[f], `${k}.${f}`);
-    assert.equal(r.supply, b.supply ?? 0, k + '.supply'); assert.equal(r.trains, b.trains ? b.trains[0] : null, k + '.trains');
+    assert.equal(r.supply, b.supply ?? 0, k + '.supply'); assert.deepEqual(r.trains, b.trains ?? [], k + '.trains');
     assert.equal(r.dropoff, !!b.dropoff); assert.equal(r.onVent, !!b.onVent); assert.equal(r.req, b.req ?? null);
-    assert.equal(r.range, b.range ?? 0); assert.equal(r.dmg, b.dmg ?? 0); assert.equal(r.cd, b.cd ?? 0); assert.equal(r.proj, b.proj ?? null);
+    assert.equal(r.range, b.range ?? 0); assert.equal(r.dmg, b.dmg ?? 0); assert.equal(r.dmgAir, b.dmgAir ?? 0); assert.equal(r.cd, b.cd ?? 0); assert.equal(r.proj, b.proj ?? null);
   }
   assert.deepEqual(d.diff, C.DIFF.map(({ name, ...rest }) => rest));
   assert.deepEqual(d.bases, C.BASES);

@@ -63,6 +63,8 @@ pub struct Unit {
     pub anchor: (f64, f64),
     /// Game time before which this harvester is not picked as a builder again (it just failed to reach a site).
     pub no_build_until: f64,
+    /// Medic: seconds until the next heal effect event.
+    pub heal_fx: f64,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -117,6 +119,13 @@ pub struct Proj {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
+    /// A Medic healing: from (x, y) to the patient at (tx, ty).
+    Heal {
+        x: f64,
+        y: f64,
+        tx: f64,
+        ty: f64,
+    },
     Sfx(&'static str),
     Toast {
         msg: String,
@@ -459,6 +468,7 @@ impl World {
             stuck: 0.0,
             anchor: (x, y),
             no_build_until: 0.0,
+            heal_fx: 0.0,
         });
         id
     }
@@ -509,7 +519,8 @@ impl World {
                 jsmath::to_i32(self.units[k].x / TILE),
                 jsmath::to_i32(self.units[k].y / TILE),
             );
-            if tx2 >= tx
+            if !self.units[k].kind.def().air
+                && tx2 >= tx
                 && tx2 < tx + d.w
                 && ty2 >= ty
                 && ty2 < ty + d.h
@@ -616,10 +627,18 @@ impl World {
             return Err("Gone".into());
         };
         let (team, qlen) = (b.team, b.queue.len());
-        if !b.done || b.kind.def().trains != Some(kind) {
+        if !b.done || !b.kind.def().trains.contains(&kind) {
             return Err(format!("{} cannot train that", b.kind.def().name));
         }
         let d = kind.def();
+        if let Some(r) = d.req
+            && !self
+                .bldgs
+                .iter()
+                .any(|o| o.team == team && o.kind == r && o.done)
+        {
+            return Err(format!("Requires {}", r.def().name));
+        }
         if qlen >= 5 {
             return Err("Queue is full".into());
         }
@@ -652,7 +671,7 @@ impl World {
 
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
         if let Some(b) = self.bm(bid)
-            && b.kind.def().trains.is_some()
+            && !b.kind.def().trains.is_empty()
         {
             b.rally = Some(Rally { x, y, node });
         }
@@ -777,6 +796,7 @@ impl World {
     }
 
     // ---- combat ----
+    /// The best enemy within `range` of (x, y) that a weapon able to hit `hits` = (ground, air) can attack.
     pub fn find_target(
         &self,
         x: f64,
@@ -784,10 +804,12 @@ impl World {
         team: u8,
         range: f64,
         only_units: bool,
+        hits: (bool, bool),
     ) -> Option<Id> {
         let (mut best, mut bd) = (None, 1e9);
         for u in &self.units {
-            if u.team == team {
+            let air = u.kind.def().air;
+            if u.team == team || (air && !hits.1) || (!air && !hits.0) {
                 continue;
             }
             let d = dist(u.x, u.y, x, y) - u.r;
@@ -796,7 +818,7 @@ impl World {
                 best = Some(u.id);
             }
         }
-        if !only_units {
+        if !only_units && hits.0 {
             for b in &self.bldgs {
                 if b.team == team {
                     continue;
@@ -820,6 +842,25 @@ impl World {
         best
     }
 
+    /// Whether `shooter` (unit or building) has a weapon that can hit `target` (flying or not).
+    pub fn can_hit(&self, shooter: Id, target: Id) -> bool {
+        let air = self.unit(target).is_some_and(|u| u.kind.def().air);
+        if self.unit(target).is_none() && self.bldg(target).is_none() {
+            return false;
+        }
+        if let Some(u) = self.unit(shooter) {
+            u.kind.def().damage_vs(air) > 0.0
+        } else {
+            self.bldg(shooter)
+                .is_some_and(|b| b.kind.def().damage_vs(air) > 0.0)
+        }
+    }
+    /// (can hit ground, can hit air) for a unit kind.
+    fn hits_of(kind: UnitKind) -> (bool, bool) {
+        let d = kind.def();
+        (d.dmg > 0.0, d.dmg_air > 0.0)
+    }
+
     fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
         let by = by.filter(|&b| self.team_of(b).is_some());
         if let Some(i) = self.ui(target) {
@@ -828,8 +869,13 @@ impl World {
             u.flash = 0.12;
             if let Some(by) = by {
                 let (ux, uy, team) = (u.x, u.y, u.team);
+                let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
+                let u = &mut self.units[i];
                 match u.task {
-                    Task::Idle | Task::AMove { .. } if u.kind != UnitKind::Harvester => {
+                    Task::Idle | Task::AMove { .. }
+                        if u.kind != UnitKind::Harvester
+                            && u.kind.def().damage_vs(by_air) > 0.0 =>
+                    {
                         let back = match u.task {
                             Task::AMove { x, y } => Some(Back { x, y, amove: false }),
                             _ => None,
@@ -841,7 +887,10 @@ impl World {
                 for a in self.nearby(ux, uy, 180.0) {
                     if let Some(j) = self.ui(a) {
                         let o = &mut self.units[j];
-                        if o.team != team || o.kind == UnitKind::Harvester {
+                        if o.team != team
+                            || o.kind == UnitKind::Harvester
+                            || o.kind.def().damage_vs(by_air) <= 0.0
+                        {
                             continue;
                         }
                         if o.task == Task::Idle {
@@ -964,6 +1013,16 @@ impl World {
     }
 
     fn path_to(&mut self, uid: Id, x: f64, y: f64) {
+        if self.u(uid).kind.def().air {
+            // Flyers go straight there, over rock and buildings.
+            let u = self.um(uid);
+            u.path = Some(vec![Pt {
+                x: clamp(x, 16.0, WW - 16.0),
+                y: clamp(y, 16.0, WH - 16.0),
+            }]);
+            u.repath = 0.6;
+            return;
+        }
         let (ux, uy) = (self.u(uid).x, self.u(uid).y);
         let (a, b) = (Self::tile_of(ux, uy), Self::tile_of(x, y));
         let mut path = astar(&self.map, &mut self.scratch, a.0, a.1, b.0, b.1);
@@ -1007,7 +1066,8 @@ impl World {
         self.path_to(uid, x, y);
     }
     pub fn attack_ent(&mut self, uid: Id, target: Id) {
-        if self.team_of(target).is_none_or(|t| t == self.u(uid).team) {
+        if self.team_of(target).is_none_or(|t| t == self.u(uid).team) || !self.can_hit(uid, target)
+        {
             return;
         }
         self.release_mine(uid);
@@ -1224,6 +1284,16 @@ impl World {
             u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
             return true;
         }
+        if self.u(uid).kind.def().air {
+            // Flyers close in on a straight line, nothing below can block them.
+            let u = self.um(uid);
+            let mv = u.kind.def().speed * dt;
+            u.path = None;
+            u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
+            u.x = clamp(ux + (p.0 - ux) / d * mv, 16.0, WW - 16.0);
+            u.y = clamp(uy + (p.1 - uy) / d * mv, 16.0, WH - 16.0);
+            return false;
+        }
         let u = self.um(uid);
         u.repath -= dt;
         if u.path.is_none() || u.repath <= 0.0 {
@@ -1299,14 +1369,18 @@ impl World {
     }
 
     fn fire(&mut self, shooter: Id, target: Id) {
+        let air = self.unit(target).is_some_and(|u| u.kind.def().air);
         let (x, y, team, dmg, cd, proj) = if let Some(u) = self.unit(shooter) {
             let d = u.kind.def();
-            (u.x, u.y, u.team, d.dmg, d.cd, d.proj)
+            (u.x, u.y, u.team, d.damage_vs(air), d.cd, d.proj)
         } else {
             let b = self.bldg(shooter).unwrap();
             let d = b.kind.def();
-            (b.x, b.y, b.team, d.dmg, d.cd, d.proj)
+            (b.x, b.y, b.team, d.damage_vs(air), d.cd, d.proj)
         };
+        if dmg <= 0.0 {
+            return; // this weapon cannot hit that target
+        }
         if let Some(i) = self.ui(shooter) {
             self.units[i].cd = cd;
         } else if let Some(b) = self.bm(shooter) {
@@ -1314,10 +1388,10 @@ impl World {
         }
         match proj {
             Some(kind) => {
-                let speed = if kind == ProjKind::Shell {
-                    300.0
-                } else {
-                    460.0
+                let speed = match kind {
+                    ProjKind::Shell => 300.0,
+                    ProjKind::Missile => 340.0,
+                    ProjKind::Bolt => 460.0,
                 };
                 self.projs.push(Proj {
                     x,
@@ -1330,10 +1404,10 @@ impl World {
                     team,
                 });
                 if team == PLAYER || self.visible(shooter) {
-                    self.emit(Event::Sfx(if kind == ProjKind::Shell {
-                        "shell"
-                    } else {
+                    self.emit(Event::Sfx(if kind == ProjKind::Bolt {
                         "bolt"
+                    } else {
+                        "shell"
                     }));
                 }
             }
@@ -1374,14 +1448,17 @@ impl World {
             (
                 u.task,
                 d.range * TILE,
-                u.kind != UnitKind::Harvester,
+                u.kind != UnitKind::Harvester && d.armed(),
                 u.team,
                 u.r,
                 d.sight,
                 u.kind,
             )
         };
-        let _ = kind;
+        let hits = Self::hits_of(kind);
+        if kind.def().heal > 0.0 {
+            self.medic(uid, dt);
+        }
         match task {
             Task::Idle | Task::Hold => {
                 let hold = task == Task::Hold;
@@ -1391,7 +1468,7 @@ impl World {
                     u.aggro_cd = 0.3;
                     let (ux, uy) = (u.x, u.y);
                     let rng = if hold { range + r } else { sight * TILE * 0.85 };
-                    if let Some(t) = self.find_target(ux, uy, team, rng, false) {
+                    if let Some(t) = self.find_target(ux, uy, team, rng, false, hits) {
                         let (tx, ty) = self.geo(t).unwrap().center();
                         if hold {
                             if self.u(uid).cd <= 0.0 {
@@ -1419,7 +1496,7 @@ impl World {
                 if u.aggro_cd <= 0.0 {
                     u.aggro_cd = 0.3;
                     let (ux, uy) = (u.x, u.y);
-                    let t = self.find_target(ux, uy, team, sight * TILE * 0.85, false);
+                    let t = self.find_target(ux, uy, team, sight * TILE * 0.85, false, hits);
                     if let (Some(t), true) = (t, combat) {
                         self.um(uid).task = Task::Attack {
                             target: t,
@@ -1442,7 +1519,7 @@ impl World {
                 if combat && self.u(uid).aggro_cd <= 0.0 && t.is_rect() {
                     let (ux, uy) = (self.u(uid).x, self.u(uid).y);
                     self.um(uid).aggro_cd = 0.5;
-                    if let Some(t2) = self.find_target(ux, uy, team, range + r, true)
+                    if let Some(t2) = self.find_target(ux, uy, team, range + r, true, hits)
                         && let Task::Attack { target, .. } = &mut self.um(uid).task
                     {
                         *target = t2;
@@ -1523,6 +1600,59 @@ impl World {
         }
     }
 
+    /// A Medic heals the most hurt friendly infantry within HEAL_RANGE; when idle with nobody in range it walks
+    /// toward hurt infantry it can see.
+    fn medic(&mut self, uid: Id, dt: f64) {
+        const HEAL_RANGE: f64 = 2.5 * TILE;
+        let (mx, my, team, heal, sight, idle) = {
+            let u = self.u(uid);
+            (
+                u.x,
+                u.y,
+                u.team,
+                u.kind.def().heal,
+                u.kind.def().sight * TILE,
+                u.task == Task::Idle,
+            )
+        };
+        let mut best: Option<(f64, Id, f64)> = None; // (hp fraction, id, distance)
+        let mut seek: Option<(f64, f64, f64)> = None; // nearest hurt ally in sight: (distance, x, y)
+        for o in &self.units {
+            if o.id == uid || o.team != team || !o.kind.def().bio || o.hp >= o.maxhp {
+                continue;
+            }
+            let d = dist(o.x, o.y, mx, my) - o.r;
+            if d <= HEAL_RANGE {
+                let f = o.hp / o.maxhp;
+                if best.is_none_or(|(bf, bid, _)| f < bf || (f == bf && o.id < bid)) {
+                    best = Some((f, o.id, d));
+                }
+            } else if d <= sight && seek.is_none_or(|(sd, _, _)| d < sd) {
+                seek = Some((d, o.x, o.y));
+            }
+        }
+        if let Some((_, pid, _)) = best {
+            let i = self.ui(pid).unwrap();
+            let p = &mut self.units[i];
+            p.hp = (p.hp + heal * dt).min(p.maxhp);
+            let (tx, ty) = (p.x, p.y);
+            let u = self.um(uid);
+            u.face = jsmath::atan2(ty - my, tx - mx);
+            u.heal_fx -= dt;
+            if u.heal_fx <= 0.0 {
+                u.heal_fx = 0.4;
+                self.emit(Event::Heal {
+                    x: mx,
+                    y: my,
+                    tx,
+                    ty,
+                });
+            }
+        } else if let (true, Some((_, sx, sy))) = (idle, seek) {
+            self.move_to(uid, sx, sy);
+        }
+    }
+
     fn update_move(&mut self, uid: Id, x: f64, y: f64, dt: f64) {
         let u = self.um(uid);
         u.repath -= dt;
@@ -1530,10 +1660,9 @@ impl World {
             self.path_to(uid, x, y);
         }
         if self.u(uid).path.is_none() || self.step_path(uid, dt) {
-            let u = self.u(uid);
-            if dist(u.x, u.y, x, y) < 40.0 || u.path.is_none() {
-                self.set_idle(uid);
-            }
+            // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends
+            // at the nearest free tile, and that is as close as we get).
+            self.set_idle(uid);
         }
     }
 
@@ -1689,14 +1818,18 @@ impl World {
                 continue;
             }
             let (id, ux, uy) = (self.units[i].id, self.units[i].x, self.units[i].y);
+            let air = self.units[i].kind.def().air;
             for o in self.nearby(ux, uy, 40.0) {
                 if o == id {
                     continue;
                 }
-                let (ox, oy, or, ohold) = {
+                let (ox, oy, or, ohold, oair) = {
                     let o = self.hashed(o).unwrap();
-                    (o.x, o.y, o.r, o.task == Task::Hold)
+                    (o.x, o.y, o.r, o.task == Task::Hold, o.kind.def().air)
                 };
+                if air != oair {
+                    continue; // flyers and walkers do not bump into each other
+                }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);
                 let d = jsmath::hypot(dx, dy);
@@ -1712,7 +1845,8 @@ impl World {
             u.x = clamp(u.x, 16.0, WW - 16.0);
             u.y = clamp(u.y, 16.0, WH - 16.0);
             let t = Self::tile_of(u.x, u.y);
-            if self.map.blocked(t.0, t.1)
+            if !air
+                && self.map.blocked(t.0, t.1)
                 && let Some(f) = self.map.nearest_free(t.0, t.1, 4)
             {
                 let u = &mut self.units[i];
@@ -1740,7 +1874,14 @@ impl World {
         let d = b.kind.def();
         if d.range > 0.0 && b.cd <= 0.0 {
             let (bx, by, team) = (b.x, b.y, b.team);
-            if let Some(t) = self.find_target(bx, by, team, d.range * TILE, false) {
+            if let Some(t) = self.find_target(
+                bx,
+                by,
+                team,
+                d.range * TILE,
+                false,
+                (d.dmg > 0.0, d.dmg_air > 0.0),
+            ) {
                 let (tx, ty) = self.geo(t).unwrap().center();
                 self.bm(bid).unwrap().aim = jsmath::atan2(ty - by, tx - bx);
                 self.fire(bid, t);

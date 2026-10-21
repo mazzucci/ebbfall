@@ -8,7 +8,7 @@ import { terrainSprites } from './terrain2.js';
 import { effectSprites } from './effects2.js';
 import { render3d } from './render3d.mjs';
 
-const FACINGS = 16, UNIT_FRAMES = { harvester: 2, trooper: 4, vanguard: 4 };
+const FACINGS = 16, UNIT_FRAMES = { harvester: 2, trooper: 4, vanguard: 4, lancer: 4, medic: 4, wasp: 2 };
 const sprites = [...terrainSprites(), ...effectSprites(), ...await render3d()];
 
 // Shelf packing into 2048x2048 pages, tallest first, 4 px gutters. Terrain tiles get 4 px gutters filled with their
@@ -53,7 +53,7 @@ pages.forEach((p, n) => {
   pageFiles.push(`atlas-${n}.json`);
 });
 const seq = (prefix, n) => Array.from({ length: n }, (_, f) => `${prefix}${f}`);
-const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4) };
+const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4), heal: seq('heal_', 3) };
 for (const [kind, n] of Object.entries(UNIT_FRAMES)) for (let t = 0; t < 2; t++) for (let d = 0; d < FACINGS; d++) animations[`${kind}_${t}_${d}`] = seq(`${kind}_${t}_${d}_`, n);
 writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2 }, null, 1));
 console.log(`${sprites.length} sprites on ${pages.length} page(s)`);

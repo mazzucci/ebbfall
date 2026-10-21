@@ -18,6 +18,10 @@ npm test         # headless simulation tests
 `S` stop, `H` hold, `B` build (with Harvesters selected), `Ctrl`+`1`–`9` saves a control group, `Home` jumps to
 your Core. `Backspace` (or the browser's back gesture) asks before leaving a game.
 
+**Units:** Harvesters mine and build. The Barracks trains Troopers (shoot ground and air), Lancers (anti-air missiles)
+and Medics (heal infantry, need a War Forge); the War Forge trains Vanguards (heavy, ground only); the Airfield trains
+Wasps, gunships that fly over cliffs and buildings. Turrets hit ground and air.
+
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.

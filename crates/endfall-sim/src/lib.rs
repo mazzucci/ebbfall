@@ -197,6 +197,12 @@ impl Game {
         valid_team(team).is_some_and(|t| self.w.can_afford(t, [shards, ether]))
     }
 
+    /// Switch the opponent off (tests and tools only).
+    #[wasm_bindgen(js_name = disableAi)]
+    pub fn disable_ai(&mut self) {
+        self.w.disable_ai();
+    }
+
     /// Set a team's resources (tests and tools only).
     #[wasm_bindgen(js_name = setResources)]
     pub fn set_resources(&mut self, team: u8, shards: i32, ether: i32) {
@@ -313,7 +319,7 @@ impl Game {
         out
     }
 
-    /// Per projectile: [x, y, kind (0 bolt, 1 shell), team, aimX, aimY, 0, 0]; aim = the point it flies at.
+    /// Per projectile: [x, y, kind (0 bolt, 1 shell, 2 missile), team, aimX, aimY, 0, 0]; aim = the point it flies at.
     pub fn projectiles(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.w.projs.len() * PROJ_STRIDE);
         for p in &self.w.projs {
@@ -321,7 +327,11 @@ impl Game {
                 .w
                 .geo(p.target)
                 .map_or((p.x, p.y), |g| g.aim_point(p.x, p.y));
-            let k = if p.kind == ProjKind::Shell { 1.0 } else { 0.0 };
+            let k = match p.kind {
+                ProjKind::Bolt => 0.0,
+                ProjKind::Shell => 1.0,
+                ProjKind::Missile => 2.0,
+            };
             out.extend_from_slice(&[p.x, p.y, k, p.team as f64, ax, ay, 0.0, 0.0]);
         }
         out
@@ -384,6 +394,9 @@ impl Game {
                 }
                 Event::Burst { x, y, r, team, n } => {
                     format!("{{\"t\":\"burst\",\"x\":{x},\"y\":{y},\"r\":{r},\"team\":{team},\"n\":{n}}}")
+                }
+                Event::Heal { x, y, tx, ty } => {
+                    format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty}}}")
                 }
                 Event::Hit { x, y, big } => format!("{{\"t\":\"hit\",\"x\":{x},\"y\":{y},\"big\":{big}}}"),
             })

@@ -131,6 +131,15 @@ impl World {
         self.ai.as_mut().unwrap().sites = sites;
     }
 
+    /// Attack a target if this unit's weapon can hit it, otherwise attack-move to where it is.
+    fn engage(&mut self, a: Id, target: Id) {
+        if self.can_hit(a, target) {
+            self.attack_ent(a, target);
+        } else if let Some((x, y)) = self.geo(target).map(|g| g.center()) {
+            self.attack_move(a, x, y);
+        }
+    }
+
     fn gathering_ether(&self, id: Id) -> Option<bool> {
         match self.unit(id)?.task {
             Task::Gather { node, .. } => Some(self.map.node(node).is_some_and(|n| n.ether)),
@@ -307,6 +316,12 @@ impl World {
             && cnt(self, BldgKind::Turret) < (t > 240.0) as usize + (t > 480.0) as usize
         {
             Some(BldgKind::Turret)
+        } else if self.diff >= 1
+            && done(self, BldgKind::Forge) >= 1
+            && cnt(self, BldgKind::Airfield) == 0
+            && t > 330.0
+        {
+            Some(BldgKind::Airfield)
         } else {
             None
         };
@@ -323,15 +338,51 @@ impl World {
         }
         self.tend_sites(&harv);
 
-        // Production.
+        // Production. Barracks answer enemy flyers with Lancers and bring a Medic per six Troopers.
+        let enemy_air = self
+            .units
+            .iter()
+            .filter(|u| u.team == PLAYER && u.kind.def().air)
+            .count();
+        let mine = |w: &World, k: UnitKind| {
+            w.units
+                .iter()
+                .filter(|u| u.team == e && u.kind == k)
+                .count()
+                + w.bldgs
+                    .iter()
+                    .filter(|b| b.team == e)
+                    .flat_map(|b| b.queue.iter())
+                    .filter(|&&q| q == k)
+                    .count()
+        };
         for &bid in &my_b {
             let b = self.bldg(bid).unwrap();
-            let Some(u) = b.kind.def().trains else {
-                continue;
-            };
-            if !b.done || b.kind == BldgKind::Core {
+            if !b.done || b.kind == BldgKind::Core || b.kind.def().trains.is_empty() {
                 continue;
             }
+            let u = match b.kind {
+                BldgKind::Barracks
+                    if enemy_air > 0 && mine(self, UnitKind::Lancer) < enemy_air * 2 =>
+                {
+                    UnitKind::Lancer
+                }
+                BldgKind::Barracks
+                    if done(self, BldgKind::Forge) >= 1
+                        && (mine(self, UnitKind::Medic) + 1) * 6
+                            <= mine(self, UnitKind::Trooper) =>
+                {
+                    UnitKind::Medic
+                }
+                BldgKind::Airfield if mine(self, UnitKind::Wasp) >= 6 => continue,
+                _ => b.kind.def().trains[0],
+            };
+            // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks.
+            let u = if self.can_afford(e, u.def().cost) {
+                u
+            } else {
+                b.kind.def().trains[0]
+            };
             let qlen = b.queue.len();
             if b.rally.is_none() {
                 self.set_rally(bid, rally.x, rally.y, None);
@@ -368,8 +419,8 @@ impl World {
                     Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
                     _ => false,
                 };
-                if go {
-                    self.attack_ent(a, intr);
+                if go && self.can_hit(a, intr) {
+                    self.attack_ent(a, intr); // units that cannot hit it (a flyer, say) are not dragged around
                 }
             }
         }
@@ -427,7 +478,7 @@ impl World {
                         }
                     }
                     if bd < 700.0 {
-                        self.attack_ent(a, best);
+                        self.engage(a, best);
                     } else {
                         let (bx, by) = (self.bldg(best).unwrap().x, self.bldg(best).unwrap().y);
                         self.attack_move(a, bx, by);

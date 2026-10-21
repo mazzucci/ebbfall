@@ -30,7 +30,8 @@ export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242) {
+/** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true } = {}) {
   const ctx = await browser.newContext(device);
   const page = await ctx.newPage();
   const errors = [];
@@ -42,6 +43,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242) {
   if (diff !== 1) await page.locator(`#diff [data-d="${diff}"]`).click();
   await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
+  if (!ai) await page.evaluate(() => endfall.engine.disableAi());
   const cdp = touch ? await ctx.newCDPSession(page) : null;
   const ev = (fn, arg) => page.evaluate(fn, arg);
 
@@ -137,7 +139,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242) {
   };
   return d;
 }
-const BUILD_LABEL = { depot: 'Depot', barracks: 'Barracks', extractor: 'Extractor', forge: 'Forge', turret: 'Turret', core: 'Core' };
+const BUILD_LABEL = { depot: 'Depot', barracks: 'Barracks', extractor: 'Extractor', forge: 'Forge', turret: 'Turret', airfield: 'Airfield', core: 'Core' };
 
 /** Poll until fn() is truthy (fn runs in Node; use d.state() inside), fast-forwarding the game between checks. */
 export async function until(d, fn, { seconds = 120, step = 2, what = 'condition' } = {}) {

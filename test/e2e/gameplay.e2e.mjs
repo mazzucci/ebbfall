@@ -35,13 +35,15 @@ test('a depot built through the UI finishes and raises supply', async () => {
 });
 
 test('every finished production building offers its unit, and pressing it trains one', async () => {
-  const d = await newGame(DESKTOP);
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
+    await buildAndFinish(d, 'd', 'depot', 0); // supply for six units
     const rax = await buildAndFinish(d, 'b', 'barracks', 0);
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
     await buildAndFinish(d, 'r', 'turret', 2);
-    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [forge, 'Vanguard', 'vanguard']]) {
+    const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
+    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [forge, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp']]) {
       await d.clickEntity(b.id);
       const card = await d.card();
       const why = async () => JSON.stringify({ card, sel: await d.selection(), ui: await d.eval(() => [endfall.ui.mode, endfall.ui.place]), at: b, near: (await d.state()).units.filter(u => Math.hypot(u.x - b.x, u.y - b.y) < 70).map(u => [u.type, Math.round(u.x - b.x), Math.round(u.y - b.y)]) });
@@ -51,6 +53,31 @@ test('every finished production building offers its unit, and pressing it trains
       assert.equal((await d.state()).bldgs.find(x => x.id === b.id).queue[0], unit, `${label} queued`);
       await until(d, async () => mine(await d.state(), unit).length > before, { seconds: 40, what: `${label} to be trained` });
     }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('medics wait for a forge, and a wasp flies straight across the map', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    const rax = await buildAndFinish(d, 'b', 'barracks', 0);
+    await d.clickEntity(rax.id);
+    const card = await d.card();
+    assert.ok(card.some(c => c.label === 'Lancer' && c.enabled), 'Lancer available');
+    assert.ok(card.some(c => c.label === 'Medic' && !c.enabled), `Medic needs a Forge: ${JSON.stringify(card)}`);
+    await buildAndFinish(d, 'f', 'forge', 1);
+    const airfield = await buildAndFinish(d, 'a', 'airfield', 2);
+    await d.clickEntity(airfield.id);
+    await d.pressCard('Wasp');
+    const wasp = await until(d, async () => mine(await d.state(), 'wasp')[0], { seconds: 40, what: 'a wasp' });
+    // Fly it to the far side of the map: a flyer goes straight, so it covers ~1300 px in under 12 s.
+    await d.clickEntity(wasp.id);
+    const target = { x: wasp.x + 900, y: wasp.y - 900 };
+    await d.rightClickWorld(target.x, target.y);
+    await d.skip(10);
+    const now = (await d.state()).units.find(u => u.id === wasp.id);
+    assert.ok(Math.hypot(now.x - target.x, now.y - target.y) < 60, `wasp at ${Math.round(now.x)},${Math.round(now.y)}, target ${target.x},${target.y}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -8,8 +8,8 @@ loop feels right.
 
 - Playable prototype: one faction, one procedurally shaped 64x64 map, one scripted opponent with three difficulties.
 - Economy: shards (finite fields) and ether (vents that need an Extractor); supply from Core and Depots.
-- Six structures (Core, Depot, Extractor, Barracks, War Forge, Sentinel Turret), three units (Harvester, Trooper,
-  Vanguard), fog of war, control groups, rally points, attack-move, hold.
+- Seven structures (Core, Depot, Extractor, Barracks, War Forge, Sentinel Turret, Airfield), six units (Harvester,
+  Trooper, Vanguard, Lancer, Medic, and the flying Wasp), fog of war, control groups, rally points, attack-move, hold.
 - Mouse, keyboard and touch controls. Works on a phone.
 - Sim and client are separate modules. The sim runs headless in Node, uses a seeded RNG, advances by a fixed tick
   and is covered by a determinism test.
@@ -41,7 +41,7 @@ loop feels right.
 - [ ] `stateHash()` every N ticks in dev mode, logged to console
 
 ### M2. Make the single-player game good
-- [ ] Second faction or at least a fourth and fifth unit (an air unit, a caster) so there are real counters
+- [x] More units with real counters: Lancer (anti-air infantry), Medic (healer), Wasp (flying gunship from the Airfield); weapons have separate ground/air damage
 - [ ] Upgrades (weapon/armor tiers) researched at the Forge
 - [ ] Better AI: scouting, reacting to the player's composition, harassment, expansions
 - [ ] Hand-authored maps + a tiny map format (JSON); keep the generator for skirmish

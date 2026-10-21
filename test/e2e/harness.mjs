@@ -79,9 +79,18 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242) {
     async rightClickWorld(wx, wy) { const [x, y] = await d.screen(wx, wy); await page.mouse.click(x, y, { button: 'right' }); await page.waitForTimeout(60); },
     /** Click on an entity by id, reading its position right before clicking. */
     async clickEntity(id) {
-      const p = await ev((id) => { const e = endfall.G.units.find(u => u.id === id) || endfall.G.bldgs.find(b => b.id === id); return e && { x: e.x, y: e.y }; }, id);
+      // Units move ~3 px per frame: centre on the live position and get its screen point in one round trip,
+      // then click right away.
+      const canvas = await page.locator('#game').boundingBox();
+      if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+      const p = await ev((id) => {
+        const e = endfall.G.units.find(u => u.id === id) || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
+        endfall.centerOn(e.x, e.y); const c = endfall.cam; return { x: (e.x - c.x) * c.zoom, y: (e.y - c.y) * c.zoom };
+      }, id);
       if (!p) throw new Error('no entity ' + id);
-      await d.clickWorld(p.x, p.y);
+      const [x, y] = [canvas.x + p.x, canvas.y + p.y];
+      if (touch) return d.tapAt(x, y);
+      await page.mouse.click(x, y); await page.waitForTimeout(60);
     },
     /** Drag a selection box (mouse) around a world rectangle. */
     async boxSelect(x0, y0, x1, y1) {

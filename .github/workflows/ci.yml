@@ -36,8 +36,8 @@ jobs:
       - run: rustup toolchain install
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
-      - run: cargo test --locked
-      - name: Randomized gameplay invariants (more seeds in release mode)
+      - run: cargo test --locked -- --skip random_play
+      - name: Gameplay tests including randomized play (release mode, more seeds)
         run: cargo test --release --locked --test gameplay
       - run: npm ci
       - run: npm run build:wasm

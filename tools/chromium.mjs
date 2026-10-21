@@ -23,5 +23,9 @@ function findCached() {
 
 export async function launchChromium(args = GL_ARGS) {
   try { return await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args }); }
-  catch (e) { const p = findCached(); if (!p) throw e; return chromium.launch({ executablePath: p, args }); }
+  catch (e) {
+    const p = findCached(); if (!p) throw e;
+    try { return await chromium.launch({ executablePath: p, args }); }
+    catch (e2) { throw new Error(`no usable Chromium: ${e.message}\nfallback ${p}: ${e2.message}`); }
+  }
 }

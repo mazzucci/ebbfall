@@ -56,7 +56,8 @@ export function resize() {
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
 /** On touch screens the HUD floats over the map, so the camera may scroll that far past the edges. */
-const overscroll = () => matchMedia('(pointer: coarse)').matches ? 120 / cam.zoom : 0;
+const coarse = matchMedia('(pointer: coarse)');
+const overscroll = () => coarse.matches ? 120 / cam.zoom : 0;
 export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** Screen (canvas css px) → world px. */
@@ -303,7 +304,7 @@ export function render(selList, place) {
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
-    if (sel.has(u) || u.hp < u.maxhp) hpBar(u.x - u.r - 2, u.y - u.r * UNIT_SCALE - 12, u.r * 2 + 4, u.hp, u.maxhp);
+    if (sel.has(u) || u.hp < u.maxhp) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12, r * 2 + 4, u.hp, u.maxhp); }
   });
 
   let pi = 0;

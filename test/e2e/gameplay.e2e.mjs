@@ -64,6 +64,7 @@ test('a building under construction shows its progress, and a stalled one can be
     const h = mine(s, 'harvester')[0];
     await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
     await d.skip(10);
+    assert.ok(myBldg(await d.state(), 'depot')[0]?.progress > 0, 'construction started before we pull the builder away');
     // Pull the builder away: construction must stop and say so.
     await d.clickEntity(h.id);
     await d.rightClickWorld(core.x - 120, core.y - 120);
@@ -91,6 +92,7 @@ test('training shows progress and the queue in the panel', async () => {
     await d.skip(3);
     assert.match(await d.hudText('#selSub', /Training Harvester \d+% \+1/), /Training Harvester \d+% \+1/);
     assert.equal(await d.page.locator('#queue .qi').count(), 2);
+    assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 
@@ -111,6 +113,7 @@ test('harvesters mine ether once an extractor stands on the vent', async () => {
     await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the extractor' });
     for (const u of h.slice(1, 4)) { await d.clickEntity(u.id); await d.rightClickWorld(ext.x, ext.y); }
     await until(d, async () => (await d.state()).res[1] > 0, { seconds: 60, what: 'ether income' });
+    assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 

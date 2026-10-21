@@ -82,8 +82,10 @@ fn player_vent(w: &World) -> (i32, i32) {
     (n.tx, n.ty)
 }
 
+/// A world with plenty of resources and no opponent, for testing what the player can do.
 fn rich(seed: u32) -> World {
     let mut w = World::new(seed, 1);
+    w.disable_ai();
     w.res[PLAYER as usize] = [20_000, 20_000];
     w
 }
@@ -105,6 +107,7 @@ fn every_building_and_unit_can_be_made() {
         let forge = build(&mut w, BldgKind::Forge, h[2], 120);
         let _turret = build(&mut w, BldgKind::Turret, h[3], 90);
         let _ext = build(&mut w, BldgKind::Extractor, h[0], 90);
+        let _second_core = build(&mut w, BldgKind::Core, h[1], 150);
         assert!(w.bldg(depot).unwrap().done);
         let core_id = w
             .bldgs

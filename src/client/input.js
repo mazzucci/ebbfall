@@ -35,7 +35,7 @@ function select(list, add) {
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => u.team === PLAYER && u.x >= a.x - u.r && u.x <= b.x + u.r && u.y >= a.y - u.r && u.y <= b.y + u.r);
+  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE; return u.team === PLAYER && u.x >= a.x - r && u.x <= b.x + r && u.y >= a.y - r && u.y <= b.y + r; });
   if (us.length) { select(us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === PLAYER && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }

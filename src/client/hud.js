@@ -1,5 +1,5 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
-import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, dist } from '../engine/index.js';
+import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, UPGRADES, UP_DMG, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 import { sfx } from './audio.js';
 
 export const $ = (id) => document.getElementById(id);
@@ -21,9 +21,12 @@ export const playerSel = () => ui.sel.filter(e => e.team === PLAYER && !e.dead);
 /** Harvesters currently working on building b. */
 export const buildersOf = (b) => G.units.filter(u => u.task.t === 'build' && u.task.b === b);
 
+export const ROMAN = ['', 'I', 'II', 'III'];
+
 /** One line describing a building's state: construction (and whether it is paused) or what it is training. */
 export function bldgStatus(b) {
   if (!b.done) return 'Constructing ' + Math.round(b.progress * 100) + '%' + (buildersOf(b).length ? '' : ' (paused: no builder)');
+  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv] + ' ' + Math.round(b.research.prog * 100) + '%' + (b.queue.length ? ' · training' : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + ' ' + Math.round(b.prog * 100) + '%' + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   return '';
 }
@@ -35,6 +38,8 @@ export function updateHud() {
   const [s, e] = G.res[PLAYER], [su, sc] = G.sup[PLAYER];
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc); $('clock').textContent = fmt(G.time);
+  const up = G.upgrades[PLAYER]; $('upg').hidden = !(up.weapons || up.armor);
+  $('upg').innerHTML = `<span title="Weapons">W<b>${ROMAN[up.weapons] || '0'}</b></span><span title="Armor">A<b>${ROMAN[up.armor] || '0'}</b></span>`;
   ui.sel = ui.sel.filter(x => !x.dead);
   const sel = ui.sel, name = $('selName'), sub = $('selSub'), stats = $('stats'), q = $('queue'), grp = $('group'), hb = $('hpBar');
   if (!sel.length) {
@@ -46,7 +51,9 @@ export function updateHud() {
     sub.textContent = x.team === PLAYER ? (x.kind === 'unit' ? taskName(x) : bldgStatus(x)) : 'Enemy';
     hb.hidden = false; $('hpFill').style.width = (x.hp / x.maxhp * 100) + '%';
     let st = `<span>HP <b>${Math.ceil(x.hp)}/${x.maxhp}</b></span><span>Armor <b>${x.d.armor || 0}</b></span>`;
-    if (x.d.dmg || x.d.dmgAir) st += `<span>Damage <b>${x.d.dmg || '–'}${x.d.dmgAir ? ' / air ' + x.d.dmgAir : ''}</b></span><span>Range <b>${x.d.range}</b></span>`;
+    const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons, plus = bonus ? `+${bonus}` : '';
+    if (x.d.dmg || x.d.dmgAir) st += `<span>Damage <b>${x.d.dmg ? x.d.dmg + plus : '–'}${x.d.dmgAir ? ' / air ' + x.d.dmgAir + plus : ''}</b></span><span>Range <b>${x.d.range}</b></span>`;
+    if (x.kind === 'unit' && up.armor) st = st.replace(`Armor <b>${x.d.armor || 0}</b>`, `Armor <b>${x.d.armor || 0}+${up.armor}</b>`);
     if (x.d.heal) st += `<span>Heals <b>${x.d.heal}/s</b></span>`;
     if (x.kind === 'unit' && x.carry) st += `<span>Carrying <b>${x.carry} ${x.carryType}</b></span>`;
     stats.innerHTML = st;
@@ -91,6 +98,14 @@ export function cardItems() {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === PLAYER && o.type === d.req && o.done);
       items.push({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, dis: !!missing, tip: d.desc + (missing ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
     }
+    if (b.done && b.type === 'forge') {
+      for (const [k, u] of Object.entries(UPGRADES)) {
+        const lv = G.upgrades[PLAYER][k] + 1, elsewhere = G.bldgs.some(o => o.team === PLAYER && o.research && o.research.type === k);
+        if (lv > 3) continue;
+        items.push({ id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, tip: u.desc + ` ${u.time[lv - 1]} s.` });
+      }
+      if (b.research) items.push({ id: 'cancelr', label: 'Cancel research', key: 'C', cancel: true });
+    }
     if (b.queue.length) items.push({ id: 'cancelq', label: 'Cancel last', key: 'X', cancel: true });
     if (b.done && b.d.trains) items.push({ id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', tip: 'Then click where new units should go' });
     items.push({ id: 'esc', label: 'Deselect', key: 'Esc', cancel: true });
@@ -132,6 +147,8 @@ export function doCommand(id) {
     if (!hs.length) { toast('No Harvester to build it', true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
+  if (id.startsWith('r_')) { const b = bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }
+  if (id === 'cancelr') { const b = bl[0]; if (b) cancelResearch(b); return; }
   if (id === 'cancelb') { const b = bl[0]; if (b && !b.done) { cancelConstruction(b); ui.sel = []; sfx('select'); } return; }
   if (id === 'cancelq') { const b = bl[0]; if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }
 }

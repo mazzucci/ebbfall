@@ -82,6 +82,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,46px);grid-column:2;grid-row:1}
   #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
 }
+#upg{gap:10px;font-size:12px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:3px}
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
 .tb{background:rgba(18,26,37,.86);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.06em;padding:5px 8px;cursor:pointer;display:flex;gap:6px;align-items:center}

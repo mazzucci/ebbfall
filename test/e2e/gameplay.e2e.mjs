@@ -278,3 +278,29 @@ test('phone: long-press a group tab saves the selection, tapping it recalls it',
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('the forge researches weapons upgrades, and unit stats show the bonus', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    await buildAndFinish(d, 'b', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    await d.clickEntity(forge.id);
+    assert.ok((await d.card()).some(c => c.label === 'Weapons I' && c.enabled), 'Weapons I offered');
+    await d.pressCard('Weapons I');
+    assert.match(await d.hudText('#selSub', /Researching Weapons I/), /Researching Weapons I/);
+    assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
+    const before = (await d.state()).res;
+    await d.pressCard('Cancel research');
+    const after = (await d.state()).res;
+    assert.ok(after[0] - before[0] >= 100 && after[1] - before[1] === 100, 'cancel refunds in full');
+    await d.pressCard('Weapons I');
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].weapons)) === 1, { seconds: 70, what: 'Weapons I' });
+    await d.clickEntity(forge.id);
+    assert.ok((await d.card()).some(c => c.label === 'Weapons II'), 'next level offered');
+    const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [forge.x, forge.y + 90]);
+    await d.clickEntity(id);
+    assert.match(await d.hudText('#stats', /7\+1/), /Damage 7\+1/, 'trooper damage shows the bonus');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

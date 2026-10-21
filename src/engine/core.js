@@ -14,6 +14,7 @@ export { clamp, dist, lerp, fmt, mulberry } from './util.js';
 const US = 16, BS = 24, PS = 8, NS = 12;
 const UNIT_KEYS = Object.keys(UNITS), BLDG_KEYS = Object.keys(BUILDINGS);
 const PROJ_KINDS = ['bolt', 'shell', 'missile'];
+const UPGRADE_KEYS = ['weapons', 'armor'];
 const TASKS = ['idle', 'hold', 'move', 'amove', 'attack', 'gather', 'build'], PHASES = ['go', 'wait', 'mine', 'return'];
 
 let game = null, dirty = true;
@@ -21,7 +22,7 @@ const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
   seed: 0, diff: 1, time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1,
-  stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [],
+  stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [], upgrades: [{ weapons: 0, armor: 0 }, { weapons: 0, armor: 0 }],
 };
 const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
 
@@ -44,6 +45,7 @@ function sync() {
   S.res[0][0] = I[2]; S.res[0][1] = I[3]; S.res[1][0] = I[4]; S.res[1][1] = I[5];
   S.sup[0] = [I[6], I[7]]; S.sup[1] = [I[8], I[9]];
   Object.assign(S.stats, { built: I[12], lost: I[13], killed: I[14], razed: I[15] });
+  Object.assign(S.upgrades[0], { weapons: I[18], armor: I[19] }); Object.assign(S.upgrades[1], { weapons: I[20], armor: I[21] });
   S.vis.set(game.vis(PLAYER)); S.explored.set(game.explored(PLAYER)); M.occ.set(game.occ());
 
   const N = game.nodes(), seenN = new Set(); M.nodes = [];
@@ -67,6 +69,7 @@ function sync() {
     b.hp = B[o + 5]; b.maxhp = B[o + 6]; b.progress = B[o + 7]; b.done = !!B[o + 8]; b.prog = B[o + 9]; b.flash = B[o + 10]; b.aim = B[o + 11];
     b.rally = B[o + 12] ? { x: B[o + 13], y: B[o + 14], node: nodes.get(B[o + 15]) || null } : null;
     b.queue = []; for (let k = 0; k < B[o + 16]; k++) b.queue.push(UNIT_KEYS[B[o + 17 + k]]);
+    b.research = B[o + 22] ? { type: UPGRADE_KEYS[B[o + 22] - 1], prog: B[o + 23] } : null;
     S.bldgs.push(b);
   }
   retire(bldgs, seenB);
@@ -125,6 +128,9 @@ export const placeBuilding = (team, type, tx, ty, builder) => touch(err(game.pla
 /** Returns an error string, or null on success. */
 export const queueUnit = (b, type) => touch(err(game.queueUnit(b.id, type)));
 export const cancelQueue = (b, i) => touch(game.cancelQueue(b.id, i));
+/** Research the next level of an upgrade at a War Forge; returns an error string or null. */
+export const research = (b, type) => touch(err(game.research(b.id, type)));
+export const cancelResearch = (b) => touch(game.cancelResearch(b.id));
 /** Cancel an unfinished building (75% refund). */
 export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));

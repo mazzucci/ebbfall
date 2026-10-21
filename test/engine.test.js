@@ -52,6 +52,9 @@ test('the Rust data tables match the client constants', { skip }, () => {
     assert.equal(r.range, b.range ?? 0); assert.equal(r.dmg, b.dmg ?? 0); assert.equal(r.dmgAir, b.dmgAir ?? 0); assert.equal(r.cd, b.cd ?? 0); assert.equal(r.proj, b.proj ?? null);
   }
   assert.deepEqual(d.diff, C.DIFF.map(({ name, ...rest }) => rest));
+  for (const [k, u] of Object.entries(C.UPGRADES)) { assert.deepEqual(d.upgrades[k].cost, u.cost, k + ' cost'); assert.deepEqual(d.upgrades[k].time, u.time, k + ' time'); }
+  for (const [k, u] of Object.entries(d.units)) assert.equal(u.upDmg, C.UP_DMG[k] ?? 0, k + ' upDmg');
+  assert.equal(d.buildings.turret.upDmg, C.UP_DMG.turret);
   assert.deepEqual(d.bases, C.BASES);
 });
 

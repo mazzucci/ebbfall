@@ -7,7 +7,7 @@ use endfall_sim::data::*;
 use endfall_sim::map::Id;
 #[allow(unused_imports)]
 use endfall_sim::world::BUILDER_PATIENCE;
-use endfall_sim::world::{Phase, Task, World};
+use endfall_sim::world::{Phase, Task, Unit, World};
 use endfall_sim::{Game, Mulberry32};
 
 const TPS: u32 = 30;
@@ -634,11 +634,19 @@ fn the_ai_keeps_training_troopers_when_short_of_ether() {
 fn the_ai_answers_flyers_with_lancers() {
     let mut w = World::new(31, 0); // Easy: its first attack comes late enough to watch it react
     run(&mut w, 150); // let it build a barracks
+    let (cx, cy) = core(&w, ENEMY);
     for k in 0..3 {
-        let id = w.make_unit(UnitKind::Wasp, PLAYER, 300.0 + k as f64 * 30.0, 1500.0);
+        // parked by the AI's core, where it can see them
+        let id = w.make_unit(
+            UnitKind::Wasp,
+            PLAYER,
+            (cx as f64 - 3.0) * TILE - k as f64 * 30.0,
+            (cy as f64 + 6.0) * TILE,
+        );
         w.hold_unit(id);
     }
-    run(&mut w, 120);
+    run(&mut w, 80);
+    assert!(!w.over, "the game is still on");
     assert!(
         count(&w, ENEMY, UnitKind::Lancer) > 0
             || w.bldgs
@@ -646,6 +654,234 @@ fn the_ai_answers_flyers_with_lancers() {
                 .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
         "AI trains lancers against flyers"
     );
+}
+
+#[test]
+fn the_ai_only_reacts_to_flyers_it_has_seen() {
+    let mut w = World::new(31, 0);
+    run(&mut w, 150);
+    // A wasp hiding in the top-left corner, far from anything the AI has looked at.
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 40.0, 40.0);
+    w.hold_unit(wasp);
+    run(&mut w, 40);
+    assert_eq!(
+        count(&w, ENEMY, UnitKind::Lancer),
+        0,
+        "no lancers against a flyer it cannot see"
+    );
+    assert!(
+        !w.bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer))
+    );
+    // Now fly it into view.
+    let (cx, cy) = core(&w, ENEMY);
+    w.move_to(wasp, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
+    run(&mut w, 40);
+    assert!(
+        count(&w, ENEMY, UnitKind::Lancer) > 0
+            || w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
+        "lancers once it has seen the flyer"
+    );
+}
+
+#[test]
+fn the_ai_scouts_the_player_base_early() {
+    let mut w = World::new(41, 1);
+    let (px, py) = core(&w, PLAYER);
+    run(&mut w, 150);
+    let seen = (0..4).any(|dy| {
+        (0..4).any(|dx| w.explored[ENEMY as usize][((py + dy) * MW + px + dx) as usize] != 0)
+    });
+    assert!(seen, "the AI has looked at the player's core");
+    // The scout goes back to mining at home, not at the player's fields.
+    run(&mut w, 90);
+    let (cx, cy) = ((px as f64 + 2.0) * TILE, (py as f64 + 2.0) * TILE);
+    let poaching = w
+        .units
+        .iter()
+        .filter(|u| u.team == ENEMY && u.kind == UnitKind::Harvester)
+        .filter(|u| match u.task {
+            Task::Gather { node, .. } => w
+                .map
+                .node(node)
+                .is_some_and(|n| ((n.x - cx).powi(2) + (n.y - cy).powi(2)).sqrt() < 800.0),
+            _ => false,
+        })
+        .count();
+    assert_eq!(poaching, 0, "no AI harvester mines by the player's base");
+}
+
+#[test]
+fn ai_wasps_raid_the_players_harvesters() {
+    let mut w = World::new(43, 1);
+    run(&mut w, 120); // scouting done
+    // A soldier stands among the player's harvesters: the raiders go for the harvesters anyway.
+    let mine: Vec<&Unit> = w
+        .units
+        .iter()
+        .filter(|u| u.team == PLAYER && u.kind == UnitKind::Harvester)
+        .collect();
+    let n = mine.len() as f64;
+    let (mx, my) = (
+        mine.iter().map(|u| u.x).sum::<f64>() / n,
+        mine.iter().map(|u| u.y).sum::<f64>() / n,
+    );
+    let guard = w.make_unit(UnitKind::Vanguard, PLAYER, mx, my);
+    w.hold_unit(guard);
+    let (cx, cy) = core(&w, ENEMY);
+    for k in 0..3 {
+        w.make_unit(
+            UnitKind::Wasp,
+            ENEMY,
+            (cx as f64 + 2.0) * TILE + k as f64 * 30.0,
+            (cy as f64 + 6.0) * TILE,
+        );
+    }
+    let hp = |w: &World| {
+        w.units
+            .iter()
+            .filter(|u| u.team == PLAYER && u.kind == UnitKind::Harvester)
+            .map(|u| u.hp)
+            .sum::<f64>()
+    };
+    let before = hp(&w);
+    // Until the harvesters have taken a beating, the guard is left alone.
+    for _ in 0..60 * TPS {
+        w.step();
+        if before - hp(&w) >= 100.0 {
+            break;
+        }
+    }
+    let lost = before - hp(&w);
+    assert!(
+        lost >= 100.0,
+        "the raid hurt the player's harvesters: {lost}"
+    );
+    let g = w.unit(guard).unwrap();
+    assert_eq!(g.hp, g.maxhp, "the raiders went for the harvesters first");
+}
+
+#[test]
+fn hurt_wasps_stay_home_and_healthy_ones_raid() {
+    let mut w = World::new(43, 1);
+    run(&mut w, 120);
+    let (cx, cy) = core(&w, ENEMY);
+    let at = |k: i32| {
+        (
+            (cx as f64 + 2.0) * TILE + k as f64 * 30.0,
+            (cy as f64 + 6.0) * TILE,
+        )
+    };
+    // Four hurt wasps first (lower ids), then two healthy ones.
+    let hurt: Vec<Id> = (0..4)
+        .map(|k| {
+            let (x, y) = at(k);
+            let id = w.make_unit(UnitKind::Wasp, ENEMY, x, y);
+            w.units.iter_mut().find(|u| u.id == id).unwrap().hp = 25.0;
+            id
+        })
+        .collect();
+    let fit: Vec<Id> = (4..6)
+        .map(|k| {
+            let (x, y) = at(k);
+            w.make_unit(UnitKind::Wasp, ENEMY, x, y)
+        })
+        .collect();
+    let home = ((cx as f64 + 2.0) * TILE, (cy as f64 + 2.0) * TILE);
+    let away = |w: &World, id: Id| {
+        w.unit(id).map_or(0.0, |u| {
+            ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt()
+        })
+    };
+    run(&mut w, 30);
+    for &h in &hurt {
+        assert!(away(&w, h) < 500.0, "hurt wasp {h} stays home");
+    }
+    assert!(
+        fit.iter().any(|&f| away(&w, f) > 900.0),
+        "the healthy wasps went raiding"
+    );
+}
+
+#[test]
+fn the_ai_expands_to_a_second_base() {
+    let mut w = World::new(33, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 720);
+    let cores: Vec<_> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
+        .map(|b| (b.x, b.y))
+        .collect();
+    assert_eq!(cores.len(), 2, "AI has a second core by 12 min");
+    let exp = cores[1];
+    let working = w
+        .units
+        .iter()
+        .filter(|u| u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| ((n.x - exp.0).powi(2) + (n.y - exp.1).powi(2)).sqrt() < 300.0)))
+        .count();
+    assert!(working >= 3, "harvesters work the expansion: {working}");
+}
+
+#[test]
+fn a_beaten_attack_wave_falls_back() {
+    let mut w = World::new(45, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    // Wait for the first wave to get well on its way.
+    let (cx, cy) = core(&w, ENEMY);
+    let home = ((cx as f64 + 2.0) * TILE, (cy as f64 + 2.0) * TILE);
+    let away = |w: &World, id: Id| {
+        w.unit(id)
+            .is_some_and(|u| ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt() > 600.0)
+    };
+    let mut wave = Vec::new();
+    for _ in 0..30 * 600 {
+        w.step();
+        wave = w.ai_wave().unwrap_or_default();
+        if wave.len() >= 6 && wave.iter().all(|&id| away(&w, id)) {
+            break;
+        }
+    }
+    assert!(wave.len() >= 6, "a wave went out");
+    // All but two die (under 40% of the wave is left).
+    let doomed: Vec<Id> = wave.iter().copied().take(wave.len() - 2).collect();
+    w.units.retain(|u| !doomed.contains(&u.id));
+    w.recalc_supply(ENEMY);
+    let survivors: Vec<Id> = wave
+        .iter()
+        .copied()
+        .filter(|id| !doomed.contains(id))
+        .collect();
+    let d0: f64 = survivors
+        .iter()
+        .map(|&s| {
+            let u = w.unit(s).unwrap();
+            ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt()
+        })
+        .sum();
+    run(&mut w, 8);
+    let d1: f64 = survivors
+        .iter()
+        .filter_map(|&s| w.unit(s))
+        .map(|u| ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt())
+        .sum();
+    assert!(d1 < d0 - 200.0, "survivors head home: {d0:.0} -> {d1:.0}");
 }
 
 #[test]
@@ -1320,5 +1556,39 @@ fn builders_reach_every_reachable_site() {
         let (mut w, h, b) = lone_builder(seed, from, site, BldgKind::Barracks);
         builds_within(&mut w, h, b, 200)
             .unwrap_or_else(|e| panic!("seed {seed} from {from:?} site {site:?}: {e}"));
+    }
+}
+
+#[test]
+fn the_ai_hunts_down_buildings_it_has_not_seen() {
+    // A passive player with a Depot hidden far from both bases: after razing the main base the AI must search
+    // the map rather than stand on the empty start forever.
+    for seed in [2, 33] {
+        let mut w = World::new(seed, 1);
+        // The open spot farthest from both starts, well away from the player's.
+        let (p, e) = (core(&w, PLAYER), core(&w, ENEMY));
+        let far = |t: (i32, i32)| {
+            let d = |c: (i32, i32)| (t.0 - c.0).pow(2) + (t.1 - c.1).pow(2);
+            d(p).min(d(e))
+        };
+        let hidden = (0..MH)
+            .flat_map(|ty| (0..MW).map(move |tx| (tx, ty)))
+            // (checked as ENEMY: the player may not build in unexplored ground, but this test cheats)
+            .filter(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
+            .filter(|&(tx, ty)| (tx - p.0).pow(2) + (ty - p.1).pow(2) >= 24 * 24)
+            .max_by_key(|&t| far(t))
+            .unwrap();
+        w.make_building(BldgKind::Depot, PLAYER, hidden.0, hidden.1, true);
+        for _ in 0..1500 * TPS {
+            w.step();
+            if w.over {
+                break;
+            }
+        }
+        assert!(
+            w.over && w.winner == ENEMY as i32,
+            "seed {seed}: the AI found the hidden depot (t={:.0})",
+            w.time
+        );
     }
 }

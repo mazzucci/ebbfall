@@ -290,6 +290,11 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.pressCard('Weapons I');
     assert.match(await d.hudText('#selSub', /Researching Weapons I/), /Researching Weapons I/);
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
+    const before = (await d.state()).res;
+    await d.pressCard('Cancel research');
+    const after = (await d.state()).res;
+    assert.ok(after[0] - before[0] >= 100 && after[1] - before[1] === 100, 'cancel refunds in full');
+    await d.pressCard('Weapons I');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].weapons)) === 1, { seconds: 70, what: 'Weapons I' });
     await d.clickEntity(forge.id);
     assert.ok((await d.card()).some(c => c.label === 'Weapons II'), 'next level offered');

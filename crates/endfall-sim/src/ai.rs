@@ -22,6 +22,8 @@ impl World {
             attackers: None,
             rally: None,
             sites: Vec::new(),
+            saving_since: None,
+            no_save_until: 0.0,
         });
     }
 
@@ -206,15 +208,12 @@ impl World {
         };
         let cnt = |w: &World, k: BldgKind| {
             my_b.iter()
-                .filter(|&&id| w.bldg(id).unwrap().kind == k)
+                .filter(|&&id| w.bldg(id).is_some_and(|b| b.kind == k))
                 .count()
         };
         let done = |w: &World, k: BldgKind| {
             my_b.iter()
-                .filter(|&&id| {
-                    let b = w.bldg(id).unwrap();
-                    b.kind == k && b.done
-                })
+                .filter(|&&id| w.bldg(id).is_some_and(|b| b.kind == k && b.done))
                 .count()
         };
         let building: Vec<BldgKind> = my_b
@@ -337,38 +336,86 @@ impl World {
             }
         }
         self.tend_sites(&harv);
+        // tend_sites may have cancelled sites: every building id from here on must still exist.
+        let my_b: Vec<Id> = my_b
+            .iter()
+            .copied()
+            .filter(|&id| self.bldg(id).is_some())
+            .collect();
 
-        // Research comes first: weapons and armor in turn, starting earlier on harder levels. Until it can
-        // afford the next level it saves up (no new units) so production does not eat every shard.
+        // An enemy near our buildings (answered by the army below; also stops saving for research).
+        let mut intruder = None;
+        'scan: for u in &self.units {
+            if u.team != PLAYER {
+                continue;
+            }
+            for &bid in &my_b {
+                let b = self.bldg(bid).unwrap();
+                if dist(u.x, u.y, b.x, b.y) < 420.0 + b.r {
+                    intruder = Some(u.id);
+                    break 'scan;
+                }
+            }
+        }
+        let enemy_air = self
+            .units
+            .iter()
+            .filter(|u| u.team == PLAYER && u.kind.def().air)
+            .count();
+        let lancers = self
+            .units
+            .iter()
+            .filter(|u| u.team == e && u.kind == UnitKind::Lancer)
+            .count();
+
+        // Research: weapons and armor in turn, starting earlier on harder levels. Until it can afford the next
+        // level it saves up (no new units), but never while under attack or short of Lancers against flyers,
+        // and for at most SAVE_MAX seconds at a time.
+        const SAVE_MAX: f64 = 45.0;
         let research_from = [600.0, 420.0, 300.0][self.diff];
+        let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
         let mut saving = false;
         if t > research_from {
             for &bid in &my_b {
-                let b = self.bldg(bid).unwrap();
+                let Some(b) = self.bldg(bid) else { continue };
                 if b.kind != BldgKind::Forge || !b.done || b.research.is_some() {
                     continue;
                 }
                 let [wl, al] = self.upgrades[e as usize];
-                let up = if wl <= al {
-                    Upgrade::Weapons
+                let order = if wl <= al {
+                    [Upgrade::Weapons, Upgrade::Armor]
                 } else {
-                    Upgrade::Armor
+                    [Upgrade::Armor, Upgrade::Weapons]
                 };
-                let level = self.upgrades[e as usize][up.index()] + 1;
-                if level > MAX_UPGRADE
-                    || self
-                        .bldgs
+                let busy = |w: &World, up: Upgrade| {
+                    w.bldgs
                         .iter()
                         .any(|o| o.team == e && o.research.is_some_and(|(u, _)| u == up))
-                {
+                };
+                let Some(up) = order.into_iter().find(|&up| {
+                    self.upgrades[e as usize][up.index()] < MAX_UPGRADE && !busy(self, up)
+                }) else {
                     continue;
-                }
+                };
+                let level = self.upgrades[e as usize][up.index()] + 1;
                 if self.can_afford(e, up.cost(level)) {
                     let _ = self.start_research(bid, up);
                 } else {
                     saving = true;
                 }
             }
+        }
+        let ai = self.ai.as_mut().unwrap();
+        if saving && !threatened && t >= ai.no_save_until {
+            let since = *ai.saving_since.get_or_insert(t);
+            if t - since > SAVE_MAX {
+                ai.saving_since = None;
+                ai.no_save_until = t + 30.0; // spend for a while before saving again
+                saving = false;
+            }
+        } else {
+            ai.saving_since = None;
+            saving = false;
         }
 
         // Production. Barracks answer enemy flyers with Lancers and bring a Medic per six Troopers.
@@ -390,7 +437,7 @@ impl World {
                     .count()
         };
         for &bid in &my_b {
-            let b = self.bldg(bid).unwrap();
+            let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind == BldgKind::Core || b.kind.def().trains.is_empty() {
                 continue;
             }
@@ -431,19 +478,6 @@ impl World {
         }
 
         // Defense: anything near our buildings gets jumped by the idle army.
-        let mut intruder = None;
-        'outer: for u in &self.units {
-            if u.team != PLAYER {
-                continue;
-            }
-            for &bid in &my_b {
-                let b = self.bldg(bid).unwrap();
-                if dist(u.x, u.y, b.x, b.y) < 420.0 + b.r {
-                    intruder = Some(u.id);
-                    break 'outer;
-                }
-            }
-        }
         if let Some(intr) = intruder {
             for &a in &army {
                 let u = self.unit(a).unwrap();

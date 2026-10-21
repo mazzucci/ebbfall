@@ -732,6 +732,7 @@ fn research_level(w: &mut World, forge: Id, up: Upgrade) {
 
 /// Damage of the first hit a `shooter` lands on a target of kind `target`.
 fn first_hit(w: &mut World, shooter: UnitKind, shooter_team: u8, target: UnitKind) -> f64 {
+    w.units.clear(); // a clean duel each time
     let t = w.make_unit(target, 1 - shooter_team, 900.0, 1200.0);
     w.hold_unit(t);
     let s = w.make_unit(shooter, shooter_team, 900.0 - 100.0, 1200.0);
@@ -776,6 +777,12 @@ fn armor_upgrades_soak_one_more_point_per_level() {
         first_hit(&mut w, UnitKind::Trooper, ENEMY, UnitKind::Trooper),
         7.0 - 2.0,
         "two armor levels"
+    );
+    research_level(&mut w, f, Upgrade::Armor);
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Harvester, ENEMY, UnitKind::Vanguard),
+        1.0,
+        "every hit does at least 1"
     );
 }
 
@@ -850,22 +857,60 @@ fn the_ai_researches_upgrades_in_a_long_game() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    run(&mut w, 720);
+    let army = |w: &World| {
+        w.units
+            .iter()
+            .filter(|u| u.team == ENEMY && u.kind != UnitKind::Harvester)
+            .count()
+    };
+    run(&mut w, 600);
+    let army_10 = army(&w);
+    run(&mut w, 240);
     assert!(!w.over, "the game is still on");
     let [wl, al] = w.upgrades[ENEMY as usize];
     assert!(
-        wl + al >= 1
-            || w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.research.is_some()),
-        "AI researched something by 12 min: res {:?}, forges {:?}",
-        w.res[1],
-        w.bldgs
-            .iter()
-            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Forge)
-            .map(|b| (b.done, b.research))
-            .collect::<Vec<_>>()
+        wl + al >= 1,
+        "AI finished at least one upgrade by 14 min: {:?}",
+        w.upgrades[1]
     );
+    assert!(
+        army(&w) > army_10,
+        "and kept building its army while researching ({army_10} -> {})",
+        army(&w)
+    );
+}
+
+#[test]
+fn the_ai_survives_its_building_sites_being_starved() {
+    // An army camping outside the AI base kills every harvester that goes near a site under construction, so the
+    // AI's watchdog eventually cancels the site. That used to crash the AI turn.
+    for seed in [33, 7, 1234, 99] {
+        let mut w = World::new(seed, 1);
+        let c = w
+            .bldgs
+            .iter_mut()
+            .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+            .unwrap();
+        c.hp = 1e9;
+        c.maxhp = 1e9;
+        for _ in 0..30 * 60 * 9 {
+            let sites: Vec<(f64, f64)> = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && !b.done)
+                .map(|b| (b.x, b.y))
+                .collect();
+            w.units.retain(|u| {
+                !(u.team == ENEMY
+                    && u.kind == UnitKind::Harvester
+                    && sites
+                        .iter()
+                        .any(|&(x, y)| ((u.x - x).powi(2) + (u.y - y).powi(2)).sqrt() < 160.0))
+            });
+            w.recalc_supply(ENEMY);
+            w.step();
+        }
+    }
 }
 
 // ---------------- randomized orders + invariants ----------------

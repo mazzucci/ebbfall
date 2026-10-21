@@ -170,6 +170,9 @@ pub(crate) struct Ai {
     pub rally: Option<Pt>,
     /// Own buildings under construction: (id, progress last seen, time it last advanced).
     pub sites: Vec<(Id, f64, f64)>,
+    /// When the current saving-for-research streak began, and the time before which it may not save again.
+    pub saving_since: Option<f64>,
+    pub no_save_until: f64,
 }
 
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.
@@ -2100,6 +2103,14 @@ impl World {
             mix(jsmath::to_i32(b.hp * 16.0));
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);
+            if let Some((up, p)) = b.research {
+                mix(up.index() as i32 + 1);
+                mix(jsmath::to_i32(p * 1024.0));
+            }
+        }
+        for t in 0..2 {
+            mix(self.upgrades[t][0] as i32);
+            mix(self.upgrades[t][1] as i32);
         }
         h
     }

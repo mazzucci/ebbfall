@@ -32,7 +32,7 @@ export function bldgStatus(b) {
   return '';
 }
 
-let cardKey = '';
+let cardKey = '', selKey = '';
 export function invalidateCard() { cardKey = ''; }
 
 export function updateHud() {
@@ -44,11 +44,12 @@ export function updateHud() {
   ui.sel = ui.sel.filter(x => !x.dead);
   const sel = ui.sel, name = $('selName'), sub = $('selSub'), stats = $('stats'), q = $('queue'), grp = $('group'), hb = $('hpBar');
   if (!sel.length) {
-    name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; hb.hidden = true; $('selPor').innerHTML = '';
-    stats.innerHTML = ''; q.innerHTML = ''; grp.innerHTML = ''; $('selMiniName').textContent = ''; $('selMiniHp').textContent = '';
+    name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; hb.hidden = true; $('selPor').innerHTML = ''; selKey = '';
+    stats.innerHTML = ''; q.innerHTML = ''; q.dataset.k = ''; grp.innerHTML = ''; grp.dataset.k = ''; $('selMiniName').textContent = ''; $('selMiniHp').textContent = '';
   } else if (sel.length === 1) {
     const x = sel[0];
-    name.textContent = x.d.name; $('selPor').innerHTML = portrait(x.kind, x.type, 34, x.team);
+    name.textContent = x.d.name;
+    if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 34, x.team); }
     sub.textContent = x.team === PLAYER ? (x.kind === 'unit' ? taskName(x) : bldgStatus(x)) : 'Enemy';
     hb.hidden = false; $('hpFill').style.width = (x.hp / x.maxhp * 100) + '%';
     let st = `<span>HP <b>${Math.ceil(x.hp)}/${x.maxhp}</b></span><span>Armor <b>${x.d.armor || 0}</b></span>`;
@@ -58,16 +59,23 @@ export function updateHud() {
     if (x.d.heal) st += `<span>Heals <b>${x.d.heal}/s</b></span>`;
     if (x.kind === 'unit' && x.carry) st += `<span>Carrying <b>${x.carry} ${x.carryType}</b></span>`;
     stats.innerHTML = st;
-    q.innerHTML = x.kind === 'bldg' && x.queue.length ? `<div class="bar prod" style="flex:1 1 100%"><i style="width:${x.prog * 100}%"></i></div>` + x.queue.map(t => `<div class="qi" title="${UNITS[t].name}">${portrait('unit', t, 26)}</div>`).join('') : '';
-    grp.innerHTML = '';
+    const qk = x.kind === 'bldg' ? x.queue.join() : '';
+    if (q.dataset.k !== qk) { q.dataset.k = qk; q.innerHTML = qk ? '<div class="bar prod" style="flex:1 1 100%"><i></i></div>' + x.queue.map(t => `<div class="qi" title="${UNITS[t].name}">${portrait('unit', t, 26)}</div>`).join('') : ''; }
+    if (qk) q.querySelector('.prod i').style.width = (x.prog * 100) + '%';
+    grp.innerHTML = ''; grp.dataset.k = '';
     $('selMiniName').textContent = x.d.name;
     $('selMiniHp').textContent = (x.kind === 'bldg' && x.team === PLAYER && bldgStatus(x)) || Math.ceil(x.hp) + '/' + x.maxhp;
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
-    name.textContent = sel.length + ' units'; $('selPor').innerHTML = '';
+    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; q.innerHTML = ''; q.dataset.k = '';
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
-    hb.hidden = true; stats.innerHTML = ''; q.innerHTML = '';
-    grp.innerHTML = sel.slice(0, 24).map(x => `<div class="gi" title="${x.d.name}">${portrait(x.kind, x.type, 26, x.team)}<i style="width:${x.hp / x.maxhp * 100}%"></i></div>`).join('');
+    hb.hidden = true; stats.innerHTML = '';
+    const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
+    if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
+      grp.dataset.k = gk;
+      grp.innerHTML = shown.map(x => `<div class="gi" title="${x.d.name}">${portrait(x.kind, x.type, 26, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
+    }
+    shown.forEach((x, i) => { grp.children[i].lastChild.style.width = (x.hp / x.maxhp * 100) + '%'; });
     $('selMiniName').textContent = sel.length + ' units'; $('selMiniHp').textContent = sub.textContent;
   }
   buildCard();
@@ -89,7 +97,9 @@ export function cardItems() {
   const sel = playerSel(); if (!sel.length) return [];
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const items = [];
   const at = (slot, it) => { while (items.some(i => i.slot === slot)) slot++; it.slot = slot; items.push(it); }; // never two in a slot
+  const armed = ui.mode && ui.mode !== 'build'; // Esc disarms an order first
   const esc = (label, icn = 'x') => {
+    if (armed) { label = 'Cancel'; icn = 'back'; }
     const rows = Math.max(2, Math.ceil((Math.max(-1, ...items.map(i => i.slot)) + 2) / 4));
     at(rows * 4 - 1, { id: 'esc', label, key: 'Esc', cancel: true, icon: icn });
   };
@@ -97,7 +107,7 @@ export function cardItems() {
     if (ui.mode === 'build') {
       BUILD_ORDER.forEach((k, i) => {
         const d = BUILDINGS[k];
-        at(i, { id: 'b_' + k, label: d.name.split(' ').pop(), key: d.hot, cost: d.cost, dis: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
+        at(i, { id: 'b_' + k, label: d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
       });
       esc('Back', 'back');
     } else {
@@ -114,7 +124,7 @@ export function cardItems() {
     if (!b.done) at(6, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     if (b.done && b.d.trains) b.d.trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === PLAYER && o.type === d.req && o.done);
-      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, dis: !!missing, por: ['unit', t], tip: d.desc + (missing ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
+      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc + (missing && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
     });
     if (b.done && b.type === 'forge') {
       const after = b.d.trains ? b.d.trains.length : 0; // research follows the units on the first row
@@ -123,18 +133,22 @@ export function cardItems() {
         if (lv > 3) return;
         at(after + i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
       });
-      if (b.research) at(6, { id: 'cancelr', label: 'Cancel research', key: 'C', cancel: true, icon: 'x' });
+      if (b.research) at(5, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }
-    if (b.queue.length) at(6, { id: 'cancelq', label: 'Cancel last', key: 'X', cancel: true, icon: 'x' });
+    if (b.queue.length) at(6, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, por: ['unit', b.queue[b.queue.length - 1]], badge: true, tip: 'Cancel the last unit in the queue (refund)' });
     if (b.done && b.d.trains) at(4, { id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', icon: 'rally', tip: 'Then click where new units should go' });
     esc('Deselect');
   } else esc('Deselect');
-  for (const it of items) if (it.cost) it.poor = !canAfford(PLAYER, it.cost); // greyed out, but a tap says what is short
+  for (const it of items) if (it.cost && !canAfford(PLAYER, it.cost)) { // greyed out, but a tap says what is short
+    const [sh, et] = G.res[PLAYER];
+    it.poor = true;
+    it.tip = (it.tip ? it.tip + ' ' : '') + (sh < it.cost[0] ? `Not enough shards (needs ${it.cost[0]}).` : `Not enough ether (needs ${it.cost[1]}).`);
+  }
   return items.sort((p, q) => p.slot - q.slot);
 }
 
 function buildCard() {
-  const items = cardItems(); const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor]));
+  const items = cardItems(); const key = JSON.stringify(items.map(i => [i.id, i.dis, i.locked, i.active, i.label, i.slot, i.poor, i.tip, i.por]));
   if (key === cardKey) return; cardKey = key;
   const c = $('cmd'); c.innerHTML = '';
   const slots = items.length ? items[items.length - 1].slot + 1 : 0;
@@ -142,9 +156,11 @@ function buildCard() {
     const it = items[k]?.slot === s ? items[k++] : null;
     if (!it) { const gap = document.createElement('div'); gap.className = 'cb gap'; c.appendChild(gap); continue; }
     const b = document.createElement('button');
-    b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : ''); b.disabled = !!it.dis; b.title = it.tip || it.label;
+    b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.locked ? ' locked' : '') + (it.badge ? ' badge' : '');
+    b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
+    b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
-    b.innerHTML = `<span class="k">${it.key}</span><span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''}</span><span class="e">${it.cost[1] ? `<i class="dot ether"></i>${it.cost[1]}` : ''}</span></span>` : '');
+    b.innerHTML = `<span class="k">${it.key}</span><span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => ev.stopPropagation());
     b.addEventListener('click', () => { doCommand(it.id); cardKey = ''; updateHud(); }); // immediate feedback, even on slow frames
     c.appendChild(b);

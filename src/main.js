@@ -63,7 +63,7 @@ $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) 
 $('btnAgain').addEventListener('click', () => { if (touchDevice) enterFullscreen(); newGame(); });
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
-const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; };
+const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); if (!audio.muted) sfx('select'); });
 syncSound();
 $('btnHelp').addEventListener('click', () => { $('start').hidden = false; $('btnStart').textContent = started ? 'RESUME' : 'START GAME'; });
@@ -90,5 +90,5 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
+window.endfall = { G, map: engine.map, ui, cam, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
 bindInput(); resize(); requestAnimationFrame(loop);

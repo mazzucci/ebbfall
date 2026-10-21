@@ -109,11 +109,13 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     key: (k) => page.keyboard.press(k),
     selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
     /** Labels of the command card buttons as the player sees them, with their enabled state. */
-    card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('.l').textContent, enabled: !b.disabled }))),
+    card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('.l').textContent, enabled: !b.disabled && b.getAttribute('aria-disabled') !== 'true' }))),
     async pressCard(label) {
       const b = page.locator('#cmd button:not([disabled])', { hasText: label }).first();
       await b.waitFor({ timeout: 5000 });
-      await (touch ? b.tap() : b.click()); await page.waitForTimeout(120);
+      // A locked button (aria-disabled) is still tappable in a browser; Playwright needs to be told.
+      const force = (await b.getAttribute('aria-disabled')) === 'true';
+      await (touch ? b.tap({ force }) : b.click({ force })); await page.waitForTimeout(120);
     },
     /** A free spot for a building type near (x, y) in tiles, found with the game's own placement rule. */
     findSpot: (type, near) => ev(([type, near]) => {

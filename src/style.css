@@ -27,12 +27,12 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
 .ib:hover{border-color:var(--ally)} .ib:focus-visible{outline:2px solid var(--ally);outline-offset:1px}
 .ib.icon{display:flex;align-items:center;gap:6px;padding:4px 8px} .ib.icon .ico{width:16px;height:16px}
-@media (max-width:1099px){.ib.icon .t{display:none}}
+@media (max-width:1099px){.ib.icon .t,.chip .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}
 /* Idle-harvester and army chips in the top bar: a portrait and a count. */
 .chip{display:flex;align-items:center;gap:3px;background:none;border:1px solid transparent;border-radius:4px;padding:1px 6px 1px 2px;color:var(--fg);cursor:pointer;font:15px var(--mono);font-variant-numeric:tabular-nums}
-.chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%} .chip b{font-weight:400}
+.chip .t{font:600 10px var(--display);letter-spacing:.1em;color:var(--muted)} .chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%} .chip b{font-weight:400}
 .chip.zero{opacity:.6} .chip.warn{border-color:var(--warn);color:var(--warn);animation:pulse-warn 1.2s infinite alternate}
 @keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
@@ -60,7 +60,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start}
 .gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
-#cmd{display:grid;grid-template-columns:repeat(4,62px);grid-auto-rows:54px;gap:4px;align-content:start}
+.gi b{position:absolute;right:2px;top:1px;font:600 8px var(--display);color:var(--ally2);text-shadow:0 0 2px #000} /* tells look-alike infantry apart */
+#cmd{display:grid;grid-template-columns:repeat(4,62px);grid-auto-rows:52px;gap:4px;align-content:start}
 .cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0 2px;font:600 10px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;overflow:hidden}
 .cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico,.cb .por{order:1} .cb .c{order:3}
 .cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)}
@@ -69,9 +70,11 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .cb.active{border-color:var(--ally);background:#2a2415}
 .cb:disabled{opacity:.38;cursor:default}
 .cb .k{position:absolute;top:2px;right:3px;font:9px var(--mono);color:var(--ally2)}
-.cb .c{font:10px var(--mono);color:var(--muted);display:flex;gap:5px}
+.cb .c{font:10px var(--mono);color:var(--muted)}
 .cb .c .s{color:var(--shard)} .cb .c .e{color:var(--ether)}
-.cb.poor{opacity:.45} /* can't afford it yet: looks inactive, a tap explains */
+.cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
+.cb.locked{opacity:.32} /* requirement missing: dimmer still, a tap says what is needed */
+.cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* shards always in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:5px;height:5px;flex:none}
 .cb.cancel{color:var(--foe2)}
@@ -118,9 +121,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #hud>*{pointer-events:auto}
   #info{display:none}
   #minimap{width:104px;height:104px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
-  #cmd{grid-template-columns:repeat(4,54px);grid-auto-rows:52px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #cmd{grid-template-columns:repeat(4,56px);grid-auto-rows:52px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
-  .cb{font-size:9px} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
+  .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
   #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
   #hint{left:126px;bottom:14px}
   .tb{padding:7px 10px;font-size:12px} .tb.grp{min-width:42px;min-height:34px}
@@ -129,7 +132,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .card.small{max-width:380px}
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}
 .tip{font-size:12.5px;color:var(--ally2);border:1px solid var(--line2);border-radius:4px;padding:6px 10px;background:var(--panel2)}
-@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast,.chip.warn,.tb.alert{animation:none}}
 
 #endStats b{color:var(--fg)}
 #endStats{font:13px var(--mono);color:var(--muted);gap:18px}

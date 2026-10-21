@@ -66,6 +66,9 @@ test('medics wait for a forge, and a wasp flies straight across the map', async 
     const card = await d.card();
     assert.ok(card.some(c => c.label === 'Lancer' && c.enabled), 'Lancer available');
     assert.ok(card.some(c => c.label === 'Medic' && !c.enabled), `Medic needs a Forge: ${JSON.stringify(card)}`);
+    await d.pressCard('Medic'); // locked, but a tap says why
+    assert.match((await d.toasts()).join(' '), /Requires War Forge/);
+    assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0, 'nothing queued');
     await buildAndFinish(d, 'f', 'forge', 1);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 2);
     await d.clickEntity(airfield.id);
@@ -224,7 +227,6 @@ test('idle and army buttons, and double-click selects all of a type on screen', 
   try {
     const s = await d.state(), core = coreOf(s);
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 140, core.y - 40]);
-    assert.equal(d.startZoom, 0.75, 'the game starts fully zoomed out');
     await d.page.locator('#btnArmy').click();
     assert.deepEqual((await d.selection()).map(u => u.id).sort(), ids.slice().sort(), 'ARMY selects every combat unit');
     // Make a harvester idle, then find it with the IDLE button.
@@ -298,8 +300,13 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.pressCard('Weapons I');
     assert.match(await d.hudText('#selSub', /Researching Weapons I/), /Researching Weapons I/);
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
+    // Researching and training at once: two cancels, and Deselect still in the bottom-right slot.
+    await d.pressCard('Vanguard');
+    const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(slots, ['Vanguard', 'Weapons I', 'Armor I', '', 'Rally', 'Cancel', 'Cancel', 'Deselect'], 'the forge card keeps its layout');
+    await d.page.locator('#cmd > :nth-child(7)').click(); // cancel the Vanguard
     const before = (await d.state()).res;
-    await d.pressCard('Cancel research');
+    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the research
     const after = (await d.state()).res;
     assert.ok(after[0] - before[0] >= 100 && after[1] - before[1] === 100, 'cancel refunds in full');
     await d.pressCard('Weapons I');
@@ -309,6 +316,14 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [forge.x, forge.y + 90]);
     await d.clickEntity(id);
     assert.match(await d.hudText('#stats', /7\+1/), /Damage 7\+1/, 'trooper damage shows the bonus');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a game starts fully zoomed out over the base', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    assert.equal(d.startZoom, await d.eval(() => endfall.zoomMin));
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

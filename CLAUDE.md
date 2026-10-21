@@ -58,11 +58,13 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
   screen.js           full screen / landscape lock, the leave-game guard
+  scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   hud.js              top bar, selection panel, command card, client UI state (ui.sel, ui.mode, ui.place)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
   fx.js               particles and markers (client-only, fed by sim events)
 test/engine.test.js   the WASM sim through src/engine in Node: data tables vs constants.js, RNG/hypot, gameplay
+test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios)
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 scripts/headless.js   scripted bot-vs-AI run for balance checks

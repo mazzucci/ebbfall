@@ -2,12 +2,13 @@
 import './style.css';
 import * as engine from './engine/index.js';
 import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, toWorld, ALLY, FOE } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
+import { setIconButton } from './client/icons.js';
 import { initScreen, initLeaveDialog, enterFullscreen, armLeaveGuard, disarmLeaveGuard, touchDevice } from './client/screen.js';
 
 let started = false;
@@ -21,7 +22,8 @@ function newGame() {
   resetGame(seed, ui.diff ?? 1);
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools();
   renderTerrain();
-  const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x + 40, core.y);
+  // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
+  cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   toast('Mine shards. Build a Depot before supply caps.');
   armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
@@ -61,7 +63,9 @@ $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) 
 $('btnAgain').addEventListener('click', () => { if (touchDevice) enterFullscreen(); newGame(); });
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
-$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; $('btnSound').textContent = audio.muted ? 'SOUND OFF' : 'SOUND ON'; if (!audio.muted) sfx('select'); });
+const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
+$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); if (!audio.muted) sfx('select'); });
+syncSound();
 $('btnHelp').addEventListener('click', () => { $('start').hidden = false; $('btnStart').textContent = started ? 'RESUME' : 'START GAME'; });
 
 // ---- loop ----
@@ -86,5 +90,5 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
+window.endfall = { G, map: engine.map, ui, cam, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
 bindInput(); resize(); requestAnimationFrame(loop);

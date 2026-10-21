@@ -1,10 +1,11 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
-// ⚠ chip), idle-harvester and whole-army buttons, double-click "all of this type on screen", control-group tabs
+// ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
 import { G, PLAYER } from '../engine/index.js';
 import { $, ui, setHint, updateHud, toast } from './hud.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
+import { portrait, setIconButton } from './icons.js';
 
 export const alerts = { last: null };
 const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
@@ -66,8 +67,8 @@ let groupsKey = '';
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
   const idle = idleHarvesters().length, a = army().length;
-  $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0);
-  $('btnArmy').querySelector('b').textContent = a;
+  $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0); $('btnIdle').classList.toggle('zero', !idle);
+  $('btnArmy').querySelector('b').textContent = a; $('btnArmy').classList.toggle('zero', !a);
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
   const tabs = [];
   for (let k = 1; k <= 9; k++) { const n = (ui.groups[k] || []).filter(e => !e.dead).length; if (n || (touch && k <= 4)) tabs.push([k, n]); }
@@ -90,6 +91,9 @@ export function updateTools() {
 }
 
 export function initTools() {
+  $('btnIdle').querySelector('.pic').innerHTML = portrait('unit', 'harvester', 24);
+  $('btnArmy').querySelector('.pic').innerHTML = portrait('unit', 'trooper', 24);
+  setIconButton($('btnPause'), 'pause', 'PAUSE'); setIconButton($('btnHelp'), 'help', 'HELP');
   for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnAlert', jumpToAlert]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());
     $(id).addEventListener('click', fn);

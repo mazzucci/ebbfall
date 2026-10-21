@@ -41,7 +41,7 @@ export const UPGRADES = {
 export const UP_DMG = { trooper: 1, lancer: 2, vanguard: 3, wasp: 1, turret: 2 };
 
 /** Order the Build command card lists structures in. */
-export const BUILD_ORDER = ['depot', 'barracks', 'extractor', 'forge', 'turret', 'airfield', 'core'];
+export const BUILD_ORDER = ['depot', 'barracks', 'extractor', 'turret', 'forge', 'airfield', 'core']; // the Build menu: basics on the first row, tech and expansion on the second
 
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 export const DIFF = [

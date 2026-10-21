@@ -1,5 +1,6 @@
 // Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab).
 import { $ } from './hud.js';
+import { setIconButton } from './icons.js';
 
 const root = document.documentElement;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
@@ -23,7 +24,7 @@ export function initScreen() {
   const btn = $('btnFull');
   if (!canFullscreen || standalone) btn.hidden = true;
   btn.addEventListener('click', toggleFullscreen);
-  const sync = () => { btn.textContent = isFull() ? 'EXIT FULL' : 'FULL SCREEN'; };
+  const sync = () => { setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN'); btn.title = isFull() ? 'Leave full screen' : 'Full screen'; };
   document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync); sync();
   // iPhone Safari has no full-screen API for pages; a home-screen web app opens full screen instead.
   if (!canFullscreen && touchDevice && !standalone) $('iosTip').hidden = false;

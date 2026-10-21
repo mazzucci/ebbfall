@@ -21,13 +21,15 @@
     <div class="res" id="resShard"><span class="dot shard"></span><b id="rShard">50</b></div>
     <div class="res" id="resEther"><span class="dot ether"></span><b id="rEther">0</b></div>
     <div class="res" id="resSup"><span class="lbl">SUPPLY</span><b id="rSupply">4/10</b></div>
+    <button class="chip" id="btnIdle" title="Idle Harvesters: select the next one (.)" aria-label="Idle Harvesters"><span class="pic"></span><span class="t">IDLE</span><b>0</b></button>
+    <button class="chip" id="btnArmy" title="Select your whole army (Q)" aria-label="Army"><span class="pic"></span><span class="t">ARMY</span><b>0</b></button>
     <div class="res" id="upg" hidden title="Upgrades researched at the War Forge"></div>
     <div class="spacer"></div>
     <div id="clock">00:00</div>
-    <button class="ib" id="btnFull" aria-label="Toggle full screen">FULL SCREEN</button>
-    <button class="ib" id="btnSound" aria-label="Toggle sound">SOUND ON</button>
-    <button class="ib" id="btnPause" aria-label="Pause">PAUSE</button>
-    <button class="ib" id="btnHelp" aria-label="Help">HELP</button>
+    <button class="ib icon" id="btnFull" aria-label="Toggle full screen" title="Full screen"></button>
+    <button class="ib icon" id="btnSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button>
+    <button class="ib icon" id="btnPause" aria-label="Pause" title="Pause (P)"></button>
+    <button class="ib icon" id="btnHelp" aria-label="Help" title="Help"></button>
   </header>
   <div id="stage">
     <canvas id="game"></canvas>
@@ -36,15 +38,13 @@
     <div id="selMini"><b id="selMiniName"></b><span id="selMiniHp"></span></div>
     <div id="tools">
       <button class="tb alert" id="btnAlert" hidden title="Jump to the attack (Space)">⚠ ATTACK</button>
-      <button class="tb" id="btnIdle" title="Select an idle Harvester (.)">IDLE <b>0</b></button>
-      <button class="tb" id="btnArmy" title="Select your whole army (Q)">ARMY <b>0</b></button>
       <div id="groups"></div>
     </div>
   </div>
   <footer id="hud">
     <canvas id="minimap" width="168" height="168"></canvas>
     <div id="info">
-      <div class="title"><h2 id="selName">Nothing selected</h2><span class="sub" id="selSub">Click a unit or drag a box</span></div>
+      <div class="title"><span id="selPor"></span><h2 id="selName">Nothing selected</h2><span class="sub" id="selSub">Click a unit or drag a box</span></div>
       <div class="bar" id="hpBar" hidden><i id="hpFill"></i></div>
       <div id="stats"></div>
       <div id="queue"></div>

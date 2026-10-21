@@ -7,11 +7,12 @@ import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './c
 import { bindInput, camKeys, input } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
+import { initTools, updateTools, onAttacked, initPause, paused } from './client/tools.js';
 import { initScreen, initLeaveDialog, enterFullscreen, armLeaveGuard, disarmLeaveGuard, touchDevice } from './client/screen.js';
 
 let started = false;
-const running = () => started && $('start').hidden && $('leave').hidden && !G.over;
-input.enabled = () => started && $('start').hidden && $('leave').hidden;
+const running = () => started && $('start').hidden && $('leave').hidden && !paused() && !G.over;
+input.enabled = () => started && $('start').hidden && $('leave').hidden && !paused();
 
 /** ?seed=N in the URL plays a fixed map (tests use it); otherwise every game gets a new one. */
 const urlSeed = new URLSearchParams(location.search).get('seed');
@@ -39,6 +40,7 @@ function drainEvents() {
     else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); }
     else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty);
+    else if (e.t === 'attacked') onAttacked(e);
   }
   G.events.length = 0;
 }
@@ -57,7 +59,8 @@ ui.diff = 1;
 document.querySelectorAll('#diff .ib').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('#diff .ib').forEach(x => x.classList.remove('on')); b.classList.add('on'); ui.diff = +b.dataset.d; }));
 $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); if ($('btnStart').textContent === 'RESUME') { $('start').hidden = true; last = performance.now(); } else newGame(); });
 $('btnAgain').addEventListener('click', () => { if (touchDevice) enterFullscreen(); newGame(); });
-initScreen(); initLeaveDialog();
+initScreen(); initLeaveDialog(); initTools();
+initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; $('btnSound').textContent = audio.muted ? 'SOUND OFF' : 'SOUND ON'; if (!audio.muted) sfx('select'); });
 $('btnHelp').addEventListener('click', () => { $('start').hidden = false; $('btnStart').textContent = started ? 'RESUME' : 'START GAME'; });
 
@@ -77,7 +80,7 @@ function loop(now) {
   if (!G.over) ended = false;
   updateFx(el);
   if (started) render(ui.sel, ui.place);
-  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) updateHud(); }
+  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); } }
   requestAnimationFrame(loop);
 }
 

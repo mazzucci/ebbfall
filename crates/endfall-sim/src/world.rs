@@ -119,6 +119,12 @@ pub struct Proj {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
+    /// Something of the human player's was hit by the enemy (throttled: one per fight, see ALERT_*).
+    Attacked {
+        x: f64,
+        y: f64,
+        building: bool,
+    },
     /// A Medic healing: from (x, y) to the patient at (tx, ty).
     Heal {
         x: f64,
@@ -235,6 +241,8 @@ pub struct World {
     pub over: bool,
     pub winner: i32,
     pub stats: Stats,
+    /// Time and place of the last "under attack" alert, for throttling.
+    alert: (f64, f64, f64),
     pub events: Vec<Event>,
     pub map: Map,
     pub(crate) ai: Option<Ai>,
@@ -265,6 +273,7 @@ impl World {
             over: false,
             winner: -1,
             stats: Stats::default(),
+            alert: (-1e9, 0.0, 0.0),
             events: Vec::new(),
             map: Map::empty(),
             ai: None,
@@ -299,6 +308,7 @@ impl World {
         self.over = false;
         self.winner = -1;
         self.stats = Stats::default();
+        self.alert = (-1e9, 0.0, 0.0);
         self.events.clear();
         self.map = Map::generate(seed, &mut self.next_id);
         for team in [PLAYER, ENEMY] {
@@ -861,8 +871,34 @@ impl World {
         (d.dmg > 0.0, d.dmg_air > 0.0)
     }
 
+    /// Tell the player when something of theirs comes under attack: at most once every ALERT_GAP seconds,
+    /// sooner if the new fight is more than ALERT_DIST px from the last one.
+    fn alert_attacked(&mut self, target: Id) {
+        const ALERT_GAP: f64 = 12.0;
+        const ALERT_DIST: f64 = 480.0;
+        let Some((x, y, team, building)) = self
+            .unit(target)
+            .map(|u| (u.x, u.y, u.team, false))
+            .or_else(|| self.bldg(target).map(|b| (b.x, b.y, b.team, true)))
+        else {
+            return;
+        };
+        if team != PLAYER {
+            return;
+        }
+        let (t0, ax, ay) = self.alert;
+        if self.time - t0 < ALERT_GAP && dist(x, y, ax, ay) < ALERT_DIST {
+            return;
+        }
+        self.alert = (self.time, x, y);
+        self.emit(Event::Attacked { x, y, building });
+    }
+
     fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
         let by = by.filter(|&b| self.team_of(b).is_some());
+        if by.is_some_and(|b| self.team_of(b) != self.team_of(target)) {
+            self.alert_attacked(target);
+        }
         if let Some(i) = self.ui(target) {
             let u = &mut self.units[i];
             u.hp -= (amt - u.kind.def().armor).max(1.0);

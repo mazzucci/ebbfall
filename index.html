@@ -25,6 +25,7 @@
     <div id="clock">00:00</div>
     <button class="ib" id="btnFull" aria-label="Toggle full screen">FULL SCREEN</button>
     <button class="ib" id="btnSound" aria-label="Toggle sound">SOUND ON</button>
+    <button class="ib" id="btnPause" aria-label="Pause">PAUSE</button>
     <button class="ib" id="btnHelp" aria-label="Help">HELP</button>
   </header>
   <div id="stage">
@@ -32,6 +33,12 @@
     <div id="msg"></div>
     <div id="hint"></div>
     <div id="selMini"><b id="selMiniName"></b><span id="selMiniHp"></span></div>
+    <div id="tools">
+      <button class="tb alert" id="btnAlert" hidden title="Jump to the attack (Space)">⚠ ATTACK</button>
+      <button class="tb" id="btnIdle" title="Select an idle Harvester (.)">IDLE <b>0</b></button>
+      <button class="tb" id="btnArmy" title="Select your whole army (Q)">ARMY <b>0</b></button>
+      <div id="groups"></div>
+    </div>
   </div>
   <footer id="hud">
     <canvas id="minimap" width="168" height="168"></canvas>
@@ -50,7 +57,7 @@
       <div class="tag">A browser RTS in the 1998 mold. One faction, one map, one opponent. Pre-alpha.</div>
       <p>Mine <b style="color:var(--shard)">shards</b> and <b style="color:var(--ether)">ether</b>, build supply, raise an army, and level the enemy Command Core before their waves level yours. The enemy base is in the far corner.</p>
       <ul>
-        <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point. <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group.</li>
+        <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point. <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group. Double-click selects all of that unit type on screen. <kbd>.</kbd> idle Harvester, <kbd>Q</kbd> whole army, <kbd>Space</kbd> jump to the last attack, <kbd>P</kbd> pause.</li>
         <li><b>Touch:</b> tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather. Two fingers pan. Drag on the minimap to scroll.</li>
         <li>Select a Harvester and tap <b>Build</b> to place structures. The Ether Extractor must sit on an ether vent; then send Harvesters to the Extractor to mine ether.</li>
       </ul>
@@ -65,6 +72,13 @@
         <span class="spacer"></span>
         <button class="ib big" id="btnStart">START GAME</button>
       </div>
+    </div>
+  </div>
+  <div class="screen" id="pause" hidden>
+    <div class="card small">
+      <h2>Paused</h2>
+      <div class="tag">Take your time.</div>
+      <div class="row"><button class="ib big" id="btnResume">RESUME</button><span class="spacer"></span><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnQuit">QUIT</button></div>
     </div>
   </div>
   <div class="screen" id="leave" hidden>

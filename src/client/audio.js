@@ -7,6 +7,7 @@ const SFX = {
   bolt: [1100, 0.05, 'square', 0.025, 300], shell: [140, 0.16, 'sawtooth', 0.07, 60], coin: [1400, 0.04, 'sine', 0.05],
   done: [660, 0.12, 'triangle', 0.08, 990], kill: [320, 0.16, 'sawtooth', 0.06, 60], lost: [220, 0.22, 'triangle', 0.08, 110],
   boom: [70, 0.45, 'sawtooth', 0.14, 25], error: [170, 0.12, 'square', 0.07], build: [400, 0.08, 'triangle', 0.06, 600],
+  alert: [520, 0.32, 'square', 0.07, 980],
 };
 
 export function sfx(name) {

@@ -634,11 +634,19 @@ fn the_ai_keeps_training_troopers_when_short_of_ether() {
 fn the_ai_answers_flyers_with_lancers() {
     let mut w = World::new(31, 0); // Easy: its first attack comes late enough to watch it react
     run(&mut w, 150); // let it build a barracks
+    let (cx, cy) = core(&w, ENEMY);
     for k in 0..3 {
-        let id = w.make_unit(UnitKind::Wasp, PLAYER, 300.0 + k as f64 * 30.0, 1500.0);
+        // parked by the AI's core, where it can see them
+        let id = w.make_unit(
+            UnitKind::Wasp,
+            PLAYER,
+            (cx as f64 - 3.0) * TILE - k as f64 * 30.0,
+            (cy as f64 + 6.0) * TILE,
+        );
         w.hold_unit(id);
     }
-    run(&mut w, 120);
+    run(&mut w, 80);
+    assert!(!w.over, "the game is still on");
     assert!(
         count(&w, ENEMY, UnitKind::Lancer) > 0
             || w.bldgs
@@ -646,6 +654,155 @@ fn the_ai_answers_flyers_with_lancers() {
                 .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
         "AI trains lancers against flyers"
     );
+}
+
+#[test]
+fn the_ai_only_reacts_to_flyers_it_has_seen() {
+    let mut w = World::new(31, 0);
+    run(&mut w, 150);
+    // A wasp hiding in the top-left corner, far from anything the AI has looked at.
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 40.0, 40.0);
+    w.hold_unit(wasp);
+    run(&mut w, 40);
+    assert_eq!(
+        count(&w, ENEMY, UnitKind::Lancer),
+        0,
+        "no lancers against a flyer it cannot see"
+    );
+    assert!(
+        !w.bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer))
+    );
+    // Now fly it into view.
+    let (cx, cy) = core(&w, ENEMY);
+    w.move_to(wasp, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
+    run(&mut w, 40);
+    assert!(
+        count(&w, ENEMY, UnitKind::Lancer) > 0
+            || w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
+        "lancers once it has seen the flyer"
+    );
+}
+
+#[test]
+fn the_ai_scouts_the_player_base_early() {
+    let mut w = World::new(41, 1);
+    let (px, py) = core(&w, PLAYER);
+    run(&mut w, 150);
+    assert!(
+        w.explored[ENEMY as usize][((py + 2) * MW + px + 2) as usize] != 0,
+        "the AI has looked at the player's base"
+    );
+}
+
+#[test]
+fn ai_wasps_raid_the_players_harvesters() {
+    let mut w = World::new(43, 1);
+    run(&mut w, 120); // scouting done
+    let (cx, cy) = core(&w, ENEMY);
+    for k in 0..3 {
+        w.make_unit(
+            UnitKind::Wasp,
+            ENEMY,
+            (cx as f64 + 2.0) * TILE + k as f64 * 30.0,
+            (cy as f64 + 6.0) * TILE,
+        );
+    }
+    let hp = |w: &World| {
+        w.units
+            .iter()
+            .filter(|u| u.team == PLAYER && u.kind == UnitKind::Harvester)
+            .map(|u| u.hp)
+            .sum::<f64>()
+    };
+    let before = hp(&w);
+    run(&mut w, 60);
+    assert!(
+        hp(&w) < before - 40.0,
+        "the raid hurt the player's harvesters: {before} -> {}",
+        hp(&w)
+    );
+}
+
+#[test]
+fn the_ai_expands_to_a_second_base() {
+    let mut w = World::new(33, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 720);
+    let cores: Vec<_> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
+        .map(|b| (b.x, b.y))
+        .collect();
+    assert_eq!(cores.len(), 2, "AI has a second core by 12 min");
+    let exp = cores[1];
+    let working = w
+        .units
+        .iter()
+        .filter(|u| u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| ((n.x - exp.0).powi(2) + (n.y - exp.1).powi(2)).sqrt() < 300.0)))
+        .count();
+    assert!(working >= 3, "harvesters work the expansion: {working}");
+}
+
+#[test]
+fn a_beaten_attack_wave_falls_back() {
+    let mut w = World::new(45, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    // Wait for the first wave to get well on its way.
+    let (cx, cy) = core(&w, ENEMY);
+    let home = ((cx as f64 + 2.0) * TILE, (cy as f64 + 2.0) * TILE);
+    let away = |w: &World, id: Id| {
+        w.unit(id)
+            .is_some_and(|u| ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt() > 600.0)
+    };
+    let mut wave = Vec::new();
+    for _ in 0..30 * 600 {
+        w.step();
+        wave = w.ai_wave().unwrap_or_default();
+        if wave.len() >= 6 && wave.iter().all(|&id| away(&w, id)) {
+            break;
+        }
+    }
+    assert!(wave.len() >= 6, "a wave went out");
+    // All but two die (under 40% of the wave is left).
+    let doomed: Vec<Id> = wave.iter().copied().take(wave.len() - 2).collect();
+    w.units.retain(|u| !doomed.contains(&u.id));
+    w.recalc_supply(ENEMY);
+    let survivors: Vec<Id> = wave
+        .iter()
+        .copied()
+        .filter(|id| !doomed.contains(id))
+        .collect();
+    let d0: f64 = survivors
+        .iter()
+        .map(|&s| {
+            let u = w.unit(s).unwrap();
+            ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt()
+        })
+        .sum();
+    run(&mut w, 8);
+    let d1: f64 = survivors
+        .iter()
+        .filter_map(|&s| w.unit(s))
+        .map(|u| ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt())
+        .sum();
+    assert!(d1 < d0 - 200.0, "survivors head home: {d0:.0} -> {d1:.0}");
 }
 
 #[test]

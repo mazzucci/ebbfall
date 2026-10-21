@@ -42,10 +42,12 @@ loop feels right.
 
 ### M2. Make the single-player game good
 - [x] More units with real counters: Lancer (anti-air infantry), Medic (healer), Wasp (flying gunship from the Airfield); weapons have separate ground/air damage
-- [ ] Upgrades (weapon/armor tiers) researched at the Forge
-- [ ] Better AI: scouting, reacting to the player's composition, harassment, expansions
+- [x] Upgrades (weapon/armor tiers) researched at the Forge
+- [x] Better AI: plays under fog (scouts with a harvester, remembers what it saw), answers seen flyers with Lancers, raids harvesters with Wasps, expands to a second base on Normal and Hard, pulls a beaten wave back
+- [ ] AI: react to the player's ground composition, multi-prong attacks
 - [ ] Hand-authored maps + a tiny map format (JSON); keep the generator for skirmish
-- [ ] Sprite art pass (currently vector shapes) and sound design
+- [x] Sprite art pass (pre-rendered 3D units and buildings, painted terrain)
+- [ ] Sound design
 - [ ] Replays: record seed + command log, play back through the same sim
 
 ### M3. Multiplayer (1v1)

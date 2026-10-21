@@ -3,7 +3,7 @@
 
 use crate::data::*;
 use crate::jsmath::{self, PI, dist};
-use crate::map::Id;
+use crate::map::{Id, idx};
 use crate::path::Pt;
 use crate::world::{Ai, Phase, Task, World};
 
@@ -11,6 +11,14 @@ impl World {
     /// Switch the opponent off (tests of the player's own abilities should not race the AI's attacks).
     pub fn disable_ai(&mut self) {
         self.ai = None;
+    }
+
+    /// The units of the AI's current attack wave, if one is out (tests and tools).
+    pub fn ai_wave(&self) -> Option<Vec<Id>> {
+        self.ai
+            .as_ref()
+            .filter(|a| a.attacking)
+            .and_then(|a| a.attackers.clone())
     }
 
     pub(crate) fn init_ai(&mut self) {
@@ -24,6 +32,12 @@ impl World {
             sites: Vec::new(),
             saving_since: None,
             no_save_until: 0.0,
+            known: Vec::new(),
+            seen_air_until: -1.0,
+            scout: None,
+            scouted: false,
+            raiders: Vec::new(),
+            wave_size: 0,
         });
     }
 
@@ -133,6 +147,199 @@ impl World {
         self.ai.as_mut().unwrap().sites = sites;
     }
 
+    /// Whether the AI can see a point right now (it plays with fog of war like the player).
+    fn ai_sees(&self, x: f64, y: f64) -> bool {
+        let (tx, ty) = World::tile_of(x, y);
+        self.vis[ENEMY as usize][idx(tx, ty)] != 0
+    }
+
+    /// Remember player buildings when they come into view, forget them when their spot is seen empty, and note
+    /// player flyers.
+    fn update_knowledge(&mut self) {
+        let t = self.time;
+        let seen: Vec<(Id, f64, f64, bool)> = self
+            .bldgs
+            .iter()
+            .filter(|b| {
+                b.team == PLAYER
+                    && (0..b.h).any(|y| {
+                        (0..b.w).any(|x| self.vis[ENEMY as usize][idx(b.tx + x, b.ty + y)] != 0)
+                    })
+            })
+            .map(|b| (b.id, b.x, b.y, b.kind == BldgKind::Core))
+            .collect();
+        let air_seen = self
+            .units
+            .iter()
+            .any(|u| u.team == PLAYER && u.kind.def().air && self.ai_sees(u.x, u.y));
+        let gone: Vec<Id> = self
+            .ai
+            .as_ref()
+            .unwrap()
+            .known
+            .iter()
+            .filter(|k| self.bldg(k.0).is_none() && self.ai_sees(k.1, k.2))
+            .map(|k| k.0)
+            .collect();
+        let ai = self.ai.as_mut().unwrap();
+        for s in seen {
+            if !ai.known.iter().any(|k| k.0 == s.0) {
+                ai.known.push(s);
+            }
+        }
+        ai.known.retain(|k| !gone.contains(&k.0));
+        if air_seen {
+            ai.seen_air_until = t + 90.0;
+        }
+    }
+
+    /// Where the AI thinks the player is: a known core, else any known building, else the player's start.
+    fn attack_target(&self) -> (f64, f64) {
+        let ai = self.ai.as_ref().unwrap();
+        if let Some(k) = ai.known.iter().find(|k| k.3).or(ai.known.first()) {
+            return (k.1, k.2);
+        }
+        (
+            (BASES[0].0 as f64 + 2.0) * TILE,
+            (BASES[0].1 as f64 + 2.0) * TILE,
+        )
+    }
+
+    /// Early on, send one harvester to look at the player's start; bring it back to mining afterwards.
+    fn tend_scout(&mut self, harv: &[Id]) {
+        let t = self.time;
+        let ai = self.ai.as_ref().unwrap();
+        if !ai.scouted && t >= 70.0 {
+            let pick = harv.iter().copied().find(|&h| {
+                let u = self.unit(h).unwrap();
+                u.carry == 0 && !matches!(u.task, Task::Build { .. })
+            });
+            if let Some(h) = pick {
+                let (x, y) = (
+                    (BASES[0].0 as f64 + 2.0) * TILE,
+                    (BASES[0].1 as f64 + 2.0) * TILE,
+                );
+                self.move_to(h, x, y);
+                let ai = self.ai.as_mut().unwrap();
+                ai.scout = Some(h);
+                ai.scouted = true;
+            }
+            return;
+        }
+        let Some(s) = ai.scout else { return };
+        let Some(u) = self.unit(s) else {
+            self.ai.as_mut().unwrap().scout = None;
+            return;
+        };
+        let done = u.task == Task::Idle || self.ai.as_ref().unwrap().known.iter().any(|k| k.3);
+        if done && !matches!(u.task, Task::Gather { .. }) {
+            let (x, y, team) = (u.x, u.y, u.team);
+            if let Some(n) = self.nearest_node(x, y, team, false, 4000.0) {
+                self.start_gather(s, n);
+            }
+            self.ai.as_mut().unwrap().scout = None;
+        }
+    }
+
+    /// Wasps (two or more) raid the player's harvesters; badly hurt ones fly home.
+    fn tend_raiders(&mut self, wasps: &[Id], rally: Pt) {
+        let mut raiders: Vec<Id> = self
+            .ai
+            .as_ref()
+            .unwrap()
+            .raiders
+            .iter()
+            .copied()
+            .filter(|&r| self.unit(r).is_some())
+            .collect();
+        if raiders.is_empty() && wasps.len() >= 2 {
+            raiders = wasps.iter().copied().take(4).collect();
+        }
+        let (tx, ty) = self.attack_target();
+        let mut keep = Vec::new();
+        for r in raiders {
+            let u = self.unit(r).unwrap();
+            if u.hp < u.maxhp * 0.4 {
+                self.move_to(r, rally.x, rally.y); // home to defend; drops out of the raid
+                continue;
+            }
+            keep.push(r);
+            let (ux, uy, idle) = (u.x, u.y, u.task == Task::Idle);
+            let hunting = matches!(u.task, Task::Attack { target, .. }
+                if self.unit(target).is_some_and(|t| t.kind == UnitKind::Harvester));
+            if hunting {
+                continue;
+            }
+            let prey = self
+                .units
+                .iter()
+                .filter(|o| {
+                    o.team == PLAYER && o.kind == UnitKind::Harvester && self.ai_sees(o.x, o.y)
+                })
+                .min_by(|a, b| {
+                    dist(a.x, a.y, ux, uy)
+                        .partial_cmp(&dist(b.x, b.y, ux, uy))
+                        .unwrap()
+                })
+                .map(|o| o.id);
+            // Harvesters come first: a raider drops whatever it auto-targeted on the way once it sees one.
+            match prey {
+                Some(p) => self.attack_ent(r, p),
+                None if idle => self.attack_move(r, tx, ty),
+                None => {}
+            }
+        }
+        self.ai.as_mut().unwrap().raiders = keep;
+    }
+
+    /// A spot for a second Core: by a shard field away from both bases, nearest to our main core.
+    fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
+        let (px, py) = (BASES[0].0 as f64 + 2.0, BASES[0].1 as f64 + 2.0);
+        let mut fields: Vec<(f64, i32, i32)> = self
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether && n.amount > 300)
+            .filter(|n| {
+                jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy) > 12.0
+                    && jsmath::hypot(n.tx as f64 - px, n.ty as f64 - py) > 22.0
+            })
+            .map(|n| {
+                (
+                    jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy),
+                    n.tx,
+                    n.ty,
+                )
+            })
+            .collect();
+        fields.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .unwrap()
+                .then((a.1, a.2).cmp(&(b.1, b.2)))
+        });
+        for &(_, nx, ny) in fields.iter().take(6) {
+            for r in 4..10 {
+                for k in 0..16 {
+                    let a = k as f64 / 16.0 * PI * 2.0;
+                    let tx = jsmath::round(nx as f64 + jsmath::cos(a) * r as f64 - 2.0) as i32;
+                    let ty = jsmath::round(ny as f64 + jsmath::sin(a) * r as f64 - 2.0) as i32;
+                    if self.can_place(BldgKind::Core, tx, ty, ENEMY)
+                        && self.walkway_around(tx, ty, 4, 4)
+                        && self.map.nodes.iter().all(|n| {
+                            jsmath::hypot(
+                                n.tx as f64 + 0.5 - (tx as f64 + 2.0),
+                                n.ty as f64 + 0.5 - (ty as f64 + 2.0),
+                            ) >= 3.5
+                        })
+                    {
+                        return Some((tx, ty));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Attack a target if this unit's weapon can hit it, otherwise attack-move to where it is.
     fn engage(&mut self, a: Id, target: Id) {
         if self.can_hit(a, target) {
@@ -159,6 +366,7 @@ impl World {
             return;
         }
         a.t = 0.0;
+        self.update_knowledge();
         let d = &DIFF[self.diff];
         let (e, t) = (ENEMY, self.time);
         let my_b: Vec<Id> = self
@@ -233,7 +441,7 @@ impl World {
         }
         let rally = self.ai.as_ref().unwrap().rally.unwrap();
 
-        // Workers: idle ones mine; keep up to three on ether once an extractor stands.
+        // Workers: idle ones mine; keep up to three on ether once an extractor stands, one while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
             b.kind == BldgKind::Extractor && b.done
@@ -242,9 +450,10 @@ impl World {
             .iter()
             .filter(|&&h| self.gathering_ether(h) == Some(true))
             .count();
+        let ether_cap = if self.res[e as usize][1] > 400 { 1 } else { 3 };
         for &h in &harv {
             if self.unit(h).unwrap().task == Task::Idle {
-                let want_ether = ext.is_some() && ether < 3;
+                let want_ether = ext.is_some() && ether < ether_cap;
                 let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
                 let n = self
                     .nearest_node(hx, hy, e, want_ether, 800.0)
@@ -257,7 +466,17 @@ impl World {
                 }
             }
         }
-        if ext.is_some() && ether < 3 {
+        if ether > ether_cap {
+            let h = harv.iter().copied().find(|&h| {
+                self.gathering_ether(h) == Some(true) && self.unit(h).unwrap().carry == 0
+            });
+            if let Some(h) = h {
+                let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
+                if let Some(n) = self.nearest_node(hx, hy, e, false, 1200.0) {
+                    self.start_gather(h, n);
+                }
+            }
+        } else if ext.is_some() && ether < ether_cap {
             let h = harv.iter().copied().find(|&h| {
                 let u = self.unit(h).unwrap();
                 self.gathering_ether(h) == Some(false)
@@ -290,10 +509,51 @@ impl World {
                     .count()
             })
             .sum();
-        if let Some(c) = core {
-            let cb = self.bldg(c).unwrap();
-            if cb.done && harv.len() + queued_h < d.harv && cb.queue.is_empty() {
-                let _ = self.queue_unit(c, UnitKind::Harvester);
+        let cores: Vec<Id> = my_b
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.bldg(id)
+                    .is_some_and(|b| b.kind == BldgKind::Core && b.done)
+            })
+            .collect();
+        let harv_target = d.harv + 5 * cores.len().saturating_sub(1);
+        let mut queued = queued_h;
+        for &c in &cores {
+            if harv.len() + queued < harv_target
+                && self.bldg(c).unwrap().queue.is_empty()
+                && self.queue_unit(c, UnitKind::Harvester).is_ok()
+            {
+                queued += 1;
+            }
+        }
+        // An expansion gets harvesters from the main base until five work its fields.
+        if let Some(&exp) = cores.get(1) {
+            let (ex, ey) = (self.bldg(exp).unwrap().x, self.bldg(exp).unwrap().y);
+            let near_exp = |w: &World, h: Id| match w.unit(h).map(|u| u.task) {
+                Some(Task::Gather { node, .. }) => w
+                    .map
+                    .node(node)
+                    .is_some_and(|n| dist(n.x, n.y, ex, ey) < 300.0),
+                _ => false,
+            };
+            let working = harv.iter().filter(|&&h| near_exp(self, h)).count();
+            if working < 5 && harv.len() >= 8 {
+                let mover = harv.iter().copied().find(|&h| {
+                    let u = self.unit(h).unwrap();
+                    !near_exp(self, h)
+                        && u.carry == 0
+                        && matches!(
+                            u.task,
+                            Task::Gather {
+                                phase: Phase::Go | Phase::Wait,
+                                ..
+                            }
+                        )
+                });
+                if let (Some(h), Some(n)) = (mover, self.nearest_node(ex, ey, e, false, 400.0)) {
+                    self.start_gather(h, n);
+                }
             }
         }
         let [used, cap] = self.sup[e as usize];
@@ -335,7 +595,23 @@ impl World {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
+        // A second base, outside the build order above: the AI saves up for it (see research) and places it
+        // even while supply depots go up.
+        let expand = self.diff >= 1
+            && t > [f64::MAX, 420.0, 330.0][self.diff]
+            && cnt(self, BldgKind::Core) < 2
+            && harv.len() + 2 >= d.harv;
+        if expand
+            && self.can_afford(e, BldgKind::Core.def().cost)
+            && let Some(spot) = self.expansion_spot(cx, cy)
+        {
+            let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
+            if let Some(b) = self.free_builder(&harv, sx, sy) {
+                let _ = self.place_building(e, BldgKind::Core, spot.0, spot.1, Some(b));
+            }
+        }
         self.tend_sites(&harv);
+        self.tend_scout(&harv);
         // tend_sites may have cancelled sites: every building id from here on must still exist.
         let my_b: Vec<Id> = my_b
             .iter()
@@ -346,7 +622,7 @@ impl World {
         // An enemy near our buildings (answered by the army below; also stops saving for research).
         let mut intruder = None;
         'scan: for u in &self.units {
-            if u.team != PLAYER {
+            if u.team != PLAYER || !self.ai_sees(u.x, u.y) {
                 continue;
             }
             for &bid in &my_b {
@@ -357,25 +633,30 @@ impl World {
                 }
             }
         }
-        let enemy_air = self
+        let seen_air = self
             .units
             .iter()
-            .filter(|u| u.team == PLAYER && u.kind.def().air)
+            .filter(|u| u.team == PLAYER && u.kind.def().air && self.ai_sees(u.x, u.y))
             .count();
+        let enemy_air = if t < self.ai.as_ref().unwrap().seen_air_until {
+            seen_air.max(2)
+        } else {
+            seen_air
+        };
         let lancers = self
             .units
             .iter()
             .filter(|u| u.team == e && u.kind == UnitKind::Lancer)
             .count();
 
-        // Research: weapons and armor in turn, starting earlier on harder levels. Until it can afford the next
-        // level it saves up (no new units), but never while under attack or short of Lancers against flyers,
-        // and for at most SAVE_MAX seconds at a time.
+        // Research: weapons and armor in turn, starting earlier on harder levels, once any expansion is down.
+        // Until it can afford the next level it saves up (no new units), but never while under attack or short
+        // of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
         const SAVE_MAX: f64 = 45.0;
         let research_from = [600.0, 420.0, 300.0][self.diff];
         let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
         let mut saving = false;
-        if t > research_from {
+        if t > research_from && !expand {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
                 if b.kind != BldgKind::Forge || !b.done || b.research.is_some() {
@@ -405,6 +686,10 @@ impl World {
                 }
             }
         }
+        // Saving up for an expansion works the same way.
+        if expand && !self.can_afford(e, BldgKind::Core.def().cost) {
+            saving = true;
+        }
         let ai = self.ai.as_mut().unwrap();
         if saving && !threatened && t >= ai.no_save_until {
             let since = *ai.saving_since.get_or_insert(t);
@@ -418,12 +703,8 @@ impl World {
             saving = false;
         }
 
-        // Production. Barracks answer enemy flyers with Lancers and bring a Medic per six Troopers.
-        let enemy_air = self
-            .units
-            .iter()
-            .filter(|u| u.team == PLAYER && u.kind.def().air)
-            .count();
+        // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers and bring a Medic per
+        // six Troopers.
         let mine = |w: &World, k: UnitKind| {
             w.units
                 .iter()
@@ -457,8 +738,9 @@ impl World {
                 BldgKind::Airfield if mine(self, UnitKind::Wasp) >= 6 => continue,
                 _ => b.kind.def().trains[0],
             };
-            // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks.
-            let u = if self.can_afford(e, u.def().cost) {
+            // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks. Short of
+            // shards it waits for them instead, as a Trooper would only delay the specialist.
+            let u = if self.res[e as usize][1] >= u.def().cost[1] {
                 u
             } else {
                 b.kind.def().trains[0]
@@ -492,25 +774,25 @@ impl World {
             }
         }
 
-        // Waves.
-        let p_build: Vec<Id> = self
-            .bldgs
+        // Wasp raids on the player's harvesters (raiders stay out of the waves).
+        let wasps: Vec<Id> = army
             .iter()
-            .filter(|b| b.team == PLAYER)
-            .map(|b| b.id)
+            .copied()
+            .filter(|&a| self.unit(a).is_some_and(|u| u.kind == UnitKind::Wasp))
             .collect();
+        self.tend_raiders(&wasps, rally);
+        let raiders = self.ai.as_ref().unwrap().raiders.clone();
+        let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
+
+        // Waves go where the AI believes the player is (it scouts and remembers; it does not see through fog).
+        let (gx, gy) = self.attack_target();
         let ai = self.ai.as_ref().unwrap();
-        if !p_build.is_empty() && army.len() >= ai.wave && t - ai.last_wave > d.gap && t > d.first {
+        if !ai.attacking && army.len() >= ai.wave && t - ai.last_wave > d.gap && t > d.first {
             let ai = self.ai.as_mut().unwrap();
             ai.last_wave = t;
             ai.wave += d.wave_grow;
             ai.attacking = true;
-            let tgt = p_build
-                .iter()
-                .copied()
-                .find(|&id| self.bldg(id).unwrap().kind == BldgKind::Core)
-                .unwrap_or(p_build[0]);
-            let (gx, gy) = (self.bldg(tgt).unwrap().x, self.bldg(tgt).unwrap().y);
+            ai.wave_size = army.len();
             for &a in &army {
                 let ox = (self.rnd() - 0.5) * 80.0;
                 let oy = (self.rnd() - 0.5) * 80.0;
@@ -521,6 +803,7 @@ impl World {
         let ai = self.ai.as_ref().unwrap();
         if ai.attacking && ai.attackers.is_some() {
             let attackers = ai.attackers.clone().unwrap();
+            let wave_size = ai.wave_size;
             let alive: Vec<Id> = army
                 .iter()
                 .copied()
@@ -528,27 +811,45 @@ impl World {
                 .collect();
             if alive.is_empty() {
                 self.ai.as_mut().unwrap().attacking = false;
+            } else if wave_size >= 4 && alive.len() * 10 < wave_size * 4 {
+                // Lost most of the wave: pull the survivors back instead of feeding them in one by one.
+                for a in alive {
+                    let ox = (self.rnd() - 0.5) * 120.0;
+                    let oy = (self.rnd() - 0.5) * 120.0;
+                    self.move_to(a, rally.x + ox, rally.y + oy);
+                }
+                let ai = self.ai.as_mut().unwrap();
+                ai.attacking = false;
+                ai.attackers = None;
+                ai.last_wave = t;
             } else {
+                let known: Vec<(Id, f64, f64)> = self
+                    .ai
+                    .as_ref()
+                    .unwrap()
+                    .known
+                    .iter()
+                    .map(|k| (k.0, k.1, k.2))
+                    .collect();
                 for a in alive {
                     let u = self.unit(a).unwrap();
-                    if u.task != Task::Idle || p_build.is_empty() {
+                    if u.task != Task::Idle {
                         continue;
                     }
                     let (ux, uy) = (u.x, u.y);
-                    let (mut best, mut bd) = (p_build[0], 1e9);
-                    for &b in &p_build {
-                        let bb = self.bldg(b).unwrap();
-                        let dd = dist(ux, uy, bb.x, bb.y);
-                        if dd < bd {
-                            bd = dd;
-                            best = b;
-                        }
-                    }
-                    if bd < 700.0 {
-                        self.engage(a, best);
-                    } else {
-                        let (bx, by) = (self.bldg(best).unwrap().x, self.bldg(best).unwrap().y);
-                        self.attack_move(a, bx, by);
+                    let best = known
+                        .iter()
+                        .filter(|k| self.bldg(k.0).is_some())
+                        .min_by(|p, q| {
+                            dist(ux, uy, p.1, p.2)
+                                .partial_cmp(&dist(ux, uy, q.1, q.2))
+                                .unwrap()
+                        });
+                    match best {
+                        Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
+                        Some(&(_, bx, by)) => self.attack_move(a, bx, by),
+                        // Nothing known left: sweep the player's start, then anywhere a building was last seen.
+                        None => self.attack_move(a, gx, gy),
                     }
                 }
             }

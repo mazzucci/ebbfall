@@ -1,9 +1,11 @@
-//! The scripted opponent (port of src/sim/ai.js). Runs twice a second: assigns workers, follows a build
-//! order, keeps supply ahead, defends its base, and attacks in growing waves. Draws only from the world RNG.
+//! The scripted opponent. Runs twice a second: assigns workers, follows a build order, keeps supply ahead,
+//! expands, defends its base, raids with Wasps and attacks in growing waves. It plays under fog of war: it
+//! scouts, remembers the player buildings it has seen and sweeps the map when it knows of none. Draws only
+//! from the world RNG.
 
 use crate::data::*;
 use crate::jsmath::{self, PI, dist};
-use crate::map::{Id, idx};
+use crate::map::{Id, idx, in_map};
 use crate::path::Pt;
 use crate::world::{Ai, Phase, Task, World};
 
@@ -38,6 +40,9 @@ impl World {
             scouted: false,
             raiders: Vec::new(),
             wave_size: 0,
+            sweep: 0,
+            sweep_since: 0.0,
+            ether_lean: false,
         });
     }
 
@@ -191,18 +196,79 @@ impl World {
         if air_seen {
             ai.seen_air_until = t + 90.0;
         }
+        // Nothing known: once the current sweep point is in view (and still nothing turned up), or after a
+        // minute of trying to get there, move on.
+        if self.ai.as_ref().unwrap().known.is_empty() {
+            let (x, y) = self.sweep_point();
+            let ai = self.ai.as_ref().unwrap();
+            if self.ai_sees(x, y) || t - ai.sweep_since > 60.0 {
+                let ai = self.ai.as_mut().unwrap();
+                ai.sweep += 1;
+                ai.sweep_since = t;
+            }
+        } else {
+            self.ai.as_mut().unwrap().sweep_since = t;
+        }
     }
 
-    /// Where the AI thinks the player is: a known core, else any known building, else the player's start.
+    /// The sweep: the player's start, then every shard field and a coarse grid of open ground, by distance from
+    /// the start, round and round.
+    fn sweep_point(&self) -> (f64, f64) {
+        let start = (
+            (BASES[0].0 as f64 + 2.0) * TILE,
+            (BASES[0].1 as f64 + 2.0) * TILE,
+        );
+        let mut pts: Vec<(f64, f64)> = self
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether)
+            .map(|n| (n.x, n.y))
+            .collect();
+        for gy in (6..MH).step_by(12) {
+            for gx in (6..MW).step_by(12) {
+                let open = (-2..=2).flat_map(|dy| (-2..=2).map(move |dx| (gx + dx, gy + dy)));
+                if let Some((tx, ty)) = open
+                    .filter(|&(x, y)| in_map(x, y) && self.map.rock[idx(x, y)] == 0)
+                    .min_by_key(|&(x, y)| (x - gx).abs() + (y - gy).abs())
+                {
+                    pts.push(((tx as f64 + 0.5) * TILE, (ty as f64 + 0.5) * TILE));
+                }
+            }
+        }
+        let key = |p: &(f64, f64)| dist(p.0, p.1, start.0, start.1);
+        pts.sort_by(|a, b| {
+            key(a)
+                .partial_cmp(&key(b))
+                .unwrap()
+                .then(a.0.partial_cmp(&b.0).unwrap())
+                .then(a.1.partial_cmp(&b.1).unwrap())
+        });
+        let k = self.ai.as_ref().unwrap().sweep % (pts.len() + 1);
+        if k == 0 { start } else { pts[k - 1] }
+    }
+
+    /// The point our nearest finished Core stands on (where harvesters should mine), else the given point.
+    fn home_of(&self, x: f64, y: f64) -> (f64, f64) {
+        self.bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
+            .min_by(|a, b| {
+                dist(a.x, a.y, x, y)
+                    .partial_cmp(&dist(b.x, b.y, x, y))
+                    .unwrap()
+                    .then(a.id.cmp(&b.id))
+            })
+            .map_or((x, y), |b| (b.x, b.y))
+    }
+
+    /// Where the AI thinks the player is: a known core, else any known building, else the next sweep point.
     fn attack_target(&self) -> (f64, f64) {
         let ai = self.ai.as_ref().unwrap();
         if let Some(k) = ai.known.iter().find(|k| k.3).or(ai.known.first()) {
             return (k.1, k.2);
         }
-        (
-            (BASES[0].0 as f64 + 2.0) * TILE,
-            (BASES[0].1 as f64 + 2.0) * TILE,
-        )
+        self.sweep_point()
     }
 
     /// Early on, send one harvester to look at the player's start; bring it back to mining afterwards.
@@ -233,8 +299,8 @@ impl World {
         };
         let done = u.task == Task::Idle || self.ai.as_ref().unwrap().known.iter().any(|k| k.3);
         if done && !matches!(u.task, Task::Gather { .. }) {
-            let (x, y, team) = (u.x, u.y, u.team);
-            if let Some(n) = self.nearest_node(x, y, team, false, 4000.0) {
+            let (x, y) = self.home_of(u.x, u.y);
+            if let Some(n) = self.nearest_node(x, y, ENEMY, false, 1200.0) {
                 self.start_gather(s, n);
             }
             self.ai.as_mut().unwrap().scout = None;
@@ -252,15 +318,24 @@ impl World {
             .copied()
             .filter(|&r| self.unit(r).is_some())
             .collect();
-        if raiders.is_empty() && wasps.len() >= 2 {
-            raiders = wasps.iter().copied().take(4).collect();
+        let healthy = |w: &World, id: Id| w.unit(id).is_some_and(|u| u.hp >= u.maxhp * 0.4);
+        if raiders.is_empty() {
+            let fit: Vec<Id> = wasps
+                .iter()
+                .copied()
+                .filter(|&id| healthy(self, id))
+                .collect();
+            if fit.len() >= 2 {
+                raiders = fit.into_iter().take(4).collect();
+            }
         }
         let (tx, ty) = self.attack_target();
         let mut keep = Vec::new();
         for r in raiders {
             let u = self.unit(r).unwrap();
-            if u.hp < u.maxhp * 0.4 {
-                self.move_to(r, rally.x, rally.y); // home to defend; drops out of the raid
+            if !healthy(self, r) {
+                // Home to defend, once: it leaves the raid and joins the army (no one heals machines).
+                self.move_to(r, rally.x, rally.y);
                 continue;
             }
             keep.push(r);
@@ -450,11 +525,19 @@ impl World {
             .iter()
             .filter(|&&h| self.gathering_ether(h) == Some(true))
             .count();
-        let ether_cap = if self.res[e as usize][1] > 400 { 1 } else { 3 };
+        let stock = self.res[e as usize][1];
+        let ai = self.ai.as_mut().unwrap();
+        if stock > 400 {
+            ai.ether_lean = true;
+        } else if stock < 250 {
+            ai.ether_lean = false;
+        }
+        let ether_cap = if ai.ether_lean { 1 } else { 3 };
         for &h in &harv {
             if self.unit(h).unwrap().task == Task::Idle {
                 let want_ether = ext.is_some() && ether < ether_cap;
-                let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
+                let u = self.unit(h).unwrap();
+                let (hx, hy) = self.home_of(u.x, u.y); // never the player's fields
                 let n = self
                     .nearest_node(hx, hy, e, want_ether, 800.0)
                     .or_else(|| self.nearest_node(hx, hy, e, false, 1200.0));
@@ -534,7 +617,7 @@ impl World {
                 Some(Task::Gather { node, .. }) => w
                     .map
                     .node(node)
-                    .is_some_and(|n| dist(n.x, n.y, ex, ey) < 300.0),
+                    .is_some_and(|n| dist(n.x, n.y, ex, ey) < 400.0), // the radius it assigns within
                 _ => false,
             };
             let working = harv.iter().filter(|&&h| near_exp(self, h)).count();
@@ -597,13 +680,18 @@ impl World {
         }
         // A second base, outside the build order above: the AI saves up for it (see research) and places it
         // even while supply depots go up.
-        let expand = self.diff >= 1
+        let exp_spot = if self.diff >= 1
             && t > [f64::MAX, 420.0, 330.0][self.diff]
             && cnt(self, BldgKind::Core) < 2
-            && harv.len() + 2 >= d.harv;
-        if expand
+            && harv.len() + 2 >= d.harv
+        {
+            self.expansion_spot(cx, cy)
+        } else {
+            None
+        };
+        let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
+        if let Some(spot) = exp_spot
             && self.can_afford(e, BldgKind::Core.def().cost)
-            && let Some(spot) = self.expansion_spot(cx, cy)
         {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
             if let Some(b) = self.free_builder(&harv, sx, sy) {
@@ -804,6 +892,8 @@ impl World {
         if ai.attacking && ai.attackers.is_some() {
             let attackers = ai.attackers.clone().unwrap();
             let wave_size = ai.wave_size;
+            // A wave that has searched for four minutes without finding anything comes home to regroup.
+            let lost = ai.known.is_empty() && t - ai.last_wave > 240.0;
             let alive: Vec<Id> = army
                 .iter()
                 .copied()
@@ -811,7 +901,7 @@ impl World {
                 .collect();
             if alive.is_empty() {
                 self.ai.as_mut().unwrap().attacking = false;
-            } else if wave_size >= 4 && alive.len() * 10 < wave_size * 4 {
+            } else if lost || (wave_size >= 4 && alive.len() * 10 < wave_size * 4) {
                 // Lost most of the wave: pull the survivors back instead of feeding them in one by one.
                 for a in alive {
                     let ox = (self.rnd() - 0.5) * 120.0;
@@ -848,7 +938,7 @@ impl World {
                     match best {
                         Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
                         Some(&(_, bx, by)) => self.attack_move(a, bx, by),
-                        // Nothing known left: sweep the player's start, then anywhere a building was last seen.
+                        // Nothing known left: sweep the player's start, then the shard fields around it.
                         None => self.attack_move(a, gx, gy),
                     }
                 }

@@ -182,6 +182,12 @@ pub(crate) struct Ai {
     pub scouted: bool,
     /// Wasps raiding the player's harvesters.
     pub raiders: Vec<Id>,
+    /// With no player building known: which point of the sweep (the player's start, then the shard fields
+    /// nearest it) the army heads for next.
+    pub sweep: usize,
+    pub sweep_since: f64,
+    /// Ether is piling up: keep a single harvester on it (with hysteresis).
+    pub ether_lean: bool,
     /// How many units the current attack wave started with (it retreats below 40%).
     pub wave_size: usize,
 }

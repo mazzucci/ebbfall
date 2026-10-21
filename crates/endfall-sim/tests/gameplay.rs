@@ -7,7 +7,7 @@ use endfall_sim::data::*;
 use endfall_sim::map::Id;
 #[allow(unused_imports)]
 use endfall_sim::world::BUILDER_PATIENCE;
-use endfall_sim::world::{Phase, Task, World};
+use endfall_sim::world::{Phase, Task, Unit, World};
 use endfall_sim::{Game, Mulberry32};
 
 const TPS: u32 = 30;
@@ -692,16 +692,45 @@ fn the_ai_scouts_the_player_base_early() {
     let mut w = World::new(41, 1);
     let (px, py) = core(&w, PLAYER);
     run(&mut w, 150);
-    assert!(
-        w.explored[ENEMY as usize][((py + 2) * MW + px + 2) as usize] != 0,
-        "the AI has looked at the player's base"
-    );
+    let seen = (0..4).any(|dy| {
+        (0..4).any(|dx| w.explored[ENEMY as usize][((py + dy) * MW + px + dx) as usize] != 0)
+    });
+    assert!(seen, "the AI has looked at the player's core");
+    // The scout goes back to mining at home, not at the player's fields.
+    run(&mut w, 90);
+    let (cx, cy) = ((px as f64 + 2.0) * TILE, (py as f64 + 2.0) * TILE);
+    let poaching = w
+        .units
+        .iter()
+        .filter(|u| u.team == ENEMY && u.kind == UnitKind::Harvester)
+        .filter(|u| match u.task {
+            Task::Gather { node, .. } => w
+                .map
+                .node(node)
+                .is_some_and(|n| ((n.x - cx).powi(2) + (n.y - cy).powi(2)).sqrt() < 800.0),
+            _ => false,
+        })
+        .count();
+    assert_eq!(poaching, 0, "no AI harvester mines by the player's base");
 }
 
 #[test]
 fn ai_wasps_raid_the_players_harvesters() {
     let mut w = World::new(43, 1);
     run(&mut w, 120); // scouting done
+    // A soldier stands among the player's harvesters: the raiders go for the harvesters anyway.
+    let mine: Vec<&Unit> = w
+        .units
+        .iter()
+        .filter(|u| u.team == PLAYER && u.kind == UnitKind::Harvester)
+        .collect();
+    let n = mine.len() as f64;
+    let (mx, my) = (
+        mine.iter().map(|u| u.x).sum::<f64>() / n,
+        mine.iter().map(|u| u.y).sum::<f64>() / n,
+    );
+    let guard = w.make_unit(UnitKind::Vanguard, PLAYER, mx, my);
+    w.hold_unit(guard);
     let (cx, cy) = core(&w, ENEMY);
     for k in 0..3 {
         w.make_unit(
@@ -719,11 +748,61 @@ fn ai_wasps_raid_the_players_harvesters() {
             .sum::<f64>()
     };
     let before = hp(&w);
-    run(&mut w, 60);
+    // Until the harvesters have taken a beating, the guard is left alone.
+    for _ in 0..60 * TPS {
+        w.step();
+        if before - hp(&w) >= 100.0 {
+            break;
+        }
+    }
+    let lost = before - hp(&w);
     assert!(
-        hp(&w) < before - 40.0,
-        "the raid hurt the player's harvesters: {before} -> {}",
-        hp(&w)
+        lost >= 100.0,
+        "the raid hurt the player's harvesters: {lost}"
+    );
+    let g = w.unit(guard).unwrap();
+    assert_eq!(g.hp, g.maxhp, "the raiders went for the harvesters first");
+}
+
+#[test]
+fn hurt_wasps_stay_home_and_healthy_ones_raid() {
+    let mut w = World::new(43, 1);
+    run(&mut w, 120);
+    let (cx, cy) = core(&w, ENEMY);
+    let at = |k: i32| {
+        (
+            (cx as f64 + 2.0) * TILE + k as f64 * 30.0,
+            (cy as f64 + 6.0) * TILE,
+        )
+    };
+    // Four hurt wasps first (lower ids), then two healthy ones.
+    let hurt: Vec<Id> = (0..4)
+        .map(|k| {
+            let (x, y) = at(k);
+            let id = w.make_unit(UnitKind::Wasp, ENEMY, x, y);
+            w.units.iter_mut().find(|u| u.id == id).unwrap().hp = 25.0;
+            id
+        })
+        .collect();
+    let fit: Vec<Id> = (4..6)
+        .map(|k| {
+            let (x, y) = at(k);
+            w.make_unit(UnitKind::Wasp, ENEMY, x, y)
+        })
+        .collect();
+    let home = ((cx as f64 + 2.0) * TILE, (cy as f64 + 2.0) * TILE);
+    let away = |w: &World, id: Id| {
+        w.unit(id).map_or(0.0, |u| {
+            ((u.x - home.0).powi(2) + (u.y - home.1).powi(2)).sqrt()
+        })
+    };
+    run(&mut w, 30);
+    for &h in &hurt {
+        assert!(away(&w, h) < 500.0, "hurt wasp {h} stays home");
+    }
+    assert!(
+        fit.iter().any(|&f| away(&w, f) > 900.0),
+        "the healthy wasps went raiding"
     );
 }
 
@@ -1477,5 +1556,39 @@ fn builders_reach_every_reachable_site() {
         let (mut w, h, b) = lone_builder(seed, from, site, BldgKind::Barracks);
         builds_within(&mut w, h, b, 200)
             .unwrap_or_else(|e| panic!("seed {seed} from {from:?} site {site:?}: {e}"));
+    }
+}
+
+#[test]
+fn the_ai_hunts_down_buildings_it_has_not_seen() {
+    // A passive player with a Depot hidden far from both bases: after razing the main base the AI must search
+    // the map rather than stand on the empty start forever.
+    for seed in [2, 33] {
+        let mut w = World::new(seed, 1);
+        // The open spot farthest from both starts, well away from the player's.
+        let (p, e) = (core(&w, PLAYER), core(&w, ENEMY));
+        let far = |t: (i32, i32)| {
+            let d = |c: (i32, i32)| (t.0 - c.0).pow(2) + (t.1 - c.1).pow(2);
+            d(p).min(d(e))
+        };
+        let hidden = (0..MH)
+            .flat_map(|ty| (0..MW).map(move |tx| (tx, ty)))
+            // (checked as ENEMY: the player may not build in unexplored ground, but this test cheats)
+            .filter(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
+            .filter(|&(tx, ty)| (tx - p.0).pow(2) + (ty - p.1).pow(2) >= 24 * 24)
+            .max_by_key(|&t| far(t))
+            .unwrap();
+        w.make_building(BldgKind::Depot, PLAYER, hidden.0, hidden.1, true);
+        for _ in 0..1500 * TPS {
+            w.step();
+            if w.over {
+                break;
+            }
+        }
+        assert!(
+            w.over && w.winner == ENEMY as i32,
+            "seed {seed}: the AI found the hidden depot (t={:.0})",
+            w.time
+        );
     }
 }

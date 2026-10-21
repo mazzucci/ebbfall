@@ -4,6 +4,8 @@
 
 use endfall_sim::data::*;
 use endfall_sim::map::Id;
+#[allow(unused_imports)]
+use endfall_sim::world::BUILDER_PATIENCE;
 use endfall_sim::world::{Phase, Task, World};
 use endfall_sim::{Game, Mulberry32};
 
@@ -295,6 +297,117 @@ fn the_ai_finishes_games_on_every_difficulty() {
     }
 }
 
+#[test]
+fn only_own_harvesters_build_and_buildings_train_only_their_units() {
+    let mut w = rich(17);
+    let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Barracks);
+    let rax = w
+        .place_building(PLAYER, BldgKind::Barracks, tx, ty, None)
+        .unwrap();
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 300.0, 1700.0);
+    let foe = w.make_unit(UnitKind::Harvester, ENEMY, 300.0, 1700.0);
+    assert!(!w.start_build(trooper, rax), "troopers do not build");
+    assert!(
+        !w.start_build(foe, rax),
+        "the enemy does not build our barracks"
+    );
+    assert_eq!(
+        w.queue_unit(rax, UnitKind::Trooper),
+        Err("Barracks cannot train that".into()),
+        "not before it is finished"
+    );
+    assert!(w.start_build(h[0], rax));
+    while !w.bldg(rax).unwrap().done {
+        w.step();
+    }
+    assert!(
+        w.queue_unit(rax, UnitKind::Vanguard).is_err(),
+        "a barracks does not train vanguards"
+    );
+    assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
+    let depot = build(&mut w, BldgKind::Depot, h[1], 90);
+    assert!(
+        w.queue_unit(depot, UnitKind::Trooper).is_err(),
+        "a depot trains nothing"
+    );
+}
+
+#[test]
+fn the_game_api_ignores_orders_for_the_other_side() {
+    let mut g = Game::new(21, 1);
+    let foe = g
+        .world()
+        .units
+        .iter()
+        .find(|u| u.team == ENEMY)
+        .unwrap()
+        .clone();
+    let core = g.world().bldgs.iter().find(|b| b.team == ENEMY).unwrap().id;
+    g.move_to(foe.id, 10.0, 10.0);
+    g.stop_unit(foe.id);
+    assert_eq!(
+        g.world().unit(foe.id).unwrap().task,
+        foe.task,
+        "enemy unit untouched"
+    );
+    assert_eq!(g.queue_unit(core, "harvester"), "Not yours");
+    assert!(g.place_building(ENEMY, "depot", 50, 12, 0).contains("team"));
+}
+
+#[test]
+fn a_walled_in_builder_gives_up_instead_of_waiting_forever() {
+    let mut w = rich(23);
+    // Wall a harvester into a one-tile pocket at tile (16,22) with four finished depots.
+    let h = harvesters(&w, PLAYER)[0];
+    for (tx, ty) in [(15, 20), (17, 21), (16, 23), (14, 22)] {
+        w.make_building(BldgKind::Depot, PLAYER, tx, ty, true);
+    }
+    {
+        let u = w.units.iter_mut().find(|u| u.id == h).unwrap();
+        u.x = 16.0 * TILE + 16.0;
+        u.y = 22.0 * TILE + 16.0;
+    }
+    let (tx, ty) = spot(&w, BldgKind::Barracks);
+    let rax = w
+        .place_building(PLAYER, BldgKind::Barracks, tx, ty, Some(h))
+        .unwrap();
+    assert_eq!(w.unit(h).unwrap().task, Task::Build { b: rax });
+    run(&mut w, 10);
+    assert_ne!(
+        w.unit(h).unwrap().task,
+        Task::Build { b: rax },
+        "the trapped builder gave up"
+    );
+    assert!(
+        w.unit(h).unwrap().no_build_until > w.time,
+        "and is not picked again right away"
+    );
+}
+
+#[test]
+fn cancelling_construction_refunds_three_quarters() {
+    let mut w = rich(25);
+    let h = harvesters(&w, PLAYER);
+    let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
+    let (tx, ty) = spot(&w, BldgKind::Forge);
+    w.res[PLAYER as usize] = [1000, 1000];
+    let forge = w
+        .place_building(PLAYER, BldgKind::Forge, tx, ty, Some(h[1]))
+        .unwrap();
+    assert_eq!(w.res[PLAYER as usize], [850, 900]);
+    assert!(w.cancel_construction(forge));
+    assert_eq!(w.res[PLAYER as usize], [850 + 112, 900 + 75]);
+    assert!(
+        w.bldg(forge).is_none() && w.can_place(BldgKind::Forge, tx, ty, PLAYER),
+        "the site is free again"
+    );
+    assert!(
+        !w.cancel_construction(rax),
+        "finished buildings cannot be cancelled"
+    );
+}
+
 // ---------------- randomized orders + invariants ----------------
 
 fn check_invariants(w: &World, ctx: &str) {
@@ -349,6 +462,23 @@ fn check_invariants(w: &World, ctx: &str) {
             b.progress
         );
         assert!(b.queue.len() <= 5);
+        assert!(
+            (0.0..=1.0).contains(&b.prog),
+            "{ctx}: building {} prog {}",
+            b.id,
+            b.prog
+        );
+        assert!(
+            b.done || b.queue.is_empty(),
+            "{ctx}: unfinished building {} has a queue",
+            b.id
+        );
+        assert!(
+            b.queue.iter().all(|&k| b.kind.def().trains == Some(k)),
+            "{ctx}: building {} queues {:?}",
+            b.id,
+            b.queue
+        );
         for y in 0..b.h {
             for x in 0..b.w {
                 assert_eq!(
@@ -393,6 +523,32 @@ fn check_invariants(w: &World, ctx: &str) {
                 .map(|k| k.def().supply)
                 .sum::<i32>();
         assert_eq!(w.sup[t][0], used, "{ctx}: team {t} supply used");
+        let cap: i32 = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team as usize == t && b.done)
+            .map(|b| b.kind.def().supply)
+            .sum();
+        assert_eq!(w.sup[t][1], cap.min(200), "{ctx}: team {t} supply cap");
+    }
+    for p in &w.projs {
+        assert!(
+            p.x.is_finite() && p.y.is_finite(),
+            "{ctx}: projectile position"
+        );
+    }
+    if !w.over {
+        assert!(
+            w.bldgs.iter().any(|b| b.team == ENEMY),
+            "{ctx}: enemy has no buildings but the game is not over"
+        );
+        assert!(
+            w.bldgs.iter().any(|b| b.team == PLAYER)
+                || w.units
+                    .iter()
+                    .any(|u| u.team == PLAYER && u.kind == UnitKind::Harvester),
+            "{ctx}: player is eliminated but the game is not over"
+        );
     }
     for n in &w.map.nodes {
         let mining = w
@@ -441,7 +597,7 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
     let pick = |r: &mut Mulberry32| ids[r.below(ids.len() as u32) as usize];
     let (x, y) = (r.below(2200) as f64 - 60.0, r.below(2200) as f64 - 60.0);
     let (a, b) = (pick(r), pick(r));
-    match r.below(14) {
+    match r.below(15) {
         0 => g.move_to(a, x, y),
         1 => g.attack_move(a, x, y),
         2 => g.attack_ent(a, b),
@@ -465,6 +621,7 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
         10 => g.set_rally(a, x, y, if r.below(2) == 0 { b } else { 0 }),
         11 => g.formation(&[a, b, pick(r)], x, y),
         12 => g.set_resources(PLAYER, r.below(3000) as i32, r.below(1000) as i32),
+        13 => g.cancel_construction(a),
         _ => {}
     }
 }
@@ -492,29 +649,30 @@ fn random_play_never_breaks_the_world() {
     }
 }
 
-/// How long the AI needs to beat an idle player, across many maps (run with --ignored --nocapture to see).
-/// Currently fails on Hard: the AI can wall a harvester in and then wait forever on a depot it cannot build.
+/// The AI must beat an idle player on every map and difficulty (it once walled in its own builder on Hard and
+/// then waited forever for a depot it could not build).
 #[test]
-#[ignore]
-fn ai_time_to_win_survey() {
+fn the_ai_beats_an_idle_player_on_many_maps() {
+    let maps: u32 = if cfg!(debug_assertions) { 3 } else { 40 };
     for diff in 0..3 {
-        let mut worst = (0, 0);
-        for seed in 0..40u32 {
-            let mut w = World::new(seed * 104_729 + 3, diff);
+        let mut slowest = (0, 0);
+        for m in 0..maps {
+            let seed = m * 104_729 + 3;
+            let mut w = World::new(seed, diff);
             let mut t = 0;
-            while !w.over && t < 30 * 60 * 30 {
+            while !w.over && t < 30 * 60 * 20 {
                 w.step();
                 t += 1;
             }
-            if t > worst.0 {
-                worst = (t, seed);
-            }
-            assert!(w.over, "diff {diff} seed {seed}: no result after 30 min");
+            assert!(
+                w.over && w.winner == ENEMY as i32,
+                "diff {diff} seed {seed}: no AI win after 20 min"
+            );
+            slowest = slowest.max((t / 30, seed));
         }
         println!(
-            "diff {diff}: slowest win {}s (seed {})",
-            worst.0 / 30,
-            worst.1
+            "diff {diff}: slowest AI win {}s (seed {})",
+            slowest.0, slowest.1
         );
     }
 }

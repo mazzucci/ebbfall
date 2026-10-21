@@ -1,4 +1,5 @@
-// Game data. Everything the balance of the game depends on lives here.
+// Game data as the client sees it (names, costs, sizes, hotkeys, descriptions). The rules use the copy in
+// crates/endfall-sim/src/data.rs; test/engine.test.js checks that the two agree.
 // Costs are [shards, ether]. Distances are in tiles unless named otherwise; speeds in px/s.
 
 export const TILE = 32;

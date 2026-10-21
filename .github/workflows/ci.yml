@@ -44,8 +44,6 @@ jobs:
       - run: npm test
         env:
           ENDFALL_REQUIRE_WASM: '1'
-      - name: JS and Rust sims agree tick for tick
-        run: node scripts/parity.mjs 9000 1,2,3
       - run: npm run build
       - name: Gameplay tests in a real browser
         run: |

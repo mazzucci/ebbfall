@@ -18,8 +18,8 @@ loop feels right.
 
 | Decision | Choice | Why |
 | --- | --- | --- |
-| Simulation | Rust compiled to WASM (`crates/endfall-sim`) | Deterministic core for lockstep, small download. Ported from the JS sim with bit-exact parity (`npm run parity`). |
-| Sim numerics | f64 with JS semantics + libm, not fixed-point | WASM floats are deterministic across browsers/CPUs; everyone runs the same .wasm. Keeping the JS arithmetic made tick-by-tick parity checking possible. Revisit only if a native (non-WASM) peer ever has to agree. |
+| Simulation | Rust compiled to WASM (`crates/endfall-sim`) | Deterministic core for lockstep, small download. Ported from the JS prototype with bit-exact parity, then the JS copy was retired. |
+| Sim numerics | f64 with JS semantics + libm, not fixed-point | WASM floats are deterministic across browsers/CPUs; everyone runs the same .wasm. Keeping the JS arithmetic made tick-by-tick parity checking possible during the port. Revisit only if a native (non-WASM) peer ever has to agree. |
 | Client | JavaScript ES modules | Fast UI iteration; `src/engine` mirrors the sim for the renderer, HUD and input. |
 | Rendering | PixiJS 8 (WebGL) over a generated pixel-art atlas | Batching, filters and blend modes for free; the art is produced by `tools/art` (docs/ART.md) so it is versioned and replaceable. |
 | Build | Vite | Zero config, HMR, static `dist/`. |
@@ -36,7 +36,8 @@ loop feels right.
 - [x] Commands take entity ids instead of object references (the `Game` orders)
 - [x] ~~Fixed-point positions~~: not needed in WASM, see the numerics decision above
 - [x] Per-player fog layers in the sim
-- [ ] Delete the JS reference sim once nothing needs it for parity
+- [x] Delete the JS reference sim (retired once gameplay fixes started to change behaviour)
+- [x] Gameplay test suites: Rust scenarios + randomized invariants, browser end-to-end tests in CI
 - [ ] `stateHash()` every N ticks in dev mode, logged to console
 
 ### M2. Make the single-player game good

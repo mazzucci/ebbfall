@@ -4,9 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { mulberry } from '../src/sim/util.js';
-import * as C from '../src/sim/constants.js';
-import * as js from '../src/sim/index.js';
+import { mulberry } from '../src/engine/util.js';
+import * as C from '../src/engine/constants.js';
 
 const pkg = new URL('../src/engine/pkg/', import.meta.url);
 const built = existsSync(new URL('endfall_sim_bg.wasm', pkg));
@@ -37,7 +36,7 @@ test('hypot matches V8 Math.hypot bit for bit', { skip }, () => {
   }
 });
 
-test('the Rust data tables match constants.js', { skip }, () => {
+test('the Rust data tables match the client constants', { skip }, () => {
   const d = JSON.parse(sim.dataJson());
   for (const [k, u] of Object.entries(C.UNITS)) {
     const r = d.units[k]; assert.ok(r, k);
@@ -130,23 +129,11 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(E.G.units.every(u => !u.dead));
 });
 
-test('the Rust sim matches the JS sim tick for tick', { skip }, () => {
-  for (const [seed, diff] of [[1, 1], [2, 2]]) {
-    js.resetGame(seed, diff);
-    const g = new sim.Game(seed, diff);
-    for (let t = 0; t < 30 * 240; t++) {
-      js.step(js.DT); g.step();
-      assert.equal(g.stateHash(), js.stateHash(), `seed ${seed} diff ${diff} tick ${t + 1}`);
-    }
-    g.free();
-  }
-});
-
 test('a harvester whose last node is a vent without an extractor goes idle instead of getting stuck', { skip }, () => {
   // Reproduces the review finding: resume after building, with last_node = an ether vent and no extractor.
-  for (const S of [E, js]) {
+  for (const S of [E]) {
     S.resetGame(7, 1);
-    if (S === E) S.setResources(E.PLAYER, 1000, 0); else S.G.res[0][0] = 1000;
+    S.setResources(E.PLAYER, 1000, 0);
     const G = S.G, core = G.bldgs.find(b => b.team === S.PLAYER), vent = S.map.nodes.find(n => n.type === 'ether');
     const h = G.units.find(u => u.team === S.PLAYER);
     S.startGather(h, vent); // refused (no extractor), last node unchanged

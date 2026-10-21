@@ -1,5 +1,5 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
-import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, dist } from '../engine/index.js';
+import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, dist } from '../engine/index.js';
 import { sfx } from './audio.js';
 
 export const $ = (id) => document.getElementById(id);
@@ -84,6 +84,7 @@ export function cardItems() {
   } else if (bl.length === 1) {
     const b = bl[0];
     if (!b.done && !buildersOf(b).length) items.push({ id: 'resume', label: 'Resume', key: 'R', tip: 'Send the nearest Harvester to finish construction' });
+    if (!b.done) items.push({ id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, tip: 'Cancel construction (75% refund)' });
     if (b.done && b.d.trains) for (const t of b.d.trains) { const d = UNITS[t]; items.push({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, tip: d.desc }); }
     if (b.queue.length) items.push({ id: 'cancelq', label: 'Cancel last', key: 'X', cancel: true });
     if (b.done && b.d.trains) items.push({ id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', tip: 'Then click where new units should go' });
@@ -126,6 +127,7 @@ export function doCommand(id) {
     if (!hs.length) { toast('No Harvester to build it', true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
+  if (id === 'cancelb') { const b = bl[0]; if (b && !b.done) { cancelConstruction(b); ui.sel = []; sfx('select'); } return; }
   if (id === 'cancelq') { const b = bl[0]; if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }
 }
 

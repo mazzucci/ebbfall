@@ -197,6 +197,17 @@ impl Game {
         valid_team(team).is_some_and(|t| self.w.can_afford(t, [shards, ether]))
     }
 
+    /// Put a unit on the map (tests and tools only). Returns its id, or 0 for an unknown kind or team.
+    #[wasm_bindgen(js_name = debugSpawn)]
+    pub fn debug_spawn(&mut self, team: u8, kind: &str, x: f64, y: f64) -> u32 {
+        let (Some(k), Some(t)) = (UnitKind::parse(kind), valid_team(team)) else {
+            return 0;
+        };
+        let id = self.w.make_unit(k, t, data::clamp_x(x), data::clamp_y(y));
+        self.w.recalc_supply(t);
+        id
+    }
+
     /// Switch the opponent off (tests and tools only).
     #[wasm_bindgen(js_name = disableAi)]
     pub fn disable_ai(&mut self) {
@@ -394,6 +405,9 @@ impl Game {
                 }
                 Event::Burst { x, y, r, team, n } => {
                     format!("{{\"t\":\"burst\",\"x\":{x},\"y\":{y},\"r\":{r},\"team\":{team},\"n\":{n}}}")
+                }
+                Event::Attacked { x, y, building } => {
+                    format!("{{\"t\":\"attacked\",\"x\":{x},\"y\":{y},\"building\":{building}}}")
                 }
                 Event::Heal { x, y, tx, ty } => {
                     format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty}}}")

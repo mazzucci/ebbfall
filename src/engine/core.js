@@ -130,6 +130,8 @@ export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
 export const disableAi = () => game.disableAi();
+/** Tests and tools only: put a unit on the map; returns its id (0 if refused). */
+export const debugSpawn = (team, kind, x, y) => touch(game.debugSpawn(team, kind, x, y));
 /** Tests and tools only. */
 export const setResources = (team, shards, ether) => touch(game.setResources(team, shards, ether));
 

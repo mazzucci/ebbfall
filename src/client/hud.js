@@ -7,12 +7,13 @@ export const $ = (id) => document.getElementById(id);
 /** Client-only UI state: what the local player has selected and which command is armed. */
 export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0 };
 
-export function toast(msg, bad) {
+/** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
+export function toast(msg, bad, silent) {
   const m = $('msg'); const d = document.createElement('div');
   d.className = 'toast' + (bad ? ' bad' : ''); d.textContent = msg; m.appendChild(d);
   while (m.children.length > 4) m.removeChild(m.firstChild);
   setTimeout(() => d.remove(), 3300);
-  if (bad) sfx('error');
+  if (bad && !silent) sfx('error');
 }
 
 export const playerSel = () => ui.sel.filter(e => e.team === PLAYER && !e.dead);

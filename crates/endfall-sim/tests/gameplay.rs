@@ -647,6 +647,71 @@ fn the_ai_answers_flyers_with_lancers() {
     );
 }
 
+#[test]
+fn the_player_hears_about_attacks_once_per_fight() {
+    use endfall_sim::world::Event;
+    let mut w = arena(16);
+    let mine = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    w.hold_unit(mine);
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 700.0, 900.0);
+    w.attack_ent(foe, mine);
+    let mut alerts = 0;
+    for _ in 0..8 * TPS {
+        w.step();
+        alerts += w
+            .events
+            .drain(..)
+            .filter(|e| {
+                matches!(
+                    e,
+                    Event::Attacked {
+                        building: false,
+                        ..
+                    }
+                )
+            })
+            .count();
+    }
+    assert_eq!(alerts, 1, "one alert for one ongoing fight");
+    // A second fight far away alerts at once.
+    let far = w.make_unit(UnitKind::Trooper, PLAYER, 1800.0, 300.0);
+    w.hold_unit(far);
+    let foe2 = w.make_unit(UnitKind::Trooper, ENEMY, 1860.0, 300.0);
+    w.attack_ent(foe2, far);
+    let mut more = 0;
+    for _ in 0..3 * TPS {
+        w.step();
+        more += w
+            .events
+            .drain(..)
+            .filter(|e| matches!(e, Event::Attacked { .. }))
+            .count();
+    }
+    assert_eq!(more, 1, "a new fight elsewhere is reported");
+}
+
+#[test]
+fn two_simultaneous_fights_alert_once_each() {
+    use endfall_sim::world::Event;
+    let mut w = arena(18);
+    for (x, y) in [(500.0, 900.0), (1600.0, 400.0)] {
+        let mine = w.make_unit(UnitKind::Vanguard, PLAYER, x, y);
+        w.hold_unit(mine);
+        let foe = w.make_unit(UnitKind::Trooper, ENEMY, x + 80.0, y);
+        w.attack_ent(foe, mine);
+    }
+    let mut alerts = 0;
+    for _ in 0..8 * TPS {
+        w.step();
+        alerts += w
+            .events
+            .drain(..)
+            .filter(|e| matches!(e, Event::Attacked { .. }))
+            .count();
+    }
+    assert_eq!(alerts, 2, "one per fight, not one per hit");
+}
+
 // ---------------- randomized orders + invariants ----------------
 
 fn check_invariants(w: &World, ctx: &str) {

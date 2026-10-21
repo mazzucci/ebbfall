@@ -4,6 +4,18 @@ import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard, up
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
+import { selectIdle, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
+
+/** Double-click / double-tap on one of our units selects all of that type on screen. */
+let lastPick = { id: 0, t: 0, dbl: false };
+/** `at` is the input event's own timestamp, so a slow frame between the two clicks does not break the double. */
+function selectOrDouble(hit, add, at = performance.now()) {
+  const own = hit.kind === 'unit' && hit.team === PLAYER, again = own && lastPick.id === hit.id && at - lastPick.t < 400;
+  if (again && lastPick.dbl) { lastPick.t = at; return; }            // a third quick click keeps the group
+  if (again) { selectSameType(hit, add); lastPick = { id: hit.id, t: at, dbl: true }; return; }
+  lastPick = { id: hit.id, t: at, dbl: false };
+  select([hit], add);
+}
 import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE, UNIT_SCALE, AIR_LIFT } from './gl/render.js';
 /** Where a unit appears on screen (flyers are drawn above the ground point they occupy). */
 const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
@@ -69,7 +81,7 @@ function commandAt(wx, wy) {
   ui.mode = null; setHint();
 }
 
-function leftAction(wx, wy, add) {
+function leftAction(wx, wy, add, at) {
   if (G.over) return;
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit');
   if (ui.place) {
@@ -86,18 +98,18 @@ function leftAction(wx, wy, add) {
   }
   if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
   const hit = pick(wx, wy);
-  if (hit && hit.kind !== 'node') select([hit], add); else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
+  if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at); else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
 }
 
 /** Single-finger tap: select own things, otherwise command the current selection. */
-function touchTap(wx, wy) {
+function touchTap(wx, wy, at) {
   if (G.over) return;
   if (ui.place || ui.mode) { leftAction(wx, wy, false); return; }
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
-    select([hit]); return;
+    selectOrDouble(hit, false, at); return;
   }
   if (units.length || bl.length) { commandAt(wx, wy); return; }
   if (hit && hit.kind !== 'node') select([hit]); else { ui.sel = []; updateHud(); }
@@ -133,7 +145,7 @@ export function bindInput() {
     if (drag.box) { drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift); return; }
     const w = toWorld(p.x, p.y);
     if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
-    if (ev.pointerType === 'touch') touchTap(w.x, w.y); else leftAction(w.x, w.y, ev.shiftKey);
+    if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);
   cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; drag.down = false; drag.box = false; });
@@ -160,24 +172,21 @@ export function bindInput() {
   window.addEventListener('keydown', ev => {
     if (ev.target.tagName === 'INPUT') return;
     const k = ev.key; keys[k.toLowerCase()] = true;
+    if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
     if (!input.enabled()) return;
     if (/^[1-9]$/.test(k)) {
-      if (ev.ctrlKey || ev.metaKey) { ui.groups[k] = playerSel().slice(); toast('Group ' + k + ' set'); ev.preventDefault(); }
-      else {
-        const g = (ui.groups[k] || []).filter(e => !e.dead);
-        if (g.length) {
-          ui.sel = g.slice();
-          if (ev.shiftKey || (ui.lastGroup === k && performance.now() - ui.lastGroupT < 400)) { const c = g.reduce((a, e) => ({ x: a.x + e.x / g.length, y: a.y + e.y / g.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); }
-          ui.lastGroup = k; ui.lastGroupT = performance.now(); ui.mode = null; ui.place = null; setHint(); updateHud();
-        }
-      }
+      if (ev.ctrlKey || ev.metaKey) { saveGroup(+k); ev.preventDefault(); } else recallGroup(+k, ev.shiftKey);
       return;
     }
+    if (k === ' ') { jumpToAlert(); ev.preventDefault(); return; }
+    if (k === '.') { selectIdle(); return; }
+    if (k === 'p' || k === 'P') { togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
     if (k === 'Home') { const c = G.bldgs.find(b => b.team === PLAYER && b.type === 'core'); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
     const items = cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
-    if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); }
+    if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); return; }
+    if (!it && (k === 'q' || k === 'Q')) selectArmy();
   });
   window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
 }

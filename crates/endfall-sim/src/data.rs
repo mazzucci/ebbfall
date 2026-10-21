@@ -9,6 +9,13 @@ pub const WW: f64 = MW as f64 * TILE;
 pub const WH: f64 = MH as f64 * TILE;
 pub const DT: f64 = 1.0 / 30.0;
 pub const PLAYER: u8 = 0;
+/// Keep a point inside the playable map (16 px margin, like unit movement).
+pub fn clamp_x(x: f64) -> f64 {
+    x.clamp(16.0, WW - 16.0)
+}
+pub fn clamp_y(y: f64) -> f64 {
+    y.clamp(16.0, WH - 16.0)
+}
 pub const ENEMY: u8 = 1;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

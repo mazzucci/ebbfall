@@ -58,14 +58,18 @@ pub struct Unit {
     pub repath: f64,
     pub flash: f64,
     pub aggro_cd: f64,
-    /// Seconds a builder has spent without getting closer to its site; it gives up after BUILDER_PATIENCE.
+    /// Seconds a builder has stayed within STUCK_RADIUS of `anchor` without reaching its site.
     pub stuck: f64,
+    pub anchor: (f64, f64),
     /// Game time before which this harvester is not picked as a builder again (it just failed to reach a site).
     pub no_build_until: f64,
 }
 
-/// How long a builder keeps trying to reach a site it is not getting closer to.
+/// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
+/// site gives up. Walking (even away from the site, around an obstacle) leaves the radius within a fraction of a
+/// second; jittering against a corner or being walled in does not.
 pub const BUILDER_PATIENCE: f64 = 6.0;
+pub const STUCK_RADIUS: f64 = 12.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rally {
@@ -453,6 +457,7 @@ impl World {
             flash: 0.0,
             aggro_cd: 0.0,
             stuck: 0.0,
+            anchor: (x, y),
             no_build_until: 0.0,
         });
         id
@@ -1092,6 +1097,7 @@ impl World {
         u.path = None;
         u.repath = 0.0;
         u.stuck = 0.0;
+        u.anchor = (u.x, u.y);
         true
     }
 
@@ -1221,9 +1227,8 @@ impl World {
         let u = self.um(uid);
         u.repath -= dt;
         if u.path.is_none() || u.repath <= 0.0 {
-            if target.is_rect() {
-                let (t, g) = (Self::tile_of(ux, uy), Self::tile_of(p.0, p.1));
-                let path = astar(&self.map, &mut self.scratch, t.0, t.1, g.0, g.1);
+            if let Geo::Rect { tx, ty, w, h, .. } = target {
+                let path = self.path_to_rect(ux, uy, (tx, ty, w, h), p);
                 let u = self.um(uid);
                 u.path = path;
                 u.repath = 0.7;
@@ -1248,6 +1253,49 @@ impl World {
             }
         }
         false
+    }
+
+    /// A path to a free tile beside a building footprint that can actually be reached: the free tiles around
+    /// it are tried nearest first (a free tile can be cut off by rock), falling back to the old nearest-free goal.
+    fn path_to_rect(
+        &mut self,
+        ux: f64,
+        uy: f64,
+        (tx, ty, w, h): (i32, i32, i32, i32),
+        aim: (f64, f64),
+    ) -> Option<Vec<Pt>> {
+        let start = Self::tile_of(ux, uy);
+        let mut ring: Vec<(f64, i32, i32)> = Vec::new();
+        for y in ty - 1..=ty + h {
+            for x in tx - 1..=tx + w {
+                if (x >= tx && x < tx + w && y >= ty && y < ty + h) || self.map.blocked(x, y) {
+                    continue;
+                }
+                let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+                ring.push((dist(cx, cy, ux, uy), x, y));
+            }
+        }
+        ring.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .unwrap()
+                .then((a.1, a.2).cmp(&(b.1, b.2)))
+        });
+        for &(_, x, y) in ring.iter().take(4) {
+            if (x, y) == start {
+                return Some(Vec::new());
+            }
+            if let Some(path) = astar(&self.map, &mut self.scratch, start.0, start.1, x, y) {
+                let goal = Pt {
+                    x: x as f64 * TILE + 16.0,
+                    y: y as f64 * TILE + 16.0,
+                };
+                if path.last() == Some(&goal) {
+                    return Some(path);
+                }
+            }
+        }
+        let g = Self::tile_of(aim.0, aim.1);
+        astar(&self.map, &mut self.scratch, start.0, start.1, g.0, g.1)
     }
 
     fn fire(&mut self, shooter: Id, target: Id) {
@@ -1421,18 +1469,18 @@ impl World {
                     y: bd.y,
                     r: bd.r,
                 };
-                let before = g.edge_dist(self.u(uid).x, self.u(uid).y);
                 let reached = self.approach(uid, g, r + 8.0, dt);
                 if !reached {
-                    // A builder that cannot get closer (walled in, site cut off) gives up instead of waiting forever.
-                    let after = g.edge_dist(self.u(uid).x, self.u(uid).y);
+                    // A builder that stays put (walled in, site cut off, jammed on a corner) gives up instead of
+                    // waiting forever. The position includes last tick's separation push.
                     let (time, team) = (self.time, team);
                     let u = self.um(uid);
-                    u.stuck = if after < before - 0.25 {
-                        0.0
+                    if dist(u.x, u.y, u.anchor.0, u.anchor.1) > STUCK_RADIUS {
+                        u.anchor = (u.x, u.y);
+                        u.stuck = 0.0;
                     } else {
-                        u.stuck + dt
-                    };
+                        u.stuck += dt;
+                    }
                     if u.stuck > BUILDER_PATIENCE {
                         u.stuck = 0.0;
                         u.no_build_until = time + 30.0;

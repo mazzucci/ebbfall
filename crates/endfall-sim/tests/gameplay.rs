@@ -676,3 +676,111 @@ fn the_ai_beats_an_idle_player_on_many_maps() {
         );
     }
 }
+
+/// Put a lone player harvester at tile `from` and an unfinished `kind` at tile `site`; returns (world, unit, building).
+fn lone_builder(seed: u32, from: (i32, i32), site: (i32, i32), kind: BldgKind) -> (World, Id, Id) {
+    let mut w = World::new(seed, 1);
+    w.disable_ai();
+    w.units.clear();
+    let h = w.make_unit(
+        UnitKind::Harvester,
+        PLAYER,
+        from.0 as f64 * TILE + 16.0,
+        from.1 as f64 * TILE + 16.0,
+    );
+    let b = w.make_building(kind, PLAYER, site.0, site.1, false);
+    w.recalc_supply(PLAYER);
+    assert!(w.start_build(h, b));
+    (w, h, b)
+}
+
+fn builds_within(w: &mut World, h: Id, b: Id, secs: u32) -> Result<(), String> {
+    for _ in 0..secs * TPS {
+        w.step();
+        if w.bldg(b).is_some_and(|b| b.done) {
+            return Ok(());
+        }
+        if w.unit(h).is_some_and(|u| u.task != (Task::Build { b })) {
+            return Err(format!(
+                "builder gave up at {:.1}s at {:?}",
+                w.time,
+                w.unit(h).map(|u| (u.x, u.y))
+            ));
+        }
+    }
+    Err(format!("not built after {secs}s"))
+}
+
+#[test]
+fn builders_walking_a_long_way_around_do_not_give_up() {
+    // Paths that first lead sideways or away from the site (cases a review found being abandoned).
+    for (seed, from, site) in [(22, (15, 39), (57, 16)), (50, (5, 30), (6, 54))] {
+        let (mut w, h, b) = lone_builder(seed, from, site, BldgKind::Barracks);
+        builds_within(&mut w, h, b, 150).unwrap_or_else(|e| panic!("seed {seed}: {e}"));
+    }
+}
+
+#[test]
+fn a_builder_jammed_on_a_corner_does_not_wait_forever() {
+    let (mut w, h, b) = lone_builder(23, (21, 36), (44, 26), BldgKind::Barracks);
+    run(&mut w, 90);
+    let done = w.bldg(b).is_some_and(|b| b.done);
+    let gave_up = w.unit(h).is_some_and(|u| u.task != (Task::Build { b }));
+    assert!(
+        done || gave_up,
+        "after 90 s the builder either finished or gave up"
+    );
+}
+
+/// Tiles reachable on foot from `from` (4-neighbour flood fill over unblocked tiles).
+fn reachable(w: &World, from: (i32, i32)) -> Vec<bool> {
+    let mut seen = vec![false; (MW * MH) as usize];
+    let mut q = vec![from];
+    seen[(from.1 * MW + from.0) as usize] = true;
+    while let Some((x, y)) = q.pop() {
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let (nx, ny) = (x + dx, y + dy);
+            if !w.map.blocked(nx, ny) && !seen[(ny * MW + nx) as usize] {
+                seen[(ny * MW + nx) as usize] = true;
+                q.push((nx, ny));
+            }
+        }
+    }
+    seen
+}
+
+#[test]
+fn builders_reach_every_reachable_site() {
+    let trials: u32 = if cfg!(debug_assertions) { 25 } else { 300 };
+    let mut r = Mulberry32::new(99);
+    let mut tried = 0;
+    while tried < trials {
+        let seed = r.below(1000);
+        let probe = World::new(seed, 1);
+        let from = (r.below(MW as u32) as i32, r.below(MH as u32) as i32);
+        let site = (r.below(MW as u32 - 3) as i32, r.below(MH as u32 - 3) as i32);
+        if probe.map.blocked(from.0, from.1)
+            || !probe.can_place(BldgKind::Barracks, site.0, site.1, ENEMY)
+        {
+            continue;
+        }
+        let reach = reachable(&probe, from);
+        let side_reachable = (site.1 - 1..=site.1 + 3).any(|y| {
+            (site.0 - 1..=site.0 + 3).any(|x| {
+                (x < site.0 || x > site.0 + 2 || y < site.1 || y > site.1 + 2)
+                    && x >= 0
+                    && y >= 0
+                    && x < MW
+                    && y < MH
+                    && reach[(y * MW + x) as usize]
+            })
+        });
+        if !side_reachable {
+            continue;
+        }
+        tried += 1;
+        let (mut w, h, b) = lone_builder(seed, from, site, BldgKind::Barracks);
+        builds_within(&mut w, h, b, 200)
+            .unwrap_or_else(|e| panic!("seed {seed} from {from:?} site {site:?}: {e}"));
+    }
+}

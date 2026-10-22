@@ -107,7 +107,9 @@ impl World {
         let mut best: Option<(f64, Id)> = None;
         for &h in harv {
             let u = self.unit(h).unwrap();
-            if matches!(u.task, Task::Build { .. }) || u.carry != 0 || u.no_build_until > self.time
+            if matches!(u.task, Task::Build { .. } | Task::Repair { .. })
+                || u.carry != 0
+                || u.no_build_until > self.time
             {
                 continue;
             }
@@ -719,6 +721,30 @@ impl World {
                     intruder = Some(u.id);
                     break 'scan;
                 }
+            }
+        }
+        // Repairs once the fighting at home is over: one harvester on the worst-hit building at a time.
+        if intruder.is_none()
+            && !self
+                .units
+                .iter()
+                .any(|u| u.team == e && matches!(u.task, Task::Repair { .. }))
+        {
+            let worst = my_b
+                .iter()
+                .filter_map(|&id| self.bldg(id))
+                .filter(|b| b.done && b.hp < b.maxhp * 0.7)
+                .min_by(|p, q| {
+                    (p.hp / p.maxhp)
+                        .partial_cmp(&(q.hp / q.maxhp))
+                        .unwrap()
+                        .then(p.id.cmp(&q.id))
+                })
+                .map(|b| (b.id, b.x, b.y));
+            if let Some((bid, bx, by)) = worst
+                && let Some(h) = self.free_builder(&harv, bx, by)
+            {
+                self.start_repair(h, bid);
             }
         }
         let seen_air = self

@@ -65,7 +65,8 @@ src/client/           everything that touches the browser
   fx.js               particles and markers (client-only, fed by sim events)
 test/engine.test.js   the WASM sim through src/engine in Node: data tables vs constants.js, RNG/hypot, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
-test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios)
+test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
+                      touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge)
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

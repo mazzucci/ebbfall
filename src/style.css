@@ -107,6 +107,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .tb b{font:12px var(--mono);color:var(--ally2)} .tb:hover{border-color:var(--ally)}
 .tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)}
 .tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
+#btnBox{position:absolute;left:8px;bottom:8px;z-index:3;min-height:44px}
+@media (any-pointer:coarse){#hint{left:120px}} /* clear of SELECT on tablets */
 .tb.grp{min-width:34px;justify-content:center} .tb.grp span{color:var(--muted)} .tb.grp.empty{opacity:.5}
 @keyframes pulse{from{box-shadow:0 0 0 rgba(255,90,90,0)}to{box-shadow:0 0 12px rgba(255,90,90,.7)}}
 /* Landscape phones: every pixel of height counts, so shrink the bars and the HUD. */
@@ -126,13 +128,19 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
   #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
   #hint{left:126px;bottom:14px}
+  /* SELECT sits above the minimap, under the left thumb, so the right hand can drag the box. */
+  #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);
+    min-width:104px;min-height:40px;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none}
+  #btnBox.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
+  /* Grows at once (so a nudge has one finger-to-map ratio from the first move), shrinks back smoothly. */
+  #minimap{transition:transform .12s ease-out;transform-origin:0 100%} #minimap.big{transform:scale(2);transition:none}
   .tb{padding:7px 10px;font-size:12px} .tb.grp{min-width:42px;min-height:34px}
   .card{padding:14px 16px} .card h1{font-size:22px} .card p,.card li{font-size:12.5px;line-height:1.4}
 }
 .card.small{max-width:380px}
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}
 .tip{font-size:12.5px;color:var(--ally2);border:1px solid var(--line2);border-radius:4px;padding:6px 10px;background:var(--panel2)}
-@media (prefers-reduced-motion:reduce){.toast,.chip.warn,.tb.alert{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast,.chip.warn,.tb.alert{animation:none} #minimap{transition:none!important}}
 
 #endStats b{color:var(--fg)}
 #endStats{font:13px var(--mono);color:var(--muted);gap:18px}

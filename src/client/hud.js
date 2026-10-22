@@ -6,7 +6,7 @@ import { icon, portrait } from './icons.js';
 export const $ = (id) => document.getElementById(id);
 
 /** Client-only UI state: what the local player has selected and which command is armed. */
-export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0 };
+export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
 
 /** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
 export function toast(msg, bad, silent) {
@@ -169,7 +169,7 @@ function buildCard() {
 
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
-  if (id === 'esc') { if (ui.mode || ui.place) { ui.mode = null; ui.place = null; } else { ui.sel = []; updateHud(); } setHint(); return; }
+  if (id === 'esc') { if (ui.box) ui.box = false; else if (ui.mode || ui.place) { ui.mode = null; ui.place = null; } else { ui.sel = []; updateHud(); } setBox(); setHint(); return; }
   if (id === 'stop') { units.forEach(stopUnit); ui.mode = null; return; }
   if (id === 'hold') { units.forEach(holdUnit); ui.mode = null; return; }
   if (id === 'move' || id === 'attack' || id === 'gather' || id === 'rally') { ui.mode = id; ui.place = null; setHint(); return; }
@@ -178,7 +178,7 @@ export function doCommand(id) {
     const k = id.slice(2);
     if (!hasReq(PLAYER, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
     if (!canAfford(PLAYER, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[PLAYER][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
-    ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; setHint(); return;
+    ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('t_')) { const b = bl[0]; if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
   if (id === 'resume') {
@@ -193,8 +193,11 @@ export function doCommand(id) {
   if (id === 'cancelq') { const b = bl[0]; if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }
 }
 
+/** Reflect ui.box on the SELECT button (input.js arms it; Esc and placement clear it here). */
+export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('on', !!ui.box); b.setAttribute('aria-pressed', String(!!ui.box)); } }
+
 export function setHint() {
   const h = $('hint');
-  h.textContent = ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or extractor'
-    : ui.mode === 'rally' ? 'Click where new units should gather' : ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : '';
+  h.textContent = ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or extractor'
+    : ui.mode === 'rally' ? 'Click where new units should gather' : '';
 }

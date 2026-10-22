@@ -34,12 +34,13 @@
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="msg"></div>
-    <div id="hint"></div>
+    <div id="hint" aria-live="polite"></div>
     <div id="selMini"><b id="selMiniName"></b><span id="selMiniHp"></span></div>
     <div id="tools">
       <button class="tb alert" id="btnAlert" hidden title="Jump to the attack (Space)">⚠ ATTACK</button>
       <div id="groups"></div>
     </div>
+    <button class="tb" id="btnBox" hidden title="Hold, or tap, then drag on the map to select a group" aria-label="Select a group" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" /></svg><span>SELECT</span></button>
   </div>
   <footer id="hud">
     <canvas id="minimap" width="168" height="168"></canvas>
@@ -59,7 +60,7 @@
       <p>Mine <b style="color:var(--shard)">shards</b> and <b style="color:var(--ether)">ether</b>, build supply, raise an army, and level the enemy Command Core before their waves level yours. The enemy base is in the far corner.</p>
       <ul>
         <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point. <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group. Double-click selects all of that unit type on screen. <kbd>.</kbd> idle Harvester, <kbd>Q</kbd> whole army, <kbd>Space</kbd> jump to the last attack, <kbd>P</kbd> pause.</li>
-        <li><b>Touch:</b> tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather. Two fingers pan. Drag on the minimap to scroll.</li>
+        <li><b>Touch:</b> tap to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather. Drag the map with one finger to look around (flick to glide), pinch to zoom. Hold <b>SELECT</b> (or tap it) and drag to select a group; double-tap a unit for all of its type. Drag on the minimap to nudge the view, tap it to jump.</li>
         <li>Select a Harvester and tap <b>Build</b> to place structures. The Ether Extractor must sit on an ether vent; then send Harvesters to the Extractor to mine ether.</li>
       </ul>
       <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>

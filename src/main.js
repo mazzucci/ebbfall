@@ -4,7 +4,7 @@ import * as engine from './engine/index.js';
 import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
-import { bindInput, camKeys, input } from './client/input.js';
+import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
@@ -20,7 +20,7 @@ const urlSeed = new URLSearchParams(location.search).get('seed');
 function newGame() {
   const seed = urlSeed !== null ? +urlSeed | 0 : (Math.random() * 1e9) | 0;
   resetGame(seed, ui.diff ?? 1);
-  ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools();
+  ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x + 40, core.y);

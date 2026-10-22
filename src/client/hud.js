@@ -32,6 +32,7 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv] + ' ' + Math.round(b.research.prog * 100) + '%' + (b.queue.length ? ' · training' : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + ' ' + Math.round(b.prog * 100) + '%' + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
+  if (b.type === 'extractor' && b.vent) return `${b.vent.amount} ether left`;
   return '';
 }
 
@@ -107,7 +108,8 @@ function taskName(u) {
  * with Build and Gather; anything with soldiers leads with the common orders.
  */
 export function cardItems() {
-  const sel = playerSel(); if (!sel.length) return [];
+  const sel = playerSel();
+  if (!sel.length) return ui.sel.length ? [{ id: 'esc', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x', slot: 0 }] : []; // a field or an enemy
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const items = [];
   const at = (slot, it) => { while (items.some(i => i.slot === slot)) slot++; it.slot = slot; items.push(it); }; // never two in a slot
   const armed = ui.mode && ui.mode !== 'build'; // Esc disarms an order first

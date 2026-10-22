@@ -588,6 +588,7 @@ impl World {
                 && ty2 < ty + d.h
                 && let Some(f) = self.map.nearest_free(tx2, ty2, 4)
             {
+                // (several land on one point; separate() parts them, see the zero-distance case there)
                 self.units[k].x = f.0 as f64 * TILE + 16.0;
                 self.units[k].y = f.1 as f64 * TILE + 16.0;
             }
@@ -787,8 +788,8 @@ impl World {
         }
     }
 
-    /// A new unit steps out onto a free tile around the building: the least crowded one (so a batch stands side by
-    /// side instead of on one spot), nearest the building, towards the rally point (or the far side of the map).
+    /// A new unit steps out onto a free tile around the building: an uncrowded one if there is any (so a batch stands
+    /// side by side instead of on one spot), nearest the building, towards the rally point (or the far side of the map).
     fn spawn_from(&mut self, bid: Id, kind: UnitKind) -> Id {
         let b = self.bldg(bid).unwrap().clone();
         let air = kind.def().air;
@@ -2100,8 +2101,13 @@ impl World {
                 }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);
+                // Exactly on top of each other: part along x, by id, so the push is never a zero vector.
+                let (dx, dy) = if dx == 0.0 && dy == 0.0 {
+                    (if id < o { -1.0 } else { 1.0 }, 0.0)
+                } else {
+                    (dx, dy)
+                };
                 let d = jsmath::hypot(dx, dy);
-                let d = if d == 0.0 { 0.01 } else { d };
                 let min = u.r + or;
                 if d < min {
                     let push = (min - d) * 0.5 * if ohold { 1.0 } else { 0.5 };

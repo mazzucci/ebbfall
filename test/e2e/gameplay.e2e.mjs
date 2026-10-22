@@ -357,14 +357,41 @@ test('a resource field can be selected to see what is left (desktop click, phone
     const d = await newGame(device, 1, 4242, { ai: false });
     try {
       const s = await d.state(), core = coreOf(s);
-      const node = s.nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      // The nearest shard field with no harvester over it (a tap prefers a unit within reach).
+      const node = s.nodes.filter(n => n.type === 'shard' && s.units.every(u => Math.hypot(u.x - n.x, u.y - n.y) > 48))
+        .sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
       await d.clickWorld(node.x, node.y);
       const sel = await d.selection();
       assert.deepEqual(sel.map(e => e.kind), ['node'], `${d.touch ? 'phone' : 'desktop'}: the field is selected`);
       const left = await d.eval((id) => endfall.map.nodes.find(n => n.id === id).amount, node.id);
-      assert.match(await d.hudText(d.touch ? '#selMiniHp' : '#selSub', /left/), new RegExp(`${left}|left`), 'shows what is left');
+      assert.match(await d.hudText(d.touch ? '#selMiniHp' : '#selSub', /left/), new RegExp(`^${left} (shards )?left`), 'shows what is left');
+      assert.ok((await d.card()).some(c => c.label === 'Deselect'), 'a Deselect button for the field');
       if (!d.touch) assert.match(await d.hudText('#selName', /Shard field/), /Shard field/);
+      // Ether vents too.
+      const vent = s.nodes.find(n => n.type === 'ether');
+      await d.clickWorld(vent.x, vent.y);
+      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the vent is selected');
+      assert.match(await d.hudText(d.touch ? '#selMiniName' : '#selName', /Ether vent/), /Ether vent/);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
+});
+
+test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const h = mine(await d.state(), 'harvester')[0];
+    await d.clickEntity(h.id);
+    await d.page.keyboard.press('Control+1');
+    assert.match((await d.toasts()).join(' '), /Group 1 saved/);
+    assert.equal(await d.page.locator('#groups button[data-k="1"]').count(), 1, 'a tab for the saved group');
+    await d.key('Escape');
+    assert.equal((await d.selection()).length, 0);
+    await d.key('1');
+    assert.equal((await d.selection())[0]?.id, h.id, 'the number key recalls the group');
+    await d.key('Escape');
+    await d.page.locator('#groups button[data-k="1"]').click();
+    assert.equal((await d.selection())[0]?.id, h.id, 'so does its tab');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
 });

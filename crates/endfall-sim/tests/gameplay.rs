@@ -1855,3 +1855,35 @@ fn a_batch_of_troopers_stands_side_by_side_outside_the_barracks() {
         );
     }
 }
+
+#[test]
+fn units_under_a_new_building_step_out_without_stacking() {
+    let mut w = rich(5);
+    let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Depot);
+    let (cx, cy) = ((tx as f64 + 1.0) * TILE, (ty as f64 + 1.0) * TILE);
+    for (k, &u) in h.iter().enumerate() {
+        w.stop_unit(u);
+        let unit = w.units.iter_mut().find(|x| x.id == u).unwrap();
+        unit.x = cx + k as f64 * 3.0;
+        unit.y = cy;
+    }
+    // A building goes up right on top of them.
+    w.make_building(BldgKind::Depot, PLAYER, tx, ty, true);
+    run(&mut w, 2);
+    let pos: Vec<(f64, f64)> = h
+        .iter()
+        .map(|&u| (w.unit(u).unwrap().x, w.unit(u).unwrap().y))
+        .collect();
+    for i in 0..pos.len() {
+        for j in i + 1..pos.len() {
+            let d = ((pos[i].0 - pos[j].0).powi(2) + (pos[i].1 - pos[j].1).powi(2)).sqrt();
+            assert!(d > 8.0, "harvesters {i} and {j} stand {d:.1} px apart");
+        }
+        let (ux, uy) = World::tile_of(pos[i].0, pos[i].1);
+        assert!(
+            !w.map.blocked(ux, uy),
+            "harvester {i} is not inside a building"
+        );
+    }
+}

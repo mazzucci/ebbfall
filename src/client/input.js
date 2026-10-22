@@ -288,7 +288,7 @@ export function camKeys(dt) {
     const k = Math.exp(-3.2 * dt); fling.vx *= k; fling.vy *= k;
     if (Math.hypot(fling.vx, fling.vy) < FLING_MIN) fling.vx = fling.vy = 0;
   }
-  let dx = 0, dy = 0; const free = !ui.sel.length;
+  let dx = 0, dy = 0; const free = !playerSel().length; // a selected enemy or field leaves WASD to the camera
   if (keys.arrowleft || (keys.a && free)) dx -= 1; if (keys.arrowright || (keys.d && free)) dx += 1;
   if (keys.arrowup || (keys.w && free)) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;
   if (drag.ptype === 'mouse' && !drag.down) { dx += edge.x; dy += edge.y; }

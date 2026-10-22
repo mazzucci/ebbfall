@@ -52,6 +52,11 @@ fn valid_team(t: u8) -> Option<u8> {
     (t < 2).then_some(t)
 }
 
+/// Points from JS must be real numbers: NaN or infinity would poison comparisons in the rules (and the Game).
+fn finite(x: f64, y: f64) -> bool {
+    x.is_finite() && y.is_finite()
+}
+
 #[wasm_bindgen]
 impl Game {
     #[wasm_bindgen(constructor)]
@@ -84,13 +89,13 @@ impl Game {
     // ---- orders: unit/building/node ids in, error message out ("" = ok) ----
     #[wasm_bindgen(js_name = moveTo)]
     pub fn move_to(&mut self, unit: u32, x: f64, y: f64) {
-        if self.my_unit(unit) {
+        if self.my_unit(unit) && finite(x, y) {
             self.w.move_to(unit, x, y);
         }
     }
     #[wasm_bindgen(js_name = attackMove)]
     pub fn attack_move(&mut self, unit: u32, x: f64, y: f64) {
-        if self.my_unit(unit) {
+        if self.my_unit(unit) && finite(x, y) {
             self.w.attack_move(unit, x, y);
         }
     }
@@ -196,11 +201,14 @@ impl Game {
     /// `node` 0 = none.
     #[wasm_bindgen(js_name = setRally)]
     pub fn set_rally(&mut self, bldg: u32, x: f64, y: f64, node: u32) {
-        if self.my_bldg(bldg) {
+        if self.my_bldg(bldg) && finite(x, y) {
             self.w.set_rally(bldg, x, y, (node != 0).then_some(node));
         }
     }
     pub fn formation(&mut self, units: &[u32], x: f64, y: f64) {
+        if !finite(x, y) {
+            return;
+        }
         let mine: Vec<u32> = units.iter().copied().filter(|&u| self.my_unit(u)).collect();
         self.w.formation(&mine, x, y);
     }

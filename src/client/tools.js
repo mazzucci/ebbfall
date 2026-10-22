@@ -71,7 +71,8 @@ export function updateTools() {
   $('btnArmy').querySelector('b').textContent = a; $('btnArmy').classList.toggle('zero', !a);
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
   const tabs = [];
-  for (let k = 1; k <= 9; k++) { const n = (ui.groups[k] || []).filter(e => !e.dead).length; if (n || (touch && k <= 4)) tabs.push([k, n]); }
+  // Saved groups only, and none on touch screens (empty tabs there were tapped by mistake instead of the map).
+  if (!touch) for (let k = 1; k <= 9; k++) { const n = (ui.groups[k] || []).filter(e => !e.dead).length; if (n) tabs.push([k, n]); }
   const key = JSON.stringify(tabs);
   if (key === groupsKey) return; groupsKey = key;
   const box = $('groups'); box.innerHTML = '';

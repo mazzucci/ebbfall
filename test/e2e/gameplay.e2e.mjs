@@ -267,24 +267,24 @@ test('pause stops the game and restart begins a new one', async () => {
   } finally { await d.close(); }
 });
 
-test('phone: long-press a group tab saves the selection, tapping it recalls it', async () => {
+test('phone: no group tabs; a tap on the ground lets go of a building, the Rally button sets its rally point', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
-    const h = mine(await d.state(), 'harvester')[0];
-    await d.clickEntity(h.id);
-    const tab = d.page.locator('#groups button[data-k="1"]');
-    const box = await tab.boundingBox();
-    const cdp = await d.page.context().newCDPSession(d.page);
-    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy }] });
-    await d.page.waitForTimeout(700);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await d.page.waitForTimeout(150);
-    assert.match((await d.toasts()).join(' '), /Group 1 saved/);
-    await d.page.locator('#cmd button', { hasText: 'Deselect' }).tap();
-    assert.equal((await d.selection()).length, 0);
-    await tab.tap();
-    assert.equal((await d.selection())[0]?.id, h.id, 'tapping the tab selects the group');
+    assert.equal(await d.page.locator('#groups button').count(), 0, 'no control-group tabs on a phone');
+    const s = await d.state(), core = coreOf(s);
+    // Open ground: clear of resource fields (now selectable) and units.
+    const [gx, gy] = [[260, -120], [200, 160], [-160, -200], [300, 60], [0, -260]].map(([dx, dy]) => [core.x + dx, core.y + dy])
+      .find(([x, y]) => s.nodes.every(n => Math.hypot(n.x - x, n.y - y) > 80) && s.units.every(u => Math.hypot(u.x - x, u.y - y) > 60));
+    await d.clickEntity(core.id);
+    assert.equal((await d.selection())[0]?.type, 'core');
+    await d.clickWorld(gx, gy);
+    assert.equal((await d.selection()).length, 0, 'tapping the ground deselects the building');
+    assert.equal(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).rally, core.id), false, 'no rally point set by accident');
+    await d.clickEntity(core.id);
+    await d.pressCard('Rally');
+    await d.clickWorld(gx, gy);
+    const rally = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).rally, core.id);
+    assert.ok(rally && Math.abs(rally.x - gx) < 20, 'Rally, then a tap, sets the rally point');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -350,4 +350,48 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
+});
+
+test('a resource field can be selected to see what is left (desktop click, phone tap)', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const s = await d.state(), core = coreOf(s);
+      // The nearest shard field with no harvester over it (a tap prefers a unit within reach).
+      const node = s.nodes.filter(n => n.type === 'shard' && s.units.every(u => Math.hypot(u.x - n.x, u.y - n.y) > 48))
+        .sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      await d.clickWorld(node.x, node.y);
+      const sel = await d.selection();
+      assert.deepEqual(sel.map(e => e.kind), ['node'], `${d.touch ? 'phone' : 'desktop'}: the field is selected`);
+      const left = await d.eval((id) => endfall.map.nodes.find(n => n.id === id).amount, node.id);
+      assert.match(await d.hudText(d.touch ? '#selMiniHp' : '#selSub', /left/), new RegExp(`^${left} (shards )?left`), 'shows what is left');
+      assert.ok((await d.card()).some(c => c.label === 'Deselect'), 'a Deselect button for the field');
+      if (!d.touch) assert.match(await d.hudText('#selName', /Shard field/), /Shard field/);
+      // Ether vents too.
+      const vent = s.nodes.find(n => n.type === 'ether');
+      await d.clickWorld(vent.x, vent.y);
+      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the vent is selected');
+      assert.match(await d.hudText(d.touch ? '#selMiniName' : '#selName', /Ether vent/), /Ether vent/);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const h = mine(await d.state(), 'harvester')[0];
+    await d.clickEntity(h.id);
+    await d.page.keyboard.press('Control+1');
+    assert.match((await d.toasts()).join(' '), /Group 1 saved/);
+    assert.equal(await d.page.locator('#groups button[data-k="1"]').count(), 1, 'a tab for the saved group');
+    await d.key('Escape');
+    assert.equal((await d.selection()).length, 0);
+    await d.key('1');
+    assert.equal((await d.selection())[0]?.id, h.id, 'the number key recalls the group');
+    await d.key('Escape');
+    await d.page.locator('#groups button[data-k="1"]').click();
+    assert.equal((await d.selection())[0]?.id, h.id, 'so does its tab');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
 });

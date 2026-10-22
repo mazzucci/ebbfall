@@ -588,6 +588,7 @@ impl World {
                 && ty2 < ty + d.h
                 && let Some(f) = self.map.nearest_free(tx2, ty2, 4)
             {
+                // (several land on one point; separate() parts them, see the zero-distance case there)
                 self.units[k].x = f.0 as f64 * TILE + 16.0;
                 self.units[k].y = f.1 as f64 * TILE + 16.0;
             }
@@ -787,42 +788,56 @@ impl World {
         }
     }
 
+    /// A new unit steps out onto a free tile around the building: an uncrowded one if there is any (so a batch stands
+    /// side by side instead of on one spot), nearest the building, towards the rally point (or the far side of the map).
     fn spawn_from(&mut self, bid: Id, kind: UnitKind) -> Id {
         let b = self.bldg(bid).unwrap().clone();
-        let mut f = None;
-        let mut r = 0;
-        while r < 6 && f.is_none() {
-            let mut cands = Vec::new();
+        let air = kind.def().air;
+        let rf = match b.rally {
+            Some(rl) => (rl.x, rl.y),
+            None => (
+                b.x,
+                b.y + MH as f64 * TILE * if b.team != 0 { -1.0 } else { 1.0 },
+            ),
+        };
+        let crowd = |w: &World, x: i32, y: i32| {
+            let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+            w.units
+                .iter()
+                .filter(|u| u.kind.def().air == air && dist(u.x, u.y, cx, cy) < 22.0)
+                .count()
+        };
+        // (crowded, ring, distance to the rally side, y, x): smaller is better, compared in that order.
+        type Spot = (bool, i32, f64, i32, i32);
+        let mut best: Option<Spot> = None;
+        for r in 0..4 {
             for y in (b.ty - r - 1)..=(b.ty + b.h + r) {
                 for x in (b.tx - r - 1)..=(b.tx + b.w + r) {
-                    if x >= b.tx - r
-                        && x < b.tx + b.w + r
-                        && y >= b.ty - r
-                        && y < b.ty + b.h + r
-                        && r > 0
-                    {
-                        continue;
+                    let inner =
+                        x >= b.tx - r && x < b.tx + b.w + r && y >= b.ty - r && y < b.ty + b.h + r;
+                    if inner || self.map.blocked(x, y) {
+                        continue; // only the ring r tiles out
                     }
-                    if !self.map.blocked(x, y) {
-                        cands.push((x, y));
+                    let key = (
+                        crowd(self, x, y) > 0,
+                        r,
+                        dist(x as f64 * TILE, y as f64 * TILE, rf.0, rf.1),
+                        y,
+                        x,
+                    );
+                    if best.is_none_or(|k| {
+                        (key.0, key.1)
+                            .cmp(&(k.0, k.1))
+                            .then(key.2.partial_cmp(&k.2).unwrap())
+                            .then((key.3, key.4).cmp(&(k.3, k.4)))
+                            .is_lt()
+                    }) {
+                        best = Some(key);
                     }
                 }
             }
-            if !cands.is_empty() {
-                let rf = match b.rally {
-                    Some(rl) => (rl.x, rl.y),
-                    None => (
-                        b.x,
-                        b.y + MH as f64 * TILE * if b.team != 0 { -1.0 } else { 1.0 },
-                    ),
-                };
-                let key = |p: &(i32, i32)| dist(p.0 as f64 * TILE, p.1 as f64 * TILE, rf.0, rf.1);
-                cands.sort_by(|p, q| key(p).partial_cmp(&key(q)).unwrap());
-                f = Some(cands[0]);
-            }
-            r += 1;
         }
-        let f = f.unwrap_or((b.tx, b.ty + b.h));
+        let f = best.map_or((b.tx, b.ty + b.h), |k| (k.4, k.3));
         let u = self.make_unit(
             kind,
             b.team,
@@ -2086,8 +2101,13 @@ impl World {
                 }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);
+                // Exactly on top of each other: part along x, by id, so the push is never a zero vector.
+                let (dx, dy) = if dx == 0.0 && dy == 0.0 {
+                    (if id < o { -1.0 } else { 1.0 }, 0.0)
+                } else {
+                    (dx, dy)
+                };
                 let d = jsmath::hypot(dx, dy);
-                let d = if d == 0.0 { 0.01 } else { d };
                 let min = u.r + or;
                 if d < min {
                     let push = (min - d) * 0.5 * if ohold { 1.0 } else { 0.5 };
@@ -2106,7 +2126,8 @@ impl World {
                 let u = &mut self.units[i];
                 let (cx, cy) = (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0);
                 let d = dist(u.x, u.y, cx, cy);
-                if d < 24.0 {
+                if d < 6.0 {
+                    // (easing out rather than snapping to the centre, so several pushed in do not land on one spot)
                     u.x = cx;
                     u.y = cy;
                 } else {

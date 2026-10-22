@@ -1,6 +1,8 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
+// Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
+// draws a box; the minimap grows under the finger and moves the view by the finger's travel.
 import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
-import { ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
+import { $, ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
@@ -20,7 +22,10 @@ import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE, UNIT
 /** Where a unit appears on screen (flyers are drawn above the ground point they occupy). */
 const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
 
-export const drag = { down: false, box: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
+export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
+/** Camera glide after a one-finger flick, in world px per second; a touch stops it. */
+const fling = { vx: 0, vy: 0, samples: [] };
+const FLING_MIN = 40;
 const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
 /** Set by main.js: whether input should reach the game right now. */
 export const input = { enabled: () => true };
@@ -120,10 +125,14 @@ export function bindInput() {
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
-    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
+    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; drag.pan = false; fling.vx = fling.vy = 0; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { ui.place = null; ui.mode = null; setHint(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
-    drag.down = true; drag.box = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
+    // A touch that stops a gliding camera does nothing else (like catching a spinning list).
+    drag.quiet = ev.pointerType === 'touch' && Math.hypot(fling.vx, fling.vy) > FLING_MIN * 2;
+    // The touch-down point is the first glide sample: a quick flick may arrive as a single (coalesced) move.
+    fling.vx = fling.vy = 0; fling.samples = [{ t: ev.timeStamp, x: p.x, y: p.y }];
+    drag.down = true; drag.box = false; drag.pan = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
@@ -135,20 +144,38 @@ export function bindInput() {
       pan = c; return;
     }
     if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
-    if (drag.down) { drag.cx = p.x; drag.cy = p.y; if (!drag.box && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) drag.box = !ui.place && !ui.mode; }
+    if (drag.down) {
+      const px = drag.cx, py = drag.cy; drag.cx = p.x; drag.cy = p.y;
+      if (!drag.box && !drag.pan && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) {
+        // Touch: one finger pans the map unless SELECT is armed (then it draws a box); a mouse always draws a box.
+        if (ev.pointerType === 'touch' && !ui.box && !ui.place) drag.pan = true; else drag.box = !ui.place && (!ui.mode || ui.box);
+      }
+      if (drag.pan) {
+        cam.x -= (p.x - px) / cam.zoom; cam.y -= (p.y - py) / cam.zoom; clampCam();
+        fling.samples.push({ t: ev.timeStamp, x: p.x, y: p.y }); while (fling.samples.length > 2 && ev.timeStamp - fling.samples[0].t > 120) fling.samples.shift();
+      }
+    }
     if (ev.pointerType === 'mouse') { const m = 14; edge.x = p.x < m ? -1 : p.x > view.w - m ? 1 : 0; edge.y = p.y < m ? -1 : p.y > view.h - m ? 1 : 0; }
   });
   const endPointer = ev => {
     const p = canvasPos(ev); pointers.delete(ev.pointerId); if (pointers.size < 2) pan = null;
     if (!drag.down) return; drag.down = false;
-    if (!input.enabled()) { drag.box = false; return; }
-    if (drag.box) { drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift); return; }
+    if (!input.enabled()) { drag.box = false; drag.pan = false; return; }
+    if (drag.pan) { // let go mid-swipe: the camera glides on
+      drag.pan = false;
+      const a = fling.samples[0], b = fling.samples[fling.samples.length - 1], dt = b && a ? (b.t - a.t) / 1000 : 0;
+      // Lifted while still moving (a pause before lifting means "stop here").
+      if (dt > 0.01 && ev.timeStamp - b.t < 120) { fling.vx = -(b.x - a.x) / dt / cam.zoom; fling.vy = -(b.y - a.y) / dt / cam.zoom; }
+      fling.samples = []; return;
+    }
+    if (drag.box) { drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift); if (ui.box === 'once') { ui.box = false; boxButton(); } return; }
+    if (drag.quiet) return;
     const w = toWorld(p.x, p.y);
     if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);
-  cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; drag.down = false; drag.box = false; });
+  cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; drag.down = false; drag.box = false; drag.pan = false; });
   cv.addEventListener('pointerleave', () => { edge.x = 0; edge.y = 0; });
   // Wheel pans; Ctrl+wheel (and trackpad pinch, which arrives as Ctrl+wheel) zooms around the cursor.
   cv.addEventListener('wheel', ev => {
@@ -165,9 +192,42 @@ export function bindInput() {
     centerOn(wx, wy);
   };
   mm.addEventListener('contextmenu', e => e.preventDefault());
-  mm.addEventListener('pointerdown', ev => { if (!input.enabled()) return; mm.setPointerCapture(ev.pointerId); if (ev.button === 2 || ui.mode === 'attack' || ui.mode === 'move') { mmAt(ev, true); return; } mmDown = true; mmAt(ev, false); });
-  mm.addEventListener('pointermove', ev => { if (mmDown) mmAt(ev, false); });
-  mm.addEventListener('pointerup', () => mmDown = false); mm.addEventListener('pointercancel', () => mmDown = false);
+  // A finger is too blunt to aim at the view box on a small minimap: on touch the minimap grows while held, a drag
+  // moves the view by the finger's travel (wherever it started), and only a quick tap jumps.
+  let mmTouch = null;
+  const mmEnd = () => { mmDown = false; if (mmTouch) { if (!mmTouch.moved) centerOn(mmTouch.wx, mmTouch.wy); mmTouch = null; mm.classList.remove('big'); } };
+  mm.addEventListener('pointerdown', ev => {
+    if (!input.enabled()) return; mm.setPointerCapture(ev.pointerId); fling.vx = fling.vy = 0;
+    if (ev.button === 2 || ui.mode === 'attack' || ui.mode === 'move') { mmAt(ev, true); return; }
+    if (ev.pointerType === 'touch') {
+      // Layout size, not the on-screen box: the minimap may still be shrinking back from the last touch.
+      const r = mm.getBoundingClientRect(), w = mm.clientWidth, h = mm.clientHeight;
+      mmTouch = { sx: ev.clientX, sy: ev.clientY, x0: cam.x, y0: cam.y, moved: false, wx: (ev.clientX - r.left) / w * WW, wy: (ev.clientY - (r.bottom - h)) / h * WH };
+      mm.classList.add('big'); return;
+    }
+    mmDown = true; mmAt(ev, false);
+  });
+  mm.addEventListener('pointermove', ev => {
+    if (mmTouch) {
+      const dx = ev.clientX - mmTouch.sx, dy = ev.clientY - mmTouch.sy;
+      if (!mmTouch.moved && Math.hypot(dx, dy) > 6) mmTouch.moved = true;
+      if (mmTouch.moved) { const r = mm.getBoundingClientRect(); cam.x = mmTouch.x0 + dx / r.width * WW; cam.y = mmTouch.y0 + dy / r.height * WH; clampCam(); }
+      return;
+    }
+    if (mmDown) mmAt(ev, false);
+  });
+  mm.addEventListener('pointerup', mmEnd); mm.addEventListener('pointercancel', () => { if (mmTouch) mmTouch.moved = true; mmEnd(); });
+
+  // SELECT (touch only): hold it and drag a box with the other hand, or tap it to arm one box drag.
+  const bx = $('btnBox');
+  if (bx && matchMedia('(pointer: coarse)').matches) {
+    bx.hidden = false;
+    let downAt = 0;
+    bx.addEventListener('pointerdown', ev => { ev.stopPropagation(); ev.preventDefault(); downAt = ev.timeStamp; ui.box = ui.box ? false : 'held'; boxButton(); });
+    const up = ev => { if (ui.box === 'held') ui.box = ev.timeStamp - downAt > 350 ? false : 'once'; boxButton(); };
+    bx.addEventListener('pointerup', up); bx.addEventListener('pointercancel', up);
+    bx.addEventListener('contextmenu', ev => ev.preventDefault());
+  }
 
   window.addEventListener('keydown', ev => {
     if (ev.target.tagName === 'INPUT') return;
@@ -191,8 +251,16 @@ export function bindInput() {
   window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
 }
 
-/** Arrow keys / WASD (when nothing is selected) and mouse edge scrolling. */
+/** Show the SELECT button's state and the hint. */
+function boxButton() { const b = $('btnBox'); if (b) b.classList.toggle('on', !!ui.box); setHint(); }
+
+/** Arrow keys / WASD (when nothing is selected), mouse edge scrolling and the touch glide. */
 export function camKeys(dt) {
+  if (fling.vx || fling.vy) {
+    cam.x += fling.vx * dt; cam.y += fling.vy * dt; clampCam();
+    const k = Math.exp(-3.2 * dt); fling.vx *= k; fling.vy *= k;
+    if (Math.hypot(fling.vx, fling.vy) < FLING_MIN) fling.vx = fling.vy = 0;
+  }
   let dx = 0, dy = 0; const free = !ui.sel.length;
   if (keys.arrowleft || (keys.a && free)) dx -= 1; if (keys.arrowright || (keys.d && free)) dx += 1;
   if (keys.arrowup || (keys.w && free)) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;

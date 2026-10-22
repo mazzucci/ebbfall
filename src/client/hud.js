@@ -6,7 +6,7 @@ import { icon, portrait } from './icons.js';
 export const $ = (id) => document.getElementById(id);
 
 /** Client-only UI state: what the local player has selected and which command is armed. */
-export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0 };
+export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
 
 /** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
 export function toast(msg, bad, silent) {
@@ -195,6 +195,6 @@ export function doCommand(id) {
 
 export function setHint() {
   const h = $('hint');
-  h.textContent = ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or extractor'
+  h.textContent = ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or extractor'
     : ui.mode === 'rally' ? 'Click where new units should gather' : ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : '';
 }

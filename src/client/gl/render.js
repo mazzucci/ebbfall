@@ -426,5 +426,8 @@ function renderMinimap() {
     c.strokeStyle = `rgba(255,90,90,${1 - k})`; c.lineWidth = 2;
     for (const r of [k, (k + 0.5) % 1]) { c.beginPath(); c.arc(pings[i].x * S, pings[i].y * S, 3 + r * 18, 0, 7); c.stroke(); }
   }
-  c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 1; c.strokeRect(cam.x * S + 0.5, cam.y * S + 0.5, vw() * S, vh() * S);
+  // The view box: a dark halo under a bright line, readable over terrain and fog alike.
+  const vx = cam.x * S, vy = cam.y * S, vW = vw() * S, vH = vh() * S;
+  c.strokeStyle = 'rgba(0,0,0,0.75)'; c.lineWidth = 4; c.strokeRect(vx, vy, vW, vH);
+  c.strokeStyle = '#ffe9b0'; c.lineWidth = 2; c.strokeRect(vx, vy, vW, vH);
 }

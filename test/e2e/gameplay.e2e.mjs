@@ -343,7 +343,6 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', `${d.touch ? 'phone' : 'desktop'}: the harvester goes to repair`);
       const shards = (await d.state()).res[0];
       await d.skip(4);
-      await d.pressCard('Deselect'); // with a harvester selected, tapping the damaged depot would send it to repair
       await d.clickEntity(depot.id);
       assert.match(await d.hudText(d.touch ? '#selMiniHp' : '#selSub', /Repairing/), /Repairing/, 'the building shows it is being repaired');
       await until(d, async () => (await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).hp, depot.id)) >= max, { seconds: 60, what: 'the repair' });

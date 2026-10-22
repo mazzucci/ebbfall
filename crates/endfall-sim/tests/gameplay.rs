@@ -63,7 +63,11 @@ fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
         .unwrap_or_else(|e| panic!("{kind:?}: {e}"));
     for _ in 0..limit * TPS {
         w.step();
-        if w.bldg(b).is_some_and(|b| b.done) {
+        if let Some(bd) = w.bldg(b).filter(|b| b.done) {
+            assert_eq!(
+                bd.hp, bd.maxhp,
+                "{kind:?} finishes at full hp (else it reads as damaged)"
+            );
             return b;
         }
     }
@@ -1726,4 +1730,80 @@ fn the_ai_repairs_its_buildings_once_the_fight_is_over() {
     let hp = w.bldg(id).map_or(0.0, |b| b.hp);
     // It may run short of shards before the last few hp (it spends on its army too), as a player can.
     assert!(hp > max * 0.8, "the AI repaired its depot: {hp}/{max}");
+}
+
+#[test]
+fn an_interrupted_repair_costs_the_same_in_total() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    let before = w.res[PLAYER as usize][0];
+    assert!(w.start_repair(h, depot));
+    run(&mut w, 12); // part of the way
+    let hp = w.bldg(depot).unwrap().hp;
+    assert!(hp > 100.0 && hp < 340.0, "stopped mid-repair at {hp}");
+    w.stop_unit(h);
+    run(&mut w, 2);
+    assert!(w.start_repair(h, depot));
+    for _ in 0..30 * TPS {
+        w.step();
+        if w.bldg(depot).unwrap().hp >= w.bldg(depot).unwrap().maxhp {
+            break;
+        }
+    }
+    let b = w.bldg(depot).unwrap();
+    assert_eq!(b.hp, b.maxhp);
+    let spent = before - w.res[PLAYER as usize][0];
+    assert!(
+        (spent - 20).abs() <= 1,
+        "two halves cost one repair: {spent} shards"
+    );
+}
+
+#[test]
+fn a_repairer_goes_back_to_mining_if_its_building_is_destroyed() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    assert!(w.start_repair(h, depot));
+    run(&mut w, 4);
+    w.damage(depot, 1e6, None);
+    run(&mut w, 2);
+    assert!(w.bldg(depot).is_none(), "the depot is gone");
+    assert!(
+        matches!(w.unit(h).unwrap().task, Task::Gather { .. }),
+        "back to mining: {:?}",
+        w.unit(h).unwrap().task
+    );
+}
+
+#[test]
+fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
+    let mut w = World::new(7, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 200);
+    let id = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == ENEMY && b.done && b.kind == BldgKind::Depot)
+        .unwrap()
+        .id;
+    w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = 50.0;
+    let mut starts = 0;
+    let mut was = false;
+    for _ in 0..20 * TPS {
+        w.res[ENEMY as usize] = [0, 0]; // broke throughout
+        w.step();
+        let now = w.units.iter().any(|u| u.task == (Task::Repair { b: id }));
+        if now && !was {
+            starts += 1;
+        }
+        was = now;
+    }
+    assert!(
+        starts <= 1,
+        "the AI sent a repairer {starts} times while broke"
+    );
 }

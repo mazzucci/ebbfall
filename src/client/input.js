@@ -67,7 +67,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
-const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.hp < e.maxhp;
+const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.maxhp - e.hp >= 1;
 
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
 const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.type === 'extractor' && e.done ? e.vent : null;
@@ -129,7 +129,8 @@ function touchTap(wx, wy, at) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
-    if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit) || damaged(hit))) { commandAt(wx, wy); return; }
+    // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)
+    if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
     selectOrDouble(hit, false, at); return;
   }
   if (units.length || bl.length) { commandAt(wx, wy); return; }

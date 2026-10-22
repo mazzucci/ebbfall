@@ -1000,7 +1000,7 @@ impl World {
         self.emit(Event::Attacked { x, y, building });
     }
 
-    fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
+    pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
         let by = by.filter(|&b| self.team_of(b).is_some());
         if by.is_some_and(|b| self.team_of(b) != self.team_of(target)) {
             self.alert_attacked(target);
@@ -1298,7 +1298,10 @@ impl World {
     pub fn can_repair(&self, uid: Id, b: Id) -> bool {
         match (self.unit(uid), self.bldg(b)) {
             (Some(u), Some(bd)) => {
-                u.kind == UnitKind::Harvester && u.team == bd.team && bd.done && bd.hp < bd.maxhp
+                u.kind == UnitKind::Harvester
+                    && u.team == bd.team
+                    && bd.done
+                    && bd.maxhp - bd.hp >= 1.0
             }
             _ => false,
         }
@@ -1727,7 +1730,12 @@ impl World {
                     if bd.progress >= 1.0 {
                         bd.done = true;
                         bd.progress = 1.0;
-                        bd.hp = bd.maxhp.min(bd.hp);
+                        // Snap to full unless it really took damage while going up (the per-tick sum lands an ulp short).
+                        bd.hp = if bd.maxhp - bd.hp < 0.5 {
+                            bd.maxhp
+                        } else {
+                            bd.maxhp.min(bd.hp)
+                        };
                         let (bteam, name) = (bd.team, bd.kind.def().name);
                         self.recalc_supply(bteam);
                         if bteam == PLAYER {
@@ -1810,6 +1818,8 @@ impl World {
                 let msg = format!("{} to repair", self.short_of(team, charge));
                 self.toast(msg, true);
             }
+            let time = self.time;
+            self.um(uid).no_build_until = time + 30.0; // the AI does not send it straight back
             self.resume_after(uid);
             return;
         }
@@ -1819,8 +1829,7 @@ impl World {
         bd.hp = (bd.hp + heal).min(bd.maxhp);
         let (bx, by, br, full) = (bd.x, bd.y, bd.r, bd.hp >= bd.maxhp);
         // Welding sparks now and then, on the side the repairer works from.
-        let u = self.um(uid);
-        u.cd -= dt;
+        let u = self.um(uid); // (update_unit counts cd down)
         if u.cd <= 0.0 {
             u.cd = 0.6;
             let (ux, uy) = (u.x, u.y);

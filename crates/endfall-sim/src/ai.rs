@@ -280,7 +280,7 @@ impl World {
         if !ai.scouted && t >= 70.0 {
             let pick = harv.iter().copied().find(|&h| {
                 let u = self.unit(h).unwrap();
-                u.carry == 0 && !matches!(u.task, Task::Build { .. })
+                u.carry == 0 && !matches!(u.task, Task::Build { .. } | Task::Repair { .. })
             });
             if let Some(h) = pick {
                 let (x, y) = (
@@ -734,6 +734,11 @@ impl World {
                 .iter()
                 .filter_map(|&id| self.bldg(id))
                 .filter(|b| b.done && b.hp < b.maxhp * 0.7)
+                // with a little money in hand for it (else harvester after harvester walks over and gives up)
+                .filter(|b| {
+                    let c = b.kind.def().cost;
+                    self.can_afford(e, [c[0].min(10), c[1].min(10)])
+                })
                 .min_by(|p, q| {
                     (p.hp / p.maxhp)
                         .partial_cmp(&(q.hp / q.maxhp))

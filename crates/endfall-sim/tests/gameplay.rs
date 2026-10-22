@@ -6,7 +6,7 @@ use endfall_sim::data::Upgrade;
 use endfall_sim::data::*;
 use endfall_sim::map::Id;
 #[allow(unused_imports)]
-use endfall_sim::world::BUILDER_PATIENCE;
+use endfall_sim::world::{BUILDER_PATIENCE, REPAIR_COST};
 use endfall_sim::world::{Phase, Task, Unit, World};
 use endfall_sim::{Game, Mulberry32};
 
@@ -63,7 +63,11 @@ fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
         .unwrap_or_else(|e| panic!("{kind:?}: {e}"));
     for _ in 0..limit * TPS {
         w.step();
-        if w.bldg(b).is_some_and(|b| b.done) {
+        if let Some(bd) = w.bldg(b).filter(|b| b.done) {
+            assert_eq!(
+                bd.hp, bd.maxhp,
+                "{kind:?} finishes at full hp (else it reads as damaged)"
+            );
             return b;
         }
     }
@@ -354,6 +358,7 @@ fn the_game_api_ignores_orders_for_the_other_side() {
     let core = g.world().bldgs.iter().find(|b| b.team == ENEMY).unwrap().id;
     g.move_to(foe.id, 10.0, 10.0);
     g.stop_unit(foe.id);
+    g.repair(foe.id, core);
     assert_eq!(
         g.world().unit(foe.id).unwrap().task,
         foe.task,
@@ -1396,6 +1401,7 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
             let _ = g.research(a, ["weapons", "armor", "nonsense"][r.below(3) as usize]);
         }
         15 => g.cancel_research(a),
+        16 => g.repair(a, b),
         _ => {}
     }
 }
@@ -1591,4 +1597,213 @@ fn the_ai_hunts_down_buildings_it_has_not_seen() {
             w.time
         );
     }
+}
+
+/// A player Depot, finished, then knocked down to `frac` of its hp; the harvesters walk off and wait (no income).
+fn damaged_depot(seed: u32, frac: f64) -> (World, Id, Id) {
+    let mut w = rich(seed);
+    let h = harvesters(&w, PLAYER);
+    let depot = build(&mut w, BldgKind::Depot, h[0], 60);
+    let (cx, cy) = core(&w, PLAYER);
+    for (k, &o) in h.iter().enumerate() {
+        w.move_to(
+            o,
+            (cx as f64 + 2.0) * TILE + k as f64 * 24.0,
+            (cy as f64 - 2.0) * TILE,
+        );
+    }
+    run(&mut w, 6);
+    let b = w.bldgs.iter_mut().find(|b| b.id == depot).unwrap();
+    b.hp = (b.maxhp * frac).round();
+    (w, depot, h[1])
+}
+
+#[test]
+fn harvesters_repair_damaged_buildings_for_a_share_of_the_price() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    let before = w.res[PLAYER as usize];
+    assert!(w.start_repair(h, depot));
+    let mut secs = 0.0;
+    while w.bldg(depot).unwrap().hp < w.bldg(depot).unwrap().maxhp && secs < 40.0 {
+        w.step();
+        secs += 1.0 / TPS as f64;
+    }
+    let b = w.bldg(depot).unwrap();
+    assert_eq!(b.hp, b.maxhp, "repaired to full");
+    // 80% of the hp at construction speed (22 s build) takes about 17.6 s plus the walk.
+    assert!((17.0..30.0).contains(&secs), "repair time {secs:.1} s");
+    let spent = before[0] - w.res[PLAYER as usize][0];
+    let price = BldgKind::Depot.def().cost[0] as f64 * REPAIR_COST * 0.8;
+    assert!(
+        (spent as f64 - price).abs() <= 1.0,
+        "paid {spent} shards for 80% (expected about {price})"
+    );
+    run(&mut w, 2);
+    assert!(
+        matches!(w.unit(h).unwrap().task, Task::Gather { .. }),
+        "back to mining afterwards: {:?}",
+        w.unit(h).unwrap().task
+    );
+}
+
+#[test]
+fn two_harvesters_repair_twice_as_fast() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    let other = harvesters(&w, PLAYER)[2];
+    assert!(w.start_repair(h, depot) && w.start_repair(other, depot));
+    run(&mut w, 14);
+    let b = w.bldg(depot).unwrap();
+    assert_eq!(
+        b.hp, b.maxhp,
+        "two repairers finish 80% in well under the single-repairer time"
+    );
+}
+
+#[test]
+fn repairs_stop_when_the_money_runs_out() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    w.res[PLAYER as usize] = [3, 0];
+    assert!(w.start_repair(h, depot));
+    run(&mut w, 25);
+    let b = w.bldg(depot).unwrap();
+    assert!(
+        b.hp < b.maxhp * 0.5,
+        "only a little was repaired: {}/{}",
+        b.hp,
+        b.maxhp
+    );
+    assert!(w.res[PLAYER as usize][0] >= 0, "never in debt");
+    assert!(
+        !matches!(w.unit(h).unwrap().task, Task::Repair { .. }),
+        "the harvester gave up"
+    );
+}
+
+#[test]
+fn only_harvesters_repair_and_only_their_own_damaged_finished_buildings() {
+    let (mut w, depot, h) = damaged_depot(5, 0.5);
+    let core = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap()
+        .id;
+    assert!(
+        !w.start_repair(h, core),
+        "a building at full hp needs no repair"
+    );
+    let foe_core = w.bldgs.iter().find(|b| b.team == ENEMY).unwrap().id;
+    w.bldgs.iter_mut().find(|b| b.id == foe_core).unwrap().hp -= 100.0;
+    assert!(!w.start_repair(h, foe_core), "not the enemy's");
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 600.0);
+    assert!(!w.start_repair(trooper, depot), "troopers do not repair");
+    let (tx, ty) = spot(&w, BldgKind::Depot);
+    let site = w
+        .place_building(PLAYER, BldgKind::Depot, tx, ty, None)
+        .unwrap();
+    assert!(
+        !w.start_repair(h, site),
+        "unfinished buildings are built, not repaired"
+    );
+    assert!(w.start_repair(h, depot));
+}
+
+#[test]
+fn the_ai_repairs_its_buildings_once_the_fight_is_over() {
+    let mut w = World::new(7, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 200);
+    let (id, max) = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == ENEMY && b.done && b.kind == BldgKind::Depot)
+        .map(|b| (b.id, b.maxhp))
+        .expect("the AI has a depot");
+    w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = (max * 0.3).round();
+    run(&mut w, 45);
+    let hp = w.bldg(id).map_or(0.0, |b| b.hp);
+    // It may run short of shards before the last few hp (it spends on its army too), as a player can.
+    assert!(hp > max * 0.8, "the AI repaired its depot: {hp}/{max}");
+}
+
+#[test]
+fn an_interrupted_repair_costs_the_same_in_total() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    let before = w.res[PLAYER as usize][0];
+    assert!(w.start_repair(h, depot));
+    run(&mut w, 12); // part of the way
+    let hp = w.bldg(depot).unwrap().hp;
+    assert!(hp > 100.0 && hp < 340.0, "stopped mid-repair at {hp}");
+    w.stop_unit(h);
+    run(&mut w, 2);
+    assert!(w.start_repair(h, depot));
+    for _ in 0..30 * TPS {
+        w.step();
+        if w.bldg(depot).unwrap().hp >= w.bldg(depot).unwrap().maxhp {
+            break;
+        }
+    }
+    let b = w.bldg(depot).unwrap();
+    assert_eq!(b.hp, b.maxhp);
+    let spent = before - w.res[PLAYER as usize][0];
+    assert!(
+        (spent - 20).abs() <= 1,
+        "two halves cost one repair: {spent} shards"
+    );
+}
+
+#[test]
+fn a_repairer_goes_back_to_mining_if_its_building_is_destroyed() {
+    let (mut w, depot, h) = damaged_depot(5, 0.2);
+    assert!(w.start_repair(h, depot));
+    run(&mut w, 4);
+    w.damage(depot, 1e6, None);
+    run(&mut w, 2);
+    assert!(w.bldg(depot).is_none(), "the depot is gone");
+    assert!(
+        matches!(w.unit(h).unwrap().task, Task::Gather { .. }),
+        "back to mining: {:?}",
+        w.unit(h).unwrap().task
+    );
+}
+
+#[test]
+fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
+    let mut w = World::new(7, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 200);
+    let id = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == ENEMY && b.done && b.kind == BldgKind::Depot)
+        .unwrap()
+        .id;
+    w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = 50.0;
+    let mut starts = 0;
+    let mut was = false;
+    for _ in 0..20 * TPS {
+        w.res[ENEMY as usize] = [0, 0]; // broke throughout
+        w.step();
+        let now = w.units.iter().any(|u| u.task == (Task::Repair { b: id }));
+        if now && !was {
+            starts += 1;
+        }
+        was = now;
+    }
+    assert!(
+        starts <= 1,
+        "the AI sent a repairer {starts} times while broke"
+    );
 }

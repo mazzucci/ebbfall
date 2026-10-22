@@ -124,6 +124,12 @@ impl Game {
             self.w.start_build(unit, bldg);
         }
     }
+    /// Repair a damaged finished building of the same team (harvesters only; anything else is ignored).
+    pub fn repair(&mut self, unit: u32, bldg: u32) {
+        if self.my_unit(unit) {
+            self.w.start_repair(unit, bldg);
+        }
+    }
     /// `builder` 0 = none.
     #[wasm_bindgen(js_name = placeBuilding)]
     pub fn place_building(
@@ -215,6 +221,16 @@ impl Game {
         valid_team(team).is_some_and(|t| self.w.can_afford(t, [shards, ether]))
     }
 
+    /// Set a building's hp, within 1..max (tests and tools only).
+    #[wasm_bindgen(js_name = debugSetHp)]
+    pub fn debug_set_hp(&mut self, bldg: u32, hp: f64) {
+        if let Some(b) = self.w.bldgs.iter_mut().find(|b| b.id == bldg)
+            && hp.is_finite()
+        {
+            b.hp = hp.clamp(1.0, b.maxhp);
+        }
+    }
+
     /// Put a unit on the map (tests and tools only). Returns its id, or 0 for an unknown kind or team.
     #[wasm_bindgen(js_name = debugSpawn)]
     pub fn debug_spawn(&mut self, team: u8, kind: &str, x: f64, y: f64) -> u32 {
@@ -293,6 +309,7 @@ impl Game {
                     node,
                 ),
                 Task::Build { b } => (6, -1, b),
+                Task::Repair { b } => (7, -1, b),
             };
             out.extend_from_slice(&[
                 u.id as f64,

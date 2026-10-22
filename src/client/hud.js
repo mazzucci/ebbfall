@@ -1,5 +1,7 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
 import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, UPGRADES, UP_DMG, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+/** Harvesters repairing building `b`. */
+const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
 import { icon, portrait } from './icons.js';
 
@@ -29,6 +31,7 @@ export function bldgStatus(b) {
   if (!b.done) return 'Constructing ' + Math.round(b.progress * 100) + '%' + (buildersOf(b).length ? '' : ' (paused: no builder)');
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv] + ' ' + Math.round(b.research.prog * 100) + '%' + (b.queue.length ? ' · training' : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + ' ' + Math.round(b.prog * 100) + '%' + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
+  if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
   return '';
 }
 
@@ -84,7 +87,7 @@ export function updateHud() {
 function taskName(u) {
   const T = u.task;
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
-  if (T.t === 'build') return 'Constructing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
+  if (T.t === 'build') return 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (T.t === 'move') return 'Moving'; if (T.t === 'hold') return 'Holding position'; return 'Idle';
 }
 
@@ -113,7 +116,7 @@ export function cardItems() {
     } else {
       const workers = units.some(u => u.type === 'harvester'), onlyWorkers = units.every(u => u.type === 'harvester');
       const orders = [{ id: 'move', label: 'Move', key: 'M', icon: 'move' }, { id: 'stop', label: 'Stop', key: 'S', icon: 'stop' }, { id: 'attack', label: 'Attack', key: 'A', active: ui.mode === 'attack', icon: 'attack' }, { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-      const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', active: ui.mode === 'gather', icon: 'gather' }];
+      const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', active: ui.mode === 'gather', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', active: ui.mode === 'repair', icon: 'repair', tip: 'Then click a damaged building. Costs a share of its price as it heals.' }];
       const list = onlyWorkers ? [...work, ...orders] : workers ? [...orders, ...work] : orders;
       list.forEach((it, i) => at(i, it));
       esc('Deselect');
@@ -172,7 +175,7 @@ export function doCommand(id) {
   if (id === 'esc') { if (ui.box) ui.box = false; else if (ui.mode || ui.place) { ui.mode = null; ui.place = null; } else { ui.sel = []; updateHud(); } setBox(); setHint(); return; }
   if (id === 'stop') { units.forEach(stopUnit); ui.mode = null; return; }
   if (id === 'hold') { units.forEach(holdUnit); ui.mode = null; return; }
-  if (id === 'move' || id === 'attack' || id === 'gather' || id === 'rally') { ui.mode = id; ui.place = null; setHint(); return; }
+  if (id === 'move' || id === 'attack' || id === 'gather' || id === 'rally' || id === 'repair') { ui.mode = id; ui.place = null; setHint(); return; }
   if (id === 'build') { ui.mode = 'build'; return; }
   if (id.startsWith('b_')) {
     const k = id.slice(2);
@@ -199,5 +202,5 @@ export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('o
 export function setHint() {
   const h = $('hint');
   h.textContent = ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or extractor'
-    : ui.mode === 'rally' ? 'Click where new units should gather' : '';
+    : ui.mode === 'rally' ? 'Click where new units should gather' : ui.mode === 'repair' ? 'Click a damaged building to repair' : '';
 }

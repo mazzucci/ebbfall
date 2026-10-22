@@ -30,11 +30,30 @@ pub struct Back {
 pub enum Task {
     Idle,
     Hold,
-    Move { x: f64, y: f64 },
-    AMove { x: f64, y: f64 },
-    Attack { target: Id, back: Option<Back> },
-    Gather { node: Id, phase: Phase, timer: f64 },
-    Build { b: Id },
+    Move {
+        x: f64,
+        y: f64,
+    },
+    AMove {
+        x: f64,
+        y: f64,
+    },
+    Attack {
+        target: Id,
+        back: Option<Back>,
+    },
+    Gather {
+        node: Id,
+        phase: Phase,
+        timer: f64,
+    },
+    Build {
+        b: Id,
+    },
+    /// Restore a damaged, finished building of our team (harvesters).
+    Repair {
+        b: Id,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -72,6 +91,9 @@ pub struct Unit {
 /// second; jittering against a corner or being walled in does not.
 pub const BUILDER_PATIENCE: f64 = 6.0;
 pub const STUCK_RADIUS: f64 = 12.0;
+/// Repairing a building from nothing to full costs this share of its price, paid as the hp come back. A harvester
+/// repairs at construction speed (the building's build time for its whole hp).
+pub const REPAIR_COST: f64 = 0.25;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rally {
@@ -105,6 +127,8 @@ pub struct Bldg {
     pub aim: f64,
     /// Upgrade being researched here and its progress (0..1).
     pub research: Option<(Upgrade, f64)>,
+    /// Fractions of shards and ether owed for repairs, charged a whole unit at a time.
+    pub repair_debt: [f64; 2],
 }
 
 #[derive(Clone, Debug)]
@@ -536,6 +560,7 @@ impl World {
             vent: None,
             aim: 0.0,
             research: None,
+            repair_debt: [0.0, 0.0],
         };
         for y in 0..d.h {
             for x in 0..d.w {
@@ -975,7 +1000,7 @@ impl World {
         self.emit(Event::Attacked { x, y, building });
     }
 
-    fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
+    pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
         let by = by.filter(|&b| self.team_of(b).is_some());
         if by.is_some_and(|b| self.team_of(b) != self.team_of(target)) {
             self.alert_attacked(target);
@@ -1267,6 +1292,34 @@ impl World {
             (Some(u), Some(bd)) => u.kind == UnitKind::Harvester && u.team == bd.team && !bd.done,
             _ => false,
         }
+    }
+
+    /// Whether `uid` may repair building `b`: a harvester of the same team, and the building is finished and damaged.
+    pub fn can_repair(&self, uid: Id, b: Id) -> bool {
+        match (self.unit(uid), self.bldg(b)) {
+            (Some(u), Some(bd)) => {
+                u.kind == UnitKind::Harvester
+                    && u.team == bd.team
+                    && bd.done
+                    && bd.maxhp - bd.hp >= 1.0
+            }
+            _ => false,
+        }
+    }
+
+    /// Send a harvester to repair a damaged building of its team; other requests are ignored.
+    pub fn start_repair(&mut self, uid: Id, b: Id) -> bool {
+        if !self.can_repair(uid, b) {
+            return false;
+        }
+        self.release_mine(uid);
+        let u = self.um(uid);
+        u.task = Task::Repair { b };
+        u.path = None;
+        u.repath = 0.0;
+        u.stuck = 0.0;
+        u.anchor = (u.x, u.y);
+        true
     }
 
     /// Send a harvester to work on an unfinished building of its team; other requests are ignored.
@@ -1656,41 +1709,17 @@ impl World {
                 }
             }
             Task::Gather { node, phase, timer } => self.update_gather(uid, node, phase, timer, dt),
+            Task::Repair { b } => self.update_repair(uid, b, r, team, dt),
             Task::Build { b } => {
-                let Some(bd) = self.bldg(b).filter(|bd| !bd.done) else {
+                let Some(g) = self.bldg(b).filter(|bd| !bd.done).and_then(|_| self.geo(b)) else {
                     self.resume_after(uid);
                     return;
                 };
-                let g = Geo::Rect {
-                    tx: bd.tx,
-                    ty: bd.ty,
-                    w: bd.w,
-                    h: bd.h,
-                    x: bd.x,
-                    y: bd.y,
-                    r: bd.r,
-                };
                 let reached = self.approach(uid, g, r + 8.0, dt);
-                if !reached {
-                    // A builder that stays put (walled in, site cut off, jammed on a corner) gives up instead of
-                    // waiting forever. The position includes last tick's separation push.
-                    let (time, team) = (self.time, team);
-                    let u = self.um(uid);
-                    if dist(u.x, u.y, u.anchor.0, u.anchor.1) > STUCK_RADIUS {
-                        u.anchor = (u.x, u.y);
-                        u.stuck = 0.0;
-                    } else {
-                        u.stuck += dt;
-                    }
-                    if u.stuck > BUILDER_PATIENCE {
-                        u.stuck = 0.0;
-                        u.no_build_until = time + 30.0;
-                        if team == PLAYER {
-                            self.toast("A Harvester cannot reach its building site", true);
-                        }
-                        self.set_idle(uid);
-                        return;
-                    }
+                if !reached
+                    && self.gave_up(uid, team, dt, "A Harvester cannot reach its building site")
+                {
+                    return;
                 }
                 if reached {
                     self.um(uid).stuck = 0.0;
@@ -1701,7 +1730,12 @@ impl World {
                     if bd.progress >= 1.0 {
                         bd.done = true;
                         bd.progress = 1.0;
-                        bd.hp = bd.maxhp.min(bd.hp);
+                        // Snap to full unless it really took damage while going up (the per-tick sum lands an ulp short).
+                        bd.hp = if bd.maxhp - bd.hp < 0.5 {
+                            bd.maxhp
+                        } else {
+                            bd.maxhp.min(bd.hp)
+                        };
                         let (bteam, name) = (bd.team, bd.kind.def().name);
                         self.recalc_supply(bteam);
                         if bteam == PLAYER {
@@ -1720,6 +1754,102 @@ impl World {
                         self.resume_after(uid);
                     }
                 }
+            }
+        }
+    }
+
+    /// A builder or repairer that stays put (walled in, site cut off, jammed on a corner) gives up instead of waiting
+    /// forever: it goes idle and returns true. The position includes last tick's separation push.
+    fn gave_up(&mut self, uid: Id, team: u8, dt: f64, why: &str) -> bool {
+        let time = self.time;
+        let u = self.um(uid);
+        if dist(u.x, u.y, u.anchor.0, u.anchor.1) > STUCK_RADIUS {
+            u.anchor = (u.x, u.y);
+            u.stuck = 0.0;
+        } else {
+            u.stuck += dt;
+        }
+        if u.stuck <= BUILDER_PATIENCE {
+            return false;
+        }
+        u.stuck = 0.0;
+        u.no_build_until = time + 30.0;
+        if team == PLAYER {
+            self.toast(why, true);
+        }
+        self.set_idle(uid);
+        true
+    }
+
+    /// A repairer walks to its building and restores hp at construction speed, paying REPAIR_COST of the price
+    /// for a full repair as it goes. Short of resources or done, it goes back to mining.
+    fn update_repair(&mut self, uid: Id, b: Id, r: f64, team: u8, dt: f64) {
+        let Some(g) = self
+            .bldg(b)
+            .filter(|bd| bd.done && bd.hp < bd.maxhp)
+            .and_then(|_| self.geo(b))
+        else {
+            self.resume_after(uid);
+            return;
+        };
+        if !self.approach(uid, g, r + 8.0, dt) {
+            self.gave_up(
+                uid,
+                team,
+                dt,
+                "A Harvester cannot reach the building to repair it",
+            );
+            return;
+        }
+        self.um(uid).stuck = 0.0;
+        let bd = self.bldg(b).unwrap();
+        let (maxhp, hp, cost, build, debt) = (
+            bd.maxhp,
+            bd.hp,
+            bd.kind.def().cost,
+            bd.kind.def().build,
+            bd.repair_debt,
+        );
+        let heal = (dt / build * maxhp).min(maxhp - hp);
+        let owed = [0, 1].map(|k| debt[k] + cost[k] as f64 * REPAIR_COST * heal / maxhp);
+        let charge = owed.map(|o| o.floor() as i32);
+        if !self.can_afford(team, charge) {
+            if team == PLAYER {
+                let msg = format!("{} to repair", self.short_of(team, charge));
+                self.toast(msg, true);
+            }
+            let time = self.time;
+            self.um(uid).no_build_until = time + 30.0; // the AI does not send it straight back
+            self.resume_after(uid);
+            return;
+        }
+        self.pay(team, charge, -1);
+        let bd = self.bm(b).unwrap();
+        bd.repair_debt = [0, 1].map(|k| owed[k] - charge[k] as f64);
+        bd.hp = (bd.hp + heal).min(bd.maxhp);
+        let (bx, by, br, full) = (bd.x, bd.y, bd.r, bd.hp >= bd.maxhp);
+        // Welding sparks now and then, on the side the repairer works from.
+        let u = self.um(uid); // (update_unit counts cd down)
+        if u.cd <= 0.0 {
+            u.cd = 0.6;
+            let (ux, uy) = (u.x, u.y);
+            let d = dist(ux, uy, bx, by).max(1.0);
+            let k = (d - br * 0.6).max(0.0) / d;
+            self.emit(Event::Hit {
+                x: ux + (bx - ux) * k,
+                y: uy + (by - uy) * k,
+                big: false,
+            });
+        }
+        if full {
+            let crew: Vec<Id> = self
+                .units
+                .iter()
+                .filter(|o| o.task == (Task::Repair { b }))
+                .map(|o| o.id)
+                .collect();
+            for o in crew {
+                self.resume_after(o);
             }
         }
     }

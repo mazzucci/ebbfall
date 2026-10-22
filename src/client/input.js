@@ -1,7 +1,7 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
-import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
+import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
@@ -66,6 +66,9 @@ function boxSelect(x0, y0, x1, y1, add) {
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
 }
 
+/** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
+const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.maxhp - e.hp >= 1;
+
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
 const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.type === 'extractor' && e.done ? e.vent : null;
 
@@ -88,6 +91,7 @@ function commandAt(wx, wy) {
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack'); }
   else if ((hit && hit.kind === 'node') || vent) { const node = vent || hit; for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy); marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move'); }
   else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); sfx('move'); }
+  else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); sfx('move'); }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); }
   ui.mode = null; setHint();
 }
@@ -107,6 +111,12 @@ function leftAction(wx, wy, add, at) {
     if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
     sfx('attack'); ui.mode = null; setHint(); return;
   }
+  if (ui.mode === 'repair') {
+    const hit = pick(wx, wy);
+    if (damaged(hit)) { for (const u of units) if (u.type === 'harvester') repair(u, hit); marker(hit.x, hit.y, ALLY); sfx('move'); }
+    else toast(hit && hit.kind === 'bldg' && hit.team === PLAYER ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
+    ui.mode = null; setHint(); return;
+  }
   if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
   const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at); else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
@@ -119,6 +129,7 @@ function touchTap(wx, wy, at) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
+    // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)
     if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
     selectOrDouble(hit, false, at); return;
   }

@@ -174,7 +174,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     await d.clickEntity(h.id);
     assert.equal((await d.selection())[0]?.type, 'harvester', 'tapping a harvester selects it');
     assert.equal(await d.hudText('#selMiniName', /^Harvester$/), 'Harvester');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Move', 'Stop', 'Attack', 'Hold', 'Deselect'], 'a Harvester card leads with Build');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Move', 'Stop', 'Attack', 'Hold', 'Deselect'], 'a Harvester card leads with Build');
     await d.pressCard('Build');
     const depot = d.page.locator('#cmd button', { hasText: 'Depot' });
     assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
@@ -326,4 +326,28 @@ test('a game starts fully zoomed out over the base', async () => {
     assert.equal(d.startZoom, await d.eval(() => endfall.zoomMin));
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+test('harvesters repair a damaged building (right-click on desktop, the Repair button on a phone)', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      await d.grant(1000, 0);
+      const depot = await buildAndFinish(d, 'd', 'depot', 0);
+      const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
+      await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
+      await d.clickEntity(mine(await d.state(), 'harvester')[1].id);
+      const h = (await d.selection())[0]; // in a crowd of miners a tap may pick a neighbour: follow the one selected
+      assert.equal(h?.type, 'harvester');
+      if (d.touch) { await d.pressCard('Repair'); await d.clickWorld(depot.x, depot.y); } else await d.rightClickWorld(depot.x, depot.y);
+      assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', `${d.touch ? 'phone' : 'desktop'}: the harvester goes to repair`);
+      const shards = (await d.state()).res[0];
+      await d.skip(4);
+      await d.clickEntity(depot.id);
+      assert.match(await d.hudText(d.touch ? '#selMiniHp' : '#selSub', /Repairing/), /Repairing/, 'the building shows it is being repaired');
+      await until(d, async () => (await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).hp, depot.id)) >= max, { seconds: 60, what: 'the repair' });
+      assert.ok((await d.state()).res[0] < shards + 200, 'repairs cost shards'); // (mining income runs meanwhile)
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
 });

@@ -15,7 +15,7 @@ const US = 16, BS = 24, PS = 8, NS = 12;
 const UNIT_KEYS = Object.keys(UNITS), BLDG_KEYS = Object.keys(BUILDINGS);
 const PROJ_KINDS = ['bolt', 'shell', 'missile'];
 const UPGRADE_KEYS = ['weapons', 'armor'];
-const TASKS = ['idle', 'hold', 'move', 'amove', 'attack', 'gather', 'build'], PHASES = ['go', 'wait', 'mine', 'return'];
+const TASKS = ['idle', 'hold', 'move', 'amove', 'attack', 'gather', 'build', 'repair'], PHASES = ['go', 'wait', 'mine', 'return'];
 
 let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
@@ -87,7 +87,7 @@ function sync() {
     u.task = { t };
     if (t === 'gather') { u.task.phase = PHASES[U[o + 13]]; u.task.node = nodes.get(target) || null; }
     else if (t === 'attack') attacks.push([u, target]);
-    else if (t === 'build') u.task.b = bldgs.get(target) || null;
+    else if (t === 'build' || t === 'repair') u.task.b = bldgs.get(target) || null;
     S.units.push(u);
   }
   retire(units, seenU);
@@ -122,6 +122,8 @@ export const stopUnit = (u) => touch(game.stopUnit(u.id));
 export const holdUnit = (u) => touch(game.holdUnit(u.id));
 export const startGather = (u, n) => touch(game.startGather(u.id, n.id));
 export const startBuild = (u, b) => touch(game.startBuild(u.id, b.id));
+/** A harvester repairs a damaged finished building of its team (costs a share of the price as it heals). */
+export const repair = (u, b) => touch(game.repair(u.id, b.id));
 export const formation = (us, x, y) => touch(game.formation(Uint32Array.from(us.map(u => u.id)), x, y));
 /** Returns an error string, or null when the building was placed and paid for. */
 export const placeBuilding = (team, type, tx, ty, builder) => touch(err(game.placeBuilding(team, type, tx, ty, builder ? builder.id : 0)));
@@ -138,6 +140,8 @@ export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node 
 export const disableAi = () => game.disableAi();
 /** Tests and tools only: put a unit on the map; returns its id (0 if refused). */
 export const debugSpawn = (team, kind, x, y) => touch(game.debugSpawn(team, kind, x, y));
+/** Tests and tools only. */
+export const debugSetHp = (b, hp) => touch(game.debugSetHp(b.id ?? b, hp));
 /** Tests and tools only. */
 export const setResources = (team, shards, ether) => touch(game.setResources(team, shards, ether));
 

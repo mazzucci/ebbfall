@@ -34,13 +34,13 @@
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="msg"></div>
-    <div id="hint"></div>
+    <div id="hint" aria-live="polite"></div>
     <div id="selMini"><b id="selMiniName"></b><span id="selMiniHp"></span></div>
     <div id="tools">
       <button class="tb alert" id="btnAlert" hidden title="Jump to the attack (Space)">⚠ ATTACK</button>
       <div id="groups"></div>
     </div>
-    <button class="tb" id="btnBox" hidden title="Hold, or tap, then drag on the map to select a group" aria-label="Select a group"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" /></svg><span>SELECT</span></button>
+    <button class="tb" id="btnBox" hidden title="Hold, or tap, then drag on the map to select a group" aria-label="Select a group" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" /></svg><span>SELECT</span></button>
   </div>
   <footer id="hud">
     <canvas id="minimap" width="168" height="168"></canvas>

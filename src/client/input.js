@@ -2,7 +2,7 @@
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
 import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
-import { $, ui, playerSel, toast, setHint, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
+import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
@@ -10,6 +10,8 @@ import { selectIdle, selectArmy, selectSameType, jumpToAlert, saveGroup, recallG
 
 /** Double-click / double-tap on one of our units selects all of that type on screen. */
 let lastPick = { id: 0, t: 0, dbl: false };
+/** A box was drawn while SELECT was held down. */
+let boxDone = false;
 /** `at` is the input event's own timestamp, so a slow frame between the two clicks does not break the double. */
 function selectOrDouble(hit, add, at = performance.now()) {
   const own = hit.kind === 'unit' && hit.team === PLAYER, again = own && lastPick.id === hit.id && at - lastPick.t < 400;
@@ -24,8 +26,12 @@ const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
 
 export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
 /** Camera glide after a one-finger flick, in world px per second; a touch stops it. */
-const fling = { vx: 0, vy: 0, samples: [] };
+const fling = { vx: 0, vy: 0, samples: [], caught: false };
 const FLING_MIN = 40;
+/** Stop the glide (a new game, the pause menu). */
+export function stopGlide() { fling.vx = fling.vy = 0; fling.samples = []; }
+/** Show the SELECT button's state and the hint. */
+function boxButton() { setBox(); setHint(); }
 const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
 /** Set by main.js: whether input should reach the game right now. */
 export const input = { enabled: () => true };
@@ -122,16 +128,18 @@ function touchTap(wx, wy, at) {
 
 export function bindInput() {
   cv.addEventListener('contextmenu', e => e.preventDefault());
+  // Any touch anywhere (the map, a button, the minimap) catches a gliding camera, like a spinning list.
+  window.addEventListener('pointerdown', () => { fling.caught = !!(fling.vx || fling.vy); stopGlide(); }, true);
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
-    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; drag.pan = false; fling.vx = fling.vy = 0; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
+    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { ui.place = null; ui.mode = null; setHint(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
-    // A touch that stops a gliding camera does nothing else (like catching a spinning list).
-    drag.quiet = ev.pointerType === 'touch' && Math.hypot(fling.vx, fling.vy) > FLING_MIN * 2;
+    // A touch that stops a gliding camera does nothing else.
+    drag.quiet = ev.pointerType === 'touch' && fling.caught;
     // The touch-down point is the first glide sample: a quick flick may arrive as a single (coalesced) move.
-    fling.vx = fling.vy = 0; fling.samples = [{ t: ev.timeStamp, x: p.x, y: p.y }];
+    fling.samples = [{ t: ev.timeStamp, x: p.x, y: p.y }];
     drag.down = true; drag.box = false; drag.pan = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
   });
   cv.addEventListener('pointermove', ev => {
@@ -168,7 +176,12 @@ export function bindInput() {
       if (dt > 0.01 && ev.timeStamp - b.t < 120) { fling.vx = -(b.x - a.x) / dt / cam.zoom; fling.vy = -(b.y - a.y) / dt / cam.zoom; }
       fling.samples = []; return;
     }
-    if (drag.box) { drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift); if (ui.box === 'once') { ui.box = false; boxButton(); } return; }
+    if (drag.box) {
+      drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift);
+      if (ui.box === 'held') boxDone = true; // a quick hold-and-box must not leave SELECT armed on release
+      if (ui.box === 'once') { ui.box = false; boxButton(); }
+      return;
+    }
     if (drag.quiet) return;
     const w = toWorld(p.x, p.y);
     if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
@@ -197,7 +210,7 @@ export function bindInput() {
   let mmTouch = null;
   const mmEnd = () => { mmDown = false; if (mmTouch) { if (!mmTouch.moved) centerOn(mmTouch.wx, mmTouch.wy); mmTouch = null; mm.classList.remove('big'); } };
   mm.addEventListener('pointerdown', ev => {
-    if (!input.enabled()) return; mm.setPointerCapture(ev.pointerId); fling.vx = fling.vy = 0;
+    if (!input.enabled()) return; mm.setPointerCapture(ev.pointerId);
     if (ev.button === 2 || ui.mode === 'attack' || ui.mode === 'move') { mmAt(ev, true); return; }
     if (ev.pointerType === 'touch') {
       // Layout size, not the on-screen box: the minimap may still be shrinking back from the last touch.
@@ -218,14 +231,17 @@ export function bindInput() {
   });
   mm.addEventListener('pointerup', mmEnd); mm.addEventListener('pointercancel', () => { if (mmTouch) mmTouch.moved = true; mmEnd(); });
 
-  // SELECT (touch only): hold it and drag a box with the other hand, or tap it to arm one box drag.
+  // SELECT (touch screens): hold it and drag a box with the other hand, or tap it to arm one box drag. Shown on any
+  // device with a touch screen (also touch laptops), and as soon as a finger touches the map.
   const bx = $('btnBox');
-  if (bx && matchMedia('(pointer: coarse)').matches) {
-    bx.hidden = false;
-    let downAt = 0;
-    bx.addEventListener('pointerdown', ev => { ev.stopPropagation(); ev.preventDefault(); downAt = ev.timeStamp; ui.box = ui.box ? false : 'held'; boxButton(); });
-    const up = ev => { if (ui.box === 'held') ui.box = ev.timeStamp - downAt > 350 ? false : 'once'; boxButton(); };
-    bx.addEventListener('pointerup', up); bx.addEventListener('pointercancel', up);
+  if (bx) {
+    if (matchMedia('(any-pointer: coarse)').matches) bx.hidden = false;
+    cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') bx.hidden = false; });
+    let downAt = 0, viaPointer = false;
+    bx.addEventListener('pointerdown', ev => { ev.stopPropagation(); ev.preventDefault(); viaPointer = true; downAt = ev.timeStamp; boxDone = false; ui.box = ui.box ? false : 'held'; boxButton(); });
+    bx.addEventListener('pointerup', ev => { if (ui.box === 'held') ui.box = !boxDone && ev.timeStamp - downAt <= 350 ? 'once' : false; boxButton(); });
+    bx.addEventListener('pointercancel', () => { ui.box = false; boxButton(); });
+    bx.addEventListener('click', () => { if (viaPointer) { viaPointer = false; return; } ui.box = ui.box ? false : 'once'; boxButton(); }); // keyboard
     bx.addEventListener('contextmenu', ev => ev.preventDefault());
   }
 
@@ -240,7 +256,7 @@ export function bindInput() {
     }
     if (k === ' ') { jumpToAlert(); ev.preventDefault(); return; }
     if (k === '.') { selectIdle(); return; }
-    if (k === 'p' || k === 'P') { togglePause(); return; }
+    if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
     if (k === 'Home') { const c = G.bldgs.find(b => b.team === PLAYER && b.type === 'core'); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
@@ -250,9 +266,6 @@ export function bindInput() {
   });
   window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
 }
-
-/** Show the SELECT button's state and the hint. */
-function boxButton() { const b = $('btnBox'); if (b) b.classList.toggle('on', !!ui.box); setHint(); }
 
 /** Arrow keys / WASD (when nothing is selected), mouse edge scrolling and the touch glide. */
 export function camKeys(dt) {

@@ -20,7 +20,7 @@ function selectOrDouble(hit, add, at = performance.now()) {
   lastPick = { id: hit.id, t: at, dbl: false };
   select([hit], add);
 }
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, ALLY, FOE, UNIT_SCALE, AIR_LIFT } from './gl/render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, UNIT_SCALE, AIR_LIFT } from './gl/render.js';
 /** Where a unit appears on screen (flyers are drawn above the ground point they occupy). */
 const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
 
@@ -89,9 +89,9 @@ function commandAt(wx, wy) {
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack'); }
-  else if ((hit && hit.kind === 'node') || vent) { const node = vent || hit; for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy); marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move'); }
-  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); sfx('move'); }
-  else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); sfx('move'); }
+  else if ((hit && hit.kind === 'node') || vent) { const node = vent || hit; for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy); marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); if (units.some(u => u.type === 'harvester')) flashTarget(vent ? hit : node, true); sfx('move'); }
+  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move'); }
+  else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move'); }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); }
   ui.mode = null; setHint();
 }
@@ -113,13 +113,15 @@ function leftAction(wx, wy, add, at) {
   }
   if (ui.mode === 'repair') {
     const hit = pick(wx, wy);
-    if (damaged(hit)) { for (const u of units) if (u.type === 'harvester') repair(u, hit); marker(hit.x, hit.y, ALLY); sfx('move'); }
+    if (damaged(hit)) { for (const u of units) if (u.type === 'harvester') repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move'); }
     else toast(hit && hit.kind === 'bldg' && hit.team === PLAYER ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
     ui.mode = null; setHint(); return;
   }
   if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
   const hit = pick(wx, wy);
-  if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at); else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
+  if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at);
+  else if (hit && !add) select([hit]); // a resource field: shows what is left (right-click gathers)
+  else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
 }
 
 /** Single-finger tap: select own things, otherwise command the current selection. */
@@ -133,8 +135,9 @@ function touchTap(wx, wy, at) {
     if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
     selectOrDouble(hit, false, at); return;
   }
-  if (units.length || bl.length) { commandAt(wx, wy); return; }
-  if (hit && hit.kind !== 'node') select([hit]); else { ui.sel = []; updateHud(); }
+  if (units.length) { commandAt(wx, wy); return; }
+  // A building selected and a tap elsewhere: let go of it (rally points are set with the Rally button on touch).
+  if (hit) select([hit]); else { ui.sel = []; ui.mode = null; setHint(); updateHud(); }
 }
 
 export function bindInput() {

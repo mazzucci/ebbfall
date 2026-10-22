@@ -30,8 +30,9 @@ export function setIconButton(el, name, label) { el.innerHTML = icon(name) + `<s
 /** Inline SVG markup for a line icon. */
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[name] || ''}"/></svg>`;
 
-/** An <img> portrait of a unit type or building type in a team's colours, or '' if it has no art. */
+/** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. */
 export function portrait(kind, type, size = 26, team = 0) {
-  const url = kind === 'unit' ? artIcon(`${type}_${team}_2_0`, size, 2.1) : artIcon(`bldg_${type}_${team}`, size, 1.1); // unit frames carry room for the shadow
+  const url = kind === 'unit' ? artIcon(`${type}_${team}_2_0`, size, 2.1) // unit frames carry room for the shadow
+    : kind === 'node' ? artIcon(type === 'ether' ? 'vent_0' : 'shard_0', size, 1.2) : artIcon(`bldg_${type}_${team}`, size, 1.1);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }

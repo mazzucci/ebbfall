@@ -1807,3 +1807,51 @@ fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
         "the AI sent a repairer {starts} times while broke"
     );
 }
+
+#[test]
+fn a_batch_of_troopers_stands_side_by_side_outside_the_barracks() {
+    for seed in [1, 7, 4242] {
+        let mut w = rich(seed);
+        let h = harvesters(&w, PLAYER);
+        let _depot = build(&mut w, BldgKind::Depot, h[0], 90);
+        let rax = build(&mut w, BldgKind::Barracks, h[1], 120);
+        for _ in 0..8 {
+            assert!(
+                w.queue_unit(rax, UnitKind::Trooper).is_ok() || {
+                    run(&mut w, 15);
+                    w.queue_unit(rax, UnitKind::Trooper).is_ok()
+                }
+            );
+        }
+        run(&mut w, 15 * 9);
+        run(&mut w, 5);
+        let t: Vec<(f64, f64)> = w
+            .units
+            .iter()
+            .filter(|u| u.team == PLAYER && u.kind == UnitKind::Trooper)
+            .map(|u| (u.x, u.y))
+            .collect();
+        assert_eq!(t.len(), 8, "seed {seed}: all trained");
+        let mut closest = f64::MAX;
+        for i in 0..t.len() {
+            for j in i + 1..t.len() {
+                closest =
+                    closest.min(((t[i].0 - t[j].0).powi(2) + (t[i].1 - t[j].1).powi(2)).sqrt());
+            }
+        }
+        let r = UnitKind::Trooper.def().r;
+        assert!(
+            closest >= r * 1.6,
+            "seed {seed}: troopers stand apart (closest pair {closest:.1} px, radius {r})"
+        );
+        let b = w.bldg(rax).unwrap();
+        let spread = t
+            .iter()
+            .map(|p| ((p.0 - b.x).powi(2) + (p.1 - b.y).powi(2)).sqrt())
+            .fold(0.0, f64::max);
+        assert!(
+            spread < 6.0 * TILE,
+            "seed {seed}: and stay near the barracks ({spread:.0} px)"
+        );
+    }
+}

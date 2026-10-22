@@ -52,7 +52,7 @@ function sync() {
   for (let o = 0; o < N.length; o += NS) {
     const id = N[o]; seenN.add(id);
     let n = nodes.get(id);
-    if (!n) nodes.set(id, n = { id, kind: 'node', type: N[o + 1] ? 'ether' : 'shard', tx: N[o + 2], ty: N[o + 3], x: N[o + 4], y: N[o + 5], r: N[o + 9], w: N[o + 1] ? 2 : 1, h: N[o + 1] ? 2 : 1, dead: false });
+    if (!n) nodes.set(id, n = { id, kind: 'node', type: N[o + 1] ? 'ether' : 'shard', tx: N[o + 2], ty: N[o + 3], x: N[o + 4], y: N[o + 5], r: N[o + 9], w: N[o + 1] ? 2 : 1, h: N[o + 1] ? 2 : 1, max: N[o + 6], dead: false });
     n.amount = N[o + 6]; n.miners = N[o + 7]; n.extractorId = N[o + 8];
     M.nodes.push(n);
   }

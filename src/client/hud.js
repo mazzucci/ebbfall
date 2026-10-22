@@ -49,12 +49,22 @@ export function updateHud() {
   if (!sel.length) {
     name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; hb.hidden = true; $('selPor').innerHTML = ''; selKey = '';
     stats.innerHTML = ''; q.innerHTML = ''; q.dataset.k = ''; grp.innerHTML = ''; grp.dataset.k = ''; $('selMiniName').textContent = ''; $('selMiniHp').textContent = '';
+  } else if (sel.length === 1 && sel[0].kind === 'node') {
+    // A resource field: what is left and who mines it.
+    const n = sel[0], ether = n.type === 'ether', left = ether ? 'ether' : 'shards';
+    name.textContent = ether ? 'Ether vent' : 'Shard field';
+    if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 34); }
+    sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : `${n.amount} ${left} left`;
+    hb.hidden = false; $('hpFill').style.width = (n.max ? n.amount / n.max * 100 : 0) + '%'; $('hpFill').style.background = `var(--${ether ? 'ether' : 'shard'})`;
+    stats.innerHTML = `<span>Left <b>${n.amount}</b></span><span>Harvesters <b>${n.miners}</b></span>`;
+    q.innerHTML = ''; q.dataset.k = ''; grp.innerHTML = ''; grp.dataset.k = '';
+    $('selMiniName').textContent = name.textContent; $('selMiniHp').textContent = `${n.amount} left`;
   } else if (sel.length === 1) {
     const x = sel[0];
     name.textContent = x.d.name;
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 34, x.team); }
     sub.textContent = x.team === PLAYER ? (x.kind === 'unit' ? taskName(x) : bldgStatus(x)) : 'Enemy';
-    hb.hidden = false; $('hpFill').style.width = (x.hp / x.maxhp * 100) + '%';
+    hb.hidden = false; $('hpFill').style.width = (x.hp / x.maxhp * 100) + '%'; $('hpFill').style.background = '';
     let st = `<span>HP <b>${Math.ceil(x.hp)}/${x.maxhp}</b></span><span>Armor <b>${x.d.armor || 0}</b></span>`;
     const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons, plus = bonus ? `+${bonus}` : '';
     if (x.d.dmg || x.d.dmgAir) st += `<span>Damage <b>${x.d.dmg ? x.d.dmg + plus : '–'}${x.d.dmgAir ? ' / air ' + x.d.dmgAir + plus : ''}</b></span><span>Range <b>${x.d.range}</b></span>`;

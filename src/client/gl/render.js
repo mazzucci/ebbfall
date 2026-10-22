@@ -337,6 +337,7 @@ export function render(selList, place) {
   cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH);
   if (now - doodadCheck > 0.25 || now < doodadCheck || G.bldgs.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = G.bldgs.length; hideCoveredDoodads(); }
   bars.clear(); lines.clear(); flag.visible = false;
+  drawTargets(selList, now);
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
@@ -403,6 +404,35 @@ export function render(selList, place) {
 
 const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag); flag.visible = false;
 function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
+// ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
+const flashes = [];
+const SHARD = 0x4fd1c5, ETHER = 0xa78bfa;
+/** Colour of a target: shard field teal, ether (vent or extractor being mined) violet, a building to work on amber. */
+const targetColor = (e, mining) => e.kind === 'node' ? (e.type === 'ether' ? ETHER : SHARD) : mining ? ETHER : 0xf5a524;
+/** Blink the target of an order three times, so the player sees it was understood. */
+export function flashTarget(e, mining = false) { if (e) flashes.push({ e, mining, t: performance.now() / 1000 }); }
+function outline(e, width, color, alpha) {
+  if (e.kind === 'node') { const r = e.r + 7; lines.ellipse(e.x, e.y, r, r * 0.72).stroke({ width, color, alpha }); return; }
+  lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
+}
+function drawTargets(selList, now) {
+  for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, 0x5ad67d, 0.9); // a selected resource field
+  // Faint, steady: the shard field, extractor or building each selected harvester is working on.
+  const done = new Set();
+  for (const u of selList) {
+    if (u.kind !== 'unit' || u.team !== PLAYER || u.dead) continue;
+    const T = u.task, e = T.t === 'gather' ? (T.node?.extractor || T.node) : (T.t === 'build' || T.t === 'repair') ? T.b : null;
+    if (!e || e.dead || done.has(e)) continue;
+    done.add(e); outline(e, 1.5, targetColor(e, T.t === 'gather'), 0.5);
+  }
+  // Bright, blinking for 0.9 s after an order.
+  for (let i = flashes.length - 1; i >= 0; i--) {
+    const f = flashes[i], age = now - f.t;
+    if (age > 0.9 || f.e.dead) { flashes.splice(i, 1); continue; }
+    if (Math.floor(age / 0.15) % 2 === 0) outline(f.e, 3, targetColor(f.e, f.mining), 1);
+  }
+}
+
 function dashed(x0, y0, x1, y1) {
   const d = Math.hypot(x1 - x0, y1 - y0), n = Math.floor(d / 12);
   for (let i = 0; i < n; i++) { const a = i / n, b = (i + 0.5) / n; lines.moveTo(x0 + (x1 - x0) * a, y0 + (y1 - y0) * a).lineTo(x0 + (x1 - x0) * b, y0 + (y1 - y0) * b); }

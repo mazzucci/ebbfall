@@ -336,11 +336,18 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       const depot = await buildAndFinish(d, 'd', 'depot', 0);
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
-      await d.clickEntity(mine(await d.state(), 'harvester')[1].id);
-      const h = (await d.selection())[0]; // in a crowd of miners a tap may pick a neighbour: follow the one selected
+      // A mining harvester moves; a tap may miss it or pick a neighbour: retry, then follow the one selected.
+      for (let i = 0; i < 4 && (await d.selection())[0]?.type !== 'harvester'; i++) await d.clickEntity(mine(await d.state(), 'harvester')[1 + i % 3].id);
+      const h = (await d.selection())[0];
       assert.equal(h?.type, 'harvester');
       if (d.touch) { await d.pressCard('Repair'); await d.clickWorld(depot.x, depot.y); } else await d.rightClickWorld(depot.x, depot.y);
       assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', `${d.touch ? 'phone' : 'desktop'}: the harvester goes to repair`);
+      if (d.touch) {
+        // On a phone the harvester is let go once it has the job, so a tap on the map does not pull it off it.
+        assert.equal((await d.selection()).length, 0, 'phone: released after the order');
+        await d.clickWorld(depot.x + 220, depot.y + 160);
+        assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', 'phone: a later tap does not redirect it');
+      } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
       const shards = (await d.state()).res[0];
       await d.skip(4);
       await d.clickEntity(depot.id);

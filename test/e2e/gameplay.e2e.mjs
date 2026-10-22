@@ -334,18 +334,27 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
     try {
       await d.grant(1000, 0);
       const depot = await buildAndFinish(d, 'd', 'depot', 0);
+      if (d.touch) assert.ok((await d.card()).some(c => c.label === 'Back'), 'phone: after placing, the Build list is back for the next building');
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
       // A mining harvester moves; a tap may miss it or pick a neighbour: retry, then follow the one selected.
-      for (let i = 0; i < 4 && (await d.selection())[0]?.type !== 'harvester'; i++) await d.clickEntity(mine(await d.state(), 'harvester')[1 + i % 3].id);
-      const h = (await d.selection())[0];
+      await d.key('Escape'); await d.key('Escape');
+      let h = null;
+      for (let i = 0; i < 4 && !h; i++) {
+        await d.clickEntity(mine(await d.state(), 'harvester')[1 + i % 3].id);
+        const sel = await d.selection();
+        if (sel[0]?.type === 'harvester') h = sel[0];
+      }
       assert.equal(h?.type, 'harvester');
       if (d.touch) { await d.pressCard('Repair'); await d.clickWorld(depot.x, depot.y); } else await d.rightClickWorld(depot.x, depot.y);
       assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', `${d.touch ? 'phone' : 'desktop'}: the harvester goes to repair`);
       if (d.touch) {
         // On a phone the harvester is let go once it has the job, so a tap on the map does not pull it off it.
         assert.equal((await d.selection()).length, 0, 'phone: released after the order');
-        await d.clickWorld(depot.x + 220, depot.y + 160);
+        const st = await d.state();
+        const [gx, gy] = [[220, 160], [-200, 180], [240, -160], [0, 260]].map(([dx, dy]) => [depot.x + dx, depot.y + dy])
+          .find(([x, y]) => st.nodes.every(n => Math.hypot(n.x - x, n.y - y) > 80) && st.units.every(u => Math.hypot(u.x - x, u.y - y) > 60) && st.bldgs.every(b => Math.hypot(b.x - x, b.y - y) > 100));
+        await d.clickWorld(gx, gy); // open ground
         assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', 'phone: a later tap does not redirect it');
       } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
       const shards = (await d.state()).res[0];

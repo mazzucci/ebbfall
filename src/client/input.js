@@ -100,7 +100,12 @@ function commandAt(wx, wy) {
   let job = false; // harvesters were given work
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack'); }
-  else if ((hit && hit.kind === 'node') || vent) { const node = vent || hit; for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy); marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); if (units.some(u => u.type === 'harvester')) flashTarget(vent ? hit : node, true); sfx('move'); job = true; }
+  else if ((hit && hit.kind === 'node') || vent) {
+    const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)
+    for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy);
+    marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move');
+    if (!bare && units.some(u => u.type === 'harvester')) { flashTarget(vent ? hit : node, true); job = true; }
+  }
   else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move'); job = true; }
   else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move'); job = true; }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); }
@@ -115,7 +120,12 @@ function leftAction(wx, wy, add, at) {
     const p = ui.place;
     const builder = units.filter(u => u.type === 'harvester').sort((a, b) => dist(a, { x: p.tx * TILE, y: p.ty * TILE }) - dist(b, { x: p.tx * TILE, y: p.ty * TILE }))[0];
     const err = placeBuilding(PLAYER, p.type, p.tx, p.ty, builder);
-    if (err) toast(err, true); else { sfx('build'); if (!add) { ui.place = null; ui.mode = null; setHint(); releaseWorkers(units); } }
+    if (err) toast(err, true);
+    else {
+      sfx('build');
+      // On touch, back to the building list (another one is a tap away; a tap on the map just closes it).
+      if (!add) { ui.place = null; ui.mode = drag.ptype === 'touch' ? 'build' : null; setHint(); updateHud(); }
+    }
     return;
   }
   if (ui.mode === 'attack') {

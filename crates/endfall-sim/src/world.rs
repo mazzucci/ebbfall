@@ -175,6 +175,12 @@ pub enum Event {
         y: f64,
         big: bool,
     },
+    /// A shot the player can see (or one of theirs): where, and the weapon ("bolt", "shell", "missile", "melee").
+    Fire {
+        x: f64,
+        y: f64,
+        weapon: &'static str,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -854,6 +860,7 @@ impl World {
         );
         if b.team == PLAYER {
             self.stats.built += 1;
+            self.emit(Event::Sfx("ready"));
         }
         if let Some(rl) = b.rally {
             match rl.node {
@@ -1144,7 +1151,6 @@ impl World {
             if team != PLAYER {
                 self.stats.razed += 1;
             }
-            self.emit(Event::Sfx("boom"));
             if team == PLAYER {
                 self.toast(format!("{} destroyed", b.kind.def().name), true);
             }
@@ -1604,14 +1610,24 @@ impl World {
                     team,
                 });
                 if team == PLAYER || self.visible(shooter) {
-                    self.emit(Event::Sfx(if kind == ProjKind::Bolt {
-                        "bolt"
-                    } else {
-                        "shell"
-                    }));
+                    let weapon = match kind {
+                        ProjKind::Bolt => "bolt",
+                        ProjKind::Shell => "shell",
+                        ProjKind::Missile => "missile",
+                    };
+                    self.emit(Event::Fire { x, y, weapon });
                 }
             }
-            None => self.damage(target, dmg, Some(shooter)),
+            None => {
+                if team == PLAYER || self.visible(shooter) {
+                    self.emit(Event::Fire {
+                        x,
+                        y,
+                        weapon: "melee",
+                    });
+                }
+                self.damage(target, dmg, Some(shooter))
+            }
         }
     }
 

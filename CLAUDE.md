@@ -66,6 +66,7 @@ src/client/           everything that touches the browser
   fx.js               particles and markers (client-only, fed by sim events)
 test/engine.test.js   the WASM sim through src/engine in Node: data tables vs constants.js, RNG/hypot, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge)
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
@@ -87,7 +88,7 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   `jsmath` helpers (round, sign, to_i32, hypot) rather than their Rust lookalikes, which differ at the edges.
 - The sim advances only through `step()` at the fixed 30 Hz tick. Never pass a variable dt.
 - Anything the player should see or hear that is not world state (sounds, toasts, explosions) is an event:
-  `emit({t:'sfx'|'toast'|'burst'|'hit', ...})`. The client drains `G.events` each frame in `main.js`.
+  `emit({t:'sfx'|'toast'|'burst'|'hit'|'fire', ...})`. The client drains `G.events` each frame in `main.js`.
 - Player intent enters the sim only through the orders on `Game` (move, attack, gather, build, place, queue,
   cancel, rally, formation). They take ids and plain numbers/strings: these are the future network commands.
   The client calls them through src/engine/core.js, which accepts entity objects and passes their ids.

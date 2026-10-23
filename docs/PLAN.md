@@ -50,7 +50,15 @@ loop feels right.
 - [x] Repair: harvesters restore damaged buildings at construction speed for a quarter of the price (the AI repairs too)
 - [x] Start menu: opponent, sound, three fixed maps (Ashen Basin, Glass Reach, Cinder Divide) with hidden characters (MapKind: standard, deep fields, ether storm, open plains, labyrinth, barren) and a random map; phone tap-to-play splash for full screen
 - [x] Scenery: 3D-rendered props scattered from the map seed (boulders, spires, ruins, wrecks on plateaus; craters and debris on open ground)
-- [ ] Sound design
+- [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
+- [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
+  places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the
+  A* scratch arrays), the spatial hash `GRID`, `BASES` and the resource layout in `Map::generate` (positions in tiles),
+  the AI's knowledge of the bases. Client: constants.js, buffers sized once in core.js, the fog/shade/minimap textures
+  and terrain chunks in render.js, input clamps, scenery. Plan: carry `w, h` on `Map`/`World` (and in the info
+  snapshot), make `idx` a `Map` method, size every grid per game, scale `BASES`/fields with the map, resize the client
+  buffers in `resetGame`. About one medium PR plus tests; perf is fine to 128x128 (A* 16k cells, 4x terrain sprites
+  with chunk culling). Gameplay cost: travel time roughly doubles at 128, so AI wave timings need retuning.
 - [ ] Replays: record seed + command log, play back through the same sim
 
 ### M3. Multiplayer (1v1)

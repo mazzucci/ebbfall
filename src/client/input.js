@@ -8,6 +8,9 @@ import { marker } from './fx.js';
 import { askLeave } from './screen.js';
 import { selectIdle, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
 
+/** The radio voice for an order or selection: the first unit's type. */
+const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
+
 /** Double-click / double-tap on one of our units selects all of that type on screen. */
 let lastPick = { id: 0, t: 0, dbl: false };
 /** A box was drawn while SELECT was held down. */
@@ -54,7 +57,7 @@ function select(list, add) {
   for (const e of list) if (!ui.sel.includes(e)) ui.sel.push(e);
   if (ui.sel.length > 1 && ui.sel.some(e => e.team === PLAYER)) ui.sel = ui.sel.filter(e => e.team === PLAYER);
   if (ui.sel.length > 1 && ui.sel.some(e => e.kind === 'unit')) ui.sel = ui.sel.filter(e => e.kind === 'unit');
-  ui.mode = null; ui.place = null; setHint(); if (list.length) sfx('select');
+  ui.mode = null; ui.place = null; setHint(); if (list.length) sfx('select', voice(list));
   updateHud(); // the command card must match the selection right away, not on the next HUD tick
 }
 
@@ -98,17 +101,17 @@ function commandAt(wx, wy) {
   const sel = playerSel(); if (!sel.length) return;
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
   let job = false; // harvesters were given work
-  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move'); ui.mode = null; setHint(); return; }
-  if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack'); }
+  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
+  if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
   else if ((hit && hit.kind === 'node') || vent) {
     const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)
     for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy);
-    marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move');
+    marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move', voice(units));
     if (!bare && units.some(u => u.type === 'harvester')) { flashTarget(vent ? hit : node, true); job = true; }
   }
-  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move'); job = true; }
-  else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move'); job = true; }
-  else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); }
+  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
+  else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
+  else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); }
   ui.mode = null; setHint();
   if (job) releaseWorkers(units);
 }
@@ -131,11 +134,11 @@ function leftAction(wx, wy, add, at) {
   if (ui.mode === 'attack') {
     const hit = pick(wx, wy);
     if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
-    sfx('attack'); ui.mode = null; setHint(); return;
+    sfx('attack', voice(units)); ui.mode = null; setHint(); return;
   }
   if (ui.mode === 'repair') {
     const hit = pick(wx, wy);
-    if (damaged(hit)) { for (const u of units) if (u.type === 'harvester') repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move'); ui.mode = null; releaseWorkers(units); setHint(); return; }
+    if (damaged(hit)) { for (const u of units) if (u.type === 'harvester') repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); ui.mode = null; releaseWorkers(units); setHint(); return; }
     else toast(hit && hit.kind === 'bldg' && hit.team === PLAYER ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
     ui.mode = null; setHint(); return;
   }
@@ -237,7 +240,7 @@ export function bindInput() {
   let mmDown = false;
   const mmAt = (ev, cmd) => {
     const r = mm.getBoundingClientRect(); const wx = (ev.clientX - r.left) / r.width * WW, wy = (ev.clientY - r.top) / r.height * WH;
-    if (cmd) { const units = playerSel().filter(x => x.kind === 'unit'); if (units.length) { if (ui.mode === 'attack') units.forEach(u => attackMove(u, wx, wy)); else formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move'); ui.mode = null; setHint(); } return; }
+    if (cmd) { const units = playerSel().filter(x => x.kind === 'unit'); if (units.length) { if (ui.mode === 'attack') units.forEach(u => attackMove(u, wx, wy)); else formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); ui.mode = null; setHint(); } return; }
     centerOn(wx, wy);
   };
   mm.addEventListener('contextmenu', e => e.preventDefault());

@@ -474,6 +474,7 @@ impl Game {
                     format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty}}}")
                 }
                 Event::Hit { x, y, big } => format!("{{\"t\":\"hit\",\"x\":{x},\"y\":{y},\"big\":{big}}}"),
+                Event::Fire { x, y, weapon } => format!("{{\"t\":\"fire\",\"x\":{x},\"y\":{y},\"w\":\"{weapon}\"}}"),
             })
             .collect();
         format!("[{}]", parts.join(","))

@@ -5,7 +5,7 @@
 // Difficulty and sound are remembered on this device.
 import { mulberry } from '../engine/index.js';
 import { $ } from './hud.js';
-import { audio, sfx } from './audio.js';
+import { audio, sfx, soundToggled } from './audio.js';
 import { touchDevice, enterFullscreen, canGoFullscreen } from './screen.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
@@ -71,7 +71,7 @@ export function initMenu({ onStart, onSound }) {
   diffs.forEach(b => b.addEventListener('click', () => { menu.diff = +b.dataset.d; store.set('diff', menu.diff); showDiff(); }));
   showDiff();
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
-  $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); if (!audio.muted) sfx('select'); });
+  $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
   $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); if (MAPS[menu.map].random) choose(menu.map); onStart(); }); // a random map is new each game
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });

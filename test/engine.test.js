@@ -120,16 +120,17 @@ test('orders report errors and a rally point shows up on the building', { skip }
 
 test('the AI ends the game against an idle player, and events reach the client', { skip }, () => {
   E.resetGame(31337, 2);
-  let booms = 0;
+  let booms = 0, shots = 0;
   for (let i = 0; i < 30 * 900 && !E.G.over; i++) {
     E.step();
-    for (const e of E.G.events) if (e.t === 'sfx' && e.name === 'boom') booms++;
+    for (const e of E.G.events) { if (e.t === 'burst' && e.n >= 24) booms++; if (e.t === 'fire' && typeof e.x === 'number' && e.w) shots++; }
     E.G.events.length = 0;
   }
   assert.ok(E.G.bldgs.filter(b => b.team === E.ENEMY).length > 3, 'AI built structures');
   assert.ok(E.G.over, 'game ended within 15 minutes');
   assert.equal(E.G.winner, E.ENEMY);
   assert.ok(booms >= 1, 'buildings blew up');
+  assert.ok(shots >= 10, 'shots reach the client with a position and a weapon, for the sound');
   assert.ok(E.G.units.every(u => !u.dead));
 });
 

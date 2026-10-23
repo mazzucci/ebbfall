@@ -23,7 +23,7 @@ export function jumpToAlert() { if (alerts.last) centerOn(alerts.last.x, alerts.
 /** Forget alerts and pings from a previous game. */
 export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; clearPings(); idleIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 
-function choose(list) { ui.sel = list; ui.mode = null; ui.place = null; setHint(); updateHud(); if (list.length) sfx('select'); }
+function choose(list) { ui.sel = list; ui.mode = null; ui.place = null; setHint(); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
 
 let idleIndex = 0;

@@ -2022,3 +2022,35 @@ fn the_ai_finishes_games_on_every_map_kind() {
         }
     }
 }
+
+#[test]
+fn every_weapon_reports_its_shots_for_the_sound() {
+    use endfall_sim::world::Event;
+    for (shooter, target, weapon) in [
+        (UnitKind::Trooper, UnitKind::Trooper, "bolt"),
+        (UnitKind::Vanguard, UnitKind::Trooper, "shell"),
+        (UnitKind::Lancer, UnitKind::Wasp, "missile"),
+        (UnitKind::Harvester, UnitKind::Trooper, "melee"),
+    ] {
+        let mut w = arena(16);
+        let me = w.make_unit(shooter, PLAYER, 600.0, 900.0);
+        let foe = w.make_unit(target, ENEMY, 615.0, 900.0);
+        w.hold_unit(foe);
+        w.attack_ent(me, foe);
+        let mut heard = Vec::new();
+        for _ in 0..3 * TPS {
+            w.step();
+            for e in w.events.drain(..) {
+                if let Event::Fire { x, weapon, .. } = e {
+                    heard.push((weapon, x));
+                }
+            }
+        }
+        assert!(
+            heard
+                .iter()
+                .any(|&(wp, x)| wp == weapon && (x - 600.0).abs() < 40.0),
+            "{shooter:?}: a {weapon} shot from where it stands, heard: {heard:?}"
+        );
+    }
+}

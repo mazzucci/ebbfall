@@ -2,10 +2,11 @@
 import './style.css';
 import * as engine from './engine/index.js';
 import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio } from './client/audio.js';
+import { sfx, audio, soundToggled } from './client/audio.js';
+audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
 import { setIconButton } from './client/icons.js';
@@ -40,8 +41,9 @@ function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
-    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); }
-    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); }
+    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); sfx('boom', e); }
+    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); sfx('hit', e); }
+    else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty);
     else if (e.t === 'attacked') onAttacked(e);
   }
@@ -63,7 +65,7 @@ $('btnAgain').addEventListener('click', () => { $('end').hidden = true; started 
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
-$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); if (!audio.muted) sfx('select'); });
+$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });
 $('btnHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // the game waits while it is open
 

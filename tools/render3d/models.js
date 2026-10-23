@@ -222,6 +222,28 @@ export function wasp(M, f) {
   return g;
 }
 
+/** A small scout drone: a domed disc with a glowing eye, a team-coloured rim and two counter-rotating fans. */
+export function observer(M, f) {
+  const g = grp(), body = grp();
+  body.position.y = 18;
+  add(body, cyl(6.5, 5, 2.6, 24), M.trim, 0, 0, 0);                                    // hull disc
+  add(body, new THREE.TorusGeometry(6.4, 0.7, 8, 28), M.paint, 0, 0.6, 0, Math.PI / 2); // team rim
+  const dome = add(body, new THREE.SphereGeometry(4, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), M.steel, 0, 1.2, 0);
+  dome.scale.set(1, 0.7, 1);
+  add(body, sph(1.8, 14, 10), M.glass, 4.8, 0.2, 0).scale.set(0.8, 1, 1);              // the eye (faces +x)
+  add(body, sph(0.7, 8, 6), M.lamp, 5.9, 0.3, 0);
+  add(body, cyl(0.25, 0.25, 5, 6), M.steel, -2, 4.2, 1.5); add(body, sph(0.5, 8, 6), M.lamp, -2, 6.8, 1.5); // antenna
+  for (const side of [-1, 1]) {
+    const fan = grp(); fan.position.set(-1.5, -0.6, side * 8);
+    add(fan, new THREE.TorusGeometry(3, 0.4, 6, 20), M.dark, 0, 0, 0, Math.PI / 2);
+    for (let k = 0; k < 2; k++) add(fan, rbox(5.6, 0.2, 0.9, 0.1), M.rotor, 0, 0, 0, 0, k * Math.PI / 2 + (f % 2) * Math.PI / 4 * side, 0);
+    add(body, rbox(3, 0.8, 4, 0.3), M.trim, -1.5, -0.4, side * 5.5);                  // fan arm
+    body.add(fan);
+  }
+  g.add(body);
+  return g;
+}
+
 export const UNIT_MODELS = {
   // r: the farthest any part reaches from the centre (any facing must fit), h: height
   harvester: { build: harvester, frames: 2, r: 23, h: 15 },
@@ -230,4 +252,5 @@ export const UNIT_MODELS = {
   lancer: { build: lancer, frames: 4, r: 18, h: 18 },
   medic: { build: medic, frames: 4, r: 18, h: 16 },
   wasp: { build: wasp, frames: 2, r: 26, h: 26 },
+  observer: { build: observer, frames: 2, r: 13, h: 26 },
 };

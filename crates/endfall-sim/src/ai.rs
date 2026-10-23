@@ -175,10 +175,9 @@ impl World {
             })
             .map(|b| (b.id, b.x, b.y, b.kind == BldgKind::Core))
             .collect();
-        let air_seen = self
-            .units
-            .iter()
-            .any(|u| u.team == PLAYER && u.kind.def().air && self.ai_sees(u.x, u.y));
+        let air_seen = self.units.iter().any(|u| {
+            u.team == PLAYER && u.kind.def().air && u.kind.def().armed() && self.ai_sees(u.x, u.y)
+        }); // (a scout is no air threat)
         let gone: Vec<Id> = self
             .ai
             .as_ref()
@@ -771,7 +770,12 @@ impl World {
         let seen_air = self
             .units
             .iter()
-            .filter(|u| u.team == PLAYER && u.kind.def().air && self.ai_sees(u.x, u.y))
+            .filter(|u| {
+                u.team == PLAYER
+                    && u.kind.def().air
+                    && u.kind.def().armed()
+                    && self.ai_sees(u.x, u.y)
+            })
             .count();
         let enemy_air = if t < self.ai.as_ref().unwrap().seen_air_until {
             seen_air.max(2)

@@ -48,6 +48,7 @@ loop feels right.
 - [ ] Hand-authored maps + a tiny map format (JSON); keep the generator for skirmish
 - [x] Sprite art pass (pre-rendered 3D units and buildings, painted terrain)
 - [x] Repair: harvesters restore damaged buildings at construction speed for a quarter of the price (the AI repairs too)
+- [x] Observer (2026-10-23): a cheap (25/25) unarmed flying scout from the Airfield, fast with 10-tile sight (the farthest in the game); no cloak or detection; the AI ignores it as an air threat.
 - [x] Map variety (2026-10-23): maps used to share one layout (bases always bottom-left/top-right, every field in the same place). The generator now draws per seed: where the bases face each other (either diagonal, west/east, south/north; `Map.bases`), the rock feature size, two or three mirrored expansion sites and an optional centre field; terrain and resources are point-symmetric so both sides get the same map.
 - [x] Start menu: opponent, sound, three fixed maps (Ashen Basin, Glass Reach, Cinder Divide) with hidden characters (MapKind: standard, deep fields, ether storm, open plains, labyrinth, barren) and a random map; phone tap-to-play splash for full screen
 - [x] Scenery: 3D-rendered props scattered from the map seed (boulders, spires, ruins, wrecks on plateaus; craters and debris on open ground)

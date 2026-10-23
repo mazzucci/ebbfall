@@ -34,6 +34,7 @@ pub enum UnitKind {
     Lancer,
     Medic,
     Wasp,
+    Observer,
 }
 
 /// Building kinds, same rule as UnitKind.
@@ -143,13 +144,14 @@ pub struct BldgDef {
     pub up_dmg: f64,
 }
 
-pub const UNIT_KINDS: [UnitKind; 6] = [
+pub const UNIT_KINDS: [UnitKind; 7] = [
     UnitKind::Harvester,
     UnitKind::Trooper,
     UnitKind::Vanguard,
     UnitKind::Lancer,
     UnitKind::Medic,
     UnitKind::Wasp,
+    UnitKind::Observer,
 ];
 pub const BLDG_KINDS: [BldgKind; 7] = [
     BldgKind::Core,
@@ -277,6 +279,21 @@ const WASP: UnitDef = UnitDef {
     up_dmg: 1.0,
     ..UNIT
 };
+/// A cheap unarmed flying scout: fast, sees far, flies over cliffs. (No cloak and no detection: it is simply small
+/// and quick, and anything that shoots air can bring it down.)
+const OBSERVER: UnitDef = UnitDef {
+    key: "observer",
+    cost: [25, 25],
+    hp: 40.0,
+    speed: 175.0,
+    range: 0.0,
+    dmg: 0.0,
+    sight: 10.0,
+    r: 8.0,
+    build: 14.0,
+    air: true,
+    ..UNIT
+};
 
 const BLDG: BldgDef = BldgDef {
     key: "",
@@ -388,7 +405,7 @@ const AIRFIELD: BldgDef = BldgDef {
     hp: 760.0,
     build: 50.0,
     sight: 8.0,
-    trains: &[UnitKind::Wasp],
+    trains: &[UnitKind::Wasp, UnitKind::Observer],
     req: Some(BldgKind::Forge),
     ..BLDG
 };
@@ -402,6 +419,7 @@ impl UnitKind {
             UnitKind::Lancer => &LANCER,
             UnitKind::Medic => &MEDIC,
             UnitKind::Wasp => &WASP,
+            UnitKind::Observer => &OBSERVER,
         }
     }
     pub fn parse(s: &str) -> Option<UnitKind> {

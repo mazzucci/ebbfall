@@ -25,6 +25,9 @@ export async function start() {
   browser = await launchChromium();
 }
 export async function stop() { await browser?.close(); server?.close(); }
+/** A bare browser context and the URL the game is served at (for tests of the menu itself). */
+export const browserContext = (device) => browser.newContext(device);
+export const baseUrl = () => base;
 
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
@@ -40,7 +43,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  if (diff !== 1) await page.locator(`#diff [data-d="${diff}"]`).click();
+  if (touch) await page.locator('#btnPlay').tap(); // the phone's "tap to play" screen (goes full screen)
+  if (diff !== 1) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
   await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());

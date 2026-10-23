@@ -9,17 +9,17 @@ import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
 import { setIconButton } from './client/icons.js';
-import { initScreen, initLeaveDialog, enterFullscreen, armLeaveGuard, disarmLeaveGuard, touchDevice } from './client/screen.js';
+import { initMenu, showMenu, soundChanged, menu, MAP_KINDS } from './client/menu.js';
+import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
 
 let started = false;
-const running = () => started && $('start').hidden && $('leave').hidden && !paused() && !G.over;
-input.enabled = () => started && $('start').hidden && $('leave').hidden && !paused();
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden;
+const running = () => started && !overlay() && !paused() && !G.over;
+input.enabled = () => started && !overlay() && !paused();
 
-/** ?seed=N in the URL plays a fixed map (tests use it); otherwise every game gets a new one. */
-const urlSeed = new URLSearchParams(location.search).get('seed');
+/** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
-  const seed = urlSeed !== null ? +urlSeed | 0 : (Math.random() * 1e9) | 0;
-  resetGame(seed, ui.diff ?? 1);
+  resetGame(menu.seed, menu.diff, menu.kind);
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
@@ -31,7 +31,7 @@ function newGame() {
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
 function quitToTitle() {
-  started = false; $('pause').hidden = true; $('end').hidden = true; $('start').hidden = false; $('btnStart').textContent = 'START GAME';
+  started = false; $('pause').hidden = true; $('end').hidden = true; showMenu();
 }
 
 /** Turn sim events into client effects. */
@@ -51,22 +51,21 @@ function endGame() {
   const win = G.winner === PLAYER;
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
+  $('endMap').innerHTML = `<b>${menu.name}</b>: ${MAP_KINDS[menu.kind].story}`; // the map's secret, told at the end
   const S = G.stats;
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
   $('end').hidden = false; sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
 }
 
 // ---- screens ----
-ui.diff = 1;
-document.querySelectorAll('#diff .ib').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('#diff .ib').forEach(x => x.classList.remove('on')); b.classList.add('on'); ui.diff = +b.dataset.d; }));
-$('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); if ($('btnStart').textContent === 'RESUME') { $('start').hidden = true; last = performance.now(); } else newGame(); });
-$('btnAgain').addEventListener('click', () => { if (touchDevice) enterFullscreen(); newGame(); });
+$('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; showMenu(); }); // back to the menu: a new map, or the same opponent again
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
-$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); if (!audio.muted) sfx('select'); });
-syncSound();
-$('btnHelp').addEventListener('click', () => { $('start').hidden = false; $('btnStart').textContent = started ? 'RESUME' : 'START GAME'; });
+$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); if (!audio.muted) sfx('select'); });
+initMenu({ onStart: newGame, onSound: syncSound });
+$('btnHelp').addEventListener('click', () => { $('help').hidden = false; }); // the game waits while it is open
+$('btnHelpClose').addEventListener('click', () => { last = performance.now(); });
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false;

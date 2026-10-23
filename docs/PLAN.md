@@ -48,6 +48,7 @@ loop feels right.
 - [ ] Hand-authored maps + a tiny map format (JSON); keep the generator for skirmish
 - [x] Sprite art pass (pre-rendered 3D units and buildings, painted terrain)
 - [x] Repair: harvesters restore damaged buildings at construction speed for a quarter of the price (the AI repairs too)
+- [x] Start menu: opponent, sound, three fixed maps (Ashen Basin, Glass Reach, Cinder Divide) with hidden characters (MapKind: standard, deep fields, ether storm, open plains, labyrinth, barren) and a random map; phone tap-to-play splash for full screen
 - [x] Scenery: 3D-rendered props scattered from the map seed (boulders, spires, ruins, wrecks on plateaus; craters and debris on open ground)
 - [ ] Sound design
 - [ ] Replays: record seed + command log, play back through the same sim

@@ -103,9 +103,9 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
-export function resetGame(seed, diff) {
+export function resetGame(seed, diff, map = 0) {
   if (game) { try { game.free(); } catch { /* already unusable */ } }
-  game = new Game(seed >>> 0, diff);
+  game = map ? Game.withMap(seed >>> 0, diff, map) : new Game(seed >>> 0, diff);
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
   M.rock.set(game.rock()); M.shade.set(game.shade());

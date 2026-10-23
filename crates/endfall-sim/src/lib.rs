@@ -67,6 +67,15 @@ impl Game {
         }
     }
 
+    /// A new game on a map of a given character (index into MapKind; unknown = standard).
+    #[wasm_bindgen(js_name = withMap)]
+    pub fn with_map(seed: u32, diff: u32, map: u32) -> Game {
+        Game {
+            w: World::with_map(seed, diff as usize, map::MapKind::from_index(map)),
+            me: data::PLAYER,
+        }
+    }
+
     /// Start a new game on this instance.
     pub fn reset(&mut self, seed: u32, diff: u32) {
         self.w.reset(seed, diff as usize);

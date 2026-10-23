@@ -1,7 +1,7 @@
 // End-to-end gameplay through the real UI in headless Chromium. Run: npm run build && npm run test:e2e
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
+import { start, stop, newGame, until, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -200,6 +200,9 @@ test('a whole game against the AI runs to the end without errors', async () => {
     await d.page.waitForTimeout(400);
     assert.ok(await d.page.locator('#end').isVisible(), 'the end screen shows');
     assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
+    assert.match(await d.page.locator('#endMap').textContent(), /balanced fields/, 'the end screen tells the map story');
+    await d.page.locator('#btnAgain').click();
+    assert.ok(await d.page.locator('#start').isVisible(), 'Play again goes back to the menu');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -410,4 +413,45 @@ test('control groups: Ctrl+number saves the selection, the number recalls it, a 
     assert.equal((await d.selection())[0]?.id, h.id, 'so does its tab');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+test('the menu: three fixed maps and a random one, the opponent and sound; the choices start the game', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const ctx = await browserContext(device);
+    const page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      const touch = !!device.hasTouch, press = (sel) => touch ? page.locator(sel).tap() : page.locator(sel).click();
+      if (touch) {
+        assert.ok(await page.locator('#btnPlay').isVisible(), 'phone: a tap-to-play screen first');
+        await press('#btnPlay');
+      }
+      assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
+      assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
+      await press('#maps .map:nth-child(2)');
+      await press('#diff [data-d="2"]');
+      await press('#btnMenuSound');
+      assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF');
+      await press('#btnStart');
+      await page.waitForFunction(() => endfall.G.units.length > 0);
+      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff]), [1998, 2], 'the chosen map (always the same layout) and opponent');
+      assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
+      // Help opens over the game and the game waits.
+      await press('#btnHelp');
+      const t0 = await page.evaluate(() => endfall.G.time); await page.waitForTimeout(600);
+      assert.equal(await page.evaluate(() => endfall.G.time), t0, 'the game waits while help is open');
+      await press('#btnHelpClose');
+      assert.ok(await page.locator('#help').isHidden());
+      // The choices are remembered.
+      await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+      if (touch) await press('#btnPlay');
+      assert.equal(await page.locator('#diff .ib.on').getAttribute('data-d'), '2', 'opponent remembered');
+      assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF', 'sound choice remembered');
+      // The random map is a new one each game.
+      await press('#maps .map:nth-child(4)'); await press('#btnStart');
+      await page.waitForFunction(() => endfall.G.units.length > 0);
+      assert.ok(![4242, 1998, 2077].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
+    } finally { await ctx.close(); }
+  }
 });

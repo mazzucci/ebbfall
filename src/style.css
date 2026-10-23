@@ -87,6 +87,17 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .card kbd{font:12px var(--mono);background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:0 5px;color:var(--ally2)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
 .diff{display:flex;gap:6px}
+.story{font-size:13px;color:var(--fg);border-left:2px solid var(--ally);padding-left:10px;margin:4px 0 12px} .story b{color:var(--ally2)}
+/* Start menu: one row per choice, map previews to pick from. */
+.card.menu{max-width:560px} .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+.opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
+#maps{display:flex;gap:6px;flex-wrap:wrap} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
+#btnMenuSound.on{border-color:var(--ally);color:var(--ally2)}
+/* Phones: the first screen, whose tap goes full screen. */
+.splash{display:flex;flex-direction:column;align-items:center;gap:14px;background:none;border:0;color:var(--fg);cursor:pointer;padding:40px 60px}
+.splash .t{font:700 38px var(--display);letter-spacing:.24em;color:var(--ally2)}
+.splash .s{font:600 14px var(--display);letter-spacing:.3em;color:var(--fg);border:1px solid var(--ally);border-radius:6px;padding:12px 26px;animation:pulse-warn 1.4s infinite alternate}
+#splash{background:#07090d}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
 .big{font-size:14px;padding:10px 20px;background:var(--ally);color:#1a1205;border-color:var(--ally)}
 .big:hover{background:var(--ally2)}
@@ -136,6 +147,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #minimap{transition:transform .12s ease-out;transform-origin:0 100%} #minimap.big{transform:scale(2);transition:none}
   .tb{padding:7px 10px;font-size:12px} .tb.grp{min-width:42px;min-height:34px}
   .card{padding:14px 16px} .card h1{font-size:22px} .card p,.card li{font-size:12.5px;line-height:1.4}
+  .opt{margin:6px 0} .card.menu .tag{margin-bottom:6px}
 }
 .card.small{max-width:380px}
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}

@@ -7,7 +7,7 @@
 
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
-use crate::map::{Id, Map, idx, in_map};
+use crate::map::{Id, Map, MapKind, idx, in_map};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 
@@ -274,6 +274,8 @@ const GRID: i32 = 32; // spatial hash cells of 64 px over a 2048 px world
 
 pub struct World {
     pub seed: u32,
+    /// The map's character (kept for resets).
+    pub map_kind: MapKind,
     pub diff: usize,
     pub time: f64,
     pub tick: u32,
@@ -305,10 +307,16 @@ pub struct World {
 
 impl World {
     pub fn new(seed: u32, diff: usize) -> World {
+        World::with_map(seed, diff, MapKind::Standard)
+    }
+
+    /// A new game on a map of the given character (World::new is the standard map).
+    pub fn with_map(seed: u32, diff: usize, map_kind: MapKind) -> World {
         let n = (MW * MH) as usize;
         let mut w = World {
             seed,
             diff,
+            map_kind,
             time: 0.0,
             tick: 0,
             units: Vec::new(),
@@ -360,7 +368,7 @@ impl World {
         self.upgrades = [[0; 2]; 2];
         self.alerts.clear();
         self.events.clear();
-        self.map = Map::generate(seed, &mut self.next_id);
+        self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
         for team in [PLAYER, ENEMY] {
             let (bx, by) = BASES[team as usize];
             self.make_building(BldgKind::Core, team, bx, by, true);

@@ -16,10 +16,10 @@ export const ENEMY = 1;
 export const UNITS = {
   harvester: { name: 'Harvester', cost: [50, 0], supply: 1, hp: 40, armor: 0, speed: 96, range: 0.6, dmg: 4, dmgAir: 0, cd: 1, sight: 7, r: 9, build: 12, hot: 'H', melee: true, desc: 'Mines shards and ether. Builds structures.' },
   trooper: { name: 'Trooper', cost: [50, 0], supply: 1, hp: 48, armor: 0, speed: 92, range: 4.5, dmg: 7, dmgAir: 7, cd: 0.8, sight: 8, r: 9, build: 15, hot: 'T', proj: 'bolt', bio: true, desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
-  vanguard: { name: 'Vanguard', cost: [125, 75], supply: 3, hp: 170, armor: 2, speed: 68, range: 6, dmg: 30, dmgAir: 0, cd: 1.7, sight: 9, r: 14, build: 28, hot: 'V', proj: 'shell', desc: 'Heavy walker. Long range, thick plate. Cannot hit flyers.' },
-  lancer: { name: 'Lancer', cost: [75, 25], supply: 1, hp: 60, armor: 0, speed: 88, range: 6, dmg: 5, dmgAir: 22, cd: 1.2, sight: 9, r: 9, build: 18, hot: 'L', proj: 'missile', bio: true, desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
-  medic: { name: 'Medic', cost: [50, 50], supply: 1, hp: 45, armor: 0, speed: 90, range: 0, dmg: 0, dmgAir: 0, cd: 1, sight: 8, r: 9, build: 20, hot: 'M', bio: true, heal: 7, req: 'forge', desc: 'Heals nearby infantry. Unarmed. Requires War Forge.' },
-  wasp: { name: 'Wasp', cost: [100, 75], supply: 2, hp: 90, armor: 0, speed: 150, range: 3, dmg: 8, dmgAir: 0, cd: 0.7, sight: 9, r: 10, build: 24, hot: 'W', proj: 'bolt', air: true, desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.' },
+  vanguard: { name: 'Vanguard', cost: [125, 75], supply: 3, hp: 170, armor: 2, speed: 68, range: 6, dmg: 30, dmgAir: 0, cd: 1.7, sight: 9, r: 14, build: 28, hot: 'V', proj: 'shell', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.' },
+  lancer: { name: 'Lancer', cost: [75, 25], supply: 1, hp: 60, armor: 0, speed: 88, range: 6, dmg: 5, dmgAir: 30, cd: 1.2, sight: 9, r: 9, build: 18, hot: 'L', proj: 'missile', bio: true, desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
+  medic: { name: 'Medic', cost: [40, 20], supply: 1, hp: 45, armor: 0, speed: 90, range: 0, dmg: 0, dmgAir: 0, cd: 1, sight: 8, r: 9, build: 20, hot: 'M', bio: true, heal: 14, req: 'forge', desc: 'Heals nearby infantry. Unarmed. Requires War Forge.' },
+  wasp: { name: 'Wasp', cost: [100, 50], supply: 2, hp: 140, armor: 0, speed: 150, range: 3, dmg: 14, dmgAir: 0, cd: 0.7, sight: 9, r: 10, build: 24, hot: 'W', proj: 'bolt', air: true, desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.' },
 };
 
 export const BUILDINGS = {

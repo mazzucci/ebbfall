@@ -50,6 +50,11 @@ loop feels right.
 - [x] Repair: harvesters restore damaged buildings at construction speed for a quarter of the price (the AI repairs too)
 - [x] Start menu: opponent, sound, three fixed maps (Ashen Basin, Glass Reach, Cinder Divide) with hidden characters (MapKind: standard, deep fields, ether storm, open plains, labyrinth, barren) and a random map; phone tap-to-play splash for full screen
 - [x] Scenery: 3D-rendered props scattered from the map seed (boulders, spires, ruins, wrecks on plateaus; craters and debris on open ground)
+- [x] Balance pass (2026-10-23): cost-equal duel matrix (`balance_matrix`, ignored test; `duel()` plays both ways round).
+  Troopers used to win every fight; now Vanguard shells splash (60% within 40 px), Wasps are tougher and cheaper
+  (140 hp, 14 dmg, 100/50), Lancers hit air harder (30), Medics are cheaper and heal faster (40/20, 14/s). The loop:
+  Troopers > Lancers, Wasps; Vanguards >= Troopers, > Lancers; Wasps > Vanguards and, at scale, Trooper+Vanguard;
+  Lancers > Wasps. `the_counters_hold_in_cost_equal_fights` guards it. Medics pay off over several fights, not one.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

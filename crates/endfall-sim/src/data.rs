@@ -196,6 +196,10 @@ const HARVESTER: UnitDef = UnitDef {
     melee: true,
     ..UNIT
 };
+/// A Vanguard shell also hits walking units of the target's side within this many px, for this share of its damage.
+pub const SHELL_SPLASH_R: f64 = 40.0;
+pub const SHELL_SPLASH: f64 = 0.6;
+
 const TROOPER: UnitDef = UnitDef {
     key: "trooper",
     cost: [50, 0],
@@ -235,7 +239,7 @@ const LANCER: UnitDef = UnitDef {
     speed: 88.0,
     range: 6.0,
     dmg: 5.0,
-    dmg_air: 22.0,
+    dmg_air: 30.0,
     cd: 1.2,
     sight: 9.0,
     build: 18.0,
@@ -246,23 +250,23 @@ const LANCER: UnitDef = UnitDef {
 };
 const MEDIC: UnitDef = UnitDef {
     key: "medic",
-    cost: [50, 50],
+    cost: [40, 20],
     hp: 45.0,
     speed: 90.0,
     build: 20.0,
     bio: true,
-    heal: 7.0,
+    heal: 14.0,
     req: Some(BldgKind::Forge),
     ..UNIT
 };
 const WASP: UnitDef = UnitDef {
     key: "wasp",
-    cost: [100, 75],
+    cost: [100, 50],
     supply: 2,
-    hp: 90.0,
+    hp: 140.0,
     speed: 150.0,
     range: 3.0,
-    dmg: 8.0,
+    dmg: 14.0,
     cd: 0.7,
     sight: 9.0,
     r: 10.0,

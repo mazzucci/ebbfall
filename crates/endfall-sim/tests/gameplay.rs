@@ -521,14 +521,17 @@ fn lancers_troopers_and_turrets_shoot_flyers_down() {
 }
 
 #[test]
-fn a_lancer_beats_a_wasp_up_close() {
+fn two_lancers_beat_a_wasp_up_close() {
+    // (two Lancers cost about what one Wasp does)
     let mut w = arena(10);
     let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 900.0);
+    let other = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 930.0);
     let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 660.0, 900.0);
     w.attack_ent(wasp, lancer);
+    w.attack_ent(other, wasp);
     run(&mut w, 20);
     assert!(
-        w.unit(wasp).is_none() && w.unit(lancer).is_some(),
+        w.unit(wasp).is_none() && (w.unit(lancer).is_some() || w.unit(other).is_some()),
         "anti-air wins its duel"
     );
 }
@@ -641,12 +644,12 @@ fn the_ai_answers_flyers_with_lancers() {
     run(&mut w, 150); // let it build a barracks
     let (cx, cy) = core(&w, ENEMY);
     for k in 0..3 {
-        // parked by the AI's core, where it can see them
+        // parked in sight of the AI's base but out of reach of its buildings (watching, not raiding)
         let id = w.make_unit(
             UnitKind::Wasp,
             PLAYER,
-            (cx as f64 - 3.0) * TILE - k as f64 * 30.0,
-            (cy as f64 + 6.0) * TILE,
+            (cx as f64 - 7.0) * TILE - k as f64 * 30.0,
+            (cy as f64 + 9.0) * TILE,
         );
         w.hold_unit(id);
     }
@@ -2051,6 +2054,112 @@ fn every_weapon_reports_its_shots_for_the_sound() {
                 .iter()
                 .any(|&(wp, x)| wp == weapon && (x - 600.0).abs() < 40.0),
             "{shooter:?}: a {weapon} shot from where it stands, heard: {heard:?}"
+        );
+    }
+}
+
+/// Two cost-equal armies (shards + 2 x ether, about `budget`) meet in the open; returns the winner's surviving value
+/// share (+ = side A won, - = side B won, 0 = draw after 90 s).
+/// Played both ways round (who spawns first, and so updates first, matters), averaged: a mirror match is 0.
+fn duel(a: &[UnitKind], b: &[UnitKind], budget: f64) -> f64 {
+    (duel_once(a, b, budget) - duel_once(b, a, budget)) / 2.0
+}
+
+fn duel_once(a: &[UnitKind], b: &[UnitKind], budget: f64) -> f64 {
+    let value = |k: UnitKind| k.def().cost[0] as f64 + 2.0 * k.def().cost[1] as f64;
+    let mut w = arena(16);
+    let spawn = |w: &mut World, mix: &[UnitKind], team: u8, x: f64| -> Vec<Id> {
+        let per: f64 = mix.iter().map(|&k| value(k)).sum();
+        let n = (budget / per).round().max(1.0) as usize;
+        let mut ids = Vec::new();
+        for i in 0..n {
+            for (j, &k) in mix.iter().enumerate() {
+                let y = 700.0 + ((i * mix.len() + j) as f64) * 22.0;
+                ids.push(w.make_unit(k, team, x + ((i + j) % 3) as f64 * 18.0, y));
+            }
+        }
+        ids
+    };
+    let ia = spawn(&mut w, a, PLAYER, 500.0);
+    let ib = spawn(&mut w, b, ENEMY, 800.0);
+    for &u in &ia {
+        w.attack_move(u, 900.0, 900.0);
+    }
+    for &u in &ib {
+        w.attack_move(u, 400.0, 900.0);
+    }
+    let alive = |w: &World, ids: &[Id]| {
+        ids.iter()
+            .filter_map(|&i| w.unit(i))
+            .map(|u| value(u.kind) * u.hp / u.maxhp)
+            .sum::<f64>()
+    };
+    let (sa, sb) = (alive(&w, &ia), alive(&w, &ib));
+    for _ in 0..90 * TPS {
+        w.step();
+        if alive(&w, &ia) < 1.0 || alive(&w, &ib) < 1.0 {
+            break;
+        }
+    }
+    let (ra, rb) = (alive(&w, &ia) / sa, alive(&w, &ib) / sb);
+    if ra > 0.0 && rb > 0.0 {
+        ra - rb
+    } else if ra > 0.0 {
+        ra
+    } else {
+        -rb
+    }
+}
+
+#[test]
+#[ignore]
+fn balance_matrix() {
+    use UnitKind::*;
+    let armies: [(&str, &[UnitKind]); 7] = [
+        ("trooper", &[Trooper]),
+        ("vanguard", &[Vanguard]),
+        ("lancer", &[Lancer]),
+        ("wasp", &[Wasp]),
+        ("trp+medic", &[Trooper, Trooper, Trooper, Trooper, Medic]),
+        ("trp+vang", &[Trooper, Trooper, Vanguard]),
+        ("lancer+trp", &[Lancer, Trooper]),
+    ];
+    for budget in [600.0, 1500.0] {
+        println!("budget {budget}");
+        for (na, a) in armies {
+            let row: Vec<String> = armies
+                .iter()
+                .map(|(_, b)| format!("{:+.2}", duel(a, b, budget)))
+                .collect();
+            println!("{na:>11} {}", row.join(" "));
+        }
+    }
+}
+
+#[test]
+fn the_counters_hold_in_cost_equal_fights() {
+    use UnitKind::*;
+    for budget in [600.0, 1500.0] {
+        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
+        assert!(
+            d(&[Lancer], &[Wasp]) > 0.3,
+            "{budget}: Lancers shoot down Wasps"
+        );
+        assert!(
+            d(&[Wasp], &[Vanguard]) > 0.8,
+            "{budget}: Wasps beat Vanguards (which cannot shoot up)"
+        );
+        assert!(
+            d(&[Trooper], &[Lancer]) > 0.5,
+            "{budget}: Lancers are weak against the ground"
+        );
+        assert!(
+            d(&[Vanguard], &[Trooper]) > 0.0,
+            "{budget}: splashing shells beat massed Troopers"
+        );
+        assert!(
+            d(&[Trooper, Trooper, Vanguard], &[Trooper]) > 0.2,
+            "{budget}: combined arms beat Trooper spam"
         );
     }
 }

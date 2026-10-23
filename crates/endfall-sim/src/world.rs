@@ -2236,7 +2236,28 @@ impl World {
             let d = dist(p.x, p.y, tp.0, tp.1);
             let mv = p.speed * dt;
             if d <= mv + t.r() * 0.3 {
+                // A shell also hurts the target's walking neighbours (splash: the counter to clumped infantry).
+                let splash: Vec<Id> = if p.kind == ProjKind::Shell {
+                    let team = self.team_of(p.target);
+                    self.units
+                        .iter()
+                        .filter(|u| {
+                            u.id != p.target
+                                && Some(u.team) == team
+                                && !u.kind.def().air
+                                && dist(u.x, u.y, tp.0, tp.1) < SHELL_SPLASH_R
+                        })
+                        .map(|u| u.id)
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 self.damage(p.target, p.dmg, Some(p.by));
+                for s in splash {
+                    if self.unit(s).is_some() {
+                        self.damage(s, p.dmg * SHELL_SPLASH, Some(p.by));
+                    }
+                }
                 self.emit(Event::Hit {
                     x: tp.0,
                     y: tp.1,

@@ -1778,7 +1778,7 @@ impl World {
                         } else {
                             bd.maxhp.min(bd.hp)
                         };
-                        let (bteam, name) = (bd.team, bd.kind.def().name);
+                        let (bteam, name, vent) = (bd.team, bd.kind.def().name, bd.vent);
                         self.recalc_supply(bteam);
                         if bteam == PLAYER {
                             self.toast(format!("{} complete", name), false);
@@ -1790,10 +1790,12 @@ impl World {
                             .filter(|o| o.id != uid && o.task == (Task::Build { b }))
                             .map(|o| o.id)
                             .collect();
-                        for o in others {
-                            self.resume_after(o);
+                        // The crew of a new Extractor starts mining its ether; other builders go back to their work.
+                        for o in others.into_iter().chain([uid]) {
+                            if !vent.is_some_and(|v| self.start_gather(o, v)) {
+                                self.resume_after(o);
+                            }
                         }
-                        self.resume_after(uid);
                     }
                 }
             }

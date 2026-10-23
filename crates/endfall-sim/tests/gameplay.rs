@@ -130,11 +130,15 @@ fn every_building_and_unit_can_be_made() {
         ];
         w.queue_unit(core_id, UnitKind::Harvester).unwrap();
         w.queue_unit(rax, UnitKind::Trooper).unwrap();
-        w.queue_unit(forge, UnitKind::Vanguard).unwrap();
+        w.queue_unit(rax, UnitKind::Vanguard).unwrap(); // (the Forge unlocks it at the Barracks)
+        assert!(
+            w.queue_unit(forge, UnitKind::Vanguard).is_err(),
+            "the Forge researches, it does not train"
+        );
         w.queue_unit(rax, UnitKind::Lancer).unwrap();
         w.queue_unit(rax, UnitKind::Medic).unwrap();
         w.queue_unit(airfield, UnitKind::Wasp).unwrap();
-        run(&mut w, 70);
+        run(&mut w, 100);
         for k in [UnitKind::Lancer, UnitKind::Medic, UnitKind::Wasp] {
             assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
         }
@@ -333,9 +337,10 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     while !w.bldg(rax).unwrap().done {
         w.step();
     }
-    assert!(
-        w.queue_unit(rax, UnitKind::Vanguard).is_err(),
-        "a barracks does not train vanguards"
+    assert_eq!(
+        w.queue_unit(rax, UnitKind::Vanguard),
+        Err("Requires War Forge".into()),
+        "a barracks trains vanguards only once a War Forge stands"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
     let depot = build(&mut w, BldgKind::Depot, h[1], 90);
@@ -570,14 +575,17 @@ fn medics_walk_to_hurt_infantry_they_can_see() {
 }
 
 #[test]
-fn medics_need_a_forge_and_airfields_need_a_forge() {
+fn medics_vanguards_and_airfields_need_a_forge() {
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
-    assert_eq!(
-        w.queue_unit(rax, UnitKind::Medic),
-        Err("Requires War Forge".into())
-    );
+    for k in [UnitKind::Medic, UnitKind::Vanguard] {
+        assert_eq!(
+            w.queue_unit(rax, k),
+            Err("Requires War Forge".into()),
+            "{k:?}"
+        );
+    }
     let (tx, ty) = spot(&w, BldgKind::Airfield);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
@@ -585,6 +593,7 @@ fn medics_need_a_forge_and_airfields_need_a_forge() {
     );
     build(&mut w, BldgKind::Forge, h[1], 120);
     assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
+    assert!(w.queue_unit(rax, UnitKind::Vanguard).is_ok());
 }
 
 #[test]
@@ -2452,4 +2461,46 @@ fn a_spare_medic_stays_put_while_another_heals() {
         "the second Medic does not shuffle onto the patient"
     );
     assert!(w.unit(t).unwrap().hp > 30.0, "the patient is healed");
+}
+
+#[test]
+fn the_builder_of_an_extractor_starts_mining_its_ether() {
+    let mut w = rich(5);
+    let h = harvesters(&w, PLAYER);
+    let ext = build(&mut w, BldgKind::Extractor, h[0], 90);
+    let vent = w.bldg(ext).unwrap().vent.expect("on a vent");
+    run(&mut w, 1);
+    assert!(
+        matches!(w.unit(h[0]).unwrap().task, Task::Gather { node, .. } if node == vent),
+        "the builder mines the new Extractor: {:?}",
+        w.unit(h[0]).unwrap().task
+    );
+    // ... and a builder of anything else goes back to what it was doing.
+    let depot = build(&mut w, BldgKind::Depot, h[1], 90);
+    run(&mut w, 1);
+    assert!(w.bldg(depot).is_some());
+    assert!(
+        matches!(w.unit(h[1]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+        "a Depot's builder goes back to the shards: {:?}",
+        w.unit(h[1]).unwrap().task
+    );
+}
+
+#[test]
+fn the_ai_fields_vanguards_from_its_barracks() {
+    let mut w = World::new(2, 1);
+    for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        b.hp = 1e9;
+        b.maxhp = 1e9;
+    }
+    run(&mut w, 330);
+    let (v, t) = (
+        count(&w, ENEMY, UnitKind::Vanguard),
+        count(&w, ENEMY, UnitKind::Trooper),
+    );
+    assert!(v >= 1, "the AI trains Vanguards once its Forge stands");
+    assert!(
+        v * 2 <= t + 2,
+        "about one Vanguard per two Troopers: {v} Vanguards, {t} Troopers"
+    );
 }

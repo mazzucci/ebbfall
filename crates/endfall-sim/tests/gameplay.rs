@@ -2453,3 +2453,26 @@ fn a_spare_medic_stays_put_while_another_heals() {
     );
     assert!(w.unit(t).unwrap().hp > 30.0, "the patient is healed");
 }
+
+#[test]
+fn the_builder_of_an_extractor_starts_mining_its_ether() {
+    let mut w = rich(5);
+    let h = harvesters(&w, PLAYER);
+    let ext = build(&mut w, BldgKind::Extractor, h[0], 90);
+    let vent = w.bldg(ext).unwrap().vent.expect("on a vent");
+    run(&mut w, 1);
+    assert!(
+        matches!(w.unit(h[0]).unwrap().task, Task::Gather { node, .. } if node == vent),
+        "the builder mines the new Extractor: {:?}",
+        w.unit(h[0]).unwrap().task
+    );
+    // ... and a builder of anything else goes back to what it was doing.
+    let depot = build(&mut w, BldgKind::Depot, h[1], 90);
+    run(&mut w, 1);
+    assert!(w.bldg(depot).is_some());
+    assert!(
+        matches!(w.unit(h[1]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+        "a Depot's builder goes back to the shards: {:?}",
+        w.unit(h[1]).unwrap().task
+    );
+}

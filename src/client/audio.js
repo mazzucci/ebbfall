@@ -20,9 +20,11 @@ function ctx() {
     noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
-  if (actx.state === 'suspended') actx.resume();
+  if (actx.state !== 'running') actx.resume().catch(() => {}); // also iOS's 'interrupted' (a call, another app)
   return actx;
 }
+// After an interruption, the next touch or click brings the sound back.
+addEventListener('pointerdown', () => { if (actx && actx.state !== 'running' && !audio.muted) actx.resume().catch(() => {}); }, true);
 
 /** Where a sound sits: [gain 0..1, pan -1..1] from its world position (none = in the player's ear). */
 function place(at) {
@@ -30,7 +32,7 @@ function place(at) {
   if (!v) return [1, 0];
   const cx = v.x + v.w / 2, cy = v.y + v.h / 2, dx = at.x - cx, dy = at.y - cy;
   const out = Math.max(0, Math.hypot(dx / (v.w * 0.6), dy / (v.h * 0.6)) - 1); // 0 on screen, grows off it
-  return [Math.max(0, 1 / (1 + out * 2.5) - 0.06), Math.max(-1, Math.min(1, dx / (v.w * 0.7)))];
+  return [Math.max(0, 1 / (1 + out * 2.5) - 0.06), Math.max(-0.8, Math.min(0.8, dx / (v.w * 0.7)))]; // never all in one ear
 }
 
 /** One voice: a tone or a noise burst, enveloped, into a bus. */
@@ -53,9 +55,9 @@ const VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard:
 
 const SFX = {
   // interface
-  select: (b, t, o) => { const p = VOICE[o.unit] || 600; tone(b, t, { f: p, to: p * 1.25, dur: 0.05, type: 'square', vol: 0.035 }); tone(b, t, { f: p * 1.5, dur: 0.05, type: 'square', vol: 0.03, delay: 0.055 }); },
-  move: (b, t, o) => { const p = VOICE[o.unit] || 520; tone(b, t, { f: p * 1.2, to: p, dur: 0.07, type: 'triangle', vol: 0.06 }); noise(b, t, { dur: 0.05, vol: 0.012, filter: 'bandpass', f: 2500, q: 2 }); },
-  attack: (b, t, o) => { const p = (VOICE[o.unit] || 480) * 0.8; tone(b, t, { f: p, to: p * 0.6, dur: 0.1, type: 'sawtooth', vol: 0.05 }); tone(b, t, { f: p * 0.6, dur: 0.08, type: 'sawtooth', vol: 0.04, delay: 0.09 }); },
+  select: (b, t, o) => { const p = VOICE[o.unit] || 600; tone(b, t, { f: p, to: p * 1.25, dur: 0.05, type: 'square', vol: 0.06 }); tone(b, t, { f: p * 1.5, dur: 0.05, type: 'square', vol: 0.05, delay: 0.055 }); },
+  move: (b, t, o) => { const p = VOICE[o.unit] || 520; tone(b, t, { f: p * 1.2, to: p, dur: 0.07, type: 'triangle', vol: 0.09 }); noise(b, t, { dur: 0.05, vol: 0.02, filter: 'bandpass', f: 2500, q: 2 }); },
+  attack: (b, t, o) => { const p = (VOICE[o.unit] || 480) * 0.8; tone(b, t, { f: p, to: p * 0.6, dur: 0.1, type: 'sawtooth', vol: 0.07 }); tone(b, t, { f: p * 0.6, dur: 0.08, type: 'sawtooth', vol: 0.06, delay: 0.09 }); },
   build: (b, t) => { tone(b, t, { f: 400, to: 600, dur: 0.08, type: 'triangle', vol: 0.06 }); noise(b, t, { dur: 0.06, vol: 0.03, filter: 'highpass', f: 3000, delay: 0.03 }); },
   error: (b, t) => { tone(b, t, { f: 170, dur: 0.09, type: 'square', vol: 0.05 }); tone(b, t, { f: 150, dur: 0.11, type: 'square', vol: 0.05, delay: 0.11 }); },
   alert: (b, t) => { for (let k = 0; k < 2; k++) { tone(b, t, { f: 620, to: 940, dur: 0.16, type: 'square', vol: 0.05, delay: k * 0.34 }); tone(b, t, { f: 940, to: 620, dur: 0.16, type: 'square', vol: 0.05, delay: k * 0.34 + 0.17 }); } },
@@ -63,6 +65,9 @@ const SFX = {
   done: (b, t) => [523, 659, 784].forEach((f, k) => tone(b, t, { f, dur: 0.22, type: 'triangle', vol: 0.07, delay: k * 0.09 })),
   ready: (b, t) => { tone(b, t, { f: 440, dur: 0.08, type: 'triangle', vol: 0.05 }); tone(b, t, { f: 660, dur: 0.12, type: 'triangle', vol: 0.05, delay: 0.08 }); },
   coin: (b, t) => tone(b, t, { f: 1500, to: 1900, dur: 0.035, type: 'sine', vol: 0.018 }),
+  // a unit of ours lost (heard wherever it falls), an enemy killed
+  lost: (b, t) => { tone(b, t, { f: 330, to: 165, dur: 0.24, type: 'triangle', vol: 0.06 }); tone(b, t, { f: 247, to: 124, dur: 0.24, type: 'triangle', vol: 0.04, delay: 0.05 }); },
+  kill: (b, t) => tone(b, t, { f: 220, to: 110, dur: 0.1, type: 'square', vol: 0.025 }),
   // weapons
   bolt: (b, t) => { tone(b, t, { f: 1700, to: 420, dur: 0.07, type: 'square', vol: 0.03 }); noise(b, t, { dur: 0.04, vol: 0.015, filter: 'highpass', f: 4000 }); },
   shell: (b, t) => { tone(b, t, { f: 110, to: 40, dur: 0.22, type: 'sine', vol: 0.14 }); noise(b, t, { dur: 0.18, vol: 0.08, filter: 'lowpass', f: 900, to: 200 }); },
@@ -79,7 +84,8 @@ const SFX = {
 };
 
 /** Minimum gap between two of the same effect (ms): busy fights stay readable. */
-const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70 };
+const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120 };
+const lastGain = {};
 
 /**
  * Play an effect. `o` may carry a world position ({ x, y }: panned and faded by the camera), a unit type
@@ -88,12 +94,14 @@ const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70 };
 export function sfx(name, o = {}) {
   if (audio.muted) return;
   const recipe = SFX[name]; if (!recipe) return;
-  const now = performance.now(); if (last[name] && now - last[name] < (GAP[name] ?? 60)) return;
+  const now = performance.now();
   try {
-    ctx();
     const [g, pan] = place(o.x === undefined ? null : o);
     if (g <= 0.01) return; // too far to hear
-    last[name] = now;
+    // One of a kind per short gap, unless this one is louder (an on-screen shot beats a distant one).
+    if (last[name] && now - last[name] < (GAP[name] ?? 60) && g <= lastGain[name]) return;
+    last[name] = now; lastGain[name] = g;
+    ctx();
     const bus = actx.createGain(); bus.gain.value = g;
     if (pan && actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pan; bus.connect(p).connect(master); } else bus.connect(master);
     recipe(bus, actx.currentTime, o);
@@ -107,7 +115,7 @@ function startWind() {
   const n = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(), lfo = actx.createOscillator(), depth = actx.createGain();
   n.buffer = noiseBuf; n.loop = true; f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 0.7;
   lfo.frequency.value = 0.07; depth.gain.value = 180; lfo.connect(depth).connect(f.frequency);
-  g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.018, actx.currentTime + 3);
+  g.gain.setValueAtTime(0.0001, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.03, actx.currentTime + 3);
   n.connect(f).connect(g).connect(master); n.start(); lfo.start();
   wind = { n, lfo, g };
 }

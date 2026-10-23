@@ -1,17 +1,20 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, PLAYER, resetGame, step, fmt, setResources } from './engine/index.js';
+import { G, DT, PLAYER, TILE, idx, resetGame, step, fmt, setResources } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, soundToggled } from './client/audio.js';
-audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
 import { setIconButton } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, menu, MAP_KINDS } from './client/menu.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+
+audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
+/** Sounds of things in the fog are not heard (the player cannot see them either). */
+const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
 
 let started = false;
 const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden;
@@ -41,8 +44,8 @@ function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
-    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); sfx('boom', e); }
-    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); sfx('hit', e); }
+    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
+    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty);
     else if (e.t === 'attacked') onAttacked(e);

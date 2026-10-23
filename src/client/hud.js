@@ -49,7 +49,7 @@ export function updateHud() {
   const sel = ui.sel, name = $('selName'), sub = $('selSub'), stats = $('stats'), q = $('queue'), grp = $('group'), hb = $('hpBar');
   if (!sel.length) {
     name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; hb.hidden = true; $('selPor').innerHTML = ''; selKey = '';
-    stats.innerHTML = ''; q.innerHTML = ''; q.dataset.k = ''; grp.innerHTML = ''; grp.dataset.k = ''; $('selMiniName').textContent = ''; $('selMiniHp').textContent = '';
+    stats.innerHTML = ''; renderQueue(q, null); renderQueue($('selQueue'), null); grp.innerHTML = ''; grp.dataset.k = ''; $('selMiniName').textContent = ''; $('selMiniHp').textContent = '';
   } else if (sel.length === 1 && sel[0].kind === 'node') {
     // A resource field: what is left and who mines it.
     const n = sel[0], ether = n.type === 'ether', left = ether ? 'ether' : 'shards';
@@ -58,7 +58,7 @@ export function updateHud() {
     sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : `${n.amount} ${left} left`;
     hb.hidden = false; $('hpFill').style.width = (n.max ? n.amount / n.max * 100 : 0) + '%'; $('hpFill').style.background = `var(--${ether ? 'ether' : 'shard'})`;
     stats.innerHTML = `<span>Left <b>${n.amount}</b></span><span>Harvesters <b>${n.miners}</b></span>`;
-    q.innerHTML = ''; q.dataset.k = ''; grp.innerHTML = ''; grp.dataset.k = '';
+    renderQueue(q, null); renderQueue($('selQueue'), null); grp.innerHTML = ''; grp.dataset.k = '';
     $('selMiniName').textContent = name.textContent; $('selMiniHp').textContent = `${n.amount} left`;
   } else if (sel.length === 1) {
     const x = sel[0];
@@ -73,15 +73,14 @@ export function updateHud() {
     if (x.d.heal) st += `<span>Heals <b>${x.d.heal}/s</b></span>`;
     if (x.kind === 'unit' && x.carry) st += `<span>Carrying <b>${x.carry} ${x.carryType}</b></span>`;
     stats.innerHTML = st;
-    const qk = x.kind === 'bldg' ? x.queue.join() : '';
-    if (q.dataset.k !== qk) { q.dataset.k = qk; q.innerHTML = qk ? '<div class="bar prod" style="flex:1 1 100%"><i></i></div>' + x.queue.map(t => `<div class="qi" title="${UNITS[t].name}">${portrait('unit', t, 26)}</div>`).join('') : ''; }
-    if (qk) q.querySelector('.prod i').style.width = (x.prog * 100) + '%';
+    const own = x.kind === 'bldg' && x.team === PLAYER;
+    renderQueue(q, own ? x : null, 26); renderQueue($('selQueue'), own ? x : null, 28);
     grp.innerHTML = ''; grp.dataset.k = '';
     $('selMiniName').textContent = x.d.name;
     $('selMiniHp').textContent = (x.kind === 'bldg' && x.team === PLAYER && bldgStatus(x)) || Math.ceil(x.hp) + '/' + x.maxhp;
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
-    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; q.innerHTML = ''; q.dataset.k = '';
+    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; renderQueue(q, null); renderQueue($('selQueue'), null);
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     hb.hidden = true; stats.innerHTML = '';
     const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
@@ -176,11 +175,53 @@ function buildCard() {
     b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
     b.innerHTML = `<span class="k">${it.key}</span><span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
-    b.addEventListener('pointerdown', ev => ev.stopPropagation());
-    b.addEventListener('click', () => { doCommand(it.id); cardKey = ''; updateHud(); }); // immediate feedback, even on slow frames
+    b.addEventListener('pointerdown', ev => {
+      ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
+      if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it, b); }, 450);
+    });
+    const release = () => { clearTimeout(press.timer); if (press.held) setTimeout(hideDetail, 1200); };
+    b.addEventListener('pointerup', release); b.addEventListener('pointercancel', release); b.addEventListener('pointerleave', release);
+    b.addEventListener('contextmenu', ev => ev.preventDefault()); // (the long-press menu of the browser)
+    b.addEventListener('click', () => {
+      if (press.held === it.id) { press.held = ''; return; } // a long-press shows the details; it does not press the button
+      hideDetail(); doCommand(it.id); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
+    });
     c.appendChild(b);
   }
 }
+
+/**
+ * A building's production queue: a progress bar and one button per unit; a click or tap cancels that unit (full
+ * refund). Used by the selection panel and, on phones, by the strip under the selection label.
+ */
+function renderQueue(box, b, size = 26) {
+  if (!box) return;
+  const key = b && b.queue.length ? b.id + ':' + b.queue.join() : '';
+  if (box.dataset.k !== key) {
+    box.dataset.k = key;
+    box.innerHTML = key ? '<div class="bar prod"><i></i></div>' + b.queue.map((t, i) =>
+      `<button class="qi" data-i="${i}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span></button>`).join('') : '';
+  }
+  if (key) box.querySelector('.prod i').style.width = (b.prog * 100) + '%';
+}
+function queueClick(ev) {
+  const q = ev.target.closest('.qi'); if (!q) return;
+  ev.stopPropagation();
+  const b = playerSel().find(x => x.kind === 'bldg'); if (!b) return;
+  cancelQueue(b, +q.dataset.i); sfx('select'); updateHud();
+}
+for (const id of ['queue', 'selQueue']) { const el = $(id); if (el) { el.addEventListener('click', queueClick); el.addEventListener('pointerdown', ev => ev.stopPropagation()); } }
+
+// ---- long-press on a command button (touch): what it is, what it costs, what it needs ----
+const press = { timer: 0, held: '' };
+function showDetail(it, btn) {
+  const box = $('cmdInfo'), r = btn.closest('#cmd').getBoundingClientRect();
+  const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''} ${it.cost[1] ? `<i class="dot ether"></i>${it.cost[1]}` : ''}</span>` : '';
+  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>`;
+  box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px'; box.style.maxWidth = Math.max(220, r.width) + 'px';
+  box.hidden = false;
+}
+const hideDetail = () => { $('cmdInfo').hidden = true; };
 
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');

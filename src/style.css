@@ -55,8 +55,15 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .bar.prod i{background:var(--ally)}
 #stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:4px 10px;font:12px var(--mono);color:var(--muted)}
 #stats b{color:var(--fg);font-weight:400}
-#queue{display:flex;gap:4px;flex-wrap:wrap}
-.qi{width:32px;height:32px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 11px var(--display);color:var(--ally2)}
+#queue{display:flex;gap:4px;flex-wrap:wrap} #queue .bar.prod,#selQueue .bar.prod{flex:1 1 100%}
+/* Queued units: a tap or click cancels one (a small ✕ shows they can be cancelled). */
+.qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
+.qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
+#selQueue{display:none;position:absolute;left:8px;top:40px;gap:4px;flex-wrap:wrap;max-width:46%;z-index:3}
+#selQueue:empty{display:none!important} #selQueue .qi{width:36px;height:36px;background:rgba(18,26,37,.9)}
+#cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:6px;height:6px}
+#cmdInfo .d{flex:1 1 100%;color:var(--muted)}
 #group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start}
 .gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
@@ -109,7 +116,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #minimap{width:156px;height:156px}
   #info{display:none}
   #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:1}
-  #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
+  #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none} #selQueue{display:flex}
 }
 #upg{gap:10px;font-size:12px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:3px}
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
@@ -137,7 +144,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #cmd{grid-template-columns:repeat(4,56px);grid-auto-rows:52px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
-  #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none}
+  #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none} #selQueue{display:flex}
   #hint{left:126px;bottom:14px}
   /* SELECT sits above the minimap, under the left thumb, so the right hand can drag the box. */
   #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);

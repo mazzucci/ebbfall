@@ -76,7 +76,10 @@ test('medics wait for a forge, and a wasp flies straight across the map', async 
     const wasp = await until(d, async () => mine(await d.state(), 'wasp')[0], { seconds: 40, what: 'a wasp' });
     // Fly it to the far side of the map: a flyer goes straight, so it covers ~1300 px in under 12 s.
     await d.clickEntity(wasp.id);
-    const target = { x: wasp.x + 900, y: wasp.y - 900 };
+    // Straight across the map (through the centre, wherever the bases are), over whatever rock lies between.
+    const W = await d.eval(() => endfall.engine.WW), H = await d.eval(() => endfall.engine.WH);
+    const dx = W / 2 - wasp.x, dy = H / 2 - wasp.y, len = Math.hypot(dx, dy) || 1; // 1300 px towards (and past) the centre
+    const target = { x: Math.round(wasp.x + dx / len * 1300), y: Math.round(wasp.y + dy / len * 1300) };
     await d.rightClickWorld(target.x, target.y);
     await d.skip(10);
     const now = (await d.state()).units.find(u => u.id === wasp.id);
@@ -390,8 +393,8 @@ test('a resource field can be selected to see what is left (desktop click, phone
       assert.match(await d.hudText(d.touch ? '#selMiniHp' : '#selSub', /left/), new RegExp(`^${left} (shards )?left`), 'shows what is left');
       assert.ok((await d.card()).some(c => c.label === 'Deselect'), 'a Deselect button for the field');
       if (!d.touch) assert.match(await d.hudText('#selName', /Shard field/), /Shard field/);
-      // Ether vents too.
-      const vent = s.nodes.find(n => n.type === 'ether');
+      // Ether vents too (the player's own: in sight).
+      const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
       await d.clickWorld(vent.x, vent.y);
       assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the vent is selected');
       assert.match(await d.hudText(d.touch ? '#selMiniName' : '#selName', /Ether vent/), /Ether vent/);

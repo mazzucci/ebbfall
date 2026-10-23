@@ -45,11 +45,15 @@ test('phone: one finger pans the map without selecting; a flick glides and a tap
     const c1 = await cam(d), z = await d.eval(() => endfall.cam.zoom), moved = c1.x - c0.x;
     assert.ok(Math.abs(moved - box.width * 0.2 / z) < 25, `the view follows the finger: moved ${moved.toFixed(0)}, expected ${(box.width * 0.2 / z).toFixed(0)}`);
     assert.equal((await d.selection()).length, 0, 'a pan selects nothing');
-    // Fast flick (away from the map edge): the camera keeps going after the finger lifts.
-    await swipe(d, [box.x + box.width * 0.65, y], [box.x + box.width * 0.35, y], { steps: 4, ms: 8 });
+    // Fast flick towards the middle of the map (away from the edge it could stop against): the camera keeps going.
+    const W = await d.eval(() => endfall.engine.WW), zoom = await d.eval(() => endfall.cam.zoom), c = await cam(d);
+    const right = c.x + box.width / zoom / 2 < W / 2; // the camera should travel right
+    const [f0, f1] = right ? [0.65, 0.35] : [0.35, 0.65];
+    await swipe(d, [box.x + box.width * f0, y], [box.x + box.width * f1, y], { steps: 4, ms: 8 });
     const a = await cam(d); let b = a;
-    for (let i = 0; i < 15 && b.x <= a.x + 5; i++) { await d.page.waitForTimeout(100); b = await cam(d); } // frames are slow here
-    assert.ok(b.x > a.x + 5, `the camera glides on: ${a.x.toFixed(0)} -> ${b.x.toFixed(0)}`);
+    const glided = () => right ? b.x > a.x + 5 : b.x < a.x - 5;
+    for (let i = 0; i < 15 && !glided(); i++) { await d.page.waitForTimeout(100); b = await cam(d); } // frames are slow here
+    assert.ok(glided(), `the camera glides on: ${a.x.toFixed(0)} -> ${b.x.toFixed(0)}`);
     // A tap stops the glide and does nothing else: a selected harvester keeps mining.
     const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');
     await d.eval((id) => { endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, h.id);

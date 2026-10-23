@@ -378,7 +378,7 @@ impl World {
         self.events.clear();
         self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
         for team in [PLAYER, ENEMY] {
-            let (bx, by) = BASES[team as usize];
+            let (bx, by) = self.map.bases[team as usize];
             self.make_building(BldgKind::Core, team, bx, by, true);
             for i in 0..4 {
                 let f = self

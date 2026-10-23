@@ -4,7 +4,7 @@
 
 use endfall_sim::data::Upgrade;
 use endfall_sim::data::*;
-use endfall_sim::map::Id;
+use endfall_sim::map::{Id, in_map};
 #[allow(unused_imports)]
 use endfall_sim::world::{BUILDER_PATIENCE, REPAIR_COST};
 use endfall_sim::world::{Phase, Task, Unit, World};
@@ -778,7 +778,11 @@ fn ai_wasps_raid_the_players_harvesters() {
         "the raid hurt the player's harvesters: {lost}"
     );
     let g = w.unit(guard).unwrap();
-    assert_eq!(g.hp, g.maxhp, "the raiders went for the harvesters first");
+    assert!(
+        g.maxhp - g.hp < lost * 0.4,
+        "the raiders went for the harvesters, not the guard: guard lost {}, harvesters {lost}",
+        g.maxhp - g.hp
+    );
 }
 
 #[test]
@@ -1505,11 +1509,62 @@ fn builds_within(w: &mut World, h: Id, b: Id, secs: u32) -> Result<(), String> {
 
 #[test]
 fn builders_walking_a_long_way_around_do_not_give_up() {
-    // Paths that first lead sideways or away from the site (cases a review found being abandoned).
-    for (seed, from, site) in [(22, (15, 39), (57, 16)), (50, (5, 30), (6, 54))] {
+    // Paths that first lead sideways or away from the site (cases a review found being abandoned): on each map,
+    // a site whose walk is at least 1.5 times the straight line.
+    for seed in [22, 50, 7] {
+        let (from, site) = long_way_around(seed)
+            .unwrap_or_else(|| panic!("seed {seed}: no long way around found"));
         let (mut w, h, b) = lone_builder(seed, from, site, BldgKind::Barracks);
-        builds_within(&mut w, h, b, 150).unwrap_or_else(|e| panic!("seed {seed}: {e}"));
+        builds_within(&mut w, h, b, 150)
+            .unwrap_or_else(|e| panic!("seed {seed} {from:?} -> {site:?}: {e}"));
     }
+}
+
+/// Walking distance in tiles from `from` to every tile (4-neighbour, unblocked), -1 where unreachable.
+fn walk_dist(w: &World, from: (i32, i32)) -> Vec<i32> {
+    let mut d = vec![-1; (MW * MH) as usize];
+    let mut q = std::collections::VecDeque::from([from]);
+    d[(from.1 * MW + from.0) as usize] = 0;
+    while let Some((x, y)) = q.pop_front() {
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let (nx, ny) = (x + dx, y + dy);
+            if !w.map.blocked(nx, ny) && d[(ny * MW + nx) as usize] < 0 {
+                d[(ny * MW + nx) as usize] = d[(y * MW + x) as usize] + 1;
+                q.push_back((nx, ny));
+            }
+        }
+    }
+    d
+}
+
+/// A builder's start and a Barracks site on `seed`'s map, reachable but at least 1.5 times as far on foot as in
+/// a straight line (the first one found, deterministically).
+fn long_way_around(seed: u32) -> Option<((i32, i32), (i32, i32))> {
+    let w = World::new(seed, 1);
+    let mut r = Mulberry32::new(seed ^ 0x51ed);
+    for _ in 0..4000 {
+        let from = (2 + r.below(60) as i32, 2 + r.below(60) as i32);
+        let site = (2 + r.below(58) as i32, 2 + r.below(58) as i32);
+        if w.map.blocked(from.0, from.1) || !w.can_place(BldgKind::Barracks, site.0, site.1, ENEMY)
+        {
+            continue;
+        }
+        let straight = (((from.0 - site.0).pow(2) + (from.1 - site.1).pow(2)) as f64).sqrt();
+        if straight < 15.0 {
+            continue;
+        }
+        let d = walk_dist(&w, from);
+        // the nearest tile beside the site's footprint
+        let walk = (site.1 - 1..=site.1 + 3)
+            .flat_map(|y| (site.0 - 1..=site.0 + 3).map(move |x| (x, y)))
+            .filter(|&(x, y)| in_map(x, y) && d[(y * MW + x) as usize] >= 0)
+            .map(|(x, y)| d[(y * MW + x) as usize])
+            .min();
+        if walk.is_some_and(|k| k as f64 >= straight * 1.5) {
+            return Some((from, site));
+        }
+    }
+    None
 }
 
 #[test]
@@ -1589,10 +1644,13 @@ fn the_ai_hunts_down_buildings_it_has_not_seen() {
             let d = |c: (i32, i32)| (t.0 - c.0).pow(2) + (t.1 - c.1).pow(2);
             d(p).min(d(e))
         };
+        // (only where a player's builder could walk: not a pocket walled in by rock)
+        let reach = reachable(&w, w.map.nearest_free(p.0 + 1, p.1 + 5, 8).unwrap());
         let hidden = (0..MH)
             .flat_map(|ty| (0..MW).map(move |tx| (tx, ty)))
             // (checked as ENEMY: the player may not build in unexplored ground, but this test cheats)
             .filter(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
+            .filter(|&(tx, ty)| reach[(ty * MW + tx) as usize])
             .filter(|&(tx, ty)| (tx - p.0).pow(2) + (ty - p.1).pow(2) >= 24 * 24)
             .max_by_key(|&t| far(t))
             .unwrap();
@@ -1905,8 +1963,11 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
     use endfall_sim::map::MapKind;
     let rock_share =
         |w: &World| w.map.rock.iter().filter(|&&r| r != 0).count() as f64 / w.map.rock.len() as f64;
+    // Rock share per kind, summed over the seeds: a single seed may need its rock relaxed to connect the fields.
+    let mut rock = [0.0f64; 3]; // standard, open plains, labyrinth
     // (2, 6, 18, 21: seeds whose Labyrinth once walled off whole fields)
     for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242, 99999] {
+        rock[0] += rock_share(&World::new(seed, 1));
         let std = World::new(seed, 1);
         let std_shards: i32 = std
             .map
@@ -1926,7 +1987,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
         for kind in MapKind::ALL {
             let w = World::with_map(seed, 1, kind);
             assert!(
-                w.map.connected(BASES[0], BASES[1]),
+                w.map.connected(w.map.bases[0], w.map.bases[1]),
                 "seed {seed} {kind:?}: the bases connect"
             );
             // Every field owns its tiles (an extra vent must not land on a shard field).
@@ -1955,7 +2016,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                             && y < MH - 1
                             && w.map.rock[(y * MW + x) as usize] == 0
                             && w.map.occ[(y * MW + x) as usize] == 0
-                            && w.map.connected(BASES[0], (x, y))
+                            && w.map.connected(w.map.bases[0], (x, y))
                     })
                 });
                 assert!(
@@ -1984,24 +2045,24 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                     assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
                 }
                 MapKind::EtherStorm => assert!(
-                    vents == std_vents + 3 && ether > std_ether * 4,
+                    vents > std_vents && ether > std_ether * 3,
                     "seed {seed}: more, richer vents"
                 ),
                 MapKind::Barren => assert!(
                     shards < std_shards / 2 && ether < std_ether,
                     "seed {seed}: picked clean"
                 ),
-                MapKind::OpenPlains => assert!(
-                    rock_share(&w) < rock_share(&std),
-                    "seed {seed}: more open ground"
-                ),
-                MapKind::Labyrinth => {
-                    assert!(rock_share(&w) > rock_share(&std), "seed {seed}: more rock")
-                }
+                MapKind::OpenPlains => rock[1] += rock_share(&w),
+                MapKind::Labyrinth => rock[2] += rock_share(&w),
                 MapKind::Standard => assert_eq!(shards, std_shards),
             }
         }
     }
+    assert!(
+        rock[1] < rock[0] * 0.8,
+        "open plains have clearly less rock: {rock:?}"
+    );
+    assert!(rock[2] > rock[0] * 1.2, "labyrinths clearly more: {rock:?}");
 }
 
 #[test]

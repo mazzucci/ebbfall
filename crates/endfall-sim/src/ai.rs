@@ -217,8 +217,8 @@ impl World {
     /// the start, round and round.
     fn sweep_point(&self) -> (f64, f64) {
         let start = (
-            (BASES[0].0 as f64 + 2.0) * TILE,
-            (BASES[0].1 as f64 + 2.0) * TILE,
+            (self.map.bases[0].0 as f64 + 2.0) * TILE,
+            (self.map.bases[0].1 as f64 + 2.0) * TILE,
         );
         let mut pts: Vec<(f64, f64)> = self
             .map
@@ -227,8 +227,10 @@ impl World {
             .filter(|n| !n.ether)
             .map(|n| (n.x, n.y))
             .collect();
-        for gy in (6..MH).step_by(12) {
-            for gx in (6..MW).step_by(12) {
+        // A 6x6 grid from 5 tiles in to 5 tiles from the far edge: every tile lies within sight of a stop.
+        let grid = |n: i32| (0..6).map(move |i| 5 + i * (n - 11) / 5);
+        for gy in grid(MH) {
+            for gx in grid(MW) {
                 let open = (-2..=2).flat_map(|dy| (-2..=2).map(move |dx| (gx + dx, gy + dy)));
                 if let Some((tx, ty)) = open
                     .filter(|&(x, y)| in_map(x, y) && self.map.rock[idx(x, y)] == 0)
@@ -246,6 +248,14 @@ impl World {
                 .then(a.0.partial_cmp(&b.0).unwrap())
                 .then(a.1.partial_cmp(&b.1).unwrap())
         });
+        // One stop per area: a field's crystals (or a grid point beside them) are a single place to look.
+        let mut stops: Vec<(f64, f64)> = Vec::new();
+        for p in pts {
+            if stops.iter().all(|q| dist(p.0, p.1, q.0, q.1) > 7.0 * TILE) {
+                stops.push(p);
+            }
+        }
+        let pts = stops;
         let k = self.ai.as_ref().unwrap().sweep % (pts.len() + 1);
         if k == 0 { start } else { pts[k - 1] }
     }
@@ -284,8 +294,8 @@ impl World {
             });
             if let Some(h) = pick {
                 let (x, y) = (
-                    (BASES[0].0 as f64 + 2.0) * TILE,
-                    (BASES[0].1 as f64 + 2.0) * TILE,
+                    (self.map.bases[0].0 as f64 + 2.0) * TILE,
+                    (self.map.bases[0].1 as f64 + 2.0) * TILE,
                 );
                 self.move_to(h, x, y);
                 let ai = self.ai.as_mut().unwrap();
@@ -371,7 +381,10 @@ impl World {
 
     /// A spot for a second Core: by a shard field away from both bases, nearest to our main core.
     fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
-        let (px, py) = (BASES[0].0 as f64 + 2.0, BASES[0].1 as f64 + 2.0);
+        let (px, py) = (
+            self.map.bases[0].0 as f64 + 2.0,
+            self.map.bases[0].1 as f64 + 2.0,
+        );
         let mut fields: Vec<(f64, i32, i32)> = self
             .map
             .nodes
@@ -489,7 +502,10 @@ impl World {
                     c.ty as f64 + c.h as f64 / 2.0,
                 )
             }
-            None => (BASES[1].0 as f64 + 2.0, BASES[1].1 as f64 + 2.0),
+            None => (
+                self.map.bases[1].0 as f64 + 2.0,
+                self.map.bases[1].1 as f64 + 2.0,
+            ),
         };
         let cnt = |w: &World, k: BldgKind| {
             my_b.iter()
@@ -508,7 +524,7 @@ impl World {
             .map(|b| b.kind)
             .collect();
         if self.ai.as_ref().unwrap().rally.is_none() {
-            let pb = BASES[0];
+            let pb = self.map.bases[0];
             let ang = jsmath::atan2(pb.1 as f64 - cy, pb.0 as f64 - cx);
             let rally = Pt {
                 x: (cx + jsmath::cos(ang) * 9.0) * TILE,

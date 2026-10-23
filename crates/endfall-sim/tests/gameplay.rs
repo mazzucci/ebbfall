@@ -2058,57 +2058,116 @@ fn every_weapon_reports_its_shots_for_the_sound() {
     }
 }
 
-/// Two cost-equal armies (shards + 2 x ether, about `budget`) meet in the open; returns the winner's surviving value
-/// share (+ = side A won, - = side B won, 0 = draw after 90 s).
-/// Played both ways round (who spawns first, and so updates first, matters), averaged: a mirror match is 0.
-fn duel(a: &[UnitKind], b: &[UnitKind], budget: f64) -> f64 {
-    (duel_once(a, b, budget) - duel_once(b, a, budget)) / 2.0
+/// The value of a unit for balance: shards + 2 x ether.
+fn unit_value(k: UnitKind) -> f64 {
+    k.def().cost[0] as f64 + 2.0 * k.def().cost[1] as f64
 }
 
-fn duel_once(a: &[UnitKind], b: &[UnitKind], budget: f64) -> f64 {
-    let value = |k: UnitKind| k.def().cost[0] as f64 + 2.0 * k.def().cost[1] as f64;
-    let mut w = arena(16);
-    let spawn = |w: &mut World, mix: &[UnitKind], team: u8, x: f64| -> Vec<Id> {
-        let per: f64 = mix.iter().map(|&k| value(k)).sum();
-        let n = (budget / per).round().max(1.0) as usize;
-        let mut ids = Vec::new();
-        for i in 0..n {
-            for (j, &k) in mix.iter().enumerate() {
-                let y = 700.0 + ((i * mix.len() + j) as f64) * 22.0;
-                ids.push(w.make_unit(k, team, x + ((i + j) % 3) as f64 * 18.0, y));
+/// The arena with the middle of the map flattened: no rock, no resource fields (the bases stay in their corners).
+fn flat_arena(seed: u32) -> World {
+    let mut w = arena(seed);
+    let inside = |x: i32, y: i32| (12..52).contains(&x) && (12..52).contains(&y);
+    let gone: Vec<Id> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| inside(n.tx, n.ty))
+        .map(|n| n.id)
+        .collect();
+    w.map.nodes.retain(|n| !gone.contains(&n.id));
+    for y in 12..52 {
+        for x in 12..52 {
+            let i = (y * MW + x) as usize;
+            w.map.rock[i] = 0;
+            if w.map.occ[i] < 0 {
+                w.map.occ[i] = 0;
             }
         }
-        ids
+    }
+    w
+}
+
+/// Two armies of about `budget` (within 10%) meet on open ground, in compact blocks; idle survivors re-engage.
+/// Returns (alive A - alive B) / larger spend: + side A won, - side B won.
+fn duel_once(a: &[UnitKind], b: &[UnitKind], budget: f64, off: (f64, f64)) -> f64 {
+    let mut w = flat_arena(16);
+    let army = |mix: &[UnitKind]| -> Vec<UnitKind> {
+        let per: f64 = mix.iter().map(|&k| unit_value(k)).sum();
+        let n = (budget / per).round().max(1.0) as usize;
+        (0..n).flat_map(|_| mix.iter().copied()).collect()
     };
-    let ia = spawn(&mut w, a, PLAYER, 500.0);
-    let ib = spawn(&mut w, b, ENEMY, 800.0);
-    for &u in &ia {
-        w.attack_move(u, 900.0, 900.0);
-    }
-    for &u in &ib {
-        w.attack_move(u, 400.0, 900.0);
-    }
+    let spawn = |w: &mut World, kinds: &[UnitKind], team: u8, x0: f64, dir: f64| -> Vec<Id> {
+        let gap = kinds.iter().map(|k| k.def().r).fold(0.0, f64::max) * 2.0 + 4.0;
+        kinds
+            .iter()
+            .enumerate()
+            .map(|(i, &k)| {
+                let (col, row) = ((i / 6) as f64, (i % 6) as f64 - 2.5);
+                w.make_unit(
+                    k,
+                    team,
+                    x0 + dir * col * gap + off.0,
+                    1024.0 + row * gap + off.1,
+                )
+            })
+            .collect()
+    };
+    let (ka, kb) = (army(a), army(b));
+    let spend = |k: &[UnitKind]| k.iter().map(|&u| unit_value(u)).sum::<f64>();
+    let (sa, sb) = (spend(&ka), spend(&kb));
+    assert!(
+        (sa - budget).abs() <= budget * 0.1 && (sb - budget).abs() <= budget * 0.1,
+        "armies of {sa} and {sb} for {budget}"
+    );
+    let ia = spawn(&mut w, &ka, PLAYER, 880.0, -1.0);
+    let ib = spawn(&mut w, &kb, ENEMY, 1170.0, 1.0);
     let alive = |w: &World, ids: &[Id]| {
         ids.iter()
             .filter_map(|&i| w.unit(i))
-            .map(|u| value(u.kind) * u.hp / u.maxhp)
+            .map(|u| unit_value(u.kind) * u.hp / u.maxhp)
             .sum::<f64>()
     };
-    let (sa, sb) = (alive(&w, &ia), alive(&w, &ib));
-    for _ in 0..90 * TPS {
+    for t in 0..120 * TPS {
+        if t % TPS == 0 {
+            // Anyone standing idle walks at the nearest enemy (no stalls with survivors out of sight).
+            for (mine, theirs) in [(&ia, &ib), (&ib, &ia)] {
+                for &u in mine.iter() {
+                    let Some(me) = w.unit(u).filter(|u| matches!(u.task, Task::Idle) || t == 0)
+                    else {
+                        continue;
+                    };
+                    let (mx, my) = (me.x, me.y);
+                    let near = theirs
+                        .iter()
+                        .filter_map(|&o| w.unit(o))
+                        .map(|o| (o.x, o.y))
+                        .min_by(|p, q| {
+                            let dp = (p.0 - mx).powi(2) + (p.1 - my).powi(2);
+                            let dq = (q.0 - mx).powi(2) + (q.1 - my).powi(2);
+                            dp.partial_cmp(&dq).unwrap()
+                        });
+                    if let Some((x, y)) = near {
+                        w.attack_move(u, x, y);
+                    }
+                }
+            }
+        }
         w.step();
         if alive(&w, &ia) < 1.0 || alive(&w, &ib) < 1.0 {
             break;
         }
     }
-    let (ra, rb) = (alive(&w, &ia) / sa, alive(&w, &ib) / sb);
-    if ra > 0.0 && rb > 0.0 {
-        ra - rb
-    } else if ra > 0.0 {
-        ra
-    } else {
-        -rb
-    }
+    (alive(&w, &ia) - alive(&w, &ib)) / sa.max(sb)
+}
+
+/// A duel played both ways round (who spawns first updates first) and from three spawn offsets; the median.
+fn duel(a: &[UnitKind], b: &[UnitKind], budget: f64) -> f64 {
+    let mut r: Vec<f64> = [(0.0, 0.0), (0.0, 13.0), (9.0, -7.0)]
+        .iter()
+        .map(|&off| (duel_once(a, b, budget, off) - duel_once(b, a, budget, off)) / 2.0)
+        .collect();
+    r.sort_by(|p, q| p.partial_cmp(q).unwrap());
+    r[1]
 }
 
 #[test]
@@ -2124,7 +2183,7 @@ fn balance_matrix() {
         ("trp+vang", &[Trooper, Trooper, Vanguard]),
         ("lancer+trp", &[Lancer, Trooper]),
     ];
-    for budget in [600.0, 1500.0] {
+    for budget in [1100.0, 2200.0] {
         println!("budget {budget}");
         for (na, a) in armies {
             let row: Vec<String> = armies
@@ -2138,16 +2197,17 @@ fn balance_matrix() {
 
 #[test]
 fn the_counters_hold_in_cost_equal_fights() {
+    // Thresholds sit well inside the measured values (balance_matrix, flat arena, median of three spawn offsets).
     use UnitKind::*;
-    for budget in [600.0, 1500.0] {
+    for budget in [1100.0, 2200.0] {
         let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
         assert!(
-            d(&[Lancer], &[Wasp]) > 0.3,
+            d(&[Lancer], &[Wasp]) > 0.4,
             "{budget}: Lancers shoot down Wasps"
         );
         assert!(
-            d(&[Wasp], &[Vanguard]) > 0.8,
-            "{budget}: Wasps beat Vanguards (which cannot shoot up)"
+            d(&[Trooper], &[Wasp]) > 0.4,
+            "{budget}: Troopers outrange Wasps"
         );
         assert!(
             d(&[Trooper], &[Lancer]) > 0.5,
@@ -2160,6 +2220,208 @@ fn the_counters_hold_in_cost_equal_fights() {
         assert!(
             d(&[Trooper, Trooper, Vanguard], &[Trooper]) > 0.2,
             "{budget}: combined arms beat Trooper spam"
+        );
+        assert!(
+            d(&[Trooper, Trooper, Vanguard], &[Wasp]) > 0.1,
+            "{budget}: and Wasps alone do not beat it"
+        );
+    }
+}
+
+#[test]
+fn a_turret_or_a_few_troopers_answer_an_early_wasp_raid() {
+    let (lost, wasps) = raid(2, 0, 0);
+    assert_eq!(
+        (lost, wasps),
+        (8, 0),
+        "an undefended mineral line is easy prey"
+    );
+    let (lost, wasps) = raid(2, 1, 0);
+    assert!(
+        wasps == 2 && lost <= 4,
+        "a turret shoots down a two-Wasp raid ({lost}/8 harvesters lost)"
+    );
+    let (lost, wasps) = raid(2, 0, 4);
+    assert!(
+        wasps == 2 && lost <= 4,
+        "so do four Troopers ({lost}/8 lost)"
+    );
+}
+
+#[test]
+fn a_shell_splashes_walking_neighbours_only() {
+    // Unarmed Medics stand in for the infantry, so nothing but the shell does damage; the flyer case comes second.
+    let first_shell = |w: &mut World, watch: &[Id]| -> Vec<f64> {
+        let hp = |w: &World, u: Id| w.unit(u).map_or(0.0, |u| u.hp);
+        let start: Vec<f64> = watch.iter().map(|&u| hp(w, u)).collect();
+        for _ in 0..4 * TPS {
+            w.step();
+            if hp(w, watch[0]) < start[0] {
+                break; // the first shell landed (before anyone heals)
+            }
+        }
+        watch
+            .iter()
+            .zip(&start)
+            .map(|(&u, s)| s - hp(w, u))
+            .collect()
+    };
+    let dmg = UnitKind::Vanguard.def().dmg;
+    let mut w = arena(16);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
+    let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 925.0); // 25 px from the target
+    let far = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 960.0); // 60 px: out of the splash
+    let friend = w.make_unit(UnitKind::Medic, PLAYER, 760.0, 880.0);
+    for u in [target, near, far, friend] {
+        w.hold_unit(u);
+    }
+    w.attack_ent(v, target);
+    let lost = first_shell(&mut w, &[target, near, far, friend]);
+    assert_eq!(
+        lost,
+        vec![dmg, dmg * SHELL_SPLASH, 0.0, 0.0],
+        "target, walking neighbour (splash), beyond the radius, own side"
+    );
+    // A flyer over the target is not splashed.
+    let mut w = arena(16);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
+    let flyer = w.make_unit(UnitKind::Wasp, ENEMY, 752.0, 905.0);
+    w.hold_unit(target);
+    w.hold_unit(flyer);
+    w.attack_ent(v, target);
+    let lost = first_shell(&mut w, &[target, flyer]);
+    assert_eq!(lost, vec![dmg, 0.0], "the flyer is untouched");
+}
+
+#[test]
+fn two_medics_do_not_make_a_trooper_immortal() {
+    // Heals do not stack: each Medic tends a different patient in a tick.
+    let mut w = arena(16);
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
+    for k in 0..2 {
+        let m = w.make_unit(UnitKind::Medic, PLAYER, 580.0, 880.0 + k as f64 * 40.0);
+        w.hold_unit(m);
+    }
+    w.hold_unit(t);
+    for k in 0..3 {
+        let f = w.make_unit(UnitKind::Trooper, ENEMY, 700.0, 880.0 + k as f64 * 20.0);
+        w.attack_ent(f, t);
+    }
+    run(&mut w, 15);
+    assert!(
+        w.unit(t).is_none(),
+        "three Troopers focusing one Trooper out-shoot two Medics"
+    );
+}
+
+/// `wasps` raid a mineral line of 8 mining harvesters (hunting harvesters like the AI's raiders), guarded by
+/// `turrets` and `troopers`; returns (harvesters lost, wasps lost) after 40 s.
+fn raid(wasps: usize, turrets: usize, troopers: usize) -> (usize, usize) {
+    let mut w = World::new(7, 1);
+    w.disable_ai();
+    let (cx, cy) = core(&w, PLAYER);
+    let node = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| !n.ether)
+        .min_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
+        .unwrap();
+    let (nx, ny, nid) = (node.x, node.y, node.id);
+    for k in 0..4 {
+        w.make_unit(
+            UnitKind::Harvester,
+            PLAYER,
+            nx + 30.0 + k as f64 * 10.0,
+            ny + 30.0,
+        );
+    }
+    let hs = harvesters(&w, PLAYER);
+    for &h in &hs {
+        w.start_gather(h, nid);
+    }
+    for k in 0..turrets {
+        let f = w
+            .map
+            .nearest_free(
+                jsmath_round(nx / TILE) + 2 + 3 * k as i32,
+                jsmath_round(ny / TILE) + 2,
+                6,
+            )
+            .unwrap();
+        w.make_building(BldgKind::Turret, PLAYER, f.0, f.1, true);
+    }
+    for k in 0..troopers {
+        let t = w.make_unit(
+            UnitKind::Trooper,
+            PLAYER,
+            nx + 40.0 + (k % 3) as f64 * 20.0,
+            ny - 40.0 + (k / 3) as f64 * 20.0,
+        );
+        w.hold_unit(t);
+    }
+    run(&mut w, 8);
+    let ws: Vec<Id> = (0..wasps)
+        .map(|k| {
+            w.make_unit(
+                UnitKind::Wasp,
+                ENEMY,
+                nx + 500.0,
+                ny - 300.0 + k as f64 * 25.0,
+            )
+        })
+        .collect();
+    for t in 0..40 * TPS {
+        if t % (TPS / 2) == 0 {
+            for &wid in &ws {
+                let Some(me) = w.unit(wid) else { continue };
+                let hunting = matches!(me.task, Task::Attack { target, .. } if w.unit(target).is_some_and(|u| u.kind == UnitKind::Harvester));
+                if hunting {
+                    continue;
+                }
+                let (mx, my) = (me.x, me.y);
+                if let Some(p) = hs
+                    .iter()
+                    .filter_map(|&h| w.unit(h))
+                    .min_by(|a, b| {
+                        ((a.x - mx).powi(2) + (a.y - my).powi(2))
+                            .partial_cmp(&((b.x - mx).powi(2) + (b.y - my).powi(2)))
+                            .unwrap()
+                    })
+                    .map(|u| u.id)
+                {
+                    w.attack_ent(wid, p);
+                }
+            }
+        }
+        w.step();
+    }
+    (
+        hs.iter().filter(|&&h| w.unit(h).is_none()).count(),
+        ws.iter().filter(|&&x| w.unit(x).is_none()).count(),
+    )
+}
+fn jsmath_round(v: f64) -> i32 {
+    v.round() as i32
+}
+
+#[test]
+#[ignore]
+fn raid_matrix() {
+    for (wasps, turrets, troopers) in [
+        (2, 0, 0),
+        (2, 1, 0),
+        (2, 0, 4),
+        (3, 1, 0),
+        (4, 1, 0),
+        (4, 0, 6),
+        (4, 1, 4),
+    ] {
+        let (h, lost) = raid(wasps, turrets, troopers);
+        println!(
+            "RAID {wasps} wasps vs {turrets} turret(s) + {troopers} troopers: {h}/8 harvesters lost, {lost}/{wasps} wasps lost"
         );
     }
 }

@@ -84,6 +84,8 @@ pub struct Unit {
     pub no_build_until: f64,
     /// Medic: seconds until the next heal effect event.
     pub heal_fx: f64,
+    /// The tick a Medic last healed this unit: one Medic per patient per tick (heals do not stack).
+    pub healed_at: u32,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -543,6 +545,7 @@ impl World {
             anchor: (x, y),
             no_build_until: 0.0,
             heal_fx: 0.0,
+            healed_at: u32::MAX,
         });
         id
     }
@@ -1893,8 +1896,9 @@ impl World {
         }
     }
 
-    /// A Medic heals the most hurt friendly infantry within HEAL_RANGE; when idle with nobody in range it walks
-    /// toward hurt infantry it can see.
+    /// A Medic heals the most hurt friendly infantry within HEAL_RANGE that no other Medic healed this tick (so two
+    /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
+    /// infantry it can see.
     fn medic(&mut self, uid: Id, dt: f64) {
         const HEAL_RANGE: f64 = 2.5 * TILE;
         let (mx, my, team, heal, sight, idle) = {
@@ -1915,7 +1919,7 @@ impl World {
                 continue;
             }
             let d = dist(o.x, o.y, mx, my) - o.r;
-            if d <= HEAL_RANGE {
+            if d <= HEAL_RANGE && o.healed_at != self.tick {
                 let f = o.hp / o.maxhp;
                 if best.is_none_or(|(bf, bid, _)| f < bf || (f == bf && o.id < bid)) {
                     best = Some((f, o.id, d));
@@ -1926,8 +1930,10 @@ impl World {
         }
         if let Some((_, pid, _)) = best {
             let i = self.ui(pid).unwrap();
+            let tick = self.tick;
             let p = &mut self.units[i];
             p.hp = (p.hp + heal * dt).min(p.maxhp);
+            p.healed_at = tick;
             let (tx, ty) = (p.x, p.y);
             let u = self.um(uid);
             u.face = jsmath::atan2(ty - my, tx - mx);

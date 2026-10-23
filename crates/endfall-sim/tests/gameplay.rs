@@ -337,9 +337,10 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     while !w.bldg(rax).unwrap().done {
         w.step();
     }
-    assert!(
-        w.queue_unit(rax, UnitKind::Vanguard).is_err(),
-        "a barracks does not train vanguards"
+    assert_eq!(
+        w.queue_unit(rax, UnitKind::Vanguard),
+        Err("Requires War Forge".into()),
+        "a barracks trains vanguards only once a War Forge stands"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
     let depot = build(&mut w, BldgKind::Depot, h[1], 90);
@@ -2482,5 +2483,24 @@ fn the_builder_of_an_extractor_starts_mining_its_ether() {
         matches!(w.unit(h[1]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
         "a Depot's builder goes back to the shards: {:?}",
         w.unit(h[1]).unwrap().task
+    );
+}
+
+#[test]
+fn the_ai_fields_vanguards_from_its_barracks() {
+    let mut w = World::new(2, 1);
+    for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        b.hp = 1e9;
+        b.maxhp = 1e9;
+    }
+    run(&mut w, 330);
+    let (v, t) = (
+        count(&w, ENEMY, UnitKind::Vanguard),
+        count(&w, ENEMY, UnitKind::Trooper),
+    );
+    assert!(v >= 1, "the AI trains Vanguards once its Forge stands");
+    assert!(
+        v * 2 <= t + 2,
+        "about one Vanguard per two Troopers: {v} Vanguards, {t} Troopers"
     );
 }

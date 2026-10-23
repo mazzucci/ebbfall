@@ -84,6 +84,8 @@ pub struct Unit {
     pub no_build_until: f64,
     /// Medic: seconds until the next heal effect event.
     pub heal_fx: f64,
+    /// The tick a Medic last healed this unit: one Medic per patient per tick (heals do not stack).
+    pub healed_at: u32,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -543,6 +545,7 @@ impl World {
             anchor: (x, y),
             no_build_until: 0.0,
             heal_fx: 0.0,
+            healed_at: u32::MAX,
         });
         id
     }
@@ -1893,8 +1896,9 @@ impl World {
         }
     }
 
-    /// A Medic heals the most hurt friendly infantry within HEAL_RANGE; when idle with nobody in range it walks
-    /// toward hurt infantry it can see.
+    /// A Medic heals the most hurt friendly infantry within HEAL_RANGE that no other Medic healed this tick (so two
+    /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
+    /// infantry it can see.
     fn medic(&mut self, uid: Id, dt: f64) {
         const HEAL_RANGE: f64 = 2.5 * TILE;
         let (mx, my, team, heal, sight, idle) = {
@@ -1916,6 +1920,9 @@ impl World {
             }
             let d = dist(o.x, o.y, mx, my) - o.r;
             if d <= HEAL_RANGE {
+                if o.healed_at == self.tick {
+                    continue; // another Medic has this one (and a spare Medic need not walk to it)
+                }
                 let f = o.hp / o.maxhp;
                 if best.is_none_or(|(bf, bid, _)| f < bf || (f == bf && o.id < bid)) {
                     best = Some((f, o.id, d));
@@ -1926,8 +1933,10 @@ impl World {
         }
         if let Some((_, pid, _)) = best {
             let i = self.ui(pid).unwrap();
+            let tick = self.tick;
             let p = &mut self.units[i];
             p.hp = (p.hp + heal * dt).min(p.maxhp);
+            p.healed_at = tick;
             let (tx, ty) = (p.x, p.y);
             let u = self.um(uid);
             u.face = jsmath::atan2(ty - my, tx - mx);
@@ -2236,7 +2245,28 @@ impl World {
             let d = dist(p.x, p.y, tp.0, tp.1);
             let mv = p.speed * dt;
             if d <= mv + t.r() * 0.3 {
+                // A shell also hurts the target's walking neighbours (splash: the counter to clumped infantry).
+                let splash: Vec<Id> = if p.kind == ProjKind::Shell {
+                    let team = self.team_of(p.target);
+                    self.units
+                        .iter()
+                        .filter(|u| {
+                            u.id != p.target
+                                && Some(u.team) == team
+                                && !u.kind.def().air
+                                && dist(u.x, u.y, tp.0, tp.1) < SHELL_SPLASH_R
+                        })
+                        .map(|u| u.id)
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 self.damage(p.target, p.dmg, Some(p.by));
+                for s in splash {
+                    if self.unit(s).is_some() {
+                        self.damage(s, p.dmg * SHELL_SPLASH, Some(p.by));
+                    }
+                }
                 self.emit(Event::Hit {
                     x: tp.0,
                     y: tp.1,

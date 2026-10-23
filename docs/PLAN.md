@@ -50,6 +50,15 @@ loop feels right.
 - [x] Repair: harvesters restore damaged buildings at construction speed for a quarter of the price (the AI repairs too)
 - [x] Start menu: opponent, sound, three fixed maps (Ashen Basin, Glass Reach, Cinder Divide) with hidden characters (MapKind: standard, deep fields, ether storm, open plains, labyrinth, barren) and a random map; phone tap-to-play splash for full screen
 - [x] Scenery: 3D-rendered props scattered from the map seed (boulders, spires, ruins, wrecks on plateaus; craters and debris on open ground)
+- [x] Balance pass (2026-10-23): cost-equal duels on a flattened arena in compact blocks, idle survivors re-engage,
+  both orders and three spawn offsets, median (`balance_matrix`), plus Wasp raids on a mineral line (`raid_matrix`).
+  Troopers used to win every fight. Now Vanguard shells splash (60% within 40 px, walking units of the target's side),
+  Lancers hit air for 30, Medics cost 40/20 and heal 14/s without stacking on one patient, Wasps are 100/60 with
+  100 hp and 9 damage (a bigger buff made early raids unstoppable), and Turrets hit air for 26. The loop: Troopers >
+  Lancers, Wasps; Vanguards > Troopers, Lancers; Trooper+Vanguard > Troopers; Wasps > Vanguards and undefended
+  mineral lines; a Turret or four Troopers stop a two-Wasp raid; Lancers > Wasps. Guarded by
+  `the_counters_hold_in_cost_equal_fights`, `a_turret_or_a_few_troopers_answer_an_early_wasp_raid`,
+  `a_shell_splashes_walking_neighbours_only`, `two_medics_do_not_make_a_trooper_immortal`.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

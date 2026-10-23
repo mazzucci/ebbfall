@@ -43,7 +43,7 @@ test('every finished production building offers its unit, and pressing it trains
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
     await buildAndFinish(d, 'r', 'turret', 2);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
-    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [forge, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp']]) {
+    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [rax, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp']]) {
       await d.clickEntity(b.id);
       const card = await d.card();
       const why = async () => JSON.stringify({ card, sel: await d.selection(), ui: await d.eval(() => [endfall.ui.mode, endfall.ui.place]), at: b, near: (await d.state()).units.filter(u => Math.hypot(u.x - b.x, u.y - b.y) < 70).map(u => [u.type, Math.round(u.x - b.x), Math.round(u.y - b.y)]) });
@@ -296,18 +296,22 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    await buildAndFinish(d, 'b', 'barracks', 0);
+    const rax = await buildAndFinish(d, 'b', 'barracks', 0);
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    // The Barracks trains all four infantry and walkers once the Forge stands; the Forge only researches.
+    await d.clickEntity(rax.id);
+    await d.pressCard('Vanguard');
+    let slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Vanguard', 'Rally', '', 'Cancel', 'Deselect'], 'the Barracks card');
+    await d.page.locator('#cmd > :nth-child(7)').click(); // cancel the Vanguard
+    assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0);
     await d.clickEntity(forge.id);
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && c.enabled), 'Weapons I offered');
     await d.pressCard('Weapons I');
     assert.match(await d.hudText('#selSub', /Researching Weapons I/), /Researching Weapons I/);
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
-    // Researching and training at once: two cancels, and Deselect still in the bottom-right slot.
-    await d.pressCard('Vanguard');
-    const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Vanguard', 'Weapons I', 'Armor I', '', 'Rally', 'Cancel', 'Cancel', 'Deselect'], 'the forge card keeps its layout');
-    await d.page.locator('#cmd > :nth-child(7)').click(); // cancel the Vanguard
+    slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', '', '', 'Cancel', '', 'Deselect'], 'the Forge card: research, its cancel, Deselect bottom-right');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the research
     const after = (await d.state()).res;

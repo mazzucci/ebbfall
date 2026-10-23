@@ -136,7 +136,7 @@ export function cardItems() {
     const b = bl[0];
     if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: 'Send the nearest Harvester to finish construction' });
     if (!b.done) at(6, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
-    if (b.done && b.d.trains) b.d.trains.forEach((t, i) => {
+    if (b.done && b.d.trains?.length) b.d.trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === PLAYER && o.type === d.req && o.done);
       at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc + (missing && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
     });
@@ -150,7 +150,7 @@ export function cardItems() {
       if (b.research) at(5, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }
     if (b.queue.length) at(6, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, por: ['unit', b.queue[b.queue.length - 1]], badge: true, tip: 'Cancel the last unit in the queue (refund)' });
-    if (b.done && b.d.trains) at(4, { id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', icon: 'rally', tip: 'Then click where new units should go' });
+    if (b.done && b.d.trains?.length) at(4, { id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', icon: 'rally', tip: 'Then click where new units should go' });
     esc('Deselect');
   } else esc('Deselect');
   for (const it of items) if (it.cost && !canAfford(PLAYER, it.cost)) { // greyed out, but a tap says what is short

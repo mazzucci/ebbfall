@@ -822,8 +822,8 @@ impl World {
             saving = false;
         }
 
-        // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers and bring a Medic per
-        // six Troopers.
+        // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers, bring a Medic per six
+        // Troopers and, once the Forge stands, a Vanguard per two.
         let mine = |w: &World, k: UnitKind| {
             w.units
                 .iter()
@@ -853,6 +853,14 @@ impl World {
                             <= mine(self, UnitKind::Trooper) =>
                 {
                     UnitKind::Medic
+                }
+                // A Vanguard per two Troopers once the Forge stands: the mix that beats massed infantry.
+                BldgKind::Barracks
+                    if done(self, BldgKind::Forge) >= 1
+                        && (mine(self, UnitKind::Vanguard) + 1) * 2
+                            <= mine(self, UnitKind::Trooper) =>
+                {
+                    UnitKind::Vanguard
                 }
                 BldgKind::Airfield if mine(self, UnitKind::Wasp) >= 6 => continue,
                 _ => b.kind.def().trains[0],

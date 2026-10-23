@@ -130,11 +130,15 @@ fn every_building_and_unit_can_be_made() {
         ];
         w.queue_unit(core_id, UnitKind::Harvester).unwrap();
         w.queue_unit(rax, UnitKind::Trooper).unwrap();
-        w.queue_unit(forge, UnitKind::Vanguard).unwrap();
+        w.queue_unit(rax, UnitKind::Vanguard).unwrap(); // (the Forge unlocks it at the Barracks)
+        assert!(
+            w.queue_unit(forge, UnitKind::Vanguard).is_err(),
+            "the Forge researches, it does not train"
+        );
         w.queue_unit(rax, UnitKind::Lancer).unwrap();
         w.queue_unit(rax, UnitKind::Medic).unwrap();
         w.queue_unit(airfield, UnitKind::Wasp).unwrap();
-        run(&mut w, 70);
+        run(&mut w, 100);
         for k in [UnitKind::Lancer, UnitKind::Medic, UnitKind::Wasp] {
             assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
         }
@@ -570,14 +574,17 @@ fn medics_walk_to_hurt_infantry_they_can_see() {
 }
 
 #[test]
-fn medics_need_a_forge_and_airfields_need_a_forge() {
+fn medics_vanguards_and_airfields_need_a_forge() {
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
-    assert_eq!(
-        w.queue_unit(rax, UnitKind::Medic),
-        Err("Requires War Forge".into())
-    );
+    for k in [UnitKind::Medic, UnitKind::Vanguard] {
+        assert_eq!(
+            w.queue_unit(rax, k),
+            Err("Requires War Forge".into()),
+            "{k:?}"
+        );
+    }
     let (tx, ty) = spot(&w, BldgKind::Airfield);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
@@ -585,6 +592,7 @@ fn medics_need_a_forge_and_airfields_need_a_forge() {
     );
     build(&mut w, BldgKind::Forge, h[1], 120);
     assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
+    assert!(w.queue_unit(rax, UnitKind::Vanguard).is_ok());
 }
 
 #[test]

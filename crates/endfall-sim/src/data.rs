@@ -230,6 +230,7 @@ const VANGUARD: UnitDef = UnitDef {
     build: 28.0,
     proj: Some(ProjKind::Shell),
     up_dmg: 3.0,
+    req: Some(BldgKind::Forge),
     ..UNIT
 };
 const LANCER: UnitDef = UnitDef {
@@ -341,7 +342,12 @@ const BARRACKS: BldgDef = BldgDef {
     hp: 720.0,
     build: 40.0,
     sight: 7.0,
-    trains: &[UnitKind::Trooper, UnitKind::Lancer, UnitKind::Medic],
+    trains: &[
+        UnitKind::Trooper,
+        UnitKind::Lancer,
+        UnitKind::Medic,
+        UnitKind::Vanguard,
+    ],
     ..BLDG
 };
 const FORGE: BldgDef = BldgDef {
@@ -353,7 +359,7 @@ const FORGE: BldgDef = BldgDef {
     hp: 820.0,
     build: 45.0,
     sight: 7.0,
-    trains: &[UnitKind::Vanguard],
+    trains: &[],
     req: Some(BldgKind::Barracks),
     ..BLDG
 };

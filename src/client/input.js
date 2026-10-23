@@ -101,7 +101,7 @@ function commandAt(wx, wy) {
   const sel = playerSel(); if (!sel.length) return;
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
   let job = false; // harvesters were given work
-  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
+  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
   else if ((hit && hit.kind === 'node') || vent) {
     const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)

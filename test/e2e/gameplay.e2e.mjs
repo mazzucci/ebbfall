@@ -435,7 +435,7 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
-      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff]), [1998, 2], 'the chosen map (always the same layout) and opponent');
+      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, 2, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
       // Help opens over the game and the game waits.
       await press('#btnHelp');

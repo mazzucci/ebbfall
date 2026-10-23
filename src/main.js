@@ -19,6 +19,7 @@ input.enabled = () => started && !overlay() && !paused();
 
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
+  $('help').hidden = true;
   resetGame(menu.seed, menu.diff, menu.kind);
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
@@ -31,7 +32,7 @@ function newGame() {
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
 function quitToTitle() {
-  started = false; $('pause').hidden = true; $('end').hidden = true; showMenu();
+  started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
 }
 
 /** Turn sim events into client effects. */
@@ -64,8 +65,7 @@ initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disa
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });
-$('btnHelp').addEventListener('click', () => { $('help').hidden = false; }); // the game waits while it is open
-$('btnHelpClose').addEventListener('click', () => { last = performance.now(); });
+$('btnHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // the game waits while it is open
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false;

@@ -58,18 +58,18 @@
     <div class="card menu">
       <h1>ENDFALL</h1>
       <div class="tag">A browser RTS in the 1998 mold. Mine, build, raise an army and level the enemy Command Core in the far corner before their waves level yours.</div>
-      <div class="opt"><span class="lbl">OPPONENT</span>
-        <div class="diff" id="diff">
-          <button class="ib" data-d="0" title="A slow, gentle opponent: time to learn and build">EASY</button>
-          <button class="ib on" data-d="1">NORMAL</button>
-          <button class="ib" data-d="2">HARD</button>
+      <div class="opt"><span class="lbl" id="lblDiff">OPPONENT</span>
+        <div class="diff" id="diff" role="radiogroup" aria-labelledby="lblDiff">
+          <button class="ib" data-d="0" role="radio" aria-checked="false" title="A slow, gentle opponent: time to learn and build">EASY</button>
+          <button class="ib on" data-d="1" role="radio" aria-checked="true">NORMAL</button>
+          <button class="ib" data-d="2" role="radio" aria-checked="false">HARD</button>
         </div>
       </div>
-      <div class="opt"><span class="lbl">MAP</span>
-        <div id="maps" role="radiogroup" aria-label="Map"></div>
+      <div class="opt"><span class="lbl" id="lblMap">MAP</span>
+        <div id="maps" role="radiogroup" aria-labelledby="lblMap"></div>
       </div>
-      <div class="opt"><span class="lbl">SOUND</span>
-        <button class="ib" id="btnMenuSound" aria-pressed="true">ON</button>
+      <div class="opt"><span class="lbl" id="lblSound">SOUND</span>
+        <button class="ib" id="btnMenuSound" aria-pressed="true" aria-labelledby="lblSound btnMenuSound">ON</button>
       </div>
       <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>
       <div class="row"><button class="ib" id="btnHowTo">HOW TO PLAY</button><span class="spacer"></span><button class="ib big" id="btnStart">START GAME</button></div>
@@ -79,7 +79,7 @@
     <button class="splash" id="btnPlay"><span class="t">ENDFALL</span><span class="s">TAP TO PLAY</span></button>
   </div>
   <div class="screen" id="help" hidden>
-    <div class="card">
+    <div class="card" role="dialog" aria-modal="true" aria-label="How to play">
       <h2>How to play</h2>
       <p>Mine <b style="color:var(--shard)">shards</b> and <b style="color:var(--ether)">ether</b>, build supply, raise an army, and level the enemy Command Core before their waves level yours. The enemy base is in the far corner.</p>
       <ul>
@@ -91,21 +91,21 @@
     </div>
   </div>
   <div class="screen" id="pause" hidden>
-    <div class="card small">
+    <div class="card small" role="dialog" aria-modal="true" aria-label="Paused">
       <h2>Paused</h2>
       <div class="tag">Take your time.</div>
       <div class="row"><button class="ib big" id="btnResume">RESUME</button><span class="spacer"></span><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnQuit">QUIT</button></div>
     </div>
   </div>
   <div class="screen" id="leave" hidden>
-    <div class="card small">
+    <div class="card small" role="dialog" aria-modal="true" aria-label="Leave the game?">
       <h2>Leave the game?</h2>
       <div class="tag">The game is paused. If you leave, this game is lost.</div>
       <div class="row"><button class="ib big" id="btnStay">KEEP PLAYING</button><span class="spacer"></span><button class="ib" id="btnLeave">LEAVE</button></div>
     </div>
   </div>
   <div class="screen" id="end" hidden>
-    <div class="card">
+    <div class="card" role="dialog" aria-modal="true" aria-label="Game over">
       <h2 id="result">VICTORY</h2>
       <div class="tag" id="endSub"></div>
       <p class="story" id="endMap"></p>

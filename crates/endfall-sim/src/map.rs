@@ -186,7 +186,12 @@ impl Map {
                     m.rock[idx(x, y)] = r;
                 }
             }
-            if m.connected(BASES[0], BASES[1]) {
+            // The bases must connect, and every field area (the open circles hold the neutral fields and vent) must
+            // be reachable, or a rocky map walls a whole expansion off.
+            let open = |e: &(f64, f64, f64)| (jsmath::round(e.0) as i32, jsmath::round(e.1) as i32);
+            if m.connected(BASES[0], BASES[1])
+                && OPEN.iter().all(|e| m.connected(BASES[0], open(e)))
+            {
                 break;
             }
             thr += 0.03;

@@ -284,6 +284,7 @@ export function bindInput() {
   window.addEventListener('keydown', ev => {
     if (ev.target.tagName === 'INPUT') return;
     const k = ev.key; keys[k.toLowerCase()] = true;
+    if (!$('help').hidden) { if (k === 'Escape') { $('help').hidden = true; ev.preventDefault(); } return; } // Help on top: Esc closes it
     if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
     if (!input.enabled()) return;
     if (/^[1-9]$/.test(k)) {

@@ -12,12 +12,12 @@ const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k);
 
 /** Map characters, in the sim's MapKind order, with the story the end screen tells. */
 export const MAP_KINDS = [
-  { key: 'standard', story: 'Old mining country: balanced fields and winding passes.' },
-  { key: 'deep', story: 'The crystal here ran ten times deeper than anywhere else.' },
-  { key: 'storm', story: 'An ether storm: vents everywhere, each three times as rich.' },
-  { key: 'plains', story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' },
-  { key: 'labyrinth', story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' },
-  { key: 'barren', story: 'Picked nearly clean long ago: small fields, expand or starve.' },
+  { story: 'Old mining country: balanced fields and winding passes.' }, // Standard
+  { story: 'The crystal here ran ten times deeper than anywhere else.' }, // DeepFields
+  { story: 'An ether storm: vents everywhere, each three times as rich.' }, // EtherStorm
+  { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
+  { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
+  { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
 ];
 
 /** The maps: always the same layout (like the maps of 1998), plus a random one generated each time. */
@@ -63,17 +63,18 @@ function soundLabel() { const on = !audio.muted; $('btnMenuSound').textContent =
 
 export function initMenu({ onStart, onSound }) {
   syncSound = onSound;
-  menu.diff = +(store.get('diff') ?? 1);
+  const saved = +store.get('diff');
+  menu.diff = store.get('diff') !== null && [0, 1, 2].includes(saved) ? saved : 1;
   if (store.get('muted') === '1') audio.muted = true;
   const diffs = document.querySelectorAll('#diff .ib');
-  const showDiff = () => diffs.forEach(x => x.classList.toggle('on', +x.dataset.d === menu.diff));
+  const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
   diffs.forEach(b => b.addEventListener('click', () => { menu.diff = +b.dataset.d; store.set('diff', menu.diff); showDiff(); }));
   showDiff();
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
   $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
   $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); if (MAPS[menu.map].random) choose(menu.map); onStart(); }); // a random map is new each game
-  $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; });
+  $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full
   // screen; the menu shows the Add to Home Screen tip instead.)

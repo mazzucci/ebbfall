@@ -88,7 +88,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
 .diff{display:flex;gap:6px}
 .story{font-size:13px;color:var(--fg);border-left:2px solid var(--ally);padding-left:10px;margin:4px 0 12px} .story b{color:var(--ally2)}
-/* Start menu: one row per choice, map previews to pick from. */
+/* Start menu: one row per choice. */
 .card.menu{max-width:560px} .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}

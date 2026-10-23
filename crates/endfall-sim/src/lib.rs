@@ -273,7 +273,8 @@ impl Game {
 
     // ---- snapshot for the renderer and HUD ----
     /// [time, tick, res P shards, res P ether, res E shards, res E ether, sup P used, sup P cap, sup E used,
-    ///  sup E cap, over, winner, built, lost, killed, razed, seed, diff, P weapons, P armor, E weapons, E armor]
+    ///  sup E cap, over, winner, built, lost, killed, razed, seed, diff, P weapons, P armor, E weapons, E armor,
+    ///  map kind (MapKind index)]
     pub fn info(&self) -> Vec<f64> {
         let w = &self.w;
         let s = w.stats;
@@ -300,6 +301,7 @@ impl Game {
             w.upgrades[0][1] as f64,
             w.upgrades[1][0] as f64,
             w.upgrades[1][1] as f64,
+            w.map_kind as u32 as f64,
         ]
     }
 

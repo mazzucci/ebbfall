@@ -1893,7 +1893,8 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
     use endfall_sim::map::MapKind;
     let rock_share =
         |w: &World| w.map.rock.iter().filter(|&&r| r != 0).count() as f64 / w.map.rock.len() as f64;
-    for seed in [1, 2, 3, 77, 4242, 99999] {
+    // (2, 6, 18, 21: seeds whose Labyrinth once walled off whole fields)
+    for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242, 99999] {
         let std = World::new(seed, 1);
         let std_shards: i32 = std
             .map
@@ -1929,6 +1930,27 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                         );
                     }
                 }
+            }
+            // Every field can be reached from the player's base: some open tile next to it connects.
+            for n in &w.map.nodes {
+                let size = if n.ether { 2 } else { 1 };
+                let reachable = (-1..=size).any(|dy| {
+                    (-1..=size).any(|dx| {
+                        let (x, y) = (n.tx + dx, n.ty + dy);
+                        x > 0
+                            && y > 0
+                            && x < MW - 1
+                            && y < MH - 1
+                            && w.map.rock[(y * MW + x) as usize] == 0
+                            && w.map.occ[(y * MW + x) as usize] == 0
+                            && w.map.connected(BASES[0], (x, y))
+                    })
+                });
+                assert!(
+                    reachable,
+                    "seed {seed} {kind:?}: the field at {},{} can be reached",
+                    n.tx, n.ty
+                );
             }
             let shards: i32 = w
                 .map

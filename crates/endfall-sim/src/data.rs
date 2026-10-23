@@ -288,7 +288,7 @@ const OBSERVER: UnitDef = UnitDef {
     speed: 175.0,
     range: 0.0,
     dmg: 0.0,
-    sight: 12.0,
+    sight: 10.0,
     r: 8.0,
     build: 14.0,
     air: true,

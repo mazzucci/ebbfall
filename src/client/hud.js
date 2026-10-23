@@ -71,6 +71,7 @@ export function updateHud() {
     if (x.d.dmg || x.d.dmgAir) st += `<span>Damage <b>${x.d.dmg ? x.d.dmg + plus : '–'}${x.d.dmgAir ? ' / air ' + x.d.dmgAir + plus : ''}</b></span><span>Range <b>${x.d.range}</b></span>`;
     if (x.kind === 'unit' && up.armor) st = st.replace(`Armor <b>${x.d.armor || 0}</b>`, `Armor <b>${x.d.armor || 0}+${up.armor}</b>`);
     if (x.d.heal) st += `<span>Heals <b>${x.d.heal}/s</b></span>`;
+    if (x.kind === 'unit') st += `<span>Sight <b>${x.d.sight}</b></span>`;
     if (x.kind === 'unit' && x.carry) st += `<span>Carrying <b>${x.carry} ${x.carryType}</b></span>`;
     stats.innerHTML = st;
     const own = x.kind === 'bldg' && x.team === PLAYER;
@@ -128,7 +129,10 @@ export function cardItems() {
       const workers = units.some(u => u.type === 'harvester'), onlyWorkers = units.every(u => u.type === 'harvester');
       const orders = [{ id: 'move', label: 'Move', key: 'M', icon: 'move' }, { id: 'stop', label: 'Stop', key: 'S', icon: 'stop' }, { id: 'attack', label: 'Attack', key: 'A', active: ui.mode === 'attack', icon: 'attack' }, { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
       const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', active: ui.mode === 'gather', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', active: ui.mode === 'repair', icon: 'repair', tip: 'Then click a damaged building. Costs a share of its price as it heals.' }];
-      const list = onlyWorkers ? [...work, ...orders] : workers ? [...orders, ...work] : orders;
+      // (no Attack for a selection that cannot shoot: an Observer, Medics)
+      const armed = units.some(u => u.d.dmg > 0 || u.d.dmgAir > 0);
+      const ord = armed ? orders : orders.filter(o => o.id !== 'attack');
+      const list = onlyWorkers ? [...work, ...ord] : workers ? [...ord, ...work] : ord;
       list.forEach((it, i) => at(i, it));
       esc('Deselect');
     }

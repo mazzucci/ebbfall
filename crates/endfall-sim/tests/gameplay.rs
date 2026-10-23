@@ -1371,13 +1371,14 @@ const KINDS_B: [&str; 8] = [
     "airfield",
     "nonsense",
 ];
-const KINDS_U: [&str; 7] = [
+const KINDS_U: [&str; 8] = [
     "harvester",
     "trooper",
     "vanguard",
     "lancer",
     "medic",
     "wasp",
+    "observer",
     "nonsense",
 ];
 
@@ -1413,7 +1414,7 @@ fn random_order(g: &mut Game, r: &mut Mulberry32) {
             );
         }
         8 => {
-            let _ = g.queue_unit(a, KINDS_U[r.below(7) as usize]);
+            let _ = g.queue_unit(a, KINDS_U[r.below(8) as usize]);
         }
         9 => g.cancel_queue(a, r.below(7)),
         10 => g.set_rally(a, x, y, if r.below(2) == 0 { b } else { 0 }),
@@ -2649,6 +2650,10 @@ fn an_observer_scouts_but_cannot_fight() {
     let foe = w.make_unit(UnitKind::Harvester, ENEMY, 760.0, 1000.0);
     w.hold_unit(foe);
     w.attack_ent(o, foe);
+    assert!(
+        matches!(w.unit(o).unwrap().task, Task::Idle),
+        "an unarmed unit refuses an attack order"
+    );
     w.attack_move(o, 1100.0, 1000.0);
     run(&mut w, 6);
     assert_eq!(
@@ -2658,8 +2663,8 @@ fn an_observer_scouts_but_cannot_fight() {
     );
     let u = w.unit(o).unwrap();
     assert!(u.x > 1000.0, "it flies on regardless: x {}", u.x);
-    // It sees much farther than a Trooper: a unit 11 tiles away is in view.
-    let far = w.make_unit(UnitKind::Trooper, ENEMY, u.x + 11.0 * TILE, u.y);
+    // It sees farther than a Trooper: a unit 9.5 tiles away is in view.
+    let far = w.make_unit(UnitKind::Trooper, ENEMY, u.x + 9.5 * TILE, u.y);
     w.hold_unit(far);
     run(&mut w, 1);
     let f = w.unit(far).unwrap();
@@ -2667,7 +2672,30 @@ fn an_observer_scouts_but_cannot_fight() {
         w.vis[PLAYER as usize][World::tile_of(f.x, f.y).1 as usize * MW as usize
             + World::tile_of(f.x, f.y).0 as usize]
             > 0,
-        "seen from 11 tiles"
+        "seen from 9.5 tiles"
     );
     assert!(UnitKind::Observer.def().air, "and it flies");
+}
+
+#[test]
+fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
+    // An unarmed Observer seen by the AI is no air threat: no Lancers. A Wasp in the same spot is.
+    for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Wasp, true)] {
+        let mut w = World::new(31, 0);
+        run(&mut w, 150);
+        let (cx, cy) = core(&w, ENEMY);
+        let id = w.make_unit(
+            kind,
+            PLAYER,
+            (cx as f64 - 7.0) * TILE,
+            (cy as f64 + 9.0) * TILE,
+        );
+        w.hold_unit(id);
+        run(&mut w, 80);
+        let trained = count(&w, ENEMY, UnitKind::Lancer) > 0
+            || w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer));
+        assert_eq!(trained, lancers, "{kind:?}: Lancers trained = {trained}");
+    }
 }

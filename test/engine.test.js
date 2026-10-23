@@ -38,6 +38,8 @@ test('hypot matches V8 Math.hypot bit for bit', { skip }, () => {
 
 test('the Rust data tables match the client constants', { skip }, () => {
   const d = JSON.parse(sim.dataJson());
+  assert.deepEqual(Object.keys(d.units), Object.keys(C.UNITS), 'units in the same order (the snapshot sends kind indices)');
+  assert.deepEqual(Object.keys(d.buildings), Object.keys(C.BUILDINGS), 'buildings in the same order');
   for (const [k, u] of Object.entries(C.UNITS)) {
     const r = d.units[k]; assert.ok(r, k);
     for (const f of ['cost', 'supply', 'hp', 'armor', 'speed', 'range', 'dmg', 'dmgAir', 'cd', 'sight', 'r', 'build']) assert.deepEqual(r[f], u[f], `${k}.${f}`);

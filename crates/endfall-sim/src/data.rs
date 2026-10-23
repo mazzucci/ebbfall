@@ -490,6 +490,7 @@ pub const DIFF: [Diff; 3] = [
 ];
 
 /// Top-left tile of each team's starting Command Core. Index = team.
+/// Starting Core positions of an empty map (test arenas); generated maps choose their own (`Map::bases`).
 pub const BASES: [(i32, i32); 2] = [(9, 54), (54, 9)];
 
 /// The tables as JSON, so the JS side can check them against constants.js.
@@ -550,14 +551,10 @@ pub fn data_json() -> String {
         })
         .collect();
     format!(
-        "{{\"units\":{{{}}},\"buildings\":{{{}}},\"upgrades\":{{{}}},\"diff\":[{}],\"bases\":[{{\"x\":{},\"y\":{}}},{{\"x\":{},\"y\":{}}}]}}",
+        "{{\"units\":{{{}}},\"buildings\":{{{}}},\"upgrades\":{{{}}},\"diff\":[{}]}}",
         units.join(","),
         bldgs.join(","),
         ups.join(","),
-        diffs.join(","),
-        BASES[0].0,
-        BASES[0].1,
-        BASES[1].0,
-        BASES[1].1
+        diffs.join(",")
     )
 }

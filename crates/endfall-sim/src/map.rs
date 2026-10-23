@@ -30,6 +30,8 @@ pub struct Map {
     pub shade: Vec<f32>,
     /// Shard fields (1 tile) and ether vents (2x2), sorted by id.
     pub nodes: Vec<Node>,
+    /// Top-left tiles of the two starting Command Cores (4x4): the player's, then the opponent's.
+    pub bases: [(i32, i32); 2],
 }
 
 /// The character of a map, chosen in the menu. The order is the client's index: append only.
@@ -122,6 +124,7 @@ impl Map {
             occ: vec![0; n],
             shade: vec![0.0; n],
             nodes: Vec::new(),
+            bases: BASES,
         }
     }
 
@@ -143,87 +146,96 @@ impl Map {
     }
 
     /// Generate terrain and resources for `seed` in the character of `kind`; `next_id` is the shared entity id
-    /// counter.
+    /// counter. Maps are point-symmetric about the centre (both sides get the same ground, fields and vents), and the
+    /// seed picks the layout: where the two bases face each other, the size of the rock features, where the
+    /// expansions lie and whether the centre holds a field.
     pub fn generate(seed: u32, kind: MapKind, next_id: &mut Id) -> Self {
         let mut m = Map::empty();
         let mut rnd = Mulberry32::new(seed);
         let noise = Noise::new(&mut rnd);
-        // Rock where the noise is above the threshold: higher means more open ground. (Raised below until the
-        // two bases connect.)
+        let mut f = || rnd.next_u32() as f64 / 4_294_967_296.0;
+        // The mirror of a tile through the centre of the map.
+        let mir = |(x, y): (i32, i32)| (MW - 1 - x, MH - 1 - y);
+        let mirf = |(x, y): (f64, f64)| ((MW - 1) as f64 - x, (MH - 1) as f64 - y);
+        // Where the bases face each other: opposite corners (either diagonal) or opposite sides; who starts where.
+        const LAYOUTS: [(i32, i32); 4] = [(8, 52), (8, 8), (9, 30), (30, 51)];
+        let b0 = LAYOUTS[(f() * 4.0) as usize % 4];
+        let b1 = (MW - 4 - b0.0, MH - 4 - b0.1); // the core is 4x4: mirror its far corner
+        m.bases = if f() < 0.5 { [b0, b1] } else { [b1, b0] };
+        let centre = ((MW - 1) as f64 / 2.0, (MH - 1) as f64 / 2.0);
+        let core_c = |b: (i32, i32)| (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
+        let (c0, c1) = (core_c(b0), core_c(b1));
+        let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
+        // Expansions: two or three sites in the first base's half, each mirrored for the other side.
+        let want = 2 + (f() < 0.4) as usize;
+        let mut sites: Vec<(f64, f64)> = Vec::new();
+        for _ in 0..200 {
+            if sites.len() >= want {
+                break;
+            }
+            let p = (10.0 + f() * (MW - 20) as f64, 10.0 + f() * (MH - 20) as f64);
+            let ok = (18.0..=32.0).contains(&d(p, c0)) // (an expansion, not part of the main base)
+                && d(p, c1) > d(p, c0) + 6.0
+                && d(p, centre) > 7.0
+                && d(p, mirf(p)) > 12.0
+                && sites
+                    .iter()
+                    .all(|&q| d(p, q) > 11.0 && d(mirf(p), q) > 11.0);
+            if ok {
+                sites.push(p);
+            }
+        }
+        let middle = f() < 0.55; // a contested field in the centre
+        let scale = 6.0 + f() * 4.5; // rock feature size, in tiles
+        let mut open: Vec<(f64, f64, f64)> = vec![(c0.0, c0.1, 12.0), (c1.0, c1.1, 12.0)];
+        for &p in &sites {
+            open.push((p.0, p.1, 6.0));
+            let q = mirf(p);
+            open.push((q.0, q.1, 6.0));
+        }
+        if middle {
+            open.push((centre.0, centre.1, 6.5));
+        }
+        // Rock where the noise is above the threshold: higher means more open ground. Raised until the bases can
+        // walk to each other and every field can be reached (with the fields in place: a crystal may plug a gap).
         let mut thr = match kind {
             MapKind::OpenPlains => 0.74,
             MapKind::Labyrinth => 0.5,
             _ => 0.6,
         };
-        const OPEN: [(f64, f64, f64); 5] = [
-            (32.0, 32.0, 7.0),
-            (16.0, 22.0, 6.0),
-            (47.0, 41.0, 6.0),
-            (14.0, 38.0, 4.0),
-            (49.0, 25.0, 4.0),
-        ];
-        for _ in 0..12 {
+        let id0 = *next_id;
+        for _ in 0..16 {
             for y in 0..MH {
                 for x in 0..MW {
-                    let n = noise.get(x as f64 / 7.5, y as f64 / 7.5);
+                    // One half of the map is drawn from the noise, the other is its mirror image.
+                    let (sx, sy) = if idx(x, y) <= idx(MW - 1 - x, MH - 1 - y) {
+                        (x, y)
+                    } else {
+                        mir((x, y))
+                    };
+                    let n = noise.get(sx as f64 / scale, sy as f64 / scale);
                     m.shade[idx(x, y)] = n as f32;
-                    let mut r = if n > thr { 1 } else { 0 };
-                    if x == 0 || y == 0 || x == MW - 1 || y == MH - 1 {
-                        r = 1;
-                    }
-                    for b in BASES {
-                        if jsmath::hypot(x as f64 - b.0 as f64 - 1.5, y as f64 - b.1 as f64 - 1.5)
-                            < 12.0
-                        {
-                            r = 0;
-                        }
-                    }
-                    for e in OPEN {
-                        if jsmath::hypot(x as f64 - e.0, y as f64 - e.1) < e.2 {
-                            r = 0;
-                        }
-                    }
-                    m.rock[idx(x, y)] = r;
+                    let border = x == 0 || y == 0 || x == MW - 1 || y == MH - 1;
+                    let clear = open
+                        .iter()
+                        .any(|e| jsmath::hypot(sx as f64 - e.0, sy as f64 - e.1) < e.2);
+                    m.rock[idx(x, y)] = if border || (n > thr && !clear) { 1 } else { 0 };
                 }
             }
-            // The bases must connect, and every field area (the open circles hold the neutral fields and vent) must
-            // be reachable, or a rocky map walls a whole expansion off.
-            let open = |e: &(f64, f64, f64)| (jsmath::round(e.0) as i32, jsmath::round(e.1) as i32);
-            if m.connected(BASES[0], BASES[1])
-                && OPEN.iter().all(|e| m.connected(BASES[0], open(e)))
-            {
+            m.nodes.clear();
+            m.occ.fill(0);
+            *next_id = id0;
+            m.place_fields(next_id, kind, c0, centre, &sites, middle);
+            let reach = m.walkable_from(b0);
+            let reached = |x: i32, y: i32| in_map(x, y) && reach[idx(x, y)];
+            let fields_ok = m.nodes.iter().all(|n| {
+                let s = if n.ether { 2 } else { 1 };
+                (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
+            });
+            if reached(b1.0, b1.1) && fields_ok {
                 break;
             }
             thr += 0.03;
-        }
-        let (b0, b1) = (BASES[0], BASES[1]);
-        m.add_shards(
-            next_id,
-            b0.0 as f64 + 1.5,
-            b0.1 as f64 + 1.5,
-            PI * 0.75,
-            7,
-            6.5,
-        );
-        m.add_vent(next_id, b0.0 + 9, b0.1 - 2);
-        m.add_shards(
-            next_id,
-            b1.0 as f64 + 1.5,
-            b1.1 as f64 + 1.5,
-            -PI * 0.25,
-            7,
-            6.5,
-        );
-        m.add_vent(next_id, b1.0 - 7, b1.1 + 4);
-        m.add_shards(next_id, 32.0, 32.0, PI * 0.5, 6, 5.0);
-        m.add_vent(next_id, 27, 27);
-        m.add_shards(next_id, 16.0, 22.0, PI, 5, 4.5);
-        m.add_shards(next_id, 47.0, 41.0, 0.0, 5, 4.5);
-        if kind == MapKind::EtherStorm {
-            // More vents, by the side fields and in the middle.
-            m.add_vent(next_id, 19, 20);
-            m.add_vent(next_id, 43, 42);
-            m.add_vent(next_id, 35, 33);
         }
         let (shard, ether) = match kind {
             MapKind::DeepFields => (10.0, 1.0),
@@ -237,7 +249,58 @@ impl Map {
         m
     }
 
-    fn add_shards(&mut self, next_id: &mut Id, cx: f64, cy: f64, ang: f64, n: i32, rad: f64) {
+    /// The resource fields of a generated map, the second side the exact tile-for-tile mirror of the first: each
+    /// base's own field behind it (away from the centre) with a vent to one side, the expansions (every other one,
+    /// or all on an ether storm, with a vent), and the centre field and vent.
+    #[allow(clippy::too_many_arguments)]
+    fn place_fields(
+        &mut self,
+        next_id: &mut Id,
+        kind: MapKind,
+        c0: (f64, f64),
+        centre: (f64, f64),
+        sites: &[(f64, f64)],
+        middle: bool,
+    ) {
+        let mir = |t: &(i32, i32)| (MW - 1 - t.0, MH - 1 - t.1);
+        let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
+        let side = away + PI * 0.5;
+        let v0 = (
+            (jsmath::round(c0.0 + jsmath::cos(side) * 8.0) as i32 - 1).clamp(1, MW - 3),
+            (jsmath::round(c0.1 + jsmath::sin(side) * 8.0) as i32 - 1).clamp(1, MH - 3),
+        );
+        let home = self.add_shards(next_id, c0.0, c0.1, away, 7, 6.5);
+        self.add_vent(next_id, v0.0, v0.1);
+        self.add_shards_at(next_id, &home.iter().map(mir).collect::<Vec<_>>());
+        self.add_vent(next_id, MW - 2 - v0.0, MH - 2 - v0.1);
+        for (k, &p) in sites.iter().enumerate() {
+            let out = jsmath::atan2(p.1 - centre.1, p.0 - centre.0);
+            let field = self.add_shards(next_id, p.0, p.1, out, 5, 4.5);
+            self.add_shards_at(next_id, &field.iter().map(mir).collect::<Vec<_>>());
+            if k % 2 == 0 || kind == MapKind::EtherStorm {
+                let v = (jsmath::round(p.0) as i32 - 1, jsmath::round(p.1) as i32 - 1);
+                self.add_vent(next_id, v.0, v.1);
+                self.add_vent(next_id, MW - 2 - v.0, MH - 2 - v.1);
+            }
+        }
+        if middle {
+            let left = self.add_shards(next_id, centre.0 - 3.0, centre.1, PI, 3, 2.5);
+            self.add_shards_at(next_id, &left.iter().map(mir).collect::<Vec<_>>());
+            self.add_vent(next_id, MW / 2 - 1, MH / 2 - 1); // a 2x2 vent on the centre is its own mirror
+        }
+    }
+
+    /// An arc of `n` shard crystals around (cx, cy) facing `ang`; returns the tiles used (to mirror them exactly).
+    fn add_shards(
+        &mut self,
+        next_id: &mut Id,
+        cx: f64,
+        cy: f64,
+        ang: f64,
+        n: i32,
+        rad: f64,
+    ) -> Vec<(i32, i32)> {
+        let mut used = Vec::new();
         for i in 0..n {
             let a = ang + (i as f64 - (n - 1) as f64 / 2.0) * 0.32;
             let d = rad + if i % 2 == 1 { 0.9 } else { 0.0 };
@@ -253,26 +316,58 @@ impl Map {
                 ty += jsmath::sign(jsmath::sin(a)) as i32;
                 k += 1;
             }
-            if !in_map(tx, ty) {
-                continue;
+            if self.add_shard(next_id, tx, ty) {
+                used.push((tx, ty));
             }
-            self.rock[idx(tx, ty)] = 0;
-            let id = *next_id;
-            *next_id += 1;
-            self.nodes.push(Node {
-                id,
-                ether: false,
-                tx,
-                ty,
-                x: tx as f64 * TILE + 16.0,
-                y: ty as f64 * TILE + 16.0,
-                amount: 1500,
-                miners: 0,
-                r: 14.0,
-                extractor: None,
-            });
-            self.occ[idx(tx, ty)] = -(id as i32);
         }
+        used
+    }
+
+    /// Shard crystals on exactly these tiles (the mirror image of another field).
+    fn add_shards_at(&mut self, next_id: &mut Id, tiles: &[(i32, i32)]) {
+        for &(tx, ty) in tiles {
+            self.add_shard(next_id, tx, ty);
+        }
+    }
+
+    fn add_shard(&mut self, next_id: &mut Id, tx: i32, ty: i32) -> bool {
+        if !in_map(tx, ty) || self.occ[idx(tx, ty)] != 0 {
+            return false;
+        }
+        self.rock[idx(tx, ty)] = 0;
+        let id = *next_id;
+        *next_id += 1;
+        self.nodes.push(Node {
+            id,
+            ether: false,
+            tx,
+            ty,
+            x: tx as f64 * TILE + 16.0,
+            y: ty as f64 * TILE + 16.0,
+            amount: 1500,
+            miners: 0,
+            r: 14.0,
+            extractor: None,
+        });
+        self.occ[idx(tx, ty)] = -(id as i32);
+        true
+    }
+
+    /// Tiles a walker can reach from `from` (4-neighbour, over unblocked tiles: rock and fields both block).
+    fn walkable_from(&self, from: (i32, i32)) -> Vec<bool> {
+        let mut seen = vec![false; (MW * MH) as usize];
+        let mut q = vec![from];
+        seen[idx(from.0, from.1)] = true;
+        while let Some((x, y)) = q.pop() {
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let (nx, ny) = (x + dx, y + dy);
+                if !self.blocked(nx, ny) && !seen[idx(nx, ny)] {
+                    seen[idx(nx, ny)] = true;
+                    q.push((nx, ny));
+                }
+            }
+        }
+        seen
     }
 
     fn add_vent(&mut self, next_id: &mut Id, tx: i32, ty: i32) {

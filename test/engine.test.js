@@ -55,7 +55,6 @@ test('the Rust data tables match the client constants', { skip }, () => {
   for (const [k, u] of Object.entries(C.UPGRADES)) { assert.deepEqual(d.upgrades[k].cost, u.cost, k + ' cost'); assert.deepEqual(d.upgrades[k].time, u.time, k + ' time'); }
   for (const [k, u] of Object.entries(d.units)) assert.equal(u.upDmg, C.UP_DMG[k] ?? 0, k + ' upDmg');
   assert.equal(d.buildings.turret.upDmg, C.UP_DMG.turret);
-  assert.deepEqual(d.bases, C.BASES);
 });
 
 test('a fresh game has two cores, eight harvesters and resource nodes', { skip }, () => {
@@ -167,7 +166,8 @@ test('out-of-range teams are rejected without poisoning the game', { skip }, () 
 test('an extractor knows its vent, and harvesters ordered to the vent mine ether', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
-  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => a.y - b.y).pop(); // the player's (south) vent
+  const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
+  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the player's own vent
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
   assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
   const ext = E.G.bldgs.find(b => b.type === 'extractor');

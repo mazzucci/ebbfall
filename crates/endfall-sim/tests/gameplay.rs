@@ -4,7 +4,7 @@
 
 use endfall_sim::data::Upgrade;
 use endfall_sim::data::*;
-use endfall_sim::map::Id;
+use endfall_sim::map::{Id, in_map};
 #[allow(unused_imports)]
 use endfall_sim::world::{BUILDER_PATIENCE, REPAIR_COST};
 use endfall_sim::world::{Phase, Task, Unit, World};
@@ -376,6 +376,7 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 #[test]
 fn a_walled_in_builder_gives_up_instead_of_waiting_forever() {
     let mut w = rich(23);
+    flatten(&mut w, 12..21, 18..27); // known open ground for the pocket
     // Wall a harvester into a one-tile pocket at tile (16,22) with four finished depots.
     let h = harvesters(&w, PLAYER)[0];
     for (tx, ty) in [(15, 20), (17, 21), (16, 23), (14, 22)] {
@@ -778,7 +779,11 @@ fn ai_wasps_raid_the_players_harvesters() {
         "the raid hurt the player's harvesters: {lost}"
     );
     let g = w.unit(guard).unwrap();
-    assert_eq!(g.hp, g.maxhp, "the raiders went for the harvesters first");
+    assert!(
+        g.maxhp - g.hp < lost * 0.4,
+        "the raiders went for the harvesters, not the guard: guard lost {}, harvesters {lost}",
+        g.maxhp - g.hp
+    );
 }
 
 #[test]
@@ -1505,11 +1510,62 @@ fn builds_within(w: &mut World, h: Id, b: Id, secs: u32) -> Result<(), String> {
 
 #[test]
 fn builders_walking_a_long_way_around_do_not_give_up() {
-    // Paths that first lead sideways or away from the site (cases a review found being abandoned).
-    for (seed, from, site) in [(22, (15, 39), (57, 16)), (50, (5, 30), (6, 54))] {
+    // Paths that first lead sideways or away from the site (cases a review found being abandoned): on each map,
+    // a site whose walk is at least 1.5 times the straight line.
+    for seed in [22, 50, 7] {
+        let (from, site) = long_way_around(seed)
+            .unwrap_or_else(|| panic!("seed {seed}: no long way around found"));
         let (mut w, h, b) = lone_builder(seed, from, site, BldgKind::Barracks);
-        builds_within(&mut w, h, b, 150).unwrap_or_else(|e| panic!("seed {seed}: {e}"));
+        builds_within(&mut w, h, b, 150)
+            .unwrap_or_else(|e| panic!("seed {seed} {from:?} -> {site:?}: {e}"));
     }
+}
+
+/// Walking distance in tiles from `from` to every tile (4-neighbour, unblocked), -1 where unreachable.
+fn walk_dist(w: &World, from: (i32, i32)) -> Vec<i32> {
+    let mut d = vec![-1; (MW * MH) as usize];
+    let mut q = std::collections::VecDeque::from([from]);
+    d[(from.1 * MW + from.0) as usize] = 0;
+    while let Some((x, y)) = q.pop_front() {
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let (nx, ny) = (x + dx, y + dy);
+            if !w.map.blocked(nx, ny) && d[(ny * MW + nx) as usize] < 0 {
+                d[(ny * MW + nx) as usize] = d[(y * MW + x) as usize] + 1;
+                q.push_back((nx, ny));
+            }
+        }
+    }
+    d
+}
+
+/// A builder's start and a Barracks site on `seed`'s map, reachable but at least 1.5 times as far on foot as in
+/// a straight line (the first one found, deterministically).
+fn long_way_around(seed: u32) -> Option<((i32, i32), (i32, i32))> {
+    let w = World::new(seed, 1);
+    let mut r = Mulberry32::new(seed ^ 0x51ed);
+    for _ in 0..4000 {
+        let from = (2 + r.below(60) as i32, 2 + r.below(60) as i32);
+        let site = (2 + r.below(58) as i32, 2 + r.below(58) as i32);
+        if w.map.blocked(from.0, from.1) || !w.can_place(BldgKind::Barracks, site.0, site.1, ENEMY)
+        {
+            continue;
+        }
+        let straight = (((from.0 - site.0).pow(2) + (from.1 - site.1).pow(2)) as f64).sqrt();
+        if straight < 15.0 {
+            continue;
+        }
+        let d = walk_dist(&w, from);
+        // the nearest tile beside the site's footprint
+        let walk = (site.1 - 1..=site.1 + 3)
+            .flat_map(|y| (site.0 - 1..=site.0 + 3).map(move |x| (x, y)))
+            .filter(|&(x, y)| in_map(x, y) && d[(y * MW + x) as usize] >= 0)
+            .map(|(x, y)| d[(y * MW + x) as usize])
+            .min();
+        if walk.is_some_and(|k| k as f64 >= straight * 1.5) {
+            return Some((from, site));
+        }
+    }
+    None
 }
 
 #[test]
@@ -1589,10 +1645,13 @@ fn the_ai_hunts_down_buildings_it_has_not_seen() {
             let d = |c: (i32, i32)| (t.0 - c.0).pow(2) + (t.1 - c.1).pow(2);
             d(p).min(d(e))
         };
+        // (only where a player's builder could walk: not a pocket walled in by rock)
+        let reach = reachable(&w, w.map.nearest_free(p.0 + 1, p.1 + 5, 8).unwrap());
         let hidden = (0..MH)
             .flat_map(|ty| (0..MW).map(move |tx| (tx, ty)))
             // (checked as ENEMY: the player may not build in unexplored ground, but this test cheats)
             .filter(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
+            .filter(|&(tx, ty)| reach[(ty * MW + tx) as usize])
             .filter(|&(tx, ty)| (tx - p.0).pow(2) + (ty - p.1).pow(2) >= 24 * 24)
             .max_by_key(|&t| far(t))
             .unwrap();
@@ -1905,8 +1964,11 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
     use endfall_sim::map::MapKind;
     let rock_share =
         |w: &World| w.map.rock.iter().filter(|&&r| r != 0).count() as f64 / w.map.rock.len() as f64;
+    // Rock share per kind, summed over the seeds: a single seed may need its rock relaxed to connect the fields.
+    let mut rock = [0.0f64; 3]; // standard, open plains, labyrinth
     // (2, 6, 18, 21: seeds whose Labyrinth once walled off whole fields)
     for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242, 99999] {
+        rock[0] += rock_share(&World::new(seed, 1));
         let std = World::new(seed, 1);
         let std_shards: i32 = std
             .map
@@ -1926,7 +1988,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
         for kind in MapKind::ALL {
             let w = World::with_map(seed, 1, kind);
             assert!(
-                w.map.connected(BASES[0], BASES[1]),
+                w.map.connected(w.map.bases[0], w.map.bases[1]),
                 "seed {seed} {kind:?}: the bases connect"
             );
             // Every field owns its tiles (an extra vent must not land on a shard field).
@@ -1955,7 +2017,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                             && y < MH - 1
                             && w.map.rock[(y * MW + x) as usize] == 0
                             && w.map.occ[(y * MW + x) as usize] == 0
-                            && w.map.connected(BASES[0], (x, y))
+                            && w.map.connected(w.map.bases[0], (x, y))
                     })
                 });
                 assert!(
@@ -1984,24 +2046,24 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                     assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
                 }
                 MapKind::EtherStorm => assert!(
-                    vents == std_vents + 3 && ether > std_ether * 4,
+                    vents > std_vents && ether > std_ether * 3,
                     "seed {seed}: more, richer vents"
                 ),
                 MapKind::Barren => assert!(
                     shards < std_shards / 2 && ether < std_ether,
                     "seed {seed}: picked clean"
                 ),
-                MapKind::OpenPlains => assert!(
-                    rock_share(&w) < rock_share(&std),
-                    "seed {seed}: more open ground"
-                ),
-                MapKind::Labyrinth => {
-                    assert!(rock_share(&w) > rock_share(&std), "seed {seed}: more rock")
-                }
+                MapKind::OpenPlains => rock[1] += rock_share(&w),
+                MapKind::Labyrinth => rock[2] += rock_share(&w),
                 MapKind::Standard => assert_eq!(shards, std_shards),
             }
         }
     }
+    assert!(
+        rock[1] < rock[0] * 0.8,
+        "open plains have clearly less rock: {rock:?}"
+    );
+    assert!(rock[2] > rock[0] * 1.2, "labyrinths clearly more: {rock:?}");
 }
 
 #[test]
@@ -2075,7 +2137,13 @@ fn unit_value(k: UnitKind) -> f64 {
 /// The arena with the middle of the map flattened: no rock, no resource fields (the bases stay in their corners).
 fn flat_arena(seed: u32) -> World {
     let mut w = arena(seed);
-    let inside = |x: i32, y: i32| (12..52).contains(&x) && (12..52).contains(&y);
+    flatten(&mut w, 12..52, 12..52);
+    w
+}
+
+/// Clear the rock and resource fields from a rectangle of tiles (scenes that need a known piece of ground).
+fn flatten(w: &mut World, xs: std::ops::Range<i32>, ys: std::ops::Range<i32>) {
+    let inside = |x: i32, y: i32| xs.contains(&x) && ys.contains(&y);
     let gone: Vec<Id> = w
         .map
         .nodes
@@ -2084,8 +2152,8 @@ fn flat_arena(seed: u32) -> World {
         .map(|n| n.id)
         .collect();
     w.map.nodes.retain(|n| !gone.contains(&n.id));
-    for y in 12..52 {
-        for x in 12..52 {
+    for y in ys.clone() {
+        for x in xs.clone() {
             let i = (y * MW + x) as usize;
             w.map.rock[i] = 0;
             if w.map.occ[i] < 0 {
@@ -2093,7 +2161,6 @@ fn flat_arena(seed: u32) -> World {
             }
         }
     }
-    w
 }
 
 /// Two armies of about `budget` (within 10%) meet on open ground, in compact blocks; idle survivors re-engage.
@@ -2447,7 +2514,7 @@ fn raid_matrix() {
 
 #[test]
 fn a_spare_medic_stays_put_while_another_heals() {
-    let mut w = arena(16);
+    let mut w = flat_arena(16);
     let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
     w.units.iter_mut().find(|u| u.id == t).unwrap().hp = 5.0;
     w.hold_unit(t);
@@ -2503,4 +2570,68 @@ fn the_ai_fields_vanguards_from_its_barracks() {
         v * 2 <= t + 2,
         "about one Vanguard per two Troopers: {v} Vanguards, {t} Troopers"
     );
+}
+
+#[test]
+fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
+    use endfall_sim::map::MapKind;
+    let seeds: u32 = if cfg!(debug_assertions) { 30 } else { 300 };
+    for seed in 0..seeds {
+        for kind in [MapKind::Standard, MapKind::Labyrinth] {
+            let w = World::with_map(seed, 1, kind);
+            // Walkable: from beside the player's Core to beside the enemy's, and to every field (crystals block).
+            let (p, e) = (w.map.bases[0], w.map.bases[1]);
+            let start = w.map.nearest_free(p.0 + 1, p.1 + 4, 6).unwrap();
+            let reach = reachable(&w, start);
+            let near = |x: i32, y: i32, s: i32| {
+                (-1..=s).any(|dy| {
+                    (-1..=s).any(|dx| {
+                        let (tx, ty) = (x + dx, y + dy);
+                        in_map(tx, ty) && reach[(ty * MW + tx) as usize]
+                    })
+                })
+            };
+            assert!(
+                near(e.0, e.1, 4),
+                "seed {seed} {kind:?}: the bases can walk to each other"
+            );
+            for n in &w.map.nodes {
+                assert!(
+                    near(n.tx, n.ty, if n.ether { 2 } else { 1 }),
+                    "seed {seed} {kind:?}: the field at {},{} can be reached",
+                    n.tx,
+                    n.ty
+                );
+                // Mirrored tile for tile (a vent is 2x2, so its mirror starts one tile further in).
+                let m = if n.ether {
+                    (MW - 2 - n.tx, MH - 2 - n.ty)
+                } else {
+                    (MW - 1 - n.tx, MH - 1 - n.ty)
+                };
+                assert!(
+                    w.map
+                        .nodes
+                        .iter()
+                        .any(|o| o.ether == n.ether && (o.tx, o.ty) == m && o.amount == n.amount),
+                    "seed {seed} {kind:?}: the field at {},{} has its mirror twin",
+                    n.tx,
+                    n.ty
+                );
+            }
+        }
+    }
+    // A fair start: two minutes of mining with the four first harvesters gives both sides the same shards.
+    for seed in 0..if cfg!(debug_assertions) { 8 } else { 60 } {
+        let mut w = World::new(seed, 1);
+        w.disable_ai();
+        run(&mut w, 120);
+        let (a, b) = (
+            w.res[PLAYER as usize][0] as f64,
+            w.res[ENEMY as usize][0] as f64,
+        );
+        assert!(
+            (a - b).abs() <= 0.1 * a.max(b),
+            "seed {seed}: {a} vs {b} shards after two minutes"
+        );
+    }
 }

@@ -162,7 +162,9 @@ export function cardItems() {
 }
 
 function buildCard() {
-  const items = cardItems(); const key = JSON.stringify(items.map(i => [i.id, i.dis, i.locked, i.active, i.label, i.slot, i.poor, i.tip, i.por]));
+  const items = cardItems();
+  if (press.held && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed)
+  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.locked, i.active, i.label, i.slot, i.poor, i.tip, i.por]));
   if (key === cardKey) return; cardKey = key;
   const c = $('cmd'); c.innerHTML = '';
   const slots = items.length ? items[items.length - 1].slot + 1 : 0;
@@ -177,10 +179,9 @@ function buildCard() {
     b.innerHTML = `<span class="k">${it.key}</span><span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
-      if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it, b); }, 450);
+      if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
     });
-    const release = () => { clearTimeout(press.timer); if (press.held) setTimeout(hideDetail, 1200); };
-    b.addEventListener('pointerup', release); b.addEventListener('pointercancel', release); b.addEventListener('pointerleave', release);
+    b.addEventListener('pointerleave', () => clearTimeout(press.timer)); // slid off before the details showed
     b.addEventListener('contextmenu', ev => ev.preventDefault()); // (the long-press menu of the browser)
     b.addEventListener('click', () => {
       if (press.held === it.id) { press.held = ''; return; } // a long-press shows the details; it does not press the button
@@ -200,7 +201,7 @@ function renderQueue(box, b, size = 26) {
   if (box.dataset.k !== key) {
     box.dataset.k = key;
     box.innerHTML = key ? '<div class="bar prod"><i></i></div>' + b.queue.map((t, i) =>
-      `<button class="qi" data-i="${i}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span></button>`).join('') : '';
+      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span></button>`).join('') : '';
   }
   if (key) box.querySelector('.prod i').style.width = (b.prog * 100) + '%';
 }
@@ -208,20 +209,29 @@ function queueClick(ev) {
   const q = ev.target.closest('.qi'); if (!q) return;
   ev.stopPropagation();
   const b = playerSel().find(x => x.kind === 'bldg'); if (!b) return;
-  cancelQueue(b, +q.dataset.i); sfx('select'); updateHud();
+  // The queue may have moved on since it was drawn (the unit in training finished): cancel the unit that was tapped.
+  const i = +q.dataset.i, t = q.dataset.t, at = b.queue[i] === t ? i : b.queue[i - 1] === t ? i - 1 : -1;
+  if (at >= 0) { cancelQueue(b, at); sfx('select'); }
+  updateHud();
 }
 for (const id of ['queue', 'selQueue']) { const el = $(id); if (el) { el.addEventListener('click', queueClick); el.addEventListener('pointerdown', ev => ev.stopPropagation()); } }
 
 // ---- long-press on a command button (touch): what it is, what it costs, what it needs ----
-const press = { timer: 0, held: '' };
-function showDetail(it, btn) {
-  const box = $('cmdInfo'), r = btn.closest('#cmd').getBoundingClientRect();
+const press = { timer: 0, held: '', hide: 0 };
+function showDetail(it) {
+  const box = $('cmdInfo'), r = $('cmd').getBoundingClientRect(); // (the card survives rebuilds; its buttons may not)
   const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''} ${it.cost[1] ? `<i class="dot ether"></i>${it.cost[1]}` : ''}</span>` : '';
-  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>`;
+  clearTimeout(press.hide);
+  box.hidden = false; // shown first, then filled, so screen readers announce it
   box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px'; box.style.maxWidth = Math.max(220, r.width) + 'px';
-  box.hidden = false;
+  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>`;
 }
-const hideDetail = () => { $('cmdInfo').hidden = true; };
+function hideDetail() { clearTimeout(press.hide); $('cmdInfo').hidden = true; }
+// Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.
+for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => {
+  clearTimeout(press.timer);
+  if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
+}, true);
 
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');

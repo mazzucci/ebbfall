@@ -497,6 +497,18 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await d.page.waitForTimeout(150);
     assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-press did not start placing a Forge');
+    await d.page.waitForTimeout(1500);
+    assert.ok(await info.isHidden(), 'the details go a moment after the finger lifts');
+    // Hold a greyed-out button while the money arrives (the card is rebuilt under the finger): no error, no press.
+    await d.grant(0, 0);
+    const depot = await d.page.locator('#cmd button', { hasText: 'Depot' }).boundingBox();
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: depot.x + depot.width / 2, y: depot.y + depot.height / 2 }] });
+    await d.page.waitForTimeout(200); await d.grant(5000, 5000); await d.page.waitForTimeout(500);
+    assert.ok(await info.isVisible(), 'details still show after the rebuild');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await d.page.waitForTimeout(1500);
+    assert.ok(await info.isHidden(), 'and go after the lift');
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'no Depot placement started');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

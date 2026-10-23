@@ -2088,7 +2088,8 @@ fn flat_arena(seed: u32) -> World {
 }
 
 /// Two armies of about `budget` (within 10%) meet on open ground, in compact blocks; idle survivors re-engage.
-/// Returns (alive A - alive B) / larger spend: + side A won, - side B won.
+/// Returns the difference in surviving share of what each side spent (+ side A won, - side B won), so the odd unit
+/// more that rounding gives one side does not decide the score.
 fn duel_once(a: &[UnitKind], b: &[UnitKind], budget: f64, off: (f64, f64)) -> f64 {
     let mut w = flat_arena(16);
     let army = |mix: &[UnitKind]| -> Vec<UnitKind> {
@@ -2157,7 +2158,7 @@ fn duel_once(a: &[UnitKind], b: &[UnitKind], budget: f64, off: (f64, f64)) -> f6
             break;
         }
     }
-    (alive(&w, &ia) - alive(&w, &ib)) / sa.max(sb)
+    alive(&w, &ia) / sa - alive(&w, &ib) / sb
 }
 
 /// A duel played both ways round (who spawns first updates first) and from three spawn offsets; the median.
@@ -2188,7 +2189,16 @@ fn balance_matrix() {
         for (na, a) in armies {
             let row: Vec<String> = armies
                 .iter()
-                .map(|(_, b)| format!("{:+.2}", duel(a, b, budget)))
+                .map(|(_, b)| {
+                    // flyers that cannot shoot up, against each other: the fight cannot end
+                    let air =
+                        |m: &[UnitKind]| m.iter().all(|k| k.def().air && k.def().dmg_air == 0.0);
+                    if air(a) && air(b) {
+                        "  n/a".to_string()
+                    } else {
+                        format!("{:+.2}", duel(a, b, budget))
+                    }
+                })
                 .collect();
             println!("{na:>11} {}", row.join(" "));
         }
@@ -2346,8 +2356,8 @@ fn raid(wasps: usize, turrets: usize, troopers: usize) -> (usize, usize) {
         let f = w
             .map
             .nearest_free(
-                jsmath_round(nx / TILE) + 2 + 3 * k as i32,
-                jsmath_round(ny / TILE) + 2,
+                tile_round(nx / TILE) + 2 + 3 * k as i32,
+                tile_round(ny / TILE) + 2,
                 6,
             )
             .unwrap();
@@ -2403,7 +2413,7 @@ fn raid(wasps: usize, turrets: usize, troopers: usize) -> (usize, usize) {
         ws.iter().filter(|&&x| w.unit(x).is_none()).count(),
     )
 }
-fn jsmath_round(v: f64) -> i32 {
+fn tile_round(v: f64) -> i32 {
     v.round() as i32
 }
 
@@ -2424,4 +2434,22 @@ fn raid_matrix() {
             "RAID {wasps} wasps vs {turrets} turret(s) + {troopers} troopers: {h}/8 harvesters lost, {lost}/{wasps} wasps lost"
         );
     }
+}
+
+#[test]
+fn a_spare_medic_stays_put_while_another_heals() {
+    let mut w = arena(16);
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
+    w.units.iter_mut().find(|u| u.id == t).unwrap().hp = 5.0;
+    w.hold_unit(t);
+    let _m1 = w.make_unit(UnitKind::Medic, PLAYER, 560.0, 880.0);
+    let m2 = w.make_unit(UnitKind::Medic, PLAYER, 560.0, 920.0);
+    let start = (w.unit(m2).unwrap().x, w.unit(m2).unwrap().y);
+    run(&mut w, 2);
+    let u = w.unit(m2).unwrap();
+    assert!(
+        ((u.x - start.0).powi(2) + (u.y - start.1).powi(2)).sqrt() < 3.0,
+        "the second Medic does not shuffle onto the patient"
+    );
+    assert!(w.unit(t).unwrap().hp > 30.0, "the patient is healed");
 }

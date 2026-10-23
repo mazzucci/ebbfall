@@ -1919,7 +1919,10 @@ impl World {
                 continue;
             }
             let d = dist(o.x, o.y, mx, my) - o.r;
-            if d <= HEAL_RANGE && o.healed_at != self.tick {
+            if d <= HEAL_RANGE {
+                if o.healed_at == self.tick {
+                    continue; // another Medic has this one (and a spare Medic need not walk to it)
+                }
                 let f = o.hp / o.maxhp;
                 if best.is_none_or(|(bf, bid, _)| f < bf || (f == bf && o.id < bid)) {
                     best = Some((f, o.id, d));

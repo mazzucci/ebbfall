@@ -51,7 +51,7 @@ function noise(bus, t, { dur = 0.1, vol = 0.1, filter = 'lowpass', f = 1200, to,
 }
 
 /** Radio chirp pitch by unit type: heavy machines low, flyers and medics high. */
-const VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, wasp: 880 };
+const VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, wasp: 880, observer: 1040 };
 
 const SFX = {
   // interface

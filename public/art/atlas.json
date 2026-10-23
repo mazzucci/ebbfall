@@ -3,7 +3,8 @@
   "atlas-0.json",
   "atlas-1.json",
   "atlas-2.json",
-  "atlas-3.json"
+  "atlas-3.json",
+  "atlas-4.json"
  ],
  "animations": {
   "boom_big": [
@@ -1081,6 +1082,134 @@
   "wasp_1_15": [
    "wasp_1_15_0",
    "wasp_1_15_1"
+  ],
+  "observer_0_0": [
+   "observer_0_0_0",
+   "observer_0_0_1"
+  ],
+  "observer_0_1": [
+   "observer_0_1_0",
+   "observer_0_1_1"
+  ],
+  "observer_0_2": [
+   "observer_0_2_0",
+   "observer_0_2_1"
+  ],
+  "observer_0_3": [
+   "observer_0_3_0",
+   "observer_0_3_1"
+  ],
+  "observer_0_4": [
+   "observer_0_4_0",
+   "observer_0_4_1"
+  ],
+  "observer_0_5": [
+   "observer_0_5_0",
+   "observer_0_5_1"
+  ],
+  "observer_0_6": [
+   "observer_0_6_0",
+   "observer_0_6_1"
+  ],
+  "observer_0_7": [
+   "observer_0_7_0",
+   "observer_0_7_1"
+  ],
+  "observer_0_8": [
+   "observer_0_8_0",
+   "observer_0_8_1"
+  ],
+  "observer_0_9": [
+   "observer_0_9_0",
+   "observer_0_9_1"
+  ],
+  "observer_0_10": [
+   "observer_0_10_0",
+   "observer_0_10_1"
+  ],
+  "observer_0_11": [
+   "observer_0_11_0",
+   "observer_0_11_1"
+  ],
+  "observer_0_12": [
+   "observer_0_12_0",
+   "observer_0_12_1"
+  ],
+  "observer_0_13": [
+   "observer_0_13_0",
+   "observer_0_13_1"
+  ],
+  "observer_0_14": [
+   "observer_0_14_0",
+   "observer_0_14_1"
+  ],
+  "observer_0_15": [
+   "observer_0_15_0",
+   "observer_0_15_1"
+  ],
+  "observer_1_0": [
+   "observer_1_0_0",
+   "observer_1_0_1"
+  ],
+  "observer_1_1": [
+   "observer_1_1_0",
+   "observer_1_1_1"
+  ],
+  "observer_1_2": [
+   "observer_1_2_0",
+   "observer_1_2_1"
+  ],
+  "observer_1_3": [
+   "observer_1_3_0",
+   "observer_1_3_1"
+  ],
+  "observer_1_4": [
+   "observer_1_4_0",
+   "observer_1_4_1"
+  ],
+  "observer_1_5": [
+   "observer_1_5_0",
+   "observer_1_5_1"
+  ],
+  "observer_1_6": [
+   "observer_1_6_0",
+   "observer_1_6_1"
+  ],
+  "observer_1_7": [
+   "observer_1_7_0",
+   "observer_1_7_1"
+  ],
+  "observer_1_8": [
+   "observer_1_8_0",
+   "observer_1_8_1"
+  ],
+  "observer_1_9": [
+   "observer_1_9_0",
+   "observer_1_9_1"
+  ],
+  "observer_1_10": [
+   "observer_1_10_0",
+   "observer_1_10_1"
+  ],
+  "observer_1_11": [
+   "observer_1_11_0",
+   "observer_1_11_1"
+  ],
+  "observer_1_12": [
+   "observer_1_12_0",
+   "observer_1_12_1"
+  ],
+  "observer_1_13": [
+   "observer_1_13_0",
+   "observer_1_13_1"
+  ],
+  "observer_1_14": [
+   "observer_1_14_0",
+   "observer_1_14_1"
+  ],
+  "observer_1_15": [
+   "observer_1_15_0",
+   "observer_1_15_1"
   ]
  },
  "facings": 16,

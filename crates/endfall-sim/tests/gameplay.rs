@@ -138,8 +138,14 @@ fn every_building_and_unit_can_be_made() {
         w.queue_unit(rax, UnitKind::Lancer).unwrap();
         w.queue_unit(rax, UnitKind::Medic).unwrap();
         w.queue_unit(airfield, UnitKind::Wasp).unwrap();
+        w.queue_unit(airfield, UnitKind::Observer).unwrap();
         run(&mut w, 100);
-        for k in [UnitKind::Lancer, UnitKind::Medic, UnitKind::Wasp] {
+        for k in [
+            UnitKind::Lancer,
+            UnitKind::Medic,
+            UnitKind::Wasp,
+            UnitKind::Observer,
+        ] {
             assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
         }
         assert_eq!(
@@ -2634,4 +2640,34 @@ fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
             "seed {seed}: {a} vs {b} shards after two minutes"
         );
     }
+}
+
+#[test]
+fn an_observer_scouts_but_cannot_fight() {
+    let mut w = flat_arena(16);
+    let o = w.make_unit(UnitKind::Observer, PLAYER, 700.0, 1000.0);
+    let foe = w.make_unit(UnitKind::Harvester, ENEMY, 760.0, 1000.0);
+    w.hold_unit(foe);
+    w.attack_ent(o, foe);
+    w.attack_move(o, 1100.0, 1000.0);
+    run(&mut w, 6);
+    assert_eq!(
+        w.unit(foe).unwrap().hp,
+        w.unit(foe).unwrap().maxhp,
+        "unarmed: it hurts nobody"
+    );
+    let u = w.unit(o).unwrap();
+    assert!(u.x > 1000.0, "it flies on regardless: x {}", u.x);
+    // It sees much farther than a Trooper: a unit 11 tiles away is in view.
+    let far = w.make_unit(UnitKind::Trooper, ENEMY, u.x + 11.0 * TILE, u.y);
+    w.hold_unit(far);
+    run(&mut w, 1);
+    let f = w.unit(far).unwrap();
+    assert!(
+        w.vis[PLAYER as usize][World::tile_of(f.x, f.y).1 as usize * MW as usize
+            + World::tile_of(f.x, f.y).0 as usize]
+            > 0,
+        "seen from 11 tiles"
+    );
+    assert!(UnitKind::Observer.def().air, "and it flies");
 }

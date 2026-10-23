@@ -43,7 +43,7 @@ test('every finished production building offers its unit, and pressing it trains
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
     await buildAndFinish(d, 'r', 'turret', 2);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
-    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [rax, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp']]) {
+    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [rax, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp'], [airfield, 'Observer', 'observer']]) {
       await d.clickEntity(b.id);
       const card = await d.card();
       const why = async () => JSON.stringify({ card, sel: await d.selection(), ui: await d.eval(() => [endfall.ui.mode, endfall.ui.place]), at: b, near: (await d.state()).units.filter(u => Math.hypot(u.x - b.x, u.y - b.y) < 70).map(u => [u.type, Math.round(u.x - b.x), Math.round(u.y - b.y)]) });

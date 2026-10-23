@@ -20,6 +20,7 @@ export const UNITS = {
   lancer: { name: 'Lancer', cost: [75, 25], supply: 1, hp: 60, armor: 0, speed: 88, range: 6, dmg: 5, dmgAir: 30, cd: 1.2, sight: 9, r: 9, build: 18, hot: 'L', proj: 'missile', bio: true, desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { name: 'Medic', cost: [40, 20], supply: 1, hp: 45, armor: 0, speed: 90, range: 0, dmg: 0, dmgAir: 0, cd: 1, sight: 8, r: 9, build: 20, hot: 'M', bio: true, heal: 14, req: 'forge', desc: 'Heals nearby infantry. Unarmed. Requires War Forge.' },
   wasp: { name: 'Wasp', cost: [100, 60], supply: 2, hp: 100, armor: 0, speed: 150, range: 3, dmg: 9, dmgAir: 0, cd: 0.7, sight: 9, r: 10, build: 24, hot: 'W', proj: 'bolt', air: true, desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.' },
+  observer: { name: 'Observer', cost: [25, 25], supply: 1, hp: 40, armor: 0, speed: 175, range: 0, dmg: 0, dmgAir: 0, cd: 1, sight: 12, r: 8, build: 14, hot: 'O', air: true, desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs.' },
 };
 
 export const BUILDINGS = {
@@ -29,7 +30,7 @@ export const BUILDINGS = {
   barracks: { name: 'Barracks', cost: [150, 0], w: 3, h: 3, hp: 720, armor: 1, build: 40, sight: 7, trains: ['trooper', 'lancer', 'medic', 'vanguard'], hot: 'B', desc: 'Trains Troopers, Lancers, Medics and Vanguards (Medics and Vanguards need a War Forge).' },
   forge: { name: 'War Forge', cost: [150, 100], w: 3, h: 3, hp: 820, armor: 1, build: 45, sight: 7, trains: [], hot: 'F', req: 'barracks', desc: 'Researches weapon and armor upgrades; unlocks Medics and Vanguards at the Barracks. Requires Barracks.' },
   turret: { name: 'Sentinel Turret', cost: [100, 0], w: 2, h: 2, hp: 320, armor: 1, build: 20, sight: 9, hot: 'R', req: 'barracks', range: 7, dmg: 18, dmgAir: 26, cd: 1.1, proj: 'bolt', desc: 'Static defense against ground and air. Requires Barracks.' },
-  airfield: { name: 'Airfield', cost: [150, 100], w: 3, h: 3, hp: 760, armor: 1, build: 50, sight: 8, trains: ['wasp'], hot: 'A', req: 'forge', desc: 'Trains Wasps. Requires War Forge.' },
+  airfield: { name: 'Airfield', cost: [150, 100], w: 3, h: 3, hp: 760, armor: 1, build: 50, sight: 8, trains: ['wasp', 'observer'], hot: 'A', req: 'forge', desc: 'Trains Wasps. Requires War Forge.' },
 };
 
 /** Team-wide upgrades researched at the War Forge; per level: shards = ether cost, seconds. */

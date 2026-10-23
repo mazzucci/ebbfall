@@ -455,3 +455,60 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
     } finally { await ctx.close(); }
   }
 });
+
+test('a queued unit is cancelled with a click or tap on it, for a full refund', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      await d.grant(1000, 0);
+      const core = coreOf(await d.state());
+      await d.clickEntity(core.id);
+      await d.pressCard('Harvester'); await d.pressCard('Harvester'); await d.pressCard('Harvester');
+      assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 3);
+      const shards = (await d.state()).res[0];
+      const box = d.touch ? '#selQueue' : '#queue';
+      assert.equal(await d.page.locator(`${box} .qi`).count(), 3, `${d.touch ? 'phone' : 'desktop'}: the queue shows`);
+      const second = d.page.locator(`${box} .qi[data-i="1"]`);
+      await (d.touch ? second.tap() : second.click());
+      const after = await d.state();
+      assert.equal(after.bldgs.find(b => b.id === core.id).queue.length, 2, 'one unit cancelled');
+      assert.ok(after.res[0] >= shards + 50, 'refunded');
+      assert.equal(await d.page.locator(`${box} .qi`).count(), 2, 'the queue updates');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('phone: a long-press on a command button shows what it is and costs, without pressing it', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const h = mine(await d.state(), 'harvester')[0];
+    await d.clickEntity(h.id);
+    await d.pressCard('Build');
+    const forge = d.page.locator('#cmd button', { hasText: 'Forge' });
+    const b = await forge.boundingBox();
+    const cdp = await d.page.context().newCDPSession(d.page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
+    await d.page.waitForTimeout(700);
+    const info = d.page.locator('#cmdInfo');
+    assert.ok(await info.isVisible(), 'details show while held');
+    const text = await info.textContent();
+    assert.match(text, /Forge/); assert.match(text, /150/); assert.match(text, /Requires Barracks/);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await d.page.waitForTimeout(150);
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-press did not start placing a Forge');
+    await d.page.waitForTimeout(1500);
+    assert.ok(await info.isHidden(), 'the details go a moment after the finger lifts');
+    // Hold a greyed-out button while the money arrives (the card is rebuilt under the finger): no error, no press.
+    await d.grant(0, 0);
+    const depot = await d.page.locator('#cmd button', { hasText: 'Depot' }).boundingBox();
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: depot.x + depot.width / 2, y: depot.y + depot.height / 2 }] });
+    await d.page.waitForTimeout(200); await d.grant(5000, 5000); await d.page.waitForTimeout(500);
+    assert.ok(await info.isVisible(), 'details still show after the rebuild');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await d.page.waitForTimeout(1500);
+    assert.ok(await info.isHidden(), 'and go after the lift');
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'no Depot placement started');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

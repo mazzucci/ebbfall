@@ -59,6 +59,7 @@ src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
   screen.js           full screen / landscape lock, the leave-game guard
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
+  menu.js             start menu (opponent, three named maps, sound), the phone tap-to-play splash, How to play
   hud.js              top bar, selection panel, command card, client UI state (ui.sel, ui.mode, ui.place)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx

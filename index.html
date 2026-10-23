@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Endfall">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Endfall</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f16'/%3E%3Cpath d='M8 2l5 6-5 6-5-6z' fill='%23f5a524'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,46 +55,60 @@
     <div id="cmd"></div>
   </footer>
   <div class="screen" id="start">
-    <div class="card">
+    <div class="card menu">
       <h1>ENDFALL</h1>
-      <div class="tag">A browser RTS in the 1998 mold. One faction, one map, one opponent. Pre-alpha.</div>
+      <div class="tag">A browser RTS in the 1998 mold. Mine, build, raise an army and level the enemy Command Core in the far corner before their waves level yours.</div>
+      <div class="opt"><span class="lbl" id="lblDiff">OPPONENT</span>
+        <div class="diff" id="diff" role="radiogroup" aria-labelledby="lblDiff">
+          <button class="ib" data-d="0" role="radio" aria-checked="false" title="A slow, gentle opponent: time to learn and build">EASY</button>
+          <button class="ib on" data-d="1" role="radio" aria-checked="true">NORMAL</button>
+          <button class="ib" data-d="2" role="radio" aria-checked="false">HARD</button>
+        </div>
+      </div>
+      <div class="opt"><span class="lbl" id="lblMap">MAP</span>
+        <div id="maps" role="radiogroup" aria-labelledby="lblMap"></div>
+      </div>
+      <div class="opt"><span class="lbl" id="lblSound">SOUND</span>
+        <button class="ib" id="btnMenuSound" aria-pressed="true" aria-labelledby="lblSound btnMenuSound">ON</button>
+      </div>
+      <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>
+      <div class="row"><button class="ib" id="btnHowTo">HOW TO PLAY</button><span class="spacer"></span><button class="ib big" id="btnStart">START GAME</button></div>
+    </div>
+  </div>
+  <div class="screen" id="splash" hidden>
+    <button class="splash" id="btnPlay"><span class="t">ENDFALL</span><span class="s">TAP TO PLAY</span></button>
+  </div>
+  <div class="screen" id="help" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-label="How to play">
+      <h2>How to play</h2>
       <p>Mine <b style="color:var(--shard)">shards</b> and <b style="color:var(--ether)">ether</b>, build supply, raise an army, and level the enemy Command Core before their waves level yours. The enemy base is in the far corner.</p>
       <ul>
         <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point. <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group. Double-click selects all of that unit type on screen. <kbd>.</kbd> idle Harvester, <kbd>Q</kbd> whole army, <kbd>Space</kbd> jump to the last attack, <kbd>P</kbd> pause.</li>
         <li><b>Touch:</b> tap to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather. Drag the map with one finger to look around (flick to glide), pinch to zoom. Hold <b>SELECT</b> (or tap it) and drag to select a group; double-tap a unit for all of its type. Drag on the minimap to nudge the view, tap it to jump. With a building selected, a tap on the ground lets go of it; its rally point is set with <b>Rally</b>. Harvesters given a job (gather, build, repair) are let go, so your next tap does not pull them off it; after placing a building the Build list reopens for the next one. Tap a shard field or vent (with nothing selected) to see what is left.</li>
         <li>Select a Harvester and tap <b>Build</b> to place structures. The Ether Extractor must sit on an ether vent; then send Harvesters to the Extractor to mine ether. Harvesters also <b>repair</b> damaged buildings (the Repair button, or right-click the building); repairs cost a quarter of the price for a full fix.</li>
       </ul>
-      <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>
-      <div class="row">
-        <span class="sub" style="font:12px var(--mono);color:var(--muted)">OPPONENT</span>
-        <div class="diff" id="diff">
-          <button class="ib" data-d="0">EASY</button>
-          <button class="ib on" data-d="1">NORMAL</button>
-          <button class="ib" data-d="2">HARD</button>
-        </div>
-        <span class="spacer"></span>
-        <button class="ib big" id="btnStart">START GAME</button>
-      </div>
+      <div class="row"><span class="spacer"></span><button class="ib big" id="btnHelpClose">BACK</button></div>
     </div>
   </div>
   <div class="screen" id="pause" hidden>
-    <div class="card small">
+    <div class="card small" role="dialog" aria-modal="true" aria-label="Paused">
       <h2>Paused</h2>
       <div class="tag">Take your time.</div>
       <div class="row"><button class="ib big" id="btnResume">RESUME</button><span class="spacer"></span><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnQuit">QUIT</button></div>
     </div>
   </div>
   <div class="screen" id="leave" hidden>
-    <div class="card small">
+    <div class="card small" role="dialog" aria-modal="true" aria-label="Leave the game?">
       <h2>Leave the game?</h2>
       <div class="tag">The game is paused. If you leave, this game is lost.</div>
       <div class="row"><button class="ib big" id="btnStay">KEEP PLAYING</button><span class="spacer"></span><button class="ib" id="btnLeave">LEAVE</button></div>
     </div>
   </div>
   <div class="screen" id="end" hidden>
-    <div class="card">
+    <div class="card" role="dialog" aria-modal="true" aria-label="Game over">
       <h2 id="result">VICTORY</h2>
       <div class="tag" id="endSub"></div>
+      <p class="story" id="endMap"></p>
       <div id="endStats" class="row"></div>
       <div class="row"><button class="ib big" id="btnAgain">PLAY AGAIN</button></div>
     </div>

@@ -20,7 +20,7 @@ const TASKS = ['idle', 'hold', 'move', 'amove', 'attack', 'gather', 'build', 're
 let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  seed: 0, diff: 1, time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
+  seed: 0, diff: 1, mapKind: 0, time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1,
   stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [], upgrades: [{ weapons: 0, armor: 0 }, { weapons: 0, armor: 0 }],
 };
@@ -41,7 +41,7 @@ function sync() {
   if (!dirty || !game) return;
   dirty = false;
   const I = game.info();
-  Object.assign(S, { time: I[0], tick: I[1], over: !!I[10], winner: I[11], seed: I[16], diff: I[17] });
+  Object.assign(S, { time: I[0], tick: I[1], over: !!I[10], winner: I[11], seed: I[16], diff: I[17], mapKind: I[22] });
   S.res[0][0] = I[2]; S.res[0][1] = I[3]; S.res[1][0] = I[4]; S.res[1][1] = I[5];
   S.sup[0] = [I[6], I[7]]; S.sup[1] = [I[8], I[9]];
   Object.assign(S.stats, { built: I[12], lost: I[13], killed: I[14], razed: I[15] });
@@ -103,9 +103,9 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
-export function resetGame(seed, diff) {
+export function resetGame(seed, diff, map = 0) {
   if (game) { try { game.free(); } catch { /* already unusable */ } }
-  game = new Game(seed >>> 0, diff);
+  game = Game.withMap(seed >>> 0, diff, map);
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
   M.rock.set(game.rock()); M.shade.set(game.shade());

@@ -32,6 +32,38 @@ pub struct Map {
     pub nodes: Vec<Node>,
 }
 
+/// The character of a map, chosen in the menu. The order is the client's index: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum MapKind {
+    /// Balanced fields and winding passes.
+    #[default]
+    Standard,
+    /// Ten times the shards in every field.
+    DeepFields,
+    /// Extra vents, each holding three times the ether.
+    EtherStorm,
+    /// Little rock: open ground, fast attacks.
+    OpenPlains,
+    /// Much rock, narrow passes.
+    Labyrinth,
+    /// Fields picked nearly clean: 40% of the shards, 60% of the ether.
+    Barren,
+}
+
+impl MapKind {
+    pub const ALL: [MapKind; 6] = [
+        MapKind::Standard,
+        MapKind::DeepFields,
+        MapKind::EtherStorm,
+        MapKind::OpenPlains,
+        MapKind::Labyrinth,
+        MapKind::Barren,
+    ];
+    pub fn from_index(i: u32) -> MapKind {
+        MapKind::ALL.get(i as usize).copied().unwrap_or_default()
+    }
+}
+
 pub fn idx(x: i32, y: i32) -> usize {
     (y * MW + x) as usize
 }
@@ -110,12 +142,19 @@ impl Map {
             .map(move |i| &mut self.nodes[i])
     }
 
-    /// Generate terrain and resources for `seed`; `next_id` is the shared entity id counter.
-    pub fn generate(seed: u32, next_id: &mut Id) -> Self {
+    /// Generate terrain and resources for `seed` in the character of `kind`; `next_id` is the shared entity id
+    /// counter.
+    pub fn generate(seed: u32, kind: MapKind, next_id: &mut Id) -> Self {
         let mut m = Map::empty();
         let mut rnd = Mulberry32::new(seed);
         let noise = Noise::new(&mut rnd);
-        let mut thr = 0.6;
+        // Rock where the noise is above the threshold: higher means more open ground. (Raised below until the
+        // two bases connect.)
+        let mut thr = match kind {
+            MapKind::OpenPlains => 0.74,
+            MapKind::Labyrinth => 0.5,
+            _ => 0.6,
+        };
         const OPEN: [(f64, f64, f64); 5] = [
             (32.0, 32.0, 7.0),
             (16.0, 22.0, 6.0),
@@ -147,7 +186,12 @@ impl Map {
                     m.rock[idx(x, y)] = r;
                 }
             }
-            if m.connected(BASES[0], BASES[1]) {
+            // The bases must connect, and every field area (the open circles hold the neutral fields and vent) must
+            // be reachable, or a rocky map walls a whole expansion off.
+            let open = |e: &(f64, f64, f64)| (jsmath::round(e.0) as i32, jsmath::round(e.1) as i32);
+            if m.connected(BASES[0], BASES[1])
+                && OPEN.iter().all(|e| m.connected(BASES[0], open(e)))
+            {
                 break;
             }
             thr += 0.03;
@@ -175,6 +219,21 @@ impl Map {
         m.add_vent(next_id, 27, 27);
         m.add_shards(next_id, 16.0, 22.0, PI, 5, 4.5);
         m.add_shards(next_id, 47.0, 41.0, 0.0, 5, 4.5);
+        if kind == MapKind::EtherStorm {
+            // More vents, by the side fields and in the middle.
+            m.add_vent(next_id, 19, 20);
+            m.add_vent(next_id, 43, 42);
+            m.add_vent(next_id, 35, 33);
+        }
+        let (shard, ether) = match kind {
+            MapKind::DeepFields => (10.0, 1.0),
+            MapKind::EtherStorm => (1.0, 3.0),
+            MapKind::Barren => (0.4, 0.6),
+            _ => (1.0, 1.0),
+        };
+        for n in &mut m.nodes {
+            n.amount = jsmath::round(n.amount as f64 * if n.ether { ether } else { shard }) as i32;
+        }
         m
     }
 

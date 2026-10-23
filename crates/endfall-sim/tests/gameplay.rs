@@ -1887,3 +1887,138 @@ fn units_under_a_new_building_step_out_without_stacking() {
         );
     }
 }
+
+#[test]
+fn every_map_kind_generates_a_sound_map_with_its_character() {
+    use endfall_sim::map::MapKind;
+    let rock_share =
+        |w: &World| w.map.rock.iter().filter(|&&r| r != 0).count() as f64 / w.map.rock.len() as f64;
+    // (2, 6, 18, 21: seeds whose Labyrinth once walled off whole fields)
+    for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242, 99999] {
+        let std = World::new(seed, 1);
+        let std_shards: i32 = std
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether)
+            .map(|n| n.amount)
+            .sum();
+        let std_ether: i32 = std
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .map(|n| n.amount)
+            .sum();
+        let std_vents = std.map.nodes.iter().filter(|n| n.ether).count();
+        for kind in MapKind::ALL {
+            let w = World::with_map(seed, 1, kind);
+            assert!(
+                w.map.connected(BASES[0], BASES[1]),
+                "seed {seed} {kind:?}: the bases connect"
+            );
+            // Every field owns its tiles (an extra vent must not land on a shard field).
+            for n in &w.map.nodes {
+                let size = if n.ether { 2 } else { 1 };
+                for y in 0..size {
+                    for x in 0..size {
+                        assert_eq!(
+                            w.map.occ[((n.ty + y) * MW + n.tx + x) as usize],
+                            -(n.id as i32),
+                            "seed {seed} {kind:?}: node {} owns its tiles",
+                            n.id
+                        );
+                    }
+                }
+            }
+            // Every field can be reached from the player's base: some open tile next to it connects.
+            for n in &w.map.nodes {
+                let size = if n.ether { 2 } else { 1 };
+                let reachable = (-1..=size).any(|dy| {
+                    (-1..=size).any(|dx| {
+                        let (x, y) = (n.tx + dx, n.ty + dy);
+                        x > 0
+                            && y > 0
+                            && x < MW - 1
+                            && y < MH - 1
+                            && w.map.rock[(y * MW + x) as usize] == 0
+                            && w.map.occ[(y * MW + x) as usize] == 0
+                            && w.map.connected(BASES[0], (x, y))
+                    })
+                });
+                assert!(
+                    reachable,
+                    "seed {seed} {kind:?}: the field at {},{} can be reached",
+                    n.tx, n.ty
+                );
+            }
+            let shards: i32 = w
+                .map
+                .nodes
+                .iter()
+                .filter(|n| !n.ether)
+                .map(|n| n.amount)
+                .sum();
+            let ether: i32 = w
+                .map
+                .nodes
+                .iter()
+                .filter(|n| n.ether)
+                .map(|n| n.amount)
+                .sum();
+            let vents = w.map.nodes.iter().filter(|n| n.ether).count();
+            match kind {
+                MapKind::DeepFields => {
+                    assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
+                }
+                MapKind::EtherStorm => assert!(
+                    vents == std_vents + 3 && ether > std_ether * 4,
+                    "seed {seed}: more, richer vents"
+                ),
+                MapKind::Barren => assert!(
+                    shards < std_shards / 2 && ether < std_ether,
+                    "seed {seed}: picked clean"
+                ),
+                MapKind::OpenPlains => assert!(
+                    rock_share(&w) < rock_share(&std),
+                    "seed {seed}: more open ground"
+                ),
+                MapKind::Labyrinth => {
+                    assert!(rock_share(&w) > rock_share(&std), "seed {seed}: more rock")
+                }
+                MapKind::Standard => assert_eq!(shards, std_shards),
+            }
+        }
+    }
+}
+
+#[test]
+fn the_ai_finishes_games_on_every_map_kind() {
+    use endfall_sim::map::MapKind;
+    // Two seeds per kind, plus the menu's fixed maps (src/client/menu.js MAPS): Ashen Basin, Glass Reach, Cinder Divide.
+    let fixed = [
+        (4242, MapKind::Standard),
+        (1998, MapKind::DeepFields),
+        (2077, MapKind::Labyrinth),
+    ];
+    let runs = MapKind::ALL
+        .iter()
+        .flat_map(|&k| [(3, k), (11, k)])
+        .chain(fixed);
+    for (seed, kind) in runs {
+        {
+            let mut w = World::with_map(seed, 1, kind);
+            for _ in 0..900 * TPS {
+                w.step();
+                if w.over {
+                    break;
+                }
+            }
+            assert!(
+                w.over && w.winner == ENEMY as i32,
+                "{kind:?} seed {seed}: the AI beats an idle player (t={:.0})",
+                w.time
+            );
+        }
+    }
+}

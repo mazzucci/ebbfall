@@ -55,7 +55,6 @@ test('the Rust data tables match the client constants', { skip }, () => {
   for (const [k, u] of Object.entries(C.UPGRADES)) { assert.deepEqual(d.upgrades[k].cost, u.cost, k + ' cost'); assert.deepEqual(d.upgrades[k].time, u.time, k + ' time'); }
   for (const [k, u] of Object.entries(d.units)) assert.equal(u.upDmg, C.UP_DMG[k] ?? 0, k + ' upDmg');
   assert.equal(d.buildings.turret.upDmg, C.UP_DMG.turret);
-  assert.deepEqual(d.bases, C.BASES);
 });
 
 test('a fresh game has two cores, eight harvesters and resource nodes', { skip }, () => {

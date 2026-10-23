@@ -380,21 +380,38 @@ impl World {
         for team in [PLAYER, ENEMY] {
             let (bx, by) = self.map.bases[team as usize];
             self.make_building(BldgKind::Core, team, bx, by, true);
-            for i in 0..4 {
-                let f = self
-                    .map
-                    .nearest_free(bx - 1 + (i % 2) * 6, by + 4 + (i >> 1) * 2, 4)
-                    .unwrap_or((bx, by + 5));
+            // Four harvesters, each between the Core and one of the four crystals nearest it, mining that crystal:
+            // the same start for both sides (the map is mirrored), whichever way the base faces.
+            let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
+            let mut near: Vec<(f64, Id, i32, i32)> = self
+                .map
+                .nodes
+                .iter()
+                .filter(|n| !n.ether)
+                .map(|n| {
+                    (
+                        jsmath::hypot(n.tx as f64 + 0.5 - cx, n.ty as f64 + 0.5 - cy),
+                        n.id,
+                        n.tx,
+                        n.ty,
+                    )
+                })
+                .collect();
+            near.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
+            for &(d, node, nx, ny) in near.iter().take(4) {
+                let k = 3.0 / d.max(3.0); // three tiles out from the Core's centre, towards the crystal
+                let at = (
+                    jsmath::to_i32(cx + (nx as f64 + 0.5 - cx) * k),
+                    jsmath::to_i32(cy + (ny as f64 + 0.5 - cy) * k),
+                );
+                let f = self.map.nearest_free(at.0, at.1, 4).unwrap_or((bx, by + 5));
                 let u = self.make_unit(
                     UnitKind::Harvester,
                     team,
                     f.0 as f64 * TILE + 16.0,
                     f.1 as f64 * TILE + 16.0,
                 );
-                let (ux, uy) = (self.units.last().unwrap().x, self.units.last().unwrap().y);
-                if let Some(n) = self.nearest_node(ux, uy, team, false, 900.0) {
-                    self.start_gather(u, n);
-                }
+                self.start_gather(u, node);
             }
             self.recalc_supply(team);
         }

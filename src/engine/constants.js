@@ -51,4 +51,3 @@ export const DIFF = [
 ];
 
 /** Top-left tile of each team's starting Command Core. Index = team. */
-export const BASES = [{ x: 9, y: 54 }, { x: 54, y: 9 }];

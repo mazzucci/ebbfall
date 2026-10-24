@@ -2314,9 +2314,14 @@ fn the_counters_hold_in_cost_equal_fights() {
             d(&[Trooper, Trooper, Vanguard], &[Trooper]) > 0.2,
             "{budget}: combined arms beat Trooper spam"
         );
+        // Wasps pick off the Troopers first and the Vanguards cannot shoot back: a tank-heavy army needs anti-air.
         assert!(
-            d(&[Trooper, Trooper, Vanguard], &[Wasp]) > 0.1,
-            "{budget}: and Wasps alone do not beat it"
+            d(&[Trooper, Trooper, Vanguard], &[Wasp]) < 0.0,
+            "{budget}: Wasps punish an army without enough anti-air"
+        );
+        assert!(
+            d(&[Trooper, Lancer], &[Wasp]) > 0.4,
+            "{budget}: while Troopers and Lancers shoot them down"
         );
     }
 }
@@ -2698,4 +2703,416 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
                 .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer));
         assert_eq!(trained, lancers, "{kind:?}: Lancers trained = {trained}");
     }
+}
+
+#[test]
+fn ether_vents_run_dry_and_then_give_a_trickle() {
+    use endfall_sim::world::Event;
+    let mut w = rich(9);
+    w.res[PLAYER as usize][1] = 0;
+    let h = harvesters(&w, PLAYER);
+    build(&mut w, BldgKind::Extractor, h[0], 90);
+    let vent = w
+        .map
+        .nodes
+        .iter()
+        .find(|n| n.ether && n.extractor.is_some())
+        .unwrap()
+        .id;
+    // The builder already mines it; mining takes from the vent like from a shard field.
+    run(&mut w, 30);
+    let mined = w.res[PLAYER as usize][1];
+    let left = w.map.node(vent).unwrap().amount;
+    assert!(mined > 0, "the builder mined ether");
+    assert_eq!(
+        left + mined,
+        5000,
+        "every ether banked came out of the vent"
+    );
+    // Nearly dry: two harvesters empty it, then keep bringing a trickle; the player hears about it once.
+    w.map.node_mut(vent).unwrap().amount = 10;
+    w.events.clear();
+    assert!(w.start_gather(h[1], vent));
+    let before = w.res[PLAYER as usize][1];
+    let mut toasts = 0;
+    for _ in 0..90 * TPS {
+        w.step();
+        toasts += w
+            .events
+            .drain(..)
+            .filter(|e| matches!(e, Event::Toast { msg, .. } if msg.contains("depleted")))
+            .count();
+    }
+    let n = w.map.node(vent).expect("a dry vent stays on the map");
+    assert_eq!(n.amount, 0, "the vent is empty and never negative");
+    assert_eq!(toasts, 1, "one notice when it runs dry");
+    let after = w.res[PLAYER as usize][1] - before;
+    assert!(
+        after > 10 + 4 * VENT_TRICKLE,
+        "the trickle keeps coming: {after}"
+    );
+    assert!(
+        after < 10 + 20 * 6,
+        "but far slower than a full vent: {after}"
+    );
+    for &u in &h[..2] {
+        assert!(
+            matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent),
+            "harvesters stay on the dry vent"
+        );
+    }
+}
+
+/// A Trooper attack-moving next to an enemy Depot while an enemy unit stands a little farther off.
+fn priority_scene(foe: UnitKind) -> (World, Id, Id, Id) {
+    let mut w = flat_arena(16);
+    let depot = w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.0 * TILE, 32.0 * TILE);
+    let other = w.make_unit(foe, ENEMY, 25.0 * TILE, 32.5 * TILE);
+    w.hold_unit(other);
+    w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
+    (w, me, depot, other)
+}
+
+fn target_of(w: &World, u: Id) -> Option<Id> {
+    match w.unit(u)?.task {
+        Task::Attack { target, .. } => Some(target),
+        _ => None,
+    }
+}
+
+#[test]
+fn attack_moving_units_shoot_what_shoots_them_before_the_nearest_building() {
+    // An armed enemy beats a closer Depot.
+    let (mut w, me, depot, foe) = priority_scene(UnitKind::Trooper);
+    run(&mut w, 1);
+    assert_eq!(
+        target_of(&w, me),
+        Some(foe),
+        "the Trooper answers the Trooper"
+    );
+    let _ = depot;
+    // An unarmed one (a Medic) still beats a building.
+    let (mut w, me, _, medic) = priority_scene(UnitKind::Medic);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(medic), "units before buildings");
+    // A finished Turret is a threat, an unfinished one is just a building.
+    for done in [true, false] {
+        let mut w = flat_arena(16);
+        let depot = w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
+        let turret = w.make_building(BldgKind::Turret, ENEMY, 26, 31, done);
+        let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.5 * TILE, 32.4 * TILE);
+        w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
+        run(&mut w, 1);
+        let want = if done { turret } else { depot };
+        assert_eq!(target_of(&w, me), Some(want), "turret done: {done}");
+    }
+}
+
+#[test]
+fn a_unit_busy_with_a_building_turns_on_a_newcomer_that_shoots_it() {
+    let mut w = flat_arena(16);
+    let depot = w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.0 * TILE, 32.0 * TILE);
+    w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(depot));
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 24.0 * TILE, 32.0 * TILE);
+    w.hold_unit(foe);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(foe), "switches to the shooter");
+    // An explicit order stands: told to hit the Depot, it keeps hitting the Depot.
+    w.attack_ent(me, depot);
+    run(&mut w, 2);
+    assert_eq!(target_of(&w, me), Some(depot), "the order stands");
+}
+
+#[test]
+fn flyers_do_not_fear_what_cannot_reach_them() {
+    // A Vanguard cannot shoot up, a Trooper can: a Wasp on attack-move goes for the Trooper even when farther.
+    let mut w = flat_arena(16);
+    let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 30.0 * TILE, 32.0 * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, ENEMY, 25.0 * TILE, 32.0 * TILE);
+    w.hold_unit(vanguard);
+    w.hold_unit(trooper);
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 31.0 * TILE, 32.0 * TILE);
+    w.attack_move(wasp, 40.0 * TILE, 32.0 * TILE);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, wasp), Some(trooper));
+    // And the Vanguard, which shoots ground, treats the Wasp as a plain unit but the Trooper as a threat.
+    assert_eq!(w.threat_tier(trooper, false), 0);
+    assert_eq!(w.threat_tier(wasp, false), 0, "a Wasp shoots ground");
+    assert_eq!(
+        w.threat_tier(vanguard, true),
+        1,
+        "a Vanguard cannot reach a flyer"
+    );
+}
+
+#[test]
+fn the_ai_taps_its_expansion_vent_when_the_home_vent_runs_dry() {
+    let mut w = World::new(33, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    // The vent by the AI's base holds little: it runs dry early.
+    let (ex, ey) = core(&w, ENEMY);
+    let home = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| n.ether)
+        .min_by_key(|n| (n.tx - ex).abs() + (n.ty - ey).abs())
+        .unwrap()
+        .id;
+    w.map.node_mut(home).unwrap().amount = 300;
+    run(&mut w, 840);
+    assert_eq!(w.map.node(home).unwrap().amount, 0, "the home vent ran dry");
+    let tapped: Vec<_> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| n.ether && n.id != home)
+        .filter(|n| {
+            n.extractor
+                .and_then(|x| w.bldg(x))
+                .is_some_and(|b| b.team == ENEMY)
+        })
+        .collect();
+    assert_eq!(tapped.len(), 1, "a second Extractor on another vent");
+    let on_dry = w
+        .units
+        .iter()
+        .filter(|u| u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if node == home))
+        .count();
+    assert!(
+        on_dry <= 1,
+        "at most one harvester on the dry vent: {on_dry}"
+    );
+    // Later, saving ether (one worker on it): nobody heads for the dry vent while the other flows.
+    for _ in 0..12 {
+        run(&mut w, 60);
+        let busy_dry = w
+            .units
+            .iter()
+            .filter(|u| u.team == ENEMY && u.carry == 0)
+            .filter(|u| matches!(u.task, Task::Gather { node, phase: Phase::Go | Phase::Wait, .. } if node == home))
+            .count();
+        assert!(
+            busy_dry <= 1,
+            "{busy_dry} head for the dry vent at {}s",
+            w.time as i32
+        );
+    }
+    let flowing = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| n.ether && n.id != home && n.amount > 0)
+        .find(|n| {
+            n.extractor
+                .and_then(|x| w.bldg(x))
+                .is_some_and(|b| b.team == ENEMY)
+        })
+        .map(|n| n.id);
+    let miners = w
+        .units
+        .iter()
+        .filter(|u| {
+            u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if Some(node) == flowing)
+        })
+        .count();
+    assert!(
+        miners >= 1,
+        "someone mines the flowing vent at {}s",
+        w.time as i32
+    );
+}
+
+#[test]
+fn harvesters_are_not_threats_and_unarmed_units_do_not_pull_units_off_buildings() {
+    // A Harvester nearer than an enemy Trooper: the Trooper is the one shooting, so it comes first.
+    let mut w = flat_arena(16);
+    w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.0 * TILE, 32.0 * TILE);
+    let harv = w.make_unit(UnitKind::Harvester, ENEMY, 27.0 * TILE, 32.5 * TILE);
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 24.0 * TILE, 32.5 * TILE);
+    w.hold_unit(harv);
+    w.hold_unit(foe);
+    w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(foe));
+    assert_eq!(w.threat_tier(harv, false), 1, "a Harvester only scratches");
+    // Busy with the Depot, an Observer at the edge of sight (out of weapon range) does not pull it away.
+    let mut w = flat_arena(16);
+    let depot = w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.5 * TILE, 32.0 * TILE);
+    w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(depot));
+    let obs = w.make_unit(UnitKind::Observer, ENEMY, 23.0 * TILE, 32.0 * TILE);
+    w.hold_unit(obs);
+    run(&mut w, 2);
+    assert_eq!(target_of(&w, me), Some(depot), "keeps hitting the Depot");
+}
+
+#[test]
+fn a_chased_target_out_of_sight_is_let_go_and_the_attack_move_resumes() {
+    let mut w = flat_arena(16);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 32.0 * TILE);
+    let obs = w.make_unit(UnitKind::Observer, ENEMY, 25.0 * TILE, 32.0 * TILE);
+    w.hold_unit(obs);
+    w.attack_move(me, 40.0 * TILE, 32.0 * TILE);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(obs));
+    // The Observer flies far off: the Trooper does not follow it across the map.
+    let o = w.units.iter_mut().find(|u| u.id == obs).unwrap();
+    o.y -= 16.0 * TILE;
+    run(&mut w, 1);
+    assert!(
+        matches!(w.unit(me).unwrap().task, Task::AMove { .. }),
+        "back on the attack-move: {:?}",
+        w.unit(me).unwrap().task
+    );
+}
+
+#[test]
+fn units_answer_a_shooter_and_then_carry_on_with_their_attack_move() {
+    // Shot while attack-moving: answer, and after the shooter dies carry on attack-moving (not a plain move).
+    let mut w = flat_arena(16);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 32.0 * TILE);
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 20.0 * TILE, 42.0 * TILE);
+    w.hold_unit(foe);
+    w.attack_move(me, 44.0 * TILE, 32.0 * TILE);
+    w.damage(me, 1.0, Some(foe));
+    assert_eq!(target_of(&w, me), Some(foe));
+    w.damage(foe, 1e6, None);
+    run(&mut w, 1);
+    assert!(
+        matches!(
+            w.unit(me).unwrap().task,
+            Task::AMove { .. } | Task::Attack { .. }
+        ),
+        "{:?}",
+        w.unit(me).unwrap().task
+    );
+    assert!(
+        !matches!(w.unit(me).unwrap().task, Task::Move { .. }),
+        "an attack-move, not a plain move"
+    );
+    // Busy with a Depot it found itself, a shooter from beyond sight still gets an answer.
+    let mut w = flat_arena(16);
+    let depot = w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.5 * TILE, 32.0 * TILE);
+    w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
+    run(&mut w, 1);
+    assert_eq!(target_of(&w, me), Some(depot));
+    let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 19.0 * TILE, 32.0 * TILE);
+    w.hold_unit(foe);
+    w.damage(me, 1.0, Some(foe));
+    assert_eq!(target_of(&w, me), Some(foe), "turns on the shooter");
+}
+
+#[test]
+fn harvesters_pick_a_flowing_vent_over_a_dry_one() {
+    let mut w = rich(9);
+    let (cx, cy) = core(&w, PLAYER);
+    let mut vents: Vec<(i32, Id, i32, i32)> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| n.ether)
+        .map(|n| ((n.tx - cx).abs() + (n.ty - cy).abs(), n.id, n.tx, n.ty))
+        .collect();
+    vents.sort();
+    let (near, far) = (vents[0], vents[1]);
+    for v in [near, far] {
+        w.make_building(BldgKind::Extractor, PLAYER, v.2, v.3, true);
+    }
+    let n = w.map.node(near.1).unwrap();
+    let (x, y) = (n.x, n.y);
+    assert_eq!(w.nearest_node(x, y, PLAYER, true, 1e9), Some(near.1));
+    w.map.node_mut(near.1).unwrap().amount = 0;
+    assert_eq!(
+        w.nearest_node(x, y, PLAYER, true, 1e9),
+        Some(far.1),
+        "the flowing one"
+    );
+    w.map.node_mut(far.1).unwrap().amount = 0;
+    assert_eq!(
+        w.nearest_node(x, y, PLAYER, true, 1e9),
+        Some(near.1),
+        "all dry: the nearest trickle"
+    );
+}
+
+#[test]
+fn idle_defenders_shot_by_a_passing_wasp_give_up_and_walk_home() {
+    let mut w = flat_arena(16);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 32.0 * TILE);
+    let mate = w.make_unit(UnitKind::Trooper, PLAYER, 31.0 * TILE, 32.0 * TILE);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 38.0 * TILE);
+    w.hold_unit(wasp);
+    run(&mut w, 1);
+    w.damage(me, 1.0, Some(wasp));
+    assert_eq!(target_of(&w, me), Some(wasp));
+    assert_eq!(
+        target_of(&w, mate),
+        Some(wasp),
+        "the idle neighbour joins in"
+    );
+    // The Wasp leaves for good: both let it go and walk back to where they stood.
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    o.hp = 1e6;
+    o.maxhp = 1e6;
+    o.y = 4.0 * TILE;
+    run(&mut w, 12);
+    for (u, x) in [(me, 30.0), (mate, 31.0)] {
+        let u = w.unit(u).unwrap();
+        assert!(!matches!(u.task, Task::Attack { .. }), "{:?}", u.task);
+        assert!(
+            (u.x - x * TILE).abs() < 1.5 * TILE && (u.y - 32.0 * TILE).abs() < 6.0 * TILE,
+            "back near its spot: {:.0},{:.0}",
+            u.x / TILE,
+            u.y / TILE
+        );
+    }
+}
+
+#[test]
+fn the_ai_keeps_building_when_the_player_takes_its_home_vent() {
+    let mut w = World::new(33, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    // Every vent within 16 tiles of the AI's core gets a player Extractor: none left at home.
+    let (ex, ey) = core(&w, ENEMY);
+    let taken: Vec<(i32, i32)> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| {
+            n.ether && (((n.tx - ex - 2).pow(2) + (n.ty - ey - 2).pow(2)) as f64).sqrt() < 18.0
+        })
+        .map(|n| (n.tx, n.ty))
+        .collect();
+    assert!(!taken.is_empty());
+    for (tx, ty) in taken {
+        w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
+    }
+    run(&mut w, 720);
+    let rax = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Barracks)
+        .count();
+    assert!(rax >= 2, "the build order goes on: {rax} Barracks");
 }

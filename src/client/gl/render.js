@@ -246,7 +246,7 @@ class NodeObj {
     this.glow = light(this.ether ? 0xa78bfa : 0x4fd1c5, this.ether ? 1.1 : 0.55, this.ether ? 0.45 : 0.25); this.glow.position.set(n.x, n.y);
   }
   update(n, t) {
-    if (this.ether) { setTex(this.s, tex(`vent_${Math.floor(t * 6) % 4}`)); this.glow.alpha = n.extractor ? 0 : 0.35 + 0.15 * Math.sin(t * 2 + n.x); }
+    if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; this.glow.alpha = n.extractor || dry ? 0 : 0.35 + 0.15 * Math.sin(t * 2 + n.x); }
     else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); this.glow.alpha = 0.18 + 0.06 * Math.sin(t * 1.7 + n.y); }
   }
   show(v) { this.s.visible = this.glow.visible = v; }

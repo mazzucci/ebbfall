@@ -50,7 +50,7 @@ export function updateHud() {
 }
 
 /** A figure in the panel: an icon, the base value and, in gold, what upgrades add. */
-const stat = (ico, v, bonus, title) => `<span class="st" title="${title}">${icon(ico)}<b>${v}</b>${bonus ? `<em>+${bonus}</em>` : ''}</span>`;
+const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-label="${title}: ${v}${bonus ? ' plus ' + bonus : ''}">${icon(ico)}<b>${v}</b>${bonus ? `<em>+${bonus}</em>` : ''}</span>`;
 /** What a unit or turret can do in a fight, in as few numbers as possible: damage (ground, air) and armor. */
 function fightStats(x) {
   const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons;
@@ -59,7 +59,7 @@ function fightStats(x) {
   if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? up.armor : 0, 'Armor');
-  if (x.kind === 'unit' && x.carry) h += `<span class="st" title="Carrying">${icon('gather')}<b>${x.carry}</b>&nbsp;${x.carryType}</span>`;
+  if (x.kind === 'unit' && x.carry) h += `<span class="st" title="Carrying" aria-label="Carrying ${x.carry} ${x.carryType}">${icon('gather')}<b>${x.carry}</b>&nbsp;${x.carryType}</span>`;
   return h;
 }
 
@@ -75,7 +75,10 @@ let modKey = '';
  * buttons survive between frames; bars and numbers update in place. */
 function renderSelection() {
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
-  const life = (f, txt, color = '') => { $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color; $('hpNum').textContent = txt; };
+  const life = (f, cur, max, color = '') => { // (small phones drop the "/max")
+    $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
+    const t = max ? `${cur}<span class="mx">/${max}</span>` : String(cur); if ($('hpNum').innerHTML !== t) $('hpNum').innerHTML = t;
+  };
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
   info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;
   if (!sel.length) {
@@ -87,16 +90,16 @@ function renderSelection() {
     name.textContent = ether ? 'Ether vent' : 'Shard field';
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
     sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
-    life(n.max ? n.amount / n.max : 0, String(n.amount), `var(--${ether ? 'ether' : 'shard'})`);
+    life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
     const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
-    module('node' + working, `<span class="st" title="Harvesters working it">${portrait('unit', 'harvester', 22)}<b>${working}</b></span>`);
+    module('node' + working, `<span class="st" title="Harvesters working it" aria-label="Harvesters working it: ${working}">${portrait('unit', 'harvester', 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === PLAYER;
     name.textContent = x.d.name;
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
     sub.textContent = !own ? 'Enemy' : x.kind === 'unit' ? taskName(x) : x.done && x.research ? 'Researching' : x.done && x.queue.length ? 'Training' : bldgStatus(x);
-    life(x.hp / x.maxhp, Math.ceil(x.hp) + '/' + x.maxhp);
+    life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp);
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
@@ -104,7 +107,7 @@ function renderSelection() {
       module('res' + x.id + x.research.type + G.upgrades[x.team][x.research.type], researchModule(x));
       mod.querySelector('.res i').style.width = (x.research.prog * 100) + '%';
     } else if (x.kind === 'bldg' && own && x.queue.length) {
-      module('q' + x.id, '<div id="queue" class="q"></div>');
+      module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>');
       renderQueue($('queue'), x, 30);
     } else if (x.kind === 'unit' || x.d.dmg || x.d.dmgAir) {
       const h = fightStats(x); module('f' + h, h);
@@ -131,7 +134,7 @@ function renderUpgrades() {
     const r = G.bldgs.find(b => b.team === PLAYER && b.research?.type === k), lv = up[k] + (r ? 1 : 0);
     if (!lv) continue;
     key += k + lv + (r ? 'r' : '');
-    html += `<span class="up${r ? ' on' : ''}" data-k="${k}" title="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}">${r ? '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><circle class="p" cx="12" cy="12" r="10.5" pathLength="100"/></svg>' : ''}${icon(k)}<b>${ROMAN[lv]}</b></span>`;
+    html += `<span class="up${r ? ' on' : ''}" data-k="${k}" title="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}" aria-label="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}">${r ? '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><circle class="p" cx="12" cy="12" r="10.5" pathLength="100"/></svg>' : ''}${icon(k)}<b>${ROMAN[lv]}</b></span>`;
   }
   el.hidden = !key;
   if (el.dataset.k !== key) { el.dataset.k = key; el.innerHTML = html; }

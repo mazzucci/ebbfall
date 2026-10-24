@@ -50,7 +50,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #selPor{width:52px;height:52px;flex:none;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line2);border-radius:4px} #selPor:empty{display:none}
 #info .id{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
-#info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+#info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:none;max-width:100%}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .life{display:flex;align-items:center;gap:8px} .life .bar{flex:1;max-width:200px;height:7px} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 #mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
@@ -65,7 +65,6 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .bar{height:8px;background:#0a0e14;border:1px solid var(--line);border-radius:2px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;background:var(--ok);transition:width .15s linear}
 .bar.prod i{background:var(--ally)}
-#queue .bar.prod{flex:1 1 100%}
 /* Queued units: a tap or click cancels one (a small ✕ shows they can be cancelled). */
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
 .qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
@@ -120,10 +119,10 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #result.win{color:var(--ok)} #result.lose{color:var(--bad)}
 @media (max-width:620px){
   #top{gap:9px;padding:0 8px} .brand{display:none} .res{font-size:14px} #clock{font-size:13px}
-  #hud{height:156px;grid-template-columns:auto minmax(0,1fr)}
-  #minimap{width:156px;height:156px}
-  #info{display:none}
-  #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:1}
+  #hud{height:auto;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 156px}
+  #minimap{width:156px;height:156px;grid-row:2}
+  #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px} #info.empty{display:none}
+  #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:2}
 }
 #upg{gap:14px;font-size:13px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:2px}
 /* Upgrades in the top bar: the icon and level; research under way fills a ring round the icon. */
@@ -156,15 +155,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #cmd:empty{display:none}
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
   /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */
-  #info{display:flex;flex:0 1 auto;margin-right:auto!important;flex-wrap:nowrap;align-self:flex-end;max-width:540px;height:64px;margin:0 8px;padding:6px 10px;gap:12px;
+  #info{display:flex;flex:0 1 auto;flex-wrap:nowrap;align-self:flex-end;max-width:540px;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;
     background:rgba(18,26,37,.88);box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #info.empty{display:none}
-  #info .who{flex:0 1 auto;gap:9px} #selPor{width:48px;height:48px} #selPor .por{width:42px;height:42px}
-  #info .id{gap:4px} #info h2{font-size:14px} #info .sub{font-size:11px} .life .bar{width:96px;flex:none;height:6px} #hpNum{font-size:14px}
-  #mod{gap:12px;padding-left:12px;flex:0 1 auto} .st{font-size:15px} .st .ico{width:15px;height:15px}
-  .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
-  #mod .q{gap:4px;max-width:none} #mod .q .qi{width:34px;height:34px}
-  #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none}
   #hint{left:126px;bottom:86px}
   /* SELECT sits above the minimap, under the left thumb, so the right hand can drag the box. */
   #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);
@@ -183,3 +176,24 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 
 #endStats b{color:var(--fg)}
 #endStats{font:13px var(--mono);color:var(--muted);gap:18px}
+
+/* The compact console (landscape phones, and narrow or portrait screens): the module keeps its size and the name side
+   gives way (the name ellipsizes); the queue stays one row with its bar underneath. */
+@media (max-width:620px), (max-height:500px) and (orientation:landscape) and (pointer:coarse){
+  #info .who{flex:1 1 auto;gap:9px;min-width:0} #selPor{width:48px;height:48px} #selPor .por{width:42px;height:42px}
+  #info .id{gap:4px} #info .nm,.life{overflow:hidden} #info h2{font-size:14px} #info .sub{font-size:11px}
+  .life .bar{width:96px;flex:none;height:6px} #hpNum{font-size:14px}
+  #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden} .st{font-size:15px} .st .ico{width:15px;height:15px}
+  .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
+  #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}
+  #mod .q .qi{width:32px;height:32px;flex:none} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px}
+  #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none}
+}
+/* Small phones (iPhone SE class): fewer words, smaller bars, so the figures stay whole. */
+@media (max-width:720px) and (max-height:500px) and (orientation:landscape) and (pointer:coarse), (max-width:420px){
+  #info .sub{display:none} .life .bar{width:56px} #hpNum{font-size:12px} #info{padding:6px 8px;gap:8px} #mod{gap:9px;padding-left:9px}
+  #selPor{width:40px;height:40px} #selPor .por{width:36px;height:36px} .st{font-size:14px}
+  .pips{display:none} .rs{min-width:110px} #mod .q .qi{width:26px;height:26px} #mod .q .qi .por{width:22px;height:22px}
+  #hpNum .mx{display:none}
+  #info:has(#queue) #selPor{display:none} /* a full queue needs the room: the name and health stay readable */
+}

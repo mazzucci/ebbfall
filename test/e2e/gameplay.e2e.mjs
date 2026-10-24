@@ -143,6 +143,9 @@ test('training shows progress and the queue in the panel', async () => {
     await d.skip(3);
     assert.match(await d.hudText('#selSub', /^Training$/), /Training/);
     assert.equal(await d.page.locator('#queue .qi').count(), 2);
+    const w0 = await d.page.locator('#queue .prod i').evaluate(e => parseFloat(e.style.width));
+    await d.skip(3); // (the panel redraws on the next frame: wait for it)
+    await d.page.waitForFunction((w) => parseFloat(document.querySelector('#queue .prod i').style.width) > w, w0, { timeout: 10000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -316,6 +319,9 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.pressCard('Weapons I');
     assert.match(await d.hudText('#mod', /Weapons I/), /Weapons I/);
     assert.ok(await d.page.locator('#mod .rs').isVisible(), 'the console shows the research with its bar');
+    const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
+    await d.skip(4);
+    await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok(await d.page.locator('#upg .up.on .ring').isVisible(), 'and the top bar shows it, whatever is selected');
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
@@ -526,3 +532,28 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+/** Every box inside the selection console lies within it (nothing spills out or is cut off). */
+async function insideConsole(d, sel) {
+  const box = await d.page.locator('#info').boundingBox();
+  for (const b of await d.page.locator(sel).evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, c: e.className || e.id }; })))
+    assert.ok(b.x >= box.x - 1 && b.y >= box.y - 1 && b.x + b.w <= box.x + box.width + 1 && b.y + b.h <= box.y + box.height + 1, `${b.c} inside the console: ${JSON.stringify(b)} vs ${JSON.stringify(box)}`);
+}
+
+for (const [label, device] of [['phone', PHONE], ['small phone', { ...PHONE, viewport: { width: 667, height: 375 } }]]) {
+  test(`${label}: the console fits a full queue, a turret's figures and long names`, async () => {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      await d.grant(5000, 5000);
+      const core = coreOf(await d.state());
+      await d.clickEntity(core.id);
+      for (let i = 0; i < 5; i++) await d.pressCard('Harvester');
+      assert.equal(await d.page.locator('#queue .qi').count(), 5);
+      await insideConsole(d, '#queue .qi, #queue .prod, #selPor, #hpNum');
+      const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 140, core.y + 140]);
+      await d.clickEntity(id);
+      await insideConsole(d, '#mod .st, #hpNum, #selName');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}

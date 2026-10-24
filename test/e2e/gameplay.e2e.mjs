@@ -629,3 +629,20 @@ test('phone: a site that loses its builder says so once; no keyboard letters; gr
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('offline: once loaded, the game opens and plays with no connection', async () => {
+  const ctx = await browserContext(DESKTOP);
+  const page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.evaluate(async () => { const r = await navigator.serviceWorker.ready; return !!r.active; });
+    await page.waitForFunction(async () => (await caches.keys()).some(k => k.startsWith('endfall-')), null, { timeout: 30000 });
+    await ctx.setOffline(true);
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.ok(await page.evaluate(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'core')), 'a game started offline');
+  } finally { await ctx.close(); }
+});

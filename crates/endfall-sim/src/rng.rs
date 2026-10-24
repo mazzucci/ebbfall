@@ -1,4 +1,4 @@
-//! Seeded PRNG. Bit-for-bit the same as `mulberry` in `src/sim/util.js`, which returns `next_u32() / 2^32`.
+//! Seeded PRNG. Bit-for-bit the same as `mulberry` in `src/engine/util.js`, which returns `next_u32() / 2^32`.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Mulberry32 {

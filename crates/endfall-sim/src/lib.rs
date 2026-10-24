@@ -61,15 +61,6 @@ impl Game {
         }
     }
 
-    /// A new game on a map of a given character (index into MapKind; unknown = standard).
-    #[wasm_bindgen(js_name = withMap)]
-    pub fn with_map(seed: u32, diff: u32, map: u32) -> Game {
-        Game {
-            w: World::with_map(seed, diff as usize, map::MapKind::from_index(map)),
-            me: data::PLAYER,
-        }
-    }
-
     /// A new game with the races chosen (index into FACTIONS for the player and for the AI; unknown = Humans).
     #[wasm_bindgen(js_name = withSetup)]
     pub fn with_setup(seed: u32, diff: u32, map: u32, side: u32, player: u32, ai: u32) -> Game {
@@ -87,28 +78,9 @@ impl Game {
         }
     }
 
-    /// A new game where the player may start in the other base of the map (`side` 1); the client draws it.
-    #[wasm_bindgen(js_name = withMapSide)]
-    pub fn with_map_side(seed: u32, diff: u32, map: u32, side: u32) -> Game {
-        Game {
-            w: World::with_map_side(
-                seed,
-                diff as usize,
-                map::MapKind::from_index(map),
-                side == 1,
-            ),
-            me: data::PLAYER,
-        }
-    }
-
     /// The seat this Game plays: its orders, its fog, its events.
     pub fn me(&self) -> u8 {
         self.me
-    }
-
-    /// Start a new game on this instance.
-    pub fn reset(&mut self, seed: u32, diff: u32) {
-        self.w.reset(seed, diff as usize);
     }
 
     /// Advance the world by one fixed tick.

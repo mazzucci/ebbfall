@@ -26,12 +26,12 @@ impl World {
     /// Workers: idle ones mine; ether workers follow the cap; nobody stays on a dry vent while one flows.
     pub(crate) fn ai_workers(&mut self, brain: &mut Brain) {
         let Brain { e, harv, my_b, .. } = brain.clone();
-        // Workers: idle ones mine; keep up to three on ether once an extractor stands, one while ether piles up.
+        // Keep up to three on ether once an extractor stands, one while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
             b.kind == self.factions[self.seat() as usize].ai.ether && b.done
         });
-        let mut ether = harv
+        let ether = harv
             .iter()
             .filter(|&&h| self.gathering_ether(h) == Some(true))
             .count();
@@ -50,13 +50,48 @@ impl World {
                     && n.extractor
                         .is_some_and(|x| self.bldg(x).is_some_and(|b| b.team == e && b.done))
             });
-        let ai = self.ai_mut();
-        let ether_cap = if ai.ether_lean || !flowing { 1 } else { 3 };
-        for &h in &harv {
+        let ether_cap = if self.ai().ether_lean || !flowing {
+            1
+        } else {
+            3
+        };
+        let ether = self.ai_idle_to_work(&harv, ext.is_some(), flowing, ether, ether_cap);
+        if flowing {
+            self.ai_off_dry_vent(&harv);
+        }
+        if ether > ether_cap {
+            self.ai_one_off_ether(&harv);
+        } else if ext.is_some() && ether < ether_cap {
+            self.ai_one_onto_ether(&harv, flowing);
+        }
+        brain.ext = ext;
+        brain.flowing = flowing;
+    }
+
+    /// Send worker `h` to the nearest field of ours (a vent if `ether`) within `range` px of it, if there is one.
+    fn ai_regather(&mut self, h: Id, ether: bool, range: f64) {
+        let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
+        if let Some(n) = self.nearest_node(hx, hy, self.seat(), ether, range) {
+            self.start_gather(h, n);
+        }
+    }
+
+    /// Idle workers go mining from their own base: ether while under the cap (`ether` on it so far), else shards.
+    /// Returns how many are on ether after.
+    fn ai_idle_to_work(
+        &mut self,
+        harv: &[Id],
+        has_ext: bool,
+        flowing: bool,
+        mut ether: usize,
+        cap: usize,
+    ) -> usize {
+        let e = self.seat();
+        for &h in harv {
             if self.unit(h).unwrap().task == Task::Idle {
-                let want_ether = ext.is_some() && ether < ether_cap;
+                let want_ether = has_ext && ether < cap;
                 let u = self.unit(h).unwrap();
-                let (hx, hy) = self.home_of(u.x, u.y); // never the player's fields
+                let (hx, hy) = self.home_of(u.x, u.y); // never the enemy's fields
                 let n = self
                     .nearest_node(
                         hx,
@@ -74,76 +109,73 @@ impl World {
                 }
             }
         }
-        let on_dry = |w: &World, h: Id| match w.unit(h).map(|u| u.task) {
-            Some(Task::Gather { node, .. }) => {
-                w.map.node(node).is_some_and(|n| n.ether && n.amount <= 0)
-            }
-            _ => false,
-        };
-        // Off a dry vent as soon as one of ours still flows (anywhere: the expansion's may be far).
-        if flowing {
-            let h = harv.iter().copied().find(|&h| {
-                on_dry(self, h)
-                    && self.unit(h).unwrap().carry == 0
-                    && !matches!(
-                        self.unit(h).unwrap().task,
-                        Task::Gather {
-                            phase: Phase::Mine,
-                            ..
-                        }
-                    )
-            });
-            if let Some(h) = h {
-                let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
-                if let Some(n) = self
-                    .nearest_node(hx, hy, e, true, 3000.0)
-                    .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0))
-                {
-                    self.start_gather(h, n);
-                }
-            }
-        }
-        if ether > ether_cap {
-            // The one on a dry vent goes first.
-            let idle_ether = |w: &World, h: Id| {
-                w.gathering_ether(h) == Some(true) && w.unit(h).unwrap().carry == 0
-            };
-            let h = harv
-                .iter()
-                .copied()
-                .find(|&h| idle_ether(self, h) && on_dry(self, h))
-                .or_else(|| harv.iter().copied().find(|&h| idle_ether(self, h)));
-            if let Some(h) = h {
-                let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
-                if let Some(n) = self.nearest_node(hx, hy, e, false, 1200.0) {
-                    self.start_gather(h, n);
-                }
-            }
-        } else if ext.is_some() && ether < ether_cap {
-            let h = harv.iter().copied().find(|&h| {
-                let u = self.unit(h).unwrap();
-                self.gathering_ether(h) == Some(false)
-                    && !matches!(
-                        u.task,
-                        Task::Gather {
-                            phase: Phase::Mine,
-                            ..
-                        }
-                    )
-                    && u.carry == 0
-            });
-            if let Some(h) = h {
-                let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
-                if let Some(n) =
-                    self.nearest_node(hx, hy, e, true, if flowing { 3000.0 } else { 800.0 })
-                {
-                    self.start_gather(h, n);
-                }
-            }
-        }
+        ether
+    }
 
-        brain.ext = ext;
-        brain.flowing = flowing;
+    /// Whether worker `h` is gathering at a dry vent.
+    fn on_dry_vent(&self, h: Id) -> bool {
+        match self.unit(h).map(|u| u.task) {
+            Some(Task::Gather { node, .. }) => self
+                .map
+                .node(node)
+                .is_some_and(|n| n.ether && n.amount <= 0),
+            _ => false,
+        }
+    }
+
+    /// Whether worker `h` is free to change fields: empty-handed and not in the middle of mining.
+    fn ai_between_loads(&self, h: Id) -> bool {
+        let u = self.unit(h).unwrap();
+        u.carry == 0
+            && !matches!(
+                u.task,
+                Task::Gather {
+                    phase: Phase::Mine,
+                    ..
+                }
+            )
+    }
+
+    /// One worker off a dry vent, onto a vent of ours that still flows (anywhere: the expansion's may be far).
+    fn ai_off_dry_vent(&mut self, harv: &[Id]) {
+        let h = harv
+            .iter()
+            .copied()
+            .find(|&h| self.on_dry_vent(h) && self.ai_between_loads(h));
+        if let Some(h) = h {
+            let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
+            if let Some(n) = self
+                .nearest_node(hx, hy, self.seat(), true, 3000.0)
+                .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0))
+            {
+                self.start_gather(h, n);
+            }
+        }
+    }
+
+    /// Over the ether cap: one empty-handed ether worker back to shards (the one on a dry vent first).
+    fn ai_one_off_ether(&mut self, harv: &[Id]) {
+        let idle_ether =
+            |w: &World, h: Id| w.gathering_ether(h) == Some(true) && w.unit(h).unwrap().carry == 0;
+        let h = harv
+            .iter()
+            .copied()
+            .find(|&h| idle_ether(self, h) && self.on_dry_vent(h))
+            .or_else(|| harv.iter().copied().find(|&h| idle_ether(self, h)));
+        if let Some(h) = h {
+            self.ai_regather(h, false, 1200.0);
+        }
+    }
+
+    /// Under the ether cap: one shard worker between loads onto a vent.
+    fn ai_one_onto_ether(&mut self, harv: &[Id], flowing: bool) {
+        let h = harv
+            .iter()
+            .copied()
+            .find(|&h| self.gathering_ether(h) == Some(false) && self.ai_between_loads(h));
+        if let Some(h) = h {
+            self.ai_regather(h, true, if flowing { 3000.0 } else { 800.0 });
+        }
     }
 
     /// More harvesters while short of the target; an expansion gets five from the main base.

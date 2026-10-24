@@ -62,15 +62,7 @@ impl World {
                 if b.team == team {
                     continue;
                 }
-                let g = Geo::Rect {
-                    tx: b.tx,
-                    ty: b.ty,
-                    w: b.w,
-                    h: b.h,
-                    x: b.x,
-                    y: b.y,
-                    r: b.r,
-                };
+                let g = b.geo();
                 let tier = if b.done && b.kind.def().damage_vs(flier) > 0.0 {
                     0
                 } else {

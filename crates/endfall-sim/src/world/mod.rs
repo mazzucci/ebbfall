@@ -182,6 +182,21 @@ pub struct Bldg {
     pub repair_debt: [f64; 2],
 }
 
+impl Bldg {
+    /// Its footprint, for approach and edge distances.
+    pub fn geo(&self) -> Geo {
+        Geo::Rect {
+            tx: self.tx,
+            ty: self.ty,
+            w: self.w,
+            h: self.h,
+            x: self.x,
+            y: self.y,
+            r: self.r,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Proj {
     pub x: f64,
@@ -597,15 +612,7 @@ impl World {
             });
         }
         if let Some(b) = self.bldg(id) {
-            return Some(Geo::Rect {
-                tx: b.tx,
-                ty: b.ty,
-                w: b.w,
-                h: b.h,
-                x: b.x,
-                y: b.y,
-                r: b.r,
-            });
+            return Some(b.geo());
         }
         self.map.node(id).map(|n| Geo::Round {
             x: n.x,

@@ -8,7 +8,7 @@ import { TILE, MW, MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js
 import { clamp } from './util.js';
 
 export * from './constants.js';
-export { clamp, dist, lerp, fmt, mulberry } from './util.js';
+export { clamp, dist, fmt, mulberry } from './util.js';
 
 // Snapshot record layouts, by field name (crates/endfall-sim/src/snapshot.rs declares them; pkg/data.js carries them).
 const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));

@@ -75,24 +75,7 @@ impl World {
     pub(crate) fn less_crowded_field(&self, uid: Id, n: &Node, team: u8) -> Option<Id> {
         // Only fields served by the same drop-off and not much farther from it: a hop never strays from the base
         // toward a field out in the open.
-        let drop = self
-            .bldgs
-            .iter()
-            .filter(|b| b.team == team && b.done && b.kind.def().dropoff)
-            .map(|b| Geo::Rect {
-                tx: b.tx,
-                ty: b.ty,
-                w: b.w,
-                h: b.h,
-                x: b.x,
-                y: b.y,
-                r: b.r,
-            })
-            .min_by(|a, b| {
-                a.edge_dist(n.x, n.y)
-                    .partial_cmp(&b.edge_dist(n.x, n.y))
-                    .unwrap()
-            })?;
+        let drop = self.nearest_dropoff(team, n.x, n.y)?;
         let reach = drop.edge_dist(n.x, n.y) + 2.5 * TILE;
         let cands: Vec<Id> = self
             .map
@@ -140,181 +123,196 @@ impl World {
             .map(|(_, _, c)| c)
     }
 
+    /// The finished drop-off of `team` nearest (by edge) to (x, y); the first in building order on a tie.
+    pub(crate) fn nearest_dropoff(&self, team: u8, x: f64, y: f64) -> Option<Geo> {
+        self.bldgs
+            .iter()
+            .filter(|b| b.team == team && b.done && b.kind.def().dropoff)
+            .map(|b| b.geo())
+            .min_by(|a, b| a.edge_dist(x, y).partial_cmp(&b.edge_dist(x, y)).unwrap())
+    }
+
+    /// A worker's gather task, phase by phase: walk to the field (or queue at it), mine, carry it home.
     pub(crate) fn update_gather(&mut self, uid: Id, node: Id, phase: Phase, timer: f64, dt: f64) {
-        let (team, r, carry) = {
-            let u = self.u(uid);
-            (u.team, u.r, u.carry)
-        };
+        let team = self.u(uid).team;
         let n = self.map.node(node).cloned();
         let usable = n.as_ref().is_some_and(|n| {
             (n.amount > 0 || n.ether) && (!n.ether || self.extractor_ready(n.id, None))
         });
-        if !usable {
-            if phase == Phase::Mine
-                && let Some(nm) = self.map.node_mut(node)
-            {
-                nm.miners -= 1;
-            }
-            let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-            let ether = n.as_ref().is_some_and(|n| n.ether);
-            let nd = self
-                .nearest_node(ux, uy, team, ether, 600.0)
-                .or_else(|| self.nearest_node(ux, uy, team, false, 900.0));
-            match nd {
-                Some(nd) => {
-                    let u = self.um(uid);
-                    u.last_node = Some(nd);
-                    u.task = Task::Gather {
-                        node: nd,
-                        phase: if carry != 0 { Phase::Return } else { Phase::Go },
-                        timer,
-                    };
-                }
-                None => self.set_idle(uid),
-            }
-            return;
-        }
-        let n = n.unwrap();
+        let Some(n) = n.filter(|_| usable) else {
+            let ether = self.map.node(node).is_some_and(|n| n.ether);
+            return self.gather_elsewhere(uid, node, ether, phase, timer);
+        };
         let income = if self.is_ai(team) {
             DIFF[self.diff].income
         } else {
             1.0
         };
         match phase {
-            Phase::Go | Phase::Wait => {
-                let tgt = if n.ether {
-                    self.geo(n.extractor.unwrap()).unwrap()
-                } else {
-                    Geo::Round {
-                        x: n.x,
-                        y: n.y,
-                        r: n.r,
-                    }
+            Phase::Go | Phase::Wait => self.gather_arrive(uid, &n, phase, timer, income, dt),
+            Phase::Mine => self.gather_mine(uid, &n, timer - dt),
+            Phase::Return => self.gather_return(uid, node, timer, income, dt),
+        }
+    }
+
+    /// The field is gone, dry or unserved: the nearest other field of the same resource (else any shard field),
+    /// carrying home first if loaded; idle when there is none.
+    fn gather_elsewhere(&mut self, uid: Id, node: Id, ether: bool, phase: Phase, timer: f64) {
+        if phase == Phase::Mine
+            && let Some(nm) = self.map.node_mut(node)
+        {
+            nm.miners -= 1;
+        }
+        let (ux, uy, team, carry) = {
+            let u = self.u(uid);
+            (u.x, u.y, u.team, u.carry)
+        };
+        let nd = self
+            .nearest_node(ux, uy, team, ether, 600.0)
+            .or_else(|| self.nearest_node(ux, uy, team, false, 900.0));
+        match nd {
+            Some(nd) => {
+                let u = self.um(uid);
+                u.last_node = Some(nd);
+                u.task = Task::Gather {
+                    node: nd,
+                    phase: if carry != 0 { Phase::Return } else { Phase::Go },
+                    timer,
                 };
-                if self.approach(uid, tgt, if n.ether { r + 6.0 } else { r + 13.0 }, dt) {
-                    let nm = self.map.node_mut(node).unwrap();
-                    let task = if nm.miners < MINE_SLOTS {
-                        nm.miners += 1;
-                        Task::Gather {
-                            node,
-                            phase: Phase::Mine,
-                            timer: (if n.ether {
-                                ETHER_MINE_TIME
-                            } else {
-                                SHARD_MINE_TIME
-                            }) / income,
-                        }
-                    } else if phase == Phase::Go || timer <= 0.0 {
-                        // Busy: like a worker in 1998, try a less crowded field close by (checked on arrival, then
-                        // every half second while waiting).
-                        match self.less_crowded_field(uid, &n, team) {
-                            Some(m) => {
-                                self.um(uid).last_node = Some(m);
-                                Task::Gather {
-                                    node: m,
-                                    phase: Phase::Go,
-                                    timer: 0.0,
-                                }
-                            }
-                            None => Task::Gather {
-                                node,
-                                phase: Phase::Wait,
-                                timer: 0.5,
-                            },
-                        }
-                    } else {
-                        Task::Gather {
-                            node,
-                            phase: Phase::Wait,
-                            timer: timer - dt,
-                        }
-                    };
-                    self.um(uid).task = task;
-                }
             }
-            Phase::Mine => {
-                let timer = timer - dt;
-                if timer <= 0.0 {
-                    let nm = self.map.node_mut(node).unwrap();
-                    nm.miners -= 1;
-                    // A vent runs dry like a field, but its Extractor still gives a trickle once it has.
-                    let before = nm.amount;
-                    let take = if n.ether && before <= 0 {
-                        VENT_TRICKLE
-                    } else {
-                        before.min(if n.ether { 6 } else { 8 })
-                    };
-                    nm.amount = (before - take).max(0);
-                    let left = nm.amount;
-                    if n.ether && before > 0 && left == 0 {
-                        self.toast(
-                            team,
-                            "An ether vent is depleted: its Ether Rig now gives a trickle",
-                            false,
-                        );
-                    }
-                    let u = self.um(uid);
-                    u.carry = take;
-                    u.carry_ether = Some(n.ether);
-                    u.task = Task::Gather {
-                        node,
-                        phase: Phase::Return,
-                        timer,
-                    };
-                    if left <= 0 && !n.ether {
-                        let i = idx(n.tx, n.ty);
-                        self.map.occ[i] = 0;
-                        self.map.nodes.retain(|m| m.id != node);
-                        for t in [0, 1] {
-                            if self.vis[t as usize][i] != 0 {
-                                self.toast(t, "A shard field ran dry", false);
-                            }
-                        }
-                    }
+            None => self.set_idle(uid),
+        }
+    }
+
+    /// Walking to the field, or waiting at it: mine when a slot is free, else try a less crowded field nearby.
+    fn gather_arrive(&mut self, uid: Id, n: &Node, phase: Phase, timer: f64, income: f64, dt: f64) {
+        let (team, r) = (self.u(uid).team, self.u(uid).r);
+        let node = n.id;
+        let tgt = if n.ether {
+            self.geo(n.extractor.unwrap()).unwrap()
+        } else {
+            Geo::Round {
+                x: n.x,
+                y: n.y,
+                r: n.r,
+            }
+        };
+        if !self.approach(uid, tgt, if n.ether { r + 6.0 } else { r + 13.0 }, dt) {
+            return;
+        }
+        let nm = self.map.node_mut(node).unwrap();
+        let task = if nm.miners < MINE_SLOTS {
+            nm.miners += 1;
+            Task::Gather {
+                node,
+                phase: Phase::Mine,
+                timer: (if n.ether {
+                    ETHER_MINE_TIME
                 } else {
-                    self.um(uid).task = Task::Gather { node, phase, timer };
-                }
+                    SHARD_MINE_TIME
+                }) / income,
             }
-            Phase::Return => {
-                let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-                let mut best: Option<Geo> = None;
-                let mut bd = 1e9;
-                for b in &self.bldgs {
-                    if b.team == team && b.done && b.kind.def().dropoff {
-                        let g = Geo::Rect {
-                            tx: b.tx,
-                            ty: b.ty,
-                            w: b.w,
-                            h: b.h,
-                            x: b.x,
-                            y: b.y,
-                            r: b.r,
-                        };
-                        let d = g.edge_dist(ux, uy);
-                        if d < bd {
-                            bd = d;
-                            best = Some(g);
-                        }
-                    }
-                }
-                let Some(best) = best else {
-                    self.set_idle(uid);
-                    return;
-                };
-                if self.approach(uid, best, r + 6.0, dt) {
-                    let u = self.um(uid);
-                    let gain = jsmath::round(u.carry as f64 * income) as i32;
-                    let slot = if u.carry_ether == Some(true) { 1 } else { 0 };
-                    u.carry = 0;
-                    u.task = Task::Gather {
-                        node,
+        } else if phase == Phase::Go || timer <= 0.0 {
+            // Busy: like a worker in 1998, try a less crowded field close by (checked on arrival, then every half
+            // second while waiting).
+            match self.less_crowded_field(uid, n, team) {
+                Some(m) => {
+                    self.um(uid).last_node = Some(m);
+                    Task::Gather {
+                        node: m,
                         phase: Phase::Go,
-                        timer,
-                    };
-                    self.res[team as usize][slot] += gain;
-                    self.sfx(team, "coin");
+                        timer: 0.0,
+                    }
+                }
+                None => Task::Gather {
+                    node,
+                    phase: Phase::Wait,
+                    timer: 0.5,
+                },
+            }
+        } else {
+            Task::Gather {
+                node,
+                phase: Phase::Wait,
+                timer: timer - dt,
+            }
+        };
+        self.um(uid).task = task;
+    }
+
+    /// Mining (`timer`: what is left of it): when done, take a load and head home; a shard field taken to nothing
+    /// is gone, a vent runs dry to a trickle.
+    fn gather_mine(&mut self, uid: Id, n: &Node, timer: f64) {
+        let node = n.id;
+        if timer > 0.0 {
+            self.um(uid).task = Task::Gather {
+                node,
+                phase: Phase::Mine,
+                timer,
+            };
+            return;
+        }
+        let team = self.u(uid).team;
+        let nm = self.map.node_mut(node).unwrap();
+        nm.miners -= 1;
+        // A vent runs dry like a field, but its Extractor still gives a trickle once it has.
+        let before = nm.amount;
+        let take = if n.ether && before <= 0 {
+            VENT_TRICKLE
+        } else {
+            before.min(if n.ether { 6 } else { 8 })
+        };
+        nm.amount = (before - take).max(0);
+        let left = nm.amount;
+        if n.ether && before > 0 && left == 0 {
+            self.toast(
+                team,
+                "An ether vent is depleted: its Ether Rig now gives a trickle",
+                false,
+            );
+        }
+        let u = self.um(uid);
+        u.carry = take;
+        u.carry_ether = Some(n.ether);
+        u.task = Task::Gather {
+            node,
+            phase: Phase::Return,
+            timer,
+        };
+        if left <= 0 && !n.ether {
+            let i = idx(n.tx, n.ty);
+            self.map.occ[i] = 0;
+            self.map.nodes.retain(|m| m.id != node);
+            for t in [0, 1] {
+                if self.vis[t as usize][i] != 0 {
+                    self.toast(t, "A shard field ran dry", false);
                 }
             }
+        }
+    }
+
+    /// Carrying a load to the nearest drop-off (idle without one), then back to the field.
+    fn gather_return(&mut self, uid: Id, node: Id, timer: f64, income: f64, dt: f64) {
+        let (ux, uy, team, r) = {
+            let u = self.u(uid);
+            (u.x, u.y, u.team, u.r)
+        };
+        let Some(drop) = self.nearest_dropoff(team, ux, uy) else {
+            self.set_idle(uid);
+            return;
+        };
+        if self.approach(uid, drop, r + 6.0, dt) {
+            let u = self.um(uid);
+            let gain = jsmath::round(u.carry as f64 * income) as i32;
+            let slot = if u.carry_ether == Some(true) { 1 } else { 0 };
+            u.carry = 0;
+            u.task = Task::Gather {
+                node,
+                phase: Phase::Go,
+                timer,
+            };
+            self.res[team as usize][slot] += gain;
+            self.sfx(team, "coin");
         }
     }
 }

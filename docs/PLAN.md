@@ -87,10 +87,15 @@ loop feels right.
   source maps) under a cache named by a hash of the files; the service worker stores them on install and serves them
   cache-first, so the game opens and plays offline. A new build installs a new cache; on the menu the page switches at
   once, in a game it says the new version loads next time.
-- [ ] Second race, the Vael (design: race/VAEL.md on the design-mockups branch). Phase 0 done (2026-10-24): the Vael
-  kinds and their art (tools/render3d/vael.js), a VAEL faction (Conflux, Lumen, Build list), the race chosen in the
-  menu (the AI stays human for now), a side can only build its own race's buildings. Next: shields, warp-in, power
-  fields, Monolith splash, the Vael AI, balance.
+- [x] Second race, the Vael (design: race/VAEL.md on the design-mockups branch), phase 1 (2026-10-24): their kinds
+  and art (tools/render3d/vael.js), a VAEL faction chosen in the menu (and the enemy's race: Humans, Vael, Random);
+  shields over hull (regenerate after 6 s, 3/s units, 2/s buildings; no repair), warp-in construction, power fields
+  (Conflux 7, Spire 6.5 tiles; Kiln, Loom, Ward and Zenith go dark without one), per-unit splash (Monolith 50% in
+  40 px), the scripted opponent playing either race from a per-faction AiScript. Balance against the design's duel
+  targets (`the_vael_counters_hold_in_cost_equal_fights`, budgets 2200/4400): Scythe dmg 14; Prism 100/35, 70+80,
+  16 ground / 16 air, cd 0.9; Monolith 175/100, dmg 52. Known: Prisms lose a little more to massed Troopers than the
+  design asked (-0.4 vs -0.3). Phase 2: the Halo (shield mending), Shields research, Vael sounds, human AI Spire
+  targeting, raid and AI-vs-AI balance.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

@@ -793,3 +793,48 @@ fn a_monolith_splashes_with_its_own_numbers() {
     );
     assert_eq!(start[1] - lost[1], d.dmg * 0.5, "its neighbour takes half");
 }
+
+#[test]
+fn the_vael_counters_hold_in_cost_equal_fights() {
+    // The loop to protect (race/VAEL.md): Scythes beat Lancers and workers, Troopers hold Scythes; Prisms beat
+    // Wasps and Lancers; Vanguards beat Prisms; Monoliths beat Vanguards; Wasps beat Monoliths and Scythes;
+    // Lancers and Troopers beat Shrikes; Shrikes beat Wasps and Vanguards. Bigger budgets than the human matrix:
+    // a Monolith is worth 375.
+    use UnitKind::*;
+    let range = |name: &str, v: f64, lo: f64, hi: f64| {
+        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
+    };
+    for budget in [2200.0, 4400.0] {
+        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
+        range("Scythe v Trooper", d(&[Scythe], &[Trooper]), -0.2, 0.4);
+        range("Scythe v Lancer", d(&[Scythe], &[Lancer]), 0.5, 1.0);
+        range(
+            "Wasp v Scythe (cannot hit air)",
+            d(&[Wasp], &[Scythe]),
+            0.9,
+            1.0,
+        );
+        range("Prism v Wasp", d(&[Prism], &[Wasp]), 0.4, 1.0);
+        range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
+        range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.5, 0.2);
+        range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
+        range("Monolith v Vanguard", d(&[Monolith], &[Vanguard]), 0.0, 1.0);
+        range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);
+        range("Shrike v Wasp", d(&[Shrike], &[Wasp]), 0.6, 1.0);
+        range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
+        range("Trooper v Shrike", d(&[Trooper], &[Shrike]), 0.3, 1.0);
+        range("Shrike v Vanguard", d(&[Shrike], &[Vanguard]), 0.6, 1.0);
+        range(
+            "Scythe+Prism v Trooper+Vanguard",
+            d(&[Scythe, Prism], &[Trooper, Trooper, Vanguard]),
+            -0.3,
+            0.5,
+        );
+        range(
+            "Scythe+Prism v Lancer+Trooper",
+            d(&[Scythe, Prism], &[Lancer, Trooper]),
+            0.2,
+            1.0,
+        );
+    }
+}

@@ -43,7 +43,7 @@ loop feels right.
 ### M2. Make the single-player game good
 - [x] More units with real counters: Lancer (anti-air infantry), Medic (healer), Wasp (flying gunship from the Airfield); weapons have separate ground/air damage
 - [x] Upgrades (weapon/armor tiers) researched at the Forge
-- [x] Better AI: plays under fog (scouts with a harvester, remembers what it saw), answers seen flyers with Lancers, raids harvesters with Wasps, expands to a second base on Normal and Hard, pulls a beaten wave back
+- [x] Better AI: plays under fog (scouts with a harvester, remembers what it saw), answers seen flyers with Lancers, raids harvesters with Wasps, expands to a second base on Medium and Hard, pulls a beaten wave back
 - [ ] AI: react to the player's ground composition, multi-prong attacks
 - [ ] Hand-authored maps + a tiny map format (JSON); keep the generator for skirmish
 - [x] Sprite art pass (pre-rendered 3D units and buildings, painted terrain)
@@ -77,6 +77,12 @@ loop feels right.
   there at one width (portrait, name, health, attack and armor; research and production as bars, no timers); the
   command card has three buttons a row; no Move, Stop or Deselect buttons (tap the ground to move, Hold, Esc on
   desktop); an armed order's button turns into its Cancel; the Build list has basic and Advanced (V) pages.
+- [x] Phone playtest fixes (2026-10-24, from a Fable playtest on a phone): a site that loses its last builder says
+  so once; the same toast is never repeated within a few seconds (no "Supply blocked" storm; the supply counter
+  pulses instead); touch hints say "tap"; no keyboard letters on touch buttons; a group shows one tile per type with a
+  count on small screens; the construction bar and hint fit the phone; taps pick units within a fingertip at any zoom
+  and a double-tap counts on a unit that moved. New players start on Easy; Normal is now called Medium. Each game draws
+  which of the map's two bases is ours (`World::with_map_side`). Later: drag-to-place buildings with a confirm tap.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the
@@ -104,7 +110,7 @@ loop feels right.
 
 ## Next steps (this week)
 
-1. Open the project on the Mac, `npm install`, `npm run dev`, play a few games on Normal and note what feels off.
+1. Open the project on the Mac, `npm install`, `npm run dev`, play a few games on Medium and note what feels off.
 2. Ids-not-objects refactor of `commands.js` (small, mechanical, unblocks the network command format).
 3. Fixed-point positions in the sim: decide the scale (1/256 px is plenty) and convert `x, y, speed, range`.
 4. Spike the relay: a 100-line `ws` server plus a `net.js` client that round-trips commands between two tabs of the same machine. Prove two tabs stay in sync by hash before building a lobby.

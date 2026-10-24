@@ -42,8 +42,10 @@ export const input = { enabled: () => true };
 function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
 
 /** What is under (wx, wy): the nearest unit within reach (generous for fingers), else a building, else a node. */
+/** How far (world px) from a unit a tap still picks it: a fingertip is about 22 screen px, whatever the zoom. */
+const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 22 / cam.zoom) : 6;
 function pick(wx, wy) {
-  const reach = drag.ptype === 'touch' ? 16 : 6, p = { x: wx, y: wy };
+  const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
   for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
   if (best) return best;
@@ -153,7 +155,10 @@ function leftAction(wx, wy, add, at) {
 function touchTap(wx, wy, at) {
   if (G.over) return;
   if (ui.place || ui.mode) { leftAction(wx, wy, false); return; }
-  const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy);
+  const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); let hit = pick(wx, wy);
+  // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
+  const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead);
+  if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)

@@ -30,7 +30,7 @@ export const ROMAN = ['', 'I', 'II', 'III'];
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
   if (!b.done) return b.planted ? 'Growing' : buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
-  if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it`;
+  if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[FACTIONS[G.factions[b.team]]?.power]?.name ?? 'power source'} near it`; // (the owner's race)
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
@@ -169,9 +169,9 @@ function taskName(u) {
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
-/** The player's side (faction data: worker, headquarters, Build list pages). */
 /** "an Ether Rig", "a Siphon". */
 export const aName = (name) => (/^[AEIOU]/.test(name) ? 'an ' : 'a ') + name;
+/** The player's side (faction data: worker, headquarters, Build list pages). */
 export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
 const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };

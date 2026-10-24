@@ -82,22 +82,22 @@ impl World {
             .copied()
             .find(|&id| {
                 let b = self.bldg(id).unwrap();
-                b.kind == BldgKind::Core && b.done
+                b.kind.def().hq && b.done
             })
             .or_else(|| {
                 my_b.iter()
                     .copied()
-                    .find(|&id| self.bldg(id).unwrap().kind == BldgKind::Core)
+                    .find(|&id| self.bldg(id).unwrap().kind.def().hq)
             });
         let harv: Vec<Id> = my_u
             .iter()
             .copied()
-            .filter(|&id| self.unit(id).unwrap().kind == UnitKind::Harvester)
+            .filter(|&id| self.unit(id).unwrap().kind.def().worker)
             .collect();
         let army: Vec<Id> = my_u
             .iter()
             .copied()
-            .filter(|&id| self.unit(id).unwrap().kind != UnitKind::Harvester)
+            .filter(|&id| !self.unit(id).unwrap().kind.def().worker)
             .collect();
         let (cx, cy) = match core {
             Some(c) => {

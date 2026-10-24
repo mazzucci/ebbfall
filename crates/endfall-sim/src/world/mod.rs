@@ -192,6 +192,9 @@ pub struct Proj {
     pub kind: ProjKind,
     pub by: Id,
     pub team: u8,
+    /// The shooter's splash (share of the damage, radius in px), fixed when it was fired.
+    pub splash: f64,
+    pub splash_r: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]

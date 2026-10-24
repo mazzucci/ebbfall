@@ -27,7 +27,7 @@ export const MAPS = [
   { name: 'Cinder Divide', seed: 2077, kind: 4 },
   { name: 'Random', random: true },
 ];
-export const menu = { diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, race: 'humans' };
+export const menu = { diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, race: 'humans', enemy: 'humans', enemyRace: 'humans' };
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
@@ -77,10 +77,16 @@ export function initMenu({ onStart, onSound }) {
   const showRace = () => races.forEach(x => { const on = x.dataset.race === menu.race; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
   races.forEach(b => b.addEventListener('click', () => { menu.race = b.dataset.race; store.set('race', menu.race); showRace(); sfx('select'); }));
   showRace();
+  // The opponent's race (Random draws one each game).
+  menu.enemy = ['humans', 'vael', 'random'].includes(store.get('enemy')) ? store.get('enemy') : 'humans';
+  const foes = document.querySelectorAll('#enemy .ib');
+  const showEnemy = () => foes.forEach(x => { const on = x.dataset.race === menu.enemy; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
+  foes.forEach(b => b.addEventListener('click', () => { menu.enemy = b.dataset.race; store.set('enemy', menu.enemy); showEnemy(); sfx('select'); }));
+  showEnemy();
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
   $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
-  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); choose(menu.map); onStart(); }); // each game draws our starting base (and a random map is new)
+  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full

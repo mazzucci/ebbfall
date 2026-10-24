@@ -105,10 +105,11 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
-/** `side` 1: the player starts in the other base of the map; `race`: the player's faction key (the AI plays the humans). */
-export function resetGame(seed, diff, map = 0, side = 0, race = 'humans') {
+/** `side` 1: the player starts in the other base of the map; `race`, `enemy`: the player's and the AI's faction keys. */
+export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy = 'humans') {
   if (game) { try { game.free(); } catch { /* already unusable */ } }
-  game = Game.withSetup(seed >>> 0, diff, map, side, Math.max(0, Object.keys(FACTIONS).indexOf(race)), 0);
+  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
+  game = Game.withSetup(seed >>> 0, diff, map, side, f(race), f(enemy));
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
   M.rock.set(game.rock()); M.shade.set(game.shade());

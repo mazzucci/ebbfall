@@ -162,6 +162,30 @@ export function renderTerrain() {
 const unitObjs = new Map(), bldgObjs = new Map(), nodeObjs = new Map();
 const light = (tint, scale, alpha) => { const s = new Sprite(tex('light')); s.anchor.set(0.5); s.tint = tint; s.scale.set(scale); s.alpha = alpha; L.lights.addChild(s); return s; };
 
+// Selection marks: cool white brackets (red for the enemy), unlike anything else on the field: health bars are green to
+// red, orders amber, resources teal and violet.
+const SEL = 0xeaf6ff, SEL_FOE = 0xff5a5a;
+/** Four arcs of an ellipse round a unit's feet: a broken ring, so it never reads as a health bar or a range. */
+function selArcs(rx, ry, color) {
+  const g = new Graphics();
+  for (const [w, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) {
+    for (let q = 0; q < 4; q++) {
+      const a0 = q * Math.PI / 2 + Math.PI / 4 - 0.5, n = 8;
+      for (let i = 0; i <= n; i++) { const t = a0 + i / n; const x = Math.cos(t) * rx, y = Math.sin(t) * ry; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+    }
+    g.stroke({ width: w, color: c, alpha: a, cap: 'round' });
+  }
+  return g;
+}
+/** Corner brackets round a building's footprint (or any rectangle). */
+function selCorners(x, y, w, h, color) {
+  const k = Math.min(w, h) * 0.24;
+  for (const [lw, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) {
+    for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]]) lines.moveTo(cx + dx * k, cy).lineTo(cx, cy).lineTo(cx, cy + dy * k);
+    lines.stroke({ width: lw, color: c, alpha: a, cap: 'round' });
+  }
+}
+
 class UnitObj {
   constructor(u) {
     const layer = u.d.air ? L.air : L.units;
@@ -169,9 +193,10 @@ class UnitObj {
     this.frames = (sheet.animations[`${u.type}_${u.team}_0`] || [0]).length;
     this.body = new Sprite(); this.body.scale.set(UNIT_SCALE); layer.addChild(this.body);
     this.flash = new Sprite(); this.flash.scale.set(UNIT_SCALE); this.flash.blendMode = 'add'; layer.addChild(this.flash);
-    this.ring = new Sprite(); this.ring.anchor.set(0.5); L.sel.addChild(this.ring);
+    this.size = u.r > 12 ? 26 : 18;
+    this.ring = selArcs(this.size * 0.95, this.size * 0.6, u.team === PLAYER ? SEL : SEL_FOE); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0x4fd1c5, 0.18, 0.9);
-    this.px = u.x; this.py = u.y; this.walk = 0; this.size = u.r > 12 ? 26 : 18;
+    this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
@@ -185,7 +210,7 @@ class UnitObj {
     this.body.zIndex = u.y; this.flash.zIndex = u.y + 0.1;
     this.flash.visible = u.flash > 0; this.flash.alpha = 0.6;
     const s = sel.has(u);
-    this.ring.visible = s; if (s) { this.ring.texture = tex(`sel_${this.size}_${u.team === PLAYER ? 0 : 1}`); this.ring.position.set(u.x, u.y + 3); }
+    this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
@@ -311,10 +336,10 @@ function hpBar(x, y, w, hp, max) {
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
 }
 /** A progress bar with an optional count of queued items (small pips) after it. */
-function progressBar(x, y, w, f, color, pips = 0) {
-  bars.rect(x, y, w, 5).fill({ color: 0x000000, alpha: 0.7 });
-  bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), 3).fill(color);
-  for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, 5).fill(color);
+function progressBar(x, y, w, f, color, pips = 0, h = 5) {
+  bars.rect(x, y, w, h).fill({ color: 0x000000, alpha: 0.75 });
+  bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), h - 2).fill(color);
+  for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, h).fill(color);
 }
 /** Two bars: construction is paused because nobody is building. */
 function pauseMark(x, y, t) {
@@ -349,14 +374,14 @@ export function render(selList, place) {
     if (v) o.update(b, t, dt, seen);
     o.show(v);
     if (!v) return;
-    if (sel.has(b)) { lines.rect(b.tx * TILE - 1, b.ty * TILE - 1, b.w * TILE + 2, b.h * TILE + 2).stroke({ width: 2, color: b.team === PLAYER ? 0x5ad67d : 0xff5a5a, alpha: 0.9 }); }
+    if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, b.team === PLAYER ? SEL : SEL_FOE);
     if (seen && (sel.has(b) || b.hp < b.maxhp)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
     if (b.team === PLAYER) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
       if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); }
       else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
-      if (b.done && b.research) progressBar(bx, by - 7, bw, b.research.prog, 0xb48cff);
+      if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xb48cff, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xb48cff, alpha: 0.7 }); } // research: taller, outlined
     }
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
@@ -396,7 +421,7 @@ export function render(selList, place) {
   box.clear();
   if (drag.box) {
     const x = Math.min(drag.sx, drag.cx), y = Math.min(drag.sy, drag.cy), w = Math.abs(drag.cx - drag.sx), h = Math.abs(drag.cy - drag.sy);
-    box.rect(x, y, w, h).fill({ color: 0x5ad67d, alpha: 0.08 }).stroke({ width: 1, color: 0x5ad67d, alpha: 0.9 });
+    box.rect(x, y, w, h).fill({ color: SEL, alpha: 0.07 }).stroke({ width: 1, color: SEL, alpha: 0.9 });
   }
   app.render();
   renderMinimap();
@@ -416,7 +441,7 @@ function outline(e, width, color, alpha) {
   lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {
-  for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, 0x5ad67d, 0.9); // a selected resource field
+  for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected resource field
   // Faint, steady: the shard field, extractor or building each selected harvester is working on.
   const done = new Set();
   for (const u of selList) {

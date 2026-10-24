@@ -30,7 +30,7 @@ export const ROMAN = ['', 'I', 'II', 'III'];
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
   if (!b.done) return b.planted ? 'Growing' : buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
-  if (b.d.needsPower && !b.powered) return 'Unpowered: build a Spire near it';
+  if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it`;
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
@@ -93,7 +93,7 @@ function renderSelection() {
     const n = sel[0], ether = n.type === 'ether';
     name.textContent = ether ? 'Ether vent' : 'Shard field';
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = ether && !n.extractor ? 'Build an Ether Rig on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
+    sub.textContent = ether && !n.extractor ? `Build ${aName(BUILDINGS[myFaction().ether].name)} on it to mine` : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
     const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
     module('node' + working, `<span class="st" title="${UNITS[myFaction().worker].name}s working it" aria-label="${UNITS[myFaction().worker].name}s working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
@@ -170,6 +170,8 @@ function taskName(u) {
  */
 const COLS = 3;
 /** The player's side (faction data: worker, headquarters, Build list pages). */
+/** "an Ether Rig", "a Siphon". */
+export const aName = (name) => (/^[AEIOU]/.test(name) ? 'an ' : 'a ') + name;
 export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
 const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };
@@ -181,7 +183,7 @@ export function cardItems() {
   const hidden = (it) => items.push({ ...it, hidden: true, slot: -1 });
   const bldgItem = (k) => {
     const d = BUILDINGS[k];
-    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(G.me, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') };
+    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(G.me, k), por: ['bldg', k], tip: d.desc };
   };
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
@@ -207,7 +209,7 @@ export function cardItems() {
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc + (missing && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
+      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc });
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {

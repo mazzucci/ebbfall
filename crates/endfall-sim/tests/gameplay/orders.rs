@@ -422,3 +422,39 @@ fn a_side_builds_only_its_own_race() {
         assert!(!any, "the Vael cannot place a {k:?}");
     }
 }
+
+#[test]
+fn messages_name_each_races_own_buildings() {
+    let toasts = |w: &mut World| -> Vec<String> {
+        w.events
+            .drain(..)
+            .filter_map(|e| match e {
+                endfall_sim::world::Event::Toast {
+                    msg, team: PLAYER, ..
+                } => Some(msg),
+                _ => None,
+            })
+            .collect()
+    };
+    for (w, rig, hall) in [
+        (
+            &mut rich(5),
+            "Build an Ether Rig on the vent first",
+            "Foundry",
+        ),
+        (
+            &mut rich_vael(5),
+            "Build a Siphon on the vent first",
+            "Loom",
+        ),
+    ] {
+        w.events.clear();
+        let worker = harvesters(w, PLAYER)[0];
+        let vent = w.map.nodes.iter().find(|n| n.ether).unwrap().id;
+        assert!(!w.start_gather(worker, vent), "no refinery on the vent yet");
+        assert_eq!(toasts(w), vec![rig.to_string()]);
+        let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
+        let err = w.start_research(hq, Upgrade::Weapons).unwrap_err();
+        assert_eq!(err, format!("Research happens at a finished {hall}"));
+    }
+}

@@ -563,6 +563,12 @@ impl World {
     pub(crate) fn sfx(&mut self, team: u8, name: &'static str) {
         self.emit(Event::Sfx { team, name });
     }
+    /// What casts a seat's power fields, by name ("power" for a race without them).
+    pub(crate) fn power_name(&self, team: u8) -> &'static str {
+        self.factions[team as usize]
+            .power
+            .map_or("power", |k| k.def().name)
+    }
     /// Whether the scripted opponent plays this seat.
     pub fn is_ai(&self, team: u8) -> bool {
         self.ai_seats[team as usize]
@@ -732,5 +738,14 @@ impl World {
             }
         }
         h
+    }
+}
+
+/// "n" when a name takes "an" ("an Ether Rig"), else "" ("a Siphon").
+pub(crate) fn an(name: &str) -> &'static str {
+    if name.starts_with(['A', 'E', 'I', 'O', 'U']) {
+        "n"
+    } else {
+        ""
     }
 }

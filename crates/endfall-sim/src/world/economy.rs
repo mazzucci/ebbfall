@@ -265,9 +265,10 @@ impl World {
         nm.amount = (before - take).max(0);
         let left = nm.amount;
         if n.ether && before > 0 && left == 0 {
+            let rig = self.factions[team as usize].ether.def().name;
             self.toast(
                 team,
-                "An ether vent is depleted: its Ether Rig now gives a trickle",
+                format!("An ether vent is depleted: its {rig} now gives a trickle"),
                 false,
             );
         }

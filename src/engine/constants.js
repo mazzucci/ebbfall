@@ -20,16 +20,16 @@ export const ENEMY = D.consts.enemy;
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
   trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
-  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers. Requires Foundry.' },
+  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.' },
   lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
-  medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed. Requires Foundry.' },
+  medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
   scythe: { hot: 'S', desc: 'Fast hover-knight with ceramic blades. Closes on infantry; cannot hit flyers.' },
   prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers. Requires Loom.' },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.' },
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.' },
 };
 const BLDG_TEXT = {
@@ -37,17 +37,17 @@ const BLDG_TEXT = {
   depot: { hot: 'D', desc: '+8 supply.' },
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers, Medics and Vanguards (Medics and Vanguards need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades; unlocks Medics and Vanguards at the Garrison. Requires Garrison.' },
-  turret: { hot: 'T', desc: 'Static defense against ground and air. Requires Garrison.' },
-  airfield: { hot: 'A', desc: 'Trains Wasps and Observers. Requires Foundry.' },
+  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades; unlocks Medics and Vanguards at the Garrison.' },
+  turret: { hot: 'T', desc: 'Static defense against ground and air.' },
+  airfield: { hot: 'A', desc: 'Trains Wasps and Observers.' },
   // the Vael
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
   kiln: { hot: 'K', desc: 'Fires Scythes, Prisms and Monoliths (Monoliths need a Loom).' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons upgrade; unlocks Monoliths and the Zenith. Requires Kiln.' },
-  ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Requires Kiln.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes. Requires Loom.' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons upgrade; unlocks Monoliths and the Zenith.' },
+  ward: { hot: 'W', desc: 'Crystal sentinel against ground and air.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard'];
@@ -56,6 +56,8 @@ const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
 export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
+// "Requires X." comes from the tables, so it can never name the wrong building.
+for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) d.desc += ` Requires ${D.buildings[d.req].name}.`;
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.upDmg).map(([k, d]) => [k, d.upDmg]));
 /** Team-wide upgrades; per level: cost [shards, ether], seconds. */

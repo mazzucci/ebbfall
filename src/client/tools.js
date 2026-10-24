@@ -68,7 +68,10 @@ let groupsKey = '';
 export function updateTools() {
   const idle = idleHarvesters().length, a = army().length;
   const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
-  if (pic.dataset.k !== wk) { pic.dataset.k = wk; pic.innerHTML = portrait('unit', wk, 24); }
+  if (pic.dataset.k !== wk) {
+    pic.dataset.k = wk; pic.innerHTML = portrait('unit', wk, 24);
+    const n = UNITS[wk].name; $('btnIdle').title = `Idle ${n}s: select the next one (.)`; $('btnIdle').setAttribute('aria-label', `Idle ${n}s`);
+  }
   const ak = myFaction().buildBasic.map(k => BUILDINGS[k].trains[0]).find(Boolean) || wk, apic = $('btnArmy').querySelector('.pic'); // the race's first soldier
   if (apic.dataset.k !== ak) { apic.dataset.k = ak; apic.innerHTML = portrait('unit', ak, 24); }
   $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0); $('btnIdle').classList.toggle('zero', !idle);

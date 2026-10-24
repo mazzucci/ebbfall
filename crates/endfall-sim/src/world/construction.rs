@@ -5,7 +5,7 @@ use super::*;
 impl World {
     /// A builder or repairer that stays put (walled in, site cut off, jammed on a corner) gives up instead of waiting
     /// forever: it goes idle and returns true. The position includes last tick's separation push.
-    pub(crate) fn gave_up(&mut self, uid: Id, team: u8, dt: f64, why: &str) -> bool {
+    pub(crate) fn gave_up(&mut self, uid: Id, team: u8, dt: f64, what: &str) -> bool {
         let time = self.time;
         let u = self.um(uid);
         if dist(u.x, u.y, u.anchor.0, u.anchor.1) > STUCK_RADIUS {
@@ -19,7 +19,8 @@ impl World {
         }
         u.stuck = 0.0;
         u.no_build_until = time + 30.0;
-        self.toast(team, why, true);
+        let worker = self.factions[team as usize].worker.def().name;
+        self.toast(team, format!("A {worker} cannot reach {what}"), true);
         self.set_idle(uid);
         true
     }
@@ -36,12 +37,7 @@ impl World {
             return;
         };
         if !self.approach(uid, g, r + 8.0, dt) {
-            self.gave_up(
-                uid,
-                team,
-                dt,
-                "A Harvester cannot reach the building to repair it",
-            );
+            self.gave_up(uid, team, dt, "the building to repair it");
             return;
         }
         self.um(uid).stuck = 0.0;
@@ -113,7 +109,11 @@ impl World {
             if was && !on {
                 self.toast(
                     team,
-                    format!("{} unpowered: build a Spire near it", d.name),
+                    format!(
+                        "{} unpowered: build a {} near it",
+                        d.name,
+                        self.power_name(team)
+                    ),
                     true,
                 );
             }
@@ -177,7 +177,7 @@ impl World {
             return;
         };
         let reached = self.approach(uid, g, r + 8.0, dt);
-        if !reached && self.gave_up(uid, team, dt, "A Harvester cannot reach its building site") {
+        if !reached && self.gave_up(uid, team, dt, "its building site") {
             return;
         }
         if reached {

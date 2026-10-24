@@ -1,9 +1,9 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, idx, resetGame, step, fmt, setResources } from './engine/index.js';
+import { G, DT, TILE, BUILDINGS, idx, resetGame, step, fmt, setResources } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
-import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
+import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
@@ -30,7 +30,7 @@ function newGame() {
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
-  toast('Mine shards. Build a Depot before supply caps.');
+  toast(`Mine shards. Build ${aName(BUILDINGS[myFaction().supply].name)} before supply caps.`);
   armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 

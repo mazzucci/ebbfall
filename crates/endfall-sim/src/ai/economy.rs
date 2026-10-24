@@ -29,7 +29,7 @@ impl World {
         // Keep up to three on ether once an extractor stands, one while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
-            b.kind == self.factions[self.seat() as usize].ai.ether && b.done
+            b.kind == self.factions[self.seat() as usize].ether && b.done
         });
         let ether = harv
             .iter()

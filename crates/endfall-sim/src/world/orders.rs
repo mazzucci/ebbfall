@@ -112,7 +112,7 @@ impl World {
         if s[0] + d.supply > s[1] {
             return Err(format!(
                 "Supply blocked. Build a {}.",
-                self.factions[team as usize].ai.supply.def().label()
+                self.factions[team as usize].supply.def().label()
             ));
         }
         self.pay(team, d.cost, -1);
@@ -142,7 +142,18 @@ impl World {
         };
         let team = b.team;
         if !b.kind.def().researches.contains(&up) || !b.done {
-            return Err("Research happens at a finished Foundry".into());
+            let f = self.factions[team as usize];
+            let at: Vec<&str> = f
+                .build_basic
+                .iter()
+                .chain(f.build_advanced)
+                .filter(|k| k.def().researches.contains(&up))
+                .map(|k| k.def().name)
+                .collect();
+            return Err(format!(
+                "Research happens at a finished {}",
+                at.join(" or ")
+            ));
         }
         if b.research.is_some() {
             return Err("Already researching here".into());
@@ -241,7 +252,12 @@ impl World {
         let team = u.team;
         // A node that is gone was a depleted shard field; the gather update retargets from there.
         if self.map.node(node).is_some_and(|n| n.ether) && !self.extractor_ready(node, Some(team)) {
-            self.toast(team, "Build an Ether Rig on the vent first", true);
+            let rig = self.factions[team as usize].ether.def().name;
+            self.toast(
+                team,
+                format!("Build a{} {rig} on the vent first", an(rig)),
+                true,
+            );
             return false;
         }
         self.release_mine(uid);

@@ -286,7 +286,7 @@ impl World {
             if qlen < 2 && !saving {
                 let c = u.def().cost;
                 if self.can_afford(e, c)
-                    && (want != Some(self.factions[e as usize].ai.supply)
+                    && (want != Some(self.factions[e as usize].supply)
                         || self.res[e as usize][0] > c[0] + 100)
                 {
                     let _ = self.queue_unit(bid, u);

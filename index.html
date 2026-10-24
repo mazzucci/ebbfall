@@ -131,5 +131,12 @@
   </div>
 </div>
 <script type="module" src="/src/main.js"></script>
+  <!-- Phones play in landscape: held upright, this covers the game (which pauses) until the phone is turned. -->
+  <div id="rotate" role="alert">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="22" y="10" width="20" height="36" rx="3"/><path d="M14 50a22 22 0 0 0 36 0M46 44l4 6 6-3"/></svg>
+    <p>Turn your device sideways to play</p>
+    <small>Rotation locked? Unlock it, or</small>
+    <button class="ib" id="btnUpright">PLAY UPRIGHT ANYWAY</button>
+  </div>
 </body>
 </html>

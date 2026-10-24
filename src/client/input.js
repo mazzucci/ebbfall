@@ -5,7 +5,7 @@ import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, moveTo, attackM
 import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
-import { askLeave } from './screen.js';
+import { askLeave, blockedUpright } from './screen.js';
 import { selectIdle, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
@@ -327,7 +327,7 @@ function bindKeys() {
     if (ev.target.tagName === 'INPUT') return;
     const k = ev.key; keys[k.toLowerCase()] = true;
     if (!$('help').hidden) { if (k === 'Escape') { $('help').hidden = true; ev.preventDefault(); } return; } // Help on top: Esc closes it
-    if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
+    if (paused() && (k === 'p' || k === 'P' || k === 'Escape') && !blockedUpright()) { togglePause(); ev.preventDefault(); return; } // (not under the rotate card)
     if (!input.enabled()) return;
     if (/^[1-9]$/.test(k)) {
       if (ev.ctrlKey || ev.metaKey) { saveGroup(+k); ev.preventDefault(); } else recallGroup(+k, ev.shiftKey);

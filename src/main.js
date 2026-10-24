@@ -7,10 +7,10 @@ import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems, myFaction,
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
-import { initTools, updateTools, onAttacked, initPause, paused, resetTools } from './client/tools.js';
+import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
 import { setIconButton } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, menu, MAP_KINDS } from './client/menu.js';
-import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard, upright, blockedUpright } from './client/screen.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -18,8 +18,8 @@ const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] >
 
 let started = false;
 const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden;
-const running = () => started && !overlay() && !paused() && !G.over;
-input.enabled = () => started && !overlay() && !paused();
+const running = () => started && !overlay() && !paused() && !G.over && !blockedUpright();
+input.enabled = () => started && !overlay() && !paused() && !blockedUpright();
 
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
@@ -67,6 +67,8 @@ function endGame() {
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; showMenu(); }); // back to the menu: a new map, or the same opponent again
 initScreen(); initLeaveDialog(); initTools();
+// Turned upright mid-game: pause (the rotate card covers the screen), so turning back shows Resume, not a game that ran on.
+upright.addEventListener('change', () => { if (blockedUpright() && started && !overlay() && !paused() && !G.over) togglePause(); });
 initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });

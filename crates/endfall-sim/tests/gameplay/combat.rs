@@ -745,7 +745,7 @@ fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     assert_eq!(u.sh, 0.0);
     assert_eq!(
         u.hp,
-        d.hp - (15.0 - d.armor),
+        d.hp - (50.0 - (d.shields - 25.0) - d.armor),
         "the rest, minus armor, on the hull"
     );
     let hull = u.hp;
@@ -756,7 +756,7 @@ fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     assert!(w.unit(s).unwrap().sh > 0.0, "regenerating after the delay");
     run(&mut w, 20);
     let u = w.unit(s).unwrap();
-    assert_eq!(u.sh, d.shields, "full again in about 6 + 60/3 s");
+    assert_eq!(u.sh, d.shields, "full again in about 6 + shields/3 s");
     assert_eq!(u.hp, hull, "the hull never heals by itself");
     // Humans have no shields: a hit is as it always was.
     let t = w.make_unit(UnitKind::Trooper, ENEMY, 36.0 * TILE, 30.0 * TILE);
@@ -822,7 +822,7 @@ fn a_monolith_splashes_with_its_own_numbers() {
 
 #[test]
 fn the_vael_counters_hold_in_cost_equal_fights() {
-    // The loop to protect (race/VAEL.md): Scythes beat Lancers and workers, Troopers hold Scythes; Prisms beat
+    // The loop to protect (race/VAEL.md): Scythes beat Lancers and workers, Troopers beat Scythes and Prisms; Prisms beat
     // Wasps and Lancers; Vanguards beat Prisms; Monoliths beat Vanguards; Wasps beat Monoliths and Scythes;
     // Lancers and Troopers beat Shrikes; Shrikes beat Wasps and Vanguards. Bigger budgets than the human matrix:
     // a Monolith is worth 375.
@@ -832,7 +832,8 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
     };
     for budget in [2200.0, 4400.0] {
         let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
-        range("Scythe v Trooper", d(&[Scythe], &[Trooper]), -0.2, 0.4);
+        // Troopers win the small fights: in AI-vs-AI games (1v1, both seats, every map) that is what evens the races.
+        range("Scythe v Trooper", d(&[Scythe], &[Trooper]), -0.5, 0.1);
         range("Scythe v Lancer", d(&[Scythe], &[Lancer]), 0.5, 1.0);
         range(
             "Wasp v Scythe (cannot hit air)",
@@ -842,7 +843,7 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         );
         range("Prism v Wasp", d(&[Prism], &[Wasp]), 0.4, 1.0);
         range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
-        range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.5, 0.2);
+        range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.75, 0.0);
         range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
         range("Monolith v Vanguard", d(&[Monolith], &[Vanguard]), 0.0, 1.0);
         range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);
@@ -853,8 +854,8 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         range(
             "Scythe+Prism v Trooper+Vanguard",
             d(&[Scythe, Prism], &[Trooper, Trooper, Vanguard]),
-            -0.3,
-            0.5,
+            -0.7,
+            0.1,
         );
         range(
             "Scythe+Prism v Lancer+Trooper",

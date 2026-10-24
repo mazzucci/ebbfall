@@ -154,3 +154,31 @@ fn golden_hashes_pin_a_vael_game() {
         "a Vael game changed: update EXPECTED_VAEL only for an intended rule change"
     );
 }
+
+/// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
+const EXPECTED_VAEL_AI: [u32; 3] = [2032959700, 204848814, 4252889285];
+
+#[test]
+fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
+    let mut w = World::with_setup(77, 1, MapKind::Standard, false, [&VAEL, &HUMANS]);
+    w.set_ai_seats([true, true]);
+    let mut got = [0u32; 3];
+    let mut c = 0;
+    for tick in 1..=CHECKS[2] {
+        w.step();
+        w.events.clear();
+        if tick == CHECKS[c] {
+            got[c] = w.state_hash();
+            c += 1;
+        }
+    }
+    println!("const EXPECTED_VAEL_AI: [u32; 3] = {got:?};");
+    assert!(
+        w.units.iter().any(|u| u.team == 0 && !u.kind.def().worker),
+        "the Vael AI fielded an army"
+    );
+    assert_eq!(
+        got, EXPECTED_VAEL_AI,
+        "the Vael AI game changed: update EXPECTED_VAEL_AI only for an intended rule change"
+    );
+}

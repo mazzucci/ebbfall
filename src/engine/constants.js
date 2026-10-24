@@ -27,7 +27,7 @@ const UNIT_TEXT = {
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Fast hover-knight with ceramic blades. Closes on infantry; cannot hit flyers.' },
+  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Strong against Lancers and workers; slower than a Trooper, and massed Troopers wear it down. Cannot hit flyers.' },
   prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
   monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.' },
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.' },

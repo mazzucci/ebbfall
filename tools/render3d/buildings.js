@@ -38,6 +38,11 @@ export function core(M) {
   return g;
 }
 
+/** Half-cylinder shell (a vault / quonset roof) with its axis along z, open side down; length along z. */
+function vault(r, len, seg = 24) { const g = new THREE.CylinderGeometry(r, r, len, seg, 1, true, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.computeVertexNormals(); return boxUV(g); }
+/** Vertical half-disc (a vault's end wall) facing +z. */
+function halfDisc(r, seg = 24) { return new THREE.CircleGeometry(r, seg, 0, Math.PI); }
+
 export function depot(M) {
   const g = grp();
   add(g, rbox(60, 3, 60, 1), M.concrete, 0, 1.5, 0);
@@ -55,89 +60,135 @@ export function depot(M) {
   return g;
 }
 
+/** Ether Extractor: a derrick over the vent with a violet ether column rising through it, pumping into a side tank. */
 export function extractor(M) {
   const g = grp();
   add(g, cyl(30, 31, 4, 40), M.concrete, 0, 2, 0);
-  add(g, new THREE.TorusGeometry(22, 2.4, 10, 40), M.steel, 0, 6, 0, Math.PI / 2);
-  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; add(g, rbox(8, 10, 8, 1.4), M.dark, Math.cos(a) * 22, 7, Math.sin(a) * 22); limb(g, [Math.cos(a) * 20, 11, Math.sin(a) * 20], [Math.cos(a) * 8, 22, Math.sin(a) * 8], 1.6, M.steel); }
-  add(g, cyl(12, 13, 20, 28), M.paint, 0, 14, 0);
-  add(g, cyl(12.3, 12.3, 4, 28), M.ether, 0, 13, 0);
-  add(g, cyl(9, 11, 4, 24), M.trim, 0, 26, 0);
-  add(g, cyl(3, 3, 6, 12), M.steel, 0, 31, 0); add(g, sph(2.2, 12, 8), M.ether, 0, 34.5, 0);
-  add(g, rbox(10, 16, 10, 1.5), M.trim, 20, 8, -18); add(g, rbox(6, 3, 0.8, 0.3), M.glass, 20, 12, -12.6); add(g, sph(1.2, 8, 6), M.lamp, 20, 17, -18);
+  add(g, new THREE.TorusGeometry(21, 2.4, 10, 40), M.steel, 0, 5.5, 0, Math.PI / 2);
+  add(g, cyl(13, 14, 12, 28), M.paint, 0, 10, 0);                                                  // wellhead tank (team)
+  add(g, cyl(13.3, 13.3, 3, 28), M.ether, 0, 9, 0);                                                // sight glass ring
+  add(g, cyl(10, 11, 3, 24), M.trim, 0, 17.5, 0);
+  add(g, cyl(4.2, 4.2, 30, 16), M.etherSoft, 0, 32, 0);                                            // ether column
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    add(g, rbox(7, 6, 7, 1), M.dark, x * 20, 6.5, z * 20);                                         // leg footings
+    limb(g, [x * 20, 9, z * 20], [x * 5.5, 44, z * 5.5], 1.7, M.steel);                           // derrick legs
+    limb(g, [x * 15, 20, z * 15], [x * 15, 20, -z * 15], 0.8, M.steel);                           // cross braces
+  }
+  add(g, rbox(14, 3, 14, 0.8), M.trim, 0, 45.5, 0);                                                // crown platform
+  add(g, rbox(15, 1.4, 15, 0.5), M.paint, 0, 47.6, 0);
+  add(g, cyl(2, 2, 6, 10), M.steel, 0, 51, 0); add(g, sph(3, 14, 10), M.ether, 0, 55, 0);          // ether lamp
+  add(g, sph(1.1, 8, 6), M.lamp, 7, 48.5, 7);
+  add(g, cyl(6, 6, 16, 16), M.trim, 22, 11, -14, 0, 0, 0);                                          // side tank
+  add(g, cyl(6.2, 6.2, 2, 16), M.paint, 22, 15, -14);
+  add(g, cyl(1.4, 1.4, 14, 8), M.steel, 14, 12, -7, 0, Math.PI / 4, Math.PI / 2);                   // feed pipe
+  add(g, rbox(8, 10, 8, 1.2), M.trim, -22, 7, 20); add(g, rbox(5, 2.4, 0.8, 0.3), M.glass, -22, 9.5, 24.2); // pump house
   return g;
 }
 
+/** Garrison (barracks): three ribbed bunk vaults with team-colour doors opening onto a parade yard with a flag. */
 export function barracks(M) {
   const g = grp();
   add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
-  add(g, rbox(80, 18, 62, 2.5), M.trim, 0, 12, -6);
-  for (const x of [-30, -10, 10, 30]) add(g, rbox(1.6, 16, 1.6, 0.4), M.steel, x, 12, 25.4); // downpipes
-  const roof = new THREE.Shape([new THREE.Vector2(-33, 0), new THREE.Vector2(33, 0), new THREE.Vector2(20, 12), new THREE.Vector2(-20, 12)]);
-  const rg = new THREE.ExtrudeGeometry(roof, { depth: 78, bevelEnabled: true, bevelSize: 1, bevelThickness: 1, bevelSegments: 2 });
-  rg.translate(0, 0, -39); rg.rotateY(Math.PI / 2); rg.computeVertexNormals(); boxUV(rg);
-  add(g, rg, M.trim, 0, 21, -6);
-  add(g, rbox(82, 2, 4, 0.8), M.paint, 0, 33.5, -6);                       // team ridge stripe
-  for (let x = -36; x <= 36; x += 8) add(g, rbox(2, 1.2, 60, 0.4), M.steel, x, 27, -6);
-  for (const [x, z] of [[-22, -24], [22, 10]]) { add(g, rbox(10, 5, 8, 1), M.dark, x, 31, z); add(g, cyl(3, 3, 0.8, 16), M.gunmetal, x, 33.8, z); }
-  for (const x of [-26, -13, 13, 26]) add(g, rbox(6, 3, 8, 1), M.dark, x, 31.5, -6);
-  add(g, rbox(30, 17, 3.4, 1.2), M.paint, 0, 10.5, 25.2);                  // door frame (team)
-  add(g, rbox(26, 14, 4, 1.5), M.dark, 0, 10, 25.5);                       // door
-  for (let k = 0; k < 4; k++) add(g, rbox(24, 1.2, 0.6, 0.3), M.steel, 0, 5 + k * 3, 27.6);
-  add(g, rbox(30, 1.6, 1.6, 0.5), M.hazard, 0, 18, 27);
-  for (const x of [-18, 18]) { add(g, sph(1.4, 10, 8), M.white, x, 16, 25.8); add(g, rbox(3, 22, 3, 0.8), M.steel, x * 2.1, 13, 26); add(g, rbox(0.6, 9, 7, 0.2), M.paint, x * 2.1 + 1.8, 19, 29); }
-  for (const side of [-1, 1]) { add(g, rbox(10, 10, 30, 2), M.trim, side * 42, 7, -4); for (const z of [-12, 0, 12]) add(g, rbox(1, 3, 6, 0.3), M.glass, side * 47.2, 8, z - 4); }
-  add(g, cyl(0.5, 0.5, 16, 6), M.steel, -30, 40, -26); add(g, sph(1, 8, 6), M.lamp, -30, 48, -26);
+  const R = 12, L = 52, ZC = -14;                                                                   // vault radius, length, centre z
+  for (const x of [-28, 0, 28]) {
+    add(g, rbox(2 * R + 2, 3, L + 2, 0.6), M.dark, x, 4, ZC);                                      // plinth
+    add(g, vault(R, L), M.khaki, x, 5.5, ZC);
+    for (let k = -2; k <= 2; k++) add(g, vault(R + 0.7, 1.8), M.steel, x, 5.5, ZC + k * 11);        // ribs
+    add(g, rbox(5, 1.2, L - 4, 0.4), M.paint, x, 5.5 + R + 0.2, ZC);                                 // team ridge stripe
+    add(g, halfDisc(R), M.paint, x, 5.5, ZC + L / 2 + 0.2);                                          // south end wall (team)
+    add(g, halfDisc(R), M.trim, x, 5.5, ZC - L / 2 - 0.2, 0, Math.PI, 0);                            // north end wall
+    add(g, rbox(8, 9, 1.4, 0.5), M.dark, x, 9.5, ZC + L / 2 + 0.8);                                  // door
+    add(g, rbox(9.4, 1.2, 0.8, 0.3), M.hazard, x, 14.6, ZC + L / 2 + 0.9);
+    add(g, sph(1.1, 8, 6), M.white, x, 16.5, ZC + L / 2 + 1.2);
+    add(g, rbox(4, 2, 5, 0.6), M.dark, x + 6, 5.5 + R - 0.6, ZC - 10);                              // roof vent
+  }
+  add(g, rbox(84, 1.2, 28, 0.4), M.dark, 0, 3.4, 30);                                               // parade yard
+  for (const k of [-1, 1]) { add(g, rbox(24, 0.6, 3.5, 0.2), M.mark, k * 10, 4.1, 30, 0, k * 0.6); add(g, rbox(14, 0.6, 2.4, 0.2), M.paint, k * 9, 4.3, 36, 0, k * 0.6); } // painted chevrons
+  add(g, rbox(3, 0.6, 20, 0.2), M.mark, -40, 4.1, 30); add(g, rbox(3, 0.6, 20, 0.2), M.mark, 40, 4.1, 30);
+  for (const side of [-1, 1]) {
+    add(g, rbox(30, 6, 3, 1), M.khaki, side * 31, 6, 45);                                            // front wall with a gate
+    add(g, rbox(12, 1.2, 3.4, 0.4), M.paint, side * 34, 9.2, 45);                                    // team banner on the wall
+    add(g, rbox(3, 10, 3, 0.8), M.steel, side * 16, 8, 45); add(g, rbox(3, 1.4, 3.2, 0.4), M.hazard, side * 16, 11, 45);
+    add(g, rbox(8, 5, 6, 0.8), M.dark, side * 40, 5.5, 20);                                          // sandbag blocks
+  }
+  add(g, cyl(0.7, 0.7, 36, 8), M.steel, 38, 21, 36);                                                // flagpole
+  add(g, rbox(0.6, 7, 10, 0.2), M.paint, 38, 35, 31);                                               // team banner
+  add(g, sph(1, 8, 6), M.lamp, 38, 39.5, 36);
+  add(g, cyl(0.5, 0.5, 22, 6), M.steel, -40, 14, 38); add(g, rbox(4, 2, 3, 0.5), M.dark, -40, 25.5, 38); add(g, sph(1.1, 8, 6), M.white, -40, 25, 40);  // floodlight
   return g;
 }
 
+/** A box beam from point a to point b (w wide, h thick), like `limb` but square. */
+function beam(parent, a, b, w, h, mat) {
+  const A = new THREE.Vector3(...a), Bv = new THREE.Vector3(...b), len = A.distanceTo(Bv);
+  const m = new THREE.Mesh(rbox(w, h, len, 0.5), mat);
+  m.position.copy(A).add(Bv).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), Bv.clone().sub(A).normalize());
+  parent.add(m); return m;
+}
+/** Chimney: fat iron stack with a team band, a wide soot cap and a dark mouth, top at y = base + h + 4. */
+function chimney(g, M, x, z, r, h, base = 3) {
+  add(g, cyl(r, r * 1.2, h, 24), M.iron, x, base + h / 2, z);
+  add(g, cyl(r + 0.5, r + 0.5, 3, 24), M.paint, x, base + h * 0.8, z);
+  add(g, cyl(r + 1.8, r, 4, 24), M.gunmetal, x, base + h + 2, z);                                  // soot cap
+  add(g, cyl(r - 1.2, r - 1.2, 1, 20), M.skinDark, x, base + h + 4.2, z);                          // mouth
+}
+
+/** F1. Foundry as a compact 2x2 hall in the industry family: dark iron hall with two fat chimneys and a flue arch
+ *  on the roof, glowing roof louvres, a team band on the walls and eaves, the furnace mouth and slag pool south. */
 export function forge(M) {
   const g = grp();
-  add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
-  add(g, rbox(84, 22, 66, 2.5), M.trim, 0, 14, -6);
-  add(g, rbox(84.6, 4, 66.6, 1), M.trim, 0, 24, -6);
-  for (const z of [-30, 18]) add(g, rbox(84.8, 1.4, 2, 0.4), M.dark, 0, 26, z);
-  for (let x = -40; x <= 40; x += 8) add(g, cyl(0.3, 0.3, 4, 6), M.steel, x, 28, 26.5);
-  add(g, rbox(82, 0.6, 0.6, 0.2), M.steel, 0, 30, 26.5);                   // catwalk railing
-  add(g, new THREE.TorusGeometry(22, 1.6, 8, 24, Math.PI), M.steel, 0, 50, -22, 0, 0, 0); // pipe arch between chimneys
-  for (const x of [-22, 22]) {
-    add(g, cyl(8, 9.5, 34, 24), M.dark, x, 40, -22);
-    add(g, cyl(8.6, 8.6, 3, 24), M.paint, x, 50, -22);
-    add(g, cyl(6, 6, 1, 20), M.skinDark, x, 57.2, -22);
+  add(g, rbox(60, 3, 60, 1), M.concrete, 0, 1.5, 0);
+  add(g, rbox(52, 22, 42, 2.5), M.iron, 0, 14, -5);                                                 // hall
+  add(g, rbox(52.6, 3, 42.6, 0.8), M.paint, 0, 9, -5);                                              // team band on the walls
+  add(g, rbox(54, 3, 44, 1), M.iron, 0, 26, -5);                                                    // roof slab
+  for (const z of [-26, 16]) add(g, rbox(54, 1.2, 2.4, 0.4), M.paint, 0, 28, z);                    // team eave stripes
+  for (const x of [-26, 26]) add(g, rbox(2.4, 1.2, 44, 0.4), M.paint, x, 28, -5);
+  for (const z of [-4, 8]) {                                                                        // glowing roof louvres
+    add(g, rbox(20, 3, 5, 0.8), M.dark, 2, 29, z);
+    for (const dz of [-1.5, 1.5]) add(g, rbox(18, 0.6, 1, 0.2), M.fire, 2, 30.6, z + dz);
   }
-  add(g, rbox(34, 16, 6, 2), M.dark, 0, 11, 28);                           // furnace mouth
-  add(g, rbox(28, 10, 2, 1), M.fire, 0, 10, 30.2);
-  add(g, rbox(22, 0.6, 6, 0.3), M.slag, 0, 3.1, 34);                       // slag pool at the mouth
-  add(g, rbox(36, 1.6, 1.6, 0.5), M.hazard, 0, 20.5, 29.4);
-  add(g, rbox(26, 10, 26, 2), M.trim, 0, 31, -2);
-  add(g, rbox(26.4, 2.4, 26.4, 0.6), M.paint, 0, 34.6, -2);
-  for (const z of [-10, -3, 4]) add(g, rbox(24, 1, 2.4, 0.4), M.dark, 0, 36.4, z);
-  for (const side of [-1, 1]) { add(g, rbox(3, 30, 3, 0.8), M.steel, side * 40, 17, 26); }
-  add(g, rbox(86, 3, 3, 0.8), M.steel, 0, 33, 26);
-  add(g, rbox(6, 4, 6, 1), M.gunmetal, 14, 30, 26); add(g, cyl(0.3, 0.3, 10, 6), M.dark, 14, 24, 26);
-  for (const side of [-1, 1]) add(g, sph(1.4, 10, 8), M.lamp, side * 40, 33.5, 26);
+  for (const x of [-15, 15]) chimney(g, M, x, -16, 7, 38, 27);                                      // two fat stacks on the roof
+  add(g, new THREE.TorusGeometry(15, 1.6, 8, 24, Math.PI), M.steel, 0, 50, -16, 0, 0, 0);          // flue arch between them
+  add(g, rbox(24, 14, 6, 2), M.dark, 0, 10, 18);                                                    // furnace mouth
+  add(g, rbox(18, 8, 2, 1), M.fire, 0, 9, 20.2);
+  add(g, rbox(16, 0.6, 7, 0.3), M.slag, 0, 3.1, 25);                                                // slag pool
+  add(g, rbox(26, 1.6, 1.6, 0.5), M.hazard, 0, 18.5, 19.4);
+  for (let x = -22; x <= 22; x += 8) add(g, cyl(0.3, 0.3, 4, 6), M.steel, x, 29.5, 17);            // roof-edge railing
+  add(g, rbox(46, 0.6, 0.6, 0.2), M.steel, 0, 31.5, 17);
+  add(g, rbox(2.6, 30, 2.6, 0.8), M.steel, -27, 17, 24); add(g, sph(1.3, 10, 8), M.lamp, -27, 33, 24); // lamp mast
+  add(g, rbox(6, 6, 6, 1), M.dark, 24, 6, 24); add(g, rbox(6.4, 1.2, 1.2, 0.4), M.hazard, 24, 9.5, 27.2); // tool crate
   return g;
 }
 
-/** Airfield: a landing pad with a hazard H, a round-roofed hangar to the north and a control tower. */
+/** Airfield: a big round landing pad (white ring, team-colour H, edge lights) with a tall control tower and radar,
+ *  a service shed, fuel tanks and a windsock. */
 export function airfield(M) {
   const g = grp();
   add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
-  add(g, rbox(52, 1, 44, 0.4), M.dark, 8, 3.2, 16);                                    // pad
-  for (const z of [6, 26]) add(g, rbox(30, 0.6, 3, 0.2), M.hazard, 8, 3.9, z);
-  add(g, rbox(3, 0.6, 20, 0.2), M.hazard, -5, 3.9, 16); add(g, rbox(3, 0.6, 20, 0.2), M.hazard, 21, 3.9, 16);
-  add(g, rbox(26, 0.6, 3, 0.2), M.hazard, 8, 3.9, 16);
-  for (const [x, z] of [[-18, -4], [34, -4], [-18, 36], [34, 36]]) add(g, sph(1.1, 8, 6), M.lamp, x, 4.2, z);
-  const hangar = add(g, new THREE.CylinderGeometry(14, 14, 56, 28, 1, false, 0, Math.PI), M.trim, 0, 3, -26, 0, 0, Math.PI / 2);
-  hangar.rotation.set(0, 0, Math.PI / 2); hangar.rotation.order = 'ZYX';
-  add(g, rbox(56, 3, 2, 0.6), M.paint, 0, 15, -12.5);
-  add(g, rbox(20, 12, 2, 1), M.dark, 0, 7, -12);                                       // hangar door
-  for (let x = -24; x <= 24; x += 8) add(g, rbox(1, 1.4, 28, 0.3), M.steel, x, 16.8, -26);
-  add(g, rbox(12, 26, 12, 1.6), M.trim, -34, 13, 30);                                  // control tower
-  add(g, rbox(15, 7, 15, 1.6), M.glass, -34, 29, 30);
-  add(g, rbox(16, 2, 16, 0.6), M.paint, -34, 33.5, 30);
-  add(g, cyl(0.4, 0.4, 12, 6), M.steel, -30, 40, 26); add(g, sph(1, 8, 6), M.lamp, -30, 46.5, 26);
-  for (const z of [-4, 6]) add(g, cyl(4, 4, 10, 16), M.steel, 40, 5, z);              // fuel tanks
+  const PX = 8, PZ = 8, PR = 35;
+  add(g, cyl(PR, PR + 1, 2.4, 48), M.dark, PX, 4.2, PZ);                                           // pad deck
+  add(g, cyl(PR - 3, PR - 3, 0.6, 48), M.mark, PX, 5.4, PZ);                                       // white ring ...
+  add(g, cyl(PR - 6.5, PR - 6.5, 0.7, 48), M.dark, PX, 5.5, PZ);                                   // ... masked back to the deck
+  for (const x of [-7, 7]) add(g, rbox(4, 0.6, 20, 0.2), M.paint, PX + x, 5.9, PZ);                // team-colour H
+  add(g, rbox(10, 0.6, 4, 0.2), M.paint, PX, 5.9, PZ);
+  for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; add(g, sph(1.1, 8, 6), M.glass, PX + Math.cos(a) * (PR - 1), 5.8, PZ + Math.sin(a) * (PR - 1)); }
+  for (const [x, z] of [[44, -42], [44, 44], [-44, 44]]) add(g, sph(1.1, 8, 6), M.lamp, x, 4.2, z);
+  add(g, rbox(13, 32, 13, 1.6), M.trim, -36, 19, -34);                                              // control tower
+  for (const y of [12, 22]) add(g, rbox(13.6, 1.4, 13.6, 0.4), M.dark, -36, y, -34);
+  add(g, rbox(17, 7, 17, 1.6), M.glass, -36, 38.5, -34);
+  add(g, rbox(18, 2.2, 18, 0.6), M.paint, -36, 43, -34);
+  add(g, cyl(1.6, 1.6, 5, 10), M.steel, -36, 46.5, -34);
+  const dish = add(g, new THREE.SphereGeometry(7.5, 20, 10, 0, Math.PI * 2, 0, Math.PI / 3), M.trim, -36, 48, -34, Math.PI * 0.72, 0, 0.35);
+  dish.material = M.trim;
+  add(g, cyl(0.5, 0.5, 10, 6), M.steel, -31, 49, -30); add(g, sph(1.3, 8, 6), M.beacon, -31, 54.5, -30);
+  add(g, rbox(14, 12, 30, 1.5), M.trim, -37, 9, 14);                                                // service shed
+  add(g, rbox(14.6, 2, 30.6, 0.6), M.paint, -37, 15.5, 14);
+  add(g, rbox(1.6, 9, 16, 0.5), M.dark, -29.8, 8, 14);                                              // shed door onto the pad
+  add(g, rbox(1.2, 1.2, 17, 0.4), M.hazard, -29.6, 13, 14);
+  for (const z of [-40, -30]) { add(g, cyl(4.5, 4.5, 14, 16), M.steel, 36, 7.5, z, 0, 0, Math.PI / 2); add(g, cyl(4.7, 4.7, 2, 16), M.hazard, 36, 7.5, z, 0, 0, Math.PI / 2); } // fuel tanks
+  add(g, cyl(0.5, 0.5, 20, 6), M.steel, 44, 13, 44);                                                 // windsock
+  add(g, new THREE.ConeGeometry(2.2, 9, 10), M.paint, 40, 22, 44, 0, 0, Math.PI / 2);
   return g;
 }
 

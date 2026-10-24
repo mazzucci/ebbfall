@@ -149,7 +149,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   };
   return d;
 }
-const BUILD_LABEL = { depot: 'Depot', barracks: 'Barracks', extractor: 'Extractor', forge: 'Forge', turret: 'Turret', airfield: 'Airfield', core: 'Core' };
+const BUILD_LABEL = { depot: 'Depot', barracks: 'Garrison', extractor: 'Ether Rig', forge: 'Foundry', turret: 'Turret', airfield: 'Airfield', core: 'Core' };
 
 /** Poll until fn() is truthy (fn runs in Node; use d.state() inside), fast-forwarding the game between checks. */
 export async function until(d, fn, { seconds = 120, step = 2, what = 'condition' } = {}) {

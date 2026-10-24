@@ -182,7 +182,7 @@ impl Game {
             self.w.cancel_queue(bldg, i as usize);
         }
     }
-    /// Research the next level of "weapons" or "armor" at one of our War Forges ("" = started).
+    /// Research the next level of "weapons" or "armor" at one of our Foundries ("" = started).
     pub fn research(&mut self, bldg: u32, upgrade: &str) -> String {
         let Some(up) = data::Upgrade::parse(upgrade) else {
             return "Unknown upgrade".into();

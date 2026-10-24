@@ -776,14 +776,14 @@ impl World {
         self.recalc_supply(team);
     }
 
-    /// Start researching the next level of `up` at a finished War Forge; Err carries the message to show.
+    /// Start researching the next level of `up` at a finished Foundry; Err carries the message to show.
     pub fn start_research(&mut self, bid: Id, up: Upgrade) -> Result<(), String> {
         let Some(b) = self.bldg(bid) else {
             return Err("Gone".into());
         };
         let team = b.team;
         if b.kind != BldgKind::Forge || !b.done {
-            return Err("Research happens at a finished War Forge".into());
+            return Err("Research happens at a finished Foundry".into());
         }
         if b.research.is_some() {
             return Err("Already researching here".into());
@@ -1363,7 +1363,7 @@ impl World {
         // A node that is gone was a depleted shard field; the gather update retargets from there.
         if self.map.node(node).is_some_and(|n| n.ether) && !self.extractor_ready(node, Some(team)) {
             if team == PLAYER {
-                self.toast("Build an Extractor on the vent first", true);
+                self.toast("Build an Ether Rig on the vent first", true);
             }
             return false;
         }
@@ -2251,7 +2251,7 @@ impl World {
                     let left = nm.amount;
                     if n.ether && before > 0 && left == 0 && self.team_of(uid) == Some(PLAYER) {
                         self.toast(
-                            "An ether vent is depleted: its Extractor now gives a trickle",
+                            "An ether vent is depleted: its Ether Rig now gives a trickle",
                             false,
                         );
                     }

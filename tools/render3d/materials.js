@@ -77,5 +77,12 @@ export function makeMats(team) {
     medRed: std({ color: 0xc8242c, metalness: 0.1, roughness: 0.5 }),
     healGlow: std({ color: 0x103018, emissive: 0x6dff9a, emissiveIntensity: 2.4 }),
     rotor: std({ color: 0x15181d, metalness: 0.5, roughness: 0.5 }),
+    // Building families (see docs/ART.md): command/civil = trim (grey steel), military = khaki, industry = iron.
+    khaki: std({ color: 0x8e8664, map: panel, bumpMap: bump, bumpScale: 0.9, metalness: 0.55, roughness: 0.5 }),
+    iron: std({ color: 0x3d3835, map: panel, bumpMap: bump, bumpScale: 1.0, metalness: 0.75, roughness: 0.55 }),
+    ember: std({ color: 0x4a1200, emissive: 0xffb23a, emissiveIntensity: 3.2 }),
+    etherSoft: std({ color: 0x4a2f9a, emissive: 0x9a7cf0, emissiveIntensity: 0.9, roughness: 0.3 }),
+    mark: std({ color: 0xe4e0d4, metalness: 0.1, roughness: 0.7 }),
+    beacon: std({ color: 0x300000, emissive: 0xff2a2a, emissiveIntensity: 3 }),
   };
 }

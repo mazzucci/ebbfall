@@ -150,7 +150,7 @@ test('a harvester whose last node is a vent without an extractor goes idle inste
     }
     assert.ok(placed);
     let toasts = 0;
-    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Extractor/.test(e.msg)) toasts++; G.events.length = 0; }
+    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Ether Rig/.test(e.msg)) toasts++; G.events.length = 0; }
     assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} extractor toasts`);
     assert.notEqual(G.units.find(u => u.id === h.id).task.t, 'build');
   }

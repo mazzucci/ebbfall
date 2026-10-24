@@ -39,9 +39,9 @@ test('every finished production building offers its unit, and pressing it trains
   try {
     await d.grant(5000, 5000);
     await buildAndFinish(d, 'd', 'depot', 0); // supply for six units
-    const rax = await buildAndFinish(d, 'b', 'barracks', 0);
+    const rax = await buildAndFinish(d, 'g', 'barracks', 0);
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
-    await buildAndFinish(d, 'r', 'turret', 2);
+    await buildAndFinish(d, 't', 'turret', 2);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
     for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [rax, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp'], [airfield, 'Observer', 'observer']]) {
       await d.clickEntity(b.id);
@@ -61,13 +61,13 @@ test('medics wait for a forge, and a wasp flies straight across the map', async 
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    const rax = await buildAndFinish(d, 'b', 'barracks', 0);
+    const rax = await buildAndFinish(d, 'g', 'barracks', 0);
     await d.clickEntity(rax.id);
     const card = await d.card();
     assert.ok(card.some(c => c.label === 'Lancer' && c.enabled), 'Lancer available');
     assert.ok(card.some(c => c.label === 'Medic' && !c.enabled), `Medic needs a Forge: ${JSON.stringify(card)}`);
     await d.pressCard('Medic'); // locked, but a tap says why
-    assert.match((await d.toasts()).join(' '), /Requires War Forge/);
+    assert.match((await d.toasts()).join(' '), /Requires Foundry/);
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0, 'nothing queued');
     await buildAndFinish(d, 'f', 'forge', 1);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 2);
@@ -120,7 +120,7 @@ test('an unfinished building can be cancelled for a 75% refund', async () => {
   try {
     await d.grant(1000, 0);
     const s = await d.state(), core = coreOf(s), spot = await d.findSpot('barracks', { tx: core.tx + 1, ty: core.ty + 1 });
-    await d.buildWithUI('b', 'barracks', spot.tx, spot.ty, mine(s, 'harvester')[0].id);
+    await d.buildWithUI('g', 'barracks', spot.tx, spot.ty, mine(s, 'harvester')[0].id);
     const rax = myBldg(await d.state(), 'barracks')[0];
     assert.ok(rax && !rax.done, 'barracks under construction');
     const before = (await d.state()).res[0];
@@ -305,13 +305,13 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    const rax = await buildAndFinish(d, 'b', 'barracks', 0);
+    const rax = await buildAndFinish(d, 'g', 'barracks', 0);
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
-    // The Barracks trains all four infantry and walkers once the Forge stands; the Forge only researches.
+    // The Garrison trains all four infantry and walkers once the Foundry stands; the Foundry only researches.
     await d.clickEntity(rax.id);
     await d.pressCard('Vanguard');
     let slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Vanguard', 'Rally', '', 'Cancel', 'Deselect'], 'the Barracks card');
+    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Vanguard', 'Rally', '', 'Cancel', 'Deselect'], 'the Garrison card');
     await d.page.locator('#cmd > :nth-child(7)').click(); // cancel the Vanguard
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0);
     await d.clickEntity(forge.id);
@@ -505,7 +505,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
-    const forge = d.page.locator('#cmd button', { hasText: 'Forge' });
+    const forge = d.page.locator('#cmd button', { hasText: 'Foundry' });
     const b = await forge.boundingBox();
     const cdp = await d.page.context().newCDPSession(d.page);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
@@ -513,7 +513,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     const info = d.page.locator('#cmdInfo');
     assert.ok(await info.isVisible(), 'details show while held');
     const text = await info.textContent();
-    assert.match(text, /Forge/); assert.match(text, /150/); assert.match(text, /Requires Barracks/);
+    assert.match(text, /Foundry/); assert.match(text, /150/); assert.match(text, /Requires Garrison/);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await d.page.waitForTimeout(150);
     assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-press did not start placing a Forge');

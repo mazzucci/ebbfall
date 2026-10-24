@@ -124,6 +124,8 @@ test('phone: dragging the minimap nudges the view from where the finger lands; a
 test('phone: the minimap, enlarged under the finger, is drawn in front of the selection console', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
+    await d.eval(() => { endfall.ui.sel = [endfall.G.units.find(u => u.team === 0)]; }); // a selection: the console shows
+    await d.page.locator('#info').waitFor();
     const mm = await d.page.locator('#minimap').boundingBox(), info = await d.page.locator('#info').boundingBox();
     assert.ok(info.x > mm.x + mm.width, 'the console sits right of the minimap');
     const cdp = await d.page.context().newCDPSession(d.page);

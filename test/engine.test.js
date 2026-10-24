@@ -180,3 +180,13 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
   runSeconds(40);
   assert.ok(E.G.res[E.PLAYER][1] > 0, 'ether mined: ' + E.G.res[E.PLAYER][1]);
 });
+
+test('the WASM sim agrees with the native one: the same golden hashes (crates/endfall-sim/tests/golden.rs)', { skip }, () => {
+  // ashen-easy and glass-medium-swapped at 10 s and 1.5 min: browsers on any machine must compute the same game.
+  for (const [seed, diff, map, side, want] of [[4242, 0, 0, 0, [3305503495, 4049534581]], [1998, 1, 1, 1, [1618133316, 363769540]]]) {
+    const g = sim.Game.withMapSide(seed, diff, map, side), got = [];
+    for (let t = 1; t <= 2700; t++) { g.step(); if (t === 300 || t === 2700) got.push(g.stateHash() >>> 0); }
+    g.free();
+    assert.deepEqual(got, want, `seed ${seed}`);
+  }
+});

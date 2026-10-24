@@ -231,7 +231,8 @@ export function cardItems() {
   const armedId = ARMED_BY[ui.mode], armedAt = items.find(i => i.id === armedId && !i.hidden);
   if (armedAt) {
     Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
-    for (let i = items.length - 1; i >= 0; i--) if (items[i].id.startsWith('cancel')) items.splice(i, 1); // one Cancel at a time (Deselect stays)
+    // One live Cancel at a time (Deselect stays); the queue's keeps its slot, greyed out, so the card keeps its shape.
+    for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }
   for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
     const [sh, et] = G.res[G.me];

@@ -757,6 +757,8 @@ test('phone: a building that trains keeps its Cancel in one place, greyed out wi
     card = await d.card();
     assert.equal(card.find(c => c.label === 'Cancel').enabled, true, 'it lights up with a unit queued');
     assert.equal(await slot(), before, 'in the same place');
+    await d.pressCard('Rally');
+    assert.equal(await slot(), before, 'and while Rally is armed (greyed out, the card keeps its shape)');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

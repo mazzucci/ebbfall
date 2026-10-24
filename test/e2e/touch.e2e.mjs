@@ -120,3 +120,19 @@ test('phone: dragging the minimap nudges the view from where the finger lands; a
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: the minimap, enlarged under the finger, is drawn in front of the selection console', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const mm = await d.page.locator('#minimap').boundingBox(), info = await d.page.locator('#info').boundingBox();
+    assert.ok(info.x > mm.x + mm.width, 'the console sits right of the minimap');
+    const cdp = await d.page.context().newCDPSession(d.page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: mm.x + mm.width * 0.3, y: mm.y + mm.height * 0.7 }] });
+    await d.page.waitForTimeout(250);
+    // A point over the console, inside the enlarged minimap (it doubles from its bottom-left corner).
+    const top = await d.page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [info.x + 10, info.y + info.height / 2]);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(top, 'minimap', 'the enlarged minimap covers the console, not the other way round');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

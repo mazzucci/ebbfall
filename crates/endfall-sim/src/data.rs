@@ -198,6 +198,9 @@ const HARVESTER: UnitDef = UnitDef {
     melee: true,
     ..UNIT
 };
+/// Ether per trip from an Extractor on a vent that has run dry (a full one gives 6).
+pub const VENT_TRICKLE: i32 = 2;
+
 /// A Vanguard shell also hits walking units of the target's side within this many px, for this share of its damage.
 pub const SHELL_SPLASH_R: f64 = 40.0;
 pub const SHELL_SPLASH: f64 = 0.6;

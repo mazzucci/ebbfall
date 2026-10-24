@@ -32,7 +32,7 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv] + ' ' + Math.round(b.research.prog * 100) + '%' + (b.queue.length ? ' · training' : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + ' ' + Math.round(b.prog * 100) + '%' + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
-  if (b.type === 'extractor' && b.vent) return `${b.vent.amount} ether left`;
+  if (b.type === 'extractor' && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
   return '';
 }
 
@@ -55,7 +55,7 @@ export function updateHud() {
     const n = sel[0], ether = n.type === 'ether', left = ether ? 'ether' : 'shards';
     name.textContent = ether ? 'Ether vent' : 'Shard field';
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 34); }
-    sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : `${n.amount} ${left} left`;
+    sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${left} left`;
     hb.hidden = false; $('hpFill').style.width = (n.max ? n.amount / n.max * 100 : 0) + '%'; $('hpFill').style.background = `var(--${ether ? 'ether' : 'shard'})`;
     stats.innerHTML = `<span>Left <b>${n.amount}</b></span><span>Harvesters <b>${n.miners}</b></span>`;
     renderQueue(q, null); renderQueue($('selQueue'), null); grp.innerHTML = ''; grp.dataset.k = '';

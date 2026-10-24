@@ -956,7 +956,10 @@ impl World {
     }
 
     // ---- combat ----
-    /// The best enemy within `range` of (x, y) that a weapon able to hit `hits` = (ground, air) can attack.
+    /// The best enemy in range for a weapon that `hits` (ground, air), shooting from (x, y), for a shooter that
+    /// flies or not (`flier`). Priority first (see `threat_tier`: whatever can hurt the shooter, then other units,
+    /// then plain buildings), then distance.
+    #[allow(clippy::too_many_arguments)]
     pub fn find_target(
         &self,
         x: f64,
@@ -965,18 +968,25 @@ impl World {
         range: f64,
         only_units: bool,
         hits: (bool, bool),
+        flier: bool,
     ) -> Option<Id> {
-        let (mut best, mut bd) = (None, 1e9);
+        let mut best: Option<(u8, f64, Id)> = None;
+        let mut consider = |tier: u8, d: f64, id: Id| {
+            if d < range && best.is_none_or(|(bt, bd, _)| (tier, d) < (bt, bd)) {
+                best = Some((tier, d, id));
+            }
+        };
         for u in &self.units {
             let air = u.kind.def().air;
             if u.team == team || (air && !hits.1) || (!air && !hits.0) {
                 continue;
             }
-            let d = dist(u.x, u.y, x, y) - u.r;
-            if d < range && d * 0.6 < bd {
-                bd = d * 0.6;
-                best = Some(u.id);
-            }
+            let tier = if u.kind.def().damage_vs(flier) > 0.0 {
+                0
+            } else {
+                1
+            };
+            consider(tier, dist(u.x, u.y, x, y) - u.r, u.id);
         }
         if !only_units && hits.0 {
             for b in &self.bldgs {
@@ -992,14 +1002,31 @@ impl World {
                     y: b.y,
                     r: b.r,
                 };
-                let d = g.edge_dist(x, y);
-                if d < range && d < bd {
-                    bd = d;
-                    best = Some(b.id);
-                }
+                let tier = if b.done && b.kind.def().damage_vs(flier) > 0.0 {
+                    0
+                } else {
+                    2
+                };
+                consider(tier, g.edge_dist(x, y), b.id);
             }
         }
-        best
+        best.map(|(_, _, id)| id)
+    }
+
+    /// How urgent a target is for a shooter that flies or not: 0 it can hurt the shooter (an armed unit or a turret
+    /// that can reach it), 1 another unit, 2 a building that cannot shoot back.
+    pub fn threat_tier(&self, id: Id, flier: bool) -> u8 {
+        if let Some(u) = self.unit(id) {
+            return if u.kind.def().damage_vs(flier) > 0.0 {
+                0
+            } else {
+                1
+            };
+        }
+        match self.bldg(id) {
+            Some(b) if b.done && b.kind.def().damage_vs(flier) > 0.0 => 0,
+            _ => 2,
+        }
     }
 
     /// Whether `shooter` (unit or building) has a weapon that can hit `target` (flying or not).
@@ -1289,13 +1316,14 @@ impl World {
     pub fn nearest_node(&self, x: f64, y: f64, team: u8, ether: bool, max_d: f64) -> Option<Id> {
         let (mut best, mut bd) = (None, max_d);
         for n in &self.map.nodes {
-            if n.ether != ether || n.amount <= 0 {
+            // A dry vent still gives a trickle: worth mining, but a full one a little farther away comes first.
+            if n.ether != ether || (!ether && n.amount <= 0) {
                 continue;
             }
             if ether && !self.extractor_ready(n.id, Some(team)) {
                 continue;
             }
-            let d = dist(n.x, n.y, x, y);
+            let d = dist(n.x, n.y, x, y) + if ether && n.amount <= 0 { 400.0 } else { 0.0 };
             if d < bd {
                 bd = d;
                 best = Some(n.id);
@@ -1657,7 +1685,7 @@ impl World {
             let (x, y, team) = (u.x, u.y, u.team);
             let last = u
                 .last_node
-                .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0));
+                .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0 || n.ether));
             if let Some(nd) = last.or_else(|| self.nearest_node(x, y, team, false, 500.0))
                 && self.start_gather(uid, nd)
             {
@@ -1704,7 +1732,9 @@ impl World {
                     u.aggro_cd = 0.3;
                     let (ux, uy) = (u.x, u.y);
                     let rng = if hold { range + r } else { sight * TILE * 0.85 };
-                    if let Some(t) = self.find_target(ux, uy, team, rng, false, hits) {
+                    if let Some(t) =
+                        self.find_target(ux, uy, team, rng, false, hits, kind.def().air)
+                    {
                         let (tx, ty) = self.geo(t).unwrap().center();
                         if hold {
                             if self.u(uid).cd <= 0.0 {
@@ -1732,7 +1762,15 @@ impl World {
                 if u.aggro_cd <= 0.0 {
                     u.aggro_cd = 0.3;
                     let (ux, uy) = (u.x, u.y);
-                    let t = self.find_target(ux, uy, team, sight * TILE * 0.85, false, hits);
+                    let t = self.find_target(
+                        ux,
+                        uy,
+                        team,
+                        sight * TILE * 0.85,
+                        false,
+                        hits,
+                        kind.def().air,
+                    );
                     if let (Some(t), true) = (t, combat) {
                         self.um(uid).task = Task::Attack {
                             target: t,
@@ -1752,10 +1790,15 @@ impl World {
                     }
                     return;
                 };
-                if combat && self.u(uid).aggro_cd <= 0.0 && t.is_rect() {
+                // A target picked up on the way gives way to anything in sight that matters more: something that
+                // can shoot us first, then units, then plain buildings. An explicit attack order stands.
+                if combat && self.u(uid).aggro_cd <= 0.0 && back.is_some() {
                     let (ux, uy) = (self.u(uid).x, self.u(uid).y);
                     self.um(uid).aggro_cd = 0.5;
-                    if let Some(t2) = self.find_target(ux, uy, team, range + r, true, hits)
+                    let flier = kind.def().air;
+                    let seen = sight * TILE * 0.85;
+                    if let Some(t2) = self.find_target(ux, uy, team, seen, false, hits, flier)
+                        && self.threat_tier(t2, flier) < self.threat_tier(target, flier)
                         && let Task::Attack { target, .. } = &mut self.um(uid).task
                     {
                         *target = t2;
@@ -1993,9 +2036,9 @@ impl World {
             (u.team, u.r, u.carry)
         };
         let n = self.map.node(node).cloned();
-        let usable = n
-            .as_ref()
-            .is_some_and(|n| n.amount > 0 && (!n.ether || self.extractor_ready(n.id, None)));
+        let usable = n.as_ref().is_some_and(|n| {
+            (n.amount > 0 || n.ether) && (!n.ether || self.extractor_ready(n.id, None))
+        });
         if !usable {
             if phase == Phase::Mine
                 && let Some(nm) = self.map.node_mut(node)
@@ -2062,11 +2105,21 @@ impl World {
                 if timer <= 0.0 {
                     let nm = self.map.node_mut(node).unwrap();
                     nm.miners -= 1;
-                    let take = nm.amount.min(if n.ether { 6 } else { 8 });
-                    if !n.ether {
-                        nm.amount -= take;
-                    }
+                    // A vent runs dry like a field, but its Extractor still gives a trickle once it has.
+                    let before = nm.amount;
+                    let take = if n.ether && before <= 0 {
+                        VENT_TRICKLE
+                    } else {
+                        before.min(if n.ether { 6 } else { 8 })
+                    };
+                    nm.amount = (before - take).max(0);
                     let left = nm.amount;
+                    if n.ether && before > 0 && left == 0 && self.team_of(uid) == Some(PLAYER) {
+                        self.toast(
+                            "An ether vent is depleted: its Extractor now gives a trickle",
+                            false,
+                        );
+                    }
                     let u = self.um(uid);
                     u.carry = take;
                     u.carry_ether = Some(n.ether);
@@ -2208,6 +2261,7 @@ impl World {
                 d.range * TILE,
                 false,
                 (d.dmg > 0.0, d.dmg_air > 0.0),
+                false, // (buildings stand on the ground)
             ) {
                 let (tx, ty) = self.geo(t).unwrap().center();
                 self.bm(bid).unwrap().aim = jsmath::atan2(ty - by, tx - bx);

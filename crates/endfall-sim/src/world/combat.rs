@@ -15,9 +15,18 @@ fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64) -> f64
 }
 
 impl World {
-    /// Extra damage a unit kind deals with its team's Weapons upgrades.
+    /// The levels a team has of every upgrade with this effect, added up.
+    pub fn effect_level(&self, team: u8, effect: Effect) -> u8 {
+        UPGRADES
+            .iter()
+            .filter(|u| u.def().effect == effect)
+            .map(|u| self.upgrades[team as usize][u.index()])
+            .sum()
+    }
+
+    /// Extra damage a unit kind deals with its team's weapon upgrades.
     pub fn weapon_bonus(&self, team: u8, per_level: f64) -> f64 {
-        per_level * self.upgrades[team as usize][Upgrade::Weapons.index()] as f64
+        per_level * self.effect_level(team, Effect::Weapons) as f64
     }
 
     // ---- combat ----
@@ -139,8 +148,7 @@ impl World {
             self.alert_attacked(target);
         }
         if let Some(i) = self.ui(target) {
-            let armor_up =
-                self.upgrades[self.units[i].team as usize][Upgrade::Armor.index()] as f64;
+            let armor_up = self.effect_level(self.units[i].team, Effect::Armor) as f64;
             let now = self.time;
             let u = &mut self.units[i];
             let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt);

@@ -356,7 +356,7 @@ pub struct World {
     pub winner: i32,
     pub stats: Stats,
     /// Upgrade levels per team: [weapons, armor].
-    pub upgrades: [[u8; 2]; 2],
+    pub upgrades: [[u8; UPGRADES.len()]; 2],
     /// Recent "under attack" alerts (time, x, y, was a building), for throttling.
     alerts: Vec<(f64, f64, f64, bool)>,
     pub events: Vec<Event>,
@@ -424,7 +424,7 @@ impl World {
             over: false,
             winner: -1,
             stats: Stats::default(),
-            upgrades: [[0; 2]; 2],
+            upgrades: [[0; UPGRADES.len()]; 2],
             alerts: Vec::new(),
             events: Vec::new(),
             map: Map::empty(),
@@ -463,7 +463,7 @@ impl World {
         self.over = false;
         self.winner = -1;
         self.stats = Stats::default();
-        self.upgrades = [[0; 2]; 2];
+        self.upgrades = [[0; UPGRADES.len()]; 2];
         self.alerts.clear();
         self.events.clear();
         self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
@@ -690,8 +690,9 @@ impl World {
             }
         }
         for t in 0..2 {
-            mix(self.upgrades[t][0] as i32);
-            mix(self.upgrades[t][1] as i32);
+            for &level in &self.upgrades[t] {
+                mix(level as i32);
+            }
         }
         h
     }

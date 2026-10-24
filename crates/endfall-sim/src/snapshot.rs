@@ -89,16 +89,24 @@ record! {
 }
 
 record! {
-    /// The world's scalars: clock, resources and supply per team, the end, stats, settings, upgrade levels.
+    /// The world's scalars: clock, resources and supply per team, the end, stats, settings. The upgrade levels
+    /// follow (`push_upgrades`).
     INFO_FIELDS, push_info, |w0: &World, w| {
         time = w.time, tick = w.tick, shards0 = w.res[0][0], ether0 = w.res[0][1], shards1 = w.res[1][0],
         ether1 = w.res[1][1], sup_used0 = w.sup[0][0], sup_cap0 = w.sup[0][1], sup_used1 = w.sup[1][0],
         sup_cap1 = w.sup[1][1], over = w.over as u8, winner = w.winner, built = w.stats.built, lost = w.stats.lost,
         killed = w.stats.killed, razed = w.stats.razed, seed = w.seed, diff = w.diff,
-        weapons0 = w.upgrades[0][0], armor0 = w.upgrades[0][1], weapons1 = w.upgrades[1][0], armor1 = w.upgrades[1][1],
         map_kind = w.map_kind as u32,
         faction0 = w.factions[0].index(),
         faction1 = w.factions[1].index(),
+    }
+}
+
+/// After the info record: each team's level of every upgrade, team 0's first, in `UPGRADES` order (the schema's
+/// `upgrades` names them).
+pub fn push_upgrades(out: &mut Vec<f64>, w: &World) {
+    for levels in &w.upgrades {
+        out.extend(levels.iter().map(|&l| l as f64));
     }
 }
 
@@ -133,12 +141,7 @@ pub fn schema_json() -> String {
                 .map(|k: &BldgKind| k.def().key)
                 .collect()
         ),
-        kinds(
-            [crate::data::Upgrade::Weapons, crate::data::Upgrade::Armor]
-                .iter()
-                .map(|u| u.key())
-                .collect()
-        ),
+        kinds(crate::data::UPGRADES.iter().map(|u| u.def().key).collect()),
         QUEUE_SLOTS,
     )
 }

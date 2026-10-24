@@ -252,6 +252,30 @@ fn weapons_upgrades_add_each_units_bonus() {
 }
 
 #[test]
+fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
+    for u in UPGRADES {
+        assert!(
+            BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
+            "{u:?} is researched at some building"
+        );
+        assert_eq!(Upgrade::parse(u.def().key), Some(u));
+    }
+    let mut w = World::new(1, 1);
+    w.upgrades[1][Upgrade::Armor.index()] = 2;
+    assert_eq!(w.effect_level(1, Effect::Armor), 2);
+    assert_eq!(w.effect_level(0, Effect::Armor), 0);
+    let mut out = vec![];
+    endfall_sim::snapshot::push_upgrades(&mut out, &w);
+    let n = UPGRADES.len();
+    assert_eq!(out.len(), 2 * n, "each team's level of each upgrade");
+    assert_eq!(
+        out[n + Upgrade::Armor.index()],
+        2.0,
+        "team 1's after team 0's"
+    );
+}
+
+#[test]
 fn armor_upgrades_soak_one_more_point_per_level() {
     let (mut w, f) = forge_arena(31);
     research_level(&mut w, f, Upgrade::Armor);

@@ -159,7 +159,7 @@ impl World {
                     self.toast(
                         format!(
                             "{} {} researched",
-                            up.name(),
+                            up.def().name,
                             ["I", "II", "III"][(level - 1) as usize]
                         ),
                         false,

@@ -417,7 +417,8 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
         12 if cheats => g.set_resources(PLAYER, r.below(3000) as i32, r.below(1000) as i32),
         13 => g.cancel_construction(a),
         14 => {
-            let _ = g.research(a, ["weapons", "armor", "nonsense"][r.below(3) as usize]);
+            let i = r.below(UPGRADES.len() as u32 + 1) as usize;
+            let _ = g.research(a, UPGRADES.get(i).map_or("nonsense", |u| u.def().key));
         }
         15 => g.cancel_research(a),
         16 => g.repair(a, b),

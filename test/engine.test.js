@@ -200,6 +200,16 @@ test('the client mirror reads every snapshot field the sim declares (crates/endf
   }
 });
 
+test('the upgrade levels follow the info record, both teams, in the schema\'s order', { skip }, () => {
+  E.resetGame(3, 1);
+  const n = C.SCHEMA.upgrades.length;
+  assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
+  assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
+  assert.ok(n >= 2);
+});
+
 test('the client names no unit or building kind outside its data tables and look table', () => {
   // Kind-specific behaviour lives in the sim's flags (worker, hq, onVent, researches...) and src/client/look.js.
   for (const f of ['client/hud.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js']) {

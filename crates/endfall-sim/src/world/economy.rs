@@ -175,7 +175,7 @@ impl World {
             return;
         }
         let n = n.unwrap();
-        let income = if team == ENEMY {
+        let income = if self.is_ai(team) {
             DIFF[self.diff].income
         } else {
             1.0
@@ -246,8 +246,9 @@ impl World {
                     };
                     nm.amount = (before - take).max(0);
                     let left = nm.amount;
-                    if n.ether && before > 0 && left == 0 && self.team_of(uid) == Some(PLAYER) {
+                    if n.ether && before > 0 && left == 0 {
                         self.toast(
+                            team,
                             "An ether vent is depleted: its Ether Rig now gives a trickle",
                             false,
                         );
@@ -264,8 +265,10 @@ impl World {
                         let i = idx(n.tx, n.ty);
                         self.map.occ[i] = 0;
                         self.map.nodes.retain(|m| m.id != node);
-                        if self.vis[0][i] != 0 {
-                            self.toast("A shard field ran dry", false);
+                        for t in [0, 1] {
+                            if self.vis[t as usize][i] != 0 {
+                                self.toast(t, "A shard field ran dry", false);
+                            }
                         }
                     }
                 } else {
@@ -309,9 +312,7 @@ impl World {
                         timer,
                     };
                     self.res[team as usize][slot] += gain;
-                    if team == PLAYER {
-                        self.emit(Event::Sfx("coin"));
-                    }
+                    self.sfx(team, "coin");
                 }
             }
         }

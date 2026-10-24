@@ -198,9 +198,12 @@ pub struct Proj {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+/// Events are for one seat (`team`: whose player sees or hears it) or, with no team, for whoever can see the spot;
+/// `Game::drain_events` passes on those of its own seat.
 pub enum Event {
-    /// Something of the human player's was hit by the enemy (throttled: one per fight, see ALERT_*).
+    /// Something of `team`'s was hit by the other side (throttled: one per fight, see ALERT_*).
     Attacked {
+        team: u8,
         x: f64,
         y: f64,
         building: bool,
@@ -212,8 +215,12 @@ pub enum Event {
         tx: f64,
         ty: f64,
     },
-    Sfx(&'static str),
+    Sfx {
+        team: u8,
+        name: &'static str,
+    },
     Toast {
+        team: u8,
         msg: String,
         bad: bool,
     },
@@ -229,11 +236,13 @@ pub enum Event {
         y: f64,
         big: bool,
     },
-    /// A shot the player can see (or one of theirs): where, and the weapon ("bolt", "shell", "missile", "melee").
+    /// A shot: where, the weapon ("bolt", "shell", "missile", "melee") and which seats see it (their own shots,
+    /// or the shooter in their sight).
     Fire {
         x: f64,
         y: f64,
         weapon: &'static str,
+        seen: [bool; 2],
     },
 }
 
@@ -246,6 +255,8 @@ pub struct Stats {
 }
 
 pub(crate) struct Ai {
+    /// The seat it plays.
+    pub team: u8,
     pub t: f64,
     pub wave: usize,
     pub last_wave: f64,
@@ -354,14 +365,21 @@ pub struct World {
     pub vis: [Vec<u8>; 2],
     pub over: bool,
     pub winner: i32,
-    pub stats: Stats,
+    /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
+    pub stats: [Stats; 2],
     /// Upgrade levels per team, in `UPGRADES` order.
     pub upgrades: [[u8; UPGRADES.len()]; 2],
-    /// Recent "under attack" alerts (time, x, y, was a building), for throttling.
-    alerts: Vec<(f64, f64, f64, bool)>,
+    /// Recent "under attack" alerts (team, time, x, y, was a building), for throttling.
+    alerts: Vec<(u8, f64, f64, f64, bool)>,
     pub events: Vec<Event>,
     pub map: Map,
-    pub(crate) ai: Option<Ai>,
+    /// Each seat's scripted opponent, if it has one (indexed by team).
+    pub(crate) ai: [Option<Ai>; 2],
+    /// The seat whose AI is taking its turn (see `World::seat`).
+    pub(crate) ai_turn: u8,
+    /// Which seats the scripted opponent plays (they get the difficulty's income and may build in unexplored
+    /// ground; the others are people). Fixed for the game, even when the AI is switched off.
+    pub ai_seats: [bool; 2],
     pub(crate) rng: Mulberry32,
     next_id: Id,
     scratch: PathScratch,
@@ -423,12 +441,14 @@ impl World {
             vis: [vec![0; n], vec![0; n]],
             over: false,
             winner: -1,
-            stats: Stats::default(),
+            stats: [Stats::default(); 2],
             upgrades: [[0; UPGRADES.len()]; 2],
             alerts: Vec::new(),
             events: Vec::new(),
             map: Map::empty(),
-            ai: None,
+            ai: [None, None],
+            ai_turn: ENEMY,
+            ai_seats: [false, true],
             rng: Mulberry32::new(1),
             next_id: 1,
             scratch: PathScratch::new(),
@@ -462,7 +482,7 @@ impl World {
         }
         self.over = false;
         self.winner = -1;
-        self.stats = Stats::default();
+        self.stats = [Stats::default(); 2];
         self.upgrades = [[0; UPGRADES.len()]; 2];
         self.alerts.clear();
         self.events.clear();
@@ -516,11 +536,21 @@ impl World {
     pub(crate) fn emit(&mut self, e: Event) {
         self.events.push(e);
     }
-    pub(crate) fn toast(&mut self, msg: impl Into<String>, bad: bool) {
+    /// A message for one seat's player.
+    pub(crate) fn toast(&mut self, team: u8, msg: impl Into<String>, bad: bool) {
         self.emit(Event::Toast {
+            team,
             msg: msg.into(),
             bad,
         });
+    }
+    /// A sound for one seat's player.
+    pub(crate) fn sfx(&mut self, team: u8, name: &'static str) {
+        self.emit(Event::Sfx { team, name });
+    }
+    /// Whether the scripted opponent plays this seat.
+    pub fn is_ai(&self, team: u8) -> bool {
+        self.ai_seats[team as usize]
     }
     /// G.rng(): a float in [0, 1).
     pub(crate) fn rnd(&mut self) -> f64 {

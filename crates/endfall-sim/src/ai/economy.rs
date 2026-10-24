@@ -7,7 +7,7 @@ impl World {
     pub(crate) fn home_of(&self, x: f64, y: f64) -> (f64, f64) {
         self.bldgs
             .iter()
-            .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
+            .filter(|b| b.team == self.seat() && b.kind.def().hq && b.done)
             .min_by(|a, b| {
                 dist(a.x, a.y, x, y)
                     .partial_cmp(&dist(b.x, b.y, x, y))
@@ -29,14 +29,14 @@ impl World {
         // Workers: idle ones mine; keep up to three on ether once an extractor stands, one while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
-            b.kind == self.factions[ENEMY as usize].ai.ether && b.done
+            b.kind == self.factions[self.seat() as usize].ai.ether && b.done
         });
         let mut ether = harv
             .iter()
             .filter(|&&h| self.gathering_ether(h) == Some(true))
             .count();
         let stock = self.res[e as usize][1];
-        let ai = self.ai.as_mut().unwrap();
+        let ai = self.ai_mut();
         if stock > 400 {
             ai.ether_lean = true;
         } else if stock < 250 {
@@ -50,7 +50,7 @@ impl World {
                     && n.extractor
                         .is_some_and(|x| self.bldg(x).is_some_and(|b| b.team == e && b.done))
             });
-        let ai = self.ai.as_mut().unwrap();
+        let ai = self.ai_mut();
         let ether_cap = if ai.ether_lean || !flowing { 1 } else { 3 };
         for &h in &harv {
             if self.unit(h).unwrap().task == Task::Idle {
@@ -173,7 +173,7 @@ impl World {
             if harv.len() + queued < harv_target
                 && self.bldg(c).unwrap().queue.is_empty()
                 && self
-                    .queue_unit(c, self.factions[ENEMY as usize].worker)
+                    .queue_unit(c, self.factions[self.seat() as usize].worker)
                     .is_ok()
             {
                 queued += 1;

@@ -19,9 +19,7 @@ impl World {
         }
         u.stuck = 0.0;
         u.no_build_until = time + 30.0;
-        if team == PLAYER {
-            self.toast(why, true);
-        }
+        self.toast(team, why, true);
         self.set_idle(uid);
         true
     }
@@ -59,10 +57,8 @@ impl World {
         let owed = [0, 1].map(|k| debt[k] + cost[k] as f64 * REPAIR_COST * heal / maxhp);
         let charge = owed.map(|o| o.floor() as i32);
         if !self.can_afford(team, charge) {
-            if team == PLAYER {
-                let msg = format!("{} to repair", self.short_of(team, charge));
-                self.toast(msg, true);
-            }
+            let msg = format!("{} to repair", self.short_of(team, charge));
+            self.toast(team, msg, true);
             let time = self.time;
             self.um(uid).no_build_until = time + 30.0; // the AI does not send it straight back
             self.resume_after(uid);
@@ -114,8 +110,12 @@ impl World {
             let (bx, by, team, was) = (b.x, b.y, b.team, b.powered);
             let on = self.powered_at(team, bx, by);
             self.bm(bid).unwrap().powered = on;
-            if was && !on && team == PLAYER {
-                self.toast(format!("{} unpowered: build a Spire near it", d.name), true);
+            if was && !on {
+                self.toast(
+                    team,
+                    format!("{} unpowered: build a Spire near it", d.name),
+                    true,
+                );
             }
             if !on {
                 return; // dark: no training, research or firing
@@ -155,17 +155,16 @@ impl World {
             if p >= 1.0 {
                 self.bm(bid).unwrap().research = None;
                 self.upgrades[team as usize][up.index()] = level;
-                if team == PLAYER {
-                    self.toast(
-                        format!(
-                            "{} {} researched",
-                            up.def().name,
-                            ["I", "II", "III"][(level - 1) as usize]
-                        ),
-                        false,
-                    );
-                    self.emit(Event::Sfx("done"));
-                }
+                self.toast(
+                    team,
+                    format!(
+                        "{} {} researched",
+                        up.def().name,
+                        ["I", "II", "III"][(level - 1) as usize]
+                    ),
+                    false,
+                );
+                self.sfx(team, "done");
             } else {
                 self.bm(bid).unwrap().research = Some((up, p));
             }
@@ -220,10 +219,8 @@ impl World {
         let bd = self.bldg(b).unwrap();
         let (bteam, name, vent) = (bd.team, bd.kind.def().name, bd.vent);
         self.recalc_supply(bteam);
-        if bteam == PLAYER {
-            self.toast(format!("{} complete", name), false);
-            self.emit(Event::Sfx("done"));
-        }
+        self.toast(bteam, format!("{} complete", name), false);
+        self.sfx(bteam, "done");
         let others: Vec<Id> = self
             .units
             .iter()

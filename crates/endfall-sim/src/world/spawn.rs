@@ -165,10 +165,8 @@ impl World {
             f.0 as f64 * TILE + 16.0,
             f.1 as f64 * TILE + 16.0,
         );
-        if b.team == PLAYER {
-            self.stats.built += 1;
-            self.emit(Event::Sfx("ready"));
-        }
+        self.stats[b.team as usize].built += 1;
+        self.sfx(b.team, "ready");
         if let Some(rl) = b.rally {
             match rl.node {
                 Some(n) if kind.def().worker => {

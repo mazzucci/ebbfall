@@ -5,7 +5,7 @@ use super::*;
 impl World {
     /// Where the AI thinks the player is: a known core, else any known building, else the next sweep point.
     pub(crate) fn attack_target(&self) -> (f64, f64) {
-        let ai = self.ai.as_ref().unwrap();
+        let ai = self.ai();
         if let Some(k) = ai.known.iter().find(|k| k.3).or(ai.known.first()) {
             return (k.1, k.2);
         }
@@ -15,9 +15,7 @@ impl World {
     /// Wasps (two or more) raid the player's harvesters; badly hurt ones fly home.
     pub(crate) fn tend_raiders(&mut self, wasps: &[Id], rally: Pt) {
         let mut raiders: Vec<Id> = self
-            .ai
-            .as_ref()
-            .unwrap()
+            .ai()
             .raiders
             .iter()
             .copied()
@@ -53,7 +51,7 @@ impl World {
             let prey = self
                 .units
                 .iter()
-                .filter(|o| o.team == PLAYER && o.kind.def().worker && self.ai_sees(o.x, o.y))
+                .filter(|o| o.team == self.foe() && o.kind.def().worker && self.ai_sees(o.x, o.y))
                 .min_by(|a, b| {
                     dist(a.x, a.y, ux, uy)
                         .partial_cmp(&dist(b.x, b.y, ux, uy))
@@ -67,7 +65,7 @@ impl World {
                 None => {}
             }
         }
-        self.ai.as_mut().unwrap().raiders = keep;
+        self.ai_mut().raiders = keep;
     }
 
     /// Attack a target if this unit's weapon can hit it, otherwise attack-move to where it is.
@@ -87,7 +85,7 @@ impl World {
         // An enemy near our buildings (answered by the army below; also stops saving for research).
         let mut intruder = None;
         'scan: for u in &self.units {
-            if u.team != PLAYER || !self.ai_sees(u.x, u.y) {
+            if u.team != self.foe() || !self.ai_sees(u.x, u.y) {
                 continue;
             }
             for &bid in &my_b {
@@ -132,13 +130,13 @@ impl World {
             .units
             .iter()
             .filter(|u| {
-                u.team == PLAYER
+                u.team == self.foe()
                     && u.kind.def().air
                     && u.kind.def().armed()
                     && self.ai_sees(u.x, u.y)
             })
             .count();
-        let enemy_air = if t < self.ai.as_ref().unwrap().seen_air_until {
+        let enemy_air = if t < self.ai().seen_air_until {
             seen_air.max(2)
         } else {
             seen_air
@@ -208,7 +206,7 @@ impl World {
         if expand && !self.can_afford(e, self.factions[e as usize].hq.def().cost) {
             saving = true;
         }
-        let ai = self.ai.as_mut().unwrap();
+        let ai = self.ai_mut();
         if saving && !threatened && t >= ai.no_save_until {
             let since = *ai.saving_since.get_or_insert(t);
             if t - since > SAVE_MAX {
@@ -328,19 +326,20 @@ impl World {
             .copied()
             .filter(|&a| {
                 self.unit(a)
-                    .is_some_and(|u| u.kind == self.factions[ENEMY as usize].ai.raider)
+                    .is_some_and(|u| u.kind == self.factions[self.seat() as usize].ai.raider)
             })
             .collect();
         self.tend_raiders(&wasps, rally);
-        let raiders = self.ai.as_ref().unwrap().raiders.clone();
+        let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
 
         // Waves go where the AI believes the player is (it scouts and remembers; it does not see through fog).
         let (gx, gy) = self.attack_target();
-        let ai = self.ai.as_ref().unwrap();
-        let need = (ai.wave as f64 * self.factions[ENEMY as usize].ai.wave_scale).ceil() as usize; // (fewer, stronger units)
+        let ai = self.ai();
+        let need =
+            (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize; // (fewer, stronger units)
         if !ai.attacking && army.len() >= need && t - ai.last_wave > d.gap && t > d.first {
-            let ai = self.ai.as_mut().unwrap();
+            let ai = self.ai_mut();
             ai.last_wave = t;
             ai.wave += d.wave_grow;
             ai.attacking = true;
@@ -350,9 +349,9 @@ impl World {
                 let oy = (self.rnd() - 0.5) * 80.0;
                 self.attack_move(a, gx + ox, gy + oy);
             }
-            self.ai.as_mut().unwrap().attackers = Some(army.clone());
+            self.ai_mut().attackers = Some(army.clone());
         }
-        let ai = self.ai.as_ref().unwrap();
+        let ai = self.ai();
         if ai.attacking && ai.attackers.is_some() {
             let attackers = ai.attackers.clone().unwrap();
             let wave_size = ai.wave_size;
@@ -364,7 +363,7 @@ impl World {
                 .filter(|a| attackers.contains(a))
                 .collect();
             if alive.is_empty() {
-                self.ai.as_mut().unwrap().attacking = false;
+                self.ai_mut().attacking = false;
             } else if lost || (wave_size >= 4 && alive.len() * 10 < wave_size * 4) {
                 // Lost most of the wave: pull the survivors back instead of feeding them in one by one.
                 for a in alive {
@@ -372,19 +371,13 @@ impl World {
                     let oy = (self.rnd() - 0.5) * 120.0;
                     self.move_to(a, rally.x + ox, rally.y + oy);
                 }
-                let ai = self.ai.as_mut().unwrap();
+                let ai = self.ai_mut();
                 ai.attacking = false;
                 ai.attackers = None;
                 ai.last_wave = t;
             } else {
-                let known: Vec<(Id, f64, f64)> = self
-                    .ai
-                    .as_ref()
-                    .unwrap()
-                    .known
-                    .iter()
-                    .map(|k| (k.0, k.1, k.2))
-                    .collect();
+                let known: Vec<(Id, f64, f64)> =
+                    self.ai().known.iter().map(|k| (k.0, k.1, k.2)).collect();
                 for a in alive {
                     let u = self.unit(a).unwrap();
                     if u.task != Task::Idle {

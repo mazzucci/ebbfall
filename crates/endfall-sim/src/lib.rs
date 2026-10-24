@@ -351,26 +351,32 @@ impl Game {
     /// Events since the last call, as a JSON array of {t:'sfx'|'toast'|'burst'|'hit', ...}.
     #[wasm_bindgen(js_name = drainEvents)]
     pub fn drain_events(&mut self) -> String {
+        let me = self.me;
         let parts: Vec<String> = self
             .w
             .events
             .drain(..)
+            .filter_map(|e| match e {
+                Event::Sfx { team, .. } | Event::Toast { team, .. } | Event::Attacked { team, .. } if team != me => None,
+                Event::Fire { seen, .. } if !seen[me as usize] => None,
+                e => Some(e),
+            })
             .map(|e| match e {
-                Event::Sfx(name) => format!("{{\"t\":\"sfx\",\"name\":\"{name}\"}}"),
-                Event::Toast { msg, bad } => {
+                Event::Sfx { name, .. } => format!("{{\"t\":\"sfx\",\"name\":\"{name}\"}}"),
+                Event::Toast { msg, bad, .. } => {
                     format!("{{\"t\":\"toast\",\"msg\":\"{}\",\"bad\":{bad}}}", msg.replace('\\', "\\\\").replace('"', "\\\""))
                 }
                 Event::Burst { x, y, r, team, n } => {
                     format!("{{\"t\":\"burst\",\"x\":{x},\"y\":{y},\"r\":{r},\"team\":{team},\"n\":{n}}}")
                 }
-                Event::Attacked { x, y, building } => {
+                Event::Attacked { x, y, building, .. } => {
                     format!("{{\"t\":\"attacked\",\"x\":{x},\"y\":{y},\"building\":{building}}}")
                 }
                 Event::Heal { x, y, tx, ty } => {
                     format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty}}}")
                 }
                 Event::Hit { x, y, big } => format!("{{\"t\":\"hit\",\"x\":{x},\"y\":{y},\"big\":{big}}}"),
-                Event::Fire { x, y, weapon } => format!("{{\"t\":\"fire\",\"x\":{x},\"y\":{y},\"w\":\"{weapon}\"}}"),
+                Event::Fire { x, y, weapon, .. } => format!("{{\"t\":\"fire\",\"x\":{x},\"y\":{y},\"w\":\"{weapon}\"}}"),
             })
             .collect();
         format!("[{}]", parts.join(","))
@@ -426,6 +432,36 @@ mod tests {
             g.step();
         }
         g
+    }
+
+    #[test]
+    fn a_game_passes_on_only_its_own_seats_news() {
+        let mut g = Game::new(1, 0);
+        g.w.events.clear();
+        g.w.toast(ENEMY, "theirs", false);
+        g.w.toast(PLAYER, "mine", false);
+        g.w.sfx(ENEMY, "coin");
+        g.w.emit(Event::Fire {
+            x: 1.0,
+            y: 2.0,
+            weapon: "bolt",
+            seen: [false, true],
+        });
+        g.w.emit(Event::Fire {
+            x: 3.0,
+            y: 4.0,
+            weapon: "shell",
+            seen: [true, true],
+        });
+        let out = g.drain_events();
+        assert!(
+            out.contains("mine") && !out.contains("theirs") && !out.contains("coin"),
+            "{out}"
+        );
+        assert!(
+            out.contains("shell") && !out.contains("bolt"),
+            "only shots this seat sees: {out}"
+        );
     }
 
     #[test]

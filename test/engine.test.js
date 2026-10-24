@@ -199,3 +199,11 @@ test('the client mirror reads every snapshot field the sim declares (crates/endf
     }
   }
 });
+
+test('the client names no unit or building kind outside its data tables and look table', () => {
+  // Kind-specific behaviour lives in the sim's flags (worker, hq, onVent, researches...) and src/client/look.js.
+  for (const f of ['client/hud.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js']) {
+    const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
+    for (const k of [...Object.keys(C.UNITS), ...Object.keys(C.BUILDINGS)]) assert.ok(!src.includes(`=== '${k}'`) && !src.includes(`!== '${k}'`), `${f} tests for '${k}'`);
+  }
+});

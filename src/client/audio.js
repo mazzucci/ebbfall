@@ -2,6 +2,8 @@
 // noise bursts (filtered white noise) through a master compressor. Effects with a world position are panned and
 // faded by where they happen relative to the camera, so a fight off screen is a distant rumble. A quiet wind bed
 // plays under the game. Units answer orders with short radio chirps, pitched by unit type.
+import { UNIT_VOICE } from './look.js';
+
 let actx = null, master = null, noiseBuf = null, wind = null;
 export const audio = {
   muted: false,
@@ -50,8 +52,8 @@ function noise(bus, t, { dur = 0.1, vol = 0.1, filter = 'lowpass', f = 1200, to,
   n.connect(fl).connect(g).connect(bus); n.start(s, Math.random() * 0.5); n.stop(s + dur + 0.02);
 }
 
-/** Radio chirp pitch by unit type: heavy machines low, flyers and medics high. */
-const VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, wasp: 880, observer: 1040 };
+/** Radio chirp pitch by unit type (src/client/look.js). */
+const VOICE = UNIT_VOICE;
 
 const SFX = {
   // interface

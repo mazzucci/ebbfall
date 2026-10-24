@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, PLAYER } from '../engine/index.js';
+import { G, PLAYER, FACTIONS } from '../engine/index.js';
 import { $, ui, setHint, updateHud, toast } from './hud.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
@@ -27,8 +27,8 @@ function choose(list) { ui.sel = list; ui.mode = null; ui.place = null; setHint(
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
 
 let idleIndex = 0;
-const idleHarvesters = () => G.units.filter(u => u.team === PLAYER && u.type === 'harvester' && u.task.t === 'idle');
-const army = () => G.units.filter(u => u.team === PLAYER && u.type !== 'harvester');
+const idleHarvesters = () => G.units.filter(u => u.team === PLAYER && u.d.worker && u.task.t === 'idle');
+const army = () => G.units.filter(u => u.team === PLAYER && !u.d.worker);
 
 /** Select the next idle harvester and look at it. */
 export function selectIdle() {
@@ -92,7 +92,7 @@ export function updateTools() {
 }
 
 export function initTools() {
-  $('btnIdle').querySelector('.pic').innerHTML = portrait('unit', 'harvester', 24);
+  $('btnIdle').querySelector('.pic').innerHTML = portrait('unit', FACTIONS.humans.worker, 24);
   $('btnArmy').querySelector('.pic').innerHTML = portrait('unit', 'trooper', 24);
   setIconButton($('btnPause'), 'pause', 'PAUSE');
   for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnAlert', jumpToAlert]]) {

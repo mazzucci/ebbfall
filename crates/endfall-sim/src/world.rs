@@ -56,6 +56,22 @@ pub enum Task {
     },
 }
 
+impl Task {
+    /// A small number per kind of task (for the state hash; the snapshot uses the same order).
+    pub fn code(&self) -> i32 {
+        match self {
+            Task::Idle => 0,
+            Task::Hold => 1,
+            Task::Move { .. } => 2,
+            Task::AMove { .. } => 3,
+            Task::Attack { .. } => 4,
+            Task::Gather { .. } => 5,
+            Task::Build { .. } => 6,
+            Task::Repair { .. } => 7,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Unit {
     pub id: Id,
@@ -2533,11 +2549,24 @@ impl World {
         mix(self.res[0][1]);
         mix(self.res[1][0]);
         mix(self.res[1][1]);
+        // Hidden state too, so a divergence shows on the tick it happens, not when a position drifts later.
+        mix(self.rng.state() as i32);
+        mix(self.next_id as i32);
+        for t in 0..2 {
+            mix(self.sup[t][0]);
+            mix(self.sup[t][1]);
+        }
+        for n in &self.map.nodes {
+            mix(n.id as i32);
+            mix(n.amount);
+            mix(n.miners);
+        }
         for u in &self.units {
             mix(u.id as i32);
             mix(jsmath::to_i32(u.x * 16.0));
             mix(jsmath::to_i32(u.y * 16.0));
             mix(jsmath::to_i32(u.hp * 16.0));
+            mix(u.task.code());
         }
         for b in &self.bldgs {
             mix(b.id as i32);

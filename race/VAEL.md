@@ -25,24 +25,22 @@ it *is* the lattice.
 which already reads as "alien" at phone size). Shapes are tapered spindles, crescents, floating rings, leaning slabs
 and three-fold symmetry, against the humans' boxy four-square plating.
 
-| | Humans | Vael (v2) |
+| | Humans | Vael (v3) |
 | --- | --- | --- |
-| Hull | warm grey steel `0x7c838e`, khaki `0x8e8664`, iron `0x3d3835`; panel seams, rivets, rust | bone ceramic in three tones, `0xa69e8f` / light plates `0xb6ae9f` / undersides `0x857d70`, with a crackle map: curved seams with chipped light edges, hairline cracks, soot in recesses, faint carved runes (bump-mapped like `panel`) |
-| Trim | gunmetal, steel, rubber, hazard stripes | dark bronze `0x5c4630` (brushed, verdigris spots) collars, studs, spines and knuckles; obsidian `0x16121c` discs, moats and undersides; soot `0x2f2a27` vents and contact zones |
-| Light | team-coloured lamps, cyan glass, orange fire, violet ether at the rig | small violet gems `0x241e3a` lit from within (emissive `0x5a4a98` at 0.4), thin ether seams (`0x9a86e0` at 0.95), a pale core dot; never large and never near white |
-| Team colour | painted plates, big panels | a glaze desaturated 30 percent towards grey, kept to bands, ring arcs, wingtips, petal caps: every model still has one patch large enough for a phone (Prism arcs, Shrike tips, Kiln hoop, Spire ring, Monolith band) |
-| Ground | concrete slabs | tiered three-lobed plinths (dark base, bone step, bronze ring, studs) with a dim textured violet pad |
+| Hull | warm grey steel `0x7c838e`, khaki `0x8e8664`, iron `0x3d3835`; panel seams, rivets, rust | pearl ceramic: `MeshPhysicalMaterial` with a clearcoat (0.5) and a faint lavender sheen over bone `0xcbc2b1` (reads about `0xd8cfbf` after the sheen; never pure white), lighter top plates `0xdad2c2`, darker undersides `0xa39a8b` and crevices `0x7e766c` for an ambient-occlusion feel; a clean map of hairline curved panel seams with a chipped light edge, engraved channels with inlaid lavender light lines, faint pearly mottling; no grime, rivets or runes |
+| Dark parts | gunmetal, rubber | black glass `0x17121f` with a full clearcoat (rings, discs, moats, blades, cradles) |
+| Light | team-coloured lamps, cyan glass, orange fire, violet ether at the rig | small faceted violet gems (`0x2a2254`, emissive `0x7260cc` at 0.55) with a bright core and three translucent additive halo shells (0.16 / 0.09 / 0.045) so the glow falls off; ether lines at 0.95; every emissive stays under 1.0 so ACES never clips it to white |
+| Team colour | painted plates, big panels | full-saturation glaze with a clearcoat and a faint iridescence (0.35), kept to bands, ring arcs, wingtips, petal caps, chest and pauldron plates |
+| Ground | concrete slabs | three-lobed pearl plinths (dark base, pearl step, glass ring) with a soft violet pad and its halo |
 
-Geometry rule from the realism pass: every shell is at least two plates (a body and a lighter top plate or darker
-underside) with a recessed soot seam between them, a bronze rim or collar, and one vent or stud row; nothing is a
-single clean primitive. The first pass (near-white shells, flat lavender) read as vector art next to the humans; v2
-is what to build from (`v2_units.png`, `v2_buildings.png`, `v2_phone.png`, `v2_phone_core.png`, each with the human
-counterparts beside the Vael).
+Three passes were rendered and all are kept for comparison: v1 (un-prefixed PNGs: near-white, flat, read as vector
+art), v2 (`v2_*`: weathered bone, bronze, soot and greebles; realistic but too close to the humans) and v3 (`v3_*`:
+v1's shapes and palette with physical materials, clean seams, layered plates and glow falloff). v3 is the direction
+to build from; `models_alien.js` is v3, `models_alien_v2.js` is v2, `v1src/models_alien_v1.js` is v1.
 
-Both team colours (amber `0xd98a1f`, crimson `0xc22a5a`) read on bone even desaturated, and the bone-and-bronze
-set is lighter and warmer than the humans' grey steel, so the two races separate at phone zoom while sharing one
-render look. The violet is far enough from the crimson team colour not to be mistaken for it (checked on
-`v2_phone.png`).
+Both team colours (amber `0xd98a1f`, crimson `0xc22a5a`) sit well on pearl, and pearl against the dark painted
+ground is the strongest contrast in the game, so the Vael pop at phone zoom even when the team colour is a sliver.
+The violet is far enough from the crimson team colour not to be mistaken for it (checked on `v3_phone.png`).
 
 Each unit has a different top-down glyph, which is what a phone player actually sees: Lumen = droplet, Scythe = tall
 spindle with two black blades, Prism = ring around a dark gem, Monolith = black disc under a white slab, Shrike =
@@ -316,7 +314,12 @@ scout once mirrors show the Vael need one, and hand-authored maps with vent plac
   rendered rather than drawn. With
   the camera due south at 55 degrees, never put a tall part on the south side of a centre piece: the Conflux petals,
   Ward claws, Siphon petals and Zenith towers all sit at north / east-south-east / west-south-west or east / west.
-- Files: `models_alien.js` (v2 models, textures and `makeVaelMats`), `tools/render3d/main_alien.js` +
-  `index_alien.html` (the renderer page), `render_alien.mjs` (plan, compositing, the sheets).
-  `node render_alien.mjs /tmp/racedesign v2_` regenerates the four v2 PNGs in about 30 s; the un-prefixed PNGs are
-  the first (ivory) pass, kept for comparison.
+- Files: `models_alien.js` (v3 models, textures and `makeVaelMats`; `models_alien_v2.js` and
+  `v1src/models_alien_v1.js` are the earlier passes), `tools/render3d/main_alien.js` + `index_alien.html` (the
+  renderer page), `render_alien.mjs` (plan, compositing, the sheets). `node render_alien.mjs /tmp/racedesign v3_`
+  regenerates the four v3 PNGs in about 30 s.
+- Realism without the human vocabulary (v3 lesson): what made v2 look human was bronze, verdigris, soot, rust and
+  studs, not the realism itself. Shading on a light hull comes from keeping the albedo around `0xcb..0xda` under the
+  clearcoat (a `0xde+` albedo clips to flat white under ACES), from a darker underside and crevice tone on every
+  layered plate, and from seams drawn dark enough (1.8 px at 0.8 alpha on the 256 px map) to survive the 2x
+  downsample; glow needs emissives under 1.0 plus translucent halo shells for falloff.

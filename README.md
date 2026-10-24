@@ -2,7 +2,19 @@
 
 Mockups for review before anything is built. The game lives on `main`.
 
-## Second race: the Vael, v2 realism pass (current)
+## Second race: the Vael, v3 (current): v1's look with alien realism
+
+v1's pearl ceramic, clean shapes and vivid violet, with a pearly clearcoat sheen, fine seams and inlaid light lines, soft shading in crevices, and glow that falls off; no bronze or grime (that made v2 look human).
+
+![](race/v3_phone.png)
+
+![](race/v3_phone_core.png)
+
+![](race/v3_units.png)
+
+![](race/v3_buildings.png)
+
+## Second race: the Vael, v2 realism pass (too close to the humans)
 
 Textured bone ceramic, bronze and obsidian trim, toned-down glows, layered detail; human units and buildings shown beside them for comparison.
 

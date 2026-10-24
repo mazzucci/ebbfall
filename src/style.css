@@ -54,7 +54,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
 #info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:none;max-width:100%}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.life{display:flex;align-items:center;gap:8px} .life .bars{flex:1;max-width:200px;display:flex;flex-direction:column;gap:2px} .life .bar{height:7px} .life .bar.sh{height:4px} .bar.sh i{background:#cfe6ff} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.life{display:flex;align-items:center;gap:8px} .life .bars{flex:1;max-width:200px;display:flex;flex-direction:column;gap:2px} .life .bar{height:7px} .life .bar.sh{height:5px} .bar.sh i{background:#cfe6ff} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 #mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
 .st{display:flex;align-items:center;gap:4px;font:17px var(--mono);color:var(--fg);white-space:nowrap} .st b{font-weight:400}
 .st .ico{width:18px;height:18px;color:var(--muted)}  .st em{font-style:normal;color:var(--ally2)} .st .por{width:22px;height:22px}
@@ -186,7 +186,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 @media (max-width:620px), (max-height:500px) and (orientation:landscape) and (pointer:coarse){
   #info .who{flex:0 1 auto;gap:9px;min-width:0} /* (the module follows the health, so a queue grows to the right) */ #selPor{width:48px;height:48px} #selPor .por{width:42px;height:42px}
   #info .id{gap:4px} #info .nm,.life{overflow:hidden} #info h2{font-size:14px} #info .sub{font-size:11px}
-  .life .bars{width:96px;flex:none} .life .bar{height:6px} .life .bar.sh{height:3px} #hpNum{font-size:14px}
+  .life .bars{width:96px;flex:none} .life .bar{height:6px} .life .bar.sh{height:4px} #hpNum{font-size:14px}
   #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden} .st{font-size:15px} .st .ico{width:15px;height:15px}
   .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
   #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}

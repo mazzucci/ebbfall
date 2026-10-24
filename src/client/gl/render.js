@@ -336,7 +336,7 @@ function updateFogImage() {
 
 /** A health bar (green to red); `sh/maxsh`: a pale shield bar just above it (the Vael). */
 function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
-  if (maxsh > 0) { bars.rect(x, y - 3, w, 3).fill({ color: 0x000000, alpha: 0.65 }); bars.rect(x + 1, y - 2, (w - 2) * Math.max(0, sh / maxsh), 1).fill(0xcfe6ff); }
+  if (maxsh > 0) { bars.rect(x, y - 4, w, 4).fill({ color: 0x000000, alpha: 0.65 }); bars.rect(x + 1, y - 3, (w - 2) * Math.max(0, sh / maxsh), 2).fill(0xcfe6ff); } // (2 px: readable on a phone)
   const f = Math.max(0, hp / max);
   bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
@@ -356,7 +356,8 @@ function pauseMark(x, y, t) {
 
 let lastT = 0;
 /** sel: the client's current selection; place: pending building placement or null. */
-export function render(selList, place) {
+/** `power`: show our power fields (a power building or one that needs power is selected, or the Build list is open). */
+export function render(selList, place, power = false) {
   const t = G.time, now = performance.now() / 1000, dt = Math.min(0.1, lastT ? now - lastT : 0.016); lastT = now;
   const sel = new Set(selList), VW = vw(), VH = vh();
   shake *= Math.pow(0.02, dt);
@@ -418,7 +419,9 @@ export function render(selList, place) {
   updateEffects(dt);
   updateFogImage();
 
-  ghost.visible = ghostRect.visible = !!place; ghostRect.clear();
+  ghost.visible = !!place; ghostRect.visible = !!place || power; ghostRect.clear();
+  const placingPowered = place && BUILDINGS[place.type].needsPower;
+  if (power && !placingPowered) for (const s of G.bldgs) if (s.team === G.me && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.04 }).stroke({ width: 1, color: 0xb48cff, alpha: 0.35 });
   if (place) {
     const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, G.me);
     setTex(ghost, tex(`bldg_${place.type}_${G.me}`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghost.tint = ok ? 0xb8ffc8 : 0xff7070;

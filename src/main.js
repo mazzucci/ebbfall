@@ -21,6 +21,13 @@ const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hid
 const running = () => started && !overlay() && !paused() && !G.over && !blockedUpright();
 input.enabled = () => started && !overlay() && !paused() && !blockedUpright();
 
+/** Whether to show the player's power fields: a race with them, and a power building (or one that needs power)
+ * selected, or the Build list open, so the rule is visible before a placement fails. */
+function showPower() {
+  if (!myFaction().power) return false;
+  return ui.mode === 'build' || ui.mode === 'build2' || !!ui.place || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
+}
+
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
   $('help').hidden = true;
@@ -90,7 +97,7 @@ function loop(now) {
   if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); }
   if (!G.over) ended = false;
   updateFx(el);
-  if (started) render(ui.sel, ui.place);
+  if (started) render(ui.sel, ui.place, showPower());
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); } }
   requestAnimationFrame(loop);
 }

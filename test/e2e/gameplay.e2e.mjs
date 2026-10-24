@@ -536,7 +536,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
 /** Every box inside the selection console lies within it (nothing spills out or is cut off). */
 async function insideConsole(d, sel) {
   const box = await d.page.locator('#info').boundingBox();
-  for (const b of await d.page.locator(sel).evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, c: e.className || e.id }; })))
+  for (const b of await d.page.locator(sel).evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, c: e.className || e.id }; }).filter(b => b.w > 0))) // (hidden ones are fine)
     assert.ok(b.x >= box.x - 1 && b.y >= box.y - 1 && b.x + b.w <= box.x + box.width + 1 && b.y + b.h <= box.y + box.height + 1, `${b.c} inside the console: ${JSON.stringify(b)} vs ${JSON.stringify(box)}`);
 }
 
@@ -557,3 +557,17 @@ for (const [label, device] of [['phone', PHONE], ['small phone', { ...PHONE, vie
     } finally { await d.close(); }
   });
 }
+
+test('a box over units and buildings selects only the units', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.skip(5);
+    const core = coreOf(await d.state());
+    await d.boxSelect(core.x - 30, core.y - 30, core.x + 150, core.y + 90); // the Core and the harvesters beside it
+    const sel = await d.selection();
+    assert.ok(sel.length >= 1 && sel.every(e => e.kind === 'unit'), `units only: ${JSON.stringify(sel)}`);
+    await d.boxSelect(core.x - 20, core.y - 20, core.x + 20, core.y + 20); // the Core alone
+    assert.deepEqual((await d.selection()).map(e => e.type), ['core'], 'a box with no units selects the building');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

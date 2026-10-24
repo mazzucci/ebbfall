@@ -229,6 +229,8 @@ pub enum Event {
         y: f64,
         tx: f64,
         ty: f64,
+        /// A Halo mending shields (a Medic healing otherwise).
+        mend: bool,
     },
     Sfx {
         team: u8,

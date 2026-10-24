@@ -293,7 +293,7 @@ const effects = [];
 /** Spawn a one-shot animated effect; anim names come from atlas.json (boom_big, boom_small, puff, flash, spark). */
 export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim]; if (!frames) return;
-  const s = new Sprite(frames[0]); s.anchor.set(0.5); s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale);
+  const s = new Sprite(frames[0]); s.anchor.set(0.5); s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
   L.fx.addChild(s);
   const e = { s, frames, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0 };
   if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
@@ -309,7 +309,8 @@ export function boom(x, y, r) {
   if (big) { shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
-export function healFx(x, y, tx, ty) { addEffect('heal', tx, ty - 6, { life: 0.4, light: 0x6dff9a, lightScale: 0.35 }); void x; void y; }
+/** A Medic's heal (green) or a Halo's mend (violet, the Vael crystal light) landing on its patient. */
+export function healFx(x, y, tx, ty, mend = false) { addEffect('heal', tx, ty - 6, { life: 0.4, light: mend ? 0xb48cff : 0x6dff9a, lightScale: 0.35, tint: mend ? 0xc8b0ff : 0xffffff }); void x; void y; }
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
 

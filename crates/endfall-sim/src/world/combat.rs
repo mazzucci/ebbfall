@@ -459,6 +459,7 @@ impl World {
                     y: my,
                     tx,
                     ty,
+                    mend,
                 });
             }
         } else if let (true, Some((_, sx, sy))) = (idle, seek) {

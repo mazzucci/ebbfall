@@ -762,7 +762,9 @@ fn shields_research_soaks_damage_on_shields_only() {
         BldgKind::Loom.def().researches.contains(&Upgrade::Shields),
         "researched at the Loom"
     );
+}
 
+#[test]
 fn a_halo_mends_shields_in_combat_and_never_the_hull() {
     let mut w = flat_arena(18);
     w.factions = [&VAEL, &HUMANS];

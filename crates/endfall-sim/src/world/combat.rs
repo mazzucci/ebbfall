@@ -536,13 +536,13 @@ impl World {
             }
             return;
         };
-        // A target picked up on the way gives way to something that matters more: anything in c.sight that can
-        // shoot us, or a unit in weapon c.range instead of a plain building. An explicit attack order stands.
+        // A target picked up on the way gives way to something that matters more: anything in sight that can
+        // shoot us, or a unit in weapon range instead of a plain building. An explicit attack order stands.
         if let Some(b) = back
             && c.combat
         {
             let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-            // The leash: a target that got well out of c.sight is let go, and the unit goes back to what it
+            // The leash: a target that got well out of sight is let go, and the unit goes back to what it
             // was doing (an Observer cannot lead an army around the map).
             if t.edge_dist(ux, uy) > c.sight * TILE * 1.5 {
                 if b.amove {

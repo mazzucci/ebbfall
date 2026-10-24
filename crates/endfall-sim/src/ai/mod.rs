@@ -64,7 +64,6 @@ impl World {
         }
         a.t = 0.0;
         self.update_knowledge();
-        let d = &DIFF[self.diff];
         let (e, t) = (ENEMY, self.time);
         let my_b: Vec<Id> = self
             .bldgs
@@ -130,7 +129,6 @@ impl World {
         }
         let rally = self.ai.as_ref().unwrap().rally.unwrap();
 
-        let _ = d;
         let mut b = Brain {
             e,
             t,

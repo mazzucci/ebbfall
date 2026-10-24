@@ -2,7 +2,7 @@
 // position, envelopes never ramp to or from zero (exponential ramps cannot), and every sound the sim names exists.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const ramps = [], errors = [];
 class Param { constructor(v = 0) { this.value = v; } setValueAtTime(v) { this.value = v; } exponentialRampToValueAtTime(v) { if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } setTargetAtTime() {} }
@@ -35,8 +35,11 @@ test('every recipe plays, placed or not, with sound envelopes', async () => {
 });
 
 test('every sound the sim asks for has a recipe', () => {
-  const sim = readFileSync(new URL('../crates/endfall-sim/src/world.rs', import.meta.url), 'utf8');
+  // Every Rust source of the sim (wherever a rule moves, its sounds are still found).
+  const dir = new URL('../crates/endfall-sim/src/', import.meta.url);
+  const sim = readdirSync(dir, { recursive: true }).filter(f => f.endsWith('.rs')).map(f => readFileSync(new URL(f, dir), 'utf8')).join('\n');
   const named = new Set([...sim.matchAll(/Sfx\("([a-z]+)"\)/g)].map(m => m[1]));
+  assert.ok(named.size >= 2, 'the sim\'s sounds were found');
   const weapons = new Set([...sim.matchAll(/=> "(bolt|shell|missile)"|weapon: "([a-z]+)"/g)].map(m => m[1] || m[2]));
   for (const n of [...named, ...weapons]) assert.ok(recipes.includes(n), `the sim emits "${n}", the client has no recipe for it`);
 });

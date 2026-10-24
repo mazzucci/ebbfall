@@ -762,3 +762,29 @@ test('phone: a building that trains keeps its Cancel in one place, greyed out wi
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: with a worker selected, a tap on a field where another worker stands sends it to gather there', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    // A worker in the middle of mining: it stands at its field's edge.
+    const busy = () => d.eval(() => endfall.G.units.find(u => u.team === 0 && u.task.t === 'gather' && u.task.phase === 'mine')?.id);
+    const minerId = await until(d, busy, { seconds: 20, step: 0.2, what: 'a worker mining' });
+    let s = await d.state();
+    const miner = s.units.find(u => u.id === minerId);
+    const nodeId = await d.eval((id) => endfall.G.units.find(u => u.id === id).task.node.id, minerId);
+    const node = s.nodes.find(n => n.id === nodeId);
+    // A worker sent off to the other side, so it is not mining that field already.
+    const h = s.units.find(u => u.team === 0 && u.type === 'harvester' && u.id !== miner.id);
+    await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, node.x - 260, node.y]); // (set-up)
+    await d.clickEntity(h.id);
+    assert.deepEqual((await d.selection()).map(e => e.id), [h.id]);
+    // Tap inside the field's edge, beside the miner (close enough that a plain pick would take the miner): the field
+    // wins.
+    const m = (await d.state()).units.find(u => u.id === miner.id), k = Math.hypot(m.x - node.x, m.y - node.y);
+    await d.clickWorld(node.x + (m.x - node.x) / k * node.r, node.y + (m.y - node.y) / k * node.r);
+    s = await d.state();
+    assert.equal(s.units.find(u => u.id === h.id).task, 'gather', 'the selected worker goes to gather');
+    assert.ok(!(await d.selection()).some(e => e.id === miner.id), 'the miner was not selected instead');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

@@ -54,6 +54,7 @@ function drainEvents() {
 }
 
 function endGame() {
+  ui.sel = []; ui.mode = null; ui.place = null; setHint(); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.winner === G.me;
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';

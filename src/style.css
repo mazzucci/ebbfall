@@ -38,6 +38,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 #msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);pointer-events:none;display:flex;flex-direction:column;gap:4px;align-items:center;width:max-content;max-width:90%}
+/* A phone has no room beside the ATTACK alert (top right): the toasts move down under it while it shows. */
+@media (max-width:620px), (max-height:500px) and (orientation:landscape) and (pointer:coarse){#stage:has(#btnAlert:not([hidden])) #msg{top:52px}}
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
 .toast.bad{border-color:var(--bad);color:#ffb3b3}
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}

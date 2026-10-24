@@ -29,7 +29,11 @@ export const ROMAN = ['', 'I', 'II', 'III'];
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) return b.planted ? 'Growing' : buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
+  if (!b.done) {
+    if (b.planted) return 'Growing';
+    const warp = warps(b.team), busy = buildersOf(b).length; // (a warp-in site waits for a worker to plant it)
+    return warp ? (busy ? 'Being planted' : 'Not planted yet') : busy ? 'Constructing' : 'Paused: no builder';
+  }
   if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[FACTIONS[G.factions[b.team]]?.power]?.name ?? 'power source'} near it`; // (the owner's race)
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
@@ -157,7 +161,7 @@ function renderUpgrades() {
 function taskName(u) {
   const T = u.task;
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
-  if (T.t === 'build') return 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
+  if (T.t === 'build') return warps(u.team) ? 'Planting' : 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (T.t === 'move') return 'Moving'; if (T.t === 'hold') return 'Holding position'; return 'Idle';
 }
 
@@ -171,6 +175,8 @@ function taskName(u) {
 const COLS = 3;
 /** "an Ether Rig", "a Siphon". */
 export const aName = (name) => (/^[AEIOU]/.test(name) ? 'an ' : 'a ') + name;
+/** Whether `team`'s race warps its buildings in (a worker plants a site, which then grows by itself). */
+const warps = (team) => !!FACTIONS[G.factions[team]]?.warp;
 /** The player's side (faction data: worker, headquarters, Build list pages). */
 export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
@@ -204,7 +210,7 @@ export function cardItems() {
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
   } else if (bl.length === 1) {
     const b = bl[0];
-    if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
+    if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: myFaction().warp ? 'Plant' : 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to ${myFaction().warp ? 'plant it' : 'finish construction'}` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
@@ -358,7 +364,7 @@ function watchSites() {
   for (const b of G.bldgs) {
     if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); continue; }
     const has = buildersOf(b).length > 0;
-    if (siteHadBuilder.get(b.id) && !has && !b.planted) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
+    if (siteHadBuilder.get(b.id) && !has && !b.planted) toast(myFaction().warp ? `${b.d.name} not planted (select it and tap Plant)` : `${b.d.name} paused: no builder (select it and tap Resume)`, true);
     siteHadBuilder.set(b.id, has);
   }
   for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) siteHadBuilder.delete(id);

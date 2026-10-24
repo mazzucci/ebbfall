@@ -42,14 +42,19 @@ export const input = { enabled: () => true };
 function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
 
 /** What is under (wx, wy): the nearest unit within reach (generous for fingers), else a building, else a node. */
-/** How far (world px) from a unit a tap still picks it: a fingertip is about 22 screen px, whatever the zoom. */
-const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 22 / cam.zoom) : 6;
+/** How far (world px) from a unit a tap still picks it: a fingertip is about 28 screen px, whatever the zoom (enough
+ * for a unit on the move). */
+const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 6;
 function pick(wx, wy) {
   const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
   for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
   if (best) return best;
   for (const b of G.bldgs) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; return b; } }
+  return nodeAt(wx, wy);
+}
+/** The explored resource field under (wx, wy), if any. */
+function nodeAt(wx, wy) {
   for (const n of map.nodes) { if (G.explored[idx(n.tx, n.ty)] && dist(n, { x: wx, y: wy }) <= n.r + 6) return n; }
   return null;
 }
@@ -99,9 +104,9 @@ function releaseWorkers(units) {
 }
 
 /** Right-click / tap-on-ground semantics: context-sensitive order for the selection. */
-function commandAt(wx, wy) {
+function commandAt(wx, wy, hit = pick(wx, wy)) {
   const sel = playerSel(); if (!sel.length) return;
-  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
+  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const vent = ventOf(hit);
   let job = false; // harvesters were given work
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
@@ -165,6 +170,11 @@ function touchTap(wx, wy, at) {
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead);
   if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
+  // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
+  // (Not a bare vent: the worker there is likely building its refinery, and a tap should still pick it.)
+  const node = hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy);
+  const field = node && (node.type !== 'ether' || ventOf(node.extractor)) ? node : null;
+  if (field) { commandAt(wx, wy, field); return; }
   if (hit && hit.kind !== 'node' && hit.team === G.me) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)

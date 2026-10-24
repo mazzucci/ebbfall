@@ -2076,6 +2076,27 @@ impl World {
     /// than `n`: at least two fewer, counting this one, so moving always evens the load and nobody shuttles back and
     /// forth. The least crowded wins, then the nearest.
     fn less_crowded_field(&self, uid: Id, n: &Node, team: u8) -> Option<Id> {
+        // Only fields served by the same drop-off and not much farther from it: a hop never strays from the base
+        // toward a field out in the open.
+        let drop = self
+            .bldgs
+            .iter()
+            .filter(|b| b.team == team && b.done && b.kind.def().dropoff)
+            .map(|b| Geo::Rect {
+                tx: b.tx,
+                ty: b.ty,
+                w: b.w,
+                h: b.h,
+                x: b.x,
+                y: b.y,
+                r: b.r,
+            })
+            .min_by(|a, b| {
+                a.edge_dist(n.x, n.y)
+                    .partial_cmp(&b.edge_dist(n.x, n.y))
+                    .unwrap()
+            })?;
+        let reach = drop.edge_dist(n.x, n.y) + 2.5 * TILE;
         let cands: Vec<Id> = self
             .map
             .nodes
@@ -2085,6 +2106,7 @@ impl World {
                     && m.id != n.id
                     && m.amount > 0
                     && dist(m.x, m.y, n.x, n.y) <= SPREAD_RANGE * TILE
+                    && drop.edge_dist(m.x, m.y) <= reach
                     && (!m.ether || self.extractor_ready(m.id, Some(team)))
             })
             .map(|m| m.id)

@@ -718,3 +718,45 @@ test('the menu can pit you against a Vael opponent', async () => {
     assert.deepEqual(await page.evaluate(() => endfall.G.bldgs.filter(b => b.team === 1).map(b => b.type)), ['conflux'], 'the enemy starts with a Conflux');
   } finally { await ctx.close(); }
 });
+
+test('phone: placing a building lets the worker go; a tap on a blocked spot gives up placing', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    let s = await d.state();
+    const core = coreOf(s), h = mine(s, 'harvester')[0];
+    // A tap on the Core (blocked) while placing a Depot: told why, placing stops, the worker stays selected.
+    await d.clickEntity(h.id);
+    await d.pressCard('Build'); await d.pressCard('Depot');
+    await d.clickWorld(core.x, core.y);
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'a blocked tap gives up placing');
+    assert.match((await d.toasts()).join(' | '), /Cannot build there/);
+    assert.deepEqual((await d.selection()).map(e => e.id), [h.id], 'the worker is still selected');
+    // A good spot: the site is placed and the worker let go, so it is clear the order took.
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    s = await d.state();
+    assert.ok(myBldg(s, 'depot').some(b => b.tx === spot.tx && b.ty === spot.ty), 'the Depot site is placed');
+    assert.deepEqual(await d.selection(), [], 'the worker is let go after placing');
+    assert.equal(s.units.find(u => u.id === h.id).task, 'build', 'and it goes to build');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: a building that trains keeps its Cancel in one place, greyed out with nothing queued', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    await d.clickEntity(coreOf(await d.state()).id);
+    let card = await d.card();
+    assert.deepEqual(card.map(c => c.label), ['Harvester', 'Rally', 'Cancel'], 'Cancel is there before anything is queued');
+    assert.equal(card[2].enabled, false, 'greyed out');
+    const slot = () => d.eval(() => endfall.cardItems().find(i => i.id === 'cancelq')?.slot);
+    const before = await slot();
+    await d.pressCard('Harvester');
+    card = await d.card();
+    assert.equal(card.find(c => c.label === 'Cancel').enabled, true, 'it lights up with a unit queued');
+    assert.equal(await slot(), before, 'in the same place');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

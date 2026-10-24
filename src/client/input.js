@@ -125,11 +125,17 @@ function leftAction(wx, wy, add, at) {
     const p = ui.place;
     const builder = units.filter(u => u.d.worker).sort((a, b) => dist(a, { x: p.tx * TILE, y: p.ty * TILE }) - dist(b, { x: p.tx * TILE, y: p.ty * TILE }))[0];
     const err = placeBuilding(G.me, p.type, p.tx, p.ty, builder);
-    if (err) toast(err, true);
-    else {
+    if (err) {
+      // A tap on a red spot says why and gives up placing (the map pans again; the worker stays selected).
+      toast(err, true);
+      if (drag.ptype === 'touch') { ui.place = null; ui.mode = null; setHint(); updateHud(); }
+    } else {
       sfx('build');
-      // On touch, back to the building list (another one is a tap away; a tap on the map just closes it).
-      if (!add) { ui.place = null; ui.mode = drag.ptype === 'touch' ? (myFaction().buildAdvanced.includes(p.type) ? 'build2' : 'build') : null; setHint(); updateHud(); } // (the page it came from)
+      flashTarget(G.bldgs.find(b => b.team === G.me && b.tx === p.tx && b.ty === p.ty)); // the new site blinks: order taken
+      // On touch the worker is let go, so it is clear the order took (and the next tap is just a tap); with a mouse
+      // it stays selected (Shift keeps placing).
+      if (drag.ptype === 'touch') { ui.sel = []; ui.place = null; ui.mode = null; setHint(); updateHud(); }
+      else if (!add) { ui.place = null; ui.mode = null; setHint(); updateHud(); }
     }
     return;
   }

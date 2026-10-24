@@ -83,6 +83,9 @@ impl World {
     /// Apply a command for `seat`. Units and buildings it names must be that seat's; points must be real numbers.
     /// Err carries the message to show (only orders that can fail say why: placing, training, research).
     pub fn apply(&mut self, seat: u8, cmd: &Command) -> Result<(), String> {
+        if seat > 1 {
+            return Ok(()); // not a seat (from outside: validated, never trusted)
+        }
         if let Some(log) = &mut self.log {
             log.push((self.tick, seat, cmd.clone()));
         }
@@ -149,7 +152,8 @@ impl World {
         Ok(())
     }
 
-    /// Start (or stop) logging applied commands.
+    /// Start (or stop) logging applied commands. Only commands are logged: the debug setters (spawning, hp,
+    /// resources, switching the AI off) are not part of a replay.
     pub fn record(&mut self, on: bool) {
         self.log = on.then(Vec::new);
     }

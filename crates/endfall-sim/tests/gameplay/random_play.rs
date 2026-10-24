@@ -80,16 +80,18 @@ fn a_recorded_game_replays_to_the_same_state() {
             );
         }
         // A seat cannot order the other seat's units.
-        let foe = w
-            .units
-            .iter()
-            .find(|u| u.team == ENEMY)
-            .map(|u| (u.id, u.task));
-        if let Some((id, task)) = foe {
-            let _ = w.apply(PLAYER, &Command::Stop { unit: id });
-            assert_eq!(
-                w.unit(id).unwrap().task,
-                task,
+        let foe = w.units.iter().find(|u| u.team == ENEMY).map(|u| u.id);
+        if let Some(id) = foe {
+            let _ = w.apply(
+                PLAYER,
+                &Command::Move {
+                    unit: id,
+                    x: 100.0,
+                    y: 100.0,
+                },
+            );
+            assert!(
+                !matches!(w.unit(id).unwrap().task, Task::Move { .. }),
                 "an order for the other side is ignored"
             );
         }

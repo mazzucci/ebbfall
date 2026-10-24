@@ -379,13 +379,13 @@ pub fn rng_sequence(seed: u32, n: u32) -> Vec<u32> {
     (0..n).map(|_| r.next_u32()).collect()
 }
 
-/// The game's data tables as JSON (written to src/engine/pkg/data.js by build:wasm: the client's only source of them).
 /// The snapshot record layouts and code names as JSON (build:wasm puts them in src/engine/pkg/data.js).
 #[wasm_bindgen(js_name = schemaJson)]
 pub fn schema_json() -> String {
     snapshot::schema_json()
 }
 
+/// The game's data tables as JSON (written to src/engine/pkg/data.js by build:wasm: the client's only source of them).
 #[wasm_bindgen(js_name = dataJson)]
 pub fn data_json() -> String {
     data::data_json()

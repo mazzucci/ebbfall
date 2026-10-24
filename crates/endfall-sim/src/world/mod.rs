@@ -418,6 +418,9 @@ impl World {
     pub fn reset(&mut self, seed: u32, diff: usize) {
         self.seed = seed;
         self.diff = diff.min(DIFF.len() - 1);
+        if self.log.is_some() {
+            self.log = Some(Vec::new()); // a new game, a new log
+        }
         self.rng = Mulberry32::new(seed ^ 0x9e37_79b9);
         self.next_id = 1;
         self.time = 0.0;

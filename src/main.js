@@ -25,7 +25,7 @@ input.enabled = () => started && !overlay() && !paused() && !blockedUpright();
  * selected, or the Build list open, so the rule is visible before a placement fails. */
 function showPower() {
   if (!myFaction().power) return false;
-  return ui.mode === 'build' || ui.mode === 'build2' || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
+  return ui.mode === 'build' || ui.mode === 'build2' || !!ui.place || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
 }
 
 /** Start a game on the map and against the opponent chosen in the menu. */

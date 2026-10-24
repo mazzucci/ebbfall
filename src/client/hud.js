@@ -215,7 +215,7 @@ export function cardItems() {
         const u = UPGRADES[k];
         const lv = G.upgrades[PLAYER][k] + 1, elsewhere = G.bldgs.some(o => o.team === PLAYER && o.research && o.research.type === k);
         if (lv > 3) return;
-        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
+        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: u.cost[lv - 1], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
       });
       if (b.research) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }

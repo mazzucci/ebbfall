@@ -355,7 +355,7 @@ pub struct World {
     pub over: bool,
     pub winner: i32,
     pub stats: Stats,
-    /// Upgrade levels per team: [weapons, armor].
+    /// Upgrade levels per team, in `UPGRADES` order.
     pub upgrades: [[u8; UPGRADES.len()]; 2],
     /// Recent "under attack" alerts (time, x, y, was a building), for throttling.
     alerts: Vec<(f64, f64, f64, bool)>,

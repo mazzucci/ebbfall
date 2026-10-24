@@ -317,9 +317,8 @@ fn the_ai_researches_upgrades_in_a_long_game() {
     let army_10 = army(&w);
     run(&mut w, 240);
     assert!(!w.over, "the game is still on");
-    let [wl, al] = w.upgrades[ENEMY as usize];
     assert!(
-        wl + al >= 1,
+        w.upgrades[ENEMY as usize].iter().sum::<u8>() >= 1,
         "AI finished at least one upgrade by 14 min: {:?}",
         w.upgrades[1]
     );

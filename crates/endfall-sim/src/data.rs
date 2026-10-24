@@ -1006,7 +1006,7 @@ pub fn data_json() -> String {
         .map(|u| {
             let d = u.def();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"effect\":\"{}\",\"cost\":[{},{},{}],\"time\":[{},{},{}]}}",
+                "\"{}\":{{\"name\":\"{}\",\"effect\":\"{}\",\"cost\":[[{},{}],[{},{}],[{},{}]],\"time\":[{},{},{}]}}",
                 d.key,
                 d.name,
                 match d.effect {
@@ -1014,8 +1014,11 @@ pub fn data_json() -> String {
                     Effect::Armor => "armor",
                 },
                 d.cost[0][0],
+                d.cost[0][1],
                 d.cost[1][0],
+                d.cost[1][1],
                 d.cost[2][0],
+                d.cost[2][1],
                 d.time[0],
                 d.time[1],
                 d.time[2]

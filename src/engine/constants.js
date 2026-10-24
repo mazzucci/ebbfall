@@ -57,7 +57,7 @@ export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.upDmg).map(([k, d]) => [k, d.upDmg]));
-/** Team-wide upgrades; per level: shards = ether cost, seconds. */
+/** Team-wide upgrades; per level: cost [shards, ether], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);

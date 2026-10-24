@@ -158,7 +158,7 @@ function touchTap(wx, wy, at) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); let hit = pick(wx, wy);
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead);
-  if (prev && hit !== prev && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev;
+  if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)

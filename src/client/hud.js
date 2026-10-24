@@ -11,11 +11,9 @@ export const $ = (id) => document.getElementById(id);
 export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
 
 /** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
-const lastToast = {};
 export function toast(msg, bad, silent) {
-  const now = performance.now(); if (now - (lastToast[msg] || -1e9) < 6000) return; // (no storm of the same message)
-  lastToast[msg] = now;
   const m = $('msg'); const d = document.createElement('div');
+  for (const t of [...m.children]) if (t.textContent === msg) t.remove(); // the same message again replaces itself (no storm), fresh
   d.className = 'toast' + (bad ? ' bad' : ''); d.textContent = msg; m.appendChild(d);
   while (m.children.length > 4) m.removeChild(m.firstChild);
   setTimeout(() => d.remove(), 3300);

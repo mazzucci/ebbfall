@@ -46,7 +46,6 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     melee: true,
     ..UNIT
 };
-/// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
     name: "Trooper",

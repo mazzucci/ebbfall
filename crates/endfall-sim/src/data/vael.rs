@@ -2,7 +2,7 @@
 
 use super::*;
 
-/// The Vael: hovering ceramic constructs of living ether (docs: the design on the design-mockups branch).
+/// The Vael: hovering ceramic constructs of living ether.
 pub const VAEL: Faction = Faction {
     key: "vael",
     name: "Vael",

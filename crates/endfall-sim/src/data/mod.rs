@@ -70,7 +70,7 @@ macro_rules! kinds {
 }
 
 kinds! {
-    /// Unit kinds (the Humans', then the Vael's).
+    /// Unit kinds (the Humans', then the Vael's). The order is the index the snapshot sends: append only.
     UnitKind: UnitDef, UNIT_KINDS {
         Harvester => humans::HARVESTER,
         Trooper => humans::TROOPER,
@@ -88,7 +88,7 @@ kinds! {
 }
 
 kinds! {
-    /// Building kinds (the Humans', then the Vael's).
+    /// Building kinds (the Humans', then the Vael's). Same rule: append only.
     BldgKind: BldgDef, BLDG_KINDS {
         Core => humans::CORE,
         Depot => humans::DEPOT,
@@ -260,6 +260,7 @@ const UNIT: UnitDef = UnitDef {
     splash: 0.0,
     splash_r: 0.0,
 };
+/// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;
 /// Seconds to mine a load: 8 shards, or 6 ether (faster, so one vent still feeds about three harvesters).
 pub const SHARD_MINE_TIME: f64 = 2.0;

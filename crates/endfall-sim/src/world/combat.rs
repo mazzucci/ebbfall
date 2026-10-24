@@ -4,8 +4,8 @@ use super::*;
 
 /// Shields take a hit first, at full value (armor protects only the hull); returns what is left for the hull.
 /// Being hit restarts the wait before shields regenerate.
-fn absorb(sh: &mut f64, hit_at: &mut f64, now: f64, amt: f64) -> f64 {
-    if *sh <= 0.0 && *hit_at == f64::NEG_INFINITY {
+fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64) -> f64 {
+    if maxsh <= 0.0 {
         return amt; // no shields at all (a race without them): nothing changes
     }
     *hit_at = now;
@@ -143,7 +143,7 @@ impl World {
                 self.upgrades[self.units[i].team as usize][Upgrade::Armor.index()] as f64;
             let now = self.time;
             let u = &mut self.units[i];
-            let rest = absorb(&mut u.sh, &mut u.hit_at, now, amt);
+            let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt);
             if rest > 0.0 {
                 u.hp -= (rest - u.kind.def().armor - armor_up).max(1.0);
             }
@@ -206,7 +206,7 @@ impl World {
         } else if let Some(i) = self.bi(target) {
             let now = self.time;
             let b = &mut self.bldgs[i];
-            let rest = absorb(&mut b.sh, &mut b.hit_at, now, amt);
+            let rest = absorb(&mut b.sh, b.maxsh, &mut b.hit_at, now, amt);
             if rest > 0.0 {
                 b.hp -= (rest - b.kind.def().armor).max(1.0);
             }

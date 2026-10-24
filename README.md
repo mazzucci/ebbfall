@@ -2,7 +2,19 @@
 
 Mockups for review before anything is built. The game lives on `main`.
 
-## Second race: the Vael (design for review)
+## Second race: the Vael, v2 realism pass (current)
+
+Textured bone ceramic, bronze and obsidian trim, toned-down glows, layered detail; human units and buildings shown beside them for comparison.
+
+![](race/v2_phone.png)
+
+![](race/v2_phone_core.png)
+
+![](race/v2_units.png)
+
+![](race/v2_buildings.png)
+
+## Second race: the Vael, v1 (first concept)
 
 Full design document: [race/VAEL.md](race/VAEL.md): theme, names, mechanics, roster with stats, counters, tech tree, AI, balance targets, phased plan.
 

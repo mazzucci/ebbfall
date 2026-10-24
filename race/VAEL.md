@@ -25,17 +25,24 @@ it *is* the lattice.
 which already reads as "alien" at phone size). Shapes are tapered spindles, crescents, floating rings, leaning slabs
 and three-fold symmetry, against the humans' boxy four-square plating.
 
-| | Humans | Vael |
+| | Humans | Vael (v2) |
 | --- | --- | --- |
-| Hull | warm grey steel `0x7c838e`, khaki `0x8e8664`, iron `0x3d3835`, rivets and rust | ivory ceramic `0xe9e3d3` (matte, faint grown seams, no rivets), bone `0xc9c2b2` undersides, polished ring `0xf6f1e6` |
-| Dark parts | gunmetal, rubber | black glass `0x17121f` (glossy) for rings, discs and blades; crystals are violet gem `0x3b2d70` lit from within (`emissive 0x8a74e0`, flat-shaded facets) |
-| Light | team-coloured lamps, cyan glass, orange fire, violet ether only at the rig | lavender ether `0xc6b4ff` everywhere; lamps are never team-coloured |
-| Team colour | painted plates, big panels | glossy glaze bands, ring arcs, wingtips, petal caps: smaller areas but every model has one patch large enough for a phone (Prism arcs, Shrike tips, Kiln ring, Spire ring) |
-| Ground | concrete slabs | three-lobed ivory plinths with a dim lavender pad (the power field's heart) |
+| Hull | warm grey steel `0x7c838e`, khaki `0x8e8664`, iron `0x3d3835`; panel seams, rivets, rust | bone ceramic in three tones, `0xa69e8f` / light plates `0xb6ae9f` / undersides `0x857d70`, with a crackle map: curved seams with chipped light edges, hairline cracks, soot in recesses, faint carved runes (bump-mapped like `panel`) |
+| Trim | gunmetal, steel, rubber, hazard stripes | dark bronze `0x5c4630` (brushed, verdigris spots) collars, studs, spines and knuckles; obsidian `0x16121c` discs, moats and undersides; soot `0x2f2a27` vents and contact zones |
+| Light | team-coloured lamps, cyan glass, orange fire, violet ether at the rig | small violet gems `0x241e3a` lit from within (emissive `0x5a4a98` at 0.4), thin ether seams (`0x9a86e0` at 0.95), a pale core dot; never large and never near white |
+| Team colour | painted plates, big panels | a glaze desaturated 30 percent towards grey, kept to bands, ring arcs, wingtips, petal caps: every model still has one patch large enough for a phone (Prism arcs, Shrike tips, Kiln hoop, Spire ring, Monolith band) |
+| Ground | concrete slabs | tiered three-lobed plinths (dark base, bone step, bronze ring, studs) with a dim textured violet pad |
 
-Both team colours (amber `0xd98a1f`, crimson `0xc22a5a`) sit well on ivory, and ivory against the dark painted
-ground is the strongest contrast in the game, so the Vael pop at phone zoom even when the team colour is a sliver.
-The lavender is far enough from the crimson team colour not to be mistaken for it (checked on `phone.png`).
+Geometry rule from the realism pass: every shell is at least two plates (a body and a lighter top plate or darker
+underside) with a recessed soot seam between them, a bronze rim or collar, and one vent or stud row; nothing is a
+single clean primitive. The first pass (near-white shells, flat lavender) read as vector art next to the humans; v2
+is what to build from (`v2_units.png`, `v2_buildings.png`, `v2_phone.png`, `v2_phone_core.png`, each with the human
+counterparts beside the Vael).
+
+Both team colours (amber `0xd98a1f`, crimson `0xc22a5a`) read on bone even desaturated, and the bone-and-bronze
+set is lighter and warmer than the humans' grey steel, so the two races separate at phone zoom while sharing one
+render look. The violet is far enough from the crimson team colour not to be mistaken for it (checked on
+`v2_phone.png`).
 
 Each unit has a different top-down glyph, which is what a phone player actually sees: Lumen = droplet, Scythe = tall
 spindle with two black blades, Prism = ring around a dark gem, Monolith = black disc under a white slab, Shrike =
@@ -302,11 +309,14 @@ scout once mirrors show the Vael need one, and hand-authored maps with vent plac
   Vanguard's footprint (`r` 15 vs 14 in the sim; 22 vs 26 in the sprite cell).
 - Watch on the lighter map kinds (Glass Reach): ivory on pale ground loses contrast; the black glass undersides and
   the hard shadow of the finish carry the silhouette there.
-- Two pipeline lessons for whoever models the rest: the ACES tone mapping clips any emissive above about 1.5
-  intensity to white (the first pass lost the lavender entirely; `ether` now sits at 1.45, the human `ether` is 1.8
-  on a darker colour), and a crystal "inside" black glass never shows, so crystals are one self-lit `gem` mesh. With
+- Pipeline lessons for whoever models the rest: the ACES tone mapping clips any emissive above about 1.5 intensity
+  to white and flattens near-white albedo into shadeless shapes (keep hulls mid-tone, `0x85..0xb6`, and emissives
+  under 1.0); a crystal "inside" black glass never shows, so crystals are one self-lit `gem` mesh; and a smooth
+  primitive has nothing for the ink pass to draw, so plates, seams, studs and collars are what make a model look
+  rendered rather than drawn. With
   the camera due south at 55 degrees, never put a tall part on the south side of a centre piece: the Conflux petals,
   Ward claws, Siphon petals and Zenith towers all sit at north / east-south-east / west-south-west or east / west.
-- Files: `models_alien.js` (models and `makeVaelMats`), `tools/render3d/main_alien.js` + `index_alien.html` (the
-  renderer page), `render_alien.mjs` (plan, compositing, the sheets). `node render_alien.mjs` regenerates all four
-  PNGs in about 25 s.
+- Files: `models_alien.js` (v2 models, textures and `makeVaelMats`), `tools/render3d/main_alien.js` +
+  `index_alien.html` (the renderer page), `render_alien.mjs` (plan, compositing, the sheets).
+  `node render_alien.mjs /tmp/racedesign v2_` regenerates the four v2 PNGs in about 30 s; the un-prefixed PNGs are
+  the first (ivory) pass, kept for comparison.

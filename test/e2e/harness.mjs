@@ -151,7 +151,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     async hudText(selector, re) {
       const loc = page.locator(selector);
       try { await loc.filter({ hasText: re }).waitFor({ timeout: 5000 }); }
-      catch { throw new Error(`${selector} never matched ${re}: it reads "${await loc.textContent()}"`); }
+      catch { throw new Error(`${selector} never matched ${re}: it reads "${await loc.textContent({ timeout: 1000 }).catch(() => "(nothing)")}"`); }
       return loc.textContent();
     },
     toasts: () => page.$$eval('#msg .toast', ts => ts.map(t => t.textContent)),

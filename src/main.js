@@ -70,7 +70,7 @@ initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disa
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });
-$('btnHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // the game waits while it is open
+$('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false;

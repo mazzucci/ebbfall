@@ -45,11 +45,11 @@ const BLDG_TEXT = {
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
   kiln: { hot: 'K', desc: 'Fires Scythes, Prisms and Monoliths (Monoliths need a Loom).' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons upgrade; unlocks Monoliths and the Zenith.' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades; unlocks Monoliths and the Zenith.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air.' },
   zenith: { hot: 'Z', desc: 'Launches Shrikes.' },
 };
-const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' } };
+const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));

@@ -2,16 +2,25 @@
 
 use super::*;
 
-/// Shields take a hit first, at full value (armor protects only the hull); returns what is left for the hull.
-/// Being hit restarts the wait before shields regenerate.
-fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64) -> f64 {
+/// Shields take a hit first (armor protects only the hull; shield upgrades, `sh_armor`, soak that much of a hit that
+/// lands on shields, at least 1 still landing); returns what is left for the hull. Being hit restarts the wait
+/// before shields regenerate.
+fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_armor: f64) -> f64 {
     if maxsh <= 0.0 {
         return amt; // no shields at all (a race without them): nothing changes
     }
     *hit_at = now;
-    let took = sh.min(amt);
+    if *sh <= 0.0 {
+        return amt;
+    }
+    let on = if sh_armor > 0.0 {
+        (amt - sh_armor).max(amt.min(1.0))
+    } else {
+        amt
+    };
+    let took = sh.min(on);
     *sh -= took;
-    amt - took
+    on - took
 }
 
 impl World {
@@ -141,10 +150,12 @@ impl World {
             self.alert_attacked(target);
         }
         if let Some(i) = self.ui(target) {
-            let armor_up = self.effect_level(self.units[i].team, Effect::Armor) as f64;
+            let team = self.units[i].team;
+            let armor_up = self.effect_level(team, Effect::Armor) as f64;
+            let sh_up = self.effect_level(team, Effect::Shields) as f64;
             let now = self.time;
             let u = &mut self.units[i];
-            let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt);
+            let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt, sh_up);
             if rest > 0.0 {
                 u.hp -= (rest - u.kind.def().armor - armor_up).max(1.0);
             }
@@ -156,9 +167,10 @@ impl World {
                 self.kill(target);
             }
         } else if let Some(i) = self.bi(target) {
+            let sh_up = self.effect_level(self.bldgs[i].team, Effect::Shields) as f64;
             let now = self.time;
             let b = &mut self.bldgs[i];
-            let rest = absorb(&mut b.sh, b.maxsh, &mut b.hit_at, now, amt);
+            let rest = absorb(&mut b.sh, b.maxsh, &mut b.hit_at, now, amt, sh_up);
             if rest > 0.0 {
                 b.hp -= (rest - b.kind.def().armor).max(1.0);
             }

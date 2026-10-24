@@ -6,6 +6,7 @@
 pub enum Upgrade {
     Weapons,
     Armor,
+    Shields,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -15,6 +16,8 @@ pub enum Effect {
     Weapons,
     /// Each level adds 1 armor to every unit.
     Armor,
+    /// Each level soaks 1 damage of every hit that lands on shields (at least 1 still lands): the Vael's armor.
+    Shields,
 }
 
 pub struct UpgradeDef {
@@ -43,14 +46,22 @@ const ARMOR: UpgradeDef = UpgradeDef {
     ..WEAPONS
 };
 
+const SHIELDS: UpgradeDef = UpgradeDef {
+    key: "shields",
+    name: "Shields",
+    effect: Effect::Shields,
+    ..WEAPONS
+};
+
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 2] = [Upgrade::Weapons, Upgrade::Armor];
+pub const UPGRADES: [Upgrade; 3] = [Upgrade::Weapons, Upgrade::Armor, Upgrade::Shields];
 
 impl Upgrade {
     pub fn def(self) -> &'static UpgradeDef {
         match self {
             Upgrade::Weapons => &WEAPONS,
             Upgrade::Armor => &ARMOR,
+            Upgrade::Shields => &SHIELDS,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

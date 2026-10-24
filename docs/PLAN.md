@@ -106,6 +106,11 @@ loop feels right.
   Prism 70+50, 13 ground / 13 air; Ward 200+120. Humans win about half on Easy and a third on Medium (where the
   human AI's Lancers and Wasps answer Shrikes and Prisms poorly). Massed Troopers are now the Vael's counter in
   the duel matrix. A golden pins an AI-vs-AI Vael game (`golden_hashes_pin_a_vael_ai_against_the_human_ai`).
+- [x] Vael phase 2, Shields research (2026-10-24): the Loom's second research (design: replaces Armor for the
+  Vael), three levels at the Weapons prices; each soaks 1 damage of every hit that lands on shields, units and
+  buildings (at least 1 lands), then hull armor applies to the rest. One row in the upgrades table plus
+  `Effect::Shields`. The goldens moved only because the state hash mixes a third upgrade level (checked: with it left
+  out, every old hash held). Phase 2 still to do: the Halo, Vael sounds, human AI Spire targeting.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data/mod.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

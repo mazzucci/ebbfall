@@ -194,7 +194,7 @@ pub(super) const LOOM: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Kiln),
-    researches: &[Upgrade::Weapons],
+    researches: &[Upgrade::Weapons, Upgrade::Shields],
     needs_power: true,
     ..BLDG
 };

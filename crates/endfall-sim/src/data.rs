@@ -102,44 +102,72 @@ pub struct UnitDef {
     pub splash_r: f64,
 }
 
-/// Team-wide upgrades researched at the Foundry, three levels each.
+/// Team-wide upgrades, three levels each, researched at a building that lists them (`BldgDef::researches`).
+/// The order is the index the snapshot sends; append only.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Upgrade {
     Weapons,
     Armor,
 }
 
+/// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Effect {
+    /// Each level adds the unit's (or turret's) `up_dmg` to its damage.
+    Weapons,
+    /// Each level adds 1 armor to every unit.
+    Armor,
+}
+
+pub struct UpgradeDef {
+    pub key: &'static str,
+    pub name: &'static str,
+    pub effect: Effect,
+    /// Cost of levels 1, 2 and 3.
+    pub cost: [[i32; 2]; 3],
+    /// Research time of levels 1, 2 and 3, in seconds.
+    pub time: [f64; 3],
+}
+
 pub const MAX_UPGRADE: u8 = 3;
 
+const WEAPONS: UpgradeDef = UpgradeDef {
+    key: "weapons",
+    name: "Weapons",
+    effect: Effect::Weapons,
+    cost: [[100, 100], [175, 175], [250, 250]],
+    time: [60.0, 75.0, 90.0],
+};
+const ARMOR: UpgradeDef = UpgradeDef {
+    key: "armor",
+    name: "Armor",
+    effect: Effect::Armor,
+    ..WEAPONS
+};
+
+/// Every upgrade, in index order.
+pub const UPGRADES: [Upgrade; 2] = [Upgrade::Weapons, Upgrade::Armor];
+
 impl Upgrade {
-    pub fn key(self) -> &'static str {
+    pub fn def(self) -> &'static UpgradeDef {
         match self {
-            Upgrade::Weapons => "weapons",
-            Upgrade::Armor => "armor",
-        }
-    }
-    pub fn name(self) -> &'static str {
-        match self {
-            Upgrade::Weapons => "Weapons",
-            Upgrade::Armor => "Armor",
+            Upgrade::Weapons => &WEAPONS,
+            Upgrade::Armor => &ARMOR,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {
-        [Upgrade::Weapons, Upgrade::Armor]
-            .into_iter()
-            .find(|u| u.key() == s)
+        UPGRADES.into_iter().find(|u| u.def().key == s)
     }
     pub fn index(self) -> usize {
         self as usize
     }
     /// Cost of researching `level` (1..=3).
     pub fn cost(self, level: u8) -> [i32; 2] {
-        let c = [100, 175, 250][(level.clamp(1, 3) - 1) as usize];
-        [c, c]
+        self.def().cost[(level.clamp(1, 3) - 1) as usize]
     }
     /// Research time in seconds for `level` (1..=3).
     pub fn time(self, level: u8) -> f64 {
-        [60.0, 75.0, 90.0][(level.clamp(1, 3) - 1) as usize]
+        self.def().time[(level.clamp(1, 3) - 1) as usize]
     }
 }
 
@@ -959,7 +987,7 @@ pub fn data_json() -> String {
             let trains: Vec<String> = d.trains.iter().map(|u| format!("\"{}\"", u.def().key)).collect();
             format!(
                 "\"{}\":{{\"name\":\"{}\",\"short\":\"{}\",\"hq\":{},\"shields\":{},\"needsPower\":{},\"power\":{},\"researches\":[{}],\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
-                d.key, d.name, d.short, d.hq, d.shields, d.needs_power, d.power, d.researches.iter().map(|u| format!("\"{}\"", u.key())).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
+                d.key, d.name, d.short, d.hq, d.shields, d.needs_power, d.power, d.researches.iter().map(|u| format!("\"{}\"", u.def().key)).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
                 key_or_null(d.req), d.range, d.dmg, d.dmg_air, d.cd, opt(d.proj), d.up_dmg
             )
         })
@@ -973,19 +1001,27 @@ pub fn data_json() -> String {
             )
         })
         .collect();
-    let ups: Vec<String> = [Upgrade::Weapons, Upgrade::Armor]
+    let ups: Vec<String> = UPGRADES
         .iter()
         .map(|u| {
+            let d = u.def();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"cost\":[{},{},{}],\"time\":[{},{},{}]}}",
-                u.key(),
-                u.name(),
-                u.cost(1)[0],
-                u.cost(2)[0],
-                u.cost(3)[0],
-                u.time(1),
-                u.time(2),
-                u.time(3)
+                "\"{}\":{{\"name\":\"{}\",\"effect\":\"{}\",\"cost\":[[{},{}],[{},{}],[{},{}]],\"time\":[{},{},{}]}}",
+                d.key,
+                d.name,
+                match d.effect {
+                    Effect::Weapons => "weapons",
+                    Effect::Armor => "armor",
+                },
+                d.cost[0][0],
+                d.cost[0][1],
+                d.cost[1][0],
+                d.cost[1][1],
+                d.cost[2][0],
+                d.cost[2][1],
+                d.time[0],
+                d.time[1],
+                d.time[2]
             )
         })
         .collect();

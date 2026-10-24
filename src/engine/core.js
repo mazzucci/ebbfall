@@ -22,7 +22,7 @@ const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
   seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1,
-  stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [], upgrades: [{ weapons: 0, armor: 0 }, { weapons: 0, armor: 0 }],
+  stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
 const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
 
@@ -46,7 +46,7 @@ function sync() {
   S.res[0][0] = I[fi.shards0]; S.res[0][1] = I[fi.ether0]; S.res[1][0] = I[fi.shards1]; S.res[1][1] = I[fi.ether1];
   S.sup[0] = [I[fi.sup_used0], I[fi.sup_cap0]]; S.sup[1] = [I[fi.sup_used1], I[fi.sup_cap1]];
   Object.assign(S.stats, { built: I[fi.built], lost: I[fi.lost], killed: I[fi.killed], razed: I[fi.razed] });
-  Object.assign(S.upgrades[0], { weapons: I[fi.weapons0], armor: I[fi.armor0] }); Object.assign(S.upgrades[1], { weapons: I[fi.weapons1], armor: I[fi.armor1] });
+  UPGRADE_KEYS.forEach((k, i) => { for (const t of [0, 1]) S.upgrades[t][k] = I[SCHEMA.info.length + t * UPGRADE_KEYS.length + i]; }); // (levels follow the info record)
   S.vis.set(game.vis(PLAYER)); S.explored.set(game.explored(PLAYER)); M.occ.set(game.occ());
 
   const N = game.nodes(), seenN = new Set(); M.nodes = [];

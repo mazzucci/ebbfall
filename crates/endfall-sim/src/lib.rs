@@ -283,10 +283,11 @@ impl Game {
         self.w.res[team as usize & 1] = [shards, ether];
     }
 
-    /// The world's scalars (fields: snapshot::INFO_FIELDS).
+    /// The world's scalars (fields: snapshot::INFO_FIELDS), then the upgrade levels (snapshot::push_upgrades).
     pub fn info(&self) -> Vec<f64> {
-        let mut out = Vec::with_capacity(snapshot::INFO_FIELDS.len());
+        let mut out = Vec::with_capacity(snapshot::INFO_FIELDS.len() + 2 * data::UPGRADES.len());
         snapshot::push_info(&mut out, &self.w, &self.w);
+        snapshot::push_upgrades(&mut out, &self.w);
         out
     }
 

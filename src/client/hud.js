@@ -1,5 +1,5 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
-import { G, PLAYER, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, PLAYER, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -55,12 +55,12 @@ export function updateHud() {
 const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-label="${title}: ${v}${bonus ? ' plus ' + bonus : ''}">${icon(ico)}<b>${v}</b>${bonus ? `<em>+${bonus}</em>` : ''}</span>`;
 /** What a unit or turret can do in a fight, in as few numbers as possible: damage (ground, air) and armor. */
 function fightStats(x) {
-  const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons;
+  const up = G.upgrades[x.team], bonus = (UP_DMG[x.type] || 0) * effectLevel(up, 'weapons');
   let h = '';
   if (x.d.dmg && !x.d.worker) h += stat('dmg', x.d.dmg, bonus, 'Damage against ground');
   if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, 'Heals infantry (per second)');
-  h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? up.armor : 0, 'Armor');
+  h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');
   return h;
 }
 
@@ -215,7 +215,7 @@ export function cardItems() {
         const u = UPGRADES[k];
         const lv = G.upgrades[PLAYER][k] + 1, elsewhere = G.bldgs.some(o => o.team === PLAYER && o.research && o.research.type === k);
         if (lv > 3) return;
-        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
+        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: u.cost[lv - 1], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
       });
       if (b.research) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }

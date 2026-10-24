@@ -179,12 +179,10 @@ impl World {
                 if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
                     continue;
                 }
-                let [wl, al] = self.upgrades[e as usize];
-                let order = if wl <= al {
-                    [Upgrade::Weapons, Upgrade::Armor]
-                } else {
-                    [Upgrade::Armor, Upgrade::Weapons]
-                };
+                // The lowest level first (the earlier upgrade on a tie).
+                let levels = self.upgrades[e as usize];
+                let mut order = UPGRADES;
+                order.sort_by_key(|u| (levels[u.index()], u.index()));
                 let busy = |w: &World, up: Upgrade| {
                     w.bldgs
                         .iter()

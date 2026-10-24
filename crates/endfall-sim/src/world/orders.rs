@@ -148,14 +148,14 @@ impl World {
         }
         let level = self.upgrades[team as usize][up.index()] + 1;
         if level > MAX_UPGRADE {
-            return Err(format!("{} is fully upgraded", up.name()));
+            return Err(format!("{} is fully upgraded", up.def().name));
         }
         if self
             .bldgs
             .iter()
             .any(|o| o.team == team && o.research.is_some_and(|(u, _)| u == up))
         {
-            return Err(format!("{} is already being researched", up.name()));
+            return Err(format!("{} is already being researched", up.def().name));
         }
         let cost = up.cost(level);
         if !self.can_afford(team, cost) {

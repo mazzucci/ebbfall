@@ -122,7 +122,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #hud{height:auto;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 156px}
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
-  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:2}
+  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
+  #btnIdle,#btnArmy,#clock{display:none} /* a narrow top bar: resources, supply and the buttons only */
 }
 #upg{gap:14px;font-size:13px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:2px}
 /* Upgrades in the top bar: the icon and level; research under way fills a ring round the icon. */

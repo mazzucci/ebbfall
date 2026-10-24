@@ -649,3 +649,15 @@ test('offline: once loaded, the game opens and plays with no connection', async 
     assert.ok(await page.evaluate(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'core')), 'a game started offline');
   } finally { await ctx.close(); }
 });
+
+test('portrait phone: the top bar fits and command buttons show their whole label', async () => {
+  const d = await newGame({ viewport: { width: 390, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, 0, 4242, { ai: false });
+  try {
+    const [sw, cw] = await d.page.evaluate(() => { const t = document.getElementById('top'); return [t.scrollWidth, t.clientWidth]; });
+    assert.ok(sw <= cw, `the top bar fits (${sw} > ${cw})`);
+    await d.clickEntity(coreOf(await d.state()).id);
+    const clipped = await d.page.$$eval('#cmd .cb', bs => bs.filter(b => b.scrollHeight > b.clientHeight + 1).map(b => b.textContent));
+    assert.deepEqual(clipped, [], 'no button content cut off');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

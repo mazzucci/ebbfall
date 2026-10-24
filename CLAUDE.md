@@ -54,7 +54,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/path.rs         A* + line-of-sight smoothing (same f32 cost grid and heap tie-breaks as path.js)
   src/world/          the world: mod.rs (entities, step, state_hash), orders, spawn, economy, construction,
                       combat, movement, fog
-  src/ai.rs           scripted opponent
+  src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap

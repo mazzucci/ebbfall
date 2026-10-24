@@ -5,7 +5,7 @@ use crate::data::{MH, MW, TILE};
 use crate::jsmath;
 use crate::map::{Map, idx};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Pt {
     pub x: f64,
     pub y: f64,

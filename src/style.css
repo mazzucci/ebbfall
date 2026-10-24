@@ -45,7 +45,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 /* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */
-#info{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:10px 18px;overflow:hidden}
+#info{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:10px 18px;overflow:hidden}
 #info .who{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 240px}
 #selPor{width:52px;height:52px;flex:none;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line2);border-radius:4px} #selPor:empty{display:none}
 #info .id{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
@@ -55,7 +55,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .life{display:flex;align-items:center;gap:8px} .life .bar{flex:1;max-width:200px;height:7px} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 #mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
 .st{display:flex;align-items:center;gap:4px;font:17px var(--mono);color:var(--fg);white-space:nowrap} .st b{font-weight:400}
-.st .ico{width:18px;height:18px;color:var(--muted)} .st em{font-style:normal;color:var(--ally2)} .st .por{width:22px;height:22px}
+.st .ico{width:18px;height:18px;color:var(--muted)}  .st em{font-style:normal;color:var(--ally2)} .st .por{width:22px;height:22px}
 .rs{display:flex;align-items:center;gap:10px;min-width:190px} .rs>.ico{width:30px;height:30px;color:var(--ether)}
 .rb{flex:1;display:flex;flex-direction:column;gap:6px} .rt{display:flex;align-items:center;gap:6px;font:600 14px var(--display);letter-spacing:.04em;white-space:nowrap} .rt b{color:var(--ally2)}
 .pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--ether);background:var(--ether)}
@@ -75,7 +75,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
 .gi b{position:absolute;right:2px;top:1px;font:600 8px var(--display);color:var(--ally2);text-shadow:0 0 2px #000} /* tells look-alike infantry apart */
-#cmd{display:grid;grid-template-columns:repeat(4,62px);grid-auto-rows:52px;gap:4px;align-content:start}
+#cmd{display:grid;grid-template-columns:repeat(3,66px);grid-auto-rows:52px;gap:4px;align-content:start}
 .cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0 2px;font:600 10px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;overflow:hidden}
 .cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico,.cb .por{order:1} .cb .c{order:3}
 .cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)}
@@ -121,8 +121,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #top{gap:9px;padding:0 8px} .brand{display:none} .res{font-size:14px} #clock{font-size:13px}
   #hud{height:auto;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 156px}
   #minimap{width:156px;height:156px;grid-row:2}
-  #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px} #info.empty{display:none}
-  #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:2}
+  #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
+  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:2}
 }
 #upg{gap:14px;font-size:13px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:2px}
 /* Upgrades in the top bar: the icon and level; research under way fills a ring round the icon. */
@@ -151,13 +151,14 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #hud>*{pointer-events:auto}
   #info{display:none}
   #minimap{width:104px;height:104px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
-  #cmd{grid-template-columns:repeat(4,56px);grid-auto-rows:52px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #cmd{grid-template-columns:repeat(3,64px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
   /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */
-  #info{display:flex;flex:0 1 auto;flex-wrap:nowrap;align-self:flex-end;max-width:540px;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;
+  /* Always there, one width (the room between the minimap and a full command card): nothing pops in or resizes. */
+  #info{display:flex;flex:none;width:min(480px,calc(100% - 340px));flex-wrap:nowrap;align-self:flex-end;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;
     background:rgba(18,26,37,.88);box-shadow:0 2px 10px rgba(0,0,0,.5)}
-  #info.empty{display:none}
+  #info.empty .nm{flex-direction:column;align-items:flex-start;gap:2px;opacity:.55} #info.empty h2{font-size:13px}
   #hint{left:126px;bottom:86px}
   /* SELECT sits above the minimap, under the left thumb, so the right hand can drag the box. */
   #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);

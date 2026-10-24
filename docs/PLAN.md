@@ -73,6 +73,10 @@ loop feels right.
   Harvester that finds its field busy moves to a field within 7 tiles that has at least two fewer Harvesters on it
   (counting itself), so the load evens out and nobody shuttles. A shard field saturates at three (100, 192, 240/min
   near the Core); ether mines in 1.6 s instead of 2.8 s, so a vent also takes about three (78, 159, 222/min).
+- [x] Phone HUD (2026-10-24): the selection console at the bottom between the minimap and the command card, always
+  there at one width (portrait, name, health, attack and armor; research and production as bars, no timers); the
+  command card has three buttons a row; no Move, Stop or Deselect buttons (tap the ground to move, Hold, Esc on
+  desktop); an armed order's button turns into its Cancel; the Build list has basic and Advanced (V) pages.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

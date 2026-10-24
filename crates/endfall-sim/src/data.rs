@@ -198,6 +198,13 @@ const HARVESTER: UnitDef = UnitDef {
     melee: true,
     ..UNIT
 };
+/// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
+pub const MINE_SLOTS: i32 = 1;
+/// Seconds to mine a load: 8 shards, or 6 ether (faster, so one vent still feeds about three harvesters).
+pub const SHARD_MINE_TIME: f64 = 2.0;
+pub const ETHER_MINE_TIME: f64 = 1.6;
+/// How far (tiles) from a busy field a harvester looks for a quieter one.
+pub const SPREAD_RANGE: f64 = 7.0;
 /// Ether per trip from an Extractor on a vent that has run dry (a full one gives 6).
 pub const VENT_TRICKLE: i32 = 2;
 

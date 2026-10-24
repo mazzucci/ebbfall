@@ -94,7 +94,7 @@ export function updateTools() {
 export function initTools() {
   $('btnIdle').querySelector('.pic').innerHTML = portrait('unit', 'harvester', 24);
   $('btnArmy').querySelector('.pic').innerHTML = portrait('unit', 'trooper', 24);
-  setIconButton($('btnPause'), 'pause', 'PAUSE'); setIconButton($('btnHelp'), 'help', 'HELP');
+  setIconButton($('btnPause'), 'pause', 'PAUSE');
   for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnAlert', jumpToAlert]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());
     $(id).addEventListener('click', fn);

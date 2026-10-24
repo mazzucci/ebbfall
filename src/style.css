@@ -202,3 +202,4 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 }
 /* Touch: keyboard letters on the buttons are noise. */
 @media (pointer:coarse){.cb .k{display:none}}
+#help{z-index:21} /* How to play opens over the pause menu */

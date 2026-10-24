@@ -459,12 +459,15 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await page.waitForFunction(() => endfall.G.units.length > 0);
       assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, 2, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
-      // Help opens over the game and the game waits.
-      await press('#btnHelp');
+      // How to play is in the pause menu (no Help button in the top bar); the game waits; back to the pause menu.
+      assert.equal(await page.locator('#btnHelp').count(), 0, 'no Help button in the top bar');
+      await press('#btnPause'); await press('#btnPauseHelp');
+      assert.ok(await page.locator('#help').isVisible(), 'How to play opens');
       const t0 = await page.evaluate(() => endfall.G.time); await page.waitForTimeout(600);
       assert.equal(await page.evaluate(() => endfall.G.time), t0, 'the game waits while help is open');
       await press('#btnHelpClose');
-      assert.ok(await page.locator('#help').isHidden());
+      assert.ok(await page.locator('#help').isHidden() && await page.locator('#pause').isVisible(), 'back to the pause menu');
+      await press('#btnResume');
       // The choices are remembered.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
       if (touch) await press('#btnPlay');

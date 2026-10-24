@@ -9,6 +9,8 @@ export const audio = {
   muted: false,
   /** Set by main.js: the camera's view in world px ({ x, y, w, h }), for panning and distance. */
   view: () => null,
+  /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
+  now: () => performance.now(),
 };
 const last = {};
 
@@ -96,7 +98,7 @@ const lastGain = {};
 export function sfx(name, o = {}) {
   if (audio.muted) return;
   const recipe = SFX[name]; if (!recipe) return;
-  const now = performance.now();
+  const now = audio.now();
   try {
     const [g, pan] = place(o.x === undefined ? null : o);
     if (g <= 0.01) return; // too far to hear

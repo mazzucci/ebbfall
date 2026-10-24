@@ -133,24 +133,31 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     /** Select a harvester by clicking it, then place `type` (by its hotkey) at tile (tx, ty) by clicking. */
     async buildWithUI(hotkey, type, tx, ty, harvesterId) {
       await d.clickEntity(harvesterId);
-      if (touch) { await d.pressCard('Build'); if (['forge', 'airfield', 'core', 'loom', 'zenith', 'conflux'].includes(type)) await d.pressCard('Advanced'); await d.pressCard(BUILD_LABEL[type]); }
+      if (touch) {
+        // The button as the card shows it, on the page of the Build menu its race lists it on.
+        const { advanced, label } = await ev((t) => {
+          const d = endfall.engine.BUILDINGS[t];
+          return { advanced: Object.values(endfall.engine.FACTIONS).some(f => f.buildAdvanced.includes(t)), label: d.short || d.name.split(' ').pop() };
+        }, type);
+        await d.pressCard('Build'); if (advanced) await d.pressCard('Advanced'); await d.pressCard(label);
+      }
       else { await d.key('b'); await d.key(hotkey); }
       const w = await ev((t) => endfall.engine.BUILDINGS[t], type);
       const [x, y] = await d.screen((tx + w.w / 2) * 32, (ty + w.h / 2) * 32);
       if (touch) await d.tapAt(x, y); else { await page.mouse.move(x, y); await page.mouse.click(x, y); }
       await page.waitForTimeout(80);
     },
-    /** Wait (up to 5 s of real time) until a HUD element's text matches. Returns the text. */
+    /** Wait (up to 5 s of real time) until a HUD element's text matches. Returns the text; throws with what it read. */
     async hudText(selector, re) {
       const loc = page.locator(selector);
-      await loc.filter({ hasText: re }).waitFor({ timeout: 5000 }).catch(() => {});
+      try { await loc.filter({ hasText: re }).waitFor({ timeout: 5000 }); }
+      catch { throw new Error(`${selector} never matched ${re}: it reads "${await loc.textContent({ timeout: 1000 }).catch(() => "(nothing)")}"`); }
       return loc.textContent();
     },
     toasts: () => page.$$eval('#msg .toast', ts => ts.map(t => t.textContent)),
   };
   return d;
 }
-const BUILD_LABEL = { spire: 'Spire', kiln: 'Kiln', siphon: 'Siphon', ward: 'Ward', loom: 'Loom', zenith: 'Zenith', conflux: 'Conflux', depot: 'Depot', barracks: 'Garrison', extractor: 'Ether Rig', forge: 'Foundry', turret: 'Turret', airfield: 'Airfield', core: 'Core' };
 
 /** Poll until fn() is truthy (fn runs in Node; use d.state() inside), fast-forwarding the game between checks. */
 export async function until(d, fn, { seconds = 120, step = 2, what = 'condition' } = {}) {

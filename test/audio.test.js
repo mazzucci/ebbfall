@@ -24,12 +24,13 @@ const recipes = [...src.matchAll(/^ {2}([a-z]+): \(b, t/gm)].map(m => m[1]);
 
 test('every recipe plays, placed or not, with sound envelopes', async () => {
   audio.view = () => ({ x: 0, y: 0, w: 800, h: 450 });
+  let clock = 0; audio.now = () => clock;
   assert.ok(recipes.length >= 15, `recipes found: ${recipes}`);
   for (const name of recipes) for (const o of [{}, { x: 400, y: 200, unit: 'trooper', big: true, r: 40 }, { x: 1200, y: 200 }]) {
     ramps.length = 0;
     sfx(name, o);
     if (o.x !== 1200) assert.ok(ramps.length > 0, `${name} made a sound (a recipe that throws is swallowed by sfx)`);
-    await new Promise(r => setTimeout(r, 260)); // past the longest repeat gap
+    clock += 260; // past the longest repeat gap
   }
   assert.deepEqual(errors, []);
 });

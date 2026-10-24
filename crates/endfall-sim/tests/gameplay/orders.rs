@@ -4,64 +4,91 @@ use super::common::*;
 
 #[test]
 fn every_building_and_unit_can_be_made() {
-    for seed in [1, 7, 4242] {
-        let mut w = rich(seed);
-        let h = harvesters(&w, PLAYER);
-        let depot = build(&mut w, BldgKind::Depot, h[0], 90);
-        let rax = build(&mut w, BldgKind::Barracks, h[1], 120);
-        let forge = build(&mut w, BldgKind::Forge, h[2], 120);
-        let _turret = build(&mut w, BldgKind::Turret, h[3], 90);
-        let _ext = build(&mut w, BldgKind::Extractor, h[0], 90);
-        let _second_core = build(&mut w, BldgKind::Core, h[1], 150);
-        let airfield = build(&mut w, BldgKind::Airfield, h[2], 150);
-        assert!(w.bldg(depot).unwrap().done);
-        let core_id = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
-            .unwrap()
-            .id;
-        let before = [
-            count(&w, PLAYER, UnitKind::Harvester),
-            count(&w, PLAYER, UnitKind::Trooper),
-            count(&w, PLAYER, UnitKind::Vanguard),
-        ];
-        w.queue_unit(core_id, UnitKind::Harvester).unwrap();
-        w.queue_unit(rax, UnitKind::Trooper).unwrap();
-        w.queue_unit(rax, UnitKind::Vanguard).unwrap(); // (the Forge unlocks it at the Barracks)
-        assert!(
-            w.queue_unit(forge, UnitKind::Vanguard).is_err(),
-            "the Forge researches, it does not train"
-        );
-        w.queue_unit(rax, UnitKind::Lancer).unwrap();
-        w.queue_unit(rax, UnitKind::Medic).unwrap();
-        w.queue_unit(airfield, UnitKind::Wasp).unwrap();
-        w.queue_unit(airfield, UnitKind::Observer).unwrap();
-        run(&mut w, 100);
-        for k in [
-            UnitKind::Lancer,
-            UnitKind::Medic,
-            UnitKind::Wasp,
-            UnitKind::Observer,
-        ] {
-            assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
+    for f in FACTIONS {
+        for seed in [1, 7, 4242] {
+            every_building_and_unit_of(f, seed);
         }
+    }
+}
+
+/// Builds every building of a race once (each as soon as its requirement and power stand), then trains every unit
+/// each building offers, one of each.
+fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
+    let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [f, &HUMANS]);
+    w.disable_ai();
+    w.res[PLAYER as usize] = [20_000, 20_000];
+    let workers = harvesters(&w, PLAYER);
+    let mut todo: Vec<BldgKind> = f
+        .build_basic
+        .iter()
+        .chain(f.build_advanced)
+        .copied()
+        .collect();
+    let mut built: Vec<Id> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == PLAYER)
+        .map(|b| b.id)
+        .collect();
+    for i in 0.. {
+        let has = |w: &World, k: BldgKind| {
+            w.bldgs
+                .iter()
+                .any(|b| b.team == PLAYER && b.kind == k && b.done)
+        };
+        let powered = |w: &World| {
+            w.bldgs
+                .iter()
+                .any(|b| b.team == PLAYER && b.kind.def().power > 0.0 && b.done)
+        };
+        let Some(at) = todo.iter().position(|&k| {
+            let d = k.def();
+            d.req.is_none_or(|r| has(&w, r)) && (!d.needs_power || powered(&w))
+        }) else {
+            assert!(todo.is_empty(), "{}: {todo:?} can never be built", f.key);
+            break;
+        };
+        let k = todo.remove(at);
+        built.push(build(&mut w, k, workers[i % workers.len()], 150));
+    }
+    let wants: Vec<(Id, UnitKind)> = UNIT_KINDS
+        .into_iter()
+        .filter_map(|u| {
+            let at = built
+                .iter()
+                .find(|&&b| w.bldg(b).unwrap().kind.def().trains.contains(&u))?;
+            Some((*at, u))
+        })
+        .collect();
+    assert!(
+        wants.iter().any(|&(_, u)| u == f.worker),
+        "{}: its HQ trains its worker",
+        f.key
+    );
+    let before: Vec<usize> = wants.iter().map(|&(_, u)| count(&w, PLAYER, u)).collect();
+    for &(b, u) in &wants {
+        w.queue_unit(b, u)
+            .unwrap_or_else(|e| panic!("{} seed {seed}: {u:?}: {e}", f.key));
+    }
+    run(&mut w, 150);
+    for (&(_, u), n) in wants.iter().zip(before) {
         assert_eq!(
-            count(&w, PLAYER, UnitKind::Harvester),
-            before[0] + 1,
-            "seed {seed}: harvester trained"
-        );
-        assert_eq!(
-            count(&w, PLAYER, UnitKind::Trooper),
-            before[1] + 1,
-            "seed {seed}: trooper trained"
-        );
-        assert_eq!(
-            count(&w, PLAYER, UnitKind::Vanguard),
-            before[2] + 1,
-            "seed {seed}: vanguard trained"
+            count(&w, PLAYER, u),
+            n + 1,
+            "{} seed {seed}: {u:?} trained",
+            f.key
         );
     }
+}
+
+#[test]
+fn a_research_building_does_not_train() {
+    let mut w = rich(1);
+    let forge = w.make_building(BldgKind::Forge, PLAYER, 20, 40, true);
+    assert!(
+        w.queue_unit(forge, UnitKind::Vanguard).is_err(),
+        "the Forge researches, it does not train"
+    );
 }
 
 #[test]
@@ -393,47 +420,5 @@ fn a_side_builds_only_its_own_race() {
     for k in [BldgKind::Barracks, BldgKind::Depot, BldgKind::Turret] {
         let any = (-12..12).any(|dy| (-12..12).any(|dx| w.can_place(k, cx + dx, cy + dy, PLAYER)));
         assert!(!any, "the Vael cannot place a {k:?}");
-    }
-}
-
-#[test]
-fn every_vael_building_and_unit_can_be_made() {
-    for seed in [1, 7, 4242] {
-        let mut w = rich_vael(seed);
-        let l = harvesters(&w, PLAYER);
-        assert_eq!(l.len(), 4, "four Lumens");
-        build(&mut w, BldgKind::Spire, l[0], 90);
-        let kiln = build(&mut w, BldgKind::Kiln, l[1], 120);
-        build(&mut w, BldgKind::Siphon, l[2], 90);
-        build(&mut w, BldgKind::Ward, l[3], 90);
-        build(&mut w, BldgKind::Loom, l[0], 120);
-        let zenith = build(&mut w, BldgKind::Zenith, l[1], 150);
-        build(&mut w, BldgKind::Conflux, l[2], 150);
-        let conflux = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux && b.done)
-            .unwrap()
-            .id;
-        w.queue_unit(conflux, UnitKind::Lumen).unwrap();
-        for u in [UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith] {
-            w.queue_unit(kiln, u)
-                .unwrap_or_else(|e| panic!("{u:?}: {e}"));
-        }
-        w.queue_unit(zenith, UnitKind::Shrike).unwrap();
-        run(&mut w, 150);
-        for k in [
-            UnitKind::Scythe,
-            UnitKind::Prism,
-            UnitKind::Monolith,
-            UnitKind::Shrike,
-        ] {
-            assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
-        }
-        assert_eq!(
-            count(&w, PLAYER, UnitKind::Lumen),
-            5,
-            "seed {seed}: a Lumen trained"
-        );
     }
 }

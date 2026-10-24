@@ -170,8 +170,10 @@ function touchTap(wx, wy, at) {
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead);
   if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
-  // Workers selected and a tap on a field where one of ours stands: the field (gather), not the worker on it.
-  const field = hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.some(u => u.d.worker) && nodeAt(wx, wy);
+  // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
+  // (Not a bare vent: the worker there is likely building its refinery, and a tap should still pick it.)
+  const node = hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy);
+  const field = node && (node.type !== 'ether' || ventOf(node.extractor)) ? node : null;
   if (field) { commandAt(wx, wy, field); return; }
   if (hit && hit.kind !== 'node' && hit.team === G.me) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }

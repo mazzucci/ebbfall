@@ -130,7 +130,7 @@ export const placeBuilding = (team, type, tx, ty, builder) => touch(err(game.pla
 /** Returns an error string, or null on success. */
 export const queueUnit = (b, type) => touch(err(game.queueUnit(b.id, type)));
 export const cancelQueue = (b, i) => touch(game.cancelQueue(b.id, i));
-/** Research the next level of an upgrade at a War Forge; returns an error string or null. */
+/** Research the next level of an upgrade at a Foundry; returns an error string or null. */
 export const research = (b, type) => touch(err(game.research(b.id, type)));
 export const cancelResearch = (b) => touch(game.cancelResearch(b.id));
 /** Cancel an unfinished building (75% refund). */

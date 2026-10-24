@@ -124,5 +124,5 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 
 `npm run dev`, open the URL, Normal difficulty. `window.endfall` in the console exposes `G`, `ui`, the camera and
 `setResources` for poking at a running game (scripted playtests use it too). A sanity run: select harvesters, `B` then `D`, place a Depot near the
-Core, train Troopers from a Barracks, `A`-move into the enemy base on the far side of the map. On a phone on the same
+Core, train Troopers from a Garrison, `A`-move into the enemy base on the far side of the map. On a phone on the same
 network, open the LAN URL Vite prints (touch controls: tap/drag to select, tap to command, two fingers to pan).

@@ -89,7 +89,7 @@ function renderSelection() {
     const n = sel[0], ether = n.type === 'ether';
     name.textContent = ether ? 'Ether vent' : 'Shard field';
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
+    sub.textContent = ether && !n.extractor ? 'Build an Ether Rig on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
     const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
     module('node' + working, `<span class="st" title="Harvesters working it" aria-label="Harvesters working it: ${working}">${portrait('unit', 'harvester', 22)}<b>${working}</b></span>`);
@@ -168,7 +168,7 @@ export function cardItems() {
     if (ui.mode === 'build') {
       BUILD_ORDER.forEach((k, i) => {
         const d = BUILDINGS[k];
-        at(i, { id: 'b_' + k, label: d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
+        at(i, { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
       });
       esc('Back', 'back');
     } else {

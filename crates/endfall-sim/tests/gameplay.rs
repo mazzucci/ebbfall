@@ -174,7 +174,7 @@ fn forge_and_turret_need_a_finished_barracks() {
         let (tx, ty) = spot(&w, kind);
         assert_eq!(
             w.place_building(PLAYER, kind, tx, ty, Some(h[0])),
-            Err("Requires Barracks".to_string())
+            Err("Requires Garrison".to_string())
         );
     }
     let (tx, ty) = spot(&w, BldgKind::Barracks);
@@ -336,7 +336,7 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     );
     assert_eq!(
         w.queue_unit(rax, UnitKind::Trooper),
-        Err("Barracks cannot train that".into()),
+        Err("Garrison cannot train that".into()),
         "not before it is finished"
     );
     assert!(w.start_build(h[0], rax));
@@ -345,8 +345,8 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     }
     assert_eq!(
         w.queue_unit(rax, UnitKind::Vanguard),
-        Err("Requires War Forge".into()),
-        "a barracks trains vanguards only once a War Forge stands"
+        Err("Requires Foundry".into()),
+        "a Garrison trains vanguards only once a Foundry stands"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
     let depot = build(&mut w, BldgKind::Depot, h[1], 90);
@@ -589,14 +589,14 @@ fn medics_vanguards_and_airfields_need_a_forge() {
     for k in [UnitKind::Medic, UnitKind::Vanguard] {
         assert_eq!(
             w.queue_unit(rax, k),
-            Err("Requires War Forge".into()),
+            Err("Requires Foundry".into()),
             "{k:?}"
         );
     }
     let (tx, ty) = spot(&w, BldgKind::Airfield);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
-        Err("Requires War Forge".into())
+        Err("Requires Foundry".into())
     );
     build(&mut w, BldgKind::Forge, h[1], 120);
     assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
@@ -1056,7 +1056,7 @@ fn research_rules_and_refunds() {
     let rax = w.make_building(BldgKind::Barracks, PLAYER, 26, 40, true);
     assert!(
         w.start_research(rax, Upgrade::Weapons).is_err(),
-        "only at a War Forge"
+        "only at a Foundry"
     );
     let f2 = w.make_building(BldgKind::Forge, PLAYER, 20, 46, true);
     w.start_research(f, Upgrade::Weapons).unwrap();
@@ -3395,4 +3395,19 @@ fn busy_harvesters_only_hop_to_vents_with_their_own_extractor() {
             id == eid
         );
     }
+}
+
+#[test]
+fn the_foundry_takes_two_by_two_tiles() {
+    let mut w = rich(9);
+    let h = harvesters(&w, PLAYER);
+    build(&mut w, BldgKind::Barracks, h[0], 90);
+    let f = build(&mut w, BldgKind::Forge, h[1], 120);
+    let b = w.bldg(f).unwrap();
+    assert_eq!((b.w, b.h), (2, 2));
+    let taken = (0..MW * MH)
+        .filter(|&i| w.map.occ[i as usize] == f as i32)
+        .count();
+    assert_eq!(taken, 4, "it blocks four tiles");
+    assert_eq!(BldgKind::Forge.def().name, "Foundry");
 }

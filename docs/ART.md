@@ -18,6 +18,10 @@ Players never need any of this; only the PNG/JSON output ships.
 - **Models** (`tools/render3d/models.js` units, `buildings.js` buildings/resources/debris, `doodads.js` scenery): built from bevelled boxes,
   extruded armour plates, cylinders, spheres and capsules, in game units (1 tile = 32). Units face +x; walk frames
   pose the legs. Team colour (`paint`) goes on panels and accents, hulls are painted steel (`trim`).
+  Buildings come in three hull families so they read apart from the 55° camera, which mostly sees roofs: command and
+  civil in grey steel (`trim`: Core, Airfield, Turret), military in `khaki` (Garrison vaults), industry in dark `iron`
+  with fire (`ember`: Foundry). Each has one signature shape visible from above: the Core's dome, the Garrison's three
+  vaults and parade yard, the Foundry's twin chimneys, the Airfield's round pad with its H, the Ether Rig's derrick.
 - **Materials** (`materials.js`): physically based (metalness/roughness) with procedural canvas textures: panel
   seams, rivets, edge wear, rust drips, stencils, concrete, hazard stripes, tread. UVs are box-projected at 16 units
   per repeat so detail keeps one scale on any size.

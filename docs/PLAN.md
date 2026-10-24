@@ -8,7 +8,7 @@ loop feels right.
 
 - Playable prototype: one faction, one procedurally shaped 64x64 map, one scripted opponent with three difficulties.
 - Economy: shards (finite fields) and ether (vents that need an Extractor); supply from Core and Depots.
-- Seven structures (Core, Depot, Extractor, Barracks, War Forge, Sentinel Turret, Airfield), six units (Harvester,
+- Seven structures (Core, Depot, Ether Rig, Garrison, Foundry, Turret, Airfield), six units (Harvester,
   Trooper, Vanguard, Lancer, Medic, and the flying Wasp), fog of war, control groups, rally points, attack-move, hold.
 - Mouse, keyboard and touch controls. Works on a phone.
 - Sim and client are separate modules. The sim runs headless in Node, uses a seeded RNG, advances by a fixed tick

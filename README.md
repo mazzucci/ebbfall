@@ -18,9 +18,9 @@ npm test         # headless simulation tests
 `S` stop, `H` hold, `B` build (with Harvesters selected), `Ctrl`+`1`–`9` saves a control group, `Home` jumps to
 your Core. `Backspace` (or the browser's back gesture) asks before leaving a game.
 
-**Units:** Harvesters mine, build and repair. The Barracks trains Troopers (shoot ground and air), Lancers (anti-air
+**Units:** Harvesters mine, build and repair. The Garrison trains Troopers (shoot ground and air), Lancers (anti-air
 missiles), Medics (heal infantry) and Vanguards (heavy walkers whose shells splash, ground only); Medics and Vanguards
-need a War Forge, which researches weapon and armor upgrades. The Airfield trains Wasps, gunships that fly over cliffs
+need a Foundry, which researches weapon and armor upgrades. The Airfield trains Wasps, gunships that fly over cliffs
 and buildings, and Observers, cheap unarmed flying scouts. Turrets hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

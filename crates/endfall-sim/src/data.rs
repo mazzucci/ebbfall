@@ -79,7 +79,7 @@ pub struct UnitDef {
     pub up_dmg: f64,
 }
 
-/// Team-wide upgrades researched at the War Forge, three levels each.
+/// Team-wide upgrades researched at the Foundry, three levels each.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Upgrade {
     Weapons,
@@ -205,7 +205,7 @@ pub const SHARD_MINE_TIME: f64 = 2.0;
 pub const ETHER_MINE_TIME: f64 = 1.6;
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
-/// Ether per trip from an Extractor on a vent that has run dry (a full one gives 6).
+/// Ether per trip from an Ether Rig on a vent that has run dry (a full one gives 6).
 pub const VENT_TRICKLE: i32 = 2;
 
 /// A Vanguard shell also hits walking units of the target's side within this many px, for this share of its damage.
@@ -353,7 +353,7 @@ const DEPOT: BldgDef = BldgDef {
 };
 const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
-    name: "Ether Extractor",
+    name: "Ether Rig",
     cost: [75, 0],
     hp: 420.0,
     build: 25.0,
@@ -362,7 +362,7 @@ const EXTRACTOR: BldgDef = BldgDef {
 };
 const BARRACKS: BldgDef = BldgDef {
     key: "barracks",
-    name: "Barracks",
+    name: "Garrison",
     cost: [150, 0],
     w: 3,
     h: 3,
@@ -379,10 +379,8 @@ const BARRACKS: BldgDef = BldgDef {
 };
 const FORGE: BldgDef = BldgDef {
     key: "forge",
-    name: "War Forge",
+    name: "Foundry",
     cost: [150, 100],
-    w: 3,
-    h: 3,
     hp: 820.0,
     build: 45.0,
     sight: 7.0,
@@ -392,7 +390,7 @@ const FORGE: BldgDef = BldgDef {
 };
 const TURRET: BldgDef = BldgDef {
     key: "turret",
-    name: "Sentinel Turret",
+    name: "Turret",
     cost: [100, 0],
     hp: 320.0,
     build: 20.0,

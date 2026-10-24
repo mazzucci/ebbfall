@@ -20,7 +20,7 @@ function bldgCell(n, h) {
   const W = n * 32, left = 4, right = h * 0.5 + 6, up = h * LIFT + 6, down = h * 0.4 + 6;
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
-const BUILDINGS = { core: [4, B.core, 56], depot: [2, B.depot, 32], extractor: [2, B.extractor, 37], barracks: [3, B.barracks, 50], forge: [3, B.forge, 59], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 48] };
+const BUILDINGS = { core: [4, B.core, 56], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58] };
 const RES = {
   rock: new THREE.MeshStandardMaterial({ color: 0x4a5160, roughness: 0.9, metalness: 0.05, flatShading: true }),
   pit: new THREE.MeshStandardMaterial({ color: 0x120c1e, roughness: 1 }),

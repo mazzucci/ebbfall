@@ -75,7 +75,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.maxhp - e.hp >= 1;
 
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
-const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.type === 'extractor' && e.done ? e.vent : null;
+const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.d.onVent && e.done ? e.vent : null;
 
 /** Top-left tile for placing `type` with the cursor at (wx, wy); extractors snap onto a nearby free vent. */
 function placeTile(type, wx, wy) {
@@ -94,7 +94,7 @@ function placeTile(type, wx, wy) {
  * the order and left-click selects, so the selection stays.
  */
 function releaseWorkers(units) {
-  if (drag.ptype !== 'touch' || !units.length || !units.every(u => u.type === 'harvester')) return;
+  if (drag.ptype !== 'touch' || !units.length || !units.every(u => u.d.worker)) return;
   ui.sel = []; ui.mode = null; ui.place = null; setHint(); updateHud();
 }
 
@@ -107,12 +107,12 @@ function commandAt(wx, wy) {
   if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
   else if ((hit && hit.kind === 'node') || vent) {
     const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)
-    for (const u of units) if (u.type === 'harvester') startGather(u, node); else moveTo(u, wx, wy);
+    for (const u of units) if (u.d.worker) startGather(u, node); else moveTo(u, wx, wy);
     marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move', voice(units));
-    if (!bare && units.some(u => u.type === 'harvester')) { flashTarget(vent ? hit : node, true); job = true; }
+    if (!bare && units.some(u => u.d.worker)) { flashTarget(vent ? hit : node, true); job = true; }
   }
-  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
-  else if (damaged(hit) && units.some(u => u.type === 'harvester')) { for (const u of units) if (u.type === 'harvester') repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
+  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
+  else if (damaged(hit) && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); }
   ui.mode = null; setHint();
   if (job) releaseWorkers(units);
@@ -123,7 +123,7 @@ function leftAction(wx, wy, add, at) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit');
   if (ui.place) {
     const p = ui.place;
-    const builder = units.filter(u => u.type === 'harvester').sort((a, b) => dist(a, { x: p.tx * TILE, y: p.ty * TILE }) - dist(b, { x: p.tx * TILE, y: p.ty * TILE }))[0];
+    const builder = units.filter(u => u.d.worker).sort((a, b) => dist(a, { x: p.tx * TILE, y: p.ty * TILE }) - dist(b, { x: p.tx * TILE, y: p.ty * TILE }))[0];
     const err = placeBuilding(PLAYER, p.type, p.tx, p.ty, builder);
     if (err) toast(err, true);
     else {
@@ -140,7 +140,7 @@ function leftAction(wx, wy, add, at) {
   }
   if (ui.mode === 'repair') {
     const hit = pick(wx, wy);
-    if (damaged(hit)) { for (const u of units) if (u.type === 'harvester') repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); ui.mode = null; releaseWorkers(units); setHint(); return; }
+    if (damaged(hit)) { for (const u of units) if (u.d.worker) repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); ui.mode = null; releaseWorkers(units); setHint(); return; }
     else toast(hit && hit.kind === 'bldg' && hit.team === PLAYER ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
     ui.mode = null; setHint(); return;
   }
@@ -162,7 +162,7 @@ function touchTap(wx, wy, at) {
   if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)
-    if (units.some(u => u.type === 'harvester') && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
+    if (units.some(u => u.d.worker) && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
     selectOrDouble(hit, false, at); return;
   }
   if (units.length) { commandAt(wx, wy); return; }
@@ -304,7 +304,7 @@ export function bindInput() {
     if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
-    if (k === 'Home') { const c = G.bldgs.find(b => b.team === PLAYER && b.type === 'core'); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
+    if (k === 'Home') { const c = G.bldgs.find(b => b.team === PLAYER && b.d.hq); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
     const items = cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); return; }
     if (!it && (k === 'q' || k === 'Q')) selectArmy();

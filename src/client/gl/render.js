@@ -5,6 +5,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, PLAYER, ENEMY, BUILDINGS, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
 import { fx } from '../fx.js';
+import { BLDG_LOOK } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 
@@ -145,7 +146,7 @@ export function renderTerrain() {
   const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
-  const cores = G.bldgs.filter(b => b.type === 'core').map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
+  const cores = G.bldgs.filter(b => b.d.hq).map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
   for (const d of scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry })) {
     const s = new Sprite(); setTex(s, tex(`doodad_${d.name}`)); s.position.set(d.x, d.y); L.scenery.addChild(s);
     doodads.push({ s, tx: d.tx, ty: d.ty, ground: d.ground });
@@ -235,8 +236,9 @@ class BldgObj {
     this.body = new Sprite(); setTex(this.body, tex(`bldg_${b.type}_${b.team}`)); L.bldgs.addChild(this.body);
     this.scaffold = new Sprite(); setTex(this.scaffold, tex(`scaffold_${n}`)); L.bldgs.addChild(this.scaffold);
     this.full = tex(`bldg_${b.type}_${b.team}`);
-    this.head = b.type === 'turret' ? new Sprite() : null; if (this.head) L.bldgs.addChild(this.head);
-    const glow = { core: [0xffd27a, 1.6, 0.35], extractor: [0xa78bfa, 1.1, 0.5], forge: [0xff8a2a, 1.2, 0.4] }[b.type];
+    this.look = BLDG_LOOK[b.type] || {};
+    this.head = this.look.head ? new Sprite() : null; if (this.head) L.bldgs.addChild(this.head);
+    const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
     this.smokeT = 0; this.type = b.type;
     for (const s of [this.found, this.body, this.scaffold]) s.position.set(b.x, b.y);
@@ -253,12 +255,13 @@ class BldgObj {
       this.body.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height;
     }
     this.body.alpha = b.flash > 0 ? 0.75 : 1; // hit flash
-    if (this.head) { this.head.visible = b.done && live; const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS; setTex(this.head, tex(`turret_head_${b.team}_${dir}`)); this.head.position.set(b.x, b.y); }
-    if (this.glow) { this.glow.visible = b.done; this.glow.position.set(b.x, b.y - (this.type === 'core' ? 30 : 12)); this.glow.alpha = (this.type === 'forge' ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5)); }
+    if (this.head) { this.head.visible = b.done && live; const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS; setTex(this.head, tex(`${this.look.head}_${b.team}_${dir}`)); this.head.position.set(b.x, b.y); }
+    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x, b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
     if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
-    if (live && this.type === 'forge' && b.done && Math.random() < dt * 2.5) addEffect('puff', b.tx * TILE + (Math.random() < 0.5 ? 17 : 47), b.ty * TILE + 4, { vy: -22, life: 1.5 }); // from the Foundry's twin chimneys
+    const sm = this.look.smoke; // chimneys
+    if (live && sm && b.done && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
   show(v) { for (const s of [this.found, this.body, this.scaffold]) s.visible = s.visible && v; if (!v) { if (this.head) this.head.visible = false; if (this.glow) this.glow.visible = false; } }
   destroy() { for (const s of [this.found, this.body, this.scaffold, this.head, this.glow]) if (s) s.destroy(); }
@@ -473,7 +476,7 @@ function renderMinimap() {
   const S = mm.width / WW, c = mctx; c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
   for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * S - 1.5, 3, 3); }
   for (const b of G.bldgs) { if (b.team === ENEMY && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === PLAYER ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * S, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * S)); }
-  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; c.fillStyle = u.team === PLAYER ? (u.type === 'harvester' ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * S - 1, 2.2, 2.2); }
+  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; c.fillStyle = u.team === PLAYER ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * S - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();
   for (let i = pings.length - 1; i >= 0; i--) {

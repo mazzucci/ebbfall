@@ -33,7 +33,7 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
-  if (b.type === 'extractor' && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
+  if (b.d.onVent && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
   return '';
 }
 
@@ -56,7 +56,7 @@ const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-l
 function fightStats(x) {
   const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons;
   let h = '';
-  if (x.d.dmg && x.type !== 'harvester') h += stat('dmg', x.d.dmg, bonus, 'Damage against ground');
+  if (x.d.dmg && !x.d.worker) h += stat('dmg', x.d.dmg, bonus, 'Damage against ground');
   if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? up.armor : 0, 'Armor');
@@ -94,7 +94,7 @@ function renderSelection() {
     sub.textContent = ether && !n.extractor ? 'Build an Ether Rig on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
     const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
-    module('node' + working, `<span class="st" title="Harvesters working it" aria-label="Harvesters working it: ${working}">${portrait('unit', 'harvester', 22)}<b>${working}</b></span>`);
+    module('node' + working, `<span class="st" title="Harvesters working it" aria-label="Harvesters working it: ${working}">${portrait('unit', FACTIONS.humans.worker, 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === PLAYER;
     name.textContent = x.d.name;
@@ -190,7 +190,7 @@ export function cardItems() {
     if (!adv) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: 'Foundry, Airfield and Command Core' });
     at(5, adv ? { ...back, id: 'build1' } : back);
   } else if (units.length) {
-    const workers = units.some(u => u.type === 'harvester'), onlyWorkers = units.every(u => u.type === 'harvester');
+    const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.dmg > 0 || u.d.dmgAir > 0); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
     const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }];
@@ -325,7 +325,7 @@ export function doCommand(id) {
   if (id.startsWith('t_')) { const b = bl[0]; if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
-    const hs = G.units.filter(u => u.team === PLAYER && u.type === 'harvester').sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
+    const hs = G.units.filter(u => u.team === PLAYER && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
     if (!hs.length) { toast('No Harvester to build it', true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }

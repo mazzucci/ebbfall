@@ -1353,7 +1353,7 @@ fn check_invariants(w: &World, ctx: &str) {
             n.id
         );
         assert!(
-            n.miners <= 2,
+            n.miners <= MINE_SLOTS,
             "{ctx}: node {} has {} miners",
             n.id,
             n.miners
@@ -2723,11 +2723,17 @@ fn ether_vents_run_dry_and_then_give_a_trickle() {
     run(&mut w, 30);
     let mined = w.res[PLAYER as usize][1];
     let left = w.map.node(vent).unwrap().amount;
+    let carried: i32 = w
+        .units
+        .iter()
+        .filter(|u| u.team == PLAYER && u.carry_ether == Some(true))
+        .map(|u| u.carry)
+        .sum();
     assert!(mined > 0, "the builder mined ether");
     assert_eq!(
-        left + mined,
+        left + mined + carried,
         5000,
-        "every ether banked came out of the vent"
+        "every ether banked or carried came out of the vent"
     );
     // Nearly dry: two harvesters empty it, then keep bringing a trickle; the player hears about it once.
     w.map.node_mut(vent).unwrap().amount = 10;
@@ -3115,4 +3121,278 @@ fn the_ai_keeps_building_when_the_player_takes_its_home_vent() {
         .filter(|b| b.team == ENEMY && b.kind == BldgKind::Barracks)
         .count();
     assert!(rax >= 2, "the build order goes on: {rax} Barracks");
+}
+
+/// The player's shard fields around its core, nearest first.
+fn home_fields(w: &World) -> Vec<Id> {
+    let (cx, cy) = core(w, PLAYER);
+    let mut f: Vec<(i32, Id)> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| !n.ether)
+        .map(|n| ((n.tx - cx - 2).pow(2) + (n.ty - cy - 2).pow(2), n.id))
+        .collect();
+    f.sort();
+    f.into_iter().map(|(_, id)| id).collect()
+}
+
+fn gather_node(w: &World, u: Id) -> Option<Id> {
+    match w.unit(u)?.task {
+        Task::Gather { node, .. } => Some(node),
+        _ => None,
+    }
+}
+
+#[test]
+fn one_harvester_mines_a_field_at_a_time() {
+    let mut w = rich(9);
+    let field = home_fields(&w)[0];
+    // Every other shard field gone: nowhere to spread to.
+    let others: Vec<Id> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| !n.ether && n.id != field)
+        .map(|n| n.id)
+        .collect();
+    for id in &others {
+        let n = w.map.node(*id).unwrap();
+        let i = (n.ty * MW + n.tx) as usize;
+        w.map.occ[i] = 0;
+    }
+    w.map.nodes.retain(|n| !others.contains(&n.id));
+    let h = harvesters(&w, PLAYER);
+    for &u in &h {
+        assert!(w.start_gather(u, field));
+    }
+    let mut waited = false;
+    for _ in 0..60 * TPS {
+        w.step();
+        let mining = w
+            .units
+            .iter()
+            .filter(|u| {
+                u.team == PLAYER
+                    && matches!(
+                        u.task,
+                        Task::Gather {
+                            phase: Phase::Mine,
+                            ..
+                        }
+                    )
+            })
+            .count();
+        assert!(mining <= 1, "{mining} mine one field at once");
+        waited |= w.units.iter().any(|u| {
+            matches!(
+                u.task,
+                Task::Gather {
+                    phase: Phase::Wait,
+                    ..
+                }
+            )
+        });
+    }
+    assert!(waited, "four on one field take turns");
+    for &u in &h {
+        assert_eq!(
+            gather_node(&w, u),
+            Some(field),
+            "and stay: there is no other field"
+        );
+    }
+}
+
+#[test]
+fn harvesters_sent_to_one_field_spread_over_the_quiet_ones_nearby() {
+    let mut w = rich(9);
+    let core_id = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap()
+        .id;
+    let (x, y) = (
+        w.bldg(core_id).unwrap().x,
+        w.bldg(core_id).unwrap().y + 90.0,
+    );
+    for _ in 0..4 {
+        w.make_unit(UnitKind::Harvester, PLAYER, x, y);
+    }
+    let field = home_fields(&w)[0];
+    let h = harvesters(&w, PLAYER);
+    for &u in &h {
+        assert!(w.start_gather(u, field));
+    }
+    run(&mut w, 40);
+    let mut used: Vec<Id> = h.iter().filter_map(|&u| gather_node(&w, u)).collect();
+    used.sort();
+    used.dedup();
+    assert!(
+        used.len() >= 3,
+        "eight harvesters work {} fields",
+        used.len()
+    );
+    for &f in &used {
+        let on = h.iter().filter(|&&u| gather_node(&w, u) == Some(f)).count();
+        assert!(on <= 3, "field {f} has {on}");
+    }
+    // Settled: nobody shuttles between fields.
+    let before: Vec<_> = h.iter().map(|&u| gather_node(&w, u)).collect();
+    let mut moves = 0;
+    let mut last = before.clone();
+    for _ in 0..60 * TPS {
+        w.step();
+        let now: Vec<_> = h.iter().map(|&u| gather_node(&w, u)).collect();
+        moves += now.iter().zip(&last).filter(|(a, b)| a != b).count();
+        last = now;
+    }
+    assert!(moves <= 2, "{moves} field changes in a minute once spread");
+}
+
+/// Move a node to another tile (scenes that need fields in known places).
+fn move_node(w: &mut World, id: Id, tx: i32, ty: i32) {
+    let n = w.map.node(id).unwrap();
+    let (size, ox, oy) = (if n.ether { 2 } else { 1 }, n.tx, n.ty);
+    for y in 0..size {
+        for x in 0..size {
+            w.map.occ[((oy + y) * MW + ox + x) as usize] = 0;
+        }
+    }
+    let n = w.map.node_mut(id).unwrap();
+    n.tx = tx;
+    n.ty = ty;
+    n.x = (tx as f64 + size as f64 / 2.0) * TILE;
+    n.y = (ty as f64 + size as f64 / 2.0) * TILE;
+    for y in 0..size {
+        for x in 0..size {
+            w.map.occ[((ty + y) * MW + tx + x) as usize] = -(id as i32);
+        }
+    }
+}
+
+#[test]
+fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
+    // Two shard fields left on open ground: one by a Core, the other 6 tiles farther out. Harvesters crowding the
+    // near one wait rather than wander out to the far one; a field as close to the Core takes them.
+    for far in [true, false] {
+        let mut w = flat_arena(16);
+        let core_id = w.make_building(BldgKind::Core, PLAYER, 20, 30, true);
+        let fields: Vec<Id> = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether)
+            .map(|n| n.id)
+            .take(2)
+            .collect();
+        let gone: Vec<Id> = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !fields.contains(&n.id))
+            .map(|n| n.id)
+            .collect();
+        for &id in &gone {
+            let n = w.map.node(id).unwrap();
+            let (size, ox, oy) = (if n.ether { 2 } else { 1 }, n.tx, n.ty);
+            for y in 0..size {
+                for x in 0..size {
+                    w.map.occ[((oy + y) * MW + ox + x) as usize] = 0;
+                }
+            }
+        }
+        w.map.nodes.retain(|n| !gone.contains(&n.id));
+        move_node(&mut w, fields[0], 26, 31);
+        if far {
+            move_node(&mut w, fields[1], 32, 31);
+        } else {
+            move_node(&mut w, fields[1], 24, 37);
+        }
+        let (x, y) = (w.bldg(core_id).unwrap().x, w.bldg(core_id).unwrap().y);
+        let h: Vec<Id> = (0..4)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Harvester,
+                    PLAYER,
+                    x + 80.0,
+                    y - 30.0 + i as f64 * 20.0,
+                )
+            })
+            .collect();
+        for &u in &h {
+            assert!(w.start_gather(u, fields[0]));
+        }
+        run(&mut w, 30);
+        let on_second = h
+            .iter()
+            .filter(|&&u| gather_node(&w, u) == Some(fields[1]))
+            .count();
+        if far {
+            assert_eq!(on_second, 0, "nobody strays to the far field");
+        } else {
+            assert!(on_second >= 1, "the equally near field takes the overflow");
+        }
+    }
+}
+
+#[test]
+fn busy_harvesters_only_hop_to_vents_with_their_own_extractor() {
+    let mut w = rich(9);
+    let h = harvesters(&w, PLAYER);
+    build(&mut w, BldgKind::Extractor, h[0], 90);
+    let mine = w
+        .map
+        .nodes
+        .iter()
+        .find(|n| n.ether && n.extractor.is_some())
+        .unwrap()
+        .id;
+    let (mx, my) = (w.map.node(mine).unwrap().tx, w.map.node(mine).unwrap().ty);
+    // Two more vents right beside ours: one with an enemy Extractor, one with none.
+    let others: Vec<Id> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| n.ether && n.id != mine)
+        .map(|n| n.id)
+        .take(2)
+        .collect();
+    let mut placed = vec![];
+    for (&id, (dx, dy)) in others.iter().zip([(3, 0), (-3, 0), (0, 3), (0, -3)]) {
+        let (tx, ty) = (mx + dx, my + dy);
+        let free = (0..2).all(|y| {
+            (0..2).all(|x| {
+                let i = ((ty + y) * MW + tx + x) as usize;
+                w.map.occ[i] == 0 && w.map.rock[i] == 0
+            })
+        });
+        if free {
+            move_node(&mut w, id, tx, ty);
+            placed.push((id, tx, ty));
+        }
+    }
+    assert!(!placed.is_empty(), "room beside the vent");
+    let (eid, etx, ety) = placed[0];
+    w.make_building(BldgKind::Extractor, ENEMY, etx, ety, true);
+    for &u in &h {
+        w.start_gather(u, mine);
+    }
+    run(&mut w, 30);
+    for &(id, _, _) in &placed {
+        let on = w
+            .units
+            .iter()
+            .filter(|u| {
+                u.team == PLAYER && matches!(u.task, Task::Gather { node, .. } if node == id)
+            })
+            .count();
+        assert_eq!(
+            on,
+            0,
+            "nobody hops to vent {id} (enemy Extractor: {})",
+            id == eid
+        );
+    }
 }

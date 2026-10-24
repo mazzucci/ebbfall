@@ -7,7 +7,7 @@
 
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
-use crate::map::{Id, Map, MapKind, idx, in_map};
+use crate::map::{Id, Map, MapKind, Node, idx, in_map};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 
@@ -2072,6 +2072,77 @@ impl World {
         }
     }
 
+    /// A field of the same kind near `n` (a vent needs our finished Extractor) with clearly fewer harvesters on it
+    /// than `n`: at least two fewer, counting this one, so moving always evens the load and nobody shuttles back and
+    /// forth. The least crowded wins, then the nearest.
+    fn less_crowded_field(&self, uid: Id, n: &Node, team: u8) -> Option<Id> {
+        // Only fields served by the same drop-off and not much farther from it: a hop never strays from the base
+        // toward a field out in the open.
+        let drop = self
+            .bldgs
+            .iter()
+            .filter(|b| b.team == team && b.done && b.kind.def().dropoff)
+            .map(|b| Geo::Rect {
+                tx: b.tx,
+                ty: b.ty,
+                w: b.w,
+                h: b.h,
+                x: b.x,
+                y: b.y,
+                r: b.r,
+            })
+            .min_by(|a, b| {
+                a.edge_dist(n.x, n.y)
+                    .partial_cmp(&b.edge_dist(n.x, n.y))
+                    .unwrap()
+            })?;
+        let reach = drop.edge_dist(n.x, n.y) + 2.5 * TILE;
+        let cands: Vec<Id> = self
+            .map
+            .nodes
+            .iter()
+            .filter(|m| {
+                m.ether == n.ether
+                    && m.id != n.id
+                    && m.amount > 0
+                    && dist(m.x, m.y, n.x, n.y) <= SPREAD_RANGE * TILE
+                    && drop.edge_dist(m.x, m.y) <= reach
+                    && (!m.ether || self.extractor_ready(m.id, Some(team)))
+            })
+            .map(|m| m.id)
+            .collect();
+        if cands.is_empty() {
+            return None;
+        }
+        let mut on = vec![0usize; cands.len()];
+        let mut here = 0;
+        for u in &self.units {
+            if let (true, Task::Gather { node, .. }) = (u.team == team, u.task) {
+                if node == n.id {
+                    here += 1;
+                } else if let Some(i) = cands.iter().position(|&c| c == node) {
+                    on[i] += 1;
+                }
+            }
+        }
+        let (ux, uy) = (self.u(uid).x, self.u(uid).y);
+        cands
+            .iter()
+            .zip(on)
+            .filter(|&(_, k)| k + 2 <= here)
+            .map(|(&c, k)| {
+                let m = self.map.node(c).unwrap();
+                (k, dist(m.x, m.y, ux, uy), c)
+            })
+            .min_by(|a, b| {
+                (a.0, a.1)
+                    .partial_cmp(&(b.0, b.1))
+                    .unwrap()
+                    .then(a.2.cmp(&b.2))
+            })
+            .map(|(_, _, c)| c)
+    }
+
     fn update_gather(&mut self, uid: Id, node: Id, phase: Phase, timer: f64, dt: f64) {
         let (team, r, carry) = {
             let u = self.u(uid);
@@ -2125,18 +2196,40 @@ impl World {
                 };
                 if self.approach(uid, tgt, if n.ether { r + 6.0 } else { r + 13.0 }, dt) {
                     let nm = self.map.node_mut(node).unwrap();
-                    let task = if nm.miners < 2 {
+                    let task = if nm.miners < MINE_SLOTS {
                         nm.miners += 1;
                         Task::Gather {
                             node,
                             phase: Phase::Mine,
-                            timer: (if n.ether { 2.8 } else { 2.0 }) / income,
+                            timer: (if n.ether {
+                                ETHER_MINE_TIME
+                            } else {
+                                SHARD_MINE_TIME
+                            }) / income,
+                        }
+                    } else if phase == Phase::Go || timer <= 0.0 {
+                        // Busy: like a worker in 1998, try a less crowded field close by (checked on arrival, then
+                        // every half second while waiting).
+                        match self.less_crowded_field(uid, &n, team) {
+                            Some(m) => {
+                                self.um(uid).last_node = Some(m);
+                                Task::Gather {
+                                    node: m,
+                                    phase: Phase::Go,
+                                    timer: 0.0,
+                                }
+                            }
+                            None => Task::Gather {
+                                node,
+                                phase: Phase::Wait,
+                                timer: 0.5,
+                            },
                         }
                     } else {
                         Task::Gather {
                             node,
                             phase: Phase::Wait,
-                            timer,
+                            timer: timer - dt,
                         }
                     };
                     self.um(uid).task = task;

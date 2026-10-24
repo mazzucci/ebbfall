@@ -57,7 +57,8 @@ export function updateHud() {
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 34); }
     sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${left} left`;
     hb.hidden = false; $('hpFill').style.width = (n.max ? n.amount / n.max * 100 : 0) + '%'; $('hpFill').style.background = `var(--${ether ? 'ether' : 'shard'})`;
-    stats.innerHTML = `<span>Left <b>${n.amount}</b></span><span>Harvesters <b>${n.miners}</b></span>`;
+    const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
+    stats.innerHTML = `<span>Left <b>${n.amount}</b></span><span>Harvesters <b>${working}</b></span>`;
     renderQueue(q, null); renderQueue($('selQueue'), null); grp.innerHTML = ''; grp.dataset.k = '';
     $('selMiniName').textContent = name.textContent; $('selMiniHp').textContent = `${n.amount} left`;
   } else if (sel.length === 1) {

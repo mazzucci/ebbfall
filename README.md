@@ -22,7 +22,21 @@ Mockups for review before anything is built. The game lives on `main`.
 ![](hud/C-phone-rax.png)
 ![](hud/C-phone-forge.png)
 
-## Buildings redesign (prototype renders from the game's 3D pipeline)
+## Buildings redesign v2: 2x2 Foundry (F1 hall vs F2 round tower), current Depot
+
+Close-up, both teams (F1 hall first, F2 tower second):
+
+![](buildings/v2_sheet_close.png)
+
+On a phone screen at the default zoom, and zoomed out with the enemy base:
+
+![](buildings/v2_sheet_phone.png)
+
+At the game's real pixel size:
+
+![](buildings/v2_sheet_game.png)
+
+## Buildings redesign v1 (prototype renders from the game's 3D pipeline)
 
 Current (left / top) vs proposed (right / bottom), on a phone screen at the default zoom and zoomed out with the enemy base:
 

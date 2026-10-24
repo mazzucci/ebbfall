@@ -17,7 +17,7 @@ pub mod world;
 use data::{BldgKind, UnitKind};
 pub use rng::Mulberry32;
 use wasm_bindgen::prelude::*;
-use world::{Event, World};
+use world::{Command, Event, World};
 
 /// Simulation ticks per second; `DT` is `1 / TICK_RATE`.
 pub const TICK_RATE: u32 = 30;
@@ -36,11 +36,9 @@ pub struct Game {
 }
 
 impl Game {
-    fn my_unit(&self, id: u32) -> bool {
-        self.w.unit(id).is_some_and(|u| u.team == self.me)
-    }
-    fn my_bldg(&self, id: u32) -> bool {
-        self.w.bldg(id).is_some_and(|b| b.team == self.me)
+    /// An order from this Game's player: applied for its seat (orders for anything else are ignored).
+    fn order(&mut self, cmd: Command) {
+        let _ = self.w.apply(self.me, &cmd);
     }
 }
 
@@ -51,11 +49,6 @@ fn res(r: Result<(), String>) -> String {
 /// Teams from JS are validated here: an out-of-range index would panic, and a panic poisons the Game object.
 fn valid_team(t: u8) -> Option<u8> {
     (t < 2).then_some(t)
-}
-
-/// Points from JS must be real numbers: NaN or infinity would poison comparisons in the rules (and the Game).
-fn finite(x: f64, y: f64) -> bool {
-    x.is_finite() && y.is_finite()
 }
 
 #[wasm_bindgen]
@@ -113,51 +106,35 @@ impl Game {
     // ---- orders: unit/building/node ids in, error message out ("" = ok) ----
     #[wasm_bindgen(js_name = moveTo)]
     pub fn move_to(&mut self, unit: u32, x: f64, y: f64) {
-        if self.my_unit(unit) && finite(x, y) {
-            self.w.move_to(unit, x, y);
-        }
+        self.order(Command::Move { unit, x, y });
     }
     #[wasm_bindgen(js_name = attackMove)]
     pub fn attack_move(&mut self, unit: u32, x: f64, y: f64) {
-        if self.my_unit(unit) && finite(x, y) {
-            self.w.attack_move(unit, x, y);
-        }
+        self.order(Command::AttackMove { unit, x, y });
     }
     #[wasm_bindgen(js_name = attackEnt)]
     pub fn attack_ent(&mut self, unit: u32, target: u32) {
-        if self.my_unit(unit) {
-            self.w.attack_ent(unit, target);
-        }
+        self.order(Command::Attack { unit, target });
     }
     #[wasm_bindgen(js_name = stopUnit)]
     pub fn stop_unit(&mut self, unit: u32) {
-        if self.my_unit(unit) {
-            self.w.stop_unit(unit);
-        }
+        self.order(Command::Stop { unit });
     }
     #[wasm_bindgen(js_name = holdUnit)]
     pub fn hold_unit(&mut self, unit: u32) {
-        if self.my_unit(unit) {
-            self.w.hold_unit(unit);
-        }
+        self.order(Command::Hold { unit });
     }
     #[wasm_bindgen(js_name = startGather)]
     pub fn start_gather(&mut self, unit: u32, node: u32) {
-        if self.my_unit(unit) {
-            self.w.start_gather(unit, node);
-        }
+        self.order(Command::Gather { unit, node });
     }
     #[wasm_bindgen(js_name = startBuild)]
     pub fn start_build(&mut self, unit: u32, bldg: u32) {
-        if self.my_unit(unit) {
-            self.w.start_build(unit, bldg);
-        }
+        self.order(Command::Build { unit, bldg });
     }
     /// Repair a damaged finished building of the same team (harvesters only; anything else is ignored).
     pub fn repair(&mut self, unit: u32, bldg: u32) {
-        if self.my_unit(unit) {
-            self.w.start_repair(unit, bldg);
-        }
+        self.order(Command::Repair { unit, bldg });
     }
     /// `builder` 0 = none.
     #[wasm_bindgen(js_name = placeBuilding)]
@@ -169,72 +146,75 @@ impl Game {
         ty: i32,
         builder: u32,
     ) -> String {
-        let (Some(k), Some(team)) = (
+        let (Some(kind), Some(_)) = (
             BldgKind::parse(kind),
             valid_team(team).filter(|&t| t == self.me),
         ) else {
             return "Unknown building or team".into();
         };
-        let builder = if self.my_unit(builder) { builder } else { 0 };
-        res(self
-            .w
-            .place_building(team, k, tx, ty, (builder != 0).then_some(builder))
-            .map(|_| ()))
+        let builder = (builder != 0).then_some(builder);
+        res(self.w.apply(
+            self.me,
+            &Command::Place {
+                kind,
+                tx,
+                ty,
+                builder,
+            },
+        ))
     }
     #[wasm_bindgen(js_name = queueUnit)]
     pub fn queue_unit(&mut self, bldg: u32, kind: &str) -> String {
-        let Some(k) = UnitKind::parse(kind) else {
+        let Some(kind) = UnitKind::parse(kind) else {
             return "Unknown unit".into();
         };
-        if !self.my_bldg(bldg) {
-            return "Not yours".into();
-        }
-        res(self.w.queue_unit(bldg, k))
+        res(self.w.apply(self.me, &Command::Queue { bldg, kind }))
     }
     #[wasm_bindgen(js_name = cancelQueue)]
     pub fn cancel_queue(&mut self, bldg: u32, i: u32) {
-        if self.my_bldg(bldg) {
-            self.w.cancel_queue(bldg, i as usize);
-        }
+        self.order(Command::CancelQueue {
+            bldg,
+            index: i as usize,
+        });
     }
     /// Research the next level of "weapons" or "armor" at one of our Foundries ("" = started).
     pub fn research(&mut self, bldg: u32, upgrade: &str) -> String {
         let Some(up) = data::Upgrade::parse(upgrade) else {
             return "Unknown upgrade".into();
         };
-        if !self.my_bldg(bldg) {
-            return "Not yours".into();
-        }
-        res(self.w.start_research(bldg, up))
+        res(self.w.apply(self.me, &Command::Research { bldg, up }))
     }
     /// Stop the research at one of our buildings (full refund).
     #[wasm_bindgen(js_name = cancelResearch)]
     pub fn cancel_research(&mut self, bldg: u32) {
-        if self.my_bldg(bldg) {
-            self.w.cancel_research(bldg);
-        }
+        self.order(Command::CancelResearch { bldg });
     }
 
     /// Cancel one of our unfinished buildings (75% refund).
     #[wasm_bindgen(js_name = cancelConstruction)]
     pub fn cancel_construction(&mut self, bldg: u32) {
-        if self.my_bldg(bldg) {
-            self.w.cancel_construction(bldg);
-        }
+        self.order(Command::CancelConstruction { bldg });
     }
     /// `node` 0 = none.
     #[wasm_bindgen(js_name = setRally)]
     pub fn set_rally(&mut self, bldg: u32, x: f64, y: f64, node: u32) {
-        if self.my_bldg(bldg) && finite(x, y) {
-            self.w.set_rally(bldg, x, y, (node != 0).then_some(node));
-        }
+        self.order(Command::Rally {
+            bldg,
+            x,
+            y,
+            node: (node != 0).then_some(node),
+        });
     }
     pub fn formation(&mut self, units: &[u32], x: f64, y: f64) {
-        if !finite(x, y) {
-            return;
-        }
-        let mine: Vec<u32> = units.iter().copied().filter(|&u| self.my_unit(u)).collect();
-        self.w.formation(&mine, x, y);
+        self.order(Command::Formation {
+            units: units.to_vec(),
+            x,
+            y,
+        });
+    }
+    /// Log every order given from now on (with its tick), for replays and desync reports.
+    pub fn record(&mut self, on: bool) {
+        self.w.record(on);
     }
 
     // ---- rule queries ----

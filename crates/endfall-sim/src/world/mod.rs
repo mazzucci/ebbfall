@@ -6,6 +6,7 @@
 //! and removal preserves order), so lookups are binary searches and "not found" means "dead".
 
 mod combat;
+mod command;
 mod construction;
 mod economy;
 mod fog;
@@ -18,6 +19,7 @@ use crate::jsmath::{self, PI, clamp, dist};
 use crate::map::{Id, Map, MapKind, Node, idx, in_map};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
+pub use command::{Command, Logged};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Phase {
@@ -324,6 +326,8 @@ pub struct World {
     pub sides_swapped: bool,
     /// Each team's side (headquarters, worker, Build list).
     pub factions: [&'static Faction; 2],
+    /// Applied commands with their tick and seat, while recording (see `record`).
+    pub log: Option<Vec<Logged>>,
     pub diff: usize,
     pub time: f64,
     pub tick: u32,
@@ -382,6 +386,7 @@ impl World {
             map_kind,
             sides_swapped: swap,
             factions: [&HUMANS, &HUMANS],
+            log: None,
             time: 0.0,
             tick: 0,
             units: Vec::new(),

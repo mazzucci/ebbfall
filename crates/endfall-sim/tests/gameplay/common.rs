@@ -358,6 +358,11 @@ pub const KINDS_U: [&str; 8] = [
 
 /// One random order through the same Game API the browser uses, with ids that may be stale or garbage.
 pub fn random_order(g: &mut Game, r: &mut Mulberry32) {
+    random_order_with(g, r, true);
+}
+
+/// A random order; `cheats` also allows granting resources (not a player order: it is never logged).
+pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
     let w = g.world();
     let mut ids: Vec<u32> = w
         .units
@@ -393,7 +398,7 @@ pub fn random_order(g: &mut Game, r: &mut Mulberry32) {
         9 => g.cancel_queue(a, r.below(7)),
         10 => g.set_rally(a, x, y, if r.below(2) == 0 { b } else { 0 }),
         11 => g.formation(&[a, b, pick(r)], x, y),
-        12 => g.set_resources(PLAYER, r.below(3000) as i32, r.below(1000) as i32),
+        12 if cheats => g.set_resources(PLAYER, r.below(3000) as i32, r.below(1000) as i32),
         13 => g.cancel_construction(a),
         14 => {
             let _ = g.research(a, ["weapons", "armor", "nonsense"][r.below(3) as usize]);

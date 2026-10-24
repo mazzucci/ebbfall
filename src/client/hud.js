@@ -314,6 +314,6 @@ export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('o
 
 export function setHint() {
   const h = $('hint');
-  h.textContent = ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or extractor'
+  h.textContent = ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or Ether Rig'
     : ui.mode === 'rally' ? 'Click where new units should gather' : ui.mode === 'repair' ? 'Click a damaged building to repair' : '';
 }

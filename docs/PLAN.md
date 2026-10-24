@@ -7,7 +7,7 @@ loop feels right.
 ## Where it stands (October 2026)
 
 - Playable prototype: one faction, one procedurally shaped 64x64 map, one scripted opponent with three difficulties.
-- Economy: shards (finite fields) and ether (vents that need an Extractor); supply from Core and Depots.
+- Economy: shards (finite fields) and ether (vents that need an Ether Rig); supply from Core and Depots.
 - Seven structures (Core, Depot, Ether Rig, Garrison, Foundry, Turret, Airfield), six units (Harvester,
   Trooper, Vanguard, Lancer, Medic, and the flying Wasp), fog of war, control groups, rally points, attack-move, hold.
 - Mouse, keyboard and touch controls. Works on a phone.
@@ -67,7 +67,7 @@ loop feels right.
   range, a shooter gets an answer even from beyond sight, a chased target well out of sight is let go, and units go back
   to their attack-move afterwards. Explicit attack orders stand. Side effect on balance: Wasps now focus the Troopers in
   a Trooper+Vanguard army and win (the Vanguards cannot shoot up); Troopers+Lancers still beat Wasps. Ether vents now
-  deplete (5000, like shard fields); a dry vent stays and its Extractor gives a trickle of 2 per trip; the AI keeps
+  deplete (5000, like shard fields); a dry vent stays and its Ether Rig gives a trickle of 2 per trip; the AI keeps
   one worker on a dry vent and taps the vent at its expansion.
 - [x] Mining like 1998 (2026-10-24): one Harvester mines a field or vent at a time (`MINE_SLOTS`); the rest wait. A
   Harvester that finds its field busy moves to a field within 7 tiles that has at least two fewer Harvesters on it

@@ -258,7 +258,7 @@ class BldgObj {
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
     if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
-    if (live && this.type === 'forge' && b.done && Math.random() < dt * 2.5) addEffect('puff', b.tx * TILE + (Math.random() < 0.5 ? 26 : 70), b.ty * TILE + 40, { vy: -22, life: 1.5 });
+    if (live && this.type === 'forge' && b.done && Math.random() < dt * 2.5) addEffect('puff', b.tx * TILE + (Math.random() < 0.5 ? 17 : 47), b.ty * TILE + 4, { vy: -22, life: 1.5 }); // from the Foundry's twin chimneys
   }
   show(v) { for (const s of [this.found, this.body, this.scaffold]) s.visible = s.visible && v; if (!v) { if (this.head) this.head.visible = false; if (this.glow) this.glow.visible = false; } }
   destroy() { for (const s of [this.found, this.body, this.scaffold, this.head, this.glow]) if (s) s.destroy(); }

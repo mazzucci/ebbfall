@@ -127,7 +127,7 @@ impl World {
             return Err("Gone".into());
         };
         let team = b.team;
-        if b.kind != BldgKind::Forge || !b.done {
+        if !b.kind.def().researches.contains(&up) || !b.done {
             return Err("Research happens at a finished Foundry".into());
         }
         if b.research.is_some() {
@@ -221,7 +221,7 @@ impl World {
     /// Returns whether the order took effect (refused for non-harvesters and vents without our extractor).
     pub fn start_gather(&mut self, uid: Id, node: Id) -> bool {
         let u = self.u(uid);
-        if u.kind != UnitKind::Harvester {
+        if !u.kind.def().worker {
             return false;
         }
         let team = u.team;
@@ -252,7 +252,7 @@ impl World {
     /// Whether `uid` may work on building `b`: a harvester of the same team, and the building is unfinished.
     pub fn can_build(&self, uid: Id, b: Id) -> bool {
         match (self.unit(uid), self.bldg(b)) {
-            (Some(u), Some(bd)) => u.kind == UnitKind::Harvester && u.team == bd.team && !bd.done,
+            (Some(u), Some(bd)) => u.kind.def().worker && u.team == bd.team && !bd.done,
             _ => false,
         }
     }
@@ -261,10 +261,7 @@ impl World {
     pub fn can_repair(&self, uid: Id, b: Id) -> bool {
         match (self.unit(uid), self.bldg(b)) {
             (Some(u), Some(bd)) => {
-                u.kind == UnitKind::Harvester
-                    && u.team == bd.team
-                    && bd.done
-                    && bd.maxhp - bd.hp >= 1.0
+                u.kind.def().worker && u.team == bd.team && bd.done && bd.maxhp - bd.hp >= 1.0
             }
             _ => false,
         }

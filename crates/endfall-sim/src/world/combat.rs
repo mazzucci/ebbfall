@@ -145,7 +145,7 @@ impl World {
                     _ => false,
                 };
                 let u = &mut self.units[i];
-                let answers = u.kind != UnitKind::Harvester && u.kind.def().damage_vs(by_air) > 0.0;
+                let answers = !u.kind.def().worker && u.kind.def().damage_vs(by_air) > 0.0;
                 match u.task {
                     Task::Idle | Task::AMove { .. } if answers => {
                         // Idle: come back to this spot afterwards (and the leash applies).
@@ -166,7 +166,7 @@ impl World {
                     if let Some(j) = self.ui(a) {
                         let o = &mut self.units[j];
                         if o.team != team
-                            || o.kind == UnitKind::Harvester
+                            || o.kind.def().worker
                             || o.kind.def().damage_vs(by_air) <= 0.0
                         {
                             continue;
@@ -282,7 +282,7 @@ impl World {
             && !self
                 .units
                 .iter()
-                .any(|u| u.team == PLAYER && u.kind == UnitKind::Harvester)
+                .any(|u| u.team == PLAYER && u.kind.def().worker)
         {
             self.over = true;
             self.winner = ENEMY as i32;

@@ -163,12 +163,12 @@ impl World {
         }
         if let Some(rl) = b.rally {
             match rl.node {
-                Some(n) if kind == UnitKind::Harvester => {
+                Some(n) if kind.def().worker => {
                     self.start_gather(u, n);
                 }
                 _ => self.move_to(u, rl.x, rl.y),
             }
-        } else if kind == UnitKind::Harvester && b.kind == BldgKind::Core {
+        } else if kind.def().worker && b.kind.def().dropoff {
             let (ux, uy) = (self.u(u).x, self.u(u).y);
             if let Some(nd) = self.nearest_node(ux, uy, b.team, false, 900.0) {
                 self.start_gather(u, nd);

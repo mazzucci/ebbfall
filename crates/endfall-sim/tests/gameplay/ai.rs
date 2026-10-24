@@ -751,3 +751,41 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
         }
     }
 }
+
+#[test]
+fn the_vael_ai_relights_a_dark_kiln() {
+    let mut w = World::with_setup(4242, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 200);
+    // Knock out every Spire: Kilns outside the Conflux field go dark.
+    let spires: Vec<Id> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Spire)
+        .map(|b| b.id)
+        .collect();
+    assert!(!spires.is_empty());
+    for s in spires {
+        w.damage(s, 1e6, None);
+    }
+    run(&mut w, 1);
+    let dark: Vec<Id> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.done && b.kind.def().needs_power && !b.powered)
+        .map(|b| b.id)
+        .collect();
+    assert!(!dark.is_empty(), "something went dark");
+    run(&mut w, 120);
+    for id in dark {
+        if let Some(b) = w.bldg(id) {
+            assert!(b.powered, "the AI put a new Spire by its dark {:?}", b.kind);
+        }
+    }
+}

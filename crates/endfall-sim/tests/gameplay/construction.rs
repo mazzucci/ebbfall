@@ -410,3 +410,109 @@ fn vael_production_needs_power_and_goes_dark_without_it() {
         "and the Scythe comes out"
     );
 }
+
+#[test]
+fn the_power_gate_is_the_only_thing_keeping_a_kiln_out() {
+    let mut w = rich_vael(4242);
+    let l = harvesters(&w, PLAYER);
+    let (cx, cy) = core(&w, PLAYER);
+    // A free spot outside every field: a Spire (no power needed) fits there, a Kiln does not.
+    let mut spot = None;
+    'find: for r in 9..14 {
+        for a in 0..24 {
+            let ang = a as f64 / 24.0 * std::f64::consts::TAU;
+            let (tx, ty) = (
+                (cx as f64 + 2.0 + ang.cos() * r as f64) as i32,
+                (cy as f64 + 2.0 + ang.sin() * r as f64) as i32,
+            );
+            let centre = ((tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE);
+            // Free ground for a 3x3 (two Spires cover it) plus a Spire's room beside it, and no field there.
+            let free = w.can_place(BldgKind::Spire, tx, ty, PLAYER)
+                && w.can_place(BldgKind::Spire, tx + 1, ty + 1, PLAYER);
+            if free
+                && w.can_place(BldgKind::Spire, tx + 3, ty, PLAYER)
+                && !w.powered_at(PLAYER, centre.0, centre.1)
+                && !w.can_place(BldgKind::Kiln, tx, ty, PLAYER)
+            {
+                spot = Some((tx, ty));
+                break 'find;
+            }
+        }
+    }
+    let (tx, ty) = spot.expect("an unpowered spot");
+    // An unfinished Spire beside it does not power it yet; the finished one does.
+    let s = w
+        .place_building(PLAYER, BldgKind::Spire, tx + 3, ty, Some(l[0]))
+        .unwrap();
+    run(&mut w, 3);
+    assert!(
+        !w.bldg(s).unwrap().done && !w.can_place(BldgKind::Kiln, tx, ty, PLAYER),
+        "a growing Spire powers nothing"
+    );
+    run(&mut w, 40);
+    assert!(w.bldg(s).unwrap().done);
+    assert!(
+        w.can_place(BldgKind::Kiln, tx, ty, PLAYER),
+        "inside the finished Spire's field the Kiln fits"
+    );
+}
+
+#[test]
+fn a_dark_ward_holds_its_fire_and_a_dark_loom_keeps_its_research() {
+    let mut w = rich_vael(4242);
+    let l = harvesters(&w, PLAYER);
+    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
+    build(&mut w, BldgKind::Kiln, l[1], 90);
+    let loom = build(&mut w, BldgKind::Loom, l[2], 90);
+    let ward = build(&mut w, BldgKind::Ward, l[3], 90);
+    // Darken them: no power source left at all.
+    w.damage(spire, 1e6, None);
+    let hq = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
+        .unwrap()
+        .id;
+    w.damage(hq, 1e6, None);
+    w.start_research(loom, Upgrade::Weapons).unwrap_or(());
+    run(&mut w, 1);
+    assert!(
+        !w.bldg(ward).unwrap().powered && !w.bldg(loom).unwrap().powered,
+        "dark"
+    );
+    let r = w.bldg(loom).unwrap().research;
+    let (x, y) = (
+        w.bldg(ward).unwrap().x + 4.0 * TILE,
+        w.bldg(ward).unwrap().y,
+    );
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
+    w.hold_unit(foe);
+    let hp = w.unit(foe).unwrap().hp;
+    run(&mut w, 5);
+    assert_eq!(
+        w.unit(foe).map(|u| u.hp),
+        Some(hp),
+        "a dark Ward does not fire"
+    );
+    assert_eq!(
+        w.bldg(loom).unwrap().research,
+        r,
+        "a dark Loom keeps its research where it was"
+    );
+}
+
+#[test]
+fn supply_blocked_names_the_right_building_for_each_race() {
+    let mut w = rich_vael(4242);
+    w.sup[PLAYER as usize] = [10, 10];
+    let hq = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
+        .unwrap()
+        .id;
+    assert_eq!(
+        w.queue_unit(hq, UnitKind::Lumen),
+        Err("Supply blocked. Build a Spire.".to_string())
+    );
+}

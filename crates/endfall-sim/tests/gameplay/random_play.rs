@@ -17,10 +17,12 @@ fn random_play_never_breaks_the_world_hard() {
 }
 #[test]
 fn random_play_never_breaks_the_world_with_the_vael() {
-    // The player on the Vael (random orders name every kind of both races), the AI on the humans.
+    // The Vael on either side (random orders name every kind of both races).
     let seeds: u32 = if cfg!(debug_assertions) { 3 } else { 12 };
     for seed in 0..seeds {
-        let mut g = Game::with_setup(seed * 7919 + 5, 1, 0, seed % 2, 1, 0);
+        // Vael player v human AI, human player v Vael AI, and Vael v Vael, in turn.
+        let (me, foe) = [(1, 0), (0, 1), (1, 1)][(seed % 3) as usize];
+        let mut g = Game::with_setup(seed * 7919 + 5, 1, 0, seed % 2, me, foe);
         let mut r = Mulberry32::new(seed ^ 0xbeef);
         for tick in 0..30 * 60 * 6 {
             if tick % 7 == 0 {

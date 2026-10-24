@@ -195,7 +195,21 @@ impl World {
         let exp_vent = exp_vent.filter(|&at| free_vent(self, at));
         let [used, cap] = self.sup[e as usize];
         let s = &self.factions[e as usize].ai;
-        let want = if cap - used <= 4 && cap < 200 && !building.contains(&s.supply) {
+        // Spire discipline: a building that went dark gets a new power source beside it before anything else.
+        let dark = my_b
+            .iter()
+            .filter_map(|&id| self.bldg(id))
+            .find(|b| b.done && b.kind.def().needs_power && !b.powered)
+            .map(|b| {
+                (
+                    b.tx as f64 + b.w as f64 / 2.0,
+                    b.ty as f64 + b.h as f64 / 2.0,
+                )
+            });
+        let relight = dark.filter(|_| s.supply.def().power > 0.0 && !building.contains(&s.supply));
+        let want = if relight.is_some()
+            || (cap - used <= 4 && cap < 200 && !building.contains(&s.supply))
+        {
             Some(s.supply)
         } else if (harv.len() >= 7
             && self.ai_count(&my_b, false, s.ether) == 0
@@ -239,7 +253,10 @@ impl World {
                     {
                         at
                     }
-                    _ => (cx, cy),
+                    _ => match relight {
+                        Some(at) if w == s.supply => at, // by the dark building
+                        _ => (cx, cy),
+                    },
                 };
                 self.find_spot(w, fx, fy)
             }

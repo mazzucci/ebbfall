@@ -42,29 +42,37 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .toast.bad{border-color:var(--bad);color:#ffb3b3}
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 #hint{position:absolute;left:10px;bottom:8px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
-#selMini{display:none;position:absolute;left:8px;top:8px;gap:8px;align-items:center;background:rgba(11,15,22,.72);border:1px solid var(--line2);border-radius:4px;padding:3px 8px;font:12px var(--mono);color:var(--muted);pointer-events:none;max-width:70%}
-#selMini b{color:var(--fg);font:600 12px var(--display);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
-#info{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-width:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}
-#info .title{display:flex;align-items:center;gap:10px;min-width:0} #selPor:empty{display:none}
-#info h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap}
+/* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */
+#info{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:10px 18px;overflow:hidden}
+#info .who{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 240px}
+#selPor{width:52px;height:52px;flex:none;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line2);border-radius:4px} #selPor:empty{display:none}
+#info .id{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+#info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
+#info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+#info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.life{display:flex;align-items:center;gap:8px} .life .bar{flex:1;max-width:200px;height:7px} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+#mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
+.st{display:flex;align-items:center;gap:4px;font:17px var(--mono);color:var(--fg);white-space:nowrap} .st b{font-weight:400}
+.st .ico{width:18px;height:18px;color:var(--muted)} .st em{font-style:normal;color:var(--ally2)} .st .por{width:22px;height:22px}
+.rs{display:flex;align-items:center;gap:10px;min-width:190px} .rs>.ico{width:30px;height:30px;color:var(--ether)}
+.rb{flex:1;display:flex;flex-direction:column;gap:6px} .rt{display:flex;align-items:center;gap:6px;font:600 14px var(--display);letter-spacing:.04em;white-space:nowrap} .rt b{color:var(--ally2)}
+.pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--ether);background:var(--ether)}
+.bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px}
+#mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
+#mod .q .bar.prod{order:2;flex:1 1 100%;height:6px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
 .bar{height:8px;background:#0a0e14;border:1px solid var(--line);border-radius:2px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;background:var(--ok);transition:width .15s linear}
 .bar.prod i{background:var(--ally)}
-#stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:4px 10px;font:12px var(--mono);color:var(--muted)}
-#stats b{color:var(--fg);font-weight:400}
-#queue{display:flex;gap:4px;flex-wrap:wrap} #queue .bar.prod,#selQueue .bar.prod{flex:1 1 100%}
+#queue .bar.prod{flex:1 1 100%}
 /* Queued units: a tap or click cancels one (a small ✕ shows they can be cancelled). */
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
 .qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
-#selQueue{display:none;position:absolute;left:8px;top:40px;gap:4px;flex-wrap:wrap;max-width:46%;z-index:3}
-#selQueue:empty{display:none!important} #selQueue .qi{width:36px;height:36px;background:rgba(18,26,37,.9)}
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:6px;height:6px}
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
-#group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start}
+#group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start;flex:1 1 100%}
 .gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
 .gi b{position:absolute;right:2px;top:1px;font:600 8px var(--display);color:var(--ally2);text-shadow:0 0 2px #000} /* tells look-alike infantry apart */
@@ -116,9 +124,12 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #minimap{width:156px;height:156px}
   #info{display:none}
   #cmd{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:46px;grid-column:2;grid-row:1}
-  #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none} #selQueue{display:flex}
 }
-#upg{gap:10px;font-size:12px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:3px}
+#upg{gap:14px;font-size:13px;color:var(--muted)} #upg b{color:var(--ally2);margin-left:2px}
+/* Upgrades in the top bar: the icon and level; research under way fills a ring round the icon. */
+.up{position:relative;display:flex;align-items:center;gap:2px} .up .ico{width:16px;height:16px;color:var(--ally2)} .up.on .ico{color:var(--ether)} .up.on b{color:var(--ether);margin-left:6px}
+.ring{position:absolute;left:-4px;top:50%;width:24px;height:24px;transform:translateY(-50%) rotate(-90deg);fill:none;stroke-width:2;pointer-events:none}
+.ring circle{stroke:var(--line2)} .ring .p{stroke:var(--ether);stroke-dasharray:0 100;stroke-linecap:round}
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
 .tb{background:rgba(18,26,37,.86);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.06em;padding:5px 8px;cursor:pointer;display:flex;gap:6px;align-items:center}
@@ -144,8 +155,17 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #cmd{grid-template-columns:repeat(4,56px);grid-auto-rows:52px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
-  #selMini{display:flex} #selMini:has(#selMiniName:empty){display:none} #selQueue{display:flex}
-  #hint{left:126px;bottom:14px}
+  /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */
+  #info{display:flex;flex:0 1 auto;margin-right:auto!important;flex-wrap:nowrap;align-self:flex-end;max-width:540px;height:64px;margin:0 8px;padding:6px 10px;gap:12px;
+    background:rgba(18,26,37,.88);box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #info.empty{display:none}
+  #info .who{flex:0 1 auto;gap:9px} #selPor{width:48px;height:48px} #selPor .por{width:42px;height:42px}
+  #info .id{gap:4px} #info h2{font-size:14px} #info .sub{font-size:11px} .life .bar{width:96px;flex:none;height:6px} #hpNum{font-size:14px}
+  #mod{gap:12px;padding-left:12px;flex:0 1 auto} .st{font-size:15px} .st .ico{width:15px;height:15px}
+  .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
+  #mod .q{gap:4px;max-width:none} #mod .q .qi{width:34px;height:34px}
+  #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none}
+  #hint{left:126px;bottom:86px}
   /* SELECT sits above the minimap, under the left thumb, so the right hand can drag the box. */
   #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);
     min-width:104px;min-height:40px;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none}

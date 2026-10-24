@@ -36,8 +36,6 @@
     <canvas id="game"></canvas>
     <div id="msg"></div>
     <div id="hint" aria-live="polite"></div>
-    <div id="selMini"><b id="selMiniName"></b><span id="selMiniHp"></span></div>
-    <div id="selQueue" role="group" aria-label="Production queue"></div>
     <div id="cmdInfo" role="status" aria-live="polite" hidden></div>
     <div id="tools">
       <button class="tb alert" id="btnAlert" hidden title="Jump to the attack (Space)">⚠ ATTACK</button>
@@ -47,11 +45,15 @@
   </div>
   <footer id="hud">
     <canvas id="minimap" width="168" height="168"></canvas>
-    <div id="info">
-      <div class="title"><span id="selPor"></span><h2 id="selName">Nothing selected</h2><span class="sub" id="selSub">Click a unit or drag a box</span></div>
-      <div class="bar" id="hpBar" hidden><i id="hpFill"></i></div>
-      <div id="stats"></div>
-      <div id="queue"></div>
+    <div id="info" class="empty">
+      <div class="who">
+        <span id="selPor"></span>
+        <div class="id">
+          <div class="nm"><h2 id="selName">Nothing selected</h2><span class="sub" id="selSub">Click a unit or drag a box</span></div>
+          <div class="life" id="life" hidden><div class="bar" id="hpBar"><i id="hpFill"></i></div><span id="hpNum"></span></div>
+        </div>
+      </div>
+      <div id="mod"></div>
       <div id="group"></div>
     </div>
     <div id="cmd"></div>

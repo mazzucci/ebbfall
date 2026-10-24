@@ -311,10 +311,10 @@ function hpBar(x, y, w, hp, max) {
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
 }
 /** A progress bar with an optional count of queued items (small pips) after it. */
-function progressBar(x, y, w, f, color, pips = 0) {
-  bars.rect(x, y, w, 5).fill({ color: 0x000000, alpha: 0.7 });
-  bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), 3).fill(color);
-  for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, 5).fill(color);
+function progressBar(x, y, w, f, color, pips = 0, h = 5) {
+  bars.rect(x, y, w, h).fill({ color: 0x000000, alpha: 0.75 });
+  bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), h - 2).fill(color);
+  for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, h).fill(color);
 }
 /** Two bars: construction is paused because nobody is building. */
 function pauseMark(x, y, t) {
@@ -356,7 +356,7 @@ export function render(selList, place) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
       if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); }
       else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
-      if (b.done && b.research) progressBar(bx, by - 7, bw, b.research.prog, 0xb48cff);
+      if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xb48cff, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xb48cff, alpha: 0.7 }); } // research: taller, outlined
     }
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {

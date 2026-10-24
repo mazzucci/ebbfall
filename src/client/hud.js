@@ -26,11 +26,11 @@ export const buildersOf = (b) => G.units.filter(u => u.task.t === 'build' && u.t
 
 export const ROMAN = ['', 'I', 'II', 'III'];
 
-/** One line describing a building's state: construction (and whether it is paused) or what it is training. */
+/** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) return 'Constructing ' + Math.round(b.progress * 100) + '%' + (buildersOf(b).length ? '' : ' (paused: no builder)');
-  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv] + ' ' + Math.round(b.research.prog * 100) + '%' + (b.queue.length ? ' · training' : ''); }
-  if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + ' ' + Math.round(b.prog * 100) + '%' + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
+  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Construction paused: no builder';
+  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
+  if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
   if (b.type === 'extractor' && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
   return '';
@@ -43,57 +43,99 @@ export function updateHud() {
   const [s, e] = G.res[PLAYER], [su, sc] = G.sup[PLAYER];
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc); $('clock').textContent = fmt(G.time);
-  const up = G.upgrades[PLAYER]; $('upg').hidden = !(up.weapons || up.armor);
-  $('upg').innerHTML = `<span title="Weapons">W<b>${ROMAN[up.weapons] || '0'}</b></span><span title="Armor">A<b>${ROMAN[up.armor] || '0'}</b></span>`;
+  renderUpgrades();
   ui.sel = ui.sel.filter(x => !x.dead);
-  const sel = ui.sel, name = $('selName'), sub = $('selSub'), stats = $('stats'), q = $('queue'), grp = $('group'), hb = $('hpBar');
+  renderSelection();
+  buildCard();
+}
+
+/** A figure in the panel: an icon, the base value and, in gold, what upgrades add. */
+const stat = (ico, v, bonus, title) => `<span class="st" title="${title}">${icon(ico)}<b>${v}</b>${bonus ? `<em>+${bonus}</em>` : ''}</span>`;
+/** What a unit or turret can do in a fight, in as few numbers as possible: damage (ground, air) and armor. */
+function fightStats(x) {
+  const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons;
+  let h = '';
+  if (x.d.dmg && x.type !== 'harvester') h += stat('dmg', x.d.dmg, bonus, 'Damage against ground');
+  if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
+  if (x.d.heal) h += stat('heal', x.d.heal, 0, 'Heals infantry (per second)');
+  h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? up.armor : 0, 'Armor');
+  if (x.kind === 'unit' && x.carry) h += `<span class="st" title="Carrying">${icon('gather')}<b>${x.carry}</b>&nbsp;${x.carryType}</span>`;
+  return h;
+}
+
+/** The research a building is doing: the upgrade, its level (pips for I-III) and a bar. */
+function researchModule(b) {
+  const k = b.research.type, lv = G.upgrades[b.team][k] + 1;
+  return `<div class="rs" title="Researching ${UPGRADES[k].name} ${ROMAN[lv]}">${icon(k)}<div class="rb"><div class="rt">${UPGRADES[k].name} <b>${ROMAN[lv]}</b><span class="pips">${[1, 2, 3].map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span></div><div class="bar res"><i></i></div></div></div>`;
+}
+
+let modKey = '';
+/** The selection console: portrait, name and a few words, a health bar, then one module (fight figures, research,
+ * the production queue, construction, or the tiles of a group). Rebuilt only when what it shows changes, so its
+ * buttons survive between frames; bars and numbers update in place. */
+function renderSelection() {
+  const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
+  const life = (f, txt, color = '') => { $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color; $('hpNum').textContent = txt; };
+  const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
+  info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;
   if (!sel.length) {
-    name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; hb.hidden = true; $('selPor').innerHTML = ''; selKey = '';
-    stats.innerHTML = ''; renderQueue(q, null); renderQueue($('selQueue'), null); grp.innerHTML = ''; grp.dataset.k = ''; $('selMiniName').textContent = ''; $('selMiniHp').textContent = '';
+    name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
+    module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
   } else if (sel.length === 1 && sel[0].kind === 'node') {
-    // A resource field: what is left and who mines it.
-    const n = sel[0], ether = n.type === 'ether', left = ether ? 'ether' : 'shards';
+    // A resource field: what is left and who works it.
+    const n = sel[0], ether = n.type === 'ether';
     name.textContent = ether ? 'Ether vent' : 'Shard field';
-    if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 34); }
-    sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${left} left`;
-    hb.hidden = false; $('hpFill').style.width = (n.max ? n.amount / n.max * 100 : 0) + '%'; $('hpFill').style.background = `var(--${ether ? 'ether' : 'shard'})`;
+    if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
+    sub.textContent = ether && !n.extractor ? 'Build an Ether Extractor on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
+    life(n.max ? n.amount / n.max : 0, String(n.amount), `var(--${ether ? 'ether' : 'shard'})`);
     const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
-    stats.innerHTML = `<span>Left <b>${n.amount}</b></span><span>Harvesters <b>${working}</b></span>`;
-    renderQueue(q, null); renderQueue($('selQueue'), null); grp.innerHTML = ''; grp.dataset.k = '';
-    $('selMiniName').textContent = name.textContent; $('selMiniHp').textContent = `${n.amount} left`;
+    module('node' + working, `<span class="st" title="Harvesters working it">${portrait('unit', 'harvester', 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
-    const x = sel[0];
+    const x = sel[0], own = x.team === PLAYER;
     name.textContent = x.d.name;
-    if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 34, x.team); }
-    sub.textContent = x.team === PLAYER ? (x.kind === 'unit' ? taskName(x) : bldgStatus(x)) : 'Enemy';
-    hb.hidden = false; $('hpFill').style.width = (x.hp / x.maxhp * 100) + '%'; $('hpFill').style.background = '';
-    let st = `<span>HP <b>${Math.ceil(x.hp)}/${x.maxhp}</b></span><span>Armor <b>${x.d.armor || 0}</b></span>`;
-    const up = G.upgrades[x.team] || { weapons: 0, armor: 0 }, bonus = (UP_DMG[x.type] || 0) * up.weapons, plus = bonus ? `+${bonus}` : '';
-    if (x.d.dmg || x.d.dmgAir) st += `<span>Damage <b>${x.d.dmg ? x.d.dmg + plus : '–'}${x.d.dmgAir ? ' / air ' + x.d.dmgAir + plus : ''}</b></span><span>Range <b>${x.d.range}</b></span>`;
-    if (x.kind === 'unit' && up.armor) st = st.replace(`Armor <b>${x.d.armor || 0}</b>`, `Armor <b>${x.d.armor || 0}+${up.armor}</b>`);
-    if (x.d.heal) st += `<span>Heals <b>${x.d.heal}/s</b></span>`;
-    if (x.kind === 'unit') st += `<span>Sight <b>${x.d.sight}</b></span>`;
-    if (x.kind === 'unit' && x.carry) st += `<span>Carrying <b>${x.carry} ${x.carryType}</b></span>`;
-    stats.innerHTML = st;
-    const own = x.kind === 'bldg' && x.team === PLAYER;
-    renderQueue(q, own ? x : null, 26); renderQueue($('selQueue'), own ? x : null, 28);
-    grp.innerHTML = ''; grp.dataset.k = '';
-    $('selMiniName').textContent = x.d.name;
-    $('selMiniHp').textContent = (x.kind === 'bldg' && x.team === PLAYER && bldgStatus(x)) || Math.ceil(x.hp) + '/' + x.maxhp;
+    if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
+    // (research and training: the module below names what and shows how far)
+    sub.textContent = !own ? 'Enemy' : x.kind === 'unit' ? taskName(x) : x.done && x.research ? 'Researching' : x.done && x.queue.length ? 'Training' : bldgStatus(x);
+    life(x.hp / x.maxhp, Math.ceil(x.hp) + '/' + x.maxhp);
+    if (x.kind === 'bldg' && own && !x.done) {
+      module('build' + x.id, '<div class="bar build"><i></i></div>');
+      mod.querySelector('i').style.width = (x.progress * 100) + '%';
+    } else if (x.kind === 'bldg' && own && x.research) {
+      module('res' + x.id + x.research.type + G.upgrades[x.team][x.research.type], researchModule(x));
+      mod.querySelector('.res i').style.width = (x.research.prog * 100) + '%';
+    } else if (x.kind === 'bldg' && own && x.queue.length) {
+      module('q' + x.id, '<div id="queue" class="q"></div>');
+      renderQueue($('queue'), x, 30);
+    } else if (x.kind === 'unit' || x.d.dmg || x.d.dmgAir) {
+      const h = fightStats(x); module('f' + h, h);
+    } else module('', '');
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
-    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; renderQueue(q, null); renderQueue($('selQueue'), null);
+    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
-    hb.hidden = true; stats.innerHTML = '';
+    $('life').hidden = true;
     const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
       grp.innerHTML = shown.map(x => `<div class="gi" title="${x.d.name}">${portrait(x.kind, x.type, 26, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
     }
     shown.forEach((x, i) => { grp.children[i].lastChild.style.width = (x.hp / x.maxhp * 100) + '%'; });
-    $('selMiniName').textContent = sel.length + ' units'; $('selMiniHp').textContent = sub.textContent;
   }
-  buildCard();
+}
+
+/** Top bar: upgrade levels, and research under way as a ring filling round its icon (whatever is selected). */
+function renderUpgrades() {
+  const up = G.upgrades[PLAYER], el = $('upg');
+  let key = '', html = '';
+  for (const k of Object.keys(UPGRADES)) {
+    const r = G.bldgs.find(b => b.team === PLAYER && b.research?.type === k), lv = up[k] + (r ? 1 : 0);
+    if (!lv) continue;
+    key += k + lv + (r ? 'r' : '');
+    html += `<span class="up${r ? ' on' : ''}" data-k="${k}" title="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}">${r ? '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><circle class="p" cx="12" cy="12" r="10.5" pathLength="100"/></svg>' : ''}${icon(k)}<b>${ROMAN[lv]}</b></span>`;
+  }
+  el.hidden = !key;
+  if (el.dataset.k !== key) { el.dataset.k = key; el.innerHTML = html; }
+  for (const b of G.bldgs) if (b.team === PLAYER && b.research) { const p = el.querySelector(`[data-k="${b.research.type}"] .p`); if (p) p.style.strokeDasharray = `${b.research.prog * 100} 100`; }
 }
 
 function taskName(u) {
@@ -197,8 +239,8 @@ function buildCard() {
 }
 
 /**
- * A building's production queue: a progress bar and one button per unit; a click or tap cancels that unit (full
- * refund). Used by the selection panel and, on phones, by the strip under the selection label.
+ * A building's production queue in the selection console: a progress bar and one button per unit; a click or tap
+ * cancels that unit (full refund).
  */
 function renderQueue(box, b, size = 26) {
   if (!box) return;
@@ -219,7 +261,7 @@ function queueClick(ev) {
   if (at >= 0) { cancelQueue(b, at); sfx('select'); }
   updateHud();
 }
-for (const id of ['queue', 'selQueue']) { const el = $(id); if (el) { el.addEventListener('click', queueClick); el.addEventListener('pointerdown', ev => ev.stopPropagation()); } }
+{ const el = $('mod'); if (el) { el.addEventListener('click', queueClick); el.addEventListener('pointerdown', ev => ev.stopPropagation()); } }
 
 // ---- long-press on a command button (touch): what it is, what it costs, what it needs ----
 const press = { timer: 0, held: '', hide: 0 };

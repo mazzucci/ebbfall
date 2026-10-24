@@ -21,3 +21,17 @@ Mockups for review before anything is built. The game lives on `main`.
 ![](hud/C-phone-trooper.png)
 ![](hud/C-phone-rax.png)
 ![](hud/C-phone-forge.png)
+
+## Buildings redesign (prototype renders from the game's 3D pipeline)
+
+Current (left / top) vs proposed (right / bottom), on a phone screen at the default zoom and zoomed out with the enemy base:
+
+![](buildings/sheet_phone.png)
+
+Proposed, up close, both teams:
+
+![](buildings/sheet_close.png)
+
+At the game's real pixel size:
+
+![](buildings/sheet_game.png)

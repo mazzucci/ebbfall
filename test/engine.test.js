@@ -188,3 +188,14 @@ test('the WASM sim agrees with the native one: the same golden hashes (crates/en
     assert.deepEqual(got, want, `seed ${seed}`);
   }
 });
+
+test('the client mirror reads every snapshot field the sim declares (crates/endfall-sim/src/snapshot.rs)', () => {
+  const src = readFileSync(new URL('../src/engine/core.js', import.meta.url), 'utf8');
+  const by = { unit: 'fu', bldg: 'fb', proj: 'fp', node: 'fn', info: 'fi' };
+  for (const [rec, v] of Object.entries(by)) {
+    for (const f of C.SCHEMA[rec]) {
+      if (/^q[1-9]$/.test(f)) continue; // queue slots: read as q0 + k
+      assert.ok(src.includes(`${v}.${f}`), `core.js does not read ${rec}.${f}`);
+    }
+  }
+});

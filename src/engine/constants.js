@@ -2,6 +2,7 @@
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
 // Costs are [shards, ether]. Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
+if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
 
 export const TILE = D.consts.tile;
 export const MW = D.consts.mw;

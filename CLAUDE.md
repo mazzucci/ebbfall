@@ -93,7 +93,7 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 - Anything the player should see or hear that is not world state (sounds, toasts, explosions) is an event:
   `emit({t:'sfx'|'toast'|'burst'|'hit'|'fire', ...})`. The client drains `G.events` each frame in `main.js`.
 - Player intent enters the sim only through the orders on `Game` (move, attack, gather, build, place, queue,
-  cancel, rally, formation). They take ids and plain numbers/strings: these are the future network commands.
+  cancel, rally, formation), each a `Command` applied for a seat by `World::apply` (logged and replayable). They take ids and plain numbers/strings: these are the future network commands.
   The client calls them through src/engine/core.js, which accepts entity objects and passes their ids.
 - Iteration order matters for determinism: iterate arrays, not `Set`/`Map` built from object identity, and sort
   with total orderings (tie-break on `id`).

@@ -183,7 +183,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     const [mm, info, cmd] = await Promise.all(['#minimap', '#info', '#cmd'].map(q => d.page.locator(q).boundingBox()));
     assert.ok(info.x >= mm.x + mm.width && info.x + info.width <= cmd.x, 'the console sits between the minimap and the command card');
     assert.ok(info.height <= 70 && info.y + info.height <= 390, 'low, at the bottom of the screen');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Move', 'Stop', 'Attack', 'Hold', 'Deselect'], 'a Harvester card leads with Build');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Attack', 'Hold'], 'a Harvester card: three a row, leading with Build');
     await d.pressCard('Build');
     const depot = d.page.locator('#cmd button', { hasText: 'Depot' });
     assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
@@ -311,8 +311,8 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(rax.id);
     await d.pressCard('Vanguard');
     let slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Vanguard', 'Rally', '', 'Cancel', 'Deselect'], 'the Garrison card');
-    await d.page.locator('#cmd > :nth-child(7)').click(); // cancel the Vanguard
+    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Vanguard', 'Rally', 'Cancel'], 'the Garrison card');
+    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the Vanguard
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0);
     await d.clickEntity(forge.id);
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && c.enabled), 'Weapons I offered');
@@ -325,9 +325,9 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     assert.ok(await d.page.locator('#upg .up.on .ring').isVisible(), 'and the top bar shows it, whatever is selected');
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', '', '', 'Cancel', '', 'Deselect'], 'the Forge card: research, its cancel, Deselect bottom-right');
+    assert.deepEqual(slots, ['Weapons I', 'Armor I', 'Cancel'], 'the Forge card: research and its cancel');
     const before = (await d.state()).res;
-    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the research
+    await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
     assert.ok(after[0] - before[0] >= 100 && after[1] - before[1] === 100, 'cancel refunds in full');
     await d.pressCard('Weapons I');
@@ -404,7 +404,7 @@ test('a resource field can be selected to see what is left (desktop click, phone
       assert.deepEqual(sel.map(e => e.kind), ['node'], `${d.touch ? 'phone' : 'desktop'}: the field is selected`);
       const left = await d.eval((id) => endfall.map.nodes.find(n => n.id === id).amount, node.id);
       assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (shards )?left`), 'shows what is left');
-      assert.ok((await d.card()).some(c => c.label === 'Deselect'), 'a Deselect button for the field');
+      assert.equal((await d.card()).length, 0, 'nothing to command on a field');
       assert.match(await d.hudText('#selName', /Shard field/), /Shard field/);
       // Ether vents too (the player's own: in sight).
       const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
@@ -504,7 +504,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
   try {
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
-    await d.pressCard('Build');
+    await d.pressCard('Build'); await d.pressCard('Advanced'); // the Foundry is on the advanced page
     const forge = d.page.locator('#cmd button', { hasText: 'Foundry' });
     const b = await forge.boundingBox();
     const cdp = await d.page.context().newCDPSession(d.page);
@@ -521,6 +521,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     assert.ok(await info.isHidden(), 'the details go a moment after the finger lifts');
     // Hold a greyed-out button while the money arrives (the card is rebuilt under the finger): no error, no press.
     await d.grant(0, 0);
+    await d.pressCard('Back'); // to the basic page
     const depot = await d.page.locator('#cmd button', { hasText: 'Depot' }).boundingBox();
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: depot.x + depot.width / 2, y: depot.y + depot.height / 2 }] });
     await d.page.waitForTimeout(200); await d.grant(5000, 5000); await d.page.waitForTimeout(500);
@@ -568,6 +569,30 @@ test('a box over units and buildings selects only the units', async () => {
     assert.ok(sel.length >= 1 && sel.every(e => e.kind === 'unit'), `units only: ${JSON.stringify(sel)}`);
     await d.boxSelect(core.x - 20, core.y - 20, core.x + 20, core.y + 20); // the Core alone
     assert.deepEqual((await d.selection()).map(e => e.type), ['core'], 'a box with no units selects the building');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: three buttons a row; the Build list has a basic and an advanced page; an armed order turns into Cancel', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    const h = mine(await d.state(), 'harvester')[0];
+    await d.clickEntity(h.id);
+    await d.pressCard('Build');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Depot', 'Garrison', 'Ether Rig', 'Turret', 'Advanced', 'Back'], 'the basic page');
+    await d.pressCard('Advanced');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Foundry', 'Airfield', 'Core', 'Back'], 'the advanced page');
+    await d.pressCard('Back');
+    assert.ok((await d.card()).some(c => c.label === 'Depot'), 'back to the basic page');
+    await d.pressCard('Back');
+    const cols = await d.page.$$eval('#cmd > *', els => new Set(els.map(e => Math.round(e.getBoundingClientRect().x))).size);
+    assert.equal(cols, 3, 'three columns');
+    await d.pressCard('Gather');
+    let card = await d.card();
+    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold'], 'Gather armed: its button is Cancel, in place');
+    await d.pressCard('Cancel');
+    assert.equal(await d.eval(() => endfall.ui.mode), null, 'Cancel disarms');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -59,7 +59,6 @@ function fightStats(x) {
   if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? up.armor : 0, 'Armor');
-  if (x.kind === 'unit' && x.carry) h += `<span class="st" title="Carrying" aria-label="Carrying ${x.carry} ${x.carryType}">${icon('gather')}<b>${x.carry}</b>&nbsp;${x.carryType}</span>`;
   return h;
 }
 
@@ -70,6 +69,7 @@ function researchModule(b) {
 }
 
 let modKey = '';
+const touchUi = matchMedia('(pointer: coarse)').matches;
 /** The selection console: portrait, name and a few words, a health bar, then one module (fight figures, research,
  * the production queue, construction, or the tiles of a group). Rebuilt only when what it shows changes, so its
  * buttons survive between frames; bars and numbers update in place. */
@@ -82,7 +82,7 @@ function renderSelection() {
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
   info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;
   if (!sel.length) {
-    name.textContent = 'Nothing selected'; sub.textContent = 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
+    name.textContent = 'Nothing selected'; sub.textContent = touchUi ? 'Tap a unit or a building' : 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
     module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
   } else if (sel.length === 1 && sel[0].kind === 'node') {
     // A resource field: what is left and who works it.
@@ -149,60 +149,63 @@ function taskName(u) {
 }
 
 /**
- * The command card: up to 4 x 3 fixed slots (slot = row * 4 + column), so a command keeps its place. Back /
- * Deselect is always the last slot of the card, cancels sit just left of it. A Harvester-only selection leads
- * with Build and Gather; anything with soldiers leads with the common orders.
+ * The command card: three buttons a row (big enough for a thumb), fixed slots (slot = row * 3 + column) so a command
+ * keeps its place. No Stop, Move or Deselect buttons: a tap on the ground moves, Hold stops, a tap on the ground
+ * lets go of a building, Esc deselects (their keys still work: `hidden` items have a key but no button). An armed order's own button
+ * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
+const COLS = 3;
+const BUILD_BASIC = ['depot', 'barracks', 'extractor', 'turret'], BUILD_ADV = ['forge', 'airfield', 'core'];
+/** Which button an armed order belongs to (it becomes that order's Cancel). */
+const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };
 export function cardItems() {
   const sel = playerSel();
-  if (!sel.length) return ui.sel.length ? [{ id: 'esc', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x', slot: 0 }] : []; // a field or an enemy
+  if (!sel.length) return []; // a field or an enemy: nothing to command
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const items = [];
   const at = (slot, it) => { while (items.some(i => i.slot === slot)) slot++; it.slot = slot; items.push(it); }; // never two in a slot
-  const armed = ui.mode && ui.mode !== 'build'; // Esc disarms an order first
-  const esc = (label, icn = 'x') => {
-    if (armed) { label = 'Cancel'; icn = 'back'; }
-    const rows = Math.max(2, Math.ceil((Math.max(-1, ...items.map(i => i.slot)) + 2) / 4));
-    at(rows * 4 - 1, { id: 'esc', label, key: 'Esc', cancel: true, icon: icn });
+  const hidden = (it) => items.push({ ...it, hidden: true, slot: -1 });
+  const bldgItem = (k) => {
+    const d = BUILDINGS[k];
+    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') };
   };
-  if (units.length) {
-    if (ui.mode === 'build') {
-      BUILD_ORDER.forEach((k, i) => {
-        const d = BUILDINGS[k];
-        at(i, { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
-      });
-      esc('Back', 'back');
-    } else {
-      const workers = units.some(u => u.type === 'harvester'), onlyWorkers = units.every(u => u.type === 'harvester');
-      const orders = [{ id: 'move', label: 'Move', key: 'M', icon: 'move' }, { id: 'stop', label: 'Stop', key: 'S', icon: 'stop' }, { id: 'attack', label: 'Attack', key: 'A', active: ui.mode === 'attack', icon: 'attack' }, { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-      const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', active: ui.mode === 'gather', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', active: ui.mode === 'repair', icon: 'repair', tip: 'Then click a damaged building. Costs a share of its price as it heals.' }];
-      // (no Attack for a selection that cannot shoot: an Observer, Medics)
-      const armed = units.some(u => u.d.dmg > 0 || u.d.dmgAir > 0);
-      const ord = armed ? orders : orders.filter(o => o.id !== 'attack');
-      const list = onlyWorkers ? [...work, ...ord] : workers ? [...ord, ...work] : ord;
-      list.forEach((it, i) => at(i, it));
-      esc('Deselect');
-    }
+  const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
+  if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
+    const adv = ui.mode === 'build2', page = adv ? BUILD_ADV : BUILD_BASIC;
+    page.forEach((k, i) => at(i, bldgItem(k)));
+    (adv ? BUILD_BASIC : BUILD_ADV).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
+    if (!adv) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: 'Foundry, Airfield and Command Core' });
+    at(5, adv ? { ...back, id: 'build1' } : back);
+  } else if (units.length) {
+    const workers = units.some(u => u.type === 'harvester'), onlyWorkers = units.every(u => u.type === 'harvester');
+    const canShoot = units.some(u => u.d.dmg > 0 || u.d.dmgAir > 0); // (no Attack for an Observer or Medics)
+    const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
+    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }];
+    if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
+    else { orders.forEach((it, i) => at(i, it)); if (workers) work.forEach((it, i) => at(COLS + i, it)); }
+    hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
   } else if (bl.length === 1) {
     const b = bl[0];
     if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: 'Send the nearest Harvester to finish construction' });
-    if (!b.done) at(6, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
-    if (b.done && b.d.trains?.length) b.d.trains.forEach((t, i) => {
+    if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
+    const trains = b.done ? b.d.trains || [] : [];
+    trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === PLAYER && o.type === d.req && o.done);
       at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc + (missing && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
     });
+    if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.type === 'forge') {
-      const after = b.d.trains ? b.d.trains.length : 0; // research follows the units on the first row
       Object.entries(UPGRADES).forEach(([k, u], i) => {
         const lv = G.upgrades[PLAYER][k] + 1, elsewhere = G.bldgs.some(o => o.team === PLAYER && o.research && o.research.type === k);
         if (lv > 3) return;
-        at(after + i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
+        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
       });
-      if (b.research) at(5, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
+      if (b.research) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }
-    if (b.queue.length) at(6, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, por: ['unit', b.queue[b.queue.length - 1]], badge: true, tip: 'Cancel the last unit in the queue (refund)' });
-    if (b.done && b.d.trains?.length) at(4, { id: 'rally', label: 'Rally', key: 'R', active: ui.mode === 'rally', icon: 'rally', tip: 'Then click where new units should go' });
-    esc('Deselect');
-  } else esc('Deselect');
+    if (b.queue.length) at(5, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, por: ['unit', b.queue[b.queue.length - 1]], badge: true, tip: 'Cancel the last unit in the queue (refund)' });
+  }
+  // An armed order: its button becomes Cancel (Esc), lit, in the same place.
+  const armedId = ARMED_BY[ui.mode], armedAt = items.find(i => i.id === armedId && !i.hidden);
+  if (armedAt) Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
   for (const it of items) if (it.cost && !canAfford(PLAYER, it.cost)) { // greyed out, but a tap says what is short
     const [sh, et] = G.res[PLAYER];
     it.poor = true;
@@ -212,7 +215,7 @@ export function cardItems() {
 }
 
 function buildCard() {
-  const items = cardItems();
+  const items = cardItems().filter(i => !i.hidden);
   if (press.held && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed)
   const key = JSON.stringify(items.map(i => [i.id, i.dis, i.locked, i.active, i.label, i.slot, i.poor, i.tip, i.por]));
   if (key === cardKey) return; cardKey = key;
@@ -289,7 +292,8 @@ export function doCommand(id) {
   if (id === 'stop') { units.forEach(stopUnit); ui.mode = null; return; }
   if (id === 'hold') { units.forEach(holdUnit); ui.mode = null; return; }
   if (id === 'move' || id === 'attack' || id === 'gather' || id === 'rally' || id === 'repair') { ui.mode = id; ui.place = null; setHint(); return; }
-  if (id === 'build') { ui.mode = 'build'; return; }
+  if (id === 'build' || id === 'build1') { ui.mode = 'build'; return; }
+  if (id === 'build2') { ui.mode = 'build2'; return; }
   if (id.startsWith('b_')) {
     const k = id.slice(2);
     if (!hasReq(PLAYER, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }

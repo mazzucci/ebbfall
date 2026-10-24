@@ -7,7 +7,7 @@ import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../../tools/chromium.mjs';
 
-const dist = fileURLToPath(new URL('../../dist/', import.meta.url));
+const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json' };
 
 let server, browser, base;
@@ -132,7 +132,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     /** Select a harvester by clicking it, then place `type` (by its hotkey) at tile (tx, ty) by clicking. */
     async buildWithUI(hotkey, type, tx, ty, harvesterId) {
       await d.clickEntity(harvesterId);
-      if (touch) { await d.pressCard('Build'); await d.pressCard(BUILD_LABEL[type]); }
+      if (touch) { await d.pressCard('Build'); if (['forge', 'airfield', 'core'].includes(type)) await d.pressCard('Advanced'); await d.pressCard(BUILD_LABEL[type]); }
       else { await d.key('b'); await d.key(hotkey); }
       const w = await ev((t) => endfall.engine.BUILDINGS[t], type);
       const [x, y] = await d.screen((tx + w.w / 2) * 32, (ty + w.h / 2) * 32);

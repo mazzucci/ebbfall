@@ -16,4 +16,4 @@ export const BLDG_LOOK = {
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
-export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, wasp: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960 };
+export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, wasp: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940 };

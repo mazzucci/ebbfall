@@ -84,6 +84,7 @@ kinds! {
         Prism => vael::PRISM,
         Monolith => vael::MONOLITH,
         Shrike => vael::SHRIKE,
+        Halo => vael::HALO,
     }
 }
 
@@ -131,8 +132,11 @@ pub struct UnitDef {
     pub air: bool,
     /// Living infantry (Medics heal these).
     pub bio: bool,
-    /// Hit points per second healed into nearby damaged infantry (Medic).
+    /// Hit points per second healed into nearby damaged infantry (Medic), or with `mend`, shield points into nearby
+    /// shielded allies (Halo).
     pub heal: f64,
+    /// The heal goes to shields, not hulls: the Halo mends any shielded ally, in combat too.
+    pub mend: bool,
     /// A finished building of this kind is needed to train the unit.
     pub req: Option<BldgKind>,
     /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
@@ -256,6 +260,7 @@ const UNIT: UnitDef = UnitDef {
     air: false,
     bio: false,
     heal: 0.0,
+    mend: false,
     req: None,
     up_dmg: 0.0,
     worker: false,

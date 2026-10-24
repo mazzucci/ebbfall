@@ -355,7 +355,7 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
     try {
       await d.grant(1000, 0);
       const depot = await buildAndFinish(d, 'd', 'depot', 0);
-      if (d.touch) assert.ok((await d.card()).some(c => c.label === 'Back'), 'phone: after placing, the Build list is back for the next building');
+      if (d.touch) assert.deepEqual(await d.selection(), [], 'phone: after placing, the worker is let go');
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
       // A mining harvester moves; a tap may miss it or pick a neighbour: retry, then follow the one selected.

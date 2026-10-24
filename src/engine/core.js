@@ -67,7 +67,7 @@ function sync() {
       const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
       bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false });
     }
-    b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
+    b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.planted = !!B[o + fb.planted]; b.powered = !!B[o + fb.powered]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
     b.rally = B[o + fb.has_rally] ? { x: B[o + fb.rally_x], y: B[o + fb.rally_y], node: nodes.get(B[o + fb.rally_node]) || null } : null;
     b.queue = []; for (let k = 0; k < B[o + fb.queue_len]; k++) b.queue.push(UNIT_KEYS[B[o + fb.q0 + k]]);
     b.research = B[o + fb.research] ? { type: UPGRADE_KEYS[B[o + fb.research] - 1], prog: B[o + fb.research_prog] } : null;

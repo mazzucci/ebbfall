@@ -285,3 +285,128 @@ fn the_foundry_takes_two_by_two_tiles() {
     assert_eq!(taken, 4, "it blocks four tiles");
     assert_eq!(BldgKind::Forge.def().name, "Foundry");
 }
+
+#[test]
+fn a_lumen_plants_a_vael_building_and_is_free_at_once() {
+    let mut w = rich_vael(4242);
+    let l = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    let site = w
+        .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
+        .unwrap();
+    let mut planted_at = None;
+    for t in 0..30 * 20 {
+        w.step();
+        if planted_at.is_none() && w.bldg(site).unwrap().planted {
+            planted_at = Some(t);
+            break;
+        }
+    }
+    assert!(
+        planted_at.is_some(),
+        "the Lumen reached the site and planted it"
+    );
+    assert!(
+        !matches!(w.unit(l[0]).unwrap().task, Task::Build { .. }),
+        "and went back to work at once"
+    );
+    // Ordered far away: the Spire still finishes in its build time.
+    w.move_to(l[0], 50.0, 50.0);
+    run(&mut w, BldgKind::Spire.def().build as u32 + 2);
+    assert!(w.bldg(site).unwrap().done, "it grew by itself");
+    assert!(
+        !w.can_build(l[1], site),
+        "nothing for a worker to do on a seed"
+    );
+    // The humans still build with a worker at the site.
+    let mut w = rich(4242);
+    let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Depot);
+    let d = w
+        .place_building(PLAYER, BldgKind::Depot, tx, ty, Some(h[0]))
+        .unwrap();
+    run(&mut w, 8);
+    assert!(!w.bldg(d).unwrap().planted);
+    w.stop_unit(h[0]);
+    let p = w.bldg(d).unwrap().progress;
+    run(&mut w, 5);
+    assert_eq!(w.bldg(d).unwrap().progress, p, "no builder, no progress");
+}
+
+#[test]
+fn vael_production_needs_power_and_goes_dark_without_it() {
+    let mut w = rich_vael(4242);
+    let l = harvesters(&w, PLAYER);
+    let (cx, cy) = core(&w, PLAYER);
+    // Out of every field: the Kiln cannot be placed there.
+    let far = (cx + 20).min(MW - 4);
+    assert!(
+        !w.can_place(BldgKind::Kiln, far, cy, PLAYER)
+            || w.powered_at(PLAYER, (far as f64 + 1.5) * TILE, (cy as f64 + 1.5) * TILE)
+    );
+    // A Spire, then a Kiln covered only by it (not by the Conflux).
+    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
+    let (sx, sy) = (w.bldg(spire).unwrap().x, w.bldg(spire).unwrap().y);
+    let (hx, hy) = (
+        w.bldg(
+            w.bldgs
+                .iter()
+                .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
+                .unwrap()
+                .id,
+        )
+        .unwrap()
+        .x,
+        w.bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
+            .unwrap()
+            .y,
+    );
+    let mut site = None;
+    'find: for dy in -8..=8 {
+        for dx in -8..=8 {
+            let (tx, ty) = ((sx / TILE) as i32 + dx, (sy / TILE) as i32 + dy);
+            let (kx, ky) = ((tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE);
+            if w.can_place(BldgKind::Kiln, tx, ty, PLAYER)
+                && endfall_sim::jsmath::dist(kx, ky, hx, hy) > 7.5 * TILE
+            {
+                site = Some((tx, ty));
+                break 'find;
+            }
+        }
+    }
+    let (tx, ty) = site.expect("a spot only the Spire covers");
+    let kiln = w
+        .place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1]))
+        .unwrap();
+    run(&mut w, 60);
+    assert!(w.bldg(kiln).unwrap().done && w.bldg(kiln).unwrap().powered);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    run(&mut w, 5);
+    let p = w.bldg(kiln).unwrap().prog;
+    assert!(p > 0.0, "training while powered");
+    // The Spire falls: the Kiln goes dark and its training pauses; a new Spire brings it back.
+    w.damage(spire, 1e6, None);
+    run(&mut w, 1);
+    let k = w.bldg(kiln).unwrap();
+    assert!(!k.powered, "dark without a Spire");
+    let p = k.prog;
+    run(&mut w, 5);
+    assert_eq!(w.bldg(kiln).unwrap().prog, p, "training pauses while dark");
+    let (stx, sty) = ((sx / TILE) as i32 - 1, (sy / TILE) as i32 - 1);
+    let s2 = w
+        .place_building(PLAYER, BldgKind::Spire, stx, sty, Some(l[2]))
+        .unwrap();
+    run(&mut w, 40);
+    assert!(
+        w.bldg(s2).unwrap().done && w.bldg(kiln).unwrap().powered,
+        "a new Spire powers it again"
+    );
+    run(&mut w, 30);
+    assert_eq!(
+        count(&w, PLAYER, UnitKind::Scythe),
+        1,
+        "and the Scythe comes out"
+    );
+}

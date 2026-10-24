@@ -64,6 +64,7 @@ record! {
         has_rally = b.rally.is_some() as u8, rally_x = b.rally.map_or(0.0, |r| r.x), rally_y = b.rally.map_or(0.0, |r| r.y),
         rally_node = b.rally.and_then(|r| r.node).unwrap_or(0), queue_len = b.queue.len(),
         q0 = queued(b, 0), q1 = queued(b, 1), q2 = queued(b, 2), q3 = queued(b, 3), q4 = queued(b, 4),
+        planted = b.planted as u8, powered = b.powered as u8,
         research = b.research.map_or(0.0, |(u, _)| u.index() as f64 + 1.0), research_prog = b.research.map_or(0.0, |(_, p)| p),
     }
 }

@@ -170,6 +170,10 @@ pub struct BldgDef {
     pub researches: &'static [Upgrade],
     /// Shield points over the hull (the Vael).
     pub shields: f64,
+    /// Works only inside a power field (placed in one, dark when none covers it).
+    pub needs_power: bool,
+    /// Radius (tiles, centre to building centre) of the power field this building casts when finished; 0 = none.
+    pub power: f64,
 }
 
 /// A playable side: its headquarters and worker (the start), and its Build list (basic and advanced pages).
@@ -182,6 +186,8 @@ pub struct Faction {
     pub build_advanced: &'static [BldgKind],
     /// Its workers repair damaged buildings (the Vael regenerate shields instead).
     pub repairs: bool,
+    /// Warp-in: a worker plants a site and is free at once; the building then grows by itself.
+    pub warp: bool,
 }
 
 pub const HUMANS: Faction = Faction {
@@ -197,6 +203,7 @@ pub const HUMANS: Faction = Faction {
     ],
     build_advanced: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Core],
     repairs: true,
+    warp: false,
 };
 
 /// The Vael: hovering ceramic constructs of living ether (docs: the design on the design-mockups branch).
@@ -213,6 +220,7 @@ pub const VAEL: Faction = Faction {
     ],
     build_advanced: &[BldgKind::Loom, BldgKind::Zenith, BldgKind::Conflux],
     repairs: false,
+    warp: true,
 };
 
 impl Faction {
@@ -539,6 +547,8 @@ const BLDG: BldgDef = BldgDef {
     hq: false,
     researches: &[],
     shields: 0.0,
+    needs_power: false,
+    power: 0.0,
 };
 const CORE: BldgDef = BldgDef {
     key: "core",
@@ -649,6 +659,7 @@ const CONFLUX: BldgDef = BldgDef {
     trains: &[UnitKind::Lumen],
     dropoff: true,
     hq: true,
+    power: 7.0,
     ..BLDG
 };
 const SPIRE: BldgDef = BldgDef {
@@ -660,6 +671,7 @@ const SPIRE: BldgDef = BldgDef {
     supply: 8,
     build: 25.0,
     sight: 6.0,
+    power: 6.5,
     ..BLDG
 };
 const SIPHON: BldgDef = BldgDef {
@@ -683,6 +695,7 @@ const KILN: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     trains: &[UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith],
+    needs_power: true,
     ..BLDG
 };
 const LOOM: BldgDef = BldgDef {
@@ -695,6 +708,7 @@ const LOOM: BldgDef = BldgDef {
     sight: 7.0,
     req: Some(BldgKind::Kiln),
     researches: &[Upgrade::Weapons],
+    needs_power: true,
     ..BLDG
 };
 const WARD: BldgDef = BldgDef {
@@ -712,6 +726,7 @@ const WARD: BldgDef = BldgDef {
     cd: 1.2,
     proj: Some(ProjKind::Bolt),
     up_dmg: 2.0,
+    needs_power: true,
     ..BLDG
 };
 const ZENITH: BldgDef = BldgDef {
@@ -726,6 +741,7 @@ const ZENITH: BldgDef = BldgDef {
     sight: 8.0,
     trains: &[UnitKind::Shrike],
     req: Some(BldgKind::Loom),
+    needs_power: true,
     ..BLDG
 };
 
@@ -873,8 +889,8 @@ pub fn data_json() -> String {
             let d = k.def();
             let trains: Vec<String> = d.trains.iter().map(|u| format!("\"{}\"", u.def().key)).collect();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"short\":\"{}\",\"hq\":{},\"shields\":{},\"researches\":[{}],\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
-                d.key, d.name, d.short, d.hq, d.shields, d.researches.iter().map(|u| format!("\"{}\"", u.key())).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
+                "\"{}\":{{\"name\":\"{}\",\"short\":\"{}\",\"hq\":{},\"shields\":{},\"needsPower\":{},\"power\":{},\"researches\":[{}],\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
+                d.key, d.name, d.short, d.hq, d.shields, d.needs_power, d.power, d.researches.iter().map(|u| format!("\"{}\"", u.key())).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
                 key_or_null(d.req), d.range, d.dmg, d.dmg_air, d.cd, opt(d.proj), d.up_dmg
             )
         })
@@ -914,8 +930,8 @@ pub fn data_json() -> String {
         .iter()
         .map(|f| {
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"hq\":\"{}\",\"worker\":\"{}\",\"buildBasic\":[{}],\"buildAdvanced\":[{}],\"repairs\":{}}}",
-                f.key, f.name, f.hq.def().key, f.worker.def().key, keys(f.build_basic), keys(f.build_advanced), f.repairs
+                "\"{}\":{{\"name\":\"{}\",\"hq\":\"{}\",\"worker\":\"{}\",\"buildBasic\":[{}],\"buildAdvanced\":[{}],\"repairs\":{},\"warp\":{}}}",
+                f.key, f.name, f.hq.def().key, f.worker.def().key, keys(f.build_basic), keys(f.build_advanced), f.repairs, f.warp
             )
         })
         .collect();

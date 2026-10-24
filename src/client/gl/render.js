@@ -255,6 +255,7 @@ class BldgObj {
       this.body.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height;
     }
     this.body.alpha = b.flash > 0 ? 0.75 : 1; // hit flash
+    this.body.tint = b.done && !b.powered ? 0x6f6a88 : 0xffffff; // dark: no power field covers it
     if (this.head) { this.head.visible = b.done && live; const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS; setTex(this.head, tex(`${this.look.head}_${b.team}_${dir}`)); this.head.position.set(b.x, b.y); }
     if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x, b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
     // Damage: smoke below half health, fire below a quarter.
@@ -384,7 +385,7 @@ export function render(selList, place) {
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
     if (b.team === PLAYER) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
-      if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); }
+      if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!b.planted && !G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); } // (a planted seed grows by itself)
       else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
       if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xb48cff, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xb48cff, alpha: 0.7 }); } // research: taller, outlined
     }
@@ -422,6 +423,7 @@ export function render(selList, place) {
     const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, PLAYER);
     setTex(ghost, tex(`bldg_${place.type}_${PLAYER}`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghost.tint = ok ? 0xb8ffc8 : 0xff7070;
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
+    if (d.needsPower) for (const s of G.bldgs) if (s.team === PLAYER && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.07 }).stroke({ width: 1.5, color: 0xb48cff, alpha: 0.6 }); // the power fields it must stand in
   }
   box.clear();
   if (drag.box) {

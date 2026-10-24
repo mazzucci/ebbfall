@@ -58,6 +58,8 @@ impl World {
             sh: d.shields, // a seed is shielded from the start
             maxsh: d.shields,
             hit_at: f64::NEG_INFINITY,
+            planted: false,
+            powered: true,
             progress: if done { 1.0 } else { 0.0 },
             done,
             queue: Vec::new(),

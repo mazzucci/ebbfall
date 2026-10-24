@@ -104,9 +104,24 @@ impl World {
         b.flash -= dt;
         b.cd -= dt;
         if !b.done {
+            if b.planted && self.advance_construction(bid, dt) {
+                self.finish_construction(bid, None);
+            }
             return;
         }
         let d = b.kind.def();
+        if d.needs_power {
+            let (bx, by, team, was) = (b.x, b.y, b.team, b.powered);
+            let on = self.powered_at(team, bx, by);
+            self.bm(bid).unwrap().powered = on;
+            if was && !on && team == PLAYER {
+                self.toast(format!("{} unpowered: build a Spire near it", d.name), true);
+            }
+            if !on {
+                return; // dark: no training, research or firing
+            }
+        }
+        let b = self.bm(bid).unwrap();
         if d.range > 0.0 && b.cd <= 0.0 {
             let (bx, by, team) = (b.x, b.y, b.team);
             if let Some(t) = self.find_target(
@@ -168,38 +183,66 @@ impl World {
         }
         if reached {
             self.um(uid).stuck = 0.0;
-            let bd = self.bm(b).unwrap();
-            let build = bd.kind.def().build;
-            bd.progress += dt / build;
-            bd.hp = bd.maxhp.min(bd.hp + dt / build * bd.maxhp * 0.9);
-            if bd.progress >= 1.0 {
-                bd.done = true;
-                bd.progress = 1.0;
-                // Snap to full unless it really took damage while going up (the per-tick sum lands an ulp short).
-                bd.hp = if bd.maxhp - bd.hp < 0.5 {
-                    bd.maxhp
-                } else {
-                    bd.maxhp.min(bd.hp)
-                };
-                let (bteam, name, vent) = (bd.team, bd.kind.def().name, bd.vent);
-                self.recalc_supply(bteam);
-                if bteam == PLAYER {
-                    self.toast(format!("{} complete", name), false);
-                    self.emit(Event::Sfx("done"));
-                }
-                let others: Vec<Id> = self
-                    .units
-                    .iter()
-                    .filter(|o| o.id != uid && o.task == (Task::Build { b }))
-                    .map(|o| o.id)
-                    .collect();
-                // The crew of a new Extractor starts mining its ether; other builders go back to their work.
-                for o in others.into_iter().chain([uid]) {
-                    if !vent.is_some_and(|v| self.start_gather(o, v)) {
-                        self.resume_after(o);
-                    }
-                }
+            if self.factions[team as usize].warp {
+                // Warp-in: plant the seed and go back to work; the building grows by itself.
+                self.bm(b).unwrap().planted = true;
+                self.resume_after(uid);
+                return;
+            }
+            if self.advance_construction(b, dt) {
+                self.finish_construction(b, Some(uid));
             }
         }
+    }
+
+    /// Construction progress for `dt` (a builder at work, or a planted warp site by itself). True when it is done.
+    pub(crate) fn advance_construction(&mut self, b: Id, dt: f64) -> bool {
+        let bd = self.bm(b).unwrap();
+        let build = bd.kind.def().build;
+        bd.progress += dt / build;
+        bd.hp = bd.maxhp.min(bd.hp + dt / build * bd.maxhp * 0.9);
+        if bd.progress < 1.0 {
+            return false;
+        }
+        bd.done = true;
+        bd.progress = 1.0;
+        // Snap to full unless it really took damage while going up (the per-tick sum lands an ulp short).
+        bd.hp = if bd.maxhp - bd.hp < 0.5 {
+            bd.maxhp
+        } else {
+            bd.maxhp.min(bd.hp)
+        };
+        true
+    }
+
+    /// A building just finished: supply, the news, and its crew back to work (`builder`: the one who finished it).
+    pub(crate) fn finish_construction(&mut self, b: Id, builder: Option<Id>) {
+        let bd = self.bldg(b).unwrap();
+        let (bteam, name, vent) = (bd.team, bd.kind.def().name, bd.vent);
+        self.recalc_supply(bteam);
+        if bteam == PLAYER {
+            self.toast(format!("{} complete", name), false);
+            self.emit(Event::Sfx("done"));
+        }
+        let others: Vec<Id> = self
+            .units
+            .iter()
+            .filter(|o| Some(o.id) != builder && o.task == (Task::Build { b }))
+            .map(|o| o.id)
+            .collect();
+        // The crew of a new Extractor starts mining its ether; other builders go back to their work.
+        for o in others.into_iter().chain(builder) {
+            if !vent.is_some_and(|v| self.start_gather(o, v)) {
+                self.resume_after(o);
+            }
+        }
+    }
+
+    /// Whether a point is inside one of `team`'s power fields (a finished Spire or Conflux near enough).
+    pub fn powered_at(&self, team: u8, x: f64, y: f64) -> bool {
+        self.bldgs.iter().any(|s| {
+            let p = s.kind.def().power;
+            s.team == team && s.done && p > 0.0 && dist(s.x, s.y, x, y) <= p * TILE
+        })
     }
 }

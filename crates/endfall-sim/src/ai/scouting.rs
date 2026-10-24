@@ -22,7 +22,7 @@ impl World {
                         (0..b.w).any(|x| self.vis[ENEMY as usize][idx(b.tx + x, b.ty + y)] != 0)
                     })
             })
-            .map(|b| (b.id, b.x, b.y, b.kind == BldgKind::Core))
+            .map(|b| (b.id, b.x, b.y, b.kind.def().hq))
             .collect();
         let air_seen = self.units.iter().any(|u| {
             u.team == PLAYER && u.kind.def().air && u.kind.def().armed() && self.ai_sees(u.x, u.y)

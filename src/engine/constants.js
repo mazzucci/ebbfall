@@ -29,7 +29,7 @@ const UNIT_TEXT = {
   scythe: { hot: 'S', desc: 'Fast hover-knight with ceramic blades. Closes on infantry; cannot hit flyers.' },
   prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
   monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers. Requires Loom.' },
-  shrike: { hot: 'R', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.' },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },

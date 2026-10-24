@@ -132,3 +132,25 @@ fn golden_hashes_pin_behaviour_during_refactors() {
         "behaviour changed: update EXPECTED only for an intended rule change"
     );
 }
+
+/// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
+const EXPECTED_VAEL: [u32; 3] = [411048230, 245628292, 3074610910];
+
+#[test]
+fn golden_hashes_pin_a_vael_game() {
+    let mut w = World::with_setup(4242, 1, MapKind::Standard, false, [&VAEL, &HUMANS]);
+    let mut got = [0u32; 3];
+    let mut c = 0;
+    for tick in 1..=CHECKS[2] {
+        w.step();
+        if tick == CHECKS[c] {
+            got[c] = w.state_hash();
+            c += 1;
+        }
+    }
+    println!("const EXPECTED_VAEL: [u32; 3] = {got:?};");
+    assert_eq!(
+        got, EXPECTED_VAEL,
+        "a Vael game changed: update EXPECTED_VAEL only for an intended rule change"
+    );
+}

@@ -44,8 +44,8 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
   for (const [k, u] of [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)]) {
     assert.ok(u.name && /^[A-Z]$/.test(u.hot) && u.desc, `${k} has a name, a hotkey and a description`);
   }
-  for (const [k, b] of Object.entries(C.BUILDINGS)) { // hotkeys within one card do not collide
-    const keys = b.trains.map(t => C.UNITS[t].hot);
+  for (const [k, b] of Object.entries(C.BUILDINGS)) { // hotkeys within one card do not collide (Rally R, Cancel X)
+    const keys = [...b.trains.map(t => C.UNITS[t].hot), ...(b.trains.length ? ['R', 'X'] : [])];
     assert.equal(new Set(keys).size, keys.length, `${k}: training hotkeys`);
   }
   for (const f of Object.values(C.FACTIONS)) {
@@ -181,8 +181,8 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
 
 test('the WASM sim agrees with the native one: the same golden hashes (crates/endfall-sim/tests/golden.rs)', { skip }, () => {
   // ashen-easy and glass-medium-swapped at 10 s and 1.5 min: browsers on any machine must compute the same game.
-  for (const [seed, diff, map, side, want] of [[4242, 0, 0, 0, [3305503495, 4049534581]], [1998, 1, 1, 1, [1618133316, 363769540]]]) {
-    const g = sim.Game.withMapSide(seed, diff, map, side), got = [];
+  for (const [seed, diff, map, side, want, race] of [[4242, 0, 0, 0, [3305503495, 4049534581], 0], [1998, 1, 1, 1, [1618133316, 363769540], 0], [4242, 1, 0, 0, [411048230, 245628292], 1]]) {
+    const g = sim.Game.withSetup(seed, diff, map, side, race, 0), got = []; // (race 1: a Vael player, golden_hashes_pin_a_vael_game)
     for (let t = 1; t <= 2700; t++) { g.step(); if (t === 300 || t === 2700) got.push(g.stateHash() >>> 0); }
     g.free();
     assert.deepEqual(got, want, `seed ${seed}`);

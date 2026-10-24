@@ -46,16 +46,14 @@ impl World {
             keep.push(r);
             let (ux, uy, idle) = (u.x, u.y, u.task == Task::Idle);
             let hunting = matches!(u.task, Task::Attack { target, .. }
-                if self.unit(target).is_some_and(|t| t.kind == UnitKind::Harvester));
+                if self.unit(target).is_some_and(|t| t.kind.def().worker));
             if hunting {
                 continue;
             }
             let prey = self
                 .units
                 .iter()
-                .filter(|o| {
-                    o.team == PLAYER && o.kind == UnitKind::Harvester && self.ai_sees(o.x, o.y)
-                })
+                .filter(|o| o.team == PLAYER && o.kind.def().worker && self.ai_sees(o.x, o.y))
                 .min_by(|a, b| {
                     dist(a.x, a.y, ux, uy)
                         .partial_cmp(&dist(b.x, b.y, ux, uy))

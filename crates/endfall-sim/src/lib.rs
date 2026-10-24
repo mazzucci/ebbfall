@@ -70,7 +70,6 @@ impl Game {
         }
     }
 
-    /// A new game where the player may start in the other base of the map (`side` 1); the client draws it.
     /// A new game with the races chosen (index into FACTIONS for the player and for the AI; unknown = Humans).
     #[wasm_bindgen(js_name = withSetup)]
     pub fn with_setup(seed: u32, diff: u32, map: u32, side: u32, player: u32, ai: u32) -> Game {
@@ -88,6 +87,7 @@ impl Game {
         }
     }
 
+    /// A new game where the player may start in the other base of the map (`side` 1); the client draws it.
     #[wasm_bindgen(js_name = withMapSide)]
     pub fn with_map_side(seed: u32, diff: u32, map: u32, side: u32) -> Game {
         Game {

@@ -27,7 +27,7 @@ export const MAPS = [
   { name: 'Cinder Divide', seed: 2077, kind: 4 },
   { name: 'Random', random: true },
 ];
-export const menu = { diff: 1, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name };
+export const menu = { diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0 };
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
@@ -35,6 +35,7 @@ const urlSeed = new URLSearchParams(location.search).get('seed');
 function choose(i) {
   const m = MAPS[i];
   menu.map = i;
+  menu.side = urlSeed !== null ? 0 : Math.random() < 0.5 ? 0 : 1; // which of the map's two bases is ours: drawn each game (?seed= keeps it fixed)
   if (!m.random) Object.assign(menu, { seed: m.seed, kind: m.kind, name: m.name });
   else if (urlSeed !== null) Object.assign(menu, { seed: (+urlSeed) >>> 0, kind: 0, name: mapName((+urlSeed) >>> 0) });
   else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: Math.floor(Math.random() * MAP_KINDS.length), name: mapName(seed) }); }
@@ -64,7 +65,7 @@ function soundLabel() { const on = !audio.muted; $('btnMenuSound').textContent =
 export function initMenu({ onStart, onSound }) {
   syncSound = onSound;
   const saved = +store.get('diff');
-  menu.diff = store.get('diff') !== null && [0, 1, 2].includes(saved) ? saved : 1;
+  menu.diff = store.get('diff') !== null && [0, 1, 2].includes(saved) ? saved : 0; // new players start on Easy
   if (store.get('muted') === '1') audio.muted = true;
   const diffs = document.querySelectorAll('#diff .ib');
   const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
@@ -73,7 +74,7 @@ export function initMenu({ onStart, onSound }) {
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
   $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
-  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); if (MAPS[menu.map].random) choose(menu.map); onStart(); }); // a random map is new each game
+  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); choose(menu.map); onStart(); }); // each game draws our starting base (and a random map is new)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full

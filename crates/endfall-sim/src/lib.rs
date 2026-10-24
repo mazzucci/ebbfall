@@ -76,6 +76,20 @@ impl Game {
         }
     }
 
+    /// A new game where the player may start in the other base of the map (`side` 1); the client draws it.
+    #[wasm_bindgen(js_name = withMapSide)]
+    pub fn with_map_side(seed: u32, diff: u32, map: u32, side: u32) -> Game {
+        Game {
+            w: World::with_map_side(
+                seed,
+                diff as usize,
+                map::MapKind::from_index(map),
+                side == 1,
+            ),
+            me: data::PLAYER,
+        }
+    }
+
     /// Start a new game on this instance.
     pub fn reset(&mut self, seed: u32, diff: u32) {
         self.w.reset(seed, diff as usize);

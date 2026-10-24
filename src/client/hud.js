@@ -11,7 +11,10 @@ export const $ = (id) => document.getElementById(id);
 export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
 
 /** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
+const lastToast = {};
 export function toast(msg, bad, silent) {
+  const now = performance.now(); if (now - (lastToast[msg] || -1e9) < 6000) return; // (no storm of the same message)
+  lastToast[msg] = now;
   const m = $('msg'); const d = document.createElement('div');
   d.className = 'toast' + (bad ? ' bad' : ''); d.textContent = msg; m.appendChild(d);
   while (m.children.length > 4) m.removeChild(m.firstChild);
@@ -28,7 +31,7 @@ export const ROMAN = ['', 'I', 'II', 'III'];
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Construction paused: no builder';
+  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
@@ -43,7 +46,7 @@ export function updateHud() {
   const [s, e] = G.res[PLAYER], [su, sc] = G.sup[PLAYER];
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc); $('clock').textContent = fmt(G.time);
-  renderUpgrades();
+  renderUpgrades(); watchSites();
   ui.sel = ui.sel.filter(x => !x.dead);
   renderSelection();
   buildCard();
@@ -70,6 +73,7 @@ function researchModule(b) {
 
 let modKey = '';
 const touchUi = matchMedia('(pointer: coarse)').matches;
+const compactMq = matchMedia('(max-width: 620px), (max-height: 500px) and (orientation: landscape) and (pointer: coarse)');
 /** The selection console: portrait, name and a few words, a health bar, then one module (fight figures, research,
  * the production queue, construction, or the tiles of a group). Rebuilt only when what it shows changes, so its
  * buttons survive between frames; bars and numbers update in place. */
@@ -117,6 +121,15 @@ function renderSelection() {
     name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     $('life').hidden = true;
+    if (compactMq.matches) { // small screens: one tile per type, with its count and the group's health
+      const types = [...new Set(sel.map(x => x.type))], gk = 't' + types.join() + sel.length;
+      if (grp.dataset.k !== gk) {
+        grp.dataset.k = gk;
+        grp.innerHTML = types.map(t => { const n = sel.filter(x => x.type === t).length; return `<div class="gi gt" title="${n} ${UNITS[t].name}">${portrait('unit', t, 26)}<b>${n}</b><i></i></div>`; }).join('');
+      }
+      types.forEach((t, i) => { const g = sel.filter(x => x.type === t), f = g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0); grp.children[i].lastChild.style.width = (f * 100) + '%'; });
+      return;
+    }
     const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
@@ -322,7 +335,19 @@ export function doCommand(id) {
 export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('on', !!ui.box); b.setAttribute('aria-pressed', String(!!ui.box)); } }
 
 export function setHint() {
-  const h = $('hint');
-  h.textContent = ui.place ? 'Click to place ' + BUILDINGS[ui.place.type].name + ' (Esc cancels)' : ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? 'Attack-move: click a target or the ground' : ui.mode === 'move' ? 'Click where to move' : ui.mode === 'gather' ? 'Click a shard field or Ether Rig'
-    : ui.mode === 'rally' ? 'Click where new units should gather' : ui.mode === 'repair' ? 'Click a damaged building to repair' : '';
+  const h = $('hint'), c = touchUi ? 'Tap' : 'Click';
+  h.textContent = ui.place ? `${c} to place ` + BUILDINGS[ui.place.type].name + (touchUi ? '' : ' (Esc cancels)') : ui.box ? 'Drag to select a group' : ui.mode === 'attack' ? `Attack-move: ${c.toLowerCase()} a target or the ground` : ui.mode === 'move' ? `${c} where to move` : ui.mode === 'gather' ? `${c} a shard field or Ether Rig`
+    : ui.mode === 'rally' ? `${c} where new units should gather` : ui.mode === 'repair' ? `${c} a damaged building to repair` : '';
+}
+
+/** A site of ours that loses its last builder says so (once): a thumb easily pulls a builder off without noticing. */
+const siteHadBuilder = new Map();
+function watchSites() {
+  for (const b of G.bldgs) {
+    if (b.team !== PLAYER || b.done) { siteHadBuilder.delete(b.id); continue; }
+    const has = buildersOf(b).length > 0;
+    if (siteHadBuilder.get(b.id) && !has) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
+    siteHadBuilder.set(b.id, has);
+  }
+  for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) siteHadBuilder.delete(id);
 }

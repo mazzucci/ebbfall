@@ -284,6 +284,8 @@ pub struct World {
     pub seed: u32,
     /// The map's character (kept for resets).
     pub map_kind: MapKind,
+    /// The players trade starting places (drawn by the client for each game; the map is point-symmetric, so fair).
+    pub sides_swapped: bool,
     pub diff: usize,
     pub time: f64,
     pub tick: u32,
@@ -330,11 +332,17 @@ impl World {
 
     /// A new game on a map of the given character (World::new is the standard map).
     pub fn with_map(seed: u32, diff: usize, map_kind: MapKind) -> World {
+        World::with_map_side(seed, diff, map_kind, false)
+    }
+
+    /// A new game where the two sides may trade starting places (`swap`): same map, the other corner.
+    pub fn with_map_side(seed: u32, diff: usize, map_kind: MapKind, swap: bool) -> World {
         let n = (MW * MH) as usize;
         let mut w = World {
             seed,
             diff,
             map_kind,
+            sides_swapped: swap,
             time: 0.0,
             tick: 0,
             units: Vec::new(),
@@ -387,6 +395,9 @@ impl World {
         self.alerts.clear();
         self.events.clear();
         self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
+        if self.sides_swapped {
+            self.map.bases.swap(0, 1);
+        }
         for team in [PLAYER, ENEMY] {
             let (bx, by) = self.map.bases[team as usize];
             self.make_building(BldgKind::Core, team, bx, by, true);

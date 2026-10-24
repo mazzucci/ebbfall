@@ -47,7 +47,7 @@ export const BUILD_ORDER = ['depot', 'barracks', 'extractor', 'turret', 'forge',
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 export const DIFF = [
   { name: 'Easy', income: 0.75, wave: 5, waveGrow: 2, harv: 10, rax: 1, first: 240, gap: 75 },
-  { name: 'Normal', income: 1.0, wave: 7, waveGrow: 3, harv: 13, rax: 2, first: 170, gap: 60 },
+  { name: 'Medium', income: 1.0, wave: 7, waveGrow: 3, harv: 13, rax: 2, first: 170, gap: 60 },
   { name: 'Hard', income: 1.35, wave: 9, waveGrow: 4, harv: 16, rax: 3, first: 120, gap: 45 },
 ];
 

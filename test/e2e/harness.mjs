@@ -44,7 +44,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
   if (touch) await page.locator('#btnPlay').tap(); // the phone's "tap to play" screen (goes full screen)
-  if (diff !== 1) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
+  if (diff !== 0) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
   await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());

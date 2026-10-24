@@ -4,7 +4,7 @@
 
 use endfall_sim::data::Upgrade;
 use endfall_sim::data::*;
-use endfall_sim::map::{Id, in_map};
+use endfall_sim::map::{Id, MapKind, in_map};
 #[allow(unused_imports)]
 use endfall_sim::world::{BUILDER_PATIENCE, REPAIR_COST};
 use endfall_sim::world::{Phase, Task, Unit, World};
@@ -1968,7 +1968,6 @@ fn units_under_a_new_building_step_out_without_stacking() {
 
 #[test]
 fn every_map_kind_generates_a_sound_map_with_its_character() {
-    use endfall_sim::map::MapKind;
     let rock_share =
         |w: &World| w.map.rock.iter().filter(|&&r| r != 0).count() as f64 / w.map.rock.len() as f64;
     // Rock share per kind, summed over the seeds: a single seed may need its rock relaxed to connect the fields.
@@ -3410,4 +3409,23 @@ fn the_foundry_takes_two_by_two_tiles() {
         .count();
     assert_eq!(taken, 4, "it blocks four tiles");
     assert_eq!(BldgKind::Forge.def().name, "Foundry");
+}
+
+#[test]
+fn sides_can_trade_starting_places_on_the_same_map() {
+    for seed in [4242, 1998, 7] {
+        let a = World::new(seed, 1);
+        let b = World::with_map_side(seed, 1, MapKind::Standard, true);
+        assert_eq!(a.map.rock, b.map.rock, "seed {seed}: the same map");
+        assert_eq!(
+            core(&a, PLAYER),
+            core(&b, ENEMY),
+            "seed {seed}: the player starts where the AI did"
+        );
+        assert_eq!(core(&a, ENEMY), core(&b, PLAYER));
+        assert_eq!(harvesters(&b, PLAYER).len(), 4);
+        let mut g = b;
+        run(&mut g, 120);
+        assert!(!g.over, "the swapped game plays");
+    }
 }

@@ -107,7 +107,7 @@ test('a building under construction shows its progress, and a stalled one can be
     const stalled = (await d.state()).bldgs.find(b => b.id === depot.id);
     assert.ok(!stalled.done && Math.abs(stalled.progress - depot.progress) < 1e-9, 'no builder, no progress');
     await d.clickEntity(depot.id);
-    assert.match(await d.hudText('#selSub', /paused/), /paused/, 'the panel says construction is paused');
+    assert.match(await d.hudText('#selSub', /Paused/), /Paused/, 'the panel says construction is paused');
     assert.ok((await d.card()).some(c => c.label === 'Resume'), 'a Resume button is offered');
     await d.pressCard('Resume');
     await until(d, async () => (await d.state()).bldgs.find(b => b.id === depot.id)?.done, { seconds: 60, what: 'the resumed depot to finish' });
@@ -449,6 +449,8 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       }
       assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
       assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
+      assert.equal(await page.locator('#diff .ib.on').textContent(), 'EASY', 'new players start on Easy');
+      assert.deepEqual(await page.$$eval('#diff .ib', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD']);
       await press('#maps .map:nth-child(2)');
       await press('#diff [data-d="2"]');
       await press('#btnMenuSound');
@@ -599,6 +601,31 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold'], 'Gather armed: its button is Cancel, in place');
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.mode), null, 'Cancel disarms');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: a site that loses its builder says so once; no keyboard letters; group tiles by type', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(2000, 0);
+    const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await d.skip(2);
+    // Pull the builder off: select it and send it to a shard field.
+    const node = (await d.state()).nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+    await d.clickEntity(h.id); await d.clickWorld(node.x, node.y);
+    await until(d, async () => (await d.toasts()).some(t => /paused: no builder/.test(t)), { seconds: 6, what: 'the paused-site toast' });
+    await d.skip(3);
+    assert.equal((await d.toasts()).filter(t => /paused: no builder/.test(t)).length, 1, 'said once');
+    assert.equal(await d.page.locator('#cmd .cb .k').first().isVisible().catch(() => false), false, 'no keyboard letters on touch');
+    // A mixed army: one tile per type with its count, inside the console.
+    await d.eval(([x, y]) => { for (let i = 0; i < 10; i++) endfall.engine.debugSpawn(0, 'trooper', x + (i % 5) * 22, y + Math.floor(i / 5) * 22); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', x + i * 22, y + 50); }, [core.x + 160, core.y + 150]);
+    await d.page.locator('#btnArmy').tap();
+    await d.page.waitForTimeout(400);
+    assert.deepEqual(await d.page.$$eval('#group .gt b', bs => bs.map(b => b.textContent)), ['10', '2'], 'Troopers x10, Lancers x2');
+    await insideConsole(d, '#group .gt');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

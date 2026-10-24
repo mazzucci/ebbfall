@@ -161,8 +161,9 @@ function taskName(u) {
 
 /**
  * The command card: three buttons a row (big enough for a thumb), fixed slots (slot = row * 3 + column) so a command
- * keeps its place. No Stop, Move or Deselect buttons: a tap on the ground moves, Hold stops, a tap on the ground
- * lets go of a building, Esc deselects (their keys still work: `hidden` items have a key but no button). An armed order's own button
+ * keeps its place. No Stop or Move buttons: a tap on the ground moves, Hold stops (their keys still work: `hidden`
+ * items have a key but no button). Units have Deselect in the last slot; a building or field is let go with a tap on
+ * the ground. An armed order's own button
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
@@ -194,6 +195,8 @@ export function cardItems() {
     const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }];
     if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
     else { orders.forEach((it, i) => at(i, it)); if (workers) work.forEach((it, i) => at(COLS + i, it)); }
+    // Let go of units (a tap on the ground would move them): the last slot of the card.
+    at(Math.ceil((Math.max(...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
   } else if (bl.length === 1) {
     const b = bl[0];
@@ -219,7 +222,7 @@ export function cardItems() {
   const armedId = ARMED_BY[ui.mode], armedAt = items.find(i => i.id === armedId && !i.hidden);
   if (armedAt) {
     Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
-    for (let i = items.length - 1; i >= 0; i--) if (items[i].cancel && items[i] !== armedAt) items.splice(i, 1); // one Cancel at a time
+    for (let i = items.length - 1; i >= 0; i--) if (items[i].id.startsWith('cancel')) items.splice(i, 1); // one Cancel at a time (Deselect stays)
   }
   for (const it of items) if (it.cost && !canAfford(PLAYER, it.cost)) { // greyed out, but a tap says what is short
     const [sh, et] = G.res[PLAYER];
@@ -303,6 +306,7 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
 
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
+  if (id === 'deselect') { ui.sel = []; ui.mode = null; ui.place = null; ui.box = false; setBox(); setHint(); updateHud(); return; }
   if (id === 'esc' && ui.mode === 'build2') { ui.mode = 'build'; return; } // Esc on the advanced page: back to the basic one
   if (id === 'esc') { if (ui.box) ui.box = false; else if (ui.mode || ui.place) { ui.mode = null; ui.place = null; } else { ui.sel = []; updateHud(); } setBox(); setHint(); return; }
   if (id === 'stop') { units.forEach(stopUnit); ui.mode = null; return; }

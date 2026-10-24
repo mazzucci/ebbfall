@@ -77,6 +77,8 @@ pub struct UnitDef {
     pub req: Option<BldgKind>,
     /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
     pub up_dmg: f64,
+    /// The faction's worker: mines, builds and repairs; it never starts a fight and is not a threat to anyone.
+    pub worker: bool,
 }
 
 /// Team-wide upgrades researched at the Foundry, three levels each.
@@ -142,7 +144,35 @@ pub struct BldgDef {
     pub proj: Option<ProjKind>,
     /// Extra damage per Weapons upgrade level (turrets).
     pub up_dmg: f64,
+    /// The faction's headquarters: what a side starts with.
+    pub hq: bool,
+    /// Upgrades researched here.
+    pub researches: &'static [Upgrade],
 }
+
+/// A playable side: its headquarters and worker (the start), and its Build list (basic and advanced pages).
+pub struct Faction {
+    pub key: &'static str,
+    pub name: &'static str,
+    pub hq: BldgKind,
+    pub worker: UnitKind,
+    pub build_basic: &'static [BldgKind],
+    pub build_advanced: &'static [BldgKind],
+}
+
+pub const HUMANS: Faction = Faction {
+    key: "humans",
+    name: "Humans",
+    hq: BldgKind::Core,
+    worker: UnitKind::Harvester,
+    build_basic: &[
+        BldgKind::Depot,
+        BldgKind::Barracks,
+        BldgKind::Extractor,
+        BldgKind::Turret,
+    ],
+    build_advanced: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Core],
+};
 
 pub const UNIT_KINDS: [UnitKind; 7] = [
     UnitKind::Harvester,
@@ -184,9 +214,11 @@ const UNIT: UnitDef = UnitDef {
     heal: 0.0,
     req: None,
     up_dmg: 0.0,
+    worker: false,
 };
 const HARVESTER: UnitDef = UnitDef {
     key: "harvester",
+    worker: true,
     cost: [50, 0],
     hp: 40.0,
     speed: 96.0,
@@ -326,9 +358,12 @@ const BLDG: BldgDef = BldgDef {
     cd: 0.0,
     proj: None,
     up_dmg: 0.0,
+    hq: false,
+    researches: &[],
 };
 const CORE: BldgDef = BldgDef {
     key: "core",
+    hq: true,
     name: "Command Core",
     cost: [400, 0],
     w: 4,
@@ -379,6 +414,7 @@ const BARRACKS: BldgDef = BldgDef {
 };
 const FORGE: BldgDef = BldgDef {
     key: "forge",
+    researches: &[Upgrade::Weapons, Upgrade::Armor],
     name: "Foundry",
     cost: [150, 100],
     hp: 820.0,
@@ -445,6 +481,10 @@ impl UnitDef {
     }
     pub fn armed(&self) -> bool {
         self.dmg > 0.0 || self.dmg_air > 0.0
+    }
+    /// Armed and not a worker: picks fights, answers fire, and counts as a threat to others.
+    pub fn threat(&self) -> bool {
+        !self.worker && self.armed()
     }
 }
 

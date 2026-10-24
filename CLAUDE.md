@@ -23,7 +23,7 @@ npm run build      # production build into dist/ (static files, deploy anywhere)
 npm run preview    # serve dist/ on http://localhost:4173
 npm test           # headless sim tests (node --test), no browser needed
 npm run sim        # scripted 10-minute game per difficulty on the Rust sim, prints economy/army snapshots
-cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay.rs), native, no WASM needed
+cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and
                    # a browser: npx playwright-core install chromium)
@@ -52,8 +52,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (same f32 cost grid and heap tie-breaks as path.js)
-  src/world.rs        entities, rules, orders, per-tick update, state_hash
-  src/ai.rs           scripted opponent
+  src/world/          the world: mod.rs (entities, step, state_hash), orders, spawn, economy, construction,
+                      combat, movement, fog
+  src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
@@ -110,7 +111,10 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 
 ## Tests that guard gameplay
 
-- `crates/endfall-sim/tests/gameplay.rs`: every building can be built and every unit trained, requirements,
+- `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
+  `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
+- `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
+  `combat`, `ai`, `maps`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games, and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,

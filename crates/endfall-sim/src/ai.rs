@@ -760,7 +760,12 @@ impl World {
             && self.can_afford(e, w.def().cost)
             && let Some(spot) = {
                 let (fx, fy) = match exp_vent {
-                    Some(at) if w == BldgKind::Extractor && cnt(self, w) >= 1 => at,
+                    Some(at)
+                        if w == BldgKind::Extractor
+                            && (cnt(self, w) >= 1 || !free_vent(self, (cx, cy))) =>
+                    {
+                        at
+                    }
                     _ => (cx, cy),
                 };
                 self.find_spot(w, fx, fy)

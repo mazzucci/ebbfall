@@ -1105,9 +1105,14 @@ impl World {
                 let answers = u.kind != UnitKind::Harvester && u.kind.def().damage_vs(by_air) > 0.0;
                 match u.task {
                     Task::Idle | Task::AMove { .. } if answers => {
+                        // Idle: come back to this spot afterwards (and the leash applies).
                         let back = match u.task {
                             Task::AMove { x, y } => Some(Back { x, y, amove: true }),
-                            _ => None,
+                            _ => Some(Back {
+                                x: u.x,
+                                y: u.y,
+                                amove: false,
+                            }),
                         };
                         u.task = Task::Attack { target: by, back };
                     }
@@ -1126,7 +1131,11 @@ impl World {
                         if o.task == Task::Idle {
                             o.task = Task::Attack {
                                 target: by,
-                                back: None,
+                                back: Some(Back {
+                                    x: o.x,
+                                    y: o.y,
+                                    amove: false,
+                                }),
                             };
                         }
                     }

@@ -3049,3 +3049,70 @@ fn harvesters_pick_a_flowing_vent_over_a_dry_one() {
         "all dry: the nearest trickle"
     );
 }
+
+#[test]
+fn idle_defenders_shot_by_a_passing_wasp_give_up_and_walk_home() {
+    let mut w = flat_arena(16);
+    let me = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 32.0 * TILE);
+    let mate = w.make_unit(UnitKind::Trooper, PLAYER, 31.0 * TILE, 32.0 * TILE);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 38.0 * TILE);
+    w.hold_unit(wasp);
+    run(&mut w, 1);
+    w.damage(me, 1.0, Some(wasp));
+    assert_eq!(target_of(&w, me), Some(wasp));
+    assert_eq!(
+        target_of(&w, mate),
+        Some(wasp),
+        "the idle neighbour joins in"
+    );
+    // The Wasp leaves for good: both let it go and walk back to where they stood.
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    o.hp = 1e6;
+    o.maxhp = 1e6;
+    o.y = 4.0 * TILE;
+    run(&mut w, 12);
+    for (u, x) in [(me, 30.0), (mate, 31.0)] {
+        let u = w.unit(u).unwrap();
+        assert!(!matches!(u.task, Task::Attack { .. }), "{:?}", u.task);
+        assert!(
+            (u.x - x * TILE).abs() < 1.5 * TILE && (u.y - 32.0 * TILE).abs() < 6.0 * TILE,
+            "back near its spot: {:.0},{:.0}",
+            u.x / TILE,
+            u.y / TILE
+        );
+    }
+}
+
+#[test]
+fn the_ai_keeps_building_when_the_player_takes_its_home_vent() {
+    let mut w = World::new(33, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    // Every vent within 16 tiles of the AI's core gets a player Extractor: none left at home.
+    let (ex, ey) = core(&w, ENEMY);
+    let taken: Vec<(i32, i32)> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| {
+            n.ether && (((n.tx - ex - 2).pow(2) + (n.ty - ey - 2).pow(2)) as f64).sqrt() < 18.0
+        })
+        .map(|n| (n.tx, n.ty))
+        .collect();
+    assert!(!taken.is_empty());
+    for (tx, ty) in taken {
+        w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
+    }
+    run(&mut w, 720);
+    let rax = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Barracks)
+        .count();
+    assert!(rax >= 2, "the build order goes on: {rax} Barracks");
+}

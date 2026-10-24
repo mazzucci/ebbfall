@@ -20,7 +20,7 @@ pub fn run(w: &mut World, secs: u32) {
 pub fn harvesters(w: &World, team: u8) -> Vec<Id> {
     w.units
         .iter()
-        .filter(|u| u.team == team && u.kind == UnitKind::Harvester)
+        .filter(|u| u.team == team && u.kind.def().worker)
         .map(|u| u.id)
         .collect()
 }
@@ -29,7 +29,7 @@ pub fn core(w: &World, team: u8) -> (i32, i32) {
     let c = w
         .bldgs
         .iter()
-        .find(|b| b.team == team && b.kind == BldgKind::Core)
+        .find(|b| b.team == team && b.kind.def().hq)
         .expect("core");
     (c.tx, c.ty)
 }
@@ -52,7 +52,7 @@ pub fn spot(w: &World, kind: BldgKind) -> (i32, i32) {
 
 /// Place `kind` with `builder` and run until it is finished (or fail after `limit` seconds).
 pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
-    let (tx, ty) = if kind == BldgKind::Extractor {
+    let (tx, ty) = if kind.def().on_vent {
         player_vent(w)
     } else {
         spot(w, kind)
@@ -89,6 +89,14 @@ pub fn player_vent(w: &World) -> (i32, i32) {
 }
 
 /// A world with plenty of resources and no opponent, for testing what the player can do.
+/// A rich world, no opponent, the player on the Vael (the AI side stays human).
+pub fn rich_vael(seed: u32) -> World {
+    let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&VAEL, &HUMANS]);
+    w.disable_ai();
+    w.res[PLAYER as usize] = [20_000, 20_000];
+    w
+}
+
 pub fn rich(seed: u32) -> World {
     let mut w = World::new(seed, 1);
     w.disable_ai();
@@ -308,7 +316,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             w.bldgs.iter().any(|b| b.team == PLAYER)
                 || w.units
                     .iter()
-                    .any(|u| u.team == PLAYER && u.kind == UnitKind::Harvester),
+                    .any(|u| u.team == PLAYER && u.kind.def().worker),
             "{ctx}: player is eliminated but the game is not over"
         );
     }
@@ -334,7 +342,8 @@ pub fn check_invariants(w: &World, ctx: &str) {
     }
 }
 
-pub const KINDS_B: [&str; 8] = [
+/// Every building and unit key of both races, plus one that is not a kind (random orders try them all).
+pub const KINDS_B: [&str; 15] = [
     "depot",
     "barracks",
     "extractor",
@@ -342,10 +351,17 @@ pub const KINDS_B: [&str; 8] = [
     "turret",
     "core",
     "airfield",
+    "conflux",
+    "spire",
+    "siphon",
+    "kiln",
+    "loom",
+    "ward",
+    "zenith",
     "nonsense",
 ];
 
-pub const KINDS_U: [&str; 8] = [
+pub const KINDS_U: [&str; 13] = [
     "harvester",
     "trooper",
     "vanguard",
@@ -353,6 +369,11 @@ pub const KINDS_U: [&str; 8] = [
     "medic",
     "wasp",
     "observer",
+    "lumen",
+    "scythe",
+    "prism",
+    "monolith",
+    "shrike",
     "nonsense",
 ];
 
@@ -386,14 +407,14 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
         7 => {
             let _ = g.place_building(
                 r.below(3) as u8,
-                KINDS_B[r.below(8) as usize],
+                KINDS_B[r.below(KINDS_B.len() as u32) as usize],
                 (x / 32.0) as i32,
                 (y / 32.0) as i32,
                 a,
             );
         }
         8 => {
-            let _ = g.queue_unit(a, KINDS_U[r.below(8) as usize]);
+            let _ = g.queue_unit(a, KINDS_U[r.below(KINDS_U.len() as u32) as usize]);
         }
         9 => g.cancel_queue(a, r.below(7)),
         10 => g.set_rally(a, x, y, if r.below(2) == 0 { b } else { 0 }),

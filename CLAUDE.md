@@ -75,7 +75,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
-tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js)
+tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the
+                      sprite finish, run in headless Chromium (three.js)
 tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see docs/ART.md
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 docs/ART.md           art style guide, palette, frame names

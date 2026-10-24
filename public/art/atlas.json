@@ -4,7 +4,9 @@
   "atlas-1.json",
   "atlas-2.json",
   "atlas-3.json",
-  "atlas-4.json"
+  "atlas-4.json",
+  "atlas-5.json",
+  "atlas-6.json"
  ],
  "animations": {
   "boom_big": [
@@ -1210,6 +1212,646 @@
   "observer_1_15": [
    "observer_1_15_0",
    "observer_1_15_1"
+  ],
+  "lumen_0_0": [
+   "lumen_0_0_0",
+   "lumen_0_0_1"
+  ],
+  "lumen_0_1": [
+   "lumen_0_1_0",
+   "lumen_0_1_1"
+  ],
+  "lumen_0_2": [
+   "lumen_0_2_0",
+   "lumen_0_2_1"
+  ],
+  "lumen_0_3": [
+   "lumen_0_3_0",
+   "lumen_0_3_1"
+  ],
+  "lumen_0_4": [
+   "lumen_0_4_0",
+   "lumen_0_4_1"
+  ],
+  "lumen_0_5": [
+   "lumen_0_5_0",
+   "lumen_0_5_1"
+  ],
+  "lumen_0_6": [
+   "lumen_0_6_0",
+   "lumen_0_6_1"
+  ],
+  "lumen_0_7": [
+   "lumen_0_7_0",
+   "lumen_0_7_1"
+  ],
+  "lumen_0_8": [
+   "lumen_0_8_0",
+   "lumen_0_8_1"
+  ],
+  "lumen_0_9": [
+   "lumen_0_9_0",
+   "lumen_0_9_1"
+  ],
+  "lumen_0_10": [
+   "lumen_0_10_0",
+   "lumen_0_10_1"
+  ],
+  "lumen_0_11": [
+   "lumen_0_11_0",
+   "lumen_0_11_1"
+  ],
+  "lumen_0_12": [
+   "lumen_0_12_0",
+   "lumen_0_12_1"
+  ],
+  "lumen_0_13": [
+   "lumen_0_13_0",
+   "lumen_0_13_1"
+  ],
+  "lumen_0_14": [
+   "lumen_0_14_0",
+   "lumen_0_14_1"
+  ],
+  "lumen_0_15": [
+   "lumen_0_15_0",
+   "lumen_0_15_1"
+  ],
+  "lumen_1_0": [
+   "lumen_1_0_0",
+   "lumen_1_0_1"
+  ],
+  "lumen_1_1": [
+   "lumen_1_1_0",
+   "lumen_1_1_1"
+  ],
+  "lumen_1_2": [
+   "lumen_1_2_0",
+   "lumen_1_2_1"
+  ],
+  "lumen_1_3": [
+   "lumen_1_3_0",
+   "lumen_1_3_1"
+  ],
+  "lumen_1_4": [
+   "lumen_1_4_0",
+   "lumen_1_4_1"
+  ],
+  "lumen_1_5": [
+   "lumen_1_5_0",
+   "lumen_1_5_1"
+  ],
+  "lumen_1_6": [
+   "lumen_1_6_0",
+   "lumen_1_6_1"
+  ],
+  "lumen_1_7": [
+   "lumen_1_7_0",
+   "lumen_1_7_1"
+  ],
+  "lumen_1_8": [
+   "lumen_1_8_0",
+   "lumen_1_8_1"
+  ],
+  "lumen_1_9": [
+   "lumen_1_9_0",
+   "lumen_1_9_1"
+  ],
+  "lumen_1_10": [
+   "lumen_1_10_0",
+   "lumen_1_10_1"
+  ],
+  "lumen_1_11": [
+   "lumen_1_11_0",
+   "lumen_1_11_1"
+  ],
+  "lumen_1_12": [
+   "lumen_1_12_0",
+   "lumen_1_12_1"
+  ],
+  "lumen_1_13": [
+   "lumen_1_13_0",
+   "lumen_1_13_1"
+  ],
+  "lumen_1_14": [
+   "lumen_1_14_0",
+   "lumen_1_14_1"
+  ],
+  "lumen_1_15": [
+   "lumen_1_15_0",
+   "lumen_1_15_1"
+  ],
+  "scythe_0_0": [
+   "scythe_0_0_0",
+   "scythe_0_0_1"
+  ],
+  "scythe_0_1": [
+   "scythe_0_1_0",
+   "scythe_0_1_1"
+  ],
+  "scythe_0_2": [
+   "scythe_0_2_0",
+   "scythe_0_2_1"
+  ],
+  "scythe_0_3": [
+   "scythe_0_3_0",
+   "scythe_0_3_1"
+  ],
+  "scythe_0_4": [
+   "scythe_0_4_0",
+   "scythe_0_4_1"
+  ],
+  "scythe_0_5": [
+   "scythe_0_5_0",
+   "scythe_0_5_1"
+  ],
+  "scythe_0_6": [
+   "scythe_0_6_0",
+   "scythe_0_6_1"
+  ],
+  "scythe_0_7": [
+   "scythe_0_7_0",
+   "scythe_0_7_1"
+  ],
+  "scythe_0_8": [
+   "scythe_0_8_0",
+   "scythe_0_8_1"
+  ],
+  "scythe_0_9": [
+   "scythe_0_9_0",
+   "scythe_0_9_1"
+  ],
+  "scythe_0_10": [
+   "scythe_0_10_0",
+   "scythe_0_10_1"
+  ],
+  "scythe_0_11": [
+   "scythe_0_11_0",
+   "scythe_0_11_1"
+  ],
+  "scythe_0_12": [
+   "scythe_0_12_0",
+   "scythe_0_12_1"
+  ],
+  "scythe_0_13": [
+   "scythe_0_13_0",
+   "scythe_0_13_1"
+  ],
+  "scythe_0_14": [
+   "scythe_0_14_0",
+   "scythe_0_14_1"
+  ],
+  "scythe_0_15": [
+   "scythe_0_15_0",
+   "scythe_0_15_1"
+  ],
+  "scythe_1_0": [
+   "scythe_1_0_0",
+   "scythe_1_0_1"
+  ],
+  "scythe_1_1": [
+   "scythe_1_1_0",
+   "scythe_1_1_1"
+  ],
+  "scythe_1_2": [
+   "scythe_1_2_0",
+   "scythe_1_2_1"
+  ],
+  "scythe_1_3": [
+   "scythe_1_3_0",
+   "scythe_1_3_1"
+  ],
+  "scythe_1_4": [
+   "scythe_1_4_0",
+   "scythe_1_4_1"
+  ],
+  "scythe_1_5": [
+   "scythe_1_5_0",
+   "scythe_1_5_1"
+  ],
+  "scythe_1_6": [
+   "scythe_1_6_0",
+   "scythe_1_6_1"
+  ],
+  "scythe_1_7": [
+   "scythe_1_7_0",
+   "scythe_1_7_1"
+  ],
+  "scythe_1_8": [
+   "scythe_1_8_0",
+   "scythe_1_8_1"
+  ],
+  "scythe_1_9": [
+   "scythe_1_9_0",
+   "scythe_1_9_1"
+  ],
+  "scythe_1_10": [
+   "scythe_1_10_0",
+   "scythe_1_10_1"
+  ],
+  "scythe_1_11": [
+   "scythe_1_11_0",
+   "scythe_1_11_1"
+  ],
+  "scythe_1_12": [
+   "scythe_1_12_0",
+   "scythe_1_12_1"
+  ],
+  "scythe_1_13": [
+   "scythe_1_13_0",
+   "scythe_1_13_1"
+  ],
+  "scythe_1_14": [
+   "scythe_1_14_0",
+   "scythe_1_14_1"
+  ],
+  "scythe_1_15": [
+   "scythe_1_15_0",
+   "scythe_1_15_1"
+  ],
+  "prism_0_0": [
+   "prism_0_0_0",
+   "prism_0_0_1"
+  ],
+  "prism_0_1": [
+   "prism_0_1_0",
+   "prism_0_1_1"
+  ],
+  "prism_0_2": [
+   "prism_0_2_0",
+   "prism_0_2_1"
+  ],
+  "prism_0_3": [
+   "prism_0_3_0",
+   "prism_0_3_1"
+  ],
+  "prism_0_4": [
+   "prism_0_4_0",
+   "prism_0_4_1"
+  ],
+  "prism_0_5": [
+   "prism_0_5_0",
+   "prism_0_5_1"
+  ],
+  "prism_0_6": [
+   "prism_0_6_0",
+   "prism_0_6_1"
+  ],
+  "prism_0_7": [
+   "prism_0_7_0",
+   "prism_0_7_1"
+  ],
+  "prism_0_8": [
+   "prism_0_8_0",
+   "prism_0_8_1"
+  ],
+  "prism_0_9": [
+   "prism_0_9_0",
+   "prism_0_9_1"
+  ],
+  "prism_0_10": [
+   "prism_0_10_0",
+   "prism_0_10_1"
+  ],
+  "prism_0_11": [
+   "prism_0_11_0",
+   "prism_0_11_1"
+  ],
+  "prism_0_12": [
+   "prism_0_12_0",
+   "prism_0_12_1"
+  ],
+  "prism_0_13": [
+   "prism_0_13_0",
+   "prism_0_13_1"
+  ],
+  "prism_0_14": [
+   "prism_0_14_0",
+   "prism_0_14_1"
+  ],
+  "prism_0_15": [
+   "prism_0_15_0",
+   "prism_0_15_1"
+  ],
+  "prism_1_0": [
+   "prism_1_0_0",
+   "prism_1_0_1"
+  ],
+  "prism_1_1": [
+   "prism_1_1_0",
+   "prism_1_1_1"
+  ],
+  "prism_1_2": [
+   "prism_1_2_0",
+   "prism_1_2_1"
+  ],
+  "prism_1_3": [
+   "prism_1_3_0",
+   "prism_1_3_1"
+  ],
+  "prism_1_4": [
+   "prism_1_4_0",
+   "prism_1_4_1"
+  ],
+  "prism_1_5": [
+   "prism_1_5_0",
+   "prism_1_5_1"
+  ],
+  "prism_1_6": [
+   "prism_1_6_0",
+   "prism_1_6_1"
+  ],
+  "prism_1_7": [
+   "prism_1_7_0",
+   "prism_1_7_1"
+  ],
+  "prism_1_8": [
+   "prism_1_8_0",
+   "prism_1_8_1"
+  ],
+  "prism_1_9": [
+   "prism_1_9_0",
+   "prism_1_9_1"
+  ],
+  "prism_1_10": [
+   "prism_1_10_0",
+   "prism_1_10_1"
+  ],
+  "prism_1_11": [
+   "prism_1_11_0",
+   "prism_1_11_1"
+  ],
+  "prism_1_12": [
+   "prism_1_12_0",
+   "prism_1_12_1"
+  ],
+  "prism_1_13": [
+   "prism_1_13_0",
+   "prism_1_13_1"
+  ],
+  "prism_1_14": [
+   "prism_1_14_0",
+   "prism_1_14_1"
+  ],
+  "prism_1_15": [
+   "prism_1_15_0",
+   "prism_1_15_1"
+  ],
+  "monolith_0_0": [
+   "monolith_0_0_0",
+   "monolith_0_0_1"
+  ],
+  "monolith_0_1": [
+   "monolith_0_1_0",
+   "monolith_0_1_1"
+  ],
+  "monolith_0_2": [
+   "monolith_0_2_0",
+   "monolith_0_2_1"
+  ],
+  "monolith_0_3": [
+   "monolith_0_3_0",
+   "monolith_0_3_1"
+  ],
+  "monolith_0_4": [
+   "monolith_0_4_0",
+   "monolith_0_4_1"
+  ],
+  "monolith_0_5": [
+   "monolith_0_5_0",
+   "monolith_0_5_1"
+  ],
+  "monolith_0_6": [
+   "monolith_0_6_0",
+   "monolith_0_6_1"
+  ],
+  "monolith_0_7": [
+   "monolith_0_7_0",
+   "monolith_0_7_1"
+  ],
+  "monolith_0_8": [
+   "monolith_0_8_0",
+   "monolith_0_8_1"
+  ],
+  "monolith_0_9": [
+   "monolith_0_9_0",
+   "monolith_0_9_1"
+  ],
+  "monolith_0_10": [
+   "monolith_0_10_0",
+   "monolith_0_10_1"
+  ],
+  "monolith_0_11": [
+   "monolith_0_11_0",
+   "monolith_0_11_1"
+  ],
+  "monolith_0_12": [
+   "monolith_0_12_0",
+   "monolith_0_12_1"
+  ],
+  "monolith_0_13": [
+   "monolith_0_13_0",
+   "monolith_0_13_1"
+  ],
+  "monolith_0_14": [
+   "monolith_0_14_0",
+   "monolith_0_14_1"
+  ],
+  "monolith_0_15": [
+   "monolith_0_15_0",
+   "monolith_0_15_1"
+  ],
+  "monolith_1_0": [
+   "monolith_1_0_0",
+   "monolith_1_0_1"
+  ],
+  "monolith_1_1": [
+   "monolith_1_1_0",
+   "monolith_1_1_1"
+  ],
+  "monolith_1_2": [
+   "monolith_1_2_0",
+   "monolith_1_2_1"
+  ],
+  "monolith_1_3": [
+   "monolith_1_3_0",
+   "monolith_1_3_1"
+  ],
+  "monolith_1_4": [
+   "monolith_1_4_0",
+   "monolith_1_4_1"
+  ],
+  "monolith_1_5": [
+   "monolith_1_5_0",
+   "monolith_1_5_1"
+  ],
+  "monolith_1_6": [
+   "monolith_1_6_0",
+   "monolith_1_6_1"
+  ],
+  "monolith_1_7": [
+   "monolith_1_7_0",
+   "monolith_1_7_1"
+  ],
+  "monolith_1_8": [
+   "monolith_1_8_0",
+   "monolith_1_8_1"
+  ],
+  "monolith_1_9": [
+   "monolith_1_9_0",
+   "monolith_1_9_1"
+  ],
+  "monolith_1_10": [
+   "monolith_1_10_0",
+   "monolith_1_10_1"
+  ],
+  "monolith_1_11": [
+   "monolith_1_11_0",
+   "monolith_1_11_1"
+  ],
+  "monolith_1_12": [
+   "monolith_1_12_0",
+   "monolith_1_12_1"
+  ],
+  "monolith_1_13": [
+   "monolith_1_13_0",
+   "monolith_1_13_1"
+  ],
+  "monolith_1_14": [
+   "monolith_1_14_0",
+   "monolith_1_14_1"
+  ],
+  "monolith_1_15": [
+   "monolith_1_15_0",
+   "monolith_1_15_1"
+  ],
+  "shrike_0_0": [
+   "shrike_0_0_0",
+   "shrike_0_0_1"
+  ],
+  "shrike_0_1": [
+   "shrike_0_1_0",
+   "shrike_0_1_1"
+  ],
+  "shrike_0_2": [
+   "shrike_0_2_0",
+   "shrike_0_2_1"
+  ],
+  "shrike_0_3": [
+   "shrike_0_3_0",
+   "shrike_0_3_1"
+  ],
+  "shrike_0_4": [
+   "shrike_0_4_0",
+   "shrike_0_4_1"
+  ],
+  "shrike_0_5": [
+   "shrike_0_5_0",
+   "shrike_0_5_1"
+  ],
+  "shrike_0_6": [
+   "shrike_0_6_0",
+   "shrike_0_6_1"
+  ],
+  "shrike_0_7": [
+   "shrike_0_7_0",
+   "shrike_0_7_1"
+  ],
+  "shrike_0_8": [
+   "shrike_0_8_0",
+   "shrike_0_8_1"
+  ],
+  "shrike_0_9": [
+   "shrike_0_9_0",
+   "shrike_0_9_1"
+  ],
+  "shrike_0_10": [
+   "shrike_0_10_0",
+   "shrike_0_10_1"
+  ],
+  "shrike_0_11": [
+   "shrike_0_11_0",
+   "shrike_0_11_1"
+  ],
+  "shrike_0_12": [
+   "shrike_0_12_0",
+   "shrike_0_12_1"
+  ],
+  "shrike_0_13": [
+   "shrike_0_13_0",
+   "shrike_0_13_1"
+  ],
+  "shrike_0_14": [
+   "shrike_0_14_0",
+   "shrike_0_14_1"
+  ],
+  "shrike_0_15": [
+   "shrike_0_15_0",
+   "shrike_0_15_1"
+  ],
+  "shrike_1_0": [
+   "shrike_1_0_0",
+   "shrike_1_0_1"
+  ],
+  "shrike_1_1": [
+   "shrike_1_1_0",
+   "shrike_1_1_1"
+  ],
+  "shrike_1_2": [
+   "shrike_1_2_0",
+   "shrike_1_2_1"
+  ],
+  "shrike_1_3": [
+   "shrike_1_3_0",
+   "shrike_1_3_1"
+  ],
+  "shrike_1_4": [
+   "shrike_1_4_0",
+   "shrike_1_4_1"
+  ],
+  "shrike_1_5": [
+   "shrike_1_5_0",
+   "shrike_1_5_1"
+  ],
+  "shrike_1_6": [
+   "shrike_1_6_0",
+   "shrike_1_6_1"
+  ],
+  "shrike_1_7": [
+   "shrike_1_7_0",
+   "shrike_1_7_1"
+  ],
+  "shrike_1_8": [
+   "shrike_1_8_0",
+   "shrike_1_8_1"
+  ],
+  "shrike_1_9": [
+   "shrike_1_9_0",
+   "shrike_1_9_1"
+  ],
+  "shrike_1_10": [
+   "shrike_1_10_0",
+   "shrike_1_10_1"
+  ],
+  "shrike_1_11": [
+   "shrike_1_11_0",
+   "shrike_1_11_1"
+  ],
+  "shrike_1_12": [
+   "shrike_1_12_0",
+   "shrike_1_12_1"
+  ],
+  "shrike_1_13": [
+   "shrike_1_13_0",
+   "shrike_1_13_1"
+  ],
+  "shrike_1_14": [
+   "shrike_1_14_0",
+   "shrike_1_14_1"
+  ],
+  "shrike_1_15": [
+   "shrike_1_15_0",
+   "shrike_1_15_1"
   ]
  },
  "facings": 16,

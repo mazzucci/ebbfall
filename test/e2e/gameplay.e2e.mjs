@@ -664,3 +664,23 @@ test('portrait phone: the top bar fits and command buttons show their whole labe
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('the menu offers the Vael: their base, workers and Build list', async () => {
+  const ctx = await browserContext(DESKTOP);
+  const page = await ctx.newPage();
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  try {
+    await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#race [data-race="vael"]').click();
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
+    assert.deepEqual(mine.b, ['conflux']); assert.deepEqual(mine.u, ['lumen']); assert.deepEqual(mine.f, ['vael', 'humans'], 'the AI plays the humans');
+    await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
+    await page.waitForTimeout(300);
+    const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
+    assert.deepEqual(labels, ['Spire', 'Kiln', 'Siphon', 'Ward', 'Advanced', 'Back'], 'the Vael Build list');
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
+});

@@ -27,7 +27,7 @@ export const MAPS = [
   { name: 'Cinder Divide', seed: 2077, kind: 4 },
   { name: 'Random', random: true },
 ];
-export const menu = { diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0 };
+export const menu = { diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, race: 'humans' };
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
@@ -71,6 +71,12 @@ export function initMenu({ onStart, onSound }) {
   const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
   diffs.forEach(b => b.addEventListener('click', () => { menu.diff = +b.dataset.d; store.set('diff', menu.diff); showDiff(); }));
   showDiff();
+  // The player's race (remembered on this device).
+  menu.race = ['humans', 'vael'].includes(store.get('race')) ? store.get('race') : 'humans';
+  const races = document.querySelectorAll('#race .ib');
+  const showRace = () => races.forEach(x => { const on = x.dataset.race === menu.race; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
+  races.forEach(b => b.addEventListener('click', () => { menu.race = b.dataset.race; store.set('race', menu.race); showRace(); sfx('select'); }));
+  showRace();
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
   $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();

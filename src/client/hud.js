@@ -94,7 +94,7 @@ function renderSelection() {
     sub.textContent = ether && !n.extractor ? 'Build an Ether Rig on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
     const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
-    module('node' + working, `<span class="st" title="Harvesters working it" aria-label="Harvesters working it: ${working}">${portrait('unit', FACTIONS.humans.worker, 22)}<b>${working}</b></span>`);
+    module('node' + working, `<span class="st" title="${UNITS[myFaction().worker].name}s working it" aria-label="${UNITS[myFaction().worker].name}s working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === PLAYER;
     name.textContent = x.d.name;
@@ -167,9 +167,8 @@ function taskName(u) {
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
-/** The player's Build list pages (from the faction's data). */
-const BUILD_BASIC = FACTIONS.humans.buildBasic;
-export const BUILD_ADV = FACTIONS.humans.buildAdvanced;
+/** The player's side (faction data: worker, headquarters, Build list pages). */
+export const myFaction = () => FACTIONS[G.factions[PLAYER]] || FACTIONS.humans;
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
 const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };
 export function cardItems() {
@@ -184,10 +183,10 @@ export function cardItems() {
   };
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
-    const adv = ui.mode === 'build2', page = adv ? BUILD_ADV : BUILD_BASIC;
+    const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic;
     page.forEach((k, i) => at(i, bldgItem(k)));
-    (adv ? BUILD_BASIC : BUILD_ADV).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
-    if (!adv) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: 'Foundry, Airfield and Command Core' });
+    (adv ? f.buildBasic : f.buildAdvanced).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
+    if (!adv) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.map(k => BUILDINGS[k].name).join(', ') });
     at(5, adv ? { ...back, id: 'build1' } : back);
   } else if (units.length) {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
@@ -201,7 +200,7 @@ export function cardItems() {
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
   } else if (bl.length === 1) {
     const b = bl[0];
-    if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: 'Send the nearest Harvester to finish construction' });
+    if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
@@ -326,7 +325,7 @@ export function doCommand(id) {
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
     const hs = G.units.filter(u => u.team === PLAYER && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
-    if (!hs.length) { toast('No Harvester to build it', true); return; }
+    if (!hs.length) { toast(`No ${UNITS[myFaction().worker].name} to build it`, true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
   if (id.startsWith('r_')) { const b = bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }

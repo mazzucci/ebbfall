@@ -87,6 +87,10 @@ loop feels right.
   source maps) under a cache named by a hash of the files; the service worker stores them on install and serves them
   cache-first, so the game opens and plays offline. A new build installs a new cache; on the menu the page switches at
   once, in a game it says the new version loads next time.
+- [ ] Second race, the Vael (design: race/VAEL.md on the design-mockups branch). Phase 0 done (2026-10-24): the Vael
+  kinds and their art (tools/render3d/vael.js), a VAEL faction (Conflux, Lumen, Build list), the race chosen in the
+  menu (the AI stays human for now), a side can only build its own race's buildings. Next: shields, warp-in, power
+  fields, Monolith splash, the Vael AI, balance.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

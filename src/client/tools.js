@@ -1,8 +1,8 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, PLAYER, FACTIONS } from '../engine/index.js';
-import { $, ui, setHint, updateHud, toast } from './hud.js';
+import { G, PLAYER, UNITS, BUILDINGS } from '../engine/index.js';
+import { $, ui, setHint, updateHud, toast, myFaction } from './hud.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';
@@ -32,7 +32,7 @@ const army = () => G.units.filter(u => u.team === PLAYER && !u.d.worker);
 
 /** Select the next idle harvester and look at it. */
 export function selectIdle() {
-  const idle = idleHarvesters(); if (!idle.length) { toast('No idle Harvesters'); return; }
+  const idle = idleHarvesters(); if (!idle.length) { toast(`No idle ${UNITS[myFaction().worker].name}s`); return; }
   const u = idle[idleIndex++ % idle.length]; choose([u]); centerOn(u.x, u.y);
 }
 /** Select every combat unit. */
@@ -67,6 +67,10 @@ let groupsKey = '';
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
   const idle = idleHarvesters().length, a = army().length;
+  const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
+  if (pic.dataset.k !== wk) { pic.dataset.k = wk; pic.innerHTML = portrait('unit', wk, 24); }
+  const ak = myFaction().buildBasic.map(k => BUILDINGS[k].trains[0]).find(Boolean) || wk, apic = $('btnArmy').querySelector('.pic'); // the race's first soldier
+  if (apic.dataset.k !== ak) { apic.dataset.k = ak; apic.innerHTML = portrait('unit', ak, 24); }
   $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0); $('btnIdle').classList.toggle('zero', !idle);
   $('btnArmy').querySelector('b').textContent = a; $('btnArmy').classList.toggle('zero', !a);
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
@@ -92,8 +96,6 @@ export function updateTools() {
 }
 
 export function initTools() {
-  $('btnIdle').querySelector('.pic').innerHTML = portrait('unit', FACTIONS.humans.worker, 24);
-  $('btnArmy').querySelector('.pic').innerHTML = portrait('unit', 'trooper', 24);
   setIconButton($('btnPause'), 'pause', 'PAUSE');
   for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnAlert', jumpToAlert]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());

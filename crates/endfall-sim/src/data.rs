@@ -35,6 +35,12 @@ pub enum UnitKind {
     Medic,
     Wasp,
     Observer,
+    // the Vael
+    Lumen,
+    Scythe,
+    Prism,
+    Monolith,
+    Shrike,
 }
 
 /// Building kinds, same rule as UnitKind.
@@ -47,6 +53,14 @@ pub enum BldgKind {
     Forge,
     Turret,
     Airfield,
+    // the Vael
+    Conflux,
+    Spire,
+    Siphon,
+    Kiln,
+    Loom,
+    Ward,
+    Zenith,
 }
 
 pub struct UnitDef {
@@ -178,7 +192,36 @@ pub const HUMANS: Faction = Faction {
     build_advanced: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Core],
 };
 
-pub const UNIT_KINDS: [UnitKind; 7] = [
+/// The Vael: hovering ceramic constructs of living ether (docs: the design on the design-mockups branch).
+pub const VAEL: Faction = Faction {
+    key: "vael",
+    name: "Vael",
+    hq: BldgKind::Conflux,
+    worker: UnitKind::Lumen,
+    build_basic: &[
+        BldgKind::Spire,
+        BldgKind::Kiln,
+        BldgKind::Siphon,
+        BldgKind::Ward,
+    ],
+    build_advanced: &[BldgKind::Loom, BldgKind::Zenith, BldgKind::Conflux],
+};
+
+impl Faction {
+    /// Whether this side can build `kind` (everything on its Build list, the headquarters included).
+    pub fn builds(&self, kind: BldgKind) -> bool {
+        self.build_basic.contains(&kind) || self.build_advanced.contains(&kind)
+    }
+    /// Index in FACTIONS (what the client is sent).
+    pub fn index(&self) -> usize {
+        FACTIONS.iter().position(|f| f.key == self.key).unwrap_or(0)
+    }
+}
+
+/// The playable sides, in the order their index is sent to the client.
+pub const FACTIONS: [&Faction; 2] = [&HUMANS, &VAEL];
+
+pub const UNIT_KINDS: [UnitKind; 12] = [
     UnitKind::Harvester,
     UnitKind::Trooper,
     UnitKind::Vanguard,
@@ -186,8 +229,13 @@ pub const UNIT_KINDS: [UnitKind; 7] = [
     UnitKind::Medic,
     UnitKind::Wasp,
     UnitKind::Observer,
+    UnitKind::Lumen,
+    UnitKind::Scythe,
+    UnitKind::Prism,
+    UnitKind::Monolith,
+    UnitKind::Shrike,
 ];
-pub const BLDG_KINDS: [BldgKind; 7] = [
+pub const BLDG_KINDS: [BldgKind; 14] = [
     BldgKind::Core,
     BldgKind::Depot,
     BldgKind::Extractor,
@@ -195,6 +243,13 @@ pub const BLDG_KINDS: [BldgKind; 7] = [
     BldgKind::Forge,
     BldgKind::Turret,
     BldgKind::Airfield,
+    BldgKind::Conflux,
+    BldgKind::Spire,
+    BldgKind::Siphon,
+    BldgKind::Kiln,
+    BldgKind::Loom,
+    BldgKind::Ward,
+    BldgKind::Zenith,
 ];
 
 const UNIT: UnitDef = UnitDef {
@@ -348,6 +403,97 @@ const OBSERVER: UnitDef = UnitDef {
     air: true,
     ..UNIT
 };
+// ---- the Vael (phase 1 numbers from the design; shields come with their rule) ----
+const LUMEN: UnitDef = UnitDef {
+    key: "lumen",
+    name: "Lumen",
+    cost: [50, 0],
+    hp: 40.0,
+    speed: 100.0,
+    range: 0.6,
+    dmg: 4.0,
+    sight: 7.0,
+    r: 9.0,
+    build: 12.0,
+    melee: true,
+    worker: true,
+    ..UNIT
+};
+const SCYTHE: UnitDef = UnitDef {
+    key: "scythe",
+    name: "Scythe",
+    cost: [100, 0],
+    supply: 2,
+    hp: 140.0,
+    armor: 1.0,
+    speed: 105.0,
+    range: 0.9,
+    dmg: 16.0,
+    cd: 0.9,
+    sight: 8.0,
+    r: 10.0,
+    build: 22.0,
+    melee: true,
+    up_dmg: 2.0,
+    ..UNIT
+};
+const PRISM: UnitDef = UnitDef {
+    key: "prism",
+    name: "Prism",
+    cost: [125, 50],
+    supply: 2,
+    hp: 150.0,
+    armor: 1.0,
+    speed: 85.0,
+    range: 5.5,
+    dmg: 14.0,
+    dmg_air: 14.0,
+    cd: 1.0,
+    sight: 9.0,
+    r: 11.0,
+    build: 30.0,
+    proj: Some(ProjKind::Bolt),
+    up_dmg: 1.0,
+    ..UNIT
+};
+const MONOLITH: UnitDef = UnitDef {
+    key: "monolith",
+    name: "Monolith",
+    cost: [200, 125],
+    supply: 4,
+    hp: 300.0,
+    armor: 2.0,
+    speed: 55.0,
+    range: 7.0,
+    dmg: 45.0,
+    cd: 2.2,
+    sight: 9.0,
+    r: 15.0,
+    build: 40.0,
+    proj: Some(ProjKind::Shell),
+    up_dmg: 4.0,
+    req: Some(BldgKind::Loom),
+    ..UNIT
+};
+const SHRIKE: UnitDef = UnitDef {
+    key: "shrike",
+    name: "Shrike",
+    cost: [125, 75],
+    supply: 2,
+    hp: 150.0,
+    speed: 165.0,
+    range: 3.5,
+    dmg: 12.0,
+    dmg_air: 8.0,
+    cd: 0.7,
+    sight: 9.0,
+    r: 11.0,
+    build: 28.0,
+    proj: Some(ProjKind::Bolt),
+    air: true,
+    up_dmg: 1.0,
+    ..UNIT
+};
 
 const BLDG: BldgDef = BldgDef {
     key: "",
@@ -467,6 +613,94 @@ const AIRFIELD: BldgDef = BldgDef {
     req: Some(BldgKind::Forge),
     ..BLDG
 };
+// ---- the Vael ----
+const CONFLUX: BldgDef = BldgDef {
+    key: "conflux",
+    name: "Conflux",
+    cost: [400, 0],
+    w: 4,
+    h: 4,
+    hp: 1400.0,
+    armor: 2.0,
+    supply: 10,
+    build: 80.0,
+    sight: 10.0,
+    trains: &[UnitKind::Lumen],
+    dropoff: true,
+    hq: true,
+    ..BLDG
+};
+const SPIRE: BldgDef = BldgDef {
+    key: "spire",
+    name: "Spire",
+    cost: [100, 0],
+    hp: 400.0,
+    supply: 8,
+    build: 25.0,
+    sight: 6.0,
+    ..BLDG
+};
+const SIPHON: BldgDef = BldgDef {
+    key: "siphon",
+    name: "Siphon",
+    cost: [75, 0],
+    hp: 450.0,
+    build: 25.0,
+    on_vent: true,
+    ..BLDG
+};
+const KILN: BldgDef = BldgDef {
+    key: "kiln",
+    name: "Kiln",
+    cost: [150, 0],
+    w: 3,
+    h: 3,
+    hp: 800.0,
+    build: 45.0,
+    sight: 7.0,
+    trains: &[UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith],
+    ..BLDG
+};
+const LOOM: BldgDef = BldgDef {
+    key: "loom",
+    name: "Loom",
+    cost: [150, 100],
+    hp: 800.0,
+    build: 45.0,
+    sight: 7.0,
+    req: Some(BldgKind::Kiln),
+    researches: &[Upgrade::Weapons],
+    ..BLDG
+};
+const WARD: BldgDef = BldgDef {
+    key: "ward",
+    name: "Ward",
+    cost: [125, 0],
+    hp: 420.0,
+    build: 25.0,
+    sight: 9.0,
+    req: Some(BldgKind::Kiln),
+    range: 7.0,
+    dmg: 20.0,
+    dmg_air: 28.0,
+    cd: 1.2,
+    proj: Some(ProjKind::Bolt),
+    up_dmg: 2.0,
+    ..BLDG
+};
+const ZENITH: BldgDef = BldgDef {
+    key: "zenith",
+    name: "Zenith",
+    cost: [175, 125],
+    w: 3,
+    h: 3,
+    hp: 800.0,
+    build: 55.0,
+    sight: 8.0,
+    trains: &[UnitKind::Shrike],
+    req: Some(BldgKind::Loom),
+    ..BLDG
+};
 
 impl UnitKind {
     pub fn def(self) -> &'static UnitDef {
@@ -478,6 +712,11 @@ impl UnitKind {
             UnitKind::Medic => &MEDIC,
             UnitKind::Wasp => &WASP,
             UnitKind::Observer => &OBSERVER,
+            UnitKind::Lumen => &LUMEN,
+            UnitKind::Scythe => &SCYTHE,
+            UnitKind::Prism => &PRISM,
+            UnitKind::Monolith => &MONOLITH,
+            UnitKind::Shrike => &SHRIKE,
         }
     }
     pub fn parse(s: &str) -> Option<UnitKind> {
@@ -518,6 +757,13 @@ impl BldgKind {
             BldgKind::Forge => &FORGE,
             BldgKind::Turret => &TURRET,
             BldgKind::Airfield => &AIRFIELD,
+            BldgKind::Conflux => &CONFLUX,
+            BldgKind::Spire => &SPIRE,
+            BldgKind::Siphon => &SIPHON,
+            BldgKind::Kiln => &KILN,
+            BldgKind::Loom => &LOOM,
+            BldgKind::Ward => &WARD,
+            BldgKind::Zenith => &ZENITH,
         }
     }
     pub fn parse(s: &str) -> Option<BldgKind> {
@@ -637,7 +883,7 @@ pub fn data_json() -> String {
             .collect::<Vec<_>>()
             .join(",")
     };
-    let factions: Vec<String> = [&HUMANS]
+    let factions: Vec<String> = FACTIONS
         .iter()
         .map(|f| {
             format!(

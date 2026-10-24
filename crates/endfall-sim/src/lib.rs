@@ -515,7 +515,7 @@ pub fn rng_sequence(seed: u32, n: u32) -> Vec<u32> {
     (0..n).map(|_| r.next_u32()).collect()
 }
 
-/// The unit, building and difficulty tables as JSON, for checking against src/engine/constants.js.
+/// The game's data tables as JSON (written to src/engine/pkg/data.js by build:wasm: the client's only source of them).
 #[wasm_bindgen(js_name = dataJson)]
 pub fn data_json() -> String {
     data::data_json()

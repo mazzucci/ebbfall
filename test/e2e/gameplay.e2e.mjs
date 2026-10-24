@@ -577,10 +577,16 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
+    assert.ok(await d.page.locator('#info').isVisible(), 'the console is there with nothing selected');
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
     assert.deepEqual((await d.card()).map(c => c.label), ['Depot', 'Garrison', 'Ether Rig', 'Turret', 'Advanced', 'Back'], 'the basic page');
+    await d.pressCard('Depot');
+    assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
+    await d.pressCard('Cancel');
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'and it stops the placing');
+    await d.pressCard('Build');
     await d.pressCard('Advanced');
     assert.deepEqual((await d.card()).map(c => c.label), ['Foundry', 'Airfield', 'Core', 'Back'], 'the advanced page');
     await d.pressCard('Back');

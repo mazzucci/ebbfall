@@ -155,7 +155,8 @@ function taskName(u) {
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
-const BUILD_BASIC = ['depot', 'barracks', 'extractor', 'turret'], BUILD_ADV = ['forge', 'airfield', 'core'];
+const BUILD_BASIC = ['depot', 'barracks', 'extractor', 'turret'];
+export const BUILD_ADV = ['forge', 'airfield', 'core'];
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
 const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };
 export function cardItems() {
@@ -205,7 +206,10 @@ export function cardItems() {
   }
   // An armed order: its button becomes Cancel (Esc), lit, in the same place.
   const armedId = ARMED_BY[ui.mode], armedAt = items.find(i => i.id === armedId && !i.hidden);
-  if (armedAt) Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
+  if (armedAt) {
+    Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
+    for (let i = items.length - 1; i >= 0; i--) if (items[i].cancel && items[i] !== armedAt) items.splice(i, 1); // one Cancel at a time
+  }
   for (const it of items) if (it.cost && !canAfford(PLAYER, it.cost)) { // greyed out, but a tap says what is short
     const [sh, et] = G.res[PLAYER];
     it.poor = true;
@@ -288,6 +292,7 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
 
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
+  if (id === 'esc' && ui.mode === 'build2') { ui.mode = 'build'; return; } // Esc on the advanced page: back to the basic one
   if (id === 'esc') { if (ui.box) ui.box = false; else if (ui.mode || ui.place) { ui.mode = null; ui.place = null; } else { ui.sel = []; updateHud(); } setBox(); setHint(); return; }
   if (id === 'stop') { units.forEach(stopUnit); ui.mode = null; return; }
   if (id === 'hold') { units.forEach(holdUnit); ui.mode = null; return; }

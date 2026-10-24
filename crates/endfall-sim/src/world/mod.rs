@@ -379,13 +379,24 @@ impl World {
 
     /// A new game where the two sides may trade starting places (`swap`): same map, the other corner.
     pub fn with_map_side(seed: u32, diff: usize, map_kind: MapKind, swap: bool) -> World {
+        World::with_setup(seed, diff, map_kind, swap, [&HUMANS, &HUMANS])
+    }
+
+    /// A new game with each team's side (faction) chosen: index = team.
+    pub fn with_setup(
+        seed: u32,
+        diff: usize,
+        map_kind: MapKind,
+        swap: bool,
+        factions: [&'static Faction; 2],
+    ) -> World {
         let n = (MW * MH) as usize;
         let mut w = World {
             seed,
             diff,
             map_kind,
             sides_swapped: swap,
-            factions: [&HUMANS, &HUMANS],
+            factions,
             log: None,
             time: 0.0,
             tick: 0,

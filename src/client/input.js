@@ -2,7 +2,7 @@
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
 import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
-import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud, BUILD_ADV } from './hud.js';
+import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
@@ -129,7 +129,7 @@ function leftAction(wx, wy, add, at) {
     else {
       sfx('build');
       // On touch, back to the building list (another one is a tap away; a tap on the map just closes it).
-      if (!add) { ui.place = null; ui.mode = drag.ptype === 'touch' ? (BUILD_ADV.includes(p.type) ? 'build2' : 'build') : null; setHint(); updateHud(); } // (the page it came from)
+      if (!add) { ui.place = null; ui.mode = drag.ptype === 'touch' ? (myFaction().buildAdvanced.includes(p.type) ? 'build2' : 'build') : null; setHint(); updateHud(); } // (the page it came from)
     }
     return;
   }

@@ -24,7 +24,7 @@ input.enabled = () => started && !overlay() && !paused();
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
   $('help').hidden = true;
-  resetGame(menu.seed, menu.diff, menu.kind, menu.side);
+  resetGame(menu.seed, menu.diff, menu.kind, menu.side, menu.race);
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.

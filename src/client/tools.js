@@ -1,8 +1,8 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, PLAYER, FACTIONS } from '../engine/index.js';
-import { $, ui, setHint, updateHud, toast } from './hud.js';
+import { G, PLAYER } from '../engine/index.js';
+import { $, ui, setHint, updateHud, toast, myFaction } from './hud.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';
@@ -67,6 +67,8 @@ let groupsKey = '';
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
   const idle = idleHarvesters().length, a = army().length;
+  const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
+  if (pic.dataset.k !== wk) { pic.dataset.k = wk; pic.innerHTML = portrait('unit', wk, 24); }
   $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0); $('btnIdle').classList.toggle('zero', !idle);
   $('btnArmy').querySelector('b').textContent = a; $('btnArmy').classList.toggle('zero', !a);
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
@@ -92,7 +94,6 @@ export function updateTools() {
 }
 
 export function initTools() {
-  $('btnIdle').querySelector('.pic').innerHTML = portrait('unit', FACTIONS.humans.worker, 24);
   $('btnArmy').querySelector('.pic').innerHTML = portrait('unit', 'trooper', 24);
   setIconButton($('btnPause'), 'pause', 'PAUSE');
   for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnAlert', jumpToAlert]]) {

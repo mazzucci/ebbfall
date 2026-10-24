@@ -8,7 +8,7 @@ import { terrainSprites } from './terrain2.js';
 import { effectSprites } from './effects2.js';
 import { render3d } from './render3d.mjs';
 
-const FACINGS = 16, UNIT_FRAMES = { harvester: 2, trooper: 4, vanguard: 4, lancer: 4, medic: 4, wasp: 2, observer: 2 };
+const FACINGS = 16, UNIT_FRAMES = { harvester: 2, trooper: 4, vanguard: 4, lancer: 4, medic: 4, wasp: 2, observer: 2, lumen: 2, scythe: 2, prism: 2, monolith: 2, shrike: 2 };
 const sprites = [...terrainSprites(), ...effectSprites(), ...await render3d()];
 
 // Shelf packing into 2048x2048 pages, tallest first, 4 px gutters. Terrain tiles get 4 px gutters filled with their

@@ -5,6 +5,11 @@ import * as THREE from 'three';
 import { UNIT_MODELS } from './models.js';
 import * as B from './buildings.js';
 import { DOODADS } from './doodads.js';
+import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
+
+// The Vael units in the game (the Halo comes later); each race renders with its own materials.
+const { halo: _laterHalo, ...VAEL_IN_GAME } = VAEL_UNITS;
+const UNITS_ALL = [...Object.entries(UNIT_MODELS).map(([k, m]) => [k, m, makeMats]), ...Object.entries(VAEL_IN_GAME).map(([k, m]) => [k, m, makeVaelMats])];
 
 const FACINGS = 16;
 const enc = (img) => { let s = ''; const b = img.data; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
@@ -32,8 +37,8 @@ const RES = {
 window.render = async function (filter = '') {
   const out = [];
   const want = (name) => !filter || new RegExp(filter).test(name);
-  for (const [kind, m] of Object.entries(UNIT_MODELS)) for (let team = 0; team < 2; team++) {
-    const M = makeMats(team), cell = unitCell(m.r, m.h);
+  for (const [kind, m, mats] of UNITS_ALL) for (let team = 0; team < 2; team++) {
+    const M = mats(team), cell = unitCell(m.r, m.h);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < m.frames; f++) {
       const name = `${kind}_${team}_${dir}_${f}`; if (!want(name)) continue;
       const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
@@ -43,6 +48,7 @@ window.render = async function (filter = '') {
   }
   const push = (name, obj, cell, opts = {}) => { if (!want(name)) return; const img = shoot(obj, { ...cell, ...opts }); out.push({ name, w: img.width, h: img.height, data: enc(img), anchor: { x: cell.ax / cell.w, y: cell.ay / cell.h } }); };
   for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) for (let team = 0; team < 2; team++) push(`bldg_${type}_${team}`, build(makeMats(team)), bldgCell(n, h));
+  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) for (let team = 0; team < 2; team++) push(`bldg_${type}_${team}`, build(makeVaelMats(team)), bldgCell(n, h));
   for (let team = 0; team < 2; team++) for (let dir = 0; dir < FACINGS; dir++) {
     const head = B.turretHead(makeMats(team)); head.rotation.y = -dir / FACINGS * Math.PI * 2;
     push(`turret_head_${team}_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow

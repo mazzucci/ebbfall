@@ -333,35 +333,107 @@ fn units_under_a_new_building_step_out_without_stacking() {
 }
 
 #[test]
-fn a_faction_is_consistent_with_its_tables() {
-    let f = &HUMANS;
-    assert!(
-        f.hq.def().hq && f.hq.def().dropoff,
-        "the headquarters is flagged and takes resources"
-    );
-    assert!(
-        f.worker.def().worker && !f.worker.def().threat(),
-        "the worker is a worker, not a threat"
-    );
-    let listed: Vec<BldgKind> = f
-        .build_basic
-        .iter()
-        .chain(f.build_advanced)
-        .copied()
-        .collect();
+fn every_faction_is_consistent_with_its_tables() {
+    let mut owner: Vec<(BldgKind, &str)> = Vec::new();
+    for f in FACTIONS {
+        assert!(
+            f.hq.def().hq && f.hq.def().dropoff,
+            "{}: the headquarters is flagged and takes resources",
+            f.key
+        );
+        assert!(
+            f.worker.def().worker && !f.worker.def().threat(),
+            "{}: the worker is a worker",
+            f.key
+        );
+        assert!(
+            f.hq.def().trains.contains(&f.worker),
+            "{}: the headquarters trains the worker",
+            f.key
+        );
+        for &k in f.build_basic.iter().chain(f.build_advanced) {
+            owner.push((k, f.key));
+        }
+        let w = World::with_setup(4242, 1, MapKind::Standard, false, [f, f]);
+        for team in [PLAYER, ENEMY] {
+            assert_eq!(
+                count(&w, team, f.worker),
+                4,
+                "{}: four workers to start",
+                f.key
+            );
+            assert!(w.bldgs.iter().any(|b| b.team == team && b.kind == f.hq));
+        }
+    }
     for k in BLDG_KINDS {
-        assert!(listed.contains(&k), "{k:?} is on the Build list");
+        let n = owner.iter().filter(|o| o.0 == k).count();
+        assert_eq!(n, 1, "{k:?} is on exactly one side's Build list");
     }
     let workers = UNIT_KINDS.iter().filter(|k| k.def().worker).count();
-    assert_eq!(workers, 1, "one worker kind per faction");
-    let research: Vec<_> = BLDG_KINDS
-        .iter()
-        .filter(|k| !k.def().researches.is_empty())
-        .collect();
-    assert_eq!(research, [&BldgKind::Forge], "the Foundry researches");
-    let w = World::new(4242, 1);
-    for team in [PLAYER, ENEMY] {
-        assert_eq!(count(&w, team, f.worker), 4, "four workers to start");
-        assert!(w.bldgs.iter().any(|b| b.team == team && b.kind == f.hq));
+    assert_eq!(workers, FACTIONS.len(), "one worker kind per faction");
+    // Every unit is trained somewhere on one side.
+    for u in UNIT_KINDS {
+        assert!(
+            BLDG_KINDS.iter().any(|b| b.def().trains.contains(&u)),
+            "{u:?} is trained somewhere"
+        );
+    }
+}
+
+#[test]
+fn a_side_builds_only_its_own_race() {
+    let w = rich(4242);
+    let (cx, cy) = core(&w, PLAYER);
+    for k in [BldgKind::Kiln, BldgKind::Spire, BldgKind::Ward] {
+        let any = (-12..12).any(|dy| (-12..12).any(|dx| w.can_place(k, cx + dx, cy + dy, PLAYER)));
+        assert!(!any, "the humans cannot place a {k:?}");
+    }
+    let w = rich_vael(4242);
+    let (cx, cy) = core(&w, PLAYER);
+    for k in [BldgKind::Barracks, BldgKind::Depot, BldgKind::Turret] {
+        let any = (-12..12).any(|dy| (-12..12).any(|dx| w.can_place(k, cx + dx, cy + dy, PLAYER)));
+        assert!(!any, "the Vael cannot place a {k:?}");
+    }
+}
+
+#[test]
+fn every_vael_building_and_unit_can_be_made() {
+    for seed in [1, 7, 4242] {
+        let mut w = rich_vael(seed);
+        let l = harvesters(&w, PLAYER);
+        assert_eq!(l.len(), 4, "four Lumens");
+        build(&mut w, BldgKind::Spire, l[0], 90);
+        let kiln = build(&mut w, BldgKind::Kiln, l[1], 120);
+        build(&mut w, BldgKind::Siphon, l[2], 90);
+        build(&mut w, BldgKind::Ward, l[3], 90);
+        build(&mut w, BldgKind::Loom, l[0], 120);
+        let zenith = build(&mut w, BldgKind::Zenith, l[1], 150);
+        build(&mut w, BldgKind::Conflux, l[2], 150);
+        let conflux = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux && b.done)
+            .unwrap()
+            .id;
+        w.queue_unit(conflux, UnitKind::Lumen).unwrap();
+        for u in [UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith] {
+            w.queue_unit(kiln, u)
+                .unwrap_or_else(|e| panic!("{u:?}: {e}"));
+        }
+        w.queue_unit(zenith, UnitKind::Shrike).unwrap();
+        run(&mut w, 150);
+        for k in [
+            UnitKind::Scythe,
+            UnitKind::Prism,
+            UnitKind::Monolith,
+            UnitKind::Shrike,
+        ] {
+            assert_eq!(count(&w, PLAYER, k), 1, "seed {seed}: {k:?} trained");
+        }
+        assert_eq!(
+            count(&w, PLAYER, UnitKind::Lumen),
+            5,
+            "seed {seed}: a Lumen trained"
+        );
     }
 }

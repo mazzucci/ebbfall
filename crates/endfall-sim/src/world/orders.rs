@@ -5,6 +5,9 @@ use super::*;
 impl World {
     pub fn can_place(&self, kind: BldgKind, tx: i32, ty: i32, team: u8) -> bool {
         let d = kind.def();
+        if !self.factions[team as usize].builds(kind) {
+            return false; // the other race's building
+        }
         if !in_map(tx, ty) || !in_map(tx + d.w - 1, ty + d.h - 1) {
             return false;
         }

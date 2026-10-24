@@ -24,6 +24,12 @@ const UNIT_TEXT = {
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed. Requires Foundry.' },
   wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs.' },
+  // the Vael
+  lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
+  scythe: { hot: 'S', desc: 'Fast hover-knight with ceramic blades. Closes on infantry; cannot hit flyers.' },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers. Requires Loom.' },
+  shrike: { hot: 'R', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
@@ -33,6 +39,14 @@ const BLDG_TEXT = {
   forge: { hot: 'F', desc: 'Researches weapon and armor upgrades; unlocks Medics and Vanguards at the Garrison. Requires Garrison.' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Requires Garrison.' },
   airfield: { hot: 'A', desc: 'Trains Wasps and Observers. Requires Foundry.' },
+  // the Vael
+  conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
+  spire: { hot: 'S', desc: '+8 supply.' },
+  siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
+  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms and Monoliths (Monoliths need a Loom).' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons upgrade; unlocks Monoliths and the Zenith. Requires Kiln.' },
+  ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Requires Kiln.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes. Requires Loom.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard'];

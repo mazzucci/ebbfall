@@ -96,6 +96,8 @@ record! {
         killed = w.stats.killed, razed = w.stats.razed, seed = w.seed, diff = w.diff,
         weapons0 = w.upgrades[0][0], armor0 = w.upgrades[0][1], weapons1 = w.upgrades[1][0], armor1 = w.upgrades[1][1],
         map_kind = w.map_kind as u32,
+        faction0 = w.factions[0].index(),
+        faction1 = w.factions[1].index(),
     }
 }
 

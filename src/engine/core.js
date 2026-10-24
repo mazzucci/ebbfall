@@ -4,7 +4,7 @@
 // always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game } from './pkg/endfall_sim.js';
-import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS, SCHEMA } from './constants.js';
+import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
 import { clamp } from './util.js';
 
 export * from './constants.js';
@@ -15,12 +15,12 @@ const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));
 const fu = offsets(SCHEMA.unit), fb = offsets(SCHEMA.bldg), fp = offsets(SCHEMA.proj), fn = offsets(SCHEMA.node), fi = offsets(SCHEMA.info);
 const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length, NS = SCHEMA.node.length;
 const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades;
-const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases;
+const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
 
 let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  seed: 0, diff: 1, mapKind: 0, time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
+  seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1,
   stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [], upgrades: [{ weapons: 0, armor: 0 }, { weapons: 0, armor: 0 }],
 };
@@ -42,6 +42,7 @@ function sync() {
   dirty = false;
   const I = game.info();
   Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
+  S.factions = [FACTION_KEYS[I[fi.faction0]], FACTION_KEYS[I[fi.faction1]]];
   S.res[0][0] = I[fi.shards0]; S.res[0][1] = I[fi.ether0]; S.res[1][0] = I[fi.shards1]; S.res[1][1] = I[fi.ether1];
   S.sup[0] = [I[fi.sup_used0], I[fi.sup_cap0]]; S.sup[1] = [I[fi.sup_used1], I[fi.sup_cap1]];
   Object.assign(S.stats, { built: I[fi.built], lost: I[fi.lost], killed: I[fi.killed], razed: I[fi.razed] });
@@ -104,10 +105,10 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
-/** `side` 1: the player starts in the other base of the map. */
-export function resetGame(seed, diff, map = 0, side = 0) {
+/** `side` 1: the player starts in the other base of the map; `race`: the player's faction key (the AI plays the humans). */
+export function resetGame(seed, diff, map = 0, side = 0, race = 'humans') {
   if (game) { try { game.free(); } catch { /* already unusable */ } }
-  game = Game.withMapSide(seed >>> 0, diff, map, side);
+  game = Game.withSetup(seed >>> 0, diff, map, side, Math.max(0, Object.keys(FACTIONS).indexOf(race)), 0);
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
   M.rock.set(game.rock()); M.shade.set(game.shade());

@@ -1,0 +1,232 @@
+//! The Vael: warp-in construction, power fields and shields (the design is on the design-mockups branch).
+
+use super::*;
+
+/// The Vael: hovering ceramic constructs of living ether (docs: the design on the design-mockups branch).
+pub const VAEL: Faction = Faction {
+    key: "vael",
+    name: "Vael",
+    hq: BldgKind::Conflux,
+    worker: UnitKind::Lumen,
+    build_basic: &[
+        BldgKind::Spire,
+        BldgKind::Kiln,
+        BldgKind::Siphon,
+        BldgKind::Ward,
+    ],
+    build_advanced: &[BldgKind::Loom, BldgKind::Zenith, BldgKind::Conflux],
+    repairs: false,
+    warp: true,
+    ai: AiScript {
+        supply: BldgKind::Spire,
+        ether: BldgKind::Siphon,
+        rax: BldgKind::Kiln,
+        tech: BldgKind::Loom,
+        tower: BldgKind::Ward,
+        air: BldgKind::Zenith,
+        basic: UnitKind::Scythe,
+        anti_air: UnitKind::Prism,
+        mix: &[(UnitKind::Prism, 1), (UnitKind::Monolith, 3)],
+        raider: UnitKind::Shrike,
+        wave_scale: 0.6,
+    },
+};
+
+pub(super) const LUMEN: UnitDef = UnitDef {
+    key: "lumen",
+    name: "Lumen",
+    cost: [50, 0],
+    hp: 20.0,
+    shields: 20.0,
+    speed: 100.0,
+    range: 0.6,
+    dmg: 4.0,
+    sight: 7.0,
+    r: 9.0,
+    build: 12.0,
+    melee: true,
+    worker: true,
+    ..UNIT
+};
+pub(super) const SCYTHE: UnitDef = UnitDef {
+    key: "scythe",
+    name: "Scythe",
+    cost: [100, 0],
+    supply: 2,
+    hp: 80.0,
+    shields: 60.0,
+    armor: 1.0,
+    speed: 105.0,
+    range: 0.9,
+    dmg: 14.0,
+    cd: 0.9,
+    sight: 8.0,
+    r: 10.0,
+    build: 22.0,
+    melee: true,
+    up_dmg: 2.0,
+    ..UNIT
+};
+pub(super) const PRISM: UnitDef = UnitDef {
+    key: "prism",
+    name: "Prism",
+    cost: [100, 35],
+    supply: 2,
+    hp: 70.0,
+    shields: 80.0,
+    armor: 1.0,
+    speed: 85.0,
+    range: 5.5,
+    dmg: 16.0,
+    dmg_air: 16.0,
+    cd: 0.9,
+    sight: 9.0,
+    r: 11.0,
+    build: 30.0,
+    proj: Some(ProjKind::Bolt),
+    up_dmg: 1.0,
+    ..UNIT
+};
+pub(super) const MONOLITH: UnitDef = UnitDef {
+    key: "monolith",
+    name: "Monolith",
+    cost: [175, 100],
+    supply: 4,
+    hp: 160.0,
+    shields: 140.0,
+    armor: 2.0,
+    speed: 55.0,
+    range: 7.0,
+    dmg: 52.0,
+    cd: 2.2,
+    sight: 9.0,
+    r: 15.0,
+    build: 40.0,
+    proj: Some(ProjKind::Shell),
+    up_dmg: 4.0,
+    req: Some(BldgKind::Loom),
+    splash: 0.5,
+    splash_r: 40.0,
+    ..UNIT
+};
+pub(super) const SHRIKE: UnitDef = UnitDef {
+    key: "shrike",
+    name: "Shrike",
+    cost: [125, 75],
+    supply: 2,
+    hp: 90.0,
+    shields: 60.0,
+    speed: 165.0,
+    range: 3.5,
+    dmg: 12.0,
+    dmg_air: 8.0,
+    cd: 0.7,
+    sight: 9.0,
+    r: 11.0,
+    build: 28.0,
+    proj: Some(ProjKind::Bolt),
+    air: true,
+    up_dmg: 1.0,
+    ..UNIT
+};
+
+pub(super) const CONFLUX: BldgDef = BldgDef {
+    key: "conflux",
+    name: "Conflux",
+    cost: [400, 0],
+    w: 4,
+    h: 4,
+    hp: 1000.0,
+    shields: 400.0,
+    armor: 2.0,
+    supply: 10,
+    build: 80.0,
+    sight: 10.0,
+    trains: &[UnitKind::Lumen],
+    dropoff: true,
+    hq: true,
+    power: 7.0,
+    ..BLDG
+};
+pub(super) const SPIRE: BldgDef = BldgDef {
+    key: "spire",
+    name: "Spire",
+    cost: [100, 0],
+    hp: 200.0,
+    shields: 200.0,
+    supply: 8,
+    build: 25.0,
+    sight: 6.0,
+    power: 6.5,
+    ..BLDG
+};
+pub(super) const SIPHON: BldgDef = BldgDef {
+    key: "siphon",
+    name: "Siphon",
+    cost: [75, 0],
+    hp: 300.0,
+    shields: 150.0,
+    build: 25.0,
+    on_vent: true,
+    ..BLDG
+};
+pub(super) const KILN: BldgDef = BldgDef {
+    key: "kiln",
+    name: "Kiln",
+    cost: [150, 0],
+    w: 3,
+    h: 3,
+    hp: 500.0,
+    shields: 300.0,
+    build: 45.0,
+    sight: 7.0,
+    trains: &[UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith],
+    needs_power: true,
+    ..BLDG
+};
+pub(super) const LOOM: BldgDef = BldgDef {
+    key: "loom",
+    name: "Loom",
+    cost: [150, 100],
+    hp: 500.0,
+    shields: 300.0,
+    build: 45.0,
+    sight: 7.0,
+    req: Some(BldgKind::Kiln),
+    researches: &[Upgrade::Weapons],
+    needs_power: true,
+    ..BLDG
+};
+pub(super) const WARD: BldgDef = BldgDef {
+    key: "ward",
+    name: "Ward",
+    cost: [125, 0],
+    hp: 200.0,
+    shields: 220.0,
+    build: 25.0,
+    sight: 9.0,
+    req: Some(BldgKind::Kiln),
+    range: 7.0,
+    dmg: 20.0,
+    dmg_air: 28.0,
+    cd: 1.2,
+    proj: Some(ProjKind::Bolt),
+    up_dmg: 2.0,
+    needs_power: true,
+    ..BLDG
+};
+pub(super) const ZENITH: BldgDef = BldgDef {
+    key: "zenith",
+    name: "Zenith",
+    cost: [175, 125],
+    w: 3,
+    h: 3,
+    hp: 500.0,
+    shields: 300.0,
+    build: 55.0,
+    sight: 8.0,
+    trains: &[UnitKind::Shrike],
+    req: Some(BldgKind::Loom),
+    needs_power: true,
+    ..BLDG
+};

@@ -64,7 +64,7 @@ const wasm = join(root, 'target', 'wasm32-unknown-unknown', 'release', 'endfall_
 if (!existsSync(wasm)) fail('cargo finished but ' + wasm + ' is missing.');
 run(bindgen, ['--target', 'web', '--out-dir', join(root, 'src', 'engine', 'pkg'), wasm]);
 // The game's data tables (units, buildings, upgrades, factions, difficulty), straight from the Rust sim: the client
-// imports them from pkg/data.js, so every number has one source (crates/endfall-sim/src/data.rs).
+// imports them from pkg/data.js, so every number has one source (crates/endfall-sim/src/data/).
 {
   const pkg = join(root, 'src', 'engine', 'pkg');
   const sim = await import(pathToFileURL(join(pkg, 'endfall_sim.js')).href);

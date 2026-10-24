@@ -2,7 +2,7 @@
 //! once, here: the macro writes both the function that fills it and the list of its field names, which the client
 //! reads (through pkg/data.js) to find a field by name. A new field is one line, with no offsets to keep in step.
 
-use crate::data::{BldgKind, ProjKind, UnitKind};
+use crate::data::{ProjKind, UnitKind};
 use crate::map::Node;
 use crate::world::{Bldg, Phase, Proj, Task, Unit, World};
 
@@ -113,36 +113,20 @@ pub fn push_upgrades(out: &mut Vec<f64>, w: &World) {
 
 /// The record layouts and code names as JSON, for the client (build:wasm puts it in pkg/data.js).
 pub fn schema_json() -> String {
-    let list = |xs: &[&str]| {
-        xs.iter()
-            .map(|x| format!("\"{x}\""))
-            .collect::<Vec<_>>()
-            .join(",")
-    };
-    let kinds = |ks: Vec<&str>| list(&ks);
-    format!(
-        "{{\"unit\":[{}],\"bldg\":[{}],\"proj\":[{}],\"node\":[{}],\"info\":[{}],\"tasks\":[{}],\"phases\":[{}],\"projKinds\":[{}],\"unitKinds\":[{}],\"bldgKinds\":[{}],\"upgrades\":[{}],\"queueSlots\":{}}}",
-        list(UNIT_FIELDS),
-        list(BLDG_FIELDS),
-        list(PROJ_FIELDS),
-        list(NODE_FIELDS),
-        list(INFO_FIELDS),
-        list(TASKS),
-        list(PHASES),
-        list(PROJ_KINDS),
-        kinds(
-            crate::data::UNIT_KINDS
-                .iter()
-                .map(|k| k.def().key)
-                .collect()
-        ),
-        kinds(
-            crate::data::BLDG_KINDS
-                .iter()
-                .map(|k: &BldgKind| k.def().key)
-                .collect()
-        ),
-        kinds(crate::data::UPGRADES.iter().map(|u| u.def().key).collect()),
-        QUEUE_SLOTS,
-    )
+    use crate::data::{BLDG_KINDS, Obj, UNIT_KINDS, UPGRADES, array, quote};
+    let list = |xs: &[&str]| array(xs.iter().map(|x| quote(x)));
+    Obj::new()
+        .raw("unit", list(UNIT_FIELDS))
+        .raw("bldg", list(BLDG_FIELDS))
+        .raw("proj", list(PROJ_FIELDS))
+        .raw("node", list(NODE_FIELDS))
+        .raw("info", list(INFO_FIELDS))
+        .raw("tasks", list(TASKS))
+        .raw("phases", list(PHASES))
+        .raw("projKinds", list(PROJ_KINDS))
+        .raw("unitKinds", array(UNIT_KINDS.map(|k| quote(k.def().key))))
+        .raw("bldgKinds", array(BLDG_KINDS.map(|k| quote(k.def().key))))
+        .raw("upgrades", array(UPGRADES.map(|u| quote(u.def().key))))
+        .num("queueSlots", QUEUE_SLOTS)
+        .done()
 }

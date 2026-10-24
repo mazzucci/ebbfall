@@ -214,7 +214,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
         assert!(b.queue.len() <= 5);
         if let Some((up, p)) = b.research {
             assert!(
-                b.kind == BldgKind::Forge && b.done,
+                b.kind.def().researches.contains(&up) && b.done,
                 "{ctx}: research at {:?}",
                 b.kind
             );
@@ -360,40 +360,17 @@ pub fn check_invariants(w: &World, ctx: &str) {
     }
 }
 
-/// Every building and unit key of both races, plus one that is not a kind (random orders try them all).
-pub const KINDS_B: [&str; 15] = [
-    "depot",
-    "barracks",
-    "extractor",
-    "forge",
-    "turret",
-    "core",
-    "airfield",
-    "conflux",
-    "spire",
-    "siphon",
-    "kiln",
-    "loom",
-    "ward",
-    "zenith",
-    "nonsense",
-];
+/// A random building key of either race, or one that is not a kind (random orders try them all).
+fn any_bldg_key(r: &mut Mulberry32) -> &'static str {
+    let i = r.below(BLDG_KINDS.len() as u32 + 1) as usize;
+    BLDG_KINDS.get(i).map_or("nonsense", |k| k.def().key)
+}
 
-pub const KINDS_U: [&str; 13] = [
-    "harvester",
-    "trooper",
-    "vanguard",
-    "lancer",
-    "medic",
-    "wasp",
-    "observer",
-    "lumen",
-    "scythe",
-    "prism",
-    "monolith",
-    "shrike",
-    "nonsense",
-];
+/// A random unit key of either race, or one that is not a kind.
+fn any_unit_key(r: &mut Mulberry32) -> &'static str {
+    let i = r.below(UNIT_KINDS.len() as u32 + 1) as usize;
+    UNIT_KINDS.get(i).map_or("nonsense", |k| k.def().key)
+}
 
 /// One random order through the same Game API the browser uses, with ids that may be stale or garbage.
 pub fn random_order(g: &mut Game, r: &mut Mulberry32) {
@@ -425,14 +402,14 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
         7 => {
             let _ = g.place_building(
                 r.below(3) as u8,
-                KINDS_B[r.below(KINDS_B.len() as u32) as usize],
+                any_bldg_key(r),
                 (x / 32.0) as i32,
                 (y / 32.0) as i32,
                 a,
             );
         }
         8 => {
-            let _ = g.queue_unit(a, KINDS_U[r.below(KINDS_U.len() as u32) as usize]);
+            let _ = g.queue_unit(a, any_unit_key(r));
         }
         9 => g.cancel_queue(a, r.below(7)),
         10 => g.set_rally(a, x, y, if r.below(2) == 0 { b } else { 0 }),

@@ -261,7 +261,7 @@ test('idle and army buttons, and double-click selects all of a type on screen', 
 test('pause stops the game and restart begins a new one', async () => {
   const d = await newGame(DESKTOP);
   try {
-    await d.page.waitForTimeout(1500);
+    await d.page.waitForFunction(() => endfall.G.time > 1);
     await d.key('p');
     assert.ok(await d.page.locator('#pause').isVisible());
     const t0 = await d.eval(() => endfall.G.time);
@@ -269,12 +269,10 @@ test('pause stops the game and restart begins a new one', async () => {
     assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while paused');
     await d.key('p');
     assert.ok(!(await d.page.locator('#pause').isVisible()), 'P resumes');
-    await d.page.waitForTimeout(1200);
-    assert.ok(await d.eval(() => endfall.G.time) > t0, 'time runs again');
+    await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 5000 }); // (throws if time stays still)
     await d.page.locator('#btnPause').click();
     await d.page.locator('#btnRestart').click();
-    await d.page.waitForTimeout(300);
-    assert.ok(await d.eval(() => endfall.G.time) < 1, 'a new game started');
+    await d.page.waitForFunction(() => endfall.G.time < 1, null, { timeout: 5000 }); // a new game started
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -522,8 +520,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await d.page.waitForTimeout(150);
     assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-press did not start placing a Forge');
-    await d.page.waitForTimeout(1500);
-    assert.ok(await info.isHidden(), 'the details go a moment after the finger lifts');
+    await info.waitFor({ state: 'hidden', timeout: 5000 }); // the details go a moment after the finger lifts
     // Hold a greyed-out button while the money arrives (the card is rebuilt under the finger): no error, no press.
     await d.grant(0, 0);
     await d.pressCard('Back'); // to the basic page
@@ -532,8 +529,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     await d.page.waitForTimeout(200); await d.grant(5000, 5000); await d.page.waitForTimeout(500);
     assert.ok(await info.isVisible(), 'details still show after the rebuild');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await d.page.waitForTimeout(1500);
-    assert.ok(await info.isHidden(), 'and go after the lift');
+    await info.waitFor({ state: 'hidden', timeout: 5000 }); // and go after the lift
     assert.equal(await d.eval(() => endfall.ui.place), null, 'no Depot placement started');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

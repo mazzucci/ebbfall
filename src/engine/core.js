@@ -4,18 +4,18 @@
 // always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game } from './pkg/endfall_sim.js';
-import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS } from './constants.js';
+import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS, SCHEMA } from './constants.js';
 import { clamp } from './util.js';
 
 export * from './constants.js';
 export { clamp, dist, lerp, fmt, mulberry } from './util.js';
 
-// Snapshot record layouts; keep in sync with UNIT_STRIDE etc. in crates/endfall-sim/src/lib.rs.
-const US = 16, BS = 24, PS = 8, NS = 12;
-const UNIT_KEYS = Object.keys(UNITS), BLDG_KEYS = Object.keys(BUILDINGS);
-const PROJ_KINDS = ['bolt', 'shell', 'missile'];
-const UPGRADE_KEYS = ['weapons', 'armor'];
-const TASKS = ['idle', 'hold', 'move', 'amove', 'attack', 'gather', 'build', 'repair'], PHASES = ['go', 'wait', 'mine', 'return'];
+// Snapshot record layouts, by field name (crates/endfall-sim/src/snapshot.rs declares them; pkg/data.js carries them).
+const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));
+const fu = offsets(SCHEMA.unit), fb = offsets(SCHEMA.bldg), fp = offsets(SCHEMA.proj), fn = offsets(SCHEMA.node), fi = offsets(SCHEMA.info);
+const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length, NS = SCHEMA.node.length;
+const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades;
+const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases;
 
 let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
@@ -41,35 +41,35 @@ function sync() {
   if (!dirty || !game) return;
   dirty = false;
   const I = game.info();
-  Object.assign(S, { time: I[0], tick: I[1], over: !!I[10], winner: I[11], seed: I[16], diff: I[17], mapKind: I[22] });
-  S.res[0][0] = I[2]; S.res[0][1] = I[3]; S.res[1][0] = I[4]; S.res[1][1] = I[5];
-  S.sup[0] = [I[6], I[7]]; S.sup[1] = [I[8], I[9]];
-  Object.assign(S.stats, { built: I[12], lost: I[13], killed: I[14], razed: I[15] });
-  Object.assign(S.upgrades[0], { weapons: I[18], armor: I[19] }); Object.assign(S.upgrades[1], { weapons: I[20], armor: I[21] });
+  Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
+  S.res[0][0] = I[fi.shards0]; S.res[0][1] = I[fi.ether0]; S.res[1][0] = I[fi.shards1]; S.res[1][1] = I[fi.ether1];
+  S.sup[0] = [I[fi.sup_used0], I[fi.sup_cap0]]; S.sup[1] = [I[fi.sup_used1], I[fi.sup_cap1]];
+  Object.assign(S.stats, { built: I[fi.built], lost: I[fi.lost], killed: I[fi.killed], razed: I[fi.razed] });
+  Object.assign(S.upgrades[0], { weapons: I[fi.weapons0], armor: I[fi.armor0] }); Object.assign(S.upgrades[1], { weapons: I[fi.weapons1], armor: I[fi.armor1] });
   S.vis.set(game.vis(PLAYER)); S.explored.set(game.explored(PLAYER)); M.occ.set(game.occ());
 
   const N = game.nodes(), seenN = new Set(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
-    const id = N[o]; seenN.add(id);
+    const id = N[o + fn.id], ether = !!N[o + fn.ether]; seenN.add(id);
     let n = nodes.get(id);
-    if (!n) nodes.set(id, n = { id, kind: 'node', type: N[o + 1] ? 'ether' : 'shard', tx: N[o + 2], ty: N[o + 3], x: N[o + 4], y: N[o + 5], r: N[o + 9], w: N[o + 1] ? 2 : 1, h: N[o + 1] ? 2 : 1, max: N[o + 6], dead: false });
-    n.amount = N[o + 6]; n.miners = N[o + 7]; n.extractorId = N[o + 8];
+    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'shard', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: ether ? 2 : 1, h: ether ? 2 : 1, max: N[o + fn.amount], dead: false });
+    n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners]; n.extractorId = N[o + fn.extractor];
     M.nodes.push(n);
   }
   retire(nodes, seenN);
 
   const B = game.buildings(), seenB = new Set(); S.bldgs = [];
   for (let o = 0; o < B.length; o += BS) {
-    const id = B[o]; seenB.add(id);
+    const id = B[o + fb.id]; seenB.add(id);
     let b = bldgs.get(id);
     if (!b) {
-      const type = BLDG_KEYS[B[o + 1]], d = BUILDINGS[type];
-      bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + 2], tx: B[o + 3], ty: B[o + 4], w: d.w, h: d.h, x: (B[o + 3] + d.w / 2) * TILE, y: (B[o + 4] + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false });
+      const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
+      bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false });
     }
-    b.hp = B[o + 5]; b.maxhp = B[o + 6]; b.progress = B[o + 7]; b.done = !!B[o + 8]; b.prog = B[o + 9]; b.flash = B[o + 10]; b.aim = B[o + 11];
-    b.rally = B[o + 12] ? { x: B[o + 13], y: B[o + 14], node: nodes.get(B[o + 15]) || null } : null;
-    b.queue = []; for (let k = 0; k < B[o + 16]; k++) b.queue.push(UNIT_KEYS[B[o + 17 + k]]);
-    b.research = B[o + 22] ? { type: UPGRADE_KEYS[B[o + 22] - 1], prog: B[o + 23] } : null;
+    b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
+    b.rally = B[o + fb.has_rally] ? { x: B[o + fb.rally_x], y: B[o + fb.rally_y], node: nodes.get(B[o + fb.rally_node]) || null } : null;
+    b.queue = []; for (let k = 0; k < B[o + fb.queue_len]; k++) b.queue.push(UNIT_KEYS[B[o + fb.q0 + k]]);
+    b.research = B[o + fb.research] ? { type: UPGRADE_KEYS[B[o + fb.research] - 1], prog: B[o + fb.research_prog] } : null;
     S.bldgs.push(b);
   }
   retire(bldgs, seenB);
@@ -78,14 +78,15 @@ function sync() {
 
   const U = game.units(), seenU = new Set(), attacks = []; S.units = [];
   for (let o = 0; o < U.length; o += US) {
-    const id = U[o]; seenU.add(id);
+    const id = U[o + fu.id]; seenU.add(id);
     let u = units.get(id);
-    if (!u) { const type = UNIT_KEYS[U[o + 1]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + 2], task: {}, dead: false }); }
-    u.x = U[o + 3]; u.y = U[o + 4]; u.hp = U[o + 5]; u.maxhp = U[o + 6]; u.r = U[o + 7]; u.face = U[o + 8]; u.flash = U[o + 9];
-    u.carry = U[o + 10]; u.carryType = U[o + 11] < 0 ? null : U[o + 11] ? 'ether' : 'shard'; u.cd = U[o + 15];
-    const t = TASKS[U[o + 12]], target = U[o + 14];
+    if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: {}, dead: false }); }
+    u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
+    const ct = U[o + fu.carry_type];
+    u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
+    const t = TASKS[U[o + fu.task]], target = U[o + fu.target];
     u.task = { t };
-    if (t === 'gather') { u.task.phase = PHASES[U[o + 13]]; u.task.node = nodes.get(target) || null; }
+    if (t === 'gather') { u.task.phase = PHASES[U[o + fu.phase]]; u.task.node = nodes.get(target) || null; }
     else if (t === 'attack') attacks.push([u, target]);
     else if (t === 'build' || t === 'repair') u.task.b = bldgs.get(target) || null;
     S.units.push(u);
@@ -94,7 +95,7 @@ function sync() {
   for (const [u, id] of attacks) u.task.target = units.get(id) || bldgs.get(id) || null;
 
   const P = game.projectiles(); S.projs = [];
-  for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o], y: P[o + 1], type: PROJ_KINDS[P[o + 2]], team: P[o + 3], ax: P[o + 4], ay: P[o + 5] });
+  for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
 
   for (const e of JSON.parse(game.drainEvents())) S.events.push(e);
 }

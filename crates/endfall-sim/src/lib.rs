@@ -11,21 +11,22 @@ pub mod jsmath;
 pub mod map;
 pub mod path;
 mod rng;
+pub mod snapshot;
 pub mod world;
 
-use data::{BldgKind, ProjKind, UnitKind};
+use data::{BldgKind, UnitKind};
 pub use rng::Mulberry32;
 use wasm_bindgen::prelude::*;
-use world::{Event, Phase, Task, World};
+use world::{Event, World};
 
 /// Simulation ticks per second; `DT` is `1 / TICK_RATE`.
 pub const TICK_RATE: u32 = 30;
 
-/// Record sizes of the flat snapshot arrays (one f64 per field). Keep in sync with src/engine/core.js.
-pub const UNIT_STRIDE: usize = 16;
-pub const BLDG_STRIDE: usize = 24;
-pub const PROJ_STRIDE: usize = 8;
-pub const NODE_STRIDE: usize = 12;
+/// Record sizes of the flat snapshot arrays (one f64 per field; the layouts are in snapshot.rs).
+pub const UNIT_STRIDE: usize = snapshot::UNIT_FIELDS.len();
+pub const BLDG_STRIDE: usize = snapshot::BLDG_FIELDS.len();
+pub const PROJ_STRIDE: usize = snapshot::PROJ_FIELDS.len();
+pub const NODE_STRIDE: usize = snapshot::NODE_FIELDS.len();
 
 #[wasm_bindgen]
 pub struct Game {
@@ -285,162 +286,45 @@ impl Game {
         self.w.res[team as usize & 1] = [shards, ether];
     }
 
-    // ---- snapshot for the renderer and HUD ----
-    /// [time, tick, res P shards, res P ether, res E shards, res E ether, sup P used, sup P cap, sup E used,
-    ///  sup E cap, over, winner, built, lost, killed, razed, seed, diff, P weapons, P armor, E weapons, E armor,
-    ///  map kind (MapKind index)]
+    /// The world's scalars (fields: snapshot::INFO_FIELDS).
     pub fn info(&self) -> Vec<f64> {
-        let w = &self.w;
-        let s = w.stats;
-        vec![
-            w.time,
-            w.tick as f64,
-            w.res[0][0] as f64,
-            w.res[0][1] as f64,
-            w.res[1][0] as f64,
-            w.res[1][1] as f64,
-            w.sup[0][0] as f64,
-            w.sup[0][1] as f64,
-            w.sup[1][0] as f64,
-            w.sup[1][1] as f64,
-            w.over as u8 as f64,
-            w.winner as f64,
-            s.built as f64,
-            s.lost as f64,
-            s.killed as f64,
-            s.razed as f64,
-            w.seed as f64,
-            w.diff as f64,
-            w.upgrades[0][0] as f64,
-            w.upgrades[0][1] as f64,
-            w.upgrades[1][0] as f64,
-            w.upgrades[1][1] as f64,
-            w.map_kind as u32 as f64,
-        ]
+        let mut out = Vec::with_capacity(snapshot::INFO_FIELDS.len());
+        snapshot::push_info(&mut out, &self.w, &self.w);
+        out
     }
 
-    /// Per unit: [id, kind, team, x, y, hp, maxhp, r, face, flash, carry, carryType (-1 none, 0 shards,
-    /// 1 ether), task (0 idle, 1 hold, 2 move, 3 amove, 4 attack, 5 gather, 6 build), phase (-1, or 0 go,
-    /// 1 wait, 2 mine, 3 return), target id (attack/build/gather, else 0), cd].
+    /// One record per unit (fields: snapshot::UNIT_FIELDS).
     pub fn units(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.w.units.len() * UNIT_STRIDE);
         for u in &self.w.units {
-            let (task, phase, target) = match u.task {
-                Task::Idle => (0, -1, 0),
-                Task::Hold => (1, -1, 0),
-                Task::Move { .. } => (2, -1, 0),
-                Task::AMove { .. } => (3, -1, 0),
-                Task::Attack { target, .. } => (4, -1, target),
-                Task::Gather { node, phase, .. } => (
-                    5,
-                    match phase {
-                        Phase::Go => 0,
-                        Phase::Wait => 1,
-                        Phase::Mine => 2,
-                        Phase::Return => 3,
-                    },
-                    node,
-                ),
-                Task::Build { b } => (6, -1, b),
-                Task::Repair { b } => (7, -1, b),
-            };
-            out.extend_from_slice(&[
-                u.id as f64,
-                u.kind.index() as f64,
-                u.team as f64,
-                u.x,
-                u.y,
-                u.hp,
-                u.maxhp,
-                u.r,
-                u.face,
-                u.flash,
-                u.carry as f64,
-                u.carry_ether.map_or(-1.0, |e| e as u8 as f64),
-                task as f64,
-                phase as f64,
-                target as f64,
-                u.cd,
-            ]);
+            snapshot::push_unit(&mut out, u, &self.w);
         }
         out
     }
 
-    /// Per building: [id, kind, team, tx, ty, hp, maxhp, progress, done, prog, flash, aim, hasRally, rallyX,
-    /// rallyY, rallyNode, queueLen, q0..q4 (unit kind or -1), research (0 none, 1 weapons, 2 armor), research progress].
+    /// One record per building (fields: snapshot::BLDG_FIELDS).
     pub fn buildings(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.w.bldgs.len() * BLDG_STRIDE);
         for b in &self.w.bldgs {
-            let (hr, rx, ry, rn) = match b.rally {
-                Some(r) => (1.0, r.x, r.y, r.node.unwrap_or(0) as f64),
-                None => (0.0, 0.0, 0.0, 0.0),
-            };
-            out.extend_from_slice(&[
-                b.id as f64,
-                b.kind.index() as f64,
-                b.team as f64,
-                b.tx as f64,
-                b.ty as f64,
-                b.hp,
-                b.maxhp,
-                b.progress,
-                b.done as u8 as f64,
-                b.prog,
-                b.flash,
-                b.aim,
-                hr,
-                rx,
-                ry,
-                rn,
-                b.queue.len() as f64,
-            ]);
-            for i in 0..5 {
-                out.push(b.queue.get(i).map_or(-1.0, |k| k.index() as f64));
-            }
-            let (rk, rp) = b
-                .research
-                .map_or((0.0, 0.0), |(u, p)| (u.index() as f64 + 1.0, p));
-            out.extend_from_slice(&[rk, rp]);
+            snapshot::push_bldg(&mut out, b, &self.w);
         }
         out
     }
 
-    /// Per projectile: [x, y, kind (0 bolt, 1 shell, 2 missile), team, aimX, aimY, 0, 0]; aim = the point it flies at.
+    /// One record per projectile (fields: snapshot::PROJ_FIELDS).
     pub fn projectiles(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.w.projs.len() * PROJ_STRIDE);
         for p in &self.w.projs {
-            let (ax, ay) = self
-                .w
-                .geo(p.target)
-                .map_or((p.x, p.y), |g| g.aim_point(p.x, p.y));
-            let k = match p.kind {
-                ProjKind::Bolt => 0.0,
-                ProjKind::Shell => 1.0,
-                ProjKind::Missile => 2.0,
-            };
-            out.extend_from_slice(&[p.x, p.y, k, p.team as f64, ax, ay, 0.0, 0.0]);
+            snapshot::push_proj(&mut out, p, &self.w);
         }
         out
     }
 
-    /// Per resource node: [id, ether, tx, ty, x, y, amount, miners, extractor id (0 none), r, 0, 0].
+    /// One record per resource node (fields: snapshot::NODE_FIELDS).
     pub fn nodes(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.w.map.nodes.len() * NODE_STRIDE);
         for n in &self.w.map.nodes {
-            out.extend_from_slice(&[
-                n.id as f64,
-                n.ether as u8 as f64,
-                n.tx as f64,
-                n.ty as f64,
-                n.x,
-                n.y,
-                n.amount as f64,
-                n.miners as f64,
-                n.extractor.unwrap_or(0) as f64,
-                n.r,
-                0.0,
-                0.0,
-            ]);
+            snapshot::push_node(&mut out, n, &self.w);
         }
         out
     }
@@ -516,6 +400,12 @@ pub fn rng_sequence(seed: u32, n: u32) -> Vec<u32> {
 }
 
 /// The game's data tables as JSON (written to src/engine/pkg/data.js by build:wasm: the client's only source of them).
+/// The snapshot record layouts and code names as JSON (build:wasm puts them in src/engine/pkg/data.js).
+#[wasm_bindgen(js_name = schemaJson)]
+pub fn schema_json() -> String {
+    snapshot::schema_json()
+}
+
 #[wasm_bindgen(js_name = dataJson)]
 pub fn data_json() -> String {
     data::data_json()

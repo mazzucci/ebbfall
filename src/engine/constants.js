@@ -47,5 +47,7 @@ export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 UPGRADES.weapons.desc = 'More damage for every weapon (' + Object.entries(UP_DMG).map(([k, n]) => `${(UNITS[k] || BUILDINGS[k]).name} +${n}`).join(', ') + ' per level).';
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
+/** The snapshot record layouts (field names per record) and code names, from crates/endfall-sim/src/snapshot.rs. */
+export const SCHEMA = D.schema;
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 export const DIFF = D.diff.map((d, i) => ({ name: DIFF_NAMES[i], ...d }));

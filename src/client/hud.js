@@ -221,13 +221,18 @@ export function cardItems() {
       });
       if (b.research) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }
-    if (b.queue.length) at(5, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, por: ['unit', b.queue[b.queue.length - 1]], badge: true, tip: 'Cancel the last unit in the queue (refund)' });
+    // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
+    if (trains.length) {
+      const last = b.queue[b.queue.length - 1];
+      at(5, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, dis: !last, ...(last ? { por: ['unit', last], badge: true } : { icon: 'x' }), tip: 'Cancel the last unit in the queue (refund)' });
+    }
   }
   // An armed order: its button becomes Cancel (Esc), lit, in the same place.
   const armedId = ARMED_BY[ui.mode], armedAt = items.find(i => i.id === armedId && !i.hidden);
   if (armedAt) {
     Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
-    for (let i = items.length - 1; i >= 0; i--) if (items[i].id.startsWith('cancel')) items.splice(i, 1); // one Cancel at a time (Deselect stays)
+    // One live Cancel at a time (Deselect stays); the queue's keeps its slot, greyed out, so the card keeps its shape.
+    for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }
   for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
     const [sh, et] = G.res[G.me];

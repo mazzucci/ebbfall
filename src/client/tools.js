@@ -21,7 +21,7 @@ export function onAttacked(e) {
 }
 export function jumpToAlert() { if (alerts.last) centerOn(alerts.last.x, alerts.last.y); else toast('No recent attacks'); }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; clearPings(); idleIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; clearPings(); lit.clear(); idleIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 
 function choose(list) { ui.sel = list; ui.mode = null; ui.place = null; setHint(); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -64,8 +64,19 @@ const touch = matchMedia('(pointer: coarse)').matches;
 /** The group tab being pressed (kept outside the element: tabs are rebuilt when counts change). */
 const press = { k: 0, held: false, timer: 0 };
 let groupsKey = '';
+/** Our buildings that need power, and whether they had it: one going dark pings the minimap (the toast says which). */
+const lit = new Map();
+function watchPower() {
+  for (const b of G.bldgs) {
+    if (b.team !== G.me || !b.done || !b.d.needsPower) continue;
+    if (lit.get(b.id) && !b.powered) ping(b.x, b.y);
+    lit.set(b.id, b.powered);
+  }
+}
+
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
+  watchPower();
   const idle = idleHarvesters().length, a = army().length;
   const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
   if (pic.dataset.k !== wk) {

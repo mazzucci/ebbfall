@@ -560,7 +560,7 @@ for (const [label, device] of [['phone', PHONE], ['small phone', { ...PHONE, vie
   });
 }
 
-test('a box over units and buildings selects only the units', async () => {
+test('a box over units and buildings selects only the units, and only the fighters among them', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.skip(5);
@@ -570,6 +570,10 @@ test('a box over units and buildings selects only the units', async () => {
     assert.ok(sel.length >= 1 && sel.every(e => e.kind === 'unit'), `units only: ${JSON.stringify(sel)}`);
     await d.boxSelect(core.x - 20, core.y - 20, core.x + 20, core.y + 20); // the Core alone
     assert.deepEqual((await d.selection()).map(e => e.type), ['core'], 'a box with no units selects the building');
+    // A soldier among the workers: the box takes the soldier only.
+    const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 100, core.y + 40]);
+    await d.boxSelect(core.x - 30, core.y - 30, core.x + 150, core.y + 90);
+    assert.deepEqual((await d.selection()).map(e => e.id), [id], 'fighters in the box: the workers are left out');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

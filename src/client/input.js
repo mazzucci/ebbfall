@@ -71,7 +71,9 @@ function select(list, add) {
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
   const us = G.units.filter(u => { const r = u.r * UNIT_SCALE, s = shown(u); return u.team === G.me && s.x >= a.x - r && s.x <= b.x + r && s.y >= a.y - r && s.y <= b.y + r; });
-  if (us.length) { select(us, add); return; }
+  // An army box near the base takes the army, not the workers mining beside it (a box of workers only takes them).
+  const fighters = us.filter(u => !u.d.worker);
+  if (us.length) { select(fighters.length ? fighters : us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === G.me && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
 }

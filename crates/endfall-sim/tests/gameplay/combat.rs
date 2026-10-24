@@ -725,6 +725,46 @@ fn idle_defenders_shot_by_a_passing_wasp_give_up_and_walk_home() {
 }
 
 #[test]
+fn shields_research_soaks_damage_on_shields_only() {
+    let mut w = flat_arena(17);
+    w.factions = [&VAEL, &HUMANS];
+    let s = w.make_unit(UnitKind::Scythe, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(s);
+    w.upgrades[PLAYER as usize][Upgrade::Shields.index()] = 2;
+    let d = UnitKind::Scythe.def();
+    w.damage(s, 7.0, None);
+    assert_eq!(
+        w.unit(s).unwrap().sh,
+        d.shields - 5.0,
+        "two levels soak 2 of a 7-damage hit on shields"
+    );
+    w.damage(s, 2.0, None);
+    assert_eq!(
+        w.unit(s).unwrap().sh,
+        d.shields - 6.0,
+        "at least 1 always lands"
+    );
+    let left = w.unit(s).unwrap().sh;
+    w.damage(s, left + 2.0 + 10.0, None);
+    let u = w.unit(s).unwrap();
+    assert_eq!(
+        (u.sh, u.hp),
+        (0.0, d.hp - (10.0 - d.armor)),
+        "the soak applies once, then hull armor on the rest"
+    );
+    w.damage(s, 7.0, None);
+    assert_eq!(
+        w.unit(s).unwrap().hp,
+        d.hp - (10.0 - d.armor) - (7.0 - d.armor),
+        "with the shields down, only hull armor"
+    );
+    assert!(
+        BldgKind::Loom.def().researches.contains(&Upgrade::Shields),
+        "researched at the Loom"
+    );
+}
+
+#[test]
 fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     let mut w = flat_arena(16);
     w.factions = [&VAEL, &HUMANS];

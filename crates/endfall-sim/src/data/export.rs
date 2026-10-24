@@ -134,6 +134,7 @@ fn upgrade(d: &UpgradeDef) -> String {
     let effect = match d.effect {
         Effect::Weapons => "weapons",
         Effect::Armor => "armor",
+        Effect::Shields => "shields",
     };
     Obj::new()
         .str("name", d.name)

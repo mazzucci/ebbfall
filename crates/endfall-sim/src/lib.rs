@@ -171,7 +171,7 @@ impl Game {
             index: i as usize,
         });
     }
-    /// Research the next level of "weapons" or "armor" at one of our Foundries ("" = started).
+    /// Research the next level of an upgrade key ("weapons", "armor", "shields") at one of our research buildings ("" = started).
     pub fn research(&mut self, bldg: u32, upgrade: &str) -> String {
         let Some(up) = data::Upgrade::parse(upgrade) else {
             return "Unknown upgrade".into();

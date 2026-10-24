@@ -183,7 +183,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     const [mm, info, cmd] = await Promise.all(['#minimap', '#info', '#cmd'].map(q => d.page.locator(q).boundingBox()));
     assert.ok(info.x >= mm.x + mm.width && info.x + info.width <= cmd.x, 'the console sits between the minimap and the command card');
     assert.ok(info.height <= 70 && info.y + info.height <= 390, 'low, at the bottom of the screen');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Attack', 'Hold'], 'a Harvester card: three a row, leading with Build');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Attack', 'Hold', 'Deselect'], 'a Harvester card: three a row, leading with Build, Deselect last');
     await d.pressCard('Build');
     const depot = d.page.locator('#cmd button', { hasText: 'Depot' });
     assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
@@ -579,7 +579,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    assert.ok(await d.page.locator('#info').isVisible(), 'the console is there with nothing selected');
+    assert.ok(await d.page.locator('#info').isHidden(), 'no console with nothing selected');
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
@@ -598,9 +598,12 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     assert.equal(cols, 3, 'three columns');
     await d.pressCard('Gather');
     let card = await d.card();
-    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold'], 'Gather armed: its button is Cancel, in place');
+    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold', 'Deselect'], 'Gather armed: its button is Cancel, in place');
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.mode), null, 'Cancel disarms');
+    await d.pressCard('Deselect');
+    assert.deepEqual(await d.selection(), [], 'Deselect lets go of the harvester');
+    assert.ok(await d.page.locator('#info').isHidden(), 'and the console goes');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

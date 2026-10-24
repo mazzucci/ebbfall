@@ -678,14 +678,32 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
     assert.deepEqual(mine.b, ['conflux']); assert.deepEqual(mine.u, ['lumen']); assert.deepEqual(mine.f, ['vael', 'humans'], 'the AI plays the humans');
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Spire'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
     assert.deepEqual(labels, ['Spire', 'Kiln', 'Siphon', 'Ward', 'Advanced', 'Back'], 'the Vael Build list');
     await page.evaluate(() => { endfall.ui.mode = null; });
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Spire'), null, { timeout: 10000 });
     assert.ok(await page.locator('#shBar').isVisible(), 'a Lumen shows its shields over its hull');
     const card = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
     assert.ok(!card.includes('Repair'), `the Vael do not repair: ${card}`);
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
+});
+
+test('phone: as the Vael, a Lumen plants a Spire and is free at once; the seed grows by itself', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
+  try {
+    await d.grant(1000, 0);
+    const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
+    const lumen = s.units.find(u => u.team === 0 && u.type === 'lumen');
+    const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
+    await d.buildWithUI('s', 'spire', spot.tx, spot.ty, lumen.id);
+    const spire = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'spire'));
+    await until(d, async () => (await spire())?.planted, { seconds: 20, what: 'the Spire to be planted' });
+    assert.notEqual((await d.state()).units.find(u => u.id === lumen.id).task.t, 'build', 'the Lumen went back to work');
+    await d.clickEntity((await spire()).id);
+    assert.match(await d.hudText('#selSub', /Growing/), /Growing/, 'the seed grows by itself');
+    await until(d, async () => (await spire())?.done, { seconds: 40, what: 'the Spire to finish' });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
 });

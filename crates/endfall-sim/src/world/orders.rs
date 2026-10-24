@@ -8,6 +8,13 @@ impl World {
         if !self.factions[team as usize].builds(kind) {
             return false; // the other race's building
         }
+        let (cx, cy) = (
+            (tx as f64 + d.w as f64 / 2.0) * TILE,
+            (ty as f64 + d.h as f64 / 2.0) * TILE,
+        );
+        if d.needs_power && !self.powered_at(team, cx, cy) {
+            return false; // outside every power field
+        }
         if !in_map(tx, ty) || !in_map(tx + d.w - 1, ty + d.h - 1) {
             return false;
         }
@@ -255,7 +262,9 @@ impl World {
     /// Whether `uid` may work on building `b`: a harvester of the same team, and the building is unfinished.
     pub fn can_build(&self, uid: Id, b: Id) -> bool {
         match (self.unit(uid), self.bldg(b)) {
-            (Some(u), Some(bd)) => u.kind.def().worker && u.team == bd.team && !bd.done,
+            (Some(u), Some(bd)) => {
+                u.kind.def().worker && u.team == bd.team && !bd.done && !bd.planted // (a planted seed needs nobody)
+            }
             _ => false,
         }
     }

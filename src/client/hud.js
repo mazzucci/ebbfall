@@ -29,7 +29,8 @@ export const ROMAN = ['', 'I', 'II', 'III'];
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
+  if (!b.done) return b.planted ? 'Growing' : buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
+  if (b.d.needsPower && !b.powered) return 'Unpowered: build a Spire near it';
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
@@ -201,7 +202,7 @@ export function cardItems() {
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
   } else if (bl.length === 1) {
     const b = bl[0];
-    if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
+    if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
@@ -350,7 +351,7 @@ function watchSites() {
   for (const b of G.bldgs) {
     if (b.team !== PLAYER || b.done) { siteHadBuilder.delete(b.id); continue; }
     const has = buildersOf(b).length > 0;
-    if (siteHadBuilder.get(b.id) && !has) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
+    if (siteHadBuilder.get(b.id) && !has && !b.planted) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
     siteHadBuilder.set(b.id, has);
   }
   for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) siteHadBuilder.delete(id);

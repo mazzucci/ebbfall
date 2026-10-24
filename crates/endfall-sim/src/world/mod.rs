@@ -162,6 +162,10 @@ pub struct Bldg {
     pub sh: f64,
     pub maxsh: f64,
     pub hit_at: f64,
+    /// Warp-in: the site has been planted and grows by itself.
+    pub planted: bool,
+    /// Inside a power field (always true for a building that needs none).
+    pub powered: bool,
     pub progress: f64,
     pub done: bool,
     pub queue: Vec<UnitKind>,

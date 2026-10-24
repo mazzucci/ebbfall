@@ -301,6 +301,24 @@ pub fn check_invariants(w: &World, ctx: &str) {
             .sum();
         assert_eq!(w.sup[t][1], cap.min(200), "{ctx}: team {t} supply cap");
     }
+    for u in &w.units {
+        assert!(
+            u.sh >= 0.0 && u.sh <= u.maxsh,
+            "{ctx}: unit {} shields {}/{}",
+            u.id,
+            u.sh,
+            u.maxsh
+        );
+    }
+    for b in &w.bldgs {
+        assert!(
+            b.sh >= 0.0 && b.sh <= b.maxsh,
+            "{ctx}: building {} shields {}/{}",
+            b.id,
+            b.sh,
+            b.maxsh
+        );
+    }
     for p in &w.projs {
         assert!(
             p.x.is_finite() && p.y.is_finite(),

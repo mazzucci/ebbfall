@@ -681,6 +681,11 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.waitForTimeout(300);
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
     assert.deepEqual(labels, ['Spire', 'Kiln', 'Siphon', 'Ward', 'Advanced', 'Back'], 'the Vael Build list');
+    await page.evaluate(() => { endfall.ui.mode = null; });
+    await page.waitForTimeout(300);
+    assert.ok(await page.locator('#shBar').isVisible(), 'a Lumen shows its shields over its hull');
+    const card = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
+    assert.ok(!card.includes('Repair'), `the Vael do not repair: ${card}`);
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });

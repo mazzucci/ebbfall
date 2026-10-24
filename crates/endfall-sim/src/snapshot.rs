@@ -50,7 +50,7 @@ fn queued(b: &Bldg, i: usize) -> f64 {
 record! {
     /// Per unit. carry_type: -1 none, 0 shards, 1 ether.
     UNIT_FIELDS, push_unit, |u: &Unit, w| {
-        id = u.id, kind = u.kind.index(), team = u.team, x = u.x, y = u.y, hp = u.hp, maxhp = u.maxhp, r = u.r,
+        id = u.id, kind = u.kind.index(), team = u.team, x = u.x, y = u.y, hp = u.hp, maxhp = u.maxhp, sh = u.sh, maxsh = u.maxsh, r = u.r,
         face = u.face, flash = u.flash, carry = u.carry, carry_type = u.carry_ether.map_or(-1.0, |e| e as u8 as f64),
         task = task_parts(&u.task).0, phase = task_parts(&u.task).1, target = task_parts(&u.task).2, cd = u.cd,
     }
@@ -59,7 +59,7 @@ record! {
 record! {
     /// Per building. q0..q4: queued unit kinds (-1 empty); research: 0 none, else upgrade index + 1.
     BLDG_FIELDS, push_bldg, |b: &Bldg, w| {
-        id = b.id, kind = b.kind.index(), team = b.team, tx = b.tx, ty = b.ty, hp = b.hp, maxhp = b.maxhp,
+        id = b.id, kind = b.kind.index(), team = b.team, tx = b.tx, ty = b.ty, hp = b.hp, maxhp = b.maxhp, sh = b.sh, maxsh = b.maxsh,
         progress = b.progress, done = b.done as u8, prog = b.prog, flash = b.flash, aim = b.aim,
         has_rally = b.rally.is_some() as u8, rally_x = b.rally.map_or(0.0, |r| r.x), rally_y = b.rally.map_or(0.0, |r| r.y),
         rally_node = b.rally.and_then(|r| r.node).unwrap_or(0), queue_len = b.queue.len(),

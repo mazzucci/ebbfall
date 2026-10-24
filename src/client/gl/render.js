@@ -333,7 +333,9 @@ function updateFogImage() {
   fogCtx.putImageData(fogImg, 0, 0); fogTex.source.update();
 }
 
-function hpBar(x, y, w, hp, max) {
+/** A health bar (green to red); `sh/maxsh`: a pale shield bar just above it (the Vael). */
+function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
+  if (maxsh > 0) { bars.rect(x, y - 3, w, 3).fill({ color: 0x000000, alpha: 0.65 }); bars.rect(x + 1, y - 2, (w - 2) * Math.max(0, sh / maxsh), 1).fill(0xcfe6ff); }
   const f = Math.max(0, hp / max);
   bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
@@ -378,7 +380,7 @@ export function render(selList, place) {
     o.show(v);
     if (!v) return;
     if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, b.team === PLAYER ? SEL : SEL_FOE);
-    if (seen && (sel.has(b) || b.hp < b.maxhp)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp);
+    if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp, b.sh, b.maxsh);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
     if (b.team === PLAYER) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
@@ -390,7 +392,7 @@ export function render(selList, place) {
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
-    if (sel.has(u) || u.hp < u.maxhp) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12 - (u.d.air ? AIR_LIFT : 0), r * 2 + 4, u.hp, u.maxhp); }
+    if (sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12 - (u.d.air ? AIR_LIFT : 0), r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); }
   });
 
   let pi = 0;

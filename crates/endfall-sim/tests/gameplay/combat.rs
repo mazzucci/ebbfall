@@ -697,3 +697,70 @@ fn idle_defenders_shot_by_a_passing_wasp_give_up_and_walk_home() {
         );
     }
 }
+
+#[test]
+fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
+    let mut w = flat_arena(16);
+    w.factions = [&VAEL, &HUMANS];
+    let s = w.make_unit(UnitKind::Scythe, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(s);
+    let d = UnitKind::Scythe.def();
+    // A hit smaller than the shields: all on the shields, at full value (armor does not apply to them).
+    w.damage(s, 25.0, None);
+    let u = w.unit(s).unwrap();
+    assert_eq!(
+        (u.hp, u.sh),
+        (d.hp, d.shields - 25.0),
+        "shields first, armor ignored"
+    );
+    // A hit bigger than what is left: the rest goes to the hull, minus armor.
+    w.damage(s, 50.0, None);
+    let u = w.unit(s).unwrap();
+    assert_eq!(u.sh, 0.0);
+    assert_eq!(
+        u.hp,
+        d.hp - (15.0 - d.armor),
+        "the rest, minus armor, on the hull"
+    );
+    let hull = u.hp;
+    // No regeneration for SHIELD_DELAY, then 3/s back to full; the hull stays as it is.
+    run(&mut w, 5);
+    assert_eq!(w.unit(s).unwrap().sh, 0.0, "nothing during the delay");
+    run(&mut w, 2);
+    assert!(w.unit(s).unwrap().sh > 0.0, "regenerating after the delay");
+    run(&mut w, 20);
+    let u = w.unit(s).unwrap();
+    assert_eq!(u.sh, d.shields, "full again in about 6 + 60/3 s");
+    assert_eq!(u.hp, hull, "the hull never heals by itself");
+    // Humans have no shields: a hit is as it always was.
+    let t = w.make_unit(UnitKind::Trooper, ENEMY, 36.0 * TILE, 30.0 * TILE);
+    w.hold_unit(t);
+    w.damage(t, 10.0, None);
+    assert_eq!(w.unit(t).unwrap().hp, UnitKind::Trooper.def().hp - 10.0);
+    assert_eq!(w.unit(t).unwrap().maxsh, 0.0);
+}
+
+#[test]
+fn vael_buildings_regenerate_shields_and_lumens_do_not_repair() {
+    let mut w = rich_vael(4242);
+    let l = harvesters(&w, PLAYER);
+    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
+    let d = BldgKind::Spire.def();
+    w.damage(spire, d.shields + 50.0, None);
+    let b = w.bldg(spire).unwrap();
+    assert_eq!(b.sh, 0.0);
+    assert!(b.hp < b.maxhp, "the hull took the rest");
+    let hull = b.hp;
+    assert!(!w.can_repair(l[1], spire), "a Lumen cannot repair");
+    assert!(!w.start_repair(l[1], spire));
+    run(&mut w, 6 + (d.shields / 2.0) as u32 + 2);
+    let b = w.bldg(spire).unwrap();
+    assert_eq!(b.sh, d.shields, "buildings regenerate their shields (2/s)");
+    assert_eq!(b.hp, hull, "but not their hull");
+    // The humans still repair.
+    let mut w = rich(4242);
+    let h = harvesters(&w, PLAYER);
+    let depot = build(&mut w, BldgKind::Depot, h[0], 90);
+    w.damage(depot, 100.0, None);
+    assert!(w.can_repair(h[1], depot));
+}

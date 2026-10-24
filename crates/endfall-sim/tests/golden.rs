@@ -134,7 +134,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
 }
 
 /// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
-const EXPECTED_VAEL: [u32; 3] = [411048230, 245628292, 3074610910];
+const EXPECTED_VAEL: [u32; 3] = [4015188100, 3170118862, 83416002];
 
 #[test]
 fn golden_hashes_pin_a_vael_game() {

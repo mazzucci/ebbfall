@@ -57,7 +57,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     hp: 80.0,
     shields: 40.0,
     armor: 1.0,
-    speed: 88.0,
+    speed: 90.0,
     range: 0.9,
     dmg: 10.0,
     cd: 0.9,

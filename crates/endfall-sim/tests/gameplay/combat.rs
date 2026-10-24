@@ -843,7 +843,7 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         );
         range("Prism v Wasp", d(&[Prism], &[Wasp]), 0.4, 1.0);
         range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
-        range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.8, 0.0);
+        range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.75, 0.0);
         range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
         range("Monolith v Vanguard", d(&[Monolith], &[Vanguard]), 0.0, 1.0);
         range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);

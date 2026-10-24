@@ -97,12 +97,12 @@ loop feels right.
   (Conflux 7, Spire 6.5 tiles; Kiln, Loom, Ward and Zenith go dark without one), per-unit splash (Monolith 50% in
   40 px), the scripted opponent playing either race from a per-faction AiScript. Balance against the design's duel
   targets (`the_vael_counters_hold_in_cost_equal_fights`, budgets 2200/4400): Scythe dmg 14; Prism 100/35, 70+80,
-  16 ground / 16 air, cd 0.9; Monolith 175/100, dmg 52. Known: Prisms lose a little more to massed Troopers than the
+  16 ground / 16 air, cd 0.9; Monolith 175/100, dmg 52 (superseded by the race balance below). Known: Prisms lose a little more to massed Troopers than the
   design asked (-0.4 vs -0.3). Phase 2: the Halo (shield mending), Shields research, Vael sounds, human AI Spire
   targeting, raid and AI-vs-AI balance.
 - [x] Race balance from AI-vs-AI games (2026-10-24): the Vael AI won 46 of 48 games against the human AI (Easy and
   Medium, both seats, every map), in about half the time of a human mirror. In play the Scythe ran down retreating
-  Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 88 (slower than a Trooper), dmg 10;
+  Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 90 (slower than a Trooper, as fast as a Lancer), dmg 10;
   Prism 70+50, 13 ground / 13 air; Ward 200+120. Humans win about half on Easy and a third on Medium (where the
   human AI's Lancers and Wasps answer Shrikes and Prisms poorly). Massed Troopers are now the Vael's counter in
   the duel matrix. A golden pins an AI-vs-AI Vael game (`golden_hashes_pin_a_vael_ai_against_the_human_ai`).

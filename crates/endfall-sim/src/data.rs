@@ -1,6 +1,6 @@
 //! Game data. Costs are [shards, ether]; distances in tiles unless named otherwise; speeds in px/s.
-//! The client's copy (names, hotkeys, descriptions) is src/engine/constants.js; `test/engine.test.js` checks
-//! that the numbers agree.
+//! The only source of game numbers: build:wasm exports them to src/engine/pkg/data.js, and the client's
+//! src/engine/constants.js adds just hotkeys and descriptions.
 
 pub const TILE: f64 = 32.0;
 pub const MW: i32 = 64;
@@ -25,7 +25,7 @@ pub enum ProjKind {
     Missile,
 }
 
-/// Unit kinds. The order is the index used by the client (constants.js UNITS key order); append only.
+/// Unit kinds. The order is the index the snapshot sends (the client's UNITS keep it); append only.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UnitKind {
     Harvester,
@@ -51,6 +51,8 @@ pub enum BldgKind {
 
 pub struct UnitDef {
     pub key: &'static str,
+    /// Shown to the player (the key is the stable id: save data, art frames).
+    pub name: &'static str,
     pub cost: [i32; 2],
     pub supply: i32,
     pub hp: f64,
@@ -125,6 +127,8 @@ impl Upgrade {
 pub struct BldgDef {
     pub key: &'static str,
     pub name: &'static str,
+    /// Label on a button ("" = the last word of the name).
+    pub short: &'static str,
     pub cost: [i32; 2],
     pub w: i32,
     pub h: i32,
@@ -195,6 +199,7 @@ pub const BLDG_KINDS: [BldgKind; 7] = [
 
 const UNIT: UnitDef = UnitDef {
     key: "",
+    name: "",
     cost: [0, 0],
     supply: 1,
     hp: 1.0,
@@ -218,6 +223,7 @@ const UNIT: UnitDef = UnitDef {
 };
 const HARVESTER: UnitDef = UnitDef {
     key: "harvester",
+    name: "Harvester",
     worker: true,
     cost: [50, 0],
     hp: 40.0,
@@ -246,6 +252,7 @@ pub const SHELL_SPLASH: f64 = 0.6;
 
 const TROOPER: UnitDef = UnitDef {
     key: "trooper",
+    name: "Trooper",
     cost: [50, 0],
     hp: 48.0,
     speed: 92.0,
@@ -261,6 +268,7 @@ const TROOPER: UnitDef = UnitDef {
 };
 const VANGUARD: UnitDef = UnitDef {
     key: "vanguard",
+    name: "Vanguard",
     cost: [125, 75],
     supply: 3,
     hp: 170.0,
@@ -279,6 +287,7 @@ const VANGUARD: UnitDef = UnitDef {
 };
 const LANCER: UnitDef = UnitDef {
     key: "lancer",
+    name: "Lancer",
     cost: [75, 25],
     hp: 60.0,
     speed: 88.0,
@@ -295,6 +304,7 @@ const LANCER: UnitDef = UnitDef {
 };
 const MEDIC: UnitDef = UnitDef {
     key: "medic",
+    name: "Medic",
     cost: [40, 20],
     hp: 45.0,
     speed: 90.0,
@@ -306,6 +316,7 @@ const MEDIC: UnitDef = UnitDef {
 };
 const WASP: UnitDef = UnitDef {
     key: "wasp",
+    name: "Wasp",
     cost: [100, 60],
     supply: 2,
     hp: 100.0,
@@ -325,6 +336,7 @@ const WASP: UnitDef = UnitDef {
 /// and quick, and anything that shoots air can bring it down.)
 const OBSERVER: UnitDef = UnitDef {
     key: "observer",
+    name: "Observer",
     cost: [25, 25],
     hp: 40.0,
     speed: 175.0,
@@ -340,6 +352,7 @@ const OBSERVER: UnitDef = UnitDef {
 const BLDG: BldgDef = BldgDef {
     key: "",
     name: "",
+    short: "",
     cost: [0, 0],
     w: 2,
     h: 2,
@@ -389,6 +402,7 @@ const DEPOT: BldgDef = BldgDef {
 const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
     name: "Ether Rig",
+    short: "Ether Rig",
     cost: [75, 0],
     hp: 420.0,
     build: 25.0,
@@ -559,7 +573,7 @@ pub const DIFF: [Diff; 3] = [
 /// Starting Core positions of an empty map (test arenas); generated maps choose their own (`Map::bases`).
 pub const BASES: [(i32, i32); 2] = [(9, 54), (54, 9)];
 
-/// The tables as JSON, so the JS side can check them against constants.js.
+/// The tables as JSON: build:wasm writes them to src/engine/pkg/data.js, the client's single source of game numbers.
 pub fn data_json() -> String {
     let opt = |p: Option<ProjKind>| match p {
         Some(ProjKind::Bolt) => "\"bolt\"",
@@ -574,8 +588,8 @@ pub fn data_json() -> String {
         .map(|k| {
             let d = k.def();
             format!(
-                "\"{}\":{{\"cost\":[{},{}],\"supply\":{},\"hp\":{},\"armor\":{},\"speed\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"sight\":{},\"r\":{},\"build\":{},\"melee\":{},\"proj\":{},\"air\":{},\"bio\":{},\"heal\":{},\"req\":{},\"upDmg\":{}}}",
-                d.key, d.cost[0], d.cost[1], d.supply, d.hp, d.armor, d.speed, d.range, d.dmg, d.dmg_air, d.cd, d.sight, d.r, d.build, d.melee,
+                "\"{}\":{{\"name\":\"{}\",\"worker\":{},\"cost\":[{},{}],\"supply\":{},\"hp\":{},\"armor\":{},\"speed\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"sight\":{},\"r\":{},\"build\":{},\"melee\":{},\"proj\":{},\"air\":{},\"bio\":{},\"heal\":{},\"req\":{},\"upDmg\":{}}}",
+                d.key, d.name, d.worker, d.cost[0], d.cost[1], d.supply, d.hp, d.armor, d.speed, d.range, d.dmg, d.dmg_air, d.cd, d.sight, d.r, d.build, d.melee,
                 opt(d.proj), d.air, d.bio, d.heal, key_or_null(d.req), d.up_dmg
             )
         })
@@ -586,8 +600,8 @@ pub fn data_json() -> String {
             let d = k.def();
             let trains: Vec<String> = d.trains.iter().map(|u| format!("\"{}\"", u.def().key)).collect();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
-                d.key, d.name, d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
+                "\"{}\":{{\"name\":\"{}\",\"short\":\"{}\",\"hq\":{},\"researches\":[{}],\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
+                d.key, d.name, d.short, d.hq, d.researches.iter().map(|u| format!("\"{}\"", u.key())).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
                 key_or_null(d.req), d.range, d.dmg, d.dmg_air, d.cd, opt(d.proj), d.up_dmg
             )
         })
@@ -605,8 +619,9 @@ pub fn data_json() -> String {
         .iter()
         .map(|u| {
             format!(
-                "\"{}\":{{\"cost\":[{},{},{}],\"time\":[{},{},{}]}}",
+                "\"{}\":{{\"name\":\"{}\",\"cost\":[{},{},{}],\"time\":[{},{},{}]}}",
                 u.key(),
+                u.name(),
                 u.cost(1)[0],
                 u.cost(2)[0],
                 u.cost(3)[0],
@@ -616,11 +631,33 @@ pub fn data_json() -> String {
             )
         })
         .collect();
+    let keys = |ks: &[BldgKind]| {
+        ks.iter()
+            .map(|k| format!("\"{}\"", k.def().key))
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    let factions: Vec<String> = [&HUMANS]
+        .iter()
+        .map(|f| {
+            format!(
+                "\"{}\":{{\"name\":\"{}\",\"hq\":\"{}\",\"worker\":\"{}\",\"buildBasic\":[{}],\"buildAdvanced\":[{}]}}",
+                f.key, f.name, f.hq.def().key, f.worker.def().key, keys(f.build_basic), keys(f.build_advanced)
+            )
+        })
+        .collect();
     format!(
-        "{{\"units\":{{{}}},\"buildings\":{{{}}},\"upgrades\":{{{}}},\"diff\":[{}]}}",
+        "{{\"consts\":{{\"tile\":{},\"mw\":{},\"mh\":{},\"dt\":{},\"player\":{},\"enemy\":{}}},\"units\":{{{}}},\"buildings\":{{{}}},\"upgrades\":{{{}}},\"diff\":[{}],\"factions\":{{{}}}}}",
+        TILE,
+        MW,
+        MH,
+        DT,
+        PLAYER,
+        ENEMY,
         units.join(","),
         bldgs.join(","),
         ups.join(","),
-        diffs.join(",")
+        diffs.join(","),
+        factions.join(",")
     )
 }

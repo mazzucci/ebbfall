@@ -36,27 +36,25 @@ test('hypot matches V8 Math.hypot bit for bit', { skip }, () => {
   }
 });
 
-test('the Rust data tables match the client constants', { skip }, () => {
+test('the client reads the sim\'s tables and adds a hotkey and a description to every kind', { skip }, () => {
   const d = JSON.parse(sim.dataJson());
-  assert.deepEqual(Object.keys(d.units), Object.keys(C.UNITS), 'units in the same order (the snapshot sends kind indices)');
-  assert.deepEqual(Object.keys(d.buildings), Object.keys(C.BUILDINGS), 'buildings in the same order');
-  for (const [k, u] of Object.entries(C.UNITS)) {
-    const r = d.units[k]; assert.ok(r, k);
-    for (const f of ['cost', 'supply', 'hp', 'armor', 'speed', 'range', 'dmg', 'dmgAir', 'cd', 'sight', 'r', 'build']) assert.deepEqual(r[f], u[f], `${k}.${f}`);
-    assert.equal(r.melee, !!u.melee, k + '.melee'); assert.equal(r.proj, u.proj ?? null, k + '.proj');
-    assert.equal(r.air, !!u.air, k + '.air'); assert.equal(r.bio, !!u.bio, k + '.bio'); assert.equal(r.heal, u.heal ?? 0, k + '.heal'); assert.equal(r.req, u.req ?? null, k + '.req');
+  assert.deepEqual(Object.keys(C.UNITS), Object.keys(d.units), 'units in the sim\'s order (the snapshot sends kind indices)');
+  assert.deepEqual(Object.keys(C.BUILDINGS), Object.keys(d.buildings), 'buildings in the sim\'s order');
+  assert.deepEqual(C.UNITS.vanguard.cost, d.units.vanguard.cost, 'pkg/data.js is current (rebuild with npm run build:wasm)');
+  for (const [k, u] of [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)]) {
+    assert.ok(u.name && /^[A-Z]$/.test(u.hot) && u.desc, `${k} has a name, a hotkey and a description`);
   }
-  for (const [k, b] of Object.entries(C.BUILDINGS)) {
-    const r = d.buildings[k]; assert.ok(r, k);
-    for (const f of ['name', 'cost', 'w', 'h', 'hp', 'armor', 'build', 'sight']) assert.deepEqual(r[f], b[f], `${k}.${f}`);
-    assert.equal(r.supply, b.supply ?? 0, k + '.supply'); assert.deepEqual(r.trains, b.trains ?? [], k + '.trains');
-    assert.equal(r.dropoff, !!b.dropoff); assert.equal(r.onVent, !!b.onVent); assert.equal(r.req, b.req ?? null);
-    assert.equal(r.range, b.range ?? 0); assert.equal(r.dmg, b.dmg ?? 0); assert.equal(r.dmgAir, b.dmgAir ?? 0); assert.equal(r.cd, b.cd ?? 0); assert.equal(r.proj, b.proj ?? null);
+  for (const [k, b] of Object.entries(C.BUILDINGS)) { // hotkeys within one card do not collide
+    const keys = b.trains.map(t => C.UNITS[t].hot);
+    assert.equal(new Set(keys).size, keys.length, `${k}: training hotkeys`);
   }
-  assert.deepEqual(d.diff, C.DIFF.map(({ name, ...rest }) => rest));
-  for (const [k, u] of Object.entries(C.UPGRADES)) { assert.deepEqual(d.upgrades[k].cost, u.cost, k + ' cost'); assert.deepEqual(d.upgrades[k].time, u.time, k + ' time'); }
-  for (const [k, u] of Object.entries(d.units)) assert.equal(u.upDmg, C.UP_DMG[k] ?? 0, k + ' upDmg');
-  assert.equal(d.buildings.turret.upDmg, C.UP_DMG.turret);
+  for (const f of Object.values(C.FACTIONS)) {
+    const page = (ks) => ks.map(k => C.BUILDINGS[k].hot);
+    for (const ks of [f.buildBasic, f.buildAdvanced]) assert.equal(new Set(page(ks)).size, ks.length, 'Build page hotkeys');
+    assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
+  }
+  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard']);
+  assert.match(C.UPGRADES.weapons.desc, /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
 });
 
 test('a fresh game has two cores, eight harvesters and resource nodes', { skip }, () => {

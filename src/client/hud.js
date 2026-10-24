@@ -1,5 +1,5 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
-import { G, PLAYER, UNITS, BUILDINGS, BUILD_ORDER, UPGRADES, UP_DMG, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, PLAYER, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -166,8 +166,9 @@ function taskName(u) {
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
-const BUILD_BASIC = ['depot', 'barracks', 'extractor', 'turret'];
-export const BUILD_ADV = ['forge', 'airfield', 'core'];
+/** The player's Build list pages (from the faction's data). */
+const BUILD_BASIC = FACTIONS.humans.buildBasic;
+export const BUILD_ADV = FACTIONS.humans.buildAdvanced;
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
 const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };
 export function cardItems() {
@@ -205,8 +206,9 @@ export function cardItems() {
       at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc + (missing && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
-    if (b.done && b.type === 'forge') {
-      Object.entries(UPGRADES).forEach(([k, u], i) => {
+    if (b.done && b.d.researches.length) {
+      b.d.researches.forEach((k, i) => {
+        const u = UPGRADES[k];
         const lv = G.upgrades[PLAYER][k] + 1, elsewhere = G.bldgs.some(o => o.team === PLAYER && o.research && o.research.type === k);
         if (lv > 3) return;
         at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: [u.cost[lv - 1], u.cost[lv - 1]], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });

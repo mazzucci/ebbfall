@@ -62,15 +62,7 @@ impl World {
                 if b.team == team {
                     continue;
                 }
-                let g = Geo::Rect {
-                    tx: b.tx,
-                    ty: b.ty,
-                    w: b.w,
-                    h: b.h,
-                    x: b.x,
-                    y: b.y,
-                    r: b.r,
-                };
+                let g = b.geo();
                 let tier = if b.done && b.kind.def().damage_vs(flier) > 0.0 {
                     0
                 } else {
@@ -158,56 +150,7 @@ impl World {
             }
             u.flash = 0.12;
             if let Some(by) = by {
-                let (ux, uy, team) = (u.x, u.y, u.team);
-                let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
-                let me_air = self.units[i].kind.def().air;
-                // Busy with a target it picked up itself that matters less than the one shooting it: answer.
-                let lesser = match self.units[i].task {
-                    Task::Attack {
-                        target: cur,
-                        back: Some(_),
-                    } => self.threat_tier(cur, me_air) > self.threat_tier(by, me_air),
-                    _ => false,
-                };
-                let u = &mut self.units[i];
-                let answers = !u.kind.def().worker && u.kind.def().damage_vs(by_air) > 0.0;
-                match u.task {
-                    Task::Idle | Task::AMove { .. } if answers => {
-                        // Idle: come back to this spot afterwards (and the leash applies).
-                        let back = match u.task {
-                            Task::AMove { x, y } => Some(Back { x, y, amove: true }),
-                            _ => Some(Back {
-                                x: u.x,
-                                y: u.y,
-                                amove: false,
-                            }),
-                        };
-                        u.task = Task::Attack { target: by, back };
-                    }
-                    Task::Attack { ref mut target, .. } if answers && lesser => *target = by,
-                    _ => {}
-                }
-                for a in self.nearby(ux, uy, 180.0) {
-                    if let Some(j) = self.ui(a) {
-                        let o = &mut self.units[j];
-                        if o.team != team
-                            || o.kind.def().worker
-                            || o.kind.def().damage_vs(by_air) <= 0.0
-                        {
-                            continue;
-                        }
-                        if o.task == Task::Idle {
-                            o.task = Task::Attack {
-                                target: by,
-                                back: Some(Back {
-                                    x: o.x,
-                                    y: o.y,
-                                    amove: false,
-                                }),
-                            };
-                        }
-                    }
-                }
+                self.answer_fire(i, by);
             }
             if self.units[self.ui(target).unwrap()].hp <= 0.0 {
                 self.kill(target);
@@ -222,6 +165,59 @@ impl World {
             b.flash = 0.12;
             if b.hp <= 0.0 {
                 self.kill(target);
+            }
+        }
+    }
+
+    /// Unit `i` was hit by `by`: it shoots back if it can (idle or attack-moving, or busy with a lesser target it
+    /// picked up itself), and idle armed friends within 180 px join in.
+    fn answer_fire(&mut self, i: usize, by: Id) {
+        let u = &self.units[i];
+        let (ux, uy, team) = (u.x, u.y, u.team);
+        let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
+        let me_air = self.units[i].kind.def().air;
+        // Busy with a target it picked up itself that matters less than the one shooting it: answer.
+        let lesser = match self.units[i].task {
+            Task::Attack {
+                target: cur,
+                back: Some(_),
+            } => self.threat_tier(cur, me_air) > self.threat_tier(by, me_air),
+            _ => false,
+        };
+        let u = &mut self.units[i];
+        let answers = !u.kind.def().worker && u.kind.def().damage_vs(by_air) > 0.0;
+        match u.task {
+            Task::Idle | Task::AMove { .. } if answers => {
+                // Idle: come back to this spot afterwards (and the leash applies).
+                let back = match u.task {
+                    Task::AMove { x, y } => Some(Back { x, y, amove: true }),
+                    _ => Some(Back {
+                        x: u.x,
+                        y: u.y,
+                        amove: false,
+                    }),
+                };
+                u.task = Task::Attack { target: by, back };
+            }
+            Task::Attack { ref mut target, .. } if answers && lesser => *target = by,
+            _ => {}
+        }
+        for a in self.nearby(ux, uy, 180.0) {
+            if let Some(j) = self.ui(a) {
+                let o = &mut self.units[j];
+                if o.team != team || o.kind.def().worker || o.kind.def().damage_vs(by_air) <= 0.0 {
+                    continue;
+                }
+                if o.task == Task::Idle {
+                    o.task = Task::Attack {
+                        target: by,
+                        back: Some(Back {
+                            x: o.x,
+                            y: o.y,
+                            amove: false,
+                        }),
+                    };
+                }
             }
         }
     }
@@ -256,14 +252,7 @@ impl World {
         } else if let Some(i) = self.bi(id) {
             let b = self.bldgs.remove(i);
             team = b.team;
-            for y in 0..b.h {
-                for x in 0..b.w {
-                    self.map.occ[idx(b.tx + x, b.ty + y)] = b.vent.map_or(0, |v| -(v as i32));
-                }
-            }
-            if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
-                n.extractor = None;
-            }
+            self.clear_footprint(&b);
             for q in &b.queue {
                 self.pay(team, q.def().cost, 1);
             }

@@ -2,7 +2,6 @@
 
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-export const lerp = (a, b, t) => a + (b - a) * t;
 
 export const fmt = (s) => {
   s = Math.floor(s);

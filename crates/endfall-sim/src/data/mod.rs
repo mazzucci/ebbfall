@@ -190,6 +190,11 @@ pub struct Faction {
     pub worker: UnitKind,
     pub build_basic: &'static [BldgKind],
     pub build_advanced: &'static [BldgKind],
+    /// Its supply building, its refinery (built on an ether vent) and what casts its power fields, if it has them:
+    /// the roles its messages and its AI name.
+    pub supply: BldgKind,
+    pub ether: BldgKind,
+    pub power: Option<BldgKind>,
     /// Its workers repair damaged buildings (the Vael regenerate shields instead).
     pub repairs: bool,
     /// Warp-in: a worker plants a site and is free at once; the building then grows by itself.
@@ -198,11 +203,9 @@ pub struct Faction {
     pub ai: AiScript,
 }
 
-/// The scripted opponent's recipe for a side: which building fills each role in its build order, and which units
-/// fill each role in its army.
+/// The scripted opponent's recipe for a side: which building fills each role in its build order (besides the
+/// faction's supply and refinery), and which units fill each role in its army.
 pub struct AiScript {
-    pub supply: BldgKind,
-    pub ether: BldgKind,
     pub rax: BldgKind,
     pub tech: BldgKind,
     pub tower: BldgKind,

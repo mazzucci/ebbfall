@@ -4,15 +4,19 @@ A browser RTS inspired by StarCraft: Brood War (1998) without being it: harvest,
 other side's Command Core. Runs entirely in the browser; multiplayer is the headline goal after the single-player
 loop feels right.
 
-## Where it stands (October 2026)
+## Where it stands (late October 2026)
 
-- Playable prototype: one faction, one procedurally shaped 64x64 map, one scripted opponent with three difficulties.
-- Economy: shards (finite fields) and ether (vents that need an Ether Rig); supply from Core and Depots.
-- Seven structures (Core, Depot, Ether Rig, Garrison, Foundry, Turret, Airfield), six units (Harvester,
-  Trooper, Vanguard, Lancer, Medic, and the flying Wasp), fog of war, control groups, rally points, attack-move, hold.
-- Mouse, keyboard and touch controls. Works on a phone.
-- Sim and client are separate modules. The sim runs headless in Node, uses a seeded RNG, advances by a fixed tick
-  and is covered by a determinism test.
+- Playable in the browser and offline (installable, service worker): two races, three named map characters,
+  a scripted opponent for either race with three difficulties (Easy, Medium, Hard), random start side.
+- Humans: Core, Depot, Ether Rig, Garrison, Foundry, Turret, Airfield; Harvester, Trooper, Vanguard, Lancer, Medic,
+  Wasp, Observer. Workers build and repair; upgrades at the Foundry.
+- Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith; Lumen, Scythe, Prism, Monolith, Shrike. Warp-in
+  construction, power fields, shields that regenerate; no repair.
+- Economy: shards (finite fields) and ether (vents that need a refinery); supply from headquarters and supply
+  buildings. Fog of war, control groups, rally points, attack-move, hold.
+- Mobile first: touch controls, a compact console and command card, landscape and portrait.
+- The sim is Rust compiled to WASM: deterministic (golden state hashes, replayable command log), seats instead of a
+  fixed human team (one AI brain per seat, events per seat), ready for lockstep multiplayer.
 
 ## Architecture decisions
 

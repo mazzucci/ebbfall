@@ -54,7 +54,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       upgrades.rs, diff.rs (AI tuning per difficulty), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
-  src/path.rs         A* + line-of-sight smoothing (same f32 cost grid and heap tie-breaks as path.js)
+  src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
   src/world/          the world: mod.rs (entities, step, state_hash), orders, spawn, economy, construction,
                       combat, movement, fog
   src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, army, scouting
@@ -66,6 +66,9 @@ src/client/           everything that touches the browser
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu (opponent, three named maps, sound), the phone tap-to-play splash, How to play
   hud.js              top bar, selection panel, command card, client UI state (ui.sel, ui.mode, ui.place)
+  tools.js            player helpers: select idle workers / army / same type, control groups, alerts, pause
+  icons.js            line icons (inline SVG) and unit/building portraits cut from the atlas
+  look.js             per-kind presentation the sim does not know: building art parts, unit voices
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
   fx.js               particles and markers (client-only, fed by sim events)

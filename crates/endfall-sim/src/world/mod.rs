@@ -182,6 +182,21 @@ pub struct Bldg {
     pub repair_debt: [f64; 2],
 }
 
+impl Bldg {
+    /// Its footprint, for approach and edge distances.
+    pub fn geo(&self) -> Geo {
+        Geo::Rect {
+            tx: self.tx,
+            ty: self.ty,
+            w: self.w,
+            h: self.h,
+            x: self.x,
+            y: self.y,
+            r: self.r,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Proj {
     pub x: f64,
@@ -548,6 +563,12 @@ impl World {
     pub(crate) fn sfx(&mut self, team: u8, name: &'static str) {
         self.emit(Event::Sfx { team, name });
     }
+    /// What casts a seat's power fields, by name ("power" for a race without them).
+    pub(crate) fn power_name(&self, team: u8) -> &'static str {
+        self.factions[team as usize]
+            .power
+            .map_or("power", |k| k.def().name)
+    }
     /// Whether the scripted opponent plays this seat.
     pub fn is_ai(&self, team: u8) -> bool {
         self.ai_seats[team as usize]
@@ -597,15 +618,7 @@ impl World {
             });
         }
         if let Some(b) = self.bldg(id) {
-            return Some(Geo::Rect {
-                tx: b.tx,
-                ty: b.ty,
-                w: b.w,
-                h: b.h,
-                x: b.x,
-                y: b.y,
-                r: b.r,
-            });
+            return Some(b.geo());
         }
         self.map.node(id).map(|n| Geo::Round {
             x: n.x,
@@ -725,5 +738,14 @@ impl World {
             }
         }
         h
+    }
+}
+
+/// "n" when a name takes "an" ("an Ether Rig"), else "" ("a Siphon").
+pub(crate) fn an(name: &str) -> &'static str {
+    if name.starts_with(['A', 'E', 'I', 'O', 'U']) {
+        "n"
+    } else {
+        ""
     }
 }

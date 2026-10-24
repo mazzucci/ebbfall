@@ -196,7 +196,8 @@ impl World {
         });
         let exp_vent = exp_vent.filter(|&at| free_vent(self, at));
         let [used, cap] = self.sup[e as usize];
-        let s = &self.factions[e as usize].ai;
+        let f = self.factions[e as usize];
+        let s = &f.ai;
         // Spire discipline: a building that went dark gets a new power source beside it before anything else.
         let dark = my_b
             .iter()
@@ -208,17 +209,17 @@ impl World {
                     b.ty as f64 + b.h as f64 / 2.0,
                 )
             });
-        let relight = dark.filter(|_| s.supply.def().power > 0.0 && !building.contains(&s.supply));
+        let relight = dark.filter(|_| f.supply.def().power > 0.0 && !building.contains(&f.supply));
         let want = if relight.is_some()
-            || (cap - used <= 4 && cap < 200 && !building.contains(&s.supply))
+            || (cap - used <= 4 && cap < 200 && !building.contains(&f.supply))
         {
-            Some(s.supply)
+            Some(f.supply)
         } else if (harv.len() >= 7
-            && self.ai_count(&my_b, false, s.ether) == 0
+            && self.ai_count(&my_b, false, f.ether) == 0
             && free_vent(self, (cx, cy)))
-            || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, s.ether) < 2)
+            || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, f.ether) < 2)
         {
-            Some(s.ether) // the second when the home vent has run dry: the expansion's
+            Some(f.ether) // the second when the home vent has run dry: the expansion's
         } else if self.ai_count(&my_b, false, s.rax)
             < d.rax + (t > 300.0) as usize + (t > 540.0) as usize
         {
@@ -249,14 +250,14 @@ impl World {
             && let Some(spot) = {
                 let (fx, fy) = match exp_vent {
                     Some(at)
-                        if w == s.ether
+                        if w == f.ether
                             && (self.ai_count(&my_b, false, w) >= 1
                                 || !free_vent(self, (cx, cy))) =>
                     {
                         at
                     }
                     _ => match relight {
-                        Some(at) if w == s.supply => at, // by the dark building
+                        Some(at) if w == f.supply => at, // by the dark building
                         _ => (cx, cy),
                     },
                 };

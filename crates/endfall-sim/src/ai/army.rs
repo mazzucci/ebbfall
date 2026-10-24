@@ -286,7 +286,7 @@ impl World {
             if qlen < 2 && !saving {
                 let c = u.def().cost;
                 if self.can_afford(e, c)
-                    && (want != Some(self.factions[e as usize].ai.supply)
+                    && (want != Some(self.factions[e as usize].supply)
                         || self.res[e as usize][0] > c[0] + 100)
                 {
                     let _ = self.queue_unit(bid, u);
@@ -304,109 +304,132 @@ impl World {
             intruder,
             ..
         } = brain.clone();
-        let d = &DIFF[self.diff];
-        // Defense: anything near our buildings gets jumped by the idle army.
         if let Some(intr) = intruder {
-            for &a in &army {
-                let u = self.unit(a).unwrap();
-                let go = match u.task {
-                    Task::Idle | Task::Move { .. } => true,
-                    Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
-                    _ => false,
-                };
-                if go && self.can_hit(a, intr) {
-                    self.attack_ent(a, intr); // units that cannot hit it (a flyer, say) are not dragged around
-                }
-            }
+            self.ai_defend(&army, intr, rally);
         }
-
-        // Wasp raids on the player's harvesters (raiders stay out of the waves).
+        // Raids on the enemy's workers (raiders stay out of the waves).
+        let raider = self.factions[self.seat() as usize].ai.raider;
         let wasps: Vec<Id> = army
             .iter()
             .copied()
-            .filter(|&a| {
-                self.unit(a)
-                    .is_some_and(|u| u.kind == self.factions[self.seat() as usize].ai.raider)
-            })
+            .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
             .collect();
         self.tend_raiders(&wasps, rally);
         let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
 
-        // Waves go where the AI believes the player is (it scouts and remembers; it does not see through fog).
-        let (gx, gy) = self.attack_target();
+        // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
+        let goal = self.attack_target();
+        self.ai_launch_wave(&army, t, goal);
         let ai = self.ai();
-        let need =
-            (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize; // (fewer, stronger units)
-        if !ai.attacking && army.len() >= need && t - ai.last_wave > d.gap && t > d.first {
-            let ai = self.ai_mut();
-            ai.last_wave = t;
-            ai.wave += d.wave_grow;
-            ai.attacking = true;
-            ai.wave_size = army.len();
-            for &a in &army {
-                let ox = (self.rnd() - 0.5) * 80.0;
-                let oy = (self.rnd() - 0.5) * 80.0;
-                self.attack_move(a, gx + ox, gy + oy);
-            }
-            self.ai_mut().attackers = Some(army.clone());
-        }
-        let ai = self.ai();
-        if ai.attacking && ai.attackers.is_some() {
-            let attackers = ai.attackers.clone().unwrap();
-            let wave_size = ai.wave_size;
-            // A wave that has searched for four minutes without finding anything comes home to regroup.
-            let lost = ai.known.is_empty() && t - ai.last_wave > 240.0;
-            let alive: Vec<Id> = army
-                .iter()
-                .copied()
-                .filter(|a| attackers.contains(a))
-                .collect();
-            if alive.is_empty() {
-                self.ai_mut().attacking = false;
-            } else if lost || (wave_size >= 4 && alive.len() * 10 < wave_size * 4) {
-                // Lost most of the wave: pull the survivors back instead of feeding them in one by one.
-                for a in alive {
-                    let ox = (self.rnd() - 0.5) * 120.0;
-                    let oy = (self.rnd() - 0.5) * 120.0;
-                    self.move_to(a, rally.x + ox, rally.y + oy);
-                }
-                let ai = self.ai_mut();
-                ai.attacking = false;
-                ai.attackers = None;
-                ai.last_wave = t;
-            } else {
-                let known: Vec<(Id, f64, f64)> =
-                    self.ai().known.iter().map(|k| (k.0, k.1, k.2)).collect();
-                for a in alive {
-                    let u = self.unit(a).unwrap();
-                    if u.task != Task::Idle {
-                        continue;
-                    }
-                    let (ux, uy) = (u.x, u.y);
-                    let best = known
-                        .iter()
-                        .filter(|k| self.bldg(k.0).is_some())
-                        .min_by(|p, q| {
-                            dist(ux, uy, p.1, p.2)
-                                .partial_cmp(&dist(ux, uy, q.1, q.2))
-                                .unwrap()
-                        });
-                    match best {
-                        Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
-                        Some(&(_, bx, by)) => self.attack_move(a, bx, by),
-                        // Nothing known left: sweep the player's start, then the shard fields around it.
-                        None => self.attack_move(a, gx, gy),
-                    }
-                }
-            }
+        if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
+            self.ai_steer_wave(&army, &attackers, t, rally, goal);
         } else {
+            // At home: stragglers back to the rally point.
             for &a in &army {
                 let u = self.unit(a).unwrap();
                 if u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
                     let ox = (self.rnd() - 0.5) * 120.0;
                     let oy = (self.rnd() - 0.5) * 120.0;
                     self.move_to(a, rally.x + ox, rally.y + oy);
+                }
+            }
+        }
+    }
+
+    /// Defense: anything near our buildings gets jumped by the army at home (idle, walking, or attack-moving near
+    /// the rally point). Units that cannot hit it (a flyer, say) are not dragged around.
+    fn ai_defend(&mut self, army: &[Id], intr: Id, rally: Pt) {
+        for &a in army {
+            let u = self.unit(a).unwrap();
+            let go = match u.task {
+                Task::Idle | Task::Move { .. } => true,
+                Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
+                _ => false,
+            };
+            if go && self.can_hit(a, intr) {
+                self.attack_ent(a, intr);
+            }
+        }
+    }
+
+    /// Send the whole army out once it is big enough (fewer, stronger units for a race with a smaller wave scale)
+    /// and the difficulty's first-wave time and gap have passed.
+    fn ai_launch_wave(&mut self, army: &[Id], t: f64, (gx, gy): (f64, f64)) {
+        let d = &DIFF[self.diff];
+        let ai = self.ai();
+        let need =
+            (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
+        if ai.attacking || army.len() < need || t - ai.last_wave <= d.gap || t <= d.first {
+            return;
+        }
+        let ai = self.ai_mut();
+        ai.last_wave = t;
+        ai.wave += d.wave_grow;
+        ai.attacking = true;
+        ai.wave_size = army.len();
+        for &a in army {
+            let ox = (self.rnd() - 0.5) * 80.0;
+            let oy = (self.rnd() - 0.5) * 80.0;
+            self.attack_move(a, gx + ox, gy + oy);
+        }
+        self.ai_mut().attackers = Some(army.to_vec());
+    }
+
+    /// A wave out: over when it is gone; home when most of it fell or it searched four minutes and found
+    /// nothing; else its idle units go for the nearest enemy building it knows of (or sweep where it believes the
+    /// enemy is).
+    fn ai_steer_wave(
+        &mut self,
+        army: &[Id],
+        attackers: &[Id],
+        t: f64,
+        rally: Pt,
+        (gx, gy): (f64, f64),
+    ) {
+        let ai = self.ai();
+        let wave_size = ai.wave_size;
+        let lost = ai.known.is_empty() && t - ai.last_wave > 240.0;
+        let alive: Vec<Id> = army
+            .iter()
+            .copied()
+            .filter(|a| attackers.contains(a))
+            .collect();
+        if alive.is_empty() {
+            self.ai_mut().attacking = false;
+        } else if lost || (wave_size >= 4 && alive.len() * 10 < wave_size * 4) {
+            // Pull the survivors back instead of feeding them in one by one.
+            for a in alive {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
+            }
+            let ai = self.ai_mut();
+            ai.attacking = false;
+            ai.attackers = None;
+            ai.last_wave = t;
+        } else {
+            let known: Vec<(Id, f64, f64)> =
+                self.ai().known.iter().map(|k| (k.0, k.1, k.2)).collect();
+            for a in alive {
+                let u = self.unit(a).unwrap();
+                if u.task != Task::Idle {
+                    continue;
+                }
+                let (ux, uy) = (u.x, u.y);
+                let best = known
+                    .iter()
+                    .filter(|k| self.bldg(k.0).is_some())
+                    .min_by(|p, q| {
+                        dist(ux, uy, p.1, p.2)
+                            .partial_cmp(&dist(ux, uy, q.1, q.2))
+                            .unwrap()
+                    });
+                match best {
+                    Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
+                    Some(&(_, bx, by)) => self.attack_move(a, bx, by),
+                    // Nothing known left: sweep the enemy's start, then the shard fields around it.
+                    None => self.attack_move(a, gx, gy),
                 }
             }
         }

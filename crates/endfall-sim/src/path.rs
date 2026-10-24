@@ -1,5 +1,5 @@
 //! A* over the tile grid with 8-way movement and no corner cutting, then line-of-sight smoothing
-//! (port of src/sim/path.js, including its f32 cost grid and heap tie-breaking).
+//! (an f32 cost grid and fixed heap tie-breaks: which of two equal paths a unit takes is part of the rules).
 
 use crate::data::{MH, MW, TILE};
 use crate::jsmath;

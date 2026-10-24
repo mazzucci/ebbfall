@@ -170,7 +170,16 @@ function touchTap(wx, wy, at) {
   if (hit) select([hit]); else { ui.sel = []; ui.mode = null; setHint(); updateHud(); }
 }
 
+/** Wire every input surface: the map canvas, the minimap, the SELECT button and the keyboard. */
 export function bindInput() {
+  bindCanvas();
+  bindMinimap();
+  bindSelectButton();
+  bindKeys();
+}
+
+/** The map: pointer down / move / up (tap, box, one-finger pan with glide, two-finger pan and pinch), the wheel. */
+function bindCanvas() {
   cv.addEventListener('contextmenu', e => e.preventDefault());
   // Any touch anywhere (the map, a button, the minimap) catches a gliding camera, like a spinning list.
   window.addEventListener('pointerdown', () => { fling.caught = !!(fling.vx || fling.vy); stopGlide(); }, true);
@@ -240,8 +249,10 @@ export function bindInput() {
     if (ev.ctrlKey) { const p = canvasPos(ev), d = Math.max(-25, Math.min(25, ev.deltaMode ? ev.deltaY * 25 : ev.deltaY)); zoomAt(Math.exp(-d * 0.01), p.x, p.y); return; }
     cam.x += ev.deltaX / cam.zoom; cam.y += ev.deltaY / cam.zoom; clampCam();
   }, { passive: false });
+}
 
-  // Minimap: left drag scrolls, right click (or armed move/attack) orders.
+/** Minimap: left drag scrolls, right click (or armed move/attack) orders. */
+function bindMinimap() {
   let mmDown = false;
   const mmAt = (ev, cmd) => {
     const r = mm.getBoundingClientRect(); const wx = (ev.clientX - r.left) / r.width * WW, wy = (ev.clientY - r.top) / r.height * WH;
@@ -274,9 +285,13 @@ export function bindInput() {
     if (mmDown) mmAt(ev, false);
   });
   mm.addEventListener('pointerup', mmEnd); mm.addEventListener('pointercancel', () => { if (mmTouch) mmTouch.moved = true; mmEnd(); });
+}
 
-  // SELECT (touch screens): hold it and drag a box with the other hand, or tap it to arm one box drag. Shown on any
-  // device with a touch screen (also touch laptops), and as soon as a finger touches the map.
+/**
+ * SELECT (touch screens): hold it and drag a box with the other hand, or tap it to arm one box drag. Shown on any
+ * device with a touch screen (also touch laptops), and as soon as a finger touches the map.
+ */
+function bindSelectButton() {
   const bx = $('btnBox');
   if (bx) {
     if (matchMedia('(any-pointer: coarse)').matches) bx.hidden = false;
@@ -288,7 +303,10 @@ export function bindInput() {
     bx.addEventListener('click', () => { if (viaPointer) { viaPointer = false; return; } ui.box = ui.box ? false : 'once'; boxButton(); }); // keyboard
     bx.addEventListener('contextmenu', ev => ev.preventDefault());
   }
+}
 
+/** Hotkeys: control groups, alerts, idle workers, pause, Home, the command card's keys; held keys for the camera. */
+function bindKeys() {
   window.addEventListener('keydown', ev => {
     if (ev.target.tagName === 'INPUT') return;
     const k = ev.key; keys[k.toLowerCase()] = true;

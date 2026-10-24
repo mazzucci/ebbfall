@@ -101,6 +101,11 @@ impl Game {
         }
     }
 
+    /// The seat this Game plays: its orders, its fog, its events.
+    pub fn me(&self) -> u8 {
+        self.me
+    }
+
     /// Start a new game on this instance.
     pub fn reset(&mut self, seed: u32, diff: u32) {
         self.w.reset(seed, diff as usize);

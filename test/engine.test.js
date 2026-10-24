@@ -210,6 +210,20 @@ test('the upgrade levels follow the info record, both teams, in the schema\'s or
   assert.ok(n >= 2);
 });
 
+test('the client names no seat: it plays G.me, whichever team that is', () => {
+  for (const f of ['main.js', 'client/hud.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/menu.js', 'client/audio.js', 'client/fx.js', 'client/icons.js']) {
+    const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /\b(PLAYER|ENEMY)\b|team [!=]== [01]\b|team = [01]\b/, `${f} names a fixed team`);
+  }
+});
+
+test('the client reads its seat, and each seat\'s stats, from the game', { skip }, () => {
+  E.resetGame(4, 0);
+  assert.equal(E.G.me, 0);
+  assert.equal(E.G.stats.length, 2);
+  assert.ok(E.visibleEnt(E.G.bldgs.find(b => b.team === E.G.me)), 'its own buildings are always visible');
+});
+
 test('the client names no unit or building kind outside its data tables and look table', () => {
   // Kind-specific behaviour lives in the sim's flags (worker, hq, onVent, researches...) and src/client/look.js.
   for (const f of ['client/hud.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js']) {

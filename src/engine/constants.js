@@ -12,6 +12,7 @@ export const WH = MH * TILE;
 /** Fixed simulation tick, seconds. The sim only ever advances by this. */
 export const DT = D.consts.dt;
 
+/** The seats a menu game deals: the player and the scripted opponent (tests and tools; the client itself plays G.me). */
 export const PLAYER = D.consts.player;
 export const ENEMY = D.consts.enemy;
 

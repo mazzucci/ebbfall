@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, PLAYER, UNITS, BUILDINGS } from '../engine/index.js';
+import { G, UNITS, BUILDINGS } from '../engine/index.js';
 import { $, ui, setHint, updateHud, toast, myFaction } from './hud.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
@@ -27,8 +27,8 @@ function choose(list) { ui.sel = list; ui.mode = null; ui.place = null; setHint(
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
 
 let idleIndex = 0;
-const idleHarvesters = () => G.units.filter(u => u.team === PLAYER && u.d.worker && u.task.t === 'idle');
-const army = () => G.units.filter(u => u.team === PLAYER && !u.d.worker);
+const idleHarvesters = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle');
+const army = () => G.units.filter(u => u.team === G.me && !u.d.worker);
 
 /** Select the next idle harvester and look at it. */
 export function selectIdle() {
@@ -40,13 +40,13 @@ export function selectArmy() { const a = army(); if (!a.length) { toast('No army
 /** Select all of our units of the same type that are on screen (double-click / double-tap). */
 export function selectSameType(u, add = false) {
   const x1 = cam.x + view.w / cam.zoom, y1 = cam.y + view.h / cam.zoom;
-  const same = G.units.filter(o => o.team === PLAYER && o.type === u.type && o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1);
+  const same = G.units.filter(o => o.team === G.me && o.type === u.type && o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1);
   choose(add ? [...new Set([...ui.sel.filter(e => !e.dead && e.kind === 'unit'), ...same])] : same);
 }
 
 // ---- control groups ----
 export function saveGroup(k) {
-  const sel = ui.sel.filter(e => e.team === PLAYER && !e.dead);
+  const sel = ui.sel.filter(e => e.team === G.me && !e.dead);
   if (!sel.length) { toast('Select something first, then save it to a group'); return; }
   ui.groups[k] = sel.slice(); toast('Group ' + k + ' saved'); updateTools();
 }

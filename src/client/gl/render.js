@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, PLAYER, ENEMY, BUILDINGS, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK } from '../look.js';
 import { drag } from '../input.js';
@@ -195,7 +195,7 @@ class UnitObj {
     this.body = new Sprite(); this.body.scale.set(UNIT_SCALE); layer.addChild(this.body);
     this.flash = new Sprite(); this.flash.scale.set(UNIT_SCALE); this.flash.blendMode = 'add'; layer.addChild(this.flash);
     this.size = u.r > 12 ? 26 : 18;
-    this.ring = selArcs(this.size * 0.95, this.size * 0.6, u.team === PLAYER ? SEL : SEL_FOE); this.ring.visible = false; L.sel.addChild(this.ring);
+    this.ring = selArcs(this.size * 0.95, this.size * 0.6, u.team === G.me ? SEL : SEL_FOE); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0x4fd1c5, 0.18, 0.9);
     this.px = u.x; this.py = u.y; this.walk = 0;
   }
@@ -373,17 +373,17 @@ export function render(selList, place) {
 
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
   syncPool(bldgObjs, G.bldgs, b => new BldgObj(b), (o, b) => {
-    const seen = b.team === PLAYER || visibleEnt(b);
+    const seen = b.team === G.me || visibleEnt(b);
     let v = inView(b.x, b.y, b.r + 90);
     if (v && !seen) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
     o.found.visible = o.body.visible = o.scaffold.visible = true;
     if (v) o.update(b, t, dt, seen);
     o.show(v);
     if (!v) return;
-    if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, b.team === PLAYER ? SEL : SEL_FOE);
+    if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, b.team === G.me ? SEL : SEL_FOE);
     if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp, b.sh, b.maxsh);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
-    if (b.team === PLAYER) {
+    if (b.team === G.me) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
       if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!b.planted && !G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); } // (a planted seed grows by itself)
       else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
@@ -391,14 +391,14 @@ export function render(selList, place) {
     }
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
-    const v = inView(u.x, u.y, 64) && (u.team === PLAYER || visibleEnt(u)); o.show(v); if (!v) return;
+    const v = inView(u.x, u.y, 64) && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
     if (sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12 - (u.d.air ? AIR_LIFT : 0), r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); }
   });
 
   let pi = 0;
   for (const p of G.projs) {
-    if (p.team === ENEMY && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
+    if (p.team !== G.me && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
     const s = pooled(projPool, pi++, () => { const s = new Sprite(); s.anchor.set(0.5); L.projs.addChild(s); s.l = light(0xffd27a, 0.25, 0.7); return s; });
     s.texture = tex(p.type); s.anchor.set(p.type === 'shell' ? 0.5 : p.type === 'missile' ? 0.9 : 1, 0.5);
     if (p.type === 'missile' && Math.random() < dt * 25) addEffect('puff', p.x, p.y, { life: 0.5, scale: 0.45 });
@@ -420,10 +420,10 @@ export function render(selList, place) {
 
   ghost.visible = ghostRect.visible = !!place; ghostRect.clear();
   if (place) {
-    const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, PLAYER);
-    setTex(ghost, tex(`bldg_${place.type}_${PLAYER}`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghost.tint = ok ? 0xb8ffc8 : 0xff7070;
+    const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, G.me);
+    setTex(ghost, tex(`bldg_${place.type}_${G.me}`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghost.tint = ok ? 0xb8ffc8 : 0xff7070;
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
-    if (d.needsPower) for (const s of G.bldgs) if (s.team === PLAYER && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.07 }).stroke({ width: 1.5, color: 0xb48cff, alpha: 0.6 }); // the power fields it must stand in
+    if (d.needsPower) for (const s of G.bldgs) if (s.team === G.me && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.07 }).stroke({ width: 1.5, color: 0xb48cff, alpha: 0.6 }); // the power fields it must stand in
   }
   box.clear();
   if (drag.box) {
@@ -452,7 +452,7 @@ function drawTargets(selList, now) {
   // Faint, steady: the shard field, extractor or building each selected harvester is working on.
   const done = new Set();
   for (const u of selList) {
-    if (u.kind !== 'unit' || u.team !== PLAYER || u.dead) continue;
+    if (u.kind !== 'unit' || u.team !== G.me || u.dead) continue;
     const T = u.task, e = T.t === 'gather' ? (T.node?.extractor || T.node) : (T.t === 'build' || T.t === 'repair') ? T.b : null;
     if (!e || e.dead || done.has(e)) continue;
     done.add(e); outline(e, 1.5, targetColor(e, T.t === 'gather'), 0.5);
@@ -479,8 +479,8 @@ export function clearPings() { pings.length = 0; }
 function renderMinimap() {
   const S = mm.width / WW, c = mctx; c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
   for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * S - 1.5, 3, 3); }
-  for (const b of G.bldgs) { if (b.team === ENEMY && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === PLAYER ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * S, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * S)); }
-  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; c.fillStyle = u.team === PLAYER ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * S - 1, 2.2, 2.2); }
+  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * S, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * S)); }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * S - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();
   for (let i = pings.length - 1; i >= 0; i--) {

@@ -72,7 +72,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
-const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.maxhp - e.hp >= 1;
+const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
 const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.d.onVent && e.done ? e.vent : null;

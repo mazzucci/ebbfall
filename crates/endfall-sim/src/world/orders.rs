@@ -264,7 +264,11 @@ impl World {
     pub fn can_repair(&self, uid: Id, b: Id) -> bool {
         match (self.unit(uid), self.bldg(b)) {
             (Some(u), Some(bd)) => {
-                u.kind.def().worker && u.team == bd.team && bd.done && bd.maxhp - bd.hp >= 1.0
+                u.kind.def().worker
+                    && self.factions[u.team as usize].repairs
+                    && u.team == bd.team
+                    && bd.done
+                    && bd.maxhp - bd.hp >= 1.0
             }
             _ => false,
         }

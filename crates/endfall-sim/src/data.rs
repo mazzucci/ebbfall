@@ -95,6 +95,8 @@ pub struct UnitDef {
     pub up_dmg: f64,
     /// The faction's worker: mines, builds and repairs; it never starts a fight and is not a threat to anyone.
     pub worker: bool,
+    /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
+    pub shields: f64,
 }
 
 /// Team-wide upgrades researched at the Foundry, three levels each.
@@ -166,6 +168,8 @@ pub struct BldgDef {
     pub hq: bool,
     /// Upgrades researched here.
     pub researches: &'static [Upgrade],
+    /// Shield points over the hull (the Vael).
+    pub shields: f64,
 }
 
 /// A playable side: its headquarters and worker (the start), and its Build list (basic and advanced pages).
@@ -176,6 +180,8 @@ pub struct Faction {
     pub worker: UnitKind,
     pub build_basic: &'static [BldgKind],
     pub build_advanced: &'static [BldgKind],
+    /// Its workers repair damaged buildings (the Vael regenerate shields instead).
+    pub repairs: bool,
 }
 
 pub const HUMANS: Faction = Faction {
@@ -190,6 +196,7 @@ pub const HUMANS: Faction = Faction {
         BldgKind::Turret,
     ],
     build_advanced: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Core],
+    repairs: true,
 };
 
 /// The Vael: hovering ceramic constructs of living ether (docs: the design on the design-mockups branch).
@@ -205,6 +212,7 @@ pub const VAEL: Faction = Faction {
         BldgKind::Ward,
     ],
     build_advanced: &[BldgKind::Loom, BldgKind::Zenith, BldgKind::Conflux],
+    repairs: false,
 };
 
 impl Faction {
@@ -275,6 +283,7 @@ const UNIT: UnitDef = UnitDef {
     req: None,
     up_dmg: 0.0,
     worker: false,
+    shields: 0.0,
 };
 const HARVESTER: UnitDef = UnitDef {
     key: "harvester",
@@ -298,6 +307,11 @@ pub const SHARD_MINE_TIME: f64 = 2.0;
 pub const ETHER_MINE_TIME: f64 = 1.6;
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
+/// Shields regenerate after this long without being hit (s), at these rates per second (units, buildings).
+pub const SHIELD_DELAY: f64 = 6.0;
+pub const SHIELD_REGEN_UNIT: f64 = 3.0;
+pub const SHIELD_REGEN_BLDG: f64 = 2.0;
+
 /// Ether per trip from an Ether Rig on a vent that has run dry (a full one gives 6).
 pub const VENT_TRICKLE: i32 = 2;
 
@@ -408,7 +422,8 @@ const LUMEN: UnitDef = UnitDef {
     key: "lumen",
     name: "Lumen",
     cost: [50, 0],
-    hp: 40.0,
+    hp: 20.0,
+    shields: 20.0,
     speed: 100.0,
     range: 0.6,
     dmg: 4.0,
@@ -424,7 +439,8 @@ const SCYTHE: UnitDef = UnitDef {
     name: "Scythe",
     cost: [100, 0],
     supply: 2,
-    hp: 140.0,
+    hp: 80.0,
+    shields: 60.0,
     armor: 1.0,
     speed: 105.0,
     range: 0.9,
@@ -442,7 +458,8 @@ const PRISM: UnitDef = UnitDef {
     name: "Prism",
     cost: [125, 50],
     supply: 2,
-    hp: 150.0,
+    hp: 70.0,
+    shields: 80.0,
     armor: 1.0,
     speed: 85.0,
     range: 5.5,
@@ -461,7 +478,8 @@ const MONOLITH: UnitDef = UnitDef {
     name: "Monolith",
     cost: [200, 125],
     supply: 4,
-    hp: 300.0,
+    hp: 160.0,
+    shields: 140.0,
     armor: 2.0,
     speed: 55.0,
     range: 7.0,
@@ -480,7 +498,8 @@ const SHRIKE: UnitDef = UnitDef {
     name: "Shrike",
     cost: [125, 75],
     supply: 2,
-    hp: 150.0,
+    hp: 90.0,
+    shields: 60.0,
     speed: 165.0,
     range: 3.5,
     dmg: 12.0,
@@ -519,6 +538,7 @@ const BLDG: BldgDef = BldgDef {
     up_dmg: 0.0,
     hq: false,
     researches: &[],
+    shields: 0.0,
 };
 const CORE: BldgDef = BldgDef {
     key: "core",
@@ -620,7 +640,8 @@ const CONFLUX: BldgDef = BldgDef {
     cost: [400, 0],
     w: 4,
     h: 4,
-    hp: 1400.0,
+    hp: 1000.0,
+    shields: 400.0,
     armor: 2.0,
     supply: 10,
     build: 80.0,
@@ -634,7 +655,8 @@ const SPIRE: BldgDef = BldgDef {
     key: "spire",
     name: "Spire",
     cost: [100, 0],
-    hp: 400.0,
+    hp: 200.0,
+    shields: 200.0,
     supply: 8,
     build: 25.0,
     sight: 6.0,
@@ -644,7 +666,8 @@ const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Siphon",
     cost: [75, 0],
-    hp: 450.0,
+    hp: 300.0,
+    shields: 150.0,
     build: 25.0,
     on_vent: true,
     ..BLDG
@@ -655,7 +678,8 @@ const KILN: BldgDef = BldgDef {
     cost: [150, 0],
     w: 3,
     h: 3,
-    hp: 800.0,
+    hp: 500.0,
+    shields: 300.0,
     build: 45.0,
     sight: 7.0,
     trains: &[UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith],
@@ -665,7 +689,8 @@ const LOOM: BldgDef = BldgDef {
     key: "loom",
     name: "Loom",
     cost: [150, 100],
-    hp: 800.0,
+    hp: 500.0,
+    shields: 300.0,
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Kiln),
@@ -676,7 +701,8 @@ const WARD: BldgDef = BldgDef {
     key: "ward",
     name: "Ward",
     cost: [125, 0],
-    hp: 420.0,
+    hp: 200.0,
+    shields: 220.0,
     build: 25.0,
     sight: 9.0,
     req: Some(BldgKind::Kiln),
@@ -694,7 +720,8 @@ const ZENITH: BldgDef = BldgDef {
     cost: [175, 125],
     w: 3,
     h: 3,
-    hp: 800.0,
+    hp: 500.0,
+    shields: 300.0,
     build: 55.0,
     sight: 8.0,
     trains: &[UnitKind::Shrike],
@@ -834,8 +861,8 @@ pub fn data_json() -> String {
         .map(|k| {
             let d = k.def();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"worker\":{},\"cost\":[{},{}],\"supply\":{},\"hp\":{},\"armor\":{},\"speed\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"sight\":{},\"r\":{},\"build\":{},\"melee\":{},\"proj\":{},\"air\":{},\"bio\":{},\"heal\":{},\"req\":{},\"upDmg\":{}}}",
-                d.key, d.name, d.worker, d.cost[0], d.cost[1], d.supply, d.hp, d.armor, d.speed, d.range, d.dmg, d.dmg_air, d.cd, d.sight, d.r, d.build, d.melee,
+                "\"{}\":{{\"name\":\"{}\",\"worker\":{},\"shields\":{},\"cost\":[{},{}],\"supply\":{},\"hp\":{},\"armor\":{},\"speed\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"sight\":{},\"r\":{},\"build\":{},\"melee\":{},\"proj\":{},\"air\":{},\"bio\":{},\"heal\":{},\"req\":{},\"upDmg\":{}}}",
+                d.key, d.name, d.worker, d.shields, d.cost[0], d.cost[1], d.supply, d.hp, d.armor, d.speed, d.range, d.dmg, d.dmg_air, d.cd, d.sight, d.r, d.build, d.melee,
                 opt(d.proj), d.air, d.bio, d.heal, key_or_null(d.req), d.up_dmg
             )
         })
@@ -846,8 +873,8 @@ pub fn data_json() -> String {
             let d = k.def();
             let trains: Vec<String> = d.trains.iter().map(|u| format!("\"{}\"", u.def().key)).collect();
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"short\":\"{}\",\"hq\":{},\"researches\":[{}],\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
-                d.key, d.name, d.short, d.hq, d.researches.iter().map(|u| format!("\"{}\"", u.key())).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
+                "\"{}\":{{\"name\":\"{}\",\"short\":\"{}\",\"hq\":{},\"shields\":{},\"researches\":[{}],\"cost\":[{},{}],\"w\":{},\"h\":{},\"hp\":{},\"armor\":{},\"supply\":{},\"build\":{},\"sight\":{},\"trains\":[{}],\"dropoff\":{},\"onVent\":{},\"req\":{},\"range\":{},\"dmg\":{},\"dmgAir\":{},\"cd\":{},\"proj\":{},\"upDmg\":{}}}",
+                d.key, d.name, d.short, d.hq, d.shields, d.researches.iter().map(|u| format!("\"{}\"", u.key())).collect::<Vec<_>>().join(","), d.cost[0], d.cost[1], d.w, d.h, d.hp, d.armor, d.supply, d.build, d.sight, trains.join(","), d.dropoff, d.on_vent,
                 key_or_null(d.req), d.range, d.dmg, d.dmg_air, d.cd, opt(d.proj), d.up_dmg
             )
         })
@@ -887,8 +914,8 @@ pub fn data_json() -> String {
         .iter()
         .map(|f| {
             format!(
-                "\"{}\":{{\"name\":\"{}\",\"hq\":\"{}\",\"worker\":\"{}\",\"buildBasic\":[{}],\"buildAdvanced\":[{}]}}",
-                f.key, f.name, f.hq.def().key, f.worker.def().key, keys(f.build_basic), keys(f.build_advanced)
+                "\"{}\":{{\"name\":\"{}\",\"hq\":\"{}\",\"worker\":\"{}\",\"buildBasic\":[{}],\"buildAdvanced\":[{}],\"repairs\":{}}}",
+                f.key, f.name, f.hq.def().key, f.worker.def().key, keys(f.build_basic), keys(f.build_advanced), f.repairs
             )
         })
         .collect();

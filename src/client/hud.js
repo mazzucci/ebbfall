@@ -77,8 +77,9 @@ const compactMq = matchMedia('(max-width: 620px), (max-height: 500px) and (orien
  * buttons survive between frames; bars and numbers update in place. */
 function renderSelection() {
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
-  const life = (f, cur, max, color = '') => { // (small phones drop the "/max")
+  const life = (f, cur, max, color = '', sh = 0, maxsh = 0) => { // (small phones drop the "/max")
     $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
+    $('shBar').hidden = !maxsh; if (maxsh) $('shFill').style.width = (sh / maxsh * 100) + '%'; // the Vael's shields, over the hull
     const t = max ? `${cur}<span class="mx">/${max}</span>` : String(cur); if ($('hpNum').innerHTML !== t) $('hpNum').innerHTML = t;
   };
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
@@ -101,7 +102,7 @@ function renderSelection() {
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
     sub.textContent = !own ? 'Enemy' : x.kind === 'unit' ? taskName(x) : x.done && x.research ? 'Researching' : x.done && x.queue.length ? 'Training' : bldgStatus(x);
-    life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp);
+    life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp, '', x.sh, x.maxsh);
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
@@ -192,7 +193,7 @@ export function cardItems() {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.dmg > 0 || u.d.dmgAir > 0); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }];
+    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // the Vael regenerate shields instead
     if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
     else { orders.forEach((it, i) => at(i, it)); if (workers) work.forEach((it, i) => at(COLS + i, it)); }
     // Let go of units (a tap on the ground would move them): the last slot of the card.

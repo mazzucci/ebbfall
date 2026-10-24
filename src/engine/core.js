@@ -67,7 +67,7 @@ function sync() {
       const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
       bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false });
     }
-    b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
+    b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
     b.rally = B[o + fb.has_rally] ? { x: B[o + fb.rally_x], y: B[o + fb.rally_y], node: nodes.get(B[o + fb.rally_node]) || null } : null;
     b.queue = []; for (let k = 0; k < B[o + fb.queue_len]; k++) b.queue.push(UNIT_KEYS[B[o + fb.q0 + k]]);
     b.research = B[o + fb.research] ? { type: UPGRADE_KEYS[B[o + fb.research] - 1], prog: B[o + fb.research_prog] } : null;
@@ -82,7 +82,7 @@ function sync() {
     const id = U[o + fu.id]; seenU.add(id);
     let u = units.get(id);
     if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: {}, dead: false }); }
-    u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
+    u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
     const ct = U[o + fu.carry_type];
     u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target];

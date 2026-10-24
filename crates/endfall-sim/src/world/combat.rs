@@ -2,6 +2,18 @@
 
 use super::*;
 
+/// Shields take a hit first, at full value (armor protects only the hull); returns what is left for the hull.
+/// Being hit restarts the wait before shields regenerate.
+fn absorb(sh: &mut f64, hit_at: &mut f64, now: f64, amt: f64) -> f64 {
+    if *sh <= 0.0 && *hit_at == f64::NEG_INFINITY {
+        return amt; // no shields at all (a race without them): nothing changes
+    }
+    *hit_at = now;
+    let took = sh.min(amt);
+    *sh -= took;
+    amt - took
+}
+
 impl World {
     /// Extra damage a unit kind deals with its team's Weapons upgrades.
     pub fn weapon_bonus(&self, team: u8, per_level: f64) -> f64 {
@@ -129,8 +141,12 @@ impl World {
         if let Some(i) = self.ui(target) {
             let armor_up =
                 self.upgrades[self.units[i].team as usize][Upgrade::Armor.index()] as f64;
+            let now = self.time;
             let u = &mut self.units[i];
-            u.hp -= (amt - u.kind.def().armor - armor_up).max(1.0);
+            let rest = absorb(&mut u.sh, &mut u.hit_at, now, amt);
+            if rest > 0.0 {
+                u.hp -= (rest - u.kind.def().armor - armor_up).max(1.0);
+            }
             u.flash = 0.12;
             if let Some(by) = by {
                 let (ux, uy, team) = (u.x, u.y, u.team);
@@ -188,8 +204,12 @@ impl World {
                 self.kill(target);
             }
         } else if let Some(i) = self.bi(target) {
+            let now = self.time;
             let b = &mut self.bldgs[i];
-            b.hp -= (amt - b.kind.def().armor).max(1.0);
+            let rest = absorb(&mut b.sh, &mut b.hit_at, now, amt);
+            if rest > 0.0 {
+                b.hp -= (rest - b.kind.def().armor).max(1.0);
+            }
             b.flash = 0.12;
             if b.hp <= 0.0 {
                 self.kill(target);
@@ -575,6 +595,22 @@ impl World {
         // Like the JS, this tick still closes on and fires at the original target.
         if self.approach(uid, t, c.range + c.r * 0.5, dt) && self.u(uid).cd <= 0.0 {
             self.fire(uid, target);
+        }
+    }
+
+    /// Shields come back after SHIELD_DELAY s without a hit: units faster than buildings; a site under
+    /// construction keeps what it has. The hull never heals by itself.
+    pub(crate) fn regen_shields(&mut self, dt: f64) {
+        let now = self.time;
+        for u in &mut self.units {
+            if u.sh < u.maxsh && now - u.hit_at >= SHIELD_DELAY {
+                u.sh = (u.sh + SHIELD_REGEN_UNIT * dt).min(u.maxsh);
+            }
+        }
+        for b in &mut self.bldgs {
+            if b.done && b.sh < b.maxsh && now - b.hit_at >= SHIELD_DELAY {
+                b.sh = (b.sh + SHIELD_REGEN_BLDG * dt).min(b.maxsh);
+            }
         }
     }
 }

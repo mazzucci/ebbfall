@@ -103,6 +103,10 @@ pub struct Unit {
     pub y: f64,
     pub hp: f64,
     pub maxhp: f64,
+    /// Shields over the hull (0 for a race without them), and when it was last hit (s; shields wait to regenerate).
+    pub sh: f64,
+    pub maxsh: f64,
+    pub hit_at: f64,
     pub r: f64,
     pub task: Task,
     pub path: Option<Vec<Pt>>,
@@ -155,6 +159,9 @@ pub struct Bldg {
     pub y: f64,
     pub hp: f64,
     pub maxhp: f64,
+    pub sh: f64,
+    pub maxsh: f64,
+    pub hit_at: f64,
     pub progress: f64,
     pub done: bool,
     pub queue: Vec<UnitKind>,
@@ -623,6 +630,7 @@ impl World {
             }
         }
         self.update_projs(dt);
+        self.regen_shields(dt);
         self.update_fog();
         self.ai_tick(dt);
     }
@@ -654,10 +662,16 @@ impl World {
             mix(jsmath::to_i32(u.y * 16.0));
             mix(jsmath::to_i32(u.hp * 16.0));
             mix(u.task.code());
+            if u.maxsh > 0.0 {
+                mix(jsmath::to_i32(u.sh * 16.0));
+            }
         }
         for b in &self.bldgs {
             mix(b.id as i32);
             mix(jsmath::to_i32(b.hp * 16.0));
+            if b.maxsh > 0.0 {
+                mix(jsmath::to_i32(b.sh * 16.0));
+            }
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);
             if let Some((up, p)) = b.research {

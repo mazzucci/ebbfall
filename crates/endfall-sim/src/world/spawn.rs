@@ -3,6 +3,19 @@
 use super::*;
 
 impl World {
+    /// A building is gone (destroyed or cancelled): its tiles are free again, and a refinery's vent is a bare
+    /// vent once more (marked by its node id, negated, in the grid).
+    pub(crate) fn clear_footprint(&mut self, b: &Bldg) {
+        for y in 0..b.h {
+            for x in 0..b.w {
+                self.map.occ[idx(b.tx + x, b.ty + y)] = b.vent.map_or(0, |v| -(v as i32));
+            }
+        }
+        if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
+            n.extractor = None;
+        }
+    }
+
     // ---- entities ----
     pub fn make_unit(&mut self, kind: UnitKind, team: u8, x: f64, y: f64) -> Id {
         let d = kind.def();

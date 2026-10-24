@@ -321,14 +321,7 @@ impl World {
             return false;
         };
         let b = self.bldgs.remove(i);
-        for y in 0..b.h {
-            for x in 0..b.w {
-                self.map.occ[idx(b.tx + x, b.ty + y)] = b.vent.map_or(0, |v| -(v as i32));
-            }
-        }
-        if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
-            n.extractor = None;
-        }
+        self.clear_footprint(&b);
         let cost = b.kind.def().cost;
         self.pay(b.team, [cost[0] * 3 / 4, cost[1] * 3 / 4], 1);
         for u in self.units.iter_mut() {

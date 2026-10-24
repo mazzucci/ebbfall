@@ -322,6 +322,8 @@ pub struct World {
     pub map_kind: MapKind,
     /// The players trade starting places (drawn by the client for each game; the map is point-symmetric, so fair).
     pub sides_swapped: bool,
+    /// Each team's side (headquarters, worker, Build list).
+    pub factions: [&'static Faction; 2],
     pub diff: usize,
     pub time: f64,
     pub tick: u32,
@@ -354,7 +356,7 @@ pub struct World {
 /// How urgent a unit is as a target: 0 a fighting unit that can hit the shooter's layer (Harvesters only scratch),
 /// 1 any other unit.
 fn unit_tier(kind: UnitKind, flier: bool) -> u8 {
-    if kind != UnitKind::Harvester && kind.def().damage_vs(flier) > 0.0 {
+    if !kind.def().worker && kind.def().damage_vs(flier) > 0.0 {
         0
     } else {
         1
@@ -379,6 +381,7 @@ impl World {
             diff,
             map_kind,
             sides_swapped: swap,
+            factions: [&HUMANS, &HUMANS],
             time: 0.0,
             tick: 0,
             units: Vec::new(),
@@ -436,7 +439,8 @@ impl World {
         }
         for team in [PLAYER, ENEMY] {
             let (bx, by) = self.map.bases[team as usize];
-            self.make_building(BldgKind::Core, team, bx, by, true);
+            let faction = self.factions[team as usize];
+            self.make_building(faction.hq, team, bx, by, true);
             // Four harvesters, each between the Core and one of the four crystals nearest it, mining that crystal:
             // the same start for both sides (the map is mirrored), whichever way the base faces.
             let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
@@ -463,7 +467,7 @@ impl World {
                 );
                 let f = self.map.nearest_free(at.0, at.1, 4).unwrap_or((bx, by + 5));
                 let u = self.make_unit(
-                    UnitKind::Harvester,
+                    faction.worker,
                     team,
                     f.0 as f64 * TILE + 16.0,
                     f.1 as f64 * TILE + 16.0,
@@ -556,7 +560,7 @@ impl World {
             let d = u.kind.def();
             Fighter {
                 range: d.range * TILE,
-                combat: u.kind != UnitKind::Harvester && d.armed(),
+                combat: d.threat(),
                 team: u.team,
                 r: u.r,
                 sight: d.sight,

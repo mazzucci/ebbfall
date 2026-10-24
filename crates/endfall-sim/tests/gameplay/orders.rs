@@ -331,3 +331,37 @@ fn units_under_a_new_building_step_out_without_stacking() {
         );
     }
 }
+
+#[test]
+fn a_faction_is_consistent_with_its_tables() {
+    let f = &HUMANS;
+    assert!(
+        f.hq.def().hq && f.hq.def().dropoff,
+        "the headquarters is flagged and takes resources"
+    );
+    assert!(
+        f.worker.def().worker && !f.worker.def().threat(),
+        "the worker is a worker, not a threat"
+    );
+    let listed: Vec<BldgKind> = f
+        .build_basic
+        .iter()
+        .chain(f.build_advanced)
+        .copied()
+        .collect();
+    for k in BLDG_KINDS {
+        assert!(listed.contains(&k), "{k:?} is on the Build list");
+    }
+    let workers = UNIT_KINDS.iter().filter(|k| k.def().worker).count();
+    assert_eq!(workers, 1, "one worker kind per faction");
+    let research: Vec<_> = BLDG_KINDS
+        .iter()
+        .filter(|k| !k.def().researches.is_empty())
+        .collect();
+    assert_eq!(research, [&BldgKind::Forge], "the Foundry researches");
+    let w = World::new(4242, 1);
+    for team in [PLAYER, ENEMY] {
+        assert_eq!(count(&w, team, f.worker), 4, "four workers to start");
+        assert!(w.bldgs.iter().any(|b| b.team == team && b.kind == f.hq));
+    }
+}

@@ -53,7 +53,7 @@ impl World {
 
     pub(crate) fn resume_after(&mut self, uid: Id) {
         let u = self.u(uid);
-        if u.kind == UnitKind::Harvester {
+        if u.kind.def().worker {
             let (x, y, team) = (u.x, u.y, u.team);
             let last = u
                 .last_node

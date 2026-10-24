@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, PLAYER, TILE, idx, resetGame, step, fmt, setResources } from './engine/index.js';
+import { G, DT, TILE, idx, resetGame, step, fmt, setResources } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems } from './client/hud.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -28,7 +28,7 @@ function newGame() {
   ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
-  cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === PLAYER); centerOn(core.x + 40, core.y);
+  cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   toast('Mine shards. Build a Depot before supply caps.');
   armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
@@ -44,7 +44,7 @@ function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
-    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === PLAYER ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
+    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
     else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty);
@@ -54,11 +54,11 @@ function drainEvents() {
 }
 
 function endGame() {
-  const win = G.winner === PLAYER;
+  const win = G.winner === G.me;
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
   $('endMap').innerHTML = `<b>${menu.name}</b>: ${MAP_KINDS[menu.kind].story}`; // the map's secret, told at the end
-  const S = G.stats;
+  const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
   $('end').hidden = false; sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
 }

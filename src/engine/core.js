@@ -4,7 +4,7 @@
 // always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game } from './pkg/endfall_sim.js';
-import { TILE, MW, MH, PLAYER, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
+import { TILE, MW, MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
 import { clamp } from './util.js';
 
 export * from './constants.js';
@@ -20,9 +20,9 @@ const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(F
 let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
+  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1,
-  stats: { built: 0, lost: 0, killed: 0, razed: 0 }, events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
+  stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
 const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
 
@@ -45,9 +45,10 @@ function sync() {
   S.factions = [FACTION_KEYS[I[fi.faction0]], FACTION_KEYS[I[fi.faction1]]];
   S.res[0][0] = I[fi.shards0]; S.res[0][1] = I[fi.ether0]; S.res[1][0] = I[fi.shards1]; S.res[1][1] = I[fi.ether1];
   S.sup[0] = [I[fi.sup_used0], I[fi.sup_cap0]]; S.sup[1] = [I[fi.sup_used1], I[fi.sup_cap1]];
-  Object.assign(S.stats, { built: I[fi.built], lost: I[fi.lost], killed: I[fi.killed], razed: I[fi.razed] });
+  Object.assign(S.stats[0], { built: I[fi.built0], lost: I[fi.lost0], killed: I[fi.killed0], razed: I[fi.razed0] });
+  Object.assign(S.stats[1], { built: I[fi.built1], lost: I[fi.lost1], killed: I[fi.killed1], razed: I[fi.razed1] });
   UPGRADE_KEYS.forEach((k, i) => { for (const t of [0, 1]) S.upgrades[t][k] = I[SCHEMA.info.length + t * UPGRADE_KEYS.length + i]; }); // (levels follow the info record)
-  S.vis.set(game.vis(PLAYER)); S.explored.set(game.explored(PLAYER)); M.occ.set(game.occ());
+  S.me = game.me(); S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); M.occ.set(game.occ());
 
   const N = game.nodes(), seenN = new Set(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
@@ -161,9 +162,9 @@ export function canHit(shooter, target) {
   return (air ? shooter.d.dmgAir : shooter.d.dmg) > 0;
 }
 
-/** Whether the human player can see this unit or building right now. */
+/** Whether this client's player (seat G.me) can see this unit or building right now. */
 export function visibleEnt(e) {
-  if (e.team === PLAYER) return true;
+  if (e.team === S.me) return true;
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];

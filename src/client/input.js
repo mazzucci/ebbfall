@@ -1,7 +1,7 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
-import { G, map, idx, TILE, WW, WH, PLAYER, ENEMY, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
+import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
@@ -17,7 +17,7 @@ let lastPick = { id: 0, t: 0, dbl: false };
 let boxDone = false;
 /** `at` is the input event's own timestamp, so a slow frame between the two clicks does not break the double. */
 function selectOrDouble(hit, add, at = performance.now()) {
-  const own = hit.kind === 'unit' && hit.team === PLAYER, again = own && lastPick.id === hit.id && at - lastPick.t < 400;
+  const own = hit.kind === 'unit' && hit.team === G.me, again = own && lastPick.id === hit.id && at - lastPick.t < 400;
   if (again && lastPick.dbl) { lastPick.t = at; return; }            // a third quick click keeps the group
   if (again) { selectSameType(hit, add); lastPick = { id: hit.id, t: at, dbl: true }; return; }
   lastPick = { id: hit.id, t: at, dbl: false };
@@ -47,9 +47,9 @@ const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 22 / cam.zoom) : 
 function pick(wx, wy) {
   const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
-  for (const u of G.units) { if (u.team === ENEMY && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
   if (best) return best;
-  for (const b of G.bldgs) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) { if (b.team === ENEMY && !G.explored[idx(b.tx, b.ty)]) continue; return b; } }
+  for (const b of G.bldgs) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; return b; } }
   for (const n of map.nodes) { if (G.explored[idx(n.tx, n.ty)] && dist(n, { x: wx, y: wy }) <= n.r + 6) return n; }
   return null;
 }
@@ -57,7 +57,7 @@ function pick(wx, wy) {
 function select(list, add) {
   if (!add) ui.sel = [];
   for (const e of list) if (!ui.sel.includes(e)) ui.sel.push(e);
-  if (ui.sel.length > 1 && ui.sel.some(e => e.team === PLAYER)) ui.sel = ui.sel.filter(e => e.team === PLAYER);
+  if (ui.sel.length > 1 && ui.sel.some(e => e.team === G.me)) ui.sel = ui.sel.filter(e => e.team === G.me);
   if (ui.sel.length > 1 && ui.sel.some(e => e.kind === 'unit')) ui.sel = ui.sel.filter(e => e.kind === 'unit');
   ui.mode = null; ui.place = null; setHint(); if (list.length) sfx('select', voice(list));
   updateHud(); // the command card must match the selection right away, not on the next HUD tick
@@ -65,17 +65,17 @@ function select(list, add) {
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE, s = shown(u); return u.team === PLAYER && s.x >= a.x - r && s.x <= b.x + r && s.y >= a.y - r && s.y <= b.y + r; });
+  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE, s = shown(u); return u.team === G.me && s.x >= a.x - r && s.x <= b.x + r && s.y >= a.y - r && s.y <= b.y + r; });
   if (us.length) { select(us, add); return; }
-  const bs = G.bldgs.filter(bb => bb.team === PLAYER && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
+  const bs = G.bldgs.filter(bb => bb.team === G.me && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
   if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
-const damaged = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
+const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
-const ventOf = (e) => e && e.kind === 'bldg' && e.team === PLAYER && e.d.onVent && e.done ? e.vent : null;
+const ventOf = (e) => e && e.kind === 'bldg' && e.team === G.me && e.d.onVent && e.done ? e.vent : null;
 
 /** Top-left tile for placing `type` with the cursor at (wx, wy); extractors snap onto a nearby free vent. */
 function placeTile(type, wx, wy) {
@@ -104,14 +104,14 @@ function commandAt(wx, wy) {
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const hit = pick(wx, wy), vent = ventOf(hit);
   let job = false; // harvesters were given work
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
-  if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
+  if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
   else if ((hit && hit.kind === 'node') || vent) {
     const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)
     for (const u of units) if (u.d.worker) startGather(u, node); else moveTo(u, wx, wy);
     marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move', voice(units));
     if (!bare && units.some(u => u.d.worker)) { flashTarget(vent ? hit : node, true); job = true; }
   }
-  else if (hit && hit.kind === 'bldg' && hit.team === PLAYER && !hit.done && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
+  else if (hit && hit.kind === 'bldg' && hit.team === G.me && !hit.done && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else if (damaged(hit) && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); }
   ui.mode = null; setHint();
@@ -124,7 +124,7 @@ function leftAction(wx, wy, add, at) {
   if (ui.place) {
     const p = ui.place;
     const builder = units.filter(u => u.d.worker).sort((a, b) => dist(a, { x: p.tx * TILE, y: p.ty * TILE }) - dist(b, { x: p.tx * TILE, y: p.ty * TILE }))[0];
-    const err = placeBuilding(PLAYER, p.type, p.tx, p.ty, builder);
+    const err = placeBuilding(G.me, p.type, p.tx, p.ty, builder);
     if (err) toast(err, true);
     else {
       sfx('build');
@@ -135,13 +135,13 @@ function leftAction(wx, wy, add, at) {
   }
   if (ui.mode === 'attack') {
     const hit = pick(wx, wy);
-    if (hit && hit.kind !== 'node' && hit.team === ENEMY) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
+    if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
     sfx('attack', voice(units)); ui.mode = null; setHint(); return;
   }
   if (ui.mode === 'repair') {
     const hit = pick(wx, wy);
     if (damaged(hit)) { for (const u of units) if (u.d.worker) repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); ui.mode = null; releaseWorkers(units); setHint(); return; }
-    else toast(hit && hit.kind === 'bldg' && hit.team === PLAYER ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
+    else toast(hit && hit.kind === 'bldg' && hit.team === G.me ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
     ui.mode = null; setHint(); return;
   }
   if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
@@ -159,7 +159,7 @@ function touchTap(wx, wy, at) {
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead);
   if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
-  if (hit && hit.kind !== 'node' && hit.team === PLAYER) {
+  if (hit && hit.kind !== 'node' && hit.team === G.me) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)
     if (units.some(u => u.d.worker) && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
@@ -304,7 +304,7 @@ export function bindInput() {
     if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
-    if (k === 'Home') { const c = G.bldgs.find(b => b.team === PLAYER && b.d.hq); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
+    if (k === 'Home') { const c = G.bldgs.find(b => b.team === G.me && b.d.hq); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
     const items = cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); return; }
     if (!it && (k === 'q' || k === 'Q')) selectArmy();

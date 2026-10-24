@@ -33,5 +33,5 @@ for (let diff = 0; diff < 3; diff++) {
       console.log(`t=${(i / 30) | 0}s res P=${G.res[PLAYER]} E=${G.res[ENEMY]} units P=${pU} E=${eU} bldgs P=${G.bldgs.filter(b => b.team === PLAYER).length} E=${G.bldgs.filter(b => b.team === ENEMY).length} sup P=${G.sup[PLAYER]} E=${G.sup[ENEMY]}`);
     }
   }
-  console.log(G.over ? `game over at ${G.time | 0}s, winner ${G.winner === PLAYER ? 'player' : 'AI'}` : 'no result after 10 min', JSON.stringify(G.stats));
+  console.log(G.over ? `game over at ${G.time | 0}s, winner ${G.winner === PLAYER ? 'player' : 'AI'}` : 'no result after 10 min', JSON.stringify(G.stats[PLAYER]));
 }

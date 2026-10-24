@@ -1,5 +1,5 @@
 // Top bar, selection panel and command card. Also owns the client-side selection and command mode.
-import { G, PLAYER, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -20,7 +20,7 @@ export function toast(msg, bad, silent) {
   if (bad && !silent) sfx('error');
 }
 
-export const playerSel = () => ui.sel.filter(e => e.team === PLAYER && !e.dead);
+export const playerSel = () => ui.sel.filter(e => e.team === G.me && !e.dead);
 
 /** Harvesters currently working on building b. */
 export const buildersOf = (b) => G.units.filter(u => u.task.t === 'build' && u.task.b === b);
@@ -31,9 +31,9 @@ export const ROMAN = ['', 'I', 'II', 'III'];
 export function bldgStatus(b) {
   if (!b.done) return b.planted ? 'Growing' : buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
   if (b.d.needsPower && !b.powered) return 'Unpowered: build a Spire near it';
-  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[PLAYER][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
+  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
-  if (b.team === PLAYER && repairersOf(b).length) return 'Repairing';
+  if (b.team === G.me && repairersOf(b).length) return 'Repairing';
   if (b.d.onVent && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
   return '';
 }
@@ -42,7 +42,7 @@ let cardKey = '', selKey = '';
 export function invalidateCard() { cardKey = ''; }
 
 export function updateHud() {
-  const [s, e] = G.res[PLAYER], [su, sc] = G.sup[PLAYER];
+  const [s, e] = G.res[G.me], [su, sc] = G.sup[G.me];
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc); $('clock').textContent = fmt(G.time);
   renderUpgrades(); watchSites();
@@ -95,10 +95,10 @@ function renderSelection() {
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
     sub.textContent = ether && !n.extractor ? 'Build an Ether Rig on it to mine' : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
-    const working = G.units.filter(u => u.team === PLAYER && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
+    const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
     module('node' + working, `<span class="st" title="${UNITS[myFaction().worker].name}s working it" aria-label="${UNITS[myFaction().worker].name}s working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
-    const x = sel[0], own = x.team === PLAYER;
+    const x = sel[0], own = x.team === G.me;
     name.textContent = x.d.name;
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
@@ -141,17 +141,17 @@ function renderSelection() {
 
 /** Top bar: upgrade levels, and research under way as a ring filling round its icon (whatever is selected). */
 function renderUpgrades() {
-  const up = G.upgrades[PLAYER], el = $('upg');
+  const up = G.upgrades[G.me], el = $('upg');
   let key = '', html = '';
   for (const k of Object.keys(UPGRADES)) {
-    const r = G.bldgs.find(b => b.team === PLAYER && b.research?.type === k), lv = up[k] + (r ? 1 : 0);
+    const r = G.bldgs.find(b => b.team === G.me && b.research?.type === k), lv = up[k] + (r ? 1 : 0);
     if (!lv) continue;
     key += k + lv + (r ? 'r' : '');
     html += `<span class="up${r ? ' on' : ''}" data-k="${k}" title="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}" aria-label="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}">${r ? '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><circle class="p" cx="12" cy="12" r="10.5" pathLength="100"/></svg>' : ''}${icon(k)}<b>${ROMAN[lv]}</b></span>`;
   }
   el.hidden = !key;
   if (el.dataset.k !== key) { el.dataset.k = key; el.innerHTML = html; }
-  for (const b of G.bldgs) if (b.team === PLAYER && b.research) { const p = el.querySelector(`[data-k="${b.research.type}"] .p`); if (p) p.style.strokeDasharray = `${b.research.prog * 100} 100`; }
+  for (const b of G.bldgs) if (b.team === G.me && b.research) { const p = el.querySelector(`[data-k="${b.research.type}"] .p`); if (p) p.style.strokeDasharray = `${b.research.prog * 100} 100`; }
 }
 
 function taskName(u) {
@@ -170,7 +170,7 @@ function taskName(u) {
  */
 const COLS = 3;
 /** The player's side (faction data: worker, headquarters, Build list pages). */
-export const myFaction = () => FACTIONS[G.factions[PLAYER]] || FACTIONS.humans;
+export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /** Which button an armed order belongs to (it becomes that order's Cancel). */
 const ARMED_BY = { attack: 'attack', gather: 'gather', repair: 'repair', rally: 'rally', place: 'build' };
 export function cardItems() {
@@ -181,7 +181,7 @@ export function cardItems() {
   const hidden = (it) => items.push({ ...it, hidden: true, slot: -1 });
   const bldgItem = (k) => {
     const d = BUILDINGS[k];
-    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(PLAYER, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') };
+    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(G.me, k), por: ['bldg', k], tip: d.desc + (d.req && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') };
   };
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
@@ -206,14 +206,14 @@ export function cardItems() {
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
-      const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === PLAYER && o.type === d.req && o.done);
+      const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
       at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc + (missing && !d.desc.includes('Requires') ? ' Requires ' + BUILDINGS[d.req].name + '.' : '') });
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
       b.d.researches.forEach((k, i) => {
         const u = UPGRADES[k];
-        const lv = G.upgrades[PLAYER][k] + 1, elsewhere = G.bldgs.some(o => o.team === PLAYER && o.research && o.research.type === k);
+        const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
         if (lv > 3) return;
         at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: u.cost[lv - 1], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
       });
@@ -227,8 +227,8 @@ export function cardItems() {
     Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
     for (let i = items.length - 1; i >= 0; i--) if (items[i].id.startsWith('cancel')) items.splice(i, 1); // one Cancel at a time (Deselect stays)
   }
-  for (const it of items) if (it.cost && !canAfford(PLAYER, it.cost)) { // greyed out, but a tap says what is short
-    const [sh, et] = G.res[PLAYER];
+  for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
+    const [sh, et] = G.res[G.me];
     it.poor = true;
     it.tip = (it.tip ? it.tip + ' ' : '') + (sh < it.cost[0] ? `Not enough shards (needs ${it.cost[0]}).` : `Not enough ether (needs ${it.cost[1]}).`);
   }
@@ -319,14 +319,14 @@ export function doCommand(id) {
   if (id === 'build2') { ui.mode = 'build2'; return; }
   if (id.startsWith('b_')) {
     const k = id.slice(2);
-    if (!hasReq(PLAYER, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
-    if (!canAfford(PLAYER, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[PLAYER][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
+    if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
+    if (!canAfford(G.me, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('t_')) { const b = bl[0]; if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
-    const hs = G.units.filter(u => u.team === PLAYER && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
+    const hs = G.units.filter(u => u.team === G.me && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
     if (!hs.length) { toast(`No ${UNITS[myFaction().worker].name} to build it`, true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
@@ -349,7 +349,7 @@ export function setHint() {
 const siteHadBuilder = new Map();
 function watchSites() {
   for (const b of G.bldgs) {
-    if (b.team !== PLAYER || b.done) { siteHadBuilder.delete(b.id); continue; }
+    if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); continue; }
     const has = buildersOf(b).length > 0;
     if (siteHadBuilder.get(b.id) && !has && !b.planted) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
     siteHadBuilder.set(b.id, has);

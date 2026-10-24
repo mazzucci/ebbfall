@@ -848,6 +848,17 @@ impl BldgDef {
     }
 }
 
+impl BldgDef {
+    /// The short name on a button: `short`, or the last word of the name ("Supply Depot" -> "Depot").
+    pub fn label(&self) -> &'static str {
+        if !self.short.is_empty() {
+            self.short
+        } else {
+            self.name.rsplit(' ').next().unwrap_or(self.name)
+        }
+    }
+}
+
 impl BldgKind {
     pub fn def(self) -> &'static BldgDef {
         match self {

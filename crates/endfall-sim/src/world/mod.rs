@@ -679,6 +679,9 @@ impl World {
             if b.maxsh > 0.0 {
                 mix(jsmath::to_i32(b.sh * 16.0));
             }
+            if b.planted && !b.done {
+                mix(1); // a planted seed grows by itself next tick
+            }
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);
             if let Some((up, p)) = b.research {

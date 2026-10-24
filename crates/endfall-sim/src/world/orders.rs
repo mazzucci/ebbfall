@@ -109,7 +109,10 @@ impl World {
         }
         let s = self.sup[team as usize];
         if s[0] + d.supply > s[1] {
-            return Err("Supply blocked. Build a Depot.".into());
+            return Err(format!(
+                "Supply blocked. Build a {}.",
+                self.factions[team as usize].ai.supply.def().label()
+            ));
         }
         self.pay(team, d.cost, -1);
         self.bm(bid).unwrap().queue.push(kind);

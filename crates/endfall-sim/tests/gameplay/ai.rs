@@ -709,3 +709,45 @@ fn the_ai_keeps_building_when_the_player_takes_its_home_vent() {
         .count();
     assert!(rax >= 2, "the build order goes on: {rax} Barracks");
 }
+
+#[test]
+fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
+    for diff in 0..3usize {
+        for seed in [3u32, 4242] {
+            let mut w = World::with_setup(seed, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
+            let mut t = 0;
+            while !w.over && t < 30 * 60 * 15 {
+                w.step();
+                t += 1;
+            }
+            assert!(
+                w.over && w.winner == ENEMY as i32,
+                "diff {diff} seed {seed}: the Vael AI won"
+            );
+            for k in [BldgKind::Spire, BldgKind::Kiln, BldgKind::Siphon] {
+                assert!(
+                    w.bldgs.iter().any(|b| b.team == ENEMY && b.kind == k),
+                    "diff {diff} seed {seed}: it built a {k:?}"
+                );
+            }
+            assert!(
+                w.bldgs
+                    .iter()
+                    .filter(|b| b.team == ENEMY && b.kind.def().needs_power)
+                    .all(|b| b.powered || !b.done),
+                "its production stands in power fields"
+            );
+            assert!(
+                !w.bldgs
+                    .iter()
+                    .any(|b| b.team == ENEMY && !HUMANS.builds(b.kind) && !VAEL.builds(b.kind))
+            );
+            assert!(
+                !w.bldgs
+                    .iter()
+                    .any(|b| b.team == ENEMY && HUMANS.builds(b.kind)),
+                "only Vael buildings"
+            );
+        }
+    }
+}

@@ -311,13 +311,31 @@ impl World {
 
     pub(crate) fn fire(&mut self, shooter: Id, target: Id) {
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
-        let (x, y, team, dmg, cd, proj, up) = if let Some(u) = self.unit(shooter) {
+        let (x, y, team, dmg, cd, proj, up, splash) = if let Some(u) = self.unit(shooter) {
             let d = u.kind.def();
-            (u.x, u.y, u.team, d.damage_vs(air), d.cd, d.proj, d.up_dmg)
+            (
+                u.x,
+                u.y,
+                u.team,
+                d.damage_vs(air),
+                d.cd,
+                d.proj,
+                d.up_dmg,
+                (d.splash, d.splash_r),
+            )
         } else {
             let b = self.bldg(shooter).unwrap();
             let d = b.kind.def();
-            (b.x, b.y, b.team, d.damage_vs(air), d.cd, d.proj, d.up_dmg)
+            (
+                b.x,
+                b.y,
+                b.team,
+                d.damage_vs(air),
+                d.cd,
+                d.proj,
+                d.up_dmg,
+                (0.0, 0.0),
+            )
         };
         if dmg <= 0.0 {
             return; // this weapon cannot hit that target
@@ -344,6 +362,8 @@ impl World {
                     kind,
                     by: shooter,
                     team,
+                    splash: splash.0,
+                    splash_r: splash.1,
                 });
                 if team == PLAYER || self.visible(shooter) {
                     let weapon = match kind {
@@ -442,8 +462,8 @@ impl World {
             let d = dist(p.x, p.y, tp.0, tp.1);
             let mv = p.speed * dt;
             if d <= mv + t.r() * 0.3 {
-                // A shell also hurts the target's walking neighbours (splash: the counter to clumped infantry).
-                let splash: Vec<Id> = if p.kind == ProjKind::Shell {
+                // A splashing shot also hurts the target's walking neighbours (the counter to clumped infantry).
+                let splash: Vec<Id> = if p.splash > 0.0 {
                     let team = self.team_of(p.target);
                     self.units
                         .iter()
@@ -451,7 +471,7 @@ impl World {
                             u.id != p.target
                                 && Some(u.team) == team
                                 && !u.kind.def().air
-                                && dist(u.x, u.y, tp.0, tp.1) < SHELL_SPLASH_R
+                                && dist(u.x, u.y, tp.0, tp.1) < p.splash_r
                         })
                         .map(|u| u.id)
                         .collect()
@@ -461,7 +481,7 @@ impl World {
                 self.damage(p.target, p.dmg, Some(p.by));
                 for s in splash {
                     if self.unit(s).is_some() {
-                        self.damage(s, p.dmg * SHELL_SPLASH, Some(p.by));
+                        self.damage(s, p.dmg * p.splash, Some(p.by));
                     }
                 }
                 self.emit(Event::Hit {

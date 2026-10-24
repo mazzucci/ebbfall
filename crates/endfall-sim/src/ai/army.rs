@@ -100,6 +100,7 @@ impl World {
         }
         // Repairs once the fighting at home is over: one harvester on the worst-hit building at a time.
         if intruder.is_none()
+            && self.factions[e as usize].repairs
             && !self
                 .units
                 .iter()
@@ -145,7 +146,7 @@ impl World {
         let lancers = self
             .units
             .iter()
-            .filter(|u| u.team == e && u.kind == UnitKind::Lancer)
+            .filter(|u| u.team == e && u.kind == self.factions[e as usize].ai.anti_air)
             .count();
 
         brain.intruder = intruder;
@@ -175,7 +176,7 @@ impl World {
         if t > research_from && !expand {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
-                if b.kind != BldgKind::Forge || !b.done || b.research.is_some() {
+                if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
                     continue;
                 }
                 let [wl, al] = self.upgrades[e as usize];
@@ -189,8 +190,11 @@ impl World {
                         .iter()
                         .any(|o| o.team == e && o.research.is_some_and(|(u, _)| u == up))
                 };
+                let here = b.kind.def().researches;
                 let Some(up) = order.into_iter().find(|&up| {
-                    self.upgrades[e as usize][up.index()] < MAX_UPGRADE && !busy(self, up)
+                    here.contains(&up)
+                        && self.upgrades[e as usize][up.index()] < MAX_UPGRADE
+                        && !busy(self, up)
                 }) else {
                     continue;
                 };
@@ -203,7 +207,7 @@ impl World {
             }
         }
         // Saving up for an expansion works the same way.
-        if expand && !self.can_afford(e, BldgKind::Core.def().cost) {
+        if expand && !self.can_afford(e, self.factions[e as usize].hq.def().cost) {
             saving = true;
         }
         let ai = self.ai.as_mut().unwrap();
@@ -249,32 +253,28 @@ impl World {
         };
         for &bid in &my_b {
             let Some(b) = self.bldg(bid) else { continue };
-            if !b.done || b.kind == BldgKind::Core || b.kind.def().trains.is_empty() {
+            if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
                 continue;
             }
-            let u = match b.kind {
-                BldgKind::Barracks
-                    if enemy_air > 0 && mine(self, UnitKind::Lancer) < enemy_air * 2 =>
-                {
-                    UnitKind::Lancer
-                }
-                BldgKind::Barracks
-                    if self.ai_count(&my_b, true, BldgKind::Forge) >= 1
-                        && (mine(self, UnitKind::Medic) + 1) * 6
-                            <= mine(self, UnitKind::Trooper) =>
-                {
-                    UnitKind::Medic
-                }
-                // A Vanguard per two Troopers once the Forge stands: the mix that beats massed infantry.
-                BldgKind::Barracks
-                    if self.ai_count(&my_b, true, BldgKind::Forge) >= 1
-                        && (mine(self, UnitKind::Vanguard) + 1) * 2
-                            <= mine(self, UnitKind::Trooper) =>
-                {
-                    UnitKind::Vanguard
-                }
-                BldgKind::Airfield if mine(self, UnitKind::Wasp) >= 6 => continue,
-                _ => b.kind.def().trains[0],
+            let s = &self.factions[e as usize].ai;
+            // The main factory answers enemy flyers, then mixes its specialists in by ratio (each once its
+            // requirement stands: a Vanguard per two Troopers once the Forge stands beats massed infantry).
+            let mixed = s.mix.iter().find(|&&(k, per)| {
+                k.def()
+                    .req
+                    .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+                    && (mine(self, k) + 1) * per <= mine(self, s.basic)
+            });
+            let u = if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
+                s.anti_air
+            } else if b.kind == s.rax
+                && let Some(&(k, _)) = mixed
+            {
+                k
+            } else if b.kind == s.air && mine(self, s.raider) >= 6 {
+                continue;
+            } else {
+                b.kind.def().trains[0]
             };
             // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks. Short of
             // shards it waits for them instead, as a Trooper would only delay the specialist.
@@ -290,7 +290,8 @@ impl World {
             if qlen < 2 && !saving {
                 let c = u.def().cost;
                 if self.can_afford(e, c)
-                    && (want != Some(BldgKind::Depot) || self.res[e as usize][0] > c[0] + 100)
+                    && (want != Some(self.factions[e as usize].ai.supply)
+                        || self.res[e as usize][0] > c[0] + 100)
                 {
                     let _ = self.queue_unit(bid, u);
                 }
@@ -327,7 +328,10 @@ impl World {
         let wasps: Vec<Id> = army
             .iter()
             .copied()
-            .filter(|&a| self.unit(a).is_some_and(|u| u.kind == UnitKind::Wasp))
+            .filter(|&a| {
+                self.unit(a)
+                    .is_some_and(|u| u.kind == self.factions[ENEMY as usize].ai.raider)
+            })
             .collect();
         self.tend_raiders(&wasps, rally);
         let raiders = self.ai.as_ref().unwrap().raiders.clone();
@@ -336,7 +340,8 @@ impl World {
         // Waves go where the AI believes the player is (it scouts and remembers; it does not see through fog).
         let (gx, gy) = self.attack_target();
         let ai = self.ai.as_ref().unwrap();
-        if !ai.attacking && army.len() >= ai.wave && t - ai.last_wave > d.gap && t > d.first {
+        let need = (ai.wave as f64 * self.factions[ENEMY as usize].ai.wave_scale).ceil() as usize; // (fewer, stronger units)
+        if !ai.attacking && army.len() >= need && t - ai.last_wave > d.gap && t > d.first {
             let ai = self.ai.as_mut().unwrap();
             ai.last_wave = t;
             ai.wave += d.wave_grow;

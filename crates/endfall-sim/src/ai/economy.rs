@@ -7,7 +7,7 @@ impl World {
     pub(crate) fn home_of(&self, x: f64, y: f64) -> (f64, f64) {
         self.bldgs
             .iter()
-            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
+            .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
             .min_by(|a, b| {
                 dist(a.x, a.y, x, y)
                     .partial_cmp(&dist(b.x, b.y, x, y))
@@ -29,7 +29,7 @@ impl World {
         // Workers: idle ones mine; keep up to three on ether once an extractor stands, one while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
-            b.kind == BldgKind::Extractor && b.done
+            b.kind == self.factions[ENEMY as usize].ai.ether && b.done
         });
         let mut ether = harv
             .iter()
@@ -158,24 +158,23 @@ impl World {
                     .unwrap()
                     .queue
                     .iter()
-                    .filter(|&&q| q == UnitKind::Harvester)
+                    .filter(|&&q| q.def().worker)
                     .count()
             })
             .sum();
         let cores: Vec<Id> = my_b
             .iter()
             .copied()
-            .filter(|&id| {
-                self.bldg(id)
-                    .is_some_and(|b| b.kind == BldgKind::Core && b.done)
-            })
+            .filter(|&id| self.bldg(id).is_some_and(|b| b.kind.def().hq && b.done))
             .collect();
         let harv_target = d.harv + 5 * cores.len().saturating_sub(1);
         let mut queued = queued_h;
         for &c in &cores {
             if harv.len() + queued < harv_target
                 && self.bldg(c).unwrap().queue.is_empty()
-                && self.queue_unit(c, UnitKind::Harvester).is_ok()
+                && self
+                    .queue_unit(c, self.factions[ENEMY as usize].worker)
+                    .is_ok()
             {
                 queued += 1;
             }

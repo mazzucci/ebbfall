@@ -764,3 +764,32 @@ fn vael_buildings_regenerate_shields_and_lumens_do_not_repair() {
     w.damage(depot, 100.0, None);
     assert!(w.can_repair(h[1], depot));
 }
+
+#[test]
+fn a_monolith_splashes_with_its_own_numbers() {
+    let mut w = arena(16);
+    w.factions = [&VAEL, &HUMANS];
+    let d = UnitKind::Monolith.def();
+    assert_eq!((d.splash, d.splash_r), (0.5, 40.0));
+    let m = w.make_unit(UnitKind::Monolith, PLAYER, 560.0, 900.0);
+    let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
+    let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 930.0); // 30 px: in its splash
+    for u in [target, near] {
+        w.hold_unit(u);
+    }
+    let start = [target, near].map(|u| w.unit(u).unwrap().hp);
+    w.attack_ent(m, target);
+    for _ in 0..6 * TPS {
+        w.step();
+        if w.unit(target).is_none_or(|u| u.hp < start[0]) {
+            break;
+        }
+    }
+    let lost = [target, near].map(|u| w.unit(u).map_or(0.0, |x| x.hp)); // (a dead unit has nothing left)
+    assert_eq!(
+        start[0] - lost[0],
+        d.dmg.min(start[0]),
+        "the target takes the shot"
+    );
+    assert_eq!(start[1] - lost[1], d.dmg * 0.5, "its neighbour takes half");
+}

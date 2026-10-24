@@ -102,7 +102,8 @@ impl World {
                 Some(_) => {}
                 None => sites.push((id, progress, t)),
             }
-            let attended = self.units.iter().any(|u| u.task == (Task::Build { b: id }));
+            let attended = self.bldg(id).is_some_and(|b| b.planted) // (a planted seed grows by itself)
+                || self.units.iter().any(|u| u.task == (Task::Build { b: id }));
             if !attended && let Some(h) = self.free_builder(harv, x, y) {
                 self.start_build(h, id);
             }
@@ -145,7 +146,7 @@ impl World {
                     let a = k as f64 / 16.0 * PI * 2.0;
                     let tx = jsmath::round(nx as f64 + jsmath::cos(a) * r as f64 - 2.0) as i32;
                     let ty = jsmath::round(ny as f64 + jsmath::sin(a) * r as f64 - 2.0) as i32;
-                    if self.can_place(BldgKind::Core, tx, ty, ENEMY)
+                    if self.can_place(self.factions[ENEMY as usize].hq, tx, ty, ENEMY)
                         && self.walkway_around(tx, ty, 4, 4)
                         && self.map.nodes.iter().all(|n| {
                             jsmath::hypot(
@@ -193,37 +194,35 @@ impl World {
         });
         let exp_vent = exp_vent.filter(|&at| free_vent(self, at));
         let [used, cap] = self.sup[e as usize];
-        let want = if cap - used <= 4 && cap < 200 && !building.contains(&BldgKind::Depot) {
-            Some(BldgKind::Depot)
+        let s = &self.factions[e as usize].ai;
+        let want = if cap - used <= 4 && cap < 200 && !building.contains(&s.supply) {
+            Some(s.supply)
         } else if (harv.len() >= 7
-            && self.ai_count(&my_b, false, BldgKind::Extractor) == 0
+            && self.ai_count(&my_b, false, s.ether) == 0
             && free_vent(self, (cx, cy)))
-            || (!flowing
-                && exp_vent.is_some()
-                && self.ai_count(&my_b, false, BldgKind::Extractor) < 2)
+            || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, s.ether) < 2)
         {
-            Some(BldgKind::Extractor) // the second when the home vent has run dry: the expansion's
-        } else if self.ai_count(&my_b, false, BldgKind::Barracks)
+            Some(s.ether) // the second when the home vent has run dry: the expansion's
+        } else if self.ai_count(&my_b, false, s.rax)
             < d.rax + (t > 300.0) as usize + (t > 540.0) as usize
         {
-            Some(BldgKind::Barracks)
-        } else if self.ai_count(&my_b, true, BldgKind::Barracks) >= 1
+            Some(s.rax)
+        } else if self.ai_count(&my_b, true, s.rax) >= 1
             && ext.is_some()
-            && self.ai_count(&my_b, false, BldgKind::Forge) == 0
+            && self.ai_count(&my_b, false, s.tech) == 0
             && t > 150.0
         {
-            Some(BldgKind::Forge)
-        } else if self.ai_count(&my_b, true, BldgKind::Barracks) >= 1
-            && self.ai_count(&my_b, false, BldgKind::Turret)
-                < (t > 240.0) as usize + (t > 480.0) as usize
+            Some(s.tech)
+        } else if self.ai_count(&my_b, true, s.rax) >= 1
+            && self.ai_count(&my_b, false, s.tower) < (t > 240.0) as usize + (t > 480.0) as usize
         {
-            Some(BldgKind::Turret)
+            Some(s.tower)
         } else if self.diff >= 1
-            && self.ai_count(&my_b, true, BldgKind::Forge) >= 1
-            && self.ai_count(&my_b, false, BldgKind::Airfield) == 0
+            && self.ai_count(&my_b, true, s.tech) >= 1
+            && self.ai_count(&my_b, false, s.air) == 0
             && t > 330.0
         {
-            Some(BldgKind::Airfield)
+            Some(s.air)
         } else {
             None
         };
@@ -234,7 +233,7 @@ impl World {
             && let Some(spot) = {
                 let (fx, fy) = match exp_vent {
                     Some(at)
-                        if w == BldgKind::Extractor
+                        if w == s.ether
                             && (self.ai_count(&my_b, false, w) >= 1
                                 || !free_vent(self, (cx, cy))) =>
                     {
@@ -269,7 +268,7 @@ impl World {
         // even while supply depots go up.
         let exp_spot = if self.diff >= 1
             && t > [f64::MAX, 420.0, 330.0][self.diff]
-            && self.ai_count(&my_b, false, BldgKind::Core) < 2
+            && self.ai_count(&my_b, false, self.factions[e as usize].hq) < 2
             && harv.len() + 2 >= d.harv
         {
             self.expansion_spot(cx, cy)
@@ -278,11 +277,12 @@ impl World {
         };
         let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
         if let Some(spot) = exp_spot
-            && self.can_afford(e, BldgKind::Core.def().cost)
+            && self.can_afford(e, self.factions[e as usize].hq.def().cost)
         {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
             if let Some(b) = self.free_builder(&harv, sx, sy) {
-                let _ = self.place_building(e, BldgKind::Core, spot.0, spot.1, Some(b));
+                let _ =
+                    self.place_building(e, self.factions[e as usize].hq, spot.0, spot.1, Some(b));
             }
         }
         self.tend_sites(&harv);

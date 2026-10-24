@@ -673,6 +673,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#race [data-race="vael"]').click();
+    assert.equal(await page.locator('#enemy .ib.on').textContent(), 'HUMANS', 'the opponent is human unless chosen');
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
@@ -706,4 +707,18 @@ test('phone: as the Vael, a Lumen plants a Spire and is free at once; the seed g
     await until(d, async () => (await spire())?.done, { seconds: 40, what: 'the Spire to finish' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+test('the menu can pit you against a Vael opponent', async () => {
+  const ctx = await browserContext(DESKTOP);
+  const page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#enemy [data-race="vael"]').click();
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.deepEqual(await page.evaluate(() => endfall.G.factions), ['humans', 'vael']);
+    assert.deepEqual(await page.evaluate(() => endfall.G.bldgs.filter(b => b.team === 1).map(b => b.type)), ['conflux'], 'the enemy starts with a Conflux');
+  } finally { await ctx.close(); }
 });

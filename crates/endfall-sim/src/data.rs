@@ -97,6 +97,9 @@ pub struct UnitDef {
     pub worker: bool,
     /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
     pub shields: f64,
+    /// Splash: this share of a shot's damage also hits the target's walking neighbours within `splash_r` px.
+    pub splash: f64,
+    pub splash_r: f64,
 }
 
 /// Team-wide upgrades researched at the Foundry, three levels each.
@@ -188,6 +191,29 @@ pub struct Faction {
     pub repairs: bool,
     /// Warp-in: a worker plants a site and is free at once; the building then grows by itself.
     pub warp: bool,
+    /// How the scripted opponent plays this side.
+    pub ai: AiScript,
+}
+
+/// The scripted opponent's recipe for a side: which building fills each role in its build order, and which units
+/// fill each role in its army.
+pub struct AiScript {
+    pub supply: BldgKind,
+    pub ether: BldgKind,
+    pub rax: BldgKind,
+    pub tech: BldgKind,
+    pub tower: BldgKind,
+    pub air: BldgKind,
+    /// The cheap line unit the main factory trains by default.
+    pub basic: UnitKind,
+    /// The answer to enemy flyers (two per flyer seen).
+    pub anti_air: UnitKind,
+    /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands).
+    pub mix: &'static [(UnitKind, usize)],
+    /// The air factory's raider (raids workers; at most six).
+    pub raider: UnitKind,
+    /// Wave sizes scale by this (fewer, stronger units: 0.6).
+    pub wave_scale: f64,
 }
 
 pub const HUMANS: Faction = Faction {
@@ -204,6 +230,19 @@ pub const HUMANS: Faction = Faction {
     build_advanced: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Core],
     repairs: true,
     warp: false,
+    ai: AiScript {
+        supply: BldgKind::Depot,
+        ether: BldgKind::Extractor,
+        rax: BldgKind::Barracks,
+        tech: BldgKind::Forge,
+        tower: BldgKind::Turret,
+        air: BldgKind::Airfield,
+        basic: UnitKind::Trooper,
+        anti_air: UnitKind::Lancer,
+        mix: &[(UnitKind::Medic, 6), (UnitKind::Vanguard, 2)],
+        raider: UnitKind::Wasp,
+        wave_scale: 1.0,
+    },
 };
 
 /// The Vael: hovering ceramic constructs of living ether (docs: the design on the design-mockups branch).
@@ -221,6 +260,19 @@ pub const VAEL: Faction = Faction {
     build_advanced: &[BldgKind::Loom, BldgKind::Zenith, BldgKind::Conflux],
     repairs: false,
     warp: true,
+    ai: AiScript {
+        supply: BldgKind::Spire,
+        ether: BldgKind::Siphon,
+        rax: BldgKind::Kiln,
+        tech: BldgKind::Loom,
+        tower: BldgKind::Ward,
+        air: BldgKind::Zenith,
+        basic: UnitKind::Scythe,
+        anti_air: UnitKind::Prism,
+        mix: &[(UnitKind::Prism, 1), (UnitKind::Monolith, 3)],
+        raider: UnitKind::Shrike,
+        wave_scale: 0.6,
+    },
 };
 
 impl Faction {
@@ -292,6 +344,8 @@ const UNIT: UnitDef = UnitDef {
     up_dmg: 0.0,
     worker: false,
     shields: 0.0,
+    splash: 0.0,
+    splash_r: 0.0,
 };
 const HARVESTER: UnitDef = UnitDef {
     key: "harvester",
@@ -360,6 +414,8 @@ const VANGUARD: UnitDef = UnitDef {
     proj: Some(ProjKind::Shell),
     up_dmg: 3.0,
     req: Some(BldgKind::Forge),
+    splash: SHELL_SPLASH,
+    splash_r: SHELL_SPLASH_R,
     ..UNIT
 };
 const LANCER: UnitDef = UnitDef {
@@ -499,6 +555,8 @@ const MONOLITH: UnitDef = UnitDef {
     proj: Some(ProjKind::Shell),
     up_dmg: 4.0,
     req: Some(BldgKind::Loom),
+    splash: 0.5,
+    splash_r: 40.0,
     ..UNIT
 };
 const SHRIKE: UnitDef = UnitDef {

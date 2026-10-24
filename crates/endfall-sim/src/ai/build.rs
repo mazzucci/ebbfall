@@ -25,7 +25,9 @@ impl World {
                 let a = a0 + k as f64 / 20.0 * PI * 2.0;
                 let tx = jsmath::round(cx + jsmath::cos(a) * r - d.w as f64 / 2.0) as i32;
                 let ty = jsmath::round(cy + jsmath::sin(a) * r - d.h as f64 / 2.0) as i32;
-                if !self.can_place(kind, tx, ty, ENEMY) || !self.walkway_around(tx, ty, d.w, d.h) {
+                if !self.can_place(kind, tx, ty, self.seat())
+                    || !self.walkway_around(tx, ty, d.w, d.h)
+                {
                     continue;
                 }
                 let (mx, my) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
@@ -84,10 +86,10 @@ impl World {
         let open: Vec<(Id, f64, f64, f64)> = self
             .bldgs
             .iter()
-            .filter(|b| b.team == ENEMY && !b.done)
+            .filter(|b| b.team == self.seat() && !b.done)
             .map(|b| (b.id, b.progress, b.x, b.y))
             .collect();
-        let mut sites = std::mem::take(&mut self.ai.as_mut().unwrap().sites);
+        let mut sites = std::mem::take(&mut self.ai_mut().sites);
         sites.retain(|s| open.iter().any(|o| o.0 == s.0));
         for &(id, progress, x, y) in &open {
             match sites.iter_mut().find(|s| s.0 == id) {
@@ -109,14 +111,14 @@ impl World {
             }
         }
         sites.retain(|s| self.bldg(s.0).is_some());
-        self.ai.as_mut().unwrap().sites = sites;
+        self.ai_mut().sites = sites;
     }
 
     /// A spot for a second Core: by a shard field away from both bases, nearest to our main core.
     pub(crate) fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
         let (px, py) = (
-            self.map.bases[0].0 as f64 + 2.0,
-            self.map.bases[0].1 as f64 + 2.0,
+            self.map.bases[self.foe() as usize].0 as f64 + 2.0,
+            self.map.bases[self.foe() as usize].1 as f64 + 2.0,
         );
         let mut fields: Vec<(f64, i32, i32)> = self
             .map
@@ -146,7 +148,7 @@ impl World {
                     let a = k as f64 / 16.0 * PI * 2.0;
                     let tx = jsmath::round(nx as f64 + jsmath::cos(a) * r as f64 - 2.0) as i32;
                     let ty = jsmath::round(ny as f64 + jsmath::sin(a) * r as f64 - 2.0) as i32;
-                    if self.can_place(self.factions[ENEMY as usize].hq, tx, ty, ENEMY)
+                    if self.can_place(self.factions[self.seat() as usize].hq, tx, ty, self.seat())
                         && self.walkway_around(tx, ty, 4, 4)
                         && self.map.nodes.iter().all(|n| {
                             jsmath::hypot(

@@ -22,6 +22,63 @@ fn the_ai_finishes_games_on_every_difficulty() {
 }
 
 #[test]
+fn the_ai_plays_either_seat() {
+    // On seat 0 against an idle seat 1, it wins the same way (it knows its own base and its foe's from its seat).
+    for seed in [2u32, 99] {
+        let mut w = World::new(seed, 1);
+        w.set_ai_seats([true, false]);
+        for _ in 0..30 * 60 * 15 {
+            if w.over {
+                break;
+            }
+            w.step();
+        }
+        assert!(
+            w.over && w.winner == PLAYER as i32,
+            "seed {seed}: the AI on seat 0 beats an idle seat 1 (t={:.0})",
+            w.time
+        );
+        assert!(
+            w.stats[0].razed > 0 && w.stats[1].lost > 0,
+            "each seat keeps its own score"
+        );
+    }
+}
+
+#[test]
+fn two_ais_play_each_other_to_the_end() {
+    for (seed, races) in [
+        (5u32, [&HUMANS, &HUMANS]),
+        (8, [&VAEL, &HUMANS]),
+        (13, [&HUMANS, &VAEL]),
+    ] {
+        let mut w = World::with_setup(seed, 1, MapKind::Standard, false, races);
+        w.set_ai_seats([true, true]);
+        let mut hits = [0, 0];
+        for _ in 0..30 * 60 * 40 {
+            if w.over {
+                break;
+            }
+            w.step();
+            for e in w.events.drain(..) {
+                if let endfall_sim::world::Event::Attacked { team, .. } = e {
+                    hits[team as usize] += 1;
+                }
+            }
+        }
+        assert!(
+            w.over,
+            "seed {seed}: someone wins within 40 min (t={:.0})",
+            w.time
+        );
+        assert!(
+            hits[0] > 0 && hits[1] > 0,
+            "seed {seed}: both seats fought: {hits:?}"
+        );
+    }
+}
+
+#[test]
 fn the_ai_keeps_training_troopers_when_short_of_ether() {
     let mut w = World::new(31, 1);
     run(&mut w, 150);

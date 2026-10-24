@@ -184,6 +184,7 @@ fn the_player_hears_about_attacks_once_per_fight() {
                 matches!(
                     e,
                     Event::Attacked {
+                        team: PLAYER,
                         building: false,
                         ..
                     }
@@ -203,7 +204,7 @@ fn the_player_hears_about_attacks_once_per_fight() {
         more += w
             .events
             .drain(..)
-            .filter(|e| matches!(e, Event::Attacked { .. }))
+            .filter(|e| matches!(e, Event::Attacked { team: PLAYER, .. }))
             .count();
     }
     assert_eq!(more, 1, "a new fight elsewhere is reported");
@@ -219,16 +220,17 @@ fn two_simultaneous_fights_alert_once_each() {
         let foe = w.make_unit(UnitKind::Trooper, ENEMY, x + 80.0, y);
         w.attack_ent(foe, mine);
     }
-    let mut alerts = 0;
+    let mut alerts = [0, 0];
     for _ in 0..8 * TPS {
         w.step();
-        alerts += w
-            .events
-            .drain(..)
-            .filter(|e| matches!(e, Event::Attacked { .. }))
-            .count();
+        for e in w.events.drain(..) {
+            if let Event::Attacked { team, .. } = e {
+                alerts[team as usize] += 1;
+            }
+        }
     }
-    assert_eq!(alerts, 2, "one per fight, not one per hit");
+    assert_eq!(alerts[0], 2, "one per fight, not one per hit");
+    assert!(alerts[1] > 0, "the other seat hears about its own losses");
 }
 
 #[test]

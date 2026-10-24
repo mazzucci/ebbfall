@@ -6,7 +6,7 @@ impl World {
     /// Whether the AI can see a point right now (it plays with fog of war like the player).
     pub(crate) fn ai_sees(&self, x: f64, y: f64) -> bool {
         let (tx, ty) = World::tile_of(x, y);
-        self.vis[ENEMY as usize][idx(tx, ty)] != 0
+        self.vis[self.seat() as usize][idx(tx, ty)] != 0
     }
 
     /// Remember player buildings when they come into view, forget them when their spot is seen empty, and note
@@ -17,26 +17,28 @@ impl World {
             .bldgs
             .iter()
             .filter(|b| {
-                b.team == PLAYER
+                b.team == self.foe()
                     && (0..b.h).any(|y| {
-                        (0..b.w).any(|x| self.vis[ENEMY as usize][idx(b.tx + x, b.ty + y)] != 0)
+                        (0..b.w)
+                            .any(|x| self.vis[self.seat() as usize][idx(b.tx + x, b.ty + y)] != 0)
                     })
             })
             .map(|b| (b.id, b.x, b.y, b.kind.def().hq))
             .collect();
         let air_seen = self.units.iter().any(|u| {
-            u.team == PLAYER && u.kind.def().air && u.kind.def().armed() && self.ai_sees(u.x, u.y)
+            u.team == self.foe()
+                && u.kind.def().air
+                && u.kind.def().armed()
+                && self.ai_sees(u.x, u.y)
         }); // (a scout is no air threat)
         let gone: Vec<Id> = self
-            .ai
-            .as_ref()
-            .unwrap()
+            .ai()
             .known
             .iter()
             .filter(|k| self.bldg(k.0).is_none() && self.ai_sees(k.1, k.2))
             .map(|k| k.0)
             .collect();
-        let ai = self.ai.as_mut().unwrap();
+        let ai = self.ai_mut();
         for s in seen {
             if !ai.known.iter().any(|k| k.0 == s.0) {
                 ai.known.push(s);
@@ -48,16 +50,16 @@ impl World {
         }
         // Nothing known: once the current sweep point is in view (and still nothing turned up), or after a
         // minute of trying to get there, move on.
-        if self.ai.as_ref().unwrap().known.is_empty() {
+        if self.ai().known.is_empty() {
             let (x, y) = self.sweep_point();
-            let ai = self.ai.as_ref().unwrap();
+            let ai = self.ai();
             if self.ai_sees(x, y) || t - ai.sweep_since > 60.0 {
-                let ai = self.ai.as_mut().unwrap();
+                let ai = self.ai_mut();
                 ai.sweep += 1;
                 ai.sweep_since = t;
             }
         } else {
-            self.ai.as_mut().unwrap().sweep_since = t;
+            self.ai_mut().sweep_since = t;
         }
     }
 
@@ -65,8 +67,8 @@ impl World {
     /// the start, round and round.
     pub(crate) fn sweep_point(&self) -> (f64, f64) {
         let start = (
-            (self.map.bases[0].0 as f64 + 2.0) * TILE,
-            (self.map.bases[0].1 as f64 + 2.0) * TILE,
+            (self.map.bases[self.foe() as usize].0 as f64 + 2.0) * TILE,
+            (self.map.bases[self.foe() as usize].1 as f64 + 2.0) * TILE,
         );
         let mut pts: Vec<(f64, f64)> = self
             .map
@@ -104,14 +106,14 @@ impl World {
             }
         }
         let pts = stops;
-        let k = self.ai.as_ref().unwrap().sweep % (pts.len() + 1);
+        let k = self.ai().sweep % (pts.len() + 1);
         if k == 0 { start } else { pts[k - 1] }
     }
 
     /// Early on, send one harvester to look at the player's start; bring it back to mining afterwards.
     pub(crate) fn tend_scout(&mut self, harv: &[Id]) {
         let t = self.time;
-        let ai = self.ai.as_ref().unwrap();
+        let ai = self.ai();
         if !ai.scouted && t >= 70.0 {
             let pick = harv.iter().copied().find(|&h| {
                 let u = self.unit(h).unwrap();
@@ -119,11 +121,11 @@ impl World {
             });
             if let Some(h) = pick {
                 let (x, y) = (
-                    (self.map.bases[0].0 as f64 + 2.0) * TILE,
-                    (self.map.bases[0].1 as f64 + 2.0) * TILE,
+                    (self.map.bases[self.foe() as usize].0 as f64 + 2.0) * TILE,
+                    (self.map.bases[self.foe() as usize].1 as f64 + 2.0) * TILE,
                 );
                 self.move_to(h, x, y);
-                let ai = self.ai.as_mut().unwrap();
+                let ai = self.ai_mut();
                 ai.scout = Some(h);
                 ai.scouted = true;
             }
@@ -131,16 +133,16 @@ impl World {
         }
         let Some(s) = ai.scout else { return };
         let Some(u) = self.unit(s) else {
-            self.ai.as_mut().unwrap().scout = None;
+            self.ai_mut().scout = None;
             return;
         };
-        let done = u.task == Task::Idle || self.ai.as_ref().unwrap().known.iter().any(|k| k.3);
+        let done = u.task == Task::Idle || self.ai().known.iter().any(|k| k.3);
         if done && !matches!(u.task, Task::Gather { .. }) {
             let (x, y) = self.home_of(u.x, u.y);
-            if let Some(n) = self.nearest_node(x, y, ENEMY, false, 1200.0) {
+            if let Some(n) = self.nearest_node(x, y, self.seat(), false, 1200.0) {
                 self.start_gather(s, n);
             }
-            self.ai.as_mut().unwrap().scout = None;
+            self.ai_mut().scout = None;
         }
     }
 }

@@ -113,8 +113,8 @@ impl World {
         (d.dmg > 0.0, d.dmg_air > 0.0)
     }
 
-    /// Tell the player when something of theirs comes under attack: once per fight. A hit is quiet if any alert in
-    /// the last ALERT_GAP seconds was within ALERT_DIST px (so several simultaneous fights each alert once), except
+    /// Tell a player when something of theirs comes under attack: once per fight. A hit is quiet if any alert of
+    /// theirs in the last ALERT_GAP seconds was within ALERT_DIST px (so several simultaneous fights each alert once), except
     /// that the first hit on a building gets through after alerts about units only.
     pub(crate) fn alert_attacked(&mut self, target: Id) {
         const ALERT_GAP: f64 = 12.0;
@@ -126,20 +126,21 @@ impl World {
         else {
             return;
         };
-        if team != PLAYER {
-            return;
-        }
         let now = self.time;
-        self.alerts.retain(|a| now - a.0 < ALERT_GAP);
-        let quiet = self
-            .alerts
-            .iter()
-            .any(|&(_, ax, ay, ab)| dist(x, y, ax, ay) < ALERT_DIST && (ab || !building));
+        self.alerts.retain(|a| now - a.1 < ALERT_GAP);
+        let quiet = self.alerts.iter().any(|&(at, _, ax, ay, ab)| {
+            at == team && dist(x, y, ax, ay) < ALERT_DIST && (ab || !building)
+        });
         if quiet {
             return;
         }
-        self.alerts.push((now, x, y, building));
-        self.emit(Event::Attacked { x, y, building });
+        self.alerts.push((team, now, x, y, building));
+        self.emit(Event::Attacked {
+            team,
+            x,
+            y,
+            building,
+        });
     }
 
     pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
@@ -247,12 +248,10 @@ impl World {
                 team,
                 n: 10,
             });
-            if team == PLAYER {
-                self.stats.lost += 1;
-            } else {
-                self.stats.killed += 1;
-            }
-            self.emit(Event::Sfx(if team == PLAYER { "lost" } else { "kill" }));
+            self.stats[team as usize].lost += 1;
+            self.stats[1 - team as usize].killed += 1;
+            self.sfx(team, "lost");
+            self.sfx(1 - team, "kill");
             self.graveyard.push(u);
         } else if let Some(i) = self.bi(id) {
             let b = self.bldgs.remove(i);
@@ -284,12 +283,8 @@ impl World {
                 team,
                 n: 24,
             });
-            if team != PLAYER {
-                self.stats.razed += 1;
-            }
-            if team == PLAYER {
-                self.toast(format!("{} destroyed", b.kind.def().name), true);
-            }
+            self.stats[1 - team as usize].razed += 1;
+            self.toast(team, format!("{} destroyed", b.kind.def().name), true);
         } else {
             return;
         }
@@ -301,19 +296,26 @@ impl World {
         if self.over {
             return;
         }
-        let pb = self.bldgs.iter().any(|b| b.team == PLAYER);
-        let eb = self.bldgs.iter().any(|b| b.team == ENEMY);
-        if !eb {
-            self.over = true;
-            self.winner = PLAYER as i32;
-        } else if !pb
-            && !self
-                .units
-                .iter()
-                .any(|u| u.team == PLAYER && u.kind.def().worker)
-        {
-            self.over = true;
-            self.winner = ENEMY as i32;
+        // A seat is out with no buildings left, except that a person's seat still has a chance while a worker of
+        // theirs lives (it can build again); the AI's does not wait for that. Team 1 is checked first.
+        let out = |w: &World, t: u8| {
+            !w.bldgs.iter().any(|b| b.team == t)
+                && (w.is_ai(t) || !w.units.iter().any(|u| u.team == t && u.kind.def().worker))
+        };
+        for loser in [1, 0] {
+            if out(self, loser) {
+                self.over = true;
+                self.winner = 1 - loser as i32;
+                return;
+            }
+        }
+    }
+
+    /// A shot for the seats that see it (their own, or the shooter in their sight).
+    fn fired(&mut self, shooter: Id, team: u8, x: f64, y: f64, weapon: &'static str) {
+        let seen = [0, 1].map(|t| t == team || self.seen_by(t, shooter));
+        if seen.contains(&true) {
+            self.emit(Event::Fire { x, y, weapon, seen });
         }
     }
 
@@ -373,23 +375,15 @@ impl World {
                     splash: splash.0,
                     splash_r: splash.1,
                 });
-                if team == PLAYER || self.visible(shooter) {
-                    let weapon = match kind {
-                        ProjKind::Bolt => "bolt",
-                        ProjKind::Shell => "shell",
-                        ProjKind::Missile => "missile",
-                    };
-                    self.emit(Event::Fire { x, y, weapon });
-                }
+                let weapon = match kind {
+                    ProjKind::Bolt => "bolt",
+                    ProjKind::Shell => "shell",
+                    ProjKind::Missile => "missile",
+                };
+                self.fired(shooter, team, x, y, weapon);
             }
             None => {
-                if team == PLAYER || self.visible(shooter) {
-                    self.emit(Event::Fire {
-                        x,
-                        y,
-                        weapon: "melee",
-                    });
-                }
+                self.fired(shooter, team, x, y, "melee");
                 self.damage(target, dmg, Some(shooter))
             }
         }

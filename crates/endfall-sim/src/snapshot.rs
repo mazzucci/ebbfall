@@ -94,8 +94,8 @@ record! {
     INFO_FIELDS, push_info, |w0: &World, w| {
         time = w.time, tick = w.tick, shards0 = w.res[0][0], ether0 = w.res[0][1], shards1 = w.res[1][0],
         ether1 = w.res[1][1], sup_used0 = w.sup[0][0], sup_cap0 = w.sup[0][1], sup_used1 = w.sup[1][0],
-        sup_cap1 = w.sup[1][1], over = w.over as u8, winner = w.winner, built = w.stats.built, lost = w.stats.lost,
-        killed = w.stats.killed, razed = w.stats.razed, seed = w.seed, diff = w.diff,
+        sup_cap1 = w.sup[1][1], over = w.over as u8, winner = w.winner, built = w.stats[0].built, lost = w.stats[0].lost,
+        killed = w.stats[0].killed, razed = w.stats[0].razed, seed = w.seed, diff = w.diff,
         map_kind = w.map_kind as u32,
         faction0 = w.factions[0].index(),
         faction1 = w.factions[1].index(),

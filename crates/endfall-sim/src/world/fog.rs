@@ -34,23 +34,24 @@ impl World {
         }
     }
 
-    /// Whether the human player (team 0) can see this unit or building.
-    pub fn visible(&self, id: Id) -> bool {
+    /// Whether `team` can see this unit or building (its own always).
+    pub fn seen_by(&self, team: u8, id: Id) -> bool {
+        let vis = &self.vis[team as usize];
         if let Some(u) = self.unit(id) {
-            if u.team == PLAYER {
+            if u.team == team {
                 return true;
             }
             let tx = jsmath::to_i32(u.x / TILE).clamp(0, MW - 1);
             let ty = jsmath::to_i32(u.y / TILE).clamp(0, MH - 1);
-            return self.vis[0][idx(tx, ty)] != 0;
+            return vis[idx(tx, ty)] != 0;
         }
         if let Some(b) = self.bldg(id) {
-            if b.team == PLAYER {
+            if b.team == team {
                 return true;
             }
             for y in 0..b.h {
                 for x in 0..b.w {
-                    if self.vis[0][idx(b.tx + x, b.ty + y)] != 0 {
+                    if vis[idx(b.tx + x, b.ty + y)] != 0 {
                         return true;
                     }
                 }

@@ -26,7 +26,8 @@ impl World {
                 .find(|n| n.ether && n.tx == tx && n.ty == ty);
             return match nd {
                 Some(n) => {
-                    n.extractor.is_none() && (team != PLAYER || self.explored[0][idx(tx, ty)] != 0)
+                    n.extractor.is_none()
+                        && (self.is_ai(team) || self.explored[team as usize][idx(tx, ty)] != 0)
                 }
                 None => false,
             };
@@ -48,7 +49,7 @@ impl World {
                 if self.map.rock[i] != 0 || self.map.occ[i] != 0 {
                     return false;
                 }
-                if team == PLAYER && self.explored[0][i] == 0 {
+                if !self.is_ai(team) && self.explored[team as usize][i] == 0 {
                     return false;
                 }
             }
@@ -240,9 +241,7 @@ impl World {
         let team = u.team;
         // A node that is gone was a depleted shard field; the gather update retargets from there.
         if self.map.node(node).is_some_and(|n| n.ether) && !self.extractor_ready(node, Some(team)) {
-            if team == PLAYER {
-                self.toast("Build an Ether Rig on the vent first", true);
-            }
+            self.toast(team, "Build an Ether Rig on the vent first", true);
             return false;
         }
         self.release_mine(uid);
@@ -338,9 +337,7 @@ impl World {
                 u.path = None;
             }
         }
-        if b.team == PLAYER {
-            self.toast(format!("{} cancelled", b.kind.def().name), false);
-        }
+        self.toast(b.team, format!("{} cancelled", b.kind.def().name), false);
         self.recalc_supply(b.team);
         self.check_end();
         true

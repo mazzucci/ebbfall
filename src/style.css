@@ -206,9 +206,12 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 @media (pointer:coarse){.cb .k{display:none}}
 #help{z-index:21} /* How to play opens over the pause menu */
 
-/* Phones and tablets play in landscape only: held upright, a card asks to turn the device (the game pauses). */
+/* Phones and tablets play in landscape only: held upright, a card asks to turn the device (the game pauses). With
+   rotation locked (or a tablet in split view) the player may still choose to play upright (html.upright-ok). */
 #rotate{display:none}
-@media (orientation:portrait) and (pointer:coarse) and (max-width:900px){
+#rotate small{font:12px var(--display);letter-spacing:.04em;text-transform:none;color:var(--muted)}
+@media (orientation:portrait) and (pointer:coarse) and (max-width:1100px){
+  html.upright-ok #rotate{display:none !important}
   #rotate{display:flex;position:fixed;inset:0;z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);color:var(--fg);font:600 14px var(--display);letter-spacing:.12em;text-transform:uppercase;text-align:center;padding:24px}
   #rotate svg{width:96px;height:96px;fill:none;stroke:var(--ally);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;animation:turn 2.4s ease-in-out infinite}
 }

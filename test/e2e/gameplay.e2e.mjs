@@ -664,6 +664,13 @@ test('phone held upright: a card asks to turn it, the game pauses, and turning b
     await d.page.locator('#rotate').waitFor({ state: 'hidden', timeout: 5000 });
     await d.page.locator('#btnResume').tap();
     await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 5000 }); // (throws if time stays still)
+    // Rotation locked: the card offers to play upright anyway.
+    await d.page.setViewportSize({ width: 390, height: 844 });
+    await d.page.locator('#btnUpright').tap();
+    assert.ok(await d.page.locator('#rotate').isHidden(), 'the card goes');
+    await d.page.locator('#btnResume').tap();
+    const t1 = await d.eval(() => endfall.G.time);
+    await d.page.waitForFunction((t1) => endfall.G.time > t1, t1, { timeout: 5000 }); // the game runs upright
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

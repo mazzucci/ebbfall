@@ -2,6 +2,26 @@
 
 Mockups for review before anything is built. The game lives on `main`.
 
+## Second race: the Vael (design for review)
+
+Full design document: [race/VAEL.md](race/VAEL.md): theme, names, mechanics, roster with stats, counters, tech tree, AI, balance targets, phased plan.
+
+On a phone screen at the game's zoom, humans (left) vs Vael (right), both team colours:
+
+![](race/phone.png)
+
+Core vs Conflux, Ether Rig vs Siphon, Foundry vs Loom, and a mixed unit line:
+
+![](race/phone_core.png)
+
+Vael units (2x):
+
+![](race/units.png)
+
+Vael buildings (2x):
+
+![](race/buildings.png)
+
 ## Selection panel (phone 844x390)
 
 **B: centre console (recommended)**

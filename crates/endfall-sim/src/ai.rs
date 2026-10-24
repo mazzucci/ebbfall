@@ -565,7 +565,13 @@ impl World {
                 let u = self.unit(h).unwrap();
                 let (hx, hy) = self.home_of(u.x, u.y); // never the player's fields
                 let n = self
-                    .nearest_node(hx, hy, e, want_ether, 800.0)
+                    .nearest_node(
+                        hx,
+                        hy,
+                        e,
+                        want_ether,
+                        if flowing && want_ether { 3000.0 } else { 800.0 },
+                    )
                     .or_else(|| self.nearest_node(hx, hy, e, false, 1200.0));
                 if let Some(n) = n {
                     self.start_gather(h, n);
@@ -575,10 +581,45 @@ impl World {
                 }
             }
         }
-        if ether > ether_cap {
+        let on_dry = |w: &World, h: Id| match w.unit(h).map(|u| u.task) {
+            Some(Task::Gather { node, .. }) => {
+                w.map.node(node).is_some_and(|n| n.ether && n.amount <= 0)
+            }
+            _ => false,
+        };
+        // Off a dry vent as soon as one of ours still flows (anywhere: the expansion's may be far).
+        if flowing {
             let h = harv.iter().copied().find(|&h| {
-                self.gathering_ether(h) == Some(true) && self.unit(h).unwrap().carry == 0
+                on_dry(self, h)
+                    && self.unit(h).unwrap().carry == 0
+                    && !matches!(
+                        self.unit(h).unwrap().task,
+                        Task::Gather {
+                            phase: Phase::Mine,
+                            ..
+                        }
+                    )
             });
+            if let Some(h) = h {
+                let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
+                if let Some(n) = self
+                    .nearest_node(hx, hy, e, true, 3000.0)
+                    .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0))
+                {
+                    self.start_gather(h, n);
+                }
+            }
+        }
+        if ether > ether_cap {
+            // The one on a dry vent goes first.
+            let idle_ether = |w: &World, h: Id| {
+                w.gathering_ether(h) == Some(true) && w.unit(h).unwrap().carry == 0
+            };
+            let h = harv
+                .iter()
+                .copied()
+                .find(|&h| idle_ether(self, h) && on_dry(self, h))
+                .or_else(|| harv.iter().copied().find(|&h| idle_ether(self, h)));
             if let Some(h) = h {
                 let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
                 if let Some(n) = self.nearest_node(hx, hy, e, false, 1200.0) {
@@ -600,7 +641,9 @@ impl World {
             });
             if let Some(h) = h {
                 let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
-                if let Some(n) = self.nearest_node(hx, hy, e, true, 800.0) {
+                if let Some(n) =
+                    self.nearest_node(hx, hy, e, true, if flowing { 3000.0 } else { 800.0 })
+                {
                     self.start_gather(h, n);
                 }
             }
@@ -665,22 +708,26 @@ impl World {
                 }
             }
         }
+        // A free vent near a point (where find_spot looks): wanting an Extractor without one would stall the build.
+        let free_vent = |w: &World, (fx, fy): (f64, f64)| {
+            w.map.nodes.iter().any(|n| {
+                n.ether
+                    && n.extractor.is_none()
+                    && jsmath::hypot(n.tx as f64 - fx, n.ty as f64 - fy) < 16.0
+            })
+        };
         // Where a second Extractor would go once the home vent runs dry: a free vent by the expansion.
         let exp_vent = cores.get(1).map(|&exp| {
             let b = self.bldg(exp).unwrap();
             (b.tx as f64 + 2.0, b.ty as f64 + 2.0)
         });
-        let exp_vent = exp_vent.filter(|&(fx, fy)| {
-            self.map.nodes.iter().any(|n| {
-                n.ether
-                    && n.extractor.is_none()
-                    && jsmath::hypot(n.tx as f64 - fx, n.ty as f64 - fy) < 16.0
-            })
-        });
+        let exp_vent = exp_vent.filter(|&at| free_vent(self, at));
         let [used, cap] = self.sup[e as usize];
         let want = if cap - used <= 4 && cap < 200 && !building.contains(&BldgKind::Depot) {
             Some(BldgKind::Depot)
-        } else if (harv.len() >= 7 && cnt(self, BldgKind::Extractor) == 0)
+        } else if (harv.len() >= 7
+            && cnt(self, BldgKind::Extractor) == 0
+            && free_vent(self, (cx, cy)))
             || (!flowing && exp_vent.is_some() && cnt(self, BldgKind::Extractor) < 2)
         {
             Some(BldgKind::Extractor) // the second when the home vent has run dry: the expansion's

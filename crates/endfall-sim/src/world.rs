@@ -313,6 +313,16 @@ pub struct World {
     graveyard: Vec<Unit>,
 }
 
+/// How urgent a unit is as a target: 0 a fighting unit that can hit the shooter's layer (Harvesters only scratch),
+/// 1 any other unit.
+fn unit_tier(kind: UnitKind, flier: bool) -> u8 {
+    if kind != UnitKind::Harvester && kind.def().damage_vs(flier) > 0.0 {
+        0
+    } else {
+        1
+    }
+}
+
 impl World {
     pub fn new(seed: u32, diff: usize) -> World {
         World::with_map(seed, diff, MapKind::Standard)
@@ -981,12 +991,7 @@ impl World {
             if u.team == team || (air && !hits.1) || (!air && !hits.0) {
                 continue;
             }
-            let tier = if u.kind.def().damage_vs(flier) > 0.0 {
-                0
-            } else {
-                1
-            };
-            consider(tier, dist(u.x, u.y, x, y) - u.r, u.id);
+            consider(unit_tier(u.kind, flier), dist(u.x, u.y, x, y) - u.r, u.id);
         }
         if !only_units && hits.0 {
             for b in &self.bldgs {
@@ -1013,15 +1018,11 @@ impl World {
         best.map(|(_, _, id)| id)
     }
 
-    /// How urgent a target is for a shooter that flies or not: 0 it can hurt the shooter (an armed unit or a turret
-    /// that can reach it), 1 another unit, 2 a building that cannot shoot back.
+    /// How urgent a target is for a shooter that flies or not: 0 it can hurt the shooter (a fighting unit or a
+    /// finished turret armed against its layer), 1 another unit, 2 a building that cannot shoot back.
     pub fn threat_tier(&self, id: Id, flier: bool) -> u8 {
         if let Some(u) = self.unit(id) {
-            return if u.kind.def().damage_vs(flier) > 0.0 {
-                0
-            } else {
-                1
-            };
+            return unit_tier(u.kind, flier);
         }
         match self.bldg(id) {
             Some(b) if b.done && b.kind.def().damage_vs(flier) > 0.0 => 0,
@@ -1091,18 +1092,26 @@ impl World {
             if let Some(by) = by {
                 let (ux, uy, team) = (u.x, u.y, u.team);
                 let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
+                let me_air = self.units[i].kind.def().air;
+                // Busy with a target it picked up itself that matters less than the one shooting it: answer.
+                let lesser = match self.units[i].task {
+                    Task::Attack {
+                        target: cur,
+                        back: Some(_),
+                    } => self.threat_tier(cur, me_air) > self.threat_tier(by, me_air),
+                    _ => false,
+                };
                 let u = &mut self.units[i];
+                let answers = u.kind != UnitKind::Harvester && u.kind.def().damage_vs(by_air) > 0.0;
                 match u.task {
-                    Task::Idle | Task::AMove { .. }
-                        if u.kind != UnitKind::Harvester
-                            && u.kind.def().damage_vs(by_air) > 0.0 =>
-                    {
+                    Task::Idle | Task::AMove { .. } if answers => {
                         let back = match u.task {
-                            Task::AMove { x, y } => Some(Back { x, y, amove: false }),
+                            Task::AMove { x, y } => Some(Back { x, y, amove: true }),
                             _ => None,
                         };
                         u.task = Task::Attack { target: by, back };
                     }
+                    Task::Attack { ref mut target, .. } if answers && lesser => *target = by,
                     _ => {}
                 }
                 for a in self.nearby(ux, uy, 180.0) {
@@ -1314,22 +1323,25 @@ impl World {
     }
 
     pub fn nearest_node(&self, x: f64, y: f64, team: u8, ether: bool, max_d: f64) -> Option<Id> {
-        let (mut best, mut bd) = (None, max_d);
+        // A dry vent still gives a trickle: worth mining, but only when no vent within reach still flows.
+        let (mut best, mut bd) = ((None, None), (max_d, max_d));
         for n in &self.map.nodes {
-            // A dry vent still gives a trickle: worth mining, but a full one a little farther away comes first.
             if n.ether != ether || (!ether && n.amount <= 0) {
                 continue;
             }
             if ether && !self.extractor_ready(n.id, Some(team)) {
                 continue;
             }
-            let d = dist(n.x, n.y, x, y) + if ether && n.amount <= 0 { 400.0 } else { 0.0 };
-            if d < bd {
-                bd = d;
-                best = Some(n.id);
+            let d = dist(n.x, n.y, x, y);
+            if n.amount > 0 && d < bd.0 {
+                bd.0 = d;
+                best.0 = Some(n.id);
+            } else if n.amount <= 0 && d < bd.1 {
+                bd.1 = d;
+                best.1 = Some(n.id);
             }
         }
-        best
+        best.0.or(best.1)
     }
 
     /// Returns whether the order took effect (refused for non-harvesters and vents without our extractor).
@@ -1790,18 +1802,39 @@ impl World {
                     }
                     return;
                 };
-                // A target picked up on the way gives way to anything in sight that matters more: something that
-                // can shoot us first, then units, then plain buildings. An explicit attack order stands.
-                if combat && self.u(uid).aggro_cd <= 0.0 && back.is_some() {
+                // A target picked up on the way gives way to something that matters more: anything in sight that can
+                // shoot us, or a unit in weapon range instead of a plain building. An explicit attack order stands.
+                if let Some(b) = back
+                    && combat
+                {
                     let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-                    self.um(uid).aggro_cd = 0.5;
-                    let flier = kind.def().air;
-                    let seen = sight * TILE * 0.85;
-                    if let Some(t2) = self.find_target(ux, uy, team, seen, false, hits, flier)
-                        && self.threat_tier(t2, flier) < self.threat_tier(target, flier)
-                        && let Task::Attack { target, .. } = &mut self.um(uid).task
-                    {
-                        *target = t2;
+                    // The leash: a target that got well out of sight is let go, and the unit goes back to what it
+                    // was doing (an Observer cannot lead an army around the map).
+                    if t.edge_dist(ux, uy) > sight * TILE * 1.5 {
+                        if b.amove {
+                            self.attack_move(uid, b.x, b.y);
+                        } else {
+                            self.move_to(uid, b.x, b.y);
+                        }
+                        return;
+                    }
+                    if self.u(uid).aggro_cd <= 0.0 {
+                        self.um(uid).aggro_cd = 0.5;
+                        let flier = kind.def().air;
+                        let now = self.threat_tier(target, flier);
+                        let seen = sight * TILE * 0.85;
+                        let better = self
+                            .find_target(ux, uy, team, seen, false, hits, flier)
+                            .filter(|&t2| self.threat_tier(t2, flier) == 0)
+                            .or_else(|| {
+                                self.find_target(ux, uy, team, range + r, false, hits, flier)
+                            })
+                            .filter(|&t2| self.threat_tier(t2, flier) < now);
+                        if let Some(t2) = better
+                            && let Task::Attack { target, .. } = &mut self.um(uid).task
+                        {
+                            *target = t2;
+                        }
                     }
                 }
                 self.um(uid).aggro_cd -= dt;

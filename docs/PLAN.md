@@ -61,6 +61,14 @@ loop feels right.
   mineral lines; a Turret or four Troopers stop a two-Wasp raid; Lancers > Wasps. Guarded by
   `the_counters_hold_in_cost_equal_fights`, `a_turret_or_a_few_troopers_answer_an_early_wasp_raid`,
   `a_shell_splashes_walking_neighbours_only`, `two_medics_do_not_make_a_trooper_immortal`.
+- [x] Target priority and dry vents (2026-10-24): units that pick their own targets (attack-move, idle) go for
+  whatever can shoot them first (fighting units, finished Turrets armed against their layer; Harvesters do not count),
+  then other units, then plain buildings; a self-picked building gives way to a threat in sight or a unit in weapon
+  range, a shooter gets an answer even from beyond sight, a chased target well out of sight is let go, and units go back
+  to their attack-move afterwards. Explicit attack orders stand. Side effect on balance: Wasps now focus the Troopers in
+  a Trooper+Vanguard army and win (the Vanguards cannot shoot up); Troopers+Lancers still beat Wasps. Ether vents now
+  deplete (5000, like shard fields); a dry vent stays and its Extractor gives a trickle of 2 per trip; the AI keeps
+  one worker on a dry vent and taps the vent at its expansion.
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

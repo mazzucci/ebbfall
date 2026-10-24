@@ -10,6 +10,9 @@ const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standa
 /** A tap can take the page full screen here (not on iPhone Safari, and not needed when launched from the home screen). */
 export const canGoFullscreen = canFullscreen && !standalone;
 
+/** A phone or tablet held upright: the game is landscape-only there (the #rotate card covers it; see style.css). */
+export const upright = matchMedia('(orientation: portrait) and (pointer: coarse) and (max-width: 900px)');
+
 /** Go full screen (must run inside a user gesture) and try to lock landscape; failures are fine. */
 export async function enterFullscreen() {
   if (!canFullscreen || isFull()) return;

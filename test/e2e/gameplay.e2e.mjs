@@ -649,14 +649,21 @@ test('offline: once loaded, the game opens and plays with no connection', async 
   } finally { await ctx.close(); }
 });
 
-test('portrait phone: the top bar fits and command buttons show their whole label', async () => {
-  const d = await newGame({ viewport: { width: 390, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, 0, 4242, { ai: false });
+test('phone held upright: a card asks to turn it, the game pauses, and turning back shows Resume', async () => {
+  const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {
-    const [sw, cw] = await d.page.evaluate(() => { const t = document.getElementById('top'); return [t.scrollWidth, t.clientWidth]; });
-    assert.ok(sw <= cw, `the top bar fits (${sw} > ${cw})`);
-    await d.clickEntity(coreOf(await d.state()).id);
-    const clipped = await d.page.$$eval('#cmd .cb', bs => bs.filter(b => b.scrollHeight > b.clientHeight + 1).map(b => b.textContent));
-    assert.deepEqual(clipped, [], 'no button content cut off');
+    assert.ok(await d.page.locator('#rotate').isHidden(), 'no card in landscape');
+    await d.page.evaluate(() => document.fullscreenElement && document.exitFullscreen()); // (a full-screen window cannot be resized)
+    await d.page.setViewportSize({ width: 390, height: 844 }); // turned upright
+    await d.page.locator('#rotate').waitFor({ state: 'visible', timeout: 5000 });
+    assert.ok(await d.page.locator('#pause').isVisible(), 'the game paused');
+    const t0 = await d.eval(() => endfall.G.time);
+    await d.page.waitForTimeout(600);
+    assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while upright');
+    await d.page.setViewportSize({ width: 844, height: 390 }); // back to landscape
+    await d.page.locator('#rotate').waitFor({ state: 'hidden', timeout: 5000 });
+    await d.page.locator('#btnResume').tap();
+    await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 5000 }); // (throws if time stays still)
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

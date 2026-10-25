@@ -256,7 +256,7 @@ class BldgObj {
     }
     this.body.alpha = b.flash > 0 ? 0.75 : 1; // hit flash
     this.body.tint = b.done && !b.powered ? 0x6f6a88 : 0xffffff; // dark: no power field covers it
-    if (!b.done && FACTIONS[G.factions[b.team]]?.warp) this.warpIn(b, t);
+    if (!b.done && FACTIONS[G.factions[b.team]]?.warp) this.warpIn(b, t, live);
     if (this.head) { this.head.visible = b.done && live; const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS; setTex(this.head, tex(`${this.look.head}_${b.team}_${dir}`)); this.head.position.set(b.x, b.y); }
     if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x, b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
     // Damage: smoke below half health, fire below a quarter.
@@ -266,11 +266,14 @@ class BldgObj {
     if (live && sm && b.done && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
   /** A warp-in site (the Vael): no scaffold or foundation; the whole building fades in as a violet ghost, more solid as
-   *  it grows, inside a pulsing warp ring. */
-  warpIn(b, t) {
+   *  it grows, inside a pulsing warp ring once planted (a site still waiting for its Lumen is a fainter ghost, no
+   *  ring). Seen through fog, only the remembered ghost. */
+  warpIn(b, t, live) {
     this.found.visible = this.scaffold.visible = false;
     setTex(this.body, this.full); this.body.y = b.y;
-    this.body.alpha = 0.22 + 0.6 * b.progress; this.body.tint = 0xcbb6ff;
+    this.body.alpha = (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0); // (brighter when hit)
+    this.body.tint = b.flash > 0 ? 0xffffff : 0xcbb6ff;
+    if (!live || !b.planted) return;
     const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = 0.55 + 0.35 * Math.sin(t * 4);
     bars.ellipse(b.x, cy, rx, ry).fill({ color: 0x9b7bff, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.8 * pulse });
     bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xe2d6ff, alpha: 0.5 * pulse });

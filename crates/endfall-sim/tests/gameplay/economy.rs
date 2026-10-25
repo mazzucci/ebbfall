@@ -470,28 +470,36 @@ fn a_new_refinery_gets_a_crew_of_three() {
 fn a_shard_field_running_low_is_announced_once_with_a_ping() {
     use endfall_sim::world::{Event, FIELD_LOW};
     let mut w = rich(5);
-    // The player's home field, cut to just above the mark: the next loads cross it.
+    // The player's home field (the crystals laid down with the one nearest the Core), cut to uneven amounts just
+    // above the mark: its harvesters mine it down through it in their own order.
     let core = w
         .bldgs
         .iter()
         .find(|b| b.team == PLAYER && b.kind.def().hq)
         .unwrap()
         .clone();
-    let mut home: Vec<usize> = (0..w.map.nodes.len())
-        .filter(|&i| {
-            !w.map.nodes[i].ether
-                && ((w.map.nodes[i].x - core.x).powi(2) + (w.map.nodes[i].y - core.y).powi(2))
-                    .sqrt()
-                    < 9.0 * 32.0
+    let near = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| !n.ether)
+        .min_by(|a, b| {
+            let da = (a.x - core.x).powi(2) + (a.y - core.y).powi(2);
+            let db = (b.x - core.x).powi(2) + (b.y - core.y).powi(2);
+            da.partial_cmp(&db).unwrap()
         })
+        .unwrap()
+        .field;
+    let home: Vec<usize> = (0..w.map.nodes.len())
+        .filter(|&i| w.map.nodes[i].field == near)
         .collect();
-    home.sort();
-    let per = (FIELD_LOW + 20) / home.len() as i32 + 1;
-    for &i in &home {
-        w.map.nodes[i].amount = per;
+    assert!(home.len() >= 5, "a whole arc: {}", home.len());
+    for (k, &i) in home.iter().enumerate() {
+        w.map.nodes[i].amount =
+            (FIELD_LOW + 200) / home.len() as i32 + if k % 2 == 0 { 40 } else { -30 };
     }
     let (mut toasts, mut pings) = (0, 0);
-    for _ in 0..30 * 60 {
+    for _ in 0..30 * 120 {
         w.step();
         for e in w.events.drain(..) {
             match e {
@@ -501,6 +509,8 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
             }
         }
     }
-    assert_eq!(toasts, 1, "announced once");
+    let left: i32 = home.iter().map(|&i| w.map.nodes[i].amount).sum();
+    assert!(left < FIELD_LOW, "mined through the mark: {left}");
+    assert_eq!(toasts, 1, "announced once for the field");
     assert!(pings >= 1, "with a ping");
 }

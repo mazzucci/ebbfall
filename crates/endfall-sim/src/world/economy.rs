@@ -2,9 +2,8 @@
 
 use super::*;
 
-/// A shard field "running low": fewer than this many shards left in it (its crystals within FIELD_SPAN px).
+/// A shard field "running low": fewer than this many shards left over all its crystals.
 pub const FIELD_LOW: i32 = 1500;
-const FIELD_SPAN: f64 = 10.0 * TILE; // (a home arc spans about 11 tiles end to end; expansions sit 18+ away)
 
 impl World {
     pub(crate) fn extractor_ready(&self, node: Id, team: Option<u8>) -> bool {
@@ -266,13 +265,13 @@ impl World {
         };
         nm.amount = (before - take).max(0);
         let left = nm.amount;
-        // A shard field crossing into its last FIELD_LOW shards (counted over its crystals): time to expand.
+        // A shard field crossing into its last FIELD_LOW shards (counted over all its crystals): time to expand.
         if !n.ether {
             let field: i32 = self
                 .map
                 .nodes
                 .iter()
-                .filter(|o| !o.ether && dist(o.x, o.y, n.x, n.y) < FIELD_SPAN)
+                .filter(|o| o.field == n.field)
                 .map(|o| o.amount)
                 .sum();
             if field < FIELD_LOW && field + take >= FIELD_LOW {

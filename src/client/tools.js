@@ -121,9 +121,10 @@ function watchCapitals() {
  *  for 10 s (a ping), the army wiped out. */
 const news = { flyer: false, army: 0, idleSince: new Map() };
 function watchNews() {
+  if (G.over || paused()) return; // (no news over the end card, and none piling up during a pause)
   if (!news.flyer) {
     const f = G.units.find(u => u.team !== G.me && u.d.air && u.d.weapon && visibleEnt(u));
-    if (f) { news.flyer = true; toast(`Enemy flyers spotted: get some anti-air`, true); ping(f.x, f.y); }
+    if (f) { news.flyer = true; toast('Enemy flyers spotted: get some anti-air', true, true); sfx('alert'); ping(f.x, f.y); }
   }
   const now = performance.now();
   for (const u of idleHarvesters()) {
@@ -132,7 +133,7 @@ function watchNews() {
   }
   for (const id of news.idleSince.keys()) if (!G.units.some(u => u.id === id && u.task.t === 'idle')) news.idleSince.delete(id);
   const a = army().length;
-  if (news.army > 0 && a === 0) toast('No army left', true);
+  if (news.army > 0 && a === 0) { toast('No army left', true, true); sfx('alert'); }
   news.army = a;
 }
 

@@ -204,3 +204,35 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     assert!(turrets(&w) >= 1, "the AI raised a Turret");
     assert!(U(&w, wasp).hp < 1e9, "which found the Wasp and shot it");
 }
+
+#[test]
+fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on() {
+    // An AI Trooper shot by a cloaked Wasp out by the player's base: no tower out there, and the AI keeps building.
+    let mut w = World::new(31, 1);
+    run(&mut w, 140);
+    let (px, py) = core(&w, PLAYER);
+    let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
+    let t = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
+    w.hold_unit(t);
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, x + 40.0, y);
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    (o.hp, o.maxhp) = (1e9, 1e9);
+    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
+    let built = w.bldgs.iter().filter(|b| b.team == ENEMY).count();
+    for _ in 0..60 {
+        let _ = w.cast(wasp, AbilityKind::Cloak);
+        if w.unit(t).is_some() {
+            w.attack_ent(wasp, t);
+        }
+        run(&mut w, 1);
+    }
+    let far = w
+        .bldgs
+        .iter()
+        .any(|b| b.team == ENEMY && ((b.x - x).powi(2) + (b.y - y).powi(2)).sqrt() < 15.0 * TILE);
+    assert!(!far, "no AI building out by the player's base");
+    assert!(
+        w.bldgs.iter().filter(|b| b.team == ENEMY).count() > built,
+        "its build order went on"
+    );
+}

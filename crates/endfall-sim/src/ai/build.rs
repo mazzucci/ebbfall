@@ -260,7 +260,10 @@ impl World {
         // Hit by something unseen: a detector (its tower) by the spot, unless one stands near it already.
         let detector_at = self.ai().cloak_hit.filter(|&(x, y)| {
             !self.bldgs.iter().any(|b| {
-                b.team == e && b.kind.def().detect > 0.0 && dist(b.x, b.y, x, y) < 6.0 * TILE
+                b.team == e
+                    && b.kind.def().detect > 0.0
+                    && (!b.kind.def().needs_power || b.powered || !b.done) // (a site counts: one is coming)
+                    && dist(b.x, b.y, x, y) < 6.0 * TILE
             })
         });
         if detector_at.is_none() {
@@ -330,9 +333,16 @@ impl World {
                         b.ty as f64 + b.h as f64 / 2.0,
                     )
                 });
-                // (Not an extractor, which needs its vent, nor a power source meant to relight a dark building.)
+                // One try per unseen hit (a mark it cannot serve, say no power there for a Ward, must not hold the
+                // build order up); the next hit marks again.
+                let for_mark = w == s.tower && detector_at.is_some();
+                if for_mark {
+                    self.ai_mut().cloak_hit = None;
+                }
+                // (Not an extractor, which needs its vent, nor a power source meant to relight a dark building, nor
+                // a detector meant for the spot it was hit at.)
                 match self.find_spot(w, fx, fy) {
-                    None if w != f.ether && !(w == f.supply && relight.is_some()) => {
+                    None if w != f.ether && !(w == f.supply && relight.is_some()) && !for_mark => {
                         second.and_then(|(ex, ey)| self.find_spot(w, ex, ey))
                     }
                     spot => spot,

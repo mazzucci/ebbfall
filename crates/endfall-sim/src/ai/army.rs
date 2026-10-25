@@ -3,7 +3,6 @@
 use super::*;
 
 impl World {
-    /// Where the AI thinks the player is: a known core, else any known building, else the next sweep point.
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
     /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep.
     pub(crate) fn attack_target(&self) -> (f64, f64) {

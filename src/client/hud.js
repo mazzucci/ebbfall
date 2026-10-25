@@ -34,8 +34,8 @@ let selKey = '';
 export function updateHud() {
   const [s, e] = G.res[G.me], [su, sc] = G.sup[G.me];
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
-  $('resSup').classList.toggle('low', su >= sc); $('clock').textContent = fmt(G.time);
-  renderUpgrades(); watchSites();
+  $('resSup').classList.toggle('low', su >= sc);
+  watchSites();
   ui.sel = ui.sel.filter(x => !x.dead);
   renderSelection();
   buildCard();
@@ -158,21 +158,6 @@ function bindStrip() {
   });
 }
 let stripBound = false;
-
-/** Top bar: upgrade levels, and research under way as a ring filling round its icon (whatever is selected). */
-function renderUpgrades() {
-  const up = G.upgrades[G.me], el = $('upg');
-  let key = '', html = '';
-  for (const k of Object.keys(UPGRADES)) {
-    const r = G.bldgs.find(b => b.team === G.me && b.research?.type === k), lv = up[k] + (r ? 1 : 0);
-    if (!lv) continue;
-    key += k + lv + (r ? 'r' : '');
-    html += `<span class="up${r ? ' on' : ''}" data-k="${k}" title="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}" aria-label="${UPGRADES[k].name} ${ROMAN[lv]}${r ? ' (researching)' : ''}">${r ? '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><circle class="p" cx="12" cy="12" r="10.5" pathLength="100"/></svg>' : ''}${icon(k)}<b>${ROMAN[lv]}</b></span>`;
-  }
-  el.hidden = !key;
-  if (el.dataset.k !== key) { el.dataset.k = key; el.innerHTML = html; }
-  for (const b of G.bldgs) if (b.team === G.me && b.research) { const p = el.querySelector(`[data-k="${b.research.type}"] .p`); if (p) p.style.strokeDasharray = `${b.research.prog * 100} 100`; }
-}
 
 function taskName(u) {
   const T = u.task;

@@ -175,6 +175,7 @@ pub(super) const WASP: UnitDef = UnitDef {
         up_dmg: 1.0,
         ..W
     }),
+    abilities: &[AbilityKind::Cloak],
     ..UNIT
 };
 /// A cheap unarmed flying scout: fast, sees far, flies over cliffs. Cloaked (the other side sees it only where it
@@ -247,7 +248,12 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
 };
 pub(super) const FORGE: BldgDef = BldgDef {
     key: "forge",
-    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Entrenching],
+    researches: &[
+        Upgrade::Weapons,
+        Upgrade::Armor,
+        Upgrade::Entrenching,
+        Upgrade::CloakingField,
+    ],
     name: "Foundry",
     cost: [150, 100],
     hp: 820.0,

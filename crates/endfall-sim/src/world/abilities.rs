@@ -68,6 +68,8 @@ impl World {
                 u.swap = swap;
             }
             AbilityEffect::Blink { dist } => self.blink(uid, dist * TILE),
+            // (the boost timer carries it: a cloaking unit has no other timed ability)
+            AbilityEffect::Cloak { secs } => self.um(uid).boost = Some((ability, now + secs)),
         }
         let (x, y, team) = {
             let u = self.u(uid);
@@ -273,6 +275,10 @@ impl World {
                         fight
                             && target_d
                                 .is_some_and(|t| t > reach + 2.0 * TILE && t < (dist + 4.0) * TILE)
+                    }
+                    // Cloak once engaged with something armed close by (it cannot be shot back unless detected).
+                    AbilityEffect::Cloak { .. } => {
+                        armed >= 1 && boost.is_none() && target_d.is_some()
                     }
                     // Only a defender digs in (idle or holding): a wave on the move never leaves one behind.
                     AbilityEffect::Entrench { range, .. } => match mode {

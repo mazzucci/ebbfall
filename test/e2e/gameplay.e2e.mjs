@@ -1228,3 +1228,18 @@ test('an enemy Observer is invisible and cannot be picked until something of our
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: a Wasp cloaks from its card once Cloaking Field is researched', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const wasp = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'wasp', x, y), [core.x + 160, core.y + 60]);
+    await d.clickEntity(wasp);
+    assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'locked before the tech');
+    await d.eval(() => endfall.engine.debugResearch(0, 'cloakingField')); // (set-up: researched)
+    await d.clickEntity(wasp);
+    await d.pressCard('Cloak');
+    assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).boost, wasp), 'cloak', 'cloaked');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

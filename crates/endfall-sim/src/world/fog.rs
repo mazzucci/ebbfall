@@ -50,7 +50,10 @@ impl World {
     /// Whether unit `u` is hidden from `team`: cloaked, another team's, and outside its detection.
     pub fn cloaked_from(&self, team: u8, u: &Unit) -> bool {
         let (tx, ty) = World::tile_of(u.x, u.y);
-        u.team != team && u.kind.def().cloaked && self.det[team as usize][idx(tx, ty)] == 0
+        let cloaked = u.kind.def().cloaked
+            || u.boost
+                .is_some_and(|(k, _)| matches!(k.def().effect, AbilityEffect::Cloak { .. }));
+        u.team != team && cloaked && self.det[team as usize][idx(tx, ty)] == 0
     }
 
     /// Whether `id` (unit or building) is hidden from `team` by cloak (buildings never are).

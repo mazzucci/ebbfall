@@ -191,6 +191,7 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
         up_dmg: 1.0,
         ..W
     }),
+    abilities: &[AbilityKind::Veil],
     ..UNIT
 };
 
@@ -262,7 +263,12 @@ pub(super) const LOOM: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Kiln),
-    researches: &[Upgrade::Weapons, Upgrade::Shields, Upgrade::OverchargeCore],
+    researches: &[
+        Upgrade::Weapons,
+        Upgrade::Shields,
+        Upgrade::OverchargeCore,
+        Upgrade::VeilWeave,
+    ],
     needs_power: true,
     ..BLDG
 };

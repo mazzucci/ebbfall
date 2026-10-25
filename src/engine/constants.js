@@ -59,7 +59,7 @@ const BLDG_TEXT = {
   zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital walker. With its rally point in a power field, they warp in there.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
-  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' } };
+  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
@@ -82,6 +82,8 @@ const ABILITY_TEXT = {
   entrench: { hot: 'E', desc: 'Dig in: +3 range, but cannot move (2 s to dig in or pack up). Tap again, or order a move, to pack up.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
+  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Ward, Observer).' },
+  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Ward, Observer).' },
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);

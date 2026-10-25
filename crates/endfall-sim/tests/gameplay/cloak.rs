@@ -106,3 +106,37 @@ fn a_ward_detects_only_while_powered() {
     assert!(!w.bldg(ward).unwrap().powered, "dark");
     assert!(!w.seen_by(PLAYER, obs), "a dark Ward detects nothing");
 }
+
+#[test]
+fn a_researched_wasp_cloaks_for_a_while_and_a_detector_still_finds_it() {
+    let mut w = flat_arena(14);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(wasp);
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    (o.hp, o.maxhp) = (1e6, 1e6); // (it outlives being seen again)
+    let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 26.0 * TILE, 30.0 * TILE);
+    w.hold_unit(lancer);
+    assert_eq!(
+        w.cast(wasp, AbilityKind::Cloak),
+        Err("Research Cloaking Field first".into())
+    );
+    w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.step();
+    assert!(!w.seen_by(PLAYER, wasp), "cloaked");
+    let hp = U(&w, wasp).hp;
+    run(&mut w, 5);
+    assert_eq!(
+        U(&w, wasp).hp,
+        hp,
+        "the Lancer cannot shoot what it cannot see"
+    );
+    run(&mut w, 8);
+    assert!(w.seen_by(PLAYER, wasp), "visible again after 12 s");
+    // Cloaked again later (after its cooldown), but a Turret beside it detects it.
+    run(&mut w, 30);
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.make_building(BldgKind::Turret, PLAYER, 27, 32, true);
+    w.step();
+    assert!(w.seen_by(PLAYER, wasp), "detected");
+}

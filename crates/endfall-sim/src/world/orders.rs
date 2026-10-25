@@ -442,25 +442,30 @@ impl World {
         self.set_pace(ids);
     }
 
-    /// Marching pace for a group given one order: its slowest member's speed (healers at 90% of it). A lone unit
-    /// keeps its own speed.
+    /// Marching pace for a group given one order: its slowest member's speed (healers at 90% of it), flyers and
+    /// walkers each by their own (flyers go straight while walkers path round, so they cannot march together). A
+    /// unit alone in its layer keeps its own speed. Fixed at the order (a fight keeps it: see `resume_back`).
     fn set_pace(&mut self, ids: &[Id]) {
-        let live: Vec<Id> = ids
-            .iter()
-            .copied()
-            .filter(|&id| self.unit(id).is_some())
-            .collect();
-        if live.len() < 2 {
-            return;
-        }
-        let slowest = live
-            .iter()
-            .map(|&id| self.u(id).kind.def().speed)
-            .fold(f64::INFINITY, f64::min);
-        for id in live {
-            let d = self.u(id).kind.def();
-            let healer = d.heal > 0.0 && d.weapon.is_none();
-            self.um(id).pace = Some(if healer { slowest * 0.9 } else { slowest });
+        for air in [false, true] {
+            let mut layer: Vec<Id> = ids
+                .iter()
+                .copied()
+                .filter(|&id| self.unit(id).is_some_and(|u| u.kind.def().air == air))
+                .collect();
+            layer.sort_unstable();
+            layer.dedup();
+            if layer.len() < 2 {
+                continue;
+            }
+            let slowest = layer
+                .iter()
+                .map(|&id| self.u(id).kind.def().speed)
+                .fold(f64::INFINITY, f64::min);
+            for id in layer {
+                let d = self.u(id).kind.def();
+                let healer = d.heal > 0.0 && d.weapon.is_none();
+                self.um(id).pace = Some(if healer { slowest * 0.9 } else { slowest });
+            }
         }
     }
 }

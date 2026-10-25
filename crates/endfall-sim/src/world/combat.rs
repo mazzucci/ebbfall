@@ -597,6 +597,17 @@ impl World {
     }
 
     /// Attack a target; a self-picked one gives way to a bigger threat and is let go well out of sight.
+    /// Back to the march a fight interrupted, at the group's pace if it had one (the group re-forms).
+    fn resume_back(&mut self, uid: Id, b: Back) {
+        let pace = self.u(uid).pace;
+        if b.amove {
+            self.attack_move(uid, b.x, b.y);
+        } else {
+            self.move_to(uid, b.x, b.y);
+        }
+        self.um(uid).pace = pace;
+    }
+
     pub(crate) fn update_attack(
         &mut self,
         uid: Id,
@@ -607,8 +618,7 @@ impl World {
     ) {
         let Some(t) = self.geo(target).filter(|_| self.team_of(target).is_some()) else {
             match back {
-                Some(b) if b.amove => self.attack_move(uid, b.x, b.y),
-                Some(b) => self.move_to(uid, b.x, b.y),
+                Some(b) => self.resume_back(uid, b),
                 None => self.resume_after(uid),
             }
             return;
@@ -622,11 +632,7 @@ impl World {
             // The leash: a target that got well out of sight is let go, and the unit goes back to what it
             // was doing (an Observer cannot lead an army around the map).
             if t.edge_dist(ux, uy) > c.sight * TILE * 1.5 {
-                if b.amove {
-                    self.attack_move(uid, b.x, b.y);
-                } else {
-                    self.move_to(uid, b.x, b.y);
-                }
+                self.resume_back(uid, b);
                 return;
             }
             if self.u(uid).aggro_cd <= 0.0 {

@@ -1,5 +1,6 @@
-// The start menu: opponent, one of three maps, sound; the phone's "tap to play" splash (that first tap enters full
-// screen, so the browser's full-screen notice shows over the menu, not the battle); and the How to play card.
+// The start menu (a page of its own: opponent, race, one of three maps, sound, Exit game); the phone's "tap to play"
+// splash (that first tap enters full screen and so locks landscape, and the browser's full-screen notice shows over
+// the menu, not the battle); and the How to play card.
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.

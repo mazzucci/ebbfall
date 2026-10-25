@@ -27,7 +27,7 @@ export const MAPS = [
   { name: 'Cinder Divide', seed: 2077, kind: 4 },
   { name: 'Random', random: true },
 ];
-export const menu = { diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, race: 'humans', enemy: 'humans', enemyRace: 'humans' };
+export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, race: 'humans', enemy: 'humans', enemyRace: 'humans' };
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
@@ -86,7 +86,8 @@ export function initMenu({ onStart, onSound }) {
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
   $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
-  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
+  $('btnFirst').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = true; onStart(); });
+  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full
@@ -95,6 +96,13 @@ export function initMenu({ onStart, onSound }) {
     $('splash').hidden = false;
     $('btnPlay').addEventListener('click', () => { enterFullscreen(); $('splash').hidden = true; });
   }
+}
+
+/** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */
+export function setup() {
+  if (!menu.tutorial) return menu;
+  const m = MAPS[0];
+  return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, side: 0, race: 'humans', enemyRace: 'humans' };
 }
 
 /** Back to the menu (after a game, or quitting), with the last choices. */

@@ -34,7 +34,7 @@ export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor:
 
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans' } = {}) {
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false } = {}) {
   const ctx = await browser.newContext(device);
   const page = await ctx.newPage();
   const errors = [];
@@ -44,9 +44,10 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
   if (touch) await page.locator('#btnPlay').tap(); // the phone's "tap to play" screen (goes full screen)
-  if (race !== 'humans') await (touch ? page.locator(`#race [data-race="${race}"]`).tap() : page.locator(`#race [data-race="${race}"]`).click());
-  if (diff !== 0) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
-  await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
+  if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
+  else if (race !== 'humans') await (touch ? page.locator(`#race [data-race="${race}"]`).tap() : page.locator(`#race [data-race="${race}"]`).click());
+  if (!first && diff !== 0) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
+  if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());
   // Games start fully zoomed out; the scenarios play closer in (as players do, and software WebGL draws the wide

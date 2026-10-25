@@ -1086,3 +1086,39 @@ test('a click on a unit tile selects that unit alone, Shift+click drops it', asy
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', async () => {
+  const d = await newGame(PHONE, 0, 4242, { first: true });
+  try {
+    assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
+    await d.hudText('#tut', /1\/6/);
+    assert.match(await d.page.locator('#tut').textContent(), /train two Harvesters/);
+    // Step 1: the Core, then Harvester twice (the button pulses).
+    await d.grant(1000, 0);
+    const s = await d.state(), core = coreOf(s);
+    await d.clickEntity(core.id);
+    await d.page.waitForTimeout(300);
+    assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Harvester button pulses');
+    await d.pressCard('Harvester'); await d.pressCard('Harvester');
+    await d.skip(30);
+    await d.hudText('#tut', /2\/6/);
+    // Step 2: a Harvester, Build: the Build button pulses; a Depot finishes the step.
+    // A Harvester standing at its field (one on the move can slip from under the tap).
+    for (let i = 0; i < 8 && !(await d.selection()).some(e => e.type === 'harvester'); i++) {
+      const id = await d.eval(() => (endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'gather' && u.task.phase === 'mine') || endfall.G.units.find(u => u.team === 0 && u.d.worker)).id);
+      await d.clickEntity(id);
+    }
+    assert.ok((await d.selection()).some(e => e.type === 'harvester'), 'a Harvester selected');
+    const h = (await d.selection()).find(e => e.type === 'harvester');
+    await d.page.waitForTimeout(300);
+    assert.equal(await d.page.locator('#cmd button.pulse').first().getAttribute('data-id'), 'build');
+    const spot = await d.findSpot('depot', { tx: core.tx + 5, ty: core.ty });
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Depot' });
+    await d.hudText('#tut', /3\/6/);
+    // The opponent waits: by 5:30, with the army not ready, none of its fighters has crossed to our half.
+    await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
+    assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

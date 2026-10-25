@@ -110,7 +110,7 @@ function renderSelection() {
     } else module('', '');
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
-    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; module('', '');
+    name.textContent = sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units'); $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     $('life').hidden = true;
     if (compactMq.matches) { // small screens: one tile per type, with its count and the group's health

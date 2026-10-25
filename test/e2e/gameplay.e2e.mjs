@@ -902,3 +902,36 @@ test('phone: as the Vael, a Kiln whose rally point is in a power field warps its
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('a double-click on a factory selects all of them and they train as one; the idle-factory chip finds the idle ones', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false });
+  try {
+    await d.grant(3000, 500);
+    const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester');
+    assert.ok(await d.page.locator('#btnProd').isHidden(), 'no chip before the first factory');
+    const a = await d.findSpot('barracks', { tx: core.tx + 6, ty: core.ty });
+    await d.buildWithUI('g', 'barracks', a.tx, a.ty, hs[0].id);
+    const b = await d.findSpot('barracks', { tx: a.tx + 4, ty: a.ty });
+    await d.buildWithUI('g', 'barracks', b.tx, b.ty, hs[1].id);
+    const rax = () => d.state().then(st => st.bldgs.filter(x => x.team === 0 && x.type === 'barracks'));
+    await until(d, async () => (await rax()).filter(x => x.done).length === 2, { seconds: 120, what: 'two Garrisons' });
+    await d.key('Escape');
+    await d.hudText('#btnProd b', /^2$/); // two idle factories
+    // The chip selects one, then the next.
+    await d.page.locator('#btnProd').click();
+    const first = (await d.selection())[0];
+    await d.page.locator('#btnProd').click();
+    const second = (await d.selection())[0];
+    assert.ok(first.type === 'barracks' && second.type === 'barracks' && first.id !== second.id, 'it cycles through them');
+    // Double-click one: both are selected; two Troopers go one to each.
+    const [g0, g1] = await rax();
+    await d.centerOn((g0.x + g1.x) / 2, (g0.y + g1.y) / 2);
+    const [px, py] = await d.screen(g0.x, g0.y);
+    await d.page.mouse.click(px, py); await d.page.mouse.click(px, py);
+    assert.equal((await d.selection()).filter(e => e.type === 'barracks').length, 2, 'double-click selects both Garrisons');
+    await d.pressCard('Trooper'); await d.pressCard('Trooper');
+    assert.deepEqual((await rax()).map(x => x.queue.length), [1, 1], 'one Trooper in each queue');
+    await d.hudText('#btnProd b', /^0$/); // no idle factory now
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

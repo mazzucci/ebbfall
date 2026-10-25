@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, UNITS, BUILDINGS } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, TILE } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx } from './audio.js';
@@ -22,7 +22,7 @@ export function onAttacked(e) {
 }
 export function jumpToAlert() { if (alerts.last) centerOn(alerts.last.x, alerts.last.y); else toast('No recent attacks'); }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; clearPings(); lit.clear(); idleIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; clearPings(); lit.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -30,6 +30,14 @@ const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / lis
 let idleIndex = 0;
 const idleHarvesters = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle');
 const army = () => G.units.filter(u => u.team === G.me && !u.d.worker);
+/** Our finished factories (they train more than workers) with nothing queued, and the power to train. */
+const idleFactories = () => G.bldgs.filter(b => b.team === G.me && b.done && !b.queue.length && (b.d.trains || []).some(t => !UNITS[t].worker) && !(b.d.needsPower && !b.powered));
+let prodIndex = 0;
+/** Select the next idle factory and look at it. */
+export function selectIdleFactory() {
+  const idle = idleFactories(); if (!idle.length) { toast('Every factory is busy'); return; }
+  const b = idle[prodIndex++ % idle.length]; choose([b]); centerOn(b.x, b.y);
+}
 
 /** Select the next idle harvester and look at it. */
 export function selectIdle() {
@@ -38,11 +46,15 @@ export function selectIdle() {
 }
 /** Select every combat unit. */
 export function selectArmy() { const a = army(); if (!a.length) { toast('No army'); return; } choose(a); }
-/** Select all of our units of the same type that are on screen (double-click / double-tap). */
-export function selectSameType(u, add = false) {
+/** Select all of our units of the same type that are on screen (double-click / double-tap); on a finished building,
+ *  all our finished buildings of its type on screen (several factories train as one: the card fills the shortest queue). */
+export function selectSameType(e, add = false) {
   const x1 = cam.x + view.w / cam.zoom, y1 = cam.y + view.h / cam.zoom;
-  const same = G.units.filter(o => o.team === G.me && o.type === u.type && o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1);
-  choose(add ? [...new Set([...ui.sel.filter(e => !e.dead && e.kind === 'unit'), ...same])] : same);
+  const onScreen = (o) => o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1;
+  const shows = (b) => b.tx * TILE < x1 && (b.tx + b.w) * TILE > cam.x && b.ty * TILE < y1 && (b.ty + b.h) * TILE > cam.y; // (any part of it)
+  if (e.kind === 'bldg') { choose(e.done ? G.bldgs.filter(o => o.team === G.me && o.type === e.type && o.done && shows(o)) : [e]); return; }
+  const same = G.units.filter(o => o.team === G.me && o.type === e.type && onScreen(o));
+  choose(add ? [...new Set([...ui.sel.filter(x => !x.dead && x.kind === 'unit'), ...same])] : same);
 }
 
 // ---- control groups ----
@@ -88,6 +100,10 @@ export function updateTools() {
   if (apic.dataset.k !== ak) { apic.dataset.k = ak; apic.innerHTML = portrait('unit', ak, 24); }
   $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0); $('btnIdle').classList.toggle('zero', !idle);
   $('btnArmy').querySelector('b').textContent = a; $('btnArmy').classList.toggle('zero', !a);
+  const pk = myFaction().buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker)), ppic = $('btnProd').querySelector('.pic'); // the race's main factory
+  if (pk && ppic.dataset.k !== pk) { ppic.dataset.k = pk; ppic.innerHTML = portrait('bldg', pk, 24); }
+  const factories = G.bldgs.some(b => b.team === G.me && b.done && (b.d.trains || []).some(t => !UNITS[t].worker)), idleF = idleFactories().length;
+  $('btnProd').hidden = !factories; $('btnProd').querySelector('b').textContent = idleF; $('btnProd').classList.toggle('zero', !idleF);
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
   const tabs = [];
   // Saved groups only, and none on touch screens (empty tabs there were tapped by mistake instead of the map).
@@ -112,7 +128,7 @@ export function updateTools() {
 
 export function initTools() {
   setIconButton($('btnPause'), 'pause', 'PAUSE');
-  for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnAlert', jumpToAlert]]) {
+  for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnProd', selectIdleFactory], ['btnAlert', jumpToAlert]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());
     $(id).addEventListener('click', fn);
   }

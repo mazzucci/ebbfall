@@ -59,8 +59,10 @@ export function cardItems() {
     // Let go of units (a tap on the ground would move them): the last slot of the card.
     at(Math.ceil((Math.max(...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
-  } else if (bl.length === 1) {
-    const b = bl[0];
+  } else if (bl.length === 1 || (bl.length && bl.every(o => o.done && o.type === bl[0].type))) {
+    // One building, or several finished ones of a kind (a double-tap): their shared card, shown for the one with the
+    // shortest queue (where a unit goes next).
+    const b = bl.length === 1 ? bl[0] : leastBusy(bl);
     if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: myFaction().warp ? 'Plant' : 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to ${myFaction().warp ? 'plant it' : 'finish construction'}` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
@@ -82,7 +84,7 @@ export function cardItems() {
     if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ` Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it.` });
     // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
     if (trains.length) {
-      const last = b.queue[b.queue.length - 1];
+      const last = mostBusy(bl).queue.at(-1);
       at(5, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, dis: !last, ...(last ? { por: ['unit', last], badge: true } : { icon: 'x' }), tip: 'Cancel the last unit in the queue (refund)' });
     }
   }
@@ -148,6 +150,11 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
   if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
 }, true);
 
+/** Of several buildings of a kind: the powered one with the shortest queue (then the most progress, then by id). */
+const leastBusy = (bs) => bs.slice().sort((p, q) => (p.d.needsPower && !p.powered) - (q.d.needsPower && !q.powered) || p.queue.length - q.queue.length || q.prog - p.prog || p.id - q.id)[0];
+/** The one with the longest queue (a Cancel takes its last unit). */
+const mostBusy = (bs) => bs.slice().sort((p, q) => q.queue.length - p.queue.length || p.id - q.id)[0];
+
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   if (id === 'deselect') { setSelection([]); ui.box = false; setBox(); updateHud(); return; }
@@ -165,16 +172,16 @@ export function doCommand(id) {
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) toast(err, true); return; } // (the cast event plays its sound)
-  if (id.startsWith('t_')) { const b = bl[0]; if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
+  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
     const hs = G.units.filter(u => u.team === G.me && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
     if (!hs.length) { toast(`No ${UNITS[myFaction().worker].name} to build it`, true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
-  if (id.startsWith('r_')) { const b = bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }
-  if (id === 'cancelr') { const b = bl[0]; if (b) cancelResearch(b); return; }
+  if (id.startsWith('r_')) { const b = bl.find(o => !o.research) || bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }
+  if (id === 'cancelr') { const b = bl.find(o => o.research); if (b) cancelResearch(b); return; }
   if (id === 'cancelb') { const b = bl[0]; if (b && !b.done) { cancelConstruction(b); ui.sel = []; sfx('select'); } return; }
-  if (id === 'cancelq') { const b = bl[0]; if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }
+  if (id === 'cancelq') { const b = bl.length && mostBusy(bl); if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }
 }
 

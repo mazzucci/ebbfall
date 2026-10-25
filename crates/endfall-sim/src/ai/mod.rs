@@ -53,6 +53,8 @@ pub(crate) struct Ai {
     pub heavy_seen: (usize, f64),
     /// Units kept home at its own expansion (out of the waves).
     pub guards: Vec<Id>,
+    /// Where something it could not see last hit it (a cloaked raider): a detector goes there.
+    pub cloak_hit: Option<(f64, f64)>,
 }
 
 impl World {
@@ -100,6 +102,7 @@ impl World {
                 infantry_seen: (0, 0.0),
                 heavy_seen: (0, 0.0),
                 guards: Vec::new(),
+                cloak_hit: None,
                 sweep: 0,
                 sweep_since: 0.0,
                 ether_lean: false,

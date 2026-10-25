@@ -169,3 +169,70 @@ fn the_ai_cloaks_a_wasp_only_against_anti_air_and_not_where_it_is_detected() {
     );
     assert!(!scene(UnitKind::Lancer, true), "not beside a detector");
 }
+
+#[test]
+fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
+    // A cloaked Wasp of the player's shoots at the AI's harvesters before the AI's first scheduled Turret (4:00): the
+    // AI raises one by them anyway, which finds the Wasp and shoots it.
+    let mut w = World::new(31, 1);
+    run(&mut w, 140);
+    let h = harvesters(&w, ENEMY)[0];
+    let (hx, hy) = (U(&w, h).x, U(&w, h).y);
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, hx + 40.0, hy);
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    (o.hp, o.maxhp) = (1e9, 1e9);
+    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
+    let turrets = |w: &World| {
+        w.bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Turret)
+            .count()
+    };
+    assert_eq!(turrets(&w), 0, "no Turret yet");
+    for _ in 0..90 {
+        // (it re-cloaks whenever it can, and keeps shooting at a harvester near where it started)
+        let _ = w.cast(wasp, AbilityKind::Cloak);
+        if let Some(t) = harvesters(&w, ENEMY).into_iter().find(|&t| {
+            let u = U(&w, t);
+            ((u.x - hx).powi(2) + (u.y - hy).powi(2)).sqrt() < 6.0 * TILE
+        }) {
+            w.attack_ent(wasp, t);
+        }
+        run(&mut w, 1);
+    }
+    assert!(w.time < 240.0, "still before the scheduled Turret");
+    assert!(turrets(&w) >= 1, "the AI raised a Turret");
+    assert!(U(&w, wasp).hp < 1e9, "which found the Wasp and shot it");
+}
+
+#[test]
+fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on() {
+    // An AI Trooper shot by a cloaked Wasp out by the player's base: no tower out there, and the AI keeps building.
+    let mut w = World::new(31, 1);
+    run(&mut w, 140);
+    let (px, py) = core(&w, PLAYER);
+    let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
+    let t = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
+    w.hold_unit(t);
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, x + 40.0, y);
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    (o.hp, o.maxhp) = (1e9, 1e9);
+    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
+    let built = w.bldgs.iter().filter(|b| b.team == ENEMY).count();
+    for _ in 0..60 {
+        let _ = w.cast(wasp, AbilityKind::Cloak);
+        if w.unit(t).is_some() {
+            w.attack_ent(wasp, t);
+        }
+        run(&mut w, 1);
+    }
+    let far = w
+        .bldgs
+        .iter()
+        .any(|b| b.team == ENEMY && ((b.x - x).powi(2) + (b.y - y).powi(2)).sqrt() < 15.0 * TILE);
+    assert!(!far, "no AI building out by the player's base");
+    assert!(
+        w.bldgs.iter().filter(|b| b.team == ENEMY).count() > built,
+        "its build order went on"
+    );
+}

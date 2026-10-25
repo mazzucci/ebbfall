@@ -248,10 +248,12 @@ impl World {
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
         let rax_schedule = d.rax + (t > 300.0) as usize + (t > 540.0) as usize;
-        // Free supply that calls for more: 4, or room for a capital unit too while one is due.
-        let supply_margin = 4 + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
+        // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
+        let supply_margin =
+            d.supply_ahead + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
+        let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
         let want = if relight.is_some()
-            || (cap - used <= supply_margin && cap < 200 && !building.contains(&f.supply))
+            || (cap - used <= supply_margin && cap < 200 && supply_rising < d.supply_at_once)
         {
             Some(f.supply)
         } else if (harv.len() >= 7
@@ -276,17 +278,16 @@ impl World {
             && self.ai_count(&my_b, false, s.tower) < (t > 240.0) as usize + (t > 480.0) as usize
         {
             Some(s.tower)
-        } else if self.diff >= 1
-            && self.ai_count(&my_b, true, s.tech) >= 1
+        } else if self.ai_count(&my_b, true, s.tech) >= 1
             && self.ai_count(&my_b, false, s.air) == 0
-            && t > 330.0
+            && t > d.air_at
         {
             Some(s.air)
         } else {
             None
         };
         if let Some(w) = want
-            && building.len() < 2
+            && building.len() < d.supply_at_once + 1 // (two at once; three where supply goes up in pairs)
             && self.has_req(e, w)
             && self.can_afford(e, w.def().cost)
             && let Some(spot) = {
@@ -342,8 +343,7 @@ impl World {
         let d = &DIFF[self.diff];
         // A second base, outside the build order above: the AI saves up for it (see research) and places it
         // even while supply depots go up.
-        let exp_spot = if self.diff >= 1
-            && t > [f64::MAX, 420.0, 330.0][self.diff]
+        let exp_spot = if t > d.expand_at
             && self.ai_count(&my_b, false, self.factions[e as usize].hq) < 2
             && harv.len() + 2 >= d.harv
         {

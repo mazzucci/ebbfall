@@ -15,11 +15,11 @@ impl World {
             expand,
             ..
         } = brain.clone();
-        // Research: weapons and armor in turn, starting earlier on harder levels, once any expansion is down.
+        // Research: weapons and armor in turn, from the difficulty's research_from (Easy never), once any expansion is down.
         // Until it can afford the next level it saves up (no new units), but never while under attack or short
         // of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
         const SAVE_MAX: f64 = 30.0;
-        let research_from = [600.0, 420.0, 300.0][self.diff];
+        let research_from = DIFF[self.diff].research_from;
         let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
         let mut saving = false;
         if t > research_from && !expand {

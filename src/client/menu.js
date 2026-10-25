@@ -3,7 +3,7 @@
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.
-import { mulberry, mapPreview, MW, MH } from '../engine/index.js';
+import { mulberry, mapPreview, MW, MH, DIFF } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { touchDevice, enterFullscreen, canGoFullscreen } from './screen.js';
@@ -83,7 +83,7 @@ function soundLabel() { const on = !audio.muted; $('btnMenuSound').textContent =
 export function initMenu({ onStart, onSound }) {
   syncSound = onSound;
   const saved = +store.get('diff');
-  menu.diff = store.get('diff') !== null && [0, 1, 2].includes(saved) ? saved : 0; // new players start on Easy
+  menu.diff = store.get('diff') !== null && Number.isInteger(saved) && saved >= 0 && saved < DIFF.length ? saved : 0; // new players start on Easy
   if (store.get('muted') === '1') audio.muted = true;
   const diffs = document.querySelectorAll('#diff .ib');
   const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });

@@ -458,14 +458,15 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
       assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
       assert.equal(await page.locator('#diff .ib.on').textContent(), 'EASY', 'new players start on Easy');
-      assert.deepEqual(await page.$$eval('#diff .ib', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD']);
+      assert.deepEqual(await page.$$eval('#diff .ib', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD', 'BRUTAL']);
       await press('#maps .map:nth-child(2)');
-      await press('#diff [data-d="2"]');
+      const level = touch ? 3 : 2; // (Hard on the desktop, Brutal on the phone)
+      await press(`#diff [data-d="${level}"]`);
       await press('#btnMenuSound');
       assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
-      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, 2, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
+      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
       // How to play is in the pause menu (no Help button in the top bar); the game waits; back to the pause menu.
       assert.equal(await page.locator('#btnHelp').count(), 0, 'no Help button in the top bar');
@@ -479,7 +480,7 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       // The choices are remembered.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
       if (touch) await press('#btnPlay');
-      assert.equal(await page.locator('#diff .ib.on').getAttribute('data-d'), '2', 'opponent remembered');
+      assert.equal(await page.locator('#diff .ib.on').getAttribute('data-d'), String(level), 'opponent remembered');
       assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF', 'sound choice remembered');
       // The random map is a new one each game.
       await press('#maps .map:nth-child(4)'); await press('#btnStart');

@@ -156,7 +156,7 @@ impl World {
     /// A mix ratio (one `k` per `per` line units) answered to what the enemy fields: a splashing specialist comes
     /// twice as often against massed infantry (8+ seen), half as often against heavies (4+) with little infantry.
     pub(crate) fn answer_ratio(&self, k: UnitKind, per: usize) -> usize {
-        if !k.def().weapon.is_some_and(|w| w.splash > 0.0) {
+        if !DIFF[self.diff].answers || !k.def().weapon.is_some_and(|w| w.splash > 0.0) {
             return per;
         }
         let (inf, heavy) = (self.ai().infantry_seen.0, self.ai().heavy_seen.0);

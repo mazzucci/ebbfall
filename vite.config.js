@@ -6,6 +6,6 @@ export default defineConfig({
   base: './',
   server: { host: true, port: 5173 },
   // voice-lab.html: a page apart from the game, for judging the synthesized voice (not linked from the game).
-  build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { main: 'index.html', lab: 'voice-lab.html' } } },
+  build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { index: 'index.html', 'voice-lab': 'voice-lab.html' } } },
   plugins: [offline()], // dist/sw.js: the game keeps working offline once opened
 });

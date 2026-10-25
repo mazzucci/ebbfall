@@ -64,9 +64,7 @@ impl World {
                 return;
             }
         }
-        let u = self.um(uid);
-        u.task = Task::Idle;
-        u.path = None;
+        self.set_idle(uid);
     }
 
     /// A field of the same kind near `n` (a vent needs our finished Extractor) with clearly fewer harvesters on it

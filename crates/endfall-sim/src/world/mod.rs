@@ -36,9 +36,10 @@ pub struct Back {
     pub amove: bool,
 }
 
-/// What a unit's tick needs to know about it as a fighter (read once at the start of the tick).
+/// A unit's effective stats for this tick, read once at its start (`World::live`): its kind's numbers, which abilities
+/// and modes will change there and only there.
 #[derive(Clone, Copy)]
-pub(crate) struct Fighter {
+pub(crate) struct Live {
     pub range: f64,
     pub combat: bool,
     pub team: u8,
@@ -630,22 +631,34 @@ impl World {
     }
 
     /// One unit's tick: its weapon and flash cool down, a healer heals, then its task runs.
+    /// A unit's effective stats right now (the one place abilities and modes will change them).
+    pub(crate) fn live(&self, uid: Id) -> Live {
+        let u = self.u(uid);
+        let d = u.kind.def();
+        Live {
+            range: d.weapon.map_or(0.0, |w| w.range) * TILE,
+            combat: d.threat(),
+            team: u.team,
+            r: u.r,
+            sight: d.sight,
+            kind: u.kind,
+            hits: Self::hits_of(u.kind),
+        }
+    }
+    /// A unit's walking speed right now (px/s).
+    pub(crate) fn live_speed(&self, uid: Id) -> f64 {
+        self.u(uid).kind.def().speed
+    }
+    /// The seconds between shots of `shooter`'s weapon, whose base is `base`.
+    pub(crate) fn live_cd(&self, _shooter: Id, base: f64) -> f64 {
+        base
+    }
+
     pub(crate) fn update_unit(&mut self, uid: Id, dt: f64) {
-        let c = {
-            let u = self.um(uid);
-            u.cd -= dt;
-            u.flash -= dt;
-            let d = u.kind.def();
-            Fighter {
-                range: d.weapon.map_or(0.0, |w| w.range) * TILE,
-                combat: d.threat(),
-                team: u.team,
-                r: u.r,
-                sight: d.sight,
-                kind: u.kind,
-                hits: Self::hits_of(u.kind),
-            }
-        };
+        let u = self.um(uid);
+        u.cd -= dt;
+        u.flash -= dt;
+        let c = self.live(uid);
         let task = self.u(uid).task;
         if c.kind.def().heal > 0.0 {
             self.medic(uid, dt);

@@ -79,8 +79,8 @@ impl World {
 
     // ---- per-tick update (update.js) ----
     pub(crate) fn step_path(&mut self, uid: Id, dt: f64) -> bool {
+        let speed = self.live_speed(uid);
         let u = self.um(uid);
-        let speed = u.kind.def().speed;
         let Some(path) = u.path.as_mut() else {
             return true;
         };
@@ -115,8 +115,8 @@ impl World {
         }
         if self.u(uid).kind.def().air {
             // Flyers close in on a straight line, nothing below can block them.
+            let mv = self.live_speed(uid) * dt;
             let u = self.um(uid);
-            let mv = u.kind.def().speed * dt;
             u.path = None;
             u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
             u.x = clamp(ux + (p.0 - ux) / d * mv, 16.0, WW - 16.0);
@@ -139,8 +139,8 @@ impl World {
         if self.u(uid).path.as_ref().is_some_and(|p| !p.is_empty()) {
             self.step_path(uid, dt);
         } else {
+            let mv = self.live_speed(uid) * dt;
             let u = self.u(uid);
-            let mv = u.kind.def().speed * dt;
             let (nx, ny) = (u.x + (p.0 - u.x) / d * mv, u.y + (p.1 - u.y) / d * mv);
             if !self
                 .map
@@ -198,9 +198,7 @@ impl World {
     }
 
     pub(crate) fn set_idle(&mut self, uid: Id) {
-        let u = self.um(uid);
-        u.task = Task::Idle;
-        u.path = None;
+        self.set_task(uid, Task::Idle);
     }
 
     pub(crate) fn update_move(&mut self, uid: Id, x: f64, y: f64, dt: f64) {

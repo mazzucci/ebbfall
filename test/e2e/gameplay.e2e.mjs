@@ -230,6 +230,18 @@ test('an attack raises an alert, and Space jumps to it', async () => {
     await d.key(' ');
     const view = await d.eval(() => { const c = endfall.cam; return { x0: c.x, y0: c.y, x1: c.x + 1280 / c.zoom, y1: c.y + 480 / c.zoom }; });
     assert.ok(spot.x > view.x0 && spot.x < view.x1 && spot.y > view.y0 && spot.y < view.y1, `camera shows the fight: ${JSON.stringify(view)}`);
+    // A second attack far from the first: Space looks at it, then back at the first.
+    const core = coreOf(s), far = { x: core.x > 1000 ? core.x - 640 : core.x + 640, y: core.y };
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'trooper', x, y); endfall.engine.debugSpawn(1, 'trooper', x + 50, y); }, [far.x, far.y]);
+    await d.centerOn(1800, 1800);
+    await until(d, async () => d.eval((fx) => endfall.G.units.some(u => u.team === 0 && Math.abs(u.x - fx) < 200 && u.hp < u.maxhp), far.x), { seconds: 10, step: 1, what: 'the second attack' });
+    await d.page.waitForTimeout(600); // (a frame or two: its alert reaches the client)
+    // In view (the camera stops at the map's edge, so not necessarily centred).
+    const inView = (p) => d.eval((p) => { const c = endfall.cam, v = endfall.view; return p.x > c.x && p.x < c.x + v.w / c.zoom && p.y > c.y && p.y < c.y + v.h / c.zoom; }, p);
+    await d.key(' ');
+    assert.ok(await inView(far) && !(await inView(spot)), 'the newest attack first');
+    await d.key(' ');
+    assert.ok(await inView(spot), 'then the one before');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -981,6 +993,29 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
     assert.match(await info.textContent(), /Strong against.*Weak against/);
     assert.equal(await info.locator('.vs img').count(), 3, 'portraits: Scythe and Wasp; Vanguard');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: Home looks at the base, a second tap on Army looks at the army', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const view = () => d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x + v.w / c.zoom / 2, y: c.y + v.h / c.zoom / 2 }; });
+    // Far from home, then Home.
+    await d.centerOn(core.x > 1000 ? 300 : 1700, core.y > 1000 ? 300 : 1700);
+    await d.page.locator('#btnHome').tap();
+    const v = await view();
+    assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centres on the Core: ${JSON.stringify(v)} vs ${core.x},${core.y}`);
+    // An army somewhere else: the first tap selects it, the second also looks at it.
+    const [ax, ay] = [core.x > 1000 ? core.x - 500 : core.x + 500, core.y];
+    await d.eval(([x, y]) => [0, 1, 2].forEach(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [ax, ay]);
+    await d.page.waitForTimeout(400); // (the chip counts them)
+    const chip = await d.page.locator('#btnArmy').boundingBox();
+    await d.doubleTapAt(chip.x + chip.width / 2, chip.y + chip.height / 2); // (two taps within the second)
+    assert.equal((await d.selection()).length, 3);
+    const w = await view();
+    assert.ok(Math.hypot(w.x - (ax + 24), w.y - ay) < 64, `the second tap looks at the army: ${JSON.stringify(w)}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

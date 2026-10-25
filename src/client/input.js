@@ -7,7 +7,7 @@ import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelectio
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave, blockedUpright } from './screen.js';
-import { selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
+import { goHome, selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
@@ -321,8 +321,9 @@ function bindMinimap() {
 function bindSelectButton() {
   const bx = $('btnBox');
   if (bx) {
-    if (matchMedia('(any-pointer: coarse)').matches) bx.hidden = false;
-    cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') bx.hidden = false; });
+    const show = () => { bx.hidden = false; $('btnHome').hidden = false; }; // (Home goes with SELECT: touch screens)
+    if (matchMedia('(any-pointer: coarse)').matches) show();
+    cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') show(); });
     let downAt = 0, viaPointer = false;
     bx.addEventListener('pointerdown', ev => { ev.stopPropagation(); ev.preventDefault(); viaPointer = true; downAt = ev.timeStamp; boxDone = false; ui.box = ui.box ? false : 'held'; boxButton(); });
     bx.addEventListener('pointerup', ev => { if (ui.box === 'held') ui.box = !boxDone && ev.timeStamp - downAt <= 350 ? 'once' : false; boxButton(); });
@@ -350,7 +351,7 @@ function bindKeys() {
     if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
-    if (k === 'Home') { const c = G.bldgs.find(b => b.team === G.me && b.d.hq); if (c) centerOn(c.x, c.y); ev.preventDefault(); return; }
+    if (k === 'Home') { goHome(); ev.preventDefault(); return; }
     const items = cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); return; }
     if (!it && (k === 'q' || k === 'Q')) selectArmy();

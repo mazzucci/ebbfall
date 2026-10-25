@@ -265,21 +265,16 @@ impl World {
                     .filter(|&&q| q == k)
                     .count()
         };
-        // A capital unit due at a finished air factory: the other factories keep its price back too, or the army
-        // spends every shard and the giant never comes.
-        let capital_due = my_b
-            .iter()
-            .filter_map(|&id| self.bldg(id))
-            .filter(|b| b.done && b.kind == self.factions[e as usize].ai.air)
-            .find_map(|b| {
-                b.kind.def().trains.iter().copied().find(|k| {
-                    k.def().capital
-                        && k.def()
-                            .req
-                            .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
-                })
-            })
-            .filter(|&c| mine(self, c) < CAPITAL_AT.iter().filter(|&&at| t > at).count());
+        // A capital unit due: the other factories keep its price back too, or the army spends every shard and the
+        // giant never comes. What is held back (for it, and for the building the build order wants next) only
+        // counts against a unit for the resources that unit spends: a Trooper does not wait for ether.
+        let capital_due = self.capital_due(e, &my_b, t);
+        let held = {
+            let r = want.map_or([0, 0], |w| w.def().cost);
+            let k = capital_due.map_or([0, 0], |k| k.def().cost);
+            [r[0] + k[0], r[1] + k[1]]
+        };
+        let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
         for &bid in &my_b {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
@@ -332,7 +327,7 @@ impl World {
             };
             // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks. Short of
             // shards it waits for them instead, as a Trooper would only delay the specialist.
-            let u = if self.res[e as usize][1] >= u.def().cost[1] {
+            let u = if self.res[e as usize][1] >= need(u.def().cost)[1] {
                 u
             } else {
                 b.kind.def().trains[0]
@@ -344,18 +339,47 @@ impl World {
             // Units wait while the money is spoken for by the building the build order wants next (supply, a
             // factory, the tech, the air factory): otherwise the army spends every shard as it comes in.
             if qlen < 2 && !saving {
-                let c = u.def().cost;
-                let r = want.map_or([0, 0], |w| w.def().cost);
-                let due = capital_due.filter(|&k| u != k);
-                let k = due.map_or([0, 0], |k| k.def().cost);
-                // (and its supply: a giant needs several free places at once)
+                // (and the giant's supply: it needs several free places at once; the build order wants supply
+                // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup[e as usize];
-                let room = due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
-                if room && self.can_afford(e, [c[0] + r[0] + k[0], c[1] + r[1] + k[1]]) {
+                let room =
+                    capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
+                if room && self.can_afford(e, need(u.def().cost)) {
                     let _ = self.queue_unit(bid, u);
                 }
             }
         }
+    }
+
+    /// The capital unit `e`'s finished air factory should raise now (one after CAPITAL_AT[0] s, a second after
+    /// [1]), if any: counted with those queued.
+    pub(crate) fn capital_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<UnitKind> {
+        let air = self.factions[e as usize].ai.air;
+        let k = my_b
+            .iter()
+            .filter_map(|&id| self.bldg(id))
+            .filter(|b| b.done && b.kind == air)
+            .find_map(|b| {
+                b.kind.def().trains.iter().copied().find(|k| {
+                    k.def().capital
+                        && k.def()
+                            .req
+                            .is_none_or(|r| self.ai_count(my_b, true, r) >= 1)
+                })
+            })?;
+        let have = self
+            .units
+            .iter()
+            .filter(|u| u.team == e && u.kind == k)
+            .count()
+            + self
+                .bldgs
+                .iter()
+                .filter(|b| b.team == e)
+                .flat_map(|b| b.queue.iter())
+                .filter(|&&q| q == k)
+                .count();
+        (have < CAPITAL_AT.iter().filter(|&&at| t > at).count()).then_some(k)
     }
 
     /// The army: jump intruders, Wasp raids, waves to where the player is believed to be, retreat, regroup.

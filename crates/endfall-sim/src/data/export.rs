@@ -127,14 +127,18 @@ impl ToJson for Option<Weapon> {
 }
 
 fn upgrade(d: &UpgradeDef) -> String {
-    let effect = match d.effect {
-        Effect::Weapons => "weapons",
-        Effect::Armor => "armor",
-        Effect::Shields => "shields",
+    let (effect, of) = match d.effect {
+        Effect::Weapons => ("weapons", ""),
+        Effect::Armor => ("armor", ""),
+        Effect::Shields => ("shields", ""),
+        Effect::Unlock(a) => ("unlock", a.def().key),
+        Effect::Speed(u) => ("speed", u.def().key),
     };
     Obj::new()
         .str("name", d.name)
         .str("effect", effect)
+        .str("of", of)
+        .num("levels", d.levels)
         .raw("cost", array(d.cost.map(array)))
         .raw("time", array(d.time))
         .done()
@@ -180,6 +184,7 @@ pub fn data_json() -> String {
         .num("player", PLAYER)
         .num("enemy", ENEMY)
         .num("unit_warp", UNIT_WARP)
+        .num("tech_speed", TECH_SPEED)
         .done();
     Obj::new()
         .raw("consts", consts)

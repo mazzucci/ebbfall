@@ -21,6 +21,7 @@ const P = {
   heal: 'M12 5v14M5 12h14',
   armor: 'M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6zM12 9v6M9 12h6',
   stim: 'M13 2 5 14h6l-2 8 8-12h-6z',
+  speed: 'M5 6l6 6-6 6M12 6l6 6-6 6',
   entrench: 'M4 18h16M6 18v-4h12v4M9 14V9h6v5M12 9V4',
   blink: 'M4 12h9M10 8l4 4-4 4M17 6v12M20 9v6',
   overcharge: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M14 2l1 4-4-1',
@@ -38,6 +39,8 @@ const P = {
 export function setIconButton(el, name, label) { el.innerHTML = icon(name) + `<span class="t">${label}</span>`; }
 
 /** Inline SVG markup for a line icon. */
+// A tech shows the icon of what it gives.
+Object.assign(P, { entrenching: P.entrench, overchargeCore: P.overcharge, afterburners: P.speed, slipstream: P.speed });
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[name] || ''}"/></svg>`;
 
 /** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. In `team`'s

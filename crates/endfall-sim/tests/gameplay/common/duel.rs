@@ -14,6 +14,22 @@ pub fn flat_arena(seed: u32) -> World {
     w
 }
 
+/// A flat arena where both sides have researched every tech (abilities unlocked, flyers sped up).
+pub fn tech_arena(seed: u32) -> World {
+    let mut w = flat_arena(seed);
+    all_techs(&mut w);
+    w
+}
+
+/// Both sides have every one-level tech.
+pub fn all_techs(w: &mut World) {
+    for up in UPGRADES.into_iter().filter(|u| u.levels() == 1) {
+        for t in 0..2 {
+            w.upgrades[t][up.index()] = 1;
+        }
+    }
+}
+
 /// Clear the rock and resource fields from a rectangle of tiles (scenes that need a known piece of ground).
 pub fn flatten(w: &mut World, xs: std::ops::Range<i32>, ys: std::ops::Range<i32>) {
     let inside = |x: i32, y: i32| xs.contains(&x) && ys.contains(&y);

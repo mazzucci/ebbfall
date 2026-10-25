@@ -17,6 +17,8 @@ export const PLAYER = D.consts.player;
 export const ENEMY = D.consts.enemy;
 /** Seconds a unit takes to warp in at a power field (the Vael). */
 export const UNIT_WARP = D.consts.unit_warp;
+/** A speed tech's multiple for its flyer. */
+export const TECH_SPEED = D.consts.tech_speed;
 
 /** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A fighter's `strong`/`weak`: the kinds
  *  it beats, and is beaten by, in a cost-equal fight (measured with the duels of tests/gameplay/balance.rs). Whatever a
@@ -44,7 +46,7 @@ const BLDG_TEXT = {
   depot: { hot: 'D', desc: '+8 supply.' },
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers, Medics and Vanguards (Medics and Vanguards need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades; unlocks Medics and Vanguards at the Garrison.' },
+  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades and Entrenching; unlocks Medics and Vanguards at the Garrison.' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
   airfield: { hot: 'A', desc: 'Trains Wasps, Observers and the Bastion capital gunship.' },
   // the Vael
@@ -52,11 +54,12 @@ const BLDG_TEXT = {
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
   kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Halos and Monoliths (Halos and Monoliths need a Loom). With its rally point in a power field, they warp in there.' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades; unlocks Monoliths and the Zenith.' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades and Overcharge Core; unlocks Monoliths.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
   zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital walker. With its rally point in a power field, they warp in there.' },
 };
-const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' } };
+const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
+  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
@@ -82,6 +85,13 @@ const ABILITY_TEXT = {
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
+// A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
+for (const u of Object.values(UPGRADES)) {
+  if (u.effect === 'unlock') u.desc = `Unlocks ${ABILITIES[u.of].name} for ${Object.values(UNITS).filter(d => (d.abilities || []).includes(u.of)).map(d => d.name + 's').join(' and ')}.`;
+  if (u.effect === 'speed') u.desc = `${UNITS[u.of].name}s fly ${Math.round((TECH_SPEED - 1) * 100)}% faster.`;
+}
+/** The tech that unlocks ability `k` (its key), or null when none does. */
+export const unlockOf = (k) => Object.keys(UPGRADES).find(u => UPGRADES[u].effect === 'unlock' && UPGRADES[u].of === k) || null;
 /** The snapshot record layouts (field names per record) and code names, from crates/endfall-sim/src/snapshot.rs. */
 export const SCHEMA = D.schema;
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */

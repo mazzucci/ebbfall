@@ -1,6 +1,6 @@
 // The command card: the buttons for what is selected (orders, the Build pages, training, research), the long-press
 // details on touch, and what a button does (doCommand).
-import { G, map, UNITS, BUILDINGS, UPGRADES, ABILITIES, TILE, canPlace, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, map, UNITS, BUILDINGS, UPGRADES, ABILITIES, TILE, canPlace, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, unlockOf } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection, touchUi } from './ui.js';
 import { cam, view } from './gl/render.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
@@ -27,7 +27,11 @@ function canUse(u, k) {
  *  toggle is on for all of them. No countdowns: a button comes back when it is ready. */
 function abilityItems(units) {
   return Object.keys(ABILITIES).filter(k => units.some(u => (UNITS[u.type].abilities || []).includes(k))).map(k => {
-    const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k));
+    const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k)), tech = unlockOf(k);
+    if (tech && !G.upgrades[G.me][tech]) { // not researched yet: locked, and where to research it
+      const at = Object.values(BUILDINGS).find(d => (d.researches || []).includes(tech));
+      return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, locked: true, tip: `${a.desc} Research ${UPGRADES[tech].name} at the ${at?.name ?? 'tech building'} first.` };
+    }
     return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), active: a.toggle && have.every(u => u.mode === k), tip: a.desc };
   });
 }
@@ -73,14 +77,19 @@ export function cardItems() {
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
+      // Fixed slots: a research building's own row holds two researches and Cancel, the techs go below. A factory's one
+      // tech sits after its units and Rally, and while it researches its button becomes the Cancel (the card keeps its
+      // shape; the queue's Cancel keeps its own slot). A finished tech leaves its slot empty.
+      const slots = trains.length ? [trains.length + 1] : [0, 1, 3, 4, 5], busy = researching(bl);
+      const cancelr = busy && { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' };
       b.d.researches.forEach((k, i) => {
         const u = UPGRADES[k];
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
-        if (lv > 3) return;
-        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
+        if (trains.length && busy?.research.type === k) { at(slots[i] ?? i, cancelr); return; }
+        if (lv > u.levels) return;
+        at(slots[i] ?? i, { id: 'r_' + k, label: u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
-      const busy = researching(bl);
-      if (busy) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' });
+      if (busy && !trains.length) at(2, cancelr);
     }
     // A dark building (no power field) trains and researches nothing: its buttons say so.
     if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ` Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it.` });

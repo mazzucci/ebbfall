@@ -30,6 +30,7 @@ pub const HUMANS: Faction = Faction {
         mix: &[(UnitKind::Medic, 6), (UnitKind::Vanguard, 2)],
         raider: UnitKind::Wasp,
         wave_scale: 1.0,
+        tech_from: 300.0,
     },
 };
 
@@ -246,7 +247,7 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
 };
 pub(super) const FORGE: BldgDef = BldgDef {
     key: "forge",
-    researches: &[Upgrade::Weapons, Upgrade::Armor],
+    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Entrenching],
     name: "Foundry",
     cost: [150, 100],
     hp: 820.0,
@@ -286,6 +287,7 @@ pub(super) const AIRFIELD: BldgDef = BldgDef {
     build: 50.0,
     sight: 8.0,
     trains: &[UnitKind::Wasp, UnitKind::Observer, UnitKind::Bastion],
-    req: Some(BldgKind::Forge),
+    req: Some(BldgKind::Barracks), // (air is a branch of its own, beside the ground tech)
+    researches: &[Upgrade::Afterburners],
     ..BLDG
 };

@@ -22,7 +22,7 @@ fn shots(w: &mut World, shooter: Id, secs: u32) -> usize {
 
 /// A shooter of `kind` facing a target that will not die soon, 4 tiles apart, on open ground.
 fn range_scene(kind: UnitKind, seed: u32) -> (World, Id, Id) {
-    let mut w = flat_arena(seed);
+    let mut w = tech_arena(seed);
     if kind.def().shields > 0.0 {
         w.factions = [&VAEL, &HUMANS];
     }
@@ -48,7 +48,7 @@ fn stim_costs_hull_and_fires_and_runs_faster_for_a_while() {
         "about 1.5x the shots: {stimmed} vs {base}"
     );
     // Faster on its feet too.
-    let mut a = flat_arena(2);
+    let mut a = tech_arena(2);
     let p = a.make_unit(UnitKind::Trooper, PLAYER, 10.0 * TILE, 30.0 * TILE);
     let q = a.make_unit(UnitKind::Trooper, PLAYER, 10.0 * TILE, 34.0 * TILE);
     a.cast(q, AbilityKind::Stim).unwrap();
@@ -71,7 +71,7 @@ fn stim_costs_hull_and_fires_and_runs_faster_for_a_while() {
 #[test]
 fn entrench_reaches_farther_but_cannot_move_and_packs_up_to_walk() {
     // A target at 8 tiles: out of a Vanguard's normal reach (6), inside its entrenched one (9).
-    let mut w = flat_arena(3);
+    let mut w = tech_arena(3);
     let v = w.make_unit(UnitKind::Vanguard, PLAYER, 30.0 * TILE, 30.0 * TILE);
     let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 38.5 * TILE, 30.0 * TILE);
     set_hp(&mut w, foe, 1e6);
@@ -99,7 +99,7 @@ fn entrench_reaches_farther_but_cannot_move_and_packs_up_to_walk() {
 
 #[test]
 fn blink_hops_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
-    let mut w = flat_arena(4);
+    let mut w = tech_arena(4);
     w.factions = [&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 30.0 * TILE);
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 28.0 * TILE, 30.0 * TILE);
@@ -122,7 +122,7 @@ fn blink_hops_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
         "ready after 20 s"
     );
     // Facing a building with no target: it lands on the nearest open tile, never inside.
-    let mut w = flat_arena(5);
+    let mut w = tech_arena(5);
     w.factions = [&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 30.5 * TILE);
     w.make_building(BldgKind::Depot, ENEMY, 23, 29, true);
@@ -148,7 +148,7 @@ fn overcharge_doubles_a_monoliths_fire_for_a_while() {
 
 #[test]
 fn a_selection_casts_together_and_only_its_own_units() {
-    let mut w = flat_arena(7);
+    let mut w = tech_arena(7);
     let mine: Vec<Id> = (0..3)
         .map(|i| {
             w.make_unit(
@@ -193,8 +193,9 @@ fn a_selection_casts_together_and_only_its_own_units() {
 
 #[test]
 fn the_ai_uses_abilities_in_its_fights() {
-    // Two AIs, Humans against the Vael: in their fights both sides cast.
-    let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    // Two AIs, Humans against the Vael: in their fights both sides cast, a researched ability too (Entrench or
+    // Overcharge: the AI researches its techs and uses them).
+    let mut w = World::with_setup(6, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
     w.set_ai_seats([true, true]);
     let mut cast: Vec<&str> = Vec::new();
     for _ in 0..30 * 60 * 15 {
@@ -211,14 +212,19 @@ fn the_ai_uses_abilities_in_its_fights() {
         }
     }
     assert!(
-        cast.contains(&"stim") && (cast.contains(&"blink") || cast.contains(&"overcharge")),
+        cast.contains(&"stim") && cast.contains(&"blink"),
         "both sides used abilities: {cast:?}"
+    );
+    assert!(
+        cast.contains(&"entrench") || cast.contains(&"overcharge"),
+        "a researched ability was used: {cast:?} (techs {:?})",
+        w.upgrades
     );
 }
 
 #[test]
 fn an_attack_order_packs_an_entrenched_unit_up_and_a_lost_target_leaves_it_holding() {
-    let mut w = flat_arena(8);
+    let mut w = tech_arena(8);
     let v = w.make_unit(UnitKind::Vanguard, PLAYER, 20.0 * TILE, 30.0 * TILE);
     w.cast(v, AbilityKind::Entrench).unwrap();
     run(&mut w, 3);
@@ -253,7 +259,7 @@ fn an_attack_order_packs_an_entrenched_unit_up_and_a_lost_target_leaves_it_holdi
 
 #[test]
 fn the_ai_does_not_restim_while_a_stim_runs() {
-    let mut w = flat_arena(9);
+    let mut w = tech_arena(9);
     let t = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 30.0 * TILE);
     w.make_unit(UnitKind::Medic, PLAYER, 19.0 * TILE, 30.0 * TILE);
     for i in 0..3 {
@@ -284,4 +290,58 @@ fn the_ai_does_not_restim_while_a_stim_runs() {
         casts <= 1,
         "one Stim for the 10 s, not one a second: {casts}"
     );
+}
+
+#[test]
+fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
+    let (mut w, forge) = forge_arena(11);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 640.0, 1280.0);
+    assert_eq!(
+        w.cast(v, AbilityKind::Entrench),
+        Err("Research Entrenching first".into()),
+        "locked until researched"
+    );
+    // A line unit's ability needs no tech.
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 700.0, 1280.0);
+    assert!(w.cast(t, AbilityKind::Stim).is_ok(), "Stim from the start");
+    research_level(&mut w, forge, Upgrade::Entrenching);
+    assert!(w.cast(v, AbilityKind::Entrench).is_ok(), "unlocked");
+    assert_eq!(
+        w.start_research(forge, Upgrade::Entrenching),
+        Err("Entrenching is fully upgraded".into()),
+        "one level"
+    );
+    // The other side's Vanguards are still locked: a tech is a team's.
+    let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 900.0, 1280.0);
+    assert!(w.cast(foe, AbilityKind::Entrench).is_err());
+}
+
+#[test]
+fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
+    let travel = |tech: bool, n: usize| {
+        let mut w = flat_arena(12);
+        if tech {
+            w.upgrades[PLAYER as usize][Upgrade::Afterburners.index()] = 1;
+        }
+        let us: Vec<Id> = (0..n)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Wasp,
+                    PLAYER,
+                    20.0 * TILE,
+                    (28.0 + 2.0 * i as f64) * TILE,
+                )
+            })
+            .collect();
+        w.attack_move_group(&us, 50.0 * TILE, 30.0 * TILE);
+        run(&mut w, 3);
+        w.unit(us[0]).unwrap().x - 20.0 * TILE
+    };
+    for n in [1, 2] {
+        let (slow, fast) = (travel(false, n), travel(true, n));
+        assert!(
+            fast > slow * 1.25,
+            "Afterburners, {n} Wasps: {fast} vs {slow}"
+        );
+    }
 }

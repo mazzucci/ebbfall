@@ -334,7 +334,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Weapons I', 'Armor I', 'Cancel'], 'the Forge card: research and its cancel');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrenching'], 'the Forge card: research and its cancel, a tech below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -347,6 +347,21 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'trooper damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 3, 'a few figures: ground, air, armor');
+    // A Trooper's Stim is there from the start; a Vanguard's Entrench waits for Entrenching, researched at the Foundry.
+    assert.ok((await d.card()).some(c => c.label === 'Stim' && c.enabled), 'Stim from the start');
+    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'vanguard', x, y), [forge.x + 60, forge.y + 90]);
+    await d.clickEntity(v);
+    assert.ok((await d.card()).some(c => c.label === 'Entrench' && !c.enabled), 'Entrench locked');
+    await d.pressCard('Entrench');
+    assert.ok((await d.toasts()).some(t => /Research Entrenching first/.test(t)), 'it says which tech');
+    await d.grant(500, 500);
+    await d.clickEntity(forge.id);
+    await d.pressCard('Entrenching');
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 90, what: 'Entrenching' });
+    await d.clickEntity(forge.id);
+    assert.ok(!(await d.card()).some(c => c.label === 'Entrenching'), 'a finished tech leaves the card');
+    await d.clickEntity(v);
+    assert.ok((await d.card()).some(c => c.label === 'Entrench' && c.enabled), 'Entrench unlocked');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -844,7 +859,8 @@ test('phone: one tap on the card uses an ability for the selection (Stim, then E
     await d.pressCard('Stim');
     const after = await units();
     assert.ok(after.slice(0, 3).every(u => u.boost === 'stim' && u.hp === 38), `all three stimmed for 10 health: ${JSON.stringify(after)}`);
-    // The Vanguard: Entrench is a toggle, lit while on; a second tap packs it up.
+    // The Vanguard: Entrench (set up: Entrenching researched) is a toggle, lit while on; a second tap packs it up.
+    await d.eval(() => endfall.engine.debugResearch(0, 'entrenching'));
     await d.clickEntity(v);
     await d.pressCard('Entrench');
     assert.equal((await units())[3].mode, 'entrench');

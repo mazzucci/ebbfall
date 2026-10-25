@@ -160,6 +160,7 @@ export const holdWaves = (on) => game.holdWaves(on);
 export const concede = () => touch(game.concede());
 /** Tests and tools only: put a unit on the map; returns its id (0 if refused). */
 export const debugSpawn = (team, kind, x, y) => touch(game.debugSpawn(team, kind, x, y));
+export const debugResearch = (team, key, level = 1) => touch(game.debugResearch(team, key, level));
 /** Tests and tools only. */
 export const debugSetHp = (b, hp) => touch(game.debugSetHp(b.id ?? b, hp));
 /** Tests and tools only. */

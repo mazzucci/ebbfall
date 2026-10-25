@@ -22,7 +22,7 @@ export function bldgStatus(b) {
     return warp ? (busy ? 'Being planted' : 'Not planted yet') : busy ? 'Constructing' : 'Paused: no builder';
   }
   if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[FACTIONS[G.factions[b.team]]?.power]?.name ?? 'power source'} near it`; // (the owner's race)
-  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + ' ' + ROMAN[lv]; }
+  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
   if (b.d.onVent && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
@@ -55,10 +55,12 @@ function fightStats(x) {
   return h;
 }
 
-/** The research a building is doing: the upgrade, its level (pips for I-III) and a bar. */
+/** The research a building is doing: the upgrade, its level (pips for I-III; a one-level tech has none) and a bar. */
 function researchModule(b) {
-  const k = b.research.type, lv = G.upgrades[b.team][k] + 1;
-  return `<div class="rs" title="Researching ${UPGRADES[k].name} ${ROMAN[lv]}">${icon(k)}<div class="rb"><div class="rt">${UPGRADES[k].name} <b>${ROMAN[lv]}</b><span class="pips">${[1, 2, 3].map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span></div><div class="bar res"><i></i></div></div></div>`;
+  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, name = u.levels > 1 ? `${u.name} ${ROMAN[lv]}` : u.name;
+  const pips = u.levels > 1 ? `<span class="pips">${Array.from({ length: u.levels }, (_, j) => j + 1).map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span>` : '';
+  const shown = u.levels > 1 ? `${u.name} <b>${ROMAN[lv]}</b>` : u.name;
+  return `<div class="rs" title="Researching ${name}">${icon(k)}<div class="rb"><div class="rt">${shown}${pips}</div><div class="bar res"><i></i></div></div></div>`;
 }
 
 let modKey = '';

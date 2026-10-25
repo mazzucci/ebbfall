@@ -1,12 +1,20 @@
-//! Team-wide upgrades.
+//! Team-wide upgrades: the three-level Weapons/Armor/Shields, and one-level techs (a heavy unit's ability, a faster
+//! flyer) that make each race's tech a set of choices the other side must scout. A line unit's ability (Stim, Blink)
+//! needs none: it is there from the first fight.
 
-/// Team-wide upgrades, three levels each, researched at a building that lists them (`BldgDef::researches`).
+use super::{AbilityKind, UnitKind};
+
+/// Team-wide upgrades, researched at a building that lists them (`BldgDef::researches`).
 /// The order is the index the snapshot sends; append only.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
+    Entrenching,
+    Afterburners,
+    OverchargeCore,
+    Slipstream,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -18,7 +26,14 @@ pub enum Effect {
     Armor,
     /// Each level soaks 1 damage of every hit that lands on shields (at least 1 still lands): the Vael's armor.
     Shields,
+    /// Researched, the ability can be used (until then its button is locked).
+    Unlock(AbilityKind),
+    /// Researched, this unit kind moves `TECH_SPEED` times as fast.
+    Speed(UnitKind),
 }
+
+/// The speed a `Speed` tech gives its unit, as a multiple.
+pub const TECH_SPEED: f64 = 1.3;
 
 pub struct UpgradeDef {
     pub key: &'static str,
@@ -28,8 +43,11 @@ pub struct UpgradeDef {
     pub cost: [[i32; 2]; 3],
     /// Research time of levels 1, 2 and 3, in seconds.
     pub time: [f64; 3],
+    /// How many levels it has: 3, or 1 for a tech (only the first cost and time count).
+    pub levels: u8,
 }
 
+/// The most levels an upgrade has.
 pub const MAX_UPGRADE: u8 = 3;
 
 const WEAPONS: UpgradeDef = UpgradeDef {
@@ -38,6 +56,7 @@ const WEAPONS: UpgradeDef = UpgradeDef {
     effect: Effect::Weapons,
     cost: [[100, 100], [175, 175], [250, 250]],
     time: [60.0, 75.0, 90.0],
+    levels: 3,
 };
 const ARMOR: UpgradeDef = UpgradeDef {
     key: "armor",
@@ -53,8 +72,54 @@ const SHIELDS: UpgradeDef = UpgradeDef {
     ..WEAPONS
 };
 
+/// A one-level tech: 100/100, 60 s.
+const TECH: UpgradeDef = UpgradeDef {
+    key: "",
+    name: "",
+    effect: Effect::Weapons,
+    cost: [[100, 100]; 3],
+    time: [60.0; 3],
+    levels: 1,
+};
+const ENTRENCHING: UpgradeDef = UpgradeDef {
+    key: "entrenching",
+    name: "Entrenching",
+    effect: Effect::Unlock(AbilityKind::Entrench),
+    cost: [[125, 125]; 3],
+    time: [70.0; 3],
+    ..TECH
+};
+const AFTERBURNERS: UpgradeDef = UpgradeDef {
+    key: "afterburners",
+    name: "Afterburners",
+    effect: Effect::Speed(UnitKind::Wasp),
+    ..TECH
+};
+const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {
+    key: "overchargeCore",
+    name: "Overcharge Core",
+    effect: Effect::Unlock(AbilityKind::Overcharge),
+    cost: [[150, 150]; 3],
+    time: [80.0; 3],
+    ..TECH
+};
+const SLIPSTREAM: UpgradeDef = UpgradeDef {
+    key: "slipstream",
+    name: "Slipstream",
+    effect: Effect::Speed(UnitKind::Shrike),
+    ..TECH
+};
+
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 3] = [Upgrade::Weapons, Upgrade::Armor, Upgrade::Shields];
+pub const UPGRADES: [Upgrade; 7] = [
+    Upgrade::Weapons,
+    Upgrade::Armor,
+    Upgrade::Shields,
+    Upgrade::Entrenching,
+    Upgrade::Afterburners,
+    Upgrade::OverchargeCore,
+    Upgrade::Slipstream,
+];
 
 impl Upgrade {
     pub fn def(self) -> &'static UpgradeDef {
@@ -62,6 +127,10 @@ impl Upgrade {
             Upgrade::Weapons => &WEAPONS,
             Upgrade::Armor => &ARMOR,
             Upgrade::Shields => &SHIELDS,
+            Upgrade::Entrenching => &ENTRENCHING,
+            Upgrade::Afterburners => &AFTERBURNERS,
+            Upgrade::OverchargeCore => &OVERCHARGE_CORE,
+            Upgrade::Slipstream => &SLIPSTREAM,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {
@@ -69,6 +138,16 @@ impl Upgrade {
     }
     pub fn index(self) -> usize {
         self as usize
+    }
+    /// How many levels it has (3, or 1 for a tech).
+    pub fn levels(self) -> u8 {
+        self.def().levels
+    }
+    /// The tech that unlocks `ability`, if one does.
+    pub fn unlocking(ability: AbilityKind) -> Option<Upgrade> {
+        UPGRADES
+            .into_iter()
+            .find(|u| u.def().effect == Effect::Unlock(ability))
     }
     /// Cost of researching `level` (1..=3).
     pub fn cost(self, level: u8) -> [i32; 2] {

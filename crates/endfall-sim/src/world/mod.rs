@@ -342,7 +342,7 @@ impl World {
     /// A unit's walking speed right now (px/s).
     pub(crate) fn live_speed(&self, uid: Id) -> f64 {
         let u = self.u(uid);
-        let own = u.kind.def().speed * self.speed_mul(uid);
+        let own = self.base_speed(uid) * self.speed_mul(uid);
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
             _ => own,

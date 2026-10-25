@@ -177,9 +177,15 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 }
 
 #[test]
-fn medics_vanguards_and_airfields_need_a_forge() {
+fn medics_and_vanguards_need_a_forge_and_an_airfield_a_garrison() {
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Airfield);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
+        Err("Requires Garrison".into()),
+        "air is a branch off the first factory"
+    );
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
     for k in [UnitKind::Medic, UnitKind::Vanguard] {
         assert_eq!(
@@ -189,11 +195,12 @@ fn medics_vanguards_and_airfields_need_a_forge() {
         );
     }
     let (tx, ty) = spot(&w, BldgKind::Airfield);
-    assert_eq!(
-        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
-        Err("Requires Foundry".into())
+    assert!(
+        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1]))
+            .is_ok(),
+        "no Foundry needed for an Airfield"
     );
-    build(&mut w, BldgKind::Forge, h[1], 120);
+    build(&mut w, BldgKind::Forge, h[2], 120);
     assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
     assert!(w.queue_unit(rax, UnitKind::Vanguard).is_ok());
 }

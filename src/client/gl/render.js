@@ -216,7 +216,7 @@ class UnitObj {
     // Warping in at a power field (the Vael): a violet ghost, more solid as it lands, inside a pulsing ring, like a site.
     const warp = u.warp > 0 ? u.warp / UNIT_WARP : 0;
     // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
-    const cloak = UNITS[u.type].cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
+    const cloak = u.cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
     this.body.alpha = warp ? 0.2 + 0.65 * (1 - warp) : cloak;
     if (warp) {
       this.body.tint = u.flash > 0 ? 0xffffff : 0xcbb6ff;

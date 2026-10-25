@@ -15,6 +15,8 @@ pub enum Upgrade {
     Afterburners,
     OverchargeCore,
     Slipstream,
+    CloakingField,
+    VeilWeave,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -111,7 +113,22 @@ const SLIPSTREAM: UpgradeDef = UpgradeDef {
 };
 
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 7] = [
+const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
+    key: "cloakingField",
+    name: "Cloaking Field",
+    effect: Effect::Unlock(AbilityKind::Cloak),
+    cost: [[150, 150]; 3],
+    time: [80.0; 3],
+    ..TECH
+};
+const VEIL_WEAVE: UpgradeDef = UpgradeDef {
+    key: "veilWeave",
+    name: "Veil Weave",
+    effect: Effect::Unlock(AbilityKind::Veil),
+    ..CLOAKING_FIELD
+};
+
+pub const UPGRADES: [Upgrade; 9] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -119,6 +136,8 @@ pub const UPGRADES: [Upgrade; 7] = [
     Upgrade::Afterburners,
     Upgrade::OverchargeCore,
     Upgrade::Slipstream,
+    Upgrade::CloakingField,
+    Upgrade::VeilWeave,
 ];
 
 impl Upgrade {
@@ -131,6 +150,8 @@ impl Upgrade {
             Upgrade::Afterburners => &AFTERBURNERS,
             Upgrade::OverchargeCore => &OVERCHARGE_CORE,
             Upgrade::Slipstream => &SLIPSTREAM,
+            Upgrade::CloakingField => &CLOAKING_FIELD,
+            Upgrade::VeilWeave => &VEIL_WEAVE,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

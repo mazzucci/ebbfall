@@ -18,6 +18,8 @@ pub enum AbilityEffect {
     Entrench { range: f64, swap: f64 },
     /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
     Blink { dist: f64 },
+    /// Cloaked for `secs` (as an Observer is: seen and targeted only where the other side detects).
+    Cloak { secs: f64 },
 }
 
 def_struct! {
@@ -77,6 +79,20 @@ const OVERCHARGE: AbilityDef = AbilityDef {
     },
 };
 
+const CLOAK: AbilityDef = AbilityDef {
+    key: "cloak",
+    name: "Cloak",
+    toggle: false,
+    cooldown: 40.0,
+    effect: AbilityEffect::Cloak { secs: 12.0 },
+};
+const VEIL: AbilityDef = AbilityDef {
+    key: "veil",
+    name: "Veil",
+    toggle: false,
+    ..CLOAK
+};
+
 kinds! {
     /// Abilities. The order is the index the snapshot sends: append only.
     AbilityKind: AbilityDef, ABILITIES {
@@ -84,5 +100,7 @@ kinds! {
         Entrench => ENTRENCH,
         Blink => BLINK,
         Overcharge => OVERCHARGE,
+        Cloak => CLOAK,
+        Veil => VEIL,
     }
 }

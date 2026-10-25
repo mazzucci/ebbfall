@@ -334,7 +334,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrenching'], 'the Forge card: research and its cancel, a tech below');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrenching', 'Cloaking Field'], 'the Forge card: research and its cancel, the techs below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -1225,6 +1225,20 @@ test('an enemy Observer is invisible and cannot be picked until something of our
     await until(d, () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), obs), { seconds: 3, step: 0.5, what: 'detected' });
     await d.clickEntity(obs);
     assert.ok((await d.selection()).some(e => e.id === obs), 'picked once detected');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: a Wasp cloaks from its card once Cloaking Field is researched', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const wasp = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'wasp', x, y), [core.x + 160, core.y + 60]);
+    await d.clickEntity(wasp);
+    assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'locked before the tech');
+    await d.eval(() => endfall.engine.debugResearch(0, 'cloakingField')); // (set-up: researched)
+    await d.pressCard('Cloak');
+    assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).boost, wasp), 'cloak', 'cloaked');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

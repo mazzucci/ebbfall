@@ -106,3 +106,66 @@ fn a_ward_detects_only_while_powered() {
     assert!(!w.bldg(ward).unwrap().powered, "dark");
     assert!(!w.seen_by(PLAYER, obs), "a dark Ward detects nothing");
 }
+
+#[test]
+fn a_researched_wasp_cloaks_for_a_while_and_a_detector_still_finds_it() {
+    let mut w = flat_arena(14);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(wasp);
+    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    (o.hp, o.maxhp) = (1e6, 1e6); // (it outlives being seen again)
+    let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 26.0 * TILE, 30.0 * TILE);
+    w.hold_unit(lancer);
+    assert_eq!(
+        w.cast(wasp, AbilityKind::Cloak),
+        Err("Research Cloaking Field first".into())
+    );
+    w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.step();
+    assert!(!w.seen_by(PLAYER, wasp), "cloaked");
+    let hp = U(&w, wasp).hp;
+    run(&mut w, 5);
+    assert_eq!(
+        U(&w, wasp).hp,
+        hp,
+        "the Lancer cannot shoot what it cannot see"
+    );
+    run(&mut w, 8);
+    assert!(w.seen_by(PLAYER, wasp), "visible again after 12 s");
+    run(&mut w, 2);
+    assert!(U(&w, wasp).hp < hp, "and shot once visible");
+    // Cloaked again later (after its cooldown), but a Turret beside it detects it.
+    run(&mut w, 30);
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.make_building(BldgKind::Turret, PLAYER, 27, 32, true);
+    w.step();
+    assert!(w.seen_by(PLAYER, wasp), "detected");
+}
+
+#[test]
+fn the_ai_cloaks_a_wasp_only_against_anti_air_and_not_where_it_is_detected() {
+    // An AI Wasp attacking a building: it cloaks with a Lancer near, not with only a Vanguard near (it cannot hit
+    // air), and not beside a detecting Turret (no point).
+    let scene = |foe: UnitKind, turret: bool| {
+        let mut w = flat_arena(15);
+        w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
+        let depot = w.make_building(BldgKind::Depot, PLAYER, 30, 30, true);
+        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 33.0 * TILE, 31.0 * TILE);
+        w.attack_ent(wasp, depot);
+        let f = w.make_unit(foe, PLAYER, 26.0 * TILE, 31.0 * TILE);
+        w.hold_unit(f);
+        if turret {
+            w.make_building(BldgKind::Turret, PLAYER, 34, 28, true);
+        }
+        w.step();
+        w.auto_cast(ENEMY);
+        U(&w, wasp).boost.is_some()
+    };
+    assert!(scene(UnitKind::Lancer, false), "cloaks against a Lancer");
+    assert!(
+        !scene(UnitKind::Vanguard, false),
+        "not against what cannot hit air"
+    );
+    assert!(!scene(UnitKind::Lancer, true), "not beside a detector");
+}

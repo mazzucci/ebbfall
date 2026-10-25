@@ -662,6 +662,8 @@ test('offline: once loaded, the game opens and plays with no connection', async 
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.ok(await page.evaluate(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'core')), 'a game started offline');
+    // The typefaces come with the game, so they load offline too (and online, no font service is asked).
+    assert.ok(await page.evaluate(async () => { await document.fonts.ready; return ['Chakra Petch', 'Share Tech Mono'].every(fam => [...document.fonts].some(f => f.family.replace(/"/g, '') === fam && f.status === 'loaded')); }), 'fonts loaded offline');
   } finally { await ctx.close(); }
 });
 

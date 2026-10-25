@@ -278,7 +278,8 @@ impl Game {
         self.w.disable_ai();
     }
 
-    /// The guided first game: hold the opponent's waves back (until 5:00 at most), or let them come.
+    /// The guided first game: hold the opponent's waves back (until 6:00 at most), or let them come. A setup knob, not a
+    /// command: a replay of a guided game does not carry it.
     #[wasm_bindgen(js_name = holdWaves)]
     pub fn hold_waves(&mut self, on: bool) {
         self.w.hold_waves = on;

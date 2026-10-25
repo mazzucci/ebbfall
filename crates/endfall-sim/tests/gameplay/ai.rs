@@ -1017,3 +1017,21 @@ fn the_guided_first_game_holds_the_first_wave_until_released() {
     }
     assert!(ever, "the wave goes once released");
 }
+
+#[test]
+fn the_guided_first_game_hold_runs_out_at_six_minutes() {
+    // Held the whole time: no wave before 6:00, one soon after.
+    let mut w = World::new(4242, 0);
+    w.hold_waves = true;
+    let mut first = None;
+    for _ in 0..30 * 420 {
+        w.res[ENEMY as usize] = [2000, 500];
+        w.step();
+        w.events.clear();
+        if first.is_none() && w.ai_wave().is_some() {
+            first = Some(w.time);
+        }
+    }
+    let t = first.expect("a wave by 7:00");
+    assert!((360.0..420.0).contains(&t), "after the hold ran out: {t}");
+}

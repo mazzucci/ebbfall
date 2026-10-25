@@ -1156,3 +1156,19 @@ test('the screen is lean: resources, supply, full screen, sound and pause on top
   }
 });
 
+
+test('the menu shows a thumbnail of the chosen map, and a question mark for a random one', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    const pixels = () => page.evaluate(() => { const c = document.getElementById('mapPreview'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); });
+    const first = await pixels();
+    await page.locator('#maps .ib', { hasText: 'GLASS REACH' }).click();
+    const second = await pixels();
+    assert.notEqual(first, second, 'another map, another thumbnail');
+    assert.ok(new Set(second.split(',')).size > 8, 'rock, fields and starts in it');
+    await page.locator('#maps .ib.random').click();
+    assert.equal(await page.locator('#mapPreview').getAttribute('title'), 'A new map every time');
+  } finally { await ctx.close(); }
+});

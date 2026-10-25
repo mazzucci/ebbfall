@@ -3,7 +3,7 @@
 // State is mirrored from flat snapshot arrays after every step and order, so entity objects in hand are
 // always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
-import { Game } from './pkg/endfall_sim.js';
+import { Game, mapPreview as simMapPreview } from './pkg/endfall_sim.js';
 import { TILE, MW, MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
 import { clamp } from './util.js';
 
@@ -121,6 +121,8 @@ export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy 
 }
 export function step() { game.step(); dirty = true; sync(); }
 export function stateHash() { return game.stateHash(); }
+/** A map's layout for the menu's thumbnail (one byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start). */
+export const mapPreview = (seed, kind) => simMapPreview(seed, kind);
 /** `team`'s army value every 10 s since the start (the end screen's chart). */
 export const armyLog = (team) => Array.from(game.armyLog(team));
 

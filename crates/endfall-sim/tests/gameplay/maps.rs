@@ -256,3 +256,29 @@ fn each_main_is_a_pocket_with_one_ramp_except_on_open_plains() {
         }
     }
 }
+
+#[test]
+fn the_menu_preview_shows_the_map_as_it_will_be_played() {
+    for (seed, kind) in [(4242, 0), (1998, 1), (2077, 4)] {
+        let p = endfall_sim::map_preview(seed, kind);
+        let w = World::with_map(seed, 1, MapKind::from_index(kind));
+        assert_eq!(p.len(), (MW * MH) as usize);
+        for y in 0..MH {
+            for x in 0..MW {
+                let i = (y * MW + x) as usize;
+                let want = match w.map.occ[i] {
+                    o if o < 0 => {
+                        if w.map.node(-o as Id).unwrap().ether {
+                            3
+                        } else {
+                            2
+                        }
+                    }
+                    o if o > 0 => 4, // (a starting Core)
+                    _ => w.map.rock[i],
+                };
+                assert_eq!(p[i], want, "seed {seed} kind {kind}: tile {x},{y}");
+            }
+        }
+    }
+}

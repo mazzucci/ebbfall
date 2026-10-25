@@ -452,6 +452,38 @@ pub fn data_json() -> String {
     data::data_json()
 }
 
+/// A map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row: 0 open ground,
+/// 1 rock, 2 shards, 3 an ether vent, 4 a starting base (both starts alike: which is whose is drawn each game).
+#[wasm_bindgen(js_name = mapPreview)]
+pub fn map_preview(seed: u32, kind: u32) -> Vec<u8> {
+    use data::{MH, MW};
+    let mut next_id = 1;
+    let m = map::Map::generate(seed, map::MapKind::from_index(kind), &mut next_id);
+    let mut g = m.rock.clone();
+    let mut mark = |x: i32, y: i32, v: u8| {
+        if map::in_map(x, y) {
+            g[(y * MW + x) as usize] = v;
+        }
+    };
+    for n in &m.nodes {
+        let (size, v) = if n.ether { (2, 3) } else { (1, 2) };
+        for dy in 0..size {
+            for dx in 0..size {
+                mark(n.tx + dx, n.ty + dy, v);
+            }
+        }
+    }
+    for (bx, by) in m.bases {
+        for dy in 0..4 {
+            for dx in 0..4 {
+                mark(bx + dx, by + dy, 4);
+            }
+        }
+    }
+    debug_assert_eq!(g.len(), (MW * MH) as usize);
+    g
+}
+
 /// `Math.hypot` as the sim computes it; exposed so the tests can compare it with V8's.
 #[wasm_bindgen(js_name = jsHypot)]
 pub fn js_hypot(a: f64, b: f64) -> f64 {

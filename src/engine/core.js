@@ -121,6 +121,8 @@ export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy 
 }
 export function step() { game.step(); dirty = true; sync(); }
 export function stateHash() { return game.stateHash(); }
+/** `team`'s army value every 10 s since the start (the end screen's chart). */
+export const armyLog = (team) => Array.from(game.armyLog(team));
 
 // ---- orders (the future network command set) ----
 export const moveTo = (u, x, y) => touch(game.moveTo(u.id, x, y));

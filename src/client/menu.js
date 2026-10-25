@@ -69,14 +69,14 @@ export function initMenu({ onStart, onSound }) {
   if (store.get('muted') === '1') audio.muted = true;
   const diffs = document.querySelectorAll('#diff .ib');
   const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
-  diffs.forEach(b => b.addEventListener('click', () => { menu.diff = +b.dataset.d; store.set('diff', menu.diff); showDiff(); }));
+  diffs.forEach(b => b.addEventListener('click', () => { menu.diff = +b.dataset.d; store.set('diff', menu.diff); showDiff(); showRecord(); }));
   showDiff();
   // The player's race (remembered on this device).
   menu.race = ['humans', 'vael'].includes(store.get('race')) ? store.get('race') : 'humans';
   const races = document.querySelectorAll('#race .ib');
   const showRace = () => races.forEach(x => { const on = x.dataset.race === menu.race; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
-  races.forEach(b => b.addEventListener('click', () => { menu.race = b.dataset.race; store.set('race', menu.race); showRace(); sfx('select'); }));
-  showRace();
+  races.forEach(b => b.addEventListener('click', () => { menu.race = b.dataset.race; store.set('race', menu.race); showRace(); showRecord(); sfx('select'); }));
+  showRace(); showRecord();
   // The opponent's race (Random draws one each game).
   menu.enemy = ['humans', 'vael', 'random'].includes(store.get('enemy')) ? store.get('enemy') : 'humans';
   const foes = document.querySelectorAll('#enemy .ib');
@@ -98,6 +98,21 @@ export function initMenu({ onStart, onSound }) {
 }
 
 /** Back to the menu (after a game, or quitting), with the last choices. */
-export function showMenu() { renderMaps(); $('start').hidden = false; }
+export function showMenu() { renderMaps(); showRecord(); $('start').hidden = false; }
+
+// The player's record on this device, per race and difficulty: [won, lost].
+const records = () => { try { return JSON.parse(store.get('record')) || {}; } catch { return {}; } };
+const recKey = () => `${menu.race}:${menu.diff}`;
+/** Count a finished game for the race and difficulty it was played at. */
+export function recordResult(win) {
+  const r = records(), k = recKey(), [w, l] = r[k] || [0, 0];
+  r[k] = win ? [w + 1, l] : [w, l + 1]; store.set('record', JSON.stringify(r));
+}
+/** The record for the chosen race and difficulty, beside START (nothing before a first game). */
+function showRecord() {
+  const [w, l] = records()[recKey()] || [0, 0];
+  $('record').textContent = w + l ? `${w} won · ${l} lost` : '';
+  $('record').title = w + l ? `Your record as the ${menu.race === 'vael' ? 'Vael' : 'Humans'} at this difficulty` : '';
+}
 /** The top bar's sound button changed the setting: keep the menu and the saved choice in step. */
 export function soundChanged() { store.set('muted', audio.muted ? '1' : '0'); soundLabel(); }

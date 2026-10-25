@@ -280,6 +280,9 @@ pub enum Event {
     },
 }
 
+/// Ticks between samples of `World::army_log` (10 s).
+pub const ARMY_LOG_EVERY: u32 = 300;
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Stats {
     pub built: u32,
@@ -368,6 +371,9 @@ pub struct World {
     pub winner: i32,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
     pub stats: [Stats; 2],
+    /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
+    /// screen's chart. Not world state (derived, not hashed).
+    pub army_log: [Vec<u32>; 2],
     /// Upgrade levels per team, in `UPGRADES` order.
     pub upgrades: [[u8; UPGRADES.len()]; 2],
     /// Recent "under attack" alerts (team, time, x, y, was a building), for throttling.
@@ -443,6 +449,7 @@ impl World {
             over: false,
             winner: -1,
             stats: [Stats::default(); 2],
+            army_log: [Vec::new(), Vec::new()],
             upgrades: [[0; UPGRADES.len()]; 2],
             alerts: Vec::new(),
             events: Vec::new(),
@@ -484,6 +491,7 @@ impl World {
         self.over = false;
         self.winner = -1;
         self.stats = [Stats::default(); 2];
+        self.army_log = [Vec::new(), Vec::new()];
         self.upgrades = [[0; UPGRADES.len()]; 2];
         self.alerts.clear();
         self.events.clear();
@@ -691,6 +699,22 @@ impl World {
         self.tick_abilities(dt);
         self.update_fog();
         self.ai_tick(dt);
+        if self.tick.is_multiple_of(ARMY_LOG_EVERY) {
+            self.log_armies();
+        }
+    }
+
+    /// One sample of each seat's army value for the end screen's chart.
+    fn log_armies(&mut self) {
+        for team in 0..2u8 {
+            let v = self
+                .units
+                .iter()
+                .filter(|u| u.team == team && !u.kind.def().worker)
+                .map(|u| u.kind.def().cost[0] + u.kind.def().cost[1])
+                .sum::<i32>();
+            self.army_log[team as usize].push(v.max(0) as u32);
+        }
     }
 
     /// Cheap state fingerprint for desync detection; the same scheme and inputs as stateHash() in update.js.

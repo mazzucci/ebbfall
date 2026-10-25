@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, BUILDINGS, idx, resetGame, step, fmt, setResources } from './engine/index.js';
+import { G, DT, TILE, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -10,7 +10,8 @@ import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
 import { setIconButton } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, menu, MAP_KINDS } from './client/menu.js';
+import { initMenu, showMenu, soundChanged, recordResult, menu, MAP_KINDS } from './client/menu.js';
+import { armyChart } from './client/chart.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard, upright, blockedUpright } from './client/screen.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
@@ -70,11 +71,16 @@ function endGame() {
   $('endMap').innerHTML = `<b>${menu.name}</b>: ${MAP_KINDS[menu.kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
+  // Both armies over the game (the enemy's revealed now), and the result on this device's record.
+  const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
+  $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
+  recordResult(win);
   $('end').hidden = false; sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
 }
 
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; showMenu(); }); // back to the menu: a new map, or the same opponent again
+$('btnRematch').addEventListener('click', () => { sfx('select'); newGame(); }); // the same map, seed, races and difficulty
 initScreen(); initLeaveDialog(); initTools();
 // Turned upright mid-game: pause (the rotate card covers the screen), so turning back shows Resume, not a game that ran on.
 let pausedUpright = false;

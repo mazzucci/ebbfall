@@ -180,6 +180,11 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 
 #endStats b{color:var(--fg)}
 #endStats{font:13px var(--mono);color:var(--muted);gap:18px}
+#endChart svg{display:block;width:100%;max-width:420px;height:auto;margin:10px 0 2px}
+#endKey{font:12px var(--mono);color:var(--muted);gap:16px;margin-bottom:8px}
+#endKey span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--ally)}
+#endKey .foe::before{background:var(--foe)}
+.rec{font:12px var(--mono);color:var(--muted);text-align:center;align-self:center}
 
 /* The compact console (landscape phones, and narrow or portrait screens): the module keeps its size and the name side
    gives way (the name ellipsizes); the queue stays one row with its bar underneath. */

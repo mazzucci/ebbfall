@@ -310,6 +310,16 @@ impl World {
         self.check_end();
     }
 
+    /// `seat` gives up: the game ends with the other seat the winner (nothing if it is already over).
+    pub fn concede(&mut self, seat: u8) {
+        if self.over || seat > 1 {
+            return;
+        }
+        self.over = true;
+        self.winner = 1 - seat as i32;
+        self.conceded = seat as i32;
+    }
+
     pub(crate) fn check_end(&mut self) {
         if self.over {
             return;

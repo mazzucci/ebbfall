@@ -67,7 +67,8 @@ function endGame() {
   setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.winner === G.me;
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
-  $('endSub').textContent = win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
+  $('endSub').textContent = G.conceded === G.me ? 'You conceded after ' + fmt(G.time) + '.' : G.conceded >= 0 ? 'The enemy conceded after ' + fmt(G.time) + '.'
+    : win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
   $('endMap').innerHTML = `<b>${menu.name}</b>: ${MAP_KINDS[menu.kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
@@ -87,7 +88,7 @@ let pausedUpright = false;
 upright.addEventListener('change', () => { if (blockedUpright() && started && !overlay() && !paused() && !G.over) { togglePause(); pausedUpright = true; } });
 // Choosing to play upright anyway resumes a game the turn paused (one tap, not two).
 $('btnUpright').addEventListener('click', () => { if (pausedUpright && paused()) togglePause(); pausedUpright = false; });
-initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
+initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onConcede: () => engine.concede() });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });

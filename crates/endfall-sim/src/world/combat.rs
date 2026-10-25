@@ -349,14 +349,27 @@ impl World {
         }
         // A seat is out with no buildings left, except that a person's seat still has a chance while a worker of
         // theirs lives (it can build again); the AI's does not wait for that. It is also out when nothing of it can
-        // act any more: no headquarters (not even a site), no worker and no fighter (a few Depots do not keep a
-        // game going). Team 1 is checked first.
+        // act any more: no headquarters that stands or will (a planted site grows by itself), no worker, no fighter,
+        // and no factory with a unit in training or the means to train one (a few Depots do not keep a game going).
+        // Team 1 is checked first.
         let out = |w: &World, t: u8| {
             let worker = w.units.iter().any(|u| u.team == t && u.kind.def().worker);
             let fighter = w.units.iter().any(|u| u.team == t && u.kind.def().threat());
-            let hq = w.bldgs.iter().any(|b| b.team == t && b.kind.def().hq);
-            let none = !w.bldgs.iter().any(|b| b.team == t);
-            (none && (w.is_ai(t) || !worker)) || !(hq || worker || fighter)
+            let mine = || w.bldgs.iter().filter(move |b| b.team == t);
+            let hq = mine().any(|b| b.kind.def().hq && (b.done || b.planted));
+            let factory = mine().any(|b| {
+                b.done
+                    && (!b.queue.is_empty()
+                        || b.kind.def().trains.iter().any(|k| {
+                            k.def().threat()
+                                && k.def()
+                                    .req
+                                    .is_none_or(|r| mine().any(|o| o.kind == r && o.done))
+                                && w.can_afford(t, k.def().cost)
+                        }))
+            });
+            let none = mine().next().is_none();
+            (none && (w.is_ai(t) || !worker)) || !(hq || worker || fighter || factory)
         };
         for loser in [1, 0] {
             if out(self, loser) {

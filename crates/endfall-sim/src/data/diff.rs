@@ -28,6 +28,9 @@ pub struct Diff {
     pub abilities: bool,
     pub supply_ahead: i32,
     pub supply_at_once: usize,
+    /// The most a wave's required size grows to (it grows by `wave_grow` after each launch): a winning AI goes out
+    /// to finish instead of waiting at home for ever bigger waves.
+    pub wave_max: usize,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -50,6 +53,7 @@ pub const DIFF: [Diff; 4] = [
         answers: false,
         abilities: false,
         supply_ahead: 4,
+        wave_max: 12,
         supply_at_once: 1,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
@@ -71,6 +75,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 4,
+        wave_max: 14,
         supply_at_once: 1,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
@@ -91,6 +96,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 6,
+        wave_max: 16,
         supply_at_once: 1,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
@@ -114,6 +120,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 10,
+        wave_max: 14,
         supply_at_once: 2,
     },
 ];

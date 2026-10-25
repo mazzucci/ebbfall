@@ -72,6 +72,7 @@ function endGame() {
   const win = G.winner === G.me;
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = G.conceded === G.me ? 'You conceded after ' + fmt(G.time) + '.' : G.conceded >= 0 ? 'The enemy conceded after ' + fmt(G.time) + '.'
+    : G.bldgs.some(b => b.team === 1 - G.winner) ? (win ? 'The enemy had nothing left to fight with after ' : 'Nothing left to fight with after ') + fmt(G.time) + '.' // (out with buildings standing)
     : win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
   $('endMap').innerHTML = `<b>${setup().name}</b>: ${MAP_KINDS[setup().kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];

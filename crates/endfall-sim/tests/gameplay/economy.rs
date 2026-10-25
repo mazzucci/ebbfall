@@ -465,3 +465,52 @@ fn a_new_refinery_gets_a_crew_of_three() {
     let vent = w.bldg(b).unwrap().vent.unwrap();
     assert_eq!(on_vent(&w, vent), 1, "only the AI's builder");
 }
+
+#[test]
+fn a_shard_field_running_low_is_announced_once_with_a_ping() {
+    use endfall_sim::world::{Event, FIELD_LOW};
+    let mut w = rich(5);
+    // The player's home field (the crystals laid down with the one nearest the Core), cut to uneven amounts just
+    // above the mark: its harvesters mine it down through it in their own order.
+    let core = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap()
+        .clone();
+    let near = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| !n.ether)
+        .min_by(|a, b| {
+            let da = (a.x - core.x).powi(2) + (a.y - core.y).powi(2);
+            let db = (b.x - core.x).powi(2) + (b.y - core.y).powi(2);
+            da.partial_cmp(&db).unwrap()
+        })
+        .unwrap()
+        .field;
+    let home: Vec<usize> = (0..w.map.nodes.len())
+        .filter(|&i| w.map.nodes[i].field == near)
+        .collect();
+    assert!(home.len() >= 5, "a whole arc: {}", home.len());
+    for (k, &i) in home.iter().enumerate() {
+        w.map.nodes[i].amount =
+            (FIELD_LOW + 200) / home.len() as i32 + if k % 2 == 0 { 40 } else { -30 };
+    }
+    let (mut toasts, mut pings) = (0, 0);
+    for _ in 0..30 * 120 {
+        w.step();
+        for e in w.events.drain(..) {
+            match e {
+                Event::Toast { team: 0, msg, .. } if msg.contains("running low") => toasts += 1,
+                Event::Ping { team: 0, .. } => pings += 1,
+                _ => {}
+            }
+        }
+    }
+    let left: i32 = home.iter().map(|&i| w.map.nodes[i].amount).sum();
+    assert!(left < FIELD_LOW, "mined through the mark: {left}");
+    assert_eq!(toasts, 1, "announced once for the field");
+    assert!(pings >= 1, "with a ping");
+}

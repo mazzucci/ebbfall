@@ -23,6 +23,7 @@ use crate::map::{Id, Map, MapKind, Node, idx, in_map};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 pub use command::{Command, Logged};
+pub use economy::FIELD_LOW;
 pub use types::*;
 
 const GRID: i32 = 32; // spatial hash cells of 64 px over a 2048 px world
@@ -240,6 +241,10 @@ impl World {
             msg: msg.into(),
             bad,
         });
+    }
+    /// A mark on one seat's minimap.
+    pub(crate) fn ping(&mut self, team: u8, x: f64, y: f64) {
+        self.emit(Event::Ping { team, x, y });
     }
     /// A sound for one seat's player.
     pub(crate) fn sfx(&mut self, team: u8, name: &'static str) {

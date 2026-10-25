@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// A shard field "running low": fewer than this many shards left over all its crystals.
+pub const FIELD_LOW: i32 = 1500;
+
 impl World {
     pub(crate) fn extractor_ready(&self, node: Id, team: Option<u8>) -> bool {
         let Some(n) = self.map.node(node) else {
@@ -262,6 +265,20 @@ impl World {
         };
         nm.amount = (before - take).max(0);
         let left = nm.amount;
+        // A shard field crossing into its last FIELD_LOW shards (counted over all its crystals): time to expand.
+        if !n.ether {
+            let field: i32 = self
+                .map
+                .nodes
+                .iter()
+                .filter(|o| o.field == n.field)
+                .map(|o| o.amount)
+                .sum();
+            if field < FIELD_LOW && field + take >= FIELD_LOW {
+                self.toast(team, "A shard field is running low: time to expand", true);
+                self.ping(team, n.x, n.y);
+            }
+        }
         if n.ether && before > 0 && left == 0 {
             let rig = self.factions[team as usize].ether.def().name;
             self.toast(

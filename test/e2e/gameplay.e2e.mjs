@@ -1122,3 +1122,18 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('the HUD tells the first enemy flyer seen, and an army wiped out', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const x = core.x > 1000 ? core.x - 220 : core.x + 220;
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [x, core.y]);
+    await d.page.waitForTimeout(400); // (the HUD counts it)
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(1, 'wasp', x + 60, y - 40); endfall.engine.debugSpawn(1, 'vanguard', x + 40, y); }, [x, core.y]);
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Enemy flyers spotted/.test(t.textContent)), null, { timeout: 5000 });
+    await until(d, async () => (await d.state()).units.every(u => u.team !== 0 || u.type !== 'trooper'), { seconds: 20, step: 1, what: 'the Trooper to fall' });
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /No army left/.test(t.textContent)), null, { timeout: 5000 });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

@@ -19,6 +19,8 @@ pub struct Node {
     pub r: f64,
     /// Building id of the extractor standing on an ether vent.
     pub extractor: Option<Id>,
+    /// Which shard field (an arc of crystals, laid down together) it belongs to; 0 for a vent.
+    pub field: u32,
 }
 
 pub struct Map {
@@ -343,6 +345,7 @@ impl Map {
         n: i32,
         rad: f64,
     ) -> Vec<(i32, i32)> {
+        let field = self.new_field();
         let mut used = Vec::new();
         for i in 0..n {
             let a = ang + (i as f64 - (n - 1) as f64 / 2.0) * 0.32;
@@ -359,7 +362,7 @@ impl Map {
                 ty += jsmath::sign(jsmath::sin(a)) as i32;
                 k += 1;
             }
-            if self.add_shard(next_id, tx, ty) {
+            if self.add_shard(next_id, tx, ty, field) {
                 used.push((tx, ty));
             }
         }
@@ -368,12 +371,18 @@ impl Map {
 
     /// Shard crystals on exactly these tiles (the mirror image of another field).
     fn add_shards_at(&mut self, next_id: &mut Id, tiles: &[(i32, i32)]) {
+        let field = self.new_field();
         for &(tx, ty) in tiles {
-            self.add_shard(next_id, tx, ty);
+            self.add_shard(next_id, tx, ty, field);
         }
     }
 
-    fn add_shard(&mut self, next_id: &mut Id, tx: i32, ty: i32) -> bool {
+    /// A fresh shard field id (one more than any so far).
+    fn new_field(&self) -> u32 {
+        self.nodes.iter().map(|n| n.field).max().unwrap_or(0) + 1
+    }
+
+    fn add_shard(&mut self, next_id: &mut Id, tx: i32, ty: i32, field: u32) -> bool {
         if !in_map(tx, ty) || self.occ[idx(tx, ty)] != 0 {
             return false;
         }
@@ -391,6 +400,7 @@ impl Map {
             miners: 0,
             r: 14.0,
             extractor: None,
+            field,
         });
         self.occ[idx(tx, ty)] = -(id as i32);
         true
@@ -432,6 +442,7 @@ impl Map {
             miners: 0,
             r: 24.0,
             extractor: None,
+            field: 0,
         });
         for y in 0..2 {
             for x in 0..2 {

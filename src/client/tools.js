@@ -3,7 +3,7 @@
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
 import { G, UNITS, BUILDINGS } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
-import { $, ui, setHint, toast, setSelection } from './ui.js';
+import { $, ui, toast, setSelection } from './ui.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';

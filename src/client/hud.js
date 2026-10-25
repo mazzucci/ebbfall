@@ -1,4 +1,4 @@
-// Top bar, selection panel and command card. Also owns the client-side selection and command mode.
+// Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
 import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, fmt, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);

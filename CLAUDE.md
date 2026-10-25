@@ -65,7 +65,9 @@ src/client/           everything that touches the browser
   screen.js           full screen / landscape lock, the leave-game guard
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu (opponent, three named maps, sound), the phone tap-to-play splash, How to play
-  hud.js              top bar, selection panel, command card, client UI state (ui.sel, ui.mode, ui.place)
+  ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
+  hud.js              top bar and selection panel
+  card.js             the command card: buttons for the selection, long-press details, what a button does
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts, pause
   icons.js            line icons (inline SVG) and unit/building portraits cut from the atlas
   look.js             per-kind presentation the sim does not know: building art parts, unit voices

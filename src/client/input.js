@@ -96,6 +96,9 @@ function placeTile(type, wx, wy) {
   return { tx: Math.round(wx / TILE - d.w / 2), ty: Math.round(wy / TILE - d.h / 2) };
 }
 
+/** Whether (wx, wy) falls on the building ghost being placed (a tap there places it where it stands). */
+const onGhost = (wx, wy) => { const pl = ui.place, d = BUILDINGS[pl.type], tx = wx / TILE, ty = wy / TILE; return tx >= pl.tx && tx < pl.tx + d.w && ty >= pl.ty && ty < pl.ty + d.h; };
+
 /**
  * On touch, once harvesters have a job (gather, build, repair) let go of them: the next tap on the map is then just a
  * tap, not "walk here", and the job carries on. The target's blink confirms the order. With a mouse, right-click is
@@ -231,7 +234,11 @@ function bindCanvas() {
       if (pan.d > 20 && c.d > 20) zoomAt(c.d / pan.d, c.x, c.y);
       pan = c; return;
     }
-    if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
+    if (ui.place) {
+      // (a finger resting on the ghost leaves it be: only a drag moves it)
+      const w = toWorld(p.x, p.y), resting = ev.pointerType === 'touch' && Math.hypot(p.x - drag.sx, p.y - drag.sy) <= 10 && onGhost(w.x, w.y);
+      if (!resting) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
+    }
     if (drag.down) {
       const px = drag.cx, py = drag.cy; drag.cx = p.x; drag.cy = p.y;
       if (!drag.box && !drag.pan && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) {
@@ -264,7 +271,7 @@ function bindCanvas() {
     }
     if (drag.quiet) return;
     const w = toWorld(p.x, p.y);
-    if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
+    if (ui.place && !(ev.pointerType === 'touch' && onGhost(w.x, w.y))) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);

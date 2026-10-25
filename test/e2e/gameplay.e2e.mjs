@@ -1171,7 +1171,9 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
     await page.locator('#maps .ib.random').click();
     assert.equal(await page.locator('#mapPreview').getAttribute('title'), 'A new map every time');
   } finally { await ctx.close(); }
-test('phone: picking a building shows its ghost on a good spot at once; a tap on it places it there', async () => {
+});
+
+test('phone: picking a building shows its ghost on a good spot at once; a tap anywhere on it places it there', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(500, 0);
@@ -1180,9 +1182,14 @@ test('phone: picking a building shows its ghost on a good spot at once; a tap on
     await d.pressCard('Build'); await d.pressCard('Depot');
     const place = await d.eval(() => endfall.ui.place && { ...endfall.ui.place, ok: endfall.engine.canPlace('depot', endfall.ui.place.tx, endfall.ui.place.ty, 0) });
     assert.ok(place && place.tx > 0 && place.ok, `a green ghost before any tap: ${JSON.stringify(place)}`);
-    const [x, y] = await d.screen((place.tx + 1) * 32, (place.ty + 1) * 32, false);
+    const [x, y] = await d.screen(place.tx * 32 + 4, place.ty * 32 + 4, false); // (by its corner, not its middle)
     await d.tapAt(x, y);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === place.tx && b.ty === place.ty), { seconds: 5, step: 0.5, what: 'the Depot where the ghost stood' });
+    // An extractor's ghost stands on a free vent (or nowhere), never red in the middle of the view.
+    await d.clickEntity(h.id);
+    await d.pressCard('Build'); await d.pressCard('Ether Rig');
+    const rig = await d.eval(() => endfall.ui.place && { ...endfall.ui.place, ok: endfall.engine.canPlace(endfall.ui.place.type, endfall.ui.place.tx, endfall.ui.place.ty, 0) });
+    assert.ok(rig && (rig.tx === -99 || rig.ok), `the Rig's ghost on a free vent or none: ${JSON.stringify(rig)}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

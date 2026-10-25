@@ -1,6 +1,6 @@
 // The command card: the buttons for what is selected (orders, the Build pages, training, research), the long-press
 // details on touch, and what a button does (doCommand).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, TILE, canPlace, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, map, UNITS, BUILDINGS, UPGRADES, ABILITIES, TILE, canPlace, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection, touchUi } from './ui.js';
 import { cam, view } from './gl/render.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
@@ -165,14 +165,21 @@ const researching = (bs) => bs.find(o => o.research);
 const mostBusy = (bs) => bs.slice().sort((p, q) => q.queue.length - p.queue.length || p.id - q.id)[0];
 
 /** On a touch screen (no hover to show it), where a building's ghost first stands: the buildable spot nearest the
- *  middle of the view, else the middle itself (red). A tap places it there or anywhere else, as before. */
+ *  middle of the view (an extractor: the nearest free vent), else nowhere (no ghost rather than a red one). A tap
+ *  on the ghost places it there; a tap elsewhere places it there instead, as before. */
 function firstSpot(k) {
-  const d = BUILDINGS[k], cx = Math.floor((cam.x + view.w / cam.zoom / 2) / TILE - d.w / 2), cy = Math.floor((cam.y + view.h / cam.zoom / 2) / TILE - d.h / 2);
+  const d = BUILDINGS[k], mx = (cam.x + view.w / cam.zoom / 2) / TILE, my = (cam.y + view.h / cam.zoom / 2) / TILE;
+  if (d.onVent) {
+    const vents = map.nodes.filter(n => n.type === 'ether' && canPlace(k, n.tx, n.ty, G.me));
+    const best = vents.sort((p, q) => Math.hypot(p.tx - mx, p.ty - my) - Math.hypot(q.tx - mx, q.ty - my) || p.id - q.id)[0];
+    return best ? { tx: best.tx, ty: best.ty } : {};
+  }
+  const cx = Math.floor(mx - d.w / 2), cy = Math.floor(my - d.h / 2);
   for (let r = 0; r <= 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // (ring by ring, nearest first)
     if (canPlace(k, cx + dx, cy + dy, G.me)) return { tx: cx + dx, ty: cy + dy };
   }
-  return { tx: cx, ty: cy };
+  return {};
 }
 
 export function doCommand(id) {

@@ -1276,6 +1276,7 @@ test('the end card says what killed most of your units, and what beats it', asyn
     assert.match(why, /beat Monoliths/, 'and what beats them');
     assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
 test('desktop: Shift+click on a unit queues five (Shift+its key too)', async () => {
+test('desktop: Shift+click on a unit queues five', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(2000, 0);

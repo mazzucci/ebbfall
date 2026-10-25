@@ -140,7 +140,7 @@ export function buildCard() {
     });
     b.addEventListener('pointerleave', () => clearTimeout(press.timer)); // slid off before the details showed
     b.addEventListener('contextmenu', ev => ev.preventDefault()); // (the long-press menu of the browser)
-    b.addEventListener('click', (ev) => {
+    b.addEventListener('click', ev => {
       if (press.held === it.id) { press.held = ''; return; } // a long-press shows the details; it does not press the button
       hideDetail(); doCommand(it.id, ev.shiftKey ? 5 : 1); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
     });
@@ -228,7 +228,7 @@ export function doCommand(id, times = 1) {
     let queued = 0;
     for (let i = 0; i < times; i++) {
       const b = bl.length && leastBusy(bl); if (!b) break;
-      const err = queueUnit(b, id.slice(2)); if (err) { if (!queued) refuse(id, err); break; }
+      const err = queueUnit(b, id.slice(2)); if (err) { if (!queued || !/full$/.test(err)) refuse(id, err); break; } // (silent only at the queue's cap)
       queued++;
     }
     if (queued) sfx('build');

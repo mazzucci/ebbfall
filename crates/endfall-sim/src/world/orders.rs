@@ -238,6 +238,7 @@ impl World {
             return;
         }
         self.release_mine(uid);
+        self.unentrench_to_move(uid); // (an attack order means going there)
         self.set_task(uid, Task::Attack { target, back: None });
     }
     pub fn stop_unit(&mut self, uid: Id) {

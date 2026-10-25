@@ -207,7 +207,8 @@ impl World {
             .collect();
         for uid in ids {
             let Some(u) = self.unit(uid) else { continue };
-            let (ux, uy, task, hp, maxhp, mode) = (u.x, u.y, u.task, u.hp, u.maxhp, u.mode);
+            let (ux, uy, task, hp, maxhp, mode, boost) =
+                (u.x, u.y, u.task, u.hp, u.maxhp, u.mode, u.boost);
             let d = u.kind.def();
             let reach = d.weapon.map_or(0.0, |w| w.range) * TILE;
             let target_d = match task {
@@ -234,11 +235,17 @@ impl World {
                     continue;
                 }
                 let go = match ab.def().effect {
+                    // (not again while one is still running: a Medic's heals would be soaked into a permanent boost)
                     AbilityEffect::Boost { hp: cost, .. } => {
-                        fight && target_d.is_some_and(|t| t <= reach + TILE) && hp - cost > maxhp * 0.6
+                        fight
+                            && boost.is_none()
+                            && target_d.is_some_and(|t| t <= reach + TILE)
+                            && hp - cost > maxhp * 0.6
                     }
                     AbilityEffect::Blink { dist } => {
-                        fight && target_d.is_some_and(|t| t > reach + 2.0 * TILE && t < (dist + 4.0) * TILE)
+                        fight
+                            && target_d
+                                .is_some_and(|t| t > reach + 2.0 * TILE && t < (dist + 4.0) * TILE)
                     }
                     // Only a defender digs in (idle or holding): a wave on the move never leaves one behind.
                     AbilityEffect::Entrench { range, .. } => match mode {
@@ -247,7 +254,8 @@ impl World {
                                 && nearest <= reach + range * TILE
                                 && nearest > 3.0 * TILE
                         }
-                        Some(_) => nearest > reach + (range + 1.0) * TILE,
+                        // Packs up once nothing is left within its entrenched reach (and walks on with its wave).
+                        Some(_) => nearest > reach + range * TILE,
                     },
                 };
                 if go {

@@ -215,3 +215,73 @@ fn the_ai_uses_abilities_in_its_fights() {
         "both sides used abilities: {cast:?}"
     );
 }
+
+#[test]
+fn an_attack_order_packs_an_entrenched_unit_up_and_a_lost_target_leaves_it_holding() {
+    let mut w = flat_arena(8);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 20.0 * TILE, 30.0 * TILE);
+    w.cast(v, AbilityKind::Entrench).unwrap();
+    run(&mut w, 3);
+    let far = w.make_unit(UnitKind::Trooper, ENEMY, 34.0 * TILE, 30.0 * TILE);
+    w.hold_unit(far);
+    w.attack_ent(v, far);
+    assert!(
+        w.unit(v).unwrap().mode.is_none(),
+        "an attack order means going there: it packs up"
+    );
+    let x0 = w.unit(v).unwrap().x;
+    run(&mut w, 5);
+    assert!(
+        w.unit(v).unwrap().x > x0 + TILE,
+        "then it walks to the target"
+    );
+    // Entrenched, and its target gone: it holds where it is, still entrenched (it does not wander off).
+    let v2 = w.make_unit(UnitKind::Vanguard, PLAYER, 20.0 * TILE, 40.0 * TILE);
+    w.cast(v2, AbilityKind::Entrench).unwrap();
+    run(&mut w, 3);
+    let t = w.make_unit(UnitKind::Trooper, ENEMY, 27.0 * TILE, 40.0 * TILE);
+    w.hold_unit(t);
+    run(&mut w, 15);
+    assert!(w.unit(t).is_none(), "it shot the trooper in its reach");
+    let u = w.unit(v2).unwrap();
+    assert!(
+        u.mode.is_some() && u.task == Task::Hold,
+        "and holds, entrenched: {:?}",
+        u.task
+    );
+}
+
+#[test]
+fn the_ai_does_not_restim_while_a_stim_runs() {
+    let mut w = flat_arena(9);
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 30.0 * TILE);
+    w.make_unit(UnitKind::Medic, PLAYER, 19.0 * TILE, 30.0 * TILE);
+    for i in 0..3 {
+        let foe = w.make_unit(
+            UnitKind::Vanguard,
+            ENEMY,
+            24.0 * TILE,
+            (29 + i) as f64 * TILE,
+        );
+        set_hp(&mut w, foe, 1e6);
+        w.hold_unit(foe);
+    }
+    let foe = w.units.iter().find(|u| u.team == ENEMY).unwrap().id;
+    w.attack_ent(t, foe);
+    let mut casts = 0;
+    for tick in 0..10 * TPS {
+        w.step();
+        w.events.clear();
+        if tick % 15 == 0 {
+            let before = w.unit(t).map(|u| u.boost);
+            w.auto_cast(PLAYER);
+            if w.unit(t).map(|u| u.boost) != before {
+                casts += 1;
+            }
+        }
+    }
+    assert!(
+        casts <= 1,
+        "one Stim for the 10 s, not one a second: {casts}"
+    );
+}

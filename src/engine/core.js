@@ -159,7 +159,8 @@ export const canAfford = (team, cost) => game.canAfford(team, cost[0], cost[1]);
 export function canHit(shooter, target) {
   if (!target || target.kind === 'node') return false;
   const air = target.kind === 'unit' && !!target.d.air;
-  return (air ? shooter.d.dmgAir : shooter.d.dmg) > 0;
+  const w = shooter.d.weapon;
+  return !!w && (air ? w.dmgAir : w.dmg) > 0;
 }
 
 /** Whether this client's player (seat G.me) can see this unit or building right now. */

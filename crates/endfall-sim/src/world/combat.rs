@@ -115,8 +115,16 @@ impl World {
     }
     /// (can hit ground, can hit air) for a unit kind.
     pub(crate) fn hits_of(kind: UnitKind) -> (bool, bool) {
-        let d = kind.def();
-        (d.dmg > 0.0, d.dmg_air > 0.0)
+        kind.def().weapon.map_or((false, false), |w| w.hits())
+    }
+
+    /// A unit's or building's weapon, with where it shoots from and its side; None if it is unarmed or gone.
+    pub(crate) fn weapon_of(&self, id: Id) -> Option<(Weapon, f64, f64, u8)> {
+        if let Some(u) = self.unit(id) {
+            return u.kind.def().weapon.map(|w| (w, u.x, u.y, u.team));
+        }
+        let b = self.bldg(id)?;
+        b.kind.def().weapon.map(|w| (w, b.x, b.y, b.team))
     }
 
     /// Tell a player when something of theirs comes under attack: once per fight. A hit is quiet if any alert of
@@ -327,32 +335,16 @@ impl World {
 
     pub(crate) fn fire(&mut self, shooter: Id, target: Id) {
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
-        let (x, y, team, dmg, cd, proj, up, splash) = if let Some(u) = self.unit(shooter) {
-            let d = u.kind.def();
-            (
-                u.x,
-                u.y,
-                u.team,
-                d.damage_vs(air),
-                d.cd,
-                d.proj,
-                d.up_dmg,
-                (d.splash, d.splash_r),
-            )
-        } else {
-            let b = self.bldg(shooter).unwrap();
-            let d = b.kind.def();
-            (
-                b.x,
-                b.y,
-                b.team,
-                d.damage_vs(air),
-                d.cd,
-                d.proj,
-                d.up_dmg,
-                (0.0, 0.0),
-            )
+        let Some((w, x, y, team)) = self.weapon_of(shooter) else {
+            return; // unarmed (or gone)
         };
+        let (dmg, cd, proj, up, splash) = (
+            w.damage_vs(air),
+            w.cd,
+            w.proj,
+            w.up_dmg,
+            (w.splash, w.splash_r),
+        );
         if dmg <= 0.0 {
             return; // this weapon cannot hit that target
         }

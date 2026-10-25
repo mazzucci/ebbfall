@@ -45,13 +45,16 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     hp: 20.0,
     shields: 20.0,
     speed: 100.0,
-    range: 0.6,
-    dmg: 4.0,
     sight: 7.0,
     r: 9.0,
     build: 12.0,
-    melee: true,
     worker: true,
+    weapon: Some(Weapon {
+        range: 0.6,
+        dmg: 4.0,
+        melee: true,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const SCYTHE: UnitDef = UnitDef {
@@ -63,14 +66,17 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     shields: 40.0,
     armor: 1.0,
     speed: 88.0,
-    range: 0.9,
-    dmg: 10.0,
-    cd: 0.9,
     sight: 8.0,
     r: 10.0,
     build: 22.0,
-    melee: true,
-    up_dmg: 2.0,
+    weapon: Some(Weapon {
+        range: 0.9,
+        dmg: 10.0,
+        cd: 0.9,
+        melee: true,
+        up_dmg: 2.0,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const PRISM: UnitDef = UnitDef {
@@ -82,15 +88,18 @@ pub(super) const PRISM: UnitDef = UnitDef {
     shields: 50.0,
     armor: 1.0,
     speed: 85.0,
-    range: 5.5,
-    dmg: 13.0,
-    dmg_air: 13.0,
-    cd: 0.9,
     sight: 9.0,
     r: 11.0,
     build: 30.0,
-    proj: Some(ProjKind::Bolt),
-    up_dmg: 1.0,
+    weapon: Some(Weapon {
+        range: 5.5,
+        dmg: 13.0,
+        dmg_air: 13.0,
+        cd: 0.9,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const HALO: UnitDef = UnitDef {
@@ -116,17 +125,20 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     shields: 140.0,
     armor: 2.0,
     speed: 55.0,
-    range: 7.0,
-    dmg: 52.0,
-    cd: 2.2,
     sight: 9.0,
     r: 15.0,
     build: 40.0,
-    proj: Some(ProjKind::Shell),
-    up_dmg: 4.0,
     req: Some(BldgKind::Loom),
-    splash: 0.5,
-    splash_r: 40.0,
+    weapon: Some(Weapon {
+        range: 7.0,
+        dmg: 52.0,
+        cd: 2.2,
+        proj: Some(ProjKind::Shell),
+        up_dmg: 4.0,
+        splash: 0.5,
+        splash_r: 40.0,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const SHRIKE: UnitDef = UnitDef {
@@ -137,16 +149,19 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     hp: 90.0,
     shields: 60.0,
     speed: 165.0,
-    range: 3.5,
-    dmg: 12.0,
-    dmg_air: 8.0,
-    cd: 0.7,
     sight: 9.0,
     r: 11.0,
     build: 28.0,
-    proj: Some(ProjKind::Bolt),
     air: true,
-    up_dmg: 1.0,
+    weapon: Some(Weapon {
+        range: 3.5,
+        dmg: 12.0,
+        dmg_air: 8.0,
+        cd: 0.7,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
+        ..W
+    }),
     ..UNIT
 };
 
@@ -231,13 +246,16 @@ pub(super) const WARD: BldgDef = BldgDef {
     build: 25.0,
     sight: 9.0,
     req: Some(BldgKind::Kiln),
-    range: 7.0,
-    dmg: 20.0,
-    dmg_air: 28.0,
-    cd: 1.2,
-    proj: Some(ProjKind::Bolt),
-    up_dmg: 2.0,
     needs_power: true,
+    weapon: Some(Weapon {
+        range: 7.0,
+        dmg: 20.0,
+        dmg_air: 28.0,
+        cd: 1.2,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 2.0,
+        ..W
+    }),
     ..BLDG
 };
 pub(super) const ZENITH: BldgDef = BldgDef {

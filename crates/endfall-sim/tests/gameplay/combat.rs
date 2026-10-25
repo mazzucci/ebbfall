@@ -354,8 +354,10 @@ fn balance_matrix() {
                 .iter()
                 .map(|(_, b)| {
                     // flyers that cannot shoot up, against each other: the fight cannot end
-                    let air =
-                        |m: &[UnitKind]| m.iter().all(|k| k.def().air && k.def().dmg_air == 0.0);
+                    let air = |m: &[UnitKind]| {
+                        m.iter()
+                            .all(|k| k.def().air && k.def().damage_vs(true) == 0.0)
+                    };
                     if air(a) && air(b) {
                         "  n/a".to_string()
                     } else {
@@ -444,7 +446,7 @@ fn a_shell_splashes_walking_neighbours_only() {
             .map(|(&u, s)| s - hp(w, u))
             .collect()
     };
-    let dmg = UnitKind::Vanguard.def().dmg;
+    let dmg = UnitKind::Vanguard.def().damage_vs(false);
     let mut w = arena(16);
     let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
@@ -894,7 +896,8 @@ fn a_monolith_splashes_with_its_own_numbers() {
     let mut w = arena(16);
     w.factions = [&VAEL, &HUMANS];
     let d = UnitKind::Monolith.def();
-    assert_eq!((d.splash, d.splash_r), (0.5, 40.0));
+    let wp = d.weapon.unwrap();
+    assert_eq!((wp.splash, wp.splash_r), (0.5, 40.0));
     let m = w.make_unit(UnitKind::Monolith, PLAYER, 560.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 930.0); // 30 px: in its splash
@@ -912,10 +915,10 @@ fn a_monolith_splashes_with_its_own_numbers() {
     let lost = [target, near].map(|u| w.unit(u).map_or(0.0, |x| x.hp)); // (a dead unit has nothing left)
     assert_eq!(
         start[0] - lost[0],
-        d.dmg.min(start[0]),
+        wp.dmg.min(start[0]),
         "the target takes the shot"
     );
-    assert_eq!(start[1] - lost[1], d.dmg * 0.5, "its neighbour takes half");
+    assert_eq!(start[1] - lost[1], wp.dmg * 0.5, "its neighbour takes half");
 }
 
 #[test]

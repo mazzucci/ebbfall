@@ -60,7 +60,7 @@ export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Requires X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) d.desc += ` Requires ${D.buildings[d.req].name}.`;
 /** Extra damage per Weapons level, by unit or building type. */
-export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.upDmg).map(([k, d]) => [k, d.upDmg]));
+export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
 /** Team-wide upgrades; per level: cost [shards, ether], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */

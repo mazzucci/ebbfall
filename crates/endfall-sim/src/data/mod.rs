@@ -14,7 +14,7 @@ mod vael;
 
 pub use diff::*;
 pub use export::data_json;
-pub(crate) use export::{Obj, array, quote};
+pub(crate) use export::{Obj, ToJson, array, quote};
 pub use humans::HUMANS;
 pub use upgrades::*;
 pub use vael::VAEL;
@@ -108,82 +108,135 @@ kinds! {
     }
 }
 
-pub struct UnitDef {
-    pub key: &'static str,
-    /// Shown to the player (the key is the stable id: save data, art frames).
-    pub name: &'static str,
-    pub cost: [i32; 2],
-    pub supply: i32,
-    pub hp: f64,
-    pub armor: f64,
-    pub speed: f64,
-    pub range: f64,
-    /// Damage per shot against ground targets (units and buildings); 0 = cannot attack the ground.
-    pub dmg: f64,
-    /// Damage per shot against flying units; 0 = cannot attack the air.
-    pub dmg_air: f64,
-    pub cd: f64,
-    pub sight: f64,
-    pub r: f64,
-    pub build: f64,
-    pub melee: bool,
-    pub proj: Option<ProjKind>,
-    /// Flies: moves in straight lines over terrain and buildings, only collides with other flyers.
-    pub air: bool,
-    /// Living infantry (Medics heal these).
-    pub bio: bool,
-    /// Hit points per second healed into nearby damaged infantry (Medic), or with `mend`, shield points into nearby
-    /// shielded allies (Halo).
-    pub heal: f64,
-    /// The heal goes to shields, not hulls: the Halo mends any shielded ally, in combat too.
-    pub mend: bool,
-    /// A finished building of this kind is needed to train the unit.
-    pub req: Option<BldgKind>,
-    /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
-    pub up_dmg: f64,
-    /// The faction's worker: mines, builds and repairs; it never starts a fight and is not a threat to anyone.
-    pub worker: bool,
-    /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
-    pub shields: f64,
-    /// Splash: this share of a shot's damage also hits the target's walking neighbours within `splash_r` px.
-    pub splash: f64,
-    pub splash_r: f64,
+/// Declares a definition struct and its JSON for the client from one field list: `field: Type = "jsonKey"`; a field
+/// without a JSON key stays out of the export (the key itself is the map key). Field types export through `ToJson`.
+macro_rules! def_struct {
+    ($(#[$m:meta])* pub struct $Name:ident { $( $(#[$fm:meta])* $f:ident : $t:ty $(= $json:literal)? ),* $(,)? }) => {
+        $(#[$m])*
+        pub struct $Name {
+            $( $(#[$fm])* pub $f: $t ),*
+        }
+        impl $Name {
+            /// The fields with a JSON key, as an object, in declaration order.
+            pub fn to_json(&self) -> String {
+                let o = Obj::new();
+                $( $( let o = o.raw($json, ToJson::to_json(&self.$f)); )? )*
+                o.done()
+            }
+        }
+    };
 }
 
-pub struct BldgDef {
-    pub key: &'static str,
-    pub name: &'static str,
-    /// Label on a button ("" = the last word of the name).
-    pub short: &'static str,
-    pub cost: [i32; 2],
-    pub w: i32,
-    pub h: i32,
-    pub hp: f64,
-    pub armor: f64,
-    pub supply: i32,
-    pub build: f64,
-    pub sight: f64,
-    pub trains: &'static [UnitKind],
-    pub dropoff: bool,
-    pub on_vent: bool,
-    pub req: Option<BldgKind>,
-    pub range: f64,
-    pub dmg: f64,
-    pub dmg_air: f64,
-    pub cd: f64,
-    pub proj: Option<ProjKind>,
-    /// Extra damage per Weapons upgrade level (turrets).
-    pub up_dmg: f64,
-    /// The faction's headquarters: what a side starts with.
-    pub hq: bool,
-    /// Upgrades researched here.
-    pub researches: &'static [Upgrade],
-    /// Shield points over the hull (the Vael).
-    pub shields: f64,
-    /// Works only inside a power field (placed in one, dark when none covers it).
-    pub needs_power: bool,
-    /// Radius (tiles, centre to building centre) of the power field this building casts when finished; 0 = none.
-    pub power: f64,
+def_struct! {
+    /// A weapon: what a unit or a defensive building shoots with.
+    #[derive(Clone, Copy)]
+    pub struct Weapon {
+        /// Reach in tiles (edge to edge).
+        range: f64 = "range",
+        /// Damage per shot against ground targets (units and buildings); 0 = cannot attack the ground.
+        dmg: f64 = "dmg",
+        /// Damage per shot against flying units; 0 = cannot attack the air.
+        dmg_air: f64 = "dmgAir",
+        /// Seconds between shots.
+        cd: f64 = "cd",
+        proj: Option<ProjKind> = "proj",
+        melee: bool = "melee",
+        /// Splash: this share of a shot's damage also hits the target's walking neighbours within `splash_r` px.
+        splash: f64 = "splash",
+        splash_r: f64 = "splashR",
+        /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
+        up_dmg: f64 = "upDmg",
+    }
+}
+
+/// The defaults a weapon in the tables fills in from.
+pub(crate) const W: Weapon = Weapon {
+    range: 0.0,
+    dmg: 0.0,
+    dmg_air: 0.0,
+    cd: 1.0,
+    proj: None,
+    melee: false,
+    splash: 0.0,
+    splash_r: 0.0,
+    up_dmg: 0.0,
+};
+
+impl Weapon {
+    /// Damage against a target that is (or is not) flying; 0 when it cannot hit it.
+    pub fn damage_vs(&self, air: bool) -> f64 {
+        if air { self.dmg_air } else { self.dmg }
+    }
+    /// What it can hit: (ground, air).
+    pub fn hits(&self) -> (bool, bool) {
+        (self.dmg > 0.0, self.dmg_air > 0.0)
+    }
+}
+
+def_struct! {
+    pub struct UnitDef {
+        key: &'static str,
+        /// Shown to the player (the key is the stable id: save data, art frames).
+        name: &'static str = "name",
+        /// The faction's worker: mines, builds and repairs; it never starts a fight and is not a threat to anyone.
+        worker: bool = "worker",
+        /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
+        shields: f64 = "shields",
+        cost: [i32; 2] = "cost",
+        supply: i32 = "supply",
+        hp: f64 = "hp",
+        armor: f64 = "armor",
+        speed: f64 = "speed",
+        sight: f64 = "sight",
+        r: f64 = "r",
+        build: f64 = "build",
+        /// Flies: moves in straight lines over terrain and buildings, only collides with other flyers.
+        air: bool = "air",
+        /// Living infantry (Medics heal these).
+        bio: bool = "bio",
+        /// Hit points per second healed into nearby damaged infantry (Medic), or with `mend`, shield points into nearby
+        /// shielded allies (Halo).
+        heal: f64 = "heal",
+        /// The heal goes to shields, not hulls: the Halo mends any shielded ally, in combat too.
+        mend: bool = "mend",
+        /// A finished building of this kind is needed to train the unit.
+        req: Option<BldgKind> = "req",
+        /// What it shoots with; None = unarmed.
+        weapon: Option<Weapon> = "weapon",
+    }
+}
+
+def_struct! {
+    pub struct BldgDef {
+        key: &'static str,
+        name: &'static str = "name",
+        /// Label on a button ("" = the last word of the name).
+        short: &'static str = "short",
+        /// The faction's headquarters: what a side starts with.
+        hq: bool = "hq",
+        /// Shield points over the hull (the Vael).
+        shields: f64 = "shields",
+        /// Works only inside a power field (placed in one, dark when none covers it).
+        needs_power: bool = "needsPower",
+        /// Radius (tiles, centre to building centre) of the power field this building casts when finished; 0 = none.
+        power: f64 = "power",
+        /// Upgrades researched here.
+        researches: &'static [Upgrade] = "researches",
+        cost: [i32; 2] = "cost",
+        w: i32 = "w",
+        h: i32 = "h",
+        hp: f64 = "hp",
+        armor: f64 = "armor",
+        supply: i32 = "supply",
+        build: f64 = "build",
+        sight: f64 = "sight",
+        trains: &'static [UnitKind] = "trains",
+        dropoff: bool = "dropoff",
+        on_vent: bool = "onVent",
+        req: Option<BldgKind> = "req",
+        /// A turret's weapon; None = no defence.
+        weapon: Option<Weapon> = "weapon",
+    }
 }
 
 /// A playable side: its headquarters and worker (the start), and its Build list (basic and advanced pages).
@@ -250,25 +303,17 @@ const UNIT: UnitDef = UnitDef {
     hp: 1.0,
     armor: 0.0,
     speed: 90.0,
-    range: 0.0,
-    dmg: 0.0,
-    dmg_air: 0.0,
-    cd: 1.0,
     sight: 8.0,
     r: 9.0,
     build: 15.0,
-    melee: false,
-    proj: None,
     air: false,
     bio: false,
     heal: 0.0,
     mend: false,
     req: None,
-    up_dmg: 0.0,
     worker: false,
     shields: 0.0,
-    splash: 0.0,
-    splash_r: 0.0,
+    weapon: None,
 };
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;
@@ -305,25 +350,20 @@ const BLDG: BldgDef = BldgDef {
     dropoff: false,
     on_vent: false,
     req: None,
-    range: 0.0,
-    dmg: 0.0,
-    dmg_air: 0.0,
-    cd: 0.0,
-    proj: None,
-    up_dmg: 0.0,
     hq: false,
     researches: &[],
     shields: 0.0,
     needs_power: false,
     power: 0.0,
+    weapon: None,
 };
 impl UnitDef {
     /// Damage this unit deals to a target that is (or is not) flying; 0 when it cannot attack it.
     pub fn damage_vs(&self, air: bool) -> f64 {
-        if air { self.dmg_air } else { self.dmg }
+        self.weapon.map_or(0.0, |w| w.damage_vs(air))
     }
     pub fn armed(&self) -> bool {
-        self.dmg > 0.0 || self.dmg_air > 0.0
+        self.weapon.is_some()
     }
     /// Armed and not a worker: picks fights, answers fire, and counts as a threat to others.
     pub fn threat(&self) -> bool {
@@ -333,7 +373,7 @@ impl UnitDef {
 
 impl BldgDef {
     pub fn damage_vs(&self, air: bool) -> f64 {
-        if air { self.dmg_air } else { self.dmg }
+        self.weapon.map_or(0.0, |w| w.damage_vs(air))
     }
 }
 

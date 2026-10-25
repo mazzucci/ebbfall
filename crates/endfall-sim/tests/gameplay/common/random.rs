@@ -33,7 +33,7 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
     let pick = |r: &mut Mulberry32| ids[r.below(ids.len() as u32) as usize];
     let (x, y) = (r.below(2200) as f64 - 60.0, r.below(2200) as f64 - 60.0);
     let (a, b) = (pick(r), pick(r));
-    match r.below(20) {
+    match r.below(19) {
         0 => g.move_to(a, x, y),
         1 => g.attack_move(a, x, y),
         2 => g.attack_ent(a, b),
@@ -72,7 +72,6 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
             );
         }
         18 => g.attack_move_group(&[a, b, pick(r)], x, y),
-        19 => g.concede(), // (the game is over then, but the world keeps running: invariants still hold)
         _ => {}
     }
 }

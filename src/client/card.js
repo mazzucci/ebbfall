@@ -142,7 +142,7 @@ function showDetail(it) {
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
   box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px'; box.style.maxWidth = Math.max(220, r.width) + 'px';
-  const vs = (label, kinds) => kinds?.length ? `<span class="vs">${label}${kinds.map(k => portrait('unit', k, 22)).join('')}</span>` : '';
+  const vs = (label, kinds) => kinds?.length ? `<span class="vs">${label}${kinds.map(k => portrait('unit', k, 22)).join('')}<span class="sr">: ${names(kinds)}</span></span>` : '';
   box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>` + (it.strong || it.weak ? `<span class="vsr">${vs('Strong against', it.strong)}${vs('Weak against', it.weak)}</span>` : '');
 }
 /** A fighter's counters in words, for a mouse's tooltip. */

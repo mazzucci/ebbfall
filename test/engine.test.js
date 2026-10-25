@@ -63,6 +63,7 @@ test('every fighter names what it beats and what beats it, in real kinds', { ski
     assert.equal(!!(u.strong?.length && u.weak?.length), fighter, `${k}: counters for fighters only`);
     for (const o of [...(u.strong || []), ...(u.weak || [])]) assert.ok(C.UNITS[o] && o !== k, `${k}: ${o} is another unit`);
     assert.ok(!(u.strong || []).some(o => (u.weak || []).includes(o)), `${k}: nothing both`);
+    for (const o of u.strong || []) if (C.UNITS[o].strong) assert.ok(C.UNITS[o].weak.includes(k), `${o} lists ${k} as a weakness (${k} is strong against it)`);
   }
 });
 

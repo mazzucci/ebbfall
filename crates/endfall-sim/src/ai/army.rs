@@ -3,6 +3,11 @@
 
 use super::*;
 
+/// A known enemy base this far (px) from a wave's goal draws a second prong; GUARDS units stay at its own
+/// expansion.
+const SECOND_PRONG_GAP: f64 = 15.0 * TILE;
+const GUARDS: usize = 3;
+
 /// The longest the guided first game holds the opponent's waves back (s).
 pub const HOLD_WAVES_MAX: f64 = 360.0;
 
@@ -189,6 +194,8 @@ impl World {
         self.tend_raiders(&wasps, rally);
         let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
+        // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
+        let army = self.tend_guards(army);
 
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
@@ -241,12 +248,93 @@ impl World {
         ai.wave += d.wave_grow;
         ai.attacking = true;
         ai.wave_size = army.len();
-        for &a in army {
+        // A second prong: with a big enough wave and another enemy base known well away from the goal (an
+        // expansion), its fastest third goes there while the rest hits the goal.
+        let second = self
+            .ai()
+            .known
+            .iter()
+            .filter(|k| {
+                k.3 && self.bldg(k.0).is_some() && dist(k.1, k.2, gx, gy) > SECOND_PRONG_GAP
+            })
+            .map(|k| (k.1, k.2))
+            .next();
+        let mut order: Vec<Id> = army.to_vec();
+        order.sort_by(|&p, &q| {
+            let (sp, sq) = (self.u(p).kind.def().speed, self.u(q).kind.def().speed);
+            sq.partial_cmp(&sp).unwrap().then(p.cmp(&q))
+        });
+        let split = if second.is_some() && army.len() >= 6 {
+            army.len() / 3
+        } else {
+            0
+        };
+        for (i, &a) in order.iter().enumerate() {
+            let (tx, ty) = if i < split { second.unwrap() } else { (gx, gy) };
             let ox = (self.rnd() - 0.5) * 80.0;
             let oy = (self.rnd() - 0.5) * 80.0;
-            self.attack_move(a, gx + ox, gy + oy);
+            self.attack_move(a, tx + ox, ty + oy);
         }
         self.ai_mut().attackers = Some(army.to_vec());
+    }
+
+    /// Up to GUARDS units kept at its own expansion (out of the waves): the nearest ones not out attacking, back
+    /// beside it when idle. Returns the rest of the army.
+    fn tend_guards(&mut self, army: Vec<Id>) -> Vec<Id> {
+        let seat = self.seat();
+        let home = self.map.bases[seat as usize];
+        let (hx, hy) = ((home.0 as f64 + 2.0) * TILE, (home.1 as f64 + 2.0) * TILE);
+        let expansion = self
+            .bldgs
+            .iter()
+            .filter(|b| {
+                b.team == seat && b.done && b.kind.def().hq && dist(b.x, b.y, hx, hy) > 8.0 * TILE
+            })
+            .map(|b| (b.x, b.y))
+            .next();
+        let Some((ex, ey)) = expansion else {
+            self.ai_mut().guards.clear();
+            return army;
+        };
+        let out = self.ai().attackers.clone().unwrap_or_default();
+        let raider = self.factions[seat as usize].ai.raider;
+        let mut guards: Vec<Id> = self
+            .ai()
+            .guards
+            .iter()
+            .copied()
+            .filter(|g| army.contains(g))
+            .collect();
+        let mut free: Vec<Id> = army
+            .iter()
+            .copied()
+            .filter(|a| {
+                let d = self.u(*a).kind.def();
+                // (walking fighters: not a raider's kind, a flyer or a capital giant)
+                !guards.contains(a)
+                    && !out.contains(a)
+                    && d.armed()
+                    && !d.air
+                    && !d.capital
+                    && self.u(*a).kind != raider
+            })
+            .collect();
+        free.sort_by(|&p, &q| {
+            let (up, uq) = (self.u(p), self.u(q));
+            dist(up.x, up.y, ex, ey)
+                .partial_cmp(&dist(uq.x, uq.y, ex, ey))
+                .unwrap()
+                .then(p.cmp(&q))
+        });
+        guards.extend(free.into_iter().take(GUARDS.saturating_sub(guards.len())));
+        for &g in &guards {
+            let u = self.u(g);
+            if u.task == Task::Idle && dist(u.x, u.y, ex, ey) > 5.0 * TILE {
+                self.attack_move(g, ex, ey);
+            }
+        }
+        self.ai_mut().guards = guards.clone();
+        army.into_iter().filter(|a| !guards.contains(a)).collect()
     }
 
     /// A wave out: over when it is gone; home when most of it fell or it searched four minutes and found
@@ -312,7 +400,8 @@ impl World {
 #[cfg(test)]
 mod tests {
     use crate::data::*;
-    use crate::world::World;
+    use crate::map::Id;
+    use crate::world::{Task, World};
 
     #[test]
     fn a_wave_prefers_production_to_a_lone_forward_depot() {
@@ -333,5 +422,78 @@ mod tests {
             .clone();
         w.ai_mut().known.push((core.id, core.x, core.y, true));
         assert_eq!(w.attack_target(), (core.x, core.y));
+    }
+
+    #[test]
+    fn a_big_wave_sends_a_third_at_a_known_expansion() {
+        let mut w = World::new(17, 1);
+        w.ai_turn = ENEMY;
+        let core = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap()
+            .clone();
+        let exp = w.make_building(BldgKind::Core, PLAYER, 30, 30, true);
+        let e = w.bldg(exp).unwrap().clone();
+        w.ai_mut().known = vec![(core.id, core.x, core.y, true), (exp, e.x, e.y, true)];
+        w.ai_mut().wave = 3;
+        let b = w.map.bases[ENEMY as usize];
+        let army: Vec<Id> = (0..9)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    ENEMY,
+                    (b.0 as f64 + 6.0) * 32.0 + i as f64 * 20.0,
+                    (b.1 as f64 + 6.0) * 32.0,
+                )
+            })
+            .collect();
+        w.ai_launch_wave(&army, 1000.0, (core.x, core.y));
+        let to_exp = army
+            .iter()
+            .filter(|&&a| matches!(w.u(a).task, Task::AMove { x, y } if ((x - e.x).powi(2) + (y - e.y).powi(2)).sqrt() < 100.0))
+            .count();
+        assert_eq!(to_exp, 3, "a third to the expansion");
+    }
+
+    #[test]
+    fn three_units_stay_home_at_its_expansion() {
+        let mut w = World::new(17, 1);
+        w.ai_turn = ENEMY;
+        let b = w.map.bases[ENEMY as usize];
+        let (ex, ey) = if b.0 > 30 {
+            (b.0 - 18, b.1)
+        } else {
+            (b.0 + 18, b.1)
+        };
+        w.make_building(BldgKind::Core, ENEMY, ex, ey.clamp(4, 56), true);
+        let mut army: Vec<Id> = (0..6)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    ENEMY,
+                    (b.0 as f64 + 4.0) * 32.0 + i as f64 * 20.0,
+                    (b.1 as f64 + 4.0) * 32.0,
+                )
+            })
+            .collect();
+        // A Wasp right by the expansion is still not a guard (it raids).
+        let (exx, exy) = (
+            (ex as f64 + 2.0) * 32.0,
+            (ey.clamp(4, 56) as f64 + 2.0) * 32.0,
+        );
+        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, exx + 40.0, exy);
+        army.push(wasp);
+        let rest = w.tend_guards(army.clone());
+        assert_eq!(rest.len(), 4);
+        assert_eq!(w.ai().guards.len(), 3);
+        assert!(
+            !w.ai().guards.contains(&wasp) && rest.contains(&wasp),
+            "not the Wasp"
+        );
+        // Kept, not re-picked, on the next turn.
+        let again = w.tend_guards(army.clone());
+        assert_eq!(again, rest);
     }
 }

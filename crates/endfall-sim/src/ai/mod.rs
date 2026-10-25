@@ -47,6 +47,12 @@ pub(crate) struct Ai {
     pub ether_lean: bool,
     /// How many units the current attack wave started with (it retreats below 40%).
     pub wave_size: usize,
+    /// The most enemy infantry (walking, bio) and heavy walkers (armour 2+) seen at once lately: (count, when).
+    /// Its mix answers: splash against massed infantry, fewer heavies of its own against heavies.
+    pub infantry_seen: (usize, f64),
+    pub heavy_seen: (usize, f64),
+    /// Units kept home at its own expansion (out of the waves).
+    pub guards: Vec<Id>,
 }
 
 impl World {
@@ -91,6 +97,9 @@ impl World {
                 scouted: false,
                 raiders: Vec::new(),
                 wave_size: 0,
+                infantry_seen: (0, 0.0),
+                heavy_seen: (0, 0.0),
+                guards: Vec::new(),
                 sweep: 0,
                 sweep_since: 0.0,
                 ether_lean: false,

@@ -53,6 +53,7 @@ impl World {
             mode: None,
             swap: 0.0,
             warp: 0.0,
+            pace: None,
         });
         id
     }

@@ -214,6 +214,7 @@ impl World {
     pub(crate) fn set_task(&mut self, uid: Id, task: Task) {
         let u = self.um(uid);
         u.task = task;
+        u.pace = None; // (a group order sets it again after)
         u.path = None;
         u.repath = 0.0;
         u.stuck = 0.0;
@@ -428,5 +429,63 @@ impl World {
                 clamp(y + oy, 16.0, WH - 16.0),
             );
         }
+        let ids: Vec<Id> = us.iter().map(|&(_, id)| id).collect();
+        self.set_pace(&ids);
+    }
+
+    /// Attack-move for a group: every unit to the point, at the pace of the slowest (healers a little slower still,
+    /// so they trail the fighters instead of leading them in).
+    pub fn attack_move_group(&mut self, ids: &[Id], x: f64, y: f64) {
+        for &id in ids {
+            self.attack_move(id, x, y);
+        }
+        self.set_pace(ids);
+    }
+
+    /// Marching pace for a group given one order: its slowest member's speed (healers at 90% of it), flyers and
+    /// walkers each by their own (flyers go straight while walkers path round, so they cannot march together). A
+    /// unit alone in its layer keeps its own speed. Fixed at the order (a fight keeps it: see `resume_back`).
+    fn set_pace(&mut self, ids: &[Id]) {
+        for air in [false, true] {
+            let mut layer: Vec<Id> = ids
+                .iter()
+                .copied()
+                .filter(|&id| self.unit(id).is_some_and(|u| u.kind.def().air == air))
+                .collect();
+            layer.sort_unstable();
+            layer.dedup();
+            if layer.len() < 2 {
+                continue;
+            }
+            let slowest = layer
+                .iter()
+                .map(|&id| self.u(id).kind.def().speed)
+                .fold(f64::INFINITY, f64::min);
+            for id in layer {
+                let d = self.u(id).kind.def();
+                let healer = d.heal > 0.0 && d.weapon.is_none();
+                self.um(id).pace = Some(if healer { slowest * 0.9 } else { slowest });
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::*;
+    use crate::world::{Task, World};
+
+    #[test]
+    fn a_fight_lifts_the_marching_pace() {
+        let mut w = World::new(5, 1);
+        let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
+        let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 940.0);
+        w.attack_move_group(&[t, v], 1200.0, 900.0);
+        assert_eq!(w.live_speed(t), 68.0, "on the march: the Vanguard's pace");
+        w.um(t).task = Task::Attack {
+            target: v,
+            back: None,
+        };
+        assert_eq!(w.live_speed(t), 92.0, "in a fight: its own speed");
     }
 }

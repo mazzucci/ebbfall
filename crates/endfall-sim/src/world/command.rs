@@ -79,11 +79,17 @@ pub enum Command {
         units: Vec<Id>,
         ability: AbilityKind,
     },
+    /// Attack-move for a selection, marching together at the pace of its slowest unit.
+    GroupAttackMove {
+        units: Vec<Id>,
+        x: f64,
+        y: f64,
+    },
 }
 
 impl Command {
     /// How many kinds of order there are (codes 0..KINDS).
-    pub const KINDS: u8 = 17;
+    pub const KINDS: u8 = 18;
     /// A small stable number for the kind of order (logs, the network, test coverage). Append only.
     pub fn code(&self) -> u8 {
         match self {
@@ -104,6 +110,7 @@ impl Command {
             Command::Rally { .. } => 14,
             Command::Formation { .. } => 15,
             Command::Cast { .. } => 16,
+            Command::GroupAttackMove { .. } => 17,
         }
     }
 }
@@ -178,6 +185,10 @@ impl World {
             Command::Formation { ref units, x, y } if finite(x, y) => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
                 self.formation(&mine, x, y);
+            }
+            Command::GroupAttackMove { ref units, x, y } if finite(x, y) => {
+                let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
+                self.attack_move_group(&mine, x, y);
             }
             Command::Cast { ref units, ability } => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();

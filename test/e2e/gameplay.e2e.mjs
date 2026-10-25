@@ -806,3 +806,15 @@ test('phone: with a worker selected, a tap on a field where another worker stand
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('a Vael unit\'s health figure counts hull and shields together', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  try {
+    const hq = (await d.state()).bldgs.find(b => b.team === 0);
+    const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'scythe', x, y), [hq.x + 150, hq.y + 110]);
+    await d.clickEntity(id);
+    const total = await d.eval(() => endfall.engine.UNITS.scythe.hp + endfall.engine.UNITS.scythe.shields);
+    assert.equal(await d.hudText('#hpNum', new RegExp(`^${total}/${total}$`)), `${total}/${total}`, 'hull + shields, over both maxima');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

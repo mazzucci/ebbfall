@@ -85,7 +85,9 @@ function renderSelection() {
   const life = (f, cur, max, color = '', sh = 0, maxsh = 0) => { // (small phones drop the "/max")
     $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
     $('shBar').hidden = !maxsh; if (maxsh) $('shFill').style.width = (sh / maxsh * 100) + '%'; // the Vael's shields, over the hull
-    const t = max ? `${cur}<span class="mx">/${max}</span>` : String(cur); if ($('hpNum').innerHTML !== t) $('hpNum').innerHTML = t;
+    // The Vael: one figure, hull and shields together (the two bars still show which is which).
+    const [c, m] = maxsh ? [cur + Math.round(sh), max + maxsh] : [cur, max];
+    const t = m ? `${c}<span class="mx">/${m}</span>` : String(c); if ($('hpNum').innerHTML !== t) $('hpNum').innerHTML = t;
   };
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
   info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;

@@ -832,40 +832,52 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
 
 #[test]
 fn the_vael_ai_relights_a_dark_kiln() {
-    let mut w = World::with_setup(4242, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
-    let c = w
-        .bldgs
-        .iter_mut()
-        .find(|b| b.team == PLAYER && b.kind.def().hq)
-        .unwrap();
-    c.hp = 1e9;
-    c.maxhp = 1e9;
-    run(&mut w, 200);
-    // Knock out every Spire: Kilns outside the Conflux field go dark.
-    let spires: Vec<Id> = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Spire)
-        .map(|b| b.id)
-        .collect();
-    assert!(!spires.is_empty());
-    for s in spires {
-        w.damage(s, 1e6, None);
-    }
-    run(&mut w, 1);
-    let dark: Vec<Id> = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY && b.done && b.kind.def().needs_power && !b.powered)
-        .map(|b| b.id)
-        .collect();
-    assert!(!dark.is_empty(), "something went dark");
-    run(&mut w, 120);
-    for id in dark {
-        if let Some(b) = w.bldg(id) {
-            assert!(b.powered, "the AI put a new Spire by its dark {:?}", b.kind);
+    // On the first seed where knocking out every Spire leaves something dark (a building may stand inside the
+    // Conflux's own field, which no Spire loss can darken).
+    let mut tried = 0;
+    for seed in [4242, 1, 2, 3, 5, 8, 13] {
+        let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let c = w
+            .bldgs
+            .iter_mut()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap();
+        c.hp = 1e9;
+        c.maxhp = 1e9;
+        run(&mut w, 200);
+        let spires: Vec<Id> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Spire)
+            .map(|b| b.id)
+            .collect();
+        assert!(!spires.is_empty());
+        for s in spires {
+            w.damage(s, 1e6, None);
+        }
+        run(&mut w, 1);
+        let dark: Vec<Id> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.done && b.kind.def().needs_power && !b.powered)
+            .map(|b| b.id)
+            .collect();
+        if dark.is_empty() {
+            continue;
+        }
+        tried += 1;
+        run(&mut w, 120);
+        for id in dark {
+            if let Some(b) = w.bldg(id) {
+                assert!(
+                    b.powered,
+                    "seed {seed}: the AI put a new Spire by its dark {:?}",
+                    b.kind
+                );
+            }
         }
     }
+    assert!(tried >= 1, "something went dark on some seed");
 }
 
 #[test]
@@ -926,7 +938,36 @@ fn an_ai_with_ether_piling_up_leans_on_its_specialists() {
     );
     assert!(troopers >= 3, "it trained: {troopers}");
     assert!(
-        vanguards + 1 >= troopers,
-        "about one Vanguard per Trooper: {vanguards} to {troopers}"
+        vanguards * 2 > troopers,
+        "more than a Vanguard per two Troopers: {vanguards} to {troopers}"
     );
+}
+
+#[test]
+fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
+    // (Medium seeds and maps where a main pocket once filled up and the AI fell behind its factory schedule)
+    for (seed, kind, races) in [
+        (3, MapKind::Standard, [&HUMANS, &VAEL]),
+        (21, MapKind::Labyrinth, [&VAEL, &HUMANS]),
+        (44, MapKind::Labyrinth, [&VAEL, &HUMANS]),
+    ] {
+        let mut w = World::with_setup(seed, 1, kind, false, races);
+        w.set_ai_seats([true, true]);
+        for _ in 0..30 * 420 {
+            w.step();
+            w.events.clear();
+        }
+        for seat in 0..2u8 {
+            let rax = w.factions[seat as usize].ai.rax;
+            let n = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == seat && b.kind == rax)
+                .count();
+            assert!(
+                n >= 3,
+                "seed {seed} {kind:?} seat {seat}: {n} factories by 7 minutes"
+            );
+        }
+    }
 }

@@ -33,12 +33,15 @@ impl World {
                 {
                     continue;
                 }
+                // Clear of the fields (not in the harvesters' way): a building's centre this far from every crystal
+                // and vent, a little farther for a big one.
                 let (mx, my) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
+                let clear = 2.0 + d.w.max(d.h) as f64 / 2.0;
                 if self
                     .map
                     .nodes
                     .iter()
-                    .all(|n| jsmath::hypot(n.tx as f64 + 0.5 - mx, n.ty as f64 + 0.5 - my) >= 4.5)
+                    .all(|n| jsmath::hypot(n.tx as f64 + 0.5 - mx, n.ty as f64 + 0.5 - my) >= clear)
                 {
                     return Some((tx, ty));
                 }
@@ -298,7 +301,17 @@ impl World {
                         _ => (cx, cy),
                     },
                 };
-                self.find_spot(w, fx, fy)
+                // A full main (a walled pocket fills up): by the second base instead, if there is one.
+                let second = cores.get(1).and_then(|&c| self.bldg(c)).map(|b| {
+                    (
+                        b.tx as f64 + b.w as f64 / 2.0,
+                        b.ty as f64 + b.h as f64 / 2.0,
+                    )
+                });
+                match self.find_spot(w, fx, fy) {
+                    None if w != f.ether => second.and_then(|(ex, ey)| self.find_spot(w, ex, ey)),
+                    spot => spot,
+                }
             }
         {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);

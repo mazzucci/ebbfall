@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// Unspent ether the AI counts as piling up (it then leans on its ether-hungry specialists).
+const ETHER_FLOAT: i32 = 200;
+
 impl World {
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
     /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep.
@@ -266,7 +269,10 @@ impl World {
             let s = &self.factions[e as usize].ai;
             // The main factory answers enemy flyers, then mixes its specialists in by ratio (each once its
             // requirement stands: a Vanguard per two Troopers once the Forge stands beats massed infantry).
+            // Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
+            let floating = self.res[e as usize][1] >= ETHER_FLOAT;
             let mixed = s.mix.iter().find(|&&(k, per)| {
+                let per = if floating { per.div_ceil(2) } else { per };
                 k.def()
                     .req
                     .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
@@ -471,5 +477,28 @@ mod tests {
             .clone();
         w.ai_mut().known.push((core.id, core.x, core.y, true));
         assert_eq!(w.attack_target(), (core.x, core.y));
+    }
+
+    #[test]
+    fn shards_piling_up_with_every_factory_busy_call_for_one_more() {
+        let mut w = World::new(17, 1);
+        w.ai_turn = ENEMY;
+        let rax = w.make_building(BldgKind::Barracks, ENEMY, 40, 12, true);
+        let my_b = vec![rax];
+        w.res[ENEMY as usize] = [500, 0];
+        assert_eq!(
+            w.extra_rax(ENEMY, &my_b),
+            0,
+            "an idle factory spends them first"
+        );
+        w.bldgs
+            .iter_mut()
+            .find(|b| b.id == rax)
+            .unwrap()
+            .queue
+            .push(UnitKind::Trooper);
+        assert_eq!(w.extra_rax(ENEMY, &my_b), 1, "busy, and shards in the bank");
+        w.res[ENEMY as usize] = [300, 0];
+        assert_eq!(w.extra_rax(ENEMY, &my_b), 0, "not piling up");
     }
 }

@@ -376,15 +376,17 @@ impl World {
                     splash: splash.0,
                     splash_r: splash.1,
                 });
+                let sounds = self.factions[team as usize].sounds;
                 let weapon = match kind {
-                    ProjKind::Bolt => "bolt",
-                    ProjKind::Shell => "shell",
-                    ProjKind::Missile => "missile",
+                    ProjKind::Bolt => sounds[0],
+                    ProjKind::Shell => sounds[1],
+                    ProjKind::Missile => sounds[2],
                 };
                 self.fired(shooter, team, x, y, weapon);
             }
             None => {
-                self.fired(shooter, team, x, y, "melee");
+                let melee = self.factions[team as usize].sounds[3];
+                self.fired(shooter, team, x, y, melee);
                 self.damage(target, dmg, Some(shooter))
             }
         }

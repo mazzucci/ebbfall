@@ -77,6 +77,10 @@ const SFX = {
   shell: (b, t) => { tone(b, t, { f: 110, to: 40, dur: 0.22, type: 'sine', vol: 0.14 }); noise(b, t, { dur: 0.18, vol: 0.08, filter: 'lowpass', f: 900, to: 200 }); },
   missile: (b, t) => { noise(b, t, { dur: 0.32, vol: 0.06, filter: 'bandpass', f: 900, to: 3200, q: 1.6, att: 0.04 }); tone(b, t, { f: 300, to: 900, dur: 0.18, type: 'sawtooth', vol: 0.02 }); },
   melee: (b, t) => noise(b, t, { dur: 0.05, vol: 0.04, filter: 'bandpass', f: 1800, q: 3 }),
+  // The Vael: glass and ceramic instead of powder and steel.
+  lance: (b, t) => { tone(b, t, { f: 2400, to: 1300, dur: 0.12, type: 'sine', vol: 0.035 }); tone(b, t, { f: 3600, to: 1950, dur: 0.09, type: 'triangle', vol: 0.015 }); },
+  slam: (b, t) => { tone(b, t, { f: 90, to: 55, dur: 0.35, type: 'sine', vol: 0.13 }); tone(b, t + 0.01, { f: 660, to: 520, dur: 0.3, type: 'triangle', vol: 0.025 }); noise(b, t, { dur: 0.12, vol: 0.04, filter: 'lowpass', f: 700 }); },
+  blade: (b, t) => { noise(b, t, { dur: 0.07, vol: 0.035, filter: 'bandpass', f: 3200, to: 1400, q: 4 }); tone(b, t + 0.02, { f: 1500, to: 1100, dur: 0.06, type: 'sine', vol: 0.015 }); },
   // impacts and deaths
   hit: (b, t, o) => o.big ? noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 }) : noise(b, t, { dur: 0.04, vol: 0.03, filter: 'bandpass', f: 2200, q: 1.5 }),
   boom: (b, t, o) => {
@@ -88,7 +92,7 @@ const SFX = {
 };
 
 /** Minimum gap between two of the same effect (ms): busy fights stay readable. */
-const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120 };
+const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
 const lastGain = {};
 
 /**

@@ -303,8 +303,15 @@ fn every_weapon_reports_its_shots_for_the_sound() {
         (UnitKind::Vanguard, UnitKind::Trooper, "shell"),
         (UnitKind::Lancer, UnitKind::Wasp, "missile"),
         (UnitKind::Harvester, UnitKind::Trooper, "melee"),
+        // The Vael sound like glass and ceramic.
+        (UnitKind::Prism, UnitKind::Trooper, "lance"),
+        (UnitKind::Monolith, UnitKind::Trooper, "slam"),
+        (UnitKind::Scythe, UnitKind::Trooper, "blade"),
     ] {
         let mut w = arena(16);
+        if shooter.def().shields > 0.0 {
+            w.factions = [&VAEL, &HUMANS];
+        }
         let me = w.make_unit(shooter, PLAYER, 600.0, 900.0);
         let foe = w.make_unit(target, ENEMY, 615.0, 900.0);
         w.hold_unit(foe);

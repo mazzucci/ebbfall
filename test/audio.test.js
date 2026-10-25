@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const ramps = [], errors = [];
-class Param { constructor(v = 0) { this.value = v; } setValueAtTime(v) { this.value = v; } exponentialRampToValueAtTime(v) { if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } setTargetAtTime() {} }
+class Param { constructor(v = 0) { this.value = v; } setValueAtTime(v) { this.value = v; } exponentialRampToValueAtTime(v) { if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } linearRampToValueAtTime(v, t) { if (!Number.isFinite(v) || !Number.isFinite(t)) errors.push(`linear ramp ${v} at ${t}`); ramps.push(v); } setTargetAtTime() {} }
 class Node { constructor() { this.gain = new Param(1); this.frequency = new Param(440); this.Q = new Param(1); this.pan = new Param(0); } connect(n) { return n; } start() {} stop() {} }
 class Ctx {
   constructor() { this.state = 'running'; this.currentTime = 0; this.sampleRate = 8000; this.destination = new Node(); }
@@ -13,6 +13,7 @@ class Ctx {
   createDynamicsCompressor() { const n = new Node(); n.threshold = new Param(); n.ratio = new Param(); n.attack = new Param(); n.release = new Param(); return n; }
   createGain() { return new Node(); } createOscillator() { return new Node(); } createBiquadFilter() { return new Node(); }
   createStereoPanner() { return new Node(); } createBufferSource() { return new Node(); }
+  createWaveShaper() { return new Node(); } createDelay() { const n = new Node(); n.delayTime = new Param(); return n; }
   createBuffer(_c, n) { return { getChannelData: () => new Float32Array(n) }; }
 }
 globalThis.window = { AudioContext: Ctx };
@@ -48,4 +49,15 @@ test('every sound the sim asks for has a recipe', () => {
   const abilities = new Set([...sim.matchAll(/key: "([a-z]+)",\n    name: "[^"]+",\n    toggle:/g)].map(m => m[1]));
   assert.ok(abilities.has('stim'), `the abilities were found: ${[...abilities]}`);
   for (const n of [...named, ...weapons, ...abilities]) assert.ok(recipes.includes(n), `the sim emits "${n}", the client has no recipe for it`);
+});
+
+test('the voice prototype speaks every phrase in every style', async () => {
+  const { speak, PHRASES, STYLES } = await import('../src/client/voice.js');
+  for (const key of Object.keys(PHRASES)) for (const style of Object.keys(STYLES)) {
+    ramps.length = 0;
+    const len = speak(new Ctx(), new Node(), key, style, 0);
+    assert.ok(len > 0.5 && len < 3, `${key} ${style}: ${len}s`);
+    assert.ok(ramps.length > 50, `${key} ${style} moved its formants`);
+  }
+  assert.deepEqual(errors, []);
 });

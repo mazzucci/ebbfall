@@ -40,6 +40,7 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
 ## Layout
 
 ```
+voice-lab.html        a page apart from the game for judging the synthesized voice (a second Vite entry)
 index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays
 src/main.js           entry: wires the sim (via src/engine) to the client, fixed-step loop, start/end screens, events
 src/style.css         all styling; design tokens at the top of :root
@@ -73,6 +74,7 @@ src/client/           everything that touches the browser
   look.js             per-kind presentation the sim does not know: building art parts, unit voices
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
+  voice.js            a formant-synthesized announcer (prototype, heard only on voice-lab.html for now)
   fx.js               particles and markers (client-only, fed by sim events)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas

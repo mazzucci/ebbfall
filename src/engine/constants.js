@@ -18,21 +18,22 @@ export const ENEMY = D.consts.enemy;
 /** Seconds a unit takes to warp in at a power field (the Vael). */
 export const UNIT_WARP = D.consts.unit_warp;
 
-/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). */
+/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A fighter's `strong`/`weak`: the kinds
+ *  it beats, and is beaten by, in a fair fight (as the duel tests in tests/gameplay/balance.rs pin them). */
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
-  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
-  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.' },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
+  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', strong: ['scythe', 'wasp'], weak: ['vanguard'] },
+  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism'], weak: ['monolith', 'shrike'] },
+  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['wasp', 'shrike'], weak: ['trooper', 'scythe'] },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.' },
+  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.', strong: ['monolith', 'scythe'], weak: ['lancer', 'prism'] },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Strong against Lancers and workers; slower than a Trooper, and massed Troopers wear it down. Cannot hit flyers.' },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.' },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.' },
+  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Strong against Lancers and workers; slower than a Trooper, and massed Troopers wear it down. Cannot hit flyers.', strong: ['lancer', 'harvester'], weak: ['trooper', 'wasp'] },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard'] },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard'], weak: ['wasp'] },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships; weak against anti-air infantry.', strong: ['wasp', 'vanguard'], weak: ['lancer', 'trooper'] },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far.' },
 };
 const BLDG_TEXT = {

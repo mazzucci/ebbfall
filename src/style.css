@@ -73,6 +73,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:6px;height:6px}
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
+#cmdInfo .vsr{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:4px 14px} #cmdInfo .vs{display:flex;align-items:center;gap:3px;font:600 10px var(--display);letter-spacing:.06em;color:var(--muted);text-transform:uppercase} #cmdInfo .vs img{width:22px;height:22px}
 #group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start;flex:1 1 100%}
 .gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}

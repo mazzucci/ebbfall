@@ -962,3 +962,25 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: a long-press on a unit to train shows what it beats and what beats it', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(1000, 0);
+    const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
+    const spot = await d.findSpot('barracks', { tx: core.tx + 6, ty: core.ty });
+    await d.buildWithUI('g', 'barracks', spot.tx, spot.ty, h.id);
+    const rax = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'barracks'));
+    await until(d, async () => (await rax())?.done, { seconds: 90, what: 'the Garrison' });
+    await d.clickEntity((await rax()).id);
+    const b = await d.page.locator('#cmd button', { hasText: 'Trooper' }).boundingBox();
+    const cdp = await d.page.context().newCDPSession(d.page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
+    await d.page.waitForTimeout(700);
+    const info = d.page.locator('#cmdInfo');
+    assert.match(await info.textContent(), /Strong against.*Weak against/);
+    assert.equal(await info.locator('.vs img').count(), 3, 'portraits: Scythe and Wasp; Vanguard');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

@@ -68,7 +68,7 @@ export function cardItems() {
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc });
+      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc, strong: d.strong, weak: d.weak });
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
@@ -117,7 +117,7 @@ export function buildCard() {
     const b = document.createElement('button');
     b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.locked ? ' locked' : '') + (it.badge ? ' badge' : '');
     b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
-    b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '');
+    b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '') + vsText(it);
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
     b.innerHTML = `<span class="k">${it.key}</span><span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
@@ -142,8 +142,12 @@ function showDetail(it) {
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
   box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px'; box.style.maxWidth = Math.max(220, r.width) + 'px';
-  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>`;
+  const vs = (label, kinds) => kinds?.length ? `<span class="vs">${label}${kinds.map(k => portrait('unit', k, 22)).join('')}</span>` : '';
+  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>` + (it.strong || it.weak ? `<span class="vsr">${vs('Strong against', it.strong)}${vs('Weak against', it.weak)}</span>` : '');
 }
+/** A fighter's counters in words, for a mouse's tooltip. */
+const vsText = (it) => (it.strong?.length ? ` Strong against ${names(it.strong)}.` : '') + (it.weak?.length ? ` Weak against ${names(it.weak)}.` : '');
+const names = (ks) => ks.map(k => UNITS[k].name + 's').join(' and ');
 function hideDetail() { clearTimeout(press.hide); $('cmdInfo').hidden = true; }
 // Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.
 for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => {

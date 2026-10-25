@@ -1047,3 +1047,42 @@ test('the first enemy capital unit seen is announced, once', async () => {
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: a tap on a type tile keeps only that type, a long-press drops it', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    await d.eval(([x, y]) => { for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y); endfall.engine.debugSpawn(0, 'medic', x, y + 30); }, [core.x + 160, core.y + 100]);
+    await d.page.waitForTimeout(300);
+    const types = async () => (await d.selection()).map(e => e.type).sort();
+    await d.page.locator('#btnArmy').tap();
+    assert.deepEqual(await types(), ['medic', 'trooper', 'trooper', 'trooper']);
+    await d.page.locator('#group .gi[data-t="trooper"]').tap();
+    assert.deepEqual(await types(), ['trooper', 'trooper', 'trooper'], 'tap: only the Troopers');
+    await d.page.locator('#btnArmy').tap();
+    const tile = await d.page.locator('#group .gi[data-t="trooper"]').boundingBox();
+    const cdp = await d.page.context().newCDPSession(d.page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 }] });
+    await d.page.waitForTimeout(700);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await d.page.waitForTimeout(200);
+    assert.deepEqual(await types(), ['medic'], 'long-press: the Troopers dropped');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a click on a unit tile selects that unit alone, Shift+click drops it', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 160, core.y + 100]);
+    await d.page.waitForTimeout(300);
+    await d.page.locator('#btnArmy').click();
+    assert.equal((await d.selection()).length, 3);
+    await d.page.locator(`#group .gi[data-id="${ids[1]}"]`).click({ modifiers: ['Shift'] });
+    assert.deepEqual((await d.selection()).map(e => e.id).sort(), [ids[0], ids[2]].sort(), 'Shift+click drops it');
+    await d.page.locator(`#group .gi[data-id="${ids[2]}"]`).click();
+    assert.deepEqual((await d.selection()).map(e => e.id), [ids[2]], 'a click keeps it alone');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

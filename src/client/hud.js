@@ -67,6 +67,7 @@ const compactMq = matchMedia('(max-width: 620px), (max-height: 500px) and (orien
  * the production queue, construction, or the tiles of a group). Rebuilt only when what it shows changes, so its
  * buttons survive between frames; bars and numbers update in place. */
 function renderSelection() {
+  if (!stripBound) { stripBound = true; bindStrip(); }
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
   const life = (f, cur, max, color = '', sh = 0, maxsh = 0) => { // (small phones drop the "/max")
     $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
@@ -117,7 +118,7 @@ function renderSelection() {
       const types = [...new Set(sel.map(x => x.type))], gk = 't' + types.join() + sel.length;
       if (grp.dataset.k !== gk) {
         grp.dataset.k = gk;
-        grp.innerHTML = types.map(t => { const g = sel.filter(x => x.type === t); return `<div class="gi gt" title="${g.length} ${g[0].d.name}">${portrait(g[0].kind, t, 26)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
+        grp.innerHTML = types.map(t => { const g = sel.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 26)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
       }
       types.forEach((t, i) => { const g = sel.filter(x => x.type === t), f = g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0); grp.children[i].lastChild.style.width = (f * 100) + '%'; });
       return;
@@ -125,11 +126,37 @@ function renderSelection() {
     const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
-      grp.innerHTML = shown.map(x => `<div class="gi" title="${x.d.name}">${portrait(x.kind, x.type, 26, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
+      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, 26, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
     }
     shown.forEach((x, i) => { grp.children[i].lastChild.style.width = (x.hp / x.maxhp * 100) + '%'; });
   }
 }
+
+// ---- the tile strip: narrowing a selection without the box ----
+// A type tile (phones): a tap keeps only that type, a long-press drops it. A unit tile (wider screens): a click keeps
+// that unit alone, Shift+click drops it, a long-press drops its type.
+const strip = { timer: 0, held: false };
+function narrow(keep) { const next = ui.sel.filter(keep); if (next.length && next.length < ui.sel.length) { setSelection(next); updateHud(); sfx('select'); } }
+function tileOf(ev) { return ev.target.closest?.('#group .gi'); }
+function bindStrip() {
+  const grp = $('group');
+  grp.addEventListener('pointerdown', ev => {
+    const tile = tileOf(ev); if (!tile) return;
+    ev.stopPropagation(); clearTimeout(strip.timer); strip.held = false;
+    const t = tile.dataset.t || ui.sel.find(x => String(x.id) === tile.dataset.id)?.type;
+    strip.timer = setTimeout(() => { strip.held = true; narrow(x => x.type !== t); }, 450);
+  });
+  for (const e of ['pointerup', 'pointerleave', 'pointercancel']) grp.addEventListener(e, () => clearTimeout(strip.timer));
+  grp.addEventListener('contextmenu', ev => { if (tileOf(ev)) ev.preventDefault(); });
+  grp.addEventListener('click', ev => {
+    const tile = tileOf(ev); if (!tile) return;
+    if (strip.held) { strip.held = false; return; } // (the release after a long-press)
+    if (tile.dataset.t) narrow(x => x.type === tile.dataset.t);
+    else if (ev.shiftKey) narrow(x => String(x.id) !== tile.dataset.id);
+    else narrow(x => String(x.id) === tile.dataset.id);
+  });
+}
+let stripBound = false;
 
 /** Top bar: upgrade levels, and research under way as a ring filling round its icon (whatever is selected). */
 function renderUpgrades() {

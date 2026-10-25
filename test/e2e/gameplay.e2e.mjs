@@ -1256,6 +1256,10 @@ test('phone: a unit it cannot pay for shakes its button, with no toast over the 
     assert.ok(await d.page.evaluate(() => window.__refused), 'the button shakes');
     assert.deepEqual(await d.toasts(), [], 'no toast');
     assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 0, 'nothing queued');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('the end card says what killed most of your units, and what beats it', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {

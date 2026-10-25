@@ -23,18 +23,20 @@ export const UNIT_WARP = D.consts.unit_warp;
  *  fighter is strong against lists it as a weakness. */
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
-  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', strong: ['scythe', 'wasp'], weak: ['vanguard'] },
-  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism'], weak: ['monolith', 'shrike'] },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['wasp', 'shrike'], weak: ['trooper', 'scythe', 'prism'] },
+  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', strong: ['scythe', 'wasp'], weak: ['vanguard', 'sovereign'] },
+  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism'], weak: ['monolith', 'shrike', 'bastion'] },
+  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['wasp', 'shrike'], weak: ['trooper', 'scythe', 'prism', 'sovereign'] },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground.', strong: ['monolith', 'scythe'], weak: ['trooper', 'lancer', 'prism', 'shrike'] },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs.' },
+  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.', strong: ['vanguard', 'scythe', 'sovereign'], weak: ['lancer', 'prism', 'shrike'] },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Slower than a Trooper. Cannot hit flyers.', strong: ['lancer', 'harvester'], weak: ['trooper', 'wasp'] },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard'] },
+  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Slower than a Trooper. Cannot hit flyers.', strong: ['lancer', 'harvester'], weak: ['trooper', 'wasp', 'bastion'] },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard', 'sovereign'] },
   monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard'], weak: ['wasp'] },
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships.', strong: ['wasp', 'vanguard'], weak: ['lancer', 'trooper'] },
+  sovereign: { hot: 'V', desc: 'Capital walker. A towering tripod whose beam splashes the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far.' },
 };
 const BLDG_TEXT = {
@@ -44,7 +46,7 @@ const BLDG_TEXT = {
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers, Medics and Vanguards (Medics and Vanguards need a Foundry).' },
   forge: { hot: 'F', desc: 'Researches weapon and armor upgrades; unlocks Medics and Vanguards at the Garrison.' },
   turret: { hot: 'T', desc: 'Static defense against ground and air.' },
-  airfield: { hot: 'A', desc: 'Trains Wasps and Observers.' },
+  airfield: { hot: 'A', desc: 'Trains Wasps, Observers and the Bastion capital gunship.' },
   // the Vael
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
@@ -52,7 +54,7 @@ const BLDG_TEXT = {
   kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Halos and Monoliths (Halos and Monoliths need a Loom). With its rally point in a power field, they warp in there.' },
   loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades; unlocks Monoliths and the Zenith.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes. With its rally point in a power field, they warp in there.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital walker. With its rally point in a power field, they warp in there.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard'];

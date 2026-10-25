@@ -248,8 +248,10 @@ impl World {
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
         let rax_schedule = d.rax + (t > 300.0) as usize + (t > 540.0) as usize;
+        // Free supply that calls for more: 4, or room for a capital unit too while one is due.
+        let supply_margin = 4 + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
         let want = if relight.is_some()
-            || (cap - used <= 4 && cap < 200 && !building.contains(&f.supply))
+            || (cap - used <= supply_margin && cap < 200 && !building.contains(&f.supply))
         {
             Some(f.supply)
         } else if (harv.len() >= 7
@@ -322,7 +324,8 @@ impl World {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
-        brain.want = want;
+        // (Held back from unit production only if it can be built at all: its requirement stands.)
+        brain.want = want.filter(|&w| self.has_req(e, w));
     }
 
     /// A second base (saved up for), then tending sites and the scout; drops buildings that are gone.

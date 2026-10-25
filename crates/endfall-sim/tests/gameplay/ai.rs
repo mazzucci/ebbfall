@@ -971,3 +971,27 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
         }
     }
 }
+
+#[test]
+fn the_ai_raises_a_capital_unit_late_in_the_game() {
+    // The Human AI with money to spare: past 7.5 minutes, once its Airfield stands, it raises a Bastion.
+    let mut w = World::new(9, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    for _ in 0..30 * 720 {
+        w.res[ENEMY as usize] = [2000, 1000];
+        w.step();
+        w.events.clear();
+    }
+    assert!(
+        w.units
+            .iter()
+            .any(|u| u.team == ENEMY && u.kind == UnitKind::Bastion),
+        "a Bastion by 12 minutes"
+    );
+}

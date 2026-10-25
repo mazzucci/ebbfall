@@ -117,6 +117,32 @@ pub(super) const HALO: UnitDef = UnitDef {
     req: Some(BldgKind::Loom),
     ..UNIT
 };
+/// The Vael capital walker: a towering tripod whose beam splashes the ground from far off; it cannot hit flyers.
+pub(super) const SOVEREIGN: UnitDef = UnitDef {
+    key: "sovereign",
+    name: "Sovereign",
+    cost: [350, 200],
+    supply: 6,
+    hp: 300.0,
+    shields: 250.0,
+    armor: 2.0,
+    speed: 52.0,
+    sight: 10.0,
+    r: 18.0,
+    build: 60.0,
+    capital: true,
+    weapon: Some(Weapon {
+        range: 7.5,
+        dmg: 40.0,
+        cd: 1.6,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 4.0,
+        splash: 0.5,
+        splash_r: 48.0,
+        ..W
+    }),
+    ..UNIT
+};
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Monolith",
@@ -270,7 +296,7 @@ pub(super) const ZENITH: BldgDef = BldgDef {
     shields: 300.0,
     build: 55.0,
     sight: 8.0,
-    trains: &[UnitKind::Shrike],
+    trains: &[UnitKind::Shrike, UnitKind::Sovereign],
     req: Some(BldgKind::Loom),
     needs_power: true,
     ..BLDG

@@ -41,7 +41,7 @@ ground point: unit centre, building footprint centre.
 | Name | Notes |
 | --- | --- |
 | `ground_0..5`, `rock_<mask>_<v>` | dual-grid terrain cells (64 px); mask bits 1 TL, 2 TR, 4 BL, 8 BR = corner is rock; 3 variants that all join |
-| `<unit>_<team>_<dir>_<frame>` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up); dir 0–15, 0 = facing +x, clockwise on screen |
+| `<unit>_<team>_<dir>_<frame>` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up); the Vael lumen, scythe, prism, monolith, shrike, halo and sovereign (a tripod, 2 walk frames); dir 0–15, 0 = facing +x, clockwise on screen |
 | `bldg_<type>_<team>` | core, depot, extractor, barracks, forge, turret (base), airfield |
 | `turret_head_<team>_<dir>` | rotating gun, 16 facings |
 | `foundation_<n>`, `scaffold_<n>`, `rubble_<n>` | construction and destruction, n = 2, 3, 4 tiles |

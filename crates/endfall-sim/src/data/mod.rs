@@ -85,6 +85,8 @@ kinds! {
         Monolith => vael::MONOLITH,
         Shrike => vael::SHRIKE,
         Halo => vael::HALO,
+        Bastion => humans::BASTION,
+        Sovereign => vael::SOVEREIGN,
     }
 }
 
@@ -208,6 +210,8 @@ def_struct! {
         weapon: Option<Weapon> = "weapon",
         /// Its abilities (at most ABILITY_SLOTS), in card order.
         abilities: &'static [AbilityKind] = "abilities",
+        /// A capital unit: one of a side's late, expensive giants (announced when the other side first sees one).
+        capital: bool = "capital",
     }
 }
 
@@ -324,6 +328,7 @@ const UNIT: UnitDef = UnitDef {
     shields: 0.0,
     weapon: None,
     abilities: &[],
+    capital: false,
 };
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;

@@ -262,6 +262,42 @@ export function halo(M, f) {
   g.add(b); return g;
 }
 
+/** Sovereign: the Vael capital walker. A pearl body on three long jointed legs, a crystal crown, a team band and a
+ *  forward beam emitter; frames lift one leg. */
+export function sovereign(M, f) {
+  const g = grp(), b = grp();
+  const bob = (f % 2) * 0.8; b.position.y = 32 + bob;
+  for (let k = 0; k < 3; k++) {
+    const a = k / 3 * Math.PI * 2 + Math.PI / 3, lift = (f % 2) && k === 0 ? 3 : 0;
+    const c = Math.cos(a), s = Math.sin(a);
+    const hip = [c * 9, 31 + bob, s * 9], knee = [c * 19, 40 + bob, s * 19], foot = [c * 24, 2 + lift, s * 24];
+    limb(g, hip, knee, 3, M.shellDark);
+    limb(g, knee, foot, 2.3, M.shell);
+    // Plates down the shin, and a lit seam.
+    const mid = [(knee[0] + foot[0]) / 2, (knee[1] + foot[1]) / 2, (knee[2] + foot[2]) / 2];
+    const tilt = Math.atan2(Math.hypot(foot[0] - knee[0], foot[2] - knee[2]), knee[1] - foot[1]);
+    const shin = add(g, rbox(5, 20, 4.2, 1.2), M.shellLight, mid[0], mid[1], mid[2]);
+    shin.rotation.set(0, -a, 0); shin.rotateZ(-tilt);
+    add(g, sph(3.6, 14, 10), M.shellLight, ...knee);
+    add(g, rbox(2.2, 1.2, 2.2, 0.4), M.glaze, knee[0], knee[1] + 3.4, knee[2]);                 // team knee caps
+    add(g, cyl(4.2, 5.2, 2.4, 16), M.shellDark, foot[0], foot[1], foot[2]);                      // foot pad
+    lamp(g, M, 0.8, knee[0], knee[1] + 1, knee[2]);
+  }
+  add(b, lathe([[0, -9], [10, -8], [14, -3], [14.5, 2], [11, 8], [5, 11.5], [0, 12]], 30), M.shell, 0, 0, 0); // body
+  add(b, lathe([[0, -9.5], [9, -8.6], [12, -5]], 26), M.glass, 0, 0, 0);                       // black-glass belly
+  ring(b, 14.6, 1.6, M.glaze, 0.5);                                                             // team band
+  ring(b, 12, 0.5, M.ether, 4.5, { seg: 48 });
+  ring(b, 12, 1, M.halo1, 4.5, { seg: 48 });
+  // The beam emitter: a long pearl prong with a lit tip, facing +x.
+  add(b, rbox(14, 4.4, 6, 1.4), M.shellLight, 15, -0.5, 0);
+  add(b, rbox(3, 3.6, 3.6, 0.8), M.shellDark, 22.5, -0.5, 0);
+  lamp(b, M, 1.8, 24.5, -0.5, 0, M.core);
+  // The crown: a cluster of crystals on top.
+  gem(b, M, 4.6, 2.6, 0, 16, 0);
+  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; gem(b, M, 2.2, 2.2, Math.cos(a) * 5, 13.5, Math.sin(a) * 5); }
+  g.add(b); return g;
+}
+
 export const VAEL_UNITS = {
   lumen: { build: lumen, frames: 2, r: 14, h: 20 },
   scythe: { build: scythe, frames: 2, r: 20, h: 30 },
@@ -269,6 +305,7 @@ export const VAEL_UNITS = {
   monolith: { build: monolith, frames: 2, r: 22, h: 40 },
   shrike: { build: shrike, frames: 2, r: 22, h: 26 },
   halo: { build: halo, frames: 2, r: 10, h: 18 },
+  sovereign: { build: sovereign, frames: 2, r: 32, h: 64 },
 };
 
 // ---------------- buildings ----------------

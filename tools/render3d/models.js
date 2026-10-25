@@ -244,6 +244,47 @@ export function observer(M, f) {
   return g;
 }
 
+/** Bastion: the Humans' capital gunship. An armoured wedge on four ducted fans, hovering 24 units up, a twin-cannon
+ *  turret on the spine and a chin gun; frames turn the fan blades. */
+export function bastion(M, f) {
+  const g = grp(), body = grp();
+  body.position.y = 24;
+  const hull = [[-20, -10], [8, -12], [20, -6], [23, 0], [20, 6], [8, 12], [-20, 10], [-24, 0]];
+  add(body, plate(hull, 7, 1.6), M.trim, 0, -3.5, 0);                                         // armoured hull
+  add(body, plate(hull.map(([x, z]) => [x * 0.86, z * 0.8]), 2.2, 0.8), M.dark, 0, -5, 0);      // belly
+  add(body, plate([[6, -9], [18, -5], [21, 0], [18, 5], [6, 9]], 7.4, 1.2), M.paint, 0, -3.6, 0); // team-painted prow
+  add(body, plate([[-16, -6], [4, -7], [10, -3], [10, 3], [4, 7], [-16, 6]], 3, 1), M.trim, 0, 3.4, 0); // spine deck
+  for (const side of [-1, 1]) {
+    add(body, rbox(30, 1.2, 1.6, 0.4), M.hazard, -3, 3.6, side * 9.4);                          // deck edge stripes
+    add(body, rbox(8, 2, 3, 0.6), M.paint, -4, 4.6, side * 6);                                   // armour plates
+    // Ducted fans at the four corners, on stub pylons.
+    for (const fx of [-15, 9]) {
+      add(body, rbox(4, 2, 7, 0.6), M.gunmetal, fx, 0.5, side * 14);
+      const fan = grp(); fan.position.set(fx, 1, side * 19);
+      add(fan, new THREE.TorusGeometry(6, 0.8, 8, 28), M.gunmetal, 0, 0, 0, Math.PI / 2);   // duct ring
+      add(fan, new THREE.TorusGeometry(6.6, 0.35, 6, 28), M.paint, 0, 0.6, 0, Math.PI / 2);   // team rim
+      add(fan, cyl(1.6, 1.6, 2.4, 12), M.steel, 0, 0, 0);
+      for (let k = 0; k < 4; k++) add(fan, rbox(10.6, 0.3, 1.8, 0.1), M.steel, 0, 0.5, 0, 0, k / 4 * Math.PI + (f % 2) * Math.PI / 8 * side, 0);
+      body.add(fan);
+    }
+    add(body, cyl(0.6, 0.6, 7, 10), M.gunmetal, 22, -3.4, side * 3, 0, 0, Math.PI / 2);          // chin guns
+    add(body, sph(0.8, 8, 6), M.lamp, -23, -1, side * 9);                                         // tail lights
+  }
+  add(body, sph(4.4, 18, 12), M.glass, 13, 1.2, 0).scale.set(1.3, 0.55, 0.9);                     // cockpit
+  // The turret: a squat drum with two long cannons over the prow.
+  const tur = grp(); tur.position.set(-2, 6.2, 0);
+  add(tur, cyl(6, 6.8, 3.6, 22), M.gunmetal, 0, 0, 0);
+  add(tur, rbox(9, 3, 8, 1), M.paint, 2, 2.4, 0);
+  for (const dz of [-2.2, 2.2]) {
+    add(tur, cyl(1.1, 1.1, 18, 12), M.steel, 14, 2.4, dz, 0, 0, Math.PI / 2);
+    add(tur, rbox(3, 2.6, 2.6, 0.6), M.dark, 23, 2.4, dz);
+  }
+  body.add(tur);
+  add(body, cyl(0.25, 0.25, 8, 6), M.steel, -12, 9, -4); add(body, sph(0.6, 8, 6), M.lamp, -12, 13, -4); // mast
+  g.add(body);
+  return g;
+}
+
 export const UNIT_MODELS = {
   // r: the farthest any part reaches from the centre (any facing must fit), h: height
   harvester: { build: harvester, frames: 2, r: 23, h: 15 },
@@ -253,4 +294,5 @@ export const UNIT_MODELS = {
   medic: { build: medic, frames: 4, r: 18, h: 16 },
   wasp: { build: wasp, frames: 2, r: 26, h: 26 },
   observer: { build: observer, frames: 2, r: 13, h: 26 },
+  bastion: { build: bastion, frames: 2, r: 36, h: 38 },
 };

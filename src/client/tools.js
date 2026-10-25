@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, UNITS, BUILDINGS, TILE } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, TILE, visibleEnt } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx } from './audio.js';
@@ -35,7 +35,7 @@ export function goHome() {
   if (c) centerOn(c.x, c.y); else toast('No base left');
 }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); capitals.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -105,9 +105,21 @@ function watchPower() {
   }
 }
 
+/** Capital units announced this game, by "<team>:<kind>": the first of each kind gets a word (and the enemy's a siren). */
+const capitals = new Set();
+function watchCapitals() {
+  for (const u of G.units) {
+    if (!u.d.capital || (u.team !== G.me && !visibleEnt(u))) continue;
+    const key = u.team + ':' + u.type; if (capitals.has(key)) continue;
+    capitals.add(key);
+    if (u.team === G.me) toast(`${u.d.name} ready`);
+    else { toast(`Enemy ${u.d.name} sighted!`, true, true); sfx('alert'); ping(u.x, u.y); }
+  }
+}
+
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
-  watchPower();
+  watchPower(); watchCapitals();
   const idle = idleHarvesters().length, a = army().length;
   const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
   if (pic.dataset.k !== wk) {

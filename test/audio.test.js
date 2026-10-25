@@ -41,6 +41,8 @@ test('every sound the sim asks for has a recipe', () => {
   const sim = readdirSync(dir, { recursive: true }).filter(f => f.endsWith('.rs')).map(f => readFileSync(new URL(f, dir), 'utf8')).join('\n');
   const named = new Set([...sim.matchAll(/sfx\([^,()]+, "([a-z]+)"\)/g)].map(m => m[1])); // self.sfx(team, "name")
   assert.ok(named.size >= 2, 'the sim\'s sounds were found');
-  const weapons = new Set([...sim.matchAll(/=> "(bolt|shell|missile)"|weapon: "([a-z]+)"/g)].map(m => m[1] || m[2]));
+  // Each faction's shot sounds (Faction::sounds in crates/endfall-sim/src/data/).
+  const weapons = new Set([...sim.matchAll(/sounds: \[([^\]]+)\]/g)].flatMap(m => [...m[1].matchAll(/"([a-z]+)"/g)].map(n => n[1])));
+  assert.ok(weapons.has('bolt') && weapons.has('lance'), `every race's shot sounds were found: ${[...weapons]}`);
   for (const n of [...named, ...weapons]) assert.ok(recipes.includes(n), `the sim emits "${n}", the client has no recipe for it`);
 });

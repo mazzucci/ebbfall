@@ -104,6 +104,8 @@ loop feels right.
   Loom; mends 10 shields/s into the most drained shielded ally within 3 tiles, in combat too (the only shield
   restore under fire), one patient per healer per tick, walks to drained allies in sight when idle. The Medic rule
   with a `mend` flag. The Vael AI mixes one in per six Scythes. Art from the existing model (atlas page 6).
+- [x] Vael phase 2, sounds (2026-10-25): each faction names its shot sounds (`Faction::sounds`, by projectile);
+  the Vael's are synthesized glass and ceramic: `lance` (Prism, Ward, Shrike), `slam` (Monolith), `blade` (Scythe).
 - [x] Race balance from AI-vs-AI games (2026-10-24): the Vael AI won 46 of 48 games against the human AI (Easy and
   Medium, both seats, every map), in about half the time of a human mirror. In play the Scythe ran down retreating
   Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 90 (slower than a Trooper, as fast as a Lancer), dmg 10;

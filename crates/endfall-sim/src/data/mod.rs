@@ -199,6 +199,8 @@ pub struct Faction {
     pub supply: BldgKind,
     pub ether: BldgKind,
     pub power: Option<BldgKind>,
+    /// The sound of its shots, by projectile: [bolt, shell, missile, melee] (recipe names in src/client/audio.js).
+    pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings (the Vael regenerate shields instead).
     pub repairs: bool,
     /// Warp-in: a worker plants a site and is free at once; the building then grows by itself.

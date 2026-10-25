@@ -18,6 +18,7 @@ pub const VAEL: Faction = Faction {
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
     power: Some(BldgKind::Spire),
+    sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     warp: true,
     ai: AiScript {

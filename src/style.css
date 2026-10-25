@@ -141,7 +141,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)}
 .tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
 #btnBox{position:absolute;left:8px;bottom:8px;z-index:3;min-height:44px}
-@media (any-pointer:coarse){#hint{left:120px}} /* clear of SELECT on tablets */
+#btnHome{position:absolute;left:128px;bottom:8px;z-index:3;min-height:44px;min-width:44px;justify-content:center} #btnHome .t{display:none}
+@media (any-pointer:coarse){#hint{left:180px}} /* clear of SELECT and Home on tablets */
 .tb.grp{min-width:34px;justify-content:center} .tb.grp span{color:var(--muted)} .tb.grp.empty{opacity:.5}
 @keyframes pulse{from{box-shadow:0 0 0 rgba(255,90,90,0)}to{box-shadow:0 0 12px rgba(255,90,90,.7)}}
 /* Landscape phones: every pixel of height counts, so shrink the bars and the HUD. */
@@ -169,6 +170,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);
     min-width:104px;min-height:40px;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none}
   #btnBox.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
+  /* Home: beside SELECT, under the same thumb. */
+  #btnHome{position:fixed;z-index:5;left:calc(max(10px,env(safe-area-inset-left,0px)) + 112px);bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);min-height:40px;min-width:44px;touch-action:manipulation}
   /* Grows at once (so a nudge has one finger-to-map ratio from the first move), shrinks back smoothly. */
   #minimap{transition:transform .12s ease-out;transform-origin:0 100%} #minimap.big{transform:scale(2);transition:none;position:relative;z-index:6} /* above the selection console while enlarged */
   .tb{padding:7px 10px;font-size:12px} .tb.grp{min-width:42px;min-height:34px}

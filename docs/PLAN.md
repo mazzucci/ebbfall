@@ -100,6 +100,10 @@ loop feels right.
   16 ground / 16 air, cd 0.9; Monolith 175/100, dmg 52 (superseded by the race balance below). Known: Prisms lose a little more to massed Troopers than the
   design asked (-0.4 vs -0.3). Phase 2: the Halo (shield mending), Shields research, Vael sounds, human AI Spire
   targeting, raid and AI-vs-AI balance.
+- [x] Vael phase 2, the Halo (2026-10-24): 75/50, 40 hull + 40 shields, speed 110, sight 10, from the Kiln with a
+  Loom; mends 10 shields/s into the most drained shielded ally within 3 tiles, in combat too (the only shield
+  restore under fire), one patient per healer per tick, walks to drained allies in sight when idle. The Medic rule
+  with a `mend` flag. The Vael AI mixes one in per six Scythes. Art from the existing model (atlas page 6).
 - [x] Race balance from AI-vs-AI games (2026-10-24): the Vael AI won 46 of 48 games against the human AI (Easy and
   Medium, both seats, every map), in about half the time of a human mirror. In play the Scythe ran down retreating
   Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 90 (slower than a Trooper, as fast as a Lancer), dmg 10;

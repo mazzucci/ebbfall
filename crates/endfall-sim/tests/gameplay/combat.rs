@@ -765,6 +765,57 @@ fn shields_research_soaks_damage_on_shields_only() {
 }
 
 #[test]
+fn a_halo_mends_shields_in_combat_and_never_the_hull() {
+    let mut w = flat_arena(18);
+    w.factions = [&VAEL, &HUMANS];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let halo = w.make_unit(UnitKind::Halo, PLAYER, x, y);
+    let a = w.make_unit(UnitKind::Scythe, PLAYER, x + 40.0, y);
+    let b = w.make_unit(UnitKind::Scythe, PLAYER, x - 40.0, y);
+    let far = w.make_unit(UnitKind::Scythe, PLAYER, x + 9.0 * TILE, y);
+    for u in [halo, a, b, far] {
+        w.hold_unit(u);
+    }
+    let d = UnitKind::Scythe.def();
+    for u in [a, b, far] {
+        w.damage(u, d.shields + 20.0, None); // shields gone, some hull lost
+    }
+    let hull = w.unit(a).unwrap().hp;
+    run(&mut w, 2);
+    // No regeneration yet (SHIELD_DELAY), so whatever came back was mended: about 10/s on one patient at a time.
+    let (sa, sb) = (w.unit(a).unwrap().sh, w.unit(b).unwrap().sh);
+    assert!(
+        sa + sb > 15.0 && sa + sb < 25.0,
+        "one Halo mends about 10 shields/s: {sa} + {sb}"
+    );
+    assert_eq!(
+        w.unit(far).unwrap().sh,
+        0.0,
+        "out of reach (9 tiles) gets nothing, in the delay"
+    );
+    assert_eq!(w.unit(a).unwrap().hp, hull, "the hull is not mended");
+    // Under fire too: hits keep resetting the regeneration delay, the Halo still mends.
+    for t in 0..2 * TPS {
+        if t % 15 == 0 {
+            w.damage(a, 1.0, None); // two small hits a second each
+            w.damage(b, 1.0, None);
+        }
+        w.step();
+    }
+    assert!(
+        w.unit(a).unwrap().sh + w.unit(b).unwrap().sh > sa + sb,
+        "mending outpaces 1-damage hits"
+    );
+    // A Halo does not heal infantry.
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, x, y + 30.0);
+    w.hold_unit(t);
+    w.damage(t, 20.0, None);
+    let thp = w.unit(t).unwrap().hp;
+    run(&mut w, 2);
+    assert_eq!(w.unit(t).unwrap().hp, thp, "a Halo does not heal a Trooper");
+}
+
+#[test]
 fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     let mut w = flat_arena(16);
     w.factions = [&VAEL, &HUMANS];

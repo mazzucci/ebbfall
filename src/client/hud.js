@@ -63,7 +63,7 @@ function fightStats(x) {
   let h = '';
   if (x.d.dmg && !x.d.worker) h += stat('dmg', x.d.dmg, bonus, 'Damage against ground');
   if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
-  if (x.d.heal) h += stat('heal', x.d.heal, 0, 'Heals infantry (per second)');
+  if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends shields (per second)' : 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');
   return h;
 }

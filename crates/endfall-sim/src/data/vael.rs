@@ -27,7 +27,11 @@ pub const VAEL: Faction = Faction {
         air: BldgKind::Zenith,
         basic: UnitKind::Scythe,
         anti_air: UnitKind::Prism,
-        mix: &[(UnitKind::Prism, 1), (UnitKind::Monolith, 3)],
+        mix: &[
+            (UnitKind::Prism, 1),
+            (UnitKind::Monolith, 3),
+            (UnitKind::Halo, 6),
+        ],
         raider: UnitKind::Shrike,
         wave_scale: 0.6,
     },
@@ -86,6 +90,20 @@ pub(super) const PRISM: UnitDef = UnitDef {
     build: 30.0,
     proj: Some(ProjKind::Bolt),
     up_dmg: 1.0,
+    ..UNIT
+};
+pub(super) const HALO: UnitDef = UnitDef {
+    key: "halo",
+    name: "Halo",
+    cost: [75, 50],
+    hp: 40.0,
+    shields: 40.0,
+    speed: 110.0,
+    sight: 10.0,
+    build: 20.0,
+    heal: 10.0,
+    mend: true,
+    req: Some(BldgKind::Loom),
     ..UNIT
 };
 pub(super) const MONOLITH: UnitDef = UnitDef {
@@ -181,7 +199,12 @@ pub(super) const KILN: BldgDef = BldgDef {
     shields: 300.0,
     build: 45.0,
     sight: 7.0,
-    trains: &[UnitKind::Scythe, UnitKind::Prism, UnitKind::Monolith],
+    trains: &[
+        UnitKind::Scythe,
+        UnitKind::Prism,
+        UnitKind::Monolith,
+        UnitKind::Halo,
+    ],
     needs_power: true,
     ..BLDG
 };

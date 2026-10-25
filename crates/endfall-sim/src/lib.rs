@@ -349,8 +349,8 @@ impl Game {
                 Event::Attacked { x, y, building, .. } => {
                     format!("{{\"t\":\"attacked\",\"x\":{x},\"y\":{y},\"building\":{building}}}")
                 }
-                Event::Heal { x, y, tx, ty } => {
-                    format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty}}}")
+                Event::Heal { x, y, tx, ty, mend } => {
+                    format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty},\"mend\":{mend}}}")
                 }
                 Event::Hit { x, y, big } => format!("{{\"t\":\"hit\",\"x\":{x},\"y\":{y},\"big\":{big}}}"),
                 Event::Fire { x, y, weapon, .. } => format!("{{\"t\":\"fire\",\"x\":{x},\"y\":{y},\"w\":\"{weapon}\"}}"),

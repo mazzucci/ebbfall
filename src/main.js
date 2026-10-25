@@ -54,7 +54,7 @@ function drainEvents() {
     else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
     else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
-    else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty);
+    else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
     else if (e.t === 'attacked') onAttacked(e);
   }
   G.events.length = 0;

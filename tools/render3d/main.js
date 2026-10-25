@@ -7,8 +7,8 @@ import * as B from './buildings.js';
 import { DOODADS } from './doodads.js';
 import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
 
-// The Vael units in the game (the Halo comes later); each race renders with its own materials.
-const { halo: _laterHalo, ...VAEL_IN_GAME } = VAEL_UNITS;
+// The Vael units in the game; each race renders with its own materials.
+const VAEL_IN_GAME = VAEL_UNITS;
 const UNITS_ALL = [...Object.entries(UNIT_MODELS).map(([k, m]) => [k, m, makeMats]), ...Object.entries(VAEL_IN_GAME).map(([k, m]) => [k, m, makeVaelMats])];
 
 const FACINGS = 16;

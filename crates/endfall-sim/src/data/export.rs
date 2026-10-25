@@ -95,6 +95,7 @@ fn unit(d: &UnitDef) -> String {
         .num("air", d.air)
         .num("bio", d.bio)
         .num("heal", d.heal)
+        .num("mend", d.mend)
         .raw("req", req(d.req))
         .num("upDmg", d.up_dmg)
         .done()

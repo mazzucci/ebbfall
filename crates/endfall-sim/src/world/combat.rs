@@ -390,34 +390,47 @@ impl World {
         }
     }
 
-    /// A Medic heals the most hurt friendly infantry within HEAL_RANGE that no other Medic healed this tick (so two
+    /// A Medic heals the most hurt friendly infantry within 2.5 tiles that no other healer tended this tick (so two
     /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
-    /// infantry it can see.
+    /// allies it can see. A Halo (`mend`) does the same for shields, on any shielded ally, within 3 tiles.
     pub(crate) fn medic(&mut self, uid: Id, dt: f64) {
-        const HEAL_RANGE: f64 = 2.5 * TILE;
-        let (mx, my, team, heal, sight, idle) = {
+        let (mx, my, team, heal, mend, sight, idle) = {
             let u = self.u(uid);
+            let d = u.kind.def();
             (
                 u.x,
                 u.y,
                 u.team,
-                u.kind.def().heal,
-                u.kind.def().sight * TILE,
+                d.heal,
+                d.mend,
+                d.sight * TILE,
                 u.task == Task::Idle,
             )
+        };
+        let range = if mend { 3.0 } else { 2.5 } * TILE;
+        // What this healer restores on a patient: (now, full), or None if it cannot tend it.
+        let need = |o: &Unit| {
+            if mend {
+                (o.maxsh > 0.0).then_some((o.sh, o.maxsh))
+            } else {
+                o.kind.def().bio.then_some((o.hp, o.maxhp))
+            }
         };
         let mut best: Option<(f64, Id, f64)> = None; // (hp fraction, id, distance)
         let mut seek: Option<(f64, f64, f64)> = None; // nearest hurt ally in sight: (distance, x, y)
         for o in &self.units {
-            if o.id == uid || o.team != team || !o.kind.def().bio || o.hp >= o.maxhp {
+            let Some((now, full)) = need(o).filter(|&(now, full)| now < full) else {
+                continue;
+            };
+            if o.id == uid || o.team != team {
                 continue;
             }
             let d = dist(o.x, o.y, mx, my) - o.r;
-            if d <= HEAL_RANGE {
+            if d <= range {
                 if o.healed_at == self.tick {
-                    continue; // another Medic has this one (and a spare Medic need not walk to it)
+                    continue; // another healer has this one (and a spare one need not walk to it)
                 }
-                let f = o.hp / o.maxhp;
+                let f = now / full;
                 if best.is_none_or(|(bf, bid, _)| f < bf || (f == bf && o.id < bid)) {
                     best = Some((f, o.id, d));
                 }
@@ -429,7 +442,11 @@ impl World {
             let i = self.ui(pid).unwrap();
             let tick = self.tick;
             let p = &mut self.units[i];
-            p.hp = (p.hp + heal * dt).min(p.maxhp);
+            if mend {
+                p.sh = (p.sh + heal * dt).min(p.maxsh);
+            } else {
+                p.hp = (p.hp + heal * dt).min(p.maxhp);
+            }
             p.healed_at = tick;
             let (tx, ty) = (p.x, p.y);
             let u = self.um(uid);
@@ -442,6 +459,7 @@ impl World {
                     y: my,
                     tx,
                     ty,
+                    mend,
                 });
             }
         } else if let (true, Some((_, sx, sy))) = (idle, seek) {

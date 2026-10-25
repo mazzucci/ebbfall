@@ -116,7 +116,8 @@ loop feels right.
   Vael), three levels at the Weapons prices; each soaks 1 damage of every hit that lands on shields, units and
   buildings (at least 1 lands), then hull armor applies to the rest. One row in the upgrades table plus
   `Effect::Shields`. The goldens moved only because the state hash mixes a third upgrade level (checked: with it left
-  out, every old hash held). Phase 2 still to do: the Halo, Vael sounds, human AI Spire targeting.
+  out, every old hash held). Phase 2 is complete with the Halo and Vael sounds; human AI Spire targeting was
+  tried and dropped (no measurable effect in AI-vs-AI games).
 - [x] Sound design: synthesized layered effects (no assets), positional by camera (pan, distance), weapon and impact sounds from sim events, unit radio chirps, chimes, ambient wind
 - [ ] Resizable maps (estimate, 2026-10-23; not scheduled): the 64x64 size is a compile-time constant in about 80
   places. Sim: `MW/MH/WW/WH` in data/mod.rs, the free `idx()` and fixed-size grids (rock, shade, occ, vis, explored, the

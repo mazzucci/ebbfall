@@ -5,7 +5,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 
@@ -201,12 +201,12 @@ class UnitObj {
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
-    if (moved > 0.05 || this.air) this.walk += dt * (this.air ? 14 : 8); // rotors always spin
+    if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
     const frames = this.frames, f = Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     const tx = tex(`${u.type}_${u.team}_${dir}_${f}`);
     setTex(this.body, tx); setTex(this.flash, tx);
-    const bob = this.air ? Math.sin(t * 3 + u.id) * 1.2 : 0;
+    const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
     this.body.position.set(u.x, u.y + bob); this.flash.position.set(u.x, u.y + bob);
     this.body.zIndex = u.y; this.flash.zIndex = u.y + 0.1;
     this.flash.visible = u.flash > 0; this.flash.alpha = 0.6;

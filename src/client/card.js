@@ -127,6 +127,7 @@ export function buildCard() {
     const b = document.createElement('button');
     b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.locked ? ' locked' : '') + (it.badge ? ' badge' : '');
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
+    if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
     b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '') + vsText(it);
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
@@ -191,6 +192,18 @@ function firstSpot(k) {
   return {};
 }
 
+/** A refused button press. Short of shards or ether: the button itself shakes and its cost flashes (with the error
+ *  sound), no toast over the game (the long-press detail says what is short). Anything else (supply blocked,
+ *  "Requires …": a decision to make) is a toast; so is a refusal for a button not on the card (a hotkey). The
+ *  shake rides through card rebuilds (`shaking`): the rebuilt button carries it. */
+let shaking = { id: '', until: 0 };
+function refuse(id, err) {
+  if (!/^Not enough/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
+  sfx('error');
+  shaking = { id, until: performance.now() + 400 };
+  cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
+}
+
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   if (id === 'deselect') { setSelection([]); ui.box = false; setBox(); updateHud(); return; }
@@ -204,18 +217,18 @@ export function doCommand(id) {
   if (id.startsWith('b_')) {
     const k = id.slice(2);
     if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
-    if (!canAfford(G.me, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
+    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
     ui.place = { type: k, tx: -99, ty: -99, ...(touchUi ? firstSpot(k) : {}) }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) toast(err, true); return; } // (the cast event plays its sound)
-  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
+  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) refuse(id, err); else sfx('build'); return; }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
     const hs = G.units.filter(u => u.team === G.me && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
     if (!hs.length) { toast(`No ${UNITS[myFaction().worker].name} to build it`, true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
-  if (id.startsWith('r_')) { const b = bl.find(o => !o.research) || bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }
+  if (id.startsWith('r_')) { const b = bl.find(o => !o.research) || bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) refuse(id, e); else sfx('build'); return; }
   if (id === 'cancelr') { const b = researching(bl); if (b) cancelResearch(b); return; }
   if (id === 'cancelb') { const b = bl[0]; if (b && !b.done) { cancelConstruction(b); ui.sel = []; sfx('select'); } return; }
   if (id === 'cancelq') { const b = bl.length && mostBusy(bl); if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }

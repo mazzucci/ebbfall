@@ -221,9 +221,9 @@ impl World {
     /// A building just finished: supply, the news, and its crew back to work (`builder`: the one who finished it).
     pub(crate) fn finish_construction(&mut self, b: Id, builder: Option<Id>) {
         let bd = self.bldg(b).unwrap();
-        let (bteam, name, vent, bx, by) = (bd.team, bd.kind.def().name, bd.vent, bd.x, bd.y);
+        let (bteam, vent, bx, by) = (bd.team, bd.vent, bd.x, bd.y);
         self.recalc_supply(bteam);
-        self.toast(bteam, format!("{} complete", name), false);
+        // (no toast: the minimap ping and the chime say it; nothing pops up over a fight)
         self.ping(bteam, bx, by);
         self.sfx(bteam, "done");
         let others: Vec<Id> = self

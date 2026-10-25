@@ -308,8 +308,11 @@ impl World {
                         b.ty as f64 + b.h as f64 / 2.0,
                     )
                 });
+                // (Not an extractor, which needs its vent, nor a power source meant to relight a dark building.)
                 match self.find_spot(w, fx, fy) {
-                    None if w != f.ether => second.and_then(|(ex, ey)| self.find_spot(w, ex, ey)),
+                    None if w != f.ether && !(w == f.supply && relight.is_some()) => {
+                        second.and_then(|(ex, ey)| self.find_spot(w, ex, ey))
+                    }
                     spot => spot,
                 }
             }

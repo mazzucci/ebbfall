@@ -331,6 +331,11 @@ impl Game {
     pub fn vis(&self, team: u8) -> Vec<u8> {
         self.w.vis[team as usize & 1].clone()
     }
+    /// `team`'s army value every 10 s since the start (the end screen's chart).
+    #[wasm_bindgen(js_name = armyLog)]
+    pub fn army_log(&self, team: u8) -> Vec<u32> {
+        valid_team(team).map_or_else(Vec::new, |t| self.w.army_log[t as usize].clone())
+    }
     /// Tiles `team` has ever seen.
     pub fn explored(&self, team: u8) -> Vec<u8> {
         self.w.explored[team as usize & 1].clone()

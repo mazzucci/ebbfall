@@ -88,7 +88,7 @@
         <button class="ib" id="btnMenuSound" aria-pressed="true" aria-labelledby="lblSound btnMenuSound">ON</button>
       </div>
       <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>
-      <div class="row"><button class="ib" id="btnHowTo">HOW TO PLAY</button><span class="spacer"></span><button class="ib big" id="btnStart">START GAME</button></div>
+      <div class="row"><button class="ib" id="btnHowTo">HOW TO PLAY</button><span class="spacer rec" id="record"></span><button class="ib big" id="btnStart">START GAME</button></div>
     </div>
   </div>
   <div class="screen" id="splash" hidden>
@@ -126,7 +126,9 @@
       <div class="tag" id="endSub"></div>
       <p class="story" id="endMap"></p>
       <div id="endStats" class="row"></div>
-      <div class="row"><button class="ib big" id="btnAgain">PLAY AGAIN</button></div>
+      <div id="endChart"></div>
+      <div id="endKey" class="row"><span class="me">Your army</span><span class="foe">Enemy army</span></div>
+      <div class="row"><button class="ib" id="btnAgain">NEW GAME</button><span class="spacer"></span><button class="ib big" id="btnRematch">REMATCH</button></div>
     </div>
   </div>
 </div>

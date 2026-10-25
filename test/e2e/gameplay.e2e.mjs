@@ -843,3 +843,31 @@ test('phone: one tap on the card uses an ability for the selection (Stim, then E
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('the end screen charts both armies, counts the result on the menu, and Rematch replays the same map', async () => {
+  const d = await newGame(DESKTOP, 0, 4242);
+  try {
+    await d.eval(() => localStorage.removeItem('endfall.record'));
+    const setup = () => d.eval(() => { const c = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return JSON.stringify([endfall.G.seed, endfall.G.factions, c.tx, c.ty]); });
+    const before = await setup();
+    // A few Troopers, then a short game: the enemy's Core nearly down, and our Troopers beside it.
+    await d.skip(25);
+    const s = await d.state(), foeCore = s.bldgs.find(b => b.team !== 0 && b.type === 'core');
+    await d.eval(([id, x, y]) => { endfall.engine.debugSetHp(id, 5); for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'trooper', x + i * 20, y + 90); }, [foeCore.id, foeCore.x, foeCore.y]);
+    await until(d, async () => (await d.state()).over, { seconds: 60, step: 1, what: 'the game to end' });
+    await d.page.locator('#end').waitFor({ state: 'visible' });
+    assert.equal(await d.page.locator('#result').textContent(), 'VICTORY');
+    assert.equal(await d.page.locator('#endChart polyline').count(), 2, 'two lines: ours and theirs');
+    assert.equal(await d.page.locator('#endChart text').count(), 0, 'no numbers on the chart');
+    await d.page.locator('#btnRematch').click();
+    await until(d, async () => !(await d.state()).over, { seconds: 10, step: 0.5, what: 'the rematch' });
+    assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');
+    assert.equal(await setup(), before, 'the same map, races and starting base');
+    assert.ok(await d.eval(() => endfall.G.time < 5), 'from the start');
+    // Back on the menu: the record for this race and difficulty.
+    await d.page.locator('#btnPause').click();
+    await d.page.locator('#btnQuit').click();
+    assert.match(await d.page.locator('#record').textContent(), /1 won · 0 lost/);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

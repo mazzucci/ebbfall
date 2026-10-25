@@ -878,3 +878,20 @@ fn a_healer_on_attack_move_keeps_behind_the_fight() {
         "and it stayed close enough to heal: {healed} of {hurting} ticks with someone hurt"
     );
 }
+
+#[test]
+fn the_army_log_samples_both_sides_every_ten_seconds() {
+    let mut w = arena(21);
+    w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
+    w.make_unit(UnitKind::Harvester, PLAYER, 640.0, 900.0); // (a worker is not army)
+    run(&mut w, 25);
+    assert_eq!(w.army_log[0], vec![50, 50], "two samples of one Trooper");
+    assert_eq!(w.army_log[1], vec![0, 0]);
+    w.make_unit(UnitKind::Vanguard, ENEMY, 1600.0, 300.0);
+    run(&mut w, 10);
+    assert_eq!(
+        w.army_log[1].last(),
+        Some(&200),
+        "a Vanguard: 125 shards + 75 ether"
+    );
+}

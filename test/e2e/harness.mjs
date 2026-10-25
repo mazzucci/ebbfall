@@ -140,7 +140,11 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     }, [type, near]),
     /** Select a harvester by clicking it, then place `type` (by its hotkey) at tile (tx, ty) by clicking. */
     async buildWithUI(hotkey, type, tx, ty, harvesterId) {
-      await d.clickEntity(harvesterId);
+      // A mining harvester moves: a tap may miss it (or let go of it); try again until it is the selection.
+      for (let i = 0; i < 4; i++) {
+        await d.clickEntity(harvesterId);
+        if ((await d.selection()).some(e => e.id === harvesterId)) break;
+      }
       if (touch) {
         // The button as the card shows it, on the page of the Build menu its race lists it on.
         const { advanced, label } = await ev((t) => {

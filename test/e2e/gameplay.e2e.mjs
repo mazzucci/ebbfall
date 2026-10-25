@@ -859,7 +859,8 @@ test('phone: one tap on the card uses an ability for the selection (Stim, then E
     await d.pressCard('Stim');
     const after = await units();
     assert.ok(after.slice(0, 3).every(u => u.boost === 'stim' && u.hp === 38), `all three stimmed for 10 health: ${JSON.stringify(after)}`);
-    // The Vanguard: Entrench is a toggle, lit while on; a second tap packs it up.
+    // The Vanguard: Entrench (set up: Entrenching researched) is a toggle, lit while on; a second tap packs it up.
+    await d.eval(() => endfall.engine.debugResearch(0, 'entrenching'));
     await d.clickEntity(v);
     await d.pressCard('Entrench');
     assert.equal((await units())[3].mode, 'entrench');

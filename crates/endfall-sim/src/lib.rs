@@ -272,6 +272,20 @@ impl Game {
         id
     }
 
+    /// Give a seat an upgrade's level (tests and tools only; a set-up, not a command). Returns false for an unknown
+    /// upgrade or team, or a level it does not have.
+    #[wasm_bindgen(js_name = debugResearch)]
+    pub fn debug_research(&mut self, team: u8, key: &str, level: u8) -> bool {
+        let (Some(up), Some(t)) = (data::Upgrade::parse(key), valid_team(team)) else {
+            return false;
+        };
+        if level > up.levels() {
+            return false;
+        }
+        self.w.upgrades[t as usize][up.index()] = level;
+        true
+    }
+
     /// Switch the opponent off (tests and tools only).
     #[wasm_bindgen(js_name = disableAi)]
     pub fn disable_ai(&mut self) {

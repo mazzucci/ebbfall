@@ -15,23 +15,33 @@ impl World {
             expand,
             ..
         } = brain.clone();
-        // Research: weapons and armor in turn, from the difficulty's research_from (Easy never), once any expansion is down.
-        // Until it can afford the next level it saves up (no new units), but never while under attack or short
-        // of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
+        // Research: its techs (abilities, a faster flyer) as soon as their building stands, on levels whose units use
+        // abilities; weapons and armor in turn from the difficulty's research_from (Easy never); none while saving
+        // for an expansion. Until it can afford the next one it saves up (no new units), but never while under
+        // attack or short of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
         const SAVE_MAX: f64 = 30.0;
-        let research_from = DIFF[self.diff].research_from;
+        let d = &DIFF[self.diff];
+        // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
+        // army first)
+        let script = &self.factions[e as usize].ai;
+        let rax = script.rax;
+        let techs = d.abilities
+            && t > d.research_from.min(script.tech_from)
+            && self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
+        let levels_due = t > d.research_from;
         let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
         let mut saving = false;
-        if t > research_from && !expand {
+        if (techs || levels_due) && !expand {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
                 if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
                     continue;
                 }
-                // The lowest level first (the earlier upgrade on a tie).
+                // Techs first (an ability or speed is worth more than a level), then the lowest level (the earlier
+                // upgrade on a tie).
                 let levels = self.upgrades[e as usize];
                 let mut order = UPGRADES;
-                order.sort_by_key(|u| (levels[u.index()], u.index()));
+                order.sort_by_key(|u| (u.levels() > 1, levels[u.index()], u.index()));
                 let busy = |w: &World, up: Upgrade| {
                     w.bldgs
                         .iter()
@@ -40,7 +50,8 @@ impl World {
                 let here = b.kind.def().researches;
                 let Some(up) = order.into_iter().find(|&up| {
                     here.contains(&up)
-                        && self.upgrades[e as usize][up.index()] < MAX_UPGRADE
+                        && (if up.levels() == 1 { techs } else { levels_due })
+                        && self.upgrades[e as usize][up.index()] < up.levels()
                         && !busy(self, up)
                 }) else {
                     continue;
@@ -48,8 +59,8 @@ impl World {
                 let level = self.upgrades[e as usize][up.index()] + 1;
                 if self.can_afford(e, up.cost(level)) {
                     let _ = self.start_research(bid, up);
-                } else {
-                    saving = true;
+                } else if up.levels() > 1 {
+                    saving = true; // (a tech is bought when there is money for it, never saved for)
                 }
             }
         }

@@ -35,6 +35,7 @@ pub const VAEL: Faction = Faction {
         ],
         raider: UnitKind::Shrike,
         wave_scale: 0.6,
+        tech_from: 300.0,
     },
 };
 
@@ -261,7 +262,7 @@ pub(super) const LOOM: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Kiln),
-    researches: &[Upgrade::Weapons, Upgrade::Shields],
+    researches: &[Upgrade::Weapons, Upgrade::Shields, Upgrade::OverchargeCore],
     needs_power: true,
     ..BLDG
 };
@@ -298,7 +299,8 @@ pub(super) const ZENITH: BldgDef = BldgDef {
     build: 55.0,
     sight: 8.0,
     trains: &[UnitKind::Shrike, UnitKind::Sovereign],
-    req: Some(BldgKind::Loom),
+    req: Some(BldgKind::Kiln), // (air is a branch of its own, beside the ground tech)
+    researches: &[Upgrade::Slipstream],
     needs_power: true,
     ..BLDG
 };

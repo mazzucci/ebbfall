@@ -159,7 +159,7 @@ impl World {
             return Err("Already researching here".into());
         }
         let level = self.upgrades[team as usize][up.index()] + 1;
-        if level > MAX_UPGRADE {
+        if level > up.levels() {
             return Err(format!("{} is fully upgraded", up.def().name));
         }
         if self

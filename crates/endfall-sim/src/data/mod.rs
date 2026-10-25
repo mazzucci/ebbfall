@@ -298,6 +298,9 @@ pub struct AiScript {
     pub raider: UnitKind,
     /// Wave sizes scale by this (fewer, stronger units: 0.6).
     pub wave_scale: f64,
+    /// Seconds before it starts its techs (at the latest: a difficulty may start sooner); the Humans' Stim pays
+    /// in the first fights, the Vael need their shards for power fields early on.
+    pub tech_from: f64,
 }
 
 impl Faction {

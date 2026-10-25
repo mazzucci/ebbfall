@@ -173,6 +173,11 @@ impl World {
         None
     }
 
+    /// How many main factories the build order wants by time `t`: the difficulty's, one more after 5 and 9 minutes.
+    pub(crate) fn rax_schedule(&self, t: f64) -> usize {
+        DIFF[self.diff].rax + (t > 300.0) as usize + (t > 540.0) as usize
+    }
+
     /// Whether shards pile up for want of factories: a bank of `SHARD_FLOAT` with every main factory busy, while
     /// not supply-blocked (busy queues that cannot finish are not a factory problem) and not saving up (for an
     /// expansion or research: the bank is spoken for), and while under the difficulty's allowance of extra factories
@@ -247,7 +252,7 @@ impl World {
             .mix
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
-        let rax_schedule = d.rax + (t > 300.0) as usize + (t > 540.0) as usize;
+        let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
             d.supply_ahead + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);

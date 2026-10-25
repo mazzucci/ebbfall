@@ -56,7 +56,8 @@ const BLDG_TEXT = {
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
   zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital walker. With its rally point in a power field, they warp in there.' },
 };
-const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' } };
+const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
+  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
@@ -82,6 +83,13 @@ const ABILITY_TEXT = {
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
+// A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
+for (const u of Object.values(UPGRADES)) {
+  if (u.effect === 'unlock') u.desc = `Unlocks ${ABILITIES[u.of].name} for ${Object.values(UNITS).filter(d => (d.abilities || []).includes(u.of)).map(d => d.name + 's').join(' and ')}.`;
+  if (u.effect === 'speed') u.desc = `${UNITS[u.of].name}s fly 30% faster.`;
+}
+/** The tech that unlocks ability `k` (its key), or null when none does. */
+export const unlockOf = (k) => Object.keys(UPGRADES).find(u => UPGRADES[u].effect === 'unlock' && UPGRADES[u].of === k) || null;
 /** The snapshot record layouts (field names per record) and code names, from crates/endfall-sim/src/snapshot.rs. */
 export const SCHEMA = D.schema;
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */

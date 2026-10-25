@@ -190,13 +190,10 @@ impl Map {
                 sites.push(p);
             }
         }
-        // The natural: the expansion nearest the main. Each main is a pocket walled by a ring of rock with one ramp,
-        // facing its natural (an open plain keeps its open ground).
-        let natural = sites
-            .iter()
-            .copied()
-            .min_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap())
-            .unwrap_or(centre);
+        // The natural: the expansion nearest the main (sites in that order). Each main is a pocket walled by a ring
+        // of rock with one ramp, facing its natural (an open plain keeps its open ground).
+        sites.sort_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap());
+        let natural = sites.first().copied().unwrap_or(centre);
         let pocket = kind != MapKind::OpenPlains;
         let ramp_dir = jsmath::atan2(natural.1 - c0.1, natural.0 - c0.0);
         let middle = f() < 0.55; // a contested field in the centre
@@ -293,8 +290,9 @@ impl Map {
     }
 
     /// The resource fields of a generated map, the second side the exact tile-for-tile mirror of the first: each
-    /// base's own field behind it (away from the centre) with a vent to one side, the expansions (every other one,
-    /// or all on an ether storm, with a vent), and the centre field and vent.
+    /// base's own field behind it (away from the centre) with a vent to one side, the expansions (nearest the main
+    /// first: the natural and every other one have a vent, all of them on an ether storm), and the centre field and
+    /// vent.
     #[allow(clippy::too_many_arguments)]
     fn place_fields(
         &mut self,
@@ -317,7 +315,8 @@ impl Map {
         self.add_shards_at(next_id, &home.iter().map(mir).collect::<Vec<_>>());
         self.add_vent(next_id, MW - 2 - v0.0, MH - 2 - v0.1);
         for (k, &p) in sites.iter().enumerate() {
-            let out = jsmath::atan2(p.1 - centre.1, p.0 - centre.0);
+            // The crystals lie on the far side of the site from the main, clear of the main's ramp.
+            let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
             let field = self.add_shards(next_id, p.0, p.1, out, 5, 4.5);
             self.add_shards_at(next_id, &field.iter().map(mir).collect::<Vec<_>>());
             if k % 2 == 0 || kind == MapKind::EtherStorm {

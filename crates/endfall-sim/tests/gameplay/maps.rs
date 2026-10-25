@@ -112,7 +112,8 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
 fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
     use endfall_sim::map::MapKind;
     let seeds: u32 = if cfg!(debug_assertions) { 30 } else { 300 };
-    for seed in 0..seeds {
+    // (340, 978, 1558: seeds where the natural's crystals once plugged the ramp out of a main)
+    for seed in (0..seeds).chain([340, 978, 1558]) {
         for kind in [MapKind::Standard, MapKind::Labyrinth] {
             let w = World::with_map(seed, 1, kind);
             // Walkable: from beside the player's Core to beside the enemy's, and to every field (crystals block).
@@ -192,7 +193,7 @@ fn sides_can_trade_starting_places_on_the_same_map() {
 }
 
 /// The tiles just outside a ring of `r` tiles around the core on `base` that can be walked to from the core without
-/// leaving the ring (rock blocks; fields and buildings do not count, they are not terrain).
+/// leaving the ring (rock and crystals block; buildings, the core included, do not).
 fn ways_out(w: &World, base: (i32, i32), r: f64) -> Vec<(i32, i32)> {
     let c = (base.0 as f64 + 1.5, base.1 as f64 + 1.5);
     let dist = |(x, y): (i32, i32)| ((x as f64 - c.0).powi(2) + (y as f64 - c.1).powi(2)).sqrt();
@@ -208,7 +209,7 @@ fn ways_out(w: &World, base: (i32, i32), r: f64) -> Vec<(i32, i32)> {
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let (nx, ny) = (x + dx, y + dy);
             let i = (ny * MW + nx) as usize;
-            if in_map(nx, ny) && !seen[i] && w.map.rock[i] == 0 {
+            if in_map(nx, ny) && !seen[i] && w.map.rock[i] == 0 && w.map.occ[i] >= 0 {
                 seen[i] = true;
                 todo.push((nx, ny));
             }
@@ -228,15 +229,17 @@ fn each_main_is_a_pocket_with_one_ramp_except_on_open_plains() {
             .max()
             .unwrap_or(0)
     };
-    for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242] {
+    // (340, 978, 1558: the natural's crystals once narrowed or plugged the ramp)
+    for seed in (0..60).chain([340, 978, 1558, 1998, 2077, 4242]) {
         for kind in MapKind::ALL {
             let w = World::with_map(seed, 1, kind);
             for base in w.map.bases {
-                // Just past the wall (12 tiles out, 2 thick): only the ramp's mouth is reachable, a few tiles wide.
+                // Just past the wall (12 tiles out, 2 thick): only the ramp's mouth is reachable, a few tiles wide,
+                // with no crystals in the way.
                 let out = ways_out(&w, base, 14.5);
                 assert!(
-                    !out.is_empty(),
-                    "seed {seed} {kind:?}: the main at {base:?} has a way out"
+                    out.len() >= 4,
+                    "seed {seed} {kind:?}: the main at {base:?} has a clear way out: {out:?}"
                 );
                 if kind == MapKind::OpenPlains {
                     assert!(

@@ -57,6 +57,16 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
   assert.match(C.UPGRADES.weapons.desc, /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
 });
 
+test('every fighter names what it beats and what beats it, in real kinds', { skip }, () => {
+  for (const [k, u] of Object.entries(C.UNITS)) {
+    const fighter = !!u.weapon && !u.worker;
+    assert.equal(!!(u.strong?.length && u.weak?.length), fighter, `${k}: counters for fighters only`);
+    for (const o of [...(u.strong || []), ...(u.weak || [])]) assert.ok(C.UNITS[o] && o !== k, `${k}: ${o} is another unit`);
+    assert.ok(!(u.strong || []).some(o => (u.weak || []).includes(o)), `${k}: nothing both`);
+    for (const o of u.strong || []) if (C.UNITS[o].strong) assert.ok(C.UNITS[o].weak.includes(k), `${o} lists ${k} as a weakness (${k} is strong against it)`);
+  }
+});
+
 test('a fresh game has two cores, eight harvesters and resource nodes', { skip }, () => {
   E.resetGame(12345, 1);
   assert.equal(E.G.bldgs.length, 2);

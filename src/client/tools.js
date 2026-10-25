@@ -10,6 +10,7 @@ import { portrait, setIconButton } from './icons.js';
 
 export const alerts = { last: null, list: [], at: 0 };
 const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
+const ALERT_KEPT = 60000; // ms an attacked spot stays in the Space / chip cycle
 
 /** The sim reported an attack on something of ours. */
 export function onAttacked(e) {
@@ -24,11 +25,15 @@ export function onAttacked(e) {
 }
 /** Look at the latest attack; again, the one before (up to three), then round again. */
 export function jumpToAlert() {
+  alerts.list = alerts.list.filter(a => performance.now() - a.t < ALERT_KEPT); // (old news drops out)
   if (!alerts.list.length) { toast('No recent attacks'); return; }
   const a = alerts.list[alerts.at++ % alerts.list.length]; centerOn(a.x, a.y);
 }
 /** Look at our headquarters (the first one, the main). */
-export function goHome() { const c = G.bldgs.find(b => b.team === G.me && b.d.hq); if (c) centerOn(c.x, c.y); }
+export function goHome() {
+  const c = G.bldgs.find(b => b.team === G.me && b.d.hq) || G.bldgs.find(b => b.team === G.me); // (no headquarters left: any building)
+  if (c) centerOn(c.x, c.y); else toast('No base left');
+}
 /** Forget alerts and pings from a previous game. */
 export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 

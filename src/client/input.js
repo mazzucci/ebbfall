@@ -345,7 +345,7 @@ function bindKeys() {
       if (ev.ctrlKey || ev.metaKey) { saveGroup(+k); ev.preventDefault(); } else recallGroup(+k, ev.shiftKey);
       return;
     }
-    if (k === ' ') { jumpToAlert(); ev.preventDefault(); return; }
+    if (k === ' ') { if (!ev.repeat) jumpToAlert(); ev.preventDefault(); return; } // (held: one look, not a spin)
     if (k === '.') { selectIdle(); return; }
     if (k === ',') { selectIdleFactory(); return; }
     if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }

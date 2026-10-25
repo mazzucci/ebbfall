@@ -148,6 +148,7 @@ function renderUpgrades() {
 
 function taskName(u) {
   const T = u.task;
+  if (u.warp > 0) return 'Warping in'; // (before any order it was given meanwhile)
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
   if (T.t === 'build') return warps(u.team) ? 'Planting' : 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (u.mode === 'entrench') return u.swap > 0 ? 'Digging in' : 'Entrenched'; if (u.swap > 0) return 'Packing up';

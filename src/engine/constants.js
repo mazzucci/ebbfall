@@ -15,6 +15,8 @@ export const DT = D.consts.dt;
 /** The seats a menu game deals: the player and the scripted opponent (tests and tools; the client itself plays G.me). */
 export const PLAYER = D.consts.player;
 export const ENEMY = D.consts.enemy;
+/** Seconds a unit takes to warp in at a power field (the Vael). */
+export const UNIT_WARP = D.consts.unit_warp;
 
 /** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). */
 const UNIT_TEXT = {
@@ -45,10 +47,10 @@ const BLDG_TEXT = {
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
-  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms and Monoliths (Monoliths need a Loom).' },
+  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Halos and Monoliths (Halos and Monoliths need a Loom). With its rally point in a power field, they warp in there.' },
   loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades; unlocks Monoliths and the Zenith.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes. With its rally point in a power field, they warp in there.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard'];

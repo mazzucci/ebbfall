@@ -20,7 +20,7 @@ const COLS = 3;
 /** Whether unit `u` could use ability `k` now (it has it, it is ready, it is not digging in or packing up). */
 function canUse(u, k) {
   const slot = (UNITS[u.type].abilities || []).indexOf(k);
-  return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0; // (a cost it cannot pay is refused by the sim, with a toast)
+  return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0 && !(u.warp > 0); // (a cost it cannot pay is refused by the sim, with a toast)
 }
 /** The selection's abilities, one button each (in table order): greyed while none of their units can use it, lit while a
  *  toggle is on for all of them. No countdowns: a button comes back when it is ready. */

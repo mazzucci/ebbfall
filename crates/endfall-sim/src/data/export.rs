@@ -179,6 +179,7 @@ pub fn data_json() -> String {
         .num("dt", DT)
         .num("player", PLAYER)
         .num("enemy", ENEMY)
+        .num("unit_warp", UNIT_WARP)
         .done();
     Obj::new()
         .raw("consts", consts)

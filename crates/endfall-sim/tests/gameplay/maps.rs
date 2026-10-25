@@ -111,7 +111,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
 #[test]
 fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
     use endfall_sim::map::MapKind;
-    let seeds: u32 = if cfg!(debug_assertions) { 30 } else { 300 };
+    let seeds: u32 = if cfg!(debug_assertions) { 30 } else { 1000 };
     // (340, 978, 1558: seeds where the natural's crystals once plugged the ramp out of a main)
     for seed in (0..seeds).chain([340, 978, 1558]) {
         for kind in [MapKind::Standard, MapKind::Labyrinth] {

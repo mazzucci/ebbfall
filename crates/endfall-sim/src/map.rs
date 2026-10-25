@@ -199,10 +199,11 @@ impl Map {
         let middle = f() < 0.55; // a contested field in the centre
         let scale = 6.0 + f() * 4.5; // rock feature size, in tiles
         let mut open: Vec<(f64, f64, f64)> = vec![(c0.0, c0.1, 12.0), (c1.0, c1.1, 12.0)];
+        // An expansion's clearing: its field on the far side and room for a Core on the near side, beside the vent.
         for &p in &sites {
-            open.push((p.0, p.1, 6.0));
+            open.push((p.0, p.1, 7.5));
             let q = mirf(p);
-            open.push((q.0, q.1, 6.0));
+            open.push((q.0, q.1, 7.5));
         }
         if middle {
             open.push((centre.0, centre.1, 6.5));

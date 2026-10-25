@@ -303,6 +303,28 @@ fn the_ai_expands_to_a_second_base() {
 }
 
 #[test]
+fn the_ai_finds_room_for_its_natural_on_cramped_labyrinths() {
+    // (seeds whose natural once had no room for a Core between its vent, its field and the rock)
+    for seed in [7, 253] {
+        let mut w = World::with_map(seed, 1, MapKind::Labyrinth);
+        let c = w
+            .bldgs
+            .iter_mut()
+            .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+            .unwrap();
+        c.hp = 1e9;
+        c.maxhp = 1e9;
+        run(&mut w, 720);
+        let cores = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core)
+            .count();
+        assert_eq!(cores, 2, "seed {seed}: the AI expanded");
+    }
+}
+
+#[test]
 fn a_beaten_attack_wave_falls_back() {
     let mut w = World::new(45, 1);
     let c = w

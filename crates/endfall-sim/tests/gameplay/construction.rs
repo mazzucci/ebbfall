@@ -442,7 +442,7 @@ fn the_power_gate_is_the_only_thing_keeping_a_kiln_out() {
     let (tx, ty) = spot.expect("an unpowered spot");
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1])),
-        Err("Needs power: place it near a Spire".to_string()),
+        Err("Needs power: place it in a power field (near a Spire)".to_string()),
         "the refusal says what is missing"
     );
     // An unfinished Spire beside it does not power it yet; the finished one does.

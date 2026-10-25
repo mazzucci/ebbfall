@@ -227,6 +227,8 @@ export function cardItems() {
       });
       if (b.research) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }
+    // A dark building (no power field) trains and researches nothing: its buttons say so.
+    if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ' Unpowered: build a Spire near it.' });
     // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
     if (trains.length) {
       const last = b.queue[b.queue.length - 1];

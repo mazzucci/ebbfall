@@ -285,10 +285,14 @@ impl World {
                 let level = self.upgrades[team as usize][up.index()] + 1;
                 self.pay(team, up.cost(level), 1);
             }
-            for u in self.units.iter_mut() {
-                if u.task == (Task::Build { b: id }) {
-                    u.task = Task::Idle;
-                }
+            let crew: Vec<Id> = self
+                .units
+                .iter()
+                .filter(|u| u.task == (Task::Build { b: id }))
+                .map(|u| u.id)
+                .collect();
+            for u in crew {
+                self.set_task(u, Task::Idle);
             }
             self.emit(Event::Burst {
                 x: b.x,
@@ -338,13 +342,8 @@ impl World {
         let Some((w, x, y, team)) = self.weapon_of(shooter) else {
             return; // unarmed (or gone)
         };
-        let (dmg, cd, proj, up, splash) = (
-            w.damage_vs(air),
-            w.cd,
-            w.proj,
-            w.up_dmg,
-            (w.splash, w.splash_r),
-        );
+        let cd = self.live_cd(shooter, w.cd);
+        let (dmg, proj, up, splash) = (w.damage_vs(air), w.proj, w.up_dmg, (w.splash, w.splash_r));
         if dmg <= 0.0 {
             return; // this weapon cannot hit that target
         }
@@ -518,7 +517,7 @@ impl World {
         }
     }
     /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move.
-    pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Fighter, dt: f64) {
+    pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
         let u = self.um(uid);
         u.aggro_cd -= dt;
         if c.combat && u.aggro_cd <= 0.0 {
@@ -553,7 +552,7 @@ impl World {
     }
 
     /// Attack-move: walk to (x, y), turning on any enemy met on the way.
-    pub(crate) fn update_amove(&mut self, uid: Id, x: f64, y: f64, c: Fighter, dt: f64) {
+    pub(crate) fn update_amove(&mut self, uid: Id, x: f64, y: f64, c: Live, dt: f64) {
         let u = self.um(uid);
         u.aggro_cd -= dt;
         if u.aggro_cd <= 0.0 {
@@ -603,7 +602,7 @@ impl World {
         uid: Id,
         target: Id,
         back: Option<Back>,
-        c: Fighter,
+        c: Live,
         dt: f64,
     ) {
         let Some(t) = self.geo(target).filter(|_| self.team_of(target).is_some()) else {

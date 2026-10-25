@@ -3,7 +3,8 @@ import './style.css';
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, step, fmt, setResources } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
-import { $, ui, toast, updateHud, setHint, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
+import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
+import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
@@ -32,7 +33,7 @@ function showPower() {
 function newGame() {
   $('help').hidden = true;
   resetGame(menu.seed, menu.diff, menu.kind, menu.side, menu.race, menu.enemyRace);
-  ui.sel = []; ui.groups = {}; ui.mode = null; ui.place = null; fx.list = []; invalidateCard(); resetTools(); stopGlide();
+  setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
@@ -61,7 +62,7 @@ function drainEvents() {
 }
 
 function endGame() {
-  ui.sel = []; ui.mode = null; ui.place = null; setHint(); updateHud(); // (a console frozen mid-"Training" would sit under the result)
+  setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.winner === G.me;
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';

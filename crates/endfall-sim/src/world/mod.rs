@@ -14,6 +14,7 @@ mod movement;
 mod orders;
 mod spawn;
 
+use crate::ai::Ai;
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
 use crate::map::{Id, Map, MapKind, Node, idx, in_map};
@@ -36,9 +37,10 @@ pub struct Back {
     pub amove: bool,
 }
 
-/// What a unit's tick needs to know about it as a fighter (read once at the start of the tick).
+/// A unit's effective stats for this tick, read once at its start (`World::live`): its kind's numbers, which abilities
+/// and modes will change there and only there.
 #[derive(Clone, Copy)]
-pub(crate) struct Fighter {
+pub(crate) struct Live {
     pub range: f64,
     pub combat: bool,
     pub team: u8,
@@ -269,39 +271,6 @@ pub struct Stats {
     pub lost: u32,
     pub killed: u32,
     pub razed: u32,
-}
-
-pub(crate) struct Ai {
-    /// The seat it plays.
-    pub team: u8,
-    pub t: f64,
-    pub wave: usize,
-    pub last_wave: f64,
-    pub attacking: bool,
-    pub attackers: Option<Vec<Id>>,
-    pub rally: Option<Pt>,
-    /// Own buildings under construction: (id, progress last seen, time it last advanced).
-    pub sites: Vec<(Id, f64, f64)>,
-    /// When the current saving-for-research streak began, and the time before which it may not save again.
-    pub saving_since: Option<f64>,
-    pub no_save_until: f64,
-    /// Player buildings the AI has seen and not yet seen gone: (id, x, y, is a core). The AI plays with fog.
-    pub known: Vec<(Id, f64, f64, bool)>,
-    /// Until when the AI keeps preparing for player flyers it has seen.
-    pub seen_air_until: f64,
-    /// The early scout (a harvester), and whether it has been sent.
-    pub scout: Option<Id>,
-    pub scouted: bool,
-    /// Wasps raiding the player's harvesters.
-    pub raiders: Vec<Id>,
-    /// With no player building known: which point of the sweep (the player's start, then the shard fields
-    /// nearest it) the army heads for next.
-    pub sweep: usize,
-    pub sweep_since: f64,
-    /// Ether is piling up: keep a single harvester on it (with hysteresis).
-    pub ether_lean: bool,
-    /// How many units the current attack wave started with (it retreats below 40%).
-    pub wave_size: usize,
 }
 
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.
@@ -629,23 +598,35 @@ impl World {
         })
     }
 
+    /// A unit's effective stats right now (the one place abilities and modes will change them).
+    pub(crate) fn live(&self, uid: Id) -> Live {
+        let u = self.u(uid);
+        let d = u.kind.def();
+        Live {
+            range: d.weapon.map_or(0.0, |w| w.range) * TILE,
+            combat: d.threat(),
+            team: u.team,
+            r: u.r,
+            sight: d.sight,
+            kind: u.kind,
+            hits: Self::hits_of(u.kind),
+        }
+    }
+    /// A unit's walking speed right now (px/s).
+    pub(crate) fn live_speed(&self, uid: Id) -> f64 {
+        self.u(uid).kind.def().speed
+    }
+    /// The seconds between shots of `shooter`'s weapon, whose base is `base`.
+    pub(crate) fn live_cd(&self, _shooter: Id, base: f64) -> f64 {
+        base
+    }
+
     /// One unit's tick: its weapon and flash cool down, a healer heals, then its task runs.
     pub(crate) fn update_unit(&mut self, uid: Id, dt: f64) {
-        let c = {
-            let u = self.um(uid);
-            u.cd -= dt;
-            u.flash -= dt;
-            let d = u.kind.def();
-            Fighter {
-                range: d.weapon.map_or(0.0, |w| w.range) * TILE,
-                combat: d.threat(),
-                team: u.team,
-                r: u.r,
-                sight: d.sight,
-                kind: u.kind,
-                hits: Self::hits_of(u.kind),
-            }
-        };
+        let u = self.um(uid);
+        u.cd -= dt;
+        u.flash -= dt;
+        let c = self.live(uid);
         let task = self.u(uid).task;
         if c.kind.def().heal > 0.0 {
             self.medic(uid, dt);

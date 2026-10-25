@@ -76,6 +76,32 @@ pub enum Command {
     },
 }
 
+impl Command {
+    /// How many kinds of order there are (codes 0..KINDS).
+    pub const KINDS: u8 = 16;
+    /// A small stable number for the kind of order (logs, the network, test coverage). Append only.
+    pub fn code(&self) -> u8 {
+        match self {
+            Command::Move { .. } => 0,
+            Command::AttackMove { .. } => 1,
+            Command::Attack { .. } => 2,
+            Command::Stop { .. } => 3,
+            Command::Hold { .. } => 4,
+            Command::Gather { .. } => 5,
+            Command::Build { .. } => 6,
+            Command::Repair { .. } => 7,
+            Command::Place { .. } => 8,
+            Command::Queue { .. } => 9,
+            Command::CancelQueue { .. } => 10,
+            Command::Research { .. } => 11,
+            Command::CancelResearch { .. } => 12,
+            Command::CancelConstruction { .. } => 13,
+            Command::Rally { .. } => 14,
+            Command::Formation { .. } => 15,
+        }
+    }
+}
+
 /// A logged command: the tick it was applied on (before that tick's step) and the seat that gave it.
 pub type Logged = (u32, u8, Command);
 

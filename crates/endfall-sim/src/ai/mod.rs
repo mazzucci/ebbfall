@@ -12,7 +12,40 @@ use crate::data::*;
 use crate::jsmath::{self, PI, dist};
 use crate::map::{Id, idx, in_map};
 use crate::path::Pt;
-use crate::world::{Ai, Phase, Task, World};
+use crate::world::{Phase, Task, World};
+
+pub(crate) struct Ai {
+    /// The seat it plays.
+    pub team: u8,
+    pub t: f64,
+    pub wave: usize,
+    pub last_wave: f64,
+    pub attacking: bool,
+    pub attackers: Option<Vec<Id>>,
+    pub rally: Option<Pt>,
+    /// Own buildings under construction: (id, progress last seen, time it last advanced).
+    pub sites: Vec<(Id, f64, f64)>,
+    /// When the current saving-for-research streak began, and the time before which it may not save again.
+    pub saving_since: Option<f64>,
+    pub no_save_until: f64,
+    /// Player buildings the AI has seen and not yet seen gone: (id, x, y, is a core). The AI plays with fog.
+    pub known: Vec<(Id, f64, f64, bool)>,
+    /// Until when the AI keeps preparing for player flyers it has seen.
+    pub seen_air_until: f64,
+    /// The early scout (a harvester), and whether it has been sent.
+    pub scout: Option<Id>,
+    pub scouted: bool,
+    /// Wasps raiding the player's harvesters.
+    pub raiders: Vec<Id>,
+    /// With no player building known: which point of the sweep (the player's start, then the shard fields
+    /// nearest it) the army heads for next.
+    pub sweep: usize,
+    pub sweep_since: f64,
+    /// Ether is piling up: keep a single harvester on it (with hysteresis).
+    pub ether_lean: bool,
+    /// How many units the current attack wave started with (it retreats below 40%).
+    pub wave_size: usize,
+}
 
 impl World {
     /// Switch the opponents off (tests of the player's own abilities should not race the AI's attacks). The seats
@@ -186,8 +219,13 @@ impl World {
         self.ai_research(&mut b);
         self.ai_produce(&mut b);
         self.ai_army(&mut b);
+        self.ai_abilities(&mut b);
         self.recalc_supply(e);
     }
+
+    /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it. Empty
+    /// until units have abilities.
+    fn ai_abilities(&mut self, _brain: &mut Brain) {}
 
     /// How many of our buildings of kind `k` (only finished ones if `done`).
     pub(crate) fn ai_count(&self, my_b: &[Id], done: bool, k: BldgKind) -> usize {

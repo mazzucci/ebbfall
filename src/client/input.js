@@ -2,7 +2,8 @@
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
 import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
-import { $, ui, playerSel, toast, setHint, setBox, doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
+import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
+import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave, blockedUpright } from './screen.js';
@@ -64,7 +65,7 @@ function select(list, add) {
   for (const e of list) if (!ui.sel.includes(e)) ui.sel.push(e);
   if (ui.sel.length > 1 && ui.sel.some(e => e.team === G.me)) ui.sel = ui.sel.filter(e => e.team === G.me);
   if (ui.sel.length > 1 && ui.sel.some(e => e.kind === 'unit')) ui.sel = ui.sel.filter(e => e.kind === 'unit');
-  ui.mode = null; ui.place = null; setHint(); if (list.length) sfx('select', voice(list));
+  clearMode(); if (list.length) sfx('select', voice(list));
   updateHud(); // the command card must match the selection right away, not on the next HUD tick
 }
 
@@ -75,7 +76,7 @@ function boxSelect(x0, y0, x1, y1, add) {
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === G.me && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
-  if (bs.length) select([bs[0]], false); else if (!add) { ui.sel = []; ui.mode = null; }
+  if (bs.length) select([bs[0]], false); else if (!add) setSelection([]);
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
@@ -102,7 +103,7 @@ function placeTile(type, wx, wy) {
  */
 function releaseWorkers(units) {
   if (drag.ptype !== 'touch' || !units.length || !units.every(u => u.d.worker)) return;
-  ui.sel = []; ui.mode = null; ui.place = null; setHint(); updateHud();
+  setSelection([]); updateHud();
 }
 
 /** Right-click / tap-on-ground semantics: context-sensitive order for the selection. */
@@ -121,9 +122,27 @@ function commandAt(wx, wy, hit = pick(wx, wy)) {
   else if (hit && hit.kind === 'bldg' && hit.team === G.me && !hit.done && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else if (damaged(hit) && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); }
-  ui.mode = null; setHint();
+  clearMode();
   if (job) releaseWorkers(units);
 }
+
+/** What a tap on the map does while an order from the card is armed (the orders themselves: ARMED in ui.js). */
+const armedTap = {
+  attack(units, wx, wy) {
+    const hit = pick(wx, wy);
+    if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
+    sfx('attack', voice(units)); clearMode();
+  },
+  repair(units, wx, wy) {
+    const hit = pick(wx, wy);
+    if (damaged(hit)) { for (const u of units) if (u.d.worker) repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); clearMode(); releaseWorkers(units); return; }
+    toast(hit && hit.kind === 'bldg' && hit.team === G.me ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
+    clearMode();
+  },
+  move: (units, wx, wy) => commandAt(wx, wy),
+  gather: (units, wx, wy) => commandAt(wx, wy),
+  rally: (units, wx, wy) => commandAt(wx, wy),
+};
 
 function leftAction(wx, wy, add, at) {
   if (G.over) return;
@@ -135,33 +154,23 @@ function leftAction(wx, wy, add, at) {
     if (err) {
       // A tap on a red spot says why and gives up placing (the map pans again; the worker stays selected).
       toast(err, true);
-      if (drag.ptype === 'touch') { ui.place = null; ui.mode = null; setHint(); updateHud(); }
+      if (drag.ptype === 'touch') { clearMode(); updateHud(); }
     } else {
       sfx('build');
       flashTarget(G.bldgs.find(b => b.team === G.me && b.tx === p.tx && b.ty === p.ty)); // the new site blinks: order taken
       // On touch the worker is let go, so it is clear the order took (and the next tap is just a tap); with a mouse
       // it stays selected (Shift keeps placing).
-      if (drag.ptype === 'touch') { ui.sel = []; ui.place = null; ui.mode = null; setHint(); updateHud(); }
-      else if (!add) { ui.place = null; ui.mode = null; setHint(); updateHud(); }
+      if (drag.ptype === 'touch') { setSelection([]); updateHud(); }
+      else if (!add) { clearMode(); updateHud(); }
     }
     return;
   }
-  if (ui.mode === 'attack') {
-    const hit = pick(wx, wy);
-    if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
-    sfx('attack', voice(units)); ui.mode = null; setHint(); return;
-  }
-  if (ui.mode === 'repair') {
-    const hit = pick(wx, wy);
-    if (damaged(hit)) { for (const u of units) if (u.d.worker) repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); ui.mode = null; releaseWorkers(units); setHint(); return; }
-    else toast(hit && hit.kind === 'bldg' && hit.team === G.me ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
-    ui.mode = null; setHint(); return;
-  }
-  if (ui.mode === 'move' || ui.mode === 'gather' || ui.mode === 'rally') { commandAt(wx, wy); return; }
+  const tap = ARMED[ui.mode] && armedTap[ui.mode];
+  if (tap) { tap(units, wx, wy); return; }
   const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at);
   else if (hit && !add) select([hit]); // a resource field: shows what is left (right-click gathers)
-  else if (!add) { ui.sel = []; ui.mode = null; updateHud(); }
+  else if (!add) { setSelection([]); updateHud(); }
 }
 
 /** Single-finger tap: select own things, otherwise command the current selection. */
@@ -185,7 +194,7 @@ function touchTap(wx, wy, at) {
   }
   if (units.length) { commandAt(wx, wy); return; }
   // A building selected and a tap elsewhere: let go of it (rally points are set with the Rally button on touch).
-  if (hit) select([hit]); else { ui.sel = []; ui.mode = null; setHint(); updateHud(); }
+  if (hit) select([hit]); else { setSelection([]); updateHud(); }
 }
 
 /** Wire every input surface: the map canvas, the minimap, the SELECT button and the keyboard. */
@@ -205,7 +214,7 @@ function bindCanvas() {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
     if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
-    if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { ui.place = null; ui.mode = null; setHint(); return; } commandAt(w.x, w.y); return; }
+    if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
     // A touch that stops a gliding camera does nothing else.
     drag.quiet = ev.pointerType === 'touch' && fling.caught;
@@ -284,7 +293,7 @@ function bindMinimap() {
   const mmEnd = () => { mmDown = false; if (mmTouch) { if (!mmTouch.moved) centerOn(mmTouch.wx, mmTouch.wy); mmTouch = null; mm.classList.remove('big'); } };
   mm.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return; mm.setPointerCapture(ev.pointerId);
-    if (ev.button === 2 || ui.mode === 'attack' || ui.mode === 'move') { mmAt(ev, true); return; }
+    if (ev.button === 2 || ARMED[ui.mode]?.minimap) { mmAt(ev, true); return; }
     if (ev.pointerType === 'touch') {
       // Layout size, not the on-screen box: the minimap may still be shrinking back from the last touch.
       const r = mm.getBoundingClientRect(), w = mm.clientWidth, h = mm.clientHeight;

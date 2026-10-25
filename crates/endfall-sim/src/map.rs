@@ -116,6 +116,11 @@ impl Noise {
     }
 }
 
+/// A main base's pocket: the ring of rock around it starts this many tiles from the Core's centre (2 thick).
+const POCKET_R: f64 = 12.0;
+/// The pocket's one ramp, in tiles across.
+const RAMP_W: f64 = 4.5;
+
 impl Map {
     pub fn empty() -> Self {
         let n = (MW * MH) as usize;
@@ -185,6 +190,15 @@ impl Map {
                 sites.push(p);
             }
         }
+        // The natural: the expansion nearest the main. Each main is a pocket walled by a ring of rock with one ramp,
+        // facing its natural (an open plain keeps its open ground).
+        let natural = sites
+            .iter()
+            .copied()
+            .min_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap())
+            .unwrap_or(centre);
+        let pocket = kind != MapKind::OpenPlains;
+        let ramp_dir = jsmath::atan2(natural.1 - c0.1, natural.0 - c0.0);
         let middle = f() < 0.55; // a contested field in the centre
         let scale = 6.0 + f() * 4.5; // rock feature size, in tiles
         let mut open: Vec<(f64, f64, f64)> = vec![(c0.0, c0.1, 12.0), (c1.0, c1.1, 12.0)];
@@ -196,6 +210,30 @@ impl Map {
         if middle {
             open.push((centre.0, centre.1, 6.5));
         }
+        // Open ground just outside each ramp, so it leads somewhere.
+        let ramp_out = (
+            c0.0 + jsmath::cos(ramp_dir) * (POCKET_R + 3.0),
+            c0.1 + jsmath::sin(ramp_dir) * (POCKET_R + 3.0),
+        );
+        if pocket {
+            open.push((ramp_out.0, ramp_out.1, 3.5));
+            let q = mirf(ramp_out);
+            open.push((q.0, q.1, 3.5));
+        }
+        // On a pocket's wall (a ring around a main) but not on its ramp, a gap of RAMP_W tiles facing its natural.
+        // Both mains are checked: the half of the map drawn from the noise may hold either (the other is mirrored),
+        // and the second main's ramp faces the opposite way.
+        let ring = |x: f64, y: f64, c: (f64, f64), dir: f64| -> bool {
+            let r = jsmath::hypot(x - c.0, y - c.1);
+            if !(POCKET_R..POCKET_R + 2.0).contains(&r) {
+                return false;
+            }
+            let a = jsmath::atan2(y - c.1, x - c.0);
+            let off = ((a - dir + 3.0 * PI) % (2.0 * PI)) - PI; // angle from the ramp, in -PI..PI
+            off.abs() * r > RAMP_W / 2.0
+        };
+        let wall =
+            |x: f64, y: f64| pocket && (ring(x, y, c0, ramp_dir) || ring(x, y, c1, ramp_dir + PI));
         // Rock where the noise is above the threshold: higher means more open ground. Raised until the bases can
         // walk to each other and every field can be reached (with the fields in place: a crystal may plug a gap).
         let mut thr = match kind {
@@ -219,7 +257,12 @@ impl Map {
                     let clear = open
                         .iter()
                         .any(|e| jsmath::hypot(sx as f64 - e.0, sy as f64 - e.1) < e.2);
-                    m.rock[idx(x, y)] = if border || (n > thr && !clear) { 1 } else { 0 };
+                    let walled = wall(sx as f64, sy as f64);
+                    m.rock[idx(x, y)] = if border || walled || (n > thr && !clear) {
+                        1
+                    } else {
+                        0
+                    };
                 }
             }
             m.nodes.clear();

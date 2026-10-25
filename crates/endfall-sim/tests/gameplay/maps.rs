@@ -190,3 +190,66 @@ fn sides_can_trade_starting_places_on_the_same_map() {
         assert!(!g.over, "the swapped game plays");
     }
 }
+
+/// The tiles just outside a ring of `r` tiles around the core on `base` that can be walked to from the core without
+/// leaving the ring (rock blocks; fields and buildings do not count, they are not terrain).
+fn ways_out(w: &World, base: (i32, i32), r: f64) -> Vec<(i32, i32)> {
+    let c = (base.0 as f64 + 1.5, base.1 as f64 + 1.5);
+    let dist = |(x, y): (i32, i32)| ((x as f64 - c.0).powi(2) + (y as f64 - c.1).powi(2)).sqrt();
+    let mut seen = vec![false; (MW * MH) as usize];
+    let mut todo = vec![base];
+    let mut out = vec![];
+    seen[(base.1 * MW + base.0) as usize] = true;
+    while let Some((x, y)) = todo.pop() {
+        if dist((x, y)) >= r {
+            out.push((x, y));
+            continue;
+        }
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let (nx, ny) = (x + dx, y + dy);
+            let i = (ny * MW + nx) as usize;
+            if in_map(nx, ny) && !seen[i] && w.map.rock[i] == 0 {
+                seen[i] = true;
+                todo.push((nx, ny));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn each_main_is_a_pocket_with_one_ramp_except_on_open_plains() {
+    let spread = |t: &[(i32, i32)]| {
+        t.iter()
+            .flat_map(|a| {
+                t.iter()
+                    .map(move |b| (a.0 - b.0).abs().max((a.1 - b.1).abs()))
+            })
+            .max()
+            .unwrap_or(0)
+    };
+    for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242] {
+        for kind in MapKind::ALL {
+            let w = World::with_map(seed, 1, kind);
+            for base in w.map.bases {
+                // Just past the wall (12 tiles out, 2 thick): only the ramp's mouth is reachable, a few tiles wide.
+                let out = ways_out(&w, base, 14.5);
+                assert!(
+                    !out.is_empty(),
+                    "seed {seed} {kind:?}: the main at {base:?} has a way out"
+                );
+                if kind == MapKind::OpenPlains {
+                    assert!(
+                        spread(&out) > 15,
+                        "seed {seed}: an open plain's main is open"
+                    );
+                } else {
+                    assert!(
+                        spread(&out) <= 8,
+                        "seed {seed} {kind:?}: the main at {base:?} has one narrow ramp: {out:?}"
+                    );
+                }
+            }
+        }
+    }
+}

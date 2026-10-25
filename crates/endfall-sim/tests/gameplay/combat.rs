@@ -155,7 +155,7 @@ fn medics_walk_to_hurt_infantry_they_can_see() {
 
 #[test]
 fn walkers_and_flyers_pass_under_and_over_each_other() {
-    let mut w = arena(14);
+    let mut w = flat_arena(14);
     let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 700.0, 900.0);
     w.hold_unit(wasp);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);

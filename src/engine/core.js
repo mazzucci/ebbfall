@@ -125,6 +125,8 @@ export function stateHash() { return game.stateHash(); }
 export const mapPreview = (seed, kind) => simMapPreview(seed, kind);
 /** `team`'s army value every 10 s since the start (the end screen's chart). */
 export const armyLog = (team) => Array.from(game.armyLog(team));
+/** `team`'s units lost by what killed them: unit kinds in order, then building kinds (empty before any loss). */
+export const lostTo = (team) => Array.from(game.lostTo(team));
 
 // ---- orders (the future network command set) ----
 export const moveTo = (u, x, y) => touch(game.moveTo(u.id, x, y));

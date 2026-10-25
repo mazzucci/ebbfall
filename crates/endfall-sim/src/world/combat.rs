@@ -197,6 +197,9 @@ impl World {
                 self.answer_fire(i, by);
             }
             if self.units[self.ui(target).unwrap()].hp <= 0.0 {
+                if let Some(by) = by {
+                    self.count_loss(team, by);
+                }
                 self.kill(target);
             }
         } else if let Some(i) = self.bi(target) {
@@ -268,6 +271,20 @@ impl World {
                 }
             }
         }
+    }
+
+    /// One more of `team`'s units lost to `by` (a unit or a turret), for the end screen.
+    fn count_loss(&mut self, team: u8, by: Id) {
+        let slot = match (self.unit(by), self.bldg(by)) {
+            (Some(u), _) => u.kind.index(),
+            (_, Some(b)) => UNIT_KINDS.len() + b.kind.index(),
+            _ => return,
+        };
+        let row = &mut self.lost_to[team as usize];
+        if row.len() <= slot {
+            row.resize(UNIT_KINDS.len() + BLDG_KINDS.len(), 0);
+        }
+        row[slot] += 1;
     }
 
     pub(crate) fn kill(&mut self, id: Id) {

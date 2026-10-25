@@ -370,6 +370,11 @@ impl Game {
     pub fn army_log(&self, team: u8) -> Vec<u32> {
         valid_team(team).map_or_else(Vec::new, |t| self.w.army_log[t as usize].clone())
     }
+    /// `team`'s units lost, by what killed them (unit kinds, then building kinds; empty before any loss).
+    #[wasm_bindgen(js_name = lostTo)]
+    pub fn lost_to(&self, team: u8) -> Vec<u32> {
+        valid_team(team).map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
+    }
     /// Tiles `team` has ever seen.
     pub fn explored(&self, team: u8) -> Vec<u8> {
         self.w.explored[team as usize & 1].clone()

@@ -934,3 +934,20 @@ fn a_side_that_can_do_nothing_more_has_lost() {
         "nothing left that can act: over"
     );
 }
+
+#[test]
+fn the_end_screen_learns_what_killed_each_side() {
+    // A Lancer kills a player's Trooper; a Turret kills another: each counted under its killer.
+    let mut w = flat_arena(16);
+    let lancer = w.make_unit(UnitKind::Lancer, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    let t1 = w.make_unit(UnitKind::Trooper, PLAYER, 32.0 * TILE, 30.0 * TILE);
+    w.damage(t1, 1e6, Some(lancer));
+    let turret = w.make_building(BldgKind::Turret, ENEMY, 40, 40, true);
+    let t2 = w.make_unit(UnitKind::Trooper, PLAYER, 41.0 * TILE, 43.0 * TILE);
+    w.damage(t2, 1e6, Some(turret));
+    let row = &w.lost_to[PLAYER as usize];
+    assert_eq!(row[UnitKind::Lancer.index()], 1);
+    assert_eq!(row[UNIT_KINDS.len() + BldgKind::Turret.index()], 1);
+    assert_eq!(row.iter().sum::<u32>(), 2);
+    assert!(w.lost_to[ENEMY as usize].iter().all(|&n| n == 0));
+}

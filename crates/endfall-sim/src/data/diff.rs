@@ -94,13 +94,15 @@ pub const DIFF: [Diff; 4] = [
         supply_at_once: 1,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
-    // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank.
+    // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
+    // factories to start, like Hard: with four, the Human AI's builders spent so long off the line (a Human builder
+    // stays until its building stands) that it gathered far less than the Vael AI.
     Diff {
         income: 1.3,
         wave: 7,
         wave_grow: 4,
         harv: 18,
-        rax: 4,
+        rax: 3,
         extra_rax: 5,
         first: 120.0,
         gap: 45.0,

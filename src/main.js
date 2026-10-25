@@ -19,7 +19,7 @@ audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.
 const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
 
 let started = false;
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden;
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden || !$('end').hidden;
 const running = () => started && !overlay() && !paused() && !G.over && !blockedUpright();
 input.enabled = () => started && !overlay() && !paused() && !blockedUpright();
 
@@ -74,8 +74,8 @@ function endGame() {
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
-  recordResult(win);
-  $('end').hidden = false; sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
+  $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
+  recordResult(win, G.factions[G.me], G.diff); // (after the card is up: storage trouble cannot hide it)
 }
 
 // ---- screens ----

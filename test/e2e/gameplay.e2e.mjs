@@ -848,7 +848,8 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
   const d = await newGame(DESKTOP, 0, 4242);
   try {
     await d.eval(() => localStorage.removeItem('endfall.record'));
-    const seed = await d.eval(() => endfall.G.seed);
+    const setup = () => d.eval(() => { const c = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return JSON.stringify([endfall.G.seed, endfall.G.factions, c.tx, c.ty]); });
+    const before = await setup();
     // A few Troopers, then a short game: the enemy's Core nearly down, and our Troopers beside it.
     await d.skip(25);
     const s = await d.state(), foeCore = s.bldgs.find(b => b.team !== 0 && b.type === 'core');
@@ -861,7 +862,7 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
     await d.page.locator('#btnRematch').click();
     await until(d, async () => !(await d.state()).over, { seconds: 10, step: 0.5, what: 'the rematch' });
     assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');
-    assert.equal(await d.eval(() => endfall.G.seed), seed, 'on the same map');
+    assert.equal(await setup(), before, 'the same map, races and starting base');
     assert.ok(await d.eval(() => endfall.G.time < 5), 'from the start');
     // Back on the menu: the record for this race and difficulty.
     await d.page.locator('#btnPause').click();

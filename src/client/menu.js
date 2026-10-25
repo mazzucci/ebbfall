@@ -101,16 +101,16 @@ export function initMenu({ onStart, onSound }) {
 export function showMenu() { renderMaps(); showRecord(); $('start').hidden = false; }
 
 // The player's record on this device, per race and difficulty: [won, lost].
-const records = () => { try { return JSON.parse(store.get('record')) || {}; } catch { return {}; } };
-const recKey = () => `${menu.race}:${menu.diff}`;
+const records = () => { try { const r = JSON.parse(store.get('record')); return r && typeof r === 'object' ? r : {}; } catch { return {}; } };
+const tally = (r, k) => Array.isArray(r[k]) && r[k].length === 2 ? r[k].map(n => +n || 0) : [0, 0]; // (whatever else is stored)
 /** Count a finished game for the race and difficulty it was played at. */
-export function recordResult(win) {
-  const r = records(), k = recKey(), [w, l] = r[k] || [0, 0];
+export function recordResult(win, race, diff) {
+  const r = records(), k = `${race}:${diff}`, [w, l] = tally(r, k);
   r[k] = win ? [w + 1, l] : [w, l + 1]; store.set('record', JSON.stringify(r));
 }
 /** The record for the chosen race and difficulty, beside START (nothing before a first game). */
 function showRecord() {
-  const [w, l] = records()[recKey()] || [0, 0];
+  const [w, l] = tally(records(), `${menu.race}:${menu.diff}`);
   $('record').textContent = w + l ? `${w} won · ${l} lost` : '';
   $('record').title = w + l ? `Your record as the ${menu.race === 'vael' ? 'Vael' : 'Humans'} at this difficulty` : '';
 }

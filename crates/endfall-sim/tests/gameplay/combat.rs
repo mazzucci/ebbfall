@@ -963,3 +963,40 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         );
     }
 }
+
+#[test]
+fn a_healer_on_attack_move_keeps_behind_the_fight() {
+    // Before, an attack-moving Medic walked straight through while the soldiers stopped to fight, and arrived first.
+    let mut w = arena(19);
+    let squad: Vec<Id> = (0..3)
+        .map(|i| w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 860.0 + 30.0 * i as f64))
+        .collect();
+    let medic = w.make_unit(UnitKind::Medic, PLAYER, 560.0, 890.0);
+    for i in 0..3 {
+        let foe = w.make_unit(UnitKind::Trooper, ENEMY, 860.0, 860.0 + 30.0 * i as f64);
+        w.hold_unit(foe);
+    }
+    for &u in squad.iter().chain([&medic]) {
+        w.attack_move(u, 1300.0, 890.0);
+    }
+    let mut ahead = 0;
+    for _ in 0..8 * TPS {
+        w.step();
+        let front = squad
+            .iter()
+            .filter_map(|&s| w.unit(s))
+            .map(|s| s.x)
+            .fold(f64::MIN, f64::max);
+        if let Some(m) = w.unit(medic)
+            && front > f64::MIN
+            && m.x > front + 16.0
+        {
+            ahead += 1;
+        }
+    }
+    assert_eq!(
+        ahead, 0,
+        "the Medic never ran ahead of the squad while it fought"
+    );
+    assert!(w.unit(medic).is_some(), "and it lived through the fight");
+}

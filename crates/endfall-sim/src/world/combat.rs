@@ -579,7 +579,22 @@ impl World {
                 return;
             }
         }
+        if !c.combat && c.kind.def().heal > 0.0 && self.allies_fighting_near(uid, 6.0 * TILE) {
+            return; // a healer keeps pace with the army: it waits (and heals) while the fight near it lasts
+        }
         self.update_move(uid, x, y, dt);
+    }
+
+    /// Whether an armed ally of `uid` within `r` px is fighting (attacking something).
+    fn allies_fighting_near(&self, uid: Id, r: f64) -> bool {
+        let u = self.u(uid);
+        self.units.iter().any(|o| {
+            o.id != uid
+                && o.team == u.team
+                && o.kind.def().threat()
+                && matches!(o.task, Task::Attack { .. })
+                && dist(o.x, o.y, u.x, u.y) < r
+        })
     }
 
     /// Attack a target; a self-picked one gives way to a bigger threat and is let go well out of sight.

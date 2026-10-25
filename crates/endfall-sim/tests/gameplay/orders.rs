@@ -477,3 +477,48 @@ fn every_weapon_in_the_tables_can_hit_something() {
         }
     }
 }
+
+#[test]
+fn a_group_attack_move_marches_at_the_slowest_pace_with_healers_behind() {
+    let x = |w: &World, id| w.unit(id).unwrap().x;
+    let mut w = flat_arena(31);
+    let (y0, x0) = (900.0, 600.0);
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, x0, y0);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, x0, y0 + 40.0);
+    let m = w.make_unit(UnitKind::Medic, PLAYER, x0, y0 - 40.0);
+    w.attack_move_group(&[t, v, m], x0 + 1000.0, y0);
+    run(&mut w, 6);
+    assert!(x(&w, v) > x0 + 300.0, "the group moved: {}", x(&w, v));
+    assert!(
+        (x(&w, t) - x(&w, v)).abs() < 24.0,
+        "the Trooper keeps pace with the Vanguard: {} vs {}",
+        x(&w, t),
+        x(&w, v)
+    );
+    assert!(
+        x(&w, m) < x(&w, v) - 16.0,
+        "the Medic trails: {} vs {}",
+        x(&w, m),
+        x(&w, v)
+    );
+    // A new order lets a unit go at its own speed again.
+    w.move_to(t, x0 + 1400.0, y0);
+    run(&mut w, 3);
+    assert!(
+        x(&w, t) > x(&w, v) + 48.0,
+        "on its own the Trooper is faster: {} vs {}",
+        x(&w, t),
+        x(&w, v)
+    );
+}
+
+#[test]
+fn a_lone_unit_ordered_as_a_group_keeps_its_speed() {
+    let mut w = flat_arena(31);
+    let a = w.make_unit(UnitKind::Trooper, PLAYER, 800.0, 700.0);
+    w.attack_move_group(&[a], 1400.0, 700.0);
+    assert!(w.unit(a).unwrap().pace.is_none());
+    run(&mut w, 3);
+    let moved = w.unit(a).unwrap().x - 800.0;
+    assert!(moved > 92.0 * 3.0 * 0.9, "at its own speed: {moved}");
+}

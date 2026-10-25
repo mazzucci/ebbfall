@@ -127,6 +127,8 @@ export const armyLog = (team) => Array.from(game.armyLog(team));
 // ---- orders (the future network command set) ----
 export const moveTo = (u, x, y) => touch(game.moveTo(u.id, x, y));
 export const attackMove = (u, x, y) => touch(game.attackMove(u.id, x, y));
+/** Attack-move for several units: together, at the pace of the slowest. */
+export const attackMoveGroup = (us, x, y) => touch(game.attackMoveGroup(Uint32Array.from(us.map(u => u.id)), x, y));
 export const attackEnt = (u, t) => touch(game.attackEnt(u.id, t.id));
 export const stopUnit = (u) => touch(game.stopUnit(u.id));
 export const holdUnit = (u) => touch(game.holdUnit(u.id));

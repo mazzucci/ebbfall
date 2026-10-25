@@ -1,7 +1,7 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
-import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
+import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
 import { sfx } from './audio.js';
@@ -130,7 +130,7 @@ function commandAt(wx, wy, hit = pick(wx, wy)) {
 const armedTap = {
   attack(units, wx, wy) {
     const hit = pick(wx, wy);
-    if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { for (const u of units) attackMove(u, wx, wy); marker(wx, wy, FOE); }
+    if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { attackMoveGroup(units, wx, wy); marker(wx, wy, FOE); }
     sfx('attack', voice(units)); clearMode();
   },
   repair(units, wx, wy) {
@@ -283,7 +283,7 @@ function bindMinimap() {
   let mmDown = false;
   const mmAt = (ev, cmd) => {
     const r = mm.getBoundingClientRect(); const wx = (ev.clientX - r.left) / r.width * WW, wy = (ev.clientY - r.top) / r.height * WH;
-    if (cmd) { const units = playerSel().filter(x => x.kind === 'unit'); if (units.length) { if (ui.mode === 'attack') units.forEach(u => attackMove(u, wx, wy)); else formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); ui.mode = null; setHint(); } return; }
+    if (cmd) { const units = playerSel().filter(x => x.kind === 'unit'); if (units.length) { if (ui.mode === 'attack') attackMoveGroup(units, wx, wy); else formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); ui.mode = null; setHint(); } return; }
     centerOn(wx, wy);
   };
   mm.addEventListener('contextmenu', e => e.preventDefault());

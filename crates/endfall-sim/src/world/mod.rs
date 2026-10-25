@@ -140,6 +140,9 @@ pub struct Unit {
     pub swap: f64,
     /// Seconds left warping in (a Vael unit sent to a power field): it cannot move, fire or heal, but can be hit.
     pub warp: f64,
+    /// A group's marching pace (px/s): set by a group order to its slowest member's speed, so the group arrives
+    /// together; it only caps a unit on the move (not in a fight), and any new order clears it.
+    pub pace: Option<f64>,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -644,7 +647,12 @@ impl World {
     }
     /// A unit's walking speed right now (px/s).
     pub(crate) fn live_speed(&self, uid: Id) -> f64 {
-        self.u(uid).kind.def().speed * self.speed_mul(uid)
+        let u = self.u(uid);
+        let own = u.kind.def().speed * self.speed_mul(uid);
+        match (u.pace, u.task) {
+            (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
+            _ => own,
+        }
     }
     /// The seconds between shots of `shooter`'s weapon (a unit or a building), whose base is `base`.
     pub(crate) fn live_cd(&self, shooter: Id, base: f64) -> f64 {
@@ -770,6 +778,9 @@ impl World {
             }
             if u.warp > 0.0 {
                 mix(jsmath::to_i32(u.warp * 16.0));
+            }
+            if let Some(p) = u.pace {
+                mix(jsmath::to_i32(p * 16.0));
             }
         }
         for b in &self.bldgs {

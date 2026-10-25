@@ -199,6 +199,15 @@ impl Game {
             node: (node != 0).then_some(node),
         });
     }
+    /// Attack-move for a selection: together, at the pace of its slowest unit.
+    #[wasm_bindgen(js_name = attackMoveGroup)]
+    pub fn attack_move_group(&mut self, units: &[u32], x: f64, y: f64) {
+        self.order(Command::GroupAttackMove {
+            units: units.to_vec(),
+            x,
+            y,
+        });
+    }
     pub fn formation(&mut self, units: &[u32], x: f64, y: f64) {
         self.order(Command::Formation {
             units: units.to_vec(),

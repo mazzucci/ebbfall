@@ -77,6 +77,11 @@ const SFX = {
   shell: (b, t) => { tone(b, t, { f: 110, to: 40, dur: 0.22, type: 'sine', vol: 0.14 }); noise(b, t, { dur: 0.18, vol: 0.08, filter: 'lowpass', f: 900, to: 200 }); },
   missile: (b, t) => { noise(b, t, { dur: 0.32, vol: 0.06, filter: 'bandpass', f: 900, to: 3200, q: 1.6, att: 0.04 }); tone(b, t, { f: 300, to: 900, dur: 0.18, type: 'sawtooth', vol: 0.02 }); },
   melee: (b, t) => noise(b, t, { dur: 0.05, vol: 0.04, filter: 'bandpass', f: 1800, q: 3 }),
+  // Abilities (the cast event names them).
+  stim: (b, t) => { tone(b, t, { f: 300, to: 900, dur: 0.18, type: 'sawtooth', vol: 0.03 }); noise(b, t, { dur: 0.12, vol: 0.02, filter: 'highpass', f: 2500 }); },
+  entrench: (b, t) => { noise(b, t, { dur: 0.16, vol: 0.06, filter: 'lowpass', f: 600, to: 200 }); tone(b, t + 0.05, { f: 140, to: 90, dur: 0.18, type: 'square', vol: 0.03 }); },
+  blink: (b, t) => { tone(b, t, { f: 1800, to: 400, dur: 0.14, type: 'sine', vol: 0.04 }); noise(b, t, { dur: 0.1, vol: 0.02, filter: 'bandpass', f: 3000, q: 2 }); },
+  overcharge: (b, t) => { tone(b, t, { f: 220, to: 880, dur: 0.3, type: 'triangle', vol: 0.04 }); tone(b, t + 0.1, { f: 440, to: 1320, dur: 0.22, type: 'sine', vol: 0.02 }); },
   // The Vael: glass and ceramic instead of powder and steel.
   lance: (b, t) => { tone(b, t, { f: 2400, to: 1300, dur: 0.12, type: 'sine', vol: 0.035 }); tone(b, t, { f: 3600, to: 1950, dur: 0.09, type: 'triangle', vol: 0.015 }); },
   slam: (b, t) => { tone(b, t, { f: 90, to: 55, dur: 0.35, type: 'sine', vol: 0.13 }); tone(b, t + 0.01, { f: 660, to: 520, dur: 0.3, type: 'triangle', vol: 0.025 }); noise(b, t, { dur: 0.12, vol: 0.04, filter: 'lowpass', f: 700 }); },

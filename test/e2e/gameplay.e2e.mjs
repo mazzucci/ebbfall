@@ -818,3 +818,28 @@ test('a Vael unit\'s health figure counts hull and shields together', async () =
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: one tap on the card uses an ability for the selection (Stim, then Entrench as a toggle)', async () => {
+  const d = await newGame(PHONE, 0, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 26, y)), [core.x + 180, core.y + 120]);
+    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'vanguard', x, y), [core.x + 180, core.y + 200]);
+    await d.boxSelect(core.x + 150, core.y + 90, core.x + 260, core.y + 150); // (the troopers only)
+    const units = () => d.eval((ids) => endfall.G.units.filter(u => ids.includes(u.id)).map(u => ({ hp: u.hp, boost: u.boost, mode: u.mode })), [...ids, v]);
+    assert.deepEqual((await d.selection()).map(e => e.id).sort(), ids.slice().sort());
+    await d.pressCard('Stim');
+    const after = await units();
+    assert.ok(after.slice(0, 3).every(u => u.boost === 'stim' && u.hp === 38), `all three stimmed for 10 health: ${JSON.stringify(after)}`);
+    // The Vanguard: Entrench is a toggle, lit while on; a second tap packs it up.
+    await d.clickEntity(v);
+    await d.pressCard('Entrench');
+    assert.equal((await units())[3].mode, 'entrench');
+    await d.skip(3);
+    assert.ok((await d.card()).some(c => c.label === 'Entrench'), 'the button stays');
+    assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Entrench' }).count(), 'lit while entrenched');
+    await d.pressCard('Entrench');
+    assert.equal((await units())[3].mode, null, 'packed up');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

@@ -74,11 +74,16 @@ pub enum Command {
         x: f64,
         y: f64,
     },
+    /// Every unit of `units` that has `ability` and can use it now does (a one-tap ability for a selection).
+    Cast {
+        units: Vec<Id>,
+        ability: AbilityKind,
+    },
 }
 
 impl Command {
     /// How many kinds of order there are (codes 0..KINDS).
-    pub const KINDS: u8 = 16;
+    pub const KINDS: u8 = 17;
     /// A small stable number for the kind of order (logs, the network, test coverage). Append only.
     pub fn code(&self) -> u8 {
         match self {
@@ -98,6 +103,7 @@ impl Command {
             Command::CancelConstruction { .. } => 13,
             Command::Rally { .. } => 14,
             Command::Formation { .. } => 15,
+            Command::Cast { .. } => 16,
         }
     }
 }
@@ -172,6 +178,10 @@ impl World {
             Command::Formation { ref units, x, y } if finite(x, y) => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
                 self.formation(&mine, x, y);
+            }
+            Command::Cast { ref units, ability } => {
+                let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
+                return self.cast_group(&mine, ability);
             }
             _ => {} // not this seat's, or not a real point: ignored
         }

@@ -2,6 +2,7 @@
 //! ether can be mined, supply and refunds behave, turrets defend, and a long randomized run (random orders,
 //! including stale and nonsense ids, across many seeds) never breaks the world's invariants.
 
+mod abilities;
 mod ai;
 mod balance;
 mod combat;

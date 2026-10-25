@@ -1,6 +1,6 @@
 // The command card: the buttons for what is selected (orders, the Build pages, training, research), the long-press
 // details on touch, and what a button does (doCommand).
-import { G, UNITS, BUILDINGS, UPGRADES, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
 import { sfx } from './audio.js';
@@ -17,6 +17,20 @@ export function invalidateCard() { cardKey = ''; }
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
+/** Whether unit `u` could use ability `k` now (it has it, it is ready, it is not digging in or packing up). */
+function canUse(u, k) {
+  const slot = (UNITS[u.type].abilities || []).indexOf(k);
+  return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0; // (a cost it cannot pay is refused by the sim, with a toast)
+}
+/** The selection's abilities, one button each (in table order): greyed while none of their units can use it, lit while a
+ *  toggle is on for all of them. No countdowns: a button comes back when it is ready. */
+function abilityItems(units) {
+  return Object.keys(ABILITIES).filter(k => units.some(u => (UNITS[u.type].abilities || []).includes(k))).map(k => {
+    const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k));
+    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), active: a.toggle && have.every(u => u.mode === k), tip: a.desc };
+  });
+}
+
 export function cardItems() {
   const sel = playerSel();
   if (!sel.length) return []; // a field or an enemy: nothing to command
@@ -41,6 +55,7 @@ export function cardItems() {
     const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // the Vael regenerate shields instead
     if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
     else { orders.forEach((it, i) => at(i, it)); if (workers) work.forEach((it, i) => at(COLS + i, it)); }
+    abilityItems(units).forEach((it, i) => at(orders.length + i, it)); // after the orders, on their row
     // Let go of units (a tap on the ground would move them): the last slot of the card.
     at(Math.ceil((Math.max(...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
@@ -149,6 +164,7 @@ export function doCommand(id) {
     if (!canAfford(G.me, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
+  if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) toast(err, true); return; } // (the cast event plays its sound)
   if (id.startsWith('t_')) { const b = bl[0]; if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;

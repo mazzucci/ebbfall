@@ -127,6 +127,9 @@ macro_rules! def_struct {
     };
 }
 
+mod abilities;
+pub use abilities::*;
+
 def_struct! {
     /// A weapon: what a unit or a defensive building shoots with.
     #[derive(Clone, Copy)]
@@ -203,6 +206,8 @@ def_struct! {
         req: Option<BldgKind> = "req",
         /// What it shoots with; None = unarmed.
         weapon: Option<Weapon> = "weapon",
+        /// Its abilities (at most ABILITY_SLOTS), in card order.
+        abilities: &'static [AbilityKind] = "abilities",
     }
 }
 
@@ -314,6 +319,7 @@ const UNIT: UnitDef = UnitDef {
     worker: false,
     shields: 0.0,
     weapon: None,
+    abilities: &[],
 };
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;

@@ -77,6 +77,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
         up_dmg: 2.0,
         ..W
     }),
+    abilities: &[AbilityKind::Blink],
     ..UNIT
 };
 pub(super) const PRISM: UnitDef = UnitDef {
@@ -139,6 +140,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
         splash_r: 40.0,
         ..W
     }),
+    abilities: &[AbilityKind::Overcharge],
     ..UNIT
 };
 pub(super) const SHRIKE: UnitDef = UnitDef {

@@ -206,6 +206,17 @@ impl Game {
             y,
         });
     }
+    /// Every unit of `units` that has the ability (by key) and can use it now does; "" = used, else why not.
+    pub fn cast(&mut self, units: &[u32], ability: &str) -> String {
+        let Some(ability) = data::AbilityKind::parse(ability) else {
+            return "Unknown ability".into();
+        };
+        let cmd = Command::Cast {
+            units: units.to_vec(),
+            ability,
+        };
+        res(self.w.apply(self.me, &cmd))
+    }
     /// Log every order given from now on (with its tick), for replays and desync reports.
     pub fn record(&mut self, on: bool) {
         self.w.record(on);
@@ -341,7 +352,7 @@ impl Game {
                 {
                     None
                 }
-                Event::Fire { seen, .. } if !seen[me as usize] => None,
+                Event::Fire { seen, .. } | Event::Cast { seen, .. } if !seen[me as usize] => None,
                 e => Some(e),
             })
             .map(|e| event_json(&e))
@@ -375,6 +386,9 @@ fn event_json(e: &Event) -> String {
             .num("mend", mend),
         Event::Hit { x, y, big } => o("hit").num("x", x).num("y", y).num("big", big),
         Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
+        Event::Cast { x, y, ability, .. } => {
+            o("cast").num("x", x).num("y", y).str("ability", ability)
+        }
     }
     .done()
 }

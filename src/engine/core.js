@@ -14,7 +14,7 @@ export { clamp, dist, fmt, mulberry } from './util.js';
 const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));
 const fu = offsets(SCHEMA.unit), fb = offsets(SCHEMA.bldg), fp = offsets(SCHEMA.proj), fn = offsets(SCHEMA.node), fi = offsets(SCHEMA.info);
 const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length, NS = SCHEMA.node.length;
-const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades;
+const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades, ABILITY_KEYS = SCHEMA.abilities;
 const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
 
 let game = null, dirty = true;
@@ -86,6 +86,9 @@ function sync() {
     u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
     const ct = U[o + fu.carry_type];
     u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
+    // Abilities: seconds of cooldown left per slot (the kind's `abilities` order), the boost and the toggle that are on.
+    u.abCd = [U[o + fu.ab_cd0], U[o + fu.ab_cd1]]; u.boost = ABILITY_KEYS[U[o + fu.boost] - 1] || null;
+    u.mode = ABILITY_KEYS[U[o + fu.mode] - 1] || null; u.swap = U[o + fu.swap];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target];
     u.task = { t };
     if (t === 'gather') { u.task.phase = PHASES[U[o + fu.phase]]; u.task.node = nodes.get(target) || null; }
@@ -130,6 +133,8 @@ export const startBuild = (u, b) => touch(game.startBuild(u.id, b.id));
 /** A harvester repairs a damaged finished building of its team (costs a share of the price as it heals). */
 export const repair = (u, b) => touch(game.repair(u.id, b.id));
 export const formation = (us, x, y) => touch(game.formation(Uint32Array.from(us.map(u => u.id)), x, y));
+/** Every unit of `us` that has the ability (by key) and can use it now does; null, or why nobody could. */
+export const castAbility = (us, key) => touch(err(game.cast(Uint32Array.from(us.map(u => u.id)), key)));
 /** Returns an error string, or null when the building was placed and paid for. */
 export const placeBuilding = (team, type, tx, ty, builder) => touch(err(game.placeBuilding(team, type, tx, ty, builder ? builder.id : 0)));
 /** Returns an error string, or null on success. */

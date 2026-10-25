@@ -223,9 +223,11 @@ impl World {
         self.recalc_supply(e);
     }
 
-    /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it. Empty
-    /// until units have abilities.
-    fn ai_abilities(&mut self, _brain: &mut Brain) {}
+    /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
+    /// (the rules are `World::auto_cast`, shared with the balance duels).
+    fn ai_abilities(&mut self, _brain: &mut Brain) {
+        self.auto_cast(self.seat());
+    }
 
     /// How many of our buildings of kind `k` (only finished ones if `done`).
     pub(crate) fn ai_count(&self, my_b: &[Id], done: bool, k: BldgKind) -> usize {

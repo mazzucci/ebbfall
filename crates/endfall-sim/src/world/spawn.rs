@@ -48,6 +48,10 @@ impl World {
             no_build_until: 0.0,
             heal_fx: 0.0,
             healed_at: u32::MAX,
+            ab_cd: [0.0; ABILITY_SLOTS],
+            boost: None,
+            mode: None,
+            swap: 0.0,
         });
         id
     }

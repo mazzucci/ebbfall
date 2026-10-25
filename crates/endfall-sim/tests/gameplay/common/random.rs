@@ -33,7 +33,7 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
     let pick = |r: &mut Mulberry32| ids[r.below(ids.len() as u32) as usize];
     let (x, y) = (r.below(2200) as f64 - 60.0, r.below(2200) as f64 - 60.0);
     let (a, b) = (pick(r), pick(r));
-    match r.below(17) {
+    match r.below(18) {
         0 => g.move_to(a, x, y),
         1 => g.attack_move(a, x, y),
         2 => g.attack_ent(a, b),
@@ -64,6 +64,13 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
         }
         15 => g.cancel_research(a),
         16 => g.repair(a, b),
+        17 => {
+            let i = r.below(ABILITIES.len() as u32 + 1) as usize;
+            let _ = g.cast(
+                &[a, b, pick(r)],
+                ABILITIES.get(i).map_or("nonsense", |k| k.def().key),
+            );
+        }
         _ => {}
     }
 }

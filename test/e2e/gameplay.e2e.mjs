@@ -681,28 +681,12 @@ test('offline: once loaded, the game opens and plays with no connection', async 
   } finally { await ctx.close(); }
 });
 
-test('phone held upright: a card asks to turn it, the game pauses, and turning back shows Resume', async () => {
-  const d = await newGame(PHONE, 0, 4242, { ai: false });
+test('phone held upright: no card asks to turn it, and the game runs on', async () => {
+  const d = await newGame({ ...PHONE, viewport: { width: 390, height: 844 } }, 1, 4242, { ai: false }); // held upright
   try {
-    assert.ok(await d.page.locator('#rotate').isHidden(), 'no card in landscape');
-    await d.page.evaluate(() => document.fullscreenElement && document.exitFullscreen()); // (a full-screen window cannot be resized)
-    await d.page.setViewportSize({ width: 390, height: 844 }); // turned upright
-    await d.page.locator('#rotate').waitFor({ state: 'visible', timeout: 5000 });
-    await d.page.locator('#pause').waitFor({ state: 'visible', timeout: 5000 }); // the game paused (the media-query change may land a frame later)
     const t0 = await d.eval(() => endfall.G.time);
-    await d.page.waitForTimeout(600);
-    assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while upright');
-    await d.page.setViewportSize({ width: 844, height: 390 }); // back to landscape
-    await d.page.locator('#rotate').waitFor({ state: 'hidden', timeout: 5000 });
-    await d.page.locator('#btnResume').tap();
-    await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 5000 }); // (throws if time stays still)
-    // Rotation locked: the card offers to play upright anyway.
-    await d.page.setViewportSize({ width: 390, height: 844 });
-    await d.page.locator('#btnUpright').tap();
-    assert.ok(await d.page.locator('#rotate').isHidden(), 'the card goes');
-    assert.ok(await d.page.locator('#pause').isHidden(), 'and the game the turn paused resumes (one tap)');
-    const t1 = await d.eval(() => endfall.G.time);
-    await d.page.waitForFunction((t1) => endfall.G.time > t1, t1, { timeout: 5000 }); // the game runs upright
+    await d.page.waitForFunction((t0) => endfall.G.time > t0 + 0.5, t0, { timeout: 5000 });
+    assert.equal(await d.page.locator('#rotate').count(), 0, 'no turn-your-phone card');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -765,19 +749,22 @@ test('the menu can pit you against a Vael opponent', async () => {
   } finally { await ctx.close(); }
 });
 
-test('phone: placing a building lets the worker go; a tap on a blocked spot gives up placing', async () => {
+test('phone: placing a building lets the worker go; a tap on a blocked spot says why and keeps placing', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
     let s = await d.state();
     const core = coreOf(s), h = mine(s, 'harvester')[0];
-    // A tap on the Core (blocked) while placing a Depot: told why, placing stops, the worker stays selected.
+    // A tap on the Core (blocked) while placing a Depot: told why, still placing (Cancel on the card stops it).
     await d.clickEntity(h.id);
     await d.pressCard('Build'); await d.pressCard('Depot');
     await d.clickWorld(core.x, core.y);
-    assert.equal(await d.eval(() => endfall.ui.place), null, 'a blocked tap gives up placing');
+    assert.ok(await d.eval(() => !!endfall.ui.place), 'a blocked tap keeps placing');
     assert.match((await d.toasts()).join(' | '), /Cannot build there/);
     assert.deepEqual((await d.selection()).map(e => e.id), [h.id], 'the worker is still selected');
+    assert.ok((await d.card()).some(c => c.label === 'Cancel'), 'its Build button is a Cancel');
+    await d.pressCard('Cancel');
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'Cancel stops placing');
     // A good spot: the site is placed and the worker let go, so it is clear the order took.
     const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
     await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
@@ -896,7 +883,7 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
     // Back on the menu: the record for this race and difficulty.
     await d.page.locator('#btnPause').click();
     await d.page.locator('#btnQuit').click();
-    assert.match(await d.page.locator('#record').textContent(), /1 won · 0 lost/);
+    assert.match(await d.page.locator('#record').textContent(), /1 won · 1 lost/); // (the win, and the rematch left: leaving gives a game up)
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1039,17 +1026,17 @@ test('phone: Home looks at the base (beside SELECT, no wider than the minimap to
   } finally { await d.close(); }
 });
 
-test('phone: Concede on the pause card asks once, then ends the game as a defeat', async () => {
-  const d = await newGame(PHONE, 0, 4242);
+test('phone: the pause card has four equal buttons; Leave game goes back to the menu and counts as a defeat', async () => {
+  const d = await newGame(PHONE, 1, 4242);
   try {
     await d.page.locator('#btnPause').tap();
-    await d.page.locator('#btnConcede').tap();
-    assert.match(await d.page.locator('#btnConcede').textContent(), /TAP AGAIN/, 'it asks first');
-    assert.equal((await d.state()).over, false);
-    await d.page.locator('#btnConcede').tap();
-    await d.page.locator('#end').waitFor({ state: 'visible' });
-    assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
-    assert.match(await d.page.locator('#endSub').textContent(), /You conceded/);
+    const boxes = await d.page.$$eval('#pause .pausegrid button', bs => bs.map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; }));
+    assert.deepEqual(boxes.map(b => b[0]), ['RESUME', 'HOW TO PLAY', 'RESTART', 'LEAVE GAME']);
+    assert.ok(boxes.every(b => b[1] === boxes[0][1] && b[2] === boxes[0][2]), `one size: ${JSON.stringify(boxes)}`);
+    assert.equal(await d.page.locator('#btnConcede').count(), 0, 'no Concede (leaving is giving up)');
+    await d.page.locator('#btnQuit').tap();
+    await d.page.locator('#start').waitFor({ state: 'visible' });
+    assert.match(await d.page.locator('#record').textContent(), /1 lost/, 'counted as a defeat');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1190,23 +1177,25 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
   } finally { await ctx.close(); }
 });
 
-test('phone: picking a building shows its ghost on a good spot at once; a tap anywhere on it places it there', async () => {
+test('phone: picking a building shows no ghost until the finger is down; lifted on red it keeps placing, on green it builds', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(500, 0);
-    const h = mine(await d.state(), 'harvester')[0];
+    const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build'); await d.pressCard('Depot');
-    const place = await d.eval(() => endfall.ui.place && { ...endfall.ui.place, ok: endfall.engine.canPlace('depot', endfall.ui.place.tx, endfall.ui.place.ty, 0) });
-    assert.ok(place && place.tx > 0 && place.ok, `a green ghost before any tap: ${JSON.stringify(place)}`);
-    const [x, y] = await d.screen(place.tx * 32 + 4, place.ty * 32 + 4, false); // (by its corner, not its middle)
+    assert.equal(await d.eval(() => endfall.ui.place.tx), -99, 'no ghost proposed');
+    assert.match(await d.page.locator('#hint').textContent(), /Pick a location/);
+    // On the Core: red. The order stays armed, with the reason.
+    let [x, y] = await d.screen(core.x, core.y, false);
     await d.tapAt(x, y);
-    await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === place.tx && b.ty === place.ty), { seconds: 5, step: 0.5, what: 'the Depot where the ghost stood' });
-    // An extractor's ghost stands on a free vent (or nowhere), never red in the middle of the view.
-    await d.clickEntity(h.id);
-    await d.pressCard('Build'); await d.pressCard('Ether Rig');
-    const rig = await d.eval(() => endfall.ui.place && { ...endfall.ui.place, ok: endfall.engine.canPlace(endfall.ui.place.type, endfall.ui.place.tx, endfall.ui.place.ty, 0) });
-    assert.ok(rig && (rig.tx === -99 || rig.ok), `the Rig's ghost on a free vent or none: ${JSON.stringify(rig)}`);
+    assert.ok(await d.eval(() => !!endfall.ui.place), 'still placing after a red spot');
+    assert.ok(!(await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot'), 'nothing built there');
+    // A good spot: built there, and the order is done.
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    [x, y] = await d.screen((spot.tx + 1) * 32, (spot.ty + 1) * 32, false);
+    await d.tapAt(x, y);
+    await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), { seconds: 5, step: 0.5, what: 'the Depot where the finger lifted' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1289,4 +1278,22 @@ test('desktop: Shift+click on a unit queues five', async () => {
     assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 5, 'five Harvesters queued');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+test('the menu is a page of its own, with Exit game', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const ctx = await browserContext(device), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      if (device.hasTouch) await page.locator('#btnPlay').tap();
+      const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
+      assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
+      assert.ok(await page.locator('#btnExit').isVisible(), 'Exit game');
+      await (device.hasTouch ? page.locator('#btnExit').tap() : page.locator('#btnExit').click());
+      await page.locator('#menuTag', { hasText: 'You can close this tab now.' }).waitFor(); // (a tab a page did not open cannot close itself)
+      const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
+      assert.ok(sc[0] <= sc[1] + 1, `fits without scrolling: ${sc}`);
+    } finally { await ctx.close(); }
+  }
 });

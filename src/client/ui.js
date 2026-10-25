@@ -47,7 +47,7 @@ export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('o
 /** The line above the card that says what a tap will do now. */
 export function setHint() {
   const h = $('hint'), c = touchUi ? 'Tap' : 'Click';
-  h.textContent = ui.place ? `${c} to place ` + BUILDINGS[ui.place.type].name + (touchUi ? '' : ' (Esc cancels)')
+  h.textContent = ui.place ? (touchUi ? `Pick a location for the ${BUILDINGS[ui.place.type].name}: green builds, red cannot` : `Click to place the ${BUILDINGS[ui.place.type].name} (Esc cancels)`)
     : ui.box ? 'Drag to select a group' : ARMED[ui.mode]?.hint(c) ?? '';
 }
 

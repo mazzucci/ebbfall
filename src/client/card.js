@@ -1,8 +1,7 @@
 // The command card: the buttons for what is selected (orders, the Build pages, training, research), the long-press
 // details on touch, and what a button does (doCommand).
-import { G, map, UNITS, BUILDINGS, UPGRADES, ABILITIES, TILE, canPlace, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, unlockOf } from '../engine/index.js';
-import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection, touchUi } from './ui.js';
-import { cam, view } from './gl/render.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, unlockOf } from '../engine/index.js';
+import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
 import { sfx } from './audio.js';
 import { icon, portrait } from './icons.js';
@@ -176,24 +175,6 @@ const researching = (bs) => bs.find(o => o.research);
 /** The one with the longest queue (a Cancel takes its last unit). */
 const mostBusy = (bs) => bs.slice().sort((p, q) => q.queue.length - p.queue.length || p.id - q.id)[0];
 
-/** On a touch screen (no hover to show it), where a building's ghost first stands: the buildable spot nearest the
- *  middle of the view (an extractor: the nearest free vent), else nowhere (no ghost rather than a red one). A tap
- *  on the ghost places it there; a tap elsewhere places it there instead, as before. */
-function firstSpot(k) {
-  const d = BUILDINGS[k], mx = (cam.x + view.w / cam.zoom / 2) / TILE, my = (cam.y + view.h / cam.zoom / 2) / TILE;
-  if (d.onVent) {
-    const vents = map.nodes.filter(n => n.type === 'ether' && canPlace(k, n.tx, n.ty, G.me));
-    const best = vents.sort((p, q) => Math.hypot(p.tx - mx, p.ty - my) - Math.hypot(q.tx - mx, q.ty - my) || p.id - q.id)[0];
-    return best ? { tx: best.tx, ty: best.ty } : {};
-  }
-  const cx = Math.floor(mx - d.w / 2), cy = Math.floor(my - d.h / 2);
-  for (let r = 0; r <= 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // (ring by ring, nearest first)
-    if (canPlace(k, cx + dx, cy + dy, G.me)) return { tx: cx + dx, ty: cy + dy };
-  }
-  return {};
-}
-
 /** A refused button press. Short of shards or ether, or an ability that is already on or not ready: the button
  *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is
  *  short; a lit ability button says it is on). Anything else (supply blocked, "Requires …": a decision to make) is
@@ -221,7 +202,7 @@ export function doCommand(id, times = 1) {
     const k = id.slice(2);
     if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
     if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
-    ui.place = { type: k, tx: -99, ty: -99, ...(touchUi ? firstSpot(k) : {}) }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
+    ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
   if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) refuse(id, err); return; } // (the cast event plays its sound)
   if (id.startsWith('t_')) { // (`times`: Shift queues five, spread over the selected factories as it goes)

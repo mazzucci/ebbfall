@@ -6,7 +6,7 @@
 import { mulberry, mapPreview, MW, MH, DIFF } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
-import { touchDevice, enterFullscreen, canGoFullscreen } from './screen.js';
+import { touchDevice, enterFullscreen, exitFullscreen, canGoFullscreen } from './screen.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -107,6 +107,12 @@ export function initMenu({ onStart, onSound }) {
   $('btnFirst').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
+  // Exit: a web page may close itself only when it was opened as an app (home screen) or by a script; otherwise it
+  // leaves full screen and says the tab can be closed.
+  $('btnExit').addEventListener('click', () => {
+    sfx('select'); window.close();
+    setTimeout(() => { if (!window.closed) { exitFullscreen(); $('menuTag').textContent = 'You can close this tab now.'; } }, 250); // (in place of the tagline: the menu keeps its size)
+  });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full
   // screen; the menu shows the Add to Home Screen tip instead.)

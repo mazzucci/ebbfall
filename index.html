@@ -58,7 +58,7 @@
   <div class="screen" id="start">
     <div class="card menu">
       <h1>ENDFALL</h1>
-      <div class="tag">A browser RTS in the 1998 mold. Mine, build, raise an army and level the enemy Command Core on the far side of the map before their waves level yours.</div>
+      <div class="tag" id="menuTag">A browser RTS in the 1998 mold. Mine, build, raise an army and level the enemy Command Core on the far side of the map before their waves level yours.</div>
       <div class="opt"><span class="lbl" id="lblDiff">OPPONENT</span>
         <div class="diff" id="diff" role="radiogroup" aria-labelledby="lblDiff">
           <button class="ib on" data-d="0" role="radio" aria-checked="true" title="A slow, gentle opponent: time to learn and build">EASY</button>
@@ -87,7 +87,7 @@
         <button class="ib" id="btnMenuSound" aria-pressed="true" aria-labelledby="lblSound btnMenuSound">ON</button>
       </div>
       <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Endfall from there to play full screen in landscape.</p>
-      <div class="row"><button class="ib" id="btnHowTo">HOW TO PLAY</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><span class="spacer rec" id="record"></span><button class="ib big" id="btnStart">START GAME</button></div>
+      <div class="row"><button class="ib" id="btnExit" title="Leave Endfall">EXIT GAME</button><button class="ib" id="btnHowTo">HOW TO PLAY</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><span class="spacer rec" id="record"></span><button class="ib big" id="btnStart">START GAME</button></div>
     </div>
   </div>
   <div class="screen" id="splash" hidden>
@@ -109,7 +109,7 @@
     <div class="card small" role="dialog" aria-modal="true" aria-label="Paused">
       <h2>Paused</h2>
       <div class="tag" id="pauseTime">Take your time.</div>
-      <div class="row"><button class="ib big" id="btnResume">RESUME</button><button class="ib" id="btnPauseHelp">HOW TO PLAY</button><span class="spacer"></span><button class="ib" id="btnConcede" title="Give up this game: it counts as a defeat">CONCEDE</button><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnQuit">QUIT</button></div>
+      <div class="pausegrid"><button class="ib" id="btnResume">RESUME</button><button class="ib" id="btnPauseHelp">HOW TO PLAY</button><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnQuit" title="Back to the menu: the game counts as lost">LEAVE GAME</button></div>
     </div>
   </div>
   <div class="screen" id="leave" hidden>
@@ -133,12 +133,5 @@
   </div>
 </div>
 <script type="module" src="/src/main.js"></script>
-  <!-- Phones play in landscape: held upright, this covers the game (which pauses) until the phone is turned. -->
-  <div id="rotate" role="alert">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="22" y="10" width="20" height="36" rx="3"/><path d="M14 50a22 22 0 0 0 36 0M46 44l4 6 6-3"/></svg>
-    <p>Turn your device sideways to play</p>
-    <small>Rotation locked? Unlock it, or</small>
-    <button class="ib" id="btnUpright">PLAY UPRIGHT ANYWAY</button>
-  </div>
 </body>
 </html>

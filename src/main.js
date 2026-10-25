@@ -13,7 +13,7 @@ import { setIconButton, portrait } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, recordResult, setup, menu, MAP_KINDS } from './client/menu.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
-import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard, upright, blockedUpright } from './client/screen.js';
+import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -21,8 +21,8 @@ const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] >
 
 let started = false;
 const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden || !$('end').hidden;
-const running = () => started && !overlay() && !paused() && !G.over && !blockedUpright();
-input.enabled = () => started && !overlay() && !paused() && !blockedUpright();
+const running = () => started && !overlay() && !paused() && !G.over;
+input.enabled = () => started && !overlay() && !paused();
 
 /** Whether to show the player's power fields: a race with them, and a power building (or one that needs power)
  * selected, or the Build list open, so the rule is visible before a placement fails. */
@@ -48,6 +48,8 @@ function newGame() {
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
 function quitToTitle() {
+  // Leaving a game in progress gives it up: a defeat on this device's record (the leave dialog says so).
+  if (started && !G.over && !menu.tutorial) recordResult(false, G.factions[G.me], G.diff);
   started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
 }
 
@@ -104,12 +106,7 @@ function endGame() {
 $('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; showMenu(); }); // back to the menu: a new map, or the same opponent again
 $('btnRematch').addEventListener('click', () => { sfx('select'); newGame(); }); // the same map, seed, races and difficulty
 initScreen(); initLeaveDialog(); initTools();
-// Turned upright mid-game: pause (the rotate card covers the screen), so turning back shows Resume, not a game that ran on.
-let pausedUpright = false;
-upright.addEventListener('change', () => { if (blockedUpright() && started && !overlay() && !paused() && !G.over) { togglePause(); pausedUpright = true; } });
-// Choosing to play upright anyway resumes a game the turn paused (one tap, not two).
-$('btnUpright').addEventListener('click', () => { if (pausedUpright && paused()) togglePause(); pausedUpright = false; });
-initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onConcede: () => engine.concede() });
+initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });

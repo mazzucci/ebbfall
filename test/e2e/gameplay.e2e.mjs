@@ -332,7 +332,6 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
     await d.skip(4);
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
-    assert.equal(await d.page.locator('#top .up, #top .ring').count(), 0, 'not on screen all the time: the Foundry tells, when selected');
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
     assert.deepEqual(slots, ['Weapons I', 'Armor I', 'Cancel'], 'the Forge card: research and its cancel');

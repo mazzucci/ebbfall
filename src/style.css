@@ -23,8 +23,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #top{display:flex;align-items:center;gap:14px;height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;flex:none;min-width:0}
 .res{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
-/* Fixed slots for the figures, so the bar does not shift as they grow (up to 99999 shards, 200/200 supply). */
-#rShard,#rEther{display:inline-block;min-width:5ch} #rSupply{display:inline-block;min-width:7ch}
+/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 shards, 200/200 supply). */
+#rShard,#rEther{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
 .dot{width:10px;height:10px;border-radius:2px;transform:rotate(45deg);display:inline-block}
 .dot.shard{background:var(--shard)} .dot.ether{background:var(--ether);border-radius:50%}
 .res.low b{color:var(--bad)} #resSup.low{animation:pulse-warn 1s infinite alternate;border-radius:4px}
@@ -32,13 +32,13 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
 .ib:hover{border-color:var(--ally)} .ib:focus-visible{outline:2px solid var(--ally);outline-offset:1px}
 .ib.icon{display:flex;align-items:center;gap:6px;padding:4px 8px} .ib.icon .ico{width:16px;height:16px}
-@media (max-width:1099px){.ib.icon .t,.chip .t{display:none}}
+@media (max-width:1099px){.ib.icon .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}
-/* Idle-harvester and army chips in the top bar: a portrait and a count. */
-.chip{display:flex;align-items:center;gap:3px;background:none;border:1px solid transparent;border-radius:4px;padding:1px 6px 1px 2px;color:var(--fg);cursor:pointer;font:15px var(--mono);font-variant-numeric:tabular-nums}
-.chip .t{font:600 10px var(--display);letter-spacing:.1em;color:var(--muted)} .chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%} .chip b{font-weight:400}
-.chip.zero{opacity:.6} .chip.warn{border-color:var(--warn);color:var(--warn);animation:pulse-warn 1.2s infinite alternate}
+/* Shortcut chips in the top bar (army, an idle factory): a portrait, shown only while it has something to offer. */
+.chip{display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:4px;padding:2px 4px;cursor:pointer}
+.chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%}
+@media (any-pointer:coarse){.chip{min-width:44px}} /* a finger's width, though the portrait is small */
 @keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
@@ -48,6 +48,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
 .toast.bad{border-color:var(--bad);color:#ffb3b3}
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
+#hint:empty{display:none} /* (no grey pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:8px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
@@ -133,12 +134,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
   #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
-  #btnIdle,#btnArmy,#btnProd{display:none} /* a narrow top bar: resources, supply and the buttons only */
+  #btnArmy,#btnProd{display:none} /* a narrow top bar: resources, supply and the buttons only */
 }
-/* Upgrades in the top bar: the icon and level; research under way fills a ring round the icon. */
-.up{position:relative;display:flex;align-items:center;gap:2px} .up .ico{width:16px;height:16px;color:var(--ally2)} .up.on .ico{color:var(--ether)} .up.on b{color:var(--ether);margin-left:6px}
-.ring{position:absolute;left:-4px;top:50%;width:24px;height:24px;transform:translateY(-50%) rotate(-90deg);fill:none;stroke-width:2;pointer-events:none}
-.ring circle{stroke:var(--line2)} .ring .p{stroke:var(--ether);stroke-dasharray:0 100;stroke-linecap:round}
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
 .tb{background:rgba(18,26,37,.86);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.06em;padding:5px 8px;cursor:pointer;display:flex;gap:6px;align-items:center}
@@ -187,7 +184,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .card.small{max-width:380px}
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}
 .tip{font-size:12.5px;color:var(--ally2);border:1px solid var(--line2);border-radius:4px;padding:6px 10px;background:var(--panel2)}
-@media (prefers-reduced-motion:reduce){.toast,.chip.warn,.tb.alert{animation:none} #minimap{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.toast,.tb.alert{animation:none} #minimap{transition:none!important}}
 
 /* The guided first game's checklist: one line under the top bar; the button it wants pulses. */
 #tut{position:absolute;left:8px;top:8px;z-index:4;display:flex;align-items:center;gap:8px;max-width:min(460px,70%);padding:5px 10px 5px 6px;

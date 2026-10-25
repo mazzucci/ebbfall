@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// Unspent shards the AI counts as piling up (it then adds a factory).
+const SHARD_FLOAT: i32 = 400;
+
 impl World {
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
         let d = kind.def();
@@ -167,6 +170,29 @@ impl World {
         None
     }
 
+    /// Whether shards pile up for want of factories: a bank of `SHARD_FLOAT` with every main factory busy, while
+    /// not supply-blocked (busy queues that cannot finish are not a factory problem) and not saving up (for an
+    /// expansion or research: the bank is spoken for), and while under the difficulty's allowance of extra factories
+    /// over the `schedule`.
+    pub(crate) fn extra_rax(&self, e: u8, my_b: &[Id], schedule: usize) -> bool {
+        let rax = self.factions[e as usize].ai.rax;
+        let (busy, all) = my_b
+            .iter()
+            .filter_map(|&id| self.bldg(id))
+            .filter(|b| b.kind == rax)
+            .fold((0, 0), |(busy, all), b| {
+                (busy + (b.done && !b.queue.is_empty()) as usize, all + 1)
+            });
+        let d = &DIFF[self.diff];
+        let [used, cap] = self.sup[e as usize];
+        self.res[e as usize][0] >= SHARD_FLOAT
+            && all > 0
+            && busy == all
+            && all < schedule + d.extra_rax
+            && cap - used >= 4
+            && self.ai().saving_since.is_none()
+    }
+
     /// The build order: one wanted building at a time, placed by a free harvester.
     pub(crate) fn ai_build(&mut self, brain: &mut Brain) {
         let Brain {
@@ -212,24 +238,33 @@ impl World {
                 )
             });
         let relight = dark.filter(|_| f.supply.def().power > 0.0 && !building.contains(&f.supply));
+        // Ether only once there is something to spend it on: at once if a mixed-in unit needs ether and no tech
+        // (the Vael Prism), else after the first factory (the Foundry, the Humans' first ether buy, needs it).
+        let ether_early = s
+            .mix
+            .iter()
+            .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
+        let rax_schedule = d.rax + (t > 300.0) as usize + (t > 540.0) as usize;
         let want = if relight.is_some()
             || (cap - used <= 4 && cap < 200 && !building.contains(&f.supply))
         {
             Some(f.supply)
         } else if (harv.len() >= 7
             && self.ai_count(&my_b, false, f.ether) == 0
+            && (ether_early || self.ai_count(&my_b, false, s.rax) >= 1)
             && free_vent(self, (cx, cy)))
             || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, f.ether) < 2)
         {
             Some(f.ether) // the second when the home vent has run dry: the expansion's
-        } else if self.ai_count(&my_b, false, s.rax)
-            < d.rax + (t > 300.0) as usize + (t > 540.0) as usize
+        } else if self.ai_count(&my_b, false, s.rax) < rax_schedule
+            || self.extra_rax(e, &my_b, rax_schedule)
         {
             Some(s.rax)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && ext.is_some()
             && self.ai_count(&my_b, false, s.tech) == 0
-            && t > 150.0
+            // (sooner once its ether is in the bank: until the tech stands there may be nothing to spend it on)
+            && (t > 150.0 || self.res[e as usize][1] >= s.tech.def().cost[1])
         {
             Some(s.tech)
         } else if self.ai_count(&my_b, true, s.rax) >= 1

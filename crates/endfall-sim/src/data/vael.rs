@@ -71,7 +71,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     build: 22.0,
     weapon: Some(Weapon {
         range: 0.9,
-        dmg: 10.0,
+        dmg: 11.0,
         cd: 0.9,
         melee: true,
         up_dmg: 2.0,
@@ -86,7 +86,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
     cost: [100, 35],
     supply: 2,
     hp: 70.0,
-    shields: 50.0,
+    shields: 60.0,
     armor: 1.0,
     speed: 85.0,
     sight: 9.0,
@@ -94,8 +94,8 @@ pub(super) const PRISM: UnitDef = UnitDef {
     build: 30.0,
     weapon: Some(Weapon {
         range: 5.5,
-        dmg: 13.0,
-        dmg_air: 13.0,
+        dmg: 14.0,
+        dmg_air: 14.0,
         cd: 0.9,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,

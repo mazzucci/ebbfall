@@ -867,3 +867,66 @@ fn the_vael_ai_relights_a_dark_kiln() {
         }
     }
 }
+
+#[test]
+fn each_ai_takes_ether_when_it_has_something_to_spend_it_on() {
+    // The Humans' first ether buy is the Foundry, after a Garrison: their Ether Rig follows the Garrison. The Vael
+    // mix in Prisms (ether, no tech) from the start: their Siphon comes first, and their Loom as soon as its ether
+    // is in the bank rather than on the clock (150 s).
+    for seed in [3, 21] {
+        for f in [&HUMANS, &VAEL] {
+            let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, f]);
+            let s = &f.ai;
+            let mut first = [None; 3];
+            for t in 0..30 * 200 {
+                w.step();
+                w.events.clear();
+                for (i, k) in [f.ether, s.rax, s.tech].into_iter().enumerate() {
+                    if first[i].is_none() && w.bldgs.iter().any(|b| b.team == ENEMY && b.kind == k)
+                    {
+                        first[i] = Some(t);
+                    }
+                }
+            }
+            let [ether, rax, tech] = first.map(|t| t.expect("placed within 200 s"));
+            if f.key == HUMANS.key {
+                assert!(
+                    ether > rax,
+                    "seed {seed}: the Rig after the Garrison ({ether} vs {rax})"
+                );
+            } else {
+                assert!(
+                    ether < rax,
+                    "seed {seed}: the Siphon before the Kiln ({ether} vs {rax})"
+                );
+                assert!(
+                    tech < 30 * 150,
+                    "seed {seed}: the Loom once its ether is in ({tech})"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn an_ai_with_ether_piling_up_leans_on_its_specialists() {
+    // A Vanguard per two Troopers normally; with ether in the bank, one per Trooper.
+    let mut w = World::new(9, 1);
+    let b = w.map.bases[ENEMY as usize];
+    w.make_building(BldgKind::Forge, ENEMY, b.0 + 6, b.1 - 1, true);
+    w.make_building(BldgKind::Barracks, ENEMY, b.0 - 4, b.1 + 6, true);
+    for _ in 0..30 * 120 {
+        w.res[ENEMY as usize] = [3000, 1000];
+        w.step();
+        w.events.clear();
+    }
+    let (troopers, vanguards) = (
+        count(&w, ENEMY, UnitKind::Trooper),
+        count(&w, ENEMY, UnitKind::Vanguard),
+    );
+    assert!(troopers >= 3, "it trained: {troopers}");
+    assert!(
+        vanguards + 1 >= troopers,
+        "about one Vanguard per Trooper: {vanguards} to {troopers}"
+    );
+}

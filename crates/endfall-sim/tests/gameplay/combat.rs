@@ -951,3 +951,30 @@ fn the_end_screen_learns_what_killed_each_side() {
     assert_eq!(row.iter().sum::<u32>(), 2);
     assert!(w.lost_to[ENEMY as usize].iter().all(|&n| n == 0));
 }
+
+#[test]
+fn a_kill_by_a_shell_whose_shooter_died_still_counts() {
+    let mut w = flat_arena(17);
+    let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 26.0 * TILE, 30.0 * TILE);
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(t);
+    w.attack_ent(vanguard, t);
+    // Until its first shell is in the air, then the Vanguard dies; the Trooper is one hit from death.
+    for _ in 0..30 * 5 {
+        w.step();
+        if !w.projs.is_empty() {
+            break;
+        }
+    }
+    assert!(!w.projs.is_empty(), "a shell is in the air");
+    w.damage(vanguard, 1e9, None);
+    let o = w.units.iter_mut().find(|u| u.id == t).unwrap();
+    o.hp = 1.0;
+    run(&mut w, 3);
+    assert!(w.unit(t).is_none(), "the shell killed it");
+    assert_eq!(
+        w.lost_to[PLAYER as usize][UnitKind::Vanguard.index()],
+        1,
+        "counted under the Vanguard"
+    );
+}

@@ -66,6 +66,8 @@ pub struct World {
     /// Each seat's units lost, counted by what killed them: a unit kind's index, or `UNIT_KINDS.len()` plus a
     /// building kind's (a turret). The end screen's "what beat you". Not hashed, like `army_log`.
     pub lost_to: [Vec<u32>; 2],
+    /// While a projectile lands: its shooter's `lost_to` slot (the shooter may be gone by then).
+    hit_by_slot: Option<usize>,
     /// Upgrade levels per team, in `UPGRADES` order.
     pub upgrades: [[u8; UPGRADES.len()]; 2],
     /// Recent "under attack" alerts (team, time, x, y, was a building), for throttling.
@@ -146,6 +148,7 @@ impl World {
             stats: [Stats::default(); 2],
             army_log: [Vec::new(), Vec::new()],
             lost_to: [Vec::new(), Vec::new()],
+            hit_by_slot: None,
             upgrades: [[0; UPGRADES.len()]; 2],
             alerts: Vec::new(),
             events: Vec::new(),

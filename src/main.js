@@ -75,7 +75,9 @@ function whatBeatYou() {
   const el = $('endWhy'); el.hidden = !top.length; if (!top.length) return;
   const name = (t, k) => (t === 'unit' ? UNITS : BUILDINGS)[k].name + 's';
   const pic = (t, k) => portrait(t, k, 22, 1 - G.me);
-  const worst = top[0], beats = worst[1] === 'unit' ? UNITS[worst[2]].weak || [] : [];
+  // (only what this side can train: advice it can act on)
+  const f = myFaction(), mine = new Set([...f.buildBasic, ...f.buildAdvanced].flatMap(b => BUILDINGS[b].trains || []).concat(BUILDINGS[f.hq].trains || []));
+  const worst = top[0], beats = worst[1] === 'unit' ? (UNITS[worst[2]].weak || []).filter(k => mine.has(k)) : [];
   el.innerHTML = `Most of your losses: to ${top.map(([n, t, k]) => `${pic(t, k)}${name(t, k)} (${n})`).join(' and ')}.` +
     (beats.length ? ` ${beats.slice(0, 2).map(k => name('unit', k)).join(' and ')} beat ${name('unit', worst[2])}.` : '');
 }

@@ -199,7 +199,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #info.empty{display:none} /* nothing selected: no console (like no command card), on any screen */
 #endStats b{color:var(--fg)}
 #endStats{font:13px var(--mono);color:var(--muted);gap:18px}
-#endWhy{font-size:13px;color:var(--muted);margin:8px 0 0} #endWhy img{vertical-align:middle;margin:0 3px}
+#endWhy{font-size:13px;color:var(--muted);margin:8px 0 0} #endWhy img{display:inline-block;vertical-align:middle;margin:0 3px}
+@media (max-height:420px){#endWhy{margin-top:4px}}
 #endChart svg{display:block;width:100%;max-width:420px;height:auto;margin:10px 0 2px}
 @media (max-height:420px){#endChart svg{max-width:300px;margin-top:6px}} /* short landscape phones: the buttons stay in view */
 #endKey{font:12px var(--mono);color:var(--muted);gap:16px;margin-bottom:8px}

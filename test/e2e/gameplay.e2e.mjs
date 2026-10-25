@@ -1270,6 +1270,7 @@ test('the end card says what killed most of your units, and what beats it', asyn
     const why = await d.page.locator('#endWhy').textContent();
     assert.match(why, /Most of your losses: to Monoliths \(2\)/, why);
     assert.match(why, /beat Monoliths/, 'and what beats them');
+    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

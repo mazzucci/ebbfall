@@ -1,0 +1,103 @@
+//! Cloak and detection: the Observer is unseen and untouchable except where the other side detects (a finished
+//! Turret, a powered Ward, an Observer).
+
+use super::common::*;
+
+#[allow(non_snake_case)]
+fn U(w: &World, id: Id) -> &Unit {
+    w.unit(id).expect("unit")
+}
+
+/// The player's Lancer with an enemy Observer hovering beside it, by the player's base. Returns (lancer, observer).
+fn lancer_and_observer(w: &mut World) -> (Id, Id) {
+    let (tx, ty) = spot(w, BldgKind::Turret);
+    let (x, y) = ((tx as f64 + 1.0) * TILE, (ty as f64 + 1.0) * TILE);
+    let lancer = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
+    let obs = w.make_unit(UnitKind::Observer, ENEMY, x + 60.0, y);
+    w.hold_unit(obs);
+    w.step();
+    (lancer, obs)
+}
+
+#[test]
+fn an_observer_is_unseen_and_untouchable_until_detected() {
+    let mut w = rich(13);
+    let (lancer, obs) = lancer_and_observer(&mut w);
+    assert!(!w.seen_by(PLAYER, obs), "unseen");
+    assert!(w.seen_by(ENEMY, obs), "its own side sees it");
+    w.attack_ent(lancer, obs);
+    assert!(
+        !matches!(U(&w, lancer).task, Task::Attack { .. }),
+        "an order to attack what is not there is refused"
+    );
+    run(&mut w, 4);
+    assert_eq!(U(&w, obs).hp, U(&w, obs).maxhp, "nothing fires at it");
+    // A Turret close by detects it: seen, and shot down.
+    let (tx, ty) = (
+        World::tile_of(U(&w, lancer).x, U(&w, lancer).y).0 - 3,
+        World::tile_of(U(&w, lancer).x, U(&w, lancer).y).1,
+    );
+    w.make_building(BldgKind::Turret, PLAYER, tx, ty, true);
+    w.step();
+    assert!(w.seen_by(PLAYER, obs), "detected");
+    run(&mut w, 6);
+    assert!(w.unit(obs).is_none(), "shot down once detected");
+}
+
+#[test]
+fn an_attack_on_a_cloaked_unit_ends_when_detection_does() {
+    let mut w = rich(13);
+    let (lancer, obs) = lancer_and_observer(&mut w);
+    // The player's own Observer detects; the Lancer attacks; then that Observer is gone.
+    let mine = w.make_unit(
+        UnitKind::Observer,
+        PLAYER,
+        U(&w, lancer).x,
+        U(&w, lancer).y - 40.0,
+    );
+    w.hold_unit(mine);
+    let o = w.units.iter_mut().find(|u| u.id == obs).unwrap();
+    (o.hp, o.maxhp) = (1e6, 1e6);
+    w.step();
+    assert!(w.seen_by(PLAYER, obs), "an Observer detects");
+    w.attack_ent(lancer, obs);
+    run(&mut w, 1);
+    assert!(
+        matches!(U(&w, lancer).task, Task::Attack { .. }),
+        "attacking"
+    );
+    w.damage(mine, 1e6, None);
+    run(&mut w, 1);
+    assert!(
+        !matches!(U(&w, lancer).task, Task::Attack { target, .. } if target == obs),
+        "lost it"
+    );
+    let hp = U(&w, obs).hp;
+    run(&mut w, 3);
+    assert_eq!(U(&w, obs).hp, hp, "no more shots");
+}
+
+#[test]
+fn a_ward_detects_only_while_powered() {
+    let mut w = World::with_setup(13, 1, MapKind::Standard, false, [&VAEL, &HUMANS]);
+    w.disable_ai();
+    let (cx, cy) = core(&w, PLAYER);
+    // Far from the Conflux's own field: a Spire and a Ward beside it.
+    let (sx, sy) = (cx + if cx < 32 { 12 } else { -12 }, cy);
+    let spire = w.make_building(BldgKind::Spire, PLAYER, sx, sy, true);
+    let ward = w.make_building(BldgKind::Ward, PLAYER, sx + 3, sy, true);
+    let obs = w.make_unit(
+        UnitKind::Observer,
+        ENEMY,
+        (sx as f64 + 4.0) * TILE,
+        (sy as f64 + 4.0) * TILE,
+    );
+    w.hold_unit(obs);
+    run(&mut w, 1);
+    assert!(w.bldg(ward).unwrap().powered);
+    assert!(w.seen_by(PLAYER, obs), "a powered Ward detects");
+    w.damage(spire, 1e6, None);
+    run(&mut w, 1);
+    assert!(!w.bldg(ward).unwrap().powered, "dark");
+    assert!(!w.seen_by(PLAYER, obs), "a dark Ward detects nothing");
+}

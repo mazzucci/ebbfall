@@ -212,6 +212,10 @@ def_struct! {
         abilities: &'static [AbilityKind] = "abilities",
         /// A capital unit: one of a side's late, expensive giants (announced when the other side first sees one).
         capital: bool = "capital",
+        /// Always cloaked: the other side can neither see nor target it except where it detects (`detect`).
+        cloaked: bool = "cloaked",
+        /// Radius (tiles) in which it reveals the other side's cloaked units; 0 = none.
+        detect: f64 = "detect",
     }
 }
 
@@ -245,6 +249,8 @@ def_struct! {
         req: Option<BldgKind> = "req",
         /// A turret's weapon; None = no defence.
         weapon: Option<Weapon> = "weapon",
+        /// Radius (tiles) in which it reveals the other side's cloaked units when finished (and powered); 0 = none.
+        detect: f64 = "detect",
     }
 }
 
@@ -329,6 +335,8 @@ const UNIT: UnitDef = UnitDef {
     weapon: None,
     abilities: &[],
     capital: false,
+    cloaked: false,
+    detect: 0.0,
 };
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;
@@ -371,6 +379,7 @@ const BLDG: BldgDef = BldgDef {
     needs_power: false,
     power: 0.0,
     weapon: None,
+    detect: 0.0,
 };
 impl UnitDef {
     /// Damage this unit deals to a target that is (or is not) flying; 0 when it cannot attack it.

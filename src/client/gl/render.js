@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
+import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS } from '../look.js';
 import { drag } from '../input.js';
@@ -215,7 +215,9 @@ class UnitObj {
     this.body.tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
     // Warping in at a power field (the Vael): a violet ghost, more solid as it lands, inside a pulsing ring, like a site.
     const warp = u.warp > 0 ? u.warp / UNIT_WARP : 0;
-    this.body.alpha = warp ? 0.2 + 0.65 * (1 - warp) : 1;
+    // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
+    const cloak = UNITS[u.type].cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
+    this.body.alpha = warp ? 0.2 + 0.65 * (1 - warp) : cloak;
     if (warp) {
       this.body.tint = u.flash > 0 ? 0xffffff : 0xcbb6ff;
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);

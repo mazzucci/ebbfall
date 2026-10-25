@@ -105,7 +105,7 @@ impl World {
         // An enemy near our buildings (answered by the army below; also stops saving for research).
         let mut intruder = None;
         'scan: for u in &self.units {
-            if u.team != self.foe() || !self.ai_sees(u.x, u.y) {
+            if u.team != self.foe() || !self.ai_sees_unit(u) {
                 continue;
             }
             for &bid in &my_b {
@@ -153,7 +153,7 @@ impl World {
                 u.team == self.foe()
                     && u.kind.def().air
                     && u.kind.def().armed()
-                    && self.ai_sees(u.x, u.y)
+                    && self.ai_sees_unit(u)
             })
             .count();
         let enemy_air = if t < self.ai().seen_air_until {

@@ -12,6 +12,11 @@ impl World {
         self.vis[self.seat() as usize][idx(tx, ty)] != 0
     }
 
+    /// Whether this AI sees enemy unit `u` (in sight, and detected if cloaked).
+    pub(crate) fn ai_sees_unit(&self, u: &crate::world::Unit) -> bool {
+        self.ai_sees(u.x, u.y) && !self.cloaked_from(self.seat(), u)
+    }
+
     /// Remember player buildings when they come into view, forget them when their spot is seen empty, and note
     /// player flyers.
     pub(crate) fn update_knowledge(&mut self) {
@@ -29,10 +34,7 @@ impl World {
             .map(|b| (b.id, b.x, b.y, b.kind.def().hq))
             .collect();
         let air_seen = self.units.iter().any(|u| {
-            u.team == self.foe()
-                && u.kind.def().air
-                && u.kind.def().armed()
-                && self.ai_sees(u.x, u.y)
+            u.team == self.foe() && u.kind.def().air && u.kind.def().armed() && self.ai_sees_unit(u)
         }); // (a scout is no air threat)
         let gone: Vec<Id> = self
             .ai()
@@ -46,7 +48,7 @@ impl World {
         for u in self
             .units
             .iter()
-            .filter(|u| u.team == self.foe() && self.ai_sees(u.x, u.y))
+            .filter(|u| u.team == self.foe() && self.ai_sees_unit(u))
         {
             let d = u.kind.def();
             if d.air || d.worker || !d.armed() {

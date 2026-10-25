@@ -48,6 +48,8 @@ pub struct World {
     pub sup: [[i32; 2]; 2],
     pub explored: [Vec<u8>; 2],
     pub vis: [Vec<u8>; 2],
+    /// Tiles where each team reveals the other's cloaked units (from `update_fog`, like `vis`).
+    pub det: [Vec<u8>; 2],
     pub over: bool,
     pub winner: i32,
     /// The seat that conceded (-1: nobody), for the end screen's words.
@@ -131,6 +133,7 @@ impl World {
             sup: [[0, 0], [0, 0]],
             explored: [vec![0; n], vec![0; n]],
             vis: [vec![0; n], vec![0; n]],
+            det: [vec![0; n], vec![0; n]],
             over: false,
             winner: -1,
             conceded: -1,
@@ -174,6 +177,7 @@ impl World {
         for t in 0..2 {
             self.explored[t].fill(0);
             self.vis[t].fill(0);
+            self.det[t].fill(0);
         }
         self.over = false;
         self.winner = -1;

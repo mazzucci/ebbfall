@@ -5,6 +5,7 @@
 mod abilities;
 mod ai;
 mod balance;
+mod cloak;
 mod combat;
 mod common;
 mod construction;

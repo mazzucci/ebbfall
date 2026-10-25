@@ -649,7 +649,8 @@ fn the_ai_fields_vanguards_from_its_barracks() {
 
 #[test]
 fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
-    // An unarmed Observer seen by the AI is no air threat: no Lancers. A Wasp in the same spot is.
+    // An unarmed Observer (cloaked, so unseen unless a Turret is near) is no air threat: no Lancers. A Wasp in the same
+    // spot is.
     for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Wasp, true)] {
         let mut w = World::new(31, 0);
         run(&mut w, 150);

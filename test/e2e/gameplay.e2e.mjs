@@ -353,7 +353,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(v);
     assert.ok((await d.card()).some(c => c.label === 'Entrench' && !c.enabled), 'Entrench locked');
     await d.pressCard('Entrench');
-    assert.ok((await d.toasts()).some(t => /Entrenching/.test(t)) || /Entrenching/.test(await d.page.locator('#hint').textContent()), 'it says which tech');
+    assert.ok((await d.toasts()).some(t => /Research Entrenching first/.test(t)), 'it says which tech');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
     await d.pressCard('Entrenching');

@@ -57,9 +57,10 @@ function fightStats(x) {
 
 /** The research a building is doing: the upgrade, its level (pips for I-III; a one-level tech has none) and a bar. */
 function researchModule(b) {
-  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, lvName = u.levels > 1 ? ROMAN[lv] : '';
-  const pips = u.levels > 1 ? `<span class="pips">${[1, 2, 3].map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span>` : '';
-  return `<div class="rs" title="Researching ${u.name} ${lvName}">${icon(k)}<div class="rb"><div class="rt">${u.name} <b>${lvName}</b>${pips}</div><div class="bar res"><i></i></div></div></div>`;
+  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, name = u.levels > 1 ? `${u.name} ${ROMAN[lv]}` : u.name;
+  const pips = u.levels > 1 ? `<span class="pips">${Array.from({ length: u.levels }, (_, j) => j + 1).map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span>` : '';
+  const shown = u.levels > 1 ? `${u.name} <b>${ROMAN[lv]}</b>` : u.name;
+  return `<div class="rs" title="Researching ${name}">${icon(k)}<div class="rb"><div class="rt">${shown}${pips}</div><div class="bar res"><i></i></div></div></div>`;
 }
 
 let modKey = '';

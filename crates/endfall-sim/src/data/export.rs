@@ -184,6 +184,7 @@ pub fn data_json() -> String {
         .num("player", PLAYER)
         .num("enemy", ENEMY)
         .num("unit_warp", UNIT_WARP)
+        .num("tech_speed", TECH_SPEED)
         .done();
     Obj::new()
         .raw("consts", consts)

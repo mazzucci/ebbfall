@@ -397,8 +397,10 @@ fn the_ai_researches_upgrades_in_a_long_game() {
     run(&mut w, 240);
     assert!(!w.over, "the game is still on");
     assert!(
-        w.upgrades[ENEMY as usize].iter().sum::<u8>() >= 1,
-        "AI finished at least one upgrade by 14 min: {:?}",
+        UPGRADES
+            .iter()
+            .any(|u| u.levels() > 1 && w.upgrades[ENEMY as usize][u.index()] >= 1),
+        "AI finished at least one level (not only a tech) by 14 min: {:?}",
         w.upgrades[1]
     );
     assert!(

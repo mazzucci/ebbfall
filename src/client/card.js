@@ -77,17 +77,19 @@ export function cardItems() {
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
-      // Fixed slots: a research building's own row holds two researches and Cancel, the techs go below; after a
-      // factory's units and Rally, its one research then Cancel. A finished tech leaves its slot empty.
-      const slots = trains.length ? [trains.length + 1] : [0, 1, 3, 4, 5], cancelSlot = trains.length ? 5 : 2;
+      // Fixed slots: a research building's own row holds two researches and Cancel, the techs go below. A factory's one
+      // tech sits after its units and Rally, and while it researches its button becomes the Cancel (the card keeps its
+      // shape; the queue's Cancel keeps its own slot). A finished tech leaves its slot empty.
+      const slots = trains.length ? [trains.length + 1] : [0, 1, 3, 4, 5], busy = researching(bl);
+      const cancelr = busy && { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' };
       b.d.researches.forEach((k, i) => {
         const u = UPGRADES[k];
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
+        if (trains.length && busy?.research.type === k) { at(slots[i] ?? i, cancelr); return; }
         if (lv > u.levels) return;
         at(slots[i] ?? i, { id: 'r_' + k, label: u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
-      const busy = researching(bl);
-      if (busy) at(cancelSlot, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' });
+      if (busy && !trains.length) at(2, cancelr);
     }
     // A dark building (no power field) trains and researches nothing: its buttons say so.
     if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ` Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it.` });

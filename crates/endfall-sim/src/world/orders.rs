@@ -459,7 +459,7 @@ impl World {
             }
             let slowest = layer
                 .iter()
-                .map(|&id| self.u(id).kind.def().speed)
+                .map(|&id| self.base_speed(id))
                 .fold(f64::INFINITY, f64::min);
             for id in layer {
                 let d = self.u(id).kind.def();

@@ -193,8 +193,9 @@ fn a_selection_casts_together_and_only_its_own_units() {
 
 #[test]
 fn the_ai_uses_abilities_in_its_fights() {
-    // Two AIs, Humans against the Vael: in their fights both sides cast.
-    let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    // Two AIs, Humans against the Vael: in their fights both sides cast, a researched ability too (Entrench or
+    // Overcharge: the AI researches its techs and uses them).
+    let mut w = World::with_setup(6, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
     w.set_ai_seats([true, true]);
     let mut cast: Vec<&str> = Vec::new();
     for _ in 0..30 * 60 * 15 {
@@ -211,8 +212,13 @@ fn the_ai_uses_abilities_in_its_fights() {
         }
     }
     assert!(
-        cast.contains(&"stim") && (cast.contains(&"blink") || cast.contains(&"overcharge")),
+        cast.contains(&"stim") && cast.contains(&"blink"),
         "both sides used abilities: {cast:?}"
+    );
+    assert!(
+        cast.contains(&"entrench") || cast.contains(&"overcharge"),
+        "a researched ability was used: {cast:?} (techs {:?})",
+        w.upgrades
     );
 }
 
@@ -311,17 +317,31 @@ fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
 }
 
 #[test]
-fn a_speed_tech_makes_its_flyer_faster() {
-    let travel = |tech: bool| {
+fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
+    let travel = |tech: bool, n: usize| {
         let mut w = flat_arena(12);
         if tech {
             w.upgrades[PLAYER as usize][Upgrade::Afterburners.index()] = 1;
         }
-        let u = w.make_unit(UnitKind::Wasp, PLAYER, 20.0 * TILE, 30.0 * TILE);
-        w.move_to(u, 50.0 * TILE, 30.0 * TILE);
+        let us: Vec<Id> = (0..n)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Wasp,
+                    PLAYER,
+                    20.0 * TILE,
+                    (28.0 + 2.0 * i as f64) * TILE,
+                )
+            })
+            .collect();
+        w.attack_move_group(&us, 50.0 * TILE, 30.0 * TILE);
         run(&mut w, 3);
-        w.unit(u).unwrap().x - 20.0 * TILE
+        w.unit(us[0]).unwrap().x - 20.0 * TILE
     };
-    let (slow, fast) = (travel(false), travel(true));
-    assert!(fast > slow * 1.25, "Afterburners: {fast} vs {slow}");
+    for n in [1, 2] {
+        let (slow, fast) = (travel(false, n), travel(true, n));
+        assert!(
+            fast > slow * 1.25,
+            "Afterburners, {n} Wasps: {fast} vs {slow}"
+        );
+    }
 }

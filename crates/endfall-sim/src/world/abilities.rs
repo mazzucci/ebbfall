@@ -84,22 +84,25 @@ impl World {
     }
 
     /// Every unit of `units` that can use `ability` does (a selection taps once); Err only if none could, with the
-    /// first reason.
+    /// first reason of a unit that has the ability (else the first reason).
     pub fn cast_group(&mut self, units: &[Id], ability: AbilityKind) -> Result<(), String> {
-        let mut first_err = None;
-        let mut any = false;
+        let (mut own_err, mut other_err, mut any) = (None, None, false);
         for &u in units {
+            let has = self.ability_slot(u, ability).is_some();
             match self.cast(u, ability) {
                 Ok(()) => any = true,
+                Err(e) if has => {
+                    own_err.get_or_insert(e);
+                }
                 Err(e) => {
-                    first_err.get_or_insert(e);
+                    other_err.get_or_insert(e);
                 }
             }
         }
         if any {
             Ok(())
         } else {
-            Err(first_err.unwrap_or_default())
+            Err(own_err.or(other_err).unwrap_or_default())
         }
     }
 
@@ -184,12 +187,19 @@ impl World {
         if u.mode.is_some() || u.swap > 0.0 {
             return 0.0;
         }
+        self.boost_mul(uid, |_, s| s)
+    }
+
+    /// A unit's own top speed (px/s): its kind's, with its team's speed tech for it. The march pace of a group and
+    /// a unit's speed both start from this, so a researched flyer is faster in a group too.
+    pub(crate) fn base_speed(&self, uid: Id) -> f64 {
+        let u = self.u(uid);
         let tech = if self.effect_level(u.team, Effect::Speed(u.kind)) > 0 {
             TECH_SPEED
         } else {
             1.0
         };
-        self.boost_mul(uid, |_, s| s) * tech
+        u.kind.def().speed * tech
     }
 
     /// Whether `team` may use `ability`: no tech unlocks it, or that tech is researched.

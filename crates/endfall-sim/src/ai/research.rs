@@ -48,19 +48,26 @@ impl World {
                         .any(|o| o.team == e && o.research.is_some_and(|(u, _)| u == up))
                 };
                 let here = b.kind.def().researches;
-                let Some(up) = order.into_iter().find(|&up| {
-                    here.contains(&up)
-                        && (if up.levels() == 1 { techs } else { levels_due })
-                        && self.upgrades[e as usize][up.index()] < up.levels()
-                        && !busy(self, up)
-                }) else {
-                    continue;
-                };
-                let level = self.upgrades[e as usize][up.index()] + 1;
-                if self.can_afford(e, up.cost(level)) {
-                    let _ = self.start_research(bid, up);
-                } else if up.levels() > 1 {
-                    saving = true; // (a tech is bought when there is money for it, never saved for)
+                let candidates: Vec<Upgrade> = order
+                    .into_iter()
+                    .filter(|&up| {
+                        here.contains(&up)
+                            && (if up.levels() == 1 { techs } else { levels_due })
+                            && self.upgrades[e as usize][up.index()] < up.levels()
+                            && !busy(self, up)
+                    })
+                    .collect();
+                // The first it can afford; a tech it cannot is passed over (never saved for), a level is saved for.
+                for up in candidates {
+                    let level = self.upgrades[e as usize][up.index()] + 1;
+                    if self.can_afford(e, up.cost(level)) {
+                        let _ = self.start_research(bid, up);
+                        break;
+                    }
+                    if up.levels() > 1 {
+                        saving = true;
+                        break;
+                    }
                 }
             }
         }

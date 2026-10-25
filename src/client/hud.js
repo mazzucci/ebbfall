@@ -134,7 +134,7 @@ function renderSelection() {
 
 // ---- the tile strip: narrowing a selection without the box ----
 // A type tile (phones): a tap keeps only that type, a long-press drops it. A unit tile (wider screens): a click keeps
-// that unit alone, Shift+click drops it, a long-press drops its type.
+// that unit alone, Shift+click drops it (and on a touch screen a long-press drops its type).
 const strip = { timer: 0, held: false };
 function narrow(keep) { const next = ui.sel.filter(keep); if (next.length && next.length < ui.sel.length) { setSelection(next); updateHud(); sfx('select'); } }
 function tileOf(ev) { return ev.target.closest?.('#group .gi'); }
@@ -143,6 +143,7 @@ function bindStrip() {
   grp.addEventListener('pointerdown', ev => {
     const tile = tileOf(ev); if (!tile) return;
     ev.stopPropagation(); clearTimeout(strip.timer); strip.held = false;
+    if (ev.pointerType !== 'touch') return; // (a long-press is a finger's: a slow mouse click is still a click)
     const t = tile.dataset.t || ui.sel.find(x => String(x.id) === tile.dataset.id)?.type;
     strip.timer = setTimeout(() => { strip.held = true; narrow(x => x.type !== t); }, 450);
   });

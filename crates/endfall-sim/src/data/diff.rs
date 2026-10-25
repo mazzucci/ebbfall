@@ -52,13 +52,13 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 4,
         supply_at_once: 1,
     },
-    // Medium: the whole script at an even pace (11 workers at x1.0 field about the army 13 at x0.9 did before, after
-    // phone playtests found its mid-game waves too much), but one attack at a time.
+    // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
+    // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
     Diff {
         income: 1.0,
         wave: 7,
         wave_grow: 2,
-        harv: 11,
+        harv: 12,
         rax: 2,
         extra_rax: 3,
         first: 170.0,

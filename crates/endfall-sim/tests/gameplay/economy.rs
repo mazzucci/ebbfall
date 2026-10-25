@@ -522,29 +522,11 @@ fn two_builders_of_a_refinery_leave_one_on_it() {
     run(&mut w, 3);
     let hs = harvesters(&w, PLAYER);
     let (a, b) = (hs[0], hs[1]);
-    let (vx, vy) = {
-        let core = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == PLAYER && b.kind.def().hq)
-            .unwrap();
-        let v = w
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .min_by(|p, q| {
-                let dp = (p.x - core.x).powi(2) + (p.y - core.y).powi(2);
-                let dq = (q.x - core.x).powi(2) + (q.y - core.y).powi(2);
-                dp.partial_cmp(&dq).unwrap()
-            })
-            .unwrap();
-        (v.tx, v.ty)
-    };
+    let (vx, vy) = player_vent(&w);
     let ext = w
         .place_building(PLAYER, BldgKind::Extractor, vx, vy, Some(a))
         .expect("placed");
-    w.start_build(b, ext);
+    assert!(w.start_build(b, ext), "the second harvester joins");
     for _ in 0..30 * 90 {
         w.step();
         if w.bldg(ext).is_some_and(|e| e.done) {
@@ -558,4 +540,12 @@ fn two_builders_of_a_refinery_leave_one_on_it() {
         .filter(|&&u| matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent))
         .count();
     assert_eq!(on, 1, "one of the two builders mines the new Extractor");
+    let mines_vent =
+        |u: Id| matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent);
+    let other = if mines_vent(a) { b } else { a };
+    assert!(
+        matches!(w.unit(other).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+        "the other goes back to the shards: {:?}",
+        w.unit(other).unwrap().task
+    );
 }

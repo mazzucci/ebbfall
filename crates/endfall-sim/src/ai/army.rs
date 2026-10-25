@@ -191,7 +191,9 @@ impl World {
             .copied()
             .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
             .collect();
-        self.tend_raiders(&wasps, rally);
+        if DIFF[self.diff].raids {
+            self.tend_raiders(&wasps, rally);
+        }
         let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
@@ -255,7 +257,10 @@ impl World {
             .known
             .iter()
             .filter(|k| {
-                k.3 && self.bldg(k.0).is_some() && dist(k.1, k.2, gx, gy) > SECOND_PRONG_GAP
+                d.prong
+                    && k.3
+                    && self.bldg(k.0).is_some()
+                    && dist(k.1, k.2, gx, gy) > SECOND_PRONG_GAP
             })
             .map(|k| (k.1, k.2))
             .next();
@@ -425,36 +430,41 @@ mod tests {
     }
 
     #[test]
-    fn a_big_wave_sends_a_third_at_a_known_expansion() {
-        let mut w = World::new(17, 1);
-        w.ai_turn = ENEMY;
-        let core = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == PLAYER && b.kind.def().hq)
-            .unwrap()
-            .clone();
-        let exp = w.make_building(BldgKind::Core, PLAYER, 30, 30, true);
-        let e = w.bldg(exp).unwrap().clone();
-        w.ai_mut().known = vec![(core.id, core.x, core.y, true), (exp, e.x, e.y, true)];
-        w.ai_mut().wave = 3;
-        let b = w.map.bases[ENEMY as usize];
-        let army: Vec<Id> = (0..9)
-            .map(|i| {
-                w.make_unit(
-                    UnitKind::Trooper,
-                    ENEMY,
-                    (b.0 as f64 + 6.0) * 32.0 + i as f64 * 20.0,
-                    (b.1 as f64 + 6.0) * 32.0,
-                )
-            })
-            .collect();
-        w.ai_launch_wave(&army, 1000.0, (core.x, core.y));
-        let to_exp = army
+    fn a_big_wave_sends_a_third_at_a_known_expansion_from_hard_up() {
+        for (diff, third) in [(1, 0), (2, 3), (3, 3)] {
+            let mut w = World::new(17, diff);
+            w.ai_turn = ENEMY;
+            let core = w
+                .bldgs
+                .iter()
+                .find(|b| b.team == PLAYER && b.kind.def().hq)
+                .unwrap()
+                .clone();
+            let exp = w.make_building(BldgKind::Core, PLAYER, 30, 30, true);
+            let e = w.bldg(exp).unwrap().clone();
+            w.ai_mut().known = vec![(core.id, core.x, core.y, true), (exp, e.x, e.y, true)];
+            w.ai_mut().wave = 3;
+            let b = w.map.bases[ENEMY as usize];
+            let army: Vec<Id> = (0..9)
+                .map(|i| {
+                    w.make_unit(
+                        UnitKind::Trooper,
+                        ENEMY,
+                        (b.0 as f64 + 6.0) * 32.0 + i as f64 * 20.0,
+                        (b.1 as f64 + 6.0) * 32.0,
+                    )
+                })
+                .collect();
+            w.ai_launch_wave(&army, 1000.0, (core.x, core.y));
+            let to_exp = army
             .iter()
             .filter(|&&a| matches!(w.u(a).task, Task::AMove { x, y } if ((x - e.x).powi(2) + (y - e.y).powi(2)).sqrt() < 100.0))
             .count();
-        assert_eq!(to_exp, 3, "a third to the expansion");
+            assert_eq!(
+                to_exp, third,
+                "a third to the expansion (none on Medium): diff {diff}"
+            );
+        }
     }
 
     #[test]

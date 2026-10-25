@@ -83,7 +83,7 @@ function soundLabel() { const on = !audio.muted; $('btnMenuSound').textContent =
 export function initMenu({ onStart, onSound }) {
   syncSound = onSound;
   const saved = +store.get('diff');
-  menu.diff = store.get('diff') !== null && [0, 1, 2].includes(saved) ? saved : 0; // new players start on Easy
+  menu.diff = store.get('diff') !== null && [0, 1, 2, 3].includes(saved) ? saved : 0; // new players start on Easy
   if (store.get('muted') === '1') audio.muted = true;
   const diffs = document.querySelectorAll('#diff .ib');
   const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });

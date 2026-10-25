@@ -276,10 +276,9 @@ impl World {
             && self.ai_count(&my_b, false, s.tower) < (t > 240.0) as usize + (t > 480.0) as usize
         {
             Some(s.tower)
-        } else if self.diff >= 1
-            && self.ai_count(&my_b, true, s.tech) >= 1
+        } else if self.ai_count(&my_b, true, s.tech) >= 1
             && self.ai_count(&my_b, false, s.air) == 0
-            && t > 330.0
+            && t > d.air_at
         {
             Some(s.air)
         } else {
@@ -342,8 +341,7 @@ impl World {
         let d = &DIFF[self.diff];
         // A second base, outside the build order above: the AI saves up for it (see research) and places it
         // even while supply depots go up.
-        let exp_spot = if self.diff >= 1
-            && t > [f64::MAX, 420.0, 330.0][self.diff]
+        let exp_spot = if t > d.expand_at
             && self.ai_count(&my_b, false, self.factions[e as usize].hq) < 2
             && harv.len() + 2 >= d.harv
         {

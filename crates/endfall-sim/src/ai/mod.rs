@@ -237,7 +237,9 @@ impl World {
     /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
     /// (the rules are `World::auto_cast`, shared with the balance duels).
     fn ai_abilities(&mut self, _brain: &mut Brain) {
-        self.auto_cast(self.seat());
+        if DIFF[self.diff].abilities {
+            self.auto_cast(self.seat());
+        }
     }
 
     /// How many of our buildings of kind `k` (only finished ones if `done`).

@@ -3,10 +3,10 @@
 import { readFileSync } from 'node:fs';
 const pkg = new URL('../src/engine/pkg/', import.meta.url);
 (await import(new URL('endfall_sim.js', pkg))).initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
-const { G, DT, PLAYER, ENEMY, resetGame, step, queueUnit, placeBuilding, canPlace, attackMove } = await import('../src/engine/core.js');
+const { G, DT, DIFF, PLAYER, ENEMY, resetGame, step, queueUnit, placeBuilding, canPlace, attackMove } = await import('../src/engine/core.js');
 
 const seed = +(process.argv[2] || 1);
-for (let diff = 0; diff < 3; diff++) {
+for (let diff = 0; diff < DIFF.length; diff++) {
   resetGame(seed, diff);
   let placed = false, raxed = false;
   console.log(`\n== difficulty ${diff} seed ${seed} ==`);

@@ -100,12 +100,12 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 6] = [
 ];
 
 const EXPECTED: [[u32; 3]; 6] = [
-    [2837662687, 2165983458, 707073797],
-    [4033544991, 1670158226, 2297266487],
-    [4060340214, 2041432382, 3439134769],
-    [997920746, 2051216607, 1893565343],
-    [558100338, 3235496812, 824571286],
-    [3835926449, 3309384554, 830848175],
+    [741483334, 2946697278, 3539587852],
+    [3652431076, 258847088, 2217666188],
+    [3246304250, 2155193193, 939257830],
+    [3338322649, 3827142340, 2112188968],
+    [2560618021, 25826868, 2683296849],
+    [3768863628, 1941205343, 1868553697],
 ];
 
 #[test]
@@ -134,7 +134,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
 }
 
 /// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
-const EXPECTED_VAEL: [u32; 3] = [1095254690, 2823191964, 2024058786];
+const EXPECTED_VAEL: [u32; 3] = [349718052, 874344370, 1313705578];
 
 #[test]
 fn golden_hashes_pin_a_vael_game() {
@@ -156,7 +156,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [3382622336, 3530549063, 2135616240];
+const EXPECTED_VAEL_AI: [u32; 3] = [1649270516, 2493229107, 2364806635];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {

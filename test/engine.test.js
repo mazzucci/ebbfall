@@ -53,7 +53,7 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     for (const ks of [f.buildBasic, f.buildAdvanced]) assert.equal(new Set(page(ks)).size, ks.length, 'Build page hotkeys');
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
-  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard']);
+  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
   assert.match(C.UPGRADES.weapons.desc, /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
 });
 
@@ -191,7 +191,7 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
 
 test('the WASM sim agrees with the native one: the same golden hashes (crates/endfall-sim/tests/golden.rs)', { skip }, () => {
   // ashen-easy and glass-medium-swapped at 10 s and 1.5 min: browsers on any machine must compute the same game.
-  for (const [seed, diff, map, side, want, race] of [[4242, 0, 0, 0, [2837662687, 2165983458], 0], [1998, 1, 1, 1, [4033544991, 1670158226], 0], [4242, 1, 0, 0, [1095254690, 2823191964], 1]]) {
+  for (const [seed, diff, map, side, want, race] of [[4242, 0, 0, 0, [741483334, 2946697278], 0], [1998, 1, 1, 1, [3652431076, 258847088], 0], [4242, 1, 0, 0, [349718052, 874344370], 1]]) {
     const g = sim.Game.withSetup(seed, diff, map, side, race, 0), got = []; // (race 1: a Vael player, golden_hashes_pin_a_vael_game)
     for (let t = 1; t <= 2700; t++) { g.step(); if (t === 300 || t === 2700) got.push(g.stateHash() >>> 0); }
     g.free();

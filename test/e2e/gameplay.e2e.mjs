@@ -926,12 +926,39 @@ test('a double-click on a factory selects all of them and they train as one; the
     // Double-click one: both are selected; two Troopers go one to each.
     const [g0, g1] = await rax();
     await d.centerOn((g0.x + g1.x) / 2, (g0.y + g1.y) / 2);
-    const [px, py] = await d.screen(g0.x, g0.y);
+    const [px, py] = await d.screen(g0.x, g0.y, false); // (both in view)
     await d.page.mouse.click(px, py); await d.page.mouse.click(px, py);
     assert.equal((await d.selection()).filter(e => e.type === 'barracks').length, 2, 'double-click selects both Garrisons');
     await d.pressCard('Trooper'); await d.pressCard('Trooper');
     assert.deepEqual((await rax()).map(x => x.queue.length), [1, 1], 'one Trooper in each queue');
     await d.hudText('#btnProd b', /^0$/); // no idle factory now
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: a double-tap on a factory selects all of them, the console shows them, and they train as one', async () => {
+  const d = await newGame(PHONE, 0, 4242, { ai: false });
+  try {
+    await d.grant(3000, 500);
+    const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester');
+    const a = await d.findSpot('barracks', { tx: core.tx + 6, ty: core.ty });
+    await d.buildWithUI('g', 'barracks', a.tx, a.ty, hs[0].id);
+    const b = await d.findSpot('barracks', { tx: a.tx + 4, ty: a.ty });
+    await d.buildWithUI('g', 'barracks', b.tx, b.ty, hs[1].id);
+    const rax = () => d.state().then(st => st.bldgs.filter(x => x.team === 0 && x.type === 'barracks'));
+    await until(d, async () => (await rax()).filter(x => x.done).length === 2, { seconds: 120, what: 'two Garrisons' });
+    const [g0, g1] = await rax();
+    await d.centerOn((g0.x + g1.x) / 2, (g0.y + g1.y) / 2);
+    const top = g0.y < g1.y ? g0 : g1; // (the upper one: the console that the first tap brings up covers the bottom)
+    const [px, py] = await d.screen(top.x, top.y, false);
+    await d.doubleTapAt(px, py);
+    assert.equal((await d.selection()).filter(e => e.type === 'barracks').length, 2, 'both Garrisons');
+    await d.hudText('#selName', /2 buildings/);
+    const t0 = await d.eval(() => endfall.G.time);
+    await d.pressCard('Trooper'); await d.pressCard('Trooper');
+    assert.deepEqual((await rax()).map(x => x.queue.length), [1, 1], 'one Trooper in each queue');
+    await d.page.waitForTimeout(600);
+    assert.ok(await d.eval(() => endfall.G.time) > t0, 'the game runs on');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

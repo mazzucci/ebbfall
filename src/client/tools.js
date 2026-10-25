@@ -35,7 +35,7 @@ const idleFactories = () => G.bldgs.filter(b => b.team === G.me && b.done && !b.
 let prodIndex = 0;
 /** Select the next idle factory and look at it. */
 export function selectIdleFactory() {
-  const idle = idleFactories(); if (!idle.length) { toast('Every factory is busy'); return; }
+  const idle = idleFactories(); if (!idle.length) { toast('No idle factory'); return; }
   const b = idle[prodIndex++ % idle.length]; choose([b]); centerOn(b.x, b.y);
 }
 

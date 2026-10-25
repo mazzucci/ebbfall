@@ -76,9 +76,10 @@ export function cardItems() {
         const u = UPGRADES[k];
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
         if (lv > 3) return;
-        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: u.cost[lv - 1], dis: !!b.research || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` });
+        at(i, { id: 'r_' + k, label: u.name + ' ' + ROMAN[lv], key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
-      if (b.research) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: b.research.type, badge: true, tip: 'Cancel the research (full refund)' });
+      const busy = researching(bl);
+      if (busy) at(2, { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' });
     }
     // A dark building (no power field) trains and researches nothing: its buttons say so.
     if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ` Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it.` });
@@ -152,6 +153,8 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
 
 /** Of several buildings of a kind: the powered one with the shortest queue (then the most progress, then by id). */
 const leastBusy = (bs) => bs.slice().sort((p, q) => (p.d.needsPower && !p.powered) - (q.d.needsPower && !q.powered) || p.queue.length - q.queue.length || q.prog - p.prog || p.id - q.id)[0];
+/** The first of them researching (what a research Cancel shows and cancels). */
+const researching = (bs) => bs.find(o => o.research);
 /** The one with the longest queue (a Cancel takes its last unit). */
 const mostBusy = (bs) => bs.slice().sort((p, q) => q.queue.length - p.queue.length || p.id - q.id)[0];
 
@@ -180,7 +183,7 @@ export function doCommand(id) {
     startBuild(hs[0], b); sfx('move'); return;
   }
   if (id.startsWith('r_')) { const b = bl.find(o => !o.research) || bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }
-  if (id === 'cancelr') { const b = bl.find(o => o.research); if (b) cancelResearch(b); return; }
+  if (id === 'cancelr') { const b = researching(bl); if (b) cancelResearch(b); return; }
   if (id === 'cancelb') { const b = bl[0]; if (b && !b.done) { cancelConstruction(b); ui.sel = []; sfx('select'); } return; }
   if (id === 'cancelq') { const b = bl.length && mostBusy(bl); if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }
 }

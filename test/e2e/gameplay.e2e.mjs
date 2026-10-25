@@ -660,7 +660,7 @@ test('phone held upright: a card asks to turn it, the game pauses, and turning b
     await d.page.evaluate(() => document.fullscreenElement && document.exitFullscreen()); // (a full-screen window cannot be resized)
     await d.page.setViewportSize({ width: 390, height: 844 }); // turned upright
     await d.page.locator('#rotate').waitFor({ state: 'visible', timeout: 5000 });
-    assert.ok(await d.page.locator('#pause').isVisible(), 'the game paused');
+    await d.page.locator('#pause').waitFor({ state: 'visible', timeout: 5000 }); // the game paused (the media-query change may land a frame later)
     const t0 = await d.eval(() => endfall.G.time);
     await d.page.waitForTimeout(600);
     assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while upright');

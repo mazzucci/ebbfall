@@ -184,8 +184,6 @@ impl World {
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
-        // Guards at its own expansion stay out of the waves too.
-        let army = self.tend_guards(army);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
         let wasps: Vec<Id> = army
@@ -196,6 +194,8 @@ impl World {
         self.tend_raiders(&wasps, rally);
         let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
+        // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
+        let army = self.tend_guards(army);
 
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
@@ -297,6 +297,7 @@ impl World {
             return army;
         };
         let out = self.ai().attackers.clone().unwrap_or_default();
+        let raider = self.factions[seat as usize].ai.raider;
         let mut guards: Vec<Id> = self
             .ai()
             .guards
@@ -307,7 +308,16 @@ impl World {
         let mut free: Vec<Id> = army
             .iter()
             .copied()
-            .filter(|a| !guards.contains(a) && !out.contains(a) && self.u(*a).kind.def().armed())
+            .filter(|a| {
+                let d = self.u(*a).kind.def();
+                // (walking fighters: not a raider's kind, a flyer or a capital giant)
+                !guards.contains(a)
+                    && !out.contains(a)
+                    && d.armed()
+                    && !d.air
+                    && !d.capital
+                    && self.u(*a).kind != raider
+            })
             .collect();
         free.sort_by(|&p, &q| {
             let (up, uq) = (self.u(p), self.u(q));
@@ -458,7 +468,7 @@ mod tests {
             (b.0 + 18, b.1)
         };
         w.make_building(BldgKind::Core, ENEMY, ex, ey.clamp(4, 56), true);
-        let army: Vec<Id> = (0..6)
+        let mut army: Vec<Id> = (0..6)
             .map(|i| {
                 w.make_unit(
                     UnitKind::Trooper,
@@ -468,9 +478,20 @@ mod tests {
                 )
             })
             .collect();
+        // A Wasp right by the expansion is still not a guard (it raids).
+        let (exx, exy) = (
+            (ex as f64 + 2.0) * 32.0,
+            (ey.clamp(4, 56) as f64 + 2.0) * 32.0,
+        );
+        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, exx + 40.0, exy);
+        army.push(wasp);
         let rest = w.tend_guards(army.clone());
-        assert_eq!(rest.len(), 3);
+        assert_eq!(rest.len(), 4);
         assert_eq!(w.ai().guards.len(), 3);
+        assert!(
+            !w.ai().guards.contains(&wasp) && rest.contains(&wasp),
+            "not the Wasp"
+        );
         // Kept, not re-picked, on the next turn.
         let again = w.tend_guards(army.clone());
         assert_eq!(again, rest);

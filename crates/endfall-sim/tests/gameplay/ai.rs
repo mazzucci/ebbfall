@@ -1035,3 +1035,40 @@ fn the_guided_first_game_hold_runs_out_at_six_minutes() {
     let t = first.expect("a wave by 7:00");
     assert!((360.0..420.0).contains(&t), "after the hold ran out: {t}");
 }
+
+#[test]
+fn the_ai_keeps_a_few_fighters_at_its_expansion() {
+    let mut w = World::new(33, 1);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    run(&mut w, 720);
+    let home = w.map.bases[ENEMY as usize];
+    let (hx, hy) = ((home.0 as f64 + 2.0) * 32.0, (home.1 as f64 + 2.0) * 32.0);
+    let exp = w
+        .bldgs
+        .iter()
+        .find(|b| {
+            b.team == ENEMY
+                && b.done
+                && b.kind.def().hq
+                && ((b.x - hx).powi(2) + (b.y - hy).powi(2)).sqrt() > 8.0 * 32.0
+        })
+        .expect("the AI expanded");
+    let near = w
+        .units
+        .iter()
+        .filter(|u| {
+            let d = u.kind.def();
+            u.team == ENEMY
+                && d.armed()
+                && !d.worker
+                && ((u.x - exp.x).powi(2) + (u.y - exp.y).powi(2)).sqrt() < 7.0 * 32.0
+        })
+        .count();
+    assert!(near >= 3, "fighters stay at the expansion: {near}");
+}

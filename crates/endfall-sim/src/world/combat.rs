@@ -348,10 +348,15 @@ impl World {
             return;
         }
         // A seat is out with no buildings left, except that a person's seat still has a chance while a worker of
-        // theirs lives (it can build again); the AI's does not wait for that. Team 1 is checked first.
+        // theirs lives (it can build again); the AI's does not wait for that. It is also out when nothing of it can
+        // act any more: no headquarters (not even a site), no worker and no fighter (a few Depots do not keep a
+        // game going). Team 1 is checked first.
         let out = |w: &World, t: u8| {
-            !w.bldgs.iter().any(|b| b.team == t)
-                && (w.is_ai(t) || !w.units.iter().any(|u| u.team == t && u.kind.def().worker))
+            let worker = w.units.iter().any(|u| u.team == t && u.kind.def().worker);
+            let fighter = w.units.iter().any(|u| u.team == t && u.kind.def().threat());
+            let hq = w.bldgs.iter().any(|b| b.team == t && b.kind.def().hq);
+            let none = !w.bldgs.iter().any(|b| b.team == t);
+            (none && (w.is_ai(t) || !worker)) || !(hq || worker || fighter)
         };
         for loser in [1, 0] {
             if out(self, loser) {

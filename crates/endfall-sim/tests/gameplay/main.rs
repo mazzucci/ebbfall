@@ -3,6 +3,7 @@
 //! including stale and nonsense ids, across many seeds) never breaks the world's invariants.
 
 mod ai;
+mod balance;
 mod combat;
 mod common;
 mod construction;

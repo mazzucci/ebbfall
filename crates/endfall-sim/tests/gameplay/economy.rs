@@ -465,3 +465,42 @@ fn a_new_refinery_gets_a_crew_of_three() {
     let vent = w.bldg(b).unwrap().vent.unwrap();
     assert_eq!(on_vent(&w, vent), 1, "only the AI's builder");
 }
+
+#[test]
+fn a_shard_field_running_low_is_announced_once_with_a_ping() {
+    use endfall_sim::world::{Event, FIELD_LOW};
+    let mut w = rich(5);
+    // The player's home field, cut to just above the mark: the next loads cross it.
+    let core = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap()
+        .clone();
+    let mut home: Vec<usize> = (0..w.map.nodes.len())
+        .filter(|&i| {
+            !w.map.nodes[i].ether
+                && ((w.map.nodes[i].x - core.x).powi(2) + (w.map.nodes[i].y - core.y).powi(2))
+                    .sqrt()
+                    < 9.0 * 32.0
+        })
+        .collect();
+    home.sort();
+    let per = (FIELD_LOW + 20) / home.len() as i32 + 1;
+    for &i in &home {
+        w.map.nodes[i].amount = per;
+    }
+    let (mut toasts, mut pings) = (0, 0);
+    for _ in 0..30 * 60 {
+        w.step();
+        for e in w.events.drain(..) {
+            match e {
+                Event::Toast { team: 0, msg, .. } if msg.contains("running low") => toasts += 1,
+                Event::Ping { team: 0, .. } => pings += 1,
+                _ => {}
+            }
+        }
+    }
+    assert_eq!(toasts, 1, "announced once");
+    assert!(pings >= 1, "with a ping");
+}

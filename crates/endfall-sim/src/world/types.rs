@@ -231,6 +231,12 @@ pub enum Event {
         team: u8,
         name: &'static str,
     },
+    /// A mark on one seat's minimap (something of theirs finished, or wants their attention).
+    Ping {
+        team: u8,
+        x: f64,
+        y: f64,
+    },
     Toast {
         team: u8,
         msg: String,

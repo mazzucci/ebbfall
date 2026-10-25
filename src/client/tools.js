@@ -35,7 +35,7 @@ export function goHome() {
   if (c) centerOn(c.x, c.y); else toast('No base left');
 }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); capitals.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -117,9 +117,28 @@ function watchCapitals() {
   }
 }
 
+/** Battle news the HUD can tell by itself: the first enemy flyer seen (anti-air becomes a decision), a worker idle
+ *  for 10 s (a ping), the army wiped out. */
+const news = { flyer: false, army: 0, idleSince: new Map() };
+function watchNews() {
+  if (!news.flyer) {
+    const f = G.units.find(u => u.team !== G.me && u.d.air && u.d.weapon && visibleEnt(u));
+    if (f) { news.flyer = true; toast(`Enemy flyers spotted: get some anti-air`, true); ping(f.x, f.y); }
+  }
+  const now = performance.now();
+  for (const u of idleHarvesters()) {
+    if (!news.idleSince.has(u.id)) news.idleSince.set(u.id, now);
+    else if (news.idleSince.get(u.id) > 0 && now - news.idleSince.get(u.id) > 10000) { ping(u.x, u.y); news.idleSince.set(u.id, -1); } // (once per idle spell)
+  }
+  for (const id of news.idleSince.keys()) if (!G.units.some(u => u.id === id && u.task.t === 'idle')) news.idleSince.delete(id);
+  const a = army().length;
+  if (news.army > 0 && a === 0) toast('No army left', true);
+  news.army = a;
+}
+
 /** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
-  watchPower(); watchCapitals();
+  watchPower(); watchNews(); watchCapitals();
   const idle = idleHarvesters().length, a = army().length;
   const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
   if (pic.dataset.k !== wk) {

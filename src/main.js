@@ -2,7 +2,7 @@
 import './style.css';
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -56,6 +56,7 @@ function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
+    else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
     else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);

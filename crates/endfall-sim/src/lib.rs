@@ -372,6 +372,7 @@ impl Game {
             .filter_map(|e| match e {
                 Event::Sfx { team, .. }
                 | Event::Toast { team, .. }
+                | Event::Ping { team, .. }
                 | Event::Attacked { team, .. }
                     if team != me =>
                 {
@@ -393,6 +394,7 @@ fn event_json(e: &Event) -> String {
     match e {
         Event::Sfx { name, .. } => o("sfx").str("name", name),
         Event::Toast { msg, bad, .. } => o("toast").str("msg", msg).num("bad", bad),
+        Event::Ping { x, y, .. } => o("ping").num("x", x).num("y", y),
         Event::Burst { x, y, r, team, n } => o("burst")
             .num("x", x)
             .num("y", y)

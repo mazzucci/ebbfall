@@ -176,8 +176,8 @@ pub(super) const WASP: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// A cheap unarmed flying scout: fast, sees far, flies over cliffs. (No cloak and no detection: it is simply small
-/// and quick, and anything that shoots air can bring it down.)
+/// A cheap unarmed flying scout: fast, sees far, flies over cliffs. Cloaked (the other side sees it only where it
+/// detects: near a Turret, a Ward or an Observer of its own), and a detector itself.
 pub(super) const OBSERVER: UnitDef = UnitDef {
     key: "observer",
     name: "Observer",
@@ -188,6 +188,8 @@ pub(super) const OBSERVER: UnitDef = UnitDef {
     r: 8.0,
     build: 14.0,
     air: true,
+    cloaked: true,
+    detect: 7.0,
     ..UNIT
 };
 pub(super) const CORE: BldgDef = BldgDef {
@@ -271,6 +273,7 @@ pub(super) const TURRET: BldgDef = BldgDef {
         up_dmg: 2.0,
         ..W
     }),
+    detect: 7.0, // (reveals cloaked units within its range)
     ..BLDG
 };
 pub(super) const AIRFIELD: BldgDef = BldgDef {

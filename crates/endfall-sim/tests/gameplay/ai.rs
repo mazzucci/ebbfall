@@ -649,7 +649,8 @@ fn the_ai_fields_vanguards_from_its_barracks() {
 
 #[test]
 fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
-    // An unarmed Observer seen by the AI is no air threat: no Lancers. A Wasp in the same spot is.
+    // An unarmed Observer, seen (a Turret of the AI's beside it detects it), is no air threat: no Lancers. A Wasp in
+    // the same spot is.
     for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Wasp, true)] {
         let mut w = World::new(31, 0);
         run(&mut w, 150);
@@ -661,6 +662,13 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
             (cy as f64 + 9.0) * TILE,
         );
         w.hold_unit(id);
+        if kind == UnitKind::Observer {
+            w.make_building(BldgKind::Turret, ENEMY, cx - 5, cy + 7, true);
+            let o = w.units.iter_mut().find(|u| u.id == id).unwrap();
+            (o.hp, o.maxhp) = (1e9, 1e9); // (the Turret shoots it; it must stay to be seen)
+            w.step();
+            assert!(w.seen_by(ENEMY, id), "the AI sees the scout");
+        }
         run(&mut w, 80);
         let trained = count(&w, ENEMY, UnitKind::Lancer) > 0
             || w.bldgs

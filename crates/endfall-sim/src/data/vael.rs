@@ -284,6 +284,7 @@ pub(super) const WARD: BldgDef = BldgDef {
         up_dmg: 2.0,
         ..W
     }),
+    detect: 7.0, // (reveals cloaked units within its range)
     ..BLDG
 };
 pub(super) const ZENITH: BldgDef = BldgDef {

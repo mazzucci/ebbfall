@@ -66,7 +66,8 @@ impl World {
         };
         for u in &self.units {
             let air = u.kind.def().air;
-            if u.team == team || (air && !hits.1) || (!air && !hits.0) {
+            if u.team == team || (air && !hits.1) || (!air && !hits.0) || self.cloaked_from(team, u)
+            {
                 continue;
             }
             consider(unit_tier(u.kind, flier), dist(u.x, u.y, x, y) - u.r, u.id);
@@ -105,6 +106,12 @@ impl World {
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
         if self.unit(target).is_none() && self.bldg(target).is_none() {
             return false;
+        }
+        if self
+            .team_of(shooter)
+            .is_some_and(|t| self.hidden_from(t, target))
+        {
+            return false; // (cloaked and not detected)
         }
         if let Some(u) = self.unit(shooter) {
             u.kind.def().damage_vs(air) > 0.0
@@ -199,6 +206,9 @@ impl World {
     fn answer_fire(&mut self, i: usize, by: Id) {
         let u = &self.units[i];
         let (ux, uy, team) = (u.x, u.y, u.team);
+        if self.hidden_from(team, by) {
+            return; // shot at by something it cannot see
+        }
         let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
         let me_air = self.units[i].kind.def().air;
         // Busy with a target it picked up itself that matters less than the one shooting it: answer.
@@ -626,7 +636,10 @@ impl World {
         c: Live,
         dt: f64,
     ) {
-        let Some(t) = self.geo(target).filter(|_| self.team_of(target).is_some()) else {
+        let Some(t) = self
+            .geo(target)
+            .filter(|_| self.team_of(target).is_some() && !self.hidden_from(c.team, target))
+        else {
             match back {
                 Some(b) => self.resume_back(uid, b),
                 None => self.resume_after(uid),

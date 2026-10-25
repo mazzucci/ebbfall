@@ -1,5 +1,5 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
-import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -36,7 +36,7 @@ export function updateHud() {
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc);
   watchSites();
-  ui.sel = ui.sel.filter(x => !x.dead);
+  ui.sel = ui.sel.filter(x => !x.dead && (x.team === G.me || x.kind !== 'unit' || visibleEnt(x))); // (an enemy that slips out of sight or detection is let go)
   renderSelection();
   buildCard();
 }

@@ -1193,3 +1193,21 @@ test('phone: picking a building shows its ghost on a good spot at once; a tap an
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('an enemy Observer is invisible and cannot be picked until something of ours detects it', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), at = { x: core.x + 200, y: core.y + 40 };
+    const obs = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'observer', x, y), [at.x, at.y]);
+    await d.page.waitForTimeout(300);
+    assert.equal(await d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), obs), false, 'not seen');
+    await d.clickEntity(obs);
+    assert.ok(!(await d.selection()).some(e => e.id === obs), 'a click there picks nothing of it');
+    // Our own Observer beside it detects it: seen, and it can be picked.
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [at.x - 60, at.y]);
+    await until(d, () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), obs), { seconds: 3, step: 0.5, what: 'detected' });
+    await d.clickEntity(obs);
+    assert.ok((await d.selection()).some(e => e.id === obs), 'picked once detected');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

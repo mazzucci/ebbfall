@@ -536,15 +536,15 @@ fn harvesters_are_not_threats_and_unarmed_units_do_not_pull_units_off_buildings(
     run(&mut w, 1);
     assert_eq!(target_of(&w, me), Some(foe));
     assert_eq!(w.threat_tier(harv, false), 1, "a Harvester only scratches");
-    // Busy with the Depot, an Observer at the edge of sight (out of weapon range) does not pull it away.
+    // Busy with the Depot, an unarmed unit at the edge of sight (out of weapon range) does not pull it away.
     let mut w = flat_arena(16);
     let depot = w.make_building(BldgKind::Depot, ENEMY, 30, 30, true);
     let me = w.make_unit(UnitKind::Trooper, PLAYER, 29.5 * TILE, 32.0 * TILE);
     w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
     assert_eq!(target_of(&w, me), Some(depot));
-    let obs = w.make_unit(UnitKind::Observer, ENEMY, 23.0 * TILE, 32.0 * TILE);
-    w.hold_unit(obs);
+    let harv = w.make_unit(UnitKind::Harvester, ENEMY, 23.0 * TILE, 32.0 * TILE);
+    w.hold_unit(harv);
     run(&mut w, 2);
     assert_eq!(target_of(&w, me), Some(depot), "keeps hitting the Depot");
 }
@@ -553,12 +553,12 @@ fn harvesters_are_not_threats_and_unarmed_units_do_not_pull_units_off_buildings(
 fn a_chased_target_out_of_sight_is_let_go_and_the_attack_move_resumes() {
     let mut w = flat_arena(16);
     let me = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 32.0 * TILE);
-    let obs = w.make_unit(UnitKind::Observer, ENEMY, 25.0 * TILE, 32.0 * TILE);
+    let obs = w.make_unit(UnitKind::Wasp, ENEMY, 25.0 * TILE, 32.0 * TILE); // (a flyer that will not chase)
     w.hold_unit(obs);
     w.attack_move(me, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
     assert_eq!(target_of(&w, me), Some(obs));
-    // The Observer flies far off: the Trooper does not follow it across the map.
+    // The flyer is carried far off: the Trooper does not follow it across the map.
     let o = w.units.iter_mut().find(|u| u.id == obs).unwrap();
     o.y -= 16.0 * TILE;
     run(&mut w, 1);

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endfall voice lab</title>
+<style>
+  body{background:#0d1117;color:#c9d1d9;font:15px/1.5 system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px}
+  h1{font-size:20px;color:#f5c26b;letter-spacing:.1em} p{color:#8b949e}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}
+  button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:12px 14px;font-size:15px;min-height:44px}
+  button:active{background:#2a2415;border-color:#f5a524}
+  h2{font-size:15px;margin:18px 0 0;color:#e6edf3}
+</style>
+</head>
+<body>
+<h1>ENDFALL VOICE LAB</h1>
+<p>A prototype of a synthesized announcer: no recordings, the voice is built from a buzz and a hiss shaped like a mouth. Two phrases, two styles. Turn the sound on (on an iPhone, the ring/silent switch to ring) and tap.</p>
+<h2>Humans: radio operator</h2>
+<div class="row"><button data-p="attack" data-s="human">Base under attack</button><button data-p="research" data-s="human">Research complete</button></div>
+<h2>Vael: chorus</h2>
+<div class="row"><button data-p="attack" data-s="vael">Base under attack</button><button data-p="research" data-s="vael">Research complete</button></div>
+<h2>For comparison: this device's own speech voice</h2>
+<p>Clear, but it differs on every phone and cannot be put through the radio.</p>
+<div class="row"><button data-tts="Base under attack">Base under attack</button><button data-tts="Research complete">Research complete</button></div>
+<script type="module">
+  import { speak, PHRASES, STYLES } from './src/client/voice.js';
+  let ctx = null;
+  const audio = () => { ctx ??= new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state !== 'running') ctx.resume().catch(() => {}); return ctx; };
+  for (const b of document.querySelectorAll('[data-p]')) b.addEventListener('click', () => { const c = audio(); speak(c, c.destination, b.dataset.p, b.dataset.s); });
+  for (const b of document.querySelectorAll('[data-tts]')) b.addEventListener('click', () => { const u = new SpeechSynthesisUtterance(b.dataset.tts); u.rate = 0.95; u.pitch = 0.8; if (speechSynthesis.speaking) speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 0); });
+  window.voiceLab = { speak, PHRASES, STYLES };
+</script>
+</body>
+</html>

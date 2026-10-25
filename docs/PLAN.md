@@ -159,6 +159,7 @@ loop feels right.
   buffers in `resetGame`. About one medium PR plus tests; perf is fine to 128x128 (A* 16k cells, 4x terrain sprites
   with chunk culling). Gameplay cost: travel time roughly doubles at 128, so AI wave timings need retuning.
 - [ ] Replays: record seed + command log, play back through the same sim
+- [ ] Announcer voice (holistic review item 17, owner: prototype two phrases first): `src/client/voice.js`, a formant synthesizer (a sawtooth buzz and a noise hiss through three gliding band-pass formants, phrases written as phonemes), "Base under attack" and "Research complete" in two styles: the Humans' operator on a field radio (narrow band, light clipping, squelch) and the Vael chorus (two voices a fifth apart, an echo). Hear it at `voice-lab.html` (on Pages: https://mazzucci.github.io/endfall/voice-lab.html) beside the device's own speech voice for comparison. Not in the game until the owner judges it.
 
 ### M3. Multiplayer (1v1)
 - [ ] Command queue: every order becomes `{tick, player, type, args}`; the sim executes a tick only when it has both players' commands for it

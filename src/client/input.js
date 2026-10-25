@@ -360,7 +360,7 @@ function bindKeys() {
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
     if (k === 'Home') { goHome(); ev.preventDefault(); return; }
     const items = cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
-    if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id); invalidateCard(); ev.preventDefault(); return; }
+    if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id, ev.shiftKey ? 5 : 1); invalidateCard(); ev.preventDefault(); return; } // (Shift: five of a unit)
     if (!it && (k === 'q' || k === 'Q')) selectArmy();
   });
   window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });

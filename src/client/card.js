@@ -32,7 +32,9 @@ function abilityItems(units) {
       const at = Object.values(BUILDINGS).find(d => (d.researches || []).includes(tech));
       return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, locked: true, tip: `${a.desc} Research ${UPGRADES[tech].name} at the ${at?.name ?? 'tech building'} first.` };
     }
-    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), active: a.toggle && have.every(u => u.mode === k), tip: a.desc };
+    // Lit while on: a toggle for all of them, a timed one (Stim, Cloak) while any of them is under it (no countdown).
+    const on = a.toggle ? have.every(u => u.mode === k) : have.some(u => u.boost === k);
+    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), active: on, tip: a.desc };
   });
 }
 
@@ -87,7 +89,7 @@ export function cardItems() {
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
         if (trains.length && busy?.research.type === k) { at(slots[i] ?? i, cancelr); return; }
         if (lv > u.levels) return;
-        at(slots[i] ?? i, { id: 'r_' + k, label: u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
+        at(slots[i] ?? i, { id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
       if (busy && !trains.length) at(2, cancelr);
     }
@@ -138,9 +140,9 @@ export function buildCard() {
     });
     b.addEventListener('pointerleave', () => clearTimeout(press.timer)); // slid off before the details showed
     b.addEventListener('contextmenu', ev => ev.preventDefault()); // (the long-press menu of the browser)
-    b.addEventListener('click', () => {
+    b.addEventListener('click', ev => {
       if (press.held === it.id) { press.held = ''; return; } // a long-press shows the details; it does not press the button
-      hideDetail(); doCommand(it.id); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
+      hideDetail(); doCommand(it.id, ev.shiftKey ? 5 : 1); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
     });
     c.appendChild(b);
   }
@@ -192,19 +194,20 @@ function firstSpot(k) {
   return {};
 }
 
-/** A refused button press. Short of shards or ether: the button itself shakes and its cost flashes (with the error
- *  sound), no toast over the game (the long-press detail says what is short). Anything else (supply blocked,
- *  "Requires …": a decision to make) is a toast; so is a refusal for a button not on the card (a hotkey). The
- *  shake rides through card rebuilds (`shaking`): the rebuilt button carries it. */
+/** A refused button press. Short of shards or ether, or an ability that is already on or not ready: the button
+ *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is
+ *  short; a lit ability button says it is on). Anything else (supply blocked, "Requires …": a decision to make) is
+ *  a toast; so is a refusal for a button not on the card (a hotkey). The shake rides through card rebuilds
+ *  (`shaking`): the rebuilt button carries it. */
 let shaking = { id: '', until: 0 };
 function refuse(id, err) {
-  if (!/^Not enough/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
+  if (!/^Not enough| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
   shaking = { id, until: performance.now() + 400 };
   cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }
 
-export function doCommand(id) {
+export function doCommand(id, times = 1) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   if (id === 'deselect') { setSelection([]); ui.box = false; setBox(); updateHud(); return; }
   if (id === 'esc' && ui.mode === 'build2') { ui.mode = 'build'; return; } // Esc on the advanced page: back to the basic one
@@ -220,8 +223,17 @@ export function doCommand(id) {
     if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
     ui.place = { type: k, tx: -99, ty: -99, ...(touchUi ? firstSpot(k) : {}) }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
-  if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) toast(err, true); return; } // (the cast event plays its sound)
-  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) refuse(id, err); else sfx('build'); return; }
+  if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) refuse(id, err); return; } // (the cast event plays its sound)
+  if (id.startsWith('t_')) { // (`times`: Shift queues five, spread over the selected factories as it goes)
+    let queued = 0;
+    for (let i = 0; i < times; i++) {
+      const b = bl.length && leastBusy(bl); if (!b) break;
+      const err = queueUnit(b, id.slice(2)); if (err) { if (!queued || !/full$/.test(err)) refuse(id, err); break; } // (silent only at the queue's cap)
+      queued++;
+    }
+    if (queued) sfx('build');
+    return;
+  }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
     const hs = G.units.filter(u => u.team === G.me && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));

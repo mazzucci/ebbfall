@@ -40,6 +40,8 @@ pub const TECH_SPEED: f64 = 1.3;
 pub struct UpgradeDef {
     pub key: &'static str,
     pub name: &'static str,
+    /// Label on a button when the name is too long for one ("" = the name).
+    pub short: &'static str,
     pub effect: Effect,
     /// Cost of levels 1, 2 and 3.
     pub cost: [[i32; 2]; 3],
@@ -55,6 +57,7 @@ pub const MAX_UPGRADE: u8 = 3;
 const WEAPONS: UpgradeDef = UpgradeDef {
     key: "weapons",
     name: "Weapons",
+    short: "",
     effect: Effect::Weapons,
     cost: [[100, 100], [175, 175], [250, 250]],
     time: [60.0, 75.0, 90.0],
@@ -78,6 +81,7 @@ const SHIELDS: UpgradeDef = UpgradeDef {
 const TECH: UpgradeDef = UpgradeDef {
     key: "",
     name: "",
+    short: "",
     effect: Effect::Weapons,
     cost: [[100, 100]; 3],
     time: [60.0; 3],
@@ -86,6 +90,7 @@ const TECH: UpgradeDef = UpgradeDef {
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
     name: "Entrenching",
+    short: "Entrench",
     effect: Effect::Unlock(AbilityKind::Entrench),
     cost: [[125, 125]; 3],
     time: [70.0; 3],
@@ -94,12 +99,14 @@ const ENTRENCHING: UpgradeDef = UpgradeDef {
 const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
     name: "Afterburners",
+    short: "Afterburn",
     effect: Effect::Speed(UnitKind::Wasp),
     ..TECH
 };
 const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {
     key: "overchargeCore",
     name: "Overcharge Core",
+    short: "Overcharge",
     effect: Effect::Unlock(AbilityKind::Overcharge),
     cost: [[150, 150]; 3],
     time: [80.0; 3],
@@ -116,6 +123,7 @@ const SLIPSTREAM: UpgradeDef = UpgradeDef {
 const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
     key: "cloakingField",
     name: "Cloaking Field",
+    short: "Cloak Field",
     effect: Effect::Unlock(AbilityKind::Cloak),
     cost: [[150, 150]; 3],
     time: [80.0; 3],
@@ -124,6 +132,7 @@ const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
 const VEIL_WEAVE: UpgradeDef = UpgradeDef {
     key: "veilWeave",
     name: "Veil Weave",
+    short: "",
     effect: Effect::Unlock(AbilityKind::Veil),
     ..CLOAKING_FIELD
 };

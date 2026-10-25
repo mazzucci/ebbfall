@@ -13,7 +13,8 @@ export function toast(msg, bad, silent) {
   const m = $('msg'); const d = document.createElement('div');
   for (const t of [...m.children]) if (t.textContent === msg) t.remove(); // the same message again replaces itself (no storm), fresh
   d.className = 'toast' + (bad ? ' bad' : ''); d.textContent = msg; m.appendChild(d);
-  while (m.children.length > 2) m.removeChild(m.firstChild); // (two at most: news, not a dashboard)
+  // Two at most (news, not a dashboard): the oldest goes first, an alert last.
+  while (m.children.length > 2) (m.querySelector('.toast:not(.bad)') || m.firstChild).remove();
   setTimeout(() => d.remove(), 3300);
   if (bad && !silent) sfx('error');
 }

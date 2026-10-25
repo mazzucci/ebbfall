@@ -127,6 +127,7 @@ export function buildCard() {
     const b = document.createElement('button');
     b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.locked ? ' locked' : '') + (it.badge ? ' badge' : '');
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
+    if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
     b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '') + vsText(it);
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
@@ -191,16 +192,16 @@ function firstSpot(k) {
   return {};
 }
 
-/** A refused button press. Short of shards, ether or supply: the button itself shakes and its cost flashes (with the
- *  error sound), no toast over the game (the long-press detail says what is missing). Anything else: a toast. */
+/** A refused button press. Short of shards or ether: the button itself shakes and its cost flashes (with the error
+ *  sound), no toast over the game (the long-press detail says what is short). Anything else (supply blocked,
+ *  "Requires …": a decision to make) is a toast; so is a refusal for a button not on the card (a hotkey). The
+ *  shake rides through card rebuilds (`shaking`): the rebuilt button carries it. */
+let shaking = { id: '', until: 0 };
 function refuse(id, err) {
-  if (!/^Not enough|^Supply blocked/.test(err)) { toast(err, true); return; }
+  if (!/^Not enough/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
-  setTimeout(() => { // (after the click's card rebuild: on the button that is there now)
-    const b = document.querySelector(`#cmd [data-id="${id}"]`); if (!b) return;
-    b.classList.remove('refused'); void b.offsetWidth; b.classList.add('refused'); // (restart the shake on a second tap)
-    setTimeout(() => b.classList.remove('refused'), 400);
-  }, 0);
+  shaking = { id, until: performance.now() + 400 };
+  cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }
 
 export function doCommand(id) {

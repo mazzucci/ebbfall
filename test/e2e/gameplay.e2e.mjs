@@ -1251,7 +1251,7 @@ test('phone: a unit it cannot pay for shakes its button, with no toast over the 
     const core = coreOf(await d.state());
     await d.clickEntity(core.id);
     // (the shake lasts 0.35 s: watch for it rather than look afterwards)
-    await d.page.evaluate(() => { window.__refused = false; new MutationObserver(() => { if (document.querySelector('#cmd .cb.refused')) window.__refused = true; }).observe(document.getElementById('cmd'), { subtree: true, attributes: true, attributeFilter: ['class'] }); });
+    await d.page.evaluate(() => { window.__refused = false; new MutationObserver(() => { if (document.querySelector('#cmd .cb.refused')) window.__refused = true; }).observe(document.getElementById('cmd'), { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }); });
     await d.pressCard('Harvester');
     assert.ok(await d.page.evaluate(() => window.__refused), 'the button shakes');
     assert.deepEqual(await d.toasts(), [], 'no toast');

@@ -345,3 +345,19 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
         );
     }
 }
+
+#[test]
+fn a_second_stim_while_the_first_runs_is_refused_and_costs_nothing() {
+    let mut w = flat_arena(3);
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    let hp = w.unit(t).unwrap().hp;
+    w.cast(t, AbilityKind::Stim).unwrap();
+    run(&mut w, 2); // (past its 1 s cooldown, most of its 10 s left)
+    assert_eq!(
+        w.cast(t, AbilityKind::Stim),
+        Err("Stim is already on".into())
+    );
+    assert_eq!(w.unit(t).unwrap().hp, hp - 10.0, "paid once");
+    run(&mut w, 4); // (less than half left: a top-up is allowed)
+    assert!(w.cast(t, AbilityKind::Stim).is_ok());
+}

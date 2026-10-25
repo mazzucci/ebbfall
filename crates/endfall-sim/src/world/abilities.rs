@@ -33,6 +33,16 @@ impl World {
         if u.warp > 0.0 {
             return Err("Still warping in".into());
         }
+        // Not again while more than half of it is left (a thumb that taps twice must not pay twice).
+        let secs = match ability.def().effect {
+            AbilityEffect::Boost { secs, .. } | AbilityEffect::Cloak { secs } => secs,
+            _ => 0.0,
+        };
+        if u.boost
+            .is_some_and(|(k, end)| k == ability && end - self.time > secs / 2.0)
+        {
+            return Err(format!("{} is already on", ability.def().name));
+        }
         if let AbilityEffect::Boost { hp, .. } = ability.def().effect
             && u.hp <= hp
         {

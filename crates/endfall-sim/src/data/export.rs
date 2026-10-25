@@ -136,6 +136,7 @@ fn upgrade(d: &UpgradeDef) -> String {
     };
     Obj::new()
         .str("name", d.name)
+        .str("short", d.short)
         .str("effect", effect)
         .str("of", of)
         .num("levels", d.levels)

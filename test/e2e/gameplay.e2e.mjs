@@ -1242,3 +1242,20 @@ test('phone: a Wasp cloaks from its card once Cloaking Field is researched', asy
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: a unit it cannot pay for shakes its button, with no toast over the game', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.page.waitForTimeout(3600); // (the opening hint fades)
+    await d.eval(() => endfall.setResources(0, 0, 0));
+    const core = coreOf(await d.state());
+    await d.clickEntity(core.id);
+    // (the shake lasts 0.35 s: watch for it rather than look afterwards)
+    await d.page.evaluate(() => { window.__refused = false; new MutationObserver(() => { if (document.querySelector('#cmd .cb.refused')) window.__refused = true; }).observe(document.getElementById('cmd'), { subtree: true, attributes: true, attributeFilter: ['class'] }); });
+    await d.pressCard('Harvester');
+    assert.ok(await d.page.evaluate(() => window.__refused), 'the button shakes');
+    assert.deepEqual(await d.toasts(), [], 'no toast');
+    assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 0, 'nothing queued');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

@@ -191,6 +191,18 @@ function firstSpot(k) {
   return {};
 }
 
+/** A refused button press. Short of shards, ether or supply: the button itself shakes and its cost flashes (with the
+ *  error sound), no toast over the game (the long-press detail says what is missing). Anything else: a toast. */
+function refuse(id, err) {
+  if (!/^Not enough|^Supply blocked/.test(err)) { toast(err, true); return; }
+  sfx('error');
+  setTimeout(() => { // (after the click's card rebuild: on the button that is there now)
+    const b = document.querySelector(`#cmd [data-id="${id}"]`); if (!b) return;
+    b.classList.remove('refused'); void b.offsetWidth; b.classList.add('refused'); // (restart the shake on a second tap)
+    setTimeout(() => b.classList.remove('refused'), 400);
+  }, 0);
+}
+
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   if (id === 'deselect') { setSelection([]); ui.box = false; setBox(); updateHud(); return; }
@@ -204,18 +216,18 @@ export function doCommand(id) {
   if (id.startsWith('b_')) {
     const k = id.slice(2);
     if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
-    if (!canAfford(G.me, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
+    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
     ui.place = { type: k, tx: -99, ty: -99, ...(touchUi ? firstSpot(k) : {}) }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) toast(err, true); return; } // (the cast event plays its sound)
-  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }
+  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) refuse(id, err); else sfx('build'); return; }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
     const hs = G.units.filter(u => u.team === G.me && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));
     if (!hs.length) { toast(`No ${UNITS[myFaction().worker].name} to build it`, true); return; }
     startBuild(hs[0], b); sfx('move'); return;
   }
-  if (id.startsWith('r_')) { const b = bl.find(o => !o.research) || bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) toast(e, true); else sfx('build'); return; }
+  if (id.startsWith('r_')) { const b = bl.find(o => !o.research) || bl[0]; if (!b) return; const e = research(b, id.slice(2)); if (e) refuse(id, e); else sfx('build'); return; }
   if (id === 'cancelr') { const b = researching(bl); if (b) cancelResearch(b); return; }
   if (id === 'cancelb') { const b = bl[0]; if (b && !b.done) { cancelConstruction(b); ui.sel = []; sfx('select'); } return; }
   if (id === 'cancelq') { const b = bl.length && mostBusy(bl); if (b && b.queue.length) cancelQueue(b, b.queue.length - 1); }

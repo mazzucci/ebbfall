@@ -325,7 +325,11 @@ impl World {
                 n: 24,
             });
             self.stats[1 - team as usize].razed += 1;
-            self.toast(team, format!("{} destroyed", b.kind.def().name), true);
+            // Said only for what matters (the headquarters, a factory, a research building); the rest is the burst.
+            let d = b.kind.def();
+            if d.hq || !d.trains.is_empty() || !d.researches.is_empty() {
+                self.toast(team, format!("{} destroyed", d.name), true);
+            }
         } else {
             return;
         }

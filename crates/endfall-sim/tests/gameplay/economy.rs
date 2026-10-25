@@ -85,8 +85,7 @@ fn the_builder_of_an_extractor_starts_mining_its_ether() {
         "the builder mines the new Extractor: {:?}",
         w.unit(h[0]).unwrap().task
     );
-    // ... and a builder of anything else goes back to what it was doing (one still on the shards: the new Rig took
-    // a crew from the others).
+    // ... and a builder of anything else goes back to what it was doing.
     let h1 = *h
         .iter()
         .find(|&&u| !matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent))
@@ -431,7 +430,7 @@ fn busy_harvesters_only_hop_to_vents_with_their_own_extractor() {
 }
 
 #[test]
-fn a_new_refinery_gets_a_crew_of_three() {
+fn a_new_refinery_gets_one_worker() {
     let on_vent = |w: &World, v: Id| {
         w.units
             .iter()
@@ -440,7 +439,8 @@ fn a_new_refinery_gets_a_crew_of_three() {
             })
             .count()
     };
-    // Humans: the builder and two more; the Vael (whose Lumen plants and leaves): three.
+    // Humans: its builder only; the Vael (whose Lumen plants and leaves): the nearest one. Early on a player may want
+    // every other worker on shards.
     for (mut w, kind) in [
         (rich(5), BldgKind::Extractor),
         (rich_vael(5), BldgKind::Siphon),
@@ -451,8 +451,8 @@ fn a_new_refinery_gets_a_crew_of_three() {
         let vent = w.bldg(b).unwrap().vent.unwrap();
         assert_eq!(
             on_vent(&w, vent),
-            3,
-            "{kind:?}: three workers sent to the new refinery"
+            1,
+            "{kind:?}: one worker on the new refinery"
         );
     }
     // An AI seat balances its own ether workers: nothing is sent for it.
@@ -513,4 +513,49 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
     assert!(left < FIELD_LOW, "mined through the mark: {left}");
     assert_eq!(toasts, 1, "announced once for the field");
     assert!(pings >= 1, "with a ping");
+}
+
+#[test]
+fn two_builders_of_a_refinery_leave_one_on_it() {
+    // Two harvesters build the Extractor together: when it is done, one mines ether and the other goes back to shards.
+    let mut w = rich(5);
+    run(&mut w, 3);
+    let hs = harvesters(&w, PLAYER);
+    let (a, b) = (hs[0], hs[1]);
+    let (vx, vy) = {
+        let core = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap();
+        let v = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .min_by(|p, q| {
+                let dp = (p.x - core.x).powi(2) + (p.y - core.y).powi(2);
+                let dq = (q.x - core.x).powi(2) + (q.y - core.y).powi(2);
+                dp.partial_cmp(&dq).unwrap()
+            })
+            .unwrap();
+        (v.tx, v.ty)
+    };
+    let ext = w
+        .place_building(PLAYER, BldgKind::Extractor, vx, vy, Some(a))
+        .expect("placed");
+    w.start_build(b, ext);
+    for _ in 0..30 * 90 {
+        w.step();
+        if w.bldg(ext).is_some_and(|e| e.done) {
+            break;
+        }
+    }
+    run(&mut w, 1);
+    let vent = w.bldg(ext).unwrap().vent.unwrap();
+    let on = [a, b]
+        .iter()
+        .filter(|&&u| matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent))
+        .count();
+    assert_eq!(on, 1, "one of the two builders mines the new Extractor");
 }

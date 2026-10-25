@@ -334,7 +334,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrenching', 'Cloaking Field'], 'the Forge card: research and its cancel, the techs below');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field'], 'the Forge card: research and its cancel, the techs below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -356,10 +356,10 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     assert.ok((await d.toasts()).some(t => /Research Entrenching first/.test(t)), 'it says which tech');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
-    await d.pressCard('Entrenching');
+    await d.pressCard('Entrench'); // (the tech's short label on the Foundry)
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 90, what: 'Entrenching' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Entrenching'), 'a finished tech leaves the card');
+    assert.ok(!(await d.card()).some(c => c.label === 'Entrench'), 'a finished tech leaves the card');
     await d.clickEntity(v);
     assert.ok((await d.card()).some(c => c.label === 'Entrench' && c.enabled), 'Entrench unlocked');
     assert.deepEqual(d.errors, []);

@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn a_big_wave_sends_a_third_at_a_known_expansion_from_hard_up() {
-        for (diff, third) in [(1, 0), (2, 3), (3, 3)] {
+        for (diff, third) in [(0, 0), (1, 0), (2, 3), (3, 3)] {
             let mut w = World::new(17, diff);
             w.ai_turn = ENEMY;
             let core = w

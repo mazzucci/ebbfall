@@ -9,6 +9,7 @@ pub const NEVER: f64 = f64::MAX;
 /// `research_from`/`expand_at`/`air_at`: seconds before it researches, takes a second base, raises an air factory
 /// (NEVER: it does not). `raids`: flyers hunt the player's workers. `prong`: a big wave sends a third at an
 /// expansion. `answers`: it adapts its mix to what it has seen. `abilities`: its units use theirs.
+/// `supply_ahead`: free supply below which it builds more; `supply_at_once`: how many supply buildings at a time.
 pub struct Diff {
     pub income: f64,
     pub wave: usize,
@@ -25,10 +26,12 @@ pub struct Diff {
     pub prong: bool,
     pub answers: bool,
     pub abilities: bool,
+    pub supply_ahead: i32,
+    pub supply_at_once: usize,
 }
 
 pub const DIFF: [Diff; 4] = [
-    // Easy: a slow, plain script. Few workers, one factory, small late waves; no research, second base, flyers,
+    // Easy: a slow, plain script. Few workers, one factory to start, small late waves; no research, second base, flyers,
     // abilities or adapting.
     Diff {
         income: 1.0,
@@ -46,6 +49,8 @@ pub const DIFF: [Diff; 4] = [
         prong: false,
         answers: false,
         abilities: false,
+        supply_ahead: 4,
+        supply_at_once: 1,
     },
     // Medium: the whole script at an even pace (11 workers at x1.0 field about the army 13 at x0.9 did before, after
     // phone playtests found its mid-game waves too much), but one attack at a time.
@@ -65,16 +70,18 @@ pub const DIFF: [Diff; 4] = [
         prong: false,
         answers: true,
         abilities: true,
+        supply_ahead: 4,
+        supply_at_once: 1,
     },
-    // Hard: earlier and bigger, and it splits its waves.
+    // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
         income: 1.0,
-        wave: 9,
+        wave: 8,
         wave_grow: 3,
         harv: 16,
         rax: 3,
         extra_rax: 4,
-        first: 140.0,
+        first: 150.0,
         gap: 50.0,
         research_from: 300.0,
         expand_at: 330.0,
@@ -83,11 +90,14 @@ pub const DIFF: [Diff; 4] = [
         prong: true,
         answers: true,
         abilities: true,
+        supply_ahead: 6,
+        supply_at_once: 1,
     },
-    // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything).
+    // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
+    // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank.
     Diff {
         income: 1.3,
-        wave: 9,
+        wave: 7,
         wave_grow: 4,
         harv: 18,
         rax: 4,
@@ -101,5 +111,7 @@ pub const DIFF: [Diff; 4] = [
         prong: true,
         answers: true,
         abilities: true,
+        supply_ahead: 10,
+        supply_at_once: 2,
     },
 ];

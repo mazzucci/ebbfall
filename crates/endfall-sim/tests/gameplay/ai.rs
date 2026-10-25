@@ -876,9 +876,8 @@ fn the_vael_ai_relights_a_dark_kiln() {
     assert!(dark.contains(&kiln), "the far Kiln went dark");
     run(&mut w, 120);
     for id in dark {
-        if let Some(b) = w.bldg(id) {
-            assert!(b.powered, "the AI put a new Spire by its dark {:?}", b.kind);
-        }
+        let b = w.bldg(id).expect("nothing attacks it");
+        assert!(b.powered, "the AI put a new Spire by its dark {:?}", b.kind);
     }
 }
 
@@ -955,7 +954,7 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
     ] {
         let mut w = World::with_setup(seed, 1, kind, false, races);
         w.set_ai_seats([true, true]);
-        w.hold_waves = true; // (a factory lost to a wave is not a factory with no room)
+        w.hold_waves = true; // (a factory lost to a wave is not a factory with no room; held until 6:00)
         for _ in 0..30 * 355 {
             w.step();
             w.events.clear();
@@ -1100,6 +1099,11 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
             .count()
     };
     assert_eq!(
+        mine(f.ai.tech),
+        1,
+        "its tech building stands (so no research is a choice)"
+    );
+    assert_eq!(
         w.upgrades[ENEMY as usize].iter().sum::<u8>(),
         0,
         "no research"
@@ -1107,8 +1111,29 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
     assert_eq!(mine(f.hq), 1, "no second base");
     assert_eq!(mine(f.ai.air), 0, "no air factory");
     assert!(harvesters(&w, ENEMY).len() <= DIFF[0].harv, "few workers");
-    // Gathering: x1.0 on every level but Brutal.
-    for (i, d) in DIFF.iter().enumerate() {
-        assert_eq!(d.income == 1.0, i < 3, "level {i} income {}", d.income);
-    }
+    // Gathering: the same on Medium as the player's, 30% more on Brutal; the player's own is unchanged.
+    let gathered = |diff: usize| {
+        let mut w = World::new(17, diff);
+        w.disable_ai(); // (its starting workers mine on; the seat is still an AI seat)
+        let start = w.res;
+        run(&mut w, 90);
+        [0, 1].map(|t| w.res[t][0] - start[t][0])
+    };
+    let (medium, brutal) = (gathered(1), gathered(3));
+    assert_eq!(
+        medium[PLAYER as usize], brutal[PLAYER as usize],
+        "the player gathers alike"
+    );
+    let (me, mp) = (
+        medium[ENEMY as usize] as f64,
+        medium[PLAYER as usize] as f64,
+    );
+    assert!(
+        (me - mp).abs() <= mp * 0.1,
+        "Medium gathers about like the player (the sides' fields differ a little): {medium:?}"
+    );
+    assert!(
+        brutal[ENEMY as usize] as f64 >= medium[ENEMY as usize] as f64 * 1.2,
+        "Brutal gathers more: {brutal:?} vs {medium:?}"
+    );
 }

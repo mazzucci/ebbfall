@@ -76,7 +76,7 @@ fn scripted(w: &mut World, tick: u32) {
 }
 
 /// (label, seed, diff, map, swapped, scripted player)
-const GAMES: [(&str, u32, usize, MapKind, bool, bool); 6] = [
+const GAMES: [(&str, u32, usize, MapKind, bool, bool); 7] = [
     ("ashen-easy", 4242, 0, MapKind::Standard, false, false),
     (
         "glass-medium-swapped",
@@ -97,20 +97,29 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 6] = [
         true,
     ),
     ("barren-easy-scripted", 21, 0, MapKind::Barren, false, true),
+    (
+        "ashen-brutal-scripted",
+        1234,
+        3,
+        MapKind::Standard,
+        false,
+        true,
+    ),
 ];
 
-const EXPECTED: [[u32; 3]; 6] = [
+const EXPECTED: [[u32; 3]; 7] = [
     [741483334, 2946697278, 3539587852],
     [3652431076, 258847088, 2217666188],
-    [3246304250, 2155193193, 939257830],
+    [3246304250, 2155193193, 3724324805],
     [3338322649, 3827142340, 2112188968],
-    [2560618021, 25826868, 2683296849],
+    [2560618021, 25826868, 3536613551],
     [3768863628, 1941205343, 1868553697],
+    [3352553723, 1760583785, 2263016300],
 ];
 
 #[test]
 fn golden_hashes_pin_behaviour_during_refactors() {
-    let mut got = [[0u32; 3]; 6];
+    let mut got = [[0u32; 3]; 7];
     for (g, &(label, seed, diff, kind, swap, script)) in GAMES.iter().enumerate() {
         let mut w = world(seed, diff, kind, swap);
         let mut c = 0;
@@ -126,7 +135,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
         }
         println!("{label}: {:?}", got[g]);
     }
-    println!("const EXPECTED: [[u32; 3]; 6] = {got:?};");
+    println!("const EXPECTED: [[u32; 3]; 7] = {got:?};");
     assert_eq!(
         got, EXPECTED,
         "behaviour changed: update EXPECTED only for an intended rule change"

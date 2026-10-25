@@ -248,10 +248,12 @@ impl World {
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
         let rax_schedule = d.rax + (t > 300.0) as usize + (t > 540.0) as usize;
-        // Free supply that calls for more: 4, or room for a capital unit too while one is due.
-        let supply_margin = 4 + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
+        // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
+        let supply_margin =
+            d.supply_ahead + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
+        let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
         let want = if relight.is_some()
-            || (cap - used <= supply_margin && cap < 200 && !building.contains(&f.supply))
+            || (cap - used <= supply_margin && cap < 200 && supply_rising < d.supply_at_once)
         {
             Some(f.supply)
         } else if (harv.len() >= 7
@@ -285,7 +287,7 @@ impl World {
             None
         };
         if let Some(w) = want
-            && building.len() < 2
+            && building.len() < d.supply_at_once + 1 // (two at once; three where supply goes up in pairs)
             && self.has_req(e, w)
             && self.can_afford(e, w.def().cost)
             && let Some(spot) = {

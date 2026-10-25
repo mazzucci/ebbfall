@@ -85,6 +85,13 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForTimeout(60);
     },
+    /** Two quick taps (sent together: the software-rendered phone handles each tap late, so taps sent one after the
+     *  other land outside the double-tap window). */
+    async doubleTapAt(x, y) {
+      const p = [{ x, y }];
+      await Promise.all([['touchStart', p], ['touchEnd', []], ['touchStart', p], ['touchEnd', []]].map(([type, touchPoints]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints })));
+      await page.waitForTimeout(120);
+    },
     /** Left click (or tap) on a world point. */
     async clickWorld(wx, wy, opts = {}) { const [x, y] = await d.screen(wx, wy); if (touch) return d.tapAt(x, y); await page.mouse.click(x, y, opts); await page.waitForTimeout(60); },
     async rightClickWorld(wx, wy) { const [x, y] = await d.screen(wx, wy); await page.mouse.click(x, y, { button: 'right' }); await page.waitForTimeout(60); },

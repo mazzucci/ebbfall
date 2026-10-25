@@ -110,14 +110,14 @@ function renderSelection() {
     } else module('', '');
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
-    name.textContent = sel.length + ' units'; $('selPor').innerHTML = ''; selKey = ''; module('', '');
+    name.textContent = sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units'); $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     $('life').hidden = true;
     if (compactMq.matches) { // small screens: one tile per type, with its count and the group's health
       const types = [...new Set(sel.map(x => x.type))], gk = 't' + types.join() + sel.length;
       if (grp.dataset.k !== gk) {
         grp.dataset.k = gk;
-        grp.innerHTML = types.map(t => { const n = sel.filter(x => x.type === t).length; return `<div class="gi gt" title="${n} ${UNITS[t].name}">${portrait('unit', t, 26)}<b>${n}</b><i></i></div>`; }).join('');
+        grp.innerHTML = types.map(t => { const g = sel.filter(x => x.type === t); return `<div class="gi gt" title="${g.length} ${g[0].d.name}">${portrait(g[0].kind, t, 26)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
       }
       types.forEach((t, i) => { const g = sel.filter(x => x.type === t), f = g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0); grp.children[i].lastChild.style.width = (f * 100) + '%'; });
       return;

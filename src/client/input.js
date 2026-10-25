@@ -7,7 +7,7 @@ import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelectio
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave, blockedUpright } from './screen.js';
-import { selectIdle, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
+import { selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
@@ -18,7 +18,7 @@ let lastPick = { id: 0, t: 0, dbl: false };
 let boxDone = false;
 /** `at` is the input event's own timestamp, so a slow frame between the two clicks does not break the double. */
 function selectOrDouble(hit, add, at = performance.now()) {
-  const own = hit.kind === 'unit' && hit.team === G.me, again = own && lastPick.id === hit.id && at - lastPick.t < 400;
+  const own = (hit.kind === 'unit' || (hit.kind === 'bldg' && hit.done)) && hit.team === G.me, again = own && lastPick.id === hit.id && at - lastPick.t < 400;
   if (again && lastPick.dbl) { lastPick.t = at; return; }            // a third quick click keeps the group
   if (again) { selectSameType(hit, add); lastPick = { id: hit.id, t: at, dbl: true }; return; }
   lastPick = { id: hit.id, t: at, dbl: false };
@@ -346,6 +346,7 @@ function bindKeys() {
     }
     if (k === ' ') { jumpToAlert(); ev.preventDefault(); return; }
     if (k === '.') { selectIdle(); return; }
+    if (k === ',') { selectIdleFactory(); return; }
     if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }

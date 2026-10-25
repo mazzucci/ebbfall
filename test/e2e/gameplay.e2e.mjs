@@ -246,7 +246,7 @@ test('an attack raises an alert, and Space jumps to it', async () => {
   } finally { await d.close(); }
 });
 
-test('idle and army buttons, and double-click selects all of a type on screen', async () => {
+test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const s = await d.state(), core = coreOf(s);
@@ -258,9 +258,9 @@ test('idle and army buttons, and double-click selects all of a type on screen', 
     await d.clickEntity(h.id); await d.key('s');
     await d.key('Escape');
     assert.equal((await d.selection()).length, 0);
-    await d.page.locator('#btnIdle').click();
+    await d.key('.'); // (no chip on screen: the key, or select one on the map)
     const picked = await d.eval(() => endfall.ui.sel.map(u => ({ type: u.type, task: u.task.t })));
-    assert.deepEqual(picked, [{ type: 'harvester', task: 'idle' }], 'IDLE selects an idle harvester');
+    assert.deepEqual(picked, [{ type: 'harvester', task: 'idle' }], 'the . key selects an idle harvester');
     // Double-click one trooper (two clicks on one precomputed point, back to back): all three are selected.
     await d.key('Escape');
     const [px, py] = await d.screen((await d.state()).units.find(u => u.id === ids[0]).x, (await d.state()).units.find(u => u.id === ids[0]).y);
@@ -332,7 +332,6 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
     await d.skip(4);
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
-    assert.ok(await d.page.locator('#upg .up.on .ring').isVisible(), 'and the top bar shows it, whatever is selected');
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
     assert.deepEqual(slots, ['Weapons I', 'Armor I', 'Cancel'], 'the Forge card: research and its cancel');
@@ -348,7 +347,6 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'trooper damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 3, 'a few figures: ground, air, armor');
-    assert.match(await d.page.locator('#upg').textContent(), /I/, 'the top bar keeps the level once researched');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -930,7 +928,7 @@ test('a double-click on a factory selects all of them and they train as one; the
     const rax = () => d.state().then(st => st.bldgs.filter(x => x.team === 0 && x.type === 'barracks'));
     await until(d, async () => (await rax()).filter(x => x.done).length === 2, { seconds: 120, what: 'two Garrisons' });
     await d.key('Escape');
-    await d.hudText('#btnProd b', /^2$/); // two idle factories
+    await d.page.locator('#btnProd').waitFor({ state: 'visible' }); // an idle factory: the chip appears
     // The chip selects one, then the next.
     await d.page.locator('#btnProd').click();
     const first = (await d.selection())[0];
@@ -945,7 +943,7 @@ test('a double-click on a factory selects all of them and they train as one; the
     assert.equal((await d.selection()).filter(e => e.type === 'barracks').length, 2, 'double-click selects both Garrisons');
     await d.pressCard('Trooper'); await d.pressCard('Trooper');
     assert.deepEqual((await rax()).map(x => x.queue.length), [1, 1], 'one Trooper in each queue');
-    await d.hudText('#btnProd b', /^0$/); // no idle factory now
+    await d.page.locator('#btnProd').waitFor({ state: 'hidden' }); // none idle now: it goes
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -999,16 +997,18 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
   } finally { await d.close(); }
 });
 
-test('phone: Home looks at the base, a second tap on Army looks at the army', async () => {
+test('phone: Home looks at the base (beside SELECT, no wider than the minimap together); the Army chip appears with an army and a second tap looks at it', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
     const view = () => d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x + v.w / c.zoom / 2, y: c.y + v.h / c.zoom / 2 }; });
-    // Far from home, then Home.
+    const span = await d.eval(() => { const r = (id) => document.getElementById(id).getBoundingClientRect(); return [r('btnBox').left, r('btnHome').right, r('minimap').left, r('minimap').right]; });
+    assert.ok(span[0] >= span[2] - 1 && span[1] <= span[3] + 1, `SELECT and Home within the minimap's width: ${span}`);
     await d.centerOn(core.x > 1000 ? 300 : 1700, core.y > 1000 ? 300 : 1700);
     await d.page.locator('#btnHome').tap();
     const v = await view();
-    assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centres on the Core: ${JSON.stringify(v)} vs ${core.x},${core.y}`);
+    assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centres on the Core: ${JSON.stringify(v)}`);
+    assert.ok(await d.page.locator('#btnArmy').isHidden(), 'no army, no chip');
     // An army somewhere else: the first tap selects it, the second also looks at it.
     const [ax, ay] = [core.x > 1000 ? core.x - 500 : core.x + 500, core.y];
     await d.eval(([x, y]) => [0, 1, 2].forEach(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [ax, ay]);
@@ -1139,3 +1139,20 @@ test('the HUD tells the first enemy flyer seen, and an army wiped out', async ()
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('the screen is lean: resources, supply, full screen, sound and pause on top, no empty panel; the clock lives in the pause card', async () => {
+  for (const dev of [DESKTOP, PHONE]) {
+    const d = await newGame(dev, 1, 4242, { ai: false });
+    try {
+      const shown = await d.eval(() => [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && getComputedStyle(e).display !== 'none' && !e.classList.contains('spacer')).map(e => e.id || e.className));
+      const want = ['resShard', 'resEther', 'resSup', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
+      assert.deepEqual(shown, want, 'the top bar at the start: ' + shown.join(' '));
+      assert.ok(await d.page.locator('#info').isHidden(), 'nothing selected: no panel');
+      await d.skip(30);
+      await (d.touch ? d.page.locator('#btnPause').tap() : d.page.locator('#btnPause').click());
+      assert.match(await d.page.locator('#pauseTime').textContent(), /0:3\d into the game/, 'the clock, on demand');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+

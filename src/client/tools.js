@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
-// ⚠ chip), the idle-harvester and whole-army chips in the top bar, double-click "all of this type on screen", control-group tabs
+// ⚠ chip), the whole-army and idle-factory chips in the top bar (each only while it has something to offer), the idle-harvester key, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, UNITS, BUILDINGS, TILE, visibleEnt } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, TILE, visibleEnt, fmt } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx } from './audio.js';
@@ -137,23 +137,17 @@ function watchNews() {
   news.army = a;
 }
 
-/** Refresh button counts, the alert chip and the group tabs (called with the HUD). */
+/** Refresh the shortcut chips, the alert chip and the group tabs (called with the HUD). */
 export function updateTools() {
   watchPower(); watchNews(); watchCapitals();
-  const idle = idleHarvesters().length, a = army().length;
-  const wk = myFaction().worker, pic = $('btnIdle').querySelector('.pic'); // the player's race's worker
-  if (pic.dataset.k !== wk) {
-    pic.dataset.k = wk; pic.innerHTML = portrait('unit', wk, 24);
-    const n = UNITS[wk].name; $('btnIdle').title = `Idle ${n}s: select the next one (.)`; $('btnIdle').setAttribute('aria-label', `Idle ${n}s`);
-  }
+  const a = army().length, wk = myFaction().worker;
   const ak = myFaction().buildBasic.map(k => BUILDINGS[k].trains[0]).find(Boolean) || wk, apic = $('btnArmy').querySelector('.pic'); // the race's first soldier
   if (apic.dataset.k !== ak) { apic.dataset.k = ak; apic.innerHTML = portrait('unit', ak, 24); }
-  $('btnIdle').querySelector('b').textContent = idle; $('btnIdle').classList.toggle('warn', idle > 0); $('btnIdle').classList.toggle('zero', !idle);
-  $('btnArmy').querySelector('b').textContent = a; $('btnArmy').classList.toggle('zero', !a);
+  // Each chip only while it has something to offer; no counts (select, and the panel tells the rest).
+  $('btnArmy').hidden = !a;
   const pk = myFaction().buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker)), ppic = $('btnProd').querySelector('.pic'); // the race's main factory
   if (pk && ppic.dataset.k !== pk) { ppic.dataset.k = pk; ppic.innerHTML = portrait('bldg', pk, 24); }
-  const factories = G.bldgs.some(b => b.team === G.me && b.done && (b.d.trains || []).some(t => !UNITS[t].worker)), idleF = idleFactories().length;
-  $('btnProd').hidden = !factories; $('btnProd').querySelector('b').textContent = idleF; $('btnProd').classList.toggle('zero', !idleF);
+  $('btnProd').hidden = !idleFactories().length;
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
   const tabs = [];
   // Saved groups only, and none on touch screens (empty tabs there were tapped by mistake instead of the map).
@@ -179,7 +173,7 @@ export function updateTools() {
 export function initTools() {
   setIconButton($('btnPause'), 'pause', 'PAUSE');
   setIconButton($('btnHome'), 'home', 'HOME');
-  for (const [id, fn] of [['btnIdle', selectIdle], ['btnArmy', selectArmy], ['btnProd', selectIdleFactory], ['btnAlert', jumpToAlert], ['btnHome', goHome]]) {
+  for (const [id, fn] of [['btnArmy', selectArmy], ['btnProd', selectIdleFactory], ['btnAlert', jumpToAlert], ['btnHome', goHome]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());
     $(id).addEventListener('click', fn);
   }
@@ -205,4 +199,7 @@ export function initPause({ onRestart, onQuit, onResume, onConcede }) {
   $('btnQuit').addEventListener('click', () => { disarm(); $('pause').hidden = true; onQuit(); });
   $('btnPause').addEventListener('click', () => togglePause());
 }
-export function togglePause() { disarmConcede(); $('pause').hidden = !$('pause').hidden; if (!$('pause').hidden) $('btnResume').focus(); }
+export function togglePause() {
+  disarmConcede(); $('pause').hidden = !$('pause').hidden;
+  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + ' into the game.'; $('btnResume').focus(); } // (the clock lives here, not on screen)
+}

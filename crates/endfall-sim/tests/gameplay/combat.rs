@@ -979,9 +979,20 @@ fn a_healer_on_attack_move_keeps_behind_the_fight() {
     for &u in squad.iter().chain([&medic]) {
         w.attack_move(u, 1300.0, 890.0);
     }
-    let mut ahead = 0;
+    let (mut ahead, mut healed, mut hurting) = (0, 0u32, 0u32);
     for _ in 0..8 * TPS {
         w.step();
+        let tick = w.tick;
+        let hurt = squad
+            .iter()
+            .any(|&s| w.unit(s).is_some_and(|s| s.hp < s.maxhp));
+        let tended = squad
+            .iter()
+            .any(|&s| w.unit(s).is_some_and(|s| s.healed_at == tick));
+        if hurt && w.unit(medic).is_some() {
+            hurting += 1;
+            healed += tended as u32;
+        }
         let front = squad
             .iter()
             .filter_map(|&s| w.unit(s))
@@ -999,4 +1010,8 @@ fn a_healer_on_attack_move_keeps_behind_the_fight() {
         "the Medic never ran ahead of the squad while it fought"
     );
     assert!(w.unit(medic).is_some(), "and it lived through the fight");
+    assert!(
+        healed * 10 >= hurting * 7,
+        "and it stayed close enough to heal: {healed} of {hurting} ticks with someone hurt"
+    );
 }

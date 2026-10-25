@@ -106,6 +106,10 @@ loop feels right.
   with a `mend` flag. The Vael AI mixes one in per six Scythes. Art from the existing model (atlas page 6).
 - [x] Vael phase 2, sounds (2026-10-25): each faction names its shot sounds (`Faction::sounds`, by projectile);
   the Vael's are synthesized glass and ceramic: `lance` (Prism, Ward, Shrike), `slam` (Monolith), `blade` (Scythe).
+- [x] Ether and Medium, from the third phone playtest (2026-10-25): a person's new Ether Rig or Siphon gets a crew of
+  three at once (the nearest shard workers, empty-handed first, within 15 tiles; the AI balances its own), as
+  players floated shards while short of ether. Medium tuned down (AI income 1.0 -> 0.9, waves grow by 2 instead of
+  3). Also fixed: the AI drafted its own scout as a builder, so on some maps it never scouted.
 - [x] Race balance from AI-vs-AI games (2026-10-24): the Vael AI won 46 of 48 games against the human AI (Easy and
   Medium, both seats, every map), in about half the time of a human mirror. In play the Scythe ran down retreating
   Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 88 (slower than a Trooper; 90 tipped Medium back to 3 wins in 24), dmg 10;

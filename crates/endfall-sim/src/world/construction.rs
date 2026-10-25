@@ -233,6 +233,46 @@ impl World {
                 self.resume_after(o);
             }
         }
+        if let Some(v) = vent
+            && !self.is_ai(bteam)
+        {
+            self.crew_refinery(bteam, v, b);
+        }
+    }
+
+    /// A person's new refinery gets its crew: the nearest shard workers (empty-handed first, within 15 tiles) switch
+    /// to its vent until three mine there. The AI balances its own ether workers.
+    fn crew_refinery(&mut self, team: u8, vent: Id, b: Id) {
+        const CREW: usize = 3;
+        let (bx, by) = self.bldg(b).map(|r| (r.x, r.y)).unwrap();
+        let mining_here = self
+            .units
+            .iter()
+            .filter(|u| {
+                u.team == team && matches!(u.task, Task::Gather { node, .. } if node == vent)
+            })
+            .count();
+        let mut cands: Vec<(bool, f64, Id)> = self
+            .units
+            .iter()
+            .filter(|u| {
+                u.team == team
+                    && u.kind.def().worker
+                    && matches!(u.task, Task::Gather { node, .. }
+                        if self.map.node(node).is_some_and(|n| !n.ether))
+            })
+            .map(|u| (u.carry > 0, dist(u.x, u.y, bx, by), u.id))
+            .filter(|&(_, d, _)| d <= 15.0 * TILE)
+            .collect();
+        cands.sort_by(|p, q| {
+            (p.0, p.1)
+                .partial_cmp(&(q.0, q.1))
+                .unwrap()
+                .then(p.2.cmp(&q.2))
+        });
+        for &(_, _, id) in cands.iter().take(CREW.saturating_sub(mining_here)) {
+            self.start_gather(id, vent);
+        }
     }
 
     /// Whether a point is inside one of `team`'s power fields (a finished Spire or Conflux near enough).

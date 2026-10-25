@@ -55,9 +55,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
-  src/world/          the world: mod.rs (entities, step, state_hash), orders, spawn, economy, construction,
+  src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), orders, spawn, economy, construction,
                       combat, movement, fog
-  src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, army, scouting
+  src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser

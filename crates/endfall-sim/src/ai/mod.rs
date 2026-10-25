@@ -6,6 +6,8 @@
 mod army;
 mod build;
 mod economy;
+mod produce;
+mod research;
 mod scouting;
 
 use crate::data::*;

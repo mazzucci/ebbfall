@@ -545,3 +545,24 @@ fn a_group_keeps_its_pace_after_a_skirmish_on_the_way() {
         x(&w, v)
     );
 }
+
+#[test]
+fn a_player_can_concede_and_the_other_side_wins() {
+    let mut g = Game::new(7, 1);
+    for _ in 0..30 {
+        g.step();
+    }
+    g.concede();
+    let w = g.world();
+    assert!(w.over);
+    assert_eq!(w.winner, ENEMY as i32);
+    assert_eq!(w.conceded, PLAYER as i32);
+    // Once it is over, nothing changes the result; a new game forgets it.
+    g.concede();
+    assert_eq!(g.world().winner, ENEMY as i32);
+    let mut w = World::new(7, 1);
+    w.concede(PLAYER);
+    w.reset(7, 1);
+    assert!(!w.over);
+    assert_eq!(w.conceded, -1);
+}

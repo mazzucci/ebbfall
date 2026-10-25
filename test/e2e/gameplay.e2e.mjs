@@ -1019,3 +1019,18 @@ test('phone: Home looks at the base, a second tap on Army looks at the army', as
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: Concede on the pause card asks once, then ends the game as a defeat', async () => {
+  const d = await newGame(PHONE, 0, 4242);
+  try {
+    await d.page.locator('#btnPause').tap();
+    await d.page.locator('#btnConcede').tap();
+    assert.match(await d.page.locator('#btnConcede').textContent(), /TAP AGAIN/, 'it asks first');
+    assert.equal((await d.state()).over, false);
+    await d.page.locator('#btnConcede').tap();
+    await d.page.locator('#end').waitFor({ state: 'visible' });
+    assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
+    assert.match(await d.page.locator('#endSub').textContent(), /You conceded/);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

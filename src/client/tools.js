@@ -156,10 +156,21 @@ export function initTools() {
 
 // ---- pause ----
 export const paused = () => !$('pause').hidden;
-export function initPause({ onRestart, onQuit, onResume }) {
+/** Puts CONCEDE back from its "tap again" question (whenever the pause card closes). */
+let disarmConcede = () => {};
+export function initPause({ onRestart, onQuit, onResume, onConcede }) {
+  // Concede asks once: the first tap turns the button into a question for a few seconds, the second gives up.
+  const cb = $('btnConcede'); let armed = 0;
+  disarmConcede = () => { clearTimeout(armed); armed = 0; cb.textContent = 'CONCEDE'; cb.classList.remove('warn'); };
+  const disarm = () => disarmConcede();
+  cb.addEventListener('click', () => {
+    if (!armed) { cb.textContent = 'GIVE UP? TAP AGAIN'; cb.classList.add('warn'); armed = setTimeout(disarm, 4000); return; }
+    disarm(); $('pause').hidden = true; onConcede();
+  });
+  $('btnResume').addEventListener('click', disarm);
   $('btnResume').addEventListener('click', () => { $('pause').hidden = true; onResume(); });
-  $('btnRestart').addEventListener('click', () => { $('pause').hidden = true; onRestart(); });
-  $('btnQuit').addEventListener('click', () => { $('pause').hidden = true; onQuit(); });
+  $('btnRestart').addEventListener('click', () => { disarm(); $('pause').hidden = true; onRestart(); });
+  $('btnQuit').addEventListener('click', () => { disarm(); $('pause').hidden = true; onQuit(); });
   $('btnPause').addEventListener('click', () => togglePause());
 }
-export function togglePause() { $('pause').hidden = !$('pause').hidden; if (!$('pause').hidden) $('btnResume').focus(); }
+export function togglePause() { disarmConcede(); $('pause').hidden = !$('pause').hidden; if (!$('pause').hidden) $('btnResume').focus(); }

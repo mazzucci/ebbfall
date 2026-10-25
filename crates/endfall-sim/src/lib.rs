@@ -199,6 +199,10 @@ impl Game {
             node: (node != 0).then_some(node),
         });
     }
+    /// This seat gives up: the game ends, the other side the winner.
+    pub fn concede(&mut self) {
+        self.order(Command::Concede);
+    }
     /// Attack-move for a selection: together, at the pace of its slowest unit.
     #[wasm_bindgen(js_name = attackMoveGroup)]
     pub fn attack_move_group(&mut self, units: &[u32], x: f64, y: f64) {

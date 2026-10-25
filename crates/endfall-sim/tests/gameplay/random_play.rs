@@ -77,6 +77,10 @@ fn a_recorded_game_replays_to_the_same_state() {
                     random_order_with(&mut g, &mut r, false);
                 }
             }
+            // Conceding ends the game, so it is not a random order: once, late (the world still steps after it).
+            if tick == 30 * 100 {
+                g.concede();
+            }
             g.step();
             hashes.push(g.world().state_hash());
         }

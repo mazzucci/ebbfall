@@ -85,11 +85,13 @@ pub enum Command {
         x: f64,
         y: f64,
     },
+    /// The seat gives up the game.
+    Concede,
 }
 
 impl Command {
     /// How many kinds of order there are (codes 0..KINDS).
-    pub const KINDS: u8 = 18;
+    pub const KINDS: u8 = 19;
     /// A small stable number for the kind of order (logs, the network, test coverage). Append only.
     pub fn code(&self) -> u8 {
         match self {
@@ -111,6 +113,7 @@ impl Command {
             Command::Formation { .. } => 15,
             Command::Cast { .. } => 16,
             Command::GroupAttackMove { .. } => 17,
+            Command::Concede => 18,
         }
     }
 }
@@ -190,6 +193,7 @@ impl World {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
                 self.attack_move_group(&mine, x, y);
             }
+            Command::Concede => self.concede(seat),
             Command::Cast { ref units, ability } => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
                 return self.cast_group(&mine, ability);

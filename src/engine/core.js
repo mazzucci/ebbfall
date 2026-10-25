@@ -21,7 +21,7 @@ let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
   me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
-  vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1,
+  vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
 const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
@@ -41,7 +41,7 @@ function sync() {
   if (!dirty || !game) return;
   dirty = false;
   const I = game.info();
-  Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
+  Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], conceded: I[fi.conceded], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
   S.factions = [FACTION_KEYS[I[fi.faction0]], FACTION_KEYS[I[fi.faction1]]];
   S.res[0][0] = I[fi.shards0]; S.res[0][1] = I[fi.ether0]; S.res[1][0] = I[fi.shards1]; S.res[1][1] = I[fi.ether1];
   S.sup[0] = [I[fi.sup_used0], I[fi.sup_cap0]]; S.sup[1] = [I[fi.sup_used1], I[fi.sup_cap1]];
@@ -152,6 +152,8 @@ export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
 export const disableAi = () => game.disableAi();
+/** Give up the game (the end screen then shows a defeat). */
+export const concede = () => touch(game.concede());
 /** Tests and tools only: put a unit on the map; returns its id (0 if refused). */
 export const debugSpawn = (team, kind, x, y) => touch(game.debugSpawn(team, kind, x, y));
 /** Tests and tools only. */

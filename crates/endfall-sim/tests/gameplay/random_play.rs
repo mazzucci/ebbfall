@@ -86,6 +86,16 @@ fn a_recorded_game_replays_to_the_same_state() {
             "seed {seed}: orders were logged ({})",
             log.len()
         );
+        // Random play issues every kind of order (a new Command without a random_order arm would go untested).
+        let mut seen = [false; Command::KINDS as usize];
+        for (_, _, c) in &log {
+            seen[c.code() as usize] = true;
+        }
+        let missing: Vec<usize> = (0..seen.len()).filter(|&k| !seen[k]).collect();
+        assert!(
+            missing.is_empty(),
+            "seed {seed}: no orders of kinds {missing:?}"
+        );
         let mut w = World::new(seed, 1);
         let mut next = 0;
         for (i, want) in hashes.iter().enumerate() {

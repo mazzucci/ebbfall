@@ -334,30 +334,49 @@ impl Game {
             .events
             .drain(..)
             .filter_map(|e| match e {
-                Event::Sfx { team, .. } | Event::Toast { team, .. } | Event::Attacked { team, .. } if team != me => None,
+                Event::Sfx { team, .. }
+                | Event::Toast { team, .. }
+                | Event::Attacked { team, .. }
+                    if team != me =>
+                {
+                    None
+                }
                 Event::Fire { seen, .. } if !seen[me as usize] => None,
                 e => Some(e),
             })
-            .map(|e| match e {
-                Event::Sfx { name, .. } => format!("{{\"t\":\"sfx\",\"name\":\"{name}\"}}"),
-                Event::Toast { msg, bad, .. } => {
-                    format!("{{\"t\":\"toast\",\"msg\":\"{}\",\"bad\":{bad}}}", msg.replace('\\', "\\\\").replace('"', "\\\""))
-                }
-                Event::Burst { x, y, r, team, n } => {
-                    format!("{{\"t\":\"burst\",\"x\":{x},\"y\":{y},\"r\":{r},\"team\":{team},\"n\":{n}}}")
-                }
-                Event::Attacked { x, y, building, .. } => {
-                    format!("{{\"t\":\"attacked\",\"x\":{x},\"y\":{y},\"building\":{building}}}")
-                }
-                Event::Heal { x, y, tx, ty, mend } => {
-                    format!("{{\"t\":\"heal\",\"x\":{x},\"y\":{y},\"tx\":{tx},\"ty\":{ty},\"mend\":{mend}}}")
-                }
-                Event::Hit { x, y, big } => format!("{{\"t\":\"hit\",\"x\":{x},\"y\":{y},\"big\":{big}}}"),
-                Event::Fire { x, y, weapon, .. } => format!("{{\"t\":\"fire\",\"x\":{x},\"y\":{y},\"w\":\"{weapon}\"}}"),
-            })
+            .map(|e| event_json(&e))
             .collect();
         format!("[{}]", parts.join(","))
     }
+}
+
+/// One event as the JSON object the client reads (`t`: its type; see src/main.js).
+fn event_json(e: &Event) -> String {
+    use data::Obj;
+    let o = |t: &str| Obj::new().str("t", t);
+    match e {
+        Event::Sfx { name, .. } => o("sfx").str("name", name),
+        Event::Toast { msg, bad, .. } => o("toast").str("msg", msg).num("bad", bad),
+        Event::Burst { x, y, r, team, n } => o("burst")
+            .num("x", x)
+            .num("y", y)
+            .num("r", r)
+            .num("team", team)
+            .num("n", n),
+        Event::Attacked { x, y, building, .. } => o("attacked")
+            .num("x", x)
+            .num("y", y)
+            .num("building", building),
+        Event::Heal { x, y, tx, ty, mend } => o("heal")
+            .num("x", x)
+            .num("y", y)
+            .num("tx", tx)
+            .num("ty", ty)
+            .num("mend", mend),
+        Event::Hit { x, y, big } => o("hit").num("x", x).num("y", y).num("big", big),
+        Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
+    }
+    .done()
 }
 
 impl Game {

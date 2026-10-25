@@ -60,75 +60,65 @@ fn keys<T>(xs: &[T], key: impl Fn(&T) -> &'static str) -> String {
     array(xs.iter().map(|x| quote(key(x))))
 }
 
-fn proj(p: Option<ProjKind>) -> &'static str {
-    match p {
-        Some(ProjKind::Bolt) => "\"bolt\"",
-        Some(ProjKind::Shell) => "\"shell\"",
-        Some(ProjKind::Missile) => "\"missile\"",
-        None => "null",
+/// A table field as JSON (what `def_struct!` writes for each exported field).
+pub(crate) trait ToJson {
+    fn to_json(&self) -> String;
+}
+impl ToJson for f64 {
+    fn to_json(&self) -> String {
+        self.to_string()
     }
 }
-
-fn req(b: Option<BldgKind>) -> String {
-    b.map_or("null".to_string(), |b| quote(b.def().key))
+impl ToJson for i32 {
+    fn to_json(&self) -> String {
+        self.to_string()
+    }
 }
-
-fn unit(d: &UnitDef) -> String {
-    Obj::new()
-        .str("name", d.name)
-        .num("worker", d.worker)
-        .num("shields", d.shields)
-        .raw("cost", array(d.cost))
-        .num("supply", d.supply)
-        .num("hp", d.hp)
-        .num("armor", d.armor)
-        .num("speed", d.speed)
-        .num("range", d.range)
-        .num("dmg", d.dmg)
-        .num("dmgAir", d.dmg_air)
-        .num("cd", d.cd)
-        .num("sight", d.sight)
-        .num("r", d.r)
-        .num("build", d.build)
-        .num("melee", d.melee)
-        .raw("proj", proj(d.proj))
-        .num("air", d.air)
-        .num("bio", d.bio)
-        .num("heal", d.heal)
-        .num("mend", d.mend)
-        .raw("req", req(d.req))
-        .num("upDmg", d.up_dmg)
-        .done()
+impl ToJson for bool {
+    fn to_json(&self) -> String {
+        self.to_string()
+    }
 }
-
-fn bldg(d: &BldgDef) -> String {
-    Obj::new()
-        .str("name", d.name)
-        .str("short", d.short)
-        .num("hq", d.hq)
-        .num("shields", d.shields)
-        .num("needsPower", d.needs_power)
-        .num("power", d.power)
-        .raw("researches", keys(d.researches, |u| u.def().key))
-        .raw("cost", array(d.cost))
-        .num("w", d.w)
-        .num("h", d.h)
-        .num("hp", d.hp)
-        .num("armor", d.armor)
-        .num("supply", d.supply)
-        .num("build", d.build)
-        .num("sight", d.sight)
-        .raw("trains", keys(d.trains, |u| u.def().key))
-        .num("dropoff", d.dropoff)
-        .num("onVent", d.on_vent)
-        .raw("req", req(d.req))
-        .num("range", d.range)
-        .num("dmg", d.dmg)
-        .num("dmgAir", d.dmg_air)
-        .num("cd", d.cd)
-        .raw("proj", proj(d.proj))
-        .num("upDmg", d.up_dmg)
-        .done()
+impl ToJson for &'static str {
+    fn to_json(&self) -> String {
+        quote(self)
+    }
+}
+impl ToJson for [i32; 2] {
+    fn to_json(&self) -> String {
+        array(self)
+    }
+}
+impl ToJson for Option<ProjKind> {
+    fn to_json(&self) -> String {
+        match self {
+            Some(ProjKind::Bolt) => "\"bolt\"",
+            Some(ProjKind::Shell) => "\"shell\"",
+            Some(ProjKind::Missile) => "\"missile\"",
+            None => "null",
+        }
+        .to_string()
+    }
+}
+impl ToJson for Option<BldgKind> {
+    fn to_json(&self) -> String {
+        self.map_or("null".to_string(), |b| quote(b.def().key))
+    }
+}
+impl ToJson for &'static [UnitKind] {
+    fn to_json(&self) -> String {
+        keys(self, |u| u.def().key)
+    }
+}
+impl ToJson for &'static [Upgrade] {
+    fn to_json(&self) -> String {
+        keys(self, |u| u.def().key)
+    }
+}
+impl ToJson for Option<Weapon> {
+    fn to_json(&self) -> String {
+        self.map_or("null".to_string(), |w| w.to_json())
+    }
 }
 
 fn upgrade(d: &UpgradeDef) -> String {
@@ -189,11 +179,11 @@ pub fn data_json() -> String {
         .raw("consts", consts)
         .raw(
             "units",
-            map(UNIT_KINDS.map(|k| (k.def().key, unit(k.def())))),
+            map(UNIT_KINDS.map(|k| (k.def().key, k.def().to_json()))),
         )
         .raw(
             "buildings",
-            map(BLDG_KINDS.map(|k| (k.def().key, bldg(k.def())))),
+            map(BLDG_KINDS.map(|k| (k.def().key, k.def().to_json()))),
         )
         .raw(
             "upgrades",

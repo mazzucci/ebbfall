@@ -458,3 +458,22 @@ fn messages_name_each_races_own_buildings() {
         assert_eq!(err, format!("Research happens at a finished {hall}"));
     }
 }
+
+#[test]
+fn every_weapon_in_the_tables_can_hit_something() {
+    // `armed()` is "has a weapon": a weapon that hits neither ground nor air would make an unarmed unit pick fights.
+    let units = UNIT_KINDS.iter().map(|k| (k.def().key, k.def().weapon));
+    let bldgs = BLDG_KINDS.iter().map(|k| (k.def().key, k.def().weapon));
+    for (key, w) in units.chain(bldgs) {
+        if let Some(w) = w {
+            assert!(
+                w.dmg > 0.0 || w.dmg_air > 0.0,
+                "{key}: a weapon with no damage"
+            );
+            assert!(
+                w.range > 0.0 && w.cd > 0.0,
+                "{key}: a weapon needs reach and a fire rate"
+            );
+        }
+    }
+}

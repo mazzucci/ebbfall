@@ -122,15 +122,17 @@ impl World {
             }
         }
         let b = self.bm(bid).unwrap();
-        if d.range > 0.0 && b.cd <= 0.0 {
+        if let Some(w) = d.weapon
+            && b.cd <= 0.0
+        {
             let (bx, by, team) = (b.x, b.y, b.team);
             if let Some(t) = self.find_target(
                 bx,
                 by,
                 team,
-                d.range * TILE,
+                w.range * TILE,
                 false,
-                (d.dmg > 0.0, d.dmg_air > 0.0),
+                w.hits(),
                 false, // (buildings stand on the ground)
             ) {
                 let (tx, ty) = self.geo(t).unwrap().center();

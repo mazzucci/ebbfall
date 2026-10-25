@@ -637,7 +637,7 @@ impl World {
             u.flash -= dt;
             let d = u.kind.def();
             Fighter {
-                range: d.range * TILE,
+                range: d.weapon.map_or(0.0, |w| w.range) * TILE,
                 combat: d.threat(),
                 team: u.team,
                 r: u.r,

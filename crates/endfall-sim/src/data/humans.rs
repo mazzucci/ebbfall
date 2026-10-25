@@ -40,12 +40,15 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     cost: [50, 0],
     hp: 40.0,
     speed: 96.0,
-    range: 0.6,
-    dmg: 4.0,
-    cd: 1.0,
     sight: 7.0,
     build: 12.0,
-    melee: true,
+    weapon: Some(Weapon {
+        range: 0.6,
+        dmg: 4.0,
+        cd: 1.0,
+        melee: true,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const TROOPER: UnitDef = UnitDef {
@@ -54,14 +57,17 @@ pub(super) const TROOPER: UnitDef = UnitDef {
     cost: [50, 0],
     hp: 48.0,
     speed: 92.0,
-    range: 4.5,
-    dmg: 7.0,
-    dmg_air: 7.0,
-    cd: 0.8,
     build: 15.0,
-    proj: Some(ProjKind::Bolt),
     bio: true,
-    up_dmg: 1.0,
+    weapon: Some(Weapon {
+        range: 4.5,
+        dmg: 7.0,
+        dmg_air: 7.0,
+        cd: 0.8,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const VANGUARD: UnitDef = UnitDef {
@@ -72,17 +78,20 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
     hp: 170.0,
     armor: 2.0,
     speed: 68.0,
-    range: 6.0,
-    dmg: 30.0,
-    cd: 1.7,
     sight: 9.0,
     r: 14.0,
     build: 28.0,
-    proj: Some(ProjKind::Shell),
-    up_dmg: 3.0,
     req: Some(BldgKind::Forge),
-    splash: SHELL_SPLASH,
-    splash_r: SHELL_SPLASH_R,
+    weapon: Some(Weapon {
+        range: 6.0,
+        dmg: 30.0,
+        cd: 1.7,
+        proj: Some(ProjKind::Shell),
+        up_dmg: 3.0,
+        splash: SHELL_SPLASH,
+        splash_r: SHELL_SPLASH_R,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const LANCER: UnitDef = UnitDef {
@@ -91,15 +100,18 @@ pub(super) const LANCER: UnitDef = UnitDef {
     cost: [75, 25],
     hp: 60.0,
     speed: 88.0,
-    range: 6.0,
-    dmg: 5.0,
-    dmg_air: 30.0,
-    cd: 1.2,
     sight: 9.0,
     build: 18.0,
-    proj: Some(ProjKind::Missile),
     bio: true,
-    up_dmg: 2.0,
+    weapon: Some(Weapon {
+        range: 6.0,
+        dmg: 5.0,
+        dmg_air: 30.0,
+        cd: 1.2,
+        proj: Some(ProjKind::Missile),
+        up_dmg: 2.0,
+        ..W
+    }),
     ..UNIT
 };
 pub(super) const MEDIC: UnitDef = UnitDef {
@@ -121,15 +133,18 @@ pub(super) const WASP: UnitDef = UnitDef {
     supply: 2,
     hp: 100.0,
     speed: 150.0,
-    range: 3.0,
-    dmg: 9.0,
-    cd: 0.7,
     sight: 9.0,
     r: 10.0,
     build: 24.0,
-    proj: Some(ProjKind::Bolt),
     air: true,
-    up_dmg: 1.0,
+    weapon: Some(Weapon {
+        range: 3.0,
+        dmg: 9.0,
+        cd: 0.7,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
+        ..W
+    }),
     ..UNIT
 };
 /// A cheap unarmed flying scout: fast, sees far, flies over cliffs. (No cloak and no detection: it is simply small
@@ -140,8 +155,6 @@ pub(super) const OBSERVER: UnitDef = UnitDef {
     cost: [25, 25],
     hp: 40.0,
     speed: 175.0,
-    range: 0.0,
-    dmg: 0.0,
     sight: 10.0,
     r: 8.0,
     build: 14.0,
@@ -220,12 +233,15 @@ pub(super) const TURRET: BldgDef = BldgDef {
     build: 20.0,
     sight: 9.0,
     req: Some(BldgKind::Barracks),
-    range: 7.0,
-    dmg: 18.0,
-    dmg_air: 26.0,
-    cd: 1.1,
-    proj: Some(ProjKind::Bolt),
-    up_dmg: 2.0,
+    weapon: Some(Weapon {
+        range: 7.0,
+        dmg: 18.0,
+        dmg_air: 26.0,
+        cd: 1.1,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 2.0,
+        ..W
+    }),
     ..BLDG
 };
 pub(super) const AIRFIELD: BldgDef = BldgDef {

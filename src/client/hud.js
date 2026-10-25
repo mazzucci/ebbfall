@@ -61,8 +61,9 @@ const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-l
 function fightStats(x) {
   const up = G.upgrades[x.team], bonus = (UP_DMG[x.type] || 0) * effectLevel(up, 'weapons');
   let h = '';
-  if (x.d.dmg && !x.d.worker) h += stat('dmg', x.d.dmg, bonus, 'Damage against ground');
-  if (x.d.dmgAir) h += stat('air', x.d.dmgAir, bonus, 'Damage against flyers');
+  const wp = x.d.weapon;
+  if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
+  if (wp?.dmgAir) h += stat('air', wp.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends shields (per second)' : 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');
   return h;
@@ -119,7 +120,7 @@ function renderSelection() {
     } else if (x.kind === 'bldg' && own && x.queue.length) {
       module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>');
       renderQueue($('queue'), x, 30);
-    } else if (x.kind === 'unit' || x.d.dmg || x.d.dmgAir) {
+    } else if (x.kind === 'unit' || x.d.weapon) {
       const h = fightStats(x); module('f' + h, h);
     } else module('', '');
   } else {
@@ -202,7 +203,7 @@ export function cardItems() {
     at(5, adv ? { ...back, id: 'build1' } : back);
   } else if (units.length) {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
-    const canShoot = units.some(u => u.d.dmg > 0 || u.d.dmgAir > 0); // (no Attack for an Observer or Medics)
+    const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
     const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // the Vael regenerate shields instead
     if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }

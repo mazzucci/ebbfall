@@ -48,7 +48,9 @@ pub struct World {
     pub sup: [[i32; 2]; 2],
     pub explored: [Vec<u8>; 2],
     pub vis: [Vec<u8>; 2],
-    /// Tiles where each team reveals the other's cloaked units (from `update_fog`, like `vis`).
+    /// Tiles where each team reveals the other's cloaked units (from `update_fog`, like `vis`). Rebuilt at the end of each
+    /// step, so the next step's units act on it (a detector lost this tick still counts once); derived from the world,
+    /// so not hashed.
     pub det: [Vec<u8>; 2],
     pub over: bool,
     pub winner: i32,

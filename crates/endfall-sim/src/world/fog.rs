@@ -15,10 +15,11 @@ impl World {
                 marks.push((b.x, b.y, if b.done { b.kind.def().sight } else { 3.0 }));
             }
             for (x, y, s) in marks {
-                for i in disc(x, y, s) {
-                    self.vis[team][i] = 1;
-                    self.explored[team][i] = 1;
-                }
+                let (vis, explored) = (&mut self.vis[team], &mut self.explored[team]);
+                disc(x, y, s, |i| {
+                    vis[i] = 1;
+                    explored[i] = 1;
+                });
             }
             // Detection: where this team's detectors (finished, and powered if they need it) reveal cloaked units.
             self.det[team].fill(0);
@@ -40,9 +41,8 @@ impl World {
                 }
             }
             for (x, y, s) in detectors {
-                for i in disc(x, y, s) {
-                    self.det[team][i] = 1;
-                }
+                let det = &mut self.det[team];
+                disc(x, y, s, |i| det[i] = 1);
             }
         }
     }
@@ -85,21 +85,19 @@ impl World {
     }
 }
 
-/// The map tiles (indices) within `s` tiles of world point (x, y), by tile centre.
-fn disc(x: f64, y: f64, s: f64) -> Vec<usize> {
+/// Each map tile (index) within `s` tiles of world point (x, y), by tile centre.
+fn disc(x: f64, y: f64, s: f64, mut each: impl FnMut(usize)) {
     let (cx, cy, s2) = (x / TILE, y / TILE, s * s);
     let y0 = jsmath::to_i32(cy - s).max(0);
     let y1 = jsmath::to_i32(cy + s).min(MH - 1);
     let x0 = jsmath::to_i32(cx - s).max(0);
     let x1 = jsmath::to_i32(cx + s).min(MW - 1);
-    let mut out = Vec::new();
     for ty in y0..=y1 {
         for tx in x0..=x1 {
             let (dx, dy) = (tx as f64 + 0.5 - cx, ty as f64 + 0.5 - cy);
             if dx * dx + dy * dy <= s2 {
-                out.push(idx(tx, ty));
+                each(idx(tx, ty));
             }
         }
     }
-    out
 }

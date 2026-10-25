@@ -182,7 +182,7 @@ function touchTap(wx, wy, at) {
   if (ui.place || ui.mode) { leftAction(wx, wy, false); return; }
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); let hit = pick(wx, wy);
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
-  const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead);
+  const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
   if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
   // (Not a bare vent: the worker there is likely building its refinery, and a tap should still pick it.)

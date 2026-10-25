@@ -23,7 +23,12 @@ fn lancer_and_observer(w: &mut World) -> (Id, Id) {
 fn an_observer_is_unseen_and_untouchable_until_detected() {
     let mut w = rich(13);
     let (lancer, obs) = lancer_and_observer(&mut w);
-    assert!(!w.seen_by(PLAYER, obs), "unseen");
+    let (otx, oty) = World::tile_of(U(&w, obs).x, U(&w, obs).y);
+    assert!(
+        w.vis[PLAYER as usize][endfall_sim::map::idx(otx, oty)] != 0,
+        "its spot is in sight"
+    );
+    assert!(!w.seen_by(PLAYER, obs), "unseen: the cloak hides it");
     assert!(w.seen_by(ENEMY, obs), "its own side sees it");
     w.attack_ent(lancer, obs);
     assert!(

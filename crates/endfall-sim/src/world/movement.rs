@@ -234,12 +234,15 @@ impl World {
                 if o == id {
                     continue;
                 }
-                let (ox, oy, or, ohold, oair) = {
+                let (ox, oy, or, ohold, oair, unseen) = {
                     let o = self.hashed(o).unwrap();
-                    (o.x, o.y, o.r, firm(o), o.kind.def().air)
+                    let me = &self.units[i];
+                    let unseen = o.team != me.team
+                        && (self.cloaked_from(me.team, o) || self.cloaked_from(o.team, me));
+                    (o.x, o.y, o.r, firm(o), o.kind.def().air, unseen)
                 };
-                if air != oair {
-                    continue; // flyers and walkers do not bump into each other
+                if air != oair || unseen {
+                    continue; // flyers and walkers do not bump into each other, nor anything into what it cannot see
                 }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);

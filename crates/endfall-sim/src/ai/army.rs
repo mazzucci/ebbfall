@@ -71,7 +71,7 @@ impl World {
             let prey = self
                 .units
                 .iter()
-                .filter(|o| o.team == self.foe() && o.kind.def().worker && self.ai_sees(o.x, o.y))
+                .filter(|o| o.team == self.foe() && o.kind.def().worker && self.ai_sees_unit(o))
                 .min_by(|a, b| {
                     dist(a.x, a.y, ux, uy)
                         .partial_cmp(&dist(b.x, b.y, ux, uy))

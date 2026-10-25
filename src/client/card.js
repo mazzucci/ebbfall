@@ -1,7 +1,8 @@
 // The command card: the buttons for what is selected (orders, the Build pages, training, research), the long-press
 // details on touch, and what a button does (doCommand).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
-import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection } from './ui.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, TILE, canPlace, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection, touchUi } from './ui.js';
+import { cam, view } from './gl/render.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
 import { sfx } from './audio.js';
 import { icon, portrait } from './icons.js';
@@ -163,6 +164,17 @@ const researching = (bs) => bs.find(o => o.research);
 /** The one with the longest queue (a Cancel takes its last unit). */
 const mostBusy = (bs) => bs.slice().sort((p, q) => q.queue.length - p.queue.length || p.id - q.id)[0];
 
+/** On a touch screen (no hover to show it), where a building's ghost first stands: the buildable spot nearest the
+ *  middle of the view, else the middle itself (red). A tap places it there or anywhere else, as before. */
+function firstSpot(k) {
+  const d = BUILDINGS[k], cx = Math.floor((cam.x + view.w / cam.zoom / 2) / TILE - d.w / 2), cy = Math.floor((cam.y + view.h / cam.zoom / 2) / TILE - d.h / 2);
+  for (let r = 0; r <= 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // (ring by ring, nearest first)
+    if (canPlace(k, cx + dx, cy + dy, G.me)) return { tx: cx + dx, ty: cy + dy };
+  }
+  return { tx: cx, ty: cy };
+}
+
 export function doCommand(id) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   if (id === 'deselect') { setSelection([]); ui.box = false; setBox(); updateHud(); return; }
@@ -177,7 +189,7 @@ export function doCommand(id) {
     const k = id.slice(2);
     if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
     if (!canAfford(G.me, BUILDINGS[k].cost)) { toast('Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether'), true); return; }
-    ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
+    ui.place = { type: k, tx: -99, ty: -99, ...(touchUi ? firstSpot(k) : {}) }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) toast(err, true); return; } // (the cast event plays its sound)
   if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) toast(err, true); else sfx('build'); return; }

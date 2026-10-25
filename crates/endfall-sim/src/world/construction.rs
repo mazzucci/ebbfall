@@ -232,9 +232,11 @@ impl World {
             .filter(|o| Some(o.id) != builder && o.task == (Task::Build { b }))
             .map(|o| o.id)
             .collect();
-        // The crew of a new Extractor starts mining its ether; other builders go back to their work.
+        // A new Extractor is mined by one worker, the one that finished it (early on a player may want everyone
+        // else on shards); any other builders go back to their work.
+        let miner = builder.or(others.first().copied());
         for o in others.into_iter().chain(builder) {
-            if !vent.is_some_and(|v| self.start_gather(o, v)) {
+            if Some(o) != miner || !vent.is_some_and(|v| self.start_gather(o, v)) {
                 self.resume_after(o);
             }
         }
@@ -245,10 +247,10 @@ impl World {
         }
     }
 
-    /// A person's new refinery gets its crew: the nearest shard workers (empty-handed first, within 15 tiles) switch
-    /// to its vent until three mine there. The AI balances its own ether workers.
+    /// A person's new refinery gets one worker if none mines it yet (the Vael's planter has already left): the nearest
+    /// shard worker (empty-handed first, within 15 tiles). More are the player's choice. The AI balances its own.
     fn crew_refinery(&mut self, team: u8, vent: Id, b: Id) {
-        const CREW: usize = 3;
+        const CREW: usize = 1;
         let (bx, by) = self.bldg(b).map(|r| (r.x, r.y)).unwrap();
         let mining_here = self
             .units

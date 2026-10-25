@@ -140,9 +140,9 @@ export function buildCard() {
     });
     b.addEventListener('pointerleave', () => clearTimeout(press.timer)); // slid off before the details showed
     b.addEventListener('contextmenu', ev => ev.preventDefault()); // (the long-press menu of the browser)
-    b.addEventListener('click', () => {
+    b.addEventListener('click', (ev) => {
       if (press.held === it.id) { press.held = ''; return; } // a long-press shows the details; it does not press the button
-      hideDetail(); doCommand(it.id); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
+      hideDetail(); doCommand(it.id, ev.shiftKey ? 5 : 1); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
     });
     c.appendChild(b);
   }
@@ -207,7 +207,7 @@ function refuse(id, err) {
   cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }
 
-export function doCommand(id) {
+export function doCommand(id, times = 1) {
   const sel = playerSel(); const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   if (id === 'deselect') { setSelection([]); ui.box = false; setBox(); updateHud(); return; }
   if (id === 'esc' && ui.mode === 'build2') { ui.mode = 'build'; return; } // Esc on the advanced page: back to the basic one
@@ -224,7 +224,16 @@ export function doCommand(id) {
     ui.place = { type: k, tx: -99, ty: -99, ...(touchUi ? firstSpot(k) : {}) }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return;
   }
   if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) refuse(id, err); return; } // (the cast event plays its sound)
-  if (id.startsWith('t_')) { const b = bl.length && leastBusy(bl); if (!b) return; const err = queueUnit(b, id.slice(2)); if (err) refuse(id, err); else sfx('build'); return; }
+  if (id.startsWith('t_')) { // (`times`: Shift queues five, spread over the selected factories as it goes)
+    let queued = 0;
+    for (let i = 0; i < times; i++) {
+      const b = bl.length && leastBusy(bl); if (!b) break;
+      const err = queueUnit(b, id.slice(2)); if (err) { if (!queued) refuse(id, err); break; }
+      queued++;
+    }
+    if (queued) sfx('build');
+    return;
+  }
   if (id === 'resume') {
     const b = bl[0]; if (!b || b.done) return;
     const hs = G.units.filter(u => u.team === G.me && u.d.worker).sort((p, q) => (p.task.t === 'build') - (q.task.t === 'build') || dist(p, b) - dist(q, b));

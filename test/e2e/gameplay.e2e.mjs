@@ -1275,6 +1275,14 @@ test('the end card says what killed most of your units, and what beats it', asyn
     assert.match(why, /Most of your losses: to Monoliths \(2\)/, why);
     assert.match(why, /beat Monoliths/, 'and what beats them');
     assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
+test('desktop: Shift+click on a unit queues five (Shift+its key too)', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(2000, 0);
+    const core = coreOf(await d.state());
+    await d.clickEntity(core.id);
+    await d.page.locator('#cmd button', { hasText: 'Harvester' }).click({ modifiers: ['Shift'] });
+    assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 5, 'five Harvesters queued');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

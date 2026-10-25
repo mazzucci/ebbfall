@@ -75,7 +75,10 @@ function endGame() {
 $('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; showMenu(); }); // back to the menu: a new map, or the same opponent again
 initScreen(); initLeaveDialog(); initTools();
 // Turned upright mid-game: pause (the rotate card covers the screen), so turning back shows Resume, not a game that ran on.
-upright.addEventListener('change', () => { if (blockedUpright() && started && !overlay() && !paused() && !G.over) togglePause(); });
+let pausedUpright = false;
+upright.addEventListener('change', () => { if (blockedUpright() && started && !overlay() && !paused() && !G.over) { togglePause(); pausedUpright = true; } });
+// Choosing to play upright anyway resumes a game the turn paused (one tap, not two).
+$('btnUpright').addEventListener('click', () => { if (pausedUpright && paused()) togglePause(); pausedUpright = false; });
 initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });

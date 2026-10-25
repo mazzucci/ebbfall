@@ -36,7 +36,7 @@ export function selectIdle() {
   const u = idle[idleIndex++ % idle.length]; choose([u]); centerOn(u.x, u.y);
 }
 /** Select every combat unit. */
-export function selectArmy() { const a = army(); if (!a.length) { toast('No army yet'); return; } choose(a); }
+export function selectArmy() { const a = army(); if (!a.length) { toast('No army'); return; } choose(a); }
 /** Select all of our units of the same type that are on screen (double-click / double-tap). */
 export function selectSameType(u, add = false) {
   const x1 = cam.x + view.w / cam.zoom, y1 = cam.y + view.h / cam.zoom;

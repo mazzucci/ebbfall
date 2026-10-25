@@ -372,7 +372,7 @@ impl World {
                 && !self.powered_at(team, cx, cy)
             {
                 return Err(format!(
-                    "Needs power: place it near a {}",
+                    "Needs power: place it in a power field (near a {})",
                     self.power_name(team)
                 ));
             }

@@ -672,7 +672,7 @@ test('phone held upright: a card asks to turn it, the game pauses, and turning b
     await d.page.setViewportSize({ width: 390, height: 844 });
     await d.page.locator('#btnUpright').tap();
     assert.ok(await d.page.locator('#rotate').isHidden(), 'the card goes');
-    await d.page.locator('#btnResume').tap();
+    assert.ok(await d.page.locator('#pause').isHidden(), 'and the game the turn paused resumes (one tap)');
     const t1 = await d.eval(() => endfall.G.time);
     await d.page.waitForFunction((t1) => endfall.G.time > t1, t1, { timeout: 5000 }); // the game runs upright
     assert.deepEqual(d.errors, []);

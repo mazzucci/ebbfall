@@ -53,6 +53,7 @@ impl World {
                     .filter(|&up| {
                         here.contains(&up)
                             && (if up.levels() == 1 { techs } else { levels_due })
+                            && self.tech_of_use(e, &my_b, up)
                             && self.upgrades[e as usize][up.index()] < up.levels()
                             && !busy(self, up)
                     })
@@ -89,5 +90,22 @@ impl World {
         }
 
         brain.saving = saving;
+    }
+
+    /// Whether a tech would serve this side now: an ability's only once a building of its own that trains a unit
+    /// with that ability stands (no Cloaking Field before an Airfield); anything else always.
+    fn tech_of_use(&self, e: u8, my_b: &[Id], up: Upgrade) -> bool {
+        let Effect::Unlock(ab) = up.def().effect else {
+            return true;
+        };
+        my_b.iter().filter_map(|&id| self.bldg(id)).any(|b| {
+            b.team == e
+                && b.done
+                && b.kind
+                    .def()
+                    .trains
+                    .iter()
+                    .any(|k| k.def().abilities.contains(&ab))
+        })
     }
 }

@@ -89,6 +89,7 @@ const CLOAK: AbilityDef = AbilityDef {
 const VEIL: AbilityDef = AbilityDef {
     key: "veil",
     name: "Veil",
+    toggle: false,
     ..CLOAK
 };
 

@@ -47,13 +47,22 @@ impl World {
         }
     }
 
+    /// Whether unit `u` is cloaked: always (an Observer), or for now (a Cloak or Veil running).
+    pub fn is_cloaked(u: &Unit) -> bool {
+        u.kind.def().cloaked
+            || u.boost
+                .is_some_and(|(k, _)| matches!(k.def().effect, AbilityEffect::Cloak { .. }))
+    }
+
+    /// Whether `team` detects the tile under world point (x, y).
+    pub fn detects(&self, team: u8, x: f64, y: f64) -> bool {
+        let (tx, ty) = World::tile_of(x, y);
+        self.det[team as usize][idx(tx, ty)] != 0
+    }
+
     /// Whether unit `u` is hidden from `team`: cloaked, another team's, and outside its detection.
     pub fn cloaked_from(&self, team: u8, u: &Unit) -> bool {
-        let (tx, ty) = World::tile_of(u.x, u.y);
-        let cloaked = u.kind.def().cloaked
-            || u.boost
-                .is_some_and(|(k, _)| matches!(k.def().effect, AbilityEffect::Cloak { .. }));
-        u.team != team && cloaked && self.det[team as usize][idx(tx, ty)] == 0
+        u.team != team && World::is_cloaked(u) && !self.detects(team, u.x, u.y)
     }
 
     /// Whether `id` (unit or building) is hidden from `team` by cloak (buildings never are).

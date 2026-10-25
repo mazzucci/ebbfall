@@ -88,7 +88,7 @@ function sync() {
     u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
     // Abilities: seconds of cooldown left per slot (the kind's `abilities` order), the boost and the toggle that are on.
     u.abCd = [U[o + fu.ab_cd0], U[o + fu.ab_cd1]]; u.boost = ABILITY_KEYS[U[o + fu.boost] - 1] || null;
-    u.mode = ABILITY_KEYS[U[o + fu.mode] - 1] || null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.hid = U[o + fu.hid];
+    u.mode = ABILITY_KEYS[U[o + fu.mode] - 1] || null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target];
     u.task = { t };
     if (t === 'gather') { u.task.phase = PHASES[U[o + fu.phase]]; u.task.node = nodes.get(target) || null; }

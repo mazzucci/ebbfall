@@ -246,7 +246,8 @@ impl World {
             };
             // What this side sees around it: the nearest enemy (edge distance) and how many armed enemy units are
             // within 8 tiles (a real fight, not a worker or a building).
-            let (mut nearest, mut armed) = (f64::INFINITY, 0);
+            // Also how many of those (and of its turrets) can hit this unit's layer: what a cloak would hide it from.
+            let (mut nearest, mut armed, mut can_hit_me) = (f64::INFINITY, 0, 0);
             for o in self.nearby(ux, uy, 12.0 * TILE) {
                 if !self.team_of(o).is_some_and(|t| t != team) || !self.seen_by(team, o) {
                     continue;
@@ -257,7 +258,17 @@ impl World {
                 if e < 8.0 * TILE && self.unit(o).is_some_and(|u| u.kind.def().threat()) {
                     armed += 1;
                 }
+                let hurts = self
+                    .unit(o)
+                    .is_some_and(|u| u.kind.def().damage_vs(d.air) > 0.0)
+                    || self
+                        .bldg(o)
+                        .is_some_and(|b| b.done && b.kind.def().damage_vs(d.air) > 0.0);
+                if e < 8.0 * TILE && hurts {
+                    can_hit_me += 1;
+                }
             }
+            let detected = self.detects(1 - team, ux, uy);
             let fight = armed >= 3;
             for &ab in d.abilities {
                 if self.can_cast(uid, ab).is_err() {
@@ -277,8 +288,9 @@ impl World {
                                 .is_some_and(|t| t > reach + 2.0 * TILE && t < (dist + 4.0) * TILE)
                     }
                     // Cloak once engaged with something armed close by (it cannot be shot back unless detected).
+                    // (not where it is detected anyway, nor against what cannot hit it)
                     AbilityEffect::Cloak { .. } => {
-                        armed >= 1 && boost.is_none() && target_d.is_some()
+                        can_hit_me >= 1 && !detected && boost.is_none() && target_d.is_some()
                     }
                     // Only a defender digs in (idle or holding): a wave on the move never leaves one behind.
                     AbilityEffect::Entrench { range, .. } => match mode {

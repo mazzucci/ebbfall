@@ -4,9 +4,21 @@ use super::*;
 
 impl World {
     /// Where the AI thinks the player is: a known core, else any known building, else the next sweep point.
+    /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
+    /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep.
     pub(crate) fn attack_target(&self) -> (f64, f64) {
         let ai = self.ai();
-        if let Some(k) = ai.known.iter().find(|k| k.3).or(ai.known.first()) {
+        let production = |id: Id| {
+            self.bldg(id)
+                .is_some_and(|b| !b.kind.def().trains.is_empty())
+        };
+        if let Some(k) = ai
+            .known
+            .iter()
+            .find(|k| k.3)
+            .or_else(|| ai.known.iter().find(|k| production(k.0)))
+            .or(ai.known.first())
+        {
             return (k.1, k.2);
         }
         self.sweep_point()
@@ -167,7 +179,7 @@ impl World {
         // Research: weapons and armor in turn, starting earlier on harder levels, once any expansion is down.
         // Until it can afford the next level it saves up (no new units), but never while under attack or short
         // of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
-        const SAVE_MAX: f64 = 45.0;
+        const SAVE_MAX: f64 = 30.0;
         let research_from = [600.0, 420.0, 300.0][self.diff];
         let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
         let mut saving = false;
@@ -433,5 +445,32 @@ impl World {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::*;
+    use crate::world::World;
+
+    #[test]
+    fn a_wave_prefers_production_to_a_lone_forward_depot() {
+        // The AI knows a forward Depot first and a Garrison second, not the headquarters: the Garrison is the goal.
+        let mut w = World::new(17, 1);
+        let depot = w.make_building(BldgKind::Depot, PLAYER, 40, 20, true);
+        let rax = w.make_building(BldgKind::Barracks, PLAYER, 12, 40, true);
+        w.ai_turn = ENEMY;
+        let (d, r) = (w.bldg(depot).unwrap().clone(), w.bldg(rax).unwrap().clone());
+        w.ai_mut().known = vec![(depot, d.x, d.y, false), (rax, r.x, r.y, false)];
+        assert_eq!(w.attack_target(), (r.x, r.y));
+        // With its headquarters known, that comes first.
+        let core = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+            .unwrap()
+            .clone();
+        w.ai_mut().known.push((core.id, core.x, core.y, true));
+        assert_eq!(w.attack_target(), (core.x, core.y));
     }
 }

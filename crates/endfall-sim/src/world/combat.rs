@@ -285,10 +285,14 @@ impl World {
                 let level = self.upgrades[team as usize][up.index()] + 1;
                 self.pay(team, up.cost(level), 1);
             }
-            for u in self.units.iter_mut() {
-                if u.task == (Task::Build { b: id }) {
-                    u.task = Task::Idle;
-                }
+            let crew: Vec<Id> = self
+                .units
+                .iter()
+                .filter(|u| u.task == (Task::Build { b: id }))
+                .map(|u| u.id)
+                .collect();
+            for u in crew {
+                self.set_task(u, Task::Idle);
             }
             self.emit(Event::Burst {
                 x: b.x,

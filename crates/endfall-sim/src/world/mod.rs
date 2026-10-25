@@ -630,7 +630,6 @@ impl World {
         })
     }
 
-    /// One unit's tick: its weapon and flash cool down, a healer heals, then its task runs.
     /// A unit's effective stats right now (the one place abilities and modes will change them).
     pub(crate) fn live(&self, uid: Id) -> Live {
         let u = self.u(uid);
@@ -654,6 +653,7 @@ impl World {
         base
     }
 
+    /// One unit's tick: its weapon and flash cool down, a healer heals, then its task runs.
     pub(crate) fn update_unit(&mut self, uid: Id, dt: f64) {
         let u = self.um(uid);
         u.cd -= dt;

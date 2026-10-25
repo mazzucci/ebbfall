@@ -152,8 +152,17 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       else { await d.key('b'); await d.key(hotkey); }
       const w = await ev((t) => endfall.engine.BUILDINGS[t], type);
       const [x, y] = await d.screen((tx + w.w / 2) * 32, (ty + w.h / 2) * 32);
-      if (touch) await d.tapAt(x, y); else { await page.mouse.move(x, y); await page.mouse.click(x, y); }
+      // Touch: the ghost already stands on a spot of its own (a tap on it would place it there), so put it on this
+      // exact spot as a player would: drag it there and let go.
+      if (touch) await d.dragTo(x + 48, y, x, y); else { await page.mouse.move(x, y); await page.mouse.click(x, y); }
       await page.waitForTimeout(80);
+    },
+    /** One finger from (x0, y0) to (x1, y1) in a few steps, then lifted. */
+    async dragTo(x0, y0, x1, y1) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
+      for (let i = 1; i <= 4; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * i / 4, y: y0 + (y1 - y0) * i / 4 }] });
+      await page.waitForTimeout(30); // (a pause before lifting: no glide)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     },
     /** Wait (up to 5 s of real time) until a HUD element's text matches. Returns the text; throws with what it read. */
     async hudText(selector, re) {

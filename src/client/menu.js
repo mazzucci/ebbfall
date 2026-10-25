@@ -3,7 +3,7 @@
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.
-import { mulberry } from '../engine/index.js';
+import { mulberry, mapPreview, MW, MH } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { touchDevice, enterFullscreen, canGoFullscreen } from './screen.js';
@@ -56,6 +56,24 @@ function renderMaps() {
     b.addEventListener('click', () => { choose(i); renderMaps(); sfx('select'); });
     box.appendChild(b);
   });
+  drawPreview();
+}
+
+// The chosen map's thumbnail: rock, fields, vents and the two starts (a Random map: a question mark).
+const PREVIEW = ['#2a3442', '#7d8796', '#4fd1c5', '#a78bfa', '#f5a524'];
+function drawPreview() {
+  const cv = $('mapPreview'), g = cv.getContext('2d'), m = MAPS[menu.map];
+  cv.width = MW; cv.height = MH;
+  if (m.random) {
+    g.fillStyle = PREVIEW[0]; g.fillRect(0, 0, MW, MH);
+    g.fillStyle = '#8294aa'; g.font = `bold ${MH * 0.6}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', MW / 2, MH / 2 + 2);
+    cv.title = 'A new map every time'; return;
+  }
+  const tiles = mapPreview(menu.seed, menu.kind), img = g.createImageData(MW, MH);
+  const rgb = PREVIEW.map(h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)));
+  for (let i = 0; i < tiles.length; i++) img.data.set([...rgb[tiles[i]], 255], i * 4);
+  g.putImageData(img, 0, 0);
+  cv.title = m.name;
 }
 
 /** Reflect audio.muted on the menu and the top bar. */

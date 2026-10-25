@@ -114,9 +114,11 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .diff{display:flex;gap:6px}
 .story{font-size:13px;color:var(--fg);border-left:2px solid var(--ally);padding-left:10px;margin:4px 0 12px} .story b{color:var(--ally2)}
 /* Start menu: one row per choice. */
-.card.menu{max-width:560px} .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+.card.menu{max-width:640px} .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
-#maps{display:flex;gap:6px;flex-wrap:wrap} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
+#maps{display:flex;gap:6px;flex-wrap:wrap}
+.maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}
+#mapPreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
 #btnMenuSound.on{border-color:var(--ally);color:var(--ally2)}
 /* Phones: the first screen, whose tap goes full screen. */
 .splash{display:flex;flex-direction:column;align-items:center;gap:14px;background:none;border:0;color:var(--fg);cursor:pointer;padding:40px 60px}

@@ -26,6 +26,9 @@ impl World {
         if u.swap > 0.0 {
             return Err("Busy entrenching".into());
         }
+        if u.warp > 0.0 {
+            return Err("Still warping in".into());
+        }
         if let AbilityEffect::Boost { hp, .. } = ability.def().effect
             && u.hp <= hp
         {

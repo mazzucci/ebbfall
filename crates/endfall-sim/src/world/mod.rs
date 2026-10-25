@@ -138,6 +138,8 @@ pub struct Unit {
     /// The toggle that is on (Entrench), and the seconds left settling in or packing up (no moving or firing then).
     pub mode: Option<AbilityKind>,
     pub swap: f64,
+    /// Seconds left warping in (a Vael unit sent to a power field): it cannot move, fire or heal, but can be hit.
+    pub warp: f64,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -658,6 +660,10 @@ impl World {
         let u = self.um(uid);
         u.cd -= dt;
         u.flash -= dt;
+        if u.warp > 0.0 {
+            u.warp = (u.warp - dt).max(0.0);
+            return;
+        }
         let c = self.live(uid);
         let task = self.u(uid).task;
         if c.kind.def().heal > 0.0 {
@@ -761,6 +767,9 @@ impl World {
                 }));
                 mix(u.mode.map_or(0, |k| k.index() as i32 + 1));
                 mix(jsmath::to_i32(u.swap * 16.0));
+            }
+            if u.warp > 0.0 {
+                mix(jsmath::to_i32(u.warp * 16.0));
             }
         }
         for b in &self.bldgs {

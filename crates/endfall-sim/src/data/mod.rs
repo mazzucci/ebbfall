@@ -244,6 +244,9 @@ def_struct! {
     }
 }
 
+/// Seconds a unit takes to warp in at a power field (a warping side's factory sending it to its rally point).
+pub const UNIT_WARP: f64 = 2.5;
+
 /// A playable side: its headquarters and worker (the start), and its Build list (basic and advanced pages).
 pub struct Faction {
     pub key: &'static str,
@@ -261,7 +264,8 @@ pub struct Faction {
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings (the Vael regenerate shields instead).
     pub repairs: bool,
-    /// Warp-in: a worker plants a site and is free at once; the building then grows by itself.
+    /// Warp-in: a worker plants a site and is free at once; the building then grows by itself. And a factory's
+    /// new units warp in at its rally point when that is inside one of the side's power fields (`UNIT_WARP` s).
     pub warp: bool,
     /// How the scripted opponent plays this side.
     pub ai: AiScript,

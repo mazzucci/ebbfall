@@ -871,3 +871,34 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: as the Vael, a Kiln whose rally point is in a power field warps its unit in there', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
+  try {
+    await d.grant(2000, 500);
+    const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
+    const lumen = s.units.find(u => u.team === 0 && u.type === 'lumen');
+    const spot = await d.findSpot('kiln', { tx: hq.tx + 1, ty: hq.ty + 1 });
+    await d.buildWithUI('k', 'kiln', spot.tx, spot.ty, lumen.id);
+    const kiln = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'kiln'));
+    await until(d, async () => (await kiln())?.done, { seconds: 90, what: 'the Kiln to finish' });
+    // A rally point in the Conflux's power field (within 6 of its 7 tiles), on open ground away from the Kiln.
+    const k = await kiln(), st = await d.state();
+    const at = [[-150, -120], [150, -150], [-170, 100], [120, 170], [0, -190], [-190, 0]].map(([dx, dy]) => [hq.x + dx, hq.y + dy])
+      .find(([x, y]) => Math.hypot(x - k.x, y - k.y) > 140 && st.nodes.every(n => Math.hypot(n.x - x, n.y - y) > 60) && st.bldgs.every(b => Math.hypot(b.x - x, b.y - y) > 90));
+    assert.ok(at, 'an open spot in the power field');
+    await d.clickEntity(k.id);
+    await d.pressCard('Rally');
+    await d.clickWorld(at[0], at[1]);
+    await d.clickEntity(k.id);
+    await d.pressCard('Scythe');
+    const scythe = () => d.state().then(st => st.units.find(u => u.team === 0 && u.type === 'scythe'));
+    await until(d, async () => !!(await scythe()), { seconds: 40, step: 0.25, what: 'the Scythe' });
+    const u = await scythe();
+    assert.ok(Math.hypot(u.x - at[0], u.y - at[1]) < 64, `it warps in at the rally point: ${u.x},${u.y} vs ${at}`);
+    assert.ok(await d.eval((id) => endfall.G.units.find(x => x.id === id).warp > 0, u.id), 'still warping in');
+    await d.clickEntity(u.id);
+    assert.match(await d.hudText('#selSub', /Warping in/), /Warping in/);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

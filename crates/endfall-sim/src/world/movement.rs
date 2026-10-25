@@ -220,10 +220,12 @@ impl World {
         }
     }
 
-    /// Push overlapping units apart and out of blocked tiles.
+    /// Push overlapping units apart and out of blocked tiles. A unit holding position or warping in stands firm:
+    /// others flow around it.
     pub(crate) fn separate(&mut self) {
+        let firm = |u: &Unit| u.task == Task::Hold || u.warp > 0.0;
         for i in 0..self.units.len() {
-            if self.units[i].task == Task::Hold {
+            if firm(&self.units[i]) {
                 continue;
             }
             let (id, ux, uy) = (self.units[i].id, self.units[i].x, self.units[i].y);
@@ -234,7 +236,7 @@ impl World {
                 }
                 let (ox, oy, or, ohold, oair) = {
                     let o = self.hashed(o).unwrap();
-                    (o.x, o.y, o.r, o.task == Task::Hold, o.kind.def().air)
+                    (o.x, o.y, o.r, firm(o), o.kind.def().air)
                 };
                 if air != oair {
                     continue; // flyers and walkers do not bump into each other

@@ -52,6 +52,7 @@ impl World {
             boost: None,
             mode: None,
             swap: 0.0,
+            warp: 0.0,
         });
         id
     }
@@ -126,10 +127,96 @@ impl World {
         id
     }
 
-    /// A new unit steps out onto a free tile around the building: an uncrowded one if there is any (so a batch stands
-    /// side by side instead of on one spot), nearest the building, towards the rally point (or the far side of the map).
+    /// A new unit from a building: warped in at the rally point (see `warp_spot`), else stepping out beside it.
     pub(crate) fn spawn_from(&mut self, bid: Id, kind: UnitKind) -> Id {
         let b = self.bldg(bid).unwrap().clone();
+        let warp = self.warp_spot(&b, kind);
+        let (x, y) = match warp {
+            Some(at) => at,
+            None => {
+                let f = self.exit_tile(&b, kind);
+                (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0)
+            }
+        };
+        let u = self.make_unit(kind, b.team, x, y);
+        self.stats[b.team as usize].built += 1;
+        self.sfx(b.team, "ready");
+        if warp.is_some() {
+            self.um(u).warp = UNIT_WARP; // already where it was sent
+        } else if let Some(rl) = b.rally {
+            match rl.node {
+                Some(n) if kind.def().worker => {
+                    self.start_gather(u, n);
+                }
+                _ => self.move_to(u, rl.x, rl.y),
+            }
+        } else if kind.def().worker && b.kind.def().dropoff {
+            let (ux, uy) = (self.u(u).x, self.u(u).y);
+            if let Some(nd) = self.nearest_node(ux, uy, b.team, false, 900.0) {
+                self.start_gather(u, nd);
+            }
+        }
+        self.recalc_supply(b.team);
+        u
+    }
+
+    /// Where a warping side's factory (not its headquarters, not a worker) sends a new unit: its rally point (kept
+    /// inside the map) when that is inside one of the side's power fields, on the nearest tile there that is open
+    /// (for a walker) and not under another unit of its layer, so a batch lands side by side.
+    fn warp_spot(&self, b: &Bldg, kind: UnitKind) -> Option<(f64, f64)> {
+        let rl = b.rally?;
+        let d = kind.def();
+        if !self.factions[b.team as usize].warp
+            || d.worker
+            || b.kind.def().hq
+            || rl.node.is_some()
+            || !self.powered_at(b.team, rl.x, rl.y)
+        {
+            return None;
+        }
+        let (rx, ry) = (clamp_x(rl.x), clamp_y(rl.y));
+        let t = Self::tile_of(rx, ry);
+        let centre = |(x, y): (i32, i32)| (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+        // (crowded, distance, y, x): smaller is better.
+        let mut best: Option<(bool, f64, i32, i32)> = None;
+        for y in t.1 - 2..=t.1 + 2 {
+            for x in t.0 - 2..=t.0 + 2 {
+                if !crate::map::in_map(x, y) || (!d.air && self.map.blocked(x, y)) {
+                    continue;
+                }
+                let (cx, cy) = centre((x, y));
+                let key = (self.crowded(x, y, d.air), dist(cx, cy, rx, ry), y, x);
+                if best.is_none_or(|k| {
+                    key.0
+                        .cmp(&k.0)
+                        .then(key.1.partial_cmp(&k.1).unwrap())
+                        .then((key.2, key.3).cmp(&(k.2, k.3)))
+                        .is_lt()
+                }) {
+                    best = Some(key);
+                }
+            }
+        }
+        let k = best?;
+        Some(if (k.3, k.2) == t && !k.0 {
+            (rx, ry)
+        } else {
+            centre((k.3, k.2))
+        })
+    }
+
+    /// Whether a unit of the layer (flyers or walkers) already stands on tile (x, y).
+    fn crowded(&self, x: i32, y: i32, air: bool) -> bool {
+        let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+        self.units
+            .iter()
+            .any(|u| u.kind.def().air == air && dist(u.x, u.y, cx, cy) < 22.0)
+    }
+
+    /// The free tile around the building a new unit steps out onto: an uncrowded one if there is any (so a batch
+    /// stands side by side instead of on one spot), nearest the building, towards the rally point (or the far side of
+    /// the map).
+    fn exit_tile(&self, b: &Bldg, kind: UnitKind) -> (i32, i32) {
         let air = kind.def().air;
         let rf = match b.rally {
             Some(rl) => (rl.x, rl.y),
@@ -137,13 +224,6 @@ impl World {
                 b.x,
                 b.y + MH as f64 * TILE * if b.team != 0 { -1.0 } else { 1.0 },
             ),
-        };
-        let crowd = |w: &World, x: i32, y: i32| {
-            let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
-            w.units
-                .iter()
-                .filter(|u| u.kind.def().air == air && dist(u.x, u.y, cx, cy) < 22.0)
-                .count()
         };
         // (crowded, ring, distance to the rally side, y, x): smaller is better, compared in that order.
         type Spot = (bool, i32, f64, i32, i32);
@@ -157,7 +237,7 @@ impl World {
                         continue; // only the ring r tiles out
                     }
                     let key = (
-                        crowd(self, x, y) > 0,
+                        self.crowded(x, y, air),
                         r,
                         dist(x as f64 * TILE, y as f64 * TILE, rf.0, rf.1),
                         y,
@@ -175,29 +255,6 @@ impl World {
                 }
             }
         }
-        let f = best.map_or((b.tx, b.ty + b.h), |k| (k.4, k.3));
-        let u = self.make_unit(
-            kind,
-            b.team,
-            f.0 as f64 * TILE + 16.0,
-            f.1 as f64 * TILE + 16.0,
-        );
-        self.stats[b.team as usize].built += 1;
-        self.sfx(b.team, "ready");
-        if let Some(rl) = b.rally {
-            match rl.node {
-                Some(n) if kind.def().worker => {
-                    self.start_gather(u, n);
-                }
-                _ => self.move_to(u, rl.x, rl.y),
-            }
-        } else if kind.def().worker && b.kind.def().dropoff {
-            let (ux, uy) = (self.u(u).x, self.u(u).y);
-            if let Some(nd) = self.nearest_node(ux, uy, b.team, false, 900.0) {
-                self.start_gather(u, nd);
-            }
-        }
-        self.recalc_supply(b.team);
-        u
+        best.map_or((b.tx, b.ty + b.h), |k| (k.4, k.3))
     }
 }

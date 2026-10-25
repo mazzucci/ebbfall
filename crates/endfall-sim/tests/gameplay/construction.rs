@@ -521,3 +521,130 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         Err("Supply blocked. Build a Spire.".to_string())
     );
 }
+
+// ---------------- Vael warp-in ----------------
+
+/// A Vael Kiln at (20,30) powered by a Spire beside it, and a forward Spire at (40,30), on open ground.
+fn kiln_and_forward_spire() -> (World, Id, (f64, f64)) {
+    let mut w = rich_vael(5);
+    flatten(&mut w, 12..52, 12..52);
+    w.make_building(BldgKind::Spire, PLAYER, 20, 26, true);
+    let kiln = w.make_building(BldgKind::Kiln, PLAYER, 20, 30, true);
+    let fwd = w.make_building(BldgKind::Spire, PLAYER, 40, 30, true);
+    let at = w.bldg(fwd).map(|f| (f.x + 64.0, f.y)).unwrap();
+    (w, kiln, at)
+}
+
+/// Runs until `kind` appears for the player; returns it.
+fn trained(w: &mut World, kind: UnitKind) -> Id {
+    let before: Vec<Id> = w.units.iter().map(|u| u.id).collect();
+    for _ in 0..30 * 60 {
+        w.step();
+        if let Some(u) = w
+            .units
+            .iter()
+            .find(|u| u.kind == kind && u.team == PLAYER && !before.contains(&u.id))
+        {
+            return u.id;
+        }
+    }
+    panic!("no {kind:?} trained");
+}
+
+#[test]
+fn a_vael_unit_warps_in_at_a_rally_point_inside_a_power_field() {
+    let (mut w, kiln, at) = kiln_and_forward_spire();
+    w.set_rally(kiln, at.0, at.1, None);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    let s = trained(&mut w, UnitKind::Scythe);
+    let u = w.unit(s).unwrap();
+    assert!(
+        ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt() < 2.0 * 32.0,
+        "it appears at the forward field, not at the Kiln: ({}, {})",
+        u.x,
+        u.y
+    );
+    assert!(u.warp > 0.0, "warping in");
+    // While it warps in it does nothing: an order waits, and it cannot cast.
+    let (x0, y0) = (u.x, u.y);
+    w.move_to(s, at.0 + 300.0, at.1);
+    assert!(
+        w.cast(s, AbilityKind::Blink).is_err(),
+        "no casting while warping in"
+    );
+    run(&mut w, 2);
+    let u = w.unit(s).unwrap();
+    assert_eq!((u.x, u.y), (x0, y0), "it does not move while warping in");
+    run(&mut w, 2);
+    let u = w.unit(s).unwrap();
+    assert_eq!(u.warp, 0.0);
+    assert!(u.x > x0 + 32.0, "then it follows its order");
+}
+
+#[test]
+fn units_step_out_beside_the_factory_otherwise() {
+    // Rally outside every power field: beside the Kiln, no warp.
+    let (mut w, kiln, at) = kiln_and_forward_spire();
+    w.set_rally(kiln, at.0 + 12.0 * 32.0, at.1, None);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    let s = trained(&mut w, UnitKind::Scythe);
+    let (k, u) = (w.bldg(kiln).unwrap(), w.unit(s).unwrap());
+    assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
+    assert_eq!(u.warp, 0.0);
+    // The headquarters' workers never warp, even to a powered rally point.
+    let core = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap()
+        .id;
+    let c = w.bldg(core).unwrap();
+    let (cx, cy) = (c.x + 3.0 * 32.0, c.y);
+    w.set_rally(core, cx, cy, None);
+    w.queue_unit(core, UnitKind::Lumen).unwrap();
+    let l = trained(&mut w, UnitKind::Lumen);
+    assert_eq!(w.unit(l).unwrap().warp, 0.0);
+    // Nor do the Humans' units.
+    let mut h = rich(5);
+    flatten(&mut h, 12..52, 12..52);
+    let rax = h.make_building(BldgKind::Barracks, PLAYER, 20, 30, true);
+    let r = h.bldg(rax).unwrap();
+    let (rx, ry) = (r.x + 8.0 * 32.0, r.y);
+    h.set_rally(rax, rx, ry, None);
+    h.queue_unit(rax, UnitKind::Trooper).unwrap();
+    let t = trained(&mut h, UnitKind::Trooper);
+    assert_eq!(h.unit(t).unwrap().warp, 0.0);
+}
+
+#[test]
+fn a_batch_warps_in_side_by_side_and_a_rally_past_the_edge_stays_on_the_map() {
+    let (mut w, kiln, at) = kiln_and_forward_spire();
+    w.set_rally(kiln, at.0, at.1, None);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    let a = trained(&mut w, UnitKind::Scythe);
+    let b = trained(&mut w, UnitKind::Scythe);
+    let (ua, ub) = (w.unit(a).unwrap(), w.unit(b).unwrap());
+    assert!(
+        ((ua.x - ub.x).powi(2) + (ua.y - ub.y).powi(2)).sqrt() >= 30.0,
+        "on separate tiles: ({}, {}) and ({}, {})",
+        ua.x,
+        ua.y,
+        ub.x,
+        ub.y
+    );
+    let (bx, by) = (ub.x, ub.y);
+    run(&mut w, 1);
+    let ub = w.unit(b).unwrap();
+    assert_eq!((ub.x, ub.y), (bx, by), "nobody shoves a unit warping in");
+    // A field reaching past the west edge, and a rally point tapped beyond it.
+    flatten(&mut w, 1..12, 25..36);
+    let edge = w.make_building(BldgKind::Spire, PLAYER, 2, 30, true);
+    let ey = w.bldg(edge).unwrap().y;
+    w.set_rally(kiln, -30.0, ey, None);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    let c = trained(&mut w, UnitKind::Scythe);
+    let uc = w.unit(c).unwrap();
+    assert!(uc.warp > 0.0, "it warps in by the edge");
+    assert!(uc.x >= 16.0, "on the map: {}", uc.x);
+}

@@ -169,6 +169,14 @@ impl World {
         if by.is_some_and(|b| self.team_of(b) != self.team_of(target)) {
             self.alert_attacked(target);
         }
+        // Hit by something it cannot see: an AI side remembers where, for a detector.
+        if let (Some(b), Some(t)) = (by, self.team_of(target))
+            && self.hidden_from(t, b)
+            && let Some(at) = self.geo(target).map(|g| g.center())
+            && let Some(ai) = self.ai[t as usize].as_mut()
+        {
+            ai.cloak_hit = Some(at);
+        }
         if let Some(i) = self.ui(target) {
             let team = self.units[i].team;
             let armor_up = self.effect_level(team, Effect::Armor) as f64;

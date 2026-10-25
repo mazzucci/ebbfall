@@ -257,10 +257,22 @@ impl World {
         let supply_margin =
             d.supply_ahead + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
+        // Hit by something unseen: a detector (its tower) by the spot, unless one stands near it already.
+        let detector_at = self.ai().cloak_hit.filter(|&(x, y)| {
+            !self.bldgs.iter().any(|b| {
+                b.team == e && b.kind.def().detect > 0.0 && dist(b.x, b.y, x, y) < 6.0 * TILE
+            })
+        });
+        if detector_at.is_none() {
+            self.ai_mut().cloak_hit = None;
+        }
         let want = if relight.is_some()
             || (cap - used <= supply_margin && cap < 200 && supply_rising < d.supply_at_once)
         {
             Some(f.supply)
+        } else if detector_at.is_some() && self.has_req(e, s.tower) && !building.contains(&s.tower)
+        {
+            Some(s.tower) // (before the build order: something it cannot see is hurting it)
         } else if (harv.len() >= 7
             && self.ai_count(&my_b, false, f.ether) == 0
             && (ether_early || self.ai_count(&my_b, false, s.rax) >= 1)
@@ -305,8 +317,9 @@ impl World {
                     {
                         at
                     }
-                    _ => match relight {
-                        Some(at) if w == f.supply => at, // by the dark building
+                    _ => match (relight, detector_at) {
+                        (Some(at), _) if w == f.supply => at, // by the dark building
+                        (_, Some((x, y))) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark
                         _ => (cx, cy),
                     },
                 };

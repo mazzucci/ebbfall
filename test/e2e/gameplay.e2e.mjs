@@ -893,9 +893,10 @@ test('phone: as the Vael, a Kiln whose rally point is in a power field warps its
     await d.clickEntity(k.id);
     await d.pressCard('Scythe');
     const scythe = () => d.state().then(st => st.units.find(u => u.team === 0 && u.type === 'scythe'));
-    await until(d, async () => !!(await scythe()), { seconds: 40, step: 0.5, what: 'the Scythe' });
+    await until(d, async () => !!(await scythe()), { seconds: 40, step: 0.25, what: 'the Scythe' });
     const u = await scythe();
     assert.ok(Math.hypot(u.x - at[0], u.y - at[1]) < 64, `it warps in at the rally point: ${u.x},${u.y} vs ${at}`);
+    assert.ok(await d.eval((id) => endfall.G.units.find(x => x.id === id).warp > 0, u.id), 'still warping in');
     await d.clickEntity(u.id);
     assert.match(await d.hudText('#selSub', /Warping in/), /Warping in/);
     assert.deepEqual(d.errors, []);

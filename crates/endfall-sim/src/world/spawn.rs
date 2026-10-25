@@ -160,8 +160,9 @@ impl World {
         u
     }
 
-    /// Where a warping side's factory (not its headquarters, not a worker) sends a new unit: its rally point when
-    /// that is inside one of the side's power fields, onto the nearest open tile there (a flyer exactly on it).
+    /// Where a warping side's factory (not its headquarters, not a worker) sends a new unit: its rally point (kept
+    /// inside the map) when that is inside one of the side's power fields, on the nearest tile there that is open
+    /// (for a walker) and not under another unit of its layer, so a batch lands side by side.
     fn warp_spot(&self, b: &Bldg, kind: UnitKind) -> Option<(f64, f64)> {
         let rl = b.rally?;
         let d = kind.def();
@@ -173,16 +174,43 @@ impl World {
         {
             return None;
         }
-        if d.air {
-            return Some((rl.x, rl.y));
+        let (rx, ry) = (clamp_x(rl.x), clamp_y(rl.y));
+        let t = Self::tile_of(rx, ry);
+        let centre = |(x, y): (i32, i32)| (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+        // (crowded, distance, y, x): smaller is better.
+        let mut best: Option<(bool, f64, i32, i32)> = None;
+        for y in t.1 - 2..=t.1 + 2 {
+            for x in t.0 - 2..=t.0 + 2 {
+                if !crate::map::in_map(x, y) || (!d.air && self.map.blocked(x, y)) {
+                    continue;
+                }
+                let (cx, cy) = centre((x, y));
+                let key = (self.crowded(x, y, d.air), dist(cx, cy, rx, ry), y, x);
+                if best.is_none_or(|k| {
+                    key.0
+                        .cmp(&k.0)
+                        .then(key.1.partial_cmp(&k.1).unwrap())
+                        .then((key.2, key.3).cmp(&(k.2, k.3)))
+                        .is_lt()
+                }) {
+                    best = Some(key);
+                }
+            }
         }
-        let t = Self::tile_of(rl.x, rl.y);
-        let f = self.map.nearest_free(t.0, t.1, 2)?;
-        Some(if f == t {
-            (rl.x, rl.y)
+        let k = best?;
+        Some(if (k.3, k.2) == t && !k.0 {
+            (rx, ry)
         } else {
-            (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0)
+            centre((k.3, k.2))
         })
+    }
+
+    /// Whether a unit of the layer (flyers or walkers) already stands on tile (x, y).
+    fn crowded(&self, x: i32, y: i32, air: bool) -> bool {
+        let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+        self.units
+            .iter()
+            .any(|u| u.kind.def().air == air && dist(u.x, u.y, cx, cy) < 22.0)
     }
 
     /// The free tile around the building a new unit steps out onto: an uncrowded one if there is any (so a batch
@@ -197,13 +225,6 @@ impl World {
                 b.y + MH as f64 * TILE * if b.team != 0 { -1.0 } else { 1.0 },
             ),
         };
-        let crowd = |w: &World, x: i32, y: i32| {
-            let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
-            w.units
-                .iter()
-                .filter(|u| u.kind.def().air == air && dist(u.x, u.y, cx, cy) < 22.0)
-                .count()
-        };
         // (crowded, ring, distance to the rally side, y, x): smaller is better, compared in that order.
         type Spot = (bool, i32, f64, i32, i32);
         let mut best: Option<Spot> = None;
@@ -216,7 +237,7 @@ impl World {
                         continue; // only the ring r tiles out
                     }
                     let key = (
-                        crowd(self, x, y) > 0,
+                        self.crowded(x, y, air),
                         r,
                         dist(x as f64 * TILE, y as f64 * TILE, rf.0, rf.1),
                         y,

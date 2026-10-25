@@ -615,3 +615,36 @@ fn units_step_out_beside_the_factory_otherwise() {
     let t = trained(&mut h, UnitKind::Trooper);
     assert_eq!(h.unit(t).unwrap().warp, 0.0);
 }
+
+#[test]
+fn a_batch_warps_in_side_by_side_and_a_rally_past_the_edge_stays_on_the_map() {
+    let (mut w, kiln, at) = kiln_and_forward_spire();
+    w.set_rally(kiln, at.0, at.1, None);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    let a = trained(&mut w, UnitKind::Scythe);
+    let b = trained(&mut w, UnitKind::Scythe);
+    let (ua, ub) = (w.unit(a).unwrap(), w.unit(b).unwrap());
+    assert!(
+        ((ua.x - ub.x).powi(2) + (ua.y - ub.y).powi(2)).sqrt() >= 30.0,
+        "on separate tiles: ({}, {}) and ({}, {})",
+        ua.x,
+        ua.y,
+        ub.x,
+        ub.y
+    );
+    let (bx, by) = (ub.x, ub.y);
+    run(&mut w, 1);
+    let ub = w.unit(b).unwrap();
+    assert_eq!((ub.x, ub.y), (bx, by), "nobody shoves a unit warping in");
+    // A field reaching past the west edge, and a rally point tapped beyond it.
+    flatten(&mut w, 1..12, 25..36);
+    let edge = w.make_building(BldgKind::Spire, PLAYER, 2, 30, true);
+    let ey = w.bldg(edge).unwrap().y;
+    w.set_rally(kiln, -30.0, ey, None);
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    let c = trained(&mut w, UnitKind::Scythe);
+    let uc = w.unit(c).unwrap();
+    assert!(uc.warp > 0.0, "it warps in by the edge");
+    assert!(uc.x >= 16.0, "on the map: {}", uc.x);
+}

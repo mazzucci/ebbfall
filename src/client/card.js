@@ -116,6 +116,7 @@ export function buildCard() {
     if (!it) { const gap = document.createElement('div'); gap.className = 'cb gap'; c.appendChild(gap); continue; }
     const b = document.createElement('button');
     b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.locked ? ' locked' : '') + (it.badge ? ' badge' : '');
+    b.dataset.id = it.id; // (the guided first game points at buttons by it)
     b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
     b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '') + vsText(it);
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';

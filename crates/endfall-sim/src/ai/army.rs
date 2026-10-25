@@ -3,6 +3,9 @@
 
 use super::*;
 
+/// The longest the guided first game holds the opponent's waves back (s).
+pub const HOLD_WAVES_MAX: f64 = 300.0;
+
 impl World {
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
     /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep.
@@ -229,7 +232,9 @@ impl World {
         let ai = self.ai();
         let need =
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
-        if ai.attacking || army.len() < need || t - ai.last_wave <= d.gap || t <= d.first {
+        let held = self.hold_waves && t < HOLD_WAVES_MAX; // (the guided first game: until the player is ready)
+        let ai = self.ai();
+        if held || ai.attacking || army.len() < need || t - ai.last_wave <= d.gap || t <= d.first {
             return;
         }
         let ai = self.ai_mut();

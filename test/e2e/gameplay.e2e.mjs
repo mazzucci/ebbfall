@@ -1086,3 +1086,34 @@ test('a click on a unit tile selects that unit alone, Shift+click drops it', asy
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', async () => {
+  const d = await newGame(PHONE, 0, 4242, { first: true });
+  try {
+    assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
+    await d.hudText('#tut', /1\/6/);
+    assert.match(await d.page.locator('#tut').textContent(), /train two Harvesters/);
+    // Step 1: the Core, then Harvester twice (the button pulses).
+    await d.grant(1000, 0);
+    const s = await d.state(), core = coreOf(s);
+    await d.clickEntity(core.id);
+    await d.page.waitForTimeout(300);
+    assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Harvester button pulses');
+    await d.pressCard('Harvester'); await d.pressCard('Harvester');
+    await d.skip(30);
+    await d.hudText('#tut', /2\/6/);
+    // Step 2: a Harvester, Build: the Build button pulses; a Depot finishes the step.
+    const h = mine(await d.state(), 'harvester')[0];
+    for (let i = 0; i < 4 && !(await d.selection()).some(e => e.type === 'harvester'); i++) await d.clickEntity(h.id); // (it is on the move)
+    await d.page.waitForTimeout(300);
+    assert.equal(await d.page.locator('#cmd button.pulse').first().getAttribute('data-id'), 'build');
+    const spot = await d.findSpot('depot', { tx: core.tx + 5, ty: core.ty });
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Depot' });
+    await d.hudText('#tut', /3\/6/);
+    // The opponent waits: no wave by 4:40 while the army is not ready.
+    await d.skip(220);
+    assert.equal(await d.eval(() => endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - endfall.G.bldgs.find(b => b.team === 0 && b.d.hq).x, u.y - endfall.G.bldgs.find(b => b.team === 0 && b.d.hq).y) < 500).length), 0, 'no attack yet');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

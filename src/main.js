@@ -10,7 +10,8 @@ import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
 import { setIconButton } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, menu, MAP_KINDS } from './client/menu.js';
+import { initMenu, showMenu, soundChanged, recordResult, setup, menu, MAP_KINDS } from './client/menu.js';
+import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard, upright, blockedUpright } from './client/screen.js';
 
@@ -33,13 +34,15 @@ function showPower() {
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
   $('help').hidden = true;
-  resetGame(menu.seed, menu.diff, menu.kind, menu.side, menu.race, menu.enemyRace);
+  const g = setup(); // (the menu's choices, or the guided first game's)
+  resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace);
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
-  toast(`Mine shards. Build ${aName(BUILDINGS[myFaction().supply].name)} before supply caps.`);
+  startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
+  if (!menu.tutorial) toast(`Mine shards. Build ${aName(BUILDINGS[myFaction().supply].name)} before supply caps.`);
   armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 
@@ -69,14 +72,14 @@ function endGame() {
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = G.conceded === G.me ? 'You conceded after ' + fmt(G.time) + '.' : G.conceded >= 0 ? 'The enemy conceded after ' + fmt(G.time) + '.'
     : win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
-  $('endMap').innerHTML = `<b>${menu.name}</b>: ${MAP_KINDS[menu.kind].story}`; // the map's secret, told at the end
+  $('endMap').innerHTML = `<b>${setup().name}</b>: ${MAP_KINDS[setup().kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
-  recordResult(win, G.factions[G.me], G.diff); // (after the card is up: storage trouble cannot hide it)
+  if (!menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted)
 }
 
 // ---- screens ----
@@ -110,7 +113,7 @@ function loop(now) {
   if (!G.over) ended = false;
   updateFx(el);
   if (started) render(ui.sel, ui.place, showPower());
-  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); } }
+  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
   requestAnimationFrame(loop);
 }
 

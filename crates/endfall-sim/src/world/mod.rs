@@ -51,6 +51,8 @@ pub struct World {
     pub winner: i32,
     /// The seat that conceded (-1: nobody), for the end screen's words.
     pub conceded: i32,
+    /// The guided first game: the scripted opponent sends no wave while this is set (at most `HOLD_WAVES_MAX` s).
+    pub hold_waves: bool,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
     pub stats: [Stats; 2],
     /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
@@ -131,6 +133,7 @@ impl World {
             over: false,
             winner: -1,
             conceded: -1,
+            hold_waves: false,
             stats: [Stats::default(); 2],
             army_log: [Vec::new(), Vec::new()],
             upgrades: [[0; UPGRADES.len()]; 2],
@@ -174,6 +177,7 @@ impl World {
         self.over = false;
         self.winner = -1;
         self.conceded = -1;
+        self.hold_waves = false;
         self.stats = [Stats::default(); 2];
         self.army_log = [Vec::new(), Vec::new()];
         self.upgrades = [[0; UPGRADES.len()]; 2];

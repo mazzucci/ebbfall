@@ -152,6 +152,8 @@ export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
 export const disableAi = () => game.disableAi();
+/** The guided first game: hold the opponent's waves back (5:00 at most), or let them come. */
+export const holdWaves = (on) => game.holdWaves(on);
 /** Give up the game (the end screen then shows a defeat). */
 export const concede = () => touch(game.concede());
 /** Tests and tools only: put a unit on the map; returns its id (0 if refused). */

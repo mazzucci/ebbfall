@@ -995,3 +995,25 @@ fn the_ai_raises_a_capital_unit_late_in_the_game() {
         "a Bastion by 12 minutes"
     );
 }
+
+#[test]
+fn the_guided_first_game_holds_the_first_wave_until_released() {
+    // Easy, with the waves held: no attack before 4:50 even with an army ready; released, the wave goes.
+    let mut w = World::new(4242, 0);
+    w.hold_waves = true;
+    let mut ever = false;
+    for _ in 0..30 * 290 {
+        w.res[ENEMY as usize] = [2000, 500];
+        w.step();
+        w.events.clear();
+        ever |= w.ai_wave().is_some();
+    }
+    assert!(!ever, "no wave while held");
+    w.hold_waves = false;
+    for _ in 0..30 * 60 {
+        w.step();
+        w.events.clear();
+        ever |= w.ai_wave().is_some();
+    }
+    assert!(ever, "the wave goes once released");
+}

@@ -201,6 +201,8 @@ pub struct Proj {
     pub dmg: f64,
     pub kind: ProjKind,
     pub by: Id,
+    /// The shooter's kind as `World::lost_to` counts it, fixed when it was fired (the shooter may die before it lands).
+    pub by_slot: usize,
     pub team: u8,
     /// The shooter's splash (share of the damage, radius in px), fixed when it was fired.
     pub splash: f64,

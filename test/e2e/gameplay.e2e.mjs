@@ -1259,3 +1259,22 @@ test('phone: a unit it cannot pay for shakes its button, with no toast over the 
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('the end card says what killed most of your units, and what beats it', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), at = { x: core.x + 220, y: core.y + 60 };
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'trooper', x, y); endfall.engine.debugSpawn(0, 'trooper', x + 20, y); endfall.engine.debugSpawn(1, 'monolith', x + 60, y); }, [at.x, at.y]);
+    await until(d, () => d.eval(() => endfall.G.units.filter(u => u.team === 0 && u.type === 'trooper').length === 0), { seconds: 30, step: 2, what: 'the Troopers to fall' });
+    await d.page.locator('#btnPause').tap();
+    await d.page.locator('#btnConcede').tap();
+    await d.page.locator('#btnConcede', { hasText: /TAP AGAIN/ }).waitFor();
+    await d.page.locator('#btnConcede').tap();
+    await d.page.locator('#end').waitFor({ state: 'visible' });
+    const why = await d.page.locator('#endWhy').textContent();
+    assert.match(why, /Most of your losses: to Monoliths \(2\)/, why);
+    assert.match(why, /beat Monoliths/, 'and what beats them');
+    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

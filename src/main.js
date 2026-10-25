@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog, lostTo } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -9,7 +9,7 @@ import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
-import { setIconButton } from './client/icons.js';
+import { setIconButton, portrait } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, recordResult, setup, menu, MAP_KINDS } from './client/menu.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
@@ -67,6 +67,21 @@ function drainEvents() {
   G.events.length = 0;
 }
 
+/** The end card's one line on what killed most of this side's units, and what beats the worst of them: where a
+ *  player learns the counters (detail on demand, on the screen built for it). */
+function whatBeatYou() {
+  const kinds = [...Object.keys(UNITS).map(k => ['unit', k]), ...Object.keys(BUILDINGS).map(k => ['bldg', k])];
+  const top = lostTo(G.me).map((n, i) => [n, ...kinds[i]]).filter(([n]) => n > 0).sort((p, q) => q[0] - p[0]).slice(0, 2);
+  const el = $('endWhy'); el.hidden = !top.length; if (!top.length) return;
+  const name = (t, k) => (t === 'unit' ? UNITS : BUILDINGS)[k].name + 's';
+  const pic = (t, k) => portrait(t, k, 22, 1 - G.me);
+  // (only what this side can train: advice it can act on)
+  const f = myFaction(), mine = new Set([...f.buildBasic, ...f.buildAdvanced].flatMap(b => BUILDINGS[b].trains || []).concat(BUILDINGS[f.hq].trains || []));
+  const worst = top[0], beats = worst[1] === 'unit' ? (UNITS[worst[2]].weak || []).filter(k => mine.has(k)) : [];
+  el.innerHTML = `Most of your losses: to ${top.map(([n, t, k]) => `${pic(t, k)}${name(t, k)} (${n})`).join(' and ')}.` +
+    (beats.length ? ` ${beats.slice(0, 2).map(k => name('unit', k)).join(' and ')} beat ${name('unit', worst[2])}.` : '');
+}
+
 function endGame() {
   setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.winner === G.me;
@@ -77,6 +92,7 @@ function endGame() {
   $('endMap').innerHTML = `<b>${setup().name}</b>: ${MAP_KINDS[setup().kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
+  whatBeatYou();
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;

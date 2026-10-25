@@ -165,6 +165,7 @@ impl World {
     }
 
     pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
+        let killer = by.and_then(|b| self.loss_slot(b)).or(self.hit_by_slot);
         let by = by.filter(|&b| self.team_of(b).is_some());
         if by.is_some_and(|b| self.team_of(b) != self.team_of(target)) {
             self.alert_attacked(target);
@@ -197,6 +198,9 @@ impl World {
                 self.answer_fire(i, by);
             }
             if self.units[self.ui(target).unwrap()].hp <= 0.0 {
+                if let Some(slot) = killer.filter(|&s| s != usize::MAX) {
+                    self.count_loss(team, slot);
+                }
                 self.kill(target);
             }
         } else if let Some(i) = self.bi(target) {
@@ -268,6 +272,24 @@ impl World {
                 }
             }
         }
+    }
+
+    /// Where a kill by `by` (a unit or a turret) is counted in `lost_to`; None once it is gone.
+    fn loss_slot(&self, by: Id) -> Option<usize> {
+        match (self.unit(by), self.bldg(by)) {
+            (Some(u), _) => Some(u.kind.index()),
+            (_, Some(b)) => Some(UNIT_KINDS.len() + b.kind.index()),
+            _ => None,
+        }
+    }
+
+    /// One more of `team`'s units lost to what `slot` names, for the end screen.
+    fn count_loss(&mut self, team: u8, slot: usize) {
+        let row = &mut self.lost_to[team as usize];
+        if row.len() <= slot {
+            row.resize(UNIT_KINDS.len() + BLDG_KINDS.len(), 0);
+        }
+        row[slot] += 1;
     }
 
     pub(crate) fn kill(&mut self, id: Id) {
@@ -423,6 +445,7 @@ impl World {
                     dmg,
                     kind,
                     by: shooter,
+                    by_slot: self.loss_slot(shooter).unwrap_or(usize::MAX),
                     team,
                     splash: splash.0,
                     splash_r: splash.1,
@@ -552,12 +575,14 @@ impl World {
                 } else {
                     Vec::new()
                 };
+                self.hit_by_slot = Some(p.by_slot); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
                 for s in splash {
                     if self.unit(s).is_some() {
                         self.damage(s, p.dmg * p.splash, Some(p.by));
                     }
                 }
+                self.hit_by_slot = None;
                 self.emit(Event::Hit {
                     x: tp.0,
                     y: tp.1,

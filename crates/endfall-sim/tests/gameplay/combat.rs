@@ -895,3 +895,42 @@ fn the_army_log_samples_both_sides_every_ten_seconds() {
         "a Vanguard: 125 shards + 75 ether"
     );
 }
+
+#[test]
+fn a_side_that_can_do_nothing_more_has_lost() {
+    // The player's Core and every worker gone, only a Depot left and no fighter: the game ends, the AI wins.
+    let mut w = World::new(13, 1);
+    w.disable_ai();
+    let depot = w.make_building(BldgKind::Depot, PLAYER, 20, 40, true);
+    let doomed: Vec<Id> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == PLAYER && b.id != depot)
+        .map(|b| b.id)
+        .collect();
+    for id in doomed {
+        w.damage(id, 1e9, None);
+    }
+    run(&mut w, 1);
+    assert!(!w.over, "workers left: still in it");
+    // A Trooper keeps it going once the workers are gone too (a fighter can still win the game).
+    let t = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
+    for id in harvesters(&w, PLAYER) {
+        w.damage(id, 1e9, None);
+    }
+    run(&mut w, 1);
+    assert!(!w.over, "a fighter left: still in it");
+    // A Garrison with the shards for a Trooper keeps it going too; spent out, it does not.
+    let rax = w.make_building(BldgKind::Barracks, PLAYER, 26, 40, true);
+    w.res[PLAYER as usize] = [500, 0];
+    w.damage(t, 1e9, None);
+    run(&mut w, 1);
+    assert!(!w.over, "a factory that can still train: still in it");
+    w.res[PLAYER as usize] = [0, 0];
+    w.damage(rax, 1e9, None);
+    run(&mut w, 1);
+    assert!(
+        w.over && w.winner == ENEMY as i32,
+        "nothing left that can act: over"
+    );
+}

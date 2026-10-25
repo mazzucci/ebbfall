@@ -247,7 +247,7 @@ impl World {
         }
         let ai = self.ai_mut();
         ai.last_wave = t;
-        ai.wave += d.wave_grow;
+        ai.wave = (ai.wave + d.wave_grow).min(d.wave_max);
         ai.attacking = true;
         ai.wave_size = army.len();
         // A second prong: with a big enough wave and another enemy base known well away from the goal (an

@@ -112,7 +112,8 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   toasts, sounds and stats are per seat, events carry the seat they are for (`Game::drain_events` passes on its own
   seat's), the scripted opponent plays whichever seats `World::ai_seats` marks (one brain per seat, `World::seat()` /
   `foe()` inside its turn), and `is_ai(team)` is the only difference a seat's player makes (AI income, building in
-  unexplored ground, losing as soon as its buildings are gone).
+  unexplored ground, losing as soon as its buildings are gone; a person's new refinery gets a crew of three, the AI
+  balances its own).
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
 - Costs are `[shards, ether]`.
 - Keep files small and single-purpose; dense one-liners are acceptable in hot loops but not in rules code.

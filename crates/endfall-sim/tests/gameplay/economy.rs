@@ -85,14 +85,19 @@ fn the_builder_of_an_extractor_starts_mining_its_ether() {
         "the builder mines the new Extractor: {:?}",
         w.unit(h[0]).unwrap().task
     );
-    // ... and a builder of anything else goes back to what it was doing.
-    let depot = build(&mut w, BldgKind::Depot, h[1], 90);
+    // ... and a builder of anything else goes back to what it was doing (one still on the shards: the new Rig took
+    // a crew from the others).
+    let h1 = *h
+        .iter()
+        .find(|&&u| !matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent))
+        .unwrap();
+    let depot = build(&mut w, BldgKind::Depot, h1, 90);
     run(&mut w, 1);
     assert!(w.bldg(depot).is_some());
     assert!(
-        matches!(w.unit(h[1]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+        matches!(w.unit(h1).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
         "a Depot's builder goes back to the shards: {:?}",
-        w.unit(h[1]).unwrap().task
+        w.unit(h1).unwrap().task
     );
 }
 
@@ -423,4 +428,40 @@ fn busy_harvesters_only_hop_to_vents_with_their_own_extractor() {
             id == eid
         );
     }
+}
+
+#[test]
+fn a_new_refinery_gets_a_crew_of_three() {
+    let on_vent = |w: &World, v: Id| {
+        w.units
+            .iter()
+            .filter(|u| {
+                u.team == PLAYER && matches!(u.task, Task::Gather { node, .. } if node == v)
+            })
+            .count()
+    };
+    // Humans: the builder and two more; the Vael (whose Lumen plants and leaves): three.
+    for (mut w, kind) in [
+        (rich(5), BldgKind::Extractor),
+        (rich_vael(5), BldgKind::Siphon),
+    ] {
+        run(&mut w, 3); // everyone mining shards
+        let worker = harvesters(&w, PLAYER)[0];
+        let b = build(&mut w, kind, worker, 120);
+        let vent = w.bldg(b).unwrap().vent.unwrap();
+        assert_eq!(
+            on_vent(&w, vent),
+            3,
+            "{kind:?}: three workers sent to the new refinery"
+        );
+    }
+    // An AI seat balances its own ether workers: nothing is sent for it.
+    let mut w = rich(5);
+    w.set_ai_seats([true, true]);
+    w.disable_ai();
+    run(&mut w, 3);
+    let worker = harvesters(&w, PLAYER)[0];
+    let b = build(&mut w, BldgKind::Extractor, worker, 120);
+    let vent = w.bldg(b).unwrap().vent.unwrap();
+    assert_eq!(on_vent(&w, vent), 1, "only the AI's builder");
 }

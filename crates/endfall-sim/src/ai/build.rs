@@ -64,11 +64,13 @@ impl World {
     /// The nearest harvester that is free to build: not carrying, not already building, not just failed to reach a site.
     pub(crate) fn free_builder(&self, harv: &[Id], x: f64, y: f64) -> Option<Id> {
         let mut best: Option<(f64, Id)> = None;
+        let scout = self.ai().scout; // (out on its errand: it would never come back to build)
         for &h in harv {
             let u = self.unit(h).unwrap();
             if matches!(u.task, Task::Build { .. } | Task::Repair { .. })
                 || u.carry != 0
                 || u.no_build_until > self.time
+                || Some(h) == scout
             {
                 continue;
             }

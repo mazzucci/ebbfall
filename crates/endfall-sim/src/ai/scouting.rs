@@ -136,11 +136,16 @@ impl World {
             self.ai_mut().scout = None;
             return;
         };
-        let done = u.task == Task::Idle || self.ai().known.iter().any(|k| k.3);
-        if done && !matches!(u.task, Task::Gather { .. }) {
-            let (x, y) = self.home_of(u.x, u.y);
-            if let Some(n) = self.nearest_node(x, y, self.seat(), false, 1200.0) {
-                self.start_gather(s, n);
+        // Done once it is idle, has seen the enemy's headquarters, or is already mining again (sent back to work
+        // by the worker phase): it is then an ordinary worker again (free to build).
+        let gathering = matches!(u.task, Task::Gather { .. });
+        let done = gathering || u.task == Task::Idle || self.ai().known.iter().any(|k| k.3);
+        if done {
+            if !gathering {
+                let (x, y) = self.home_of(u.x, u.y);
+                if let Some(n) = self.nearest_node(x, y, self.seat(), false, 1200.0) {
+                    self.start_gather(s, n);
+                }
             }
             self.ai_mut().scout = None;
         }

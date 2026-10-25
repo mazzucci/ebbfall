@@ -21,10 +21,12 @@ pub const DIFF: [Diff; 3] = [
         first: 240.0,
         gap: 75.0,
     },
+    // Medium: tuned down after phone playtests (income 1.0 -> 0.9, waves grow by 2, not 3): its mid-game waves
+    // overran a phone player.
     Diff {
-        income: 1.0,
+        income: 0.9,
         wave: 7,
-        wave_grow: 3,
+        wave_grow: 2,
         harv: 13,
         rax: 2,
         first: 170.0,

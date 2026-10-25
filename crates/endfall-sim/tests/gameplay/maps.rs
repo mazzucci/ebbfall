@@ -159,7 +159,7 @@ fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
     // A fair start: two minutes of mining with the four first harvesters gives both sides the same shards.
     for seed in 0..if cfg!(debug_assertions) { 8 } else { 60 } {
         let mut w = World::new(seed, 1);
-        w.disable_ai();
+        w.set_ai_seats([false, false]); // (an AI seat earns the difficulty's income)
         run(&mut w, 120);
         let (a, b) = (
             w.res[PLAYER as usize][0] as f64,

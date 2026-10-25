@@ -23,6 +23,11 @@ fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_arm
     on - took
 }
 
+/// How far (px, to the patient's edge) a healer reaches: a Medic 2.5 tiles, a Halo (`mend`) 3.
+fn heal_reach(mend: bool) -> f64 {
+    (if mend { 3.0 } else { 2.5 }) * TILE
+}
+
 impl World {
     /// The levels a team has of every upgrade with this effect, added up.
     pub fn effect_level(&self, team: u8, effect: Effect) -> u8 {
@@ -409,7 +414,7 @@ impl World {
                 u.task == Task::Idle,
             )
         };
-        let range = if mend { 3.0 } else { 2.5 } * TILE;
+        let range = heal_reach(mend);
         // What this healer restores on a patient: (now, full), or None if it cannot tend it.
         let need = |o: &Unit| {
             if mend {
@@ -579,7 +584,25 @@ impl World {
                 return;
             }
         }
+        // A healer keeps pace with the army: it walks on until a fighting ally is within its reach, then stays (and
+        // heals) while that fight lasts, instead of walking through to arrive first.
+        let d = c.kind.def();
+        if !c.combat && d.heal > 0.0 && self.allies_fighting_near(uid, heal_reach(d.mend) * 0.8) {
+            return;
+        }
         self.update_move(uid, x, y, dt);
+    }
+
+    /// Whether an armed ally of `uid` is fighting (attacking something) within `r` px of it (edge distance).
+    fn allies_fighting_near(&self, uid: Id, r: f64) -> bool {
+        let u = self.u(uid);
+        self.units.iter().any(|o| {
+            o.id != uid
+                && o.team == u.team
+                && o.kind.def().threat()
+                && matches!(o.task, Task::Attack { .. })
+                && dist(o.x, o.y, u.x, u.y) - o.r < r
+        })
     }
 
     /// Attack a target; a self-picked one gives way to a bigger threat and is let go well out of sight.

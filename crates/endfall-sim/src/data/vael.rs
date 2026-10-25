@@ -94,8 +94,8 @@ pub(super) const PRISM: UnitDef = UnitDef {
     build: 30.0,
     weapon: Some(Weapon {
         range: 5.5,
-        dmg: 13.0,
-        dmg_air: 13.0,
+        dmg: 14.0,
+        dmg_air: 14.0,
         cd: 0.9,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,

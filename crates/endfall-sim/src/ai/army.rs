@@ -481,24 +481,40 @@ mod tests {
 
     #[test]
     fn shards_piling_up_with_every_factory_busy_call_for_one_more() {
+        // Medium: one factory on the schedule, up to three extra.
         let mut w = World::new(17, 1);
         w.ai_turn = ENEMY;
         let rax = w.make_building(BldgKind::Barracks, ENEMY, 40, 12, true);
-        let my_b = vec![rax];
+        let site = w.make_building(BldgKind::Barracks, ENEMY, 44, 12, false);
+        let mut my_b = vec![rax];
         w.res[ENEMY as usize] = [500, 0];
-        assert_eq!(
-            w.extra_rax(ENEMY, &my_b),
-            0,
+        assert!(
+            !w.extra_rax(ENEMY, &my_b, 1),
             "an idle factory spends them first"
         );
-        w.bldgs
-            .iter_mut()
-            .find(|b| b.id == rax)
-            .unwrap()
-            .queue
-            .push(UnitKind::Trooper);
-        assert_eq!(w.extra_rax(ENEMY, &my_b), 1, "busy, and shards in the bank");
+        w.bm(rax).unwrap().queue.push(UnitKind::Trooper);
+        assert!(w.extra_rax(ENEMY, &my_b, 1), "busy, and shards in the bank");
+        my_b.push(site);
+        assert!(!w.extra_rax(ENEMY, &my_b, 1), "one is still going up");
+        my_b.pop();
         w.res[ENEMY as usize] = [300, 0];
-        assert_eq!(w.extra_rax(ENEMY, &my_b), 0, "not piling up");
+        assert!(!w.extra_rax(ENEMY, &my_b, 1), "not piling up");
+        w.res[ENEMY as usize] = [500, 0];
+        w.sup[ENEMY as usize] = [10, 12];
+        assert!(
+            !w.extra_rax(ENEMY, &my_b, 1),
+            "supply-blocked: a factory would not help"
+        );
+        w.recalc_supply(ENEMY);
+        w.ai_mut().saving_since = Some(0.0);
+        assert!(
+            !w.extra_rax(ENEMY, &my_b, 1),
+            "saving up: the bank is spoken for"
+        );
+        w.ai_mut().saving_since = None;
+        assert!(w.extra_rax(ENEMY, &my_b, 1));
+        // Easy: none extra.
+        w.diff = 0;
+        assert!(!w.extra_rax(ENEMY, &my_b, 1), "Easy keeps to its schedule");
     }
 }

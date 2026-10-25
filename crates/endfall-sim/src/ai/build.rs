@@ -170,9 +170,11 @@ impl World {
         None
     }
 
-    /// One more main factory than the build order says (1, else 0) while shards pile up with every factory busy:
-    /// the line unit costs only shards, so that is what spends them. At most four extra.
-    pub(crate) fn extra_rax(&self, e: u8, my_b: &[Id]) -> usize {
+    /// Whether shards pile up for want of factories: a bank of `SHARD_FLOAT` with every main factory busy, while
+    /// not supply-blocked (busy queues that cannot finish are not a factory problem) and not saving up (for an
+    /// expansion or research: the bank is spoken for), and while under the difficulty's allowance of extra factories
+    /// over the `schedule`.
+    pub(crate) fn extra_rax(&self, e: u8, my_b: &[Id], schedule: usize) -> bool {
         let rax = self.factions[e as usize].ai.rax;
         let (busy, all) = my_b
             .iter()
@@ -182,8 +184,13 @@ impl World {
                 (busy + (b.done && !b.queue.is_empty()) as usize, all + 1)
             });
         let d = &DIFF[self.diff];
-        (self.res[e as usize][0] >= SHARD_FLOAT && all > 0 && busy == all && all < d.rax + 4)
-            as usize
+        let [used, cap] = self.sup[e as usize];
+        self.res[e as usize][0] >= SHARD_FLOAT
+            && all > 0
+            && busy == all
+            && all < schedule + d.extra_rax
+            && cap - used >= 4
+            && self.ai().saving_since.is_none()
     }
 
     /// The build order: one wanted building at a time, placed by a free harvester.
@@ -237,6 +244,7 @@ impl World {
             .mix
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
+        let rax_schedule = d.rax + (t > 300.0) as usize + (t > 540.0) as usize;
         let want = if relight.is_some()
             || (cap - used <= 4 && cap < 200 && !building.contains(&f.supply))
         {
@@ -248,8 +256,8 @@ impl World {
             || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, f.ether) < 2)
         {
             Some(f.ether) // the second when the home vent has run dry: the expansion's
-        } else if self.ai_count(&my_b, false, s.rax)
-            < d.rax + (t > 300.0) as usize + (t > 540.0) as usize + self.extra_rax(e, &my_b)
+        } else if self.ai_count(&my_b, false, s.rax) < rax_schedule
+            || self.extra_rax(e, &my_b, rax_schedule)
         {
             Some(s.rax)
         } else if self.ai_count(&my_b, true, s.rax) >= 1

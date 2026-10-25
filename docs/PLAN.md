@@ -108,7 +108,7 @@ loop feels right.
   the Vael's are synthesized glass and ceramic: `lance` (Prism, Ward, Shrike), `slam` (Monolith), `blade` (Scythe).
 - [x] Race balance from AI-vs-AI games (2026-10-24): the Vael AI won 46 of 48 games against the human AI (Easy and
   Medium, both seats, every map), in about half the time of a human mirror. In play the Scythe ran down retreating
-  Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 90 (slower than a Trooper, as fast as a Lancer), dmg 10;
+  Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 88 (slower than a Trooper; 90 tipped Medium back to 3 wins in 24), dmg 10;
   Prism 70+50, 13 ground / 13 air; Ward 200+120. Humans win about half on Easy and a third on Medium (where the
   human AI's Lancers and Wasps answer Shrikes and Prisms poorly). Massed Troopers are now the Vael's counter in
   the duel matrix. A golden pins an AI-vs-AI Vael game (`golden_hashes_pin_a_vael_ai_against_the_human_ai`).

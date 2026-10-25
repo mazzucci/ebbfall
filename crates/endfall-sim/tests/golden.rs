@@ -156,7 +156,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [3382622336, 3530549063, 705011508];
+const EXPECTED_VAEL_AI: [u32; 3] = [3382622336, 3530549063, 2135616240];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {

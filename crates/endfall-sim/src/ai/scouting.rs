@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// How long (s) the AI remembers the most enemy infantry or heavies it saw at once.
+const COMPOSITION_MEMORY: f64 = 90.0;
+
 impl World {
     /// Whether the AI can see a point right now (it plays with fog of war like the player).
     pub(crate) fn ai_sees(&self, x: f64, y: f64) -> bool {
@@ -38,7 +41,30 @@ impl World {
             .filter(|k| self.bldg(k.0).is_none() && self.ai_sees(k.1, k.2))
             .map(|k| k.0)
             .collect();
+        // What the enemy fields, as far as it is seen: walking infantry and heavy walkers.
+        let (mut inf, mut heavy) = (0, 0);
+        for u in self
+            .units
+            .iter()
+            .filter(|u| u.team == self.foe() && self.ai_sees(u.x, u.y))
+        {
+            let d = u.kind.def();
+            if d.air || d.worker || !d.armed() {
+                continue;
+            }
+            if d.bio {
+                inf += 1;
+            }
+            if d.armor >= 2.0 {
+                heavy += 1;
+            }
+        }
         let ai = self.ai_mut();
+        for (memo, n) in [(&mut ai.infantry_seen, inf), (&mut ai.heavy_seen, heavy)] {
+            if n >= memo.0 || t - memo.1 > COMPOSITION_MEMORY {
+                *memo = (n, t);
+            }
+        }
         for s in seen {
             if !ai.known.iter().any(|k| k.0 == s.0) {
                 ai.known.push(s);

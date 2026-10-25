@@ -57,7 +57,7 @@ impl World {
             // Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
             let floating = self.res[e as usize][1] >= ETHER_FLOAT;
             let mixed = s.mix.iter().find(|&&(k, per)| {
-                let per = if floating { per.div_ceil(2) } else { per };
+                let per = self.answer_ratio(k, if floating { per.div_ceil(2) } else { per });
                 k.def()
                     .req
                     .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
@@ -151,5 +151,52 @@ impl World {
                 .filter(|&&q| q == k)
                 .count();
         (have < CAPITAL_AT.iter().filter(|&&at| t > at).count()).then_some(k)
+    }
+
+    /// A mix ratio (one `k` per `per` line units) answered to what the enemy fields: a splashing specialist comes
+    /// twice as often against massed infantry (8+ seen), half as often against heavies (4+) with little infantry.
+    pub(crate) fn answer_ratio(&self, k: UnitKind, per: usize) -> usize {
+        if !k.def().weapon.is_some_and(|w| w.splash > 0.0) {
+            return per;
+        }
+        let (inf, heavy) = (self.ai().infantry_seen.0, self.ai().heavy_seen.0);
+        if inf >= 8 {
+            per.div_ceil(2)
+        } else if heavy >= 4 {
+            per * 2
+        } else {
+            per
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::*;
+    use crate::world::World;
+
+    #[test]
+    fn the_mix_answers_what_the_enemy_fields() {
+        let mut w = World::new(17, 1);
+        w.ai_turn = ENEMY;
+        assert_eq!(w.answer_ratio(UnitKind::Vanguard, 2), 2);
+        w.ai_mut().infantry_seen = (10, 0.0);
+        assert_eq!(
+            w.answer_ratio(UnitKind::Vanguard, 2),
+            1,
+            "splash against massed infantry"
+        );
+        assert_eq!(
+            w.answer_ratio(UnitKind::Medic, 6),
+            6,
+            "only the splashing specialists"
+        );
+        w.ai_mut().infantry_seen = (2, 0.0);
+        w.ai_mut().heavy_seen = (5, 0.0);
+        assert_eq!(
+            w.answer_ratio(UnitKind::Vanguard, 2),
+            4,
+            "fewer heavies against heavies"
+        );
     }
 }

@@ -210,6 +210,13 @@ class UnitObj {
     this.body.position.set(u.x, u.y + bob); this.flash.position.set(u.x, u.y + bob);
     this.body.zIndex = u.y; this.flash.zIndex = u.y + 0.1;
     this.flash.visible = u.flash > 0; this.flash.alpha = 0.6;
+    // Abilities: a boost glows (Stim warm, Overcharge violet); an entrenched unit shows four stakes around it, pulsing
+    // while it digs in or packs up.
+    this.body.tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
+    if (u.mode || u.swap > 0) {
+      const r = u.r * UNIT_SCALE + 6, a = u.swap > 0 ? 0.35 + 0.35 * Math.sin(t * 8) : 0.85;
+      for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2, c = Math.cos(an), d = Math.sin(an); lines.moveTo(u.x + c * r, u.y + d * r * 0.7).lineTo(u.x + c * (r + 5), u.y + d * (r + 5) * 0.7).stroke({ width: 2, color: 0xf5c542, alpha: a }); }
+    }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
@@ -323,6 +330,14 @@ export function boom(x, y, r) {
   if (big) { shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
+const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xdcc8ff };
+const CAST_TINT = { stim: 0xff8070, entrench: 0xf5c542, blink: 0xb48cff, overcharge: 0xc8a0ff };
+/** An ability used: a flash on the caster in its colour (a Blink also leaves a puff where it lands). */
+export function castFx(x, y, ability) {
+  const tint = CAST_TINT[ability] ?? 0xffffff;
+  addEffect('flash', x, y - 6, { life: 0.35, tint, light: tint, lightScale: 0.4 });
+  if (ability === 'blink') addEffect('puff', x, y, { tint });
+}
 /** A Medic's heal (green) or a Halo's mend (violet, the Vael crystal light) landing on its patient. */
 export function healFx(x, y, tx, ty, mend = false) { addEffect('heal', tx, ty - 6, { life: 0.4, light: mend ? 0xb48cff : 0x6dff9a, lightScale: 0.35, tint: mend ? 0xc8b0ff : 0xffffff }); void x; void y; }
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }

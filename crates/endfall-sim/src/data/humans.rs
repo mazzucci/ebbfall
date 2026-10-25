@@ -68,6 +68,7 @@ pub(super) const TROOPER: UnitDef = UnitDef {
         up_dmg: 1.0,
         ..W
     }),
+    abilities: &[AbilityKind::Stim],
     ..UNIT
 };
 pub(super) const VANGUARD: UnitDef = UnitDef {
@@ -92,6 +93,7 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
         splash_r: SHELL_SPLASH_R,
         ..W
     }),
+    abilities: &[AbilityKind::Entrench],
     ..UNIT
 };
 pub(super) const LANCER: UnitDef = UnitDef {

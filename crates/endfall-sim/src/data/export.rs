@@ -115,6 +115,11 @@ impl ToJson for &'static [Upgrade] {
         keys(self, |u| u.def().key)
     }
 }
+impl ToJson for &'static [AbilityKind] {
+    fn to_json(&self) -> String {
+        keys(self, |a| a.def().key)
+    }
+}
 impl ToJson for Option<Weapon> {
     fn to_json(&self) -> String {
         self.map_or("null".to_string(), |w| w.to_json())
@@ -188,6 +193,10 @@ pub fn data_json() -> String {
         .raw(
             "upgrades",
             map(UPGRADES.map(|u| (u.def().key, upgrade(u.def())))),
+        )
+        .raw(
+            "abilities",
+            map(ABILITIES.map(|a| (a.def().key, a.def().to_json()))),
         )
         .raw("diff", array(DIFF.iter().map(diff)))
         .raw("factions", map(FACTIONS.map(|f| (f.key, faction(f)))))

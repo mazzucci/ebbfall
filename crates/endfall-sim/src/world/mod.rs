@@ -5,6 +5,7 @@
 //! Entities refer to each other by id. Units, buildings and nodes are each kept sorted by id (ids only grow
 //! and removal preserves order), so lookups are binary searches and "not found" means "dead".
 
+mod abilities;
 mod combat;
 mod command;
 mod construction;
@@ -130,6 +131,13 @@ pub struct Unit {
     pub heal_fx: f64,
     /// The tick a Medic last healed this unit: one Medic per patient per tick (heals do not stack).
     pub healed_at: u32,
+    /// Ability cooldowns left (s), by slot in the kind's `abilities` order.
+    pub ab_cd: [f64; ABILITY_SLOTS],
+    /// A timed boost (Stim, Overcharge) and the game time it ends.
+    pub boost: Option<(AbilityKind, f64)>,
+    /// The toggle that is on (Entrench), and the seconds left settling in or packing up (no moving or firing then).
+    pub mode: Option<AbilityKind>,
+    pub swap: f64,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -261,6 +269,13 @@ pub enum Event {
         x: f64,
         y: f64,
         weapon: &'static str,
+        seen: [bool; 2],
+    },
+    /// An ability used where the caster stands (after a Blink: where it landed), for the seats that see it.
+    Cast {
+        x: f64,
+        y: f64,
+        ability: &'static str,
         seen: [bool; 2],
     },
 }
@@ -602,8 +617,13 @@ impl World {
     pub(crate) fn live(&self, uid: Id) -> Live {
         let u = self.u(uid);
         let d = u.kind.def();
+        // Entrenched: farther; settling in or packing up: no reach at all (it cannot fire then).
+        let range = match self.reach_add(uid) {
+            Some(add) => d.weapon.map_or(0.0, |w| w.range + add) * TILE,
+            None => 0.0,
+        };
         Live {
-            range: d.weapon.map_or(0.0, |w| w.range) * TILE,
+            range,
             combat: d.threat(),
             team: u.team,
             r: u.r,
@@ -614,11 +634,15 @@ impl World {
     }
     /// A unit's walking speed right now (px/s).
     pub(crate) fn live_speed(&self, uid: Id) -> f64 {
-        self.u(uid).kind.def().speed
+        self.u(uid).kind.def().speed * self.speed_mul(uid)
     }
-    /// The seconds between shots of `shooter`'s weapon, whose base is `base`.
-    pub(crate) fn live_cd(&self, _shooter: Id, base: f64) -> f64 {
-        base
+    /// The seconds between shots of `shooter`'s weapon (a unit or a building), whose base is `base`.
+    pub(crate) fn live_cd(&self, shooter: Id, base: f64) -> f64 {
+        if self.unit(shooter).is_some() {
+            base / self.fire_mul(shooter)
+        } else {
+            base
+        }
     }
 
     /// One unit's tick: its weapon and flash cool down, a healer heals, then its task runs.
@@ -664,6 +688,7 @@ impl World {
         }
         self.update_projs(dt);
         self.regen_shields(dt);
+        self.tick_abilities(dt);
         self.update_fog();
         self.ai_tick(dt);
     }
@@ -697,6 +722,21 @@ impl World {
             mix(u.task.code());
             if u.maxsh > 0.0 {
                 mix(jsmath::to_i32(u.sh * 16.0));
+            }
+            // Ability state, once there is any (a unit that never cast hashes as before).
+            if u.boost.is_some()
+                || u.mode.is_some()
+                || u.swap > 0.0
+                || u.ab_cd.iter().any(|&c| c > 0.0)
+            {
+                for &c in &u.ab_cd {
+                    mix(jsmath::to_i32(c * 16.0));
+                }
+                mix(u.boost.map_or(0, |(k, end)| {
+                    k.index() as i32 + 1 + jsmath::to_i32(end * 16.0) * 8
+                }));
+                mix(u.mode.map_or(0, |k| k.index() as i32 + 1));
+                mix(jsmath::to_i32(u.swap * 16.0));
             }
         }
         for b in &self.bldgs {

@@ -13,6 +13,23 @@ pub fn check_invariants(w: &World, ctx: &str) {
         );
     }
     for u in &w.units {
+        let abilities = u.kind.def().abilities;
+        for (slot, &c) in u.ab_cd.iter().enumerate() {
+            let max = abilities.get(slot).map_or(0.0, |a| a.def().cooldown);
+            assert!(
+                (0.0..=max).contains(&c),
+                "{ctx}: unit {} cooldown {c} in slot {slot}",
+                u.id
+            );
+        }
+        assert!(u.swap >= 0.0, "{ctx}: unit {} swap {}", u.id, u.swap);
+        for k in u.mode.iter().chain(u.boost.iter().map(|(k, _)| k)) {
+            assert!(
+                abilities.contains(k),
+                "{ctx}: unit {} has {k:?} its kind lacks",
+                u.id
+            );
+        }
         assert!(
             u.x.is_finite() && u.y.is_finite(),
             "{ctx}: unit {} position {},{}",

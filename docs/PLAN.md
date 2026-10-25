@@ -110,6 +110,13 @@ loop feels right.
   three at once (the nearest shard workers, empty-handed first, within 15 tiles; the AI balances its own), as
   players floated shards while short of ether. Medium tuned down (AI income 1.0 -> 0.9, waves grow by 2 instead of
   3). Also fixed: the AI drafted its own scout as a builder, so on some maps it never scouted.
+- [x] Unit abilities, v1 (2026-10-25): one tap each on the card (self-cast or toggle, no targeting, so they work with a
+  thumb): Trooper Stim (10 s of 1.5x fire and 1.25x speed for 10 hull), Vanguard Entrench (toggle: +3 range, no
+  moving, 2 s to dig in or pack up; a move order packs it up first), Scythe Blink (4 tiles towards its target, 20 s),
+  Monolith Overcharge (6 s of double fire, 30 s). data/abilities.rs (the table), world/abilities.rs (rules, live stat
+  changes, `auto_cast`: the AI's and the duels' use: boosts and Blink only in a real fight of 3+ armed enemies,
+  Entrench only for defenders). Command::Cast for a selection; card buttons grey while not ready (no countdowns).
+  Balance kept: Humans win 11/23 on Easy and 7/24 on Medium against the Vael in AI-vs-AI (12 and 9 before).
 - [x] Race balance from AI-vs-AI games (2026-10-24): the Vael AI won 46 of 48 games against the human AI (Easy and
   Medium, both seats, every map), in about half the time of a human mirror. In play the Scythe ran down retreating
   Troopers and shields carried small fights. Now Scythe 80+40 shields, speed 88 (slower than a Trooper; 90 tipped Medium back to 3 wins in 24), dmg 10;

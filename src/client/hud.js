@@ -150,6 +150,7 @@ function taskName(u) {
   const T = u.task;
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
   if (T.t === 'build') return warps(u.team) ? 'Planting' : 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
+  if (u.mode === 'entrench') return u.swap > 0 ? 'Digging in' : 'Entrenched'; if (u.swap > 0) return 'Packing up';
   if (T.t === 'move') return 'Moving'; if (T.t === 'hold') return 'Holding position'; return 'Idle';
 }
 

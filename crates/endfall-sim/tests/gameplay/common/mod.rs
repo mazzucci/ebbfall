@@ -350,3 +350,10 @@ pub fn move_node(w: &mut World, id: Id, tx: i32, ty: i32) {
         }
     }
 }
+
+/// Set a unit's hull (raising its maximum if needed): a sturdy target, or a hurt one.
+pub fn set_hp(w: &mut World, id: Id, hp: f64) {
+    let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
+    u.maxhp = u.maxhp.max(hp);
+    u.hp = hp;
+}

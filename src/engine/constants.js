@@ -68,6 +68,14 @@ export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((
 UPGRADES.weapons.desc = 'More damage for every weapon (' + Object.entries(UP_DMG).map(([k, n]) => `${(UNITS[k] || BUILDINGS[k]).name} +${n}`).join(', ') + ' per level).';
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
+const ABILITY_TEXT = {
+  stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
+  entrench: { hot: 'E', desc: 'Dig in: +3 range, but cannot move (2 s to dig in or pack up). Tap again, or order a move, to pack up.' },
+  blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
+  overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
+};
+/** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
+export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 /** The snapshot record layouts (field names per record) and code names, from crates/endfall-sim/src/snapshot.rs. */
 export const SCHEMA = D.schema;
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */

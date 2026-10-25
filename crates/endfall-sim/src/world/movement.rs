@@ -197,8 +197,14 @@ impl World {
         astar(&self.map, &mut self.scratch, start.0, start.1, g.0, g.1)
     }
 
+    /// Back to idle (an entrenched unit holds instead: idle, it would chase what it cannot reach).
     pub(crate) fn set_idle(&mut self, uid: Id) {
-        self.set_task(uid, Task::Idle);
+        let t = if self.u(uid).mode.is_some() {
+            Task::Hold
+        } else {
+            Task::Idle
+        };
+        self.set_task(uid, t);
     }
 
     pub(crate) fn update_move(&mut self, uid: Id, x: f64, y: f64, dt: f64) {

@@ -53,6 +53,8 @@ record! {
         id = u.id, kind = u.kind.index(), team = u.team, x = u.x, y = u.y, hp = u.hp, maxhp = u.maxhp, sh = u.sh, maxsh = u.maxsh, r = u.r,
         face = u.face, flash = u.flash, carry = u.carry, carry_type = u.carry_ether.map_or(-1.0, |e| e as u8 as f64),
         task = task_parts(&u.task).0, phase = task_parts(&u.task).1, target = task_parts(&u.task).2, cd = u.cd,
+        ab_cd0 = u.ab_cd[0], ab_cd1 = u.ab_cd[1], boost = u.boost.map_or(0, |(k, _)| k.index() + 1),
+        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap,
     }
 }
 
@@ -127,6 +129,10 @@ pub fn schema_json() -> String {
         .raw("unitKinds", array(UNIT_KINDS.map(|k| quote(k.def().key))))
         .raw("bldgKinds", array(BLDG_KINDS.map(|k| quote(k.def().key))))
         .raw("upgrades", array(UPGRADES.map(|u| quote(u.def().key))))
+        .raw(
+            "abilities",
+            array(crate::data::ABILITIES.map(|a| quote(a.def().key))),
+        )
         .num("queueSlots", QUEUE_SLOTS)
         .done()
 }

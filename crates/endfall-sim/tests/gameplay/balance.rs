@@ -141,3 +141,30 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         );
     }
 }
+
+#[test]
+fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
+    // A Bastion (700 by value) or a Sovereign (750) crushes heavy ground and loses to what shoots up; budgets of four.
+    use UnitKind::*;
+    let range = |name: &str, v: f64, lo: f64, hi: f64| {
+        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
+    };
+    for budget in [2800.0, 5600.0] {
+        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
+        range("Bastion v Vanguard", d(&[Bastion], &[Vanguard]), 0.6, 1.0);
+        range("Bastion v Scythe", d(&[Bastion], &[Scythe]), 0.6, 1.0);
+        range("Bastion v Sovereign", d(&[Bastion], &[Sovereign]), 0.6, 1.0);
+        range("Bastion v Lancer", d(&[Bastion], &[Lancer]), -1.0, -0.05);
+        range("Bastion v Prism", d(&[Bastion], &[Prism]), -1.0, -0.05);
+        range("Bastion v Shrike", d(&[Bastion], &[Shrike]), -1.0, -0.1);
+        range("Sovereign v Trooper", d(&[Sovereign], &[Trooper]), 0.3, 1.0);
+        range("Sovereign v Prism", d(&[Sovereign], &[Prism]), 0.3, 1.0);
+        range("Sovereign v Lancer", d(&[Sovereign], &[Lancer]), 0.6, 1.0);
+        range(
+            "Sovereign v Wasp (cannot hit air)",
+            d(&[Sovereign], &[Wasp]),
+            -1.0,
+            -0.9,
+        );
+    }
+}

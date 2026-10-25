@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// Game times (s) after which the AI wants its first and second capital unit.
+const CAPITAL_AT: [f64; 2] = [450.0, 660.0];
+
 /// Unspent ether the AI counts as piling up (it then leans on its ether-hungry specialists).
 const ETHER_FLOAT: i32 = 200;
 
@@ -240,6 +243,7 @@ impl World {
     pub(crate) fn ai_produce(&mut self, brain: &mut Brain) {
         let Brain {
             e,
+            t,
             my_b,
             enemy_air,
             rally,
@@ -261,6 +265,21 @@ impl World {
                     .filter(|&&q| q == k)
                     .count()
         };
+        // A capital unit due at a finished air factory: the other factories keep its price back too, or the army
+        // spends every shard and the giant never comes.
+        let capital_due = my_b
+            .iter()
+            .filter_map(|&id| self.bldg(id))
+            .filter(|b| b.done && b.kind == self.factions[e as usize].ai.air)
+            .find_map(|b| {
+                b.kind.def().trains.iter().copied().find(|k| {
+                    k.def().capital
+                        && k.def()
+                            .req
+                            .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+                })
+            })
+            .filter(|&c| mine(self, c) < CAPITAL_AT.iter().filter(|&&at| t > at).count());
         for &bid in &my_b {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
@@ -278,6 +297,28 @@ impl World {
                     .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
                     && (mine(self, k) + 1) * per <= mine(self, s.basic)
             });
+            // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
+            // up for it rather than spending the money on raiders.
+            let capital = b.kind.def().trains.iter().copied().find(|k| {
+                k.def().capital
+                    && k.def()
+                        .req
+                        .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+            });
+            let allowance = CAPITAL_AT.iter().filter(|&&at| t > at).count();
+            if b.kind == s.air
+                && let Some(c) = capital
+                && mine(self, c) < allowance
+            {
+                let (idle, rallied) = (b.queue.is_empty(), b.rally.is_some());
+                if !rallied {
+                    self.set_rally(bid, rally.x, rally.y, None);
+                }
+                if idle && !saving && self.can_afford(e, c.def().cost) {
+                    let _ = self.queue_unit(bid, c);
+                }
+                continue;
+            }
             let u = if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
                 s.anti_air
             } else if b.kind == s.rax
@@ -300,12 +341,17 @@ impl World {
             if b.rally.is_none() {
                 self.set_rally(bid, rally.x, rally.y, None);
             }
+            // Units wait while the money is spoken for by the building the build order wants next (supply, a
+            // factory, the tech, the air factory): otherwise the army spends every shard as it comes in.
             if qlen < 2 && !saving {
                 let c = u.def().cost;
-                if self.can_afford(e, c)
-                    && (want != Some(self.factions[e as usize].supply)
-                        || self.res[e as usize][0] > c[0] + 100)
-                {
+                let r = want.map_or([0, 0], |w| w.def().cost);
+                let due = capital_due.filter(|&k| u != k);
+                let k = due.map_or([0, 0], |k| k.def().cost);
+                // (and its supply: a giant needs several free places at once)
+                let [used, cap] = self.sup[e as usize];
+                let room = due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
+                if room && self.can_afford(e, [c[0] + r[0] + k[0], c[1] + r[1] + k[1]]) {
                     let _ = self.queue_unit(bid, u);
                 }
             }

@@ -991,7 +991,7 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
     await d.page.waitForTimeout(700);
     const info = d.page.locator('#cmdInfo');
     assert.match(await info.textContent(), /Strong against.*Weak against/);
-    assert.equal(await info.locator('.vs img').count(), 3, 'portraits: Scythe and Wasp; Vanguard');
+    assert.equal(await info.locator('.vs img').count(), 4, 'portraits: Scythe and Wasp; Vanguard and Sovereign');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -1031,6 +1031,19 @@ test('phone: Concede on the pause card asks once, then ends the game as a defeat
     await d.page.locator('#end').waitFor({ state: 'visible' });
     assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
     assert.match(await d.page.locator('#endSub').textContent(), /You conceded/);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('the first enemy capital unit seen is announced, once', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const x = core.x > 1000 ? core.x - 200 : core.x + 200;
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(1, 'sovereign', x, y); endfall.engine.debugSpawn(1, 'sovereign', x + 60, y); }, [x, core.y]);
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Enemy Sovereign sighted/.test(t.textContent)), null, { timeout: 5000 });
+    await d.page.waitForTimeout(600);
+    assert.equal((await d.toasts()).filter(t => /Sovereign sighted/.test(t)).length, 1, 'once for the kind');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

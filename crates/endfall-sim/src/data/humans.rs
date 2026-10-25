@@ -128,6 +128,33 @@ pub(super) const MEDIC: UnitDef = UnitDef {
     req: Some(BldgKind::Forge),
     ..UNIT
 };
+/// The Humans' capital ship: slow, armoured, its cannon splashes the ground and reaches flyers.
+pub(super) const BASTION: UnitDef = UnitDef {
+    key: "bastion",
+    name: "Bastion",
+    cost: [300, 200],
+    supply: 6,
+    hp: 450.0,
+    armor: 2.0,
+    speed: 58.0,
+    sight: 10.0,
+    r: 18.0,
+    build: 60.0,
+    air: true,
+    capital: true,
+    weapon: Some(Weapon {
+        range: 6.5,
+        dmg: 24.0,
+        dmg_air: 18.0,
+        cd: 1.4,
+        proj: Some(ProjKind::Shell),
+        up_dmg: 3.0,
+        splash: SHELL_SPLASH,
+        splash_r: SHELL_SPLASH_R,
+        ..W
+    }),
+    ..UNIT
+};
 pub(super) const WASP: UnitDef = UnitDef {
     key: "wasp",
     name: "Wasp",
@@ -255,7 +282,7 @@ pub(super) const AIRFIELD: BldgDef = BldgDef {
     hp: 760.0,
     build: 50.0,
     sight: 8.0,
-    trains: &[UnitKind::Wasp, UnitKind::Observer],
+    trains: &[UnitKind::Wasp, UnitKind::Observer, UnitKind::Bastion],
     req: Some(BldgKind::Forge),
     ..BLDG
 };

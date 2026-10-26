@@ -13,20 +13,24 @@ pub const HOLD_WAVES_MAX: f64 = 360.0;
 
 impl World {
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
-    /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep.
+    /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep. The foe's first
+    /// (the nearest enemy still in: a wave does not cross the map past it), then any enemy's.
     pub(crate) fn attack_target(&self) -> (f64, f64) {
         let ai = self.ai();
         let production = |id: Id| {
             self.bldg(id)
                 .is_some_and(|b| !b.kind.def().trains.is_empty())
         };
-        if let Some(k) = ai
-            .known
-            .iter()
-            .find(|k| k.3)
-            .or_else(|| ai.known.iter().find(|k| production(k.0)))
-            .or(ai.known.first())
-        {
+        let foe = self.foe();
+        let pick = |only_foe: bool| {
+            let of = |k: &&(Id, f64, f64, bool, u8)| !only_foe || k.4 == foe;
+            let known = || ai.known.iter().filter(of);
+            known()
+                .find(|k| k.3)
+                .or_else(|| known().find(|k| production(k.0)))
+                .or_else(|| known().next())
+        };
+        if let Some(k) = pick(true).or_else(|| pick(false)) {
             return (k.1, k.2);
         }
         self.sweep_point()
@@ -116,6 +120,26 @@ impl World {
                 }
             }
         }
+        // With more than one enemy still in, how many armed enemies are at our buildings (another may come while our
+        // wave is out at the foe's; a duel's waves meet on the way).
+        let n = self.seats() as u8;
+        let raid = if (0..n)
+            .filter(|&s| self.hostile(s) && !self.out[s as usize])
+            .count()
+            > 1
+        {
+            self.units
+                .iter()
+                .filter(|u| self.hostile(u.team) && u.kind.def().threat() && self.ai_sees_unit(u))
+                .filter(|u| {
+                    my_b.iter()
+                        .filter_map(|&id| self.bldg(id))
+                        .any(|b| dist(u.x, u.y, b.x, b.y) < 420.0 + b.r)
+                })
+                .count()
+        } else {
+            0
+        };
         // Repairs once the fighting at home is over: one harvester on the worst-hit building at a time.
         if intruder.is_none()
             && self.factions[e as usize].repairs
@@ -168,6 +192,7 @@ impl World {
             .count();
 
         brain.intruder = intruder;
+        brain.raid = raid;
         brain.enemy_air = enemy_air;
         brain.lancers = lancers;
     }
@@ -179,11 +204,13 @@ impl World {
             army,
             rally,
             intruder,
+            raid,
             ..
         } = brain.clone();
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
+        self.recall_wave(&army, raid, intruder, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
         let wasps: Vec<Id> = army
@@ -234,6 +261,33 @@ impl World {
         }
     }
 
+    /// Home, wave: with `raid` armed enemies at our buildings (any enemy's: a third player's, or the foe's own wave
+    /// that passed ours on the way), three or more and more than the army at home, the wave out comes back to fight
+    /// them (as when most of it fell, the next one waits its gap).
+    fn recall_wave(&mut self, army: &[Id], raid: usize, intruder: Option<Id>, t: f64) {
+        let ai = self.ai();
+        if raid < 3 || !ai.attacking {
+            return;
+        }
+        let Some(attackers) = ai.attackers.clone() else {
+            return;
+        };
+        let home = army.iter().filter(|a| !attackers.contains(a)).count();
+        let Some((x, y)) = intruder.and_then(|i| self.unit(i)).map(|u| (u.x, u.y)) else {
+            return;
+        };
+        if raid < 3 || raid <= home {
+            return;
+        }
+        for &a in army.iter().filter(|a| attackers.contains(a)) {
+            self.attack_move(a, x, y);
+        }
+        let ai = self.ai_mut();
+        ai.attacking = false;
+        ai.attackers = None;
+        ai.last_wave = t;
+    }
+
     /// Send the whole army out once it is big enough (fewer, stronger units for a race with a smaller wave scale)
     /// and the difficulty's first-wave time and gap have passed.
     fn ai_launch_wave(&mut self, army: &[Id], t: f64, (gx, gy): (f64, f64)) {
@@ -250,8 +304,9 @@ impl World {
         ai.wave = (ai.wave + d.wave_grow).min(d.wave_max);
         ai.attacking = true;
         ai.wave_size = army.len();
-        // A second prong: with a big enough wave and another enemy base known well away from the goal (an
+        // A second prong: with a big enough wave and another base of the foe known well away from the goal (an
         // expansion), its fastest third goes there while the rest hits the goal.
+        let foe = self.foe();
         let second = self
             .ai()
             .known
@@ -259,6 +314,7 @@ impl World {
             .filter(|k| {
                 d.prong
                     && k.3
+                    && k.4 == foe
                     && self.bldg(k.0).is_some()
                     && dist(k.1, k.2, gx, gy) > SECOND_PRONG_GAP
             })
@@ -404,9 +460,108 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use crate::ai::Brain;
     use crate::data::*;
-    use crate::map::Id;
+    use crate::map::{Id, MapKind, MapSize};
+    use crate::path::Pt;
     use crate::world::{Task, World};
+
+    /// Seat 1's AI with its wave of six Troopers out by the map's centre and two at home, as four Troopers of
+    /// another seat stand at its Core: the army phases' turn. Whether the wave was called home.
+    fn raided(seats: usize, raider: u8) -> bool {
+        let mut w = World::with_size(
+            17,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &vec![&HUMANS; seats],
+        );
+        w.ai_turn = 1;
+        let (bx, by) = w.map.bases[1];
+        let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+        let trooper =
+            |w: &mut World, team: u8, x: f64, y: f64| w.make_unit(UnitKind::Trooper, team, x, y);
+        let wave: Vec<Id> = (0..6)
+            .map(|i| trooper(&mut w, 1, 1500.0 + i as f64 * 30.0, 1500.0))
+            .collect();
+        let home: Vec<Id> = (0..2)
+            .map(|i| trooper(&mut w, 1, hx + 200.0, hy + i as f64 * 30.0))
+            .collect();
+        for i in 0..4 {
+            trooper(&mut w, raider, hx + 100.0, hy + i as f64 * 30.0);
+        }
+        w.update_fog();
+        let ai = w.ai_mut();
+        ai.attacking = true;
+        ai.attackers = Some(wave.clone());
+        ai.wave_size = 6;
+        ai.last_wave = 0.0;
+        let my_b = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let mut b = Brain {
+            e: 1,
+            t: 100.0,
+            my_b,
+            army: wave.iter().chain(&home).copied().collect(),
+            rally: Pt { x: hx, y: hy },
+            ..Brain::default()
+        };
+        w.ai_watch(&mut b);
+        w.ai_army(&mut b);
+        !w.ai().attacking
+            && wave.iter().all(|&a| matches!(w.u(a).task, Task::AMove { x, y } if (x - hx).abs() + (y - hy).abs() < 400.0))
+    }
+
+    #[test]
+    fn a_wave_comes_home_when_another_enemy_raids_its_base() {
+        assert!(
+            raided(4, 3),
+            "four seats: a neighbour raids while the wave is out at the foe"
+        );
+        assert!(raided(4, 1 + 1), "any enemy");
+        // Two seats: a duel's waves meet on the way, and the rules stay as they were.
+        assert!(!raided(2, 0), "two seats: the wave stays out");
+    }
+
+    #[test]
+    fn a_wave_goes_for_the_foe_before_another_enemy() {
+        // Four seats round a 96x96 map: seat 1's foe is its partner, seat 0. It knows seat 3's headquarters (across
+        // the map) first and a Garrison of seat 0's: the Garrison is the goal; with only seat 3's known, that.
+        let mut w = World::with_size(
+            17,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS; 4],
+        );
+        w.ai_turn = 1;
+        assert_eq!(w.foe(), 0);
+        let hq = |w: &World, s: u8| {
+            w.bldgs
+                .iter()
+                .find(|b| b.team == s && b.kind.def().hq)
+                .unwrap()
+                .clone()
+        };
+        let far = hq(&w, 3);
+        let (bx, by) = w.map.bases[0];
+        let rax = w.make_building(BldgKind::Barracks, 0, bx + 6, by + 6, true);
+        let r = w.bldg(rax).unwrap().clone();
+        w.ai_mut().known = vec![(far.id, far.x, far.y, true, 3)];
+        assert_eq!(
+            w.attack_target(),
+            (far.x, far.y),
+            "only another enemy's known"
+        );
+        w.ai_mut().known.push((rax, r.x, r.y, false, 0));
+        assert_eq!(w.attack_target(), (r.x, r.y), "the foe's first");
+    }
 
     #[test]
     fn a_wave_prefers_production_to_a_lone_forward_depot() {
@@ -416,7 +571,7 @@ mod tests {
         let rax = w.make_building(BldgKind::Barracks, PLAYER, 12, 40, true);
         w.ai_turn = ENEMY;
         let (d, r) = (w.bldg(depot).unwrap().clone(), w.bldg(rax).unwrap().clone());
-        w.ai_mut().known = vec![(depot, d.x, d.y, false), (rax, r.x, r.y, false)];
+        w.ai_mut().known = vec![(depot, d.x, d.y, false, 0), (rax, r.x, r.y, false, 0)];
         assert_eq!(w.attack_target(), (r.x, r.y));
         // With its headquarters known, that comes first.
         let core = w
@@ -425,7 +580,7 @@ mod tests {
             .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
             .unwrap()
             .clone();
-        w.ai_mut().known.push((core.id, core.x, core.y, true));
+        w.ai_mut().known.push((core.id, core.x, core.y, true, 0));
         assert_eq!(w.attack_target(), (core.x, core.y));
     }
 
@@ -442,7 +597,7 @@ mod tests {
                 .clone();
             let exp = w.make_building(BldgKind::Core, PLAYER, 30, 30, true);
             let e = w.bldg(exp).unwrap().clone();
-            w.ai_mut().known = vec![(core.id, core.x, core.y, true), (exp, e.x, e.y, true)];
+            w.ai_mut().known = vec![(core.id, core.x, core.y, true, 0), (exp, e.x, e.y, true, 0)];
             w.ai_mut().wave = 3;
             let b = w.map.bases[ENEMY as usize];
             let army: Vec<Id> = (0..9)

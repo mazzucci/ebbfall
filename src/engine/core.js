@@ -147,6 +147,14 @@ export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy 
   const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
   fresh(Game.withSize(seed >>> 0, diff, map, side, f(race), f(enemy), size));
 }
+/** A game for any number of seats, seen from seat `me` (tests for now; M4's lobby): each seat's race key, team (empty:
+ *  each its own) and whether the AI plays it (empty: nobody), on a `size` x `size` map with a start per seat (64: 2,
+ *  96: 4, 128: 8). Throws for a setup the sim cannot play. */
+export function resetGameSeats(seed, diff, map, side, races, teams, ai, me, size = DUEL_MW) {
+  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
+  fresh(Game.withSeats(seed >>> 0, diff, map, side, Uint32Array.from(races.map(f)), Uint8Array.from(teams),
+    Uint8Array.from(ai.map(a => a ? 1 : 0)), me, size));
+}
 export function step() { if (!game.canStep()) return false; game.step(); dirty = true; sync(); return true; }
 /** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
 export function startReplay() {

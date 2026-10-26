@@ -30,8 +30,8 @@ pub(crate) struct Ai {
     /// When the current saving-for-research streak began, and the time before which it may not save again.
     pub saving_since: Option<f64>,
     pub no_save_until: f64,
-    /// Player buildings the AI has seen and not yet seen gone: (id, x, y, is a core). The AI plays with fog.
-    pub known: Vec<(Id, f64, f64, bool)>,
+    /// Enemy buildings the AI has seen and not yet seen gone: (id, x, y, is a core, seat). The AI plays with fog.
+    pub known: Vec<(Id, f64, f64, bool, u8)>,
     /// Until when the AI keeps preparing for player flyers it has seen.
     pub seen_air_until: f64,
     /// The early scout (a harvester), and whether it has been sent.
@@ -125,15 +125,29 @@ impl World {
         self.ai_turn
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
-    /// among those still in (then among all), ties to the lower seat. With two seats, the other one.
+    /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two
+    /// neighbours as near: ties go to its partner (seats 0 and 1, 2 and 3, ...), then to the next seat after its own.
+    /// Partners pick each other, so their waves meet on the way as in a duel (each seat going for the next one round
+    /// the ring, every wave would find a base whose army is out, and every economy would fall at once). With two
+    /// seats, the other one.
     pub(crate) fn foe(&self) -> u8 {
         let me = self.ai_turn;
+        let n = self.seats() as u8;
         let (mx, my) = self.map.bases[me as usize];
-        (0..self.seats() as u8)
+        (0..n)
             .filter(|&s| self.enemies(me, s))
             .min_by_key(|&s| {
                 let (x, y) = self.map.bases[s as usize];
-                (self.out[s as usize], (x - mx).pow(2) + (y - my).pow(2), s)
+                let after = if s == me ^ 1 {
+                    0
+                } else {
+                    1 + (s + n - me - 1) % n
+                };
+                (
+                    self.out[s as usize],
+                    (x - mx).pow(2) + (y - my).pow(2),
+                    after,
+                )
             })
             .unwrap_or(me)
     }
@@ -306,6 +320,8 @@ pub(crate) struct Brain {
     /// The fields by its main are running dry: the expansion is due now, and saving for it does not give up.
     dry: bool,
     intruder: Option<Id>,
+    /// Armed enemies at our buildings, counted only with more than one enemy still in (0 otherwise).
+    raid: usize,
     enemy_air: usize,
     lancers: usize,
     saving: bool,
@@ -314,6 +330,7 @@ pub(crate) struct Brain {
 #[cfg(test)]
 mod tests {
     use crate::data::*;
+    use crate::map::{MapKind, MapSize};
     use crate::world::World;
 
     #[test]
@@ -337,10 +354,44 @@ mod tests {
         assert_eq!(w.foe(), PLAYER, "never an ally");
         w.ai_turn = 2;
         assert_eq!(w.foe(), PLAYER);
-        // Equally near: the lower seat.
+        // Equally near: its partner (seats 0 and 1, 2 and 3, ...), else the next seat after its own.
         w.teams = vec![0, 1, 2];
-        w.map.bases[2] = w.map.bases[1];
+        w.map.bases = vec![(20, 20), (30, 20), (10, 20)];
         w.ai_turn = 0;
-        assert_eq!(w.foe(), 1, "a tie goes to the lower seat");
+        assert_eq!(w.foe(), 1, "a tie goes to the partner");
+        w.map.bases[2] = (25, 30);
+        w.ai_turn = 2;
+        assert_eq!(w.foe(), 0, "no partner: the next seat round");
+        // Four seats round a 96x96 map, each with two neighbours as near: partners pick each other; with a partner
+        // out, the neighbour on the other side, not the seat across the map.
+        let mut w = World::with_size(
+            31,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS; 4],
+        );
+        let foes = |w: &mut World| -> Vec<u8> {
+            (0..w.seats() as u8)
+                .map(|s| {
+                    w.ai_turn = s;
+                    w.foe()
+                })
+                .collect()
+        };
+        assert_eq!(foes(&mut w), [1, 0, 3, 2]);
+        w.out[1] = true;
+        assert_eq!(foes(&mut w)[0], 3);
+        // Three seats on the four starts: seat 1 between the other two, its partner first.
+        let mut w = World::with_size(
+            31,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS; 3],
+        );
+        assert_eq!(foes(&mut w), [1, 0, 1]);
     }
 }

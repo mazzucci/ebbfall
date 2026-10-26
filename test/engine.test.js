@@ -277,6 +277,28 @@ test('a game for any number of seats takes a setup it can play and refuses the r
   a.free(); b.free();
 });
 
+test('a game of four seats on a four-start map mirrors every seat\'s record', { skip }, () => {
+  const races = ['humans', 'vael', 'humans', 'vael'];
+  assert.throws(() => E.resetGameSeats(31, 1, 0, 0, [...races, 'humans'], [], [], 0, 96), /5 seats: a 96x96 map has 4 starts/);
+  E.resetGameSeats(31, 1, 0, 0, races, [0, 0, 1, 1], [false, true, true, true], 0, 96);
+  assert.deepEqual([E.MW, E.MH, E.G.me], [96, 96, 0]);
+  assert.deepEqual([E.G.factions, E.G.teams, E.G.out], [races, [0, 0, 1, 1], [false, false, false, false]]);
+  for (const k of ['res', 'sup', 'stats', 'upgrades']) assert.equal(E.G[k].length, 4, k + ' per seat');
+  assert.deepEqual(E.foes(), [2, 3], 'the other team');
+  for (let t = 0; t < 4; t++) {
+    const hq = E.G.bldgs.filter(b => b.team === t && b.d.hq);
+    assert.equal(hq.length, 1, `seat ${t}'s headquarters`);
+    assert.equal(hq[0].type, C.FACTIONS[races[t]].hq);
+    assert.equal(E.G.units.filter(u => u.team === t).length, 4, `seat ${t}'s workers`);
+  }
+  const cores = [0, 1, 2, 3].map(t => E.G.bldgs.find(b => b.team === t).tx).sort((a, b) => a - b);
+  assert.ok(new Set(cores).size >= 2, 'four starts, not one');
+  runSeconds(30);
+  assert.ok(E.G.res[0][0] > 50 && E.G.stats.slice(1).every(s => s.built > 0), 'the person mines, the AIs train');
+  E.resetGame(4, 0); // (back to a duel's map for the tests after)
+  assert.deepEqual([E.MW, E.G.teams.length], [64, 2]);
+});
+
 test('the client names no unit or building kind outside its data tables and look table', () => {
   // Kind-specific behaviour lives in the sim's flags (worker, hq, onVent, researches...) and src/client/look.js.
   for (const f of ['client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js', 'client/scout.js', 'client/online.js', 'net/net.js']) {

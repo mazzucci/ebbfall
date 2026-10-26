@@ -190,6 +190,59 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    cross-map paths of 2-3 ms each in one tick) 4 ms, 18-50 ms and 78-136 ms: a phone's WASM would hitch for 300 ms
    or more. Before 128x128 is offered: one path per group (or a flow field), repaths spread over ticks, or cheaper
    smoothing.
+2. N seats on larger maps, in four parts: (a) N starts in the sim; (b) a colour per seat in the client; (c)
+   the lobby (seat count, teams, AI to fill seats); (d) group paths.
+   (a) *Done (2026-10-26):* a generated map is one start's share and its images under a symmetry of the grid
+   (`map::Sym`), so every start gets the same ground, pocket, home field and vent, natural and neighbours: 2 starts
+   (the point mirror, as before: the goldens did not move), 4 (the quarter turns of 96x96 or 128x128: the four corners
+   or the middles of the four sides, the seed picks) and 8 (128x128 only: the quarter turns and their mirror images,
+   two starts by each side, 44 tiles from the next one on that side and from the next one round the corner).
+   `map::max_starts(size)` (2, 4, 8) replaces `STARTS`; `starts_for(size, seats)` picks the layout: two seats play the
+   two-start map at any size, 3-4 seats the four-start one, 5-8 the eight-start one. A map lists its starts in ring
+   order (turned by a seed draw); `seat_starts(k, n, side)` seats them evenly round the ring, seat `s` at
+   `(side + s * k / n) % k`, so seats sit round the map in order (allies in consecutive seats are neighbours: the
+   lobby's job), 3 of 4 starts leave one corner free, 6 of 8 two opposite starts; a start nobody takes (its pocket and
+   fields) is free ground. With two starts `side` 1 trades them as before (`World::side`, a number now). Three seats on
+   four starts are not quite fair: the seat in the middle has both others as neighbours (and in AI games it is
+   usually the first out); a three-way layout would need a symmetry the square grid does not have. Units on a map of
+   more than two starts face its centre when they appear and step out of a building (no rally point) towards it (two
+   starts: as always). WASM: `Game.withSeats(..., me, size)` (64, the default, 96 or 128; seats at most the size's
+   starts), and `resetGameSeats` in core.js. The AI with several enemies: `foe()` ties (each start on a ring has two
+   neighbours as near) go to its partner (seats 0 and 1, 2 and 3, ...), then the next seat round: partners' waves
+   meet on the way as in a duel. (Each seat going for the next one round, every wave found a base whose army was out:
+   four AIs on 96x96 lost every harvester in the same minute and the game froze, nobody able to pay for a worker.) A
+   wave goes for the foe's known buildings first (a second prong too), then any enemy's; with more than one enemy
+   still in, a wave out comes home when three or more armed enemies (more than its army at home) are at its
+   buildings; the expansion keeps 22 tiles from every other seat's start and, with more than two starts, stays nearer
+   its own start than any other (a neighbour's natural can be nearer than ours). Two seats play exactly as before.
+   Tests: gameplay `maps.rs` (96x96 with 3 and 4 seats, 128x128 with 4, 6 and 8, every kind: each seat on its start,
+   every start walkable from the first, every start's share alike (neighbour, rock, home field and vent, natural),
+   one narrow ramp per pocket; two minutes of mining alike; facing and stepping out towards the centre; `seat_starts`
+   and `side`), `seats.rs` (the constructor's sizes; four AIs free for all on 96x96 up to 15 minutes under the
+   invariants, partners fighting and a seat out or seats across the map fighting; a 2v2 to the end, allies never
+   targeting each other, one team standing; six and eight AIs on 128x128), AI unit tests (`foe` pairs, the foe's
+   buildings first, the wave called home, expansions on its own side) and an engine test (a four-seat game through
+   `withSeats` mirrors four seats' records). The invariants' "eliminated but not over" holds for every seat.
+   Two minutes of mining with the first four harvesters differ by up to 8% between the two starts of a duel and up to
+   12% among eight starts, and it is positional, not noise (a review averaged 12 seeds x 6 kinds): starts up and left
+   mine less, down and right more (128/8: 0.95 against 1.07 of the mean; 96/4: 0.96 against 1.04; the 64x64 duel
+   already 2% on main). The map is the same; the cause is in movement or economy (the row-major scan in
+   `nearest_free` placing the first workers, the path search's tie-breaks, `to_i32` truncation): a follow-up. With
+   fewer seats than starts, which seat is squeezed (between two others, or beside a free start) is drawn: `side / k`
+   turns the pattern among the seats (`seat_starts`). At Medium the Vael AI wins most free-for-all pairings against
+   the Human AI; in a 2v2 a winning team may have lost one of its seats on the way.
+   Timings, native release, 12-minute AI games (on a 4-core VM that other work was using too, so roughly): four Hard
+   AIs on 96x96, average per tick 0.22-0.29 ms, worst 12-28 ms (Medium 0.25-0.33, worst 9-41); eight Hard AIs on
+   128x128 0.47-0.58 ms, worst 9-27 ms (Medium 0.62-0.66, worst 34-42); six 0.37-0.48, worst 20-43. Two Hard AIs for
+   comparison: 64x64 0.07 ms, worst 8; 96x96 0.12-0.13, worst 56-77; 128x128 0.14-0.15, worst 87-130. More seats mean
+   more units every tick, but shorter walks (neighbours 44-76 tiles apart), so the worst tick, a wave setting off, is
+   lower than a duel's on the same map: part (d) still matters before phones get 128x128. Left: (b) a colour per seat in
+   the art and the client (it draws its own seat and the rest in one foe's colour, allies too), the minimap and the
+   end card for more seats; (c) the
+   lobby: seat count and map size, teams (allies in consecutive seats), AI to fill seats, the menu's preview of the
+   other sizes (`mapPreview` draws a duel's map), teams in the network setup; (d) group paths. Still from M3a: allies
+   sharing vision, an out seat's leftover units and buildings (an AI seat with a Core but no worker or money stays
+   in), the end card's wording with allies.
 
 ## Open questions for the owner
 

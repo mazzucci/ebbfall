@@ -8,7 +8,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 1;
+export const PROTO = 2;
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
 const CHECK_EVERY = 10; // turns between hash checkpoints (relay/room.js)
@@ -115,6 +115,7 @@ export class Net {
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat); break;
       case 'desync': this.on.desync?.(m.turn); break;
       case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;
+      case 'notice': this.on.notice?.(m); break;
       case 'pong': if (m.id === this.pingId) clearTimeout(this.pongTimer); break;
     }
   }

@@ -6,6 +6,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
+import { PROTO } from '../../relay/room.js';
 
 let relay;
 before(async () => { await start(); relay = startRelay({ port: 0, latency: 40, jitter: 60 }); await relay.ready; });
@@ -32,7 +33,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
-    assert.match(relay.rooms.get(code).build, /^[0-9a-f]{12}$/, "the room holds the opener's sim build (a friend's must match)");
+    assert.match(relay.rooms.get(code).seats[0].build, /^[0-9a-f]{12}$/, "the opener's seat holds its sim build (a friend's must match)");
     // The friend opens the shared link on a phone: straight into the room.
     const b = await page(PHONE, `${relayQ}&join=${code}`);
     try {
@@ -91,9 +92,10 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
 test('a room of another version: the friend is told to reload, and RELOAD brings them back to the room', async () => {
   const { WebSocket } = await import('ws');
   const host = new WebSocket(`ws://localhost:${relay.port}/?new=1`);
+  const told = [];
   const code = await new Promise((res, rej) => {
-    host.on('open', () => host.send(JSON.stringify({ proto: 1, name: 'Old', build: '000000000000' })));
-    host.on('message', (d) => { const m = JSON.parse(d); if (m.t === 'seat') res(m.room); });
+    host.on('open', () => host.send(JSON.stringify({ proto: PROTO, name: 'Old', build: '000000000000' })));
+    host.on('message', (d) => { const m = JSON.parse(d); if (m.t === 'seat') res(m.room); if (m.t === 'notice') told.push(m.code); });
     host.on('error', rej);
   });
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
@@ -102,6 +104,7 @@ test('a room of another version: the friend is told to reload, and RELOAD brings
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 });
     assert.match(await b.p.locator('#onlineStatus').textContent(), /different versions/);
     assert.ok(await b.p.locator('#onlineJoin').isVisible(), 'the code box is back, to try another room');
+    assert.deepEqual(told, ['version'], 'the room is told too (its player may be the one behind)');
     await Promise.all([b.p.waitForNavigation(), b.tap('#btnOnlineReload')]);
     await b.p.waitForFunction(() => !!window.endfall);
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 }); // (the same room again: still another version)

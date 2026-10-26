@@ -156,6 +156,27 @@ test('one sim build per room: another build is told to update, the same one join
   assert.equal(r.connect(b, hello({ build: 'bbbb11112222' })), -1);
   assert.equal(got(b, 'error')[0].code, 'version');
   assert.equal(r.connect(c, hello({ build: 'aaaa11112222' })), 1, 'the same build: a seat');
+  assert.deepEqual(got(a, 'notice').map(m => m.code), ['version'], 'the seated are told someone on another build was turned away');
+});
+
+test('a room whose seats have all left takes a new build (an opener reloading into an update keeps its room)', () => {
+  const { r, conn } = room();
+  const a = conn('a'), a2 = conn('a2'), b = conn('b');
+  r.connect(a, hello({ build: 'old000000000' }));
+  r.close(a); // (the update's reload)
+  assert.equal(r.connect(a2, hello({ build: 'new000000000' })), 0, 'the opener, back on the new build');
+  assert.equal(r.connect(b, hello({ build: 'new000000000' })), 1, 'and a friend on it');
+});
+
+test('a seat coming back with its token is checked against the others, not itself', () => {
+  const { r, conn, got } = room();
+  const a = conn('a'), a2 = conn('a2'), b = conn('b');
+  r.connect(a, hello({ build: 'aaaa' }));
+  r.connect(b, hello({ build: 'aaaa' }));
+  const token = got(a, 'seat')[0].token;
+  r.close(a);
+  assert.equal(r.connect(a2, hello({ build: 'bbbb', token })), -1, 'its friend is on another build: refused');
+  assert.equal(r.connect(a2, hello({ build: 'aaaa', token })), 0, 'the same build: its own seat back');
 });
 
 test('a seat that leaves concedes at once: no waiting for it', () => {

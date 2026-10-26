@@ -20,7 +20,7 @@ const SIM_BUILD = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : '';
 /** The link that opens room `code` (with this page's test relay, if any). */
 const joinLink = (code) => `${location.origin}${location.pathname}?join=${code}${params.get('relay') ? `&relay=${encodeURIComponent(params.get('relay'))}` : ''}`;
 /** Where a reload should land: back in the lobby's room, if there is one and no game is on; else this page. */
-export const reloadUrl = () => (online.net?.room && !online.playing ? joinLink(online.net.room) : location.href);
+export const reloadUrl = () => { const code = online.net?.room || joining; return code && !online.playing ? joinLink(code) : location.href; };
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -61,10 +61,11 @@ function connect(room) {
   online.ready = false; $('roomShow').textContent = ''; $('seatList').innerHTML = ''; $('btnOnlineReload').hidden = true; // (no last room's code or seats)
   joining = room;
   online.net = new Net({
-    url: relayUrl(), room, name: name(), build: SIM_BUILD, game: () => (online.playing ? liveGame() : null),
+    url: relayUrl(), room, name: name(), build: SIM_BUILD, token: room ? seatToken.get(room) : null, game: () => (online.playing ? liveGame() : null),
     on: {
-      seat: (m) => { online.seat = m.seat; $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
+      seat: (m) => { online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
       lobby: renderLobby,
+      notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend on another version of Ebbfall tried to join. If yours is the older one, reload: you stay in this room.'); $('btnOnlineReload').hidden = false; } },
       start: (setup, seat) => { online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true; onStart(setup, seat); online.net.loaded(); },
       away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
       back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${who(s)} is back`); } },
@@ -109,12 +110,27 @@ function renderLobby(m) {
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let joining = '';
-/** Reload into the newest build (the service worker fetches it; its switch-over reloads too) and back to the room. */
+/** Reload into the newest build and back to the room. A new build being installed: wait for it (main.js reloads into
+ *  the room when it takes over); none: reload now (another build may already be cached). */
 async function reloadNewest() {
   sfx('select');
-  try { await (await navigator.serviceWorker?.getRegistration())?.update(); } catch { /* none: a plain reload */ }
-  location.replace(joinLink(joining));
+  const code = online.net?.room || joining;
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+    if (reg?.installing || reg?.waiting) {
+      status('Updating…'); $('btnOnlineReload').hidden = true;
+      if (code) joining = code; // (where main.js's reload lands: reloadUrl)
+      return;
+    }
+  } catch { /* no service worker: a plain reload */ }
+  location.replace(joinLink(code));
 }
+/** This tab's seat token per room (a reload, or an update's switch-over, takes the same seat back). */
+const seatToken = {
+  get: (room) => { try { return sessionStorage.getItem('endfall.seat.' + room); } catch { return null; } },
+  set: (room, t) => { try { sessionStorage.setItem('endfall.seat.' + room, t); } catch { /* private mode */ } },
+};
 
 async function share() {
   const code = $('roomShow').textContent, url = joinLink(code);

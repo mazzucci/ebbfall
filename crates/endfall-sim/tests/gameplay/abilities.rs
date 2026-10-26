@@ -24,7 +24,7 @@ fn shots(w: &mut World, shooter: Id, secs: u32) -> usize {
 fn range_scene(kind: UnitKind, seed: u32) -> (World, Id, Id) {
     let mut w = tech_arena(seed);
     if kind.def().shields > 0.0 {
-        w.factions = [&VAEL, &HUMANS];
+        w.factions = vec![&VAEL, &HUMANS];
     }
     let me = w.make_unit(kind, PLAYER, 30.0 * TILE, 30.0 * TILE);
     let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 34.0 * TILE, 30.0 * TILE);
@@ -100,7 +100,7 @@ fn entrench_reaches_farther_but_cannot_move_and_packs_up_to_walk() {
 #[test]
 fn blink_hops_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
     let mut w = tech_arena(4);
-    w.factions = [&VAEL, &HUMANS];
+    w.factions = vec![&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 30.0 * TILE);
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 28.0 * TILE, 30.0 * TILE);
     w.hold_unit(foe);
@@ -123,7 +123,7 @@ fn blink_hops_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
     );
     // Facing a building with no target: it lands on the nearest open tile, never inside.
     let mut w = tech_arena(5);
-    w.factions = [&VAEL, &HUMANS];
+    w.factions = vec![&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 30.5 * TILE);
     w.make_building(BldgKind::Depot, ENEMY, 23, 29, true);
     w.cast(s, AbilityKind::Blink).unwrap(); // faces east (team 0), straight at the Depot

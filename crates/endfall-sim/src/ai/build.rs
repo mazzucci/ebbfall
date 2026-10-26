@@ -190,10 +190,7 @@ impl World {
 
     /// A spot for a second Core: by a shard field away from both bases, nearest to our main core.
     pub(crate) fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
-        let (px, py) = (
-            self.map.bases[self.foe() as usize].0 as f64 + 2.0,
-            self.map.bases[self.foe() as usize].1 as f64 + 2.0,
-        );
+        let (px, py) = self.foe_base();
         let mut fields: Vec<(f64, i32, i32)> = self
             .map
             .nodes

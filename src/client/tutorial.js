@@ -25,7 +25,7 @@ function steps() {
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
     { text: `Train 6 ${UNITS[soldier].name}s at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= 6 },
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => calm() || G.time - tut.stepAt > 150 },
-    { text: 'Tap the soldier in the top bar (your army), then Attack the enemy base', por: ['bldg', f.hq], want: ['army', 'attack'], done: () => G.over && G.winner === G.me },
+    { text: 'Tap the soldier in the top bar (your army), then Attack the enemy base', por: ['bldg', f.hq], want: ['army', 'attack'], done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 

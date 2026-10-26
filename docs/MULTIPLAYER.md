@@ -120,7 +120,11 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    natively and in WASM under Node.
 2. Seats: the sim's two sides become N (`[T; 2]` per-seat state becomes per-seat `Vec`s, `foe()` becomes enemies by
    team, victory "last team standing"), and the snapshot and client follow (`shards0/1`, `faction0/1`, `seen: [bool;
-   2]`, `1 - G.me`). Two seats behave exactly as today: the goldens do not move.
+   2]`, `1 - G.me`). Two seats behave exactly as today: the goldens do not move. *Done (2026-10-26):* `World::seats()`,
+   `teams` with `enemies`/`allies`, `out` and the winning team (world/seats.rs); a per-seat snapshot record;
+   `Game.withSeats(seed, diff, map, side, factions, teams, ai, me)` refuses more seats than the map's starts (2 until
+   M4); the AI plans against the nearest enemy start still in. Left for M4: starts for N seats, per-seat colours in
+   the art, allies sharing vision, what an out seat's leftover units do.
 3. The cross-engine golden matrix in CI, and the `?selftest` page.
 
 **M3b. Relay and net client.** The relay state machine and its Node adapter; `src/net/` (socket, turn buffer,

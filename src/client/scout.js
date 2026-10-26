@@ -1,6 +1,6 @@
 // What this side has seen of the enemy's army: every enemy fighter counted once, with when it was last in view (fog
 // and cloak respected). Shown on demand only: the pause card (lately) and the end card (the whole game).
-import { G, UNITS, visibleEnt } from '../engine/index.js';
+import { G, UNITS, visibleEnt, enemies } from '../engine/index.js';
 import { portrait } from './icons.js';
 
 const LATELY = 90; // seconds the pause card looks back
@@ -14,7 +14,7 @@ export function noteSightings() {
   if (G.time - noted < 0.25 && noted <= G.time) return;
   noted = G.time;
   for (const u of G.units) {
-    if (u.team === G.me || u.d.worker || !visibleEnt(u)) continue;
+    if (!enemies(G.me, u.team) || u.d.worker || !visibleEnt(u)) continue;
     const s = sightings.get(u.id);
     if (s) s.last = G.time; else sightings.set(u.id, { u, type: u.type, team: u.team, last: G.time });
   }

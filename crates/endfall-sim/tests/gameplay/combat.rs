@@ -310,7 +310,7 @@ fn every_weapon_reports_its_shots_for_the_sound() {
     ] {
         let mut w = arena(16);
         if shooter.def().shields > 0.0 {
-            w.factions = [&VAEL, &HUMANS];
+            w.factions = vec![&VAEL, &HUMANS];
         }
         let me = w.make_unit(shooter, PLAYER, 600.0, 900.0);
         let foe = w.make_unit(target, ENEMY, 615.0, 900.0);
@@ -642,7 +642,7 @@ fn idle_defenders_shot_by_a_passing_wasp_give_up_and_walk_home() {
 #[test]
 fn shields_research_soaks_damage_on_shields_only() {
     let mut w = flat_arena(17);
-    w.factions = [&VAEL, &HUMANS];
+    w.factions = vec![&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 30.0 * TILE, 30.0 * TILE);
     w.hold_unit(s);
     w.upgrades[PLAYER as usize][Upgrade::Shields.index()] = 2;
@@ -682,7 +682,7 @@ fn shields_research_soaks_damage_on_shields_only() {
 #[test]
 fn a_halo_mends_shields_in_combat_and_never_the_hull() {
     let mut w = flat_arena(18);
-    w.factions = [&VAEL, &HUMANS];
+    w.factions = vec![&VAEL, &HUMANS];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
     let halo = w.make_unit(UnitKind::Halo, PLAYER, x, y);
     let a = w.make_unit(UnitKind::Scythe, PLAYER, x + 40.0, y);
@@ -733,7 +733,7 @@ fn a_halo_mends_shields_in_combat_and_never_the_hull() {
 #[test]
 fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     let mut w = flat_arena(16);
-    w.factions = [&VAEL, &HUMANS];
+    w.factions = vec![&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 30.0 * TILE, 30.0 * TILE);
     w.hold_unit(s);
     let d = UnitKind::Scythe.def();
@@ -800,7 +800,7 @@ fn vael_buildings_regenerate_shields_and_lumens_do_not_repair() {
 #[test]
 fn a_monolith_splashes_with_its_own_numbers() {
     let mut w = arena(16);
-    w.factions = [&VAEL, &HUMANS];
+    w.factions = vec![&VAEL, &HUMANS];
     let d = UnitKind::Monolith.def();
     let wp = d.weapon.unwrap();
     assert_eq!((wp.splash, wp.splash_r), (0.5, 40.0));

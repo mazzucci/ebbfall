@@ -14,3 +14,4 @@ mod lockstep;
 mod maps;
 mod orders;
 mod random_play;
+mod seats;

@@ -25,7 +25,7 @@ impl World {
             .bldgs
             .iter()
             .filter(|b| {
-                b.team == self.foe()
+                self.hostile(b.team)
                     && (0..b.h).any(|y| {
                         (0..b.w)
                             .any(|x| self.vis[self.seat() as usize][idx(b.tx + x, b.ty + y)] != 0)
@@ -34,7 +34,7 @@ impl World {
             .map(|b| (b.id, b.x, b.y, b.kind.def().hq))
             .collect();
         let air_seen = self.units.iter().any(|u| {
-            u.team == self.foe() && u.kind.def().air && u.kind.def().armed() && self.ai_sees_unit(u)
+            self.hostile(u.team) && u.kind.def().air && u.kind.def().armed() && self.ai_sees_unit(u)
         }); // (a scout is no air threat)
         let gone: Vec<Id> = self
             .ai()
@@ -48,7 +48,7 @@ impl World {
         for u in self
             .units
             .iter()
-            .filter(|u| u.team == self.foe() && self.ai_sees_unit(u))
+            .filter(|u| self.hostile(u.team) && self.ai_sees_unit(u))
         {
             let d = u.kind.def();
             if d.air || d.worker || !d.armed() {
@@ -94,10 +94,7 @@ impl World {
     /// The sweep: the player's start, then every shard field and a coarse grid of open ground, by distance from
     /// the start, round and round.
     pub(crate) fn sweep_point(&self) -> (f64, f64) {
-        let start = (
-            (self.map.bases[self.foe() as usize].0 as f64 + 2.0) * TILE,
-            (self.map.bases[self.foe() as usize].1 as f64 + 2.0) * TILE,
-        );
+        let start = (self.foe_base().0 * TILE, self.foe_base().1 * TILE);
         let mut pts: Vec<(f64, f64)> = self
             .map
             .nodes
@@ -148,10 +145,7 @@ impl World {
                 u.carry == 0 && !matches!(u.task, Task::Build { .. } | Task::Repair { .. })
             });
             if let Some(h) = pick {
-                let (x, y) = (
-                    (self.map.bases[self.foe() as usize].0 as f64 + 2.0) * TILE,
-                    (self.map.bases[self.foe() as usize].1 as f64 + 2.0) * TILE,
-                );
+                let (x, y) = (self.foe_base().0 * TILE, self.foe_base().1 * TILE);
                 self.move_to(h, x, y);
                 let ai = self.ai_mut();
                 ai.scout = Some(h);

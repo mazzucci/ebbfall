@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -97,7 +97,7 @@ function whatBeatYou() {
   const top = lostTo(G.me).map((n, i) => [n, ...kinds[i]]).filter(([n]) => n > 0).sort((p, q) => q[0] - p[0]).slice(0, 2);
   const el = $('endWhy'); el.hidden = !top.length; if (!top.length) return;
   const name = (t, k) => (t === 'unit' ? UNITS : BUILDINGS)[k].name + 's';
-  const pic = (t, k) => portrait(t, k, 22, 1 - G.me);
+  const pic = (t, k) => portrait(t, k, 22, foes()[0]); // (in an enemy's colours)
   // (only what this side can train: advice it can act on)
   const f = myFaction(), mine = new Set([...f.buildBasic, ...f.buildAdvanced].flatMap(b => BUILDINGS[b].trains || []).concat(BUILDINGS[f.hq].trains || []));
   const worst = top[0], beats = worst[1] === 'unit' ? (UNITS[worst[2]].weak || []).filter(k => mine.has(k)) : [];
@@ -107,10 +107,10 @@ function whatBeatYou() {
 
 function endGame() {
   setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
-  const win = G.winner === G.me;
+  const win = G.winner === G.teams[G.me]; // (the winner is a team)
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   $('endSub').textContent = G.conceded === G.me ? 'You conceded after ' + fmt(G.time) + '.' : G.conceded >= 0 ? 'The enemy conceded after ' + fmt(G.time) + '.'
-    : G.bldgs.some(b => b.team !== G.winner) ? (win ? 'The enemy had nothing left to fight with after ' : 'Nothing left to fight with after ') + fmt(G.time) + '.' // (out with buildings standing)
+    : G.bldgs.some(b => G.teams[b.team] !== G.winner) ? (win ? 'The enemy had nothing left to fight with after ' : 'Nothing left to fight with after ') + fmt(G.time) + '.' // (out with buildings standing)
     : win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
   $('endMap').innerHTML = `<b>${setup().name}</b>: ${MAP_KINDS[setup().kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
@@ -118,7 +118,7 @@ function endGame() {
   whatBeatYou();
   const seen = seenLine(-1, 'You saw: ', ''); $('endSeen').innerHTML = seen; $('endSeen').hidden = !seen; // (their army as far as it was scouted)
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
-  const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
+  const chart = armyChart(armyLog(G.me), foes().map(armyLog).reduce((sum, l) => l.map((v, i) => v + (sum[i] || 0)), [])); // (the enemies together)
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
   $('btnWatch').hidden = menu.tutorial; // (the guided game's hold is not in the log)
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();

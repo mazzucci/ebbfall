@@ -3,9 +3,9 @@
 use super::*;
 
 impl World {
-    // ---- fog of war: one layer per team; rules use team 0's (the human's) like the JS sim ----
+    // ---- fog of war: one layer per seat (allies do not share vision yet: a later change here and in `seen_by`) ----
     pub fn update_fog(&mut self) {
-        for team in 0..2 {
+        for team in 0..self.seats() {
             self.vis[team].fill(0);
             let mut marks: Vec<(f64, f64, f64)> = Vec::new();
             for u in self.units.iter().filter(|u| u.team as usize == team) {
@@ -60,14 +60,22 @@ impl World {
         self.det[team as usize][idx(tx, ty)] != 0
     }
 
-    /// Whether unit `u` is hidden from `team`: cloaked, another team's, and outside its detection.
+    /// Whether unit `u` is hidden from `team`: cloaked, an enemy's, and outside its detection.
     pub fn cloaked_from(&self, team: u8, u: &Unit) -> bool {
-        u.team != team && World::is_cloaked(u) && !self.detects(team, u.x, u.y)
+        self.enemies(team, u.team) && World::is_cloaked(u) && !self.detects(team, u.x, u.y)
     }
 
     /// Whether `id` (unit or building) is hidden from `team` by cloak (buildings never are).
     pub fn hidden_from(&self, team: u8, id: Id) -> bool {
         self.unit(id).is_some_and(|u| self.cloaked_from(team, u))
+    }
+
+    /// The seats that see unit or building `id` of seat `team` (its own, and whoever has it in sight), bit `t` for seat
+    /// `t`: who is shown a shot or a cast.
+    pub(crate) fn seen_mask(&self, team: u8, id: Id) -> u8 {
+        (0..self.seats() as u8)
+            .filter(|&t| t == team || self.seen_by(t, id))
+            .fold(0, |m, t| m | 1 << t)
     }
 
     /// Whether `team` can see this unit or building (its own always).

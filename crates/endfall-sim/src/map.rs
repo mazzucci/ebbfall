@@ -23,6 +23,9 @@ pub struct Node {
     pub field: u32,
 }
 
+/// Starting bases a generated map has: 2 for now (M4: larger maps for more seats, the generator placing N).
+pub const STARTS: usize = 2;
+
 pub struct Map {
     /// 1 = impassable rock.
     pub rock: Vec<u8>,
@@ -32,8 +35,9 @@ pub struct Map {
     pub shade: Vec<f32>,
     /// Shard fields (1 tile) and ether vents (2x2), sorted by id.
     pub nodes: Vec<Node>,
-    /// Top-left tiles of the two starting Command Cores (4x4): the player's, then the opponent's.
-    pub bases: [(i32, i32); 2],
+    /// Top-left tiles of the starting Command Cores (4x4), one per seat in seat order (a generated map has
+    /// `STARTS`; a World refuses more seats than its map has bases).
+    pub bases: Vec<(i32, i32)>,
 }
 
 /// The character of a map, chosen in the menu. The order is the client's index: append only.
@@ -131,7 +135,7 @@ impl Map {
             occ: vec![0; n],
             shade: vec![0.0; n],
             nodes: Vec::new(),
-            bases: BASES,
+            bases: BASES.to_vec(),
         }
     }
 
@@ -168,7 +172,11 @@ impl Map {
         const LAYOUTS: [(i32, i32); 4] = [(8, 52), (8, 8), (9, 30), (30, 51)];
         let b0 = LAYOUTS[(f() * 4.0) as usize % 4];
         let b1 = (MW - 4 - b0.0, MH - 4 - b0.1); // the core is 4x4: mirror its far corner
-        m.bases = if f() < 0.5 { [b0, b1] } else { [b1, b0] };
+        m.bases = if f() < 0.5 {
+            vec![b0, b1]
+        } else {
+            vec![b1, b0]
+        };
         let centre = ((MW - 1) as f64 / 2.0, (MH - 1) as f64 / 2.0);
         let core_c = |b: (i32, i32)| (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
         let (c0, c1) = (core_c(b0), core_c(b1));

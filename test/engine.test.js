@@ -208,9 +208,10 @@ test('the client mirror reads every snapshot field the sim declares (crates/endf
       assert.ok(src.includes(`${v}.${f}`), `core.js does not read ${rec}.${f}`);
     }
   }
+  for (const f of C.SCHEMA.seat) assert.ok(src.includes(`at('${f}')`), `core.js does not read seat.${f}`); // (per seat, by name)
 });
 
-test('the upgrade levels follow the info record, both teams, in the schema\'s order', { skip }, () => {
+test('the upgrade levels follow the seat records, every seat\'s, in the schema\'s order', { skip }, () => {
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
@@ -230,7 +231,7 @@ test('the upgrade levels follow the info record, both teams, in the schema\'s or
 test('the client names no seat: it plays G.me, whichever team that is', () => {
   for (const f of ['main.js', 'client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/menu.js', 'client/audio.js', 'client/fx.js', 'client/icons.js', 'client/scout.js']) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /\b(PLAYER|ENEMY)\b|team [!=]== [01]\b|team = [01]\b/, `${f} names a fixed team`);
+    assert.doesNotMatch(src, /\b(PLAYER|ENEMY)\b|team [!=]== [01]\b|team = [01]\b|1 - G\.me/, `${f} names a fixed team`);
   }
 });
 
@@ -239,6 +240,19 @@ test('the client reads its seat, and each seat\'s stats, from the game', { skip 
   assert.equal(E.G.me, 0);
   assert.equal(E.G.stats.length, 2);
   assert.ok(E.visibleEnt(E.G.bldgs.find(b => b.team === E.G.me)), 'its own buildings are always visible');
+  // Each seat its own team: the enemies are the other seat; the winner is a team.
+  assert.deepEqual([E.G.teams, E.G.out, E.foes(), E.enemies(0, 1), E.enemies(1, 1)], [[0, 1], [false, false], [1], true, false]);
+});
+
+test('a game for any number of seats takes a setup it can play and refuses the rest', { skip }, () => {
+  const seats = (f, t, ai, me) => sim.Game.withSeats(9, 1, 0, 0, Uint32Array.from(f), Uint8Array.from(t), Uint8Array.from(ai), me);
+  assert.throws(() => seats([0, 1, 0], [], [], 0), /3 seats/, 'more seats than the map has starts');
+  assert.throws(() => seats([0, 1], [0, 0], [], 0), /Teams/, 'one team');
+  assert.throws(() => seats([0, 1], [], [], 2), /seat/, 'no such seat');
+  const a = seats([0, 1], [0, 1], [0, 1], 0), b = sim.Game.withSetup(9, 1, 0, 0, 0, 1);
+  for (let i = 0; i < 300; i++) { a.step(); b.step(); }
+  assert.equal(a.stateHash(), b.stateHash(), 'two seats: the same game as before');
+  a.free(); b.free();
 });
 
 test('the client names no unit or building kind outside its data tables and look table', () => {

@@ -80,10 +80,10 @@ impl World {
         let start = self.map.nearest_free(cx as i32, cy as i32, 6)?;
         let reach = self.walkable_from(start);
         let natural = self.expansion_spot(cx, cy);
-        let ok = |_: &World, tx: i32, ty: i32| {
+        let ok = |w: &World, tx: i32, ty: i32| {
             // (the walkway tile left of it: free, so reachable if the site is)
-            in_map(tx - 1, ty)
-                && reach[idx(tx - 1, ty)]
+            w.map.in_map(tx - 1, ty)
+                && reach[w.map.idx(tx - 1, ty)]
                 && natural.is_none_or(|(nx, ny)| (tx - nx).abs().max((ty - ny).abs()) > 7)
         };
         self.find_spot_within(kind, cx, cy, from, ROOM_FAR, &ok)
@@ -91,13 +91,16 @@ impl World {
 
     /// Tiles a walker can reach from `start` (4-neighbour steps over free ground).
     fn walkable_from(&self, start: (i32, i32)) -> Vec<bool> {
-        let mut seen = vec![false; (MW * MH) as usize];
+        let mut seen = vec![false; self.map.rock.len()];
         let mut todo = vec![start];
-        seen[idx(start.0, start.1)] = true;
+        seen[self.map.idx(start.0, start.1)] = true;
         while let Some((x, y)) = todo.pop() {
             for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
-                if in_map(nx, ny) && !seen[idx(nx, ny)] && !self.map.blocked(nx, ny) {
-                    seen[idx(nx, ny)] = true;
+                if self.map.in_map(nx, ny)
+                    && !seen[self.map.idx(nx, ny)]
+                    && !self.map.blocked(nx, ny)
+                {
+                    seen[self.map.idx(nx, ny)] = true;
                     todo.push((nx, ny));
                 }
             }
@@ -125,7 +128,7 @@ impl World {
                     continue;
                 }
                 let (xx, yy) = (tx + x, ty + y);
-                if !crate::map::in_map(xx, yy) || self.map.blocked(xx, yy) {
+                if !self.map.in_map(xx, yy) || self.map.blocked(xx, yy) {
                     return false;
                 }
             }

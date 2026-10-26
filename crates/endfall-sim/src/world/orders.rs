@@ -15,7 +15,7 @@ impl World {
         if d.needs_power && !self.powered_at(team, cx, cy) {
             return false; // outside every power field
         }
-        if !in_map(tx, ty) || !in_map(tx + d.w - 1, ty + d.h - 1) {
+        if !self.map.in_map(tx, ty) || !self.map.in_map(tx + d.w - 1, ty + d.h - 1) {
             return false;
         }
         if d.on_vent {
@@ -27,7 +27,8 @@ impl World {
             return match nd {
                 Some(n) => {
                     n.extractor.is_none()
-                        && (self.is_ai(team) || self.explored[team as usize][idx(tx, ty)] != 0)
+                        && (self.is_ai(team)
+                            || self.explored[team as usize][self.map.idx(tx, ty)] != 0)
                 }
                 None => false,
             };
@@ -35,10 +36,10 @@ impl World {
         for y in -1..=d.h {
             for x in -1..=d.w {
                 let (xx, yy) = (tx + x, ty + y);
-                if !in_map(xx, yy) {
+                if !self.map.in_map(xx, yy) {
                     continue;
                 }
-                let i = idx(xx, yy);
+                let i = self.map.idx(xx, yy);
                 let edge = x < 0 || y < 0 || x >= d.w || y >= d.h;
                 if edge {
                     if self.map.occ[i] < 0 {
@@ -428,8 +429,8 @@ impl World {
             let oy = ((i / cols).floor() - ((n as f64 / cols).ceil() - 1.0) / 2.0) * sp;
             self.move_to(
                 id,
-                clamp(x + ox, 16.0, WW - 16.0),
-                clamp(y + oy, 16.0, WH - 16.0),
+                clamp(x + ox, 16.0, self.map.ww() - 16.0),
+                clamp(y + oy, 16.0, self.map.wh() - 16.0),
             );
         }
         let ids: Vec<Id> = us.iter().map(|&(_, id)| id).collect();

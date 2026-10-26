@@ -1,6 +1,6 @@
 //! Terrain, resource nodes and the occupancy grid (port of src/sim/map.js).
 
-use crate::data::{BASES, MH, MW, TILE};
+use crate::data::TILE;
 use crate::jsmath::{self, PI};
 use crate::rng::Mulberry32;
 
@@ -26,7 +26,25 @@ pub struct Node {
 /// Starting bases a generated map has: 2 for now (M4: larger maps for more seats, the generator placing N).
 pub const STARTS: usize = 2;
 
+/// A map's size in tiles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MapSize {
+    pub w: i32,
+    pub h: i32,
+}
+
+impl MapSize {
+    /// A two-seat map (every map the menus offer); M4: about 96x96 for four, 128x128 for six to eight.
+    pub const DUEL: MapSize = MapSize { w: 64, h: 64 };
+    pub const fn square(n: i32) -> MapSize {
+        MapSize { w: n, h: n }
+    }
+}
+
 pub struct Map {
+    /// Width and height in tiles; every grid below is `w * h`, row by row.
+    pub w: i32,
+    pub h: i32,
     /// 1 = impassable rock.
     pub rock: Vec<u8>,
     /// 0 free, >0 building id, <0 negative resource-node id.
@@ -70,13 +88,6 @@ impl MapKind {
     pub fn from_index(i: u32) -> MapKind {
         MapKind::ALL.get(i as usize).copied().unwrap_or_default()
     }
-}
-
-pub fn idx(x: i32, y: i32) -> usize {
-    (y * MW + x) as usize
-}
-pub fn in_map(x: i32, y: i32) -> bool {
-    x >= 0 && y >= 0 && x < MW && y < MH
 }
 
 /// Value noise with three octaves over a seeded permutation (port of makeNoise in util.js).
@@ -128,19 +139,57 @@ const POCKET_R: f64 = 12.0;
 const RAMP_W: f64 = 4.5;
 
 impl Map {
-    pub fn empty() -> Self {
-        let n = (MW * MH) as usize;
+    /// Open ground, no fields; the two starts near opposite corners (test arenas: generated maps choose their own).
+    pub fn empty(size: MapSize) -> Self {
+        let n = (size.w * size.h) as usize;
         Map {
+            w: size.w,
+            h: size.h,
             rock: vec![0; n],
             occ: vec![0; n],
             shade: vec![0.0; n],
             nodes: Vec::new(),
-            bases: BASES.to_vec(),
+            bases: vec![(9, size.h - 10), (size.w - 10, 9)],
         }
     }
 
+    pub fn size(&self) -> MapSize {
+        MapSize {
+            w: self.w,
+            h: self.h,
+        }
+    }
+    /// The index of tile (x, y) in the grids.
+    pub fn idx(&self, x: i32, y: i32) -> usize {
+        (y * self.w + x) as usize
+    }
+    pub fn in_map(&self, x: i32, y: i32) -> bool {
+        x >= 0 && y >= 0 && x < self.w && y < self.h
+    }
+    /// Width and height in world pixels.
+    pub fn ww(&self) -> f64 {
+        self.w as f64 * TILE
+    }
+    pub fn wh(&self) -> f64 {
+        self.h as f64 * TILE
+    }
+    /// The tile under a world point, clamped onto the map.
+    pub fn tile_of(&self, x: f64, y: f64) -> (i32, i32) {
+        (
+            jsmath::to_i32(x / TILE).clamp(0, self.w - 1),
+            jsmath::to_i32(y / TILE).clamp(0, self.h - 1),
+        )
+    }
+    /// Keep a point inside the playable map (16 px margin, like unit movement).
+    pub fn clamp_x(&self, x: f64) -> f64 {
+        x.clamp(16.0, self.ww() - 16.0)
+    }
+    pub fn clamp_y(&self, y: f64) -> f64 {
+        y.clamp(16.0, self.wh() - 16.0)
+    }
+
     pub fn blocked(&self, x: i32, y: i32) -> bool {
-        !in_map(x, y) || self.rock[idx(x, y)] != 0 || self.occ[idx(x, y)] != 0
+        !self.in_map(x, y) || self.rock[self.idx(x, y)] != 0 || self.occ[self.idx(x, y)] != 0
     }
 
     pub fn node(&self, id: Id) -> Option<&Node> {
@@ -156,40 +205,55 @@ impl Map {
             .map(move |i| &mut self.nodes[i])
     }
 
-    /// Generate terrain and resources for `seed` in the character of `kind`; `next_id` is the shared entity id
-    /// counter. Maps are point-symmetric about the centre (both sides get the same ground, fields and vents), and the
-    /// seed picks the layout: where the two bases face each other, the size of the rock features, where the
-    /// expansions lie and whether the centre holds a field.
-    pub fn generate(seed: u32, kind: MapKind, next_id: &mut Id) -> Self {
-        let mut m = Map::empty();
+    /// Generate terrain and resources for `seed` in the character of `kind`, `size` tiles; `next_id` is the shared
+    /// entity id counter. Maps are point-symmetric about the centre (both sides get the same ground, fields and
+    /// vents), and the seed picks the layout: where the two bases face each other, the size of the rock features,
+    /// where the expansions lie and whether the centre holds a field. A larger map keeps the bases' distance from
+    /// their edges, the size of rock features, fields and pockets, and gets more expansions, farther out (on 64x64
+    /// every formula below gives the numbers it always had, draw for draw: the goldens pin them).
+    pub fn generate(seed: u32, kind: MapKind, size: MapSize, next_id: &mut Id) -> Self {
+        debug_assert!(
+            size.w % 2 == 0 && size.h % 2 == 0,
+            "an even size: the centre vent is its own mirror"
+        );
+        let (mw, mh) = (size.w, size.h);
+        let mut m = Map::empty(size);
         let mut rnd = Mulberry32::new(seed);
         let noise = Noise::new(&mut rnd);
         let mut f = || rnd.next_u32() as f64 / 4_294_967_296.0;
         // The mirror of a tile through the centre of the map.
-        let mir = |(x, y): (i32, i32)| (MW - 1 - x, MH - 1 - y);
-        let mirf = |(x, y): (f64, f64)| ((MW - 1) as f64 - x, (MH - 1) as f64 - y);
+        let mir = |(x, y): (i32, i32)| (mw - 1 - x, mh - 1 - y);
+        let mirf = |(x, y): (f64, f64)| ((mw - 1) as f64 - x, (mh - 1) as f64 - y);
         // Where the bases face each other: opposite corners (either diagonal) or opposite sides; who starts where.
-        const LAYOUTS: [(i32, i32); 4] = [(8, 52), (8, 8), (9, 30), (30, 51)];
-        let b0 = LAYOUTS[(f() * 4.0) as usize % 4];
-        let b1 = (MW - 4 - b0.0, MH - 4 - b0.1); // the core is 4x4: mirror its far corner
+        let layouts = [
+            (8, mh - 12),
+            (8, 8),
+            (9, (mh - 4) / 2),
+            ((mw - 4) / 2, mh - 13),
+        ];
+        let b0 = layouts[(f() * 4.0) as usize % 4];
+        let b1 = (mw - 4 - b0.0, mh - 4 - b0.1); // the core is 4x4: mirror its far corner
         m.bases = if f() < 0.5 {
             vec![b0, b1]
         } else {
             vec![b1, b0]
         };
-        let centre = ((MW - 1) as f64 / 2.0, (MH - 1) as f64 / 2.0);
+        let centre = ((mw - 1) as f64 / 2.0, (mh - 1) as f64 / 2.0);
         let core_c = |b: (i32, i32)| (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
         let (c0, c1) = (core_c(b0), core_c(b1));
         let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
-        // Expansions: two or three sites in the first base's half, each mirrored for the other side.
-        let want = 2 + (f() < 0.4) as usize;
+        // Expansions: two or three sites in the first base's half (one more per 32 tiles past 64, reaching 16 tiles
+        // farther), each mirrored for the other side.
+        let more = (mw.min(mh) - 64).max(0);
+        let want = 2 + (f() < 0.4) as usize + (more / 32) as usize;
+        let far = 32.0 + more as f64 / 2.0;
         let mut sites: Vec<(f64, f64)> = Vec::new();
         for _ in 0..200 {
             if sites.len() >= want {
                 break;
             }
-            let p = (10.0 + f() * (MW - 20) as f64, 10.0 + f() * (MH - 20) as f64);
-            let ok = (18.0..=32.0).contains(&d(p, c0)) // (an expansion, not part of the main base)
+            let p = (10.0 + f() * (mw - 20) as f64, 10.0 + f() * (mh - 20) as f64);
+            let ok = (18.0..=far).contains(&d(p, c0)) // (an expansion, not part of the main base)
                 && d(p, c1) > d(p, c0) + 6.0
                 && d(p, centre) > 7.0
                 && d(p, mirf(p)) > 12.0
@@ -251,22 +315,23 @@ impl Map {
         };
         let id0 = *next_id;
         for _ in 0..16 {
-            for y in 0..MH {
-                for x in 0..MW {
+            for y in 0..mh {
+                for x in 0..mw {
                     // One half of the map is drawn from the noise, the other is its mirror image.
-                    let (sx, sy) = if idx(x, y) <= idx(MW - 1 - x, MH - 1 - y) {
+                    let (sx, sy) = if m.idx(x, y) <= m.idx(mw - 1 - x, mh - 1 - y) {
                         (x, y)
                     } else {
                         mir((x, y))
                     };
                     let n = noise.get(sx as f64 / scale, sy as f64 / scale);
-                    m.shade[idx(x, y)] = n as f32;
-                    let border = x == 0 || y == 0 || x == MW - 1 || y == MH - 1;
+                    let i = m.idx(x, y);
+                    m.shade[i] = n as f32;
+                    let border = x == 0 || y == 0 || x == mw - 1 || y == mh - 1;
                     let clear = open
                         .iter()
                         .any(|e| jsmath::hypot(sx as f64 - e.0, sy as f64 - e.1) < e.2);
                     let walled = wall(sx as f64, sy as f64);
-                    m.rock[idx(x, y)] = if border || walled || (n > thr && !clear) {
+                    m.rock[i] = if border || walled || (n > thr && !clear) {
                         1
                     } else {
                         0
@@ -278,7 +343,7 @@ impl Map {
             *next_id = id0;
             m.place_fields(next_id, kind, c0, centre, &sites, middle);
             let reach = m.walkable_from(b0);
-            let reached = |x: i32, y: i32| in_map(x, y) && reach[idx(x, y)];
+            let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
             let fields_ok = m.nodes.iter().all(|n| {
                 let s = if n.ether { 2 } else { 1 };
                 (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
@@ -314,17 +379,18 @@ impl Map {
         sites: &[(f64, f64)],
         middle: bool,
     ) {
-        let mir = |t: &(i32, i32)| (MW - 1 - t.0, MH - 1 - t.1);
+        let (mw, mh) = (self.w, self.h);
+        let mir = |t: &(i32, i32)| (mw - 1 - t.0, mh - 1 - t.1);
         let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
         let side = away + PI * 0.5;
         let v0 = (
-            (jsmath::round(c0.0 + jsmath::cos(side) * 8.0) as i32 - 1).clamp(1, MW - 3),
-            (jsmath::round(c0.1 + jsmath::sin(side) * 8.0) as i32 - 1).clamp(1, MH - 3),
+            (jsmath::round(c0.0 + jsmath::cos(side) * 8.0) as i32 - 1).clamp(1, mw - 3),
+            (jsmath::round(c0.1 + jsmath::sin(side) * 8.0) as i32 - 1).clamp(1, mh - 3),
         );
         let home = self.add_shards(next_id, c0.0, c0.1, away, 7, 6.5);
         self.add_vent(next_id, v0.0, v0.1);
         self.add_shards_at(next_id, &home.iter().map(mir).collect::<Vec<_>>());
-        self.add_vent(next_id, MW - 2 - v0.0, MH - 2 - v0.1);
+        self.add_vent(next_id, mw - 2 - v0.0, mh - 2 - v0.1);
         for (k, &p) in sites.iter().enumerate() {
             // The crystals lie on the far side of the site from the main, clear of the main's ramp.
             let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
@@ -333,13 +399,13 @@ impl Map {
             if k % 2 == 0 || kind == MapKind::EtherStorm {
                 let v = (jsmath::round(p.0) as i32 - 1, jsmath::round(p.1) as i32 - 1);
                 self.add_vent(next_id, v.0, v.1);
-                self.add_vent(next_id, MW - 2 - v.0, MH - 2 - v.1);
+                self.add_vent(next_id, mw - 2 - v.0, mh - 2 - v.1);
             }
         }
         if middle {
             let left = self.add_shards(next_id, centre.0 - 3.0, centre.1, PI, 3, 2.5);
             self.add_shards_at(next_id, &left.iter().map(mir).collect::<Vec<_>>());
-            self.add_vent(next_id, MW / 2 - 1, MH / 2 - 1); // a 2x2 vent on the centre is its own mirror
+            self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the centre is its own mirror
         }
     }
 
@@ -362,9 +428,9 @@ impl Map {
             let mut ty = jsmath::round(cy + jsmath::sin(a) * d) as i32;
             let mut k = 0;
             while k < 6
-                && (!in_map(tx, ty)
-                    || self.occ[idx(tx, ty)] != 0
-                    || (self.rock[idx(tx, ty)] != 0 && k > 3))
+                && (!self.in_map(tx, ty)
+                    || self.occ[self.idx(tx, ty)] != 0
+                    || (self.rock[self.idx(tx, ty)] != 0 && k > 3))
             {
                 tx += jsmath::sign(jsmath::cos(a)) as i32;
                 ty += jsmath::sign(jsmath::sin(a)) as i32;
@@ -391,10 +457,11 @@ impl Map {
     }
 
     fn add_shard(&mut self, next_id: &mut Id, tx: i32, ty: i32, field: u32) -> bool {
-        if !in_map(tx, ty) || self.occ[idx(tx, ty)] != 0 {
+        if !self.in_map(tx, ty) || self.occ[self.idx(tx, ty)] != 0 {
             return false;
         }
-        self.rock[idx(tx, ty)] = 0;
+        let i = self.idx(tx, ty);
+        self.rock[i] = 0;
         let id = *next_id;
         *next_id += 1;
         self.nodes.push(Node {
@@ -410,20 +477,20 @@ impl Map {
             extractor: None,
             field,
         });
-        self.occ[idx(tx, ty)] = -(id as i32);
+        self.occ[i] = -(id as i32);
         true
     }
 
     /// Tiles a walker can reach from `from` (4-neighbour, over unblocked tiles: rock and fields both block).
     fn walkable_from(&self, from: (i32, i32)) -> Vec<bool> {
-        let mut seen = vec![false; (MW * MH) as usize];
+        let mut seen = vec![false; self.rock.len()];
         let mut q = vec![from];
-        seen[idx(from.0, from.1)] = true;
+        seen[self.idx(from.0, from.1)] = true;
         while let Some((x, y)) = q.pop() {
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
                 let (nx, ny) = (x + dx, y + dy);
-                if !self.blocked(nx, ny) && !seen[idx(nx, ny)] {
-                    seen[idx(nx, ny)] = true;
+                if !self.blocked(nx, ny) && !seen[self.idx(nx, ny)] {
+                    seen[self.idx(nx, ny)] = true;
                     q.push((nx, ny));
                 }
             }
@@ -434,7 +501,8 @@ impl Map {
     fn add_vent(&mut self, next_id: &mut Id, tx: i32, ty: i32) {
         for y in 0..2 {
             for x in 0..2 {
-                self.rock[idx(tx + x, ty + y)] = 0;
+                let i = self.idx(tx + x, ty + y);
+                self.rock[i] = 0;
             }
         }
         let id = *next_id;
@@ -454,24 +522,28 @@ impl Map {
         });
         for y in 0..2 {
             for x in 0..2 {
-                self.occ[idx(tx + x, ty + y)] = -(id as i32);
+                let i = self.idx(tx + x, ty + y);
+                self.occ[i] = -(id as i32);
             }
         }
     }
 
     /// Flood fill over passable rock (ignores occupancy).
     pub fn connected(&self, a: (i32, i32), b: (i32, i32)) -> bool {
-        let mut seen = vec![false; (MW * MH) as usize];
+        let mut seen = vec![false; self.rock.len()];
         let mut q = vec![a];
-        seen[idx(a.0, a.1)] = true;
+        seen[self.idx(a.0, a.1)] = true;
         while let Some((x, y)) = q.pop() {
             if (x, y) == b {
                 return true;
             }
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
                 let (nx, ny) = (x + dx, y + dy);
-                if in_map(nx, ny) && self.rock[idx(nx, ny)] == 0 && !seen[idx(nx, ny)] {
-                    seen[idx(nx, ny)] = true;
+                if self.in_map(nx, ny)
+                    && self.rock[self.idx(nx, ny)] == 0
+                    && !seen[self.idx(nx, ny)]
+                {
+                    seen[self.idx(nx, ny)] = true;
                     q.push((nx, ny));
                 }
             }

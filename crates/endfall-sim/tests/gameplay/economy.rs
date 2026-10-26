@@ -211,7 +211,7 @@ fn one_harvester_mines_a_field_at_a_time() {
         .collect();
     for id in &others {
         let n = w.map.node(*id).unwrap();
-        let i = (n.ty * MW + n.tx) as usize;
+        let i = w.map.idx(n.tx, n.ty);
         w.map.occ[i] = 0;
     }
     w.map.nodes.retain(|n| !others.contains(&n.id));
@@ -331,7 +331,8 @@ fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
             let (size, ox, oy) = (if n.ether { 2 } else { 1 }, n.tx, n.ty);
             for y in 0..size {
                 for x in 0..size {
-                    w.map.occ[((oy + y) * MW + ox + x) as usize] = 0;
+                    let i = w.map.idx(ox + x, oy + y);
+                    w.map.occ[i] = 0;
                 }
             }
         }
@@ -396,7 +397,7 @@ fn busy_harvesters_only_hop_to_vents_with_their_own_extractor() {
         let (tx, ty) = (mx + dx, my + dy);
         let free = (0..2).all(|y| {
             (0..2).all(|x| {
-                let i = ((ty + y) * MW + tx + x) as usize;
+                let i = w.map.idx(tx + x, ty + y);
                 w.map.occ[i] == 0 && w.map.rock[i] == 0
             })
         });

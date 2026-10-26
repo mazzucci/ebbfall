@@ -157,9 +157,8 @@ fn the_ai_scouts_the_player_base_early() {
     let mut w = World::new(41, 1);
     let (px, py) = core(&w, PLAYER);
     run(&mut w, 150);
-    let seen = (0..4).any(|dy| {
-        (0..4).any(|dx| w.explored[ENEMY as usize][((py + dy) * MW + px + dx) as usize] != 0)
-    });
+    let seen = (0..4)
+        .any(|dy| (0..4).any(|dx| w.explored[ENEMY as usize][w.map.idx(px + dx, py + dy)] != 0));
     assert!(seen, "the AI has looked at the player's core");
     // The scout goes back to mining at home, not at the player's fields.
     run(&mut w, 90);
@@ -498,11 +497,11 @@ fn the_ai_hunts_down_buildings_it_has_not_seen() {
         };
         // (only where a player's builder could walk: not a pocket walled in by rock)
         let reach = reachable(&w, w.map.nearest_free(p.0 + 1, p.1 + 5, 8).unwrap());
-        let hidden = (0..MH)
-            .flat_map(|ty| (0..MW).map(move |tx| (tx, ty)))
+        let hidden = (0..w.map.h)
+            .flat_map(|ty| (0..w.map.w).map(move |tx| (tx, ty)))
             // (checked as ENEMY: the player may not build in unexplored ground, but this test cheats)
             .filter(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
-            .filter(|&(tx, ty)| reach[(ty * MW + tx) as usize])
+            .filter(|&(tx, ty)| reach[w.map.idx(tx, ty)])
             .filter(|&(tx, ty)| (tx - p.0).pow(2) + (ty - p.1).pow(2) >= 24 * 24)
             .max_by_key(|&t| far(t))
             .unwrap();

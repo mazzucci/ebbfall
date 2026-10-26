@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { mulberry } from '../src/engine/util.js';
-import { MW, MH, TILE } from '../src/engine/constants.js';
+import { TILE } from '../src/engine/constants.js';
 import { scatterDoodads, DOODADS, SPACING, JITTER } from '../src/client/scenery.js';
 
 const pkg = new URL('../src/engine/pkg/', import.meta.url);
@@ -18,10 +18,10 @@ if (built) {
   sim.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
   E = await import('../src/engine/core.js');
 }
-const env = { MW, MH, TILE, mulberry };
 const scatter = (seed, clear) => {
   E.resetGame(seed, 1);
   const cores = E.G.bldgs.filter(b => b.type === 'core').map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
+  const env = { MW: E.MW, MH: E.MH, TILE, mulberry }; // (the game's map size)
   return { list: scatterDoodads(E.G.seed, E.map, clear || cores, env), cores, map: E.map };
 };
 const SEEDS = [1, 2, 3, 4242, 99999];
@@ -37,7 +37,7 @@ test('the scenery is the same every time for a seed and differs between seeds', 
 test('solid props stand inside plateaus; flat props stay clear of bases, fields and cliffs', { skip }, () => {
   for (const seed of SEEDS) {
     const { list, cores, map } = scatter(seed);
-    const rock = (x, y) => map.rock[y * MW + x] !== 0;
+    const rock = (x, y) => map.rock[y * E.MW + x] !== 0;
     const around = (d, want) => [-1, 0, 1].every(dy => [-1, 0, 1].every(dx => rock(d.tx + dx, d.ty + dy) === want));
     assert.ok(list.some(d => d.ground) && list.some(d => !d.ground), `seed ${seed}: both kinds of props`);
     for (const d of list) {

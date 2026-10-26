@@ -358,7 +358,7 @@ fn units_under_a_new_building_step_out_without_stacking() {
             let d = ((pos[i].0 - pos[j].0).powi(2) + (pos[i].1 - pos[j].1).powi(2)).sqrt();
             assert!(d > 8.0, "harvesters {i} and {j} stand {d:.1} px apart");
         }
-        let (ux, uy) = World::tile_of(pos[i].0, pos[i].1);
+        let (ux, uy) = w.map.tile_of(pos[i].0, pos[i].1);
         assert!(
             !w.map.blocked(ux, uy),
             "harvester {i} is not inside a building"
@@ -612,7 +612,8 @@ fn a_group_sent_to_a_walled_off_spot_stops_where_it_can() {
         for y in 26..=34 {
             for x in 36..=44 {
                 if (x - 40i32).abs().max((y - 30i32).abs()) == 4 {
-                    w.map.rock[(y * MW + x) as usize] = 1;
+                    let i = w.map.idx(x, y);
+                    w.map.rock[i] = 1;
                 }
             }
         }

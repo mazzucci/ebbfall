@@ -296,7 +296,7 @@ impl World {
             timer,
         };
         if left <= 0 && !n.ether {
-            let i = idx(n.tx, n.ty);
+            let i = self.map.idx(n.tx, n.ty);
             self.map.occ[i] = 0;
             self.map.nodes.retain(|m| m.id != node);
             for t in 0..self.seats() as u8 {

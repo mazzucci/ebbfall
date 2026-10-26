@@ -8,7 +8,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 1;
+export const PROTO = 2;
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
 const CHECK_EVERY = 10; // turns between hash checkpoints (relay/room.js)
@@ -28,8 +28,8 @@ export class Net {
    * @param {object} [o.on] callbacks: seat, lobby, start, away, back, left, desync, error, status
    * @param {typeof WebSocket} [o.WebSocket]
    */
-  constructor({ url, room = '', name, game, on = {}, WebSocket: WS = globalThis.WebSocket, token = null }) {
-    Object.assign(this, { url, room, name, game, on, WS, token });
+  constructor({ url, room = '', name, build = '', game, on = {}, WebSocket: WS = globalThis.WebSocket, token = null }) {
+    Object.assign(this, { url, room, name, build, game, on, WS, token });
     this.seat = -1; this.setup = null; this.turns = new Map(); this.acked = -1; this.checks = new Map();
     this.trail = new Map(); // tick -> state hash, the last TRAIL ticks (a desync's first diverging tick is in it)
     this.retries = 0; this.closed = false; this.ws = null; this.pingId = 0; this.pongTimer = null; this.retryTimer = null;
@@ -47,7 +47,7 @@ export class Net {
     ws.onopen = () => {
       if (this.ws !== ws) return;
       this.acked = -1; // (back: ack at once, the relay waits for it)
-      this.say({ proto: PROTO, name: this.name, token: this.token, next: this.setup ? this.game()?.nextTurn() ?? this.next : undefined });
+      this.say({ proto: PROTO, name: this.name, build: this.build, token: this.token, next: this.setup ? this.game()?.nextTurn() ?? this.next : undefined });
     };
     ws.onmessage = (e) => { if (this.ws !== ws) return; let m; try { m = JSON.parse(e.data); } catch { return; } if (m && typeof m === 'object') this.message(m); };
     ws.onclose = () => { if (this.ws === ws) this.dropped(); };
@@ -89,6 +89,11 @@ export class Net {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onclose = ws.onmessage = null; try { ws.close(); } catch { /* gone */ } }
   }
+  /** Forget the last game (a rematch's lobby): its setup, turns, acks and hashes, and orders not sent. */
+  again() {
+    this.setup = null; this.ended = false; this.turns.clear(); this.checks.clear(); this.trail.clear();
+    this.acked = -1; this.ackedAt = 0; this.next = 0; this.queue = this.queue.filter(m => m.t !== 'orders');
+  }
   flush() {
     while (this.queue.length && this.say(this.queue[0])) this.queue.shift();
     if (this.leaving && !this.queue.length) setTimeout(() => this.close(), 300);
@@ -98,6 +103,10 @@ export class Net {
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
+  /** After a game: want another in this room (or not any more). */
+  rematch(want) { this.sayOrKeep({ t: 'rematch', want }); }
+  /** This side's game has ended (the relay stops the clock once every side's has; acks then count the turns in). */
+  over() { if (!this.ended) { this.ended = true; this.sayOrKeep({ t: 'over' }); } }
   /** The game is set up (the clock may start). */
   loaded() { this.say({ t: 'loaded' }); }
 
@@ -107,14 +116,19 @@ export class Net {
       case 'seat':
         this.seat = m.seat; this.token = m.token; this.room = m.room; this.retries = 0;
         this.status('online'); this.on.seat?.(m); this.flush(); break;
-      case 'lobby': if (Array.isArray(m.seats)) this.on.lobby?.(m); break;
+      case 'lobby':
+        if (!Array.isArray(m.seats)) break;
+        if (this.setup) this.again(); // (a rematch: the room is a lobby again)
+        this.on.lobby?.(m); break;
+      case 'rematch': if (Array.isArray(m.seats)) this.on.rematch?.(m.seats); break;
       case 'start':
         if (!this.setup) { this.setup = m.setup; this.on.start?.(m.setup, this.seat); } // (a resume re-sends it)
         break;
       case 'turn': if (validTurn(m)) this.turns.set(m.n, m.o); break;
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat); break;
       case 'desync': this.on.desync?.(m.turn); break;
-      case 'error': this.on.error?.(m); if (['update', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;
+      case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;
+      case 'notice': this.on.notice?.(m); break;
       case 'pong': if (m.id === this.pingId) clearTimeout(this.pongTimer); break;
     }
   }
@@ -148,7 +162,7 @@ export class Net {
   }
 
   ackIfDue(g) {
-    const done = Math.floor(g.tick() / TICKS_PER_TURN) - 1; // (the last turn fully run)
+    const done = this.ended ? g.nextTurn() - 1 : Math.floor(g.tick() / TICKS_PER_TURN) - 1; // (the last turn fully run; over: the last one in)
     const now = Date.now();
     if (done - this.acked < ACK_EVERY && now - this.ackedAt < BEAT_MS) return;
     if (this.seat < 0) return; // (not seated again yet)

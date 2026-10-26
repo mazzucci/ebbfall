@@ -142,8 +142,8 @@ impl World {
             }
             None => (jsmath::cos(face) * max, jsmath::sin(face) * max),
         };
-        let (gx, gy) = (clamp_x(ux + dx), clamp_y(uy + dy));
-        let tile = Self::tile_of(gx, gy);
+        let (gx, gy) = (self.map.clamp_x(ux + dx), self.map.clamp_y(uy + dy));
+        let tile = self.map.tile_of(gx, gy);
         let Some((fx, fy)) = self.map.nearest_free(tile.0, tile.1, 3) else {
             return; // nowhere to land: stays put (the cooldown is spent)
         };

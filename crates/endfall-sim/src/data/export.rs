@@ -179,8 +179,8 @@ fn faction(f: &Faction) -> String {
 pub fn data_json() -> String {
     let consts = Obj::new()
         .num("tile", TILE)
-        .num("mw", MW)
-        .num("mh", MH)
+        .num("mw", crate::map::MapSize::DUEL.w) // (a two-seat map's: the menu's; a game's own is Game.mapW/mapH)
+        .num("mh", crate::map::MapSize::DUEL.h)
         .num("dt", DT)
         .num("player", PLAYER)
         .num("enemy", ENEMY)

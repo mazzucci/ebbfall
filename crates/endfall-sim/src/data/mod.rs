@@ -20,19 +20,8 @@ pub use upgrades::*;
 pub use vael::VAEL;
 
 pub const TILE: f64 = 32.0;
-pub const MW: i32 = 64;
-pub const MH: i32 = 64;
-pub const WW: f64 = MW as f64 * TILE;
-pub const WH: f64 = MH as f64 * TILE;
 pub const DT: f64 = 1.0 / 30.0;
 pub const PLAYER: u8 = 0;
-/// Keep a point inside the playable map (16 px margin, like unit movement).
-pub fn clamp_x(x: f64) -> f64 {
-    x.clamp(16.0, WW - 16.0)
-}
-pub fn clamp_y(y: f64) -> f64 {
-    y.clamp(16.0, WH - 16.0)
-}
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
@@ -416,7 +405,3 @@ impl BldgDef {
         }
     }
 }
-
-/// Top-left tile of each team's starting Command Core. Index = team.
-/// Starting Core positions of an empty map (test arenas); generated maps choose their own (`Map::bases`).
-pub const BASES: &[(i32, i32)] = &[(9, 54), (54, 9)];

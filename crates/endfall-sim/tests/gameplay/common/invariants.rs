@@ -38,7 +38,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             u.y
         );
         assert!(
-            u.x >= 0.0 && u.y >= 0.0 && u.x <= WW && u.y <= WH,
+            u.x >= 0.0 && u.y >= 0.0 && u.x <= w.map.ww() && u.y <= w.map.wh(),
             "{ctx}: unit {} off the map {},{}",
             u.id,
             u.x,
@@ -111,7 +111,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
         for y in 0..b.h {
             for x in 0..b.w {
                 assert_eq!(
-                    w.map.occ[((b.ty + y) * MW + b.tx + x) as usize],
+                    w.map.occ[w.map.idx(b.tx + x, b.ty + y)],
                     b.id as i32,
                     "{ctx}: occupancy under building {}",
                     b.id

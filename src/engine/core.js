@@ -4,7 +4,7 @@
 // always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game, mapPreview as simMapPreview } from './pkg/endfall_sim.js';
-import { TILE, MW, MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
+import { TILE, DUEL_MW, DUEL_MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
 import { clamp } from './util.js';
 
 export * from './constants.js';
@@ -18,6 +18,9 @@ const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = S
 const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
 
 let game = null, dirty = true;
+/** The map's size in tiles and in world px: the game's, set when it starts (a two-seat map's before any). Live
+ *  bindings: read them where they are used, never copy them at load. */
+export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
   me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
@@ -118,6 +121,13 @@ function fresh(g) {
   game = g;
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
+  // The per-tile grids at the map's size (made again only when it differs from the last game's).
+  MW = game.mapW(); MH = game.mapH(); WW = MW * TILE; WH = MH * TILE;
+  if (M.rock.length !== MW * MH) {
+    const n = MW * MH;
+    Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), occ: new Int32Array(n) });
+    Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n) });
+  }
   M.rock.set(game.rock()); M.shade.set(game.shade());
   dirty = true; sync();
 }
@@ -131,10 +141,11 @@ export function resetGameForSeat(seed, map, side, races, me) {
 }
 /** The WASM game itself (the network layer talks to it directly). */
 export const liveGame = () => game;
-/** `side` 1: the player starts in the other base of the map; `race`, `enemy`: the player's and the AI's faction keys. */
-export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy = 'humans') {
+/** `side` 1: the player starts in the other base of the map; `race`, `enemy`: the player's and the AI's faction keys;
+ *  `size`: the map's tiles across (64 to 128; tests: the menus offer a two-seat map's 64). */
+export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy = 'humans', size = DUEL_MW) {
   const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
-  fresh(Game.withSetup(seed >>> 0, diff, map, side, f(race), f(enemy)));
+  fresh(Game.withSize(seed >>> 0, diff, map, side, f(race), f(enemy), size));
 }
 export function step() { if (!game.canStep()) return false; game.step(); dirty = true; sync(); return true; }
 /** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
@@ -147,7 +158,8 @@ export function startReplay() {
 /** The tick the replay being watched ends on (0: none). */
 export const replayEnd = () => game.replayEnd();
 export function stateHash() { return game.stateHash(); }
-/** A map's layout for the menu's thumbnail (one byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start). */
+/** A two-seat map's layout for the menu's thumbnail (DUEL_MW x DUEL_MH, one byte per tile: 0 ground, 1 rock, 2 shards,
+ *  3 vent, 4 a start). */
 export const mapPreview = (seed, kind) => simMapPreview(seed, kind);
 /** `team`'s army value every 10 s since the start (the end screen's chart). */
 export const armyLog = (team) => Array.from(game.armyLog(team));

@@ -22,19 +22,22 @@ mod wire;
 use crate::ai::Ai;
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
-use crate::map::{Id, Map, MapKind, Node, idx, in_map};
+use crate::map::{Id, Map, MapKind, MapSize, Node};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 pub use command::{Command, Logged};
 pub use economy::FIELD_LOW;
 pub use types::*;
 
-const GRID: i32 = 32; // spatial hash cells of 64 px over a 2048 px world
+/// The spatial hash's cells, in world pixels (two tiles).
+const CELL: f64 = 64.0;
 
 pub struct World {
     pub seed: u32,
     /// The map's character (kept for resets).
     pub map_kind: MapKind,
+    /// The map's size in tiles (kept for resets).
+    pub map_size: MapSize,
     /// The players trade starting places (drawn by the client for each game; the map is point-symmetric, so fair).
     pub sides_swapped: bool,
     /// Each seat's race (headquarters, worker, Build list). Its length is the number of seats (`seats()`); every
@@ -96,7 +99,9 @@ pub struct World {
     pub(crate) rng: Mulberry32,
     next_id: Id,
     scratch: PathScratch,
+    /// The spatial hash: units by `CELL` square, row by row, `hash_w` cells across (sized to the map).
     hash: Vec<Vec<Id>>,
+    hash_w: i32,
     /// Units killed since the spatial hash was built. The JS hash keeps references to them, and separation
     /// still pushes against their last position, so the port keeps them around until the next rebuild.
     graveyard: Vec<Unit>,
@@ -148,12 +153,25 @@ impl World {
         swap: bool,
         factions: &[&'static Faction],
     ) -> World {
+        World::with_size(seed, diff, map_kind, MapSize::DUEL, swap, factions)
+    }
+
+    /// `with_seats` on a map of `size` tiles (with_seats: a two-seat map's 64x64).
+    pub fn with_size(
+        seed: u32,
+        diff: usize,
+        map_kind: MapKind,
+        map_size: MapSize,
+        swap: bool,
+        factions: &[&'static Faction],
+    ) -> World {
         let n = factions.len();
         assert!((2..=MAX_SEATS).contains(&n), "{n} seats");
         let mut w = World {
             seed,
             diff,
             map_kind,
+            map_size,
             sides_swapped: swap,
             factions: factions.to_vec(),
             teams: (0..n as u8).collect(),
@@ -181,14 +199,15 @@ impl World {
             alerts: Vec::new(),
             unseen_alert: Vec::new(),
             events: Vec::new(),
-            map: Map::empty(),
+            map: Map::empty(map_size),
             ai: Vec::new(),
             ai_turn: ENEMY,
             ai_seats: (0..n).map(|s| s != PLAYER as usize).collect(),
             rng: Mulberry32::new(1),
             next_id: 1,
-            scratch: PathScratch::new(),
-            hash: vec![Vec::new(); (GRID * GRID) as usize],
+            scratch: PathScratch::new(0),
+            hash: Vec::new(),
+            hash_w: 0,
             graveyard: Vec::new(),
         };
         w.reset(seed, diff);
@@ -217,7 +236,8 @@ impl World {
         self.hold_waves = false;
         self.alerts.clear();
         self.events.clear();
-        self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
+        self.map = Map::generate(seed, self.map_kind, self.map_size, &mut self.next_id);
+        self.size_grids();
         if self.sides_swapped {
             self.map.bases.swap(0, 1);
         }
@@ -232,6 +252,18 @@ impl World {
         }
         self.init_ai();
         self.update_fog();
+    }
+
+    /// The path search's scratch and the spatial hash, sized to the map (once per game, never per tick).
+    fn size_grids(&mut self) {
+        let tiles = self.map.rock.len();
+        if self.scratch.len() != tiles {
+            self.scratch = PathScratch::new(tiles);
+        }
+        let cells = |px: f64| jsmath::to_i32((px / CELL).ceil());
+        self.hash_w = cells(self.map.ww());
+        self.hash
+            .resize((self.hash_w * cells(self.map.wh())) as usize, Vec::new());
     }
 
     pub(crate) fn emit(&mut self, e: Event) {

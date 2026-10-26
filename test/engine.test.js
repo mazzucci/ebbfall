@@ -229,7 +229,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
 });
 
 test('the client names no seat: it plays G.me, whichever team that is', () => {
-  for (const f of ['main.js', 'client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/menu.js', 'client/audio.js', 'client/fx.js', 'client/icons.js', 'client/scout.js']) {
+  for (const f of ['main.js', 'client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/menu.js', 'client/audio.js', 'client/fx.js', 'client/icons.js', 'client/scout.js', 'client/online.js', 'net/net.js']) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
     assert.doesNotMatch(src, /\b(PLAYER|ENEMY)\b|team [!=]== [01]\b|team = [01]\b|1 - G\.me/, `${f} names a fixed team`);
   }
@@ -257,7 +257,7 @@ test('a game for any number of seats takes a setup it can play and refuses the r
 
 test('the client names no unit or building kind outside its data tables and look table', () => {
   // Kind-specific behaviour lives in the sim's flags (worker, hq, onVent, researches...) and src/client/look.js.
-  for (const f of ['client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js', 'client/scout.js']) {
+  for (const f of ['client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js', 'client/scout.js', 'client/online.js', 'net/net.js']) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
     for (const k of [...Object.keys(C.UNITS), ...Object.keys(C.BUILDINGS)]) assert.ok(!src.includes(`=== '${k}'`) && !src.includes(`!== '${k}'`), `${f} tests for '${k}'`);
   }

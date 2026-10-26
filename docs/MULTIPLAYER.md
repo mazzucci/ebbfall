@@ -24,7 +24,9 @@ with 8 players instead of 7, and it is the referee: the clock, seats, who is awa
 The relay closes a **turn** (3 ticks, 100 ms) on its own timer, whether or not anyone sent anything. An order a
 client sends is stamped by the relay into turn `current + D` (D: the input delay, 2 turns to start, raised for a
 slow link from the measured round trip). The closed turn's bundle `{turn, [seat, cmds]...}` goes to everyone.
-Clients send only when they have orders, plus an ack about once a second (the last turn simulated, its hash).
+Clients send only when they have orders, plus an ack every 3 turns (the last turn run; with the state hash at the
+latest checkpoint turn, every 10th, compared whenever each seat gets there). The clock starts once every client has
+loaded the game, and a seat is away after 3 s without an ack.
 A client runs turns from a small buffer, a little behind the relay's clock, and catches up when behind (several
 turns a frame). The relay slows its clock when a seat's acks lag behind (a slow phone) and stops it when a seat is
 away (below), so nobody runs ahead. One phone's 4G hiccup costs that phone a stutter, not everyone a freeze.
@@ -88,7 +90,7 @@ runs them on a real phone. The sim's dependencies stay pinned (`libm` exactly), 
 
 ### Desync
 
-Each ack carries the hash; the relay compares. Clients keep a ring of per-tick hashes, so on a mismatch the first
+Acks carry the hash at checkpoint turns; the relay compares. Clients keep a ring of per-tick hashes, so on a mismatch the first
 diverging tick is known; each side sends its trail and a snapshot of that tick (units and buildings), to be fixed
 from. With two players the game ends "out of sync"; with more, the odd one out rejoins.
 

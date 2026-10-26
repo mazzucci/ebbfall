@@ -45,6 +45,8 @@ jobs:
         env:
           ENDFALL_REQUIRE_WASM: '1'
       - run: npm run build
+        env:
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
       - name: Gameplay tests in a real browser
         run: |
           npx playwright-core install --with-deps chromium
@@ -54,6 +56,30 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+  # The multiplayer relay (relay/worker.js) to Cloudflare, once the owner has added the CLOUDFLARE_API_TOKEN and
+  # CLOUDFLARE_ACCOUNT_ID secrets (until then this job does nothing).
+  relay:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: relay
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - uses: actions/setup-node@v7
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        with:
+          node-version-file: .nvmrc
+      - name: Deploy the relay
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: relay
+        run: npx --yes wrangler@4 deploy
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

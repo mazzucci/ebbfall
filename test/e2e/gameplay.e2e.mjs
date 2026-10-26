@@ -466,10 +466,7 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
       const touch = !!device.hasTouch, press = (sel) => touch ? page.locator(sel).tap() : page.locator(sel).click();
-      if (touch) {
-        assert.ok(await page.locator('#btnPlay').isVisible(), 'phone: a tap-to-play screen first');
-        await press('#btnPlay');
-      }
+      assert.ok(await page.locator('#start').isVisible(), 'straight to the menu (no tap-to-play screen)');
       assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
       assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
       assert.equal(await page.locator('#diff .ib.on').textContent(), 'EASY', 'new players start on Easy');
@@ -494,7 +491,6 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await press('#btnResume');
       // The choices are remembered.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
-      if (touch) await press('#btnPlay');
       assert.equal(await page.locator('#diff .ib.on').getAttribute('data-d'), String(level), 'opponent remembered');
       assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF', 'sound choice remembered');
       // The random map is a new one each game.
@@ -1306,18 +1302,26 @@ test('desktop: Shift+click on a unit queues five', async () => {
   } finally { await d.close(); }
 });
 
-test('the menu is a page of its own, with Exit game', async () => {
+test('the menu is a page of its own; while full screen, a corner button leaves it', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      if (device.hasTouch) await page.locator('#btnPlay').tap();
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
-      assert.ok(await page.locator('#btnExit').isVisible(), 'Exit game');
-      await (device.hasTouch ? page.locator('#btnExit').tap() : page.locator('#btnExit').click());
-      await page.locator('#menuTag', { hasText: 'You can close this tab now.' }).waitFor(); // (a tab a page did not open cannot close itself)
+      assert.ok(await page.locator('#btnUnfull').isHidden(), 'not full screen: no button for it');
+      // Full screen (stood in for: headless browsers have none): the button shows, top right, and leaves it.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+        document.exitFullscreen = async () => { window.fs = false; window.left = true; document.dispatchEvent(new Event('fullscreenchange')); };
+        window.fs = true; document.dispatchEvent(new Event('fullscreenchange'));
+      });
+      const b = await page.locator('#btnUnfull').boundingBox();
+      assert.ok(b && b.x + b.width > v.width - 70 && b.y < 70, `top right: ${JSON.stringify(b)}`);
+      await (device.hasTouch ? page.locator('#btnUnfull').tap() : page.locator('#btnUnfull').click());
+      assert.ok(await page.evaluate(() => window.left), 'left full screen');
+      assert.ok(await page.locator('#btnUnfull').isHidden(), 'and the button goes');
       const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
       assert.ok(sc[0] <= sc[1] + 1, `fits without scrolling: ${sc}`);
     } finally { await ctx.close(); }
@@ -1354,7 +1358,6 @@ test('the menu fits a small phone with the iPhone tip shown, its title in view',
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
-    await page.locator('#btnPlay').tap();
     await page.evaluate(() => { document.getElementById('iosTip').hidden = false; });
     const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
     const top = (await page.locator('#start h1').boundingBox()).y;

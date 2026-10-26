@@ -134,10 +134,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #mapPreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
 #btnMenuSound.on{border-color:var(--ally);color:var(--ally2)}
 /* Phones: the first screen, whose tap goes full screen. */
-.splash{display:flex;flex-direction:column;align-items:center;gap:14px;background:none;border:0;color:var(--fg);cursor:pointer;padding:40px 60px}
-.splash .t{font:700 38px var(--display);letter-spacing:.24em;color:var(--ally2)}
-.splash .s{font:600 14px var(--display);letter-spacing:.3em;color:var(--fg);border:1px solid var(--ally);border-radius:6px;padding:12px 26px;animation:pulse-warn 1.4s infinite alternate}
-#splash{background:#07090d}
+/* Leave full screen: the menu's top-right corner, only while full screen */
+#start .card.menu{position:relative} #btnUnfull{position:absolute;top:max(8px,env(safe-area-inset-top,0px));right:max(8px,env(safe-area-inset-right,0px));min-width:44px;min-height:44px;padding:0;display:grid;place-items:center} #btnUnfull[hidden]{display:none}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
 #btnRematch.on{box-shadow:0 0 0 3px var(--ally2)} /* (online: the friend asked) */ #btnRematch.wait{background:var(--panel2);color:var(--fg);border-color:var(--line2)}
 .big{font-size:14px;padding:10px 20px;background:var(--ally);color:#1a1205;border-color:var(--ally)}

@@ -7,6 +7,7 @@ import { liveGame } from '../engine/index.js';
 import { $, toast } from './ui.js';
 import { sfx } from './audio.js';
 import { MAPS, mapName } from './menu.js';
+import { touchDevice, enterFullscreen } from './screen.js';
 
 const params = new URLSearchParams(location.search);
 // (this machine, a LAN, or a Tailscale network)
@@ -36,8 +37,9 @@ export function initOnline({ start, leave, quit, room, rematch }) {
   $('btnNetMenu').addEventListener('click', () => { sfx('select'); onQuit(); });
   $('btnOnline').hidden = !relayUrl();
   $('btnOnline').addEventListener('click', () => { sfx('select'); openLobby(); });
-  $('btnNewRoom').addEventListener('click', () => { sfx('select'); connect(''); });
-  $('btnJoinRoom').addEventListener('click', () => { const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); connect(c); } else status('Type the 4-letter code'); });
+  // (the tap that opens or joins a room also goes full screen, as the menu's START GAME does)
+  $('btnNewRoom').addEventListener('click', () => { sfx('select'); enterFullscreen(); connect(''); });
+  $('btnJoinRoom').addEventListener('click', () => { const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); enterFullscreen(); connect(c); } else status('Type the 4-letter code'); });
   $('roomCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoinRoom').click(); });
   $('btnOnlineBack').addEventListener('click', () => { sfx('select'); stopOnline(); $('online').hidden = true; onLeave(); });
   $('btnOnlineReady').addEventListener('click', () => { sfx('select'); online.ready = !online.ready; online.net?.ready(online.ready); });
@@ -48,10 +50,18 @@ export function initOnline({ start, leave, quit, room, rematch }) {
   // A shared link (?join=CODE): straight to that room.
   const join = params.get('join');
   if (join) { params.delete('join'); history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`); } // (a reload later is not a join again)
-  if (join && relayUrl()) { openLobby(); connect(join.toUpperCase()); }
+  // A shared link (?join=CODE): the join form, the code filled in, a name to type first (JOIN's tap goes full screen
+  // on a phone).
+  if (join && relayUrl()) invited(join.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4));
 }
 
-function openLobby() { $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
+function invited(code) {
+  openLobby();
+  $('roomCode').value = code; $('btnJoinRoom').classList.add('big');
+  status(`You're invited to room ${code}: type your name and tap JOIN`);
+  if (!touchDevice) $('onlineName').focus();
+}
+function openLobby() { $('btnJoinRoom').classList.remove('big'); $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 function status(s) { $('onlineStatus').textContent = s; }
 const name = () => { const n = $('onlineName').value.trim().slice(0, 16); if (n) store.set('name', n); return n || 'Player'; };
 

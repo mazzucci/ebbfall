@@ -15,7 +15,7 @@ import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
-import { initOnline, online, onlineMap, stopOnline, reloadUrl, wantRematch } from './client/online.js';
+import { initOnline, online, onlineMap, stopOnline, reloadUrl, wantRematch, theyWant } from './client/online.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -140,7 +140,8 @@ function endGame() {
   const chart = armyChart(armyLog(G.me), foes().map(armyLog).reduce((sum, l) => l.map((v, i) => v + (sum[i] || 0)), [])); // (the enemies together)
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
   $('btnWatch').hidden = menu.tutorial || online.playing; // (the guided game's hold is not in the log; an online game is watched later)
-  rematchButton(false, false);
+  if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
+  rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
   if (!online.playing && !menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
 }
@@ -149,13 +150,14 @@ function endGame() {
 let theyWantRematch = false;
 function rematchButton(theyWant, iWant) {
   const b = $('btnRematch'); theyWantRematch = theyWant;
-  b.hidden = online.playing && online.gone.size > 0;
+  b.hidden = online.playing && (online.gone.size > 0 || online.dead);
   b.textContent = !online.playing ? 'REMATCH' : iWant ? 'WAITING…' : theyWant ? 'REMATCH?' : 'REMATCH';
-  b.classList.toggle('on', online.playing && theyWant && !iWant); // (they asked: the button lights up)
+  b.classList.toggle('on', online.playing && theyWant && !iWant); // (they asked: the button calls)
+  b.classList.toggle('wait', online.playing && iWant); // (asked: a quiet button, a tap takes it back)
 }
 
 // ---- screens ----
-$('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; stopOnline(); showMenu(); }); // back to the menu: a new map, or the same opponent again (online: the room is left)
+$('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
@@ -165,14 +167,19 @@ initMenu({ onStart: newGame, onSound: syncSound });
 initOnline({
   start: newOnlineGame, leave: showMenu, quit: quitToTitle,
   room: () => { $('end').hidden = true; started = false; }, // (a rematch: from the end card back to the room)
-  rematch: (theyWant, iWant) => { if (!$('end').hidden) rematchButton(theyWant, iWant); if (theyWant && !iWant) toast('Your friend wants a rematch'); },
+  rematch: (they, iWant) => {
+    if ($('end').hidden) return; // (the end card reads the room's wishes when it comes up)
+    if (they && !theyWantRematch && !iWant) toast('Your friend wants a rematch');
+    rematchButton(they, iWant);
+  },
 });
 // Online, a phone puts a hidden page to sleep (and its socket with it): on coming back, make sure the socket lives.
 // A hidden desktop tab gets no frames, so its turns run from a slow timer instead.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) online.net?.wake(); });
 setInterval(() => {
-  if (!document.hidden || !online.playing || !started || G.over) return;
-  const waiting = online.net.pump();
+  if (!document.hidden || !online.playing || !started) return;
+  const waiting = online.net.pump(); // (also after the game: heartbeats, for a rematch)
+  if (G.over) return;
   for (let i = 0; i < waiting && step(DT); i++) online.net.ticked();
   drainEvents();
 }, 250);

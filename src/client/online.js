@@ -65,9 +65,9 @@ function connect(room) {
     on: {
       seat: (m) => { online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
       lobby: (m) => { if (online.playing) backToRoom(); renderLobby(m); },
-      rematch: (wants) => onRematch(wants.some((w, s) => w && s !== online.seat), wants[online.seat]),
+      rematch: (wants) => { online.wants = wants; onRematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend on another version of Ebbfall tried to join. If yours is the older one, reload: you stay in this room.'); $('btnOnlineReload').hidden = false; } },
-      start: (setup, seat) => { online.rematch = false; online.gone.clear(); online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true; onStart(setup, seat); online.net.loaded(); },
+      start: (setup, seat) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true; onStart(setup, seat); online.net.loaded(); },
       away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
       back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${who(s)} is back`); } },
       left: (s) => { if (s !== online.seat) { online.gone.add(s); waitingFor.delete(s); waitLine(); toast(`${who(s)} left the game`, true, true); onRematch(false, false); } },
@@ -93,7 +93,9 @@ function waitLine() {
   $('netWait').hidden = !text; $('netWait').firstChild.textContent = text; $('btnNetMenu').hidden = !over;
 }
 /** The game cannot go on (a desync, this screen replaced by another): say so, stop, and offer the menu. */
-function fatal(msg) { over = msg; online.net?.close(); waitLine(); sfx('error'); }
+function fatal(msg) { over = msg; online.dead = true; online.net?.close(); waitLine(); sfx('error'); onRematch(false, false); }
+/** Whether someone else in the room wants a rematch. */
+export const theyWant = () => (online.wants || []).some((w, s) => w && s !== online.seat);
 
 /** After a game, the room again (a rematch): the same seats, ready again. */
 function backToRoom() {
@@ -158,4 +160,4 @@ export function onlineMap(setup, kinds) {
 }
 
 /** Leave the online game (or the lobby) for good. */
-export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false }); online.gone.clear(); }
+export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false }); online.gone.clear(); }

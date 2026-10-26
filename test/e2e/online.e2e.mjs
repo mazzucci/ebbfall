@@ -134,7 +134,8 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       assert.equal(await a.p.locator('#btnRematch').textContent(), 'WAITING…');
       await b.p.waitForFunction(() => document.getElementById('btnRematch').textContent === 'REMATCH?', null, { timeout: 5000 });
       await b.p.waitForTimeout(4000); // (on the end card a while: nobody may be taken for away meanwhile)
-      assert.ok(relay.rooms.get(code).seats.every(s => !s.awaySince), 'still here on the end card (or the away budget would end the room)');
+      assert.equal(relay.rooms.get(code).phase, 'over', 'both games told the relay they ended: its clock stopped');
+      assert.ok(relay.rooms.get(code).seats.every(s => !s.awaySince && s.conn), 'both still here on the end card');
       await b.tap('#btnRematch');
       for (const x of [a, b]) {
         await x.p.locator('#onlineRoom').waitFor({ state: 'visible', timeout: 10000 });

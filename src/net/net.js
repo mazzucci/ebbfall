@@ -91,7 +91,7 @@ export class Net {
   }
   /** Forget the last game (a rematch's lobby): its setup, turns, acks and hashes, and orders not sent. */
   again() {
-    this.setup = null; this.turns.clear(); this.checks.clear(); this.trail.clear();
+    this.setup = null; this.ended = false; this.turns.clear(); this.checks.clear(); this.trail.clear();
     this.acked = -1; this.ackedAt = 0; this.next = 0; this.queue = this.queue.filter(m => m.t !== 'orders');
   }
   flush() {
@@ -104,7 +104,9 @@ export class Net {
   map(map) { this.say({ t: 'map', map }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** After a game: want another in this room (or not any more). */
-  rematch(want) { this.say({ t: 'rematch', want }); }
+  rematch(want) { this.sayOrKeep({ t: 'rematch', want }); }
+  /** This side's game has ended (the relay stops the clock once every side's has; acks then count the turns in). */
+  over() { if (!this.ended) { this.ended = true; this.sayOrKeep({ t: 'over' }); } }
   /** The game is set up (the clock may start). */
   loaded() { this.say({ t: 'loaded' }); }
 
@@ -160,7 +162,7 @@ export class Net {
   }
 
   ackIfDue(g) {
-    const done = Math.floor(g.tick() / TICKS_PER_TURN) - 1; // (the last turn fully run)
+    const done = this.ended ? g.nextTurn() - 1 : Math.floor(g.tick() / TICKS_PER_TURN) - 1; // (the last turn fully run; over: the last one in)
     const now = Date.now();
     if (done - this.acked < ACK_EVERY && now - this.ackedAt < BEAT_MS) return;
     if (this.seat < 0) return; // (not seated again yet)

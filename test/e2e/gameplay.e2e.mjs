@@ -1249,6 +1249,33 @@ test('phone: a unit it cannot pay for shakes its button, with no toast over the 
   } finally { await d.close(); }
 });
 
+test('the pause card reports what of theirs was seen lately; nothing in the fog counts', async () => {
+  for (const dev of [DESKTOP, PHONE]) {
+    const d = await newGame(dev, 1, 4242, { ai: false });
+    try {
+      const pause = async () => { await (d.touch ? d.page.locator('#btnPause').tap() : d.page.locator('#btnPause').click()); return d.page.locator('#pauseSeen'); };
+      assert.equal(await (await pause()).textContent(), 'Nothing of theirs seen lately.');
+      await (d.touch ? d.page.locator('#btnResume').tap() : d.page.locator('#btnResume').click());
+      const core = coreOf(await d.state()), at = { x: core.x + 200, y: core.y + 40 };
+      await d.eval(([x, y]) => {
+        for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(1, 'trooper', x + i * 20, y);
+        endfall.engine.debugSpawn(1, 'vanguard', endfall.G.units.find(u => u.team === 1).x, endfall.G.units.find(u => u.team === 1).y); // (by the enemy's base: fogged)
+      }, [at.x, at.y]);
+      await d.skip(1);
+      const seen = await pause();
+      assert.match(await seen.textContent(), /^Seen lately: 3$/, await seen.textContent());
+      assert.deepEqual(await d.page.$$eval('#pauseSeen .seen', s => s.map(e => e.title)), ['3 Trooper'], 'portraits and counts, not the one in the fog');
+      assert.ok((await seen.boundingBox()).height < 40, 'one line (for a few kinds)');
+      // Once they are destroyed they are no longer "out there".
+      await (d.touch ? d.page.locator('#btnResume').tap() : d.page.locator('#btnResume').click());
+      await d.eval(([x, y]) => { for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'vanguard', x + i * 20, y + 40); }, [at.x, at.y]);
+      await until(d, () => d.eval(() => !endfall.G.units.some(u => u.team !== endfall.G.me && u.type === 'trooper')), { seconds: 30, step: 1, what: 'the Troopers to fall' });
+      assert.equal(await (await pause()).textContent(), 'Nothing of theirs seen lately.', 'the dead do not count');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
 test('the end card says what killed most of your units, and what beats it', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
@@ -1259,6 +1286,8 @@ test('the end card says what killed most of your units, and what beats it', asyn
     await d.page.locator('#end').waitFor({ state: 'visible' });
     const why = await d.page.locator('#endWhy').textContent();
     assert.match(why, /Most of your losses: to Monoliths \(2\)/, why);
+    assert.match(await d.page.locator('#endSeen').textContent(), /^You saw: 1$/, 'what was scouted of their army, the whole game');
+    assert.equal(await d.page.locator('#endSeen .seen').getAttribute('title'), '1 Monolith');
     assert.match(why, /beat Monoliths/, 'and what beats them');
     assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
     assert.deepEqual(d.errors, []);

@@ -77,6 +77,7 @@ src/client/           everything that touches the browser
   audio.js            Web Audio synthesized sfx
   voice.js            a formant-synthesized announcer (prototype, heard only on voice-lab.html for now)
   fx.js               particles and markers (client-only, fed by sim events)
+  scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists

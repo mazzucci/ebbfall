@@ -43,7 +43,6 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  if (touch) await page.locator('#btnPlay').tap(); // the phone's "tap to play" screen (goes full screen)
   if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
   else if (race !== 'humans') await (touch ? page.locator(`#race [data-race="${race}"]`).tap() : page.locator(`#race [data-race="${race}"]`).click());
   if (!first && diff !== 0) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());

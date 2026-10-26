@@ -133,7 +133,27 @@ pub fn check_invariants(w: &World, ctx: &str) {
             );
         }
     }
-    for t in 0..2 {
+    let n = w.seats();
+    let lens = [
+        w.teams.len(),
+        w.out.len(),
+        w.res.len(),
+        w.sup.len(),
+        w.vis.len(),
+        w.explored.len(),
+    ];
+    let lens2 = [
+        w.det.len(),
+        w.stats.len(),
+        w.upgrades.len(),
+        w.army_log.len(),
+        w.lost_to.len(),
+    ];
+    assert!(
+        lens.iter().chain(&lens2).all(|&l| l == n) && w.map.bases.len() >= n,
+        "{ctx}: per-seat lists for {n} seats: {lens:?} {lens2:?}"
+    );
+    for t in 0..n {
         assert!(
             w.res[t][0] >= 0 && w.res[t][1] >= 0,
             "{ctx}: team {t} resources {:?}",

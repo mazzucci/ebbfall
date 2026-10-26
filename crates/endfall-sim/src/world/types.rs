@@ -213,7 +213,7 @@ pub struct Proj {
 /// Events are for one seat (`team`: whose player sees or hears it) or, with no team, for whoever can see the spot;
 /// `Game::drain_events` passes on those of its own seat.
 pub enum Event {
-    /// Something of `team`'s was hit by the other side (throttled: one per fight, see ALERT_*).
+    /// Something of `team`'s was hit by another seat (throttled: one per fight, see ALERT_*).
     Attacked {
         team: u8,
         x: f64,
@@ -259,20 +259,20 @@ pub enum Event {
         y: f64,
         big: bool,
     },
-    /// A shot: where, the weapon ("bolt", "shell", "missile", "melee") and which seats see it (their own shots,
-    /// or the shooter in their sight).
+    /// A shot: where, the weapon ("bolt", "shell", "missile", "melee") and which seats see it (bit `t` for seat `t`:
+    /// their own shots, or the shooter in their sight).
     Fire {
         x: f64,
         y: f64,
         weapon: &'static str,
-        seen: [bool; 2],
+        seen: u8,
     },
     /// An ability used where the caster stands (after a Blink: where it landed), for the seats that see it.
     Cast {
         x: f64,
         y: f64,
         ability: &'static str,
-        seen: [bool; 2],
+        seen: u8,
     },
 }
 

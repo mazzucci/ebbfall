@@ -124,7 +124,10 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    `teams` with `enemies`/`allies`, `out` and the winning team (world/seats.rs); a per-seat snapshot record;
    `Game.withSeats(seed, diff, map, side, factions, teams, ai, me)` refuses more seats than the map's starts (2 until
    M4); the AI plans against the nearest enemy start still in. Left for M4: starts for N seats, per-seat colours in
-   the art, allies sharing vision, what an out seat's leftover units do.
+   the art, allies sharing vision, what an out seat's leftover units do (and refusing an out seat's orders: today a
+   conceded player in a 2v2 could keep fighting for their ally), teams in the network setup and in the state hash
+   (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded").
+   Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
 3. The cross-engine golden matrix in CI, and the `?selftest` page.
 
 **M3b. Relay and net client.** The relay state machine and its Node adapter; `src/net/` (socket, turn buffer,

@@ -191,3 +191,64 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
         "the Vael AI game changed: update EXPECTED_VAEL_AI only for an intended rule change"
     );
 }
+
+/// What the state hash does not cover, pinned too: each seat's end-card stats (built, lost, killed, razed), what it
+/// lost to, and the result (over, winner, conceded, the tick it ended) of whole games: two AIs, and the scripted
+/// player against the AI. Kill credit and victory rules change these; refactors must not.
+fn results(w: &World, tick: u32) -> String {
+    let seats = (0..2)
+        .map(|s| {
+            let st = &w.stats[s];
+            let lost: u32 = w.lost_to[s].iter().sum();
+            format!(
+                "{}/{}/{}/{} lost_to {}",
+                st.built, st.lost, st.killed, st.razed, lost
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" | ");
+    format!(
+        "{seats} | over {} winner {} conceded {} at {tick}",
+        w.over, w.winner, w.conceded
+    )
+}
+
+const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
+    (77, 1, MapKind::Standard, false),
+    (2077, 3, MapKind::Labyrinth, false),
+    (7, 2, MapKind::OpenPlains, true),
+];
+
+const EXPECTED_RESULTS: [&str; 3] = [
+    "145/69/105/20 lost_to 69 | 101/105/69/0 lost_to 105 | over true winner 0 conceded -1 at 23268",
+    "141/31/72/35 lost_to 31 | 68/72/31/0 lost_to 72 | over true winner 0 conceded -1 at 15361",
+    "19/23/9/0 lost_to 23 | 49/9/23/2 lost_to 9 | over true winner 1 conceded -1 at 11601",
+];
+
+#[test]
+fn golden_results_pin_stats_and_victory() {
+    let mut got = Vec::new();
+    for (g, &(seed, diff, kind, script)) in RESULT_GAMES.iter().enumerate() {
+        let mut w = world(seed, diff, kind, false);
+        if !script {
+            w.set_ai_seats([true, true]);
+        }
+        let mut tick = 0;
+        while !w.over && tick < 36000 {
+            tick += 1;
+            if script {
+                scripted(&mut w, tick);
+            }
+            w.step();
+            w.events.clear();
+        }
+        let r = results(&w, tick);
+        println!("{g}: {r}");
+        got.push(r);
+    }
+    println!("const EXPECTED_RESULTS: [&str; 3] = {got:?};");
+    assert_eq!(
+        got, EXPECTED_RESULTS,
+        "stats or results changed: update EXPECTED_RESULTS only on purpose"
+    );
+}

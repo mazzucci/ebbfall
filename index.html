@@ -27,6 +27,7 @@
     <button class="ib icon" id="btnSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button>
     <button class="ib icon" id="btnPause" aria-label="Pause" title="Pause (P)"></button>
   </header>
+  <div id="replayBar" hidden><span class="t">REPLAY</span><button class="ib" id="btnSpeed" title="Replay speed (tap for the next)">4×</button><button class="ib" id="btnReplayDone">DONE</button></div>
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="msg" aria-live="polite"></div>
@@ -130,7 +131,7 @@
       <p id="endSeen" hidden></p>
       <div id="endChart"></div>
       <div id="endKey" class="row"><span class="me">Your army</span><span class="foe">Enemy army</span></div>
-      <div class="row"><button class="ib" id="btnAgain">NEW GAME</button><span class="spacer"></span><button class="ib big" id="btnRematch">REMATCH</button></div>
+      <div class="row"><button class="ib" id="btnAgain">NEW GAME</button><button class="ib" id="btnWatch" title="Watch the game again, both sides in view">WATCH</button><span class="spacer"></span><button class="ib big" id="btnRematch">REMATCH</button></div>
     </div>
   </div>
 </div>

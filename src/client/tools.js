@@ -122,7 +122,7 @@ function watchCapitals() {
  *  for 10 s (a ping), the army wiped out. */
 const news = { flyer: false, army: 0, idleSince: new Map() };
 function watchNews() {
-  if (G.over || paused()) return; // (no news over the end card, and none piling up during a pause)
+  if (G.over || paused() || ui.watching) return; // (no news over the end card, none piling up during a pause, none in a replay)
   if (!news.flyer) {
     const f = G.units.find(u => u.team !== G.me && u.d.air && u.d.weapon && visibleEnt(u));
     if (f) { news.flyer = true; toast('Enemy flyers spotted: get some anti-air', true, true); sfx('alert'); ping(f.x, f.y); }

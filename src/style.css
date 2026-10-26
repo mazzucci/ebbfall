@@ -240,3 +240,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 /* A refused button (not enough to pay, supply blocked) shakes, and its cost flashes: the button is the message. */
 @keyframes refuse{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
 .cb.refused{animation:refuse .35s} .cb.refused .c{color:var(--bad)}
+/* A replay: a small bar under the top bar (speed, done); no command card (the log is the game) */
+#replayBar{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:6px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 6px}
+#replayBar[hidden]{display:none} #replayBar .t{font:600 11px var(--display);letter-spacing:.14em;color:var(--muted);padding:0 4px} #replayBar .ib{min-width:44px;min-height:32px}
+@media (max-height:500px){#replayBar{top:40px}}
+body.replay #cmd{visibility:hidden}

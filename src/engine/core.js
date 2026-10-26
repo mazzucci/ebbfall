@@ -120,6 +120,15 @@ export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy 
   dirty = true; sync();
 }
 export function step() { game.step(); dirty = true; sync(); }
+/** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
+export function startReplay() {
+  if (!game.startReplay()) return false;
+  units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
+  units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
+  dirty = true; sync(); return true;
+}
+/** The tick the replay being watched ends on (0: none). */
+export const replayEnd = () => game.replayEnd();
 export function stateHash() { return game.stateHash(); }
 /** A map's layout for the menu's thumbnail (one byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start). */
 export const mapPreview = (seed, kind) => simMapPreview(seed, kind);

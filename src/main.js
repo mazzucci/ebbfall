@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog, lostTo } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -34,7 +34,7 @@ function showPower() {
 
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
-  $('help').hidden = true;
+  $('help').hidden = true; stopWatching();
   const g = setup(); // (the menu's choices, or the guided first game's)
   resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace);
   resetSightings();
@@ -50,24 +50,41 @@ function newGame() {
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
-function giveUp() { if (started && !G.over && !menu.tutorial) recordResult(false, G.factions[G.me], G.diff); }
+function giveUp() { if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff); }
 function quitToTitle() {
-  giveUp();
+  giveUp(); stopWatching();
   started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
 }
+
+// ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----
+const SPEEDS = [1, 2, 4, 8];
+function clearScene() { setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide(); }
+function watch() {
+  if (!startReplay()) { toast('This game cannot be watched again', true); return; }
+  ui.watching = 4; document.body.classList.add('replay'); $('replayBar').hidden = false; $('end').hidden = true;
+  clearScene(); renderTerrain(); speedLabel();
+  const core = G.bldgs.find(b => b.team === G.me); if (core) centerOn(core.x + 40, core.y);
+}
+function stopWatching() { ui.watching = 0; document.body.classList.remove('replay'); $('replayBar').hidden = true; }
+/** The replay ran out (or DONE): back to the end card, which still says how the game went. */
+function doneWatching() { stopWatching(); clearScene(); updateHud(); $('end').hidden = false; $('btnWatch').focus(); }
+function speedLabel() { $('btnSpeed').textContent = ui.watching + '×'; }
+$('btnWatch').addEventListener('click', () => { sfx('select'); watch(); });
+$('btnSpeed').addEventListener('click', () => { ui.watching = SPEEDS[(SPEEDS.indexOf(ui.watching) + 1) % SPEEDS.length]; speedLabel(); });
+$('btnReplayDone').addEventListener('click', doneWatching);
 
 /** Turn sim events into client effects. */
 function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
-    else if (e.t === 'toast') toast(e.msg, e.bad);
-    else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
+    else if (e.t === 'toast') { if (!ui.watching) toast(e.msg, e.bad); } // (a replay shows the game, not its news)
+    else if (e.t === 'ping') { if (!ui.watching) ping(e.x, e.y); } // (something of ours finished, or needs a look)
     else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
     else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
-    else if (e.t === 'attacked') onAttacked(e);
+    else if (e.t === 'attacked') { if (!ui.watching) onAttacked(e); }
   }
   G.events.length = 0;
 }
@@ -102,6 +119,7 @@ function endGame() {
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
+  $('btnWatch').hidden = menu.tutorial; // (the guided game's hold is not in the log)
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
   if (!menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted)
 }
@@ -122,15 +140,19 @@ function loop(now) {
   const el = Math.min(0.1, (now - last) / 1000); last = now;
   if (input.enabled()) camKeys(el);
   if (running()) {
-    acc += el; let n = 0;
-    while (acc >= DT && n++ < 5) { step(DT); acc -= DT; }
-    if (acc > DT * 5) acc = 0;
+    const speed = ui.watching || 1; // (a replay plays faster)
+    acc += el * speed; let n = 0;
+    const done = () => ui.watching && (G.over || G.tick >= replayEnd()); // (a replay stops on the tick the game ended)
+    while (acc >= DT && n++ < 5 * speed && !done()) { step(DT); acc -= DT; }
+    if (acc > DT * 5 * speed) acc = 0;
     drainEvents();
-    noteSightings();
+    if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
   }
-  // Checked every frame, not only while running: the game can end between frames too.
-  if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); }
-  if (!G.over) ended = false;
+  // Checked every frame, not only while running: the game can end between frames too. A replay ends where the game
+  // did, back on the end card (the result is on record already).
+  if (ui.watching) { if (G.over || G.tick >= replayEnd()) doneWatching(); }
+  else if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); }
+  if (!G.over && !ui.watching) ended = false;
   updateFx(el);
   if (started) render(ui.sel, ui.place, showPower());
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }

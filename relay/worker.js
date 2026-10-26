@@ -81,7 +81,7 @@ export class RoomObject {
       this.lastUsed = Date.now();
       if (!seated) { seated = room.connect(ws, msg) >= 0; if (!seated) kick(ws); return; }
       room.receive(ws, msg);
-      if (!this.started && room.phase !== 'lobby') { this.started = true; this.save(); } // (no lobby to bring back now)
+      if (this.started !== (room.phase !== 'lobby')) { this.started = room.phase !== 'lobby'; this.save(); } // (a game: no lobby to bring back; a rematch's lobby: one again)
     });
     const gone = () => {
       if (!this.conns.delete(ws)) return;

@@ -139,7 +139,10 @@ the local relay with injected latency and jitter, socket kills, hidden-page emul
 
 **M3c. Lobby, mobile-first.** MULTIPLAYER on the menu: create a room (the code, a share link `ebbfall.com/?join=CODE`
 through the phone's share sheet) or join by code; seats with race picks (2 for now); ready; start. Few words, big
-buttons. The end card names the other player; rematch.
+buttons. The end card names the other player; rematch. Rematch built (2026-10-26): REMATCH on the online end card (lit when
+the friend asked; WAITING… once this side did); when every seat still there wants one, the room is a lobby again
+with the same seats, races and map, and READY starts a new game. The end card keeps the connection (heartbeats) so
+nobody is taken for away while deciding.
 
 **M3d. Deploy.** The relay Worker on Cloudflare (the owner's token in CI's secrets), its adapter tested with the
 Workers test pool. The client finds it at a fixed address.

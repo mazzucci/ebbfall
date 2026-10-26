@@ -89,6 +89,11 @@ export class Net {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onclose = ws.onmessage = null; try { ws.close(); } catch { /* gone */ } }
   }
+  /** Forget the last game (a rematch's lobby): its setup, turns, acks and hashes, and orders not sent. */
+  again() {
+    this.setup = null; this.ended = false; this.turns.clear(); this.checks.clear(); this.trail.clear();
+    this.acked = -1; this.ackedAt = 0; this.next = 0; this.queue = this.queue.filter(m => m.t !== 'orders');
+  }
   flush() {
     while (this.queue.length && this.say(this.queue[0])) this.queue.shift();
     if (this.leaving && !this.queue.length) setTimeout(() => this.close(), 300);
@@ -98,6 +103,10 @@ export class Net {
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
+  /** After a game: want another in this room (or not any more). */
+  rematch(want) { this.sayOrKeep({ t: 'rematch', want }); }
+  /** This side's game has ended (the relay stops the clock once every side's has; acks then count the turns in). */
+  over() { if (!this.ended) { this.ended = true; this.sayOrKeep({ t: 'over' }); } }
   /** The game is set up (the clock may start). */
   loaded() { this.say({ t: 'loaded' }); }
 
@@ -107,7 +116,11 @@ export class Net {
       case 'seat':
         this.seat = m.seat; this.token = m.token; this.room = m.room; this.retries = 0;
         this.status('online'); this.on.seat?.(m); this.flush(); break;
-      case 'lobby': if (Array.isArray(m.seats)) this.on.lobby?.(m); break;
+      case 'lobby':
+        if (!Array.isArray(m.seats)) break;
+        if (this.setup) this.again(); // (a rematch: the room is a lobby again)
+        this.on.lobby?.(m); break;
+      case 'rematch': if (Array.isArray(m.seats)) this.on.rematch?.(m.seats); break;
       case 'start':
         if (!this.setup) { this.setup = m.setup; this.on.start?.(m.setup, this.seat); } // (a resume re-sends it)
         break;
@@ -149,7 +162,7 @@ export class Net {
   }
 
   ackIfDue(g) {
-    const done = Math.floor(g.tick() / TICKS_PER_TURN) - 1; // (the last turn fully run)
+    const done = this.ended ? g.nextTurn() - 1 : Math.floor(g.tick() / TICKS_PER_TURN) - 1; // (the last turn fully run; over: the last one in)
     const now = Date.now();
     if (done - this.acked < ACK_EVERY && now - this.ackedAt < BEAT_MS) return;
     if (this.seat < 0) return; // (not seated again yet)

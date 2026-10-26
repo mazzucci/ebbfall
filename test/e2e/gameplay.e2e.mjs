@@ -1372,8 +1372,8 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       // A short game with a few orders in it (set-up: the action under test is WATCH).
       await d.eval(() => { const h = endfall.G.units.filter(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h[0], h[0].x + 120, h[0].y + 40); endfall.engine.moveTo(h[1], h[1].x - 80, h[1].y + 60); });
       await d.skip(20);
-      const played = await d.eval(() => endfall.G.tick);
       await d.eval(() => endfall.engine.concede());
+      const played = await d.eval(() => endfall.G.tick); // (after: the game runs on between calls until it is over)
       await d.page.locator('#end').waitFor({ state: 'visible' });
       const record = await d.eval(() => localStorage.getItem('endfall.record'));
       assert.ok(await d.page.locator('#btnWatch').isVisible(), 'WATCH on the end card');
@@ -1391,7 +1391,8 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       // It ends where the game ended, back on the end card, the record unchanged.
       await d.page.locator('#end').waitFor({ state: 'visible', timeout: 60000 });
       assert.ok(await d.page.locator('#replayBar').isHidden());
-      assert.ok(Math.abs(await d.eval(() => endfall.G.tick) - played) <= 2, 'it ran to where the game ended');
+      const at = await d.eval(() => [endfall.G.tick, endfall.G.over, endfall.engine.replayEnd()]);
+      assert.ok(Math.abs(at[0] - played) <= 2, `it ran to where the game ended: ${at} vs ${played}`);
       assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'not counted again');
       // Watch again and leave early with DONE.
       await tap('#btnWatch');

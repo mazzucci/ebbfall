@@ -32,6 +32,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
+    assert.match(relay.rooms.get(code).build, /^[0-9a-f]{12}$/, "the room holds the opener's sim build (a friend's must match)");
     // The friend opens the shared link on a phone: straight into the room.
     const b = await page(PHONE, `${relayQ}&join=${code}`);
     try {
@@ -85,4 +86,25 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
+});
+
+test('a room of another version: the friend is told to reload, and RELOAD brings them back to the room', async () => {
+  const { WebSocket } = await import('ws');
+  const host = new WebSocket(`ws://localhost:${relay.port}/?new=1`);
+  const code = await new Promise((res, rej) => {
+    host.on('open', () => host.send(JSON.stringify({ proto: 1, name: 'Old', build: '000000000000' })));
+    host.on('message', (d) => { const m = JSON.parse(d); if (m.t === 'seat') res(m.room); });
+    host.on('error', rej);
+  });
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const b = await page(PHONE, `${relayQ}&join=${code}`);
+  try {
+    await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 });
+    assert.match(await b.p.locator('#onlineStatus').textContent(), /different versions/);
+    assert.ok(await b.p.locator('#onlineJoin').isVisible(), 'the code box is back, to try another room');
+    await Promise.all([b.p.waitForNavigation(), b.tap('#btnOnlineReload')]);
+    await b.p.waitForFunction(() => !!window.endfall);
+    await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 }); // (the same room again: still another version)
+    assert.deepEqual(b.errors, []);
+  } finally { host.close(); await b.ctx.close(); }
 });

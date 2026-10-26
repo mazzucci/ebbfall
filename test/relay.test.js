@@ -149,6 +149,15 @@ test('a seat away longer than its budget leaves: a concede in the log, and nothi
   assert.deepEqual(fromB, [[18]], 'its concede is an order like any other, and the only one');
 });
 
+test('one sim build per room: another build is told to update, the same one joins', () => {
+  const { r, conn, got } = room();
+  const a = conn('a'), b = conn('b'), c = conn('c');
+  assert.equal(r.connect(a, hello({ build: 'aaaa11112222' })), 0);
+  assert.equal(r.connect(b, hello({ build: 'bbbb11112222' })), -1);
+  assert.equal(got(b, 'error')[0].code, 'version');
+  assert.equal(r.connect(c, hello({ build: 'aaaa11112222' })), 1, 'the same build: a seat');
+});
+
 test('a seat that leaves concedes at once: no waiting for it', () => {
   const { r, a, b, got } = started();
   play(r, [a, b], 0, 1000);

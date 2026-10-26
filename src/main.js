@@ -15,7 +15,7 @@ import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
-import { initOnline, online, onlineMap, stopOnline } from './client/online.js';
+import { initOnline, online, onlineMap, stopOnline, reloadUrl } from './client/online.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -205,11 +205,11 @@ bindInput(); resize(); requestAnimationFrame(loop);
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const register = () => navigator.serviceWorker.register('./sw.js').catch(() => { /* not available (file://, private mode) */ });
   if (document.readyState === 'complete') register(); else addEventListener('load', register); // (the WASM start may finish after load)
-  // A new version installed while the game is open: on the menu, switch to it at once; in a game, say so (it loads
-  // next time) rather than interrupt.
+  // A new version installed while the game is open: out of a game (the menu, the lobby: back into its room), switch to
+  // it at once (online, friends must share a version); in a game, say so (it loads next time) rather than interrupt.
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) return; // the first install, not an update
-    if (!$('start').hidden) location.reload(); else toast('A new version of Ebbfall is ready: it loads next time you open the game');
+    if (!started) location.replace(reloadUrl()); else toast('A new version of Ebbfall is ready: it loads next time you open the game');
   });
 }

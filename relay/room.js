@@ -5,8 +5,8 @@
 // bundle to everyone. It never looks inside an order (the clients decode them) and never needs to know the game's
 // build (clients compare hashes).
 //
-// The protocol (client -> relay): hello {proto, name, token?, next?} (next: the next turn the client expects, when it
-// comes back), race {race}, map {map}, ready {ready}, loaded {} (the game is set up: the clock may start), orders
+// The protocol (client -> relay): hello {proto, name, build?, token?, next?} (build: the client's sim build, which
+// every seat must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race}, map {map}, ready {ready}, loaded {} (the game is set up: the clock may start), orders
 // {w: numbers}, leave {} (gives the game up now), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby, start {setup, delay, from},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
@@ -39,6 +39,9 @@ export class Room {
   connect(conn, hello) {
     if (hello?.proto !== PROTO) { this.send(conn, { t: 'error', code: 'update', msg: 'A new version of Ebbfall is out: update to play' }); return -1; }
     if (this.seats.some(s => s.conn === conn)) return -1; // (a second hello on one connection)
+    // One sim build per room: the first seat's. Another build would compute another game (out of sync at once).
+    const build = typeof hello.build === 'string' ? hello.build.slice(0, 64) : '';
+    if (this.build && build && build !== this.build) { this.send(conn, { t: 'error', code: 'version', msg: 'Your Ebbfall is not the same version as this room\'s' }); return -1; }
     // Back with its token: the same seat (after a dropped connection or a reload).
     let seat = typeof hello.token === 'string' ? this.seats.findIndex(s => s.token && s.token === hello.token) : -1;
     if (seat < 0) {
@@ -48,6 +51,7 @@ export class Room {
       this.seats[seat].token = token();
     }
     const s = this.seats[seat];
+    this.build ||= build;
     if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'Playing on another screen' }); this.kick(s.conn); }
     s.conn = conn; s.lastAck = this.now;
     if (this.phase === 'lobby') s.name = String(hello.name || `Player ${seat + 1}`).slice(0, MAX_NAME);

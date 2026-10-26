@@ -62,7 +62,7 @@ jobs:
   # Determinism on another CPU: the golden games natively, in WASM in Node's V8, and in WebKit (JavaScriptCore on
   # arm64, as on an iPhone) on an ARM Mac.
   arm:
-    runs-on: macos-14
+    runs-on: macos-15 # (Playwright's WebKit for macOS 14 is frozen)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -85,6 +85,7 @@ jobs:
         env:
           ENDFALL_REQUIRE_WASM: '1'
       - name: The device check in WebKit
+        timeout-minutes: 10
         run: |
           npx playwright-core install chromium webkit
           node --test --test-name-pattern=WebKit test/e2e/selftest.e2e.mjs

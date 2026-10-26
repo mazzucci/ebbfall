@@ -14,7 +14,7 @@ after(stop);
 async function check(ctx) {
   const p = await ctx.newPage(), errors = [];
   p.on('pageerror', e => errors.push(e.message));
-  await p.goto(`${baseUrl()}selftest.html`);
+  await p.goto(`${baseUrl()}selftest.html`, { timeout: 30000 });
   await p.waitForFunction(() => document.body.dataset.result, null, { timeout: 120000 });
   const [result, verdict, lines] = await p.evaluate(() => [document.body.dataset.result, document.getElementById('verdict').textContent, [...document.querySelectorAll('#games li')].map(l => l.textContent)]);
   assert.deepEqual(errors, []);
@@ -22,15 +22,15 @@ async function check(ctx) {
   assert.equal(lines.length, GOLDEN.length);
 }
 
-test('Chromium computes the golden games exactly', async () => {
+test('Chromium computes the golden games exactly', { timeout: 180000 }, async () => {
   const ctx = await browserContext({ viewport: { width: 390, height: 844 } });
   try { await check(ctx); } finally { await ctx.close(); }
 });
 
 for (const [name, engine] of [['Firefox', firefox], ['WebKit', webkit]]) {
-  test(`${name} computes the golden games exactly`, async (t) => {
+  test(`${name} computes the golden games exactly`, { timeout: 180000 }, async (t) => {
     let browser;
-    try { browser = await engine.launch(); }
+    try { browser = await engine.launch({ timeout: 60000 }); }
     catch (e) {
       if (process.env.ENDFALL_ENGINES) throw e;
       t.skip(`${name} is not installed here`); return;

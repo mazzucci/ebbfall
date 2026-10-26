@@ -166,7 +166,7 @@ impl World {
                     ),
                     false,
                 );
-                self.sfx(team, "done");
+                self.sfx(team, "researched");
                 let (bx, by) = (self.bldg(bid).unwrap().x, self.bldg(bid).unwrap().y);
                 self.ping(team, bx, by);
             } else {

@@ -3,10 +3,13 @@
 // faded by where they happen relative to the camera, so a fight off screen is a distant rumble. A quiet wind bed
 // plays under the game. Units answer orders with short radio chirps, pitched by unit type.
 import { UNIT_VOICE } from './look.js';
+import { speak } from './voice.js';
 
 let actx = null, master = null, noiseBuf = null, wind = null;
 export const audio = {
   muted: false,
+  voice: 'humans', // the announcer's style: this side's faction key
+  quiet: false, // the announcer holds its tongue (a replay shows the game, not its news)
   /** Set by main.js: the camera's view in world px ({ x, y, w, h }), for panning and distance. */
   view: () => null,
   /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
@@ -67,6 +70,7 @@ const SFX = {
   alert: (b, t) => { for (let k = 0; k < 2; k++) { tone(b, t, { f: 620, to: 940, dur: 0.16, type: 'square', vol: 0.05, delay: k * 0.34 }); tone(b, t, { f: 940, to: 620, dur: 0.16, type: 'square', vol: 0.05, delay: k * 0.34 + 0.17 }); } },
   // news
   done: (b, t) => [523, 659, 784].forEach((f, k) => tone(b, t, { f, dur: 0.22, type: 'triangle', vol: 0.07, delay: k * 0.09 })),
+  researched: (b, t) => { SFX.done(b, t); say('research', 0.35); }, // (after the chime)
   ready: (b, t) => { tone(b, t, { f: 440, dur: 0.08, type: 'triangle', vol: 0.05 }); tone(b, t, { f: 660, dur: 0.12, type: 'triangle', vol: 0.05, delay: 0.08 }); },
   coin: (b, t) => tone(b, t, { f: 1500, to: 1900, dur: 0.035, type: 'sine', vol: 0.018 }),
   // a unit of ours lost (heard wherever it falls), an enemy killed
@@ -102,6 +106,28 @@ const SFX = {
 const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
 const lastGain = {};
 
+/** The announcer (voice.js) in this side's race's voice (`audio.voice`, a faction key): a phrase, at most once per
+ *  its gap (an attack every 20 s), muted with the rest. */
+const SAY_GAP = { attack: 20000, research: 3000, shards: 2500, ether: 2500 }, said = {};
+let voiceBus = null, busyUntil = 0;
+/** `after`: seconds to wait first (to follow the chime or siren it goes with instead of talking over it). One phrase
+ *  at a time: a new one while another plays is dropped. Not while the audio is suspended (an iOS interruption), or
+ *  the phrases would all come at once later. */
+export function say(key, after = 0) {
+  if (audio.muted || audio.quiet) return;
+  const now = audio.now();
+  if (said[key] !== undefined && now - said[key] < (SAY_GAP[key] ?? 3000)) return;
+  try {
+    ctx();
+    if (actx.state !== 'running' || actx.currentTime < busyUntil) return;
+    said[key] = now;
+    if (!voiceBus) { voiceBus = actx.createGain(); voiceBus.connect(master); }
+    voiceBus.gain.cancelScheduledValues(actx.currentTime); voiceBus.gain.setValueAtTime(1, actx.currentTime);
+    const at = actx.currentTime + 0.05 + after;
+    busyUntil = at + speak(actx, voiceBus, key, audio.voice, at);
+  } catch { /* no audio available */ }
+}
+
 /**
  * Play an effect. `o` may carry a world position ({ x, y }: panned and faded by the camera), a unit type
  * ({ unit }: the radio voice), `big` (impacts) or `r` (explosion size).
@@ -136,5 +162,6 @@ function startWind() {
 }
 /** Sound switched on or off: the wind follows. */
 export function soundToggled() {
+  if (audio.muted && voiceBus) { try { voiceBus.gain.setTargetAtTime(0, actx.currentTime, 0.03); busyUntil = 0; } catch { /* no audio */ } } // (a phrase stops mid-word)
   if (audio.muted && wind) { try { wind.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); wind.n.stop(actx.currentTime + 1); wind.lfo.stop(actx.currentTime + 1); } catch { /* already stopped */ } wind = null; }
 }

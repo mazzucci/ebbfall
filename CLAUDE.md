@@ -5,7 +5,8 @@ Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES 
 over code-generated sprite sheets (pre-rendered 3D units and buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer can be added without
 rewriting it. See `docs/PLAN.md` for the roadmap and open questions
 and `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
-says Ebbfall, internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`, storage keys, the repo) keep the old word.
+says Ebbfall and the repo is github.com/mazzucci/ebbfall; internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`,
+storage keys, the local folder) keep the old word.
 
 ## Prerequisites (on the Mac)
 
@@ -75,7 +76,8 @@ src/client/           everything that touches the browser
   look.js             per-kind presentation the sim does not know: building art parts, unit voices
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
-  voice.js            a formant-synthesized announcer (prototype, heard only on voice-lab.html for now)
+  voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
+                      shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay

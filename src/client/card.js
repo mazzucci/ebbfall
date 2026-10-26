@@ -3,7 +3,7 @@
 import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, unlockOf } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
-import { sfx } from './audio.js';
+import { sfx, say } from './audio.js';
 import { icon, portrait } from './icons.js';
 
 let cardKey = '';
@@ -184,6 +184,7 @@ let shaking = { id: '', until: 0 };
 function refuse(id, err) {
   if (!/^Not enough| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
+  const short = /^Not enough (shards|ether)/.exec(err); if (short) say(short[1]); // (the announcer says what is short)
   shaking = { id, until: performance.now() + 400 };
   cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }

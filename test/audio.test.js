@@ -7,10 +7,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 const ramps = [], errors = [];
 // (times must be non-negative and, per parameter, never go back: a real AudioParam throws or misbehaves)
 const when = (p, t, what) => { if (t === undefined) return; if (!(t >= 0)) errors.push(`${what} at ${t}`); if (t < (p.last ?? 0)) errors.push(`${what} back in time: ${t} < ${p.last}`); p.last = t; };
-class Param { constructor(v = 0) { this.value = v; } setValueAtTime(v, t) { when(this, t, 'set'); this.value = v; } exponentialRampToValueAtTime(v, t) { when(this, t, 'ramp'); if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } linearRampToValueAtTime(v, t) { when(this, t, 'linear ramp'); if (!Number.isFinite(v)) errors.push(`linear ramp to ${v}`); ramps.push(v); } setTargetAtTime() {} }
+class Param { constructor(v = 0) { this.value = v; } cancelScheduledValues() {} setValueAtTime(v, t) { when(this, t, 'set'); this.value = v; } exponentialRampToValueAtTime(v, t) { when(this, t, 'ramp'); if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } linearRampToValueAtTime(v, t) { when(this, t, 'linear ramp'); if (!Number.isFinite(v)) errors.push(`linear ramp to ${v}`); ramps.push(v); } setTargetAtTime() {} }
 class Node { constructor() { this.gain = new Param(1); this.frequency = new Param(440); this.Q = new Param(1); this.pan = new Param(0); } connect(n) { return n; } start(t) { if (t !== undefined && !(t >= 0)) errors.push(`start at ${t}`); } stop() {} }
 class Ctx {
-  constructor() { this.state = 'running'; this.currentTime = 0; this.sampleRate = 8000; this.destination = new Node(); }
+  static now = 0;
+  constructor() { this.state = 'running'; this.sampleRate = 8000; this.destination = new Node(); }
+  get currentTime() { return Ctx.now; }
   resume() { return Promise.resolve(); }
   createDynamicsCompressor() { const n = new Node(); n.threshold = new Param(); n.ratio = new Param(); n.attack = new Param(); n.release = new Param(); return n; }
   createGain() { return new Node(); } createOscillator() { return new Node(); } createBiquadFilter() { return new Node(); }
@@ -21,7 +23,8 @@ class Ctx {
 globalThis.window = { AudioContext: Ctx };
 globalThis.addEventListener = () => {};
 
-const { sfx, audio } = await import('../src/client/audio.js');
+const { sfx, say, audio } = await import('../src/client/audio.js');
+const { PHRASES, STYLES } = await import('../src/client/voice.js');
 const src = readFileSync(new URL('../src/client/audio.js', import.meta.url), 'utf8');
 const recipes = [...src.matchAll(/^ {2}([a-z]+): \(b, t/gm)].map(m => m[1]);
 
@@ -36,6 +39,36 @@ test('every recipe plays, placed or not, with sound envelopes', async () => {
     clock += 260; // past the longest repeat gap
   }
   assert.deepEqual(errors, []);
+});
+
+test('the announcer says every phrase in every race\'s voice, one at a time, not again within its gap, not when muted or quiet', async () => {
+  const { FACTIONS } = await import('../src/engine/pkg/data.js').catch(() => ({ FACTIONS: null }));
+  let clock = 100000; audio.now = () => clock;
+  const actx = new window.AudioContext(); // (the module's context is made on first use; time is read from it)
+  Ctx.now += 100; // (past anything an earlier test said)
+  const keys = Object.keys(PHRASES);
+  for (const voice of Object.keys(STYLES)) for (const key of keys) {
+    audio.voice = voice; ramps.length = 0; errors.length = 0;
+    say(key);
+    assert.ok(ramps.length > 0, `${voice} said ${key}`);
+    ramps.length = 0; say(key);
+    assert.equal(ramps.length, 0, `${key} not repeated at once`);
+    clock += 30000; Ctx.now += 10; // (past the gap, and past the phrase on the audio clock)
+  }
+  assert.deepEqual(errors, []);
+  // One at a time: another phrase while one plays is dropped.
+  say('shards'); ramps.length = 0; say('ether');
+  assert.equal(ramps.length, 0, 'not over another phrase');
+  Ctx.now += 10; clock += 30000;
+  audio.muted = true; ramps.length = 0; say('ether'); assert.equal(ramps.length, 0, 'muted'); audio.muted = false;
+  audio.quiet = true; ramps.length = 0; say('ether'); assert.equal(ramps.length, 0, 'quiet (a replay)'); audio.quiet = false;
+  // The research sound speaks: more than the chime alone.
+  Ctx.now += 10; clock += 30000;
+  ramps.length = 0; sfx('done'); const chime = ramps.length;
+  clock += 30000; ramps.length = 0; sfx('researched');
+  assert.ok(ramps.length > chime, 'researched says research complete');
+  if (FACTIONS) assert.deepEqual(Object.keys(STYLES).sort(), Object.keys(FACTIONS).sort(), 'a voice per faction');
+  void actx;
 });
 
 test('every sound the sim asks for has a recipe', () => {

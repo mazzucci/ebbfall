@@ -573,3 +573,90 @@ fn a_player_can_concede_and_the_other_side_wins() {
     assert!(!w.over);
     assert_eq!(w.conceded, -1);
 }
+
+#[test]
+fn a_unit_finds_its_way_around_a_building_put_up_across_its_route() {
+    // Walking (move or attack-move) across open ground, then a wall of buildings goes up across the route: the unit is
+    // pushed out of the first one it walks into and plans a new route around them, instead of walking back into it
+    // for ever (an AI's wave once stood at its own new Core for the rest of a game).
+    for amove in [false, true] {
+        let mut w = flat_arena(5);
+        let u = w.make_unit(UnitKind::Trooper, PLAYER, 15.0 * TILE, 30.0 * TILE);
+        let goal = (45.0 * TILE, 30.0 * TILE);
+        if amove {
+            w.attack_move(u, goal.0, goal.1);
+        } else {
+            w.move_to(u, goal.0, goal.1);
+        }
+        run(&mut w, 1);
+        for ty in (18..42).step_by(2) {
+            w.make_building(BldgKind::Depot, PLAYER, 28, ty, true);
+        }
+        run(&mut w, 45);
+        let p = w.unit(u).unwrap();
+        assert!(
+            (p.x - goal.0).hypot(p.y - goal.1) < 2.0 * TILE,
+            "amove {amove}: it went around: at ({:.0}, {:.0})",
+            p.x / TILE,
+            p.y / TILE
+        );
+    }
+}
+
+#[test]
+fn a_group_sent_to_a_walled_off_spot_stops_where_it_can() {
+    // A free spot ringed by rock: the route stops short, and the group comes to rest at the nearest place it can
+    // reach (or takes on what it meets), instead of walking on from the route's end into the rock for ever.
+    for amove in [false, true] {
+        let mut w = flat_arena(5);
+        for y in 26..=34 {
+            for x in 36..=44 {
+                if (x - 40i32).abs().max((y - 30i32).abs()) == 4 {
+                    w.map.rock[(y * MW + x) as usize] = 1;
+                }
+            }
+        }
+        let units: Vec<Id> = (0..8)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    PLAYER,
+                    (15 + i % 4) as f64 * TILE,
+                    (28 + i / 4) as f64 * TILE,
+                )
+            })
+            .collect();
+        let goal = (40.0 * TILE + 16.0, 30.0 * TILE + 16.0);
+        if amove {
+            w.attack_move_group(&units, goal.0, goal.1);
+        } else {
+            w.formation(&units, goal.0, goal.1);
+        }
+        run(&mut w, 40);
+        let moving: Vec<_> = units
+            .iter()
+            .filter(|&&u| {
+                matches!(
+                    w.unit(u).unwrap().task,
+                    Task::Move { .. } | Task::AMove { .. }
+                )
+            })
+            .collect();
+        assert!(
+            moving.is_empty(),
+            "amove {amove}: all at rest by the ring, still going: {:?}",
+            moving
+                .iter()
+                .map(|&&u| {
+                    let u = w.unit(u).unwrap();
+                    (
+                        u.task,
+                        (u.x / TILE) as i32,
+                        (u.y / TILE) as i32,
+                        u.path.clone(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        );
+    }
+}

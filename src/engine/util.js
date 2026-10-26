@@ -8,6 +8,12 @@ export const fmt = (s) => {
   return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 };
 
+/** A room's races, seat by seat, each 'random' drawn from the setup's seed and the seat's index (`keys`: the faction
+ *  keys): the same on every client, so the relay passes race strings through untouched. */
+export function seatRaces(races, seed, keys) {
+  return races.map((k, i) => (k === 'random' ? keys[Math.floor(mulberry((seed ^ Math.imul(i + 1, 0x9e3779b1)) >>> 0)() * keys.length)] : k));
+}
+
 /** Seeded PRNG (mulberry32). Deterministic across engines: integer math only. */
 export function mulberry(a) {
   return function () {

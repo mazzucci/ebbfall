@@ -156,7 +156,7 @@ repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then runs
 (Actions, CI, Run workflow) for the first deploy, at `relay.ebbfall.com` (a custom domain on the ebbfall.com zone,
 which must be in the same Cloudflare account, with no `relay` DNS record yet; made by the deploy); later deploys
 happen when a push to main changes relay/; (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
-which the build bakes in: PLAY A FRIEND appears.
+which the build bakes in: MULTIPLAYER appears on the menu's first page.
 Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
 an empty lobby is evicted from memory a minute or two after its last socket closes and comes back, empty, from a small
 storage record when someone joins within 10 minutes; a running game is never stored.

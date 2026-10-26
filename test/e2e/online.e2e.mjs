@@ -35,7 +35,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(DESKTOP, relayQ);
   try {
-    assert.ok(await a.p.locator('#btnOnline').isVisible(), 'PLAY A FRIEND on the menu when a relay is known');
+    assert.ok(await a.p.locator('#btnOnline').isVisible(), 'MULTIPLAYER on the menu when a relay is known');
     await a.tap('#btnOnline');
     await a.p.locator('#onlineName').fill('Ann');
     await a.tap('#btnNewRoom');
@@ -53,12 +53,17 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/away/.test(document.getElementById('seatList').textContent));
       assert.match(await a.p.locator('#seatList').textContent(), /Bo/, 'the friend under the name typed');
-      await b.tap('#onlineRace [data-race="vael"]');
-      await a.p.waitForFunction(() => /VAEL/.test(document.getElementById('seatList').textContent));
+      // The friend's race: RANDOM, shown as such in the room until the start; drawn there, alike in both games.
+      await b.tap('#onlineRace [data-race="random"]');
+      await a.p.waitForFunction(() => /RANDOM/.test(document.getElementById('seatList').textContent));
+      await b.p.waitForFunction(() => document.querySelector('#onlineRace .ib.on')?.textContent === 'RANDOM', null, { timeout: 5000 }); // (the friend's own pick, back from the relay)
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
-      assert.deepEqual(await a.p.evaluate(() => endfall.G.factions), ['humans', 'vael']);
-      assert.deepEqual(await b.p.evaluate(() => [endfall.G.me, endfall.G.factions]), [1, ['humans', 'vael']], 'the friend plays the second seat');
+      const drawn = await a.p.evaluate(() => { const s = endfall.online.setup; return [s.races, endfall.engine.seatRaces(s.races, s.seed, Object.keys(endfall.engine.FACTIONS))]; });
+      assert.deepEqual(drawn[0], ['humans', 'random'], 'the relay passed RANDOM on');
+      assert.ok(['humans', 'vael'].includes(drawn[1][1]), `a race drawn: ${drawn[1]}`);
+      assert.deepEqual(await a.p.evaluate(() => endfall.G.factions), drawn[1], 'the draw from the room\'s seed');
+      assert.deepEqual(await b.p.evaluate(() => [endfall.G.me, endfall.G.factions]), [1, drawn[1]], 'the friend plays the second seat, the same draw');
       // Ann sends a harvester off (set-up through the engine: the lobby and the lockstep are what is tested).
       const id = await a.p.evaluate(() => { const h = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h, h.x + 300, h.y + 200); return h.id; });
       const at = (x) => x.p.evaluate((id) => { const u = endfall.G.units.find(u => u.id === id); return [Math.round(u.x), Math.round(u.y)]; }, id);
@@ -172,5 +177,19 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});
+
+test('a small phone: the room fits without scrolling, its sound icon in the corner', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page({ ...PHONE, viewport: { width: 667, height: 375 } }, relayQ);
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const sc = await a.p.locator('#online .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
+    assert.ok(sc[0] <= sc[1] + 1, `the room fits: ${sc}`);
+    assert.ok((await a.p.locator('#online h2').boundingBox()).y >= 0, 'its heading in view');
+    assert.ok(await a.p.locator('#btnOnlineReady').isVisible() && await a.p.locator('#btnLobbySound').isVisible());
+    assert.deepEqual(a.errors, []);
   } finally { await a.ctx.close(); }
 });

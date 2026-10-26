@@ -1,5 +1,9 @@
-// The start menu (a page of its own: opponent, race, one of three maps, sound; START GAME goes full screen,
-// and while full screen a corner button leaves it); and the How to play card.
+// The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
+// is known), How to play, About (a page: who made it, the source, the version) and the record (and FIRST GAME, until a
+// first game is over on this device); the single-player page holds the game against the AI (opponent, your race and
+// the enemy's, one of three maps, the guided first game; START GAME goes full screen). In the top-right corner of
+// every page (and the lobby's): the sound, one setting with the game's top bar; while full screen, a button that
+// leaves it. The menu always opens on its first page (a join link opens the lobby instead).
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.
@@ -7,6 +11,7 @@ import { mulberry, mapPreview, DUEL_MW as MW, DUEL_MH as MH, DIFF } from '../eng
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { enterFullscreen, exitFullscreen } from './screen.js';
+import { icon } from './icons.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -27,7 +32,11 @@ export const MAPS = [
   { name: 'Cinder Divide', seed: 2077, kind: 4 },
   { name: 'Random', random: true },
 ];
-export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, race: 'humans', enemy: 'humans', enemyRace: 'humans' };
+/** `you`, `enemy`: the races chosen ('random' too); `race`, `enemyRace`: this game's, drawn at START GAME. */
+export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, you: 'humans', race: 'humans', enemy: 'humans', enemyRace: 'humans' };
+const RACES = ['humans', 'vael'];
+/** A race for this game: the one chosen, or either at random. */
+const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
@@ -76,9 +85,12 @@ function drawPreview() {
   cv.title = m.name;
 }
 
-/** Reflect audio.muted on the menu and the top bar. */
+/** Reflect audio.muted on the menu's and the lobby's sound icons and the top bar. */
 let syncSound = () => {};
-function soundLabel() { const on = !audio.muted; $('btnMenuSound').textContent = on ? 'ON' : 'OFF'; $('btnMenuSound').setAttribute('aria-pressed', String(on)); $('btnMenuSound').classList.toggle('on', on); }
+function soundLabel() {
+  const on = !audio.muted;
+  for (const b of document.querySelectorAll('.msound')) { b.innerHTML = icon(on ? 'sound' : 'mute'); b.setAttribute('aria-pressed', String(on)); b.title = on ? 'Sound (on)' : 'Sound (off)'; }
+}
 
 export function initMenu({ onStart, onSound }) {
   syncSound = onSound;
@@ -89,23 +101,29 @@ export function initMenu({ onStart, onSound }) {
   const showDiff = () => diffs.forEach(x => { const on = +x.dataset.d === menu.diff; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
   diffs.forEach(b => b.addEventListener('click', () => { menu.diff = +b.dataset.d; store.set('diff', menu.diff); showDiff(); showRecord(); }));
   showDiff();
-  // The player's race (remembered on this device).
-  menu.race = ['humans', 'vael'].includes(store.get('race')) ? store.get('race') : 'humans';
+  // The player's race (remembered on this device; Random draws one each game).
+  menu.you = [...RACES, 'random'].includes(store.get('race')) ? store.get('race') : 'humans';
   const races = document.querySelectorAll('#race .ib');
-  const showRace = () => races.forEach(x => { const on = x.dataset.race === menu.race; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
-  races.forEach(b => b.addEventListener('click', () => { menu.race = b.dataset.race; store.set('race', menu.race); showRace(); showRecord(); sfx('select'); }));
+  const showRace = () => races.forEach(x => { const on = x.dataset.race === menu.you; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
+  races.forEach(b => b.addEventListener('click', () => { menu.you = b.dataset.race; store.set('race', menu.you); showRace(); showRecord(); sfx('select'); }));
   showRace(); showRecord();
   // The opponent's race (Random draws one each game).
-  menu.enemy = ['humans', 'vael', 'random'].includes(store.get('enemy')) ? store.get('enemy') : 'humans';
+  menu.enemy = [...RACES, 'random'].includes(store.get('enemy')) ? store.get('enemy') : 'humans';
   const foes = document.querySelectorAll('#enemy .ib');
   const showEnemy = () => foes.forEach(x => { const on = x.dataset.race === menu.enemy; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
   foes.forEach(b => b.addEventListener('click', () => { menu.enemy = b.dataset.race; store.set('enemy', menu.enemy); showEnemy(); sfx('select'); }));
   showEnemy();
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
-  $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
+  for (const b of document.querySelectorAll('.msound')) b.addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
-  $('btnFirst').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
-  $('btnStart').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
+  for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
+  $('btnStart').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.race = draw(menu.you); menu.enemyRace = draw(menu.enemy); onStart(); }); // each game draws our starting base (a random map, random races)
+  // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
+  $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
+  $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
+  $('btnAbout').addEventListener('click', () => { sfx('select'); page('menuAbout'); });
+  $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
+  $('buildId').textContent = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev'; // (vite.config.js: the one online play compares)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   // Full screen (a phone's PLAY enters it): a corner button leaves it, there only while it is on. (A page cannot
   // close its own tab; leaving full screen gives the browser's own controls back.)
@@ -122,10 +140,12 @@ export function setup() {
   return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, side: 0, race: 'humans', enemyRace: 'humans' };
 }
 
-/** Back to the menu (after a game, or quitting), with the last choices. */
-export function showMenu() { renderMaps(); showRecord(); $('start').hidden = false; }
+/** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */
+function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
+/** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
+export function showMenu() { renderMaps(); showRecord(); page('menuHome'); $('start').hidden = false; }
 
-// The player's record on this device, per race and difficulty: [won, lost].
+// The player's record on this device, per race and difficulty: [won, lost] (the race played: a Random one's draw).
 const records = () => { try { const r = JSON.parse(store.get('record')); return r && typeof r === 'object' ? r : {}; } catch { return {}; } };
 const tally = (r, k) => Array.isArray(r[k]) && r[k].length === 2 ? r[k].map(n => +n || 0) : [0, 0]; // (whatever else is stored)
 /** Count a finished game for the race and difficulty it was played at. */
@@ -133,11 +153,17 @@ export function recordResult(win, race, diff) {
   const r = records(), k = `${race}:${diff}`, [w, l] = tally(r, k);
   r[k] = win ? [w + 1, l] : [w, l + 1]; store.set('record', JSON.stringify(r));
 }
-/** The record for the chosen race and difficulty, beside START (nothing before a first game). */
+/** The guided first game was played to its end (FIRST GAME then leaves the first page). */
+export function guidedDone() { store.set('guided', '1'); }
+/** The record for the chosen race (Random: both) and difficulty, on the first page (nothing before a first game); FIRST
+ *  GAME there too for a newcomer: nobody has finished a game on this device yet (none on the record, no guided one). */
 function showRecord() {
-  const [w, l] = tally(records(), `${menu.race}:${menu.diff}`);
-  $('record').textContent = w + l ? `${w} won · ${l} lost` : '';
-  $('record').title = w + l ? `Your record as the ${menu.race === 'vael' ? 'Vael' : 'Humans'} at this difficulty` : '';
+  const r = records();
+  $('btnFirstHome').hidden = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
+  const [w, l] = (menu.you === 'random' ? RACES : [menu.you]).map(k => tally(r, `${k}:${menu.diff}`)).reduce((a, b) => [a[0] + b[0], a[1] + b[1]]);
+  const level = DIFF[menu.diff]?.name || '';
+  $('record').textContent = w + l ? `${level}: ${w} won · ${l} lost` : '';
+  $('record').title = w + l ? `Your record ${menu.you === 'random' ? 'with either race' : `as the ${menu.you === 'vael' ? 'Vael' : 'Humans'}`} on ${level}` : '';
 }
 /** The top bar's sound button changed the setting: keep the menu and the saved choice in step. */
 export function soundChanged() { store.set('muted', audio.muted ? '1' : '0'); soundLabel(); }

@@ -1,7 +1,8 @@
-// Play a friend (docs/MULTIPLAYER.md): the lobby card and the glue between the network layer (src/net/net.js) and the
-// game. Mobile-first and few words: open a room (a 4-letter code to share, or a link) or join one, pick a race (the
-// first seat also picks the map), ready. The button is shown only where a relay is known: `?relay=ws://...`, the
-// build's VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
+// Multiplayer (docs/MULTIPLAYER.md): the lobby card and the glue between the network layer (src/net/net.js) and the
+// game. Mobile-first and few words: open a room (a 4-letter code to share, or a link) or join one, pick a race (or
+// RANDOM: drawn when the game starts, alike on every client, src/engine/util.js seatRaces; the first seat also picks
+// the map), ready. The menu's MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's
+// VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
 import { Net } from '../net/net.js';
 import { liveGame } from '../engine/index.js';
 import { $, toast } from './ui.js';

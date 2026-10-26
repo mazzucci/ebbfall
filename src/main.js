@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, FACTIONS, seatRaces, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -10,7 +10,7 @@ import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
 import { setIconButton, portrait } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, setup, menu, MAP_KINDS } from './client/menu.js';
+import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu, MAP_KINDS } from './client/menu.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
@@ -45,7 +45,8 @@ function newGame() {
 function newOnlineGame(setup, seat) {
   const m = onlineMap(setup, MAP_KINDS.length);
   menu.tutorial = false;
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, setup.races, seat));
+  const races = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS)); // (a RANDOM seat: drawn from the room's seed, alike on every client)
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat));
 }
 
 function begin(reset) {
@@ -147,6 +148,7 @@ function endGame() {
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
   if (!online.playing && !menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
+  if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
  *  (`theyWant`: someone else does; `iWant`: this side asked), and none once someone has left. */

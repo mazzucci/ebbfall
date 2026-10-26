@@ -10,6 +10,7 @@ mod combat;
 mod command;
 mod construction;
 mod economy;
+mod flee;
 mod fog;
 mod movement;
 mod orders;
@@ -383,7 +384,18 @@ impl World {
         if c.kind.def().heal > 0.0 {
             self.medic(uid, dt);
         }
+        // A worker at work (mining, or idle) runs from an armed enemy close by with nothing of its own to fight it
+        // (looked at four times a second, staggered by id).
+        if c.kind.def().worker
+            && matches!(task, Task::Gather { .. } | Task::Idle)
+            && (self.tick + uid).is_multiple_of(8)
+            && let Some(from) = self.alarm(uid)
+            && self.start_flee(uid, from)
+        {
+            return;
+        }
         match task {
+            Task::Flee { node, x, y, calm } => self.update_flee(uid, node, x, y, calm, dt),
             Task::Idle => self.update_idle(uid, false, c, dt),
             Task::Hold => self.update_idle(uid, true, c, dt),
             Task::Move { x, y } => self.update_move(uid, x, y, dt),

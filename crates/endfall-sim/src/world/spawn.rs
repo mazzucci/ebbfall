@@ -32,6 +32,7 @@ impl World {
             sh: d.shields,
             maxsh: d.shields,
             hit_at: f64::NEG_INFINITY,
+            struck: f64::NEG_INFINITY,
             r: d.r,
             task: Task::Idle,
             path: None,

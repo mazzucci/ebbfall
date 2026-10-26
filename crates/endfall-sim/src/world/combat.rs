@@ -205,6 +205,7 @@ impl World {
             let sh_up = self.effect_level(team, Effect::Shields) as f64;
             let now = self.time;
             let u = &mut self.units[i];
+            u.struck = now;
             let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt, sh_up);
             if rest > 0.0 {
                 u.hp -= (rest - u.kind.def().armor - armor_up).max(1.0);

@@ -23,6 +23,7 @@ fn task_parts(t: &Task) -> (i32, i32, u32) {
         Task::Gather { node, phase, .. } => (t.code(), phase_code(phase), node),
         Task::Attack { target, .. } => (t.code(), -1, target),
         Task::Build { b } | Task::Repair { b } => (t.code(), -1, b),
+        Task::Flee { node, .. } => (t.code(), -1, node.unwrap_or(0)),
         _ => (t.code(), -1, 0),
     }
 }
@@ -36,7 +37,7 @@ fn phase_code(p: Phase) -> i32 {
 }
 /// Names of the task codes (Task::code) and gather phases, for the client.
 pub const TASKS: &[&str] = &[
-    "idle", "hold", "move", "amove", "attack", "gather", "build", "repair",
+    "idle", "hold", "move", "amove", "attack", "gather", "build", "repair", "flee",
 ];
 pub const PHASES: &[&str] = &["go", "wait", "mine", "return"];
 pub const PROJ_KINDS: &[&str] = &["bolt", "shell", "missile"];

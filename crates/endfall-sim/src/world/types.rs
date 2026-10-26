@@ -59,6 +59,13 @@ pub enum Task {
     Repair {
         b: Id,
     },
+    /// A worker running from an armed enemy (world/flee.rs): to (x, y), back to `node` once `calm` reaches its mark.
+    Flee {
+        node: Option<Id>,
+        x: f64,
+        y: f64,
+        calm: f64,
+    },
 }
 
 impl Task {
@@ -73,6 +80,7 @@ impl Task {
             Task::Gather { .. } => 5,
             Task::Build { .. } => 6,
             Task::Repair { .. } => 7,
+            Task::Flee { .. } => 8,
         }
     }
 }
@@ -90,6 +98,8 @@ pub struct Unit {
     pub sh: f64,
     pub maxsh: f64,
     pub hit_at: f64,
+    /// When it was last damaged by anything (s; a worker runs).
+    pub struck: f64,
     pub r: f64,
     pub task: Task,
     pub path: Option<Vec<Pt>>,

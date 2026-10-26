@@ -3,7 +3,7 @@
 
 pub use endfall_sim::data::Upgrade;
 pub use endfall_sim::data::*;
-pub use endfall_sim::map::{Id, MapKind, in_map};
+pub use endfall_sim::map::{Id, MapKind, MapSize};
 #[allow(unused_imports)]
 pub use endfall_sim::world::{BUILDER_PATIENCE, REPAIR_COST};
 pub use endfall_sim::world::{Phase, Task, Unit, World};
@@ -206,14 +206,14 @@ pub fn builds_within(w: &mut World, h: Id, b: Id, secs: u32) -> Result<(), Strin
 
 /// Walking distance in tiles from `from` to every tile (4-neighbour, unblocked), -1 where unreachable.
 pub fn walk_dist(w: &World, from: (i32, i32)) -> Vec<i32> {
-    let mut d = vec![-1; (MW * MH) as usize];
+    let mut d = vec![-1; w.map.rock.len()];
     let mut q = std::collections::VecDeque::from([from]);
-    d[(from.1 * MW + from.0) as usize] = 0;
+    d[w.map.idx(from.0, from.1)] = 0;
     while let Some((x, y)) = q.pop_front() {
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let (nx, ny) = (x + dx, y + dy);
-            if !w.map.blocked(nx, ny) && d[(ny * MW + nx) as usize] < 0 {
-                d[(ny * MW + nx) as usize] = d[(y * MW + x) as usize] + 1;
+            if !w.map.blocked(nx, ny) && d[w.map.idx(nx, ny)] < 0 {
+                d[w.map.idx(nx, ny)] = d[w.map.idx(x, y)] + 1;
                 q.push_back((nx, ny));
             }
         }
@@ -241,8 +241,8 @@ pub fn long_way_around(seed: u32) -> Option<((i32, i32), (i32, i32))> {
         // the nearest tile beside the site's footprint
         let walk = (site.1 - 1..=site.1 + 3)
             .flat_map(|y| (site.0 - 1..=site.0 + 3).map(move |x| (x, y)))
-            .filter(|&(x, y)| in_map(x, y) && d[(y * MW + x) as usize] >= 0)
-            .map(|(x, y)| d[(y * MW + x) as usize])
+            .filter(|&(x, y)| w.map.in_map(x, y) && d[w.map.idx(x, y)] >= 0)
+            .map(|(x, y)| d[w.map.idx(x, y)])
             .min();
         if walk.is_some_and(|k| k as f64 >= straight * 1.5) {
             return Some((from, site));
@@ -253,14 +253,14 @@ pub fn long_way_around(seed: u32) -> Option<((i32, i32), (i32, i32))> {
 
 /// Tiles reachable on foot from `from` (4-neighbour flood fill over unblocked tiles).
 pub fn reachable(w: &World, from: (i32, i32)) -> Vec<bool> {
-    let mut seen = vec![false; (MW * MH) as usize];
+    let mut seen = vec![false; w.map.rock.len()];
     let mut q = vec![from];
-    seen[(from.1 * MW + from.0) as usize] = true;
+    seen[w.map.idx(from.0, from.1)] = true;
     while let Some((x, y)) = q.pop() {
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let (nx, ny) = (x + dx, y + dy);
-            if !w.map.blocked(nx, ny) && !seen[(ny * MW + nx) as usize] {
-                seen[(ny * MW + nx) as usize] = true;
+            if !w.map.blocked(nx, ny) && !seen[w.map.idx(nx, ny)] {
+                seen[w.map.idx(nx, ny)] = true;
                 q.push((nx, ny));
             }
         }
@@ -336,7 +336,8 @@ pub fn move_node(w: &mut World, id: Id, tx: i32, ty: i32) {
     let (size, ox, oy) = (if n.ether { 2 } else { 1 }, n.tx, n.ty);
     for y in 0..size {
         for x in 0..size {
-            w.map.occ[((oy + y) * MW + ox + x) as usize] = 0;
+            let i = w.map.idx(ox + x, oy + y);
+            w.map.occ[i] = 0;
         }
     }
     let n = w.map.node_mut(id).unwrap();
@@ -346,7 +347,8 @@ pub fn move_node(w: &mut World, id: Id, tx: i32, ty: i32) {
     n.y = (ty as f64 + size as f64 / 2.0) * TILE;
     for y in 0..size {
         for x in 0..size {
-            w.map.occ[((ty + y) * MW + tx + x) as usize] = -(id as i32);
+            let i = w.map.idx(tx + x, ty + y);
+            w.map.occ[i] = -(id as i32);
         }
     }
 }

@@ -157,6 +157,26 @@ Map size per map (`MW`/`MH` become the map's: today they are constants in the si
 its grids when it loads): 64x64 for 2, about 96x96 for 4, 128x128 for 6-8; the generator places N bases. Pathfinding
 on up to 16k tiles: raise the search cap, maybe flow fields for big groups; measure first. Performance with ~800
 units on a mid phone decides whether 8 is offered on phones (4 is the likely comfortable number there).
+1. Map size per map. *Done (2026-10-26):* the size is the map's (`Map::w`, `h`; `MapSize`, `MapSize::DUEL` 64x64 for
+   every map the menus offer), kept by the World for resets (`World::map_size`, `World::with_size`); `idx`, `in_map`,
+   `tile_of` and the 16 px clamps are `Map` methods, and the per-tile grids (fog, detection, the path search's
+   scratch) and the spatial hash are sized when a game starts. The generator scales from 64x64, where every formula
+   gives the numbers it always had, draw for draw (the goldens did not move): the bases keep their distance from their
+   edges (corners, or the middle of opposite sides), pockets, rock features and fields keep their size, and a larger
+   map gets one more expansion site per 32 tiles past 64, reaching 16 tiles farther; still two starts. The AI's sweep
+   grid keeps a stop about every 10 tiles. WASM: `Game.mapW()`/`mapH()`, and `Game.withSize(..., size)` (64 to 128,
+   tests only for now); the client's `MW`/`MH`/`WW`/`WH` (core.js) are live bindings set when a game starts, which
+   remakes the grids, and the renderer remakes its fog, shade and minimap canvases when the size changes. The A*
+   cap is 5000 expansions per 4096 tiles (20,000 on 128x128): left at 5000, a walker could not cross a 128x128 map
+   in one order. Timings (native release build on a loaded 4-core VM, so roughly; a phone's WASM will be a few times
+   slower), median `astar` from beside one base to beside the other, smoothing included: 64x64 0.5 ms, 96x96
+   1.0-1.3 ms, 128x128 2.6 ms; to a walled-off goal (the search runs to its cap) 0.6-0.8, 1.2-1.9 and 2.4-3.2 ms.
+   About half a long path's time is the line-of-sight smoothing (quadratic in the path's length). Tests: gameplay
+   `maps.rs` (96x96 and 128x128 maps for every kind: walkable, mirrored, home fields, more expansions; the far side
+   of a 128x128 map in play; eight minutes of AI against AI on 96x96 under the random-play invariants) and an engine
+   test (a larger game, then smaller ones). Left for step 2: N starts and the lobby's choice of size, the menu's
+   preview of other sizes, the AI's timings over longer walks, and measuring repaths in WASM on a phone with big
+   armies on 128x128 before deciding on flow fields or shared paths.
 
 ## Open questions for the owner
 

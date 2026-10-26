@@ -112,8 +112,9 @@ fn builders_reach_every_reachable_site() {
     while tried < trials {
         let seed = r.below(1000);
         let probe = World::new(seed, 1);
-        let from = (r.below(MW as u32) as i32, r.below(MH as u32) as i32);
-        let site = (r.below(MW as u32 - 3) as i32, r.below(MH as u32 - 3) as i32);
+        let (mw, mh) = (probe.map.w as u32, probe.map.h as u32);
+        let from = (r.below(mw) as i32, r.below(mh) as i32);
+        let site = (r.below(mw - 3) as i32, r.below(mh - 3) as i32);
         if probe.map.blocked(from.0, from.1)
             || !probe.can_place(BldgKind::Barracks, site.0, site.1, ENEMY)
         {
@@ -125,9 +126,9 @@ fn builders_reach_every_reachable_site() {
                 (x < site.0 || x > site.0 + 2 || y < site.1 || y > site.1 + 2)
                     && x >= 0
                     && y >= 0
-                    && x < MW
-                    && y < MH
-                    && reach[(y * MW + x) as usize]
+                    && x < probe.map.w
+                    && y < probe.map.h
+                    && reach[probe.map.idx(x, y)]
             })
         });
         if !side_reachable {
@@ -279,8 +280,8 @@ fn the_foundry_takes_two_by_two_tiles() {
     let f = build(&mut w, BldgKind::Forge, h[1], 120);
     let b = w.bldg(f).unwrap();
     assert_eq!((b.w, b.h), (2, 2));
-    let taken = (0..MW * MH)
-        .filter(|&i| w.map.occ[i as usize] == f as i32)
+    let taken = (0..w.map.occ.len())
+        .filter(|&i| w.map.occ[i] == f as i32)
         .count();
     assert_eq!(taken, 4, "it blocks four tiles");
     assert_eq!(BldgKind::Forge.def().name, "Foundry");
@@ -339,7 +340,7 @@ fn vael_production_needs_power_and_goes_dark_without_it() {
     let l = harvesters(&w, PLAYER);
     let (cx, cy) = core(&w, PLAYER);
     // Out of every field: the Kiln cannot be placed there.
-    let far = (cx + 20).min(MW - 4);
+    let far = (cx + 20).min(w.map.w - 4);
     assert!(
         !w.can_place(BldgKind::Kiln, far, cy, PLAYER)
             || w.powered_at(PLAYER, (far as f64 + 1.5) * TILE, (cy as f64 + 1.5) * TILE)

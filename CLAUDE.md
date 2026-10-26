@@ -56,7 +56,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction),
                       upgrades.rs, diff.rs (AI tuning per difficulty), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
-  src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
+  src/map.rs          the map's size (`MapSize`), terrain generation, nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
                       starts, who is out, the last team standing), orders, spawn, economy, construction,
@@ -143,6 +143,10 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   unexplored ground, losing as soon as its buildings are gone; a person's new refinery gets one worker (its builder; for the Vael, whose planter has left, the nearest), the AI
   balances its own).
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
+- The map's size is the map's (`Map::w`, `h`, in tiles; 64x64, `MapSize::DUEL`, for every map the menus offer; larger
+  ones for more seats come with M4): index grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
+  client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
+  are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.
 - Costs are `[shards, ether]`.
 - Keep files small and single-purpose; dense one-liners are acceptable in hot loops but not in rules code.
 - Commit messages: imperative, one line, what and why. Do not commit `dist/`, `node_modules/`, `target/`, `.tools/`

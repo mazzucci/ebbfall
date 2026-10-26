@@ -8,7 +8,8 @@ impl World {
     pub(crate) fn clear_footprint(&mut self, b: &Bldg) {
         for y in 0..b.h {
             for x in 0..b.w {
-                self.map.occ[idx(b.tx + x, b.ty + y)] = b.vent.map_or(0, |v| -(v as i32));
+                let i = self.map.idx(b.tx + x, b.ty + y);
+                self.map.occ[i] = b.vent.map_or(0, |v| -(v as i32));
             }
         }
         if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
@@ -96,7 +97,7 @@ impl World {
         };
         for y in 0..d.h {
             for x in 0..d.w {
-                let i = idx(tx + x, ty + y);
+                let i = self.map.idx(tx + x, ty + y);
                 if self.map.occ[i] < 0 && d.on_vent {
                     let nid = (-self.map.occ[i]) as Id;
                     if let Some(nd) = self.map.node_mut(nid) {
@@ -177,14 +178,14 @@ impl World {
         {
             return None;
         }
-        let (rx, ry) = (clamp_x(rl.x), clamp_y(rl.y));
-        let t = Self::tile_of(rx, ry);
+        let (rx, ry) = (self.map.clamp_x(rl.x), self.map.clamp_y(rl.y));
+        let t = self.map.tile_of(rx, ry);
         let centre = |(x, y): (i32, i32)| (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
         // (crowded, distance, y, x): smaller is better.
         let mut best: Option<(bool, f64, i32, i32)> = None;
         for y in t.1 - 2..=t.1 + 2 {
             for x in t.0 - 2..=t.0 + 2 {
-                if !crate::map::in_map(x, y) || (!d.air && self.map.blocked(x, y)) {
+                if !self.map.in_map(x, y) || (!d.air && self.map.blocked(x, y)) {
                     continue;
                 }
                 let (cx, cy) = centre((x, y));
@@ -225,7 +226,7 @@ impl World {
             Some(rl) => (rl.x, rl.y),
             None => (
                 b.x,
-                b.y + MH as f64 * TILE * if b.team != 0 { -1.0 } else { 1.0 },
+                b.y + self.map.wh() * if b.team != 0 { -1.0 } else { 1.0 },
             ),
         };
         // (crowded, ring, distance to the rally side, y, x): smaller is better, compared in that order.

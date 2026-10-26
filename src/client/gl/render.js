@@ -105,13 +105,23 @@ export function zoomAt(factor, sx, sy) {
 }
 
 // ---- terrain (once per map) ----
-const thumb = document.createElement('canvas'); thumb.width = MW; thumb.height = MH;
-const fogCv = document.createElement('canvas'); fogCv.width = MW; fogCv.height = MH;
-const fogCtx = fogCv.getContext('2d'), fogImg = fogCtx.createImageData(MW, MH);
-const fogTex = Texture.from(fogCv); fogTex.source.scaleMode = 'linear';
-const fog = new Sprite(fogTex); fog.scale.set(TILE); L.fog.addChild(fog);
-const shadeCv = document.createElement('canvas'); shadeCv.width = MW; shadeCv.height = MH;
-const shadeCtx = shadeCv.getContext('2d'), shadeTex = Texture.from(shadeCv); shadeTex.source.scaleMode = 'linear';
+// A pixel per tile: the minimap's ground, the fog and the large-scale shading, at the map's size (sizeGrids).
+const thumb = document.createElement('canvas');
+const fog = new Sprite(); fog.scale.set(TILE); L.fog.addChild(fog);
+let fogCv, fogCtx, fogImg, fogTex, shadeCv, shadeCtx, shadeTex, gridW = 0, gridH = 0;
+/** Make the per-tile canvases and textures for a map of MW x MH (again only when a game's map has another size). */
+function sizeGrids() {
+  if (gridW === MW && gridH === MH) return;
+  gridW = MW; gridH = MH;
+  const canvas = () => { const c = document.createElement('canvas'); c.width = MW; c.height = MH; return c; };
+  const texture = (c) => { const t = Texture.from(c); t.source.scaleMode = 'linear'; return t; };
+  thumb.width = MW; thumb.height = MH;
+  const old = [fogTex, shadeTex];
+  fogCv = canvas(); fogCtx = fogCv.getContext('2d'); fogImg = fogCtx.createImageData(MW, MH); fogTex = texture(fogCv); fog.texture = fogTex;
+  shadeCv = canvas(); shadeCtx = shadeCv.getContext('2d'); shadeTex = texture(shadeCv);
+  for (const t of old) t?.destroy(true); // (the shade sprite that used it goes in renderTerrain, before this)
+}
+sizeGrids();
 
 const chunks = [];
 const doodads = [];
@@ -128,6 +138,8 @@ function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible 
 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
+  L.shade.removeChildren().forEach(c => c.destroy());
+  sizeGrids();
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its centre, offset half a tile.
@@ -145,7 +157,6 @@ export function renderTerrain() {
   const img = shadeCtx.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) { const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)); img.data.set([Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s), 255], i * 4); }
   shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
-  L.shade.removeChildren().forEach(c => c.destroy());
   const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;

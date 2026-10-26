@@ -50,7 +50,7 @@ impl World {
     }
     /// One more seat's fresh entry on every per-seat list of the game's state.
     fn push_seat(&mut self) {
-        let tiles = (MW * MH) as usize;
+        let tiles = (self.map_size.w * self.map_size.h) as usize;
         self.out.push(false);
         self.res.push([50, 0]);
         self.sup.push([0, 0]);

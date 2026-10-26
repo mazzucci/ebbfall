@@ -7,8 +7,8 @@ use crate::common::*;
 /// Open ground for a third headquarters (4x4 and a ring round it), as far as can be from both starts.
 fn third_base(w: &World) -> (i32, i32) {
     let mut best: Option<(i32, i32, i32)> = None;
-    for ty in 3..MH - 7 {
-        for tx in 3..MW - 7 {
+    for ty in 3..w.map.h - 7 {
+        for tx in 3..w.map.w - 7 {
             if (ty - 1..ty + 5).any(|y| (tx - 1..tx + 5).any(|x| w.map.blocked(x, y))) {
                 continue;
             }

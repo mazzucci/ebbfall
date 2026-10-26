@@ -8,8 +8,8 @@ const COMPOSITION_MEMORY: f64 = 90.0;
 impl World {
     /// Whether the AI can see a point right now (it plays with fog of war like the player).
     pub(crate) fn ai_sees(&self, x: f64, y: f64) -> bool {
-        let (tx, ty) = World::tile_of(x, y);
-        self.vis[self.seat() as usize][idx(tx, ty)] != 0
+        let (tx, ty) = self.map.tile_of(x, y);
+        self.vis[self.seat() as usize][self.map.idx(tx, ty)] != 0
     }
 
     /// Whether this AI sees enemy unit `u` (in sight, and detected if cloaked).
@@ -27,8 +27,9 @@ impl World {
             .filter(|b| {
                 self.hostile(b.team)
                     && (0..b.h).any(|y| {
-                        (0..b.w)
-                            .any(|x| self.vis[self.seat() as usize][idx(b.tx + x, b.ty + y)] != 0)
+                        (0..b.w).any(|x| {
+                            self.vis[self.seat() as usize][self.map.idx(b.tx + x, b.ty + y)] != 0
+                        })
                     })
             })
             .map(|b| (b.id, b.x, b.y, b.kind.def().hq))
@@ -102,13 +103,19 @@ impl World {
             .filter(|n| !n.ether)
             .map(|n| (n.x, n.y))
             .collect();
-        // A 6x6 grid from 5 tiles in to 5 tiles from the far edge: every tile lies within sight of a stop.
-        let grid = |n: i32| (0..6).map(move |i| 5 + i * (n - 11) / 5);
-        for gy in grid(MH) {
-            for gx in grid(MW) {
+        // A grid from 5 tiles in to 5 tiles from the far edge, a stop about every 10 tiles (6x6 on a 64x64 map):
+        // every tile lies within sight of a stop.
+        let grid = |n: i32| {
+            let k = (6 * n / 64).max(2);
+            (0..k).map(move |i| 5 + i * (n - 11) / (k - 1))
+        };
+        for gy in grid(self.map.h) {
+            for gx in grid(self.map.w) {
                 let open = (-2..=2).flat_map(|dy| (-2..=2).map(move |dx| (gx + dx, gy + dy)));
                 if let Some((tx, ty)) = open
-                    .filter(|&(x, y)| in_map(x, y) && self.map.rock[idx(x, y)] == 0)
+                    .filter(|&(x, y)| {
+                        self.map.in_map(x, y) && self.map.rock[self.map.idx(x, y)] == 0
+                    })
                     .min_by_key(|&(x, y)| (x - gx).abs() + (y - gy).abs())
                 {
                     pts.push(((tx as f64 + 0.5) * TILE, (ty as f64 + 0.5) * TILE));

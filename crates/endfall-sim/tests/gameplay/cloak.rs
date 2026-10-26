@@ -23,9 +23,9 @@ fn lancer_and_observer(w: &mut World) -> (Id, Id) {
 fn an_observer_is_unseen_and_untouchable_until_detected() {
     let mut w = rich(13);
     let (lancer, obs) = lancer_and_observer(&mut w);
-    let (otx, oty) = World::tile_of(U(&w, obs).x, U(&w, obs).y);
+    let (otx, oty) = w.map.tile_of(U(&w, obs).x, U(&w, obs).y);
     assert!(
-        w.vis[PLAYER as usize][endfall_sim::map::idx(otx, oty)] != 0,
+        w.vis[PLAYER as usize][w.map.idx(otx, oty)] != 0,
         "its spot is in sight"
     );
     assert!(!w.seen_by(PLAYER, obs), "unseen: the cloak hides it");
@@ -39,8 +39,8 @@ fn an_observer_is_unseen_and_untouchable_until_detected() {
     assert_eq!(U(&w, obs).hp, U(&w, obs).maxhp, "nothing fires at it");
     // A Turret close by detects it: seen, and shot down.
     let (tx, ty) = (
-        World::tile_of(U(&w, lancer).x, U(&w, lancer).y).0 - 3,
-        World::tile_of(U(&w, lancer).x, U(&w, lancer).y).1,
+        w.map.tile_of(U(&w, lancer).x, U(&w, lancer).y).0 - 3,
+        w.map.tile_of(U(&w, lancer).x, U(&w, lancer).y).1,
     );
     w.make_building(BldgKind::Turret, PLAYER, tx, ty, true);
     w.step();

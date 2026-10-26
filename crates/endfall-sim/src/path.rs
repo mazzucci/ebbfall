@@ -1,9 +1,9 @@
 //! A* over the tile grid with 8-way movement and no corner cutting, then line-of-sight smoothing
 //! (an f32 cost grid and fixed heap tie-breaks: which of two equal paths a unit takes is part of the rules).
 
-use crate::data::{MH, MW, TILE};
+use crate::data::TILE;
 use crate::jsmath;
-use crate::map::{Map, idx};
+use crate::map::Map;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Pt {
@@ -65,7 +65,7 @@ impl Heap {
     }
 }
 
-/// Scratch arrays reused across searches; `stamp` marks which search a cell belongs to.
+/// Scratch arrays reused across searches (one cell per map tile); `stamp` marks which search a cell belongs to.
 pub struct PathScratch {
     g_cost: Vec<f32>,
     came: Vec<i32>,
@@ -75,8 +75,8 @@ pub struct PathScratch {
 }
 
 impl PathScratch {
-    pub fn new() -> Self {
-        let n = (MW * MH) as usize;
+    /// For a map of `n` tiles.
+    pub fn new(n: usize) -> Self {
         PathScratch {
             g_cost: vec![0.0; n],
             came: vec![0; n],
@@ -87,13 +87,22 @@ impl PathScratch {
     }
 }
 
-impl Default for PathScratch {
-    fn default() -> Self {
-        Self::new()
+impl PathScratch {
+    /// The number of tiles it is for.
+    pub fn len(&self) -> usize {
+        self.g_cost.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.g_cost.is_empty()
     }
 }
 
-/// World-space waypoints (excluding the start), or None if unreachable. Expands at most 5000 nodes.
+/// Nodes a search may expand on a 64x64 map (4096 tiles), and in proportion on others: a goal walled off (or behind a
+/// long detour) costs about this many pops before the search gives up on the nearest point it found.
+pub const SEARCH_CAP: usize = 5000;
+
+/// World-space waypoints (excluding the start), or None if unreachable. Expands at most `SEARCH_CAP` nodes per 4096
+/// tiles of map.
 pub fn astar(
     map: &Map,
     s: &mut PathScratch,
@@ -115,7 +124,7 @@ pub fn astar(
         let (dx, dy) = ((x - gx).abs() as f64, (y - gy).abs() as f64);
         dx.max(dy) + 0.414 * dx.min(dy)
     };
-    let si = idx(sx, sy);
+    let si = map.idx(sx, sy);
     s.stamp_arr[si] = stamp;
     s.g_cost[si] = 0.0;
     s.came[si] = -1;
@@ -126,9 +135,10 @@ pub fn astar(
         y: sy,
         f: h(sx, sy),
     });
+    let cap = SEARCH_CAP * map.rock.len() / 4096;
     let (mut best, mut best_h, mut n) = (None::<usize>, 1e9, 0);
     while !open.a.is_empty() && {
-        let ok = n < 5000;
+        let ok = n < cap;
         n += 1;
         ok
     } {
@@ -159,7 +169,7 @@ pub fn astar(
                 {
                     continue;
                 }
-                let ni = idx(nx, ny);
+                let ni = map.idx(nx, ny);
                 let ng = s.g_cost[c.i] as f64 + if dx != 0 && dy != 0 { 1.414 } else { 1.0 };
                 if s.stamp_arr[ni] != stamp || ng < s.g_cost[ni] as f64 {
                     s.stamp_arr[ni] = stamp;
@@ -182,8 +192,8 @@ pub fn astar(
     while i != -1 {
         let iu = i as usize;
         path.push(Pt {
-            x: (iu as i32 % MW) as f64 * TILE + 16.0,
-            y: (iu as i32 / MW) as f64 * TILE + 16.0,
+            x: (iu as i32 % map.w) as f64 * TILE + 16.0,
+            y: (iu as i32 / map.w) as f64 * TILE + 16.0,
         });
         i = s.came[iu];
     }

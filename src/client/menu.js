@@ -4,7 +4,7 @@
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.
-import { mulberry, mapPreview, MW, MH, DIFF } from '../engine/index.js';
+import { mulberry, mapPreview, DUEL_MW as MW, DUEL_MH as MH, DIFF } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { touchDevice, enterFullscreen, exitFullscreen, canGoFullscreen, standalone } from './screen.js';

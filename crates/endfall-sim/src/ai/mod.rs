@@ -12,7 +12,7 @@ mod scouting;
 
 use crate::data::*;
 use crate::jsmath::{self, PI, dist};
-use crate::map::{Id, idx, in_map};
+use crate::map::Id;
 use crate::path::Pt;
 use crate::world::{Phase, Task, World};
 

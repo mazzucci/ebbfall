@@ -5,10 +5,9 @@ import D from './pkg/data.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
 
 export const TILE = D.consts.tile;
-export const MW = D.consts.mw;
-export const MH = D.consts.mh;
-export const WW = MW * TILE;
-export const WH = MH * TILE;
+/** A two-seat map's size in tiles: the menu's maps (a game's own size is MW x MH in core.js, set when it starts). */
+export const DUEL_MW = D.consts.mw;
+export const DUEL_MH = D.consts.mh;
 /** Fixed simulation tick, seconds. The sim only ever advances by this. */
 export const DT = D.consts.dt;
 

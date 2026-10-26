@@ -120,6 +120,32 @@ impl Game {
         ))
     }
 
+    /// `withSetup` on a map of `size` x `size` tiles, 64 to 128 (throws otherwise). For tests: the menus offer the
+    /// two-seat maps' 64x64 only (M4: the size will follow the number of starts).
+    #[wasm_bindgen(js_name = withSize)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_size(
+        seed: u32,
+        diff: u32,
+        map: u32,
+        side: u32,
+        player: u32,
+        ai: u32,
+        size: u32,
+    ) -> Result<Game, String> {
+        if !(64..=128).contains(&size) {
+            return Err(format!("A {size}x{size} map: 64 to 128 tiles across"));
+        }
+        Ok(Game::wrap(World::with_size(
+            seed,
+            diff as usize,
+            map::MapKind::from_index(map),
+            map::MapSize::square(size as i32),
+            side == 1,
+            &[faction(player), faction(ai)],
+        )))
+    }
+
     /// A game for any number of seats, seen from seat `me`: each seat's race (index into FACTIONS), team (empty: each
     /// seat its own) and whether the scripted opponent plays it (1) or a person (0; empty: nobody's an AI). Throws for
     /// a setup the sim cannot play (fewer than 2 seats, more than the map's starts, lists of other lengths, one team).
@@ -212,10 +238,11 @@ impl Game {
         };
         let end = self.replay.as_ref().map_or(self.w.tick, |r| r.end);
         let old = &self.w;
-        let mut w = World::with_seats(
+        let mut w = World::with_size(
             old.seed,
             old.diff,
             old.map_kind,
+            old.map_size,
             old.sides_swapped,
             &old.factions,
         );
@@ -418,7 +445,8 @@ impl Game {
         let (Some(k), Some(t)) = (UnitKind::parse(kind), self.valid_team(team)) else {
             return 0;
         };
-        let id = self.w.make_unit(k, t, data::clamp_x(x), data::clamp_y(y));
+        let (x, y) = (self.w.map.clamp_x(x), self.w.map.clamp_y(y));
+        let id = self.w.make_unit(k, t, x, y);
         self.w.recalc_supply(t);
         id
     }
@@ -522,6 +550,16 @@ impl Game {
         out
     }
 
+    /// The map's width in tiles (every per-tile list is `mapW * mapH`, row by row). Fixed for the whole game.
+    #[wasm_bindgen(js_name = mapW)]
+    pub fn map_w(&self) -> i32 {
+        self.w.map.w
+    }
+    /// The map's height in tiles.
+    #[wasm_bindgen(js_name = mapH)]
+    pub fn map_h(&self) -> i32 {
+        self.w.map.h
+    }
     /// Terrain: 1 = rock. Fixed for the whole game.
     pub fn rock(&self) -> Vec<u8> {
         self.w.map.rock.clone()
@@ -670,17 +708,18 @@ pub fn data_json() -> String {
     data::data_json()
 }
 
-/// A map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row: 0 open ground,
-/// 1 rock, 2 shards, 3 an ether vent, 4 a starting base (both starts alike: which is whose is drawn each game).
+/// A two-seat map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row (64x64:
+/// `MapSize::DUEL`): 0 open ground, 1 rock, 2 shards, 3 an ether vent, 4 a starting base (both starts alike: which is
+/// whose is drawn each game).
 #[wasm_bindgen(js_name = mapPreview)]
 pub fn map_preview(seed: u32, kind: u32) -> Vec<u8> {
-    use data::{MH, MW};
     let mut next_id = 1;
-    let m = map::Map::generate(seed, map::MapKind::from_index(kind), &mut next_id);
+    let size = map::MapSize::DUEL;
+    let m = map::Map::generate(seed, map::MapKind::from_index(kind), size, &mut next_id);
     let mut g = m.rock.clone();
     let mut mark = |x: i32, y: i32, v: u8| {
-        if map::in_map(x, y) {
-            g[(y * MW + x) as usize] = v;
+        if m.in_map(x, y) {
+            g[m.idx(x, y)] = v;
         }
     };
     for n in &m.nodes {
@@ -698,7 +737,7 @@ pub fn map_preview(seed: u32, kind: u32) -> Vec<u8> {
             }
         }
     }
-    debug_assert_eq!(g.len(), (MW * MH) as usize);
+    debug_assert_eq!(g.len(), (size.w * size.h) as usize);
     g
 }
 

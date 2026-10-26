@@ -173,6 +173,26 @@ test('out-of-range teams are rejected without poisoning the game', { skip }, () 
   assert.equal(E.G.units.length, 8);
 });
 
+test('a game on a larger map mirrors its size, and the next game its own', { skip }, () => {
+  // M4: maps of 64 to 128 tiles across (the menus offer 64x64 only for now); the client's grids follow each game.
+  const sized = (seed, size) => {
+    E.resetGame(seed, 1, 0, 0, 'humans', 'humans', size);
+    assert.deepEqual([E.MW, E.MH, E.WW, E.WH], [size, size, size * E.TILE, size * E.TILE], `${size}: the map's size`);
+    for (const grid of [E.map.rock, E.map.shade, E.map.occ, E.G.vis, E.G.explored]) assert.equal(grid.length, size * size);
+    assert.deepEqual(E.map.rock, Uint8Array.from(E.liveGame().rock()), `${size}: the rock as the sim has it`);
+    for (const b of E.G.bldgs) assert.ok(E.inMap(b.tx + 3, b.ty + 3) && E.G.vis[E.idx(b.tx + 1, b.ty + 1)] === +(b.team === E.G.me), `${size}: a base on the map, ours in sight`);
+    return E.G.bldgs.some(b => b.tx > 64 || b.ty > 64);
+  };
+  assert.equal(sized(4242, 64), false);
+  assert.ok(sized(4242, 128), 'a base past the 64x64 corner');
+  E.step(); assert.equal(E.G.vis.length, 128 * 128);
+  assert.ok(sized(77, 96));
+  sized(4242, 64); sized(4242, 64); // (back, twice: nothing kept from the larger games)
+  E.resetGame(4242, 1);
+  assert.equal(E.MW, 64, 'a menu game is 64x64');
+  assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', 256), /64 to 128/);
+});
+
 test('an extractor knows its vent, and harvesters ordered to the vent mine ether', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);

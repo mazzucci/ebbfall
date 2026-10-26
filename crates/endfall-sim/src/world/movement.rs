@@ -5,28 +5,30 @@ use super::*;
 impl World {
     // ---- spatial hash (rebuilt every tick) ----
     pub(crate) fn cell(x: f64, y: f64) -> (i32, i32) {
-        (jsmath::to_i32(x / 64.0), jsmath::to_i32(y / 64.0))
+        (jsmath::to_i32(x / CELL), jsmath::to_i32(y / CELL))
     }
     pub(crate) fn rebuild_hash(&mut self) {
         for c in self.hash.iter_mut() {
             c.clear();
         }
         self.graveyard.clear();
+        let (gw, gh) = (self.hash_w, self.hash.len() as i32 / self.hash_w);
         for u in &self.units {
             let (cx, cy) = Self::cell(u.x, u.y);
-            let (cx, cy) = (cx.clamp(0, GRID - 1), cy.clamp(0, GRID - 1));
-            self.hash[(cy * GRID + cx) as usize].push(u.id);
+            let (cx, cy) = (cx.clamp(0, gw - 1), cy.clamp(0, gh - 1));
+            self.hash[(cy * gw + cx) as usize].push(u.id);
         }
     }
     pub(crate) fn nearby(&self, x: f64, y: f64, rad: f64) -> Vec<Id> {
         let mut out = Vec::new();
-        let c = (rad / 64.0).ceil() as i32;
+        let c = (rad / CELL).ceil() as i32;
         let (cx, cy) = Self::cell(x, y);
+        let (gw, gh) = (self.hash_w, self.hash.len() as i32 / self.hash_w);
         for dy in -c..=c {
             for dx in -c..=c {
                 let (gx, gy) = (cx + dx, cy + dy);
-                if gx >= 0 && gy >= 0 && gx < GRID && gy < GRID {
-                    out.extend_from_slice(&self.hash[(gy * GRID + gx) as usize]);
+                if gx >= 0 && gy >= 0 && gx < gw && gy < gh {
+                    out.extend_from_slice(&self.hash[(gy * gw + gx) as usize]);
                 }
             }
         }
@@ -39,28 +41,22 @@ impl World {
     }
 
     // ---- orders (commands.js) ----
-    pub fn tile_of(x: f64, y: f64) -> (i32, i32) {
-        (
-            jsmath::to_i32(x / TILE).clamp(0, MW - 1),
-            jsmath::to_i32(y / TILE).clamp(0, MH - 1),
-        )
-    }
-
     pub(crate) fn path_to(&mut self, uid: Id, x: f64, y: f64) {
         if self.u(uid).kind.def().air {
             // Flyers go straight there, over rock and buildings.
+            let to = Pt {
+                x: clamp(x, 16.0, self.map.ww() - 16.0),
+                y: clamp(y, 16.0, self.map.wh() - 16.0),
+            };
             let u = self.um(uid);
-            u.path = Some(vec![Pt {
-                x: clamp(x, 16.0, WW - 16.0),
-                y: clamp(y, 16.0, WH - 16.0),
-            }]);
+            u.path = Some(vec![to]);
             u.repath = 0.6;
             return;
         }
         let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-        let (a, b) = (Self::tile_of(ux, uy), Self::tile_of(x, y));
+        let (a, b) = (self.map.tile_of(ux, uy), self.map.tile_of(x, y));
         let mut path = astar(&self.map, &mut self.scratch, a.0, a.1, b.0, b.1);
-        let bi = idx(b.0, b.1);
+        let bi = self.map.idx(b.0, b.1);
         let blocked_tile = self.map.rock[bi] != 0 || self.map.occ[bi] != 0;
         // The exact point only if the route reaches its tile: a route that stops short (the goal is free but walled
         // off) ends where it can, or the unit would walk on into the wall from its end.
@@ -74,8 +70,8 @@ impl World {
             && *last == centre
         {
             *last = Pt {
-                x: clamp(x, 16.0, WW - 16.0),
-                y: clamp(y, 16.0, WH - 16.0),
+                x: clamp(x, 16.0, self.map.ww() - 16.0),
+                y: clamp(y, 16.0, self.map.wh() - 16.0),
             };
         }
         let rep = 0.6 + self.rnd() * 0.3;
@@ -123,11 +119,12 @@ impl World {
         if self.u(uid).kind.def().air {
             // Flyers close in on a straight line, nothing below can block them.
             let mv = self.live_speed(uid) * dt;
+            let (ww, wh) = (self.map.ww(), self.map.wh());
             let u = self.um(uid);
             u.path = None;
             u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
-            u.x = clamp(ux + (p.0 - ux) / d * mv, 16.0, WW - 16.0);
-            u.y = clamp(uy + (p.1 - uy) / d * mv, 16.0, WH - 16.0);
+            u.x = clamp(ux + (p.0 - ux) / d * mv, 16.0, ww - 16.0);
+            u.y = clamp(uy + (p.1 - uy) / d * mv, 16.0, wh - 16.0);
             return false;
         }
         let u = self.um(uid);
@@ -170,7 +167,7 @@ impl World {
         (tx, ty, w, h): (i32, i32, i32, i32),
         aim: (f64, f64),
     ) -> Option<Vec<Pt>> {
-        let start = Self::tile_of(ux, uy);
+        let start = self.map.tile_of(ux, uy);
         let mut ring: Vec<(f64, i32, i32)> = Vec::new();
         for y in ty - 1..=ty + h {
             for x in tx - 1..=tx + w {
@@ -200,7 +197,7 @@ impl World {
                 }
             }
         }
-        let g = Self::tile_of(aim.0, aim.1);
+        let g = self.map.tile_of(aim.0, aim.1);
         astar(&self.map, &mut self.scratch, start.0, start.1, g.0, g.1)
     }
 
@@ -268,9 +265,9 @@ impl World {
                 }
             }
             let u = &mut self.units[i];
-            u.x = clamp(u.x, 16.0, WW - 16.0);
-            u.y = clamp(u.y, 16.0, WH - 16.0);
-            let t = Self::tile_of(u.x, u.y);
+            u.x = clamp(u.x, 16.0, self.map.ww() - 16.0);
+            u.y = clamp(u.y, 16.0, self.map.wh() - 16.0);
+            let t = self.map.tile_of(u.x, u.y);
             if !air
                 && self.map.blocked(t.0, t.1)
                 && let Some(f) = self.map.nearest_free(t.0, t.1, 4)

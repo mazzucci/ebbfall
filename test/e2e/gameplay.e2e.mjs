@@ -1408,3 +1408,25 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
     } finally { await d.close(); }
   }
 });
+
+test('an attack by something unseen says so, even on screen, and names what detects it', async () => {
+  for (const [dev, race, finds] of [[DESKTOP, 'humans', /^Unseen attacker: Turrets and Observers detect$/], [PHONE, 'vael', /^Unseen attacker: Wards detect$/]]) {
+    const d = await newGame(dev, 1, 4242, { ai: false, race });
+    try {
+      await d.page.waitForTimeout(3600); // (the opening hint fades)
+      const core = await d.eval(() => { const b = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { x: b.x, y: b.y }; }); // (either race's headquarters)
+      await d.eval(([x, y]) => endfall.centerOn(x, y), [core.x, core.y]); // (the attack is on screen)
+      // (set-up: the sim's alert for a hit by a cloaked attacker, as tests/gameplay/cloak.rs has it emit)
+      await d.eval(([x, y]) => endfall.G.events.push({ t: 'attacked', x, y, building: true, unseen: true }), [core.x, core.y]);
+      await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Unseen attacker/.test(t.textContent)), null, { timeout: 10000 }); // (the next frame drains it)
+      const t = (await d.toasts()).find(x => /Unseen attacker/.test(x));
+      assert.match(t, finds, t);
+      assert.ok(await d.page.$$eval('#msg .toast', ts => ts.every(t => t.getBoundingClientRect().height < 30)), 'one line');
+      // An ordinary attack on screen still makes no toast.
+      await d.eval(([x, y]) => endfall.G.events.push({ t: 'attacked', x: x + 40, y, building: true, unseen: false }), [core.x, core.y]);
+      await d.page.waitForFunction(() => endfall.G.events.length === 0, null, { timeout: 10000 }); // (drained by a frame)
+      assert.equal((await d.toasts()).filter(x => /under attack/.test(x)).length, 0, 'no siren for a fight in view');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});

@@ -219,6 +219,9 @@ pub enum Event {
         x: f64,
         y: f64,
         building: bool,
+        /// The unseen alert: by something this team cannot see (a cloaked raider where it detects nothing), told at
+        /// most once every 30 s; other hits by it meanwhile are ordinary alerts.
+        unseen: bool,
     },
     /// A Medic healing: from (x, y) to the patient at (tx, ty).
     Heal {

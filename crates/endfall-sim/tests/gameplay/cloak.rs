@@ -236,3 +236,57 @@ fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on
         "its build order went on"
     );
 }
+
+#[test]
+fn an_attack_by_something_unseen_is_told_once_in_a_while() {
+    // A cloaked Wasp shooting a Trooper: the player's alert says the attacker is unseen, once (not every hit); once it
+    // shows (or a detector finds it), the alerts are ordinary ones.
+    let mut w = flat_arena(14);
+    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 32.0 * TILE, 30.0 * TILE);
+    for id in [wasp, trooper] {
+        let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
+        (u.hp, u.maxhp) = (1e6, 1e6); // (both outlive the test)
+    }
+    w.hold_unit(trooper);
+    w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    let alerts = |w: &mut World, secs: u32| {
+        let (mut unseen, mut seen) = (0, 0);
+        for _ in 0..secs * TPS {
+            w.step();
+            for e in w.events.drain(..) {
+                if let endfall_sim::world::Event::Attacked {
+                    team: PLAYER,
+                    unseen: u,
+                    ..
+                } = e
+                {
+                    if u { unseen += 1 } else { seen += 1 }
+                }
+            }
+        }
+        (unseen, seen)
+    };
+    let (unseen, seen) = alerts(&mut w, 11);
+    assert!(U(&w, trooper).hp < 1e6, "the cloaked Wasp shoots");
+    assert_eq!(
+        (unseen, seen),
+        (1, 0),
+        "one unseen alert for the whole cloak"
+    );
+    let (unseen, _) = alerts(&mut w, 18);
+    assert_eq!(unseen, 0, "visible again: no unseen alert");
+    // Cloaked again past the 30 s gap, still with nothing to detect it: told again.
+    alerts(&mut w, 12); // (its 40 s cooldown)
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    let (unseen, _) = alerts(&mut w, 10);
+    assert_eq!(unseen, 1, "a new cloak past the gap is told again");
+    // Cloaked again, but a Turret beside the Trooper detects it: an ordinary fight.
+    alerts(&mut w, 32);
+    w.make_building(BldgKind::Turret, PLAYER, 31, 32, true);
+    alerts(&mut w, 1); // (its sight and detection from the next tick)
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    let (unseen, _) = alerts(&mut w, 10);
+    assert_eq!(unseen, 0, "detected: nothing unseen");
+}

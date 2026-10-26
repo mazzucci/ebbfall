@@ -139,6 +139,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .splash .s{font:600 14px var(--display);letter-spacing:.3em;color:var(--fg);border:1px solid var(--ally);border-radius:6px;padding:12px 26px;animation:pulse-warn 1.4s infinite alternate}
 #splash{background:#07090d}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
+#btnRematch.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} /* (online: the friend asked) */
 .big{font-size:14px;padding:10px 20px;background:var(--ally);color:#1a1205;border-color:var(--ally)}
 .big:hover{background:var(--ally2)}
 #result{font-size:26px;letter-spacing:.14em;margin:0}

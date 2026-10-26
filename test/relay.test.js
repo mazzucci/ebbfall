@@ -179,6 +179,34 @@ test('a seat coming back with its token is checked against the others, not itsel
   assert.equal(r.connect(a2, hello({ build: 'aaaa', token })), 0, 'the same build: its own seat back');
 });
 
+test('a rematch: once every seat wants one, the room is a lobby again (same seats), and a new game starts afresh', () => {
+  const { r, a, b, got, clear } = started();
+  play(r, [a, b], 0, 1000);
+  const first = got(a, 'start')[0].setup;
+  r.receive(a, { t: 'rematch', want: true });
+  assert.deepEqual(got(b, 'rematch').at(-1).seats, [true, false], 'the other side is told who wants one');
+  assert.equal(r.phase, 'game', 'not until everyone wants it');
+  clear();
+  r.receive(b, { t: 'rematch', want: true });
+  assert.equal(r.phase, 'lobby');
+  const lobby = got(a, 'lobby').at(-1);
+  assert.deepEqual(lobby.seats.map(s => [s.name, s.ready, s.here]), [['Ann', false, true], ['Bo', false, true]], 'the same seats, nobody ready');
+  r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
+  const second = got(a, 'start').at(-1);
+  assert.ok(second && second.setup.seed !== undefined, 'a new game');
+  assert.equal(second.from, 0);
+  assert.equal(r.log.length, DELAY, 'a fresh log (its first turns only)');
+  assert.ok(first);
+});
+
+test('no rematch with a seat that left', () => {
+  const { r, a, b } = started();
+  play(r, [a, b], 0, 500);
+  r.receive(b, { t: 'leave' }); r.close(b);
+  r.receive(a, { t: 'rematch', want: true });
+  assert.equal(r.phase, 'game');
+});
+
 test('a seat that leaves concedes at once: no waiting for it', () => {
   const { r, a, b, got } = started();
   play(r, [a, b], 0, 1000);

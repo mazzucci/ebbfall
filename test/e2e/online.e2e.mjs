@@ -111,3 +111,46 @@ test('a room of another version: the friend is told to reload, and RELOAD brings
     assert.deepEqual(b.errors, []);
   } finally { host.close(); await b.ctx.close(); }
 });
+
+test('a rematch: both ask from the end card, both are back in the room, ready, and play again in lockstep', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  try {
+    await a.tap('#btnOnline'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    const b = await page(PHONE, `${relayQ}&join=${code}`);
+    try {
+      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/away/.test(document.getElementById('seatList').textContent));
+      await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      const seed1 = await a.p.evaluate(() => endfall.online.setup.seed);
+      // The game ends without anyone leaving: Ann gives in through the sim (set-up: the rematch is what is tested).
+      await a.p.evaluate(() => endfall.engine.concede());
+      for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
+      assert.equal(await b.p.locator('#result').textContent(), 'VICTORY');
+      assert.ok(await a.p.locator('#btnRematch').isVisible() && await b.p.locator('#btnRematch').isVisible(), 'REMATCH online');
+      await a.tap('#btnRematch');
+      assert.equal(await a.p.locator('#btnRematch').textContent(), 'WAITING…');
+      await b.p.waitForFunction(() => document.getElementById('btnRematch').textContent === 'REMATCH?', null, { timeout: 5000 });
+      await b.p.waitForTimeout(4000); // (on the end card a while: nobody may be taken for away meanwhile)
+      assert.ok(relay.rooms.get(code).seats.every(s => !s.awaySince), 'still here on the end card (or the away budget would end the room)');
+      await b.tap('#btnRematch');
+      for (const x of [a, b]) {
+        await x.p.locator('#onlineRoom').waitFor({ state: 'visible', timeout: 10000 });
+        assert.ok(await x.p.locator('#end').isHidden(), 'from the end card to the room');
+        assert.equal(await x.p.locator('#roomShow').textContent(), code, 'the same room');
+      }
+      await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && !endfall.G.over && endfall.G.tick > 30, null, { timeout: 20000 });
+      assert.notEqual(await a.p.evaluate(() => endfall.online.setup.seed), seed1, 'a new game');
+      await a.p.waitForTimeout(2000);
+      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
+      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
+      const common = [...ta.keys()].filter(t => tb.has(t));
+      assert.ok(common.length > 30, `both ran the new game (${common.length} ticks in common)`);
+      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
+    } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});

@@ -200,9 +200,25 @@ impl World {
             .filter(|&id| self.bldg(id).is_some_and(|b| b.kind.def().hq && b.done))
             .collect();
         let harv_target = d.harv + 5 * cores.len().saturating_sub(1);
+        // A side whose builder stays at its site until the building stands (people; a Vael planter leaves at once)
+        // keeps one spare for it: the AI replaces one worker away building or repairing, so its income does not dip
+        // with every building it raises. (One at most: workers are never disbanded, so more would stay for good.)
+        let away = harv
+            .iter()
+            .filter(|&&h| {
+                self.unit(h)
+                    .is_some_and(|u| matches!(u.task, Task::Build { .. } | Task::Repair { .. }))
+            })
+            .count();
+        let spare = if self.factions[e as usize].warp {
+            0
+        } else {
+            away.min(1)
+        };
+        let crew = harv.len() - spare;
         let mut queued = queued_h;
         for &c in &cores {
-            if harv.len() + queued < harv_target
+            if crew + queued < harv_target
                 && self.bldg(c).unwrap().queue.is_empty()
                 && self
                     .queue_unit(c, self.factions[self.seat() as usize].worker)

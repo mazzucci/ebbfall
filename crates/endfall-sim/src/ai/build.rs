@@ -193,12 +193,21 @@ impl World {
             });
         let d = &DIFF[self.diff];
         let [used, cap] = self.sup[e as usize];
+        let hq = self.factions[e as usize].hq;
+        let expanded = || {
+            my_b.iter()
+                .filter_map(|&id| self.bldg(id))
+                .filter(|b| b.kind == hq && b.done)
+                .count()
+                >= 2
+        };
         self.res[e as usize][0] >= SHARD_FLOAT
             && all > 0
             && busy == all
             && all < schedule + d.extra_rax
             && cap - used >= 4
             && self.ai().saving_since.is_none()
+            && (!d.extras_after_expanding || expanded())
     }
 
     /// The build order: one wanted building at a time, placed by a free harvester.
@@ -443,8 +452,12 @@ mod tests {
         );
         w.ai_mut().saving_since = None;
         assert!(w.extra_rax(ENEMY, &my_b, 1));
-        // Easy: none extra.
+        // Easy: its extras wait for a second base.
         w.diff = 0;
-        assert!(!w.extra_rax(ENEMY, &my_b, 1), "Easy keeps to its schedule");
+        assert!(!w.extra_rax(ENEMY, &my_b, 1), "Easy expands first");
+        let hq = w.factions[ENEMY as usize].hq;
+        my_b.push(w.make_building(hq, ENEMY, 20, 40, true));
+        my_b.push(w.make_building(hq, ENEMY, 50, 40, true));
+        assert!(w.extra_rax(ENEMY, &my_b, 1), "and then adds factories");
     }
 }

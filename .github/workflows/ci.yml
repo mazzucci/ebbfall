@@ -1,5 +1,5 @@
 # Test and build on every push and pull request; publish the playable game from main to GitHub Pages
-# (https://mazzucci.github.io/endfall/).
+# (https://ebbfall.com/).
 name: CI
 
 on:

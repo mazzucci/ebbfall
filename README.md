@@ -1,9 +1,9 @@
-# Endfall
+# Ebbfall
 
 A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
 the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael, in progress), three maps (and a random one), one opponent. Pre-alpha.
 
-**Play in your browser:** https://mazzucci.github.io/endfall/ (desktop or phone in landscape, nothing to install).
+**Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
 game keeps working with no connection (a service worker stores every file); add it to your home screen to launch it
 like an app. A new version installs itself the next time you open the game online.

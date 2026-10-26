@@ -127,9 +127,12 @@ function endGame() {
   setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.winner === G.teams[G.me]; // (the winner is a team)
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
-  $('endSub').textContent = G.conceded === G.me ? 'You conceded after ' + fmt(G.time) + '.' : G.conceded >= 0 ? 'The enemy conceded after ' + fmt(G.time) + '.'
-    : G.bldgs.some(b => G.teams[b.team] !== G.winner) ? (win ? 'The enemy had nothing left to fight with after ' : 'Nothing left to fight with after ') + fmt(G.time) + '.' // (out with buildings standing)
-    : win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
+  // Online, the other side has a name (a friend's, as typed in the lobby).
+  const them = online.playing ? online.names[G.conceded >= 0 && G.conceded !== G.me ? G.conceded : foes()[0]] || '' : '';
+  const after = ' after ' + fmt(G.time) + '.';
+  $('endSub').textContent = G.conceded === G.me ? (them ? `You conceded to ${them}` : 'You conceded') + after : G.conceded >= 0 ? `${them || 'The enemy'} conceded` + after
+    : G.bldgs.some(b => G.teams[b.team] !== G.winner) ? (win ? `${them || 'The enemy'} had nothing left to fight with` : 'Nothing left to fight with') + after // (out with buildings standing)
+    : win ? (them ? `${them}'s base is rubble` : 'The enemy base is rubble') + after : (them ? `Your base fell to ${them}` : 'Your base fell') + after;
   const map = online.playing ? onlineMap(online.setup, MAP_KINDS.length) : setup();
   $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];

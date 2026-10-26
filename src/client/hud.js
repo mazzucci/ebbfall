@@ -32,6 +32,8 @@ export function bldgStatus(b) {
 let selKey = '';
 
 export function updateHud() {
+  // Placing with no worker of ours selected (it died): nothing would build it, and a touch card would have no Cancel.
+  if (ui.place && !playerSel().some(e => e.kind === 'unit' && e.d.worker)) clearMode();
   const [s, e] = G.res[G.me], [su, sc] = G.sup[G.me];
   $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc);

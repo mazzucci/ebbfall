@@ -191,5 +191,5 @@ export function initPause({ onRestart, onQuit, onResume }) {
 }
 export function togglePause() {
   $('pause').hidden = !$('pause').hidden;
-  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + ' into the game.'; $('btnResume').focus(); } // (the clock lives here, not on screen)
+  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + ' into the game. Leaving or restarting gives it up.'; $('btnResume').focus(); } // (the clock lives here, not on screen)
 }

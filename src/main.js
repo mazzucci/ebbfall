@@ -47,9 +47,10 @@ function newGame() {
 }
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
+/** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
+function giveUp() { if (started && !G.over && !menu.tutorial) recordResult(false, G.factions[G.me], G.diff); }
 function quitToTitle() {
-  // Leaving a game in progress gives it up: a defeat on this device's record (the leave dialog says so).
-  if (started && !G.over && !menu.tutorial) recordResult(false, G.factions[G.me], G.diff);
+  giveUp();
   started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
 }
 
@@ -106,7 +107,7 @@ function endGame() {
 $('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; showMenu(); }); // back to the menu: a new map, or the same opponent again
 $('btnRematch').addEventListener('click', () => { sfx('select'); newGame(); }); // the same map, seed, races and difficulty
 initScreen(); initLeaveDialog(); initTools();
-initPause({ onResume: () => {}, onRestart: () => newGame(), onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
+initPause({ onResume: () => {}, onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });

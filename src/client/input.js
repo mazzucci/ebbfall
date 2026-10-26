@@ -85,6 +85,14 @@ const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
 const ventOf = (e) => e && e.kind === 'bldg' && e.team === G.me && e.d.onVent && e.done ? e.vent : null;
 
+/** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
+ *  must not build under a button, Cancel included). Returns whether the finger is over the map. */
+function ghostAt(ev) {
+  const overMap = document.elementFromPoint(ev.clientX, ev.clientY) === cv;
+  if (!overMap) { ui.place.tx = ui.place.ty = -99; return false; }
+  const p = canvasPos(ev), w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); return true;
+}
+
 /** Top-left tile for placing `type` with the cursor at (wx, wy); extractors snap onto a nearby free vent. */
 function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
@@ -214,7 +222,7 @@ function bindCanvas() {
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
-    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
+    if (ev.pointerType === 'touch') { if (pointers.size === 2) { if (ui.place) ui.place.tx = ui.place.ty = -99; drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
     // A touch that stops a gliding camera does nothing else.
@@ -223,7 +231,7 @@ function bindCanvas() {
     fling.samples = [{ t: ev.timeStamp, x: p.x, y: p.y }];
     drag.down = true; drag.box = false; drag.pan = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
     // Placing on touch: the ghost appears under the finger (green or red) and follows it; it is placed where it lifts.
-    if (ui.place && ev.pointerType === 'touch') { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
+    if (ui.place && ev.pointerType === 'touch' && !drag.quiet) ghostAt(ev);
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
@@ -234,7 +242,8 @@ function bindCanvas() {
       if (pan.d > 20 && c.d > 20) zoomAt(c.d / pan.d, c.x, c.y);
       pan = c; return;
     }
-    if (ui.place && (ev.pointerType !== 'touch' || drag.down)) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
+    if (ui.place && ev.pointerType === 'touch') { if (drag.down && !drag.quiet) ghostAt(ev); }
+    else if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
     if (drag.down) {
       const px = drag.cx, py = drag.cy; drag.cx = p.x; drag.cy = p.y;
       if (!drag.box && !drag.pan && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) {
@@ -267,7 +276,8 @@ function bindCanvas() {
     }
     if (drag.quiet) return;
     const w = toWorld(p.x, p.y);
-    if (ui.place) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
+    if (ui.place && ev.pointerType === 'touch' && !ghostAt(ev)) return; // (lifted over the HUD: still placing, nothing built)
+    if (ui.place && ev.pointerType !== 'touch') Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);

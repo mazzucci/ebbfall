@@ -1294,3 +1294,43 @@ test('the menu is a page of its own, with Exit game', async () => {
     } finally { await ctx.close(); }
   }
 });
+
+test('phone: while placing, the ghost appears under the finger and follows it; lifted over the HUD it builds nothing', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(500, 0);
+    const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
+    await d.clickEntity(h.id);
+    await d.pressCard('Build'); await d.pressCard('Depot');
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    const [x, y] = await d.screen((spot.tx + 1) * 32, (spot.ty + 1) * 32, false);
+    await d.touchDown(x + 60, y);
+    assert.notEqual(await d.eval(() => endfall.ui.place.tx), -99, 'a ghost under the finger');
+    // Slid onto the Cancel button and lifted there: nothing built, still placing.
+    const c = await d.page.locator('#cmd button', { hasText: 'Cancel' }).boundingBox();
+    await d.touchMove(c.x + c.width / 2, c.y + c.height / 2);
+    assert.equal(await d.eval(() => endfall.ui.place.tx), -99, 'no ghost while over the HUD');
+    await d.touchUp();
+    assert.ok(await d.eval(() => !!endfall.ui.place), 'still placing');
+    assert.ok(!(await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot'), 'nothing built under the button');
+    // Down elsewhere, slid onto the spot, lifted: built where it lifted.
+    await d.touchDown(x + 60, y); await d.touchMove(x + 30, y); await d.touchMove(x, y); await d.touchUp();
+    await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), { seconds: 5, step: 0.5, what: 'the Depot where the finger lifted' });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('the menu fits a small phone with the iPhone tip shown, its title in view', async () => {
+  const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#btnPlay').tap();
+    await page.evaluate(() => { document.getElementById('iosTip').hidden = false; });
+    const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
+    const top = (await page.locator('#start h1').boundingBox()).y;
+    assert.ok(top >= 0, `the title in view: ${top}`);
+    assert.ok(sc[0] <= sc[1] + 24, `at most a little scroll: ${sc}`);
+  } finally { await ctx.close(); }
+});
+

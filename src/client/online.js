@@ -6,22 +6,26 @@ import { Net } from '../net/net.js';
 import { liveGame } from '../engine/index.js';
 import { $, toast } from './ui.js';
 import { sfx } from './audio.js';
-import { MAPS } from './menu.js';
+import { MAPS, mapName } from './menu.js';
 
 const params = new URLSearchParams(location.search);
 const local = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
-/** Where the relay is, or null (no online play from this page). */
-export const relayUrl = () => params.get('relay') || import.meta.env?.VITE_RELAY_URL || (local ? `ws://${location.hostname}:8788/` : null);
+/** Where the relay is, or null (no online play from this page). `?relay=` only on a dev machine or a LAN (a link
+ *  must not send players on the real site to someone else's relay). */
+export const relayUrl = () => ((local || import.meta.env?.DEV) && params.get('relay')) || import.meta.env?.VITE_RELAY_URL || (local ? `ws://${location.hostname}:8788/` : null);
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
 /** The online game, while there is one: its Net, this side's seat and the room's setup. */
 export const online = { net: null, seat: -1, setup: null, playing: false, names: [] };
-let onStart = () => {}, onLeave = () => {};
+let onStart = () => {}, onLeave = () => {}, onQuit = () => {};
+const waitingFor = new Set(); // seats the game waits for
 
-/** Wire the lobby: `start(setup, seat)` begins the game; `leave()` goes back to the menu. */
-export function initOnline({ start, leave }) {
-  onStart = start; onLeave = leave;
+/** Wire the lobby: `start(setup, seat)` begins the game; `leave()` goes back to the menu from the lobby, `quit()`
+ *  from a game that cannot go on. */
+export function initOnline({ start, leave, quit }) {
+  onStart = start; onLeave = leave; onQuit = quit;
+  $('btnNetMenu').addEventListener('click', () => { sfx('select'); onQuit(); });
   $('btnOnline').hidden = !relayUrl();
   $('btnOnline').addEventListener('click', () => { sfx('select'); openLobby(); });
   $('btnNewRoom').addEventListener('click', () => { sfx('select'); connect(''); });
@@ -34,6 +38,7 @@ export function initOnline({ start, leave }) {
   $('onlineName').value = store.get('name') || '';
   // A shared link (?join=CODE): straight to that room.
   const join = params.get('join');
+  if (join) { params.delete('join'); history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`); } // (a reload later is not a join again)
   if (join && relayUrl()) { openLobby(); connect(join.toUpperCase()); }
 }
 
@@ -44,25 +49,38 @@ const name = () => { const n = $('onlineName').value.trim().slice(0, 16); if (n)
 function connect(room) {
   stopOnline();
   status(room ? `Joining ${room}…` : 'Opening a room…');
-  online.ready = false;
+  online.ready = false; $('roomShow').textContent = ''; $('seatList').innerHTML = ''; // (no last room's code or seats)
   online.net = new Net({
     url: relayUrl(), room, name: name(), game: () => (online.playing ? liveGame() : null),
     on: {
       seat: (m) => { online.seat = m.seat; $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
       lobby: renderLobby,
       start: (setup, seat) => { online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true; onStart(setup, seat); online.net.loaded(); },
-      away: (s) => { if (s !== online.seat) toast(`Waiting for ${online.names[s] || 'the other player'}…`, true, true); },
-      back: (s) => { if (s !== online.seat) toast(`${online.names[s] || 'The other player'} is back`); },
-      left: (s) => { if (s !== online.seat) toast(`${online.names[s] || 'The other player'} left the game`, true, true); },
-      desync: () => toast('The game went out of sync: it cannot go on', true),
-      error: (m) => { status(m.msg); if (!online.playing) { $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; } },
-      status: (s) => { if (online.playing && s === 'reconnecting') toast('Connection lost: reconnecting…', true, true); },
+      away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
+      back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${who(s)} is back`); } },
+      left: (s) => { if (s !== online.seat) { waitingFor.delete(s); waitLine(); toast(`${who(s)} left the game`, true, true); } },
+      desync: () => fatal('Out of sync: the game cannot go on'),
+      error: (m) => {
+        if (online.playing) { fatal(String(m.msg || 'The connection was lost')); return; }
+        status(String(m.msg || '')); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true;
+      },
+      status: (s) => { if (online.playing) { reconnecting = s === 'reconnecting'; waitLine(); } },
     },
   });
 }
 
+const who = (s) => online.names[s] || 'the other player';
+let reconnecting = false, over = '';
+/** The one line under the top bar: what the game waits for, or why it is over (with the way back to the menu). */
+function waitLine() {
+  const text = over || (reconnecting ? 'Connection lost: reconnecting…' : waitingFor.size ? `Waiting for ${[...waitingFor].map(who).join(', ')}…` : '');
+  $('netWait').hidden = !text; $('netWait').firstChild.textContent = text; $('btnNetMenu').hidden = !over;
+}
+/** The game cannot go on (a desync, this screen replaced by another): say so, stop, and offer the menu. */
+function fatal(msg) { over = msg; online.net?.close(); waitLine(); sfx('error'); }
+
 function renderLobby(m) {
-  $('seatList').innerHTML = m.seats.map((s, i) => `<div class="seat${i === online.seat ? ' me' : ''}"><b>${esc(s.name || '…')}</b><span>${s.race.toUpperCase()}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'away' : s.ready ? 'READY' : ''}</span></div>`).join('');
+  $('seatList').innerHTML = m.seats.map((s, i) => `<div class="seat${i === online.seat ? ' me' : ''}"><b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'away' : s.ready ? 'READY' : ''}</span></div>`).join('');
   const me = m.seats[online.seat];
   if (me) {
     for (const b of $('onlineRace').querySelectorAll('button')) { const on = b.dataset.race === me.race; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
@@ -87,8 +105,8 @@ async function share() {
 /** The map an online setup plays: a fixed one's layout, or the room's seed for the random one (a character from it). */
 export function onlineMap(setup, kinds) {
   const m = MAPS[setup.map] || MAPS[0];
-  return m.random ? { seed: setup.seed, kind: setup.seed % kinds } : { seed: m.seed, kind: m.kind };
+  return m.random ? { seed: setup.seed, kind: setup.seed % kinds, name: mapName(setup.seed) } : { seed: m.seed, kind: m.kind, name: m.name };
 }
 
 /** Leave the online game (or the lobby) for good. */
-export function stopOnline() { online.net?.close(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false }); }
+export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false }); }

@@ -92,7 +92,8 @@ test/audio.test.js    the sound engine on a stub Web Audio API: every recipe pla
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes)
-test/net.test.js      two Net clients with WASM Games through the Node relay, one socket dropped: same world every tick
+test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
+                      a suspended page, a wake during a pending reconnect, orders given while offline
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats,
                       lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`)

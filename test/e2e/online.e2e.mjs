@@ -43,21 +43,31 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       assert.deepEqual(await a.p.evaluate(() => endfall.G.factions), ['humans', 'vael']);
       assert.deepEqual(await b.p.evaluate(() => [endfall.G.me, endfall.G.factions]), [1, ['humans', 'vael']], 'the friend plays the second seat');
       // Ann sends a harvester off (set-up through the engine: the lobby and the lockstep are what is tested).
-      await a.p.evaluate(() => { const h = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h, h.x + 200, h.y + 100); });
+      const id = await a.p.evaluate(() => { const h = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h, h.x + 300, h.y + 200); return h.id; });
+      const at = (x) => x.p.evaluate((id) => { const u = endfall.G.units.find(u => u.id === id); return [Math.round(u.x), Math.round(u.y)]; }, id);
+      const before = await at(b);
       await a.p.waitForTimeout(4000);
       const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
       const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
       const common = [...ta.keys()].filter(t => tb.has(t));
       assert.ok(common.length > 60, `both ran the same stretch (${common.length} ticks in common)`);
       for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
-      const moved = await b.p.evaluate(() => endfall.G.units.filter(u => u.team !== endfall.G.me && u.d.worker && u.task.t === 'move').length);
-      assert.ok(moved >= 0); // (the move ran on both: the hashes say so)
+      assert.notDeepEqual(await at(b), before, "Ann's order ran in the friend's game too");
       // Ann leaves: a concede; the friend wins.
       await a.p.evaluate(() => { document.getElementById('btnPause').click(); });
       await a.tap('#btnQuit');
       await b.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
-      assert.equal(await b.p.locator('#result').textContent(), 'VICTORY');
-      assert.ok(await b.p.locator('#btnWatch').isHidden() && await b.p.locator('#btnRematch').isHidden(), 'no watch or rematch online (yet)');
+      const card = await b.p.evaluate(() => [document.getElementById('result').textContent, document.getElementById('btnWatch').hidden, document.getElementById('btnRematch').hidden]);
+      // Straight into a new room from the end card (quickly: within the old game's clean-up delay), which must not
+      // close the new room.
+      await b.p.evaluate(() => { for (const id of ['btnAgain', 'btnOnline', 'btnNewRoom']) document.getElementById(id).click(); });
+      assert.deepEqual(card, ['VICTORY', true, true], 'the friend wins; no watch or rematch online (yet)');
+      await b.p.waitForFunction((old) => { const c = document.getElementById('roomShow').textContent; return /^[A-Z]{4}$/.test(c) && c !== old; }, code);
+      const code2 = await b.p.locator('#roomShow').textContent();
+      assert.notEqual(code2, code);
+      await b.p.waitForTimeout(2500);
+      assert.ok(await b.p.evaluate(() => !!endfall.online.net && !endfall.online.net.closed), 'the new room is still open');
+      assert.ok(await a.p.locator('#start').isVisible(), 'Ann is back on the menu');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }

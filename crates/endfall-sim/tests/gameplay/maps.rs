@@ -290,14 +290,7 @@ fn the_menu_preview_shows_the_map_as_it_will_be_played() {
 
 /// A two-seat game on a map of `n` x `n` tiles.
 fn sized(seed: u32, kind: MapKind, n: i32) -> World {
-    World::with_size(
-        seed,
-        1,
-        kind,
-        MapSize::square(n),
-        false,
-        &[&HUMANS, &HUMANS],
-    )
+    World::with_size(seed, 1, kind, MapSize::square(n), 0, &[&HUMANS, &HUMANS])
 }
 
 #[test]
@@ -347,7 +340,7 @@ fn two_ais_fight_on_a_larger_map() {
     // A 96x96 map (M4's four-seat size, two starts for now): eight minutes of AI against AI, the world's invariants
     // after every tick, and both sides field an army and meet.
     for (seed, kind) in [(11u32, MapKind::Standard), (29, MapKind::Labyrinth)] {
-        let mut w = World::with_size(seed, 1, kind, MapSize::square(96), false, &[&HUMANS, &VAEL]);
+        let mut w = World::with_size(seed, 1, kind, MapSize::square(96), 0, &[&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         let mut hits = [0, 0];
         for tick in 0..30 * 60 * 8 {
@@ -433,5 +426,318 @@ fn the_far_side_of_a_large_map_is_in_play() {
             d < 2.0,
             "seed {seed}: the walker crossed the map: {d:.1} tiles short"
         );
+    }
+}
+
+/// A game of `seats` people (nobody's an AI) on a map of `n` x `n` tiles, with the starts it is generated with.
+fn seated(seed: u32, kind: MapKind, n: i32, seats: usize, side: u32) -> World {
+    let races: Vec<&'static Faction> = (0..seats)
+        .map(|s| if s % 2 == 0 { &HUMANS } else { &VAEL })
+        .collect();
+    let mut w = World::with_size(seed, 1, kind, MapSize::square(n), side, &races);
+    w.set_ai_seats(vec![false; seats]);
+    w
+}
+
+/// What a start has round it, which every start of a fair map has alike: the nearest other start, the rock within 16
+/// tiles, its home crystals and vents (within 10), and the crystals and vents of the expansions near it (14 to 38 tiles
+/// out: the natural's site lies within 32), all from its Core's centre.
+fn start_share(w: &World, b: (i32, i32)) -> (i32, usize, usize, i32, usize, usize, usize) {
+    let c = (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
+    let d = |x: f64, y: f64| ((x - c.0).powi(2) + (y - c.1).powi(2)).sqrt();
+    let neighbour = w
+        .map
+        .bases
+        .iter()
+        .filter(|&&o| o != b)
+        .map(|o| (o.0 - b.0).pow(2) + (o.1 - b.1).pow(2))
+        .min()
+        .unwrap();
+    let mut rock = 0;
+    for y in 0..w.map.h {
+        for x in 0..w.map.w {
+            rock += (w.map.rock[w.map.idx(x, y)] != 0 && d(x as f64, y as f64) <= 16.0) as usize;
+        }
+    }
+    // (a vent's centre is a tile further in than its top-left)
+    let at = |n: &endfall_sim::map::Node| {
+        let s = if n.ether { 0.5 } else { 0.0 };
+        d(n.tx as f64 + s, n.ty as f64 + s)
+    };
+    let (mut home, mut home_amount, mut home_vents, mut out, mut out_vents) = (0, 0, 0, 0, 0);
+    for n in &w.map.nodes {
+        match (n.ether, at(n)) {
+            (false, r) if r <= 10.0 => {
+                home += 1;
+                home_amount += n.amount;
+            }
+            (true, r) if r <= 10.0 => home_vents += 1,
+            (false, r) if (14.0..=38.0).contains(&r) => out += 1,
+            (true, r) if (14.0..=38.0).contains(&r) => out_vents += 1,
+            _ => {}
+        }
+    }
+    (
+        neighbour,
+        rock,
+        home,
+        home_amount,
+        home_vents,
+        out,
+        out_vents,
+    )
+}
+
+#[test]
+fn maps_for_more_seats_have_a_fair_start_for_each() {
+    // M4: 96x96 has four starts (the quarter turns of one), 128x128 four or eight (the quarter turns and their mirror
+    // images): every start the same ground, home field and vent, natural expansion and neighbours, all of them in
+    // walking reach of each other; the seats spread round them, a start nobody takes left free.
+    let seeds: u32 = if cfg!(debug_assertions) { 2 } else { 20 };
+    for (n, seats, starts) in [
+        (96, 4, 4),
+        (96, 3, 4),
+        (128, 4, 4),
+        (128, 8, 8),
+        (128, 6, 8),
+    ] {
+        for seed in 0..seeds {
+            for kind in MapKind::ALL {
+                let seed = seed * 13 + 5;
+                let w = seated(seed, kind, n, seats, seed);
+                let ctx = format!("{n}x{n} {seats} seats seed {seed} {kind:?}");
+                check_invariants(&w, &ctx);
+                assert_eq!(w.map.bases.len(), starts, "{ctx}: the starts");
+                for (s, &b) in w.map.bases.iter().enumerate() {
+                    let taken: Vec<u8> = w
+                        .bldgs
+                        .iter()
+                        .filter(|o| (o.tx, o.ty) == b)
+                        .map(|o| o.team)
+                        .collect();
+                    if s < seats {
+                        assert_eq!(taken, vec![s as u8], "{ctx}: seat {s} on its start");
+                        assert_eq!(harvesters(&w, s as u8).len(), 4, "{ctx}");
+                    } else {
+                        assert!(taken.is_empty(), "{ctx}: start {s} free");
+                    }
+                    let edge = b.0.min(b.1).min(n - 4 - b.0).min(n - 4 - b.1);
+                    assert!(
+                        (8..=9).contains(&edge),
+                        "{ctx}: start {s} by its edge: {edge}"
+                    );
+                }
+                // Walkable: from beside the first start to every other one and to every field.
+                let p = w.map.bases[0];
+                let reach = reachable(&w, w.map.nearest_free(p.0 + 1, p.1 + 4, 6).unwrap());
+                let near = |x: i32, y: i32, s: i32| {
+                    (-1..=s).any(|dy| {
+                        (-1..=s).any(|dx| {
+                            w.map.in_map(x + dx, y + dy) && reach[w.map.idx(x + dx, y + dy)]
+                        })
+                    })
+                };
+                for &b in &w.map.bases[1..] {
+                    assert!(
+                        near(b.0, b.1, 4),
+                        "{ctx}: the start at {b:?} can be walked to"
+                    );
+                }
+                for f in &w.map.nodes {
+                    let s = if f.ether { 2 } else { 1 };
+                    assert!(near(f.tx, f.ty, s), "{ctx}: the field at {},{}", f.tx, f.ty);
+                }
+                // Fair: every start's share alike, and a natural (crystals and a vent) by each.
+                let first = start_share(&w, w.map.bases[0]);
+                for &b in &w.map.bases {
+                    assert_eq!(start_share(&w, b), first, "{ctx}: the start at {b:?}");
+                }
+                let (neighbour, _, home, _, home_vents, out, out_vents) = first;
+                assert!(neighbour >= 40 * 40, "{ctx}: neighbours {neighbour}");
+                assert!(home >= 5 && home_vents >= 1, "{ctx}: a home field and vent");
+                assert!(out >= 4 && out_vents >= 1, "{ctx}: a natural: {first:?}");
+                // Each main a pocket with one narrow ramp (an open plain's open), no crystals in the way.
+                for &b in &w.map.bases {
+                    let out = ways_out(&w, b, 14.5);
+                    assert!(out.len() >= 4, "{ctx}: the main at {b:?} has a way out");
+                    let spread = out
+                        .iter()
+                        .flat_map(|a| {
+                            out.iter()
+                                .map(move |o| (a.0 - o.0).abs().max((a.1 - o.1).abs()))
+                        })
+                        .max()
+                        .unwrap();
+                    assert!(
+                        (kind == MapKind::OpenPlains) == (spread > 8),
+                        "{ctx}: the main at {b:?}: ways out {spread} across"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn seats_spread_round_the_starts_and_side_turns_them() {
+    use endfall_sim::map::{max_starts, seat_starts, starts_for};
+    assert_eq!(
+        [64, 96, 128].map(|n| max_starts(MapSize::square(n))),
+        [2, 4, 8]
+    );
+    assert_eq!(
+        max_starts(MapSize { w: 128, h: 96 }),
+        2,
+        "a map that is not square"
+    );
+    let sq = MapSize::square;
+    assert_eq!(
+        [
+            (64, 2),
+            (96, 2),
+            (96, 3),
+            (96, 4),
+            (128, 3),
+            (128, 5),
+            (128, 8)
+        ]
+        .map(|(n, s)| starts_for(sq(n), s)),
+        [2, 2, 4, 4, 4, 8, 8]
+    );
+    assert_eq!(seat_starts(2, 2, 0), [0, 1]);
+    assert_eq!(
+        seat_starts(2, 2, 1),
+        [1, 0],
+        "two seats: 1 trades their places"
+    );
+    assert_eq!(
+        seat_starts(4, 3, 0),
+        [0, 1, 2, 3],
+        "three of four: one corner free"
+    );
+    assert_eq!(seat_starts(4, 3, 2), [2, 3, 0, 1]);
+    assert_eq!(
+        seat_starts(8, 4, 1),
+        [1, 3, 5, 7, 0, 2, 4, 6],
+        "every other start"
+    );
+    assert_eq!(
+        seat_starts(8, 6, 0),
+        [0, 1, 2, 4, 5, 6, 3, 7],
+        "six of eight: two opposite starts free"
+    );
+    // Fewer seats than starts: which seat sits between two others (or beside a free start) is the side's draw, not
+    // the seat number's: over the draws, every seat meets each place (0, 1 or 2 taken neighbours) equally often.
+    for (k, n) in [(4usize, 3usize), (8, 5), (8, 6), (8, 7)] {
+        let mut places = vec![[0u32; 3]; n];
+        for side in 0..(k * n) as u32 {
+            let at = seat_starts(k, n, side);
+            let taken = |i: usize| at[..n].contains(&(i % k));
+            for (s, &i) in at[..n].iter().enumerate() {
+                places[s][taken(i + 1) as usize + taken(i + k - 1) as usize] += 1;
+            }
+            let mut seen = at.clone();
+            seen.sort();
+            assert_eq!(
+                seen,
+                (0..k).collect::<Vec<_>>(),
+                "{n} of {k}, side {side}: every start once"
+            );
+        }
+        assert!(
+            places.iter().all(|p| *p == places[0]),
+            "{n} of {k}: the same places for every seat: {places:?}"
+        );
+    }
+    // The same map whatever the side; the seats keep their order round it, turned.
+    let (a, b) = (
+        seated(31, MapKind::Standard, 96, 4, 0),
+        seated(31, MapKind::Standard, 96, 4, 1),
+    );
+    assert_eq!(a.map.rock, b.map.rock);
+    for s in 0..4u8 {
+        assert_eq!(core(&b, s), core(&a, (s + 1) % 4), "seat {s} one start on");
+    }
+    // Two seats on a 96x96 map: the two-start map, sides traded as before.
+    let (a, b) = (
+        seated(31, MapKind::Standard, 96, 2, 0),
+        seated(31, MapKind::Standard, 96, 2, 1),
+    );
+    assert_eq!(a.map.bases.len(), 2);
+    assert_eq!((core(&a, 0), core(&a, 1)), (core(&b, 1), core(&b, 0)));
+}
+
+#[test]
+fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
+    // (two starts: seat 0 faces east and steps out south, the rest west and north, as always: the goldens pin it)
+    let mut w = World::with_size(
+        41,
+        1,
+        MapKind::Standard,
+        MapSize::square(128),
+        0,
+        &[&HUMANS; 8],
+    );
+    w.set_ai_seats([false; 8]);
+    let (cx, cy) = (w.map.ww() / 2.0, w.map.wh() / 2.0);
+    let mut rax = Vec::new();
+    for s in 0..8u8 {
+        let (bx, by) = core(&w, s);
+        let (ox, oy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+        let u = w.unit(harvesters(&w, s)[0]).unwrap();
+        assert!(
+            (u.face - (cy - oy).atan2(cx - ox)).abs() < 1e-9,
+            "seat {s}: a harvester faces the centre"
+        );
+        // A Garrison by the Core: a Trooper trained there with no rally point steps out towards the centre.
+        let at = (-12..=12)
+            .flat_map(|dy| (-12..=12).map(move |dx| (bx + dx, by + dy)))
+            .filter(|&(x, y)| w.can_place(BldgKind::Barracks, x, y, s))
+            .min_by_key(|&(x, y)| (x - bx).pow(2) + (y - by).pow(2))
+            .unwrap();
+        let b = w.make_building(BldgKind::Barracks, s, at.0, at.1, true);
+        w.res[s as usize] = [500, 0];
+        w.queue_unit(b, UnitKind::Trooper).unwrap();
+        rax.push(b);
+    }
+    run(&mut w, 30);
+    for s in 0..8u8 {
+        let b = w.bldg(rax[s as usize]).unwrap();
+        let t = w
+            .units
+            .iter()
+            .find(|u| u.team == s && u.kind == UnitKind::Trooper)
+            .unwrap();
+        let (dx, dy) = (t.x - b.x, t.y - b.y);
+        assert!(
+            dx * (cx - b.x) + dy * (cy - b.y) > 0.0,
+            "seat {s}: the Trooper stepped out on the centre's side"
+        );
+    }
+}
+
+#[test]
+fn every_start_of_a_larger_map_mines_alike_from_the_first_minute() {
+    // Two minutes of mining with the four first harvesters: every seat about the same shards (one race here). Not
+    // exactly: the starts are images of each other, but walking is not quite the same in every direction on the grid
+    // (the path search's tie-breaks): up to 8% apart on a duel's map, 12% on eight starts, whose fields lie off the
+    // grid's axes.
+    let seeds: u32 = if cfg!(debug_assertions) { 2 } else { 8 };
+    for (n, seats) in [(96, 4), (128, 8)] {
+        for seed in 0..seeds {
+            let races: Vec<&'static Faction> = vec![&HUMANS; seats];
+            let mut w =
+                World::with_size(seed, 1, MapKind::Standard, MapSize::square(n), seed, &races);
+            w.set_ai_seats(vec![false; seats]);
+            run(&mut w, 120);
+            let shards: Vec<f64> = w.res.iter().map(|r| r[0] as f64).collect();
+            let (lo, hi) = shards
+                .iter()
+                .fold((f64::MAX, 0.0f64), |(a, b), &s| (a.min(s), b.max(s)));
+            assert!(
+                hi - lo <= 0.13 * hi,
+                "{n}x{n} seed {seed}: {shards:?} shards after two minutes"
+            );
+        }
     }
 }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ebbfall device check</title>
+<style>
+  body{background:#0d1117;color:#c9d1d9;font:15px/1.5 system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px}
+  h1{font-size:20px;color:#f5c26b;letter-spacing:.1em} p{color:#8b949e}
+  ol{padding-left:22px} li{margin:4px 0} .ok{color:#56d364} .bad{color:#f85149} .run{color:#e6edf3}
+  #verdict{font-size:18px;font-weight:600;margin:18px 0 8px;color:#e6edf3} #ua{font-size:12px;word-break:break-word}
+  button{touch-action:manipulation;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:12px 14px;font-size:15px;min-height:44px}
+</style>
+</head>
+<body>
+<h1>EBBFALL DEVICE CHECK</h1>
+<p>Online, every player's device computes the whole game and only orders travel, so every device must compute exactly the same game. This plays six recorded games at full speed and compares them with the reference. It takes a few seconds.</p>
+<ol id="games"></ol>
+<div id="verdict">Checking…</div>
+<p id="ua"></p>
+<button id="again" hidden>CHECK AGAIN</button>
+<script type="module">
+  import init, * as sim from './src/engine/pkg/endfall_sim.js';
+  import { GOLDEN, CHECKS, playGolden } from './src/engine/golden.js';
+
+  const list = document.getElementById('games'), verdict = document.getElementById('verdict'), again = document.getElementById('again');
+  document.getElementById('ua').textContent = navigator.userAgent;
+  const frame = () => new Promise(r => setTimeout(r, 0)); // (let the page draw between slices)
+
+  async function check() {
+    try { await run(); }
+    catch (e) { // (no WebAssembly, e.g. iOS Lockdown Mode; or the sim failed)
+      verdict.textContent = `This browser cannot run the check: ${e?.message || e}`; verdict.className = 'bad';
+      document.body.dataset.result = 'fail'; again.hidden = false;
+    }
+  }
+  let ready = null;
+  async function run() {
+    again.hidden = true; verdict.textContent = 'Checking…'; verdict.className = ''; delete document.body.dataset.result;
+    await (ready ??= init());
+    list.innerHTML = GOLDEN.map(g => `<li class="run">${g.name}</li>`).join('');
+    let bad = 0;
+    const t0 = performance.now();
+    for (const [i, g] of GOLDEN.entries()) {
+      const li = list.children[i];
+      const got = await playGolden(sim, g, async (t) => { li.textContent = `${g.name}: ${Math.round(100 * t / CHECKS.at(-1))}%`; await frame(); });
+      const same = got.every((h, k) => h === g.want[k]);
+      if (!same) bad++;
+      li.className = same ? 'ok' : 'bad';
+      li.textContent = same ? `${g.name}: the same` : `${g.name}: DIFFERENT (${got.join(', ')})`;
+    }
+    const s = ((performance.now() - t0) / 1000).toFixed(1);
+    verdict.textContent = bad ? `This device computes ${bad} of the games differently: online games with it would go out of sync. Please report it, with the line below.` : `This device computes every game exactly. (${s} s)`;
+    verdict.className = bad ? 'bad' : 'ok';
+    document.body.dataset.result = bad ? 'fail' : 'pass'; // (read by the browser tests)
+    again.hidden = false;
+  }
+  again.addEventListener('click', check);
+  check();
+  // Offline too, even when this is the first page of the game opened here (the game's service worker keeps it).
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+</script>
+</body>
+</html>

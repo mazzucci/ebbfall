@@ -4,7 +4,7 @@
 use super::*;
 
 impl World {
-    /// How many seats play (2 for now; up to `MAX_SEATS` once the maps have the starts for them).
+    /// How many seats play (2 to `MAX_SEATS`, at most the map's starts: `map::max_starts`).
     pub fn seats(&self) -> usize {
         self.factions.len()
     }
@@ -105,9 +105,9 @@ impl World {
         self.recalc_supply(team);
     }
 
-    /// One more seat (tests only, until M4's maps have more starts): its start dealt at `base` (the top-left tile of its
-    /// headquarters), on its own team, played by a person. Call before the first step; a `reset` regenerates the
-    /// map, which has no start for it, and refuses.
+    /// One more seat (tests only): its start dealt at `base` (the top-left tile of its headquarters), on its own team,
+    /// played by a person. Call before the first step; a `reset` regenerates the map, which has no start for it, and
+    /// refuses.
     #[doc(hidden)]
     pub fn add_seat(&mut self, faction: &'static Faction, base: (i32, i32)) -> u8 {
         assert!(self.seats() < MAX_SEATS, "no seat left");
@@ -116,7 +116,7 @@ impl World {
         self.teams.push(seat);
         self.ai_seats.push(false);
         self.ai.push(None);
-        self.map.bases.push(base);
+        self.map.bases.insert(seat as usize, base); // (before any start nobody took)
         self.push_seat();
         self.deal_start(seat);
         self.update_fog();

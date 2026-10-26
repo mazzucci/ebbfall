@@ -1,6 +1,7 @@
 //! Seats and teams: allies never fight, kills count for the killer's seat, a seat that is out leaves the game to the
-//! rest, and the last team standing wins. Generated maps have two starts, so a third seat gets its start from the
-//! test (`World::add_seat`) on open ground away from the other two.
+//! rest, and the last team standing wins (three seats on a duel's map: the third gets its start from the test,
+//! `World::add_seat`, on open ground away from the other two); then AIs four, six and eight to a map, free for all and
+//! two against two, on maps with a start for each.
 
 use crate::common::*;
 
@@ -158,13 +159,13 @@ fn teams_are_set_up_once_per_seat_and_need_two_sides() {
 #[test]
 #[should_panic(expected = "3 seats on a map with 2 starts")]
 fn a_map_without_a_start_for_every_seat_is_refused() {
-    World::with_seats(26, 1, MapKind::Standard, false, &[&HUMANS, &VAEL, &HUMANS]);
+    World::with_seats(26, 1, MapKind::Standard, 0, &[&HUMANS, &VAEL, &HUMANS]);
 }
 
 #[test]
 fn the_seat_constructor_checks_its_setup_and_plays_two_seats_as_before() {
     let ok = |f: &[u32], t: &[u8], ai: &[u8], me: u8| {
-        Game::with_seats(27, 1, 0, 0, f, t, ai, me).is_ok()
+        Game::with_seats(27, 1, 0, 0, f, t, ai, me, None).is_ok()
     };
     assert!(
         !ok(&[0, 1, 0], &[], &[], 0),
@@ -179,7 +180,7 @@ fn the_seat_constructor_checks_its_setup_and_plays_two_seats_as_before() {
     );
     assert!(!ok(&[0, 1], &[], &[], 2), "no such seat");
     // Two seats, the second an AI: the same game as the two-seat constructor.
-    let mut a = Game::with_seats(27, 1, 0, 0, &[1, 0], &[0, 1], &[0, 1], 0).unwrap();
+    let mut a = Game::with_seats(27, 1, 0, 0, &[1, 0], &[0, 1], &[0, 1], 0, None).unwrap();
     let mut b = Game::with_setup(27, 1, 0, 0, 1, 0);
     for _ in 0..600 {
         a.step();
@@ -188,10 +189,47 @@ fn the_seat_constructor_checks_its_setup_and_plays_two_seats_as_before() {
     assert_eq!(a.state_hash(), b.state_hash());
     assert_eq!(a.world().ai_seats, vec![false, true]);
     // A game for seat 1 takes seat 1's orders, and reads a seat it does not have as nothing.
-    let g = Game::with_seats(27, 1, 0, 0, &[0, 0], &[], &[], 1).unwrap();
+    let g = Game::with_seats(27, 1, 0, 0, &[0, 0], &[], &[], 1, None).unwrap();
     assert_eq!(g.me(), 1);
     assert!(g.army_log(5).is_empty() && g.vis(5).iter().all(|&v| v == 0));
     assert!(!g.can_afford(5, 0, 0));
+    // On larger maps, as many seats as starts: 4 on 96x96, 8 on 128x128 (64, the default, has 2).
+    let sized = |n: usize, size: u32| {
+        Game::with_seats(27, 1, 0, 0, &vec![0; n], &[], &[], 0, Some(size)).is_ok()
+    };
+    assert!(sized(2, 64) && !sized(3, 64));
+    assert!(sized(3, 96) && sized(4, 96) && !sized(5, 96));
+    assert!(sized(2, 128) && sized(5, 128) && sized(8, 128) && !sized(9, 128));
+    assert!(!sized(2, 80), "64, 96 or 128 tiles across");
+    // Two seats on 64x64 by size: the same game as without one.
+    let mut a = Game::with_seats(27, 1, 0, 1, &[1, 0], &[], &[0, 1], 0, Some(64)).unwrap();
+    let mut b = Game::with_setup(27, 1, 0, 1, 1, 0);
+    for _ in 0..300 {
+        a.step();
+        b.step();
+    }
+    assert_eq!(a.state_hash(), b.state_hash());
+    // Four seats on 96x96, two teams, three of them AIs: each its start, its team and its record.
+    let g = Game::with_seats(
+        27,
+        1,
+        0,
+        2,
+        &[0, 1, 0, 1],
+        &[0, 0, 1, 1],
+        &[0, 1, 1, 1],
+        3,
+        Some(96),
+    )
+    .unwrap();
+    let w = g.world();
+    assert_eq!((w.seats(), w.map.w, g.me()), (4, 96, 3));
+    assert_eq!(w.teams, vec![0, 0, 1, 1]);
+    assert_eq!(w.ai_seats, vec![false, true, true, true]);
+    assert_eq!(w.factions[1].hq, VAEL.hq);
+    for s in 0..4u8 {
+        assert_eq!(core(w, s), w.map.bases[s as usize], "seat {s} on its start");
+    }
 }
 
 #[test]
@@ -217,4 +255,172 @@ fn every_seat_has_its_own_record_in_the_snapshot() {
     );
     assert_eq!((seat(0, "team"), seat(1, "team")), (0.0, 1.0));
     assert_eq!(seat(1, "shards"), 50.0);
+}
+
+/// A game of AIs only, one per seat (Humans and Vael by turns), on a map of `n` x `n` tiles with a start for each.
+fn ais(seed: u32, n: i32, seats: usize, teams: Option<&[u8]>) -> World {
+    let races: Vec<&'static Faction> = (0..seats)
+        .map(|s| if s % 2 == 0 { &HUMANS } else { &VAEL })
+        .collect();
+    let mut w = World::with_size(seed, 1, MapKind::Standard, MapSize::square(n), seed, &races);
+    w.set_ai_seats(vec![true; seats]);
+    if let Some(t) = teams {
+        assert!(w.set_teams(t));
+    }
+    w
+}
+
+/// Count, for each pair of seats, the units of the first with something of the second as their target.
+fn note_fights(w: &World, fights: &mut [[u32; MAX_SEATS]; MAX_SEATS]) {
+    for u in &w.units {
+        if let Task::Attack { target, .. } = u.task
+            && let Some(t) = w.team_of(target)
+            && t != u.team
+        {
+            fights[u.team as usize][t as usize] += 1;
+        }
+    }
+}
+
+#[test]
+fn four_ais_fight_a_free_for_all_on_four_starts() {
+    // M4: four AIs on 96x96, each its own team, for up to fifteen minutes (the world's invariants after every tick):
+    // each fields an army and fights, partners first (seats 0 and 1, 2 and 3: their waves meet on the way, see
+    // `foe`), and the game moves on: a seat is knocked out, or seats across the map from each other (0 and 2, 1 and
+    // 3: seats sit round the map in order) fight.
+    let seeds: &[u32] = if cfg!(debug_assertions) {
+        &[13]
+    } else {
+        &[11, 12, 14] // (three seeds: this is the release suite's longest test)
+    };
+    for &seed in seeds {
+        let mut w = ais(seed, 96, 4, None);
+        let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
+        for tick in 0..30 * 60 * 15 {
+            w.step();
+            check_invariants(&w, &format!("seed {seed} tick {tick}"));
+            if tick % 15 == 0 {
+                note_fights(&w, &mut fights);
+            }
+            if w.over {
+                break;
+            }
+        }
+        let armies: Vec<u32> = w
+            .army_log
+            .iter()
+            .map(|l| l.iter().max().copied().unwrap_or(0))
+            .collect();
+        for s in 0..4 {
+            assert!(
+                armies[s] >= 600 || w.out[s],
+                "seed {seed} seat {s}: an army (or knocked out first): {armies:?}"
+            );
+            assert!(
+                fights[s].iter().sum::<u32>() > 0,
+                "seed {seed} seat {s} fought nobody: {fights:?}"
+            );
+        }
+        assert!(
+            armies.iter().any(|&a| a >= 2000),
+            "seed {seed}: a big army: {armies:?}"
+        );
+        assert!(
+            fights[0][1] > 0 && fights[1][0] > 0 && fights[2][3] > 0 && fights[3][2] > 0,
+            "seed {seed}: partners fight: {fights:?}"
+        );
+        let across = fights[0][2] + fights[2][0] + fights[1][3] + fights[3][1];
+        assert!(
+            across > 0 || w.out.iter().any(|&o| o),
+            "seed {seed}: the seats across the map never met and nobody is out: {fights:?}"
+        );
+    }
+}
+
+#[test]
+fn two_against_two_allies_never_fight_and_one_team_stands() {
+    // M4: a 2v2 of AIs on 96x96, allies on starts side by side (seats 0 and 1, 2 and 3: seats sit round the map in
+    // order). Allies never target each other; the game ends with one team's seats all out and the other's winning.
+    // (Without debug assertions, three games to the end, at most forty minutes; with them, one, invariants every
+    // tenth tick.)
+    let full = !cfg!(debug_assertions);
+    let seeds: &[u32] = if full { &[11, 12, 13] } else { &[13] };
+    for &seed in seeds {
+        let mut w = ais(seed, 96, 4, Some(&[0, 0, 1, 1]));
+        let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
+        let cap = 30 * 60 * if full { 40 } else { 15 };
+        for tick in 0..cap {
+            w.step();
+            if full || tick % 10 == 0 {
+                check_invariants(&w, &format!("seed {seed} tick {tick}"));
+            }
+            if tick % 15 == 0 {
+                note_fights(&w, &mut fights);
+            }
+            if w.over {
+                break;
+            }
+        }
+        assert_eq!(
+            (fights[0][1], fights[1][0], fights[2][3], fights[3][2]),
+            (0, 0, 0, 0),
+            "seed {seed}: allies left each other alone"
+        );
+        assert!(w.over, "seed {seed}: over within the cap");
+        // Every seat of the losing team is out; the winners have a seat still in (an ally may have fallen on the way).
+        let won = w.winner as u8;
+        for s in 0..4 {
+            assert!(
+                w.teams[s] == won || w.out[s],
+                "seed {seed}: seat {s} of the losing team {} is out (team {won} won)",
+                w.teams[s]
+            );
+        }
+        assert!(
+            (0..4).any(|s| w.teams[s] == won && !w.out[s]),
+            "seed {seed}: a winner stands"
+        );
+        for s in 0..4 {
+            assert!(
+                w.stats[s].killed > 0 || w.out[s],
+                "seed {seed} seat {s} did not fight"
+            );
+        }
+    }
+}
+
+#[test]
+fn six_and_eight_ais_play_on_eight_starts() {
+    // M4: 128x128 with six and with eight AIs (each its own team) under the invariants: every seat builds up from its
+    // own start in the first three minutes, and most are fighting by the end.
+    let mins = if cfg!(debug_assertions) { 4 } else { 7 };
+    for (seed, seats) in [(21u32, 6usize), (22, 8)] {
+        let mut w = ais(seed, 128, seats, None);
+        let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
+        for tick in 0..30 * 60 * mins {
+            w.step();
+            check_invariants(&w, &format!("{seats} seats seed {seed} tick {tick}"));
+            if tick % 15 == 0 {
+                note_fights(&w, &mut fights);
+            }
+            if tick == 30 * 60 * 3 {
+                for s in 0..seats as u8 {
+                    let (bx, by) = w.map.bases[s as usize];
+                    let near = w
+                        .bldgs
+                        .iter()
+                        .filter(|b| b.team == s && (b.tx - bx).abs().max((b.ty - by).abs()) < 16)
+                        .count();
+                    assert!(
+                        near >= 5,
+                        "{seats} seats seed {seed}: seat {s} built up ({near})"
+                    );
+                }
+            }
+        }
+        let fighting = (0..seats)
+            .filter(|&s| fights[s].iter().sum::<u32>() > 0)
+            .count();
+        assert!(fighting * 2 >= seats, "{seats} seats: {fights:?}");
+    }
 }

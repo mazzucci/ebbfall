@@ -12,6 +12,15 @@ let relay;
 before(async () => { await start(); relay = startRelay({ port: 0, latency: 40, jitter: 60 }); await relay.ready; });
 after(async () => { await relay.close(); await stop(); });
 
+/** The friend opens the shared link: the join form, the code filled in; a name, then JOIN. */
+async function joinByLink(device, query, name) {
+  const x = await page(device, query);
+  await x.p.locator('#onlineJoin').waitFor({ state: 'visible' });
+  await x.p.locator('#onlineName').fill(name);
+  await x.tap('#btnJoinRoom');
+  return x;
+}
+
 async function page(device, query) {
   const ctx = await browserContext(device), p = await ctx.newPage(), errors = [];
   p.on('pageerror', e => errors.push(e.message));
@@ -19,7 +28,6 @@ async function page(device, query) {
   await p.goto(`${baseUrl()}?${query}`, { waitUntil: 'networkidle' });
   await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
   const tap = (sel) => device.hasTouch ? p.locator(sel).tap() : p.locator(sel).click();
-  if (device.hasTouch && await p.locator('#btnPlay').isVisible()) await tap('#btnPlay');
   return { ctx, p, errors, tap };
 }
 
@@ -34,10 +42,17 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
     assert.match(relay.rooms.get(code).seats[0].build, /^[0-9a-f]{12}$/, "the opener's seat holds its sim build (a friend's must match)");
-    // The friend opens the shared link on a phone: straight into the room.
+    // The friend opens the shared link on a phone: the join form, the code filled in, the invitation said; a name,
+    // then JOIN.
     const b = await page(PHONE, `${relayQ}&join=${code}`);
+    assert.equal(await b.p.locator('#roomCode').inputValue(), code);
+    assert.match(await b.p.locator('#onlineStatus').textContent(), new RegExp(`invited to room ${code}`));
+    assert.ok(await b.p.locator('#start').isHidden(), 'no menu (or anything) in front of the form');
+    assert.equal(relay.rooms.get(code).seats.filter(s => s.conn).length, 1, 'nobody joined before JOIN');
+    await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/away/.test(document.getElementById('seatList').textContent));
+      assert.match(await a.p.locator('#seatList').textContent(), /Bo/, 'the friend under the name typed');
       await b.tap('#onlineRace [data-race="vael"]');
       await a.p.waitForFunction(() => /VAEL/.test(document.getElementById('seatList').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
@@ -100,7 +115,7 @@ test('a room of another version: the friend is told to reload, and RELOAD brings
     host.on('error', rej);
   });
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
-  const b = await page(PHONE, `${relayQ}&join=${code}`);
+  const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
   try {
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 });
     assert.match(await b.p.locator('#onlineStatus').textContent(), /different versions/);
@@ -108,6 +123,9 @@ test('a room of another version: the friend is told to reload, and RELOAD brings
     assert.deepEqual(told, ['version'], 'the room is told too (its player may be the one behind)');
     await Promise.all([b.p.waitForNavigation(), b.tap('#btnOnlineReload')]);
     await b.p.waitForFunction(() => !!window.endfall);
+    assert.equal(await b.p.locator('#roomCode').inputValue(), code, 'back at the same room\'s invitation');
+    assert.equal(await b.p.locator('#onlineName').inputValue(), 'Bo', 'the name remembered');
+    await b.tap('#btnJoinRoom');
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 }); // (the same room again: still another version)
     assert.deepEqual(b.errors, []);
   } finally { host.close(); await b.ctx.close(); }
@@ -120,7 +138,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
     await a.tap('#btnOnline'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
-    const b = await page(PHONE, `${relayQ}&join=${code}`);
+    const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/away/.test(document.getElementById('seatList').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');

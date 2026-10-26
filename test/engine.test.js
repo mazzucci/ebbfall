@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { mulberry } from '../src/engine/util.js';
+import { GOLDEN, playGolden } from '../src/engine/golden.js';
 import * as C from '../src/engine/constants.js';
 
 const pkg = new URL('../src/engine/pkg/', import.meta.url);
@@ -209,14 +210,15 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
   assert.ok(E.G.res[E.PLAYER][1] > 0, 'ether mined: ' + E.G.res[E.PLAYER][1]);
 });
 
-test('the WASM sim agrees with the native one: the same golden hashes (crates/endfall-sim/tests/golden.rs)', { skip }, () => {
-  // ashen-easy and glass-medium-swapped at 10 s and 1.5 min: browsers on any machine must compute the same game.
-  for (const [seed, diff, map, side, want, race] of [[4242, 0, 0, 0, [1632591974, 1368448285], 0], [1998, 1, 1, 1, [3216496548, 1867545644], 0], [4242, 1, 0, 0, [2747608292, 2782413074], 1]]) {
-    const g = sim.Game.withSetup(seed, diff, map, side, race, 0), got = []; // (race 1: a Vael player, golden_hashes_pin_a_vael_game)
-    for (let t = 1; t <= 2700; t++) { g.step(); if (t === 300 || t === 2700) got.push(g.stateHash() >>> 0); }
-    g.free();
-    assert.deepEqual(got, want, `seed ${seed}`);
-  }
+test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
+  // Browsers on any machine must compute the same game; CI also runs these in Firefox and WebKit, phones at selftest.html.
+  for (const g of GOLDEN) assert.deepEqual(await playGolden(sim, g), g.want, g.name);
+});
+
+test('the golden table the browsers check is golden.rs\'s', () => {
+  const rs = readFileSync(new URL('../crates/endfall-sim/tests/golden.rs', import.meta.url), 'utf8');
+  for (const g of GOLDEN) assert.ok(rs.includes(`[${g.want.join(', ')}]`), `${g.name}: ${g.want} is not in golden.rs`);
+  for (const name of GOLDEN.map(g => g.name).filter(n => !n.startsWith('vael'))) assert.ok(rs.includes(`"${name}"`), `golden.rs has no game ${name}`);
 });
 
 test('the client mirror reads every snapshot field the sim declares (crates/endfall-sim/src/snapshot.rs)', () => {
@@ -273,6 +275,28 @@ test('a game for any number of seats takes a setup it can play and refuses the r
   for (let i = 0; i < 300; i++) { a.step(); b.step(); }
   assert.equal(a.stateHash(), b.stateHash(), 'two seats: the same game as before');
   a.free(); b.free();
+});
+
+test('a game of four seats on a four-start map mirrors every seat\'s record', { skip }, () => {
+  const races = ['humans', 'vael', 'humans', 'vael'];
+  assert.throws(() => E.resetGameSeats(31, 1, 0, 0, [...races, 'humans'], [], [], 0, 96), /5 seats: a 96x96 map has 4 starts/);
+  E.resetGameSeats(31, 1, 0, 0, races, [0, 0, 1, 1], [false, true, true, true], 0, 96);
+  assert.deepEqual([E.MW, E.MH, E.G.me], [96, 96, 0]);
+  assert.deepEqual([E.G.factions, E.G.teams, E.G.out], [races, [0, 0, 1, 1], [false, false, false, false]]);
+  for (const k of ['res', 'sup', 'stats', 'upgrades']) assert.equal(E.G[k].length, 4, k + ' per seat');
+  assert.deepEqual(E.foes(), [2, 3], 'the other team');
+  for (let t = 0; t < 4; t++) {
+    const hq = E.G.bldgs.filter(b => b.team === t && b.d.hq);
+    assert.equal(hq.length, 1, `seat ${t}'s headquarters`);
+    assert.equal(hq[0].type, C.FACTIONS[races[t]].hq);
+    assert.equal(E.G.units.filter(u => u.team === t).length, 4, `seat ${t}'s workers`);
+  }
+  const cores = [0, 1, 2, 3].map(t => E.G.bldgs.find(b => b.team === t).tx).sort((a, b) => a - b);
+  assert.ok(new Set(cores).size >= 2, 'four starts, not one');
+  runSeconds(30);
+  assert.ok(E.G.res[0][0] > 50 && E.G.stats.slice(1).every(s => s.built > 0), 'the person mines, the AIs train');
+  E.resetGame(4, 0); // (back to a duel's map for the tests after)
+  assert.deepEqual([E.MW, E.G.teams.length], [64, 2]);
 });
 
 test('the client names no unit or building kind outside its data tables and look table', () => {

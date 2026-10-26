@@ -22,7 +22,7 @@ audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.
 const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
 
 let started = false;
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden || !$('end').hidden;
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();

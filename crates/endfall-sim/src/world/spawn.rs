@@ -17,6 +17,19 @@ impl World {
         }
     }
 
+    /// Which way a new unit of `team` faces: towards the map's centre from its start (two starts: seat 0 east, the
+    /// rest west, as always).
+    fn home_face(&self, team: u8) -> f64 {
+        match self.map.bases.get(team as usize) {
+            Some(&(bx, by)) if self.map.bases.len() > 2 => {
+                let (cx, cy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+                jsmath::atan2(self.map.wh() / 2.0 - cy, self.map.ww() / 2.0 - cx)
+            }
+            _ if team != 0 => PI,
+            _ => 0.0,
+        }
+    }
+
     // ---- entities ----
     pub fn make_unit(&mut self, kind: UnitKind, team: u8, x: f64, y: f64) -> Id {
         let d = kind.def();
@@ -39,7 +52,7 @@ impl World {
             task: Task::Idle,
             path: None,
             cd: 0.0,
-            face: if team != 0 { PI } else { 0.0 },
+            face: self.home_face(team),
             carry: 0,
             carry_ether: None,
             last_node: None,
@@ -219,11 +232,13 @@ impl World {
 
     /// The free tile around the building a new unit steps out onto: an uncrowded one if there is any (so a batch
     /// stands side by side instead of on one spot), nearest the building, towards the rally point (or the far side of
-    /// the map).
+    /// the map, or its centre with more than two starts).
     fn exit_tile(&self, b: &Bldg, kind: UnitKind) -> (i32, i32) {
         let air = kind.def().air;
         let rf = match b.rally {
             Some(rl) => (rl.x, rl.y),
+            // (more than two starts: the map's centre; two: seat 0 south, the rest north, as always)
+            None if self.map.bases.len() > 2 => (self.map.ww() / 2.0, self.map.wh() / 2.0),
             None => (
                 b.x,
                 b.y + self.map.wh() * if b.team != 0 { -1.0 } else { 1.0 },

@@ -38,8 +38,9 @@ pub struct World {
     pub map_kind: MapKind,
     /// The map's size in tiles (kept for resets).
     pub map_size: MapSize,
-    /// The players trade starting places (drawn by the client for each game; the map is point-symmetric, so fair).
-    pub sides_swapped: bool,
+    /// Turns the seats round the map's starts (`map::seat_starts`; two seats: 1 trades their places). Drawn by the
+    /// client for each game; every start of a generated map gets the same ground, so any is fair.
+    pub side: u32,
     /// Each seat's race (headquarters, worker, Build list). Its length is the number of seats (`seats()`); every
     /// per-seat list below has one entry per seat, indexed by seat.
     pub factions: Vec<&'static Faction>,
@@ -140,29 +141,31 @@ impl World {
         swap: bool,
         factions: [&'static Faction; 2],
     ) -> World {
-        World::with_seats(seed, diff, map_kind, swap, &factions)
+        World::with_seats(seed, diff, map_kind, swap as u32, &factions)
     }
 
     /// A new game for `factions.len()` seats (each seat's race; at least 2, at most `MAX_SEATS` and the map's starts:
-    /// panics otherwise, so check what comes from outside first). Each seat its own team; seat 0 a person, the rest
-    /// the scripted opponent (`set_teams`, `set_ai_seats` change that before play).
+    /// panics otherwise, so check what comes from outside first) on a two-seat map's 64x64. Each seat its own team;
+    /// seat 0 a person, the rest the scripted opponent (`set_teams`, `set_ai_seats` change that before play); `side`
+    /// turns the seats round the starts.
     pub fn with_seats(
         seed: u32,
         diff: usize,
         map_kind: MapKind,
-        swap: bool,
+        side: u32,
         factions: &[&'static Faction],
     ) -> World {
-        World::with_size(seed, diff, map_kind, MapSize::DUEL, swap, factions)
+        World::with_size(seed, diff, map_kind, MapSize::DUEL, side, factions)
     }
 
-    /// `with_seats` on a map of `size` tiles (with_seats: a two-seat map's 64x64).
+    /// `with_seats` on a map of `size` tiles, generated with the starts the seats need (`map::starts_for`: up to 4 on
+    /// 96x96, 8 on 128x128).
     pub fn with_size(
         seed: u32,
         diff: usize,
         map_kind: MapKind,
         map_size: MapSize,
-        swap: bool,
+        side: u32,
         factions: &[&'static Faction],
     ) -> World {
         let n = factions.len();
@@ -172,7 +175,7 @@ impl World {
             diff,
             map_kind,
             map_size,
-            sides_swapped: swap,
+            side,
             factions: factions.to_vec(),
             teams: (0..n as u8).collect(),
             out: Vec::new(),
@@ -236,17 +239,27 @@ impl World {
         self.hold_waves = false;
         self.alerts.clear();
         self.events.clear();
-        self.map = Map::generate(seed, self.map_kind, self.map_size, &mut self.next_id);
+        let starts = crate::map::starts_for(self.map_size, self.seats());
+        self.map = Map::generate(
+            seed,
+            self.map_kind,
+            self.map_size,
+            starts,
+            &mut self.next_id,
+        );
         self.size_grids();
-        if self.sides_swapped {
-            self.map.bases.swap(0, 1);
-        }
         assert!(
-            self.seats() <= self.map.bases.len(),
+            self.seats() <= starts,
             "{} seats on a map with {} starts",
             self.seats(),
-            self.map.bases.len()
+            starts
         );
+        // The seats onto the starts, then the starts nobody took.
+        let ring = std::mem::take(&mut self.map.bases);
+        self.map.bases = crate::map::seat_starts(starts, self.seats(), self.side)
+            .into_iter()
+            .map(|i| ring[i])
+            .collect();
         for team in 0..self.seats() as u8 {
             self.deal_start(team);
         }

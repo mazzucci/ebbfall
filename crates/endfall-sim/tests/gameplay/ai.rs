@@ -1311,3 +1311,38 @@ fn the_vael_ai_keeps_no_spare_worker() {
         assert!(most <= 0, "diff {diff}: {most} over its target");
     }
 }
+
+#[test]
+fn on_a_barren_map_the_ai_takes_its_natural_before_its_home_field_runs_dry() {
+    // Barren fields hold 40% of the shards: the home field runs dry by about 6:00, before Medium's time to expand,
+    // and after that it could never pay for a Core. Medium and up now expand once the field by the main runs low;
+    // Easy keeps to its schedule (the gentle level).
+    for diff in 0..DIFF.len() {
+        let mut w = World::with_setup(17, diff, MapKind::Barren, false, [&HUMANS, &HUMANS]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            b.hp = 1e9;
+            b.maxhp = 1e9;
+        }
+        let hq = w.factions[ENEMY as usize].hq;
+        let mut first = None;
+        while w.time < 540.0 {
+            w.step();
+            w.events.clear();
+            if first.is_none()
+                && w.bldgs
+                    .iter()
+                    .filter(|b| b.team == ENEMY && b.kind == hq)
+                    .count()
+                    >= 2
+            {
+                first = Some(w.time);
+            }
+        }
+        if diff == 0 {
+            assert_eq!(first, None, "Easy: no natural before 9:00");
+        } else {
+            let at = first.unwrap_or(f64::MAX);
+            assert!(at < 330.0, "diff {diff}: its natural by 5:30 ({at:.0} s)");
+        }
+    }
+}

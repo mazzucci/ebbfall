@@ -13,6 +13,7 @@ impl World {
             enemy_air,
             lancers,
             expand,
+            dry,
             ..
         } = brain.clone();
         // Research: its techs (abilities, a faster flyer) as soon as their building stands, on levels whose units use
@@ -79,7 +80,7 @@ impl World {
         let ai = self.ai_mut();
         if saving && !threatened && t >= ai.no_save_until {
             let since = *ai.saving_since.get_or_insert(t);
-            if t - since > SAVE_MAX {
+            if t - since > SAVE_MAX && !(expand && dry) {
                 ai.saving_since = None;
                 ai.no_save_until = t + 30.0; // spend for a while before saving again
                 saving = false;

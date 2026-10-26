@@ -273,6 +273,8 @@ pub(crate) struct Brain {
     cores: Vec<Id>,
     want: Option<BldgKind>,
     expand: bool,
+    /// The fields by its main are running dry: the expansion is due now, and saving for it does not give up.
+    dry: bool,
     intruder: Option<Id>,
     enemy_air: usize,
     lancers: usize,

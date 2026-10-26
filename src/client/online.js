@@ -9,7 +9,8 @@ import { sfx } from './audio.js';
 import { MAPS, mapName } from './menu.js';
 
 const params = new URLSearchParams(location.search);
-const local = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
+// (this machine, a LAN, or a Tailscale network)
+const local = /^(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+|[\w-]+(\.[\w-]+)*\.ts\.net)$/.test(location.hostname);
 /** Where the relay is, or null (no online play from this page). `?relay=` only on a dev machine or a LAN (a link
  *  must not send players on the real site to someone else's relay). */
 export const relayUrl = () => ((local || import.meta.env?.DEV) && params.get('relay')) || import.meta.env?.VITE_RELAY_URL || (local ? `ws://${location.hostname}:8788/` : null);
@@ -64,7 +65,10 @@ function connect(room) {
         if (online.playing) { fatal(String(m.msg || 'The connection was lost')); return; }
         status(String(m.msg || '')); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true;
       },
-      status: (s) => { if (online.playing) { reconnecting = s === 'reconnecting'; waitLine(); } },
+      status: (s) => {
+        if (s === 'online') waitingFor.clear(); // (seated again: the relay tells who is still away next)
+        if (online.playing) { reconnecting = s === 'reconnecting'; waitLine(); }
+      },
     },
   });
 }
@@ -109,4 +113,4 @@ export function onlineMap(setup, kinds) {
 }
 
 /** Leave the online game (or the lobby) for good. */
-export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false }); }
+export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [] }); }

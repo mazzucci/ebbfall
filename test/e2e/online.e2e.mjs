@@ -53,8 +53,21 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       assert.ok(common.length > 60, `both ran the same stretch (${common.length} ticks in common)`);
       for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
       assert.notDeepEqual(await at(b), before, "Ann's order ran in the friend's game too");
-      // Ann leaves: a concede; the friend wins.
+      // The friend stalls (no acks): Ann's screen says who it waits for. Ann drops offline meanwhile, the friend comes
+      // back unseen, Ann reconnects: the line must not stay up.
+      await b.p.evaluate(() => { endfall.online.net.ackIfDue = () => {}; });
+      await a.p.waitForFunction(() => /Waiting for/.test(document.getElementById('netWait').textContent) && !document.getElementById('netWait').hidden, null, { timeout: 10000 });
+      await a.p.evaluate(() => { const n = endfall.online.net; n._open = n.open; n.open = () => {}; n.ws.close(); });
+      await a.p.waitForTimeout(500);
+      await b.p.evaluate(() => { delete endfall.online.net.ackIfDue; });
+      await b.p.waitForTimeout(1500);
+      await a.p.evaluate(() => { const n = endfall.online.net; n.open = n._open; n.open(); });
+      await a.p.waitForFunction(() => document.getElementById('netWait').hidden, null, { timeout: 8000 });
+      // Ann leaves: a concede; the friend wins. Ann is told nothing about her own leaving.
       await a.p.evaluate(() => { document.getElementById('btnPause').click(); });
+      const toasts = new Set();
+      await a.p.exposeFunction('sawToast', (t) => toasts.add(t));
+      await a.p.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
       await a.tap('#btnQuit');
       await b.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
       const card = await b.p.evaluate(() => [document.getElementById('result').textContent, document.getElementById('btnWatch').hidden, document.getElementById('btnRematch').hidden]);
@@ -68,6 +81,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       await b.p.waitForTimeout(2500);
       assert.ok(await b.p.evaluate(() => !!endfall.online.net && !endfall.online.net.closed), 'the new room is still open');
       assert.ok(await a.p.locator('#start').isVisible(), 'Ann is back on the menu');
+      assert.deepEqual([...toasts].filter(t => /left/.test(t)), [], 'no news of her own leaving');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }

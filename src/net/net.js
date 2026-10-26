@@ -33,7 +33,7 @@ export class Net {
     this.seat = -1; this.setup = null; this.turns = new Map(); this.acked = -1; this.checks = new Map();
     this.trail = new Map(); // tick -> state hash, the last TRAIL ticks (a desync's first diverging tick is in it)
     this.retries = 0; this.closed = false; this.ws = null; this.pingId = 0; this.pongTimer = null; this.retryTimer = null;
-    this.ackedAt = 0; this.queue = []; this.leaving = false; // (orders and a leave wait here while the socket is down)
+    this.ackedAt = 0; this.next = 0; this.queue = []; this.leaving = false; // (orders and a leave wait here while the socket is down)
     this.open();
   }
 
@@ -47,7 +47,7 @@ export class Net {
     ws.onopen = () => {
       if (this.ws !== ws) return;
       this.acked = -1; // (back: ack at once, the relay waits for it)
-      this.say({ proto: PROTO, name: this.name, token: this.token, next: this.setup ? this.game()?.nextTurn() ?? 0 : undefined });
+      this.say({ proto: PROTO, name: this.name, token: this.token, next: this.setup ? this.game()?.nextTurn() ?? this.next : undefined });
     };
     ws.onmessage = (e) => { if (this.ws !== ws) return; let m; try { m = JSON.parse(e.data); } catch { return; } if (m && typeof m === 'object') this.message(m); };
     ws.onclose = () => { if (this.ws === ws) this.dropped(); };
@@ -55,7 +55,7 @@ export class Net {
   }
   say(m) { if (this.ws?.readyState === 1) { this.ws.send(JSON.stringify(m)); return true; } return false; }
   /** Say it now, or as soon as the socket is back and seated (orders, a leave: they must not be lost). */
-  sayOrKeep(m) { if (this.seat < 0 || this.queue.length || !this.say(m)) this.queue.push(m); }
+  sayOrKeep(m) { if (this.closed) return; if (this.seat < 0 || this.queue.length || !this.say(m)) this.queue.push(m); }
   dropped() {
     this.ws = null; this.seat = this.setup ? this.seat : -1; clearTimeout(this.pongTimer);
     if (this.closed) return;
@@ -78,8 +78,10 @@ export class Net {
   /** Give the game up (the relay concedes for this seat at once) and leave: once it is said, or after a few seconds. */
   leave() {
     if (this.closed) return;
-    this.leaving = true; this.sayOrKeep({ t: 'leave' });
-    setTimeout(() => this.close(), this.queue.length ? 5000 : 300);
+    this.leaving = true; this.on = {}; // (whoever made it has moved on: nothing more is told)
+    this.sayOrKeep({ t: 'leave' });
+    if (!this.ws) this.open(); // (offline: try now, not after the backoff)
+    setTimeout(() => this.close(), this.queue.length ? 15000 : 300);
   }
   /** Leave for good. */
   close() {
@@ -123,6 +125,7 @@ export class Net {
   pump() {
     const g = this.game();
     if (!g || !this.setup) return 0;
+    this.next = g.nextTurn(); // (for a hello once the game is gone: a leaving Net needs no replay)
     const out = g.takeOrders();
     if (out.length) this.sayOrKeep({ t: 'orders', w: Array.from(out) });
     for (let n = g.nextTurn(); this.turns.has(n); n++) {

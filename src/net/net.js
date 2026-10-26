@@ -103,6 +103,9 @@ export class Net {
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
+  /** Stop the clock for everyone (a few times a game), or end a pause (anyone may). */
+  pause() { this.say({ t: 'pause' }); }
+  resume() { this.say({ t: 'resume' }); }
   /** After a game: want another in this room (or not any more). */
   rematch(want) { this.sayOrKeep({ t: 'rematch', want }); }
   /** This side's game has ended (the relay stops the clock once every side's has; acks then count the turns in). */
@@ -129,6 +132,8 @@ export class Net {
       case 'desync': this.on.desync?.(m.turn); break;
       case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;
       case 'notice': this.on.notice?.(m); break;
+      case 'pause': if (Number.isInteger(m.seat) && Array.isArray(m.left)) this.on.pause?.(m); break;
+      case 'resume': this.on.resume?.(m.seat); break;
       case 'pong': if (m.id === this.pingId) clearTimeout(this.pongTimer); break;
     }
   }

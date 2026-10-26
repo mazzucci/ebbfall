@@ -7,11 +7,12 @@
 //
 // The protocol (client -> relay): hello {proto, name, build?, token?, next?} (build: the client's sim build, which
 // every seat holding a place must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race}, map {map}, ready {ready}, loaded {} (the game is set up: the clock may start), orders
-// {w: numbers}, leave {} (gives the game up now), over {} (its game has ended), rematch {want} (after a game: another,
+// {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (any
+// seat ends a pause), leave {} (gives the game up now), over {} (its game has ended), rematch {want} (after a game: another,
 // in this room), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby, start {setup, delay, from},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
-// {code, msg}, rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
+// {code, msg}, pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
 
 export const PROTO = 2; // (2: hello carries the sim build) // the protocol's version: a client of another version is told to update
 export const TURN_MS = 100;
@@ -25,7 +26,9 @@ const CATCH_UP = 5; // turns the clock closes at once after a stall at most (it 
 const MAX_ORDER_WORDS = 4096; // numbers a seat may send in one turn
 const MAX_ORDER_MSGS = 10; // orders messages a seat may send in one turn
 const MAX_NAME = 16;
-const OVER_GRACE_MS = 30000; // once a game is over, a seat whose connection is gone this long has left the room
+const OVER_GRACE_MS = 30000;
+export const PAUSES = 3; // pauses a seat may call in a game
+export const PAUSE_MS = 60000; // a pause's length at most (anyone may end it sooner) // once a game is over, a seat whose connection is gone this long has left the room
 
 /** A room of `seats` players. `send(conn, msg)` delivers a message to one connection; `kick(conn)` closes one. */
 export class Room {
@@ -35,6 +38,7 @@ export class Room {
     this.phase = 'lobby'; // lobby, game, over
     this.map = 0; this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
     this.running = false; // (the clock: once every seat has loaded)
+    this.hold = null; // a pause a seat called: { seat, until }
   }
 
   /** A connection says hello. Returns its seat, or -1 (it was told why). */
@@ -74,6 +78,7 @@ export class Room {
       this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, { t: 'away', seat: i }); });
       // (it is back once its acks show it has caught up)
       s.goneSince = 0;
+      if (this.hold) this.send(conn, this.pauseMsg()); // (a pause on: it is told)
       if (this.seats.some(x => x.rematch)) this.rematchState(); // (who wants a rematch; perhaps everyone, now it is back)
     }
     return seat;
@@ -101,6 +106,8 @@ export class Room {
       return;
     }
     if (this.phase !== 'game' || s.left) return; // (a seat that left is not heard)
+    if (msg.t === 'pause') { if (!this.hold && this.running && s.pauses < PAUSES) { s.pauses++; this.hold = { seat, until: this.now + PAUSE_MS }; this.each(this.pauseMsg()); } return; }
+    if (msg.t === 'resume') { if (this.hold) this.unhold(seat); return; }
     if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; return; }
     if (msg.t === 'orders') {
       if (!Array.isArray(msg.w) || !msg.w.every(Number.isFinite)) return;
@@ -143,7 +150,8 @@ export class Room {
       if (!s.awaySince && (!s.conn || now - s.lastAck > AWAY_AFTER_MS)) this.away(i);
       if (s.awaySince && s.away + (now - s.awaySince) > AWAY_BUDGET_MS) this.leave(i);
     });
-    this.paused = this.seats.some(s => s.awaySince && !s.left);
+    if (this.hold && now >= this.hold.until) this.unhold(-1); // (time's up)
+    this.paused = !!this.hold || this.seats.some(s => s.awaySince && !s.left);
     if (this.paused) { this.next = now + TURN_MS; return; }
     if (now - this.next > CATCH_UP * TURN_MS) this.next = now - CATCH_UP * TURN_MS; // (a stall: a few turns, not a burst)
     while (now >= this.next && this.phase === 'game') { this.closeTurn(); this.next += TURN_MS; }
@@ -152,7 +160,7 @@ export class Room {
   // ---- inside ----
   empty() {
     // away: ms of its budget used up; awaySince: when it went away (0: here)
-    return { conn: null, token: null, build: '', rematch: false, over: false, goneSince: 0, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
+    return { conn: null, token: null, build: '', rematch: false, over: false, goneSince: 0, pauses: 0, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
   }
   rand() { let t = (this.rng += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return (t ^ (t >>> 14)) >>> 0; } // (Mulberry32: the setup's seed and side)
   each(msg) { for (const s of this.seats) if (s.conn) this.send(s.conn, msg); }
@@ -164,13 +172,16 @@ export class Room {
     for (let n = 0; n < DELAY; n++) this.bundle(n, []); // (the first turns can have no orders)
     this.turn = 0;
   }
+  /** A pause: who called it, how long it has left, and every seat's pauses left. */
+  pauseMsg() { return { t: 'pause', seat: this.hold.seat, ms: Math.max(0, this.hold.until - this.now), left: this.seats.map(s => PAUSES - s.pauses) }; }
+  unhold(by) { this.hold = null; this.each({ t: 'resume', seat: by }); }
   /** Who wants another game, told to all; once every seat does (all still here: a seat that left ends it), the room
    *  is a lobby again: the same seats, races and map, nobody ready. */
   rematchState() {
     this.each({ t: 'rematch', seats: this.seats.map(s => !!s.rematch) });
     if (!this.seats.every(s => s.conn && !s.left && s.rematch)) return;
-    Object.assign(this, { phase: 'lobby', turn: 0, log: [], inbox: [], next: 0, paused: false, running: false, setup: null });
-    for (const s of this.seats) Object.assign(s, { ready: false, loaded: false, acked: -1, lastAck: this.now, hashes: new Map(), away: 0, awaySince: 0, rematch: false, over: false, goneSince: 0, turnMsgs: 0, turnWords: 0 });
+    Object.assign(this, { phase: 'lobby', turn: 0, log: [], inbox: [], next: 0, paused: false, running: false, setup: null, hold: null });
+    for (const s of this.seats) Object.assign(s, { ready: false, loaded: false, acked: -1, lastAck: this.now, hashes: new Map(), away: 0, awaySince: 0, rematch: false, over: false, goneSince: 0, pauses: 0, turnMsgs: 0, turnWords: 0 });
     this.lobby();
   }
   closeTurn() {
@@ -186,6 +197,7 @@ export class Room {
     const s = this.seats[seat]; if (s.left) return; s.left = true; s.awaySince = 0;
     this.inbox.push([seat, [18]]); // (Concede, as an order in the log: replays and rejoins see it)
     this.each({ t: 'left', seat });
+    if (this.hold?.seat === seat) this.unhold(seat); // (its pause goes with it)
   }
   compare(turn) {
     const here = this.seats.filter(s => !s.left);

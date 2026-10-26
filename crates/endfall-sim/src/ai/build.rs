@@ -191,17 +191,31 @@ impl World {
         self.ai_mut().sites = sites;
     }
 
-    /// A spot for a second Core: by a shard field away from both bases, nearest to our main core.
+    /// A spot for a second Core: by a shard field away from our main and every other seat's start, nearest to our
+    /// main core. On a map of more than two starts, also nearer our start than any other seat's (the field and the
+    /// spot): a neighbour's natural may lie nearer than our own (a start nobody took is free ground).
     pub(crate) fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
-        let (px, py) = self.foe_base();
+        let me = self.seat() as usize;
+        let start = |s: usize| {
+            let (x, y) = self.map.bases[s];
+            (x as f64 + 2.0, y as f64 + 2.0)
+        };
+        let theirs: Vec<(f64, f64)> = (0..self.seats()).filter(|&s| s != me).map(start).collect();
+        // (two starts: anywhere 22 tiles from the foe's, as always)
+        let ours = |x: f64, y: f64| {
+            let from = |(px, py): (f64, f64)| jsmath::hypot(x - px, y - py);
+            self.map.bases.len() <= 2 || theirs.iter().all(|&p| from(p) > from(start(me)))
+        };
         let mut fields: Vec<(f64, i32, i32)> = self
             .map
             .nodes
             .iter()
             .filter(|n| !n.ether && n.amount > 300)
             .filter(|n| {
-                jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy) > 12.0
-                    && jsmath::hypot(n.tx as f64 - px, n.ty as f64 - py) > 22.0
+                let from = |(x, y): (f64, f64)| jsmath::hypot(n.tx as f64 - x, n.ty as f64 - y);
+                from((cx, cy)) > 12.0
+                    && theirs.iter().all(|&p| from(p) > 22.0)
+                    && ours(n.tx as f64, n.ty as f64)
             })
             .map(|n| {
                 (
@@ -223,6 +237,7 @@ impl World {
                     let tx = jsmath::round(nx as f64 + jsmath::cos(a) * r as f64 - 2.0) as i32;
                     let ty = jsmath::round(ny as f64 + jsmath::sin(a) * r as f64 - 2.0) as i32;
                     if self.can_place(self.factions[self.seat() as usize].hq, tx, ty, self.seat())
+                        && ours(tx as f64 + 2.0, ty as f64 + 2.0)
                         && self.walkway_around(tx, ty, 4, 4)
                         && self.map.nodes.iter().all(|n| {
                             jsmath::hypot(
@@ -521,7 +536,51 @@ impl World {
 #[cfg(test)]
 mod tests {
     use crate::data::*;
+    use crate::map::{MapKind, MapSize};
     use crate::world::World;
+
+    #[test]
+    fn on_a_map_of_many_starts_each_ai_expands_on_its_own_side() {
+        // Eight starts round a 128x128 map, neighbours 44 tiles apart: a neighbour's natural can lie nearer than our
+        // own, and no start's 22 tiles keep the AI off it. Each seat's spot is nearer its own start than any other.
+        for seed in 0..12 {
+            for (n, seats) in [(128, 8), (128, 6), (96, 4)] {
+                let kind = MapKind::ALL[seed as usize % MapKind::ALL.len()];
+                let mut w = World::with_size(
+                    seed,
+                    1,
+                    kind,
+                    MapSize::square(n),
+                    seed,
+                    &vec![&HUMANS; seats],
+                );
+                w.set_ai_seats(vec![true; seats]);
+                let starts: Vec<(f64, f64)> = w.map.bases[..seats]
+                    .iter()
+                    .map(|b| (b.0 as f64 + 2.0, b.1 as f64 + 2.0))
+                    .collect();
+                for s in 0..seats {
+                    w.ai_turn = s as u8;
+                    let (cx, cy) = starts[s];
+                    let (tx, ty) = w.expansion_spot(cx, cy).unwrap_or_else(|| {
+                        panic!("{n}x{n} {seats} seats seed {seed} seat {s}: a spot")
+                    });
+                    let d = |p: (f64, f64)| {
+                        ((tx as f64 + 2.0 - p.0).powi(2) + (ty as f64 + 2.0 - p.1).powi(2)).sqrt()
+                    };
+                    let theirs = (0..seats)
+                        .filter(|&o| o != s)
+                        .map(|o| d(starts[o]))
+                        .fold(f64::MAX, f64::min);
+                    assert!(
+                        d(starts[s]) < theirs,
+                        "{n}x{n} {seats} seats seed {seed} seat {s}: ({tx}, {ty}) is {:.1} from home, {theirs:.1} from another start",
+                        d(starts[s])
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn shards_piling_up_with_every_factory_busy_call_for_one_more() {

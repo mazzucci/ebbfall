@@ -205,16 +205,23 @@ pub fn check_invariants(w: &World, ctx: &str) {
         );
     }
     if !w.over {
+        // Every seat still in has a building, or (a person's) a worker to build again; and two teams are still in.
+        for t in (0..w.seats() as u8).filter(|&t| !w.out[t as usize]) {
+            assert!(
+                w.bldgs.iter().any(|b| b.team == t)
+                    || (!w.is_ai(t) && w.units.iter().any(|u| u.team == t && u.kind.def().worker)),
+                "{ctx}: seat {t} is eliminated but not out"
+            );
+        }
+        let mut teams_in: Vec<u8> = (0..w.seats())
+            .filter(|&s| !w.out[s])
+            .map(|s| w.teams[s])
+            .collect();
+        teams_in.sort();
+        teams_in.dedup();
         assert!(
-            w.bldgs.iter().any(|b| b.team == ENEMY),
-            "{ctx}: enemy has no buildings but the game is not over"
-        );
-        assert!(
-            w.bldgs.iter().any(|b| b.team == PLAYER)
-                || w.units
-                    .iter()
-                    .any(|u| u.team == PLAYER && u.kind.def().worker),
-            "{ctx}: player is eliminated but the game is not over"
+            teams_in.len() >= 2,
+            "{ctx}: one team left but the game is not over"
         );
     }
     for n in &w.map.nodes {

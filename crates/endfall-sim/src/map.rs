@@ -23,8 +23,33 @@ pub struct Node {
     pub field: u32,
 }
 
-/// Starting bases a generated map has: 2 for now (M4: larger maps for more seats, the generator placing N).
-pub const STARTS: usize = 2;
+/// The most starts a generated map of `size` has: 2 on a duel's 64x64 (or any map that is not square), 4 on 96x96 (the
+/// quarter turns of one start), 8 on 128x128 (the quarter turns and their mirror images).
+pub fn max_starts(size: MapSize) -> usize {
+    match size.w.min(size.h) {
+        _ if size.w != size.h => 2,
+        n if n >= 128 => 8,
+        n if n >= 96 => 4,
+        _ => 2,
+    }
+}
+
+/// The starts a map for `seats` seats is generated with: the fewest of 2, 4 and 8 that seat them all (3 seats play on
+/// a four-start map, 5 to 7 on an eight-start one), at most the size's `max_starts` (a World refuses the rest).
+pub fn starts_for(size: MapSize, seats: usize) -> usize {
+    let k = [2, 4, 8].into_iter().find(|&k| k >= seats).unwrap_or(8);
+    k.min(max_starts(size))
+}
+
+/// Which of a map's `k` starts (in ring order) each of `n` seats takes, then the starts nobody takes: the seats spread
+/// evenly round the ring (seat `s` at `s * k / n`: 3 of 4 leave one corner free, 6 of 8 two opposite starts), the
+/// whole turned by `side` (two seats on two starts: 1 trades them).
+pub fn seat_starts(k: usize, n: usize, side: u32) -> Vec<usize> {
+    let turn = side as usize % k;
+    let mut order: Vec<usize> = (0..n).map(|s| (turn + s * k / n) % k).collect();
+    order.extend((0..k).filter(|i| !order.contains(i)).collect::<Vec<_>>());
+    order
+}
 
 /// A map's size in tiles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,8 +78,9 @@ pub struct Map {
     pub shade: Vec<f32>,
     /// Shard fields (1 tile) and ether vents (2x2), sorted by id.
     pub nodes: Vec<Node>,
-    /// Top-left tiles of the starting Command Cores (4x4), one per seat in seat order (a generated map has
-    /// `STARTS`; a World refuses more seats than its map has bases).
+    /// Top-left tiles of the starting Command Cores (4x4). A generated map lists its starts in ring order (each the
+    /// next one's neighbour round the map); a World puts them in seat order (`seat_starts`), the starts nobody took
+    /// after the seats' (a World refuses more seats than its map has bases).
     pub bases: Vec<(i32, i32)>,
 }
 
@@ -133,6 +159,60 @@ impl Noise {
     }
 }
 
+/// The symmetry a generated map is drawn with: its `k` starts are one start's images under these maps of the grid (2:
+/// the point mirror through the centre; 4: the quarter turns of a square; 8: the quarter turns and their mirror
+/// images), and so is everything else (ground, pockets, fields, vents): every start gets the same.
+#[derive(Clone, Copy)]
+struct Sym {
+    k: usize,
+    w: i32,
+    h: i32,
+}
+
+impl Sym {
+    /// Element `g` in ring order (0 the identity; each start the next one's neighbour round the map) as quarter turns
+    /// after an optional mirror (top to bottom). With 8: R^j, then R^(j+1) after the mirror.
+    fn elem(&self, g: usize) -> (usize, bool) {
+        match self.k {
+            2 => (2 * g, false),
+            4 => (g, false),
+            _ => ((g / 2 + g % 2) % 4, g % 2 == 1),
+        }
+    }
+    /// Element `g` on a point in tile units (a quarter turn: (x, y) to (w-1-y, x); half a turn: the point mirror).
+    fn point(&self, g: usize, (x, y): (f64, f64)) -> (f64, f64) {
+        let (r, flip) = self.elem(g);
+        let (w1, h1) = ((self.w - 1) as f64, (self.h - 1) as f64);
+        let y = if flip { h1 - y } else { y };
+        match r {
+            0 => (x, y),
+            1 => (w1 - y, x),
+            2 => (w1 - x, h1 - y),
+            _ => (y, h1 - x),
+        }
+    }
+    fn tile(&self, g: usize, (x, y): (i32, i32)) -> (i32, i32) {
+        let (r, flip) = self.elem(g);
+        let y = if flip { self.h - 1 - y } else { y };
+        match r {
+            0 => (x, y),
+            1 => (self.w - 1 - y, x),
+            2 => (self.w - 1 - x, self.h - 1 - y),
+            _ => (y, self.h - 1 - x),
+        }
+    }
+    /// Element `g` on a block of `s` x `s` tiles, by its top-left tile.
+    fn block(&self, g: usize, (x, y): (i32, i32), s: i32) -> (i32, i32) {
+        let (a, b) = (self.tile(g, (x, y)), self.tile(g, (x + s - 1, y + s - 1)));
+        (a.0.min(b.0), a.1.min(b.1))
+    }
+    /// Element `g` on a direction (radians; not normalised: half a turn adds PI).
+    fn angle(&self, g: usize, a: f64) -> f64 {
+        let (r, flip) = self.elem(g);
+        (if flip { -a } else { a }) + r as f64 * (PI / 2.0)
+    }
+}
+
 /// A main base's pocket: the ring of rock around it starts this many tiles from the Core's centre (2 thick).
 const POCKET_R: f64 = 12.0;
 /// The pocket's one ramp, in tiles across.
@@ -205,61 +285,86 @@ impl Map {
             .map(move |i| &mut self.nodes[i])
     }
 
-    /// Generate terrain and resources for `seed` in the character of `kind`, `size` tiles; `next_id` is the shared
-    /// entity id counter. Maps are point-symmetric about the centre (both sides get the same ground, fields and
-    /// vents), and the seed picks the layout: where the two bases face each other, the size of the rock features,
-    /// where the expansions lie and whether the centre holds a field. A larger map keeps the bases' distance from
-    /// their edges, the size of rock features, fields and pockets, and gets more expansions, farther out (on 64x64
-    /// every formula below gives the numbers it always had, draw for draw: the goldens pin them).
-    pub fn generate(seed: u32, kind: MapKind, size: MapSize, next_id: &mut Id) -> Self {
+    /// Generate terrain and resources for `seed` in the character of `kind`, `size` tiles, with `starts` starting
+    /// bases (2, 4 or 8, at most `max_starts`); `next_id` is the shared entity id counter. A map is one start's share
+    /// and its images (`Sym`: two starts point-symmetric about the centre, four the quarter turns of a square, eight
+    /// those and their mirror images), so every start gets the same ground, fields and vents; the seed picks the
+    /// layout: where the bases stand (two: opposite corners or sides; four: the corners or the middles of the sides;
+    /// eight: two by each side, as far from each other as from their neighbours round the corner), the size of the
+    /// rock features, where the expansions lie and whether the centre holds a field. A larger map keeps the bases'
+    /// distance from their edges, the size of rock features, fields and pockets, and gets more expansions, farther
+    /// out (on 64x64 every formula below gives the numbers it always had, draw for draw: the goldens pin them).
+    pub fn generate(
+        seed: u32,
+        kind: MapKind,
+        size: MapSize,
+        starts: usize,
+        next_id: &mut Id,
+    ) -> Self {
         debug_assert!(
             size.w % 2 == 0 && size.h % 2 == 0,
             "an even size: the centre vent is its own mirror"
         );
+        assert!(
+            [2, 4, 8].contains(&starts) && starts <= max_starts(size),
+            "{starts} starts on {}x{}",
+            size.w,
+            size.h
+        );
         let (mw, mh) = (size.w, size.h);
+        let sym = Sym {
+            k: starts,
+            w: mw,
+            h: mh,
+        };
+        let k = starts;
         let mut m = Map::empty(size);
         let mut rnd = Mulberry32::new(seed);
         let noise = Noise::new(&mut rnd);
         let mut f = || rnd.next_u32() as f64 / 4_294_967_296.0;
-        // The mirror of a tile through the centre of the map.
-        let mir = |(x, y): (i32, i32)| (mw - 1 - x, mh - 1 - y);
-        let mirf = |(x, y): (f64, f64)| ((mw - 1) as f64 - x, (mh - 1) as f64 - y);
-        // Where the bases face each other: opposite corners (either diagonal) or opposite sides; who starts where.
+        // Where the bases stand (two: they face each other, opposite corners, either diagonal, or opposite sides;
+        // four: the corners or the middles of the sides), the first base's, and who starts where.
         let layouts = [
             (8, mh - 12),
             (8, 8),
             (9, (mh - 4) / 2),
             ((mw - 4) / 2, mh - 13),
         ];
-        let b0 = layouts[(f() * 4.0) as usize % 4];
-        let b1 = (mw - 4 - b0.0, mh - 4 - b0.1); // the core is 4x4: mirror its far corner
-        m.bases = if f() < 0.5 {
-            vec![b0, b1]
+        let pick = (f() * 4.0) as usize % 4;
+        // (eight: on the left side, as far from its mirror image below as from its neighbour round the corner)
+        let b0 = if k == 8 {
+            (9, mh * 5 / 16)
         } else {
-            vec![b1, b0]
+            layouts[pick]
         };
+        let orbit: Vec<(i32, i32)> = (0..k).map(|g| sym.block(g, b0, 4)).collect(); // (the core is 4x4)
+        let turn = (f() * k as f64) as usize % k;
+        m.bases = (0..k).map(|i| orbit[(turn + i) % k]).collect();
         let centre = ((mw - 1) as f64 / 2.0, (mh - 1) as f64 / 2.0);
         let core_c = |b: (i32, i32)| (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
-        let (c0, c1) = (core_c(b0), core_c(b1));
+        let c0 = core_c(b0);
+        let cores: Vec<(f64, f64)> = (0..k).map(|g| sym.point(g, c0)).collect();
         let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
-        // Expansions: two or three sites in the first base's half (one more per 32 tiles past 64, reaching 16 tiles
-        // farther), each mirrored for the other side.
-        let more = (mw.min(mh) - 64).max(0);
+        // Expansions: two or three sites in the first base's share (two starts: one more per 32 tiles past 64,
+        // reaching 16 tiles farther; four: past 96), each repeated for every other start.
+        let more = (mw.min(mh) - [64, 96, 128][k / 4]).max(0);
         let want = 2 + (f() < 0.4) as usize + (more / 32) as usize;
         let far = 32.0 + more as f64 / 2.0;
         let mut sites: Vec<(f64, f64)> = Vec::new();
-        for _ in 0..200 {
+        for _ in 0..200 * k / 2 {
             if sites.len() >= want {
                 break;
             }
             let p = (10.0 + f() * (mw - 20) as f64, 10.0 + f() * (mh - 20) as f64);
+            // (more than two starts: the first, the natural, within the duel's 32 tiles)
+            let far = if k > 2 && sites.is_empty() { 32.0 } else { far };
             let ok = (18.0..=far).contains(&d(p, c0)) // (an expansion, not part of the main base)
-                && d(p, c1) > d(p, c0) + 6.0
+                && cores[1..].iter().all(|&c| d(p, c) > d(p, c0) + 6.0)
                 && d(p, centre) > 7.0
-                && d(p, mirf(p)) > 12.0
+                && (1..k).all(|g| d(p, sym.point(g, p)) > 12.0)
                 && sites
                     .iter()
-                    .all(|&q| d(p, q) > 11.0 && d(mirf(p), q) > 11.0);
+                    .all(|&q| (0..k).all(|g| d(sym.point(g, p), q) > 11.0));
             if ok {
                 sites.push(p);
             }
@@ -272,12 +377,13 @@ impl Map {
         let ramp_dir = jsmath::atan2(natural.1 - c0.1, natural.0 - c0.0);
         let middle = f() < 0.55; // a contested field in the centre
         let scale = 6.0 + f() * 4.5; // rock feature size, in tiles
-        let mut open: Vec<(f64, f64, f64)> = vec![(c0.0, c0.1, 12.0), (c1.0, c1.1, 12.0)];
+        let mut open: Vec<(f64, f64, f64)> = cores.iter().map(|c| (c.0, c.1, 12.0)).collect();
         // An expansion's clearing: its field on the far side and room for a Core on the near side, beside the vent.
         for &p in &sites {
-            open.push((p.0, p.1, 7.5));
-            let q = mirf(p);
-            open.push((q.0, q.1, 7.5));
+            for g in 0..k {
+                let q = sym.point(g, p);
+                open.push((q.0, q.1, 7.5));
+            }
         }
         if middle {
             open.push((centre.0, centre.1, 6.5));
@@ -288,24 +394,47 @@ impl Map {
             c0.1 + jsmath::sin(ramp_dir) * (POCKET_R + 3.0),
         );
         if pocket {
-            open.push((ramp_out.0, ramp_out.1, 3.5));
-            let q = mirf(ramp_out);
-            open.push((q.0, q.1, 3.5));
+            for g in 0..k {
+                let q = sym.point(g, ramp_out);
+                open.push((q.0, q.1, 3.5));
+            }
         }
         // On a pocket's wall (a ring around a main) but not on its ramp, a gap of RAMP_W tiles facing its natural.
-        // Both mains are checked: the half of the map drawn from the noise may hold either (the other is mirrored),
-        // and the second main's ramp faces the opposite way.
+        // Every main is checked: the share of the map drawn from the noise may hold any (the rest are its images),
+        // and each main's ramp faces its own natural.
         let ring = |x: f64, y: f64, c: (f64, f64), dir: f64| -> bool {
             let r = jsmath::hypot(x - c.0, y - c.1);
             if !(POCKET_R..POCKET_R + 2.0).contains(&r) {
                 return false;
             }
             let a = jsmath::atan2(y - c.1, x - c.0);
-            let off = ((a - dir + 3.0 * PI) % (2.0 * PI)) - PI; // angle from the ramp, in -PI..PI
+            let off = (a - dir + 3.0 * PI).rem_euclid(2.0 * PI) - PI; // angle from the ramp, in -PI..PI
             off.abs() * r > RAMP_W / 2.0
         };
-        let wall =
-            |x: f64, y: f64| pocket && (ring(x, y, c0, ramp_dir) || ring(x, y, c1, ramp_dir + PI));
+        let ramps: Vec<((f64, f64), f64)> =
+            (0..k).map(|g| (cores[g], sym.angle(g, ramp_dir))).collect();
+        let wall = |x: f64, y: f64| pocket && ramps.iter().any(|&(c, dir)| ring(x, y, c, dir));
+        // Each tile's noise, and whether it is rock whatever the threshold (the border, a pocket's wall) or open
+        // whatever it is (a clearing), read where the share drawn from the noise holds it: one start's share of the
+        // map is drawn, the rest are its images (the tile of its orbit that comes first, row by row).
+        let tiles = (mw * mh) as usize;
+        let (mut nv, mut fixed, mut clear) =
+            (vec![0.0; tiles], vec![false; tiles], vec![false; tiles]);
+        for y in 0..mh {
+            for x in 0..mw {
+                let (sx, sy) = (0..k)
+                    .map(|g| sym.tile(g, (x, y)))
+                    .min_by_key(|&(x, y)| m.idx(x, y))
+                    .unwrap();
+                let i = m.idx(x, y);
+                nv[i] = noise.get(sx as f64 / scale, sy as f64 / scale);
+                fixed[i] =
+                    x == 0 || y == 0 || x == mw - 1 || y == mh - 1 || wall(sx as f64, sy as f64);
+                clear[i] = open
+                    .iter()
+                    .any(|e| jsmath::hypot(sx as f64 - e.0, sy as f64 - e.1) < e.2);
+            }
+        }
         // Rock where the noise is above the threshold: higher means more open ground. Raised until the bases can
         // walk to each other and every field can be reached (with the fields in place: a crystal may plug a gap).
         let mut thr = match kind {
@@ -315,40 +444,25 @@ impl Map {
         };
         let id0 = *next_id;
         for _ in 0..16 {
-            for y in 0..mh {
-                for x in 0..mw {
-                    // One half of the map is drawn from the noise, the other is its mirror image.
-                    let (sx, sy) = if m.idx(x, y) <= m.idx(mw - 1 - x, mh - 1 - y) {
-                        (x, y)
-                    } else {
-                        mir((x, y))
-                    };
-                    let n = noise.get(sx as f64 / scale, sy as f64 / scale);
-                    let i = m.idx(x, y);
-                    m.shade[i] = n as f32;
-                    let border = x == 0 || y == 0 || x == mw - 1 || y == mh - 1;
-                    let clear = open
-                        .iter()
-                        .any(|e| jsmath::hypot(sx as f64 - e.0, sy as f64 - e.1) < e.2);
-                    let walled = wall(sx as f64, sy as f64);
-                    m.rock[i] = if border || walled || (n > thr && !clear) {
-                        1
-                    } else {
-                        0
-                    };
-                }
+            for i in 0..tiles {
+                m.shade[i] = nv[i] as f32;
+                m.rock[i] = if fixed[i] || (nv[i] > thr && !clear[i]) {
+                    1
+                } else {
+                    0
+                };
             }
             m.nodes.clear();
             m.occ.fill(0);
             *next_id = id0;
-            m.place_fields(next_id, kind, c0, centre, &sites, middle);
+            m.place_fields(next_id, kind, sym, c0, centre, &sites, middle);
             let reach = m.walkable_from(b0);
             let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
             let fields_ok = m.nodes.iter().all(|n| {
                 let s = if n.ether { 2 } else { 1 };
                 (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
             });
-            if reached(b1.0, b1.1) && fields_ok {
+            if orbit[1..].iter().all(|b| reached(b.0, b.1)) && fields_ok {
                 break;
             }
             thr += 0.03;
@@ -365,22 +479,24 @@ impl Map {
         m
     }
 
-    /// The resource fields of a generated map, the second side the exact tile-for-tile mirror of the first: each
-    /// base's own field behind it (away from the centre) with a vent to one side, the expansions (nearest the main
-    /// first: the natural and every other one have a vent, all of them on an ether storm), and the centre field and
-    /// vent.
+    /// The resource fields of a generated map, each start's the exact tile-for-tile image of the first's: each base's
+    /// own field behind it (away from the centre) with a vent to one side, the expansions (nearest the main first:
+    /// the natural and every other one have a vent, all of them on an ether storm), and the centre field and vent.
     #[allow(clippy::too_many_arguments)]
     fn place_fields(
         &mut self,
         next_id: &mut Id,
         kind: MapKind,
+        sym: Sym,
         c0: (f64, f64),
         centre: (f64, f64),
         sites: &[(f64, f64)],
         middle: bool,
     ) {
         let (mw, mh) = (self.w, self.h);
-        let mir = |t: &(i32, i32)| (mw - 1 - t.0, mh - 1 - t.1);
+        let images = |tiles: &[(i32, i32)], g: usize| -> Vec<(i32, i32)> {
+            tiles.iter().map(|&t| sym.tile(g, t)).collect()
+        };
         let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
         let side = away + PI * 0.5;
         let v0 = (
@@ -389,23 +505,32 @@ impl Map {
         );
         let home = self.add_shards(next_id, c0.0, c0.1, away, 7, 6.5);
         self.add_vent(next_id, v0.0, v0.1);
-        self.add_shards_at(next_id, &home.iter().map(mir).collect::<Vec<_>>());
-        self.add_vent(next_id, mw - 2 - v0.0, mh - 2 - v0.1);
-        for (k, &p) in sites.iter().enumerate() {
+        for g in 1..sym.k {
+            self.add_shards_at(next_id, &images(&home, g));
+            let v = sym.block(g, v0, 2);
+            self.add_vent(next_id, v.0, v.1);
+        }
+        for (i, &p) in sites.iter().enumerate() {
             // The crystals lie on the far side of the site from the main, clear of the main's ramp.
             let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
             let field = self.add_shards(next_id, p.0, p.1, out, 5, 4.5);
-            self.add_shards_at(next_id, &field.iter().map(mir).collect::<Vec<_>>());
-            if k % 2 == 0 || kind == MapKind::EtherStorm {
+            for g in 1..sym.k {
+                self.add_shards_at(next_id, &images(&field, g));
+            }
+            if i % 2 == 0 || kind == MapKind::EtherStorm {
                 let v = (jsmath::round(p.0) as i32 - 1, jsmath::round(p.1) as i32 - 1);
-                self.add_vent(next_id, v.0, v.1);
-                self.add_vent(next_id, mw - 2 - v.0, mh - 2 - v.1);
+                for g in 0..sym.k {
+                    let v = sym.block(g, v, 2);
+                    self.add_vent(next_id, v.0, v.1);
+                }
             }
         }
         if middle {
             let left = self.add_shards(next_id, centre.0 - 3.0, centre.1, PI, 3, 2.5);
-            self.add_shards_at(next_id, &left.iter().map(mir).collect::<Vec<_>>());
-            self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the centre is its own mirror
+            for g in 1..sym.k {
+                self.add_shards_at(next_id, &images(&left, g)); // (where an image falls on the field, it is the field)
+            }
+            self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the centre is its own image
         }
     }
 

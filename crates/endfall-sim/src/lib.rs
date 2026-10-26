@@ -120,8 +120,8 @@ impl Game {
         ))
     }
 
-    /// `withSetup` on a map of `size` x `size` tiles, 64 to 128 (throws otherwise). For tests: the menus offer the
-    /// two-seat maps' 64x64 only (M4: the size will follow the number of starts).
+    /// `withSetup` on a map of `size` x `size` tiles, 64 to 128 (throws otherwise), with two starts. For tests: the
+    /// menus offer the two-seat maps' 64x64 only (more seats on larger maps: `withSeats`).
     #[wasm_bindgen(js_name = withSize)]
     #[allow(clippy::too_many_arguments)]
     pub fn with_size(
@@ -141,14 +141,16 @@ impl Game {
             diff as usize,
             map::MapKind::from_index(map),
             map::MapSize::square(size as i32),
-            side == 1,
+            side,
             &[faction(player), faction(ai)],
         )))
     }
 
     /// A game for any number of seats, seen from seat `me`: each seat's race (index into FACTIONS), team (empty: each
-    /// seat its own) and whether the scripted opponent plays it (1) or a person (0; empty: nobody's an AI). Throws for
-    /// a setup the sim cannot play (fewer than 2 seats, more than the map's starts, lists of other lengths, one team).
+    /// seat its own) and whether the scripted opponent plays it (1) or a person (0; empty: nobody's an AI), on a map
+    /// of `size` x `size` tiles (64, the default, has 2 starts; 96 has 4; 128 has 8); `side` turns the seats round the
+    /// starts. Throws for a setup the sim cannot play (fewer than 2 seats, more than the map's starts, another size,
+    /// lists of other lengths, one team).
     #[wasm_bindgen(js_name = withSeats)]
     #[allow(clippy::too_many_arguments)]
     pub fn with_seats(
@@ -160,20 +162,31 @@ impl Game {
         teams: &[u8],
         ai: &[u8],
         me: u8,
+        size: Option<u32>,
     ) -> Result<Game, String> {
         let n = factions.len();
-        if !(2..=map::STARTS.min(data::MAX_SEATS)).contains(&n) {
-            return Err(format!("{n} seats: the map has {} starts", map::STARTS));
+        let size = size.unwrap_or(64);
+        if ![64, 96, 128].contains(&size) {
+            return Err(format!("A {size}x{size} map: 64, 96 or 128 tiles across"));
+        }
+        let size = map::MapSize::square(size as i32);
+        let starts = map::max_starts(size).min(data::MAX_SEATS);
+        if !(2..=starts).contains(&n) {
+            return Err(format!(
+                "{n} seats: a {}x{} map has {starts} starts",
+                size.w, size.h
+            ));
         }
         if (me as usize) >= n || ![0, n].contains(&ai.len()) || ![0, n].contains(&teams.len()) {
             return Err("A seat list of the wrong length, or no such seat".into());
         }
         let f: Vec<_> = factions.iter().map(|&i| faction(i)).collect();
-        let mut w = World::with_seats(
+        let mut w = World::with_size(
             seed,
             diff as usize,
             map::MapKind::from_index(map),
-            side == 1,
+            size,
+            side,
             &f,
         );
         if !teams.is_empty() && !w.set_teams(teams) {
@@ -243,7 +256,7 @@ impl Game {
             old.diff,
             old.map_kind,
             old.map_size,
-            old.sides_swapped,
+            old.side,
             &old.factions,
         );
         w.set_teams(&old.teams);
@@ -715,7 +728,7 @@ pub fn data_json() -> String {
 pub fn map_preview(seed: u32, kind: u32) -> Vec<u8> {
     let mut next_id = 1;
     let size = map::MapSize::DUEL;
-    let m = map::Map::generate(seed, map::MapKind::from_index(kind), size, &mut next_id);
+    let m = map::Map::generate(seed, map::MapKind::from_index(kind), size, 2, &mut next_id);
     let mut g = m.rock.clone();
     let mut mark = |x: i32, y: i32, v: u8| {
         if m.in_map(x, y) {

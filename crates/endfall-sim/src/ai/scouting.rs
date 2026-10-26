@@ -17,11 +17,11 @@ impl World {
         self.ai_sees(u.x, u.y) && !self.cloaked_from(self.seat(), u)
     }
 
-    /// Remember player buildings when they come into view, forget them when their spot is seen empty, and note
-    /// player flyers.
+    /// Remember enemy buildings when they come into view, forget them when their spot is seen empty, and note
+    /// enemy flyers.
     pub(crate) fn update_knowledge(&mut self) {
         let t = self.time;
-        let seen: Vec<(Id, f64, f64, bool)> = self
+        let seen: Vec<(Id, f64, f64, bool, u8)> = self
             .bldgs
             .iter()
             .filter(|b| {
@@ -32,7 +32,7 @@ impl World {
                         })
                     })
             })
-            .map(|b| (b.id, b.x, b.y, b.kind.def().hq))
+            .map(|b| (b.id, b.x, b.y, b.kind.def().hq, b.team))
             .collect();
         let air_seen = self.units.iter().any(|u| {
             self.hostile(u.team) && u.kind.def().air && u.kind.def().armed() && self.ai_sees_unit(u)

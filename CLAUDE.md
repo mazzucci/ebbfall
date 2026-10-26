@@ -56,7 +56,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction),
                       upgrades.rs, diff.rs (AI tuning per difficulty), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
-  src/map.rs          the map's size (`MapSize`), terrain generation, nodes, occupancy grid, nearest_free
+  src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
+                      symmetric images: `max_starts`, `starts_for`, `seat_starts`), nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
                       starts, who is out, the last team standing), orders, spawn, economy, construction,
@@ -130,7 +131,8 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 
 ## Conventions
 
-- Seats and teams: a World has N seats (`World::seats()`, 2 for now: the maps have two starts; up to `MAX_SEATS`),
+- Seats and teams: a World has N seats (`World::seats()`, 2 to `MAX_SEATS`, at most the map's starts: 2 on 64x64, 4 on
+  96x96, 8 on 128x128, `map::max_starts`; seats sit round the map in order, `map::seat_starts`),
   and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
   an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
   decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one
@@ -138,13 +140,17 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   menu's defaults. Rules never single out a seat: fog, alerts, toasts, sounds and stats are per seat (vision is not
   shared with allies yet), events carry the seat they are for (`Game::drain_events` passes on its own seat's; `seen` is a bit per seat),
   the scripted opponent plays whichever seats `World::ai_seats` marks (one brain per seat, `World::seat()` inside its
-  turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in), and `is_ai(team)` is the
+  turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in, ties to its partner: seats
+  0 and 1, 2 and 3, ...), and `is_ai(team)` is the
   only difference a seat's player makes (AI income, building in
   unexplored ground, losing as soon as its buildings are gone; a person's new refinery gets one worker (its builder; for the Vael, whose planter has left, the nearest), the AI
   balances its own).
+- Two-seat habits the goldens pin stay on two-start maps only: seat 0 facing east and stepping out south (with
+  `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
+  wave called home to a raid by another) apply only with more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
-- The map's size is the map's (`Map::w`, `h`, in tiles; 64x64, `MapSize::DUEL`, for every map the menus offer; larger
-  ones for more seats come with M4): index grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
+- The map's size is the map's (`Map::w`, `h`, in tiles; 64x64, `MapSize::DUEL`, for every map the menus offer; 96x96
+  and 128x128 for more seats, M4, not in the menus yet): index grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
   client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
   are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.
 - Costs are `[shards, ether]`.
@@ -159,9 +165,10 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
-  games, and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  games (also four AIs free for all and two against two on 96x96, six and eight on 128x128), maps of 2, 4 and 8 starts
+  that are walkable and alike for every start, and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command

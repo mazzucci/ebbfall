@@ -1,4 +1,4 @@
-// Endfall's service worker (generated into dist/ by tools/offline/plugin.mjs): every file of the game is stored on
+// Ebbfall's service worker (generated into dist/ by tools/offline/plugin.mjs): every file of the game is stored on
 // install, then served from the cache, so the game runs offline. A new build has a new cache; the old one is dropped.
 const CACHE = 'endfall-__VERSION__';
 const FILES = __FILES__;

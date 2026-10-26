@@ -1,5 +1,5 @@
 // Vite plugin: after a build, writes dist/sw.js, a service worker that stores every file of the game (except source
-// maps) so Endfall runs with no connection once it has been opened (or added to the home screen). The cache name is a
+// maps) so Ebbfall runs with no connection once it has been opened (or added to the home screen). The cache name is a
 // hash of the file list and contents: a new build installs a new cache and drops the old one.
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';

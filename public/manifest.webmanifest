@@ -1,6 +1,6 @@
 {
-  "name": "Endfall",
-  "short_name": "Endfall",
+  "name": "Ebbfall",
+  "short_name": "Ebbfall",
   "description": "A browser real-time strategy game in the 1998 mold.",
   "start_url": "./",
   "scope": "./",

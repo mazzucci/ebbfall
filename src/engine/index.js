@@ -3,6 +3,6 @@
 import init, { version } from './pkg/endfall_sim.js';
 
 await init();
-console.info('Endfall: Rust sim ' + version() + ' (WASM)');
+console.info('Ebbfall: Rust sim ' + version() + ' (WASM)');
 
 export * from './core.js';

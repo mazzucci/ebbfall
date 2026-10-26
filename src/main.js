@@ -139,7 +139,7 @@ window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld
 bindInput(); resize(); requestAnimationFrame(loop);
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
-// Endfall opens and plays without a connection once it has been loaded.
+// Ebbfall opens and plays without a connection once it has been loaded.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const register = () => navigator.serviceWorker.register('./sw.js').catch(() => { /* not available (file://, private mode) */ });
   if (document.readyState === 'complete') register(); else addEventListener('load', register); // (the WASM start may finish after load)
@@ -148,6 +148,6 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) return; // the first install, not an update
-    if (!$('start').hidden) location.reload(); else toast('A new version of Endfall is ready: it loads next time you open the game');
+    if (!$('start').hidden) location.reload(); else toast('A new version of Ebbfall is ready: it loads next time you open the game');
   });
 }

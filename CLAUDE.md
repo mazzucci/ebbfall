@@ -1,10 +1,11 @@
-# Endfall: notes for coding agents
+# Ebbfall: notes for coding agents
 
 A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. The simulation is
 Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite and PixiJS 8 (WebGL)
 over code-generated sprite sheets (pre-rendered 3D units and buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer can be added without
 rewriting it. See `docs/PLAN.md` for the roadmap and open questions
-and `README.md` for the player-facing description.
+and `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
+says Ebbfall, internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`, storage keys, the repo) keep the old word.
 
 ## Prerequisites (on the Mac)
 
@@ -32,7 +33,7 @@ node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art o
 ```
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test` and `npm run build` on
-every pull request, and publishes `main` to GitHub Pages: https://mazzucci.github.io/endfall/
+every pull request, and publishes `main` to GitHub Pages: https://ebbfall.com/
 
 A change to the simulation must keep `cargo test` and `npm test` green, in particular the determinism tests (same seed
 and commands produce the same `stateHash()`), and every rule change needs a scenario in the gameplay tests.

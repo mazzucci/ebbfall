@@ -14,12 +14,19 @@ const built = existsSync(new URL('endfall_sim_bg.wasm', pkg));
 if (!built && process.env.ENDFALL_REQUIRE_WASM) throw new Error('src/engine/pkg/ is missing: run npm run build:wasm');
 const skip = !built && 'WASM not built';
 
-let sim, FACTIONS;
+let sim, FACTIONS, UNIT;
 async function load() {
   if (sim) return;
   sim = await import(new URL('endfall_sim.js', pkg));
   sim.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
-  FACTIONS = (await import(new URL('data.js', pkg))).default.factions;
+  const data = (await import(new URL('data.js', pkg))).default;
+  FACTIONS = data.factions; UNIT = data.schema.unit;
+}
+/** The ids of a client's own units (the room's seed is random: so are the ids). */
+function own(c) {
+  const U = c.g.units(), n = UNIT.length, id = UNIT.indexOf('id'), team = UNIT.indexOf('team'), out = [];
+  for (let o = 0; o < U.length; o += n) if (U[o + team] === c.seat) out.push(U[o + id]);
+  return out;
 }
 const fi = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -76,7 +83,11 @@ test('two clients play through the relay, one drops and comes back, and their wo
     let seed = 9; const rand = (n) => (seed = (seed * 1103515245 + 12345) >>> 0) % n;
     let dropped = false;
     await m.run(8000, (el) => {
-      for (const c of [a, b]) if (c.g && rand(4) === 0) c.g.moveTo(1 + rand(60), 200 + rand(1600), 200 + rand(1600)); // (only the seat's own units obey)
+      for (const c of [a, b]) {
+        if (!c.g || rand(4)) continue;
+        const ids = own(c); // (now and then another's or a dead id: the sim refuses those)
+        c.g.moveTo(rand(5) ? ids[rand(ids.length)] : 1 + rand(400), 200 + rand(1600), 200 + rand(1600));
+      }
       if (!dropped && el > 3000) { dropped = true; b.net.ws.close(); } // (b's socket dies mid-game)
     });
     assert.ok(a.g && b.g, 'both games started');
@@ -128,7 +139,8 @@ test('orders given while the socket is down are sent when it is back, not lost',
     await m.run(1000);
     const open = b.net.open; b.net.open = () => {}; b.net.ws.close();
     await m.run(300);
-    for (let id = 1; id <= 60; id++) b.g.moveTo(id, 1800, 1800); // (the only orders of the game: b's own units obey)
+    const ids = own(b); assert.ok(ids.length > 0);
+    for (const id of ids) b.g.moveTo(id, 1800, 1800); // (the only orders of the game)
     await m.run(300);
     b.net.open = open; b.net.wake();
     await m.run(3000);

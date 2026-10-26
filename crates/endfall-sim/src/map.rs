@@ -42,11 +42,12 @@ pub fn starts_for(size: MapSize, seats: usize) -> usize {
 }
 
 /// Which of a map's `k` starts (in ring order) each of `n` seats takes, then the starts nobody takes: the seats spread
-/// evenly round the ring (seat `s` at `s * k / n`: 3 of 4 leave one corner free, 6 of 8 two opposite starts), the
-/// whole turned by `side` (two seats on two starts: 1 trades them).
+/// evenly round the ring (3 of 4 leave one corner free, 6 of 8 two opposite starts), the whole turned by `side % k`
+/// (two seats on two starts: 1 trades them), and with fewer seats than starts the pattern turned among the seats by
+/// `side / k` (which seat sits beside the free start, or between two others, is the draw's, not the seat number's).
 pub fn seat_starts(k: usize, n: usize, side: u32) -> Vec<usize> {
-    let turn = side as usize % k;
-    let mut order: Vec<usize> = (0..n).map(|s| (turn + s * k / n) % k).collect();
+    let (turn, r) = (side as usize % k, side as usize / k % n);
+    let mut order: Vec<usize> = (0..n).map(|s| (turn + (s + r) % n * k / n) % k).collect();
     order.extend((0..k).filter(|i| !order.contains(i)).collect::<Vec<_>>());
     order
 }

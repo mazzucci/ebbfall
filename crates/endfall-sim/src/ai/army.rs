@@ -261,12 +261,15 @@ impl World {
         }
     }
 
-    /// Home, wave: with `raid` armed enemies (another enemy than the foe it went for) at our buildings, three or more
-    /// and more than the army at home, the wave out comes back to fight them (as when most of it fell, the next one
-    /// waits its gap).
+    /// Home, wave: with `raid` armed enemies at our buildings (any enemy's: a third player's, or the foe's own wave
+    /// that passed ours on the way), three or more and more than the army at home, the wave out comes back to fight
+    /// them (as when most of it fell, the next one waits its gap).
     fn recall_wave(&mut self, army: &[Id], raid: usize, intruder: Option<Id>, t: f64) {
         let ai = self.ai();
-        let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) else {
+        if raid < 3 || !ai.attacking {
+            return;
+        }
+        let Some(attackers) = ai.attackers.clone() else {
             return;
         };
         let home = army.iter().filter(|a| !attackers.contains(a)).count();

@@ -224,9 +224,13 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    buildings first, the wave called home, expansions on its own side) and an engine test (a four-seat game through
    `withSeats` mirrors four seats' records). The invariants' "eliminated but not over" holds for every seat.
    Two minutes of mining with the first four harvesters differ by up to 8% between the two starts of a duel and up to
-   12% among eight starts (whose fields lie off the grid's axes): walking is not quite the same in every direction on
-   the grid (the path search's tie-breaks), not the map. At Medium the Vael AI wins most free-for-all pairings
-   against the Human AI.
+   12% among eight starts, and it is positional, not noise (a review averaged 12 seeds x 6 kinds): starts up and left
+   mine less, down and right more (128/8: 0.95 against 1.07 of the mean; 96/4: 0.96 against 1.04; the 64x64 duel
+   already 2% on main). The map is the same; the cause is in movement or economy (the row-major scan in
+   `nearest_free` placing the first workers, the path search's tie-breaks, `to_i32` truncation): a follow-up. With
+   fewer seats than starts, which seat is squeezed (between two others, or beside a free start) is drawn: `side / k`
+   turns the pattern among the seats (`seat_starts`). At Medium the Vael AI wins most free-for-all pairings against
+   the Human AI; in a 2v2 a winning team may have lost one of its seats on the way.
    Timings, native release, 12-minute AI games (on a 4-core VM that other work was using too, so roughly): four Hard
    AIs on 96x96, average per tick 0.22-0.29 ms, worst 12-28 ms (Medium 0.25-0.33, worst 9-41); eight Hard AIs on
    128x128 0.47-0.58 ms, worst 9-27 ms (Medium 0.62-0.66, worst 34-42); six 0.37-0.48, worst 20-43. Two Hard AIs for

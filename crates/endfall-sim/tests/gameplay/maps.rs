@@ -626,6 +626,29 @@ fn seats_spread_round_the_starts_and_side_turns_them() {
         [0, 1, 2, 4, 5, 6, 3, 7],
         "six of eight: two opposite starts free"
     );
+    // Fewer seats than starts: which seat sits between two others (or beside a free start) is the side's draw, not
+    // the seat number's: over the draws, every seat meets each place (0, 1 or 2 taken neighbours) equally often.
+    for (k, n) in [(4usize, 3usize), (8, 5), (8, 6), (8, 7)] {
+        let mut places = vec![[0u32; 3]; n];
+        for side in 0..(k * n) as u32 {
+            let at = seat_starts(k, n, side);
+            let taken = |i: usize| at[..n].contains(&(i % k));
+            for (s, &i) in at[..n].iter().enumerate() {
+                places[s][taken(i + 1) as usize + taken(i + k - 1) as usize] += 1;
+            }
+            let mut seen = at.clone();
+            seen.sort();
+            assert_eq!(
+                seen,
+                (0..k).collect::<Vec<_>>(),
+                "{n} of {k}, side {side}: every start once"
+            );
+        }
+        assert!(
+            places.iter().all(|p| *p == places[0]),
+            "{n} of {k}: the same places for every seat: {places:?}"
+        );
+    }
     // The same map whatever the side; the seats keep their order round it, turned.
     let (a, b) = (
         seated(31, MapKind::Standard, 96, 4, 0),

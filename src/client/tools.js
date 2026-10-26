@@ -192,5 +192,5 @@ export function initPause({ onRestart, onQuit, onResume }) {
 }
 export function togglePause() {
   $('pause').hidden = !$('pause').hidden;
-  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + ' into the game. Leaving or restarting gives it up.'; $('pauseSeen').innerHTML = seenLately(); $('btnResume').focus(); } // (the clock and the scouting report live here, not on screen)
+  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + (ui.watching ? ' into the replay.' : ' into the game. Leaving or restarting gives it up.'); $('pauseSeen').innerHTML = seenLately(); $('btnResume').focus(); } // (the clock and the scouting report live here, not on screen)
 }

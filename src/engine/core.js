@@ -48,7 +48,7 @@ function sync() {
   Object.assign(S.stats[0], { built: I[fi.built0], lost: I[fi.lost0], killed: I[fi.killed0], razed: I[fi.razed0] });
   Object.assign(S.stats[1], { built: I[fi.built1], lost: I[fi.lost1], killed: I[fi.killed1], razed: I[fi.razed1] });
   UPGRADE_KEYS.forEach((k, i) => { for (const t of [0, 1]) S.upgrades[t][k] = I[SCHEMA.info.length + t * UPGRADE_KEYS.length + i]; }); // (levels follow the info record)
-  S.me = game.me(); S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); M.occ.set(game.occ());
+  S.me = game.me(); S.replaying = game.replayEnd() > 0; S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); M.occ.set(game.occ());
 
   const N = game.nodes(), seenN = new Set(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
@@ -195,6 +195,6 @@ export function visibleEnt(e) {
   if (e.team === S.me) return true;
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
-  if ((e.hid >> S.me) & 1) return false; // cloaked, and we detect nothing there
+  if ((e.hid >> S.me) & 1 && !S.replaying) return false; // cloaked, and we detect nothing there (a replay shows all)
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];
 }

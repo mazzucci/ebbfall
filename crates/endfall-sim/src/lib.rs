@@ -293,6 +293,7 @@ impl Game {
     }
     /// Log every order given from now on (with its tick), for replays and desync reports.
     pub fn record(&mut self, on: bool) {
+        self.untracked = true; // (a log begun mid-game is not the whole game)
         self.w.record(on);
     }
 
@@ -476,7 +477,11 @@ impl Game {
                 {
                     None
                 }
-                Event::Fire { seen, .. } | Event::Cast { seen, .. } if !seen[me as usize] => None,
+                Event::Fire { seen, .. } | Event::Cast { seen, .. }
+                    if !seen[me as usize] && self.replay.is_none() =>
+                {
+                    None
+                }
                 e => Some(e),
             })
             .map(|e| event_json(&e))

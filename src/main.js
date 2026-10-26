@@ -34,7 +34,7 @@ function showPower() {
 
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
-  $('help').hidden = true; stopWatching();
+  $('help').hidden = true; stopWatching(); ended = false;
   const g = setup(); // (the menu's choices, or the guided first game's)
   resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace);
   resetSightings();
@@ -142,7 +142,7 @@ function loop(now) {
   if (running()) {
     const speed = ui.watching || 1; // (a replay plays faster)
     acc += el * speed; let n = 0;
-    const done = () => ui.watching && (G.over || G.tick >= replayEnd()); // (a replay stops on the tick the game ended)
+    const done = () => ui.watching && (G.over || G.tick > replayEnd()); // (a replay stops where the game ended: its last tick's orders, then over)
     while (acc >= DT && n++ < 5 * speed && !done()) { step(DT); acc -= DT; }
     if (acc > DT * 5 * speed) acc = 0;
     drainEvents();
@@ -150,9 +150,8 @@ function loop(now) {
   }
   // Checked every frame, not only while running: the game can end between frames too. A replay ends where the game
   // did, back on the end card (the result is on record already).
-  if (ui.watching) { if (G.over || G.tick >= replayEnd()) doneWatching(); }
-  else if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); }
-  if (!G.over && !ui.watching) ended = false;
+  if (ui.watching) { if (G.over || G.tick > replayEnd()) doneWatching(); }
+  else if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
   updateFx(el);
   if (started) render(ui.sel, ui.place, showPower());
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }

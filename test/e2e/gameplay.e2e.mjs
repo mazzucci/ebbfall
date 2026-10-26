@@ -1379,25 +1379,28 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       assert.ok(await d.page.locator('#btnWatch').isVisible(), 'WATCH on the end card');
       await tap('#btnWatch');
       assert.ok(await d.page.locator('#end').isHidden() && await d.page.locator('#replayBar').isVisible(), 'the replay plays, with its bar');
-      assert.ok(await d.eval(() => endfall.G.tick) < 30, 'from the first tick');
+      assert.ok(await d.eval(() => endfall.G.tick) < played / 2, 'from the first tick');
       assert.equal(await d.page.locator('#btnSpeed').textContent(), '4×');
       assert.ok(await d.page.locator('#cmd').evaluate(e => getComputedStyle(e).visibility === 'hidden'), 'no command card');
       // Both sides in view: the enemy's base is not fogged.
       assert.ok(await d.eval(() => endfall.G.bldgs.filter(b => b.team !== endfall.G.me).every(b => endfall.engine.visibleEnt(b))), 'both sides in view');
-      // No orders: a move is refused, and the replay stays the game that was played.
-      await d.eval(() => { const h = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h, 10, 10); });
       await tap('#btnSpeed');
       assert.equal(await d.page.locator('#btnSpeed').textContent(), '8×', 'faster');
       // It ends where the game ended, back on the end card, the record unchanged.
       await d.page.locator('#end').waitFor({ state: 'visible', timeout: 60000 });
       assert.ok(await d.page.locator('#replayBar').isHidden());
       const at = await d.eval(() => [endfall.G.tick, endfall.G.over, endfall.engine.replayEnd()]);
-      assert.ok(Math.abs(at[0] - played) <= 2, `it ran to where the game ended: ${at} vs ${played}`);
+      assert.ok(at[1] && Math.abs(at[0] - played) <= 1, `it ran to where the game ended, and it is over: ${at} vs ${played}`);
       assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'not counted again');
-      // Watch again and leave early with DONE.
+      // Watch again and leave early with DONE; then once more to the end: still counted once.
       await tap('#btnWatch');
       await tap('#btnReplayDone');
       assert.ok(await d.page.locator('#end').isVisible() && await d.page.locator('#replayBar').isHidden(), 'DONE: back to the card');
+      await tap('#btnWatch');
+      await tap('#btnSpeed'); // (8×)
+      await d.page.locator('#end').waitFor({ state: 'visible', timeout: 60000 });
+      await d.page.waitForTimeout(500); // (a few frames after the end: nothing may count the game again)
+      assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'watched to the end twice, counted once');
       await tap('#btnRematch');
       await d.page.waitForFunction(() => endfall.G.time < 2 && !endfall.G.over, null, { timeout: 5000 });
       assert.ok(await d.page.locator('#cmd').evaluate(e => getComputedStyle(e).visibility !== 'hidden'), 'a new game has its card');

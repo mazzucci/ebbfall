@@ -84,12 +84,15 @@ let shake = 0;
 export function resize() {
   const r = cv.parentElement.getBoundingClientRect();
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
+  const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
   app.renderer.resize(view.w, view.h); clampCam();
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
-/** On touch screens the HUD floats over the map, so the camera may scroll that far past the edges. */
+/** Where the HUD floats over the map the camera may scroll that far past the edges (the panels are taller with a
+ *  mouse); a narrow window keeps them in a band below. Looked at on each resize. */
 const coarse = matchMedia('(pointer: coarse)');
-const overscroll = () => coarse.matches ? 120 / cam.zoom : 0;
+let hudFloats = true;
+const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0;
 export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** Screen (canvas css px) → world px. */

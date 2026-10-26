@@ -125,8 +125,8 @@ export function initMenu({ onStart, onSound }) {
   $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   $('buildId').textContent = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev'; // (vite.config.js: the one online play compares)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
-  // Full screen (a phone's PLAY enters it): a corner button leaves it, there only while it is on. (A page cannot
-  // close its own tab; leaving full screen gives the browser's own controls back.)
+  // Full screen (START GAME, FIRST GAME and the lobby's READY enter it): a corner button leaves it, there only while
+  // it is on. (A page cannot close its own tab; leaving full screen gives the browser's own controls back.)
   const unfull = () => { $('btnUnfull').hidden = !document.fullscreenElement && !document.webkitFullscreenElement; };
   $('btnUnfull').addEventListener('click', () => { sfx('select'); exitFullscreen(); });
   document.addEventListener('fullscreenchange', unfull); document.addEventListener('webkitfullscreenchange', unfull); unfull();

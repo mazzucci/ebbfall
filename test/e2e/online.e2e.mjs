@@ -27,6 +27,7 @@ async function page(device, query) {
   p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await p.goto(`${baseUrl()}?${query}`, { waitUntil: 'networkidle' });
   await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+  await p.evaluate(() => { window.fsAsked = 0; document.documentElement.requestFullscreen = () => { window.fsAsked++; return Promise.reject(new Error('(headless)')); }; }); // (counts the asks for full screen)
   const tap = (sel) => device.hasTouch ? p.locator(sel).tap() : p.locator(sel).click();
   return { ctx, p, errors, tap };
 }
@@ -146,7 +147,10 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
     const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/away/.test(document.getElementById('seatList').textContent));
+      const asked = () => Promise.all([a, b].map(x => x.p.evaluate(() => window.fsAsked)));
+      assert.deepEqual(await asked(), [0, 0], 'NEW ROOM and JOIN stay out of full screen (the link is shared from another app)');
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      assert.deepEqual(await asked(), [1, 1], 'READY goes full screen: the game starts in it');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
       const seed1 = await a.p.evaluate(() => endfall.online.setup.seed);
       // The game ends without anyone leaving: Ann gives in through the sim (set-up: the rematch is what is tested).

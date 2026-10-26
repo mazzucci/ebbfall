@@ -38,12 +38,13 @@ export function initOnline({ start, leave, quit, room, rematch }) {
   $('btnNetMenu').addEventListener('click', () => { sfx('select'); onQuit(); });
   $('btnOnline').hidden = !relayUrl();
   $('btnOnline').addEventListener('click', () => { sfx('select'); openLobby(); });
-  // (the tap that opens or joins a room also goes full screen, as the menu's START GAME does)
-  $('btnNewRoom').addEventListener('click', () => { sfx('select'); enterFullscreen(); connect(''); });
-  $('btnJoinRoom').addEventListener('click', () => { const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); enterFullscreen(); connect(c); } else status('Type the 4-letter code'); });
+  // (opening or joining a room stays out of full screen: the host's next step is sharing the link from another app;
+  // READY's tap goes full screen, so the game starts in it, as the menu's START GAME does)
+  $('btnNewRoom').addEventListener('click', () => { sfx('select'); connect(''); });
+  $('btnJoinRoom').addEventListener('click', () => { const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); connect(c); } else status('Type the 4-letter code'); });
   $('roomCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoinRoom').click(); });
   $('btnOnlineBack').addEventListener('click', () => { sfx('select'); stopOnline(); $('online').hidden = true; onLeave(); });
-  $('btnOnlineReady').addEventListener('click', () => { sfx('select'); online.ready = !online.ready; online.net?.ready(online.ready); });
+  $('btnOnlineReady').addEventListener('click', () => { sfx('select'); online.ready = !online.ready; if (online.ready) enterFullscreen(); online.net?.ready(online.ready); });
   $('btnShare').addEventListener('click', share);
   $('btnOnlineReload').addEventListener('click', reloadNewest);
   for (const b of $('onlineRace').querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.race(b.dataset.race); });
@@ -51,8 +52,7 @@ export function initOnline({ start, leave, quit, room, rematch }) {
   // A shared link (?join=CODE): straight to that room.
   const join = params.get('join');
   if (join) { params.delete('join'); history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`); } // (a reload later is not a join again)
-  // A shared link (?join=CODE): the join form, the code filled in, a name to type first (JOIN's tap goes full screen
-  // on a phone).
+  // A shared link (?join=CODE): the join form, the code filled in, a name to type first.
   if (join && relayUrl()) invited(join.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4));
 }
 

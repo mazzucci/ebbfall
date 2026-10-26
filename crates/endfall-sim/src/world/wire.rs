@@ -103,7 +103,7 @@ impl Command {
             },
             10 => Command::CancelQueue {
                 bldg: r.id()?,
-                index: r.whole(255)? as usize,
+                index: r.whole(u32::MAX as u64)? as usize,
             },
             11 => Command::Research {
                 bldg: r.id()?,

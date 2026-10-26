@@ -67,8 +67,8 @@ impl Game {
         if self.replay.is_some() {
             return Err("Watching a replay".into());
         }
-        if self.send(cmd) {
-            return Ok(()); // (it runs when the relay sends it back)
+        if let Some(sent) = self.send(cmd) {
+            return sent; // (it runs when the relay sends it back)
         }
         self.w.apply(self.me, cmd)
     }

@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -15,6 +15,7 @@ import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+import { initOnline, online, onlineMap, stopOnline } from './client/online.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -22,7 +23,8 @@ const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] >
 
 let started = false;
 const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden || !$('end').hidden;
-const running = () => started && !overlay() && !paused() && !G.over;
+// (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
+const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
 
 /** Whether to show the player's power fields: a race with them, and a power building (or one that needs power)
@@ -34,9 +36,22 @@ function showPower() {
 
 /** Start a game on the map and against the opponent chosen in the menu. */
 function newGame() {
-  $('help').hidden = true; stopWatching(); ended = false;
   const g = setup(); // (the menu's choices, or the guided first game's)
-  resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace);
+  stopOnline();
+  begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace));
+}
+
+/** An online game: the room's setup, from this side's seat (online.js). */
+function newOnlineGame(setup, seat) {
+  const m = onlineMap(setup, MAP_KINDS.length);
+  menu.tutorial = false;
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, setup.races, seat));
+}
+
+function begin(reset) {
+  $('help').hidden = true; stopWatching(); ended = false;
+  reset();
+  $('btnRestart').hidden = online.playing; // (a shared game cannot be restarted by one side)
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
@@ -51,9 +66,12 @@ function newGame() {
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
-function giveUp() { if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff); }
+function giveUp() {
+  if (online.playing) { if (started && !G.over) online.net?.leave(); return; } // (an online game: the relay concedes for us at once; not on the vs-AI record)
+  if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff);
+}
 function quitToTitle() {
-  giveUp(); stopWatching();
+  giveUp(); stopWatching(); stopOnline(); // (a leaving Net closes itself once its leave is out)
   started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
 }
 
@@ -112,7 +130,8 @@ function endGame() {
   $('endSub').textContent = G.conceded === G.me ? 'You conceded after ' + fmt(G.time) + '.' : G.conceded >= 0 ? 'The enemy conceded after ' + fmt(G.time) + '.'
     : G.bldgs.some(b => b.team !== G.winner) ? (win ? 'The enemy had nothing left to fight with after ' : 'Nothing left to fight with after ') + fmt(G.time) + '.' // (out with buildings standing)
     : win ? 'The enemy base is rubble after ' + fmt(G.time) + '.' : 'Your base fell after ' + fmt(G.time) + '.';
-  $('endMap').innerHTML = `<b>${setup().name}</b>: ${MAP_KINDS[setup().kind].story}`; // the map's secret, told at the end
+  const map = online.playing ? onlineMap(online.setup, MAP_KINDS.length) : setup();
+  $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
   whatBeatYou();
@@ -120,9 +139,11 @@ function endGame() {
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
-  $('btnWatch').hidden = menu.tutorial; // (the guided game's hold is not in the log)
+  $('btnWatch').hidden = menu.tutorial || online.playing; // (the guided game's hold is not in the log; an online game is watched later)
+  $('btnRematch').hidden = online.playing;
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
-  if (!menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted)
+  if (online.playing) { const n = online.net; setTimeout(() => { if (online.net === n) stopOnline(); }, 2000); } // (an online game: not on the vs-AI record; the room is done)
+  else if (!menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted)
 }
 
 // ---- screens ----
@@ -133,6 +154,16 @@ initPause({ onResume: () => {}, onRestart: () => { giveUp(); newGame(); }, onQui
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });
+initOnline({ start: newOnlineGame, leave: showMenu, quit: quitToTitle });
+// Online, a phone puts a hidden page to sleep (and its socket with it): on coming back, make sure the socket lives.
+// A hidden desktop tab gets no frames, so its turns run from a slow timer instead.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) online.net?.wake(); });
+setInterval(() => {
+  if (!document.hidden || !online.playing || !started || G.over) return;
+  const waiting = online.net.pump();
+  for (let i = 0; i < waiting && step(DT); i++) online.net.ticked();
+  drainEvents();
+}, 250);
 $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
 
 // ---- loop ----
@@ -144,7 +175,12 @@ function loop(now) {
     const speed = ui.watching || 1; // (a replay plays faster)
     acc += el * speed; let n = 0;
     const done = () => ui.watching && (G.over || G.tick > replayEnd()); // (a replay stops where the game ended: its last tick's orders, then over)
-    while (acc >= DT && n++ < 5 * speed && !done()) { step(DT); acc -= DT; }
+    // Online: the relay's turns in, our orders out; behind by more than a few ticks, run faster to catch up.
+    const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5 * speed;
+    while ((acc >= DT || n < waiting - 9) && n++ < max && !done()) {
+      if (!step(DT)) { acc = Math.min(acc, DT); break; } // (its turn is not in yet)
+      acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
+    }
     if (acc > DT * 5 * speed) acc = 0;
     drainEvents();
     if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
@@ -161,7 +197,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
 bindInput(); resize(); requestAnimationFrame(loop);
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so

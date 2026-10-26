@@ -62,9 +62,16 @@ impl World {
         let mut path = astar(&self.map, &mut self.scratch, a.0, a.1, b.0, b.1);
         let bi = idx(b.0, b.1);
         let blocked_tile = self.map.rock[bi] != 0 || self.map.occ[bi] != 0;
+        // The exact point only if the route reaches its tile: a route that stops short (the goal is free but walled
+        // off) ends where it can, or the unit would walk on into the wall from its end.
+        let centre = Pt {
+            x: b.0 as f64 * TILE + 16.0,
+            y: b.1 as f64 * TILE + 16.0,
+        };
         if let Some(p) = path.as_mut()
             && let Some(last) = p.last_mut()
             && !blocked_tile
+            && *last == centre
         {
             *last = Pt {
                 x: clamp(x, 16.0, WW - 16.0),
@@ -279,7 +286,16 @@ impl World {
                     u.x += (cx - u.x) / d * 6.0;
                     u.y += (cy - u.y) / d * 6.0;
                 }
-                u.repath = 0.0;
+                // A walker's route may run through what pushed it out (a building put up across it since): it plans
+                // again, at most once per replan period (it keeps its timer: a crowd at a wall is pushed every tick).
+                // Anything else asks for a fresh approach at once, as before.
+                if matches!(u.task, Task::Move { .. } | Task::AMove { .. }) {
+                    if u.repath <= 0.0 {
+                        u.path = None;
+                    }
+                } else {
+                    u.repath = 0.0;
+                }
             }
         }
     }

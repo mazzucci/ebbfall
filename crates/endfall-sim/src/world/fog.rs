@@ -5,6 +5,7 @@ use super::*;
 impl World {
     // ---- fog of war: one layer per seat (allies do not share vision yet: a later change here and in `seen_by`) ----
     pub fn update_fog(&mut self) {
+        let size = self.map.size();
         for team in 0..self.seats() {
             self.vis[team].fill(0);
             let mut marks: Vec<(f64, f64, f64)> = Vec::new();
@@ -16,7 +17,7 @@ impl World {
             }
             for (x, y, s) in marks {
                 let (vis, explored) = (&mut self.vis[team], &mut self.explored[team]);
-                disc(x, y, s, |i| {
+                disc(size, x, y, s, |i| {
                     vis[i] = 1;
                     explored[i] = 1;
                 });
@@ -42,7 +43,7 @@ impl World {
             }
             for (x, y, s) in detectors {
                 let det = &mut self.det[team];
-                disc(x, y, s, |i| det[i] = 1);
+                disc(size, x, y, s, |i| det[i] = 1);
             }
         }
     }
@@ -56,8 +57,8 @@ impl World {
 
     /// Whether `team` detects the tile under world point (x, y).
     pub fn detects(&self, team: u8, x: f64, y: f64) -> bool {
-        let (tx, ty) = World::tile_of(x, y);
-        self.det[team as usize][idx(tx, ty)] != 0
+        let (tx, ty) = self.map.tile_of(x, y);
+        self.det[team as usize][self.map.idx(tx, ty)] != 0
     }
 
     /// Whether unit `u` is hidden from `team`: cloaked, an enemy's, and outside its detection.
@@ -85,9 +86,8 @@ impl World {
             if u.team == team {
                 return true;
             }
-            let tx = jsmath::to_i32(u.x / TILE).clamp(0, MW - 1);
-            let ty = jsmath::to_i32(u.y / TILE).clamp(0, MH - 1);
-            return vis[idx(tx, ty)] != 0 && !self.cloaked_from(team, u);
+            let (tx, ty) = self.map.tile_of(u.x, u.y);
+            return vis[self.map.idx(tx, ty)] != 0 && !self.cloaked_from(team, u);
         }
         if let Some(b) = self.bldg(id) {
             if b.team == team {
@@ -95,7 +95,7 @@ impl World {
             }
             for y in 0..b.h {
                 for x in 0..b.w {
-                    if vis[idx(b.tx + x, b.ty + y)] != 0 {
+                    if vis[self.map.idx(b.tx + x, b.ty + y)] != 0 {
                         return true;
                     }
                 }
@@ -105,18 +105,18 @@ impl World {
     }
 }
 
-/// Each map tile (index) within `s` tiles of world point (x, y), by tile centre.
-fn disc(x: f64, y: f64, s: f64, mut each: impl FnMut(usize)) {
+/// Each tile (index) of a map of `size` within `s` tiles of world point (x, y), by tile centre.
+fn disc(size: MapSize, x: f64, y: f64, s: f64, mut each: impl FnMut(usize)) {
     let (cx, cy, s2) = (x / TILE, y / TILE, s * s);
     let y0 = jsmath::to_i32(cy - s).max(0);
-    let y1 = jsmath::to_i32(cy + s).min(MH - 1);
+    let y1 = jsmath::to_i32(cy + s).min(size.h - 1);
     let x0 = jsmath::to_i32(cx - s).max(0);
-    let x1 = jsmath::to_i32(cx + s).min(MW - 1);
+    let x1 = jsmath::to_i32(cx + s).min(size.w - 1);
     for ty in y0..=y1 {
         for tx in x0..=x1 {
             let (dx, dy) = (tx as f64 + 0.5 - cx, ty as f64 + 0.5 - cy);
             if dx * dx + dy * dy <= s2 {
-                each(idx(tx, ty));
+                each((ty * size.w + tx) as usize);
             }
         }
     }

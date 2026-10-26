@@ -105,13 +105,23 @@ export function zoomAt(factor, sx, sy) {
 }
 
 // ---- terrain (once per map) ----
-const thumb = document.createElement('canvas'); thumb.width = MW; thumb.height = MH;
-const fogCv = document.createElement('canvas'); fogCv.width = MW; fogCv.height = MH;
-const fogCtx = fogCv.getContext('2d'), fogImg = fogCtx.createImageData(MW, MH);
-const fogTex = Texture.from(fogCv); fogTex.source.scaleMode = 'linear';
-const fog = new Sprite(fogTex); fog.scale.set(TILE); L.fog.addChild(fog);
-const shadeCv = document.createElement('canvas'); shadeCv.width = MW; shadeCv.height = MH;
-const shadeCtx = shadeCv.getContext('2d'), shadeTex = Texture.from(shadeCv); shadeTex.source.scaleMode = 'linear';
+// A pixel per tile: the minimap's ground, the fog and the large-scale shading, at the map's size (sizeGrids).
+const thumb = document.createElement('canvas');
+const fog = new Sprite(); fog.scale.set(TILE); L.fog.addChild(fog);
+let fogCv, fogCtx, fogImg, fogTex, shadeCv, shadeCtx, shadeTex, gridW = 0, gridH = 0;
+/** Make the per-tile canvases and textures for a map of MW x MH (again only when a game's map has another size). */
+function sizeGrids() {
+  if (gridW === MW && gridH === MH) return;
+  gridW = MW; gridH = MH;
+  const canvas = () => { const c = document.createElement('canvas'); c.width = MW; c.height = MH; return c; };
+  const texture = (c) => { const t = Texture.from(c); t.source.scaleMode = 'linear'; return t; };
+  thumb.width = MW; thumb.height = MH;
+  const old = [fogTex, shadeTex];
+  fogCv = canvas(); fogCtx = fogCv.getContext('2d'); fogImg = fogCtx.createImageData(MW, MH); fogTex = texture(fogCv); fog.texture = fogTex;
+  shadeCv = canvas(); shadeCtx = shadeCv.getContext('2d'); shadeTex = texture(shadeCv);
+  for (const t of old) t?.destroy(true); // (the shade sprite that used it goes in renderTerrain, before this)
+}
+sizeGrids();
 
 const chunks = [];
 const doodads = [];
@@ -128,6 +138,8 @@ function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible 
 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
+  L.shade.removeChildren().forEach(c => c.destroy());
+  sizeGrids();
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its centre, offset half a tile.
@@ -145,7 +157,6 @@ export function renderTerrain() {
   const img = shadeCtx.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) { const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)); img.data.set([Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s), 255], i * 4); }
   shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
-  L.shade.removeChildren().forEach(c => c.destroy());
   const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
@@ -523,19 +534,19 @@ export function ping(x, y) { pings.push({ x, y, t: performance.now() }); }
 export function clearPings() { pings.length = 0; }
 
 function renderMinimap() {
-  const S = mm.width / WW, c = mctx; c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
-  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * S - 1.5, 3, 3); }
-  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * S, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * S)); }
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * S - 1, 2.2, 2.2); }
+  const S = mm.width / WW, T = mm.height / WH, c = mctx; // (x and y scales: one, on a square map) c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
+  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * T - 1.5, 3, 3); }
+  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * T, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * T)); }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();
   for (let i = pings.length - 1; i >= 0; i--) {
     const k = (now - pings[i].t) / 2500; if (k >= 1) { pings.splice(i, 1); continue; }
     c.strokeStyle = `rgba(255,90,90,${1 - k})`; c.lineWidth = 2;
-    for (const r of [k, (k + 0.5) % 1]) { c.beginPath(); c.arc(pings[i].x * S, pings[i].y * S, 3 + r * 18, 0, 7); c.stroke(); }
+    for (const r of [k, (k + 0.5) % 1]) { c.beginPath(); c.arc(pings[i].x * S, pings[i].y * T, 3 + r * 18, 0, 7); c.stroke(); }
   }
   // The view box: a dark halo under a bright line, readable over terrain and fog alike.
-  const vx = cam.x * S, vy = cam.y * S, vW = vw() * S, vH = vh() * S;
+  const vx = cam.x * S, vy = cam.y * T, vW = vw() * S, vH = vh() * T;
   c.strokeStyle = 'rgba(0,0,0,0.75)'; c.lineWidth = 4; c.strokeRect(vx, vy, vW, vH);
   c.strokeStyle = '#ffe9b0'; c.lineWidth = 2; c.strokeRect(vx, vy, vW, vH);
 }

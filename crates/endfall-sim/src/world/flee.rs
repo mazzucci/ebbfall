@@ -123,7 +123,7 @@ impl World {
         let d = jsmath::hypot(dx, dy).max(1.0);
         let r = b.w.max(b.h) as f64 * TILE / 2.0 + 2.0 * TILE;
         let (x, y) = (b.x + dx / d * r, b.y + dy / d * r);
-        let (x, y) = (crate::data::clamp_x(x), crate::data::clamp_y(y));
+        let (x, y) = (self.map.clamp_x(x), self.map.clamp_y(y));
         self.release_mine(uid); // (off its field: the field's miner count goes down)
         self.set_task(
             uid,

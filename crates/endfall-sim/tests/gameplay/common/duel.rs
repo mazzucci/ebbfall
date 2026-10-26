@@ -43,7 +43,7 @@ pub fn flatten(w: &mut World, xs: std::ops::Range<i32>, ys: std::ops::Range<i32>
     w.map.nodes.retain(|n| !gone.contains(&n.id));
     for y in ys.clone() {
         for x in xs.clone() {
-            let i = (y * MW + x) as usize;
+            let i = w.map.idx(x, y);
             w.map.rock[i] = 0;
             if w.map.occ[i] < 0 {
                 w.map.occ[i] = 0;

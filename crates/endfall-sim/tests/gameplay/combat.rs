@@ -24,7 +24,7 @@ fn flyers_cross_cliffs_in_a_straight_line() {
     let mut found = None;
     'search: for y in 4..60 {
         for x in 4..50 {
-            let blocked_mid = (x + 4..x + 9).any(|xx| w.map.rock[(y * MW + xx) as usize] != 0);
+            let blocked_mid = (x + 4..x + 9).any(|xx| w.map.rock[w.map.idx(xx, y)] != 0);
             if !w.map.blocked(x, y) && !w.map.blocked(x + 13, y) && blocked_mid {
                 found = Some((x, y));
                 break 'search;
@@ -44,8 +44,8 @@ fn flyers_cross_cliffs_in_a_straight_line() {
     for _ in 0..(secs * TPS as f64) as u32 {
         w.step();
         let u = w.unit(wasp).unwrap();
-        let (cx, cy) = World::tile_of(u.x, u.y);
-        over_rock |= w.map.rock[(cy * MW + cx) as usize] != 0;
+        let (cx, cy) = w.map.tile_of(u.x, u.y);
+        over_rock |= w.map.rock[w.map.idx(cx, cy)] != 0;
         assert!((u.y - sy).abs() < 1.0, "flies straight");
     }
     assert!(over_rock, "it flew over rock");
@@ -446,9 +446,10 @@ fn an_observer_scouts_but_cannot_fight() {
     run(&mut w, 1);
     let f = w.unit(far).unwrap();
     assert!(
-        w.vis[PLAYER as usize][World::tile_of(f.x, f.y).1 as usize * MW as usize
-            + World::tile_of(f.x, f.y).0 as usize]
-            > 0,
+        w.vis[PLAYER as usize][{
+            let (tx, ty) = w.map.tile_of(f.x, f.y);
+            w.map.idx(tx, ty)
+        }] > 0,
         "seen from 9.5 tiles"
     );
     assert!(UnitKind::Observer.def().air, "and it flies");

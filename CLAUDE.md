@@ -58,9 +58,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), orders, spawn, economy, construction,
+                      wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, fog
   src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
+  src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (docs/MULTIPLAYER.md)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap

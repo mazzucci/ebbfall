@@ -8,6 +8,7 @@
 mod ai;
 pub mod data;
 pub mod jsmath;
+mod lockstep;
 pub mod map;
 pub mod path;
 mod rng;
@@ -38,6 +39,8 @@ pub struct Game {
     /// A knob outside the log was used (the guided game's hold, a debug setter): the log is not the whole game, so
     /// no replay.
     untracked: bool,
+    /// A networked game: orders go out to the relay and come back scheduled (lockstep.rs).
+    lock: Option<lockstep::Lockstep>,
 }
 
 struct Replay {
@@ -54,6 +57,7 @@ impl Game {
             me: data::PLAYER,
             replay: None,
             untracked: false,
+            lock: None,
         }
     }
 
@@ -63,7 +67,16 @@ impl Game {
         if self.replay.is_some() {
             return Err("Watching a replay".into());
         }
+        if self.send(cmd) {
+            return Ok(()); // (it runs when the relay sends it back)
+        }
         self.w.apply(self.me, cmd)
+    }
+
+    /// Whether a knob outside the log may be used (never in a networked game: every world must stay the same).
+    fn knob(&mut self) -> bool {
+        self.untracked = true;
+        self.lock.is_none()
     }
 
     fn order(&mut self, cmd: Command) {
@@ -76,7 +89,7 @@ fn res(r: Result<(), String>) -> String {
 }
 
 /// Teams from JS are validated here: an out-of-range index would panic, and a panic poisons the Game object.
-fn valid_team(t: u8) -> Option<u8> {
+pub(crate) fn valid_team(t: u8) -> Option<u8> {
     (t < 2).then_some(t)
 }
 
@@ -101,13 +114,28 @@ impl Game {
         ))
     }
 
+    /// A game between people, seen from seat `me` (races by index into FACTIONS for seats 0 and 1): no AI seat. A
+    /// networked game makes one of these on every client, from the room's setup, and starts lockstep.
+    #[wasm_bindgen(js_name = forSeat)]
+    pub fn for_seat(seed: u32, map: u32, side: u32, f0: u32, f1: u32, me: u8) -> Game {
+        let mut g = Game::with_setup(seed, 1, map, side, f0, f1);
+        g.w.set_ai_seats([false, false]);
+        g.me = valid_team(me).unwrap_or(0);
+        g
+    }
+
     /// The seat this Game plays: its orders, its fog, its events.
     pub fn me(&self) -> u8 {
         self.me
     }
 
-    /// Advance the world by one fixed tick (in a replay, after the orders logged for this tick).
+    /// Advance the world by one fixed tick (in a replay, after the orders logged for this tick; in lockstep, after the
+    /// orders scheduled for it, and only if it may run: see `canStep`).
     pub fn step(&mut self) {
+        if !self.can_step() {
+            return;
+        }
+        self.run_due();
         if let Some(r) = &mut self.replay {
             while let Some((tick, seat, cmd)) = r.log.get(r.next)
                 && *tick == self.w.tick
@@ -124,6 +152,9 @@ impl Game {
     /// taken. False if this game cannot be replayed (nothing logged, or a knob outside the log was used).
     #[wasm_bindgen(js_name = startReplay)]
     pub fn start_replay(&mut self) -> bool {
+        if self.lock.is_some() {
+            return false; // (a networked game is watched again once it is over: a later step)
+        }
         let log = match &self.replay {
             Some(r) => r.log.clone(), // (watching again)
             None => match self.w.log.clone() {
@@ -293,7 +324,9 @@ impl Game {
     }
     /// Log every order given from now on (with its tick), for replays and desync reports.
     pub fn record(&mut self, on: bool) {
-        self.untracked = true; // (a log begun mid-game is not the whole game)
+        if !self.knob() {
+            return; // (a networked game's log is the game)
+        }
         self.w.record(on);
     }
 
@@ -316,7 +349,9 @@ impl Game {
     /// Set a building's hp, within 1..max (tests and tools only).
     #[wasm_bindgen(js_name = debugSetHp)]
     pub fn debug_set_hp(&mut self, bldg: u32, hp: f64) {
-        self.untracked = true;
+        if !self.knob() {
+            return;
+        }
         if let Some(b) = self.w.bldgs.iter_mut().find(|b| b.id == bldg)
             && hp.is_finite()
         {
@@ -327,7 +362,9 @@ impl Game {
     /// Put a unit on the map (tests and tools only). Returns its id, or 0 for an unknown kind or team.
     #[wasm_bindgen(js_name = debugSpawn)]
     pub fn debug_spawn(&mut self, team: u8, kind: &str, x: f64, y: f64) -> u32 {
-        self.untracked = true;
+        if !self.knob() {
+            return 0;
+        }
         let (Some(k), Some(t)) = (UnitKind::parse(kind), valid_team(team)) else {
             return 0;
         };
@@ -340,7 +377,9 @@ impl Game {
     /// upgrade or team, or a level it does not have.
     #[wasm_bindgen(js_name = debugResearch)]
     pub fn debug_research(&mut self, team: u8, key: &str, level: u8) -> bool {
-        self.untracked = true;
+        if !self.knob() {
+            return false;
+        }
         let (Some(up), Some(t)) = (data::Upgrade::parse(key), valid_team(team)) else {
             return false;
         };
@@ -354,7 +393,9 @@ impl Game {
     /// Switch the opponent off (tests and tools only).
     #[wasm_bindgen(js_name = disableAi)]
     pub fn disable_ai(&mut self) {
-        self.untracked = true;
+        if !self.knob() {
+            return;
+        }
         self.w.disable_ai();
     }
 
@@ -362,6 +403,9 @@ impl Game {
     /// command: a replay of a guided game does not carry it.
     #[wasm_bindgen(js_name = holdWaves)]
     pub fn hold_waves(&mut self, on: bool) {
+        if self.lock.is_some() {
+            return;
+        }
         self.untracked |= on;
         self.w.hold_waves = on;
     }
@@ -369,7 +413,9 @@ impl Game {
     /// Set a team's resources (tests and tools only).
     #[wasm_bindgen(js_name = setResources)]
     pub fn set_resources(&mut self, team: u8, shards: i32, ether: i32) {
-        self.untracked = true;
+        if !self.knob() {
+            return;
+        }
         self.w.res[team as usize & 1] = [shards, ether];
     }
 

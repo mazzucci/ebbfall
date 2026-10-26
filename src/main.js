@@ -62,11 +62,11 @@ const SPEEDS = [1, 2, 4, 8];
 function clearScene() { setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide(); }
 function watch() {
   if (!startReplay()) { toast('This game cannot be watched again', true); return; }
-  ui.watching = 4; document.body.classList.add('replay'); $('replayBar').hidden = false; $('end').hidden = true;
+  ui.watching = 4; audio.quiet = true; document.body.classList.add('replay'); $('replayBar').hidden = false; $('end').hidden = true;
   clearScene(); renderTerrain(); speedLabel();
   const core = G.bldgs.find(b => b.team === G.me); if (core) centerOn(core.x + 40, core.y);
 }
-function stopWatching() { ui.watching = 0; document.body.classList.remove('replay'); $('replayBar').hidden = true; }
+function stopWatching() { ui.watching = 0; audio.quiet = false; document.body.classList.remove('replay'); $('replayBar').hidden = true; }
 /** The replay ran out (or DONE): back to the end card, which still says how the game went. */
 function doneWatching() { stopWatching(); clearScene(); updateHud(); $('end').hidden = false; $('btnWatch').focus(); }
 function speedLabel() { $('btnSpeed').textContent = ui.watching + '×'; }

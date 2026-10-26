@@ -22,8 +22,8 @@ export function onAttacked(e) {
   // By something unseen: said even on screen (losses and no one to shoot), with what finds it. A fight you are
   // looking at otherwise needs no siren; the ping and the ⚠ chip still mark it.
   const onScreen = e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
-  if (e.unseen) { toast(`Unseen attacker: ${detectors()} detect`, true, true); sfx('alert'); say('attack'); }
-  else if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); say('attack'); }
+  if (e.unseen) { toast(`Unseen attacker: ${detectors()} detect`, true, true); sfx('alert'); say('attack', 0.6); }
+  else if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); say('attack', 0.6); } // (after the siren)
   updateTools();
 }
 /** This side's detectors, as a phrase ("Turrets and Observers"): the buildings it raises that detect, and the units its

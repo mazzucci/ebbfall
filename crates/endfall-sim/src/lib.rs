@@ -504,10 +504,17 @@ fn event_json(e: &Event) -> String {
             .num("r", r)
             .num("team", team)
             .num("n", n),
-        Event::Attacked { x, y, building, .. } => o("attacked")
+        Event::Attacked {
+            x,
+            y,
+            building,
+            unseen,
+            ..
+        } => o("attacked")
             .num("x", x)
             .num("y", y)
-            .num("building", building),
+            .num("building", building)
+            .num("unseen", unseen),
         Event::Heal { x, y, tx, ty, mend } => o("heal")
             .num("x", x)
             .num("y", y)
@@ -633,6 +640,25 @@ mod tests {
         assert!(
             out.contains("shell") && !out.contains("bolt"),
             "only shots this seat sees: {out}"
+        );
+    }
+
+    #[test]
+    fn an_unseen_alert_reaches_the_client_flagged() {
+        let mut g = Game::new(5, 1);
+        for unseen in [true, false] {
+            g.w.emit(Event::Attacked {
+                team: PLAYER,
+                x: 1.0,
+                y: 2.0,
+                building: false,
+                unseen,
+            });
+        }
+        let out = g.drain_events();
+        assert!(
+            out.contains("\"unseen\":true") && out.contains("\"unseen\":false"),
+            "{out}"
         );
     }
 

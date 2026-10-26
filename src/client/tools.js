@@ -19,10 +19,21 @@ export function onAttacked(e) {
   // The last three places attacked (a new spot more than 8 tiles from the others), newest first: the chip cycles them.
   alerts.list = [alerts.last, ...alerts.list.filter(a => Math.hypot(a.x - e.x, a.y - e.y) > 8 * TILE)].slice(0, 3); alerts.at = 0;
   ping(e.x, e.y);
-  // A fight you are looking at needs no siren; the ping and the ⚠ chip still mark it.
+  // By something unseen: said even on screen (losses and no one to shoot), with what finds it. A fight you are
+  // looking at otherwise needs no siren; the ping and the ⚠ chip still mark it.
   const onScreen = e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
-  if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); }
+  if (e.unseen) { toast(`Unseen attacker: ${detectors()} detect`, true, true); sfx('alert'); }
+  else if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); }
   updateTools();
+}
+/** This side's detectors, as a phrase ("Turrets and Observers"): the buildings it raises that detect, and the units its
+ *  buildings train that do. */
+function detectors() {
+  const f = myFaction(), bl = [...f.buildBasic, ...f.buildAdvanced];
+  const names = [...bl.filter(k => BUILDINGS[k].detect > 0).map(k => BUILDINGS[k].name),
+    ...[...new Set(bl.concat(f.hq).flatMap(k => BUILDINGS[k].trains || []))].filter(k => UNITS[k].detect > 0).map(k => UNITS[k].name)];
+  const p = names.map(n => n + 's');
+  return p.length > 1 ? p.slice(0, -1).join(', ') + ' and ' + p[p.length - 1] : p[0] || 'Detectors';
 }
 /** Look at the latest attack; again, the one before (up to three), then round again. */
 export function jumpToAlert() {

@@ -72,6 +72,8 @@ pub struct World {
     pub upgrades: [[u8; UPGRADES.len()]; 2],
     /// Recent "under attack" alerts (team, time, x, y, was a building), for throttling.
     alerts: Vec<(u8, f64, f64, f64, bool)>,
+    /// When each team was last told that something it cannot see is attacking (not hashed: presentation).
+    unseen_alert: [f64; 2],
     pub events: Vec<Event>,
     pub map: Map,
     /// Each seat's scripted opponent, if it has one (indexed by team).
@@ -151,6 +153,7 @@ impl World {
             hit_by_slot: None,
             upgrades: [[0; UPGRADES.len()]; 2],
             alerts: Vec::new(),
+            unseen_alert: [f64::MIN; 2],
             events: Vec::new(),
             map: Map::empty(),
             ai: [None, None],
@@ -197,6 +200,7 @@ impl World {
         self.lost_to = [Vec::new(), Vec::new()];
         self.upgrades = [[0; UPGRADES.len()]; 2];
         self.alerts.clear();
+        self.unseen_alert = [f64::MIN; 2];
         self.events.clear();
         self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
         if self.sides_swapped {

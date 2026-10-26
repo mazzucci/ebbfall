@@ -137,9 +137,10 @@ impl World {
     /// Tell a player when something of theirs comes under attack: once per fight. A hit is quiet if any alert of
     /// theirs in the last ALERT_GAP seconds was within ALERT_DIST px (so several simultaneous fights each alert once), except
     /// that the first hit on a building gets through after alerts about units only.
-    pub(crate) fn alert_attacked(&mut self, target: Id) {
+    pub(crate) fn alert_attacked(&mut self, target: Id, unseen: bool) {
         const ALERT_GAP: f64 = 12.0;
         const ALERT_DIST: f64 = 480.0;
+        const UNSEEN_GAP: f64 = 30.0; // (the news that it takes a detector, not every hit)
         let Some((x, y, team, building)) = self
             .unit(target)
             .map(|u| (u.x, u.y, u.team, false))
@@ -148,6 +149,18 @@ impl World {
             return;
         };
         let now = self.time;
+        if unseen && now - self.unseen_alert[team as usize] >= UNSEEN_GAP {
+            self.unseen_alert[team as usize] = now;
+            self.alerts.push((team, now, x, y, building));
+            self.emit(Event::Attacked {
+                team,
+                x,
+                y,
+                building,
+                unseen,
+            });
+            return;
+        }
         self.alerts.retain(|a| now - a.1 < ALERT_GAP);
         let quiet = self.alerts.iter().any(|&(at, _, ax, ay, ab)| {
             at == team && dist(x, y, ax, ay) < ALERT_DIST && (ab || !building)
@@ -161,14 +174,17 @@ impl World {
             x,
             y,
             building,
+            unseen: false,
         });
     }
 
     pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
         let killer = by.and_then(|b| self.loss_slot(b)).or(self.hit_by_slot);
         let by = by.filter(|&b| self.team_of(b).is_some());
-        if by.is_some_and(|b| self.team_of(b) != self.team_of(target)) {
-            self.alert_attacked(target);
+        if let (Some(b), Some(t)) = (by, self.team_of(target))
+            && self.team_of(b) != Some(t)
+        {
+            self.alert_attacked(target, self.hidden_from(t, b));
         }
         // Hit by something it cannot see, at home (by one of its buildings): an AI side remembers where, for a
         // detector. (Not out in the field: no tower in the enemy's base.)

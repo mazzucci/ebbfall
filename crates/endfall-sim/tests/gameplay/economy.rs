@@ -549,3 +549,143 @@ fn two_builders_of_a_refinery_leave_one_on_it() {
         w.unit(other).unwrap().task
     );
 }
+
+#[test]
+fn a_worker_runs_from_an_armed_enemy_with_nobody_to_fight_it_and_goes_back_after() {
+    let mut w = World::new(17, 1);
+    w.disable_ai();
+    run(&mut w, 12); // (the starting workers are at their field)
+    let h = harvesters(&w, PLAYER)[0];
+    let field = gather_node(&w, h).expect("mining");
+    let (hx, hy) = (w.unit(h).unwrap().x, w.unit(h).unwrap().y);
+    let raider = w.make_unit(UnitKind::Trooper, ENEMY, hx + 40.0, hy);
+    w.hold_unit(raider);
+    {
+        let r = w.units.iter_mut().find(|u| u.id == raider).unwrap();
+        r.hp = 1e6;
+        r.maxhp = 1e6;
+    }
+    run(&mut w, 1);
+    assert!(
+        matches!(w.unit(h).unwrap().task, Task::Flee { .. }),
+        "it runs: {:?}",
+        w.unit(h).unwrap().task
+    );
+    run(&mut w, 4);
+    let u = w.unit(h).unwrap();
+    assert!(
+        (u.x - (hx + 40.0)).hypot(u.y - hy) > 4.0 * TILE,
+        "it got away from the raider"
+    );
+    // The raider leaves: after a quiet spell the worker is back at its field.
+    w.damage(raider, 1e9, None);
+    run(&mut w, 12);
+    assert_eq!(
+        gather_node(&w, h),
+        Some(field),
+        "back to its field: {:?}",
+        w.unit(h).unwrap().task
+    );
+}
+
+#[test]
+fn a_worker_stays_when_a_fighter_of_its_own_is_near_or_it_was_told_to_build() {
+    let mut w = World::new(17, 1);
+    w.disable_ai();
+    run(&mut w, 12);
+    let hs = harvesters(&w, PLAYER);
+    let (h, b) = (hs[0], hs[1]);
+    let (hx, hy) = (w.unit(h).unwrap().x, w.unit(h).unwrap().y);
+    let guard = w.make_unit(UnitKind::Trooper, PLAYER, hx - 30.0, hy);
+    w.hold_unit(guard);
+    let raider = w.make_unit(UnitKind::Trooper, ENEMY, hx + 40.0, hy);
+    w.hold_unit(raider);
+    for id in [guard, raider] {
+        let r = w.units.iter_mut().find(|u| u.id == id).unwrap();
+        r.hp = 1e6;
+        r.maxhp = 1e6;
+    }
+    // A builder on its way to a site, past the raider: it keeps going.
+    let site = w.make_building(
+        BldgKind::Depot,
+        PLAYER,
+        (hx / TILE) as i32 + 4,
+        (hy / TILE) as i32 + 3,
+        false,
+    );
+    w.start_build(b, site);
+    run(&mut w, 2);
+    assert!(
+        matches!(w.unit(h).unwrap().task, Task::Gather { .. }),
+        "guarded: it keeps mining ({:?})",
+        w.unit(h).unwrap().task
+    );
+    assert!(
+        matches!(w.unit(b).unwrap().task, Task::Build { .. }),
+        "told to build: it builds ({:?})",
+        w.unit(b).unwrap().task
+    );
+}
+
+#[test]
+fn a_worker_does_not_go_back_while_a_raider_sits_on_its_field_and_a_fresh_order_holds() {
+    let mut w = World::new(17, 1);
+    w.disable_ai();
+    run(&mut w, 12);
+    let hs = harvesters(&w, PLAYER);
+    let h = hs[0];
+    let field = gather_node(&w, h).expect("mining");
+    let (nx, ny) = {
+        let n = w.map.node(field).unwrap();
+        (n.x, n.y)
+    };
+    // A raider parks by the field (it cannot die, and holds there).
+    let raider = w.make_unit(UnitKind::Trooper, ENEMY, nx + 3.0 * TILE, ny);
+    w.hold_unit(raider);
+    {
+        let r = w.units.iter_mut().find(|u| u.id == raider).unwrap();
+        r.hp = 1e6;
+        r.maxhp = 1e6;
+    }
+    run(&mut w, 40);
+    let u = w
+        .unit(h)
+        .expect("alive: it did not keep walking back into the raider");
+    assert!(
+        matches!(u.task, Task::Flee { .. }),
+        "still away: {:?}",
+        u.task
+    );
+    // Its player sends it back anyway: it goes, and stays a while.
+    w.start_gather(h, field);
+    let _ = w.apply(
+        PLAYER,
+        &endfall_sim::world::Command::Gather {
+            unit: h,
+            node: field,
+        },
+    );
+    run(&mut w, 4);
+    assert!(
+        matches!(w.unit(h).map(|u| u.task), Some(Task::Gather { .. }) | None),
+        "the order holds: {:?}",
+        w.unit(h).map(|u| u.task)
+    );
+}
+
+#[test]
+fn an_idle_worker_away_from_its_field_stays_where_it_was_put() {
+    let mut w = World::new(17, 1);
+    w.disable_ai();
+    run(&mut w, 12);
+    let h = harvesters(&w, PLAYER)[0];
+    // Sent far from its field, idle there (a lookout).
+    w.move_to(h, 32.0 * TILE, 32.0 * TILE);
+    run(&mut w, 40);
+    assert_eq!(w.unit(h).unwrap().task, Task::Idle);
+    let (x, y) = (w.unit(h).unwrap().x, w.unit(h).unwrap().y);
+    let raider = w.make_unit(UnitKind::Trooper, ENEMY, x + 3.0 * TILE, y);
+    w.hold_unit(raider);
+    run(&mut w, 1);
+    assert_eq!(w.unit(h).map(|u| u.task), Some(Task::Idle), "it stays put");
+}

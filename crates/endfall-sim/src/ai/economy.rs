@@ -231,7 +231,13 @@ impl World {
         if let Some(&exp) = cores.get(1) {
             let (ex, ey) = (self.bldg(exp).unwrap().x, self.bldg(exp).unwrap().y);
             let near_exp = |w: &World, h: Id| match w.unit(h).map(|u| u.task) {
-                Some(Task::Gather { node, .. }) => w
+                // (one that ran from a raid there still works there: no replacement sent into the raid)
+                Some(
+                    Task::Gather { node, .. }
+                    | Task::Flee {
+                        node: Some(node), ..
+                    },
+                ) => w
                     .map
                     .node(node)
                     .is_some_and(|n| dist(n.x, n.y, ex, ey) < 400.0), // the radius it assigns within

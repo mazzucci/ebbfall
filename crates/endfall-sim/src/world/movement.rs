@@ -289,7 +289,10 @@ impl World {
                 // A walker's route may run through what pushed it out (a building put up across it since): it plans
                 // again, at most once per replan period (it keeps its timer: a crowd at a wall is pushed every tick).
                 // Anything else asks for a fresh approach at once, as before.
-                if matches!(u.task, Task::Move { .. } | Task::AMove { .. }) {
+                if matches!(
+                    u.task,
+                    Task::Move { .. } | Task::AMove { .. } | Task::Flee { .. }
+                ) {
                     if u.repath <= 0.0 {
                         u.path = None;
                     }

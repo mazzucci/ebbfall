@@ -233,7 +233,7 @@ fn each_main_is_a_pocket_with_one_ramp_except_on_open_plains() {
     for seed in (0..60).chain([340, 978, 1558, 1998, 2077, 4242]) {
         for kind in MapKind::ALL {
             let w = World::with_map(seed, 1, kind);
-            for base in w.map.bases {
+            for base in w.map.bases.clone() {
                 // Just past the wall (12 tiles out, 2 thick): only the ramp's mouth is reachable, a few tiles wide,
                 // with no crystals in the way.
                 let out = ways_out(&w, base, 14.5);

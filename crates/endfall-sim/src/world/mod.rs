@@ -14,6 +14,7 @@ mod flee;
 mod fog;
 mod movement;
 mod orders;
+mod seats;
 mod spawn;
 mod types;
 mod wire;
@@ -36,8 +37,14 @@ pub struct World {
     pub map_kind: MapKind,
     /// The players trade starting places (drawn by the client for each game; the map is point-symmetric, so fair).
     pub sides_swapped: bool,
-    /// Each team's side (headquarters, worker, Build list).
-    pub factions: [&'static Faction; 2],
+    /// Each seat's race (headquarters, worker, Build list). Its length is the number of seats (`seats()`); every
+    /// per-seat list below has one entry per seat, indexed by seat.
+    pub factions: Vec<&'static Faction>,
+    /// Each seat's team (alliance): seats of one team never fight each other and win together (`enemies`). Each seat
+    /// its own by default. Fixed for the game (`set_teams`, at setup).
+    pub teams: Vec<u8>,
+    /// The seats that are out (beaten or conceded): the game is over when the seats still in are all one team.
+    pub out: Vec<bool>,
     /// Applied commands with their tick and seat, while recording (see `record`).
     pub log: Option<Vec<Logged>>,
     pub diff: usize,
@@ -46,45 +53,46 @@ pub struct World {
     pub units: Vec<Unit>,
     pub bldgs: Vec<Bldg>,
     pub projs: Vec<Proj>,
-    pub res: [[i32; 2]; 2],
-    pub sup: [[i32; 2]; 2],
-    pub explored: [Vec<u8>; 2],
-    pub vis: [Vec<u8>; 2],
-    /// Tiles where each team reveals the other's cloaked units (from `update_fog`, like `vis`). Rebuilt at the end of each
+    pub res: Vec<[i32; 2]>,
+    pub sup: Vec<[i32; 2]>,
+    pub explored: Vec<Vec<u8>>,
+    pub vis: Vec<Vec<u8>>,
+    /// Tiles where each seat reveals its enemies' cloaked units (from `update_fog`, like `vis`). Rebuilt at the end of each
     /// step, so the next step's units act on it (a detector lost this tick still counts once); derived from the world,
     /// so not hashed.
-    pub det: [Vec<u8>; 2],
+    pub det: Vec<Vec<u8>>,
     pub over: bool,
+    /// The team that won (-1: none yet). With every seat its own team, the winning seat.
     pub winner: i32,
     /// The seat that conceded (-1: nobody), for the end screen's words.
     pub conceded: i32,
     /// The guided first game: the scripted opponent sends no wave while this is set (at most `HOLD_WAVES_MAX` s).
     pub hold_waves: bool,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
-    pub stats: [Stats; 2],
+    pub stats: Vec<Stats>,
     /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
     /// screen's chart. Not world state (derived, not hashed).
-    pub army_log: [Vec<u32>; 2],
+    pub army_log: Vec<Vec<u32>>,
     /// Each seat's units lost, counted by what killed them: a unit kind's index, or `UNIT_KINDS.len()` plus a
     /// building kind's (a turret). The end screen's "what beat you". Not hashed, like `army_log`.
-    pub lost_to: [Vec<u32>; 2],
-    /// While a projectile lands: its shooter's `lost_to` slot (the shooter may be gone by then).
-    hit_by_slot: Option<usize>,
-    /// Upgrade levels per team, in `UPGRADES` order.
-    pub upgrades: [[u8; UPGRADES.len()]; 2],
+    pub lost_to: Vec<Vec<u32>>,
+    /// While a projectile lands: its shooter's `lost_to` slot and seat (the shooter may be gone by then).
+    hit_by: Option<(usize, u8)>,
+    /// Upgrade levels per seat, in `UPGRADES` order.
+    pub upgrades: Vec<[u8; UPGRADES.len()]>,
     /// Recent "under attack" alerts (team, time, x, y, was a building), for throttling.
     alerts: Vec<(u8, f64, f64, f64, bool)>,
     /// When each team was last told that something it cannot see is attacking (not hashed: presentation).
-    unseen_alert: [f64; 2],
+    unseen_alert: Vec<f64>,
     pub events: Vec<Event>,
     pub map: Map,
     /// Each seat's scripted opponent, if it has one (indexed by team).
-    pub(crate) ai: [Option<Ai>; 2],
+    pub(crate) ai: Vec<Option<Ai>>,
     /// The seat whose AI is taking its turn (see `World::seat`).
     pub(crate) ai_turn: u8,
     /// Which seats the scripted opponent plays (they get the difficulty's income and may build in unexplored
     /// ground; the others are people). Fixed for the game, even when the AI is switched off.
-    pub ai_seats: [bool; 2],
+    pub ai_seats: Vec<bool>,
     pub(crate) rng: Mulberry32,
     next_id: Id,
     scratch: PathScratch,
@@ -119,7 +127,7 @@ impl World {
         World::with_setup(seed, diff, map_kind, swap, [&HUMANS, &HUMANS])
     }
 
-    /// A new game with each team's side (faction) chosen: index = team.
+    /// A new two-seat game with each seat's race (faction) chosen: index = seat.
     pub fn with_setup(
         seed: u32,
         diff: usize,
@@ -127,40 +135,56 @@ impl World {
         swap: bool,
         factions: [&'static Faction; 2],
     ) -> World {
-        let n = (MW * MH) as usize;
+        World::with_seats(seed, diff, map_kind, swap, &factions)
+    }
+
+    /// A new game for `factions.len()` seats (each seat's race; at least 2, at most `MAX_SEATS` and the map's starts:
+    /// panics otherwise, so check what comes from outside first). Each seat its own team; seat 0 a person, the rest
+    /// the scripted opponent (`set_teams`, `set_ai_seats` change that before play).
+    pub fn with_seats(
+        seed: u32,
+        diff: usize,
+        map_kind: MapKind,
+        swap: bool,
+        factions: &[&'static Faction],
+    ) -> World {
+        let n = factions.len();
+        assert!((2..=MAX_SEATS).contains(&n), "{n} seats");
         let mut w = World {
             seed,
             diff,
             map_kind,
             sides_swapped: swap,
-            factions,
+            factions: factions.to_vec(),
+            teams: (0..n as u8).collect(),
+            out: Vec::new(),
             log: None,
             time: 0.0,
             tick: 0,
             units: Vec::new(),
             bldgs: Vec::new(),
             projs: Vec::new(),
-            res: [[50, 0], [50, 0]],
-            sup: [[0, 0], [0, 0]],
-            explored: [vec![0; n], vec![0; n]],
-            vis: [vec![0; n], vec![0; n]],
-            det: [vec![0; n], vec![0; n]],
+            res: Vec::new(),
+            sup: Vec::new(),
+            explored: Vec::new(),
+            vis: Vec::new(),
+            det: Vec::new(),
             over: false,
             winner: -1,
             conceded: -1,
             hold_waves: false,
-            stats: [Stats::default(); 2],
-            army_log: [Vec::new(), Vec::new()],
-            lost_to: [Vec::new(), Vec::new()],
-            hit_by_slot: None,
-            upgrades: [[0; UPGRADES.len()]; 2],
+            stats: Vec::new(),
+            army_log: Vec::new(),
+            lost_to: Vec::new(),
+            hit_by: None,
+            upgrades: Vec::new(),
             alerts: Vec::new(),
-            unseen_alert: [f64::MIN; 2],
+            unseen_alert: Vec::new(),
             events: Vec::new(),
             map: Map::empty(),
-            ai: [None, None],
+            ai: Vec::new(),
             ai_turn: ENEMY,
-            ai_seats: [false, true],
+            ai_seats: (0..n).map(|s| s != PLAYER as usize).collect(),
             rng: Mulberry32::new(1),
             next_id: 1,
             scratch: PathScratch::new(),
@@ -186,66 +210,25 @@ impl World {
         self.bldgs.clear();
         self.projs.clear();
         self.graveyard.clear();
-        self.res = [[50, 0], [50, 0]];
-        self.sup = [[0, 0], [0, 0]];
-        for t in 0..2 {
-            self.explored[t].fill(0);
-            self.vis[t].fill(0);
-            self.det[t].fill(0);
-        }
+        self.clear_seats();
         self.over = false;
         self.winner = -1;
         self.conceded = -1;
         self.hold_waves = false;
-        self.stats = [Stats::default(); 2];
-        self.army_log = [Vec::new(), Vec::new()];
-        self.lost_to = [Vec::new(), Vec::new()];
-        self.upgrades = [[0; UPGRADES.len()]; 2];
         self.alerts.clear();
-        self.unseen_alert = [f64::MIN; 2];
         self.events.clear();
         self.map = Map::generate(seed, self.map_kind, &mut self.next_id);
         if self.sides_swapped {
             self.map.bases.swap(0, 1);
         }
-        for team in [PLAYER, ENEMY] {
-            let (bx, by) = self.map.bases[team as usize];
-            let faction = self.factions[team as usize];
-            self.make_building(faction.hq, team, bx, by, true);
-            // Four harvesters, each between the Core and one of the four crystals nearest it, mining that crystal:
-            // the same start for both sides (the map is mirrored), whichever way the base faces.
-            let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
-            let mut near: Vec<(f64, Id, i32, i32)> = self
-                .map
-                .nodes
-                .iter()
-                .filter(|n| !n.ether)
-                .map(|n| {
-                    (
-                        jsmath::hypot(n.tx as f64 + 0.5 - cx, n.ty as f64 + 0.5 - cy),
-                        n.id,
-                        n.tx,
-                        n.ty,
-                    )
-                })
-                .collect();
-            near.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
-            for &(d, node, nx, ny) in near.iter().take(4) {
-                let k = 3.0 / d.max(3.0); // three tiles out from the Core's centre, towards the crystal
-                let at = (
-                    jsmath::to_i32(cx + (nx as f64 + 0.5 - cx) * k),
-                    jsmath::to_i32(cy + (ny as f64 + 0.5 - cy) * k),
-                );
-                let f = self.map.nearest_free(at.0, at.1, 4).unwrap_or((bx, by + 5));
-                let u = self.make_unit(
-                    faction.worker,
-                    team,
-                    f.0 as f64 * TILE + 16.0,
-                    f.1 as f64 * TILE + 16.0,
-                );
-                self.start_gather(u, node);
-            }
-            self.recalc_supply(team);
+        assert!(
+            self.seats() <= self.map.bases.len(),
+            "{} seats on a map with {} starts",
+            self.seats(),
+            self.map.bases.len()
+        );
+        for team in 0..self.seats() as u8 {
+            self.deal_start(team);
         }
         self.init_ai();
         self.update_fog();
@@ -439,7 +422,7 @@ impl World {
 
     /// One sample of each seat's army value for the end screen's chart.
     fn log_armies(&mut self) {
-        for team in 0..2u8 {
+        for team in 0..self.seats() as u8 {
             let v = self
                 .units
                 .iter()
@@ -455,16 +438,16 @@ impl World {
         let mut h: u32 = 2_166_136_261;
         let mut mix = |v: i32| h = (h ^ v as u32).wrapping_mul(16_777_619);
         mix(self.tick as i32);
-        mix(self.res[0][0]);
-        mix(self.res[0][1]);
-        mix(self.res[1][0]);
-        mix(self.res[1][1]);
+        for r in &self.res {
+            mix(r[0]);
+            mix(r[1]);
+        }
         // Hidden state too, so a divergence shows on the tick it happens, not when a position drifts later.
         mix(self.rng.state() as i32);
         mix(self.next_id as i32);
-        for t in 0..2 {
-            mix(self.sup[t][0]);
-            mix(self.sup[t][1]);
+        for s in &self.sup {
+            mix(s[0]);
+            mix(s[1]);
         }
         for n in &self.map.nodes {
             mix(n.id as i32);
@@ -518,8 +501,8 @@ impl World {
                 mix(jsmath::to_i32(p * 1024.0));
             }
         }
-        for t in 0..2 {
-            for &level in &self.upgrades[t] {
+        for levels in &self.upgrades {
+            for &level in levels {
                 mix(level as i32);
             }
         }

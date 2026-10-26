@@ -299,7 +299,7 @@ impl World {
             let i = idx(n.tx, n.ty);
             self.map.occ[i] = 0;
             self.map.nodes.retain(|m| m.id != node);
-            for t in [0, 1] {
+            for t in 0..self.seats() as u8 {
                 if self.vis[t as usize][i] != 0 {
                     self.toast(t, "A shard field ran dry", false);
                 }

@@ -86,7 +86,7 @@ impl World {
             let u = self.u(uid);
             (u.x, u.y, u.team)
         };
-        let seen = [0, 1].map(|t| t == team || self.seen_by(t, uid));
+        let seen = self.seen_mask(team, uid);
         self.emit(Event::Cast {
             x,
             y,
@@ -260,7 +260,8 @@ impl World {
             // Also how many of those (and of its turrets) can hit this unit's layer: what a cloak would hide it from.
             let (mut nearest, mut armed, mut can_hit_me) = (f64::INFINITY, 0, 0);
             for o in self.nearby(ux, uy, 12.0 * TILE) {
-                if !self.team_of(o).is_some_and(|t| t != team) || !self.seen_by(team, o) {
+                if !self.team_of(o).is_some_and(|t| self.enemies(team, t)) || !self.seen_by(team, o)
+                {
                     continue;
                 }
                 let Some(g) = self.geo(o) else { continue };
@@ -279,7 +280,8 @@ impl World {
                     can_hit_me += 1;
                 }
             }
-            let detected = self.detects(1 - team, ux, uy);
+            let detected =
+                (0..self.seats() as u8).any(|t| self.enemies(team, t) && self.detects(t, ux, uy));
             let fight = armed >= 3;
             for &ab in d.abilities {
                 if self.can_cast(uid, ab).is_err() {

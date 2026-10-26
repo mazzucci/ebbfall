@@ -1403,7 +1403,7 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'watched to the end twice, counted once');
       await tap('#btnRematch');
       await d.page.waitForFunction(() => endfall.G.time < 2 && !endfall.G.over, null, { timeout: 5000 });
-      assert.ok(await d.page.locator('#cmd').evaluate(e => getComputedStyle(e).visibility !== 'hidden'), 'a new game has its card');
+      assert.ok(!await d.eval(() => document.body.classList.contains('replay')), 'a new game has its card back (empty until something is selected)');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -1429,4 +1429,33 @@ test('an attack by something unseen says so, even on screen, and names what dete
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
+});
+
+test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');
+    await d.clickEntity(h.id);
+    await d.hudText('#selName', /^Harvester$/);
+    const vp = d.page.viewportSize();
+    const [stage, mm, info, cmd] = await Promise.all(['#stage', '#minimap', '#info', '#cmd'].map(q => d.page.locator(q).boundingBox()));
+    assert.ok(stage.y + stage.height >= vp.height - 12, `the map reaches the bottom of the window: ${JSON.stringify(stage)}`);
+    for (const [n, b] of [['minimap', mm], ['console', info], ['card', cmd]]) assert.ok(b.y >= stage.y && b.y + b.height <= stage.y + stage.height, `the ${n} sits over the map`);
+    assert.ok(mm.x < info.x && info.x + info.width < cmd.x, 'minimap left, console in the middle, card right');
+    const mid = (mm.x + mm.width + cmd.x) / 2;
+    assert.ok(Math.abs(info.x + info.width / 2 - mid) < 4, 'the console is centred between the minimap and the card');
+    // The hint and the toasts stay clear of the minimap.
+    await d.grant(500, 0);
+    await d.pressCard('Build'); await d.pressCard('Depot');
+    const hint = await d.page.locator('#hint').boundingBox();
+    assert.ok(hint, 'placing a building shows the hint');
+    assert.ok(hint.y + hint.height <= mm.y + 1, 'the hint is above the minimap');
+    await d.key('Escape'); await d.key('Escape');
+    await d.eval(() => endfall.setResources(0, 0, 0));
+    await d.clickEntity(coreOf(await d.state()).id);
+    await d.key('h'); // (a Harvester it cannot pay for: a hotkey refusal is a toast)
+    const toast = await d.page.locator('#msg .toast').first().boundingBox();
+    if (toast) assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
 });

@@ -58,7 +58,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
-  src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), orders, spawn, economy, construction,
+  src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
+                      starts, who is out, the last team standing), orders, spawn, economy, construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, fog
   src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, research, produce, army, scouting
@@ -82,11 +83,18 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
+  online.js           Play a friend: the lobby card (open/join a room by code or link, race, map, ready) and the glue
+                      between src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
+src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages, sends this side's orders,
+                      feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
-                      touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge)
+                      touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
+                      online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes)
+test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
+                      a suspended page, a wake during a pending reconnect, orders given while offline
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats,
                       lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`)
@@ -121,10 +129,16 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 
 ## Conventions
 
-- Teams (seats): `PLAYER = 0`, `ENEMY = 1` are only the menu's defaults. Rules never single out a team: fog, alerts,
-  toasts, sounds and stats are per seat, events carry the seat they are for (`Game::drain_events` passes on its own
-  seat's), the scripted opponent plays whichever seats `World::ai_seats` marks (one brain per seat, `World::seat()` /
-  `foe()` inside its turn), and `is_ai(team)` is the only difference a seat's player makes (AI income, building in
+- Seats and teams: a World has N seats (`World::seats()`, 2 for now: the maps have two starts; up to `MAX_SEATS`),
+  and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
+  an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
+  decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one
+  team, and `winner` is that team; a concede knocks out its seat only. `PLAYER = 0`, `ENEMY = 1` are only the
+  menu's defaults. Rules never single out a seat: fog, alerts, toasts, sounds and stats are per seat (vision is not
+  shared with allies yet), events carry the seat they are for (`Game::drain_events` passes on its own seat's; `seen` is a bit per seat),
+  the scripted opponent plays whichever seats `World::ai_seats` marks (one brain per seat, `World::seat()` inside its
+  turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in), and `is_ai(team)` is the
+  only difference a seat's player makes (AI income, building in
   unexplored ground, losing as soon as its buildings are gone; a person's new refinery gets one worker (its builder; for the Vael, whose planter has left, the nearest), the AI
   balances its own).
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.

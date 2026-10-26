@@ -1,7 +1,7 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel.
-import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
+import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, enemies, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
 import { sfx } from './audio.js';
@@ -121,7 +121,7 @@ function commandAt(wx, wy, hit = pick(wx, wy)) {
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const vent = ventOf(hit);
   let job = false; // harvesters were given work
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
-  if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
+  if (hit && hit.kind !== 'node' && enemies(G.me, hit.team)) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
   else if ((hit && hit.kind === 'node') || vent) {
     const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)
     for (const u of units) if (u.d.worker) startGather(u, node); else moveTo(u, wx, wy);
@@ -139,7 +139,7 @@ function commandAt(wx, wy, hit = pick(wx, wy)) {
 const armedTap = {
   attack(units, wx, wy) {
     const hit = pick(wx, wy);
-    if (hit && hit.kind !== 'node' && hit.team !== G.me) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { attackMoveGroup(units, wx, wy); marker(wx, wy, FOE); }
+    if (hit && hit.kind !== 'node' && enemies(G.me, hit.team)) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else attackMove(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); } else { attackMoveGroup(units, wx, wy); marker(wx, wy, FOE); }
     sfx('attack', voice(units)); clearMode();
   },
   repair(units, wx, wy) {

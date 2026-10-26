@@ -1122,7 +1122,7 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
     let gathered = |diff: usize| {
         let mut w = World::new(17, diff);
         w.disable_ai(); // (its starting workers mine on; the seat is still an AI seat)
-        let start = w.res;
+        let start = w.res.clone();
         run(&mut w, 90);
         [0, 1].map(|t| w.res[t][0] - start[t][0])
     };

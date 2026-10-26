@@ -49,7 +49,7 @@ fn queued(b: &Bldg, i: usize) -> f64 {
 }
 
 record! {
-    /// Per unit. carry_type: -1 none, 0 shards, 1 ether. hid: bit t set = cloaked and hidden from team t; cloaked:
+    /// Per unit. carry_type: -1 none, 0 shards, 1 ether. hid: bit t set = cloaked and hidden from seat t; cloaked:
     /// cloaked at all (drawn as a shimmer where it is seen).
     UNIT_FIELDS, push_unit, |u: &Unit, w| {
         id = u.id, kind = u.kind.index(), team = u.team, x = u.x, y = u.y, hp = u.hp, maxhp = u.maxhp, sh = u.sh, maxsh = u.maxsh, r = u.r,
@@ -57,7 +57,7 @@ record! {
         task = task_parts(&u.task).0, phase = task_parts(&u.task).1, target = task_parts(&u.task).2, cd = u.cd,
         ab_cd0 = u.ab_cd[0], ab_cd1 = u.ab_cd[1], boost = u.boost.map_or(0, |(k, _)| k.index() + 1),
         mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, warp = u.warp,
-        hid = w.cloaked_from(0, u) as u8 + 2 * w.cloaked_from(1, u) as u8, cloaked = World::is_cloaked(u) as u8,
+        hid = hidden_from(u, w), cloaked = World::is_cloaked(u) as u8,
     }
 }
 
@@ -93,22 +93,33 @@ record! {
     }
 }
 
+/// Bit t set: unit `u` is cloaked and hidden from seat t.
+fn hidden_from(u: &Unit, w: &World) -> u8 {
+    (0..w.seats() as u8)
+        .filter(|&t| w.cloaked_from(t, u))
+        .fold(0, |m, t| m | 1 << t)
+}
+
 record! {
-    /// The world's scalars: clock, resources and supply per team, the end, stats, settings. The upgrade levels
-    /// follow (`push_upgrades`).
+    /// The world's scalars: clock, the end (winner: a team), settings, how many seats. A `SEAT_FIELDS` record per
+    /// seat follows, then the upgrade levels (`push_upgrades`).
     INFO_FIELDS, push_info, |w0: &World, w| {
-        time = w.time, tick = w.tick, shards0 = w.res[0][0], ether0 = w.res[0][1], shards1 = w.res[1][0],
-        ether1 = w.res[1][1], sup_used0 = w.sup[0][0], sup_cap0 = w.sup[0][1], sup_used1 = w.sup[1][0],
-        sup_cap1 = w.sup[1][1], over = w.over as u8, winner = w.winner, conceded = w.conceded, built0 = w.stats[0].built, lost0 = w.stats[0].lost,
-        killed0 = w.stats[0].killed, razed0 = w.stats[0].razed, built1 = w.stats[1].built, lost1 = w.stats[1].lost,
-        killed1 = w.stats[1].killed, razed1 = w.stats[1].razed, seed = w.seed, diff = w.diff,
-        map_kind = w.map_kind as u32,
-        faction0 = w.factions[0].index(),
-        faction1 = w.factions[1].index(),
+        time = w.time, tick = w.tick, over = w.over as u8, winner = w.winner, conceded = w.conceded, seed = w.seed,
+        diff = w.diff, map_kind = w.map_kind as u32, seats = w.seats(),
     }
 }
 
-/// After the info record: each team's level of every upgrade, team 0's first, in `UPGRADES` order (the schema's
+record! {
+    /// Per seat, in seat order: resources, supply, stats, race (index into FACTIONS), team, out (beaten or conceded).
+    SEAT_FIELDS, push_seat, |t: &u8, w| {
+        shards = w.res[*t as usize][0], ether = w.res[*t as usize][1], sup_used = w.sup[*t as usize][0],
+        sup_cap = w.sup[*t as usize][1], built = w.stats[*t as usize].built, lost = w.stats[*t as usize].lost,
+        killed = w.stats[*t as usize].killed, razed = w.stats[*t as usize].razed,
+        faction = w.factions[*t as usize].index(), team = w.teams[*t as usize], out = w.out[*t as usize] as u8,
+    }
+}
+
+/// After the seat records: each seat's level of every upgrade, seat 0's first, in `UPGRADES` order (the schema's
 /// `upgrades` names them).
 pub fn push_upgrades(out: &mut Vec<f64>, w: &World) {
     for levels in &w.upgrades {
@@ -126,6 +137,7 @@ pub fn schema_json() -> String {
         .raw("proj", list(PROJ_FIELDS))
         .raw("node", list(NODE_FIELDS))
         .raw("info", list(INFO_FIELDS))
+        .raw("seat", list(SEAT_FIELDS))
         .raw("tasks", list(TASKS))
         .raw("phases", list(PHASES))
         .raw("projKinds", list(PROJ_KINDS))

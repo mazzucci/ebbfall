@@ -1,5 +1,6 @@
 # The relay on Cloudflare (relay/worker.js): a Worker and one Durable Object per room. Deploy from relay/ with
-# `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts and Durable Objects edit).
+# `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts edit, which covers Durable Objects).
+# A deploy restarts every room: games in progress end (CI deploys only when relay/ changed).
 # The game finds it through the build's VITE_RELAY_URL (wss://relay.ebbfall.com/).
 name = "ebbfall-relay"
 main = "worker.js"

@@ -82,11 +82,18 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
+  online.js           Play a friend: the lobby card (open/join a room by code or link, race, map, ready) and the glue
+                      between src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
+src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages, sends this side's orders,
+                      feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
-                      touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge)
+                      touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
+                      online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes)
+test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
+                      a suspended page, a wake during a pending reconnect, orders given while offline
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats,
                       lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`)

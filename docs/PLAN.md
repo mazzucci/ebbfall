@@ -183,8 +183,10 @@ loop feels right.
 Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the first sketch it replaces.
 - [ ] Command queue: every order becomes `{tick, player, type, args}`; the sim executes a tick only when it has both players' commands for it
 - [ ] Input delay (start with ~6 ticks = 200 ms), later rollback if the delay feels bad
-- [ ] Relay server: Node + `ws`, forwards commands, acts as tick authority, assigns seats; deployable on a free tier (Fly.io, Railway) or a Cloudflare Durable Object
-- [ ] Lobby: create/join by code, pick difficulty-free map, ready up
+- [x] Lockstep core in the sim (`lockstep.rs`, the command wire format `wire.rs`), 2026-10-26
+- [x] Relay: `relay/room.js` (pure rules) + `relay/server.mjs` (Node, local play and tests), 2026-10-26
+- [x] Network client `src/net/net.js` and the Play-a-friend lobby `src/client/online.js` (room code or link, race, map, ready; leaving concedes at once), 2026-10-26
+- [ ] Relay deployed (Cloudflare Durable Object, M3d): then the PLAY A FRIEND button shows on ebbfall.com
 - [ ] Per-player fog of war (today fog is computed from team 0's view only)
 - [ ] Desync detection: exchange `stateHash()` every 100 ticks, dump both states on mismatch
 - [ ] Reconnect: late joiner replays the command log from tick 0

@@ -258,3 +258,14 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #replayBar[hidden]{display:none} #replayBar .t{font:600 11px var(--display);letter-spacing:.14em;color:var(--muted);padding:0 4px} #replayBar .ib{min-width:44px;min-height:32px}
 @media (max-height:500px){#replayBar{top:40px}}
 body.replay #cmd{visibility:hidden}
+/* An online game waiting for someone, or over for a reason the end card does not tell: one line under the top bar */
+#netWait{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:8px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font:600 12px var(--display);letter-spacing:.08em;color:var(--fg);max-width:calc(100vw - 32px)}
+#netWait[hidden]{display:none} #netWait .ib{min-width:44px;min-height:32px}
+@media (max-height:500px){#netWait{top:40px}}
+#online{background:var(--panel)} /* (opaque, as the menu: no empty game behind it) */
+/* Play a friend: the lobby */
+#online input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
+#roomCode{width:5.5em;text-transform:uppercase;text-align:center} #onlineName{width:12em}
+#online .code{font:600 22px var(--mono);letter-spacing:.2em;color:var(--ally2);margin:0 10px}
+#seatList{display:flex;flex-direction:column;gap:4px;margin:8px 0} .seat{display:grid;grid-template-columns:1fr 6em 5em;gap:8px;padding:6px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;font-size:13px}
+.seat.me{border-color:var(--ally)} .seat .ok{color:var(--ally2)} #online .row{gap:8px;align-items:center}

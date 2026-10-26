@@ -149,6 +149,16 @@ test('a seat away longer than its budget leaves: a concede in the log, and nothi
   assert.deepEqual(fromB, [[18]], 'its concede is an order like any other, and the only one');
 });
 
+test('a seat that leaves concedes at once: no waiting for it', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 1000);
+  r.receive(b, { t: 'leave' }); r.close(b);
+  assert.equal(got(a, 'left')[0].seat, 1);
+  play(r, [a], 1100, 1400);
+  assert.ok(r.log.some(t => t.o.some(([s, w]) => s === 1 && w[0] === 18)), 'its concede is in the next turn');
+  assert.equal(got(a, 'away').length, 0, 'nobody waited for it');
+});
+
 test('a stall closes a few turns, not a burst, and blames no one', () => {
   const { r, a, b, got, clear } = started();
   play(r, [a, b], 0, 1000); clear();

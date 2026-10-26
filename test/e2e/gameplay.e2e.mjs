@@ -1442,11 +1442,20 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     assert.ok(stage.y + stage.height >= vp.height - 12, `the map reaches the bottom of the window: ${JSON.stringify(stage)}`);
     for (const [n, b] of [['minimap', mm], ['console', info], ['card', cmd]]) assert.ok(b.y >= stage.y && b.y + b.height <= stage.y + stage.height, `the ${n} sits over the map`);
     assert.ok(mm.x < info.x && info.x + info.width < cmd.x, 'minimap left, console in the middle, card right');
-    assert.ok(Math.abs(info.x + info.width / 2 - (stage.x + stage.width / 2)) < 40, 'the console is centred');
-    // The toasts and the hint stay clear of the minimap.
+    const mid = (mm.x + mm.width + cmd.x) / 2;
+    assert.ok(Math.abs(info.x + info.width / 2 - mid) < 4, 'the console is centred between the minimap and the card');
+    // The hint and the toasts stay clear of the minimap.
+    await d.grant(500, 0);
     await d.pressCard('Build'); await d.pressCard('Depot');
-    const toastOrHint = await d.page.locator('#hint').boundingBox();
-    if (toastOrHint) assert.ok(toastOrHint.y + toastOrHint.height <= mm.y + 1, 'the hint is above the minimap');
+    const hint = await d.page.locator('#hint').boundingBox();
+    assert.ok(hint, 'placing a building shows the hint');
+    assert.ok(hint.y + hint.height <= mm.y + 1, 'the hint is above the minimap');
+    await d.key('Escape'); await d.key('Escape');
+    await d.eval(() => endfall.setResources(0, 0, 0));
+    await d.clickEntity(coreOf(await d.state()).id);
+    await d.key('h'); // (a Harvester it cannot pay for: a hotkey refusal is a toast)
+    const toast = await d.page.locator('#msg .toast').first().boundingBox();
+    if (toast) assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

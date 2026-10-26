@@ -89,14 +89,14 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #cmd{display:grid;grid-template-columns:repeat(3,66px);grid-auto-rows:52px;gap:4px;align-content:start}
 /* The HUD floats over the map on every screen (no band across the bottom: the map keeps its height): the minimap
    bottom-left, the selection console bottom-centre at one width, the command card bottom-right (phones: below). */
-#hud{position:fixed;z-index:5;left:16px;right:16px;bottom:16px;height:auto;display:flex;justify-content:space-between;
+#hud{position:fixed;z-index:5;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;
   align-items:flex-end;gap:10px;pointer-events:none}
 #hud>*{pointer-events:auto}
 #minimap{width:150px;height:150px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
 #info{flex:none;width:min(560px,calc(100% - 400px));max-height:150px;margin:0 auto;align-self:flex-end;box-sizing:border-box;
   background:rgba(18,26,37,.88);box-shadow:0 2px 10px rgba(0,0,0,.5)}
 #cmd{background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
-#cmd:empty{display:none}
+#cmd:empty{visibility:hidden} /* (its room kept: the console does not move) */
 .cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0 2px;font:600 10px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;overflow:hidden}
 .cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico,.cb .por{order:1} .cb .c{order:3}
 .cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)}
@@ -145,7 +145,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #result.win{color:var(--ok)} #result.lose{color:var(--bad)}
 @media (max-width:620px){
   #top{gap:9px;padding:0 8px} .res{font-size:14px}
-  #hud{position:static;display:grid;pointer-events:auto;height:auto;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 156px} /* (a narrow window: the panels in a band below the map) */
+  #hud{position:static;display:grid;pointer-events:auto;height:auto;align-items:start;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 156px} /* (a narrow window: the panels in a band below the map) */
+  #msg{bottom:60px} #stage:has(#btnBox[hidden]) #msg{bottom:32px} #hint{bottom:8px} /* (the corner is free again) */
   #info{width:auto;max-height:none;margin:0} #cmd{background:none;border:0;box-shadow:none;padding:0}
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
@@ -159,6 +160,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)} .tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
 #btnBox{position:absolute;left:8px;bottom:166px;z-index:3;min-height:44px}
 #btnHome{position:absolute;left:128px;bottom:166px;z-index:3;min-height:44px;min-width:44px;justify-content:center} #btnHome .t{display:none}
+@media (max-width:620px){#btnBox,#btnHome{bottom:8px}} /* (a narrow window: the panels are in a band below, the corner is free) */
 @media (any-pointer:coarse){#hint{left:180px}} /* clear of SELECT and Home on tablets */
 .tb.grp{min-width:34px;justify-content:center} .tb.grp span{color:var(--muted)} .tb.grp.empty{opacity:.5}
 @keyframes pulse{from{box-shadow:0 0 0 rgba(255,90,90,0)}to{box-shadow:0 0 12px rgba(255,90,90,.7)}}
@@ -170,7 +172,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   .chip{font-size:13px} .chip .pic{width:20px;height:20px}
   /* The HUD floats over the battlefield: minimap bottom-left, command card bottom-right (thumb zones). */
   #hud{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));
-    bottom:max(10px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}
+    bottom:max(10px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;pointer-events:none}
   #hud>*{pointer-events:auto}
   #info{display:none}
   #minimap{width:104px;height:104px;box-shadow:0 2px 10px rgba(0,0,0,.5)}

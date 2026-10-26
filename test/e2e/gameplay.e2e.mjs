@@ -1265,7 +1265,12 @@ test('the pause card reports what of theirs was seen lately; nothing in the fog 
       const seen = await pause();
       assert.match(await seen.textContent(), /^Seen lately: 3$/, await seen.textContent());
       assert.deepEqual(await d.page.$$eval('#pauseSeen .seen', s => s.map(e => e.title)), ['3 Trooper'], 'portraits and counts, not the one in the fog');
-      assert.ok((await seen.boundingBox()).height < 40, 'one line');
+      assert.ok((await seen.boundingBox()).height < 40, 'one line (for a few kinds)');
+      // Once they are destroyed they are no longer "out there".
+      await (d.touch ? d.page.locator('#btnResume').tap() : d.page.locator('#btnResume').click());
+      await d.eval(([x, y]) => { for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'vanguard', x + i * 20, y + 40); }, [at.x, at.y]);
+      await until(d, () => d.eval(() => !endfall.G.units.some(u => u.team !== endfall.G.me && u.type === 'trooper')), { seconds: 30, step: 1, what: 'the Troopers to fall' });
+      assert.equal(await (await pause()).textContent(), 'Nothing of theirs seen lately.', 'the dead do not count');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }

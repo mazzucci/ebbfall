@@ -1,7 +1,7 @@
 # Ebbfall
 
 A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
-the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael, in progress), three maps (and a random one), one opponent. Pre-alpha.
+the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael), three maps (and a random one), one opponent at four levels. Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
@@ -26,6 +26,10 @@ need a Foundry, which researches weapon and armor upgrades. The Airfield trains 
 and buildings, and Observers, cheap unarmed flying scouts. Turrets hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
+
+**Pause and after the game:** the pause card shows the clock and the enemy units you have seen in the last minute and
+a half. The end card says what beat you and what you saw of their army; WATCH plays the game again from the start,
+both sides in view, at up to 8x.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 

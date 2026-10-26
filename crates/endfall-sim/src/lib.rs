@@ -133,8 +133,8 @@ impl Game {
         ai: u32,
         size: u32,
     ) -> Result<Game, String> {
-        if !(64..=128).contains(&size) {
-            return Err(format!("A {size}x{size} map: 64 to 128 tiles across"));
+        if ![64, 96, 128].contains(&size) {
+            return Err(format!("A {size}x{size} map: 64, 96 or 128 tiles across"));
         }
         Ok(Game::wrap(World::with_size(
             seed,

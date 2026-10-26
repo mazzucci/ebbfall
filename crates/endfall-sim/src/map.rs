@@ -212,6 +212,10 @@ impl Map {
     /// their edges, the size of rock features, fields and pockets, and gets more expansions, farther out (on 64x64
     /// every formula below gives the numbers it always had, draw for draw: the goldens pin them).
     pub fn generate(seed: u32, kind: MapKind, size: MapSize, next_id: &mut Id) -> Self {
+        debug_assert!(
+            size.w % 2 == 0 && size.h % 2 == 0,
+            "an even size: the centre vent is its own mirror"
+        );
         let (mw, mh) = (size.w, size.h);
         let mut m = Map::empty(size);
         let mut rnd = Mulberry32::new(seed);

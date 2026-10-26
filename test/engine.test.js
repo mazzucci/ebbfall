@@ -190,7 +190,7 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   sized(4242, 64); sized(4242, 64); // (back, twice: nothing kept from the larger games)
   E.resetGame(4242, 1);
   assert.equal(E.MW, 64, 'a menu game is 64x64');
-  assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', 256), /64 to 128/);
+  for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
 test('an extractor knows its vent, and harvesters ordered to the vent mine ether', { skip }, () => {

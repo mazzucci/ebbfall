@@ -167,8 +167,8 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    gives the numbers it always had, draw for draw (the goldens did not move): the bases keep their distance from their
    edges (corners, or the middle of opposite sides), pockets, rock features and fields keep their size, and a larger
    map gets one more expansion site per 32 tiles past 64, reaching 16 tiles farther; still two starts. The AI's sweep
-   grid keeps a stop about every 10 tiles. WASM: `Game.mapW()`/`mapH()`, and `Game.withSize(..., size)` (64 to 128,
-   tests only for now); the client's `MW`/`MH`/`WW`/`WH` (core.js) are live bindings set when a game starts, which
+   grid keeps a stop about every 10 tiles. WASM: `Game.mapW()`/`mapH()`, and `Game.withSize(..., size)` (64, 96 or 128:
+   even sizes, as the centre vent is its own mirror; tests only for now); the client's `MW`/`MH`/`WW`/`WH` (core.js) are live bindings set when a game starts, which
    remakes the grids, and the renderer remakes its fog, shade and minimap canvases when the size changes. The A*
    cap is 5000 expansions per 4096 tiles (20,000 on 128x128): left at 5000, a walker could not cross a 128x128 map
    in one order. Timings (native release build on a loaded 4-core VM, so roughly; a phone's WASM will be a few times
@@ -178,8 +178,12 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    `maps.rs` (96x96 and 128x128 maps for every kind: walkable, mirrored, home fields, more expansions; the far side
    of a 128x128 map in play; eight minutes of AI against AI on 96x96 under the random-play invariants) and an engine
    test (a larger game, then smaller ones). Left for step 2: N starts and the lobby's choice of size, the menu's
-   preview of other sizes, the AI's timings over longer walks, and measuring repaths in WASM on a phone with big
-   armies on 128x128 before deciding on flow fields or shared paths.
+   preview of other sizes, the AI's timings over longer walks (its sweep moves on after 60 s; a cross-map walk on
+   128x128 takes slow units 70-90 s), and the path cost of a wave: two Hard AIs for 12 min, native release, average
+   per tick 0.06 ms on 64x64, 0.1 on 96x96, 0.15-0.22 on 128x128, but the worst tick (a wave setting off, 38-50
+   cross-map paths of 2-3 ms each in one tick) 4 ms, 18-50 ms and 78-136 ms: a phone's WASM would hitch for 300 ms
+   or more. Before 128x128 is offered: one path per group (or a flow field), repaths spread over ticks, or cheaper
+   smoothing.
 
 ## Open questions for the owner
 

@@ -28,7 +28,16 @@
   const frame = () => new Promise(r => setTimeout(r, 0)); // (let the page draw between slices)
 
   async function check() {
-    again.hidden = true; verdict.textContent = 'Checking…'; delete document.body.dataset.result;
+    try { await run(); }
+    catch (e) { // (no WebAssembly, e.g. iOS Lockdown Mode; or the sim failed)
+      verdict.textContent = `This browser cannot run the check: ${e?.message || e}`; verdict.className = 'bad';
+      document.body.dataset.result = 'fail'; again.hidden = false;
+    }
+  }
+  let ready = null;
+  async function run() {
+    again.hidden = true; verdict.textContent = 'Checking…'; verdict.className = ''; delete document.body.dataset.result;
+    await (ready ??= init());
     list.innerHTML = GOLDEN.map(g => `<li class="run">${g.name}</li>`).join('');
     let bad = 0;
     const t0 = performance.now();
@@ -47,8 +56,9 @@
     again.hidden = false;
   }
   again.addEventListener('click', check);
-  await init();
   check();
+  // Offline too, even when this is the first page of the game opened here (the game's service worker keeps it).
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 </script>
 </body>
 </html>

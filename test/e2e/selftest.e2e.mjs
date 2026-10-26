@@ -6,6 +6,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { firefox, webkit } from 'playwright-core';
 import { start, stop, browserContext, baseUrl } from './harness.mjs';
+import { GOLDEN } from '../../src/engine/golden.js';
 
 before(start);
 after(stop);
@@ -18,7 +19,7 @@ async function check(ctx) {
   const [result, verdict, lines] = await p.evaluate(() => [document.body.dataset.result, document.getElementById('verdict').textContent, [...document.querySelectorAll('#games li')].map(l => l.textContent)]);
   assert.deepEqual(errors, []);
   assert.equal(result, 'pass', `${verdict}\n${lines.join('\n')}`);
-  assert.equal(lines.length, 6);
+  assert.equal(lines.length, GOLDEN.length);
 }
 
 test('Chromium computes the golden games exactly', async () => {

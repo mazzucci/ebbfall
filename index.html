@@ -88,7 +88,24 @@
         <button class="ib" id="btnMenuSound" aria-pressed="true" aria-labelledby="lblSound btnMenuSound">ON</button>
       </div>
       <p class="tip" id="iosTip" hidden>On iPhone, tap <b>Share → Add to Home Screen</b> and open Ebbfall from there to play full screen in landscape.</p>
-      <div class="row"><button class="ib" id="btnExit" title="Leave Ebbfall">EXIT GAME</button><button class="ib" id="btnHowTo">HOW TO PLAY</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><span class="spacer rec" id="record"></span><button class="ib big" id="btnStart">START GAME</button></div>
+      <div class="row"><button class="ib" id="btnExit" title="Leave Ebbfall">EXIT GAME</button><button class="ib" id="btnHowTo">HOW TO PLAY</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><button class="ib" id="btnOnline" title="Play a friend over the Internet" hidden>PLAY A FRIEND</button><span class="spacer rec" id="record"></span><button class="ib big" id="btnStart">START GAME</button></div>
+    </div>
+  </div>
+  <div class="screen" id="online" hidden>
+    <div class="card menu" role="dialog" aria-modal="true" aria-label="Play a friend">
+      <h2>PLAY A FRIEND</h2>
+      <div id="onlineJoin">
+        <div class="opt"><span class="lbl">NAME</span><input id="onlineName" maxlength="16" placeholder="Player" autocomplete="nickname"></div>
+        <div class="row"><button class="ib big" id="btnNewRoom">NEW ROOM</button><span class="spacer"></span><input id="roomCode" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off" aria-label="Room code"><button class="ib" id="btnJoinRoom">JOIN</button></div>
+      </div>
+      <div id="onlineRoom" hidden>
+        <div class="row"><span class="lbl">ROOM</span><b id="roomShow" class="code"></b><button class="ib" id="btnShare">SHARE LINK</button></div>
+        <div id="seatList"></div>
+        <div class="opt"><span class="lbl">RACE</span><div class="diff" id="onlineRace" role="radiogroup"><button class="ib on" data-race="humans" role="radio" aria-checked="true">HUMANS</button><button class="ib" data-race="vael" role="radio" aria-checked="false">VAEL</button></div></div>
+        <div class="opt"><span class="lbl">MAP</span><div class="diff" id="onlineMaps"></div></div>
+      </div>
+      <p class="tag" id="onlineStatus" aria-live="polite"></p>
+      <div class="row"><button class="ib" id="btnOnlineBack">BACK</button><span class="spacer"></span><button class="ib big" id="btnOnlineReady" hidden>READY</button></div>
     </div>
   </div>
   <div class="screen" id="splash" hidden>

@@ -7,7 +7,7 @@
 //
 // The protocol (client -> relay): hello {proto, name, token?, next?} (next: the next turn the client expects, when it
 // comes back), race {race}, map {map}, ready {ready}, loaded {} (the game is set up: the clock may start), orders
-// {w: numbers}, ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
+// {w: numbers}, leave {} (gives the game up now), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby, start {setup, delay, from},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
 // {code, msg}, pong {id}.
@@ -78,6 +78,7 @@ export class Room {
     }
     if (this.phase !== 'game' || s.left) return; // (a seat that left is not heard)
     if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; return; }
+    if (msg.t === 'leave') { this.leave(seat); return; } // (its player left the game: no waiting for it)
     if (msg.t === 'orders') {
       if (!Array.isArray(msg.w) || !msg.w.every(Number.isFinite)) return;
       if (s.turnMsgs >= MAX_ORDER_MSGS || s.turnWords + msg.w.length > MAX_ORDER_WORDS) return; // (too much this turn)
@@ -148,7 +149,7 @@ export class Room {
   away(seat) { const s = this.seats[seat]; if (s.awaySince || s.left) return; s.awaySince = this.now || 1; this.each({ t: 'away', seat }); }
   back(seat) { const s = this.seats[seat]; if (!s.awaySince) return; s.away += Math.max(0, this.now - s.awaySince); s.awaySince = 0; this.each({ t: 'back', seat }); }
   leave(seat) {
-    const s = this.seats[seat]; s.left = true; s.awaySince = 0;
+    const s = this.seats[seat]; if (s.left) return; s.left = true; s.awaySince = 0;
     this.inbox.push([seat, [18]]); // (Concede, as an order in the log: replays and rejoins see it)
     this.each({ t: 'left', seat });
   }

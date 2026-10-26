@@ -109,17 +109,30 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
-/** `side` 1: the player starts in the other base of the map; `race`, `enemy`: the player's and the AI's faction keys. */
-export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy = 'humans') {
+function fresh(g) {
   if (game) { try { game.free(); } catch { /* already unusable */ } }
-  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
-  game = Game.withSetup(seed >>> 0, diff, map, side, f(race), f(enemy));
+  game = g;
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
   M.rock.set(game.rock()); M.shade.set(game.shade());
   dirty = true; sync();
 }
-export function step() { game.step(); dirty = true; sync(); }
+/** An online game (docs/MULTIPLAYER.md): the room's setup, seen from seat `me`, in lockstep (orders go out to the
+ *  relay; the network layer feeds the turns back). */
+export function resetGameForSeat(seed, map, side, races, me) {
+  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
+  const g = Game.forSeat(seed >>> 0, map, side, f(races[0]), f(races[1]), me);
+  g.startLockstep();
+  fresh(g);
+}
+/** The WASM game itself (the network layer talks to it directly). */
+export const liveGame = () => game;
+/** `side` 1: the player starts in the other base of the map; `race`, `enemy`: the player's and the AI's faction keys. */
+export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy = 'humans') {
+  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
+  fresh(Game.withSetup(seed >>> 0, diff, map, side, f(race), f(enemy)));
+}
+export function step() { if (!game.canStep()) return false; game.step(); dirty = true; sync(); return true; }
 /** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
 export function startReplay() {
   if (!game.startReplay()) return false;

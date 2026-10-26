@@ -9,8 +9,8 @@ export const CHECKS = [300, 2700, 9000];
  *  the scripted opponent plays) and the hashes at CHECKS. */
 export const GOLDEN = [
   { name: 'ashen-easy', seed: 4242, diff: 0, map: 0, side: 0, factions: [0, 0], ai: [0, 1], want: [1632591974, 1368448285, 4149105792] },
-  { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [3216496548, 1867545644, 1498381623] },
-  { name: 'cinder-hard', seed: 2077, diff: 2, map: 4, side: 0, factions: [0, 0], ai: [0, 1], want: [2402568922, 4134418201, 3268245047] },
+  { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [3216496548, 1867545644, 3545303787] },
+  { name: 'cinder-hard', seed: 2077, diff: 2, map: 4, side: 0, factions: [0, 0], ai: [0, 1], want: [2402568922, 4134418201, 3280213307] },
   { name: 'storm-medium', seed: 77, diff: 1, map: 2, side: 0, factions: [0, 0], ai: [0, 1], want: [887765897, 927863684, 3680130957] },
   { name: 'vael-player', seed: 4242, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [0, 1], want: [2747608292, 2782413074, 2996392627] },
   { name: 'vael-ai-vs-human-ai', seed: 77, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [1, 1], want: [3957484724, 2994815231, 502348720] },

@@ -4,11 +4,7 @@
   "atlas-1.json",
   "atlas-2.json",
   "atlas-3.json",
-  "atlas-4.json",
-  "atlas-5.json",
-  "atlas-6.json",
-  "atlas-7.json",
-  "atlas-8.json"
+  "atlas-4.json"
  ],
  "animations": {
   "boom_big": [
@@ -63,1927 +59,1105 @@
    "heal_1",
    "heal_2"
   ],
-  "harvester_0_0": [
-   "harvester_0_0_0",
-   "harvester_0_0_1"
-  ],
-  "harvester_0_1": [
-   "harvester_0_1_0",
-   "harvester_0_1_1"
-  ],
-  "harvester_0_2": [
-   "harvester_0_2_0",
-   "harvester_0_2_1"
-  ],
-  "harvester_0_3": [
-   "harvester_0_3_0",
-   "harvester_0_3_1"
-  ],
-  "harvester_0_4": [
-   "harvester_0_4_0",
-   "harvester_0_4_1"
-  ],
-  "harvester_0_5": [
-   "harvester_0_5_0",
-   "harvester_0_5_1"
-  ],
-  "harvester_0_6": [
-   "harvester_0_6_0",
-   "harvester_0_6_1"
-  ],
-  "harvester_0_7": [
-   "harvester_0_7_0",
-   "harvester_0_7_1"
-  ],
-  "harvester_0_8": [
-   "harvester_0_8_0",
-   "harvester_0_8_1"
-  ],
-  "harvester_0_9": [
-   "harvester_0_9_0",
-   "harvester_0_9_1"
-  ],
-  "harvester_0_10": [
-   "harvester_0_10_0",
-   "harvester_0_10_1"
-  ],
-  "harvester_0_11": [
-   "harvester_0_11_0",
-   "harvester_0_11_1"
-  ],
-  "harvester_0_12": [
-   "harvester_0_12_0",
-   "harvester_0_12_1"
-  ],
-  "harvester_0_13": [
-   "harvester_0_13_0",
-   "harvester_0_13_1"
-  ],
-  "harvester_0_14": [
-   "harvester_0_14_0",
-   "harvester_0_14_1"
-  ],
-  "harvester_0_15": [
-   "harvester_0_15_0",
-   "harvester_0_15_1"
-  ],
-  "harvester_1_0": [
-   "harvester_1_0_0",
-   "harvester_1_0_1"
-  ],
-  "harvester_1_1": [
-   "harvester_1_1_0",
-   "harvester_1_1_1"
-  ],
-  "harvester_1_2": [
-   "harvester_1_2_0",
-   "harvester_1_2_1"
-  ],
-  "harvester_1_3": [
-   "harvester_1_3_0",
-   "harvester_1_3_1"
-  ],
-  "harvester_1_4": [
-   "harvester_1_4_0",
-   "harvester_1_4_1"
-  ],
-  "harvester_1_5": [
-   "harvester_1_5_0",
-   "harvester_1_5_1"
-  ],
-  "harvester_1_6": [
-   "harvester_1_6_0",
-   "harvester_1_6_1"
-  ],
-  "harvester_1_7": [
-   "harvester_1_7_0",
-   "harvester_1_7_1"
-  ],
-  "harvester_1_8": [
-   "harvester_1_8_0",
-   "harvester_1_8_1"
-  ],
-  "harvester_1_9": [
-   "harvester_1_9_0",
-   "harvester_1_9_1"
-  ],
-  "harvester_1_10": [
-   "harvester_1_10_0",
-   "harvester_1_10_1"
-  ],
-  "harvester_1_11": [
-   "harvester_1_11_0",
-   "harvester_1_11_1"
-  ],
-  "harvester_1_12": [
-   "harvester_1_12_0",
-   "harvester_1_12_1"
-  ],
-  "harvester_1_13": [
-   "harvester_1_13_0",
-   "harvester_1_13_1"
-  ],
-  "harvester_1_14": [
-   "harvester_1_14_0",
-   "harvester_1_14_1"
-  ],
-  "harvester_1_15": [
-   "harvester_1_15_0",
-   "harvester_1_15_1"
-  ],
-  "trooper_0_0": [
-   "trooper_0_0_0",
-   "trooper_0_0_1",
-   "trooper_0_0_2",
-   "trooper_0_0_3"
-  ],
-  "trooper_0_1": [
-   "trooper_0_1_0",
-   "trooper_0_1_1",
-   "trooper_0_1_2",
-   "trooper_0_1_3"
-  ],
-  "trooper_0_2": [
-   "trooper_0_2_0",
-   "trooper_0_2_1",
-   "trooper_0_2_2",
-   "trooper_0_2_3"
-  ],
-  "trooper_0_3": [
-   "trooper_0_3_0",
-   "trooper_0_3_1",
-   "trooper_0_3_2",
-   "trooper_0_3_3"
-  ],
-  "trooper_0_4": [
-   "trooper_0_4_0",
-   "trooper_0_4_1",
-   "trooper_0_4_2",
-   "trooper_0_4_3"
-  ],
-  "trooper_0_5": [
-   "trooper_0_5_0",
-   "trooper_0_5_1",
-   "trooper_0_5_2",
-   "trooper_0_5_3"
-  ],
-  "trooper_0_6": [
-   "trooper_0_6_0",
-   "trooper_0_6_1",
-   "trooper_0_6_2",
-   "trooper_0_6_3"
-  ],
-  "trooper_0_7": [
-   "trooper_0_7_0",
-   "trooper_0_7_1",
-   "trooper_0_7_2",
-   "trooper_0_7_3"
-  ],
-  "trooper_0_8": [
-   "trooper_0_8_0",
-   "trooper_0_8_1",
-   "trooper_0_8_2",
-   "trooper_0_8_3"
-  ],
-  "trooper_0_9": [
-   "trooper_0_9_0",
-   "trooper_0_9_1",
-   "trooper_0_9_2",
-   "trooper_0_9_3"
-  ],
-  "trooper_0_10": [
-   "trooper_0_10_0",
-   "trooper_0_10_1",
-   "trooper_0_10_2",
-   "trooper_0_10_3"
-  ],
-  "trooper_0_11": [
-   "trooper_0_11_0",
-   "trooper_0_11_1",
-   "trooper_0_11_2",
-   "trooper_0_11_3"
-  ],
-  "trooper_0_12": [
-   "trooper_0_12_0",
-   "trooper_0_12_1",
-   "trooper_0_12_2",
-   "trooper_0_12_3"
-  ],
-  "trooper_0_13": [
-   "trooper_0_13_0",
-   "trooper_0_13_1",
-   "trooper_0_13_2",
-   "trooper_0_13_3"
-  ],
-  "trooper_0_14": [
-   "trooper_0_14_0",
-   "trooper_0_14_1",
-   "trooper_0_14_2",
-   "trooper_0_14_3"
-  ],
-  "trooper_0_15": [
-   "trooper_0_15_0",
-   "trooper_0_15_1",
-   "trooper_0_15_2",
-   "trooper_0_15_3"
-  ],
-  "trooper_1_0": [
-   "trooper_1_0_0",
-   "trooper_1_0_1",
-   "trooper_1_0_2",
-   "trooper_1_0_3"
-  ],
-  "trooper_1_1": [
-   "trooper_1_1_0",
-   "trooper_1_1_1",
-   "trooper_1_1_2",
-   "trooper_1_1_3"
-  ],
-  "trooper_1_2": [
-   "trooper_1_2_0",
-   "trooper_1_2_1",
-   "trooper_1_2_2",
-   "trooper_1_2_3"
-  ],
-  "trooper_1_3": [
-   "trooper_1_3_0",
-   "trooper_1_3_1",
-   "trooper_1_3_2",
-   "trooper_1_3_3"
-  ],
-  "trooper_1_4": [
-   "trooper_1_4_0",
-   "trooper_1_4_1",
-   "trooper_1_4_2",
-   "trooper_1_4_3"
-  ],
-  "trooper_1_5": [
-   "trooper_1_5_0",
-   "trooper_1_5_1",
-   "trooper_1_5_2",
-   "trooper_1_5_3"
-  ],
-  "trooper_1_6": [
-   "trooper_1_6_0",
-   "trooper_1_6_1",
-   "trooper_1_6_2",
-   "trooper_1_6_3"
-  ],
-  "trooper_1_7": [
-   "trooper_1_7_0",
-   "trooper_1_7_1",
-   "trooper_1_7_2",
-   "trooper_1_7_3"
-  ],
-  "trooper_1_8": [
-   "trooper_1_8_0",
-   "trooper_1_8_1",
-   "trooper_1_8_2",
-   "trooper_1_8_3"
-  ],
-  "trooper_1_9": [
-   "trooper_1_9_0",
-   "trooper_1_9_1",
-   "trooper_1_9_2",
-   "trooper_1_9_3"
-  ],
-  "trooper_1_10": [
-   "trooper_1_10_0",
-   "trooper_1_10_1",
-   "trooper_1_10_2",
-   "trooper_1_10_3"
-  ],
-  "trooper_1_11": [
-   "trooper_1_11_0",
-   "trooper_1_11_1",
-   "trooper_1_11_2",
-   "trooper_1_11_3"
-  ],
-  "trooper_1_12": [
-   "trooper_1_12_0",
-   "trooper_1_12_1",
-   "trooper_1_12_2",
-   "trooper_1_12_3"
-  ],
-  "trooper_1_13": [
-   "trooper_1_13_0",
-   "trooper_1_13_1",
-   "trooper_1_13_2",
-   "trooper_1_13_3"
-  ],
-  "trooper_1_14": [
-   "trooper_1_14_0",
-   "trooper_1_14_1",
-   "trooper_1_14_2",
-   "trooper_1_14_3"
-  ],
-  "trooper_1_15": [
-   "trooper_1_15_0",
-   "trooper_1_15_1",
-   "trooper_1_15_2",
-   "trooper_1_15_3"
-  ],
-  "vanguard_0_0": [
-   "vanguard_0_0_0",
-   "vanguard_0_0_1",
-   "vanguard_0_0_2",
-   "vanguard_0_0_3"
-  ],
-  "vanguard_0_1": [
-   "vanguard_0_1_0",
-   "vanguard_0_1_1",
-   "vanguard_0_1_2",
-   "vanguard_0_1_3"
-  ],
-  "vanguard_0_2": [
-   "vanguard_0_2_0",
-   "vanguard_0_2_1",
-   "vanguard_0_2_2",
-   "vanguard_0_2_3"
-  ],
-  "vanguard_0_3": [
-   "vanguard_0_3_0",
-   "vanguard_0_3_1",
-   "vanguard_0_3_2",
-   "vanguard_0_3_3"
-  ],
-  "vanguard_0_4": [
-   "vanguard_0_4_0",
-   "vanguard_0_4_1",
-   "vanguard_0_4_2",
-   "vanguard_0_4_3"
-  ],
-  "vanguard_0_5": [
-   "vanguard_0_5_0",
-   "vanguard_0_5_1",
-   "vanguard_0_5_2",
-   "vanguard_0_5_3"
-  ],
-  "vanguard_0_6": [
-   "vanguard_0_6_0",
-   "vanguard_0_6_1",
-   "vanguard_0_6_2",
-   "vanguard_0_6_3"
-  ],
-  "vanguard_0_7": [
-   "vanguard_0_7_0",
-   "vanguard_0_7_1",
-   "vanguard_0_7_2",
-   "vanguard_0_7_3"
-  ],
-  "vanguard_0_8": [
-   "vanguard_0_8_0",
-   "vanguard_0_8_1",
-   "vanguard_0_8_2",
-   "vanguard_0_8_3"
-  ],
-  "vanguard_0_9": [
-   "vanguard_0_9_0",
-   "vanguard_0_9_1",
-   "vanguard_0_9_2",
-   "vanguard_0_9_3"
-  ],
-  "vanguard_0_10": [
-   "vanguard_0_10_0",
-   "vanguard_0_10_1",
-   "vanguard_0_10_2",
-   "vanguard_0_10_3"
-  ],
-  "vanguard_0_11": [
-   "vanguard_0_11_0",
-   "vanguard_0_11_1",
-   "vanguard_0_11_2",
-   "vanguard_0_11_3"
-  ],
-  "vanguard_0_12": [
-   "vanguard_0_12_0",
-   "vanguard_0_12_1",
-   "vanguard_0_12_2",
-   "vanguard_0_12_3"
-  ],
-  "vanguard_0_13": [
-   "vanguard_0_13_0",
-   "vanguard_0_13_1",
-   "vanguard_0_13_2",
-   "vanguard_0_13_3"
-  ],
-  "vanguard_0_14": [
-   "vanguard_0_14_0",
-   "vanguard_0_14_1",
-   "vanguard_0_14_2",
-   "vanguard_0_14_3"
-  ],
-  "vanguard_0_15": [
-   "vanguard_0_15_0",
-   "vanguard_0_15_1",
-   "vanguard_0_15_2",
-   "vanguard_0_15_3"
-  ],
-  "vanguard_1_0": [
-   "vanguard_1_0_0",
-   "vanguard_1_0_1",
-   "vanguard_1_0_2",
-   "vanguard_1_0_3"
-  ],
-  "vanguard_1_1": [
-   "vanguard_1_1_0",
-   "vanguard_1_1_1",
-   "vanguard_1_1_2",
-   "vanguard_1_1_3"
-  ],
-  "vanguard_1_2": [
-   "vanguard_1_2_0",
-   "vanguard_1_2_1",
-   "vanguard_1_2_2",
-   "vanguard_1_2_3"
-  ],
-  "vanguard_1_3": [
-   "vanguard_1_3_0",
-   "vanguard_1_3_1",
-   "vanguard_1_3_2",
-   "vanguard_1_3_3"
-  ],
-  "vanguard_1_4": [
-   "vanguard_1_4_0",
-   "vanguard_1_4_1",
-   "vanguard_1_4_2",
-   "vanguard_1_4_3"
-  ],
-  "vanguard_1_5": [
-   "vanguard_1_5_0",
-   "vanguard_1_5_1",
-   "vanguard_1_5_2",
-   "vanguard_1_5_3"
-  ],
-  "vanguard_1_6": [
-   "vanguard_1_6_0",
-   "vanguard_1_6_1",
-   "vanguard_1_6_2",
-   "vanguard_1_6_3"
-  ],
-  "vanguard_1_7": [
-   "vanguard_1_7_0",
-   "vanguard_1_7_1",
-   "vanguard_1_7_2",
-   "vanguard_1_7_3"
-  ],
-  "vanguard_1_8": [
-   "vanguard_1_8_0",
-   "vanguard_1_8_1",
-   "vanguard_1_8_2",
-   "vanguard_1_8_3"
-  ],
-  "vanguard_1_9": [
-   "vanguard_1_9_0",
-   "vanguard_1_9_1",
-   "vanguard_1_9_2",
-   "vanguard_1_9_3"
-  ],
-  "vanguard_1_10": [
-   "vanguard_1_10_0",
-   "vanguard_1_10_1",
-   "vanguard_1_10_2",
-   "vanguard_1_10_3"
-  ],
-  "vanguard_1_11": [
-   "vanguard_1_11_0",
-   "vanguard_1_11_1",
-   "vanguard_1_11_2",
-   "vanguard_1_11_3"
-  ],
-  "vanguard_1_12": [
-   "vanguard_1_12_0",
-   "vanguard_1_12_1",
-   "vanguard_1_12_2",
-   "vanguard_1_12_3"
-  ],
-  "vanguard_1_13": [
-   "vanguard_1_13_0",
-   "vanguard_1_13_1",
-   "vanguard_1_13_2",
-   "vanguard_1_13_3"
-  ],
-  "vanguard_1_14": [
-   "vanguard_1_14_0",
-   "vanguard_1_14_1",
-   "vanguard_1_14_2",
-   "vanguard_1_14_3"
-  ],
-  "vanguard_1_15": [
-   "vanguard_1_15_0",
-   "vanguard_1_15_1",
-   "vanguard_1_15_2",
-   "vanguard_1_15_3"
-  ],
-  "lancer_0_0": [
-   "lancer_0_0_0",
-   "lancer_0_0_1",
-   "lancer_0_0_2",
-   "lancer_0_0_3"
-  ],
-  "lancer_0_1": [
-   "lancer_0_1_0",
-   "lancer_0_1_1",
-   "lancer_0_1_2",
-   "lancer_0_1_3"
-  ],
-  "lancer_0_2": [
-   "lancer_0_2_0",
-   "lancer_0_2_1",
-   "lancer_0_2_2",
-   "lancer_0_2_3"
-  ],
-  "lancer_0_3": [
-   "lancer_0_3_0",
-   "lancer_0_3_1",
-   "lancer_0_3_2",
-   "lancer_0_3_3"
-  ],
-  "lancer_0_4": [
-   "lancer_0_4_0",
-   "lancer_0_4_1",
-   "lancer_0_4_2",
-   "lancer_0_4_3"
-  ],
-  "lancer_0_5": [
-   "lancer_0_5_0",
-   "lancer_0_5_1",
-   "lancer_0_5_2",
-   "lancer_0_5_3"
-  ],
-  "lancer_0_6": [
-   "lancer_0_6_0",
-   "lancer_0_6_1",
-   "lancer_0_6_2",
-   "lancer_0_6_3"
-  ],
-  "lancer_0_7": [
-   "lancer_0_7_0",
-   "lancer_0_7_1",
-   "lancer_0_7_2",
-   "lancer_0_7_3"
-  ],
-  "lancer_0_8": [
-   "lancer_0_8_0",
-   "lancer_0_8_1",
-   "lancer_0_8_2",
-   "lancer_0_8_3"
-  ],
-  "lancer_0_9": [
-   "lancer_0_9_0",
-   "lancer_0_9_1",
-   "lancer_0_9_2",
-   "lancer_0_9_3"
-  ],
-  "lancer_0_10": [
-   "lancer_0_10_0",
-   "lancer_0_10_1",
-   "lancer_0_10_2",
-   "lancer_0_10_3"
-  ],
-  "lancer_0_11": [
-   "lancer_0_11_0",
-   "lancer_0_11_1",
-   "lancer_0_11_2",
-   "lancer_0_11_3"
-  ],
-  "lancer_0_12": [
-   "lancer_0_12_0",
-   "lancer_0_12_1",
-   "lancer_0_12_2",
-   "lancer_0_12_3"
-  ],
-  "lancer_0_13": [
-   "lancer_0_13_0",
-   "lancer_0_13_1",
-   "lancer_0_13_2",
-   "lancer_0_13_3"
-  ],
-  "lancer_0_14": [
-   "lancer_0_14_0",
-   "lancer_0_14_1",
-   "lancer_0_14_2",
-   "lancer_0_14_3"
-  ],
-  "lancer_0_15": [
-   "lancer_0_15_0",
-   "lancer_0_15_1",
-   "lancer_0_15_2",
-   "lancer_0_15_3"
-  ],
-  "lancer_1_0": [
-   "lancer_1_0_0",
-   "lancer_1_0_1",
-   "lancer_1_0_2",
-   "lancer_1_0_3"
-  ],
-  "lancer_1_1": [
-   "lancer_1_1_0",
-   "lancer_1_1_1",
-   "lancer_1_1_2",
-   "lancer_1_1_3"
-  ],
-  "lancer_1_2": [
-   "lancer_1_2_0",
-   "lancer_1_2_1",
-   "lancer_1_2_2",
-   "lancer_1_2_3"
-  ],
-  "lancer_1_3": [
-   "lancer_1_3_0",
-   "lancer_1_3_1",
-   "lancer_1_3_2",
-   "lancer_1_3_3"
-  ],
-  "lancer_1_4": [
-   "lancer_1_4_0",
-   "lancer_1_4_1",
-   "lancer_1_4_2",
-   "lancer_1_4_3"
-  ],
-  "lancer_1_5": [
-   "lancer_1_5_0",
-   "lancer_1_5_1",
-   "lancer_1_5_2",
-   "lancer_1_5_3"
-  ],
-  "lancer_1_6": [
-   "lancer_1_6_0",
-   "lancer_1_6_1",
-   "lancer_1_6_2",
-   "lancer_1_6_3"
-  ],
-  "lancer_1_7": [
-   "lancer_1_7_0",
-   "lancer_1_7_1",
-   "lancer_1_7_2",
-   "lancer_1_7_3"
-  ],
-  "lancer_1_8": [
-   "lancer_1_8_0",
-   "lancer_1_8_1",
-   "lancer_1_8_2",
-   "lancer_1_8_3"
-  ],
-  "lancer_1_9": [
-   "lancer_1_9_0",
-   "lancer_1_9_1",
-   "lancer_1_9_2",
-   "lancer_1_9_3"
-  ],
-  "lancer_1_10": [
-   "lancer_1_10_0",
-   "lancer_1_10_1",
-   "lancer_1_10_2",
-   "lancer_1_10_3"
-  ],
-  "lancer_1_11": [
-   "lancer_1_11_0",
-   "lancer_1_11_1",
-   "lancer_1_11_2",
-   "lancer_1_11_3"
-  ],
-  "lancer_1_12": [
-   "lancer_1_12_0",
-   "lancer_1_12_1",
-   "lancer_1_12_2",
-   "lancer_1_12_3"
-  ],
-  "lancer_1_13": [
-   "lancer_1_13_0",
-   "lancer_1_13_1",
-   "lancer_1_13_2",
-   "lancer_1_13_3"
-  ],
-  "lancer_1_14": [
-   "lancer_1_14_0",
-   "lancer_1_14_1",
-   "lancer_1_14_2",
-   "lancer_1_14_3"
-  ],
-  "lancer_1_15": [
-   "lancer_1_15_0",
-   "lancer_1_15_1",
-   "lancer_1_15_2",
-   "lancer_1_15_3"
-  ],
-  "medic_0_0": [
-   "medic_0_0_0",
-   "medic_0_0_1",
-   "medic_0_0_2",
-   "medic_0_0_3"
-  ],
-  "medic_0_1": [
-   "medic_0_1_0",
-   "medic_0_1_1",
-   "medic_0_1_2",
-   "medic_0_1_3"
-  ],
-  "medic_0_2": [
-   "medic_0_2_0",
-   "medic_0_2_1",
-   "medic_0_2_2",
-   "medic_0_2_3"
-  ],
-  "medic_0_3": [
-   "medic_0_3_0",
-   "medic_0_3_1",
-   "medic_0_3_2",
-   "medic_0_3_3"
-  ],
-  "medic_0_4": [
-   "medic_0_4_0",
-   "medic_0_4_1",
-   "medic_0_4_2",
-   "medic_0_4_3"
-  ],
-  "medic_0_5": [
-   "medic_0_5_0",
-   "medic_0_5_1",
-   "medic_0_5_2",
-   "medic_0_5_3"
-  ],
-  "medic_0_6": [
-   "medic_0_6_0",
-   "medic_0_6_1",
-   "medic_0_6_2",
-   "medic_0_6_3"
-  ],
-  "medic_0_7": [
-   "medic_0_7_0",
-   "medic_0_7_1",
-   "medic_0_7_2",
-   "medic_0_7_3"
-  ],
-  "medic_0_8": [
-   "medic_0_8_0",
-   "medic_0_8_1",
-   "medic_0_8_2",
-   "medic_0_8_3"
-  ],
-  "medic_0_9": [
-   "medic_0_9_0",
-   "medic_0_9_1",
-   "medic_0_9_2",
-   "medic_0_9_3"
-  ],
-  "medic_0_10": [
-   "medic_0_10_0",
-   "medic_0_10_1",
-   "medic_0_10_2",
-   "medic_0_10_3"
-  ],
-  "medic_0_11": [
-   "medic_0_11_0",
-   "medic_0_11_1",
-   "medic_0_11_2",
-   "medic_0_11_3"
-  ],
-  "medic_0_12": [
-   "medic_0_12_0",
-   "medic_0_12_1",
-   "medic_0_12_2",
-   "medic_0_12_3"
-  ],
-  "medic_0_13": [
-   "medic_0_13_0",
-   "medic_0_13_1",
-   "medic_0_13_2",
-   "medic_0_13_3"
-  ],
-  "medic_0_14": [
-   "medic_0_14_0",
-   "medic_0_14_1",
-   "medic_0_14_2",
-   "medic_0_14_3"
-  ],
-  "medic_0_15": [
-   "medic_0_15_0",
-   "medic_0_15_1",
-   "medic_0_15_2",
-   "medic_0_15_3"
-  ],
-  "medic_1_0": [
-   "medic_1_0_0",
-   "medic_1_0_1",
-   "medic_1_0_2",
-   "medic_1_0_3"
-  ],
-  "medic_1_1": [
-   "medic_1_1_0",
-   "medic_1_1_1",
-   "medic_1_1_2",
-   "medic_1_1_3"
-  ],
-  "medic_1_2": [
-   "medic_1_2_0",
-   "medic_1_2_1",
-   "medic_1_2_2",
-   "medic_1_2_3"
-  ],
-  "medic_1_3": [
-   "medic_1_3_0",
-   "medic_1_3_1",
-   "medic_1_3_2",
-   "medic_1_3_3"
-  ],
-  "medic_1_4": [
-   "medic_1_4_0",
-   "medic_1_4_1",
-   "medic_1_4_2",
-   "medic_1_4_3"
-  ],
-  "medic_1_5": [
-   "medic_1_5_0",
-   "medic_1_5_1",
-   "medic_1_5_2",
-   "medic_1_5_3"
-  ],
-  "medic_1_6": [
-   "medic_1_6_0",
-   "medic_1_6_1",
-   "medic_1_6_2",
-   "medic_1_6_3"
-  ],
-  "medic_1_7": [
-   "medic_1_7_0",
-   "medic_1_7_1",
-   "medic_1_7_2",
-   "medic_1_7_3"
-  ],
-  "medic_1_8": [
-   "medic_1_8_0",
-   "medic_1_8_1",
-   "medic_1_8_2",
-   "medic_1_8_3"
-  ],
-  "medic_1_9": [
-   "medic_1_9_0",
-   "medic_1_9_1",
-   "medic_1_9_2",
-   "medic_1_9_3"
-  ],
-  "medic_1_10": [
-   "medic_1_10_0",
-   "medic_1_10_1",
-   "medic_1_10_2",
-   "medic_1_10_3"
-  ],
-  "medic_1_11": [
-   "medic_1_11_0",
-   "medic_1_11_1",
-   "medic_1_11_2",
-   "medic_1_11_3"
-  ],
-  "medic_1_12": [
-   "medic_1_12_0",
-   "medic_1_12_1",
-   "medic_1_12_2",
-   "medic_1_12_3"
-  ],
-  "medic_1_13": [
-   "medic_1_13_0",
-   "medic_1_13_1",
-   "medic_1_13_2",
-   "medic_1_13_3"
-  ],
-  "medic_1_14": [
-   "medic_1_14_0",
-   "medic_1_14_1",
-   "medic_1_14_2",
-   "medic_1_14_3"
-  ],
-  "medic_1_15": [
-   "medic_1_15_0",
-   "medic_1_15_1",
-   "medic_1_15_2",
-   "medic_1_15_3"
-  ],
-  "wasp_0_0": [
-   "wasp_0_0_0",
-   "wasp_0_0_1"
-  ],
-  "wasp_0_1": [
-   "wasp_0_1_0",
-   "wasp_0_1_1"
-  ],
-  "wasp_0_2": [
-   "wasp_0_2_0",
-   "wasp_0_2_1"
-  ],
-  "wasp_0_3": [
-   "wasp_0_3_0",
-   "wasp_0_3_1"
-  ],
-  "wasp_0_4": [
-   "wasp_0_4_0",
-   "wasp_0_4_1"
-  ],
-  "wasp_0_5": [
-   "wasp_0_5_0",
-   "wasp_0_5_1"
-  ],
-  "wasp_0_6": [
-   "wasp_0_6_0",
-   "wasp_0_6_1"
-  ],
-  "wasp_0_7": [
-   "wasp_0_7_0",
-   "wasp_0_7_1"
-  ],
-  "wasp_0_8": [
-   "wasp_0_8_0",
-   "wasp_0_8_1"
-  ],
-  "wasp_0_9": [
-   "wasp_0_9_0",
-   "wasp_0_9_1"
-  ],
-  "wasp_0_10": [
-   "wasp_0_10_0",
-   "wasp_0_10_1"
-  ],
-  "wasp_0_11": [
-   "wasp_0_11_0",
-   "wasp_0_11_1"
-  ],
-  "wasp_0_12": [
-   "wasp_0_12_0",
-   "wasp_0_12_1"
-  ],
-  "wasp_0_13": [
-   "wasp_0_13_0",
-   "wasp_0_13_1"
-  ],
-  "wasp_0_14": [
-   "wasp_0_14_0",
-   "wasp_0_14_1"
-  ],
-  "wasp_0_15": [
-   "wasp_0_15_0",
-   "wasp_0_15_1"
-  ],
-  "wasp_1_0": [
-   "wasp_1_0_0",
-   "wasp_1_0_1"
-  ],
-  "wasp_1_1": [
-   "wasp_1_1_0",
-   "wasp_1_1_1"
-  ],
-  "wasp_1_2": [
-   "wasp_1_2_0",
-   "wasp_1_2_1"
-  ],
-  "wasp_1_3": [
-   "wasp_1_3_0",
-   "wasp_1_3_1"
-  ],
-  "wasp_1_4": [
-   "wasp_1_4_0",
-   "wasp_1_4_1"
-  ],
-  "wasp_1_5": [
-   "wasp_1_5_0",
-   "wasp_1_5_1"
-  ],
-  "wasp_1_6": [
-   "wasp_1_6_0",
-   "wasp_1_6_1"
-  ],
-  "wasp_1_7": [
-   "wasp_1_7_0",
-   "wasp_1_7_1"
-  ],
-  "wasp_1_8": [
-   "wasp_1_8_0",
-   "wasp_1_8_1"
-  ],
-  "wasp_1_9": [
-   "wasp_1_9_0",
-   "wasp_1_9_1"
-  ],
-  "wasp_1_10": [
-   "wasp_1_10_0",
-   "wasp_1_10_1"
-  ],
-  "wasp_1_11": [
-   "wasp_1_11_0",
-   "wasp_1_11_1"
-  ],
-  "wasp_1_12": [
-   "wasp_1_12_0",
-   "wasp_1_12_1"
-  ],
-  "wasp_1_13": [
-   "wasp_1_13_0",
-   "wasp_1_13_1"
-  ],
-  "wasp_1_14": [
-   "wasp_1_14_0",
-   "wasp_1_14_1"
-  ],
-  "wasp_1_15": [
-   "wasp_1_15_0",
-   "wasp_1_15_1"
-  ],
-  "observer_0_0": [
-   "observer_0_0_0",
-   "observer_0_0_1"
-  ],
-  "observer_0_1": [
-   "observer_0_1_0",
-   "observer_0_1_1"
-  ],
-  "observer_0_2": [
-   "observer_0_2_0",
-   "observer_0_2_1"
-  ],
-  "observer_0_3": [
-   "observer_0_3_0",
-   "observer_0_3_1"
-  ],
-  "observer_0_4": [
-   "observer_0_4_0",
-   "observer_0_4_1"
-  ],
-  "observer_0_5": [
-   "observer_0_5_0",
-   "observer_0_5_1"
-  ],
-  "observer_0_6": [
-   "observer_0_6_0",
-   "observer_0_6_1"
-  ],
-  "observer_0_7": [
-   "observer_0_7_0",
-   "observer_0_7_1"
-  ],
-  "observer_0_8": [
-   "observer_0_8_0",
-   "observer_0_8_1"
-  ],
-  "observer_0_9": [
-   "observer_0_9_0",
-   "observer_0_9_1"
-  ],
-  "observer_0_10": [
-   "observer_0_10_0",
-   "observer_0_10_1"
-  ],
-  "observer_0_11": [
-   "observer_0_11_0",
-   "observer_0_11_1"
-  ],
-  "observer_0_12": [
-   "observer_0_12_0",
-   "observer_0_12_1"
-  ],
-  "observer_0_13": [
-   "observer_0_13_0",
-   "observer_0_13_1"
-  ],
-  "observer_0_14": [
-   "observer_0_14_0",
-   "observer_0_14_1"
-  ],
-  "observer_0_15": [
-   "observer_0_15_0",
-   "observer_0_15_1"
-  ],
-  "observer_1_0": [
-   "observer_1_0_0",
-   "observer_1_0_1"
-  ],
-  "observer_1_1": [
-   "observer_1_1_0",
-   "observer_1_1_1"
-  ],
-  "observer_1_2": [
-   "observer_1_2_0",
-   "observer_1_2_1"
-  ],
-  "observer_1_3": [
-   "observer_1_3_0",
-   "observer_1_3_1"
-  ],
-  "observer_1_4": [
-   "observer_1_4_0",
-   "observer_1_4_1"
-  ],
-  "observer_1_5": [
-   "observer_1_5_0",
-   "observer_1_5_1"
-  ],
-  "observer_1_6": [
-   "observer_1_6_0",
-   "observer_1_6_1"
-  ],
-  "observer_1_7": [
-   "observer_1_7_0",
-   "observer_1_7_1"
-  ],
-  "observer_1_8": [
-   "observer_1_8_0",
-   "observer_1_8_1"
-  ],
-  "observer_1_9": [
-   "observer_1_9_0",
-   "observer_1_9_1"
-  ],
-  "observer_1_10": [
-   "observer_1_10_0",
-   "observer_1_10_1"
-  ],
-  "observer_1_11": [
-   "observer_1_11_0",
-   "observer_1_11_1"
-  ],
-  "observer_1_12": [
-   "observer_1_12_0",
-   "observer_1_12_1"
-  ],
-  "observer_1_13": [
-   "observer_1_13_0",
-   "observer_1_13_1"
-  ],
-  "observer_1_14": [
-   "observer_1_14_0",
-   "observer_1_14_1"
-  ],
-  "observer_1_15": [
-   "observer_1_15_0",
-   "observer_1_15_1"
-  ],
-  "lumen_0_0": [
-   "lumen_0_0_0",
-   "lumen_0_0_1"
-  ],
-  "lumen_0_1": [
-   "lumen_0_1_0",
-   "lumen_0_1_1"
-  ],
-  "lumen_0_2": [
-   "lumen_0_2_0",
-   "lumen_0_2_1"
-  ],
-  "lumen_0_3": [
-   "lumen_0_3_0",
-   "lumen_0_3_1"
-  ],
-  "lumen_0_4": [
-   "lumen_0_4_0",
-   "lumen_0_4_1"
-  ],
-  "lumen_0_5": [
-   "lumen_0_5_0",
-   "lumen_0_5_1"
-  ],
-  "lumen_0_6": [
-   "lumen_0_6_0",
-   "lumen_0_6_1"
-  ],
-  "lumen_0_7": [
-   "lumen_0_7_0",
-   "lumen_0_7_1"
-  ],
-  "lumen_0_8": [
-   "lumen_0_8_0",
-   "lumen_0_8_1"
-  ],
-  "lumen_0_9": [
-   "lumen_0_9_0",
-   "lumen_0_9_1"
-  ],
-  "lumen_0_10": [
-   "lumen_0_10_0",
-   "lumen_0_10_1"
-  ],
-  "lumen_0_11": [
-   "lumen_0_11_0",
-   "lumen_0_11_1"
-  ],
-  "lumen_0_12": [
-   "lumen_0_12_0",
-   "lumen_0_12_1"
-  ],
-  "lumen_0_13": [
-   "lumen_0_13_0",
-   "lumen_0_13_1"
-  ],
-  "lumen_0_14": [
-   "lumen_0_14_0",
-   "lumen_0_14_1"
-  ],
-  "lumen_0_15": [
-   "lumen_0_15_0",
-   "lumen_0_15_1"
-  ],
-  "lumen_1_0": [
-   "lumen_1_0_0",
-   "lumen_1_0_1"
-  ],
-  "lumen_1_1": [
-   "lumen_1_1_0",
-   "lumen_1_1_1"
-  ],
-  "lumen_1_2": [
-   "lumen_1_2_0",
-   "lumen_1_2_1"
-  ],
-  "lumen_1_3": [
-   "lumen_1_3_0",
-   "lumen_1_3_1"
-  ],
-  "lumen_1_4": [
-   "lumen_1_4_0",
-   "lumen_1_4_1"
-  ],
-  "lumen_1_5": [
-   "lumen_1_5_0",
-   "lumen_1_5_1"
-  ],
-  "lumen_1_6": [
-   "lumen_1_6_0",
-   "lumen_1_6_1"
-  ],
-  "lumen_1_7": [
-   "lumen_1_7_0",
-   "lumen_1_7_1"
-  ],
-  "lumen_1_8": [
-   "lumen_1_8_0",
-   "lumen_1_8_1"
-  ],
-  "lumen_1_9": [
-   "lumen_1_9_0",
-   "lumen_1_9_1"
-  ],
-  "lumen_1_10": [
-   "lumen_1_10_0",
-   "lumen_1_10_1"
-  ],
-  "lumen_1_11": [
-   "lumen_1_11_0",
-   "lumen_1_11_1"
-  ],
-  "lumen_1_12": [
-   "lumen_1_12_0",
-   "lumen_1_12_1"
-  ],
-  "lumen_1_13": [
-   "lumen_1_13_0",
-   "lumen_1_13_1"
-  ],
-  "lumen_1_14": [
-   "lumen_1_14_0",
-   "lumen_1_14_1"
-  ],
-  "lumen_1_15": [
-   "lumen_1_15_0",
-   "lumen_1_15_1"
-  ],
-  "scythe_0_0": [
-   "scythe_0_0_0",
-   "scythe_0_0_1"
-  ],
-  "scythe_0_1": [
-   "scythe_0_1_0",
-   "scythe_0_1_1"
-  ],
-  "scythe_0_2": [
-   "scythe_0_2_0",
-   "scythe_0_2_1"
-  ],
-  "scythe_0_3": [
-   "scythe_0_3_0",
-   "scythe_0_3_1"
-  ],
-  "scythe_0_4": [
-   "scythe_0_4_0",
-   "scythe_0_4_1"
-  ],
-  "scythe_0_5": [
-   "scythe_0_5_0",
-   "scythe_0_5_1"
-  ],
-  "scythe_0_6": [
-   "scythe_0_6_0",
-   "scythe_0_6_1"
-  ],
-  "scythe_0_7": [
-   "scythe_0_7_0",
-   "scythe_0_7_1"
-  ],
-  "scythe_0_8": [
-   "scythe_0_8_0",
-   "scythe_0_8_1"
-  ],
-  "scythe_0_9": [
-   "scythe_0_9_0",
-   "scythe_0_9_1"
-  ],
-  "scythe_0_10": [
-   "scythe_0_10_0",
-   "scythe_0_10_1"
-  ],
-  "scythe_0_11": [
-   "scythe_0_11_0",
-   "scythe_0_11_1"
-  ],
-  "scythe_0_12": [
-   "scythe_0_12_0",
-   "scythe_0_12_1"
-  ],
-  "scythe_0_13": [
-   "scythe_0_13_0",
-   "scythe_0_13_1"
-  ],
-  "scythe_0_14": [
-   "scythe_0_14_0",
-   "scythe_0_14_1"
-  ],
-  "scythe_0_15": [
-   "scythe_0_15_0",
-   "scythe_0_15_1"
-  ],
-  "scythe_1_0": [
-   "scythe_1_0_0",
-   "scythe_1_0_1"
-  ],
-  "scythe_1_1": [
-   "scythe_1_1_0",
-   "scythe_1_1_1"
-  ],
-  "scythe_1_2": [
-   "scythe_1_2_0",
-   "scythe_1_2_1"
-  ],
-  "scythe_1_3": [
-   "scythe_1_3_0",
-   "scythe_1_3_1"
-  ],
-  "scythe_1_4": [
-   "scythe_1_4_0",
-   "scythe_1_4_1"
-  ],
-  "scythe_1_5": [
-   "scythe_1_5_0",
-   "scythe_1_5_1"
-  ],
-  "scythe_1_6": [
-   "scythe_1_6_0",
-   "scythe_1_6_1"
-  ],
-  "scythe_1_7": [
-   "scythe_1_7_0",
-   "scythe_1_7_1"
-  ],
-  "scythe_1_8": [
-   "scythe_1_8_0",
-   "scythe_1_8_1"
-  ],
-  "scythe_1_9": [
-   "scythe_1_9_0",
-   "scythe_1_9_1"
-  ],
-  "scythe_1_10": [
-   "scythe_1_10_0",
-   "scythe_1_10_1"
-  ],
-  "scythe_1_11": [
-   "scythe_1_11_0",
-   "scythe_1_11_1"
-  ],
-  "scythe_1_12": [
-   "scythe_1_12_0",
-   "scythe_1_12_1"
-  ],
-  "scythe_1_13": [
-   "scythe_1_13_0",
-   "scythe_1_13_1"
-  ],
-  "scythe_1_14": [
-   "scythe_1_14_0",
-   "scythe_1_14_1"
-  ],
-  "scythe_1_15": [
-   "scythe_1_15_0",
-   "scythe_1_15_1"
-  ],
-  "prism_0_0": [
-   "prism_0_0_0",
-   "prism_0_0_1"
-  ],
-  "prism_0_1": [
-   "prism_0_1_0",
-   "prism_0_1_1"
-  ],
-  "prism_0_2": [
-   "prism_0_2_0",
-   "prism_0_2_1"
-  ],
-  "prism_0_3": [
-   "prism_0_3_0",
-   "prism_0_3_1"
-  ],
-  "prism_0_4": [
-   "prism_0_4_0",
-   "prism_0_4_1"
-  ],
-  "prism_0_5": [
-   "prism_0_5_0",
-   "prism_0_5_1"
-  ],
-  "prism_0_6": [
-   "prism_0_6_0",
-   "prism_0_6_1"
-  ],
-  "prism_0_7": [
-   "prism_0_7_0",
-   "prism_0_7_1"
-  ],
-  "prism_0_8": [
-   "prism_0_8_0",
-   "prism_0_8_1"
-  ],
-  "prism_0_9": [
-   "prism_0_9_0",
-   "prism_0_9_1"
-  ],
-  "prism_0_10": [
-   "prism_0_10_0",
-   "prism_0_10_1"
-  ],
-  "prism_0_11": [
-   "prism_0_11_0",
-   "prism_0_11_1"
-  ],
-  "prism_0_12": [
-   "prism_0_12_0",
-   "prism_0_12_1"
-  ],
-  "prism_0_13": [
-   "prism_0_13_0",
-   "prism_0_13_1"
-  ],
-  "prism_0_14": [
-   "prism_0_14_0",
-   "prism_0_14_1"
-  ],
-  "prism_0_15": [
-   "prism_0_15_0",
-   "prism_0_15_1"
-  ],
-  "prism_1_0": [
-   "prism_1_0_0",
-   "prism_1_0_1"
-  ],
-  "prism_1_1": [
-   "prism_1_1_0",
-   "prism_1_1_1"
-  ],
-  "prism_1_2": [
-   "prism_1_2_0",
-   "prism_1_2_1"
-  ],
-  "prism_1_3": [
-   "prism_1_3_0",
-   "prism_1_3_1"
-  ],
-  "prism_1_4": [
-   "prism_1_4_0",
-   "prism_1_4_1"
-  ],
-  "prism_1_5": [
-   "prism_1_5_0",
-   "prism_1_5_1"
-  ],
-  "prism_1_6": [
-   "prism_1_6_0",
-   "prism_1_6_1"
-  ],
-  "prism_1_7": [
-   "prism_1_7_0",
-   "prism_1_7_1"
-  ],
-  "prism_1_8": [
-   "prism_1_8_0",
-   "prism_1_8_1"
-  ],
-  "prism_1_9": [
-   "prism_1_9_0",
-   "prism_1_9_1"
-  ],
-  "prism_1_10": [
-   "prism_1_10_0",
-   "prism_1_10_1"
-  ],
-  "prism_1_11": [
-   "prism_1_11_0",
-   "prism_1_11_1"
-  ],
-  "prism_1_12": [
-   "prism_1_12_0",
-   "prism_1_12_1"
-  ],
-  "prism_1_13": [
-   "prism_1_13_0",
-   "prism_1_13_1"
-  ],
-  "prism_1_14": [
-   "prism_1_14_0",
-   "prism_1_14_1"
-  ],
-  "prism_1_15": [
-   "prism_1_15_0",
-   "prism_1_15_1"
-  ],
-  "monolith_0_0": [
-   "monolith_0_0_0",
-   "monolith_0_0_1"
-  ],
-  "monolith_0_1": [
-   "monolith_0_1_0",
-   "monolith_0_1_1"
-  ],
-  "monolith_0_2": [
-   "monolith_0_2_0",
-   "monolith_0_2_1"
-  ],
-  "monolith_0_3": [
-   "monolith_0_3_0",
-   "monolith_0_3_1"
-  ],
-  "monolith_0_4": [
-   "monolith_0_4_0",
-   "monolith_0_4_1"
-  ],
-  "monolith_0_5": [
-   "monolith_0_5_0",
-   "monolith_0_5_1"
-  ],
-  "monolith_0_6": [
-   "monolith_0_6_0",
-   "monolith_0_6_1"
-  ],
-  "monolith_0_7": [
-   "monolith_0_7_0",
-   "monolith_0_7_1"
-  ],
-  "monolith_0_8": [
-   "monolith_0_8_0",
-   "monolith_0_8_1"
-  ],
-  "monolith_0_9": [
-   "monolith_0_9_0",
-   "monolith_0_9_1"
-  ],
-  "monolith_0_10": [
-   "monolith_0_10_0",
-   "monolith_0_10_1"
-  ],
-  "monolith_0_11": [
-   "monolith_0_11_0",
-   "monolith_0_11_1"
-  ],
-  "monolith_0_12": [
-   "monolith_0_12_0",
-   "monolith_0_12_1"
-  ],
-  "monolith_0_13": [
-   "monolith_0_13_0",
-   "monolith_0_13_1"
-  ],
-  "monolith_0_14": [
-   "monolith_0_14_0",
-   "monolith_0_14_1"
-  ],
-  "monolith_0_15": [
-   "monolith_0_15_0",
-   "monolith_0_15_1"
-  ],
-  "monolith_1_0": [
-   "monolith_1_0_0",
-   "monolith_1_0_1"
-  ],
-  "monolith_1_1": [
-   "monolith_1_1_0",
-   "monolith_1_1_1"
-  ],
-  "monolith_1_2": [
-   "monolith_1_2_0",
-   "monolith_1_2_1"
-  ],
-  "monolith_1_3": [
-   "monolith_1_3_0",
-   "monolith_1_3_1"
-  ],
-  "monolith_1_4": [
-   "monolith_1_4_0",
-   "monolith_1_4_1"
-  ],
-  "monolith_1_5": [
-   "monolith_1_5_0",
-   "monolith_1_5_1"
-  ],
-  "monolith_1_6": [
-   "monolith_1_6_0",
-   "monolith_1_6_1"
-  ],
-  "monolith_1_7": [
-   "monolith_1_7_0",
-   "monolith_1_7_1"
-  ],
-  "monolith_1_8": [
-   "monolith_1_8_0",
-   "monolith_1_8_1"
-  ],
-  "monolith_1_9": [
-   "monolith_1_9_0",
-   "monolith_1_9_1"
-  ],
-  "monolith_1_10": [
-   "monolith_1_10_0",
-   "monolith_1_10_1"
-  ],
-  "monolith_1_11": [
-   "monolith_1_11_0",
-   "monolith_1_11_1"
-  ],
-  "monolith_1_12": [
-   "monolith_1_12_0",
-   "monolith_1_12_1"
-  ],
-  "monolith_1_13": [
-   "monolith_1_13_0",
-   "monolith_1_13_1"
-  ],
-  "monolith_1_14": [
-   "monolith_1_14_0",
-   "monolith_1_14_1"
-  ],
-  "monolith_1_15": [
-   "monolith_1_15_0",
-   "monolith_1_15_1"
-  ],
-  "shrike_0_0": [
-   "shrike_0_0_0",
-   "shrike_0_0_1"
-  ],
-  "shrike_0_1": [
-   "shrike_0_1_0",
-   "shrike_0_1_1"
-  ],
-  "shrike_0_2": [
-   "shrike_0_2_0",
-   "shrike_0_2_1"
-  ],
-  "shrike_0_3": [
-   "shrike_0_3_0",
-   "shrike_0_3_1"
-  ],
-  "shrike_0_4": [
-   "shrike_0_4_0",
-   "shrike_0_4_1"
-  ],
-  "shrike_0_5": [
-   "shrike_0_5_0",
-   "shrike_0_5_1"
-  ],
-  "shrike_0_6": [
-   "shrike_0_6_0",
-   "shrike_0_6_1"
-  ],
-  "shrike_0_7": [
-   "shrike_0_7_0",
-   "shrike_0_7_1"
-  ],
-  "shrike_0_8": [
-   "shrike_0_8_0",
-   "shrike_0_8_1"
-  ],
-  "shrike_0_9": [
-   "shrike_0_9_0",
-   "shrike_0_9_1"
-  ],
-  "shrike_0_10": [
-   "shrike_0_10_0",
-   "shrike_0_10_1"
-  ],
-  "shrike_0_11": [
-   "shrike_0_11_0",
-   "shrike_0_11_1"
-  ],
-  "shrike_0_12": [
-   "shrike_0_12_0",
-   "shrike_0_12_1"
-  ],
-  "shrike_0_13": [
-   "shrike_0_13_0",
-   "shrike_0_13_1"
-  ],
-  "shrike_0_14": [
-   "shrike_0_14_0",
-   "shrike_0_14_1"
-  ],
-  "shrike_0_15": [
-   "shrike_0_15_0",
-   "shrike_0_15_1"
-  ],
-  "shrike_1_0": [
-   "shrike_1_0_0",
-   "shrike_1_0_1"
-  ],
-  "shrike_1_1": [
-   "shrike_1_1_0",
-   "shrike_1_1_1"
-  ],
-  "shrike_1_2": [
-   "shrike_1_2_0",
-   "shrike_1_2_1"
-  ],
-  "shrike_1_3": [
-   "shrike_1_3_0",
-   "shrike_1_3_1"
-  ],
-  "shrike_1_4": [
-   "shrike_1_4_0",
-   "shrike_1_4_1"
-  ],
-  "shrike_1_5": [
-   "shrike_1_5_0",
-   "shrike_1_5_1"
-  ],
-  "shrike_1_6": [
-   "shrike_1_6_0",
-   "shrike_1_6_1"
-  ],
-  "shrike_1_7": [
-   "shrike_1_7_0",
-   "shrike_1_7_1"
-  ],
-  "shrike_1_8": [
-   "shrike_1_8_0",
-   "shrike_1_8_1"
-  ],
-  "shrike_1_9": [
-   "shrike_1_9_0",
-   "shrike_1_9_1"
-  ],
-  "shrike_1_10": [
-   "shrike_1_10_0",
-   "shrike_1_10_1"
-  ],
-  "shrike_1_11": [
-   "shrike_1_11_0",
-   "shrike_1_11_1"
-  ],
-  "shrike_1_12": [
-   "shrike_1_12_0",
-   "shrike_1_12_1"
-  ],
-  "shrike_1_13": [
-   "shrike_1_13_0",
-   "shrike_1_13_1"
-  ],
-  "shrike_1_14": [
-   "shrike_1_14_0",
-   "shrike_1_14_1"
-  ],
-  "shrike_1_15": [
-   "shrike_1_15_0",
-   "shrike_1_15_1"
-  ],
-  "halo_0_0": [
-   "halo_0_0_0",
-   "halo_0_0_1"
-  ],
-  "halo_0_1": [
-   "halo_0_1_0",
-   "halo_0_1_1"
-  ],
-  "halo_0_2": [
-   "halo_0_2_0",
-   "halo_0_2_1"
-  ],
-  "halo_0_3": [
-   "halo_0_3_0",
-   "halo_0_3_1"
-  ],
-  "halo_0_4": [
-   "halo_0_4_0",
-   "halo_0_4_1"
-  ],
-  "halo_0_5": [
-   "halo_0_5_0",
-   "halo_0_5_1"
-  ],
-  "halo_0_6": [
-   "halo_0_6_0",
-   "halo_0_6_1"
-  ],
-  "halo_0_7": [
-   "halo_0_7_0",
-   "halo_0_7_1"
-  ],
-  "halo_0_8": [
-   "halo_0_8_0",
-   "halo_0_8_1"
-  ],
-  "halo_0_9": [
-   "halo_0_9_0",
-   "halo_0_9_1"
-  ],
-  "halo_0_10": [
-   "halo_0_10_0",
-   "halo_0_10_1"
-  ],
-  "halo_0_11": [
-   "halo_0_11_0",
-   "halo_0_11_1"
-  ],
-  "halo_0_12": [
-   "halo_0_12_0",
-   "halo_0_12_1"
-  ],
-  "halo_0_13": [
-   "halo_0_13_0",
-   "halo_0_13_1"
-  ],
-  "halo_0_14": [
-   "halo_0_14_0",
-   "halo_0_14_1"
-  ],
-  "halo_0_15": [
-   "halo_0_15_0",
-   "halo_0_15_1"
-  ],
-  "halo_1_0": [
-   "halo_1_0_0",
-   "halo_1_0_1"
-  ],
-  "halo_1_1": [
-   "halo_1_1_0",
-   "halo_1_1_1"
-  ],
-  "halo_1_2": [
-   "halo_1_2_0",
-   "halo_1_2_1"
-  ],
-  "halo_1_3": [
-   "halo_1_3_0",
-   "halo_1_3_1"
-  ],
-  "halo_1_4": [
-   "halo_1_4_0",
-   "halo_1_4_1"
-  ],
-  "halo_1_5": [
-   "halo_1_5_0",
-   "halo_1_5_1"
-  ],
-  "halo_1_6": [
-   "halo_1_6_0",
-   "halo_1_6_1"
-  ],
-  "halo_1_7": [
-   "halo_1_7_0",
-   "halo_1_7_1"
-  ],
-  "halo_1_8": [
-   "halo_1_8_0",
-   "halo_1_8_1"
-  ],
-  "halo_1_9": [
-   "halo_1_9_0",
-   "halo_1_9_1"
-  ],
-  "halo_1_10": [
-   "halo_1_10_0",
-   "halo_1_10_1"
-  ],
-  "halo_1_11": [
-   "halo_1_11_0",
-   "halo_1_11_1"
-  ],
-  "halo_1_12": [
-   "halo_1_12_0",
-   "halo_1_12_1"
-  ],
-  "halo_1_13": [
-   "halo_1_13_0",
-   "halo_1_13_1"
-  ],
-  "halo_1_14": [
-   "halo_1_14_0",
-   "halo_1_14_1"
-  ],
-  "halo_1_15": [
-   "halo_1_15_0",
-   "halo_1_15_1"
+  "harvester_0": [
+   "harvester_0_0",
+   "harvester_0_1"
+  ],
+  "harvester_1": [
+   "harvester_1_0",
+   "harvester_1_1"
+  ],
+  "harvester_2": [
+   "harvester_2_0",
+   "harvester_2_1"
+  ],
+  "harvester_3": [
+   "harvester_3_0",
+   "harvester_3_1"
+  ],
+  "harvester_4": [
+   "harvester_4_0",
+   "harvester_4_1"
+  ],
+  "harvester_5": [
+   "harvester_5_0",
+   "harvester_5_1"
+  ],
+  "harvester_6": [
+   "harvester_6_0",
+   "harvester_6_1"
+  ],
+  "harvester_7": [
+   "harvester_7_0",
+   "harvester_7_1"
+  ],
+  "harvester_8": [
+   "harvester_8_0",
+   "harvester_8_1"
+  ],
+  "harvester_9": [
+   "harvester_9_0",
+   "harvester_9_1"
+  ],
+  "harvester_10": [
+   "harvester_10_0",
+   "harvester_10_1"
+  ],
+  "harvester_11": [
+   "harvester_11_0",
+   "harvester_11_1"
+  ],
+  "harvester_12": [
+   "harvester_12_0",
+   "harvester_12_1"
+  ],
+  "harvester_13": [
+   "harvester_13_0",
+   "harvester_13_1"
+  ],
+  "harvester_14": [
+   "harvester_14_0",
+   "harvester_14_1"
+  ],
+  "harvester_15": [
+   "harvester_15_0",
+   "harvester_15_1"
+  ],
+  "trooper_0": [
+   "trooper_0_0",
+   "trooper_0_1",
+   "trooper_0_2",
+   "trooper_0_3"
+  ],
+  "trooper_1": [
+   "trooper_1_0",
+   "trooper_1_1",
+   "trooper_1_2",
+   "trooper_1_3"
+  ],
+  "trooper_2": [
+   "trooper_2_0",
+   "trooper_2_1",
+   "trooper_2_2",
+   "trooper_2_3"
+  ],
+  "trooper_3": [
+   "trooper_3_0",
+   "trooper_3_1",
+   "trooper_3_2",
+   "trooper_3_3"
+  ],
+  "trooper_4": [
+   "trooper_4_0",
+   "trooper_4_1",
+   "trooper_4_2",
+   "trooper_4_3"
+  ],
+  "trooper_5": [
+   "trooper_5_0",
+   "trooper_5_1",
+   "trooper_5_2",
+   "trooper_5_3"
+  ],
+  "trooper_6": [
+   "trooper_6_0",
+   "trooper_6_1",
+   "trooper_6_2",
+   "trooper_6_3"
+  ],
+  "trooper_7": [
+   "trooper_7_0",
+   "trooper_7_1",
+   "trooper_7_2",
+   "trooper_7_3"
+  ],
+  "trooper_8": [
+   "trooper_8_0",
+   "trooper_8_1",
+   "trooper_8_2",
+   "trooper_8_3"
+  ],
+  "trooper_9": [
+   "trooper_9_0",
+   "trooper_9_1",
+   "trooper_9_2",
+   "trooper_9_3"
+  ],
+  "trooper_10": [
+   "trooper_10_0",
+   "trooper_10_1",
+   "trooper_10_2",
+   "trooper_10_3"
+  ],
+  "trooper_11": [
+   "trooper_11_0",
+   "trooper_11_1",
+   "trooper_11_2",
+   "trooper_11_3"
+  ],
+  "trooper_12": [
+   "trooper_12_0",
+   "trooper_12_1",
+   "trooper_12_2",
+   "trooper_12_3"
+  ],
+  "trooper_13": [
+   "trooper_13_0",
+   "trooper_13_1",
+   "trooper_13_2",
+   "trooper_13_3"
+  ],
+  "trooper_14": [
+   "trooper_14_0",
+   "trooper_14_1",
+   "trooper_14_2",
+   "trooper_14_3"
+  ],
+  "trooper_15": [
+   "trooper_15_0",
+   "trooper_15_1",
+   "trooper_15_2",
+   "trooper_15_3"
+  ],
+  "vanguard_0": [
+   "vanguard_0_0",
+   "vanguard_0_1",
+   "vanguard_0_2",
+   "vanguard_0_3"
+  ],
+  "vanguard_1": [
+   "vanguard_1_0",
+   "vanguard_1_1",
+   "vanguard_1_2",
+   "vanguard_1_3"
+  ],
+  "vanguard_2": [
+   "vanguard_2_0",
+   "vanguard_2_1",
+   "vanguard_2_2",
+   "vanguard_2_3"
+  ],
+  "vanguard_3": [
+   "vanguard_3_0",
+   "vanguard_3_1",
+   "vanguard_3_2",
+   "vanguard_3_3"
+  ],
+  "vanguard_4": [
+   "vanguard_4_0",
+   "vanguard_4_1",
+   "vanguard_4_2",
+   "vanguard_4_3"
+  ],
+  "vanguard_5": [
+   "vanguard_5_0",
+   "vanguard_5_1",
+   "vanguard_5_2",
+   "vanguard_5_3"
+  ],
+  "vanguard_6": [
+   "vanguard_6_0",
+   "vanguard_6_1",
+   "vanguard_6_2",
+   "vanguard_6_3"
+  ],
+  "vanguard_7": [
+   "vanguard_7_0",
+   "vanguard_7_1",
+   "vanguard_7_2",
+   "vanguard_7_3"
+  ],
+  "vanguard_8": [
+   "vanguard_8_0",
+   "vanguard_8_1",
+   "vanguard_8_2",
+   "vanguard_8_3"
+  ],
+  "vanguard_9": [
+   "vanguard_9_0",
+   "vanguard_9_1",
+   "vanguard_9_2",
+   "vanguard_9_3"
+  ],
+  "vanguard_10": [
+   "vanguard_10_0",
+   "vanguard_10_1",
+   "vanguard_10_2",
+   "vanguard_10_3"
+  ],
+  "vanguard_11": [
+   "vanguard_11_0",
+   "vanguard_11_1",
+   "vanguard_11_2",
+   "vanguard_11_3"
+  ],
+  "vanguard_12": [
+   "vanguard_12_0",
+   "vanguard_12_1",
+   "vanguard_12_2",
+   "vanguard_12_3"
+  ],
+  "vanguard_13": [
+   "vanguard_13_0",
+   "vanguard_13_1",
+   "vanguard_13_2",
+   "vanguard_13_3"
+  ],
+  "vanguard_14": [
+   "vanguard_14_0",
+   "vanguard_14_1",
+   "vanguard_14_2",
+   "vanguard_14_3"
+  ],
+  "vanguard_15": [
+   "vanguard_15_0",
+   "vanguard_15_1",
+   "vanguard_15_2",
+   "vanguard_15_3"
+  ],
+  "lancer_0": [
+   "lancer_0_0",
+   "lancer_0_1",
+   "lancer_0_2",
+   "lancer_0_3"
+  ],
+  "lancer_1": [
+   "lancer_1_0",
+   "lancer_1_1",
+   "lancer_1_2",
+   "lancer_1_3"
+  ],
+  "lancer_2": [
+   "lancer_2_0",
+   "lancer_2_1",
+   "lancer_2_2",
+   "lancer_2_3"
+  ],
+  "lancer_3": [
+   "lancer_3_0",
+   "lancer_3_1",
+   "lancer_3_2",
+   "lancer_3_3"
+  ],
+  "lancer_4": [
+   "lancer_4_0",
+   "lancer_4_1",
+   "lancer_4_2",
+   "lancer_4_3"
+  ],
+  "lancer_5": [
+   "lancer_5_0",
+   "lancer_5_1",
+   "lancer_5_2",
+   "lancer_5_3"
+  ],
+  "lancer_6": [
+   "lancer_6_0",
+   "lancer_6_1",
+   "lancer_6_2",
+   "lancer_6_3"
+  ],
+  "lancer_7": [
+   "lancer_7_0",
+   "lancer_7_1",
+   "lancer_7_2",
+   "lancer_7_3"
+  ],
+  "lancer_8": [
+   "lancer_8_0",
+   "lancer_8_1",
+   "lancer_8_2",
+   "lancer_8_3"
+  ],
+  "lancer_9": [
+   "lancer_9_0",
+   "lancer_9_1",
+   "lancer_9_2",
+   "lancer_9_3"
+  ],
+  "lancer_10": [
+   "lancer_10_0",
+   "lancer_10_1",
+   "lancer_10_2",
+   "lancer_10_3"
+  ],
+  "lancer_11": [
+   "lancer_11_0",
+   "lancer_11_1",
+   "lancer_11_2",
+   "lancer_11_3"
+  ],
+  "lancer_12": [
+   "lancer_12_0",
+   "lancer_12_1",
+   "lancer_12_2",
+   "lancer_12_3"
+  ],
+  "lancer_13": [
+   "lancer_13_0",
+   "lancer_13_1",
+   "lancer_13_2",
+   "lancer_13_3"
+  ],
+  "lancer_14": [
+   "lancer_14_0",
+   "lancer_14_1",
+   "lancer_14_2",
+   "lancer_14_3"
+  ],
+  "lancer_15": [
+   "lancer_15_0",
+   "lancer_15_1",
+   "lancer_15_2",
+   "lancer_15_3"
+  ],
+  "medic_0": [
+   "medic_0_0",
+   "medic_0_1",
+   "medic_0_2",
+   "medic_0_3"
+  ],
+  "medic_1": [
+   "medic_1_0",
+   "medic_1_1",
+   "medic_1_2",
+   "medic_1_3"
+  ],
+  "medic_2": [
+   "medic_2_0",
+   "medic_2_1",
+   "medic_2_2",
+   "medic_2_3"
+  ],
+  "medic_3": [
+   "medic_3_0",
+   "medic_3_1",
+   "medic_3_2",
+   "medic_3_3"
+  ],
+  "medic_4": [
+   "medic_4_0",
+   "medic_4_1",
+   "medic_4_2",
+   "medic_4_3"
+  ],
+  "medic_5": [
+   "medic_5_0",
+   "medic_5_1",
+   "medic_5_2",
+   "medic_5_3"
+  ],
+  "medic_6": [
+   "medic_6_0",
+   "medic_6_1",
+   "medic_6_2",
+   "medic_6_3"
+  ],
+  "medic_7": [
+   "medic_7_0",
+   "medic_7_1",
+   "medic_7_2",
+   "medic_7_3"
+  ],
+  "medic_8": [
+   "medic_8_0",
+   "medic_8_1",
+   "medic_8_2",
+   "medic_8_3"
+  ],
+  "medic_9": [
+   "medic_9_0",
+   "medic_9_1",
+   "medic_9_2",
+   "medic_9_3"
+  ],
+  "medic_10": [
+   "medic_10_0",
+   "medic_10_1",
+   "medic_10_2",
+   "medic_10_3"
+  ],
+  "medic_11": [
+   "medic_11_0",
+   "medic_11_1",
+   "medic_11_2",
+   "medic_11_3"
+  ],
+  "medic_12": [
+   "medic_12_0",
+   "medic_12_1",
+   "medic_12_2",
+   "medic_12_3"
+  ],
+  "medic_13": [
+   "medic_13_0",
+   "medic_13_1",
+   "medic_13_2",
+   "medic_13_3"
+  ],
+  "medic_14": [
+   "medic_14_0",
+   "medic_14_1",
+   "medic_14_2",
+   "medic_14_3"
+  ],
+  "medic_15": [
+   "medic_15_0",
+   "medic_15_1",
+   "medic_15_2",
+   "medic_15_3"
+  ],
+  "wasp_0": [
+   "wasp_0_0",
+   "wasp_0_1"
+  ],
+  "wasp_1": [
+   "wasp_1_0",
+   "wasp_1_1"
+  ],
+  "wasp_2": [
+   "wasp_2_0",
+   "wasp_2_1"
+  ],
+  "wasp_3": [
+   "wasp_3_0",
+   "wasp_3_1"
+  ],
+  "wasp_4": [
+   "wasp_4_0",
+   "wasp_4_1"
+  ],
+  "wasp_5": [
+   "wasp_5_0",
+   "wasp_5_1"
+  ],
+  "wasp_6": [
+   "wasp_6_0",
+   "wasp_6_1"
+  ],
+  "wasp_7": [
+   "wasp_7_0",
+   "wasp_7_1"
+  ],
+  "wasp_8": [
+   "wasp_8_0",
+   "wasp_8_1"
+  ],
+  "wasp_9": [
+   "wasp_9_0",
+   "wasp_9_1"
+  ],
+  "wasp_10": [
+   "wasp_10_0",
+   "wasp_10_1"
+  ],
+  "wasp_11": [
+   "wasp_11_0",
+   "wasp_11_1"
+  ],
+  "wasp_12": [
+   "wasp_12_0",
+   "wasp_12_1"
+  ],
+  "wasp_13": [
+   "wasp_13_0",
+   "wasp_13_1"
+  ],
+  "wasp_14": [
+   "wasp_14_0",
+   "wasp_14_1"
+  ],
+  "wasp_15": [
+   "wasp_15_0",
+   "wasp_15_1"
+  ],
+  "observer_0": [
+   "observer_0_0",
+   "observer_0_1"
+  ],
+  "observer_1": [
+   "observer_1_0",
+   "observer_1_1"
+  ],
+  "observer_2": [
+   "observer_2_0",
+   "observer_2_1"
+  ],
+  "observer_3": [
+   "observer_3_0",
+   "observer_3_1"
+  ],
+  "observer_4": [
+   "observer_4_0",
+   "observer_4_1"
+  ],
+  "observer_5": [
+   "observer_5_0",
+   "observer_5_1"
+  ],
+  "observer_6": [
+   "observer_6_0",
+   "observer_6_1"
+  ],
+  "observer_7": [
+   "observer_7_0",
+   "observer_7_1"
+  ],
+  "observer_8": [
+   "observer_8_0",
+   "observer_8_1"
+  ],
+  "observer_9": [
+   "observer_9_0",
+   "observer_9_1"
+  ],
+  "observer_10": [
+   "observer_10_0",
+   "observer_10_1"
+  ],
+  "observer_11": [
+   "observer_11_0",
+   "observer_11_1"
+  ],
+  "observer_12": [
+   "observer_12_0",
+   "observer_12_1"
+  ],
+  "observer_13": [
+   "observer_13_0",
+   "observer_13_1"
+  ],
+  "observer_14": [
+   "observer_14_0",
+   "observer_14_1"
+  ],
+  "observer_15": [
+   "observer_15_0",
+   "observer_15_1"
+  ],
+  "bastion_0": [
+   "bastion_0_0",
+   "bastion_0_1"
+  ],
+  "bastion_1": [
+   "bastion_1_0",
+   "bastion_1_1"
+  ],
+  "bastion_2": [
+   "bastion_2_0",
+   "bastion_2_1"
+  ],
+  "bastion_3": [
+   "bastion_3_0",
+   "bastion_3_1"
+  ],
+  "bastion_4": [
+   "bastion_4_0",
+   "bastion_4_1"
+  ],
+  "bastion_5": [
+   "bastion_5_0",
+   "bastion_5_1"
+  ],
+  "bastion_6": [
+   "bastion_6_0",
+   "bastion_6_1"
+  ],
+  "bastion_7": [
+   "bastion_7_0",
+   "bastion_7_1"
+  ],
+  "bastion_8": [
+   "bastion_8_0",
+   "bastion_8_1"
+  ],
+  "bastion_9": [
+   "bastion_9_0",
+   "bastion_9_1"
+  ],
+  "bastion_10": [
+   "bastion_10_0",
+   "bastion_10_1"
+  ],
+  "bastion_11": [
+   "bastion_11_0",
+   "bastion_11_1"
+  ],
+  "bastion_12": [
+   "bastion_12_0",
+   "bastion_12_1"
+  ],
+  "bastion_13": [
+   "bastion_13_0",
+   "bastion_13_1"
+  ],
+  "bastion_14": [
+   "bastion_14_0",
+   "bastion_14_1"
+  ],
+  "bastion_15": [
+   "bastion_15_0",
+   "bastion_15_1"
+  ],
+  "lumen_0": [
+   "lumen_0_0",
+   "lumen_0_1"
+  ],
+  "lumen_1": [
+   "lumen_1_0",
+   "lumen_1_1"
+  ],
+  "lumen_2": [
+   "lumen_2_0",
+   "lumen_2_1"
+  ],
+  "lumen_3": [
+   "lumen_3_0",
+   "lumen_3_1"
+  ],
+  "lumen_4": [
+   "lumen_4_0",
+   "lumen_4_1"
+  ],
+  "lumen_5": [
+   "lumen_5_0",
+   "lumen_5_1"
+  ],
+  "lumen_6": [
+   "lumen_6_0",
+   "lumen_6_1"
+  ],
+  "lumen_7": [
+   "lumen_7_0",
+   "lumen_7_1"
+  ],
+  "lumen_8": [
+   "lumen_8_0",
+   "lumen_8_1"
+  ],
+  "lumen_9": [
+   "lumen_9_0",
+   "lumen_9_1"
+  ],
+  "lumen_10": [
+   "lumen_10_0",
+   "lumen_10_1"
+  ],
+  "lumen_11": [
+   "lumen_11_0",
+   "lumen_11_1"
+  ],
+  "lumen_12": [
+   "lumen_12_0",
+   "lumen_12_1"
+  ],
+  "lumen_13": [
+   "lumen_13_0",
+   "lumen_13_1"
+  ],
+  "lumen_14": [
+   "lumen_14_0",
+   "lumen_14_1"
+  ],
+  "lumen_15": [
+   "lumen_15_0",
+   "lumen_15_1"
+  ],
+  "scythe_0": [
+   "scythe_0_0",
+   "scythe_0_1"
+  ],
+  "scythe_1": [
+   "scythe_1_0",
+   "scythe_1_1"
+  ],
+  "scythe_2": [
+   "scythe_2_0",
+   "scythe_2_1"
+  ],
+  "scythe_3": [
+   "scythe_3_0",
+   "scythe_3_1"
+  ],
+  "scythe_4": [
+   "scythe_4_0",
+   "scythe_4_1"
+  ],
+  "scythe_5": [
+   "scythe_5_0",
+   "scythe_5_1"
+  ],
+  "scythe_6": [
+   "scythe_6_0",
+   "scythe_6_1"
+  ],
+  "scythe_7": [
+   "scythe_7_0",
+   "scythe_7_1"
+  ],
+  "scythe_8": [
+   "scythe_8_0",
+   "scythe_8_1"
+  ],
+  "scythe_9": [
+   "scythe_9_0",
+   "scythe_9_1"
+  ],
+  "scythe_10": [
+   "scythe_10_0",
+   "scythe_10_1"
+  ],
+  "scythe_11": [
+   "scythe_11_0",
+   "scythe_11_1"
+  ],
+  "scythe_12": [
+   "scythe_12_0",
+   "scythe_12_1"
+  ],
+  "scythe_13": [
+   "scythe_13_0",
+   "scythe_13_1"
+  ],
+  "scythe_14": [
+   "scythe_14_0",
+   "scythe_14_1"
+  ],
+  "scythe_15": [
+   "scythe_15_0",
+   "scythe_15_1"
+  ],
+  "prism_0": [
+   "prism_0_0",
+   "prism_0_1"
+  ],
+  "prism_1": [
+   "prism_1_0",
+   "prism_1_1"
+  ],
+  "prism_2": [
+   "prism_2_0",
+   "prism_2_1"
+  ],
+  "prism_3": [
+   "prism_3_0",
+   "prism_3_1"
+  ],
+  "prism_4": [
+   "prism_4_0",
+   "prism_4_1"
+  ],
+  "prism_5": [
+   "prism_5_0",
+   "prism_5_1"
+  ],
+  "prism_6": [
+   "prism_6_0",
+   "prism_6_1"
+  ],
+  "prism_7": [
+   "prism_7_0",
+   "prism_7_1"
+  ],
+  "prism_8": [
+   "prism_8_0",
+   "prism_8_1"
+  ],
+  "prism_9": [
+   "prism_9_0",
+   "prism_9_1"
+  ],
+  "prism_10": [
+   "prism_10_0",
+   "prism_10_1"
+  ],
+  "prism_11": [
+   "prism_11_0",
+   "prism_11_1"
+  ],
+  "prism_12": [
+   "prism_12_0",
+   "prism_12_1"
+  ],
+  "prism_13": [
+   "prism_13_0",
+   "prism_13_1"
+  ],
+  "prism_14": [
+   "prism_14_0",
+   "prism_14_1"
+  ],
+  "prism_15": [
+   "prism_15_0",
+   "prism_15_1"
+  ],
+  "monolith_0": [
+   "monolith_0_0",
+   "monolith_0_1"
+  ],
+  "monolith_1": [
+   "monolith_1_0",
+   "monolith_1_1"
+  ],
+  "monolith_2": [
+   "monolith_2_0",
+   "monolith_2_1"
+  ],
+  "monolith_3": [
+   "monolith_3_0",
+   "monolith_3_1"
+  ],
+  "monolith_4": [
+   "monolith_4_0",
+   "monolith_4_1"
+  ],
+  "monolith_5": [
+   "monolith_5_0",
+   "monolith_5_1"
+  ],
+  "monolith_6": [
+   "monolith_6_0",
+   "monolith_6_1"
+  ],
+  "monolith_7": [
+   "monolith_7_0",
+   "monolith_7_1"
+  ],
+  "monolith_8": [
+   "monolith_8_0",
+   "monolith_8_1"
+  ],
+  "monolith_9": [
+   "monolith_9_0",
+   "monolith_9_1"
+  ],
+  "monolith_10": [
+   "monolith_10_0",
+   "monolith_10_1"
+  ],
+  "monolith_11": [
+   "monolith_11_0",
+   "monolith_11_1"
+  ],
+  "monolith_12": [
+   "monolith_12_0",
+   "monolith_12_1"
+  ],
+  "monolith_13": [
+   "monolith_13_0",
+   "monolith_13_1"
+  ],
+  "monolith_14": [
+   "monolith_14_0",
+   "monolith_14_1"
+  ],
+  "monolith_15": [
+   "monolith_15_0",
+   "monolith_15_1"
+  ],
+  "shrike_0": [
+   "shrike_0_0",
+   "shrike_0_1"
+  ],
+  "shrike_1": [
+   "shrike_1_0",
+   "shrike_1_1"
+  ],
+  "shrike_2": [
+   "shrike_2_0",
+   "shrike_2_1"
+  ],
+  "shrike_3": [
+   "shrike_3_0",
+   "shrike_3_1"
+  ],
+  "shrike_4": [
+   "shrike_4_0",
+   "shrike_4_1"
+  ],
+  "shrike_5": [
+   "shrike_5_0",
+   "shrike_5_1"
+  ],
+  "shrike_6": [
+   "shrike_6_0",
+   "shrike_6_1"
+  ],
+  "shrike_7": [
+   "shrike_7_0",
+   "shrike_7_1"
+  ],
+  "shrike_8": [
+   "shrike_8_0",
+   "shrike_8_1"
+  ],
+  "shrike_9": [
+   "shrike_9_0",
+   "shrike_9_1"
+  ],
+  "shrike_10": [
+   "shrike_10_0",
+   "shrike_10_1"
+  ],
+  "shrike_11": [
+   "shrike_11_0",
+   "shrike_11_1"
+  ],
+  "shrike_12": [
+   "shrike_12_0",
+   "shrike_12_1"
+  ],
+  "shrike_13": [
+   "shrike_13_0",
+   "shrike_13_1"
+  ],
+  "shrike_14": [
+   "shrike_14_0",
+   "shrike_14_1"
+  ],
+  "shrike_15": [
+   "shrike_15_0",
+   "shrike_15_1"
+  ],
+  "halo_0": [
+   "halo_0_0",
+   "halo_0_1"
+  ],
+  "halo_1": [
+   "halo_1_0",
+   "halo_1_1"
+  ],
+  "halo_2": [
+   "halo_2_0",
+   "halo_2_1"
+  ],
+  "halo_3": [
+   "halo_3_0",
+   "halo_3_1"
+  ],
+  "halo_4": [
+   "halo_4_0",
+   "halo_4_1"
+  ],
+  "halo_5": [
+   "halo_5_0",
+   "halo_5_1"
+  ],
+  "halo_6": [
+   "halo_6_0",
+   "halo_6_1"
+  ],
+  "halo_7": [
+   "halo_7_0",
+   "halo_7_1"
+  ],
+  "halo_8": [
+   "halo_8_0",
+   "halo_8_1"
+  ],
+  "halo_9": [
+   "halo_9_0",
+   "halo_9_1"
+  ],
+  "halo_10": [
+   "halo_10_0",
+   "halo_10_1"
+  ],
+  "halo_11": [
+   "halo_11_0",
+   "halo_11_1"
+  ],
+  "halo_12": [
+   "halo_12_0",
+   "halo_12_1"
+  ],
+  "halo_13": [
+   "halo_13_0",
+   "halo_13_1"
+  ],
+  "halo_14": [
+   "halo_14_0",
+   "halo_14_1"
+  ],
+  "halo_15": [
+   "halo_15_0",
+   "halo_15_1"
+  ],
+  "sovereign_0": [
+   "sovereign_0_0",
+   "sovereign_0_1"
+  ],
+  "sovereign_1": [
+   "sovereign_1_0",
+   "sovereign_1_1"
+  ],
+  "sovereign_2": [
+   "sovereign_2_0",
+   "sovereign_2_1"
+  ],
+  "sovereign_3": [
+   "sovereign_3_0",
+   "sovereign_3_1"
+  ],
+  "sovereign_4": [
+   "sovereign_4_0",
+   "sovereign_4_1"
+  ],
+  "sovereign_5": [
+   "sovereign_5_0",
+   "sovereign_5_1"
+  ],
+  "sovereign_6": [
+   "sovereign_6_0",
+   "sovereign_6_1"
+  ],
+  "sovereign_7": [
+   "sovereign_7_0",
+   "sovereign_7_1"
+  ],
+  "sovereign_8": [
+   "sovereign_8_0",
+   "sovereign_8_1"
+  ],
+  "sovereign_9": [
+   "sovereign_9_0",
+   "sovereign_9_1"
+  ],
+  "sovereign_10": [
+   "sovereign_10_0",
+   "sovereign_10_1"
+  ],
+  "sovereign_11": [
+   "sovereign_11_0",
+   "sovereign_11_1"
+  ],
+  "sovereign_12": [
+   "sovereign_12_0",
+   "sovereign_12_1"
+  ],
+  "sovereign_13": [
+   "sovereign_13_0",
+   "sovereign_13_1"
+  ],
+  "sovereign_14": [
+   "sovereign_14_0",
+   "sovereign_14_1"
+  ],
+  "sovereign_15": [
+   "sovereign_15_0",
+   "sovereign_15_1"
   ]
  },
  "facings": 16,
- "scale": 2
+ "scale": 2,
+ "tints": [
+  15045409,
+  13244989,
+  3393690,
+  14066150,
+  9954656,
+  3444968,
+  16053235,
+  15354409
+ ]
 }

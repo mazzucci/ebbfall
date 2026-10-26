@@ -6,7 +6,7 @@
 // underside) so crevices read as ambient occlusion. Everything hovers; three-fold symmetry, crescents and rings.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
-import { TEAM_COLORS } from './materials.js';
+import { NEUTRAL, team } from './materials.js';
 
 // ---------------- textures ----------------
 function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
@@ -41,11 +41,11 @@ const pearlBump = canvasTex(256, (g, n) => {
 }, { srgb: false, repeat: 2 });
 
 // ---------------- materials ----------------
-export function makeVaelMats(team) {
+export function makeVaelMats(tc = NEUTRAL) {
   const phys = (o) => new THREE.MeshPhysicalMaterial(o);
   const std = (o) => new THREE.MeshStandardMaterial(o);
   const ceramic = (color, extra = {}) => phys({ color, map: pearl, bumpMap: pearlBump, bumpScale: 1.1, metalness: 0.1, roughness: 0.5, clearcoat: 0.5, clearcoatRoughness: 0.22, sheen: 0.15, sheenColor: 0xd8ccff, sheenRoughness: 0.6, ...extra });
-  const team_ = TEAM_COLORS[team];
+  const team_ = tc.paint;
   // translucent additive shells around crystals and lights: the glow's falloff
   const halo = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide });
   return {
@@ -56,8 +56,8 @@ export function makeVaelMats(team) {
     ring: ceramic(0xd6cfc0, { roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.12, metalness: 0.2 }),
     glass: phys({ color: 0x17121f, metalness: 0.5, roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05 }),
     glassBlade: phys({ color: 0x221a30, metalness: 0.7, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }),
-    glaze: phys({ color: team_, map: pearl, bumpMap: pearlBump, bumpScale: 0.4, metalness: 0.2, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.35, iridescenceIOR: 1.4 }),
-    glazePlain: phys({ color: team_, metalness: 0.2, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.3 }),
+    glaze: team(phys({ color: team_, map: pearl, bumpMap: pearlBump, bumpScale: 0.4, metalness: 0.2, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.35, iridescenceIOR: 1.4 })),
+    glazePlain: team(phys({ color: team_, metalness: 0.2, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.3 })),
     gem: std({ color: 0x2a2254, emissive: 0x7260cc, emissiveIntensity: 0.55, metalness: 0.4, roughness: 0.15, flatShading: true }),
     gemCore: std({ color: 0x5a4aa0, emissive: 0xb8a8ff, emissiveIntensity: 0.95, roughness: 0.2 }),
     ether: std({ color: 0x4a3a8a, emissive: 0xa894f0, emissiveIntensity: 0.95, roughness: 0.25 }),

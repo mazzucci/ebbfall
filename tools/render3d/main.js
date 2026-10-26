@@ -1,6 +1,7 @@
 // Renders every 3D sprite and hands the RGBA images to the Node driver (tools/art/generate.mjs) via window.render().
 import { shoot, S, LIFT } from './scene.js';
-import { makeMats } from './materials.js';
+import { makeMats, GOLD } from './materials.js';
+import { SEAT_COLORS } from '../../src/client/look.js';
 import * as THREE from 'three';
 import { UNIT_MODELS } from './models.js';
 import * as B from './buildings.js';
@@ -34,26 +35,58 @@ const RES = {
   crystalTip: new THREE.MeshStandardMaterial({ color: 0x7ff0e2, emissive: 0x4fd1c5, emissiveIntensity: 2.0, metalness: 0.1, roughness: 0.1, flatShading: true }),
 };
 
+/**
+ * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
+ * colour (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
+ * multiply by the paint colour would read paler). Least squares over the solid mask pixels of a few reference sprites.
+ */
+function fitTints() {
+  const turn = (o, dir) => { o.rotation.y = -dir / FACINGS * Math.PI * 2; return o; };
+  const REF = [
+    [(M) => turn(UNIT_MODELS.trooper.build(M, 0), 2), unitCell(UNIT_MODELS.trooper.r, UNIT_MODELS.trooper.h), makeMats],
+    [(M) => turn(UNIT_MODELS.vanguard.build(M, 0), 5), unitCell(UNIT_MODELS.vanguard.r, UNIT_MODELS.vanguard.h), makeMats],
+    [(M) => B.core(M), bldgCell(4, 56), makeMats], [(M) => B.barracks(M), bldgCell(3, 44), makeMats],
+    [(M) => turn(VAEL_UNITS.lumen.build(M, 0), 2), unitCell(VAEL_UNITS.lumen.r, VAEL_UNITS.lumen.h), makeVaelMats],
+    [(M) => turn(VAEL_UNITS.scythe.build(M, 0), 3), unitCell(VAEL_UNITS.scythe.r, VAEL_UNITS.scythe.h), makeVaelMats],
+    [(M) => VAEL_BUILDINGS.conflux[1](M), bldgCell(4, 70), makeVaelMats], [(M) => VAEL_BUILDINGS.kiln[1](M), bldgCell(3, 42), makeVaelMats],
+  ];
+  const mo = SEAT_COLORS.map(() => [0, 0, 0]), mm = [0, 0, 0];
+  for (const [build, cell, mats] of REF) {
+    const { mask } = shoot(build(mats()), { ...cell, mask: true }), m = mask.data;
+    SEAT_COLORS.forEach((c, k) => {
+      const o = shoot(build(mats({ paint: c, light: c })), cell).data;
+      for (let i = 0; i < m.length; i += 4) if (m[i + 3] === 255 && o[i + 3] === 255) for (let ch = 0; ch < 3; ch++) { mo[k][ch] += m[i + ch] * o[i + ch]; if (!k) mm[ch] += m[i + ch] * m[i + ch]; }
+    });
+  }
+  return mo.map(v => v.reduce((t, x, ch) => t << 8 | Math.min(255, Math.round(255 * x / mm[ch])), 0));
+}
+
 window.render = async function (filter = '') {
   const out = [];
   const want = (name) => !filter || new RegExp(filter).test(name);
-  for (const [kind, m, mats] of UNITS_ALL) for (let team = 0; team < 2; team++) {
-    const M = mats(team), cell = unitCell(m.r, m.h);
+  const anchor = (cell) => ({ x: cell.ax / cell.w, y: cell.ay / cell.h });
+  const sprite = (name, img, cell, extra) => out.push({ name, w: img.width, h: img.height, data: enc(img), anchor: anchor(cell), ...extra });
+  const push = (name, obj, cell, opts = {}) => { if (want(name)) sprite(name, shoot(obj, { ...cell, ...opts }), cell); };
+  /** A team-coloured sprite: the neutral render `name` and its team mask `name_m` (trimmed by the packer). */
+  const pushTeam = (name, obj, cell, opts = {}, extra = {}) => {
+    if (!want(name)) return;
+    const { img, mask } = shoot(obj, { ...cell, ...opts, mask: true });
+    sprite(name, img, cell, extra); sprite(`${name}_m`, mask, cell, { trim: true });
+  };
+  for (const [kind, m, mats] of UNITS_ALL) {
+    const M = mats(), cell = unitCell(m.r, m.h);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < m.frames; f++) {
-      const name = `${kind}_${team}_${dir}_${f}`; if (!want(name)) continue;
       const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
-      const img = shoot(obj, cell);
-      out.push({ name, w: img.width, h: img.height, data: enc(img), anchor: { x: cell.ax / cell.w, y: cell.ay / cell.h } });
+      pushTeam(`${kind}_${dir}_${f}`, obj, cell, {}, { anim: `${kind}_${dir}`, frame: f });
     }
   }
-  const push = (name, obj, cell, opts = {}) => { if (!want(name)) return; const img = shoot(obj, { ...cell, ...opts }); out.push({ name, w: img.width, h: img.height, data: enc(img), anchor: { x: cell.ax / cell.w, y: cell.ay / cell.h } }); };
-  for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) for (let team = 0; team < 2; team++) push(`bldg_${type}_${team}`, build(makeMats(team)), bldgCell(n, h));
-  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) for (let team = 0; team < 2; team++) push(`bldg_${type}_${team}`, build(makeVaelMats(team)), bldgCell(n, h));
-  for (let team = 0; team < 2; team++) for (let dir = 0; dir < FACINGS; dir++) {
-    const head = B.turretHead(makeMats(team)); head.rotation.y = -dir / FACINGS * Math.PI * 2;
-    push(`turret_head_${team}_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
+  for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
+  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
+  for (let dir = 0; dir < FACINGS; dir++) {
+    const head = B.turretHead(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
+    pushTeam(`turret_head_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
   }
-  const neutral = makeMats(0);
+  const neutral = makeMats(GOLD); // construction and ruins: seat 0's gold
   for (const n of [2, 3, 4]) {
     push(`foundation_${n}`, B.foundation(n), bldgCell(n, 4));
     push(`scaffold_${n}`, B.scaffold(n, neutral), bldgCell(n, 10 + n * 6), { shadow: false });
@@ -62,6 +95,6 @@ window.render = async function (filter = '') {
   for (let st = 0; st < 4; st++) push(`shard_${st}`, B.shardField(st, RES), unitCell(15, 20));
   for (let f = 0; f < 4; f++) push(`vent_${f}`, B.vent(f, RES), unitCell(30, 8));
   for (const list of Object.values(DOODADS)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
-  return out;
+  return { sprites: out, tints: fitTints() };
 };
 window.ready = true;

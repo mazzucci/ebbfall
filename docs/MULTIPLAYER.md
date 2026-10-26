@@ -187,6 +187,13 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    cross-map paths of 2-3 ms each in one tick) 4 ms, 18-50 ms and 78-136 ms: a phone's WASM would hitch for 300 ms
    or more. Before 128x128 is offered: one path per group (or a flow field), repaths spread over ticks, or cheaper
    smoothing.
+2b. A colour for every seat. *Done (2026-10-26):* eight seat colours (`SEAT_COLORS`, src/client/look.js: gold and
+   magenta as before, then teal, lilac, green, blue, white, red; docs/ART.md). Units, buildings and turret heads are
+   rendered once in neutral paint with a team mask frame (`<name>_m`) that the renderer draws over the art tinted
+   with the seat's colour (a tint the art pipeline fits per colour, atlas.json `tints`); warp-in, construction,
+   cloak, power and hit effects reach both layers, HUD portraits composite both, and with more than two seats the
+   minimap draws every seat in its colour (two seats: ours and theirs, as before). The atlas went from 9 pages and
+   4.4 MB to 5 pages and 3.1 MB, whatever the number of seats.
 
 ## Open questions for the owner
 

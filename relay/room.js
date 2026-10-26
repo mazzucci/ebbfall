@@ -2,17 +2,17 @@
 // `tick(now)`), so the Node server and the Cloudflare Durable Object run the same rules and the tests drive it with a
 // fake clock. Design: docs/MULTIPLAYER.md. The relay keeps the clock: once every seat has loaded the game it closes a
 // turn (3 ticks, 100 ms) on its own timer, puts the orders it has into the turn `DELAY` ahead, and sends that turn's
-// bundle to everyone. It never looks inside an order (the clients decode them) and never needs to know the game's
-// build (clients compare hashes).
+// bundle to everyone. It never looks inside an order (the clients decode them); it only checks that every seat has the
+// same sim build (an opaque string from the client), and the clients compare hashes.
 //
-// The protocol (client -> relay): hello {proto, name, token?, next?} (next: the next turn the client expects, when it
-// comes back), race {race}, map {map}, ready {ready}, loaded {} (the game is set up: the clock may start), orders
+// The protocol (client -> relay): hello {proto, name, build?, token?, next?} (build: the client's sim build, which
+// every seat holding a place must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race}, map {map}, ready {ready}, loaded {} (the game is set up: the clock may start), orders
 // {w: numbers}, leave {} (gives the game up now), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby, start {setup, delay, from},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
-// {code, msg}, pong {id}.
+// {code, msg}, notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
 
-export const PROTO = 1; // the protocol's version: a client of another version is told to update
+export const PROTO = 2; // (2: hello carries the sim build) // the protocol's version: a client of another version is told to update
 export const TURN_MS = 100;
 export const TICKS_PER_TURN = 3;
 export const DELAY = 2; // turns between an order arriving and the turn it runs on
@@ -39,6 +39,16 @@ export class Room {
   connect(conn, hello) {
     if (hello?.proto !== PROTO) { this.send(conn, { t: 'error', code: 'update', msg: 'A new version of Ebbfall is out: update to play' }); return -1; }
     if (this.seats.some(s => s.conn === conn)) return -1; // (a second hello on one connection)
+    // One sim build per room: that of the seats holding a place (a seat given up frees the room for another build).
+    // Another build would compute another game (out of sync at once): it is turned away, and the seated are told.
+    const build = typeof hello.build === 'string' ? hello.build.slice(0, 64) : '';
+    const mine = typeof hello.token === 'string' ? this.seats.find(s => s.token && s.token === hello.token) : null;
+    const other = this.seats.find(s => s.token && s !== mine);
+    if (other && other.build !== build) {
+      this.send(conn, { t: 'error', code: 'version', msg: 'Your Ebbfall is not the same version as this room\'s' });
+      this.each({ t: 'notice', code: 'version' });
+      return -1;
+    }
     // Back with its token: the same seat (after a dropped connection or a reload).
     let seat = typeof hello.token === 'string' ? this.seats.findIndex(s => s.token && s.token === hello.token) : -1;
     if (seat < 0) {
@@ -48,6 +58,7 @@ export class Room {
       this.seats[seat].token = token();
     }
     const s = this.seats[seat];
+    s.build = build;
     if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'Playing on another screen' }); this.kick(s.conn); }
     s.conn = conn; s.lastAck = this.now;
     if (this.phase === 'lobby') s.name = String(hello.name || `Player ${seat + 1}`).slice(0, MAX_NAME);
@@ -127,7 +138,7 @@ export class Room {
   // ---- inside ----
   empty() {
     // away: ms of its budget used up; awaySince: when it went away (0: here)
-    return { conn: null, token: null, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
+    return { conn: null, token: null, build: '', name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
   }
   rand() { let t = (this.rng += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return (t ^ (t >>> 14)) >>> 0; } // (Mulberry32: the setup's seed and side)
   each(msg) { for (const s of this.seats) if (s.conn) this.send(s.conn, msg); }

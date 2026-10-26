@@ -15,6 +15,13 @@ const local = /^(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\
  *  must not send players on the real site to someone else's relay). */
 export const relayUrl = () => ((local || import.meta.env?.DEV) && params.get('relay')) || import.meta.env?.VITE_RELAY_URL || (local ? `ws://${location.hostname}:8788/` : null);
 
+/** This build's sim (vite.config.js): a room's seats must share it. */
+const SIM_BUILD = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : '';
+/** The link that opens room `code` (with this page's test relay, if any). */
+const joinLink = (code) => `${location.origin}${location.pathname}?join=${code}${params.get('relay') ? `&relay=${encodeURIComponent(params.get('relay'))}` : ''}`;
+/** Where a reload should land: back in the lobby's room, if there is one and no game is on; else this page. */
+export const reloadUrl = () => { const code = online.net?.room || joining; return code && !online.playing ? joinLink(code) : location.href; };
+
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
 /** The online game, while there is one: its Net, this side's seat and the room's setup. */
@@ -35,6 +42,7 @@ export function initOnline({ start, leave, quit }) {
   $('btnOnlineBack').addEventListener('click', () => { sfx('select'); stopOnline(); $('online').hidden = true; onLeave(); });
   $('btnOnlineReady').addEventListener('click', () => { sfx('select'); online.ready = !online.ready; online.net?.ready(online.ready); });
   $('btnShare').addEventListener('click', share);
+  $('btnOnlineReload').addEventListener('click', reloadNewest);
   for (const b of $('onlineRace').querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.race(b.dataset.race); });
   $('onlineName').value = store.get('name') || '';
   // A shared link (?join=CODE): straight to that room.
@@ -43,19 +51,21 @@ export function initOnline({ start, leave, quit }) {
   if (join && relayUrl()) { openLobby(); connect(join.toUpperCase()); }
 }
 
-function openLobby() { $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; status(''); }
+function openLobby() { $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 function status(s) { $('onlineStatus').textContent = s; }
 const name = () => { const n = $('onlineName').value.trim().slice(0, 16); if (n) store.set('name', n); return n || 'Player'; };
 
 function connect(room) {
   stopOnline();
   status(room ? `Joining ${room}…` : 'Opening a room…');
-  online.ready = false; $('roomShow').textContent = ''; $('seatList').innerHTML = ''; // (no last room's code or seats)
+  online.ready = false; $('roomShow').textContent = ''; $('seatList').innerHTML = ''; $('btnOnlineReload').hidden = true; // (no last room's code or seats)
+  joining = room;
   online.net = new Net({
-    url: relayUrl(), room, name: name(), game: () => (online.playing ? liveGame() : null),
+    url: relayUrl(), room, name: name(), build: SIM_BUILD, token: room ? seatToken.get(room) : null, game: () => (online.playing ? liveGame() : null),
     on: {
-      seat: (m) => { online.seat = m.seat; $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
+      seat: (m) => { online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
       lobby: renderLobby,
+      notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend on another version of Ebbfall tried to join. If yours is the older one, reload: you stay in this room.'); $('btnOnlineReload').hidden = false; } },
       start: (setup, seat) => { online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true; onStart(setup, seat); online.net.loaded(); },
       away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
       back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${who(s)} is back`); } },
@@ -63,7 +73,8 @@ function connect(room) {
       desync: () => fatal('Out of sync: the game cannot go on'),
       error: (m) => {
         if (online.playing) { fatal(m.code === 'noroom' ? 'The game server restarted: this game is over' : String(m.msg || 'The connection was lost')); return; }
-        status(String(m.msg || '')); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true;
+        status(m.code === 'version' ? 'Your Ebbfall and your friend\'s are different versions. Reload to update; if it still says so, your friend reloads theirs.' : String(m.msg || ''));
+        $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version';
       },
       status: (s) => {
         if (s === 'online') waitingFor.clear(); // (seated again: the relay tells who is still away next)
@@ -98,8 +109,31 @@ function renderLobby(m) {
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+let joining = '';
+/** Reload into the newest build and back to the room. A new build being installed: wait for it (main.js reloads into
+ *  the room when it takes over); none: reload now (another build may already be cached). */
+async function reloadNewest() {
+  sfx('select');
+  const code = online.net?.room || joining;
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+    if (reg?.installing || reg?.waiting) {
+      status('Updating…'); $('btnOnlineReload').hidden = true;
+      if (code) joining = code; // (where main.js's reload lands: reloadUrl)
+      return;
+    }
+  } catch { /* no service worker: a plain reload */ }
+  location.replace(joinLink(code));
+}
+/** This tab's seat token per room (a reload, or an update's switch-over, takes the same seat back). */
+const seatToken = {
+  get: (room) => { try { return sessionStorage.getItem('endfall.seat.' + room); } catch { return null; } },
+  set: (room, t) => { try { sessionStorage.setItem('endfall.seat.' + room, t); } catch { /* private mode */ } },
+};
+
 async function share() {
-  const code = $('roomShow').textContent, url = `${location.origin}${location.pathname}?join=${code}${params.get('relay') ? `&relay=${encodeURIComponent(params.get('relay'))}` : ''}`;
+  const code = $('roomShow').textContent, url = joinLink(code);
   try {
     if (navigator.share) await navigator.share({ title: 'Ebbfall', text: `Play me in Ebbfall: room ${code}`, url });
     else { await navigator.clipboard.writeText(url); toast('Link copied'); }

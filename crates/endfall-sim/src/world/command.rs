@@ -146,6 +146,8 @@ impl World {
             Command::Hold { unit: u } if unit(self, u) => self.hold_unit(u),
             Command::Gather { unit: u, node } if unit(self, u) => {
                 self.start_gather(u, node);
+                let now = self.time;
+                self.um(u).told = now; // (its player sent it there: it does not run from it at once)
             }
             Command::Build { unit: u, bldg: b } if unit(self, u) => {
                 self.start_build(u, b);

@@ -109,12 +109,12 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 7] = [
 
 const EXPECTED: [[u32; 3]; 7] = [
     [1632591974, 1368448285, 4149105792],
-    [3216496548, 1867545644, 1498381623],
-    [2402568922, 4134418201, 3268245047],
+    [3216496548, 1867545644, 3545303787],
+    [2402568922, 4134418201, 3280213307],
     [887765897, 927863684, 3680130957],
     [3926443285, 3046440948, 1750912932],
     [2500834764, 2332397129, 3785831493],
-    [1069639691, 2224841753, 3346413914],
+    [1069639691, 2224841753, 1097269322],
 ];
 
 #[test]
@@ -220,9 +220,9 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "145/69/105/20 lost_to 69 | 101/105/69/0 lost_to 105 | over true winner 0 conceded -1 at 23268",
-    "141/31/72/35 lost_to 31 | 68/72/31/0 lost_to 72 | over true winner 0 conceded -1 at 15361",
-    "19/23/9/0 lost_to 23 | 49/9/23/2 lost_to 9 | over true winner 1 conceded -1 at 11601",
+    "143/70/105/21 lost_to 70 | 102/105/70/0 lost_to 105 | over true winner 0 conceded -1 at 23111",
+    "122/30/73/35 lost_to 30 | 69/73/30/0 lost_to 73 | over true winner 0 conceded -1 at 14238",
+    "19/23/6/0 lost_to 23 | 49/6/23/2 lost_to 6 | over true winner 1 conceded -1 at 11920",
 ];
 
 #[test]

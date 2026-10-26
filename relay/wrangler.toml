@@ -1,0 +1,19 @@
+# The relay on Cloudflare (relay/worker.js): a Worker and one Durable Object per room. Deploy from relay/ with
+# `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts edit, which covers Durable Objects).
+# A deploy restarts every room: games in progress end (CI deploys only when relay/ changed).
+# The game finds it through the build's VITE_RELAY_URL (wss://relay.ebbfall.com/).
+name = "ebbfall-relay"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+routes = [{ pattern = "relay.ebbfall.com", custom_domain = true }]
+
+[vars]
+ORIGINS = "https://ebbfall.com,https://www.ebbfall.com,http://localhost:5173,http://localhost:4173"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomObject"] # (the free plan's kind; the rooms keep nothing in storage)

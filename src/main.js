@@ -13,6 +13,7 @@ import { setIconButton, portrait } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, recordResult, setup, menu, MAP_KINDS } from './client/menu.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
+import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
@@ -36,6 +37,7 @@ function newGame() {
   $('help').hidden = true;
   const g = setup(); // (the menu's choices, or the guided first game's)
   resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace);
+  resetSightings();
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
@@ -96,6 +98,7 @@ function endGame() {
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
   whatBeatYou();
+  const seen = seenLine(-1, 'You saw: ', ''); $('endSeen').innerHTML = seen; $('endSeen').hidden = !seen; // (their army as far as it was scouted)
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), armyLog(1 - G.me));
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
@@ -123,6 +126,7 @@ function loop(now) {
     while (acc >= DT && n++ < 5) { step(DT); acc -= DT; }
     if (acc > DT * 5) acc = 0;
     drainEvents();
+    noteSightings();
   }
   // Checked every frame, not only while running: the game can end between frames too.
   if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); }
@@ -135,7 +139,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); } };
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
 bindInput(); resize(); requestAnimationFrame(loop);
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so

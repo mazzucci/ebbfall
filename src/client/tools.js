@@ -7,6 +7,7 @@ import { $, ui, toast, setSelection } from './ui.js';
 import { sfx } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';
+import { seenLately } from './scout.js';
 
 export const alerts = { last: null, list: [], at: 0 };
 const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
@@ -191,5 +192,5 @@ export function initPause({ onRestart, onQuit, onResume }) {
 }
 export function togglePause() {
   $('pause').hidden = !$('pause').hidden;
-  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + ' into the game. Leaving or restarting gives it up.'; $('btnResume').focus(); } // (the clock lives here, not on screen)
+  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + ' into the game. Leaving or restarting gives it up.'; $('pauseSeen').innerHTML = seenLately(); $('btnResume').focus(); } // (the clock and the scouting report live here, not on screen)
 }

@@ -97,7 +97,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a suspended page, a wake during a pending reconnect, orders given while offline
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats,
                       lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
-                      for local play and the tests (`node relay/server.mjs`)
+                      for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
+                      Worker and one Durable Object per room; wrangler.toml; CI deploys it once the token is set)
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

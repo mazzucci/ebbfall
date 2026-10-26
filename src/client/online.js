@@ -62,7 +62,7 @@ function connect(room) {
       left: (s) => { if (s !== online.seat) { waitingFor.delete(s); waitLine(); toast(`${who(s)} left the game`, true, true); } },
       desync: () => fatal('Out of sync: the game cannot go on'),
       error: (m) => {
-        if (online.playing) { fatal(String(m.msg || 'The connection was lost')); return; }
+        if (online.playing) { fatal(m.code === 'noroom' ? 'The game server restarted: this game is over' : String(m.msg || 'The connection was lost')); return; }
         status(String(m.msg || '')); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true;
       },
       status: (s) => {

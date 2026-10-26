@@ -140,6 +140,17 @@ buttons. The end card names the other player; rematch.
 
 **M3d. Deploy.** The relay Worker on Cloudflare (the owner's token in CI's secrets), its adapter tested with the
 Workers test pool. The client finds it at a fixed address.
+Built (2026-10-26): `relay/worker.js` and `relay/wrangler.toml`, tested in Node with fake socket pairs and a fake
+namespace (`test/relay-worker.test.js`) rather than the Workers pool (no wrangler or vitest in the dev dependencies).
+To switch it on, the owner: (1) creates a Cloudflare API token (template "Edit Cloudflare Workers") and adds the
+repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then runs the CI workflow once by hand
+(Actions, CI, Run workflow) for the first deploy, at `relay.ebbfall.com` (a custom domain on the ebbfall.com zone,
+which must be in the same Cloudflare account, with no `relay` DNS record yet; made by the deploy); later deploys
+happen when a push to main changes relay/; (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
+which the build bakes in: PLAY A FRIEND appears.
+Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
+an empty lobby is evicted from memory a minute or two after its last socket closes and comes back, empty, from a small
+storage record when someone joins within 10 minutes; a running game is never stored.
 
 **M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats.
 Map size per map (`MW`/`MH` become the map's: today they are constants in the sim and the client, which allocates

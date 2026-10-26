@@ -87,9 +87,9 @@ export function resize() {
   app.renderer.resize(view.w, view.h); clampCam();
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
-/** On touch screens the HUD floats over the map, so the camera may scroll that far past the edges. */
-const coarse = matchMedia('(pointer: coarse)');
-const overscroll = () => coarse.matches ? 120 / cam.zoom : 0;
+/** The HUD floats over the map, so the camera may scroll that far past the edges (the panels are taller with a mouse). */
+const coarse = matchMedia('(pointer: coarse)'), narrow = matchMedia('(max-width: 620px)');
+const overscroll = () => narrow.matches ? 0 : (coarse.matches ? 120 : 170) / cam.zoom;
 export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** Screen (canvas css px) → world px. */

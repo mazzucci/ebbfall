@@ -1430,3 +1430,23 @@ test('an attack by something unseen says so, even on screen, and names what dete
     } finally { await d.close(); }
   }
 });
+
+test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');
+    await d.clickEntity(h.id);
+    await d.hudText('#selName', /^Harvester$/);
+    const vp = d.page.viewportSize();
+    const [stage, mm, info, cmd] = await Promise.all(['#stage', '#minimap', '#info', '#cmd'].map(q => d.page.locator(q).boundingBox()));
+    assert.ok(stage.y + stage.height >= vp.height - 12, `the map reaches the bottom of the window: ${JSON.stringify(stage)}`);
+    for (const [n, b] of [['minimap', mm], ['console', info], ['card', cmd]]) assert.ok(b.y >= stage.y && b.y + b.height <= stage.y + stage.height, `the ${n} sits over the map`);
+    assert.ok(mm.x < info.x && info.x + info.width < cmd.x, 'minimap left, console in the middle, card right');
+    assert.ok(Math.abs(info.x + info.width / 2 - (stage.x + stage.width / 2)) < 40, 'the console is centred');
+    // The toasts and the hint stay clear of the minimap.
+    await d.pressCard('Build'); await d.pressCard('Depot');
+    const toastOrHint = await d.page.locator('#hint').boundingBox();
+    if (toastOrHint) assert.ok(toastOrHint.y + toastOrHint.height <= mm.y + 1, 'the hint is above the minimap');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

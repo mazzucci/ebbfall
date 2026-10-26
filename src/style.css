@@ -114,7 +114,10 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .diff{display:flex;gap:6px}
 .story{font-size:13px;color:var(--fg);border-left:2px solid var(--ally);padding-left:10px;margin:4px 0 12px} .story b{color:var(--ally2)}
 /* Start menu: one row per choice. */
-.card.menu{max-width:640px} .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+.card.menu{max-width:640px}
+/* The menu is a page of its own, not a card over the game: the whole screen, its content centred. */
+@media (max-height:420px){#start .card.menu{padding-top:6px!important;padding-bottom:6px!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
+#start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) 16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
 .maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}
@@ -142,8 +145,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
 .tb{background:rgba(18,26,37,.86);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.06em;padding:5px 8px;cursor:pointer;display:flex;gap:6px;align-items:center}
 .tb b{font:12px var(--mono);color:var(--ally2)} .tb:hover{border-color:var(--ally)}
-.tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)} .ib.warn{border-color:var(--warn);color:var(--warn)}
-.tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
+.tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)} .tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
 #btnBox{position:absolute;left:8px;bottom:8px;z-index:3;min-height:44px}
 #btnHome{position:absolute;left:128px;bottom:8px;z-index:3;min-height:44px;min-width:44px;justify-content:center} #btnHome .t{display:none}
 @media (any-pointer:coarse){#hint{left:180px}} /* clear of SELECT and Home on tablets */
@@ -186,6 +188,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   .opt{margin:6px 0} .card.menu .tag{margin-bottom:6px}
 }
 .card.small{max-width:380px}
+.pausegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px} .pausegrid .ib{min-height:44px;font-size:12px} /* four equal buttons */
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}
 .tip{font-size:12.5px;color:var(--ally2);border:1px solid var(--line2);border-radius:4px;padding:6px 10px;background:var(--panel2)}
 @media (prefers-reduced-motion:reduce){.toast,.tb.alert,.cb.refused{animation:none} #minimap{transition:none!important}}
@@ -233,17 +236,6 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 @media (pointer:coarse){.cb .k{display:none}}
 #help{z-index:21} /* How to play opens over the pause menu */
 
-/* Phones and tablets play in landscape only: held upright, a card asks to turn the device (the game pauses). With
-   rotation locked (or a tablet in split view) the player may still choose to play upright (html.upright-ok). */
-#rotate{display:none}
-#rotate small{font:12px var(--display);letter-spacing:.04em;text-transform:none;color:var(--muted)}
-@media (orientation:portrait) and (pointer:coarse) and (max-width:1100px){
-  html.upright-ok #rotate{display:none !important}
-  #rotate{display:flex;position:fixed;inset:0;z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);color:var(--fg);font:600 14px var(--display);letter-spacing:.12em;text-transform:uppercase;text-align:center;padding:24px}
-  #rotate svg{width:96px;height:96px;fill:none;stroke:var(--ally);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;animation:turn 2.4s ease-in-out infinite}
-}
-@keyframes turn{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
-@media (prefers-reduced-motion:reduce){#rotate svg{animation:none}}
 /* A refused button (not enough to pay, supply blocked) shakes, and its cost flashes: the button is the message. */
 @keyframes refuse{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
 .cb.refused{animation:refuse .35s} .cb.refused .c{color:var(--bad)}

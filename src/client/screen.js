@@ -6,14 +6,9 @@ const root = document.documentElement;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 export const touchDevice = matchMedia('(pointer: coarse)').matches;
-const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+export const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
 /** A tap can take the page full screen here (not on iPhone Safari, and not needed when launched from the home screen). */
 export const canGoFullscreen = canFullscreen && !standalone;
-
-/** A phone or tablet held upright: the game is landscape-only there (the #rotate card covers it; see style.css). */
-export const upright = matchMedia('(orientation: portrait) and (pointer: coarse) and (max-width: 1100px)');
-/** The card is up: upright, and the player has not chosen to play upright anyway (rotation lock, split view). */
-export const blockedUpright = () => upright.matches && !root.classList.contains('upright-ok');
 
 /** Go full screen (must run inside a user gesture) and try to lock landscape; failures are fine. */
 export async function enterFullscreen() {
@@ -21,14 +16,19 @@ export async function enterFullscreen() {
   try { await (root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen()); } catch { return; }
   try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported or not allowed */ }
 }
+/** Leave full screen if in it (failures are fine). */
+export async function exitFullscreen() {
+  if (!isFull()) return;
+  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
+}
 async function toggleFullscreen() {
   if (!isFull()) return enterFullscreen();
   try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
 }
 
-/** Wire the full-screen button, the iPhone tip and the rotate card's way out. */
+/** Wire the full-screen button and the iPhone tip. (No "turn your phone" card: the tap that starts goes full screen,
+ *  which locks landscape where the browser can.) */
 export function initScreen() {
-  $('btnUpright').addEventListener('click', () => root.classList.add('upright-ok')); // (for this visit)
   const btn = $('btnFull');
   if (!canFullscreen || standalone) btn.hidden = true;
   btn.addEventListener('click', toggleFullscreen);

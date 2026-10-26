@@ -6,7 +6,7 @@ import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hu
 import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
-import { askLeave, blockedUpright } from './screen.js';
+import { askLeave } from './screen.js';
 import { goHome, selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
@@ -85,6 +85,14 @@ const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.
 /** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
 const ventOf = (e) => e && e.kind === 'bldg' && e.team === G.me && e.d.onVent && e.done ? e.vent : null;
 
+/** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
+ *  must not build under a button, Cancel included). Returns whether the finger is over the map. */
+function ghostAt(ev) {
+  const overMap = document.elementFromPoint(ev.clientX, ev.clientY) === cv;
+  if (!overMap) { ui.place.tx = ui.place.ty = -99; return false; }
+  const p = canvasPos(ev), w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); return true;
+}
+
 /** Top-left tile for placing `type` with the cursor at (wx, wy); extractors snap onto a nearby free vent. */
 function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
@@ -96,8 +104,6 @@ function placeTile(type, wx, wy) {
   return { tx: Math.round(wx / TILE - d.w / 2), ty: Math.round(wy / TILE - d.h / 2) };
 }
 
-/** Whether (wx, wy) falls on the building ghost being placed (a tap there places it where it stands). */
-const onGhost = (wx, wy) => { const pl = ui.place, d = BUILDINGS[pl.type], tx = wx / TILE, ty = wy / TILE; return tx >= pl.tx && tx < pl.tx + d.w && ty >= pl.ty && ty < pl.ty + d.h; };
 
 /**
  * On touch, once harvesters have a job (gather, build, repair) let go of them: the next tap on the map is then just a
@@ -155,9 +161,9 @@ function leftAction(wx, wy, add, at) {
     const builder = units.filter(u => u.d.worker).sort((a, b) => dist(a, { x: p.tx * TILE, y: p.ty * TILE }) - dist(b, { x: p.tx * TILE, y: p.ty * TILE }))[0];
     const err = placeBuilding(G.me, p.type, p.tx, p.ty, builder);
     if (err) {
-      // A tap on a red spot says why and gives up placing (the map pans again; the worker stays selected).
+      // Lifted on a red spot: it says why and keeps placing (pick another spot, or Cancel on the card), as an
+      // armed Attack waits for its target.
       toast(err, true);
-      if (drag.ptype === 'touch') { clearMode(); updateHud(); }
     } else {
       sfx('build');
       flashTarget(G.bldgs.find(b => b.team === G.me && b.tx === p.tx && b.ty === p.ty)); // the new site blinks: order taken
@@ -216,7 +222,7 @@ function bindCanvas() {
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
-    if (ev.pointerType === 'touch') { if (pointers.size === 2) { drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
+    if (ev.pointerType === 'touch') { if (pointers.size === 2) { if (ui.place) ui.place.tx = ui.place.ty = -99; drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
     // A touch that stops a gliding camera does nothing else.
@@ -224,6 +230,8 @@ function bindCanvas() {
     // The touch-down point is the first glide sample: a quick flick may arrive as a single (coalesced) move.
     fling.samples = [{ t: ev.timeStamp, x: p.x, y: p.y }];
     drag.down = true; drag.box = false; drag.pan = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
+    // Placing on touch: the ghost appears under the finger (green or red) and follows it; it is placed where it lifts.
+    if (ui.place && ev.pointerType === 'touch' && !drag.quiet) ghostAt(ev);
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
@@ -234,11 +242,8 @@ function bindCanvas() {
       if (pan.d > 20 && c.d > 20) zoomAt(c.d / pan.d, c.x, c.y);
       pan = c; return;
     }
-    if (ui.place) {
-      // (a finger resting on the ghost leaves it be: only a drag moves it)
-      const w = toWorld(p.x, p.y), resting = ev.pointerType === 'touch' && Math.hypot(p.x - drag.sx, p.y - drag.sy) <= 10 && onGhost(w.x, w.y);
-      if (!resting) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
-    }
+    if (ui.place && ev.pointerType === 'touch') { if (drag.down && !drag.quiet) ghostAt(ev); }
+    else if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
     if (drag.down) {
       const px = drag.cx, py = drag.cy; drag.cx = p.x; drag.cy = p.y;
       if (!drag.box && !drag.pan && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) {
@@ -271,7 +276,8 @@ function bindCanvas() {
     }
     if (drag.quiet) return;
     const w = toWorld(p.x, p.y);
-    if (ui.place && !(ev.pointerType === 'touch' && onGhost(w.x, w.y))) Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
+    if (ui.place && ev.pointerType === 'touch' && !ghostAt(ev)) return; // (lifted over the HUD: still placing, nothing built)
+    if (ui.place && ev.pointerType !== 'touch') Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);
@@ -346,7 +352,7 @@ function bindKeys() {
     if (ev.target.tagName === 'INPUT') return;
     const k = ev.key; keys[k.toLowerCase()] = true;
     if (!$('help').hidden) { if (k === 'Escape') { $('help').hidden = true; ev.preventDefault(); } return; } // Help on top: Esc closes it
-    if (paused() && (k === 'p' || k === 'P' || k === 'Escape') && !blockedUpright()) { togglePause(); ev.preventDefault(); return; } // (not under the rotate card)
+    if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
     if (!input.enabled()) return;
     if (/^[1-9]$/.test(k)) {
       if (ev.ctrlKey || ev.metaKey) { saveGroup(+k); ev.preventDefault(); } else recallGroup(+k, ev.shiftKey);

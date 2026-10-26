@@ -1,12 +1,13 @@
-// The start menu: opponent, one of three maps, sound; the phone's "tap to play" splash (that first tap enters full
-// screen, so the browser's full-screen notice shows over the menu, not the battle); and the How to play card.
+// The start menu (a page of its own: opponent, race, one of three maps, sound, Exit game); the phone's "tap to play"
+// splash (that first tap enters full screen and so locks landscape, and the browser's full-screen notice shows over
+// the menu, not the battle); and the How to play card.
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.
 import { mulberry, mapPreview, MW, MH, DIFF } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
-import { touchDevice, enterFullscreen, canGoFullscreen } from './screen.js';
+import { touchDevice, enterFullscreen, exitFullscreen, canGoFullscreen, standalone } from './screen.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -107,6 +108,12 @@ export function initMenu({ onStart, onSound }) {
   $('btnFirst').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
+  // Exit: a browser lets a page close itself only in some cases (a tab a script opened, or one with nothing to go
+  // back to); otherwise it leaves full screen and says how to close it, in place of the tagline (the menu keeps its size).
+  $('btnExit').addEventListener('click', () => {
+    sfx('select'); window.close();
+    setTimeout(() => { if (!window.closed) { exitFullscreen(); $('menuTag').textContent = standalone ? 'You can close the app now.' : 'You can close this tab now.'; } }, 250);
+  });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full
   // screen; the menu shows the Add to Home Screen tip instead.)

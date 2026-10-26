@@ -73,10 +73,11 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       await a.tap('#btnQuit');
       await b.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
       const card = await b.p.evaluate(() => [document.getElementById('result').textContent, document.getElementById('btnWatch').hidden, document.getElementById('btnRematch').hidden]);
+      assert.match(await b.p.locator('#endSub').textContent(), /^Ann conceded after /, 'the end card names the friend');
       // Straight into a new room from the end card (quickly: within the old game's clean-up delay), which must not
       // close the new room.
       await b.p.evaluate(() => { for (const id of ['btnAgain', 'btnOnline', 'btnNewRoom']) document.getElementById(id).click(); });
-      assert.deepEqual(card, ['VICTORY', true, true], 'the friend wins; no watch or rematch online (yet)');
+      assert.deepEqual(card, ['VICTORY', true, true], 'the friend wins; no watch online, and no rematch with a friend who left');
       await b.p.waitForFunction((old) => { const c = document.getElementById('roomShow').textContent; return /^[A-Z]{4}$/.test(c) && c !== old; }, code);
       const code2 = await b.p.locator('#roomShow').textContent();
       assert.notEqual(code2, code);

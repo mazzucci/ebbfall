@@ -38,7 +38,7 @@ impl World {
             .filter(|o| {
                 let d = o.kind.def();
                 let reach = tiles.unwrap_or_else(|| d.weapon.map_or(0.0, |w| w.range) + margin);
-                o.team != team
+                self.enemies(o.team, team)
                     && o.warp <= 0.0
                     && d.threat()
                     && d.damage_vs(false) > 0.0

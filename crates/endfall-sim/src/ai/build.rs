@@ -5,6 +5,11 @@ use super::*;
 /// Unspent shards the AI counts as piling up (it then adds a factory).
 const SHARD_FLOAT: i32 = 400;
 
+/// Shards left in the fields by its main below which the AI takes its natural now (`Diff::expands_when_dry`),
+/// whatever the clock says (on barren maps the home field runs dry before the difficulty's time; later it could not
+/// pay for it).
+const HOME_LOW: i32 = 2000;
+
 impl World {
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
         let d = kind.def();
@@ -380,8 +385,17 @@ impl World {
         } = brain.clone();
         let d = &DIFF[self.diff];
         // A second base, outside the build order above: the AI saves up for it (see research) and places it
-        // even while supply depots go up.
-        let exp_spot = if t > d.expand_at
+        // even while supply depots go up. Sooner if the home field is running dry.
+        let home: i32 = self
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether && (n.tx as f64 - cx).abs().max((n.ty as f64 - cy).abs()) <= 12.0)
+            .map(|n| n.amount)
+            .sum();
+        let dry = d.expands_when_dry && home < HOME_LOW;
+        brain.dry = dry;
+        let exp_spot = if (t > d.expand_at || dry)
             && self.ai_count(&my_b, false, self.factions[e as usize].hq) < 2
             && harv.len() + 2 >= d.harv
         {

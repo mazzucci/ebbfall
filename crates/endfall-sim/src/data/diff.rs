@@ -33,6 +33,9 @@ pub struct Diff {
     pub wave_max: usize,
     /// Its `extra_rax` wait for its second base: a slow economy spends its bank on the expansion first.
     pub extras_after_expanding: bool,
+    /// It takes its natural as soon as the fields by its main run low, before `expand_at` (Easy keeps to its
+    /// schedule: the gentle level may starve on a barren map).
+    pub expands_when_dry: bool,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -58,6 +61,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 4,
         wave_max: 12,
         supply_at_once: 1,
+        expands_when_dry: false,
         extras_after_expanding: true,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
@@ -81,6 +85,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 4,
         wave_max: 14,
         supply_at_once: 1,
+        expands_when_dry: true,
         extras_after_expanding: false,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
@@ -103,6 +108,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 6,
         wave_max: 16,
         supply_at_once: 1,
+        expands_when_dry: true,
         extras_after_expanding: false,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
@@ -128,6 +134,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 10,
         wave_max: 14,
         supply_at_once: 2,
+        expands_when_dry: true,
         extras_after_expanding: false,
     },
 ];

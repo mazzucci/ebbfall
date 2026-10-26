@@ -241,7 +241,7 @@ test('leaving after the game: the others are told at once', () => {
   assert.equal(got(a, 'left')[0]?.seat, 1);
 });
 
-test('a pause stops the clock for everyone until anyone resumes it, or its minute runs out; three a game per seat', () => {
+test('a pause stops the clock for everyone until the seat that paused resumes it, or its five minutes run out; three a game per seat', () => {
   const { r, a, b, got, clear } = started();
   play(r, [a, b], 0, 1000);
   r.receive(b, { t: 'pause' });
@@ -251,10 +251,14 @@ test('a pause stops the clock for everyone until anyone resumes it, or its minut
   assert.equal(r.turn, turn, 'no turns while paused');
   assert.equal(got(a, 'away').length, 0, 'nobody away for it');
   r.receive(a, { t: 'resume' });
-  assert.equal(got(b, 'resume')[0]?.seat, 0, 'the other side may end it');
-  play(r, [a, b], 20100, 21000);
+  assert.equal(got(b, 'resume').length, 0, 'the other side cannot end it');
+  play(r, [a, b], 20100, 20500);
+  assert.equal(r.turn, turn, 'still paused');
+  r.receive(b, { t: 'resume' });
+  assert.equal(got(a, 'resume')[0]?.seat, 1, 'who paused ends it, when ready');
+  play(r, [a, b], 20600, 21000);
   assert.ok(r.turn > turn, 'the clock runs again');
-  // Its minute runs out on its own.
+  // Its five minutes run out on its own.
   r.receive(b, { t: 'pause' }); clear();
   play(r, [a, b], 21100, 21000 + PAUSE_MS + 500);
   assert.equal(got(a, 'resume')[0]?.seat, -1, 'time ran out');
@@ -264,6 +268,18 @@ test('a pause stops the clock for everyone until anyone resumes it, or its minut
   assert.equal(got(a, 'pause').length, 0, 'three a game');
   r.receive(a, { t: 'pause' });
   assert.equal(got(b, 'pause')[0]?.seat, 0, 'the other side still has its own');
+});
+
+test('a seat gone during a long pause is not counted away for it (its phone slept): the budget counts from the resume', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  r.receive(a, { t: 'pause' });
+  r.close(b); // (b's phone sleeps through the pause)
+  for (let t = 600; t <= 600 + 4 * 60000; t += 1000) { r.tick(t); r.receive(a, { t: 'ack', turn: r.turn }); }
+  assert.equal(got(a, 'left').length, 0, 'four minutes away during a pause: still in the game');
+  r.receive(a, { t: 'resume' });
+  for (let t = 600 + 4 * 60000; t <= 600 + 4 * 60000 + 30000; t += 1000) { r.tick(t); r.receive(a, { t: 'ack', turn: r.turn }); }
+  assert.equal(got(a, 'left').length, 0, 'and its budget is whole after the resume');
 });
 
 test('a seat back during a pause is told; a seat that leaves ends its own pause', () => {

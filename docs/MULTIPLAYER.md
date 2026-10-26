@@ -131,7 +131,10 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    conceded player in a 2v2 could keep fighting for their ally), teams in the network setup and in the state hash
    (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded").
    Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
-3. The cross-engine golden matrix in CI, and the `?selftest` page.
+3. The cross-engine golden matrix in CI, and the `?selftest` page. Done (2026-10-26): `src/engine/golden.js` (the
+   golden games, checked against golden.rs), `selftest.html` (the device check, for a phone), the golden games in
+   Chromium, Firefox and WebKit in CI's e2e step, and natively and in WASM on an ARM Mac (CI's `arm` job, which
+   publishing waits for).
 
 **M3b. Relay and net client.** The relay state machine and its Node adapter; `src/net/` (socket, turn buffer,
 acks, reconnect); the setup message and seat constructor in use; away and back. E2E: two browser contexts through

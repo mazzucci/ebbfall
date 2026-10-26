@@ -47,15 +47,50 @@ jobs:
       - run: npm run build
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
-      - name: Gameplay tests in a real browser
+      - name: Gameplay tests in a real browser (and the golden games in Firefox and WebKit)
         run: |
-          npx playwright-core install --with-deps chromium
+          npx playwright-core install --with-deps chromium firefox webkit
           npm run test:e2e
+        env:
+          ENDFALL_ENGINES: '1'
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+  # Determinism on another CPU: the golden games natively, in WASM in Node's V8, and in WebKit (JavaScriptCore on
+  # arm64, as on an iPhone) on an ARM Mac.
+  arm:
+    runs-on: macos-15 # (Playwright's WebKit for macOS 14 is frozen)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+            .tools
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-
+      - run: rustup toolchain install
+      - run: cargo test --release --locked --test golden
+      - run: npm ci
+      - run: npm run build
+      - run: node --test test/engine.test.js
+        env:
+          ENDFALL_REQUIRE_WASM: '1'
+      - name: The device check in WebKit
+        timeout-minutes: 10
+        run: |
+          npx playwright-core install chromium webkit
+          node --test --test-name-pattern=WebKit test/e2e/selftest.e2e.mjs
+        env:
+          ENDFALL_ENGINES: '1'
 
   # The multiplayer relay (relay/worker.js) to Cloudflare, once the owner has added the CLOUDFLARE_API_TOKEN and
   # CLOUDFLARE_ACCOUNT_ID secrets (until then this job does nothing). Only when relay/ changed, or on a run started by
@@ -89,7 +124,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: build
+    needs: [build, arm] # (a determinism break on another CPU blocks publishing)
     runs-on: ubuntu-latest
     permissions:
       pages: write

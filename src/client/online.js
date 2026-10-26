@@ -72,7 +72,7 @@ function connect(room) {
       left: (s) => { if (s !== online.seat) { waitingFor.delete(s); waitLine(); toast(`${who(s)} left the game`, true, true); } },
       desync: () => fatal('Out of sync: the game cannot go on'),
       error: (m) => {
-        if (online.playing) { fatal(String(m.msg || 'The connection was lost')); return; }
+        if (online.playing) { fatal(m.code === 'noroom' ? 'The game server restarted: this game is over' : String(m.msg || 'The connection was lost')); return; }
         status(m.code === 'version' ? 'Your Ebbfall and your friend\'s are different versions. Reload to update; if it still says so, your friend reloads theirs.' : String(m.msg || ''));
         $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version';
       },

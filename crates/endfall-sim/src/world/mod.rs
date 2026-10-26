@@ -15,6 +15,7 @@ mod movement;
 mod orders;
 mod spawn;
 mod types;
+mod wire;
 
 use crate::ai::Ai;
 use crate::data::*;

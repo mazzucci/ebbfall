@@ -6,7 +6,7 @@ import { sfx } from './audio.js';
 export const $ = (id) => document.getElementById(id);
 
 /** Client-only UI state: what the local player has selected and which command is armed. */
-export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
+export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false, watching: 0 }; // box: SELECT armed ('held' / 'once'); watching: a replay's speed (0: playing)
 
 /** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
 export function toast(msg, bad, silent) {

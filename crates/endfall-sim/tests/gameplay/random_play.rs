@@ -134,3 +134,61 @@ fn a_recorded_game_replays_to_the_same_state() {
         }
     }
 }
+
+#[test]
+fn a_finished_game_can_be_watched_again() {
+    // Every Game logs its orders: Watch rebuilds the same setup and replays them on their ticks, tick for tick the
+    // same world (the AI replays itself), with no orders taken meanwhile; and again from the start if asked twice.
+    for seed in [5u32, 4242] {
+        let mut g = Game::with_setup(seed, 1, 0, 1, 0, 1); // (a Vael opponent, the other base)
+        let mut r = Mulberry32::new(seed ^ 0xbeef);
+        let mut hashes = Vec::new();
+        for tick in 0..30 * 90 {
+            if tick % 7 == 0 {
+                random_order_with(&mut g, &mut r, false);
+            }
+            if tick == 30 * 80 {
+                g.concede();
+            }
+            g.step();
+            hashes.push(g.world().state_hash());
+        }
+        assert_eq!(g.replay_end(), 0, "not watching yet");
+        for pass in 0..2 {
+            assert!(g.start_replay(), "seed {seed}: watchable");
+            assert_eq!(g.replay_end(), 30 * 90);
+            assert_eq!(g.world().tick, 0, "from the first tick");
+            for (i, want) in hashes.iter().enumerate() {
+                if i == 100 {
+                    let u = g
+                        .world()
+                        .units
+                        .iter()
+                        .find(|u| u.team == PLAYER)
+                        .unwrap()
+                        .id;
+                    g.move_to(u, 10.0, 10.0); // (refused: the log is the game)
+                    assert_eq!(
+                        g.queue_unit(1, "trooper"),
+                        "Watching a replay",
+                        "no orders during a replay"
+                    );
+                }
+                g.step();
+                assert_eq!(
+                    g.world().state_hash(),
+                    *want,
+                    "seed {seed} pass {pass}: the replay diverged at tick {}",
+                    i + 1
+                );
+            }
+        }
+    }
+    // A game with a knob outside the log (a debug setter, the guided game's hold) cannot be watched.
+    let mut g = Game::new(5, 1);
+    g.debug_spawn(PLAYER, "trooper", 400.0, 400.0);
+    assert!(!g.start_replay(), "a spawned unit is not in the log");
+    let mut g = Game::new(5, 1);
+    g.hold_waves(true);
+    assert!(!g.start_replay(), "nor is the guided game's hold");
+}

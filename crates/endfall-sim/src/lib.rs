@@ -33,12 +33,41 @@ pub struct Game {
     w: World,
     /// The team whose orders this Game accepts (the local player). Orders for anything else are ignored.
     me: u8,
+    /// Watching the game just played again: its log, the next entry to apply, and the tick it ended on.
+    replay: Option<Replay>,
+    /// A knob outside the log was used (the guided game's hold, a debug setter): the log is not the whole game, so
+    /// no replay.
+    untracked: bool,
+}
+
+struct Replay {
+    log: Vec<world::Logged>,
+    next: usize,
+    end: u32,
 }
 
 impl Game {
-    /// An order from this Game's player: applied for its seat (orders for anything else are ignored).
+    fn wrap(mut w: World) -> Game {
+        w.record(true); // every game can be watched again
+        Game {
+            w,
+            me: data::PLAYER,
+            replay: None,
+            untracked: false,
+        }
+    }
+
+    /// An order from this Game's player, applied for its seat (orders for anything else are ignored); none while a
+    /// replay plays (the log is the game).
+    fn apply(&mut self, cmd: &Command) -> Result<(), String> {
+        if self.replay.is_some() {
+            return Err("Watching a replay".into());
+        }
+        self.w.apply(self.me, cmd)
+    }
+
     fn order(&mut self, cmd: Command) {
-        let _ = self.w.apply(self.me, &cmd);
+        let _ = self.apply(&cmd);
     }
 }
 
@@ -55,10 +84,7 @@ fn valid_team(t: u8) -> Option<u8> {
 impl Game {
     #[wasm_bindgen(constructor)]
     pub fn new(seed: u32, diff: u32) -> Game {
-        Game {
-            w: World::new(seed, diff as usize),
-            me: data::PLAYER,
-        }
+        Game::wrap(World::new(seed, diff as usize))
     }
 
     /// A new game with the races chosen (index into FACTIONS for the player and for the AI; unknown = Humans).
@@ -66,16 +92,13 @@ impl Game {
     pub fn with_setup(seed: u32, diff: u32, map: u32, side: u32, player: u32, ai: u32) -> Game {
         let pick = |i: u32| *data::FACTIONS.get(i as usize).unwrap_or(&data::FACTIONS[0]);
         let f = [pick(player), pick(ai)]; // (the player is team 0)
-        Game {
-            w: World::with_setup(
-                seed,
-                diff as usize,
-                map::MapKind::from_index(map),
-                side == 1,
-                f,
-            ),
-            me: data::PLAYER,
-        }
+        Game::wrap(World::with_setup(
+            seed,
+            diff as usize,
+            map::MapKind::from_index(map),
+            side == 1,
+            f,
+        ))
     }
 
     /// The seat this Game plays: its orders, its fog, its events.
@@ -83,9 +106,50 @@ impl Game {
         self.me
     }
 
-    /// Advance the world by one fixed tick.
+    /// Advance the world by one fixed tick (in a replay, after the orders logged for this tick).
     pub fn step(&mut self) {
+        if let Some(r) = &mut self.replay {
+            while let Some((tick, seat, cmd)) = r.log.get(r.next)
+                && *tick == self.w.tick
+            {
+                let _ = self.w.apply(*seat, cmd);
+                r.next += 1;
+            }
+        }
         self.w.step();
+    }
+
+    /// Watch the game played so far again from its first tick: the same setup, the logged orders on their ticks
+    /// (the scripted opponent replays itself: it draws only from the world's RNG). Both sides' vision; no orders
+    /// taken. False if this game cannot be replayed (nothing logged, or a knob outside the log was used).
+    #[wasm_bindgen(js_name = startReplay)]
+    pub fn start_replay(&mut self) -> bool {
+        let log = match &self.replay {
+            Some(r) => r.log.clone(), // (watching again)
+            None => match self.w.log.clone() {
+                Some(log) if !self.untracked => log,
+                _ => return false,
+            },
+        };
+        let end = self.replay.as_ref().map_or(self.w.tick, |r| r.end);
+        let old = &self.w;
+        let mut w = World::with_setup(
+            old.seed,
+            old.diff,
+            old.map_kind,
+            old.sides_swapped,
+            old.factions,
+        );
+        w.set_ai_seats(old.ai_seats);
+        self.w = w;
+        self.replay = Some(Replay { log, next: 0, end });
+        true
+    }
+
+    /// Whether a replay is playing, and the tick it ends on (0 when none).
+    #[wasm_bindgen(js_name = replayEnd)]
+    pub fn replay_end(&self) -> u32 {
+        self.replay.as_ref().map_or(0, |r| r.end)
     }
 
     pub fn tick(&self) -> u32 {
@@ -147,22 +211,19 @@ impl Game {
             return "Unknown building or team".into();
         };
         let builder = (builder != 0).then_some(builder);
-        res(self.w.apply(
-            self.me,
-            &Command::Place {
-                kind,
-                tx,
-                ty,
-                builder,
-            },
-        ))
+        res(self.apply(&Command::Place {
+            kind,
+            tx,
+            ty,
+            builder,
+        }))
     }
     #[wasm_bindgen(js_name = queueUnit)]
     pub fn queue_unit(&mut self, bldg: u32, kind: &str) -> String {
         let Some(kind) = UnitKind::parse(kind) else {
             return "Unknown unit".into();
         };
-        res(self.w.apply(self.me, &Command::Queue { bldg, kind }))
+        res(self.apply(&Command::Queue { bldg, kind }))
     }
     #[wasm_bindgen(js_name = cancelQueue)]
     pub fn cancel_queue(&mut self, bldg: u32, i: u32) {
@@ -176,7 +237,7 @@ impl Game {
         let Some(up) = data::Upgrade::parse(upgrade) else {
             return "Unknown upgrade".into();
         };
-        res(self.w.apply(self.me, &Command::Research { bldg, up }))
+        res(self.apply(&Command::Research { bldg, up }))
     }
     /// Stop the research at one of our buildings (full refund).
     #[wasm_bindgen(js_name = cancelResearch)]
@@ -228,10 +289,11 @@ impl Game {
             units: units.to_vec(),
             ability,
         };
-        res(self.w.apply(self.me, &cmd))
+        res(self.apply(&cmd))
     }
     /// Log every order given from now on (with its tick), for replays and desync reports.
     pub fn record(&mut self, on: bool) {
+        self.untracked = true; // (a log begun mid-game is not the whole game)
         self.w.record(on);
     }
 
@@ -254,6 +316,7 @@ impl Game {
     /// Set a building's hp, within 1..max (tests and tools only).
     #[wasm_bindgen(js_name = debugSetHp)]
     pub fn debug_set_hp(&mut self, bldg: u32, hp: f64) {
+        self.untracked = true;
         if let Some(b) = self.w.bldgs.iter_mut().find(|b| b.id == bldg)
             && hp.is_finite()
         {
@@ -264,6 +327,7 @@ impl Game {
     /// Put a unit on the map (tests and tools only). Returns its id, or 0 for an unknown kind or team.
     #[wasm_bindgen(js_name = debugSpawn)]
     pub fn debug_spawn(&mut self, team: u8, kind: &str, x: f64, y: f64) -> u32 {
+        self.untracked = true;
         let (Some(k), Some(t)) = (UnitKind::parse(kind), valid_team(team)) else {
             return 0;
         };
@@ -276,6 +340,7 @@ impl Game {
     /// upgrade or team, or a level it does not have.
     #[wasm_bindgen(js_name = debugResearch)]
     pub fn debug_research(&mut self, team: u8, key: &str, level: u8) -> bool {
+        self.untracked = true;
         let (Some(up), Some(t)) = (data::Upgrade::parse(key), valid_team(team)) else {
             return false;
         };
@@ -289,6 +354,7 @@ impl Game {
     /// Switch the opponent off (tests and tools only).
     #[wasm_bindgen(js_name = disableAi)]
     pub fn disable_ai(&mut self) {
+        self.untracked = true;
         self.w.disable_ai();
     }
 
@@ -296,12 +362,14 @@ impl Game {
     /// command: a replay of a guided game does not carry it.
     #[wasm_bindgen(js_name = holdWaves)]
     pub fn hold_waves(&mut self, on: bool) {
+        self.untracked |= on;
         self.w.hold_waves = on;
     }
 
     /// Set a team's resources (tests and tools only).
     #[wasm_bindgen(js_name = setResources)]
     pub fn set_resources(&mut self, team: u8, shards: i32, ether: i32) {
+        self.untracked = true;
         self.w.res[team as usize & 1] = [shards, ether];
     }
 
@@ -361,9 +429,9 @@ impl Game {
     pub fn occ(&self) -> Vec<i32> {
         self.w.map.occ.clone()
     }
-    /// Tiles `team` sees right now.
+    /// Tiles `team` sees right now (in a replay: what either side sees).
     pub fn vis(&self, team: u8) -> Vec<u8> {
-        self.w.vis[team as usize & 1].clone()
+        self.sight(&self.w.vis, team)
     }
     /// `team`'s army value every 10 s since the start (the end screen's chart).
     #[wasm_bindgen(js_name = armyLog)]
@@ -375,9 +443,21 @@ impl Game {
     pub fn lost_to(&self, team: u8) -> Vec<u32> {
         valid_team(team).map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
-    /// Tiles `team` has ever seen.
+    /// Tiles `team` has ever seen (in a replay: either side).
     pub fn explored(&self, team: u8) -> Vec<u8> {
-        self.w.explored[team as usize & 1].clone()
+        self.sight(&self.w.explored, team)
+    }
+
+    fn sight(&self, layers: &[Vec<u8>; 2], team: u8) -> Vec<u8> {
+        if self.replay.is_some() {
+            layers[0]
+                .iter()
+                .zip(&layers[1])
+                .map(|(a, b)| a | b)
+                .collect()
+        } else {
+            layers[team as usize & 1].clone()
+        }
     }
 
     /// Events since the last call, as a JSON array of {t:'sfx'|'toast'|'burst'|'hit', ...}.
@@ -397,7 +477,11 @@ impl Game {
                 {
                     None
                 }
-                Event::Fire { seen, .. } | Event::Cast { seen, .. } if !seen[me as usize] => None,
+                Event::Fire { seen, .. } | Event::Cast { seen, .. }
+                    if !seen[me as usize] && self.replay.is_none() =>
+                {
+                    None
+                }
                 e => Some(e),
             })
             .map(|e| event_json(&e))

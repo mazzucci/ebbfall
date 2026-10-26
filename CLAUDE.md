@@ -59,9 +59,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/map.rs          terrain generation, nodes, occupancy grid, nearest_free
   src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), orders, spawn, economy, construction,
+                      wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, fog
   src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
+  src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (docs/MULTIPLAYER.md)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
@@ -85,6 +87,9 @@ test/scenery.test.js  the scenery scatter on real maps: deterministic, props whe
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge)
+relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats,
+                      lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
+                      for local play and the tests (`node relay/server.mjs`)
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

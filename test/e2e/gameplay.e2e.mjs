@@ -1403,7 +1403,7 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'watched to the end twice, counted once');
       await tap('#btnRematch');
       await d.page.waitForFunction(() => endfall.G.time < 2 && !endfall.G.over, null, { timeout: 5000 });
-      assert.ok(await d.page.locator('#cmd').evaluate(e => getComputedStyle(e).visibility !== 'hidden'), 'a new game has its card');
+      assert.ok(!await d.eval(() => document.body.classList.contains('replay')), 'a new game has its card back (empty until something is selected)');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }

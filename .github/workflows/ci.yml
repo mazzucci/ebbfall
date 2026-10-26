@@ -45,19 +45,38 @@ jobs:
         env:
           ENDFALL_REQUIRE_WASM: '1'
       - run: npm run build
-      - name: Gameplay tests in a real browser
+      - name: Gameplay tests in a real browser (and the golden games in Firefox and WebKit)
         run: |
-          npx playwright-core install --with-deps chromium
+          npx playwright-core install --with-deps chromium firefox webkit
           npm run test:e2e
+        env:
+          ENDFALL_ENGINES: '1'
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
+  # Determinism on another CPU: the golden games natively and in WASM (Node's V8) on an ARM Mac.
+  arm:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: rustup toolchain install
+      - run: cargo test --release --locked --test golden
+      - run: npm ci
+      - run: npm run build:wasm
+      - run: node --test test/engine.test.js
+        env:
+          ENDFALL_REQUIRE_WASM: '1'
+
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: build
+    needs: [build, arm] # (a determinism break on another CPU blocks publishing)
     runs-on: ubuntu-latest
     permissions:
       pages: write

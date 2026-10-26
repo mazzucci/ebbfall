@@ -234,7 +234,10 @@ impl World {
         self.path_to(uid, x, y);
     }
     pub fn attack_ent(&mut self, uid: Id, target: Id) {
-        if self.team_of(target).is_none_or(|t| t == self.u(uid).team) || !self.can_hit(uid, target)
+        if self
+            .team_of(target)
+            .is_none_or(|t| !self.enemies(t, self.u(uid).team))
+            || !self.can_hit(uid, target)
         {
             return;
         }

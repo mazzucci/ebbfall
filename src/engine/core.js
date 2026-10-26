@@ -12,15 +12,15 @@ export { clamp, dist, fmt, mulberry } from './util.js';
 
 // Snapshot record layouts, by field name (crates/endfall-sim/src/snapshot.rs declares them; pkg/data.js carries them).
 const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));
-const fu = offsets(SCHEMA.unit), fb = offsets(SCHEMA.bldg), fp = offsets(SCHEMA.proj), fn = offsets(SCHEMA.node), fi = offsets(SCHEMA.info);
-const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length, NS = SCHEMA.node.length;
+const fu = offsets(SCHEMA.unit), fb = offsets(SCHEMA.bldg), fp = offsets(SCHEMA.proj), fn = offsets(SCHEMA.node), fi = offsets(SCHEMA.info), fs = offsets(SCHEMA.seat);
+const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length, NS = SCHEMA.node.length, SS = SCHEMA.seat.length;
 const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades, ABILITY_KEYS = SCHEMA.abilities;
 const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
 
 let game = null, dirty = true;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
+  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
@@ -42,12 +42,16 @@ function sync() {
   dirty = false;
   const I = game.info();
   Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], conceded: I[fi.conceded], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
-  S.factions = [FACTION_KEYS[I[fi.faction0]], FACTION_KEYS[I[fi.faction1]]];
-  S.res[0][0] = I[fi.shards0]; S.res[0][1] = I[fi.ether0]; S.res[1][0] = I[fi.shards1]; S.res[1][1] = I[fi.ether1];
-  S.sup[0] = [I[fi.sup_used0], I[fi.sup_cap0]]; S.sup[1] = [I[fi.sup_used1], I[fi.sup_cap1]];
-  Object.assign(S.stats[0], { built: I[fi.built0], lost: I[fi.lost0], killed: I[fi.killed0], razed: I[fi.razed0] });
-  Object.assign(S.stats[1], { built: I[fi.built1], lost: I[fi.lost1], killed: I[fi.killed1], razed: I[fi.razed1] });
-  UPGRADE_KEYS.forEach((k, i) => { for (const t of [0, 1]) S.upgrades[t][k] = I[SCHEMA.info.length + t * UPGRADE_KEYS.length + i]; }); // (levels follow the info record)
+  // A record per seat follows the info record, then each seat's upgrade levels.
+  const n = I[fi.seats], lv = SCHEMA.info.length + n * SS;
+  for (const k of ['factions', 'teams', 'out', 'res', 'sup', 'stats', 'upgrades']) S[k].length = n;
+  for (let t = 0; t < n; t++) {
+    const o = SCHEMA.info.length + t * SS, at = (f) => I[o + fs[f]];
+    S.factions[t] = FACTION_KEYS[at('faction')]; S.teams[t] = at('team'); S.out[t] = !!at('out');
+    S.res[t] = [at('shards'), at('ether')]; S.sup[t] = [at('sup_used'), at('sup_cap')];
+    S.stats[t] = Object.assign(S.stats[t] || {}, { built: at('built'), lost: at('lost'), killed: at('killed'), razed: at('razed') });
+    const ups = S.upgrades[t] ||= {}; UPGRADE_KEYS.forEach((k, i) => { ups[k] = I[lv + t * UPGRADE_KEYS.length + i]; });
+  }
   S.me = game.me(); S.replaying = game.replayEnd() > 0; S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); M.occ.set(game.occ());
 
   const N = game.nodes(), seenN = new Set(); M.nodes = [];
@@ -211,3 +215,8 @@ export function visibleEnt(e) {
   if ((e.hid >> S.me) & 1 && !S.replaying) return false; // cloaked, and we detect nothing there (a replay shows all)
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];
 }
+
+/** Whether seats `a` and `b` are on different teams (they fight). G.winner is a team: G.teams[G.me] when this side won. */
+export const enemies = (a, b) => G.teams[a] !== G.teams[b];
+/** The seats this client's player fights. */
+export const foes = () => G.teams.map((_, t) => t).filter(t => enemies(G.me, t));

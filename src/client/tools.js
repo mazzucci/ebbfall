@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the whole-army and idle-factory chips in the top bar (each only while it has something to offer), the idle-harvester key, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, UNITS, BUILDINGS, TILE, visibleEnt, fmt } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies, fmt } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
@@ -135,7 +135,7 @@ const news = { flyer: false, army: 0, idleSince: new Map() };
 function watchNews() {
   if (G.over || paused() || ui.watching) return; // (no news over the end card, none piling up during a pause, none in a replay)
   if (!news.flyer) {
-    const f = G.units.find(u => u.team !== G.me && u.d.air && u.d.weapon && visibleEnt(u));
+    const f = G.units.find(u => enemies(G.me, u.team) && u.d.air && u.d.weapon && visibleEnt(u));
     if (f) { news.flyer = true; toast('Enemy flyers spotted: get some anti-air', true, true); sfx('alert'); ping(f.x, f.y); }
   }
   const now = performance.now();

@@ -4,8 +4,8 @@
 //! orders running on its first tick, and a tick runs only once its turn has arrived. Every client applies the same
 //! orders on the same ticks in the same order (tick, seat, arrival), so every world stays the same.
 
+use crate::Game;
 use crate::world::Command;
-use crate::{Game, valid_team};
 use wasm_bindgen::prelude::*;
 
 /// Ticks in a turn (the relay's: relay/room.js TICKS_PER_TURN).
@@ -41,7 +41,8 @@ impl Game {
     /// `seat`'s orders, encoded, to run on `tick` (from a turn bundle). Anything malformed is dropped from the first bad
     /// command on.
     fn schedule(&mut self, tick: u32, seat: u8, words: &[f64]) {
-        let (Some(l), Some(seat)) = (&mut self.lock, valid_team(seat)) else {
+        let seat = self.valid_team(seat);
+        let (Some(l), Some(seat)) = (&mut self.lock, seat) else {
             return;
         };
         for cmd in Command::decode_all(words) {

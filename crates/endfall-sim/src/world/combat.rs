@@ -66,7 +66,10 @@ impl World {
         };
         for u in &self.units {
             let air = u.kind.def().air;
-            if u.team == team || (air && !hits.1) || (!air && !hits.0) || self.cloaked_from(team, u)
+            if !self.enemies(team, u.team)
+                || (air && !hits.1)
+                || (!air && !hits.0)
+                || self.cloaked_from(team, u)
             {
                 continue;
             }
@@ -74,7 +77,7 @@ impl World {
         }
         if !only_units && hits.0 {
             for b in &self.bldgs {
-                if b.team == team {
+                if !self.enemies(team, b.team) {
                     continue;
                 }
                 let g = b.geo();
@@ -179,8 +182,14 @@ impl World {
     }
 
     pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
-        let killer = by.and_then(|b| self.loss_slot(b)).or(self.hit_by_slot);
+        let killer = by
+            .and_then(|b| self.loss_slot(b))
+            .or(self.hit_by.map(|h| h.0));
         let by = by.filter(|&b| self.team_of(b).is_some());
+        // Whose kill it is, if it is one: the shooter's seat (a shot's, if the shooter is gone).
+        let credit = by
+            .and_then(|b| self.team_of(b))
+            .or(self.hit_by.map(|h| h.1));
         if let (Some(b), Some(t)) = (by, self.team_of(target))
             && self.team_of(b) != Some(t)
         {
@@ -217,7 +226,7 @@ impl World {
                 if let Some(slot) = killer.filter(|&s| s != usize::MAX) {
                     self.count_loss(team, slot);
                 }
-                self.kill(target);
+                self.kill(target, credit);
             }
         } else if let Some(i) = self.bi(target) {
             let sh_up = self.effect_level(self.bldgs[i].team, Effect::Shields) as f64;
@@ -229,7 +238,7 @@ impl World {
             }
             b.flash = 0.12;
             if b.hp <= 0.0 {
-                self.kill(target);
+                self.kill(target, credit);
             }
         }
     }
@@ -308,7 +317,8 @@ impl World {
         row[slot] += 1;
     }
 
-    pub(crate) fn kill(&mut self, id: Id) {
+    /// `id` dies (a unit) or falls (a building), by `by`'s hand (a seat; the kill counts for an enemy only).
+    pub(crate) fn kill(&mut self, id: Id, by: Option<u8>) {
         let team;
         if let Some(i) = self.ui(id) {
             let u = self.units.remove(i);
@@ -331,9 +341,14 @@ impl World {
                 n: 10,
             });
             self.stats[team as usize].lost += 1;
-            self.stats[1 - team as usize].killed += 1;
+            let by = by.filter(|&k| self.enemies(k, team));
+            if let Some(k) = by {
+                self.stats[k as usize].killed += 1;
+            }
             self.sfx(team, "lost");
-            self.sfx(1 - team, "kill");
+            if let Some(k) = by {
+                self.sfx(k, "kill");
+            }
             self.graveyard.push(u);
         } else if let Some(i) = self.bi(id) {
             let b = self.bldgs.remove(i);
@@ -362,7 +377,9 @@ impl World {
                 team,
                 n: 24,
             });
-            self.stats[1 - team as usize].razed += 1;
+            if let Some(k) = by.filter(|&k| self.enemies(k, team)) {
+                self.stats[k as usize].razed += 1;
+            }
             // Said only for what matters (the headquarters, a factory, a research building); the rest is the burst.
             let d = b.kind.def();
             if d.hq || !d.trains.is_empty() || !d.researches.is_empty() {
@@ -375,57 +392,10 @@ impl World {
         self.check_end();
     }
 
-    /// `seat` gives up: the game ends with the other seat the winner (nothing if it is already over).
-    pub fn concede(&mut self, seat: u8) {
-        if self.over || seat > 1 {
-            return;
-        }
-        self.over = true;
-        self.winner = 1 - seat as i32;
-        self.conceded = seat as i32;
-    }
-
-    pub(crate) fn check_end(&mut self) {
-        if self.over {
-            return;
-        }
-        // A seat is out with no buildings left, except that a person's seat still has a chance while a worker of
-        // theirs lives (it can build again); the AI's does not wait for that. It is also out when nothing of it can
-        // act any more: no headquarters that stands or will (a planted site grows by itself), no worker, no fighter,
-        // and no factory with a unit in training or the means to train one (a few Depots do not keep a game going).
-        // Team 1 is checked first.
-        let out = |w: &World, t: u8| {
-            let worker = w.units.iter().any(|u| u.team == t && u.kind.def().worker);
-            let fighter = w.units.iter().any(|u| u.team == t && u.kind.def().threat());
-            let mine = || w.bldgs.iter().filter(move |b| b.team == t);
-            let hq = mine().any(|b| b.kind.def().hq && (b.done || b.planted));
-            let factory = mine().any(|b| {
-                b.done
-                    && (!b.queue.is_empty()
-                        || b.kind.def().trains.iter().any(|k| {
-                            k.def().threat()
-                                && k.def()
-                                    .req
-                                    .is_none_or(|r| mine().any(|o| o.kind == r && o.done))
-                                && w.can_afford(t, k.def().cost)
-                        }))
-            });
-            let none = mine().next().is_none();
-            (none && (w.is_ai(t) || !worker)) || !(hq || worker || fighter || factory)
-        };
-        for loser in [1, 0] {
-            if out(self, loser) {
-                self.over = true;
-                self.winner = 1 - loser as i32;
-                return;
-            }
-        }
-    }
-
     /// A shot for the seats that see it (their own, or the shooter in their sight).
     fn fired(&mut self, shooter: Id, team: u8, x: f64, y: f64, weapon: &'static str) {
-        let seen = [0, 1].map(|t| t == team || self.seen_by(t, shooter));
-        if seen.contains(&true) {
+        let seen = self.seen_mask(team, shooter);
+        if seen != 0 {
             self.emit(Event::Fire { x, y, weapon, seen });
         }
     }
@@ -591,14 +561,14 @@ impl World {
                 } else {
                     Vec::new()
                 };
-                self.hit_by_slot = Some(p.by_slot); // (a kill still counts if the shooter died meanwhile)
+                self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
                 for s in splash {
                     if self.unit(s).is_some() {
                         self.damage(s, p.dmg * p.splash, Some(p.by));
                     }
                 }
-                self.hit_by_slot = None;
+                self.hit_by = None;
                 self.emit(Event::Hit {
                     x: tp.0,
                     y: tp.1,

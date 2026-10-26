@@ -88,9 +88,16 @@ fn res(r: Result<(), String>) -> String {
     r.err().unwrap_or_default()
 }
 
-/// Teams from JS are validated here: an out-of-range index would panic, and a panic poisons the Game object.
-pub(crate) fn valid_team(t: u8) -> Option<u8> {
-    (t < 2).then_some(t)
+impl Game {
+    /// Seats from JS are validated here: an out-of-range index would panic, and a panic poisons the Game object.
+    pub(crate) fn valid_team(&self, t: u8) -> Option<u8> {
+        ((t as usize) < self.w.seats()).then_some(t)
+    }
+}
+
+/// A race by index into FACTIONS (unknown = Humans).
+fn faction(i: u32) -> &'static data::Faction {
+    data::FACTIONS.get(i as usize).unwrap_or(&data::FACTIONS[0])
 }
 
 #[wasm_bindgen]
@@ -103,8 +110,7 @@ impl Game {
     /// A new game with the races chosen (index into FACTIONS for the player and for the AI; unknown = Humans).
     #[wasm_bindgen(js_name = withSetup)]
     pub fn with_setup(seed: u32, diff: u32, map: u32, side: u32, player: u32, ai: u32) -> Game {
-        let pick = |i: u32| *data::FACTIONS.get(i as usize).unwrap_or(&data::FACTIONS[0]);
-        let f = [pick(player), pick(ai)]; // (the player is team 0)
+        let f = [faction(player), faction(ai)]; // (the player is seat 0)
         Game::wrap(World::with_setup(
             seed,
             diff as usize,
@@ -114,13 +120,55 @@ impl Game {
         ))
     }
 
+    /// A game for any number of seats, seen from seat `me`: each seat's race (index into FACTIONS), team (empty: each
+    /// seat its own) and whether the scripted opponent plays it (1) or a person (0; empty: nobody's an AI). Throws for
+    /// a setup the sim cannot play (fewer than 2 seats, more than the map's starts, lists of other lengths, one team).
+    #[wasm_bindgen(js_name = withSeats)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_seats(
+        seed: u32,
+        diff: u32,
+        map: u32,
+        side: u32,
+        factions: &[u32],
+        teams: &[u8],
+        ai: &[u8],
+        me: u8,
+    ) -> Result<Game, String> {
+        let n = factions.len();
+        if !(2..=map::STARTS.min(data::MAX_SEATS)).contains(&n) {
+            return Err(format!("{n} seats: the map has {} starts", map::STARTS));
+        }
+        if (me as usize) >= n || ![0, n].contains(&ai.len()) || ![0, n].contains(&teams.len()) {
+            return Err("A seat list of the wrong length, or no such seat".into());
+        }
+        let f: Vec<_> = factions.iter().map(|&i| faction(i)).collect();
+        let mut w = World::with_seats(
+            seed,
+            diff as usize,
+            map::MapKind::from_index(map),
+            side == 1,
+            &f,
+        );
+        if !teams.is_empty() && !w.set_teams(teams) {
+            return Err(
+                "Teams: an id per seat, below the number of seats, two teams at least".into(),
+            );
+        }
+        let ai: Vec<bool> = (0..n).map(|s| ai.get(s).is_some_and(|&a| a != 0)).collect();
+        w.set_ai_seats(ai);
+        let mut g = Game::wrap(w);
+        g.me = me;
+        Ok(g)
+    }
+
     /// A game between people, seen from seat `me` (races by index into FACTIONS for seats 0 and 1): no AI seat. A
     /// networked game makes one of these on every client, from the room's setup, and starts lockstep.
     #[wasm_bindgen(js_name = forSeat)]
     pub fn for_seat(seed: u32, map: u32, side: u32, f0: u32, f1: u32, me: u8) -> Game {
         let mut g = Game::with_setup(seed, 1, map, side, f0, f1);
         g.w.set_ai_seats([false, false]);
-        g.me = valid_team(me).unwrap_or(0);
+        g.me = g.valid_team(me).unwrap_or(0);
         g
     }
 
@@ -164,14 +212,15 @@ impl Game {
         };
         let end = self.replay.as_ref().map_or(self.w.tick, |r| r.end);
         let old = &self.w;
-        let mut w = World::with_setup(
+        let mut w = World::with_seats(
             old.seed,
             old.diff,
             old.map_kind,
             old.sides_swapped,
-            old.factions,
+            &old.factions,
         );
-        w.set_ai_seats(old.ai_seats);
+        w.set_teams(&old.teams);
+        w.set_ai_seats(&old.ai_seats);
         self.w = w;
         self.replay = Some(Replay { log, next: 0, end });
         true
@@ -237,7 +286,7 @@ impl Game {
     ) -> String {
         let (Some(kind), Some(_)) = (
             BldgKind::parse(kind),
-            valid_team(team).filter(|&t| t == self.me),
+            self.valid_team(team).filter(|&t| t == self.me),
         ) else {
             return "Unknown building or team".into();
         };
@@ -291,7 +340,7 @@ impl Game {
             node: (node != 0).then_some(node),
         });
     }
-    /// This seat gives up: the game ends, the other side the winner.
+    /// This seat gives up: it is out (with two seats, the game ends and the other wins).
     pub fn concede(&mut self) {
         self.order(Command::Concede);
     }
@@ -333,17 +382,18 @@ impl Game {
     // ---- rule queries ----
     #[wasm_bindgen(js_name = canPlace)]
     pub fn can_place(&self, kind: &str, tx: i32, ty: i32, team: u8) -> bool {
-        valid_team(team)
+        self.valid_team(team)
             .is_some_and(|t| BldgKind::parse(kind).is_some_and(|k| self.w.can_place(k, tx, ty, t)))
     }
     #[wasm_bindgen(js_name = hasReq)]
     pub fn has_req(&self, team: u8, kind: &str) -> bool {
-        valid_team(team)
+        self.valid_team(team)
             .is_some_and(|t| BldgKind::parse(kind).is_some_and(|k| self.w.has_req(t, k)))
     }
     #[wasm_bindgen(js_name = canAfford)]
     pub fn can_afford(&self, team: u8, shards: i32, ether: i32) -> bool {
-        valid_team(team).is_some_and(|t| self.w.can_afford(t, [shards, ether]))
+        self.valid_team(team)
+            .is_some_and(|t| self.w.can_afford(t, [shards, ether]))
     }
 
     /// Set a building's hp, within 1..max (tests and tools only).
@@ -365,7 +415,7 @@ impl Game {
         if !self.knob() {
             return 0;
         }
-        let (Some(k), Some(t)) = (UnitKind::parse(kind), valid_team(team)) else {
+        let (Some(k), Some(t)) = (UnitKind::parse(kind), self.valid_team(team)) else {
             return 0;
         };
         let id = self.w.make_unit(k, t, data::clamp_x(x), data::clamp_y(y));
@@ -380,7 +430,7 @@ impl Game {
         if !self.knob() {
             return false;
         }
-        let (Some(up), Some(t)) = (data::Upgrade::parse(key), valid_team(team)) else {
+        let (Some(up), Some(t)) = (data::Upgrade::parse(key), self.valid_team(team)) else {
             return false;
         };
         if level > up.levels() {
@@ -416,13 +466,22 @@ impl Game {
         if !self.knob() {
             return;
         }
-        self.w.res[team as usize & 1] = [shards, ether];
+        if let Some(t) = self.valid_team(team) {
+            self.w.res[t as usize] = [shards, ether];
+        }
     }
 
-    /// The world's scalars (fields: snapshot::INFO_FIELDS), then the upgrade levels (snapshot::push_upgrades).
+    /// The world's scalars (fields: snapshot::INFO_FIELDS), then a record per seat (snapshot::SEAT_FIELDS), then
+    /// the upgrade levels (snapshot::push_upgrades).
     pub fn info(&self) -> Vec<f64> {
-        let mut out = Vec::with_capacity(snapshot::INFO_FIELDS.len() + 2 * data::UPGRADES.len());
+        let n = self.w.seats();
+        let mut out = Vec::with_capacity(
+            snapshot::INFO_FIELDS.len() + n * (snapshot::SEAT_FIELDS.len() + data::UPGRADES.len()),
+        );
         snapshot::push_info(&mut out, &self.w, &self.w);
+        for seat in 0..n as u8 {
+            snapshot::push_seat(&mut out, &seat, &self.w);
+        }
         snapshot::push_upgrades(&mut out, &self.w);
         out
     }
@@ -475,34 +534,37 @@ impl Game {
     pub fn occ(&self) -> Vec<i32> {
         self.w.map.occ.clone()
     }
-    /// Tiles `team` sees right now (in a replay: what either side sees).
+    /// Tiles `team` sees right now (in a replay: what any seat sees).
     pub fn vis(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.vis, team)
     }
     /// `team`'s army value every 10 s since the start (the end screen's chart).
     #[wasm_bindgen(js_name = armyLog)]
     pub fn army_log(&self, team: u8) -> Vec<u32> {
-        valid_team(team).map_or_else(Vec::new, |t| self.w.army_log[t as usize].clone())
+        self.valid_team(team)
+            .map_or_else(Vec::new, |t| self.w.army_log[t as usize].clone())
     }
     /// `team`'s units lost, by what killed them (unit kinds, then building kinds; empty before any loss).
     #[wasm_bindgen(js_name = lostTo)]
     pub fn lost_to(&self, team: u8) -> Vec<u32> {
-        valid_team(team).map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
+        self.valid_team(team)
+            .map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
-    /// Tiles `team` has ever seen (in a replay: either side).
+    /// Tiles `team` has ever seen (in a replay: any seat).
     pub fn explored(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.explored, team)
     }
 
-    fn sight(&self, layers: &[Vec<u8>; 2], team: u8) -> Vec<u8> {
+    fn sight(&self, layers: &[Vec<u8>], team: u8) -> Vec<u8> {
         if self.replay.is_some() {
-            layers[0]
-                .iter()
-                .zip(&layers[1])
-                .map(|(a, b)| a | b)
-                .collect()
+            let mut all = layers[0].clone();
+            for l in &layers[1..] {
+                all.iter_mut().zip(l).for_each(|(a, b)| *a |= b);
+            }
+            all
         } else {
-            layers[team as usize & 1].clone()
+            self.valid_team(team)
+                .map_or_else(|| vec![0; layers[0].len()], |t| layers[t as usize].clone())
         }
     }
 
@@ -524,7 +586,7 @@ impl Game {
                     None
                 }
                 Event::Fire { seen, .. } | Event::Cast { seen, .. }
-                    if !seen[me as usize] && self.replay.is_none() =>
+                    if (seen >> me) & 1 == 0 && self.replay.is_none() =>
                 {
                     None
                 }
@@ -629,7 +691,7 @@ pub fn map_preview(seed: u32, kind: u32) -> Vec<u8> {
             }
         }
     }
-    for (bx, by) in m.bases {
+    for &(bx, by) in &m.bases {
         for dy in 0..4 {
             for dx in 0..4 {
                 mark(bx + dx, by + dy, 4);
@@ -670,13 +732,13 @@ mod tests {
             x: 1.0,
             y: 2.0,
             weapon: "bolt",
-            seen: [false, true],
+            seen: 0b10,
         });
         g.w.emit(Event::Fire {
             x: 3.0,
             y: 4.0,
             weapon: "shell",
-            seen: [true, true],
+            seen: 0b11,
         });
         let out = g.drain_events();
         assert!(

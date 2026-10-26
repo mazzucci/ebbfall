@@ -626,3 +626,66 @@ fn a_worker_stays_when_a_fighter_of_its_own_is_near_or_it_was_told_to_build() {
         w.unit(b).unwrap().task
     );
 }
+
+#[test]
+fn a_worker_does_not_go_back_while_a_raider_sits_on_its_field_and_a_fresh_order_holds() {
+    let mut w = World::new(17, 1);
+    w.disable_ai();
+    run(&mut w, 12);
+    let hs = harvesters(&w, PLAYER);
+    let h = hs[0];
+    let field = gather_node(&w, h).expect("mining");
+    let (nx, ny) = {
+        let n = w.map.node(field).unwrap();
+        (n.x, n.y)
+    };
+    // A raider parks by the field (it cannot die, and holds there).
+    let raider = w.make_unit(UnitKind::Trooper, ENEMY, nx + 3.0 * TILE, ny);
+    w.hold_unit(raider);
+    {
+        let r = w.units.iter_mut().find(|u| u.id == raider).unwrap();
+        r.hp = 1e6;
+        r.maxhp = 1e6;
+    }
+    run(&mut w, 40);
+    let u = w
+        .unit(h)
+        .expect("alive: it did not keep walking back into the raider");
+    assert!(
+        matches!(u.task, Task::Flee { .. }),
+        "still away: {:?}",
+        u.task
+    );
+    // Its player sends it back anyway: it goes, and stays a while.
+    w.start_gather(h, field);
+    let _ = w.apply(
+        PLAYER,
+        &endfall_sim::world::Command::Gather {
+            unit: h,
+            node: field,
+        },
+    );
+    run(&mut w, 4);
+    assert!(
+        matches!(w.unit(h).map(|u| u.task), Some(Task::Gather { .. }) | None),
+        "the order holds: {:?}",
+        w.unit(h).map(|u| u.task)
+    );
+}
+
+#[test]
+fn an_idle_worker_away_from_its_field_stays_where_it_was_put() {
+    let mut w = World::new(17, 1);
+    w.disable_ai();
+    run(&mut w, 12);
+    let h = harvesters(&w, PLAYER)[0];
+    // Sent far from its field, idle there (a lookout).
+    w.move_to(h, 32.0 * TILE, 32.0 * TILE);
+    run(&mut w, 40);
+    assert_eq!(w.unit(h).unwrap().task, Task::Idle);
+    let (x, y) = (w.unit(h).unwrap().x, w.unit(h).unwrap().y);
+    let raider = w.make_unit(UnitKind::Trooper, ENEMY, x + 3.0 * TILE, y);
+    w.hold_unit(raider);
+    run(&mut w, 1);
+    assert_eq!(w.unit(h).map(|u| u.task), Some(Task::Idle), "it stays put");
+}

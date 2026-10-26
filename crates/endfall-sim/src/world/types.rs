@@ -98,8 +98,10 @@ pub struct Unit {
     pub sh: f64,
     pub maxsh: f64,
     pub hit_at: f64,
-    /// When it was last damaged by anything (s; a worker runs).
+    /// When it was last damaged by anything (s; a worker runs), and when its player last sent it to a field (it
+    /// stays there a while even under fire).
     pub struck: f64,
+    pub told: f64,
     pub r: f64,
     pub task: Task,
     pub path: Option<Vec<Pt>>,

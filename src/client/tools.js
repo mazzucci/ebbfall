@@ -4,7 +4,7 @@
 import { G, UNITS, BUILDINGS, TILE, visibleEnt, fmt } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
-import { sfx } from './audio.js';
+import { sfx, say } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';
 import { seenLately } from './scout.js';
@@ -22,8 +22,8 @@ export function onAttacked(e) {
   // By something unseen: said even on screen (losses and no one to shoot), with what finds it. A fight you are
   // looking at otherwise needs no siren; the ping and the ⚠ chip still mark it.
   const onScreen = e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
-  if (e.unseen) { toast(`Unseen attacker: ${detectors()} detect`, true, true); sfx('alert'); }
-  else if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); }
+  if (e.unseen) { toast(`Unseen attacker: ${detectors()} detect`, true, true); sfx('alert'); say('attack'); }
+  else if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); say('attack'); }
   updateTools();
 }
 /** This side's detectors, as a phrase ("Turrets and Observers"): the buildings it raises that detect, and the units its

@@ -3,7 +3,7 @@
 // frequencies glide from sound to sound; that glide is most of what makes speech legible. Phrases are written as
 // phonemes. Two styles: the Humans' operator on a field radio (a narrow band, a little clipping, squelch at both
 // ends, which also hides how crude the synthesis is) and the Vael chorus (two voices a fifth apart, an echo).
-// A prototype for the owner to judge: see voice-lab.html.
+// In the game since 2026-10-26 (audio.js `say`); voice-lab.html plays every phrase in both styles.
 
 // Phonemes: formants [F1, F2, F3] in Hz, their levels [A1, A2, A3], voicing, noise level and its band (Hz, Q), and
 // a length in seconds. Consonants carry the formant positions vowels glide from and to (their loci).
@@ -18,6 +18,10 @@ const P = {
   M: { ...V([300, 1000, 2200], 0.07, [0.5, 0.15, 0.03]), son: true }, N: { ...V([300, 1600, 2600], 0.06, [0.5, 0.15, 0.04]), son: true },
   S: { f: [400, 1800, 2600], a: [0, 0, 0], v: 0, n: 0.4, nf: 4200, nq: 2, dur: 0.12 },
   SH: { f: [400, 1900, 2500], a: [0, 0, 0], v: 0, n: 0.45, nf: 2600, nq: 2.5, dur: 0.11 },
+  // (weak fricatives: a broad, quiet hiss; Z is an S with the buzz under it)
+  F: { f: [400, 1400, 2400], a: [0, 0, 0], v: 0, n: 0.22, nf: 1700, nq: 0.6, dur: 0.1 },
+  TH: { f: [400, 1700, 2600], a: [0, 0, 0], v: 0, n: 0.16, nf: 3000, nq: 0.7, dur: 0.09 },
+  Z: { f: [300, 1700, 2600], a: [0.3, 0.05, 0.02], v: 0.45, n: 0.3, nf: 4000, nq: 2, dur: 0.1 },
   // Stops: a closure (silence, a murmur if voiced), a burst of noise, then breath if unvoiced.
   B: { stop: true, f: [250, 800, 2200], voiced: true, nf: 900, nq: 0.8 },
   D: { stop: true, f: [250, 1800, 2600], voiced: true, nf: 3500, nq: 1 },
@@ -30,10 +34,13 @@ const P = {
 export const PHRASES = {
   attack: { text: 'Base under attack', ph: [['B'], ['EY', 1.3, 1], ['S'], ['_', 0.5], ['AH', 1, 0.3], ['N'], ['D', 0.8], ['ER', 0.8], ['AX'], ['T'], ['AE', 1.2, 1], ['K']] },
   research: { text: 'Research complete', ph: [['R'], ['IY', 1.1, 1], ['S', 0.8], ['ER', 1.0, 0.4], ['T', 0.6], ['SH', 0.9], ['_', 0.4], ['K'], ['AX'], ['M'], ['P'], ['L'], ['IY', 1.4, 1], ['T']] },
+  shards: { text: 'Not enough shards', ph: [['N'], ['AA', 1.1, 1], ['T', 0.7], ['_', 0.3], ['IH', 0.8], ['N'], ['AH', 1, 0.6], ['F'], ['_', 0.3], ['SH'], ['AA', 1.3, 1], ['R'], ['D', 0.7], ['Z']] },
+  ether: { text: 'Not enough ether', ph: [['N'], ['AA', 1.1, 1], ['T', 0.7], ['_', 0.3], ['IH', 0.8], ['N'], ['AH', 1, 0.6], ['F'], ['_', 0.3], ['IY', 1.3, 1], ['TH'], ['ER', 1.2]] },
 };
 
+/** Each race's announcer, by faction key. */
 export const STYLES = {
-  human: { pitch: 104, rate: 1.05, radio: true },
+  humans: { pitch: 104, rate: 1.05, radio: true },
   vael: { pitch: 140, rate: 0.85, chorus: true },
 };
 
@@ -78,8 +85,8 @@ function frames(phrase, style) {
 }
 
 /** Speak a phrase into `dest` from time `at` (an AudioContext or OfflineAudioContext). Returns its length (s). */
-export function speak(ctx, dest, key, styleName = 'human', at = ctx.currentTime + 0.05) {
-  const style = STYLES[styleName], phrase = PHRASES[key];
+export function speak(ctx, dest, key, styleName = 'humans', at = ctx.currentTime + 0.05) {
+  const style = STYLES[styleName] || STYLES.humans, phrase = PHRASES[key];
   const { frames: fr, end } = frames(phrase, style);
   const out = ctx.createGain(); out.gain.value = 0.9;
   if (style.radio) radio(ctx, out, dest, at, end); else out.connect(echo(ctx, dest));

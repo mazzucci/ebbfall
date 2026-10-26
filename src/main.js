@@ -37,6 +37,7 @@ function newGame() {
   $('help').hidden = true; stopWatching(); ended = false;
   const g = setup(); // (the menu's choices, or the guided first game's)
   resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace);
+  audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
   renderTerrain();

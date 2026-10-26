@@ -21,7 +21,8 @@ class Ctx {
 globalThis.window = { AudioContext: Ctx };
 globalThis.addEventListener = () => {};
 
-const { sfx, audio } = await import('../src/client/audio.js');
+const { sfx, say, audio } = await import('../src/client/audio.js');
+const { PHRASES, STYLES } = await import('../src/client/voice.js');
 const src = readFileSync(new URL('../src/client/audio.js', import.meta.url), 'utf8');
 const recipes = [...src.matchAll(/^ {2}([a-z]+): \(b, t/gm)].map(m => m[1]);
 
@@ -36,6 +37,20 @@ test('every recipe plays, placed or not, with sound envelopes', async () => {
     clock += 260; // past the longest repeat gap
   }
   assert.deepEqual(errors, []);
+});
+
+test('the announcer says every phrase in every race\'s voice, and not again within its gap', () => {
+  let clock = 100000; audio.now = () => clock;
+  for (const voice of Object.keys(STYLES)) for (const key of Object.keys(PHRASES)) {
+    audio.voice = voice; ramps.length = 0; errors.length = 0;
+    say(key);
+    assert.ok(ramps.length > 0, `${voice} said ${key}`);
+    ramps.length = 0; say(key);
+    assert.equal(ramps.length, 0, `${key} not repeated at once`);
+    clock += 30000;
+  }
+  assert.deepEqual(errors, []);
+  assert.deepEqual(Object.keys(STYLES).sort(), ['humans', 'vael'], 'a voice per faction key');
 });
 
 test('every sound the sim asks for has a recipe', () => {

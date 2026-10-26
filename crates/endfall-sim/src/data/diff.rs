@@ -31,22 +31,25 @@ pub struct Diff {
     /// The most a wave's required size grows to (it grows by `wave_grow` after each launch): a winning AI goes out
     /// to finish instead of waiting at home for ever bigger waves.
     pub wave_max: usize,
+    /// Its `extra_rax` wait for its second base: a slow economy spends its bank on the expansion first.
+    pub extras_after_expanding: bool,
 }
 
 pub const DIFF: [Diff; 4] = [
-    // Easy: a slow, plain script. Few workers, one factory to start, small late waves; no research, second base, flyers,
-    // abilities or adapting.
+    // Easy: a slow, plain script. Few workers, one factory to start; no research, flyers, abilities or adapting. It
+    // takes its natural after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds
+    // its early waves still meets a growing army later.
     Diff {
         income: 1.0,
         wave: 4,
         wave_grow: 2,
         harv: 7,
         rax: 1,
-        extra_rax: 0,
+        extra_rax: 1,
         first: 240.0,
         gap: 80.0,
         research_from: NEVER,
-        expand_at: NEVER,
+        expand_at: 540.0,
         air_at: NEVER,
         raids: false,
         prong: false,
@@ -55,6 +58,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 4,
         wave_max: 12,
         supply_at_once: 1,
+        extras_after_expanding: true,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -77,6 +81,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 4,
         wave_max: 14,
         supply_at_once: 1,
+        extras_after_expanding: false,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -98,6 +103,7 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 6,
         wave_max: 16,
         supply_at_once: 1,
+        extras_after_expanding: false,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -122,5 +128,6 @@ pub const DIFF: [Diff; 4] = [
         supply_ahead: 10,
         wave_max: 14,
         supply_at_once: 2,
+        extras_after_expanding: false,
     },
 ];

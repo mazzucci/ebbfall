@@ -191,7 +191,7 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
 
 test('the WASM sim agrees with the native one: the same golden hashes (crates/endfall-sim/tests/golden.rs)', { skip }, () => {
   // ashen-easy and glass-medium-swapped at 10 s and 1.5 min: browsers on any machine must compute the same game.
-  for (const [seed, diff, map, side, want, race] of [[4242, 0, 0, 0, [1632591974, 2377626590], 0], [1998, 1, 1, 1, [3216496548, 1867545644], 0], [4242, 1, 0, 0, [2747608292, 2782413074], 1]]) {
+  for (const [seed, diff, map, side, want, race] of [[4242, 0, 0, 0, [1632591974, 1368448285], 0], [1998, 1, 1, 1, [3216496548, 1867545644], 0], [4242, 1, 0, 0, [2747608292, 2782413074], 1]]) {
     const g = sim.Game.withSetup(seed, diff, map, side, race, 0), got = []; // (race 1: a Vael player, golden_hashes_pin_a_vael_game)
     for (let t = 1; t <= 2700; t++) { g.step(); if (t === 300 || t === 2700) got.push(g.stateHash() >>> 0); }
     g.free();

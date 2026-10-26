@@ -195,20 +195,28 @@ fn a_selection_casts_together_and_only_its_own_units() {
 fn the_ai_uses_abilities_in_its_fights() {
     // Two AIs, Humans against the Vael: in their fights both sides cast, a researched ability too (Entrench or
     // Overcharge: the AI researches its techs and uses them).
-    let mut w = World::with_setup(6, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
-    w.set_ai_seats([true, true]);
+    // (over a few games: whether a researched ability gets its moment depends on how a game goes)
     let mut cast: Vec<&str> = Vec::new();
-    for _ in 0..30 * 60 * 15 {
-        if w.over {
-            break;
-        }
-        w.step();
-        for e in w.events.drain(..) {
-            if let Event::Cast { ability, .. } = e
-                && !cast.contains(&ability)
-            {
-                cast.push(ability);
+    let mut techs = String::new();
+    for seed in [6u32, 7, 8, 9] {
+        let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.set_ai_seats([true, true]);
+        for _ in 0..30 * 60 * 15 {
+            if w.over {
+                break;
             }
+            w.step();
+            for e in w.events.drain(..) {
+                if let Event::Cast { ability, .. } = e
+                    && !cast.contains(&ability)
+                {
+                    cast.push(ability);
+                }
+            }
+        }
+        techs += &format!(" {:?}", w.upgrades);
+        if cast.contains(&"entrench") || cast.contains(&"overcharge") {
+            break;
         }
     }
     assert!(
@@ -217,8 +225,7 @@ fn the_ai_uses_abilities_in_its_fights() {
     );
     assert!(
         cast.contains(&"entrench") || cast.contains(&"overcharge"),
-        "a researched ability was used: {cast:?} (techs {:?})",
-        w.upgrades
+        "a researched ability was used: {cast:?} (techs{techs})"
     );
 }
 

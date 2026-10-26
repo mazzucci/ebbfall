@@ -1112,7 +1112,12 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
     );
     assert_eq!(mine(f.hq), 1, "no second base");
     assert_eq!(mine(f.ai.air), 0, "no air factory");
-    assert!(harvesters(&w, ENEMY).len() <= DIFF[0].harv, "few workers");
+    // (plus the odd builder's replacement)
+    assert!(
+        harvesters(&w, ENEMY).len() <= DIFF[0].harv + 2,
+        "few workers: {}",
+        harvesters(&w, ENEMY).len()
+    );
     // Gathering: the same on Medium as the player's, 30% more on Brutal; the player's own is unchanged.
     let gathered = |diff: usize| {
         let mut w = World::new(17, diff);
@@ -1137,5 +1142,74 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
     assert!(
         brutal[ENEMY as usize] as f64 >= medium[ENEMY as usize] as f64 * 1.2,
         "Brutal gathers more: {brutal:?} vs {medium:?}"
+    );
+}
+
+#[test]
+fn the_ai_replaces_a_worker_that_is_away_building() {
+    // A person's builder stays at its site until the building stands: the AI counts the workers that mine, so one
+    // sent off to build is replaced and its income does not dip with every building it raises.
+    let mut w = World::new(17, 1);
+    let target = DIFF[1].harv;
+    let core = |w: &World| {
+        w.bldgs
+            .iter()
+            .find(|b| b.team == ENEMY && b.kind.def().hq)
+            .map(|b| (b.id, b.tx, b.ty))
+            .unwrap()
+    };
+    let building = |w: &World| {
+        w.units
+            .iter()
+            .any(|u| u.team == ENEMY && matches!(u.task, Task::Build { .. }))
+    };
+    // Wait for a full crew, nothing queued at the Core and nobody off building.
+    let mut t = 0;
+    while !(harvesters(&w, ENEMY).len() >= target
+        && w.bldg(core(&w).0).unwrap().queue.is_empty()
+        && !building(&w))
+    {
+        assert!(t < 30 * 360, "never a full, settled crew");
+        w.step();
+        w.events.clear();
+        t += 1;
+    }
+    // Exactly a full crew (earlier builders' replacements are still about): the extra ones fall.
+    while harvesters(&w, ENEMY).len() > target {
+        let extra = *harvesters(&w, ENEMY).last().unwrap();
+        w.damage(extra, 1e9, None);
+        w.step();
+        w.events.clear();
+    }
+    let (cid, cx, cy) = core(&w);
+    let before = harvesters(&w, ENEMY).len();
+    // One of them goes off to build a Depot (and stays there, as a Human builder does).
+    let builder = harvesters(&w, ENEMY)[0];
+    let (tx, ty) = (4..18)
+        .flat_map(|r| (0..24).map(move |a| (r, a)))
+        .map(|(r, a)| {
+            let ang = a as f64 / 24.0 * std::f64::consts::TAU;
+            (
+                (cx as f64 + 1.0 + ang.cos() * r as f64).round() as i32,
+                (cy as f64 + 1.0 + ang.sin() * r as f64).round() as i32,
+            )
+        })
+        .find(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
+        .expect("room for a Depot");
+    w.res[ENEMY as usize][0] += 100;
+    w.place_building(ENEMY, BldgKind::Depot, tx, ty, Some(builder))
+        .expect("placed");
+    run(&mut w, 2);
+    let queued = w
+        .bldg(cid)
+        .unwrap()
+        .queue
+        .iter()
+        .filter(|k| k.def().worker)
+        .count();
+    assert!(
+        harvesters(&w, ENEMY).len() + queued > before,
+        "a replacement for the builder: {} + {queued} queued vs {before}",
+        harvesters(&w, ENEMY).len()
     );
 }

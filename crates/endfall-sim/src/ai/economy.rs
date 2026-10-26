@@ -200,9 +200,19 @@ impl World {
             .filter(|&id| self.bldg(id).is_some_and(|b| b.kind.def().hq && b.done))
             .collect();
         let harv_target = d.harv + 5 * cores.len().saturating_sub(1);
+        // The crew is the workers that mine: one away building or repairing is replaced (a person's builder stays
+        // until its building stands, so a busy build order would otherwise starve that side's income).
+        let away = harv
+            .iter()
+            .filter(|&&h| {
+                self.unit(h)
+                    .is_some_and(|u| matches!(u.task, Task::Build { .. } | Task::Repair { .. }))
+            })
+            .count();
+        let crew = harv.len() - away;
         let mut queued = queued_h;
         for &c in &cores {
-            if harv.len() + queued < harv_target
+            if crew + queued < harv_target
                 && self.bldg(c).unwrap().queue.is_empty()
                 && self
                     .queue_unit(c, self.factions[self.seat() as usize].worker)

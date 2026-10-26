@@ -1346,3 +1346,34 @@ fn on_a_barren_map_the_ai_takes_its_natural_before_its_home_field_runs_dry() {
         }
     }
 }
+
+#[test]
+fn brutal_spends_its_income_when_its_main_fills_up() {
+    // Brutal's x1.3 income needs more factories than a main pocket has room for: with none left near its centre it
+    // builds farther out (and the Vael raise a Spire out there first, for a field to build in) instead of waiting for
+    // its natural. Its mean bank at 6 and 8 minutes over three seeds, against a player who holds: about 3,650 for
+    // either race before, about 1,250 / 1,800 (Human / Vael AI) now.
+    for f in [[&HUMANS, &HUMANS], [&HUMANS, &VAEL]] {
+        let mut banked = Vec::new();
+        for seed in [3u32, 17, 44] {
+            let mut w = World::with_setup(seed, 3, MapKind::Standard, false, f);
+            for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+                b.hp = 1e9;
+                b.maxhp = 1e9;
+            }
+            for at in [360.0, 480.0] {
+                while w.time < at {
+                    w.step();
+                    w.events.clear();
+                }
+                banked.push(w.res[ENEMY as usize][0]);
+            }
+        }
+        let mean = banked.iter().sum::<i32>() / banked.len() as i32;
+        assert!(
+            mean < 2500,
+            "{}: {banked:?} banked (mean {mean})",
+            f[1].name
+        );
+    }
+}

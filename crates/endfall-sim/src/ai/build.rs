@@ -9,9 +9,26 @@ const SHARD_FLOAT: i32 = 400;
 /// whatever the clock says (on barren maps the home field runs dry before the difficulty's time; later it could not
 /// pay for it).
 const HOME_LOW: i32 = 2000;
+/// How far from its centre the AI looks for room for a building (tiles), and how far once there is none nearer and
+/// no second base to build by: a full main pocket must not hold its factories up until the natural stands.
+const ROOM: f64 = 15.0;
+const ROOM_FAR: f64 = 22.0;
 
 impl World {
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
+        self.find_spot_within(kind, cx, cy, 3.5, ROOM, &|_, _, _| true)
+    }
+
+    /// A spot for `kind` in rings from `from` to `room` tiles around (cx, cy), where `ok` also allows it.
+    fn find_spot_within(
+        &mut self,
+        kind: BldgKind,
+        cx: f64,
+        cy: f64,
+        from: f64,
+        room: f64,
+        ok: &dyn Fn(&World, i32, i32) -> bool,
+    ) -> Option<(i32, i32)> {
         let d = kind.def();
         if d.on_vent {
             let (mut best, mut bd) = (None, 1e9);
@@ -27,8 +44,8 @@ impl World {
             return best;
         }
         let a0 = self.rnd() * PI * 2.0;
-        let mut r = 3.5;
-        while r < 15.0 {
+        let mut r = from;
+        while r < room {
             for k in 0..20 {
                 let a = a0 + k as f64 / 20.0 * PI * 2.0;
                 let tx = jsmath::round(cx + jsmath::cos(a) * r - d.w as f64 / 2.0) as i32;
@@ -47,6 +64,7 @@ impl World {
                     .nodes
                     .iter()
                     .all(|n| jsmath::hypot(n.tx as f64 + 0.5 - mx, n.ty as f64 + 0.5 - my) >= clear)
+                    && ok(self, tx, ty)
                 {
                     return Some((tx, ty));
                 }
@@ -54,6 +72,49 @@ impl World {
             r += 1.0;
         }
         None
+    }
+
+    /// Room out past the main (rings `from` to `ROOM_FAR`): only where a worker can walk from the main (rings that far
+    /// out can fall in a sealed pocket), and clear of the natural's site (the Core it saves for goes there).
+    fn find_far_spot(&mut self, kind: BldgKind, cx: f64, cy: f64, from: f64) -> Option<(i32, i32)> {
+        let start = self.map.nearest_free(cx as i32, cy as i32, 6)?;
+        let reach = self.walkable_from(start);
+        let natural = self.expansion_spot(cx, cy);
+        let ok = |_: &World, tx: i32, ty: i32| {
+            // (the walkway tile left of it: free, so reachable if the site is)
+            in_map(tx - 1, ty)
+                && reach[idx(tx - 1, ty)]
+                && natural.is_none_or(|(nx, ny)| (tx - nx).abs().max((ty - ny).abs()) > 7)
+        };
+        self.find_spot_within(kind, cx, cy, from, ROOM_FAR, &ok)
+    }
+
+    /// Tiles a walker can reach from `start` (4-neighbour steps over free ground).
+    fn walkable_from(&self, start: (i32, i32)) -> Vec<bool> {
+        let mut seen = vec![false; (MW * MH) as usize];
+        let mut todo = vec![start];
+        seen[idx(start.0, start.1)] = true;
+        while let Some((x, y)) = todo.pop() {
+            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
+                if in_map(nx, ny) && !seen[idx(nx, ny)] && !self.map.blocked(nx, ny) {
+                    seen[idx(nx, ny)] = true;
+                    todo.push((nx, ny));
+                }
+            }
+        }
+        seen
+    }
+
+    /// Whether the fields by the main (centre cx, cy) are running low, on a level that then takes its natural at once.
+    pub(crate) fn home_dry(&self, cx: f64, cy: f64) -> bool {
+        let home: i32 = self
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether && (n.tx as f64 - cx).abs().max((n.ty as f64 - cy).abs()) <= 12.0)
+            .map(|n| n.amount)
+            .sum();
+        DIFF[self.diff].expands_when_dry && home < HOME_LOW
     }
 
     /// The AI keeps a free one-tile walkway around everything it builds, so it never walls its own units in.
@@ -321,11 +382,17 @@ impl World {
         } else {
             None
         };
-        if let Some(w) = want
-            && building.len() < d.supply_at_once + 1 // (two at once; three where supply goes up in pairs)
-            && self.has_req(e, w)
-            && self.can_afford(e, w.def().cost)
-            && let Some(spot) = {
+        // The natural is due (its Core is being saved for): building far out must not spend that bank.
+        let hq_cost = f.hq.def().cost;
+        let expansion_due =
+            (t > d.expand_at || self.home_dry(cx, cy)) && self.ai_count(&my_b, false, f.hq) < 2;
+        let placeable = want.filter(|&w| {
+            building.len() < d.supply_at_once + 1 // (two at once; three where supply goes up in pairs)
+                && self.has_req(e, w)
+                && self.can_afford(e, w.def().cost)
+        });
+        let spot = match placeable {
+            Some(w) => {
                 let (fx, fy) = match exp_vent {
                     Some(at)
                         if w == f.ether
@@ -340,7 +407,7 @@ impl World {
                         _ => (cx, cy),
                     },
                 };
-                // A full main (a walled pocket fills up): by the second base instead, if there is one.
+                // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.
                 let second = cores.get(1).and_then(|&c| self.bldg(c)).map(|b| {
                     (
                         b.tx as f64 + b.w as f64 / 2.0,
@@ -357,12 +424,43 @@ impl World {
                 // a detector meant for the spot it was hit at.)
                 match self.find_spot(w, fx, fy) {
                     None if w != f.ether && !(w == f.supply && relight.is_some()) && !for_mark => {
-                        second.and_then(|(ex, ey)| self.find_spot(w, ex, ey))
+                        second
+                            .and_then(|(ex, ey)| self.find_spot(w, ex, ey))
+                            .or_else(|| {
+                                // (not while the natural is due and the bank cannot pay for both)
+                                (!expansion_due
+                                    || self.can_afford(
+                                        e,
+                                        [0, 1].map(|i| w.def().cost[i] + hq_cost[i]),
+                                    ))
+                                .then(|| self.find_far_spot(w, fx, fy, 3.5))
+                                .flatten()
+                            })
                     }
                     spot => spot,
                 }
             }
-        {
+            None => None,
+        };
+        // No powered room left anywhere for a building that needs power (a Vael factory in a full main): a power
+        // source first, out past the main's room, so the next try has a field to build in.
+        let (place, spot) = match (placeable, spot, f.power) {
+            (Some(w), None, Some(p))
+                if w.def().needs_power
+                    && (w == s.rax || w == s.air) // (a factory: not a tower meant for a mark)
+                    && !building.contains(&p)
+                    && self.can_afford(
+                        e,
+                        [0, 1].map(|i| {
+                            w.def().cost[i] + p.def().cost[i] + if expansion_due { hq_cost[i] } else { 0 }
+                        }),
+                    ) =>
+            {
+                (Some(p), self.find_far_spot(p, cx, cy, ROOM))
+            }
+            other => (other.0, other.1),
+        };
+        if let (Some(w), Some(spot)) = (place, spot) {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
             if let Some(b) = self.free_builder(&harv, sx, sy) {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
@@ -386,14 +484,7 @@ impl World {
         let d = &DIFF[self.diff];
         // A second base, outside the build order above: the AI saves up for it (see research) and places it
         // even while supply depots go up. Sooner if the home field is running dry.
-        let home: i32 = self
-            .map
-            .nodes
-            .iter()
-            .filter(|n| !n.ether && (n.tx as f64 - cx).abs().max((n.ty as f64 - cy).abs()) <= 12.0)
-            .map(|n| n.amount)
-            .sum();
-        let dry = d.expands_when_dry && home < HOME_LOW;
+        let dry = self.home_dry(cx, cy);
         brain.dry = dry;
         let exp_spot = if (t > d.expand_at || dry)
             && self.ai_count(&my_b, false, self.factions[e as usize].hq) < 2

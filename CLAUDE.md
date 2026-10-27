@@ -172,7 +172,8 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 - Seats and teams: a World has N seats (`World::seats()`, 2 to `MAX_SEATS`, at most the map's starts: 2 on 64x64, 4 on
   96x96, 8 on 128x128, `map::max_starts`; seats sit round the map in order, `map::seat_starts`: allies in consecutive
   seats are neighbours, which is how the menus' teams are made, and with teams `Game::with_seats` turns the seats by
-  whole starts only, so that holds for six seats on eight starts too),
+  whole starts only and the free starts go between teams, `map::team_starts`, so any split of consecutive seats starts
+  side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`),
   and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
   an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
   decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one

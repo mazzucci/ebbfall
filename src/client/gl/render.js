@@ -25,7 +25,10 @@ const hexn = (s) => parseInt(s.slice(1), 16);
 TextureSource.defaultOptions.scaleMode = 'linear';
 TextureSource.defaultOptions.autoGenerateMipmaps = true;
 const app = new Application();
-await app.init({ canvas: cv, background: 0x0b0f16, antialias: false, roundPixels: true, autoDensity: true, resolution: Math.min(2, window.devicePixelRatio || 1), autoStart: false, preference: 'webgl' });
+// Pixels per css px: the screen's, at most 2. `?res=1.5` (any number) sets a lower cap, to try on a phone whether fewer
+// pixels make big games smoother (the GPU fills about 44% fewer at 1.5 than at 2).
+const RES = Math.min(Math.max(0.5, +new URLSearchParams(location.search).get('res') || 2), window.devicePixelRatio || 1);
+await app.init({ canvas: cv, background: 0x0b0f16, antialias: false, roundPixels: true, autoDensity: true, resolution: RES, autoStart: false, preference: 'webgl' });
 // atlas.json indexes the pages (each a PixiJS spritesheet at scale 2) and the animations, which may span pages.
 const artBase = new URL('art/', document.baseURI).href;
 const index = await (await fetch(artBase + 'atlas.json')).json();

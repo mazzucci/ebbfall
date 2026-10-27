@@ -9,12 +9,14 @@
 // every seat holding a place must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race}, map {map}, ready {ready},
 // and from the host (seat 0) in the lobby: seats {n, map?} (the room's seat count, 2 to MAX_SEATS: a seat a person
 // holds is never dropped), ai {seat, on, race?} (an open seat played by the AI, or open again; its race), diff {diff}
-// (the AI seats' difficulty), teams {teams} (a team per seat, or null: each its own); sit {seat} (a person other than
+// (the AI seats' difficulty), teams {teams} (a team per seat, or null: each its own), free {seat} (a held seat whose
+// player is away is open again: they came back on another browser or device, without its token); sit {seat} (a person other than
 // the host moves to an open seat); loaded {} (the game is set up: the clock may start), orders
 // {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
 // seat that paused ends its pause), leave {} (gives the game up now; in the lobby: gives the seat up now), over {} (its game has ended), rematch {want} (after a game: another,
 // in this room), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
-// checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby {map, diff, teams, seats: [{name,
+// checkpoint turn, a multiple of CHECK_EVERY), ping {id} (answered even after a lobby leave: the leaver's
+// confirmation that its leave arrived). Relay -> client: seat, lobby {map, diff, teams, seats: [{name,
 // race, ready, here, ai}]}, start {setup: {seed, map, side, races, names, teams, ai, diff}, delay, from, left: [pauses left per seat]},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
 // {code, msg}, pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
@@ -22,7 +24,7 @@
 // The lobby holds a seat whose connection is gone (a phone that switched apps to send the code, a reload): the seat
 // stays its player's (name, race, token, the host's role), away (`here: false`) and not ready, for LOBBY_HOLD_MS; its
 // token takes it back, a newcomer takes only a truly open seat, and the room cannot start while it is away. After the
-// hold the seat is open again. A seat given up on purpose (leave) is open at once. `keep()` / `restore()`: the lobby as
+// hold the seat is open again, or at once when the host frees it (free) or its player gives it up (leave). `keep()` / `restore()`: the lobby as
 // a record (seats, tokens, choices; no connections), for an adapter that may lose its memory (relay/worker.js).
 //
 // AI seats (M4): a seat the host gives to the AI has no connection. Every client runs that seat's AI in its own game
@@ -80,7 +82,11 @@ export class Room {
     if (seat < 0) {
       if (this.phase !== 'lobby') { this.send(conn, { t: 'error', code: 'started', msg: 'That game has started' }); return -1; }
       seat = this.seats.findIndex(s => !s.token && !s.ai); // (a held seat, away, is not open)
-      if (seat < 0) { this.send(conn, { t: 'error', code: 'full', msg: 'That room is full' }); return -1; }
+      if (seat < 0) {
+        const held = this.phase === 'lobby' && this.seats.some(s => s.token && !s.conn);
+        this.send(conn, { t: 'error', code: 'full', msg: held ? 'That room is full: a seat is kept a few minutes for a player who stepped away' : 'That room is full' });
+        return -1;
+      }
       this.seats[seat].token = token();
     }
     const s = this.seats[seat];
@@ -106,10 +112,11 @@ export class Room {
 
   /** A message from a connection (already parsed JSON). */
   receive(conn, msg) {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.t === 'ping') { this.send(conn, { t: 'pong', id: msg.id }); return; } // (also to a connection whose seat was given up: its leave arrived)
     const seat = this.seats.findIndex(s => s.conn === conn);
-    if (seat < 0 || !msg || typeof msg !== 'object') return;
+    if (seat < 0) return;
     const s = this.seats[seat];
-    if (msg.t === 'ping') { this.send(conn, { t: 'pong', id: msg.id }); return; }
     if (this.phase === 'lobby') {
       if (msg.t === 'race' && typeof msg.race === 'string') { s.race = msg.race.slice(0, 16); s.ready = false; this.lobby(); }
       else if (msg.t === 'map' && seat === 0 && validMap(msg.map)) { this.map = msg.map; this.unready(); }
@@ -118,6 +125,7 @@ export class Room {
       else if (msg.t === 'diff' && seat === 0 && Number.isInteger(msg.diff) && msg.diff >= 0 && msg.diff < DIFFS) { this.diff = msg.diff; this.unready(); }
       else if (msg.t === 'teams' && seat === 0 && (msg.teams === null || validTeams(msg.teams, this.seats.length))) { this.teams = msg.teams && [...msg.teams]; this.unready(); }
       else if (msg.t === 'sit' && seat > 0) this.sit(seat, msg.seat);
+      else if (msg.t === 'free' && seat === 0) this.free(msg.seat);
       else if (msg.t === 'leave') { this.seats[seat] = this.empty(); this.lobby(); } // (given up on purpose: open at once, no hold)
       else if (msg.t === 'ready') { s.ready = !!msg.ready; this.lobby(); if (this.seats.every(x => x.ai || (x.conn && x.ready))) this.start(); }
       return;
@@ -210,16 +218,17 @@ export class Room {
   /** A kept lobby back (the room was lost from memory, at `now`): its seats held, away, from when they went (now, for
    *  one that was here: its connection went with the memory). */
   restore(k, now) {
-    if (!k || !Array.isArray(k.seats) || k.seats.length < 2 || k.seats.length > MAX_SEATS) return;
+    if (!k || !Array.isArray(k.seats) || k.seats.length < 2 || k.seats.length > MAX_SEATS || !k.seats.every(x => x && typeof x === 'object')) return false;
     this.now = now;
-    this.seats = k.seats.map(x => Object.assign(this.empty(), {
-      name: String(x.name || '').slice(0, MAX_NAME), race: String(x.race || 'humans').slice(0, 16), ai: !!x.ai,
-      token: !x.ai && typeof x.token === 'string' ? x.token : null,
-    }));
-    this.seats.forEach((s, i) => { if (s.token) s.goneSince = Number(k.seats[i].goneSince) || now; });
+    const race = (x, or) => (typeof x.race === 'string' ? x.race.slice(0, 16) : or);
+    this.seats = k.seats.map(x => (x.ai ? Object.assign(this.empty(), { ai: true, race: race(x, 'random') }) // (an AI seat; a held one; else open)
+      : typeof x.token === 'string' && x.token ? Object.assign(this.empty(), { token: x.token.slice(0, 64), name: String(x.name || '').slice(0, MAX_NAME), race: race(x, 'humans') })
+        : this.empty()));
+    this.seats.forEach((s, i) => { if (s.token) s.goneSince = Math.min(Number(k.seats[i].goneSince) || now, now); }); // (never later than now: a hold runs out)
     if (validMap(k.map)) this.map = k.map;
     if (Number.isInteger(k.diff) && k.diff >= 0 && k.diff < DIFFS) this.diff = k.diff;
     this.teams = validTeams(k.teams, this.seats.length) ? [...k.teams] : null;
+    return true;
   }
   /** A change to the game's setup: everyone ready again (they agree to the new one). */
   unready() { for (const x of this.seats) x.ready = false; this.lobby(); }
@@ -242,6 +251,13 @@ export class Room {
     if (on === false) { if (s.ai) this.seats[seat] = this.empty(); }
     else Object.assign(s, { ai: true, name: '', race: typeof race === 'string' ? race.slice(0, 16) : s.ai ? s.race : 'random' });
     this.unready();
+  }
+  /** The host frees a held seat whose player is away (back on another browser, without its token, they can sit
+   *  again): open at once, not after the hold. Never a seat whose player is here, nor an AI seat. */
+  free(seat) {
+    const s = Number.isInteger(seat) && seat > 0 ? this.seats[seat] : null;
+    if (!s || !s.token || s.conn) return;
+    this.seats[seat] = this.empty(); this.lobby();
   }
   /** A person (not the host) moves to an open seat, taking its place, race and name along (to seat 0 only if the host
    *  has left: it is the host then). */

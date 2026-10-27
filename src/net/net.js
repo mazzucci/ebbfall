@@ -18,6 +18,7 @@ const RETRY_MS = [250, 500, 1000, 2000, 4000]; // between reconnect attempts (th
 const PONG_MS = 2000; // a socket that does not answer a ping in this long is taken for dead
 const BEAT_MS = 1000; // an ack at least this often, even with no new turn run (a stalled game is not an away seat)
 const LOBBY_TRIES = 4; // failed connections before a lobby that never got a seat says the relay cannot be reached
+const LOBBY_HOLD_MS = 5 * 60000; // (relay/room.js) a lobby seat away this long is no longer kept: a Net that holds one gives up then
 const TRAIL = 300; // ticks of state hashes kept
 
 export class Net {
@@ -37,6 +38,7 @@ export class Net {
     this.trail = new Map(); // tick -> state hash, the last TRAIL ticks (a desync's first diverging tick is in it)
     this.retries = 0; this.closed = false; this.ws = null; this.pingId = 0; this.pongTimer = null; this.retryTimer = null;
     this.held = false; // (it has had a seat, which the relay holds for its token: it keeps reconnecting in the lobby too)
+    this.lostAt = 0; // (when a lobby Net that holds a seat lost its socket; 0: not lost)
     this.ackedAt = 0; this.next = 0; this.queue = []; this.leaving = false; // (orders and a leave wait here while the socket is down)
     this.open();
   }
@@ -63,10 +65,14 @@ export class Net {
   dropped() {
     this.ws = null; this.seat = this.setup ? this.seat : -1; clearTimeout(this.pongTimer);
     if (this.closed) return;
-    if (this.leaving && !this.queue.length) { this.close(); return; } // (its leave is out: nothing to come back for)
+    if (this.leaving && !this.queue.length) {
+      if (this.setup) { this.close(); return; } // (its leave is out: nothing to come back for)
+      this.queue.push({ t: 'leave' }); // (a lobby leave the relay has not confirmed: said again once back)
+    }
     // A lobby that never got a seat gives up after a few tries (nothing is lost yet); one that holds a seat keeps
-    // trying, as a game does (the relay holds the seat, or waits for it).
-    if (!this.setup && !this.held && this.retries >= LOBBY_TRIES) { this.on.error?.({ code: 'unreachable', msg: 'Can\'t connect. Check your Internet and try again' }); this.close(); return; }
+    // trying, as a game does (the relay holds the seat, or waits for it), until the relay would no longer hold it.
+    if (!this.setup && this.held && !this.lostAt) this.lostAt = Date.now();
+    if (!this.setup && (this.held ? Date.now() - this.lostAt > LOBBY_HOLD_MS : this.retries >= LOBBY_TRIES)) { this.on.error?.({ code: 'unreachable', msg: 'Can\'t connect. Check your Internet and try again' }); this.close(); return; }
     this.status('reconnecting');
     const wait = RETRY_MS[Math.min(this.retries++, RETRY_MS.length - 1)];
     this.retryTimer = setTimeout(() => { if (!this.closed) this.open(); }, wait);
@@ -81,13 +87,23 @@ export class Net {
     clearTimeout(this.pongTimer);
     this.pongTimer = setTimeout(() => { if (this.pingId === id) { const ws = this.ws; this.ws = null; try { ws.close(); } catch { /* gone */ } this.dropped(); } }, PONG_MS);
   }
-  /** Give the game up (the relay concedes for this seat at once) and leave: once it is said, or after a few seconds. */
+  /** Give the game up (the relay concedes for this seat at once) and leave: once it is said, or after a few seconds.
+   *  In the lobby (the seat given up, not held for a while): once the relay has confirmed it, or after 15 s. */
   leave() {
     if (this.closed) return;
     this.leaving = true; this.on = {}; // (whoever made it has moved on: nothing more is told)
     this.sayOrKeep({ t: 'leave' });
     if (!this.ws) this.open(); // (offline: try now, not after the backoff)
-    setTimeout(() => this.close(), this.queue.length ? 15000 : 300);
+    if (this.setup) setTimeout(() => this.close(), this.queue.length ? 15000 : 300);
+    else { this.confirmLeave(); setTimeout(() => this.close(), 15000); }
+  }
+  /** A lobby leave is said: a ping right after it, whose pong (the relay answers in order) says the leave arrived, and
+   *  the Net closes. No pong within PONG_MS: the socket was dead (half-open) and the leave lost: reconnect, say it again. */
+  confirmLeave() {
+    if (this.queue.length || this.ws?.readyState !== 1) return; // (not said yet: once it is, flush calls again)
+    const id = ++this.pingId; this.say({ t: 'ping', id });
+    clearTimeout(this.pongTimer);
+    this.pongTimer = setTimeout(() => { if (this.pingId === id && !this.closed) { const ws = this.ws; this.ws = null; try { ws?.close(); } catch { /* gone */ } this.dropped(); } }, PONG_MS);
   }
   /** Leave for good. */
   close() {
@@ -102,19 +118,20 @@ export class Net {
   }
   flush() {
     while (this.queue.length && this.say(this.queue[0])) this.queue.shift();
-    if (this.leaving && !this.queue.length) setTimeout(() => this.close(), 300);
+    if (this.leaving && !this.queue.length) { if (this.setup) setTimeout(() => this.close(), 300); else this.confirmLeave(); }
   }
 
   // ---- the lobby ----
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
   // (the host's: the seat count with a map that fits it, an open seat for the AI or open again, the AI's difficulty,
-  // the teams; anyone else's: moving to an open seat)
+  // the teams, freeing an away seat; anyone else's: moving to an open seat)
   seats(n, map) { this.say({ t: 'seats', n, map }); }
   ai(seat, on, race) { this.say({ t: 'ai', seat, on, race }); }
   diff(diff) { this.say({ t: 'diff', diff }); }
   teams(teams) { this.say({ t: 'teams', teams }); }
   sit(seat) { this.say({ t: 'sit', seat }); }
+  free(seat) { this.say({ t: 'free', seat }); } // (the host's: a held seat whose player is away, open again)
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */
   pause() { this.sayOrKeep({ t: 'pause' }); }
@@ -130,7 +147,7 @@ export class Net {
   message(m) {
     switch (m.t) {
       case 'seat':
-        this.seat = m.seat; this.token = m.token; this.room = m.room; this.retries = 0; this.held = true;
+        this.seat = m.seat; this.token = m.token; this.room = m.room; this.retries = 0; this.held = true; this.lostAt = 0;
         this.status('online'); this.on.seat?.(m); this.flush(); break;
       case 'lobby':
         if (!Array.isArray(m.seats)) break;
@@ -147,7 +164,7 @@ export class Net {
       case 'notice': this.on.notice?.(m); break;
       case 'pause': if (Number.isInteger(m.seat) && Array.isArray(m.left)) this.on.pause?.(m); break;
       case 'resume': this.on.resume?.(m.seat); break;
-      case 'pong': if (m.id === this.pingId) clearTimeout(this.pongTimer); break;
+      case 'pong': if (m.id === this.pingId) { clearTimeout(this.pongTimer); if (this.leaving && !this.setup) this.close(); } break; // (a lobby leave confirmed)
     }
   }
 

@@ -23,7 +23,10 @@ function pair() {
 }
 const platform = { pair, respond: (client) => ({ status: 101, webSocket: client }) };
 /** A fake object's storage. */
-const storage = () => { const m = new Map(); return { async get(k) { return m.get(k); }, async put(k, v) { m.set(k, v); } }; };
+const storage = () => {
+  const m = new Map(), s = { puts: 0, alarm: 0 };
+  return Object.assign(s, { async get(k) { return m.get(k); }, async put(k, v) { s.puts++; m.set(k, v); }, async setAlarm(t) { s.alarm = t; }, async deleteAll() { m.clear(); } });
+};
 /** A fake namespace: one RoomObject per name, made on first use, its storage kept when it is evicted. */
 function env(extra = {}) {
   const objects = new Map(), stores = new Map();
@@ -173,6 +176,64 @@ test('an evicted empty lobby comes back for a late friend; a hold that ran out w
   assert.equal(got(c, 'seat')[0]?.seat, 0, 'the seat is open again');
   assert.deepEqual(got(c, 'lobby').at(-1).seats.map(s => s.name), ['Cy', '']);
   c.close();
+});
+
+test('the record is written when it changes, at most once a second (the last change too), not on every message or fetch', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  const store = e.stores.get(code);
+  await wait(0);
+  const first = store.puts;
+  assert.equal(first, 1, 'the new room: one write');
+  for (let i = 0; i < 1000; i++) say(a, { t: 'ready', ready: i % 2 === 0 }); // (no change to the record)
+  for (let i = 0; i < 1000; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
+  await wait(0);
+  assert.equal(store.puts, first, 'within the second: nothing more yet');
+  await wait(1100);
+  assert.equal(store.puts, first + 1, 'then one trailing write');
+  assert.equal((await store.get('room')).lobby.seats[0].race, 'vael', 'with the last change');
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket; // (a fetch that says nothing: no write)
+  await wait(0);
+  assert.equal(store.puts, first + 1);
+  say(a, { t: 'race', race: 'humans' });
+  a.close(); b.close(); await wait(0);
+  assert.equal(store.puts, first + 2, 'the last socket gone: written at once');
+  assert.ok(!(await store.get('room')).lobby.seats[0].here, 'its seat held, away');
+  assert.ok(store.alarm > Date.now(), 'an alarm set to forget the room once idle');
+});
+
+test('an idle room\'s alarm deletes its record: the code is free, the room gone', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  a.close(); await wait(0);
+  await e.objects.get(code).alarm();
+  assert.equal(await e.stores.get(code).get('room'), undefined);
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  assert.equal(got(c, 'error')[0]?.code, 'noroom');
+  e.evict(code);
+  assert.equal((await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`))).status, 101, 'free for a new room');
+  for (const x of e.objects.get(code).conns) x.other.close();
+});
+
+test('a stored record of a bad shape comes back as an empty lobby, never a broken room', async () => {
+  const bad = [
+    { seats: [{ name: 'Solo', token: 't1' }] }, // (one seat: one player could start alone)
+    { seats: Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, token: `t${i}` })) },
+    { seats: [null, null] }, { seats: 'xx' }, { seats: [[], 5] }, 5, null,
+    { seats: [{ name: 'Ann', token: 't0' }, { name: 'Bo', token: 7 }], map: 'x', diff: 99, teams: [0, 0] },
+  ];
+  for (const lobby of bad) {
+    const st = storage(); await st.put('room', { code: 'BCDF', used: Date.now(), started: false, lobby });
+    const o = new RoomObject({ storage: st }, null, platform);
+    const c = (await o.fetch(new Request('https://room/?code=BCDF'))).webSocket;
+    say(c, hello('Cy'));
+    const seats = o.room.seats;
+    assert.ok(seats.length >= 2 && seats.length <= 8, `${JSON.stringify(lobby)}: ${seats.length} seats`);
+    assert.ok(got(c, 'seat').length === 1, `${JSON.stringify(lobby)}: a seat`);
+    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, o.room.diff, o.room.teams], [['Ann', 'Cy'], 1, 0, 1, null], 'the good parts kept (Ann held), the bad dropped (Bo, no token: open)');
+    else assert.equal(got(c, 'seat')[0].seat, 0, `${JSON.stringify(lobby)}: an empty lobby`);
+    c.close();
+  }
 });
 
 test('oversize or binary messages close the connection; the room goes on', async () => {

@@ -97,12 +97,18 @@ There is no handling of a hidden page today. In multiplayer:
   for Ann…", a friend joining takes the next truly open seat (never a held one, nor moves to it), and the room cannot
   start while a held seat is away (it is not ready). The page keeps reconnecting (the usual backoff, capped at 4 s,
   and at once when it is in view again: `wake`) for as long as it holds a seat, and its token takes the seat back:
-  the same code, the same seats. Only a page that never got a seat gives up after a few tries ("Can't connect").
-  After the hold the seat is open again (the host's: "The host left: SIT HERE", as before). Leaving the room on
-  purpose (BACK, or a single-player game from the menu) says `leave` first: the seat is open at once. A held seat's
-  sim build is checked when it comes back, not against a newcomer. On Cloudflare the lobby (seats with their tokens,
-  AI seats, map, teams, difficulty; no connections) is stored on every change, so a held seat survives the room's
-  eviction from memory (see M3d's limits).
+  the same code, the same seats; once the hold is over it gives up too ("Can't connect"), as a page that never got
+  a seat does after a few tries. After the hold the seat is open again (the host's: "The host left: SIT HERE", as
+  before). A player back without the token (the link opened in a messaging app's browser, then in Chrome; another
+  device) finds a full room told "a seat is kept a few minutes for a player who stepped away", and the host may free
+  an AWAY seat at once (× on it: `free {seat}`; never matched by name). Leaving the room on purpose (BACK, or a
+  single-player game from the menu) says `leave` first, and a ping after it: its pong confirms the leave arrived (no
+  pong in 2 s: the socket was half-open, so a reconnect and the leave again); the seat is open at once, and the
+  page forgets the room's token. A held seat's sim build is checked when it comes back, not against a newcomer. On
+  Cloudflare the lobby (seats with their tokens, AI seats, map, teams, difficulty; no connections) is stored when it
+  changes (at most one write a second, the last change always, at once when the last socket closes; a ready toggle
+  writes nothing), so a held seat survives the room's eviction from memory (see M3d's limits); a stored record of a
+  bad shape comes back as an empty lobby.
 
 ### Builds and versions
 
@@ -185,8 +191,9 @@ happen when a push to main changes relay/; (2) adds the repository variable `REL
 which the build bakes in: MULTIPLAYER appears on the menu's first page.
 Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
 a lobby is evicted from memory a minute or two after its last socket closes and comes back as it was (its seats held
-for their tokens, the lobby hold above, or empty) from its storage record when someone joins within 10 minutes; a
-running game is never stored (an evicted or redeployed game is over).
+for their tokens, the lobby hold above, or empty) from its storage record when someone joins within 10 minutes (an
+alarm deletes the record once the room has been empty that long); a running game is never stored (an evicted or
+redeployed game is over).
 
 **M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats
 (up to four players, 2v2 and AI seats: step 2c, done; up to eight on 128x128: step 2e, done).

@@ -2,13 +2,14 @@
 // one object per room code, which runs relay/room.js's rules (the same as relay/server.mjs's, which is the Node
 // adapter). A client connects to wss://host/?room=CODE (or ?new=1 to open a room) and says hello. Config and deploy:
 // relay/wrangler.toml.
-import { Room, TURN_MS } from './room.js';
+import { Room, TURN_MS, MAX_SEATS } from './room.js';
 
 const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
 const MAX_MSG = 64 * 1024;
 const HELLO_MS = 10000; // a connection that has not said hello by then is closed
 const ROOM_IDLE_MS = 10 * 60 * 1000; // a room nobody has been in this long is free for a new one with its code
 const TRIES = 8; // codes tried for a new room
+const SAVE_MS = 1000; // storage writes of a room's record at most this often (the last change is always written)
 
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const newCode = () => Array.from({ length: 4 }, () => ALPHABET[random() % ALPHABET.length]).join('');
@@ -42,14 +43,17 @@ const CLOUDFLARE = {
 /** A room's Durable Object: its Room, its connections, and the clock while anyone is connected. The Room lives in
  *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a record in storage (the code,
  *  when it was last used, whether its game started, and the lobby itself: its seats with their names, races and tokens,
- *  the AI seats, the map, the teams, the difficulty; Room.keep, saved on every change to the lobby) brings an evicted
- *  lobby back as it was: a seat held for a player who switched apps (relay/room.js, LOBBY_HOLD_MS) is still theirs, and
- *  an empty lobby comes back for a friend who joins late. A game is not kept: an evicted or redeployed one is over (its
- *  players are told the room is gone). */
+ *  the AI seats, the map, the teams, the difficulty; Room.keep) brings an evicted lobby back as it was: a seat held for
+ *  a player who switched apps (relay/room.js, LOBBY_HOLD_MS) is still theirs, and an empty lobby comes back for a friend
+ *  who joins late. The record is written when it changes (a ready toggle does not change it), at most once a SAVE_MS
+ *  (the last change always, and at once when the last socket closes), and deleted by an alarm once the room has been
+ *  empty ROOM_IDLE_MS. A game is not kept: an evicted or redeployed one is over (its players are told the room is
+ *  gone). */
 export class RoomObject {
   constructor(state, env, platform = CLOUDFLARE) {
     this.platform = platform; this.storage = state?.storage; this.room = null; this.conns = new Set(); this.timer = null;
     this.lastUsed = 0; this.started = false;
+    this.saved = ''; this.savedAt = 0; this.saveTimer = null; // (the record last written, when; a write waiting)
   }
 
   async fetch(req) {
@@ -61,21 +65,45 @@ export class RoomObject {
       if (inUse) return new Response('Taken', { status: 409 });
       this.open(code);
     } else if (!this.room && recent && !saved.started) this.open(code, saved.lobby); // (an evicted lobby: back, its seats held)
-    if (this.room) this.save();
     const [client, ws] = this.platform.pair();
     ws.accept();
     this.attach(ws);
     return this.platform.respond(client);
   }
 
+  /** A new room, or a kept lobby back (its record checked: 2 to MAX_SEATS seats, each an object; anything else, or a
+   *  record that does not restore, is an empty lobby). */
   open(code, kept) {
-    this.room = new Room({ code, seats: kept?.seats?.length || 2, send, kick, seed: random(), onLobby: () => this.save() });
-    if (kept) this.room.restore(kept, Date.now());
-    this.started = false;
+    const room = (n) => new Room({ code, seats: n, send, kick, seed: random(), onLobby: () => this.save() });
+    const seats = Array.isArray(kept?.seats) ? kept.seats.filter(x => x && typeof x === 'object' && !Array.isArray(x)) : [];
+    this.room = room(2);
+    if (seats.length >= 2 && seats.length <= MAX_SEATS) {
+      try { const r = room(seats.length); if (r.restore({ ...kept, seats }, Date.now())) this.room = r; } catch { /* a bad record: an empty lobby */ }
+    }
+    this.started = false; this.saved = '';
   }
+  /** Keep the room's record: only if it changed, at most once a SAVE_MS (a trailing write for the last change). */
   save() {
-    const room = this.room, lobby = room.phase === 'lobby';
-    this.storage?.put('room', { code: room.code, used: Date.now(), started: !lobby, lobby: lobby ? room.keep() : null }).catch(() => {});
+    if (this.saveTimer) return; // (the waiting write takes the latest state)
+    const wait = this.savedAt + SAVE_MS - Date.now();
+    if (wait > 0) { this.saveTimer = setTimeout(() => { this.saveTimer = null; this.write(); }, wait); return; }
+    this.write();
+  }
+  /** Write now (a waiting write is done with). */
+  write() {
+    clearTimeout(this.saveTimer); this.saveTimer = null;
+    const room = this.room; if (!room) return;
+    const lobby = room.phase === 'lobby', rec = JSON.stringify({ started: !lobby, lobby: lobby ? room.keep() : null });
+    if (rec === this.saved) return;
+    this.saved = rec; this.savedAt = Date.now();
+    this.storage?.put('room', { code: room.code, used: Date.now(), ...JSON.parse(rec) }).catch(() => { this.saved = ''; }); // (failed: written again with the next change)
+  }
+  /** The room has been empty ROOM_IDLE_MS: its record goes (its code is free), and the room with it. */
+  async alarm() {
+    if (this.conns.size) return; // (someone came back: a new alarm when they leave)
+    clearTimeout(this.saveTimer); this.saveTimer = null;
+    this.room = null; this.saved = '';
+    await this.storage?.deleteAll?.();
   }
 
   attach(ws) {
@@ -96,7 +124,11 @@ export class RoomObject {
     const gone = () => {
       if (!this.conns.delete(ws)) return;
       clearTimeout(silent); room.close(ws); this.lastUsed = Date.now();
-      if (!this.conns.size) { clearInterval(this.timer); this.timer = null; } // (nobody here: the clock waits)
+      if (!this.conns.size) { // (nobody here: the clock waits, the record is written now, and goes once idle long enough)
+        clearInterval(this.timer); this.timer = null;
+        if (this.saveTimer) this.write();
+        this.storage?.setAlarm?.(Date.now() + ROOM_IDLE_MS)?.catch?.(() => {});
+      }
     };
     ws.gone = gone; // (a kick cleans up at once: closing a socket from this side need not fire its close event)
     ws.addEventListener('close', gone);

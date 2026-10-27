@@ -421,6 +421,37 @@ test('the host switches apps to send the code: the room holds its seat, the frie
   } finally { await a.ctx.close(); }
 });
 
+// The friend comes back on another browser (the link opened in a messaging app, then in Chrome): no token, so the host
+// frees the seat kept for the friend (× on the AWAY seat), and the friend sits again.
+test('a friend back on another browser: the host frees the AWAY seat with ×, and the friend sits again', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
+    try {
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent));
+      await b.p.evaluate(() => { const n = endfall.online.net; n.open = () => {}; n.ws.close(); }); // (the in-app browser, left for good)
+      await a.p.locator('#seatList [data-act="free"][data-seat="1"]').waitFor({ state: 'visible', timeout: 5000 });
+      assert.match(await a.p.locator('#seatList .seat').nth(1).textContent(), /^BoAWAY×$/, 'the host sees Bo AWAY, and a × to free the seat');
+      assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Waiting for Bo…');
+      const c = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
+      try {
+        await c.p.waitForFunction(() => /kept a few minutes/.test(document.getElementById('onlineStatus').textContent), null, { timeout: 5000 });
+        assert.equal(await c.p.locator('#onlineStatus').textContent(), 'That room is full: a seat is kept a few minutes for a player who stepped away');
+        await a.tap('#seatList [data-act="free"][data-seat="1"]');
+        await a.p.waitForFunction(() => /open seat/.test(document.getElementById('seatList').textContent), null, { timeout: 5000 });
+        await c.tap('#btnJoinRoom');
+        await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent), null, { timeout: 5000 });
+        await c.p.waitForFunction(() => endfall.online.seat === 1, null, { timeout: 5000 }); // (Bo sits again, in the second seat)
+        assert.deepEqual(a.errors, []); assert.deepEqual(c.errors, []);
+      } finally { await c.ctx.close(); }
+    } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});
+
 test('a relay of a newer protocol: UPDATE is offered (not a dead end)', async () => {
   const { WebSocketServer } = await import('ws');
   const wss = new WebSocketServer({ port: 0 }); await new Promise(r => wss.on('listening', r));

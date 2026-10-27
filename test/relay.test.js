@@ -639,6 +639,37 @@ test('a lobby kept and restored (an adapter that lost its memory): the seats hel
   assert.equal(y.r.seats[0].token, token, 'here: not freed');
 });
 
+test('the host frees a held seat whose player is away (back on another browser, without its token); nothing else', () => {
+  const { r, conn, got } = room(3); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.tick(0);
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' })); r.connect(c, hello({ name: 'Cy' }));
+  r.receive(a, { t: 'free', seat: 1 }); // (Bo is here)
+  assert.ok(r.seats[1].conn, 'not a seat whose player is here');
+  r.close(b);
+  const b2 = conn('b2');
+  assert.equal(r.connect(b2, hello({ name: 'Bo' })), -1, 'Bo, on another browser: the room is full');
+  assert.deepEqual([got(b2, 'error')[0].code, got(b2, 'error')[0].msg], ['full', 'That room is full: a seat is kept a few minutes for a player who stepped away'], 'and told why');
+  r.receive(c, { t: 'free', seat: 1 }); // (not the host's call)
+  assert.ok(r.seats[1].token);
+  r.receive(a, { t: 'free', seat: 0 }); r.receive(a, { t: 'free', seat: 9 }); r.receive(a, { t: 'free', seat: '1' });
+  assert.ok(r.seats[0].conn && r.seats[1].token);
+  r.receive(a, { t: 'free', seat: 1 });
+  assert.deepEqual(got(c, 'lobby').at(-1).seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false }, 'open at once, told to all');
+  const b3 = conn('b3'); assert.equal(r.connect(b3, hello({ name: 'Bo' })), 1, 'Bo sits again');
+  r.receive(a, { t: 'ai', seat: 2, on: false }); r.receive(a, { t: 'free', seat: 2 }); // (Cy is here: neither frees it)
+  assert.ok(r.seats[2].conn);
+  const d = conn('d'); assert.equal(r.connect(d, hello()), -1);
+  assert.equal(got(d, 'error')[0].msg, 'That room is full', 'nobody held away: the plain line');
+});
+
+test('a lobby leave is confirmed: a ping right after it is answered, the seat open', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.receive(b, { t: 'leave' }); r.receive(b, { t: 'ping', id: 7 });
+  assert.equal(got(b, 'pong')[0]?.id, 7);
+  assert.equal(r.seats[1].token, null);
+});
+
 test('pings are answered, and a stranger is ignored', () => {
   const { r, a, got } = started();
   r.receive(a, { t: 'ping', id: 4 });

@@ -223,7 +223,7 @@ setInterval(() => {
 $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
 
 // ---- loop ----
-let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false;
+let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;
 function loop(now) {
   const el = Math.min(0.1, (now - last) / 1000); last = now;
   if (input.enabled()) camKeys(el);
@@ -248,7 +248,9 @@ function loop(now) {
   else if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
-  if (started) render(ui.sel, ui.place, showPower());
+  // At most 60 frames a second (a 120 Hz phone would draw every frame twice as often for nothing: the world moves 30
+  // times a second), and 20 under a card that stops the game (pause, leave, help, end).
+  if (started && now - drawn >= (running() ? 12 : 50)) { drawn = now; render(ui.sel, ui.place, showPower()); }
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
   requestAnimationFrame(loop);
 }

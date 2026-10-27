@@ -122,14 +122,20 @@ impl Command {
 pub type Logged = (u32, u8, Command);
 
 impl World {
-    /// Apply a command for `seat`. Units and buildings it names must be that seat's; points must be real numbers.
-    /// Err carries the message to show (only orders that can fail say why: placing, training, research).
+    /// Apply a command for `seat`. Units and buildings it names must be that seat's; points must be real numbers; a
+    /// seat that is out gives none (an empty Err). Err carries the message to show (only orders that can fail say why:
+    /// placing, training, research).
     pub fn apply(&mut self, seat: u8, cmd: &Command) -> Result<(), String> {
         if seat as usize >= self.seats() {
             return Ok(()); // not a seat (from outside: validated, never trusted)
         }
         if let Some(log) = &mut self.log {
             log.push((self.tick, seat, cmd.clone()));
+        }
+        if self.out[seat as usize] {
+            // A seat that is out (beaten or conceded) gives no more orders: in a team game it cannot play on for its
+            // ally (its leftover units are inert: `World::inert`).
+            return Err(String::new());
         }
         let unit = |w: &World, id: Id| w.unit(id).is_some_and(|u| u.team == seat);
         let bldg = |w: &World, id: Id| w.bldg(id).is_some_and(|b| b.team == seat);

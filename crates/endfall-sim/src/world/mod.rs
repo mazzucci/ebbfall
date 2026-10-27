@@ -444,14 +444,14 @@ impl World {
         self.rebuild_hash();
         let ids: Vec<Id> = self.units.iter().map(|u| u.id).collect();
         for id in ids {
-            if self.ui(id).is_some() {
+            if self.unit(id).is_some_and(|u| !self.inert(u.team)) {
                 self.update_unit(id, dt);
             }
         }
         self.separate();
         let bids: Vec<Id> = self.bldgs.iter().map(|b| b.id).collect();
         for id in bids {
-            if self.bi(id).is_some() {
+            if self.bldg(id).is_some_and(|b| !self.inert(b.team)) {
                 self.update_building(id, dt);
             }
         }
@@ -549,6 +549,13 @@ impl World {
         for levels in &self.upgrades {
             for &level in levels {
                 mix(level as i32);
+            }
+        }
+        // The teams, when they are not the default (each seat its own: the goldens' games): every client must play
+        // the same alliances.
+        if self.teams.iter().enumerate().any(|(s, &t)| t as usize != s) {
+            for &t in &self.teams {
+                mix(t as i32 + 1);
             }
         }
         h

@@ -4,6 +4,7 @@
 //! two against two, on maps with a start for each.
 
 use crate::common::*;
+use endfall_sim::world::Command;
 
 /// Open ground for a third headquarters (4x4 and a ring round it), as far as can be from both starts.
 fn third_base(w: &World) -> (i32, i32) {
@@ -423,4 +424,165 @@ fn six_and_eight_ais_play_on_eight_starts() {
             .count();
         assert!(fighting * 2 >= seats, "{seats} seats: {fights:?}");
     }
+}
+
+#[test]
+fn a_seat_that_is_out_gives_no_orders_and_what_it_leaves_is_inert() {
+    // Seats 0 and 2 against seat 1. Seat 0 concedes while its ally plays on: its orders are refused (it cannot fight
+    // on for its ally), its units stop where they are (a miner lets go of its crystal) and do nothing more, its
+    // buildings train nothing; an enemy can still destroy them. The same game twice is the same game.
+    let play = || {
+        let mut w = three(31, [0, 1, 0]);
+        w.res[0] = [1000, 0];
+        let core0 = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == 0 && b.kind.def().hq)
+            .unwrap()
+            .id;
+        w.queue_unit(core0, UnitKind::Harvester).unwrap();
+        run(&mut w, 2);
+        let (bx, by) = w.map.bases[0];
+        let (x, y) = ((bx as f64 + 2.0) * TILE, (by as f64 + 8.5) * TILE);
+        let guard = w.make_unit(UnitKind::Trooper, 0, x, y);
+        let raider = w.make_unit(UnitKind::Trooper, 1, x + 200.0, y);
+        let miner = harvesters(&w, 0)[0];
+        assert!(matches!(w.unit(miner).unwrap().task, Task::Gather { .. }));
+        let mined: i32 = w.map.nodes.iter().map(|n| n.miners).sum();
+        w.concede(0);
+        assert!(w.out[0] && !w.over, "its ally plays on");
+        assert!(w.inert(0) && !w.inert(2));
+        // Its orders are refused, whatever they are.
+        let before = (w.unit(guard).unwrap().x, w.unit(guard).unwrap().y);
+        assert!(
+            w.apply(
+                0,
+                &Command::Move {
+                    unit: guard,
+                    x: 100.0,
+                    y: 100.0
+                }
+            )
+            .is_err()
+        );
+        assert!(
+            w.apply(
+                0,
+                &Command::Queue {
+                    bldg: core0,
+                    kind: UnitKind::Harvester
+                }
+            )
+            .is_err()
+        );
+        // Its units stopped; its miner let go of its crystal.
+        assert!(
+            w.units
+                .iter()
+                .filter(|u| u.team == 0)
+                .all(|u| u.task == Task::Idle),
+            "every unit of the seat out stopped"
+        );
+        assert!(
+            w.map.nodes.iter().map(|n| n.miners).sum::<i32>() < mined,
+            "the miner let go"
+        );
+        let (shards, queue, prog) = {
+            let c = w.bldg(core0).unwrap();
+            (w.res[0][0], c.queue.len(), c.prog)
+        };
+        // An enemy trooper walks up to its trooper: it does not fire back (nor move), and falls.
+        w.attack_ent(raider, guard);
+        run(&mut w, 20);
+        assert!(w.unit(guard).is_none(), "an inert unit can be destroyed");
+        assert_eq!(
+            w.unit(raider).unwrap().hp,
+            w.unit(raider).unwrap().maxhp,
+            "it never fired back"
+        );
+        let u = w.unit(miner).unwrap();
+        assert_eq!(u.task, Task::Idle, "the miner stays idle");
+        let c = w.bldg(core0).unwrap();
+        assert_eq!(
+            (w.res[0][0], c.queue.len(), c.prog),
+            (shards, queue, prog),
+            "nothing mined, nothing trained"
+        );
+        assert_ne!(before, (100.0, 100.0));
+        w.state_hash()
+    };
+    assert_eq!(play(), play(), "deterministic");
+}
+
+#[test]
+fn teams_are_in_the_state_hash_only_when_not_each_its_own() {
+    // The goldens (each seat its own team) hash as before; alliances are part of the world every client must agree on.
+    let a = World::new(41, 1);
+    let mut b = World::new(41, 1);
+    assert!(b.set_teams(&[0, 1]));
+    assert_eq!(a.state_hash(), b.state_hash(), "the default: not hashed");
+    assert!(b.set_teams(&[1, 0]));
+    assert_ne!(a.state_hash(), b.state_hash(), "other teams: hashed");
+    let four = |teams: Option<&[u8]>| {
+        let mut w = ais(42, 96, 4, teams);
+        w.step();
+        w.state_hash()
+    };
+    assert_eq!(four(None), four(Some(&[0, 1, 2, 3])));
+    assert_ne!(four(None), four(Some(&[0, 0, 1, 1])));
+    assert_ne!(four(Some(&[0, 0, 1, 1])), four(Some(&[0, 1, 1, 0])));
+}
+
+/// A game through the WASM surface's constructor (as the menus start one), run to its end (or `mins` minutes): the
+/// seats out, and the winner.
+fn to_the_end(seed: u32, factions: &[u32], teams: &[u8], ai: &[u8], mins: u32) -> Game {
+    let mut g = Game::with_seats(seed, 1, 0, seed, factions, teams, ai, 0, Some(96)).unwrap();
+    for tick in 0..30 * 60 * mins {
+        g.step();
+        if tick % 30 == 0 {
+            check_invariants(g.world(), &format!("seed {seed} tick {tick}"));
+        }
+        if g.world().over {
+            break;
+        }
+    }
+    g
+}
+
+/// The game is over, every seat not on the winning team is out, and a seat of the winning team stands.
+fn ended_well(g: &Game, what: &str) {
+    let w = g.world();
+    assert!(w.over, "{what}: over");
+    let won = w.winner;
+    assert!(won >= 0, "{what}: a winner");
+    for s in 0..w.seats() {
+        assert!(
+            w.teams[s] as i32 == won || w.out[s],
+            "{what}: seat {s} lost and is out"
+        );
+    }
+    assert!(
+        (0..w.seats()).any(|s| w.teams[s] as i32 == won && !w.out[s]),
+        "{what}: a winner stands"
+    );
+}
+
+#[test]
+fn three_and_four_seat_games_and_two_against_two_end_through_the_menus_constructor() {
+    // M4 step 2c: what the menus start, through `Game.withSeats` on 96x96. Three seats (a person who gives no order,
+    // and two AIs: the person is out first, and inert, and the AIs fight on to one standing); four AIs free for all;
+    // and a person with an AI ally against two AIs. Each ends with one team standing.
+    let mins = 45; // (the free for all of seed 52 lasts 36 minutes: two seats left fight it out)
+    let g = to_the_end(51, &[0, 1, 0], &[], &[0, 1, 1], mins);
+    ended_well(&g, "three seats");
+    assert!(g.world().out[0], "the idle person is out");
+    let g = to_the_end(52, &[0, 1, 0, 1], &[], &[1, 1, 1, 1], mins);
+    ended_well(&g, "four free for all");
+    assert_eq!(
+        g.world().out.iter().filter(|&&o| o).count(),
+        3,
+        "three out, one standing"
+    );
+    let g = to_the_end(53, &[0, 1, 0, 1], &[0, 0, 1, 1], &[0, 1, 1, 1], mins);
+    ended_well(&g, "two against two");
 }

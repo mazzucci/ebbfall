@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -11,12 +11,13 @@ import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { setIconButton, portrait } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu, MAP_KINDS } from './client/menu.js';
+import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu, teamList } from './client/menu.js';
+import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
-import { initOnline, online, onlineMap, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
+import { initOnline, online, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -35,22 +36,25 @@ function showPower() {
   return ui.mode === 'build' || ui.mode === 'build2' || !!ui.place || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
 }
 
-/** Start a game on the map and against the opponent chosen in the menu. */
+/** Start a game on the map and against the opponent chosen in the menu: one AI (the duel, as always), or two or three,
+ *  each for itself or, for four, two against two (seat 0, this player, with an AI). */
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
   stopOnline();
-  begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace));
+  if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, [g.race, ...g.enemyRaces], teamList(g.players, g.teams), [false, ...g.enemyRaces.map(() => true)], 0, g.size));
+  else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace));
 }
 
-/** An online game: the room's setup, from this side's seat (online.js). */
+/** An online game: the room's setup, from this side's seat (online.js); its AI seats run in every client's game. */
 function newOnlineGame(setup, seat, races) {
-  const m = onlineMap(setup, MAP_KINDS.length);
+  const m = onlineMap(setup);
   menu.tutorial = false;
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat)); // (races: a RANDOM seat already drawn, online.js)
+  // (races: a RANDOM seat already drawn, online.js)
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: setup.diff ?? 1, size: m.size }));
 }
 
 function begin(reset) {
-  $('help').hidden = true; stopWatching(); ended = false;
+  $('help').hidden = true; stopWatching(); ended = false; outSaid = false;
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
@@ -130,17 +134,34 @@ function whatBeatYou() {
     (beats.length ? ` ${beats.slice(0, 2).map(k => name('unit', k)).join(' and ')} beat ${name('unit', worst[2])}.` : '');
 }
 
-function endGame() {
-  closePause(); setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
-  const win = G.winner === G.teams[G.me]; // (the winner is a team)
-  $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
-  // Online, the other side has a name (a friend's, as typed in the lobby).
-  const them = online.playing ? online.names[G.conceded >= 0 && G.conceded !== G.me ? G.conceded : foes()[0]] || '' : '';
+/** This side's allies (the other seats of its team). */
+const allies = () => G.teams.map((_, s) => s).filter(s => s !== G.me && !enemies(G.me, s));
+/** This side's game is over: the game is, or every seat of its team is out (a free-for-all goes on without it). */
+const myGameOver = () => G.over || (G.out[G.me] && allies().every(s => G.out[s]));
+/** The end card's line under the result. */
+function endLine(win) {
   const after = ' after ' + fmt(G.time) + '.';
-  $('endSub').textContent = G.conceded === G.me ? (them ? `You conceded to ${them}` : 'You conceded') + after : G.conceded >= 0 ? `${them || 'The enemy'} conceded` + after
+  const mine = allies();
+  if (mine.length) { // (a team game: the team's result; online, the friends on it by name)
+    const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'AI') : [];
+    return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
+  }
+  if (G.teams.length > 2) { // (free for all: nobody in particular beat this side, nor lost to it)
+    return (win ? 'The last one standing' : G.out[G.me] && G.conceded === G.me ? 'You conceded' : G.bldgs.some(b => b.team === G.me) ? 'Nothing left to fight with' : 'Your base fell') + after;
+  }
+  // A duel: online, the other side has a name (a friend's, as typed in the lobby). "Conceded" is said only of an enemy.
+  const them = online.playing ? online.names[foes()[0]] || '' : '';
+  return G.conceded === G.me ? (them ? `You conceded to ${them}` : 'You conceded') + after : G.conceded >= 0 ? `${them || 'The enemy'} conceded` + after
     : G.bldgs.some(b => G.teams[b.team] !== G.winner) ? (win ? `${them || 'The enemy'} had nothing left to fight with` : 'Nothing left to fight with') + after // (out with buildings standing)
     : win ? (them ? `${them}'s base is rubble` : 'The enemy base is rubble') + after : (them ? `Your base fell to ${them}` : 'Your base fell') + after;
-  const map = online.playing ? onlineMap(online.setup, MAP_KINDS.length) : setup();
+}
+
+function endGame() {
+  closePause(); setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
+  const win = G.over && G.winner === G.teams[G.me]; // (the winner is a team; out of a game that goes on: lost)
+  $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
+  $('endSub').textContent = endLine(win);
+  const map = online.playing ? onlineMap(online.setup) : setup();
   $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
   const S = G.stats[G.me];
   $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
@@ -202,7 +223,7 @@ setInterval(() => {
 $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
 
 // ---- loop ----
-let last = performance.now(), acc = 0, hudTimer = 0, ended = false;
+let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false;
 function loop(now) {
   const el = Math.min(0.1, (now - last) / 1000); last = now;
   if (input.enabled()) camKeys(el);
@@ -224,7 +245,8 @@ function loop(now) {
   // did, back on the end card (the result is on record already).
   if (online.playing && G.over) online.net?.pump(); // (the game is over, the room is not: still here, for a rematch)
   if (ui.watching) { if (G.over || G.tick > replayEnd()) doneWatching(); }
-  else if (started && G.over && !ended) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
+  else if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
+  else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
   if (started) render(ui.sel, ui.place, showPower());
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }

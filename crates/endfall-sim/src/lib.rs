@@ -201,16 +201,6 @@ impl Game {
         Ok(g)
     }
 
-    /// A game between people, seen from seat `me` (races by index into FACTIONS for seats 0 and 1): no AI seat. A
-    /// networked game makes one of these on every client, from the room's setup, and starts lockstep.
-    #[wasm_bindgen(js_name = forSeat)]
-    pub fn for_seat(seed: u32, map: u32, side: u32, f0: u32, f1: u32, me: u8) -> Game {
-        let mut g = Game::with_setup(seed, 1, map, side, f0, f1);
-        g.w.set_ai_seats([false, false]);
-        g.me = g.valid_team(me).unwrap_or(0);
-        g
-    }
-
     /// The seat this Game plays: its orders, its fog, its events.
     pub fn me(&self) -> u8 {
         self.me
@@ -721,14 +711,25 @@ pub fn data_json() -> String {
     data::data_json()
 }
 
-/// A two-seat map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row (64x64:
-/// `MapSize::DUEL`): 0 open ground, 1 rock, 2 shards, 3 an ether vent, 4 a starting base (both starts alike: which is
-/// whose is drawn each game).
+/// A map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row, on a map of
+/// `size` x `size` tiles (64, the default: a duel's two starts; 96: four starts, for three or four seats; 128: eight;
+/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 shards, 3 an ether vent, 4 a starting
+/// base (all starts alike: which is whose is drawn each game).
 #[wasm_bindgen(js_name = mapPreview)]
-pub fn map_preview(seed: u32, kind: u32) -> Vec<u8> {
+pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
     let mut next_id = 1;
-    let size = map::MapSize::DUEL;
-    let m = map::Map::generate(seed, map::MapKind::from_index(kind), size, 2, &mut next_id);
+    let size = match size {
+        Some(n @ (96 | 128)) => map::MapSize::square(n as i32),
+        _ => map::MapSize::DUEL,
+    };
+    let starts = map::max_starts(size);
+    let m = map::Map::generate(
+        seed,
+        map::MapKind::from_index(kind),
+        size,
+        starts,
+        &mut next_id,
+    );
     let mut g = m.rock.clone();
     let mut mark = |x: i32, y: i32, v: u8| {
         if m.in_map(x, y) {

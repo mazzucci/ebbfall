@@ -319,6 +319,29 @@ test('a game of four seats on a four-start map mirrors every seat\'s record', { 
   assert.deepEqual([E.MW, E.G.teams.length], [64, 2]);
 });
 
+test('the menus\' maps: a preview of any size with every start, and an online room\'s game with its AI seats', { skip }, async () => {
+  const { MAPS, onlineMap } = await import('../src/client/maps.js');
+  for (const m of MAPS.filter(x => !x.random)) {
+    const p = E.mapPreview(m.seed, m.kind, m.size);
+    assert.equal(p.length, m.size * m.size, `${m.name}: a byte per tile`);
+    // (a start is a 4x4 square of 4s; count the squares' top-left corners)
+    const starts = [...p.keys()].filter(i => p[i] === 4 && p[i - 1] !== 4 && p[i - m.size] !== 4).length;
+    assert.equal(starts, m.size === 64 ? 2 : 4, `${m.name}: every start`);
+  }
+  assert.deepEqual(E.mapPreview(4242, 0), E.mapPreview(4242, 0, 64), 'a duel\'s 64x64 by default');
+  // An online room of four: two people, two AIs against them; seat 1's game.
+  const setup = { seed: 77, map: 5, side: 3, races: ['humans', 'vael', 'random', 'vael'], names: ['Ann', 'Bo', '', ''], teams: [0, 0, 1, 1], ai: [0, 0, 1, 1], diff: 2 };
+  const m = onlineMap(setup);
+  assert.deepEqual([m.name, m.size], [MAPS[5].name, 96]);
+  E.resetGameForSeat(m.seed, m.kind, setup.side, E.seatRaces(setup.races, setup.seed, Object.keys(C.FACTIONS)), 1, { teams: setup.teams, ai: setup.ai, diff: setup.diff, size: m.size });
+  assert.deepEqual([E.MW, E.G.me, E.G.teams, E.G.diff], [96, 1, [0, 0, 1, 1], 2]);
+  assert.deepEqual(E.foes(), [2, 3]);
+  // A map that does not seat the room (the host's pick before the count changed): the first that does.
+  assert.equal(onlineMap({ ...setup, map: 0 }).size, 96);
+  assert.equal(onlineMap({ ...setup, map: 5, races: ['humans', 'humans'] }).size, 64);
+  E.resetGame(4, 0); // (back to a duel's map for the tests after)
+});
+
 test('the client names no unit or building kind outside its data tables and look table', () => {
   // Kind-specific behaviour lives in the sim's flags (worker, hq, onVent, researches...) and src/client/look.js.
   for (const f of ['client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js', 'client/scout.js', 'client/online.js', 'net/net.js']) {

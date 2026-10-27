@@ -201,6 +201,8 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 - [ ] Desync detection: exchange `stateHash()` every 100 ticks, dump both states on mismatch
 - [ ] Reconnect: late joiner replays the command log from tick 0
 
+- [x] Up to four players (2026-10-27, M4 step 2c in docs/MULTIPLAYER.md): PLAYERS 2-4 in single player (you and 1-3 AIs, free for all or, for four, you and an AI against two) and in the lobby (the host's seat count, TEAMS for four, open seats given to the AI at one difficulty, a friend may move seats); 96x96 maps of their own for three or four (DUST QUARTER, SHARD CROWN, LONG STEPPE, RANDOM), badges when a start stays free; the relay's AI seats (never waited for; every client runs their AI); a seat out of a game that goes on gives no orders and leaves inert units; teams in the hash when not the default; the end card for teams. Next: group paths (2d), then 5-8 players on 128x128; allies sharing vision.
+
 ### M4. Polish and ship
 - [ ] Deploy static build (GitHub Pages / Cloudflare Pages) and the relay
 - [x] PWA manifest so it installs on a phone (PNG icons and an INSTALL button, 2026-10-27)

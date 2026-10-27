@@ -132,10 +132,13 @@ function fresh(g) {
   dirty = true; sync();
 }
 /** An online game (docs/MULTIPLAYER.md): the room's setup, seen from seat `me`, in lockstep (orders go out to the
- *  relay; the network layer feeds the turns back). `seed` is the map's; `races` the seats' (RANDOM drawn: seatRaces). */
-export function resetGameForSeat(seed, map, side, races, me) {
+ *  relay; the network layer feeds the turns back). `seed` is the map's; `races` the seats' (RANDOM drawn: seatRaces);
+ *  `teams` a team per seat (empty: each its own), `ai` the seats the AI plays (at `diff`; every client runs them alike),
+ *  on a `size` x `size` map. Two people and no AI: the game a two-seat room always played. */
+export function resetGameForSeat(seed, map, side, races, me, { teams = [], ai = [], diff = 1, size = DUEL_MW } = {}) {
   const f = (k) => { if (k === 'random') throw new Error('a RANDOM seat is drawn first (seatRaces)'); return Math.max(0, Object.keys(FACTIONS).indexOf(k)); }; // (an unknown race: the first)
-  const g = Game.forSeat(seed >>> 0, map, side, f(races[0]), f(races[1]), me);
+  const g = Game.withSeats(seed >>> 0, ai.some(a => a) ? diff : 1, map, side, Uint32Array.from(races.map(f)), Uint8Array.from(teams),
+    Uint8Array.from(races.map((_, s) => (ai[s] ? 1 : 0))), me, size);
   g.startLockstep();
   fresh(g);
 }
@@ -166,9 +169,9 @@ export function startReplay() {
 /** The tick the replay being watched ends on (0: none). */
 export const replayEnd = () => game.replayEnd();
 export function stateHash() { return game.stateHash(); }
-/** A two-seat map's layout for the menu's thumbnail (DUEL_MW x DUEL_MH, one byte per tile: 0 ground, 1 rock, 2 shards,
- *  3 vent, 4 a start). */
-export const mapPreview = (seed, kind) => simMapPreview(seed, kind);
+/** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
+ *  byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start. */
+export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
 /** `team`'s army value every 10 s since the start (the end screen's chart). */
 export const armyLog = (team) => Array.from(game.armyLog(team));
 /** `team`'s units lost by what killed them: unit kinds in order, then building kinds (empty before any loss). */

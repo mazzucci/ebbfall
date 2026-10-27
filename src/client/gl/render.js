@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
+import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies } from '../../engine/index.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, SEAT_COLORS } from '../look.js';
 import { drag } from '../input.js';
@@ -232,7 +232,7 @@ class UnitObj {
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own colour)
     this.size = u.r > 12 ? 26 : 18;
-    this.ring = selArcs(this.size * 0.95, this.size * 0.6, u.team === G.me ? SEL : SEL_FOE); this.ring.visible = false; L.sel.addChild(this.ring);
+    this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0x4fd1c5, 0.18, 0.9);
     this.px = u.x; this.py = u.y; this.walk = 0;
   }
@@ -466,7 +466,7 @@ export function render(selList, place, power = false) {
     if (v) o.update(b, t, dt, seen);
     o.show(v);
     if (!v) return;
-    if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, b.team === G.me ? SEL : SEL_FOE);
+    if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, enemies(G.me, b.team) ? SEL_FOE : SEL);
     if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp, b.sh, b.maxsh);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
     if (b.team === G.me) {

@@ -142,7 +142,8 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    M4); the AI plans against the nearest enemy start still in. Left for M4: starts for N seats, per-seat colours in
    the art, allies sharing vision, what an out seat's leftover units do (and refusing an out seat's orders: today a
    conceded player in a 2v2 could keep fighting for their ally), teams in the network setup and in the state hash
-   (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded").
+   (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded"). (All
+   but shared vision: done in M4 step 2c.)
    Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
 3. The cross-engine golden matrix in CI, and the `?selftest` page. Done (2026-10-26): `src/engine/golden.js` (the
    golden games, checked against golden.rs), `selftest.html` (the device check, for a phone), the golden games in
@@ -174,7 +175,8 @@ Limits: a deploy restarts every room, ending the games in progress (their player
 an empty lobby is evicted from memory a minute or two after its last socket closes and comes back, empty, from a small
 storage record when someone joins within 10 minutes; a running game is never stored.
 
-**M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats.
+**M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats
+(up to four players, 2v2 and AI seats: step 2c, done).
 Map size per map (`MW`/`MH` become the map's: today they are constants in the sim and the client, which allocates
 its grids when it loads): 64x64 for 2, about 96x96 for 4, 128x128 for 6-8; the generator places N bases. Pathfinding
 on up to 16k tiles: raise the search cap, maybe flow fields for big groups; measure first. Performance with ~800
@@ -249,11 +251,8 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    128x128 0.47-0.58 ms, worst 9-27 ms (Medium 0.62-0.66, worst 34-42); six 0.37-0.48, worst 20-43. Two Hard AIs for
    comparison: 64x64 0.07 ms, worst 8; 96x96 0.12-0.13, worst 56-77; 128x128 0.14-0.15, worst 87-130. More seats mean
    more units every tick, but shorter walks (neighbours 44-76 tiles apart), so the worst tick, a wave setting off, is
-   lower than a duel's on the same map: part (d) still matters before phones get 128x128. Left: (c) the
-   lobby: seat count and map size, teams (allies in consecutive seats), AI to fill seats, the menu's preview of the
-   other sizes (`mapPreview` draws a duel's map), teams in the network setup; (d) group paths. Still from M3a: allies
-   sharing vision, an out seat's leftover units and buildings (an AI seat with a Core but no worker or money stays
-   in), the end card's wording with allies.
+   lower than a duel's on the same map: part (d) still matters before phones get 128x128. Left: (d) group paths,
+   then 5-8 players on 128x128; allies sharing vision.
    (b) A colour for every seat. *Done (2026-10-26):* eight seat colours (`SEAT_COLORS`, src/client/look.js: gold and
    magenta as before, then teal, lilac, green, blue, white, red; docs/ART.md). Units, buildings and turret heads are
    rendered once in neutral paint with a team mask frame (`<name>_m`) that the renderer draws over the art tinted
@@ -261,6 +260,65 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    cloak, power and hit effects reach both layers, HUD portraits composite both, and with more than two seats the
    minimap draws every seat in its colour (two seats: ours and theirs, as before). The atlas went from 9 pages and
    4.4 MB to 5 pages and 3.1 MB, whatever the number of seats.
+
+   (c) Up to four players, from the menu and the lobby. *Done (2026-10-27):*
+   - **Players first, then the map, then teams** (the owner's order). A PLAYERS row (2, 3, 4; built for 8 to fit
+     later) decides the size: two play a duel's 64x64 maps exactly as before, three or four a 96x96 map
+     (src/client/maps.js: `SIZES`, `sizeFor`, `mapsFor`). Each size has its own maps: the generator lays a seed out
+     differently at another size, so the 96x96 ones have names of their own: DUST QUARTER (seed 1291, standard, starts
+     in the corners), SHARD CROWN (2940, deep fields, starts in the middles of the sides round a rich centre), LONG
+     STEPPE (1582, open plains, corners), and RANDOM. They were picked from 60 seeds per character by four Medium AIs
+     free for all and two against two on two turns of the seats: every game ended (7 to 21 minutes), won from
+     different starts, the worst tick under 40 ms natively. A map's button carries a small badge ("up to 4") only
+     when some map offered seats more than the players chosen (three players: a start stays free, or a fourth could
+     join); otherwise nothing (no noise). `mapPreview(seed, kind, size)` draws any size with every start. For four,
+     TEAMS on the same row: FREE FOR ALL · 2v2 (seats 0 and 1 against 2 and 3: consecutive seats, which `seat_starts`
+     makes neighbours). Players and teams are remembered on the device.
+   - **Single player:** you and 1-3 AIs at the OPPONENT difficulty; one ENEMY choice for all of them (RANDOM drawn per
+     AI; in a 2v2 the ally AI's race too); for four, free for all or you and an AI against two. Two players start the
+     duel exactly as before (`resetGame`); more go through `resetGameSeats` (`Game.withSeats`).
+   - **The lobby:** the host (seat 0) picks PLAYERS (the room's seat count, 2-4: the relay's `seats {n, map}`; a
+     seat a person holds is never dropped, the teams go back to each its own), TEAMS for four (`teams {teams}`: a
+     team per seat or null), the map (one that seats them; every client falls back to the first that does if not),
+     and fills open seats with the AI (`+ AI` per open seat: `ai {seat, on, race?}`; tap an AI seat's race for the
+     next, × opens it again; one AI difficulty for the room, `diff {diff}`, shown once there is an AI seat). A
+     friend may move to an open seat (`sit {seat}`: the teams are by seat; the host's seat once the host has left,
+     and is the host then). With three or four seats the seats sit two a row (2v2: a team a row, VS between) with
+     each seat's colour, and the title gives way to the room's code, so a 667x375 phone holds it.
+   - **AI seats on the relay:** no connection, so it never waits for them (no load, no acks, never away, no ready, no
+     say in a rematch or a hash check) and nothing comes from them; every client runs those seats' AI in its own game
+     (the sim's `ai_seats`, deterministic). The setup is `{seed, map, side, races, names, teams, ai, diff}` (`teams` a
+     team per seat, `ai` 1 per AI seat, `diff` the AI's difficulty; RANDOM races drawn alike as before, `seatRaces`);
+     every client builds its game with `Game.withSeats(..., teams, ai, me, size)` (`resetGameForSeat`). Two-seat rooms
+     draw their seed and side as before and play the same game (`withSeats` with two seats and no AI is `forSeat`'s,
+     which is gone). `PROTO` 3: an older client is told to update.
+   - **Out of a game that goes on** (more than two seats): a seat that is out (beaten or conceded) gives no more
+     orders (`World::apply` refuses them: a conceded player cannot fight on for an ally), and what it leaves is inert
+     (`World::inert`): its units stop where they are when it goes out (a miner lets go of its crystal) and from then on
+     neither its units nor its buildings act (no moving, firing, mining, building, training or research); they stay on
+     the map and can be destroyed. Simplest and deterministic; removing them was the alternative. Once the game is
+     over nothing is held back (a duel never sees any of it: one seat out ends it, so the goldens did not move).
+   - **Teams in the state hash** only when they are not each seat its own (the goldens' games hash as before).
+   - **The end card with allies:** "Your team wins" / "Your team lost" (online, "with Bo" for friends on the team);
+     a free-for-all says "The last one standing", "Your base fell" or "You conceded"; "X conceded" only of an enemy in
+     a duel. The army chart sums the enemies ("Enemy armies"). Out of a free-for-all, the end card comes at once
+     (DEFEAT; online the game goes on underneath); out while an ally fights on, a toast ("You are out: your team fights
+     on"), and the card when the game ends.
+   - **Allies in the HUD:** an ally's unit selected reads "Ally", with a friendly selection ring; its capital units are
+     not announced as enemies; the minimap shows every seat in its colour (more than two seats). Allies do not attack
+     each other (step a). Vision is not shared yet: later.
+   Tests: gameplay `seats.rs` (an out seat's orders refused and its leftovers inert, deterministic; teams in the hash
+   only when not the default; three seats with an idle person, four AIs free for all and a person with an AI ally
+   against two through `Game::with_seats`, each to one team standing), `lockstep.rs` (two clients with an AI seat, and
+   two people with two AIs in a 2v2, the same world every turn, the AI building up); test/relay.test.js (a two-seat
+   room's setup as before; the host's seat count; AI seats: never waited for or away, no orders, the setup's teams, ai
+   and difficulty, ready from people only, rematch; a person leaving with AI seats; moving seats); test/net.test.js
+   (three seats with an AI and a 2v2 of two people and two AIs through the Node relay: the same game in both clients,
+   the AIs at work); test/maps.test.js; engine.test.js (every map's preview with every start; an online room's game
+   with AI seats); e2e: the single-player PLAYERS/TEAMS/maps flow on a 667x375 phone, a 2v2 to its end (out while the
+   ally fights on), and a three-seat online room with an AI seat in two browsers (the same hash trail).
+   Left: (d) group paths, then 5-8 players (128x128 maps of their own, the PLAYERS row to 8); allies sharing vision;
+   an AI taking over a seat whose player left.
 
 ## Open questions for the owner
 

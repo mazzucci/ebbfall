@@ -126,7 +126,7 @@ function watchCapitals() {
     const key = u.team + ':' + u.type; if (capitals.has(key)) continue;
     capitals.add(key);
     if (u.team === G.me) toast(`${u.d.name} ready`);
-    else { toast(`Enemy ${u.d.name} sighted!`, true, true); sfx('alert'); ping(u.x, u.y); }
+    else if (enemies(G.me, u.team)) { toast(`Enemy ${u.d.name} sighted!`, true, true); sfx('alert'); ping(u.x, u.y); }
   }
 }
 

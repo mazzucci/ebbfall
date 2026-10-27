@@ -1,13 +1,17 @@
 // Multiplayer (docs/MULTIPLAYER.md): the lobby card and the glue between the network layer (src/net/net.js) and the
 // game. Mobile-first and few words: open a room (a 4-letter code to share, or a link) or join one, pick a race (or
-// RANDOM: drawn when the game starts, alike on every client, src/engine/util.js seatRaces; the first seat also picks
-// the map), ready. The menu's MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's
-// VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
+// RANDOM: drawn when the game starts, alike on every client, src/engine/util.js seatRaces), ready. The room's host (the
+// first seat) also picks the players (2 to 4: the room's seats), the teams for four, the map (one that seats them) and
+// gives open seats to the AI (its race, and one difficulty for every AI seat); a friend may move to an open seat (the
+// teams are by seat: the first two against the last two). The menu's MULTIPLAYER is shown only where a relay is known:
+// `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
 import { Net, PAUSES } from '../net/net.js';
 import { liveGame, seatRaces, FACTIONS } from '../engine/index.js';
 import { $, toast } from './ui.js';
 import { sfx } from './audio.js';
-import { MAPS, mapName } from './menu.js';
+import { mapButtons } from './menu.js';
+import { fitMap } from './maps.js';
+import { SEAT_COLORS } from './look.js';
 import { touchDevice, enterFullscreen } from './screen.js';
 
 const params = new URLSearchParams(location.search);
@@ -53,6 +57,20 @@ export function initOnline({ start, leave, quit, room, rematch, pause, resume })
   $('btnShare').addEventListener('click', share);
   $('btnOnlineReload').addEventListener('click', reloadNewest);
   for (const b of $('onlineRace').querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.race(b.dataset.race); });
+  // The host's: the players (the map follows: one that seats them), the teams for four, the AI seats' difficulty.
+  for (const b of $('onlinePlayers').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.seats(+b.dataset.n, fitMap(lobbyState?.map ?? 0, +b.dataset.n)); });
+  for (const b of $('onlineTeams').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.teams(b.dataset.teams === '2v2' ? [0, 0, 1, 1] : null); });
+  for (const b of $('onlineDiff').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.diff(+b.dataset.d); });
+  // A seat's own buttons (rendered with the seats): the host's + AI / × on an open or AI seat and an AI's race, and a
+  // friend's SIT HERE on an open seat.
+  $('seatList').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const seat = +b.dataset.seat, act = b.dataset.act; sfx('select');
+    if (act === 'ai') online.net?.ai(seat, true);
+    else if (act === 'open') online.net?.ai(seat, false);
+    else if (act === 'race') online.net?.ai(seat, true, NEXT_RACE[lobbyState?.seats[seat]?.race] || 'random');
+    else if (act === 'sit') online.net?.sit(seat);
+  });
   $('onlineName').value = store.get('name') || '';
   // A shared link (?join=CODE): straight to that room.
   // After UPDATE with no room yet (?online=1): straight back to the multiplayer page.
@@ -85,7 +103,8 @@ function connect(room) {
       lobby: (m) => { if (online.playing) backToRoom(); renderLobby(m); },
       rematch: (wants) => { online.wants = wants; onRematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
-      start: (setup, seat, m) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true;
+      start: (setup, seat, m) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.playing = true; $('online').hidden = true;
+        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'AI' : n)); // (an AI seat is "AI" in every line that names a seat)
         online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
         // (a RANDOM seat drawn from the room's seed, alike on every client: here, in a file the build hash covers)
         onStart(setup, seat, seatRaces(setup.races, setup.seed, Object.keys(FACTIONS))); online.net.loaded(); },
@@ -147,23 +166,54 @@ function backToRoom() {
 /** The end card's REMATCH, online: want another game in this room (again: not any more). */
 export function wantRematch() { online.rematch = !online.rematch; online.net?.rematch(online.rematch); return online.rematch; }
 
+/** The last lobby the relay sent (the host's buttons read it). */
+let lobbyState = null;
+const NEXT_RACE = { humans: 'vael', vael: 'random', random: 'humans' };
+const dot = (i) => `<i class="dot" style="background:#${SEAT_COLORS[i % SEAT_COLORS.length].toString(16).padStart(6, '0')}"></i>`;
+/** Light the button of `box` whose `key` data is `value`; `locked`: shown, not chosen (not the host's). */
+function radio(box, key, value, locked) {
+  for (const b of box.querySelectorAll('button')) { const on = b.dataset[key] === String(value); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.disabled = locked && !on; }
+}
+
 function renderLobby(m) {
-  // A seat nobody has taken yet (no name, not here): an open seat, nothing more.
-  const open = (s) => !s.here && !s.name;
-  $('seatList').innerHTML = m.seats.map((s, i) => open(s) ? '<div class="seat open"><b>open seat</b><span></span><span></span></div>'
-    : `<div class="seat${i === online.seat ? ' me' : ''}"><b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'AWAY' : s.ready ? 'READY' : ''}</span></div>`).join('');
+  lobbyState = m;
+  const host = online.seat === 0, n = m.seats.length;
+  // A seat nobody has taken yet (no name, not here, not the AI's): an open seat; the host may give it to the AI, a
+  // friend may move there. An AI seat: its race (the host taps it for the next) and, for the host, × to open it again.
+  const open = (s) => !s.ai && !s.here && !s.name;
+  const cell = (s, i) => {
+    if (s.ai) {
+      const race = esc(String(s.race || 'random').toUpperCase());
+      return `<div class="seat ai">${dot(i)}<b>AI</b>${host ? `<button class="ib" data-act="race" data-seat="${i}" title="Its race (tap for the next)">${race}</button><button class="ib x" data-act="open" data-seat="${i}" title="An open seat again" aria-label="Remove the AI">×</button>` : `<span>${race}</span><span></span>`}</div>`;
+    }
+    if (open(s)) {
+      const act = host ? `<button class="ib" data-act="ai" data-seat="${i}" title="The AI plays this seat">+ AI</button>` : online.seat > 0 ? `<button class="ib" data-act="sit" data-seat="${i}" title="Take this seat (the teams are by seat)">SIT HERE</button>` : '';
+      return `<div class="seat open">${dot(i)}<b>open seat</b>${act || '<span></span>'}<span></span></div>`;
+    }
+    return `<div class="seat${i === online.seat ? ' me' : ''}">${dot(i)}<b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'AWAY' : s.ready ? 'READY' : ''}</span></div>`;
+  };
+  // Two against two: the first two seats against the last two, a row each.
+  const vs = n === 4 && Array.isArray(m.teams) && m.teams[0] === m.teams[1] && m.teams[2] === m.teams[3] && m.teams[0] !== m.teams[2];
+  const cells = m.seats.map(cell);
+  if (vs) cells.splice(2, 0, '<div class="vs">VS</div>');
+  $('seatList').innerHTML = cells.join('');
+  $('seatList').classList.toggle('many', n > 2);
   const me = m.seats[online.seat];
   if (me) {
-    for (const b of $('onlineRace').querySelectorAll('button')) { const on = b.dataset.race === me.race; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+    radio($('onlineRace'), 'race', me.race, false);
     online.ready = me.ready; $('btnOnlineReady').textContent = me.ready ? 'NOT READY' : 'READY';
   }
-  // The map: the first seat picks; everyone sees it (and whose pick it is).
-  $('onlineMapNote').textContent = online.seat === 0 ? '' : `${m.seats[0]?.name || 'your friend'}'s pick`; // (the joiner: who chooses)
-  const maps = $('onlineMaps');
-  maps.innerHTML = MAPS.map((mp, i) => `<button class="ib${i === m.map ? ' on' : ''}" data-i="${i}"${online.seat === 0 ? '' : ' disabled'}>${mp.name.toUpperCase()}</button>`).join('');
-  if (online.seat === 0) for (const b of maps.querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.map(+b.dataset.i); });
-  const gone = m.seats.filter(s => !s.here && !open(s)).map(s => s.name || 'your friend');
-  status(m.seats.some(open) ? 'Send a friend the link, then wait here' : gone.length ? `Waiting for ${gone.join(', ')}…` : m.seats.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
+  // The host's choices; everyone sees them (and whose pick the map is).
+  radio($('onlinePlayers'), 'n', n, !host);
+  $('onlineTeams').hidden = n !== 4;
+  radio($('onlineTeams'), 'teams', vs ? '2v2' : 'ffa', !host);
+  $('onlineAi').hidden = !m.seats.some(s => s.ai);
+  radio($('onlineDiff'), 'd', m.diff ?? 1, !host);
+  $('onlineMapNote').textContent = host ? '' : `${m.seats[0]?.name || 'your friend'}'s pick`; // (the joiner: who chooses)
+  mapButtons($('onlineMaps'), n, fitMap(m.map, n), host ? (i) => online.net?.map(i) : null);
+  const people = m.seats.filter(s => !s.ai);
+  const gone = people.filter(s => !s.here && !open(s)).map(s => s.name || 'your friend');
+  status(m.seats.some(open) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -196,12 +246,6 @@ async function share() {
     if (navigator.share) await navigator.share({ title: 'Ebbfall', text: `Play me in Ebbfall: room ${code}`, url });
     else { await navigator.clipboard.writeText(url); toast('Link copied'); }
   } catch { /* cancelled */ }
-}
-
-/** The map an online setup plays: a fixed one's layout, or the room's seed for the random one (a character from it). */
-export function onlineMap(setup, kinds) {
-  const m = MAPS[setup.map] || MAPS[0];
-  return m.random ? { seed: setup.seed, kind: setup.seed % kinds, name: mapName(setup.seed) } : { seed: m.seed, kind: m.kind, name: m.name };
 }
 
 /** Leave the online game (or the lobby) for good. */

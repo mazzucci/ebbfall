@@ -1,7 +1,8 @@
 // Play a friend, end to end in two browsers: a local relay (relay/server.mjs, with latency and jitter), one player
 // opens a room from the menu, the other joins by the shared link, both ready up, and the game runs in lockstep in both.
 // One gives orders; both worlds must be the same on every tick they both ran (the network layer's hash trail), and
-// leaving concedes: the other side wins.
+// leaving concedes: the other side wins. The pause card online: a menu over a game that goes on, and a pause for
+// everyone that only its caller ends.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
@@ -189,6 +190,98 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       const common = [...ta.keys()].filter(t => tb.has(t));
       assert.ok(common.length > 30, `both ran the new game (${common.length} ticks in common)`);
       for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
+    } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});
+
+test('the pause card online: a menu over a game that goes on; a pause for everyone, which only its caller ends; leaving and the end card name the friend', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    const b = await joinByLink({ ...PHONE, viewport: { width: 667, height: 375 } }, `${relayQ}&join=${code}`, 'Bo');
+    try {
+      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
+      await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      const ticks = () => Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.tick)));
+      const runs = async (what) => { const t = await ticks(); await a.p.waitForTimeout(800); const u = await ticks(); assert.ok(u[0] > t[0] && u[1] > t[1], `${what}: ${t} -> ${u}`); };
+      const stands = async (what) => { await a.p.waitForTimeout(500); const t = await ticks(); await a.p.waitForTimeout(1000); assert.deepEqual(await ticks(), t, what); };
+      const card = (x) => x.p.evaluate(() => ({
+        open: !document.getElementById('pause').hidden, h: document.querySelector('#pause h2').textContent, line: document.getElementById('pauseTime').textContent,
+        buttons: [...document.querySelectorAll('#pause .pausegrid button')].filter(b => !b.hidden).map(b => (b.disabled ? '(' + b.textContent + ')' : b.textContent)),
+      }));
+      // The friend plays full screen (stood in for): a pause Ann calls must leave it so.
+      await b.p.evaluate(() => {
+        for (const k of ['fullscreenElement', 'webkitFullscreenElement']) Object.defineProperty(document, k, { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+        document.exitFullscreen = async () => { window.fs = false; window.fsOut = (window.fsOut || 0) + 1; };
+        window.fs = true; window.fsAsked = 0;
+      });
+      // Ann opens the card: a menu; the game goes on in both.
+      await a.tap('#btnPause');
+      let c = await card(a);
+      assert.equal(c.h, 'Menu');
+      assert.match(c.line, /^\d+:\d\d in\. The game goes on while this is open\.$/);
+      assert.deepEqual(c.buttons, ['BACK TO GAME', 'HOW TO PLAY', 'PAUSE FOR EVERYONE3 left', 'LEAVE GAME'], 'no RESTART online; a pause for everyone, with the pauses left');
+      assert.equal(await a.p.locator('#btnQuit').getAttribute('title'), 'Back to the menu: Bo wins');
+      assert.equal((await card(b)).open, false, 'the friend\'s screen is untouched');
+      await runs('the game goes on under the menu');
+      // The friend's phone sleeps (its socket gone); Ann pauses for everyone meanwhile.
+      await b.p.evaluate(() => { const n = endfall.online.net; n._open = n.open; n.open = () => {}; n.ws.close(); });
+      await a.tap('#btnPauseAll');
+      await a.p.waitForFunction(() => /^You paused · [45]:\d\d left$/.test(document.getElementById('pauseTime').textContent), null, { timeout: 5000 });
+      c = await card(a);
+      assert.deepEqual([c.h, c.buttons], ['Paused', ['RESUME', 'HOW TO PLAY', 'LEAVE GAME']], 'the one who paused: RESUME; no second pause');
+      await a.p.waitForTimeout(3500); // (the friend is away by now: the pause says it all, nobody is "waited for")
+      assert.ok(await a.p.locator('#netWait').isHidden(), 'no "Waiting for" over a pause');
+      // Back: the friend is told of the pause, and shown it, with its time running down.
+      await b.p.evaluate(() => { const n = endfall.online.net; n.open = n._open; n.open(); });
+      await b.p.waitForFunction(() => !document.getElementById('pause').hidden, null, { timeout: 8000 });
+      c = await card(b);
+      assert.equal(c.h, 'Paused');
+      assert.match(c.line, /^Paused by Ann · [45]:\d\d left$/);
+      assert.deepEqual(c.buttons, ["(ANN'S PAUSE)", 'HOW TO PLAY', 'LEAVE GAME'], 'the others: whose pause it is, greyed; no RESUME');
+      const sc = await b.p.locator('#pause .card').evaluate(e => [e.scrollHeight, e.clientHeight]);
+      assert.ok(sc[0] <= sc[1] + 1, `fits a small phone: ${sc}`);
+      await stands('both games stand still');
+      // The friend cannot end it: not with the keys, not even by asking the relay.
+      await b.p.keyboard.press('Escape'); await b.p.keyboard.press('p');
+      await b.p.evaluate(() => endfall.online.net.resume());
+      assert.equal((await card(b)).open, true, 'the card stays');
+      await stands('still paused');
+      // Ann resumes: the game runs again in both, the same world; the friend's card goes (it opened by itself).
+      await a.tap('#btnResume');
+      for (const x of [a, b]) await x.p.locator('#pause').waitFor({ state: 'hidden', timeout: 5000 });
+      await b.p.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'Back to the game'), null, { timeout: 3000 });
+      await runs('both run again');
+      assert.deepEqual(await b.p.evaluate(() => [window.fs, window.fsOut || 0, window.fsAsked]), [true, 0, 0], 'Ann\'s pause left the friend\'s full screen alone');
+      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
+      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
+      const common = [...ta.keys()].filter(t => tb.has(t));
+      assert.ok(common.length > 20, `both ran on (${common.length} ticks in common)`);
+      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      // One pause fewer for Ann; the friend still has all three.
+      await a.tap('#btnPause');
+      assert.ok((await card(a)).buttons.includes('PAUSE FOR EVERYONE2 left'));
+      await a.tap('#btnResume');
+      await b.tap('#btnPause');
+      assert.ok((await card(b)).buttons.includes('PAUSE FOR EVERYONE3 left'));
+      await b.tap('#btnResume');
+      // The back gesture's dialog: the game goes on, and who wins if you leave.
+      await a.p.evaluate(() => history.back());
+      await a.p.locator('#leave').waitFor({ state: 'visible', timeout: 5000 });
+      assert.equal(await a.p.locator('#leaveSub').textContent(), 'The game goes on. If you leave, Bo wins.');
+      await a.tap('#btnStay');
+      // The end card names the friend's army, leaves the room (no NEW GAME), and a rematch asked can be taken back.
+      await a.p.evaluate(() => endfall.engine.concede()); // (set-up: the end card is what is tested)
+      for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
+      assert.deepEqual(await b.p.evaluate(() => [document.getElementById('btnAgain').textContent, document.querySelector('#endKey .foe').textContent]), ['LEAVE ROOM', "Ann's army"]);
+      await b.tap('#btnRematch');
+      assert.equal(await b.p.locator('#btnRematch').getAttribute('title'), 'Tap again to take it back');
+      await a.p.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'Bo wants a rematch'), null, { timeout: 5000 });
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }

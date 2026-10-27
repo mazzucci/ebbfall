@@ -3,7 +3,8 @@
 // back, a reconnect that resumes, a seat that leaves, a stall, hash checkpoints; and the Node server over real sockets.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY } from '../relay/room.js';
+import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES } from '../relay/room.js';
+import { PAUSES as NET_PAUSES } from '../src/net/net.js';
 
 /** A room with fake connections that record what they are sent (and whether they were kicked). */
 function room(seats = 2) {
@@ -239,6 +240,105 @@ test('leaving after the game: the others are told at once', () => {
   for (const c of [a, b]) r.receive(c, { t: 'over' });
   r.receive(b, { t: 'leave' }); r.close(b);
   assert.equal(got(a, 'left')[0]?.seat, 1);
+});
+
+test('a pause stops the clock for everyone until the seat that paused resumes it, or its five minutes run out; three a game per seat', () => {
+  const { r, a, b, got, clear } = started();
+  play(r, [a, b], 0, 1000);
+  r.receive(b, { t: 'pause' });
+  assert.deepEqual(got(a, 'start')[0].left, [PAUSES, PAUSES], 'the start says the pauses each seat has');
+  assert.equal(NET_PAUSES, PAUSES, 'the client counts the same');
+  assert.deepEqual([got(a, 'pause')[0].seat, got(a, 'pause')[0].left], [1, [3, 2]], 'everyone told who paused, and the pauses left');
+  clear(); const turn = r.turn;
+  play(r, [a, b], 1100, 20000);
+  assert.equal(r.turn, turn, 'no turns while paused');
+  assert.equal(got(a, 'away').length, 0, 'nobody away for it');
+  r.receive(a, { t: 'resume' });
+  assert.equal(got(b, 'resume').length, 0, 'the other side cannot end it');
+  play(r, [a, b], 20100, 20500);
+  assert.equal(r.turn, turn, 'still paused');
+  r.receive(b, { t: 'resume' });
+  assert.equal(got(a, 'resume')[0]?.seat, 1, 'who paused ends it, when ready');
+  play(r, [a, b], 20600, 21000);
+  assert.ok(r.turn > turn, 'the clock runs again');
+  // Its five minutes run out on its own.
+  r.receive(b, { t: 'pause' }); clear();
+  play(r, [a, b], 21100, 21000 + PAUSE_MS + 500);
+  assert.equal(got(a, 'resume')[0]?.seat, -1, 'time ran out');
+  // A third, then no more for that seat.
+  r.receive(b, { t: 'pause' }); r.receive(b, { t: 'resume' });
+  clear(); r.receive(b, { t: 'pause' });
+  assert.equal(got(a, 'pause').length, 0, 'three a game');
+  r.receive(a, { t: 'pause' });
+  assert.equal(got(b, 'pause')[0]?.seat, 0, 'the other side still has its own');
+});
+
+test('a seat gone during a long pause is not counted away for it (its phone slept): the budget counts from the resume', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  r.receive(a, { t: 'pause' });
+  r.close(b); // (b's phone sleeps through the pause)
+  for (let t = 600; t <= 600 + 4 * 60000; t += 1000) { r.tick(t); r.receive(a, { t: 'ack', turn: r.turn }); }
+  assert.equal(got(a, 'left').length, 0, 'four minutes away during a pause: still in the game');
+  r.receive(a, { t: 'resume' });
+  for (let t = 600 + 4 * 60000; t <= 600 + 4 * 60000 + 30000; t += 1000) { r.tick(t); r.receive(a, { t: 'ack', turn: r.turn }); }
+  assert.equal(got(a, 'left').length, 0, 'and its budget is whole after the resume');
+});
+
+test('back during the pause, then a short hiccup after the resume: still in (a pause\'s time is nobody\'s)', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  r.receive(a, { t: 'pause' });
+  for (let t = 600; t <= 600 + 120000; t += 1000) { r.tick(t); r.receive(b, { t: 'ack', turn: r.turn }); } // (Ann's tab hidden two minutes: no acks)
+  r.receive(a, { t: 'ack', turn: r.turn }); // (back, still paused)
+  r.receive(a, { t: 'resume' });
+  for (let t = 121600; t <= 121600 + 20000; t += 1000) { r.tick(t); r.receive(b, { t: 'ack', turn: r.turn }); if (t < 121600 + 10000) r.receive(a, { t: 'ack', turn: r.turn }); }
+  assert.equal(got(b, 'left').length, 0, 'a ten-second hiccup after a long pause does not concede');
+});
+
+test('time away before a pause still counts (a pause does not refund it)', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  r.close(b);
+  for (let t = 600; t <= 50600; t += 1000) r.tick(t), r.receive(a, { t: 'ack', turn: r.turn });
+  r.receive(a, { t: 'pause' }); r.tick(50700); r.receive(a, { t: 'resume' });
+  for (let t = 50800; t <= 70800; t += 1000) r.tick(t), r.receive(a, { t: 'ack', turn: r.turn });
+  assert.equal(got(a, 'left')[0]?.seat, 1, 'gone 50 s, then 20 s more: out');
+});
+
+test('a rejoin is always told whether a pause is on; no pause from a seat whose game is over; the last seat standing is not kept paused', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  const token = got(b, 'seat')[0].token;
+  r.receive(b, { t: 'pause' }); r.close(b); r.tick(600);
+  r.receive(b, { t: 'resume' }); // (from a closed connection: nothing)
+  r.tick(600 + PAUSE_MS + 100); // (the pause ran out while b was gone)
+  const b2 = { name: 'b2' }, sent = [];
+  r.send = ((send) => (c, m) => { if (c === b2) sent.push(m); else send(c, m); })(r.send);
+  r.connect(b2, hello({ name: 'Bo', token, next: 0 }));
+  assert.ok(sent.some(m => m.t === 'resume' && m.seat === -2), 'no pause on: told so (its card must not stay up)');
+  r.receive(a, { t: 'over' });
+  r.receive(a, { t: 'pause' });
+  assert.equal(r.hold, null, 'a seat whose game is over cannot pause the others');
+  r.receive(b2, { t: 'pause' });
+  assert.ok(r.hold, 'b pauses');
+  r.receive(a, { t: 'leave' });
+  assert.equal(r.hold, null, 'one seat left: no pause to wait out');
+});
+
+test('a seat back during a pause is told; a seat that leaves ends its own pause', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  const token = got(b, 'seat')[0].token;
+  r.receive(a, { t: 'pause' });
+  r.close(b);
+  const b2 = { name: 'b2' }, sent = [];
+  r.send = ((send) => (c, m) => { if (c === b2) sent.push(m); else send(c, m); })(r.send);
+  r.connect(b2, hello({ name: 'Bo', token, next: 0 }));
+  assert.ok(sent.some(m => m.t === 'pause' && m.seat === 0 && m.ms > 0), 'back: told of the pause and its time left');
+  assert.deepEqual(sent.find(m => m.t === 'start').left, [2, 3], 'and of the pauses left (a reloaded page knows them before the next pause)');
+  r.receive(a, { t: 'leave' });
+  assert.equal(r.hold, null, 'its pause went with it');
 });
 
 test('no rematch with a seat that left', () => {

@@ -7,7 +7,8 @@ import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelectio
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
-import { goHome, selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup, togglePause, paused } from './tools.js';
+import { goHome, selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup } from './tools.js';
+import { togglePause, paused } from './pause.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });

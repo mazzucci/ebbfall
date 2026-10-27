@@ -29,7 +29,8 @@ and buildings, and Observers, cheap unarmed flying scouts. Turrets hit ground an
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 
 **Pause and after the game:** the pause card shows the clock and the enemy units you have seen in the last minute and
-a half. The end card says what beat you and what you saw of their army; WATCH plays the game again from the start,
+a half. Against a friend the game goes on under it; PAUSE FOR EVERYONE stops it for both of you (three a game, five
+minutes at most, and only you can end your pause early). The end card says what beat you and what you saw of their army; WATCH plays the game again from the start,
 both sides in view, at up to 8x.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.

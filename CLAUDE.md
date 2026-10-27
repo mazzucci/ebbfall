@@ -82,7 +82,9 @@ src/client/           everything that touches the browser
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   card.js             the command card: buttons for the selection, long-press details, what a button does
-  tools.js            player helpers: select idle workers / army / same type, control groups, alerts, pause
+  tools.js            player helpers: select idle workers / army / same type, control groups, alerts
+  pause.js            the pause card: alone it pauses, in a replay BACK TO REPLAY / DONE, online a menu over a game that
+                      goes on, with a pause for everyone (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG) and unit/building portraits cut from the atlas
   look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
@@ -102,7 +104,8 @@ test/art.test.js      the atlas against the game: every unit, building and turre
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
-                      online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes),
+                      online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
+                      the pause card's menu and a pause for everyone),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
                       CHECK OFFLINE against the real service worker, the app icons)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed

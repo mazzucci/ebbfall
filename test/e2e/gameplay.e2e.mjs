@@ -270,18 +270,24 @@ test('the army chip, the idle-harvester key, and double-click selects all of a t
   } finally { await d.close(); }
 });
 
-test('pause stops the game and restart begins a new one', async () => {
+test('pause stops the game, BACK TO GAME (or P) goes on, and restart begins a new one', async () => {
   const d = await newGame(DESKTOP);
   try {
     await d.page.waitForFunction(() => endfall.G.time > 1);
     await d.key('p');
     assert.ok(await d.page.locator('#pause').isVisible());
+    assert.deepEqual([await d.page.locator('#pause h2').textContent(), await d.page.locator('#btnResume').textContent()], ['Paused', 'BACK TO GAME']);
     const t0 = await d.eval(() => endfall.G.time);
     await d.page.waitForTimeout(1200);
     assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while paused');
     await d.key('p');
     assert.ok(!(await d.page.locator('#pause').isVisible()), 'P resumes');
     await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 5000 }); // (throws if time stays still)
+    await d.page.locator('#btnPause').click();
+    const t1 = await d.eval(() => endfall.G.time);
+    await d.page.locator('#btnResume').click();
+    assert.ok(await d.page.locator('#pause').isHidden(), 'BACK TO GAME closes the card');
+    await d.page.waitForFunction((t1) => endfall.G.time > t1, t1, { timeout: 5000 });
     await d.page.locator('#btnPause').click();
     await d.page.locator('#btnRestart').click();
     await d.page.waitForFunction(() => endfall.G.time < 1, null, { timeout: 5000 }); // a new game started
@@ -1190,14 +1196,32 @@ test('phone: Home looks at the base (beside SELECT, no wider than the minimap to
   } finally { await d.close(); }
 });
 
-test('phone: the pause card has four equal buttons; Leave game goes back to the menu and counts as a defeat', async () => {
-  const d = await newGame(PHONE, 1, 4242);
+test('phone: the pause card has four equal buttons and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', async () => {
+  const d = await newGame({ ...PHONE, viewport: { width: 667, height: 375 } }, 1, 4242);
   try {
+    // Full screen (stood in for: headless browsers have none, or a real one START may have entered).
+    await d.eval(() => {
+      for (const k of ['fullscreenElement', 'webkitFullscreenElement']) Object.defineProperty(document, k, { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+      document.exitFullscreen = async () => { window.fs = false; window.fsOut = (window.fsOut || 0) + 1; document.dispatchEvent(new Event('fullscreenchange')); };
+      document.documentElement.requestFullscreen = async () => { window.fs = true; window.fsIn = (window.fsIn || 0) + 1; document.dispatchEvent(new Event('fullscreenchange')); };
+      window.fs = true; document.dispatchEvent(new Event('fullscreenchange'));
+    });
+    const fs = () => d.eval(() => [!!window.fs, window.fsOut || 0, window.fsIn || 0]);
     await d.page.locator('#btnPause').tap();
-    const boxes = await d.page.$$eval('#pause .pausegrid button', bs => bs.map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; }));
-    assert.deepEqual(boxes.map(b => b[0]), ['RESUME', 'HOW TO PLAY', 'RESTART', 'LEAVE GAME']);
-    assert.ok(boxes.every(b => b[1] === boxes[0][1] && b[2] === boxes[0][2]), `one size: ${JSON.stringify(boxes)}`);
+    assert.deepEqual(await fs(), [false, 1, 0], 'PAUSE leaves full screen');
+    const boxes = await d.page.$$eval('#pause .pausegrid button', bs => bs.filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; }));
+    assert.deepEqual(boxes.map(b => b[0]), ['BACK TO GAME', 'HOW TO PLAY', 'RESTART', 'LEAVE GAME']);
+    assert.ok(boxes.every(b => b[1] === boxes[0][1] && b[2] === boxes[0][2] && b[2] >= 44), `one size, big enough: ${JSON.stringify(boxes)}`);
+    const sc = await d.page.locator('#pause .card').evaluate(e => [e.scrollHeight, e.clientHeight]);
+    assert.ok(sc[0] <= sc[1] + 1, `fits without scrolling: ${sc}`);
     assert.equal(await d.page.locator('#btnConcede').count(), 0, 'no Concede (leaving is giving up)');
+    await d.page.locator('#btnResume').tap();
+    assert.deepEqual(await fs(), [true, 1, 1], 'BACK TO GAME: full screen again');
+    // Out of full screen when paused: BACK TO GAME leaves it so.
+    await d.eval(() => document.exitFullscreen());
+    await d.page.locator('#btnPause').tap(); await d.page.locator('#btnResume').tap();
+    assert.deepEqual(await fs(), [false, 2, 1], 'not full screen before: not after either');
+    await d.page.locator('#btnPause').tap();
     await d.page.locator('#btnQuit').tap();
     await d.page.locator('#start').waitFor({ state: 'visible' });
     assert.match(await d.page.locator('#record').textContent(), /1 lost/, 'counted as a defeat');
@@ -1568,6 +1592,15 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       assert.ok(await d.page.locator('#cmd').evaluate(e => getComputedStyle(e).visibility === 'hidden'), 'no command card');
       // Both sides in view: the enemy's base is not fogged.
       assert.ok(await d.eval(() => endfall.G.bldgs.filter(b => b.team !== endfall.G.me).every(b => endfall.engine.visibleEnt(b))), 'both sides in view');
+      // PAUSE in a replay: the replay waits; BACK TO REPLAY, or DONE (no restarting, nothing given up).
+      await tap('#btnPause');
+      const shown = await d.page.$$eval('#pause .pausegrid button', bs => bs.filter(b => !b.hidden).map(b => b.textContent));
+      assert.deepEqual(shown, ['BACK TO REPLAY', 'DONE'], 'the replay\'s pause card');
+      assert.match(await d.page.locator('#pauseTime').textContent(), /^\d+:\d\d into the replay\.$/);
+      const t0 = await d.eval(() => endfall.G.tick); await d.page.waitForTimeout(500);
+      assert.equal(await d.eval(() => endfall.G.tick), t0, 'the replay waits');
+      await tap('#btnResume');
+      await d.page.waitForFunction((t0) => endfall.G.tick > t0, t0, { timeout: 5000 });
       await tap('#btnSpeed');
       assert.equal(await d.page.locator('#btnSpeed').textContent(), '8×', 'faster');
       // It ends where the game ended, back on the end card, the record unchanged.
@@ -1576,10 +1609,14 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       const at = await d.eval(() => [endfall.G.tick, endfall.G.over, endfall.engine.replayEnd()]);
       assert.ok(at[1] && Math.abs(at[0] - played) <= 1, `it ran to where the game ended, and it is over: ${at} vs ${played}`);
       assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'not counted again');
-      // Watch again and leave early with DONE; then once more to the end: still counted once.
+      // Watch again and leave early with DONE (the bar's, then the pause card's); then once more to the end: still
+      // counted once.
       await tap('#btnWatch');
       await tap('#btnReplayDone');
       assert.ok(await d.page.locator('#end').isVisible() && await d.page.locator('#replayBar').isHidden(), 'DONE: back to the card');
+      await tap('#btnWatch');
+      await tap('#btnPause'); await tap('#btnPauseDone');
+      assert.ok(await d.page.locator('#end').isVisible() && await d.page.locator('#replayBar').isHidden() && await d.page.locator('#pause').isHidden(), 'the pause card\'s DONE: back to the card');
       await tap('#btnWatch');
       await tap('#btnSpeed'); // (8×)
       await d.page.locator('#end').waitFor({ state: 'visible', timeout: 60000 });

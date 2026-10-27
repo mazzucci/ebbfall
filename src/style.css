@@ -209,7 +209,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
   .opt{margin:6px 0} .card.menu .tag{margin-bottom:6px}
 }
 .card.small{max-width:380px}
-.pausegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px} .pausegrid .ib{min-height:44px;font-size:12px} /* four equal buttons */
+.pausegrid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:8px;margin-top:12px} .pausegrid .ib{min-height:44px;font-size:12px} /* two or four equal buttons; three: the first across */
+.pausegrid.odd #btnResume{grid-column:1/-1} .pausegrid .ib:disabled{opacity:.45;cursor:default;border-style:dashed}
+.pausegrid small{display:block;font:500 10.5px var(--display);letter-spacing:.06em;color:var(--muted);margin-top:2px}
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}
 .tip{font-size:12.5px;color:var(--ally2);border:1px solid var(--line2);border-radius:4px;padding:6px 10px;background:var(--panel2)}
 @media (prefers-reduced-motion:reduce){.toast,.tb.alert,.cb.refused{animation:none} #minimap{transition:none!important}}

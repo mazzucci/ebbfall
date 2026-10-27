@@ -4,7 +4,7 @@ import { setIconButton } from './icons.js';
 
 const root = document.documentElement;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
-const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+export const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 export const touchDevice = matchMedia('(pointer: coarse)').matches;
 export const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
 /** A tap can take the page full screen here (not on iPhone Safari, and not needed when launched from the home screen). */

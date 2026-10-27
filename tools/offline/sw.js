@@ -6,8 +6,12 @@ const FILES = __FILES__;
 
 // Each file is stored on its own and kept: an install cut short (a phone losing its signal) resumes where it stopped
 // the next time, and the About page's CHECK OFFLINE can say how far it got (and, asking, fetches what is missing).
+// Fetched past the browser's HTTP cache (`reload`): a copy from before a deploy (GitHub Pages lets them live 10
+// minutes) would otherwise be stored for good, an index.html pointing at another build's files. One file failing
+// fails the install (nothing half stored is ever served: the build before stays). Refilling after a check fetches
+// from the network as it is then: should a newer build be deployed meanwhile, its next install sets things right.
 let filling = null;
-const fill = () => (filling ||= caches.open(CACHE).then(c => Promise.all(FILES.map(f => c.match(f).then(hit => hit || c.add(f))))).finally(() => { filling = null; }));
+const fill = () => (filling ||= caches.open(CACHE).then(c => Promise.all(FILES.map(f => c.match(f).then(hit => hit || c.add(new Request(f, { cache: 'reload' })))))).finally(() => { filling = null; }));
 self.addEventListener('install', (e) => {
   e.waitUntil(fill().then(() => self.skipWaiting()));
 });

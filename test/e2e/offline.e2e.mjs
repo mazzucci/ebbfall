@@ -72,9 +72,15 @@ test('CHECK OFFLINE on the About page: the whole game is stored, the version the
     await press('#btnOffline');
     await page.waitForFunction(() => document.getElementById('offlineMsg').textContent.startsWith('Not yet'), null, { timeout: 20000 });
     assert.equal(await page.locator('#offlineMsg').textContent(), `Not yet: ${total - 1} of ${total} files stored. Stay online a moment and check again.`);
-    // Checking again finds it stored again (asking fetched what was missing).
-    await press('#btnOffline');
-    await page.waitForFunction(() => document.getElementById('offlineMsg').textContent.startsWith('Ready'), null, { timeout: 20000 });
+    // Checking again finds it stored again (asking fetched what was missing; the refetch may take a moment).
+    text = '';
+    for (let i = 0; i < 20 && !text.startsWith('Ready'); i++) {
+      if (i) await page.waitForTimeout(500);
+      await press('#btnOffline');
+      await page.waitForFunction(() => !document.getElementById('btnOffline').disabled, null, { timeout: 20000 });
+      text = await page.locator('#offlineMsg').textContent();
+    }
+    assert.match(text, /^Ready/);
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });

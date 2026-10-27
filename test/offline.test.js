@@ -10,12 +10,16 @@ import { swSource } from '../tools/offline/plugin.mjs';
 const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/atlas-0.png'];
 
 /** A fake Cache Storage: `stored` names the files already in the build's cache (null: no cache yet). */
-function fakeCaches(stored, { broken = false, fetched = [] } = {}) {
+function fakeCaches(stored, { broken = false, fetched = [], failing = null, modes = [] } = {}) {
   const store = new Map();
   if (stored) store.set('endfall-v1', new Set(stored));
   const cache = (name) => ({
     match: async (f) => (store.get(name).has(f) ? { ok: true } : undefined),
-    add: async (f) => { fetched.push(f); store.get(name).add(f); },
+    add: async (req) => {
+      const f = req.url ?? req; modes.push(req.cache);
+      if (f === failing) throw new TypeError('Failed to fetch');
+      fetched.push(f); store.get(name).add(f);
+    },
   });
   return {
     has: async (name) => { if (broken) throw new Error('SecurityError'); return store.has(name); },
@@ -26,10 +30,11 @@ function fakeCaches(stored, { broken = false, fetched = [] } = {}) {
 }
 
 /** Load the worker on `caches`; returns its event handlers. */
-function worker(caches) {
+class FakeRequest { constructor(url, o = {}) { this.url = url; this.cache = o.cache; } }
+function worker(caches, flags = {}) {
   const on = {};
-  const self = { addEventListener: (t, fn) => { on[t] = fn; }, skipWaiting: () => {}, clients: { claim: () => {} } };
-  runInNewContext(swSource('v1', 'b1d0', FILES), { self, caches, location: { origin: 'http://x' }, URL });
+  const self = { addEventListener: (t, fn) => { on[t] = fn; }, skipWaiting: () => { flags.skipped = true; }, clients: { claim: () => {} } };
+  runInNewContext(swSource('v1', 'b1d0', FILES), { self, caches, location: { origin: 'http://x' }, URL, Request: FakeRequest });
   return on;
 }
 
@@ -51,6 +56,14 @@ test('some files stored: how many of how many, and the missing ones are fetched 
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 2 });
   assert.deepEqual(fetched.sort(), ['art/atlas-0.png', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
+});
+
+test('an install with one file failing does not go live (the build before stays), and every file is fetched past the HTTP cache', async () => {
+  const flags = {}, modes = [], on = worker(fakeCaches(null, { failing: 'assets/index-abc.js', modes }), flags);
+  let waited; on.install({ waitUntil: (p) => { waited = p; } });
+  await assert.rejects(waited, /Failed to fetch/);
+  assert.ok(!flags.skipped, 'not activated');
+  assert.ok(modes.length > 0 && modes.every(m => m === 'reload'), `fetched with cache: 'reload' (${modes})`);
 });
 
 test('nothing stored yet: none of them', async () => {

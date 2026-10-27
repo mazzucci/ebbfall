@@ -27,15 +27,18 @@ const within = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(n
 export async function offlineStatus(ms = 4000) {
   const sw = navigator.serviceWorker;
   if (!sw || !window.isSecureContext) return { state: 'unavailable' };
-  const newest = (r) => r && (r.installing || r.waiting || r.active);
+  const any = (r) => r && (r.active || r.installing || r.waiting);
   let reg = await sw.getRegistration().catch(() => null);
-  if (!newest(reg)) reg = await within(sw.ready, ms);
-  const worker = newest(reg);
+  if (!any(reg)) reg = await within(sw.ready, ms);
+  // The working copy first (the active worker: what plays offline now); with none yet (a first visit), the one
+  // installing. A newer build on its way is only mentioned.
+  const worker = reg && (reg.active || reg.installing || reg.waiting);
   if (!worker) return { state: 'unavailable' };
   const s = await ask(worker, ms);
   if (!s) return { state: 'none' }; // (no answer in time: a worker busy installing, or one from before this check)
   if (s.error) return { state: 'unavailable', ...s };
-  return { state: s.stored >= s.total ? 'ready' : 'partial', ...s };
+  const newer = !!(reg.active && (reg.installing || reg.waiting));
+  return { state: s.stored >= s.total ? 'ready' : 'partial', newer, ...s };
 }
 
 /** The sentence CHECK OFFLINE shows for a status (`build`: this page's version). */
@@ -43,7 +46,7 @@ export function offlineText(s, build) {
   if (s.state === 'unavailable') return "Offline play isn't available in this browser.";
   if (s.state === 'none') return 'Not yet. Stay online a moment and check again.';
   if (s.state === 'partial') return `Not yet: ${s.stored} of ${s.total} files stored. Stay online a moment and check again.`;
-  return `Ready to play offline: all ${s.total} files stored. Version ${s.version}${s.version !== build ? ' (new: it loads next time)' : ''}.`;
+  return `Ready to play offline: all ${s.total} files stored. Version ${s.version}${s.version !== build ? ' (new: it loads next time)' : ''}.${s.newer ? ' A newer version is on its way.' : ''}`;
 }
 
 /** Wire INSTALL and CHECK OFFLINE (`build`: the version the About page shows). */
@@ -52,7 +55,8 @@ export function initOffline(build) {
   $('btnInstall').addEventListener('click', async () => {
     const e = offer; if (!e) return;
     try { await e.prompt(); await e.userChoice; } catch { /* already used, or not allowed */ }
-    if (offer === e) offer = null; showInstall(); // (an offer prompts once; the browser may make another later)
+    if (offer === e) offer = null; // (an offer prompts once; the browser may make another later)
+    showInstall();
   });
   const msg = $('offlineMsg'), btn = $('btnOffline');
   btn.addEventListener('click', async () => {

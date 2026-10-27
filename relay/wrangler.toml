@@ -16,4 +16,4 @@ class_name = "RoomObject"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["RoomObject"] # (the free plan's kind; the rooms keep nothing in storage)
+new_sqlite_classes = ["RoomObject"] # (the free plan's kind; a room keeps one small record: its lobby, relay/worker.js)

@@ -70,6 +70,7 @@ export function initOnline({ start, leave, quit, room, rematch, pause, resume })
     else if (act === 'open') online.net?.ai(seat, false);
     else if (act === 'race') online.net?.ai(seat, true, NEXT_RACE[lobbyState?.seats[seat]?.race] || 'random');
     else if (act === 'sit') online.net?.sit(seat);
+    else if (act === 'free') online.net?.free(seat);
   });
   $('onlineName').value = store.get('name') || '';
   // A shared link (?join=CODE): straight to that room.
@@ -124,6 +125,7 @@ function connect(room) {
       status: (s) => {
         if (s === 'online') waitingFor.clear(); // (seated again: the relay tells who is still away next)
         if (online.playing) { reconnecting = s === 'reconnecting'; waitLine(); }
+        else if (s === 'reconnecting' && online.seat >= 0) status('Reconnecting…'); // (the room keeps this seat meanwhile; its lobby says the rest)
       },
     },
   });
@@ -179,7 +181,9 @@ function renderLobby(m) {
   lobbyState = m;
   const host = online.seat === 0, n = m.seats.length;
   // A seat nobody has taken yet (no name, not here, not the AI's): an open seat; the host may give it to the AI, a
-  // friend may move there. An AI seat: its race (the host taps it for the next) and, for the host, × to open it again.
+  // friend may move there. A seat whose player is away (the relay holds it a while: a phone switched apps) is theirs:
+  // their name, AWAY; the host may free it (×: they came back on another browser or device, without the seat's token).
+  // An AI seat: its race (the host taps it for the next) and, for the host, × to open it again.
   const open = (s) => !s.ai && !s.here && !s.name;
   const cell = (s, i) => {
     if (s.ai) {
@@ -190,6 +194,7 @@ function renderLobby(m) {
       const act = host ? `<button class="ib" data-act="ai" data-seat="${i}" title="The AI plays this seat">+ AI</button>` : online.seat > 0 ? `<button class="ib" data-act="sit" data-seat="${i}" title="Take this seat (the teams are by seat)">SIT HERE</button>` : '';
       return `<div class="seat open">${dot(i)}<b>open seat</b>${act || '<span></span>'}<span></span></div>`;
     }
+    if (host && !s.here && i > 0) return `<div class="seat">${dot(i)}<b>${esc(s.name || '…')}</b><span>AWAY</span><button class="ib x" data-act="free" data-seat="${i}" title="Free this seat (its player stepped away)" aria-label="Free ${esc(s.name || 'this')}'s seat">×</button></div>`;
     return `<div class="seat${i === online.seat ? ' me' : ''}">${dot(i)}<b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'AWAY' : s.ready ? 'READY' : ''}</span></div>`;
   };
   // The seats two a row (three or four), or four (five to eight; three for six): two even teams a row each, VS between;
@@ -214,7 +219,7 @@ function renderLobby(m) {
   mapButtons($('onlineMaps'), n, fitMap(m.map, n), host ? (i) => online.net?.map(i) : null);
   const people = m.seats.filter(s => !s.ai);
   const gone = people.filter(s => !s.here && !open(s)).map(s => s.name || 'your friend');
-  status(!host && open(m.seats[0]) ? 'The host left: SIT HERE on the first seat to pick' : m.seats.some(open) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
+  status(!host && open(m.seats[0]) ? 'The host left: SIT HERE on the first seat to pick' : m.seats.some(open) && (host || !gone.length) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -239,6 +244,7 @@ async function reloadNewest() {
 const seatToken = {
   get: (room) => { try { return sessionStorage.getItem('endfall.seat.' + room); } catch { return null; } },
   set: (room, t) => { try { sessionStorage.setItem('endfall.seat.' + room, t); } catch { /* private mode */ } },
+  del: (room) => { try { sessionStorage.removeItem('endfall.seat.' + room); } catch { /* private mode */ } },
 };
 
 async function share() {
@@ -249,5 +255,10 @@ async function share() {
   } catch { /* cancelled */ }
 }
 
-/** Leave the online game (or the lobby) for good. */
-export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear(); }
+/** Leave the online game (or the lobby) for good. Out of a lobby: the seat is given up (the relay would hold it a while
+ *  for a player who only switched apps). */
+export function stopOnline() {
+  const net = online.net;
+  if (net && !net.leaving) { if (online.playing) net.close(); else if (!net.closed) { net.leave(); if (net.room) seatToken.del(net.room); } } // (given up: a quick rejoin is a new seat, not a fight over this one)
+  waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear();
+}

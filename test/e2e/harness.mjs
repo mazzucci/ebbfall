@@ -68,7 +68,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       bldgs: endfall.G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, tx: b.tx, ty: b.ty, x: b.x, y: b.y, w: b.w, h: b.h, done: b.done, progress: b.progress, planted: b.planted, powered: b.powered, queue: b.queue.slice() })),
       nodes: endfall.map.nodes.map(n => ({ id: n.id, type: n.type, tx: n.tx, ty: n.ty, x: n.x, y: n.y, r: n.r })),
     })),
-    skip: (s) => ev((s) => endfall.skip(s), s),
+    // Skip game time, then let the frame loop run twice (or 250 ms at most): what the skipped ticks raised (toasts,
+    // alerts, effects) reaches the page as a player would see it, not on whichever frame comes next.
+    skip: (s) => ev((s) => { endfall.skip(s); return new Promise(r => { const t = setTimeout(r, 250); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(t); r(); })); }); }, s),
     grant: (shards, ether) => ev(([a, b]) => endfall.setResources(0, a, b), [shards, ether]),
     centerOn: (x, y) => ev(([x, y]) => endfall.centerOn(x, y), [x, y]),
     /** World point → page pixel (after centring the camera there, so it is on screen). */

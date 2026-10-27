@@ -1022,6 +1022,7 @@ test('phone: one tap on the card uses an ability for the selection (Stim, then E
     // The Vanguard: Entrench (set up: Entrenching researched) is a toggle, lit while on; a second tap packs it up.
     await d.eval(() => endfall.engine.debugResearch(0, 'entrenching'));
     await d.clickEntity(v);
+    await d.readyCard('Entrench');
     await d.pressCard('Entrench');
     assert.equal((await units())[3].mode, 'entrench');
     await d.skip(3);
@@ -1590,6 +1591,7 @@ test('phone: a Wasp cloaks from its card once Cloaking Field is researched', asy
     await d.clickEntity(wasp);
     assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'locked before the tech');
     await d.eval(() => endfall.engine.debugResearch(0, 'cloakingField')); // (set-up: researched)
+    await d.readyCard('Cloak'); // (the card is drawn again on a later frame: not the locked button it showed)
     await d.pressCard('Cloak');
     assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).boost, wasp), 'cloak', 'cloaked');
     assert.deepEqual(d.errors, []);

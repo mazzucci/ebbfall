@@ -125,6 +125,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
     /** Labels of the command card buttons as the player sees them, with their enabled state. */
     card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('.l').textContent, enabled: !b.disabled && b.getAttribute('aria-disabled') !== 'true' }))),
+    /** Wait until the card shows `label` usable (not locked): after a set-up changed what it offers (a tech
+     *  researched by the debug handle), the card is drawn again on a later frame. */
+    readyCard: (label) => page.locator('#cmd button:not([disabled]):not(.locked)', { hasText: label }).first().waitFor({ timeout: 5000 }),
     async pressCard(label) {
       const b = page.locator('#cmd button:not([disabled])', { hasText: label }).first();
       await b.waitFor({ timeout: 5000 });

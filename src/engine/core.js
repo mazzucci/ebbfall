@@ -230,9 +230,10 @@ export function canHit(shooter, target) {
   return !!w && (air ? w.dmgAir : w.dmg) > 0;
 }
 
-/** Whether this client's player (seat G.me) can see this unit or building right now. */
+/** Whether this client's player (seat G.me) can see this unit or building right now. G.vis is the team's sight (allies
+ *  share vision, crates/endfall-sim/src/world/fog.rs): our allies' are always seen, their enemies where any of us sees. */
 export function visibleEnt(e) {
-  if (e.team === S.me) return true;
+  if (e.team === S.me || !enemies(S.me, e.team)) return true;
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
   if ((e.hid >> S.me) & 1 && !S.replaying) return false; // cloaked, and we detect nothing there (a replay shows all)

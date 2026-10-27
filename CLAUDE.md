@@ -164,8 +164,8 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   team, and `winner` is that team; a concede knocks out its seat only. A seat that is out gives no orders
   (`World::apply` refuses them) and, while the game goes on, what it leaves is inert (`World::inert`: stopped, then left
   out of the tick; it can still be destroyed). Teams enter the state hash only when not each seat its own. `PLAYER = 0`, `ENEMY = 1` are only the
-  menu's defaults. Rules never single out a seat: fog, alerts, toasts, sounds and stats are per seat (vision is not
-  shared with allies yet), events carry the seat they are for (`Game::drain_events` passes on its own seat's; `seen` is a bit per seat),
+  menu's defaults. Rules never single out a seat: fog, alerts, toasts, sounds and stats are per seat (fog is
+  shared with allies: `update_fog` ORs a team's layers), events carry the seat they are for (`Game::drain_events` passes on its own seat's; `seen` is a bit per seat),
   the scripted opponent plays whichever seats `World::ai_seats` marks (one brain per seat, `World::seat()` inside its
   turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in, ties to its partner: seats
   0 and 1, 2 and 3, ...), and `is_ai(team)` is the

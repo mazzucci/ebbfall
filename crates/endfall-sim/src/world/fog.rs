@@ -1,9 +1,9 @@
-//! Fog of war: what each team sees.
+//! Fog of war: what each seat sees, its own sight and its allies' (allies share vision).
 
 use super::*;
 
 impl World {
-    // ---- fog of war: one layer per seat (allies do not share vision yet: a later change here and in `seen_by`) ----
+    // ---- fog of war: one layer per seat, each seat's own sight first, then shared with its allies ----
     pub fn update_fog(&mut self) {
         let size = self.map.size();
         for team in 0..self.seats() {
@@ -46,6 +46,30 @@ impl World {
                 disc(size, x, y, s, |i| det[i] = 1);
             }
         }
+        self.share_vision();
+    }
+
+    /// Allies share vision: each seat sees, has explored and detects what any seat of its team does (an ally's
+    /// detector reveals a cloaked enemy to the whole team). Vision comes from what stands on the map: a seat that is
+    /// out still lends the sight of what it left (inert, but there) until that is destroyed, and sees what its team
+    /// sees. The team's first seat gathers the team's layers, then every other seat of the team takes a copy: in place,
+    /// in seat order, nothing allocated. With every seat its own team (a duel, a free for all) nothing changes.
+    fn share_vision(&mut self) {
+        let n = self.seats();
+        let first = |w: &World, s: usize| (0..s).find(|&a| w.teams[a] == w.teams[s]);
+        for gather in [true, false] {
+            for s in 1..n {
+                let Some(f) = first(self, s) else { continue };
+                for layers in [&mut self.vis, &mut self.explored, &mut self.det] {
+                    let (lo, hi) = layers.split_at_mut(s);
+                    if gather {
+                        lo[f].iter_mut().zip(&hi[0]).for_each(|(a, b)| *a |= b);
+                    } else {
+                        hi[0].copy_from_slice(&lo[f]);
+                    }
+                }
+            }
+        }
     }
 
     /// Whether unit `u` is cloaked: always (an Observer), or for now (a Cloak or Veil running).
@@ -79,7 +103,7 @@ impl World {
             .fold(0, |m, t| m | 1 << t)
     }
 
-    /// Whether `team` can see this unit or building (its own always).
+    /// Whether `team` can see this unit or building (its own always; its allies' are in its sight: theirs too).
     pub fn seen_by(&self, team: u8, id: Id) -> bool {
         let vis = &self.vis[team as usize];
         if let Some(u) = self.unit(id) {

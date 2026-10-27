@@ -16,6 +16,7 @@ export const view = { w: 800, h: 500, dpr: 1 };
 export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.75 : innerWidth >= 1100 ? 2 : 1.5 };
 export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const ALLY = '#f5a524', ALLY2 = '#ffd27a', FOE = '#e2457a', FOE2 = '#ff8bb0';
+const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
 /** Flyers are drawn this many world px above the ground point they occupy (their art hovers). */
@@ -574,9 +575,17 @@ function renderMinimap() {
   const S = mm.width / WW, T = mm.height / WH, c = mctx; // (x and y scales: one, on a square map)
   c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
   for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * T - 1.5, 3, 3); }
-  // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field.
+  // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field;
+  // an ally's buildings framed in white (a team game: whose colour is on our side, its base and army in our sight).
   const many = G.factions.length > 2, col = many ? seatCss() : null;
-  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * T, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * T)); }
+  for (const b of G.bldgs) {
+    if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue;
+    const x = b.tx * TILE * S, y = b.ty * TILE * T, w = Math.max(2, b.w * TILE * S), h = Math.max(2, b.h * TILE * T);
+    c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(x, y, w, h);
+    if (b.team === G.me || enemies(G.me, b.team)) continue;
+    const x0 = Math.floor(x), y0 = Math.floor(y); // (the frame on whole pixels: crisp)
+    c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.strokeRect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
+  }
   for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[u.team] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();

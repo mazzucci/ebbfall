@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
 import { readFileSync, existsSync } from 'node:fs';
 import { swSource } from '../tools/offline/plugin.mjs';
+import { decodePNG } from '../tools/art/png.js';
 
 const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/atlas-0.png'];
 
@@ -108,4 +109,18 @@ test('the manifest has PNG icons of 192 and 512 pixels and a maskable one, and t
     assert.equal(b.toString('latin1', 1, 4), 'PNG', i.src);
     assert.deepEqual([b.readUInt32BE(16), b.readUInt32BE(20)], [w, h], i.src); // (IHDR: the size it claims)
   }
+});
+
+test('the maskable icon keeps to the safe zone: outside the circle of radius 40%, only its background colour', () => {
+  const pub = new URL('../public/', import.meta.url);
+  const bg = readFileSync(new URL('icon.svg', pub), 'utf8').match(/<rect[^>]*fill="#([0-9a-f]{6})"/i)[1], want = [0, 2, 4].map(i => parseInt(bg.slice(i, i + 2), 16));
+  const { w, h, data } = decodePNG(readFileSync(new URL('icon-maskable-512.png', pub)));
+  assert.deepEqual([w, h], [512, 512]);
+  let outside = 0, wrong = 0, inside = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4, r = Math.hypot(x + 0.5 - w / 2, y + 0.5 - h / 2) / w, isBg = data[i] === want[0] && data[i + 1] === want[1] && data[i + 2] === want[2] && data[i + 3] === 255;
+    if (r > 0.4) { outside++; if (!isBg) wrong++; } else if (!isBg) inside++;
+  }
+  assert.equal(wrong, 0, `${wrong} of ${outside} pixels outside the safe zone are not the background`);
+  assert.ok(inside > 1000, 'the icon is in the safe zone, not missing');
 });

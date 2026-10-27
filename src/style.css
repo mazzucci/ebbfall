@@ -142,6 +142,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #menuHome .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
 #menuHome .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
 @media (max-height:420px){#menuHome .shore svg{bottom:-26px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
+#menuHome:has(#iosTip:not([hidden])) .tide.t1,#menuHome:has(#iosTip:not([hidden])) .tide.t2{display:none} /* (the iPhone tip takes the room of the two upper lines: the water's edge and the shards alone) */
 #menuHome .tide{animation:ebb 18s ease-in-out infinite alternate} #menuHome .tide.t2{animation-duration:23s;animation-delay:-7s} #menuHome .tide.t3{animation-duration:29s;animation-delay:-13s}
 @keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
 @media (prefers-reduced-motion:reduce){#menuHome .tide{animation:none}}

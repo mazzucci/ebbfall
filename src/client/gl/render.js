@@ -87,9 +87,14 @@ const teamSprite = (parent) => { const body = new Sprite(), paint = new Sprite()
 function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = tint; paint.tint = mulTint(seat, tint); body.alpha = paint.alpha = alpha; }
 
 // ---- scene ----
-const world = new Container();
+// Render groups (PixiJS 8): the camera moves the world as one transform, so panning or a shake does not recompute every
+// sprite's. A group's draw list is built again whenever anything in it shows, hides, comes, goes or changes depth (a
+// moving unit does, every frame): the terrain (some 16k tile sprites on 128x128), the scenery, decals, resources,
+// buildings and units each keep their own, so one layer's churn does not rebuild the others'.
+const world = new Container({ isRenderGroup: true });
 const L = {};
-for (const k of ['terrain', 'scenery', 'shade', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container());
+const GROUPS = new Set(['terrain', 'scenery', 'decals', 'nodes', 'bldgs', 'units', 'air']);
+for (const k of ['terrain', 'scenery', 'shade', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.units.sortableChildren = true; L.bldgs.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
@@ -304,9 +309,8 @@ class BldgObj {
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
-    const name = this.name;
-    this.found.visible = !b.done;
-    this.scaffold.visible = !b.done;
+    const name = this.name, warp = !b.done && !!FACTIONS[G.factions[b.team]]?.warp;
+    this.found.visible = this.scaffold.visible = !b.done && !warp; // (a warp-in site has neither)
     if (b.done) { setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; }
     else { // the bottom k/8 of the art, its bottom edge where the full sprite's would be
       const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k)); setTex(this.paint, stage(name + '_m', k));
@@ -314,7 +318,7 @@ class BldgObj {
     }
     // hit flash; dark: no power field covers it
     paintAs(this.body, this.paint, this.seat, b.done && !b.powered ? 0x6f6a88 : 0xffffff, b.flash > 0 ? 0.75 : 1);
-    if (!b.done && FACTIONS[G.factions[b.team]]?.warp) this.warpIn(b, t, live);
+    if (warp) this.warpIn(b, t, live);
     if (this.head) {
       this.head.visible = this.headPaint.visible = b.done && live;
       const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS, hn = `${this.look.head}_${dir}`;
@@ -332,7 +336,6 @@ class BldgObj {
    *  it grows, inside a pulsing warp ring once planted (a site still waiting for its Lumen is a fainter ghost, no
    *  ring). Seen through fog, only the remembered ghost. */
   warpIn(b, t, live) {
-    this.found.visible = this.scaffold.visible = false;
     setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
     paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xcbb6ff, (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
     if (!live || !b.planted) return;
@@ -340,7 +343,9 @@ class BldgObj {
     bars.ellipse(b.x, cy, rx, ry).fill({ color: 0x9b7bff, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.8 * pulse });
     bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xe2d6ff, alpha: 0.5 * pulse });
   }
-  show(v) { for (const s of [this.found, this.body, this.paint, this.scaffold]) s.visible = s.visible && v; if (!v) { if (this.head) this.head.visible = this.headPaint.visible = false; if (this.glow) this.glow.visible = false; } }
+  /** Shown or not (update, after this, decides the parts of a shown one). Visibility is only ever set to what it should
+   *  be, never on and off again in one frame: each change rebuilds the layer's draw list. */
+  show(v) { this.body.visible = this.paint.visible = v; if (!v) { this.found.visible = this.scaffold.visible = false; if (this.head) this.head.visible = this.headPaint.visible = false; if (this.glow) this.glow.visible = false; } }
   destroy() { for (const s of [this.found, this.body, this.paint, this.scaffold, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
 }
 
@@ -462,10 +467,9 @@ export function render(selList, place, power = false) {
     const seen = b.team === G.me || visibleEnt(b);
     let v = inView(b.x, b.y, b.r + 90);
     if (v && !seen) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
-    o.found.visible = o.body.visible = o.paint.visible = o.scaffold.visible = true;
-    if (v) o.update(b, t, dt, seen);
     o.show(v);
     if (!v) return;
+    o.update(b, t, dt, seen);
     if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, enemies(G.me, b.team) ? SEL_FOE : SEL);
     if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp, b.sh, b.maxsh);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.

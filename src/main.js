@@ -11,8 +11,8 @@ import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { setIconButton, portrait } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu, teamList } from './client/menu.js';
-import { MAP_KINDS, onlineMap } from './client/maps.js';
+import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu } from './client/menu.js';
+import { MAP_KINDS, onlineMap, teamList } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
@@ -36,8 +36,8 @@ function showPower() {
   return ui.mode === 'build' || ui.mode === 'build2' || !!ui.place || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
 }
 
-/** Start a game on the map and against the opponent chosen in the menu: one AI (the duel, as always), or two or three,
- *  each for itself or, for four, two against two (seat 0, this player, with an AI). */
+/** Start a game on the map and against the opponent chosen in the menu: one AI (the duel, as always), or two to seven,
+ *  each for itself or, for four, six and eight, in even teams (seat 0, this player, with an AI or more). */
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
   stopOnline();

@@ -427,6 +427,73 @@ fn six_and_eight_ais_play_on_eight_starts() {
 }
 
 #[test]
+fn every_ai_thinks_every_half_second_on_a_tick_of_its_own() {
+    // M4 step 2e: each AI brain takes its turn every 16 ticks, the k-th of m (in seat order) k * 16 / m ticks after the
+    // first, so no two think on the same tick (eight thinking together were a 128x128 game's worst tick); a lone AI
+    // (single player's duel) first thinks on tick 16, as it always did. A person's seat never thinks.
+    for (n, seats, all_ai) in [
+        (64, 2, false),
+        (64, 2, true),
+        (96, 3, true),
+        (96, 4, false),
+        (128, 5, true),
+        (128, 6, false),
+        (128, 7, true),
+        (128, 8, true),
+        (128, 8, false),
+    ] {
+        let races: Vec<&'static Faction> = (0..seats)
+            .map(|s| if s % 2 == 0 { &HUMANS } else { &VAEL })
+            .collect();
+        let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &races);
+        if all_ai {
+            w.set_ai_seats(vec![true; seats]);
+        }
+        let ctx = format!("{seats} seats on {n}x{n}, all AI {all_ai}");
+        let m = (0..seats).filter(|&s| w.ai_seats[s]).count() as u32;
+        let mut first: Vec<Option<u32>> = vec![None; seats];
+        let mut last: Vec<Option<u32>> = vec![None; seats];
+        let mut before = w.ai_turns();
+        for _ in 0..16 * 12 {
+            w.step();
+            let now = w.ai_turns();
+            let thinking: Vec<usize> = (0..seats).filter(|&s| now[s] > before[s]).collect();
+            assert!(
+                thinking.len() <= 1,
+                "{ctx}: at tick {} {thinking:?} thought together",
+                w.tick
+            );
+            for s in thinking {
+                assert_eq!(now[s], before[s] + 1, "{ctx}");
+                if let Some(l) = last[s] {
+                    assert_eq!(w.tick - l, 16, "{ctx}: seat {s} thinks every 16 ticks");
+                }
+                first[s] = first[s].or(Some(w.tick));
+                last[s] = Some(w.tick);
+            }
+            before = now;
+        }
+        let ai: Vec<usize> = (0..seats).filter(|&s| w.ai_seats[s]).collect();
+        assert_eq!(
+            first[ai[0]],
+            Some(16),
+            "{ctx}: the first AI first thinks on tick 16"
+        );
+        for (k, &s) in ai.iter().enumerate() {
+            assert_eq!(
+                first[s],
+                Some(16 + k as u32 * 16 / m),
+                "{ctx}: the AI of seat {s} on its own tick"
+            );
+            assert!(w.ai_turns()[s] >= 11, "{ctx}: seat {s} thought all along");
+        }
+        for s in (0..seats).filter(|&s| !w.ai_seats[s]) {
+            assert_eq!(w.ai_turns()[s], 0, "{ctx}: a person's seat");
+        }
+    }
+}
+
+#[test]
 fn a_seat_that_is_out_gives_no_orders_and_what_it_leaves_is_inert() {
     // Seats 0 and 2 against seat 1. Seat 0 concedes while its ally plays on: its orders are refused (it cannot fight
     // on for its ally), its units stop where they are (a miner lets go of its crystal) and do nothing more, its
@@ -536,7 +603,22 @@ fn teams_are_in_the_state_hash_only_when_not_each_its_own() {
 /// A game through the WASM surface's constructor (as the menus start one), run to its end (or `mins` minutes): the
 /// seats out, and the winner.
 fn to_the_end(seed: u32, factions: &[u32], teams: &[u8], ai: &[u8], mins: u32) -> Game {
-    let mut g = Game::with_seats(seed, 1, 0, seed, factions, teams, ai, 0, Some(96)).unwrap();
+    on_map(seed, 0, 96, seed, factions, teams, ai, mins)
+}
+
+/// The same on map `seed` of character `kind` at `size` tiles across, the seats turned by `side` (a menu's fixed map).
+#[allow(clippy::too_many_arguments)]
+fn on_map(
+    seed: u32,
+    kind: u32,
+    size: u32,
+    side: u32,
+    factions: &[u32],
+    teams: &[u8],
+    ai: &[u8],
+    mins: u32,
+) -> Game {
+    let mut g = Game::with_seats(seed, 1, kind, side, factions, teams, ai, 0, Some(size)).unwrap();
     for tick in 0..30 * 60 * mins {
         g.step();
         if tick % 30 == 0 {
@@ -585,4 +667,111 @@ fn three_and_four_seat_games_and_two_against_two_end_through_the_menus_construct
     );
     let g = to_the_end(53, &[0, 1, 0, 1], &[0, 0, 1, 1], &[0, 1, 1, 1], mins);
     ended_well(&g, "two against two");
+}
+
+#[test]
+fn six_and_eight_seat_games_end_on_the_menus_128x128_maps() {
+    // M4 step 2e: what the menus start for five to eight, on their 128x128 maps (src/client/maps.js) at Medium: a person
+    // who gives no order with two AI allies against three AIs (the person is out early, inert, and the allies fight
+    // on); eight AIs free for all; eight AIs in four pairs. Each ends with one team standing. (Release builds only:
+    // eight AIs to the end are some 40,000 ticks.)
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let mins = 45;
+    let g = on_map(
+        IRON_COMPASS.0,
+        IRON_COMPASS.1,
+        128,
+        5,
+        &[0, 1, 0, 1, 0, 1],
+        &[0, 0, 0, 1, 1, 1],
+        &[0, 1, 1, 1, 1, 1],
+        mins,
+    );
+    ended_well(&g, "three against three");
+    assert!(g.world().out[0], "the idle person is out");
+    let g = on_map(
+        GREY_WARRENS.0,
+        GREY_WARRENS.1,
+        128,
+        2,
+        &[0, 1, 0, 1, 0, 1, 0, 1],
+        &[],
+        &[1; 8],
+        mins,
+    );
+    ended_well(&g, "eight free for all");
+    assert_eq!(
+        g.world().out.iter().filter(|&&o| o).count(),
+        7,
+        "seven out, one standing"
+    );
+    let g = on_map(
+        SUNKEN_COURT.0,
+        SUNKEN_COURT.1,
+        128,
+        7,
+        &[0, 1, 0, 1, 0, 1, 0, 1],
+        &[0, 0, 1, 1, 2, 2, 3, 3],
+        &[1; 8],
+        mins,
+    );
+    ended_well(&g, "four pairs");
+}
+
+/// The menus' 128x128 maps (seed, character): src/client/maps.js.
+const IRON_COMPASS: (u32, u32) = (5, 0);
+const SUNKEN_COURT: (u32, u32) = (9, 3);
+const GREY_WARRENS: (u32, u32) = (2, 4);
+
+#[test]
+fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
+    // M4 step 2e: the menus' teams are consecutive seats (2v2, 3v3, 4v4, 2v2v2v2), which must start as neighbours
+    // round the ring of starts for every `side` the menus and the relay draw: each ally's start is about as near the next
+    // ally's as the nearest two starts on the map (the eight starts are 44 tiles from the next on their side and about
+    // as far round the corner); six seats on eight starts used to split a team round a free start when the draw turned
+    // the pattern among the seats.
+    for (size, teams) in [
+        (96u32, vec![0u8, 0, 1, 1]),
+        (128, vec![0, 0, 0, 1, 1, 1]),
+        (128, vec![0, 0, 0, 0, 1, 1, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2, 2, 3, 3]),
+    ] {
+        let n = teams.len();
+        let draws = if cfg!(debug_assertions) { 16 } else { 64 };
+        for side in 0..draws {
+            let g = Game::with_seats(
+                9,
+                1,
+                0,
+                side * 7 + 1,
+                &vec![0; n],
+                &teams,
+                &[],
+                0,
+                Some(size),
+            )
+            .unwrap();
+            let w = g.world();
+            let d = |a: (i32, i32), b: (i32, i32)| {
+                (((a.0 - b.0).pow(2) + (a.1 - b.1).pow(2)) as f64).sqrt()
+            };
+            let near = (0..n)
+                .flat_map(|a| (0..n).filter(move |&b| b != a).map(move |b| (a, b)))
+                .map(|(a, b)| d(w.map.bases[a], w.map.bases[b]))
+                .fold(f64::MAX, f64::min);
+            for s in 1..n {
+                if teams[s] == teams[s - 1] {
+                    let apart = d(w.map.bases[s - 1], w.map.bases[s]);
+                    assert!(
+                        apart <= near * 1.05,
+                        "{n} seats {teams:?} side {}: seats {} and {s} are neighbours ({apart:.0} tiles apart)",
+                        side * 7 + 1,
+                        s - 1
+                    );
+                }
+            }
+        }
+    }
 }

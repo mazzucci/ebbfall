@@ -24,6 +24,9 @@ async function buildAndFinish(d, hotkey, type, harvesterIndex = 0) {
   return b;
 }
 
+/** The 128x128 maps the menus offer (src/client/maps.js), as their buttons read. */
+const MAPS_128 = ['IRON COMPASS', 'SUNKEN COURT', 'GREY WARRENS', 'RANDOM'];
+
 test('a depot built through the UI finishes and raises supply', async () => {
   const d = await newGame(DESKTOP);
   try {
@@ -1415,6 +1418,46 @@ test('single player: PLAYERS decides the maps (a badge when a start stays free),
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 2);
     assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.engine.MW, endfall.G.teams]), [4242, 64, [0, 1]]);
+  } finally { await ctx.close(); }
+});
+
+test('single player, five to eight (M4 2e): the 128x128 maps, TEAMS for six and eight; eight start on 128x128 in four pairs; a small phone holds it', async () => {
+  const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    const maps = () => page.$$eval('#maps .map', bs => bs.map(b => b.firstChild.textContent));
+    const badges = () => page.$$eval('#maps .map .up', bs => bs.map(b => b.textContent));
+    const teams = () => page.$$eval('#teams:not([hidden]) .ib', bs => bs.map(b => b.textContent));
+    const fits = async (what) => { const [sh, ch] = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]); assert.ok(sh <= ch + 1, `${what}: fits (${sh} > ${ch})`); };
+    await page.locator('#btnSolo').tap();
+    assert.deepEqual(await page.$$eval('#players .ib', bs => bs.map(b => b.textContent)), ['2', '3', '4', '5', '6', '7', '8'], 'PLAYERS 2 to 8');
+    for (const [n, t] of [[5, []], [6, ['FREE FOR ALL', '3v3']], [7, []], [8, ['FREE FOR ALL', '4v4', '2v2v2v2']]]) {
+      await page.locator(`#players [data-n="${n}"]`).tap();
+      assert.deepEqual(await maps(), MAPS_128, `${n}: the 128x128 maps`);
+      assert.deepEqual(await badges(), n === 8 ? [] : Array(4).fill('up to 8'), `${n}: a badge while a start stays free`);
+      assert.deepEqual(await teams(), t, `${n}: the teams offered`);
+      await fits(`${n} players`);
+    }
+    assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 128, 'the preview at the map\'s size');
+    await page.locator('#teams [data-teams="2v2v2v2"]').tap();
+    await fits('eight players in pairs');
+    await page.locator('#btnStart').tap();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    const eight = await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.me, endfall.engine.foes(), [0, 1, 2, 3, 4, 5, 6, 7].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);
+    assert.deepEqual(eight, [[0, 0, 1, 1, 2, 2, 3, 3], 128, 0, [2, 3, 4, 5, 6, 7], [1, 1, 1, 1, 1, 1, 1, 1]], 'eight seats in four pairs, a base each, on 128x128');
+    await page.evaluate(() => endfall.skip(20));
+    assert.ok(await page.evaluate(() => [1, 2, 3, 4, 5, 6, 7].every(t => endfall.G.stats[t].built > 0)), 'seven AIs at work');
+    // Six, three against three: you and two AIs.
+    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
+    await page.locator('#btnQuit').tap();
+    await page.locator('#menuSolo').waitFor({ state: 'visible' });
+    await page.locator('#players [data-n="6"]').tap();
+    assert.equal(await page.locator('#teams .ib.on').textContent(), 'FREE FOR ALL', 'a split six is not offered plays free for all');
+    await page.locator('#teams [data-teams="3v3"]').tap();
+    await page.locator('#btnStart').tap();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 6);
+    assert.deepEqual(await page.evaluate(() => [endfall.G.teams, endfall.engine.MW]), [[0, 0, 0, 1, 1, 1], 128]);
   } finally { await ctx.close(); }
 });
 

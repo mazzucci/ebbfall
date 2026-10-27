@@ -471,7 +471,7 @@ impl World {
         self.regen_shields(dt);
         self.tick_abilities(dt);
         self.update_fog();
-        self.ai_tick(dt);
+        self.ai_tick();
         if self.tick.is_multiple_of(ARMY_LOG_EVERY) {
             self.log_armies();
         }

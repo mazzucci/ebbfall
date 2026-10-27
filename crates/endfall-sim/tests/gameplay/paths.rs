@@ -445,9 +445,9 @@ fn a_unit_bound_beside_the_groups_goal_but_behind_a_wall_still_gets_there() {
 }
 
 /// The path work per tick of 12-minute games of Hard AIs (two on 64x64, 96x96 and 128x128, four on 96x96, eight on
-/// 128x128; seeds by PATH_SEEDS, "3,17,29,41,53" by default): the step's time (average, 99th percentile, worst) and
-/// searches per tick (average, worst). A measure, not a test: `cargo test --release --test gameplay path_cost --
-/// --ignored --nocapture` (docs/MULTIPLAYER.md, M4 step 2d).
+/// 128x128; seeds by PATH_SEEDS, "3,17,29,41,53" by default): the step's time (average, 99th and 99.9th percentile,
+/// worst) and searches per tick (average, worst). A measure, not a test: `cargo test --release --test gameplay
+/// path_cost -- --ignored --nocapture` (docs/MULTIPLAYER.md, M4 steps 2d and 2e).
 #[test]
 #[ignore]
 fn path_cost_per_tick() {
@@ -484,8 +484,9 @@ fn path_cost_per_tick() {
             .position(|&m| m == sorted[sorted.len() - 1])
             .unwrap();
         println!(
-            "{seats} AIs on {n}x{n}: step {avg:.3} ms, p99 {:.2}, worst {:.1} ({} searches); searches/tick {:.2}, worst {}; long {long}",
+            "{seats} AIs on {n}x{n}: step {avg:.3} ms, p99 {:.2}, p99.9 {:.2}, worst {:.1} ({} searches); searches/tick {:.2}, worst {}; long {long}",
             sorted[(ticks * 0.99) as usize],
+            sorted[(ticks * 0.999) as usize],
             ms[worst],
             calls[worst],
             calls.iter().sum::<u64>() as f64 / ticks,

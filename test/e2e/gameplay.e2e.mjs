@@ -1353,6 +1353,31 @@ test('the screen is lean: resources, supply, full screen, sound and pause on top
 });
 
 
+test('iPad full screen: the top bar starts after the system\'s ✕ (top left), and only there', async () => {
+  // iPadOS draws its own leave-full-screen ✕ over the page's top-left corner, in Safari (a Macintosh with touch) and in
+  // every other iPad browser.
+  const IPAD = { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    userAgent: 'Mozilla/5.0 (iPad; CPU OS 26_6_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/151.0.7922.57 Mobile/15E148 Safari/604.1' };
+  for (const dev of [IPAD, PHONE]) {
+    const d = await newGame(dev, 1, 4242, { ai: false });
+    try {
+      const left = () => d.eval(() => document.getElementById('resShard').getBoundingClientRect().left);
+      const before = await left();
+      await d.eval(() => document.documentElement.requestFullscreen());
+      await d.page.waitForFunction(() => !!document.fullscreenElement);
+      await d.page.waitForTimeout(100);
+      const full = await left();
+      if (dev === IPAD) assert.ok(full >= 60, `the shards clear the ✕: ${before} -> ${full}`);
+      else assert.ok(Math.abs(full - before) < 2, `a phone keeps its top bar: ${before} -> ${full}`);
+      await d.eval(() => document.exitFullscreen());
+      await d.page.waitForFunction(() => !document.fullscreenElement);
+      await d.page.waitForTimeout(100);
+      assert.ok(Math.abs((await left()) - before) < 2, 'back in place out of full screen');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
 test('the menu shows a thumbnail of the chosen map, and a question mark for a random one', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {

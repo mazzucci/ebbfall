@@ -39,7 +39,7 @@ export class Room {
 
   /** A connection says hello. Returns its seat, or -1 (it was told why). */
   connect(conn, hello) {
-    if (hello?.proto !== PROTO) { this.send(conn, { t: 'error', code: 'update', msg: 'A new version of Ebbfall is out: update to play' }); return -1; }
+    if (hello?.proto !== PROTO) { this.send(conn, { t: 'error', code: 'update', msg: 'Ebbfall has an update. Tap UPDATE to get it' }); return -1; }
     if (this.seats.some(s => s.conn === conn)) return -1; // (a second hello on one connection)
     // One sim build per room: that of the seats holding a place (a seat given up frees the room for another build).
     // Another build would compute another game (out of sync at once): it is turned away, and the seated are told.
@@ -47,7 +47,7 @@ export class Room {
     const mine = typeof hello.token === 'string' ? this.seats.find(s => s.token && s.token === hello.token) : null;
     const other = this.seats.find(s => s.token && s !== mine);
     if (other && other.build !== build) {
-      this.send(conn, { t: 'error', code: 'version', msg: 'Your Ebbfall is not the same version as this room\'s' });
+      this.send(conn, { t: 'error', code: 'version', msg: 'Your Ebbfall and your friend\'s don\'t match' });
       this.each({ t: 'notice', code: 'version' });
       return -1;
     }
@@ -61,7 +61,7 @@ export class Room {
     }
     const s = this.seats[seat];
     s.build = build;
-    if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'Playing on another screen' }); this.kick(s.conn); }
+    if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'This room is open on another screen' }); this.kick(s.conn); }
     s.conn = conn; s.lastAck = this.now;
     if (this.phase === 'lobby') s.name = String(hello.name || `Player ${seat + 1}`).slice(0, MAX_NAME);
     this.send(conn, { t: 'seat', seat, token: s.token, room: this.code, proto: PROTO });

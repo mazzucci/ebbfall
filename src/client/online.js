@@ -59,7 +59,7 @@ export function initOnline({ start, leave, quit, room, rematch }) {
 function invited(code) {
   openLobby();
   $('roomCode').value = code; $('btnJoinRoom').classList.add('big');
-  status(`You're invited to room ${code}: type your name and tap JOIN`);
+  status(`You're invited to room ${code}: ${$('onlineName').value.trim() ? 'tap JOIN' : 'type your name, then JOIN'}`); // (a name remembered: one tap)
   if (!touchDevice) $('onlineName').focus();
 }
 function openLobby() { $('btnJoinRoom').classList.remove('big'); $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
@@ -74,19 +74,19 @@ function connect(room) {
   online.net = new Net({
     url: relayUrl(), room, name: name(), build: SIM_BUILD, token: room ? seatToken.get(room) : null, game: () => (online.playing ? liveGame() : null),
     on: {
-      seat: (m) => { online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(m.seat === 0 ? 'Share the code with a friend' : ''); },
+      seat: (m) => { online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('roomShow').textContent = m.room; status(''); }, // (the lobby that follows says what to do)
       lobby: (m) => { if (online.playing) backToRoom(); renderLobby(m); },
       rematch: (wants) => { online.wants = wants; onRematch(theyWant(), !!wants[online.seat]); },
-      notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend on another version of Ebbfall tried to join. If yours is the older one, reload: you stay in this room.'); $('btnOnlineReload').hidden = false; } },
+      notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
       start: (setup, seat) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.names = setup.names; online.playing = true; $('online').hidden = true; onStart(setup, seat); online.net.loaded(); },
       away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
-      back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${who(s)} is back`); } },
-      left: (s) => { if (s !== online.seat) { online.gone.add(s); waitingFor.delete(s); waitLine(); toast(`${who(s)} left the game`, true, true); onRematch(false, false); } },
+      back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${Who(s)} is back`); } },
+      left: (s) => { if (s !== online.seat) { online.gone.add(s); waitingFor.delete(s); waitLine(); toast(`${Who(s)} left the game`, true, true); onRematch(false, false); } },
       desync: () => fatal('Out of sync: the game cannot go on'),
       error: (m) => {
         if (online.playing) { fatal(m.code === 'noroom' ? 'The game server restarted: this game is over' : String(m.msg || 'The connection was lost')); return; }
-        status(m.code === 'version' ? 'Your Ebbfall and your friend\'s are different versions. Reload to update; if it still says so, your friend reloads theirs.' : String(m.msg || ''));
-        $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version';
+        status(m.code === 'version' ? 'Your Ebbfall and your friend\'s don\'t match. Tap UPDATE, then JOIN again' : String(m.msg || ''));
+        $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version' && m.code !== 'update'; // (another build: UPDATE)
       },
       status: (s) => {
         if (s === 'online') waitingFor.clear(); // (seated again: the relay tells who is still away next)
@@ -96,7 +96,8 @@ function connect(room) {
   });
 }
 
-const who = (s) => online.names[s] || 'the other player';
+const who = (s) => online.names[s] || 'your friend';
+const Who = (s) => who(s).replace(/^./, c => c.toUpperCase()); // (at the start of a line)
 let reconnecting = false, over = '';
 /** The one line under the top bar: what the game waits for, or why it is over (with the way back to the menu). */
 function waitLine() {
@@ -119,17 +120,22 @@ function backToRoom() {
 export function wantRematch() { online.rematch = !online.rematch; online.net?.rematch(online.rematch); return online.rematch; }
 
 function renderLobby(m) {
-  $('seatList').innerHTML = m.seats.map((s, i) => `<div class="seat${i === online.seat ? ' me' : ''}"><b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'away' : s.ready ? 'READY' : ''}</span></div>`).join('');
+  // A seat nobody has taken yet (no name, not here): an open seat, nothing more.
+  const open = (s) => !s.here && !s.name;
+  $('seatList').innerHTML = m.seats.map((s, i) => open(s) ? '<div class="seat open"><b>open seat</b><span></span><span></span></div>'
+    : `<div class="seat${i === online.seat ? ' me' : ''}"><b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'AWAY' : s.ready ? 'READY' : ''}</span></div>`).join('');
   const me = m.seats[online.seat];
   if (me) {
     for (const b of $('onlineRace').querySelectorAll('button')) { const on = b.dataset.race === me.race; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
     online.ready = me.ready; $('btnOnlineReady').textContent = me.ready ? 'NOT READY' : 'READY';
   }
-  // The map: the first seat picks; everyone sees it.
+  // The map: the first seat picks; everyone sees it (and whose pick it is).
+  $('onlineMapLbl').textContent = online.seat === 0 ? 'MAP' : `MAP (${m.seats[0]?.name || 'your friend'}'s pick)`;
   const maps = $('onlineMaps');
   maps.innerHTML = MAPS.map((mp, i) => `<button class="ib${i === m.map ? ' on' : ''}" data-i="${i}"${online.seat === 0 ? '' : ' disabled'}>${mp.name.toUpperCase()}</button>`).join('');
   if (online.seat === 0) for (const b of maps.querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.map(+b.dataset.i); });
-  status(m.seats.every(s => s.here) ? (m.seats.every(s => s.ready) ? 'Starting…' : 'Ready when you are') : 'Waiting for a friend to join');
+  const gone = m.seats.filter(s => !s.here && !open(s)).map(s => s.name || 'your friend');
+  status(m.seats.some(open) ? 'Send a friend the link, then wait here' : gone.length ? `Waiting for ${gone.join(', ')}…` : m.seats.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 

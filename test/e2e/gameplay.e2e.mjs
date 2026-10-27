@@ -540,7 +540,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       // MULTIPLAYER: the lobby's join form, its own sound icon (the same setting); BACK.
       await press('#btnOnline');
       assert.ok(await shown('#onlineJoin') && await page.locator('#start').isHidden(), 'multiplayer: the join form');
-      assert.equal(await page.locator('#online h2').textContent(), 'MULTIPLAYER');
+      assert.equal(await page.locator('#online h2').textContent(), 'PLAY A FRIEND', 'its title (under MULTIPLAYER)');
       const v = page.viewportSize(), b = await page.locator('#btnLobbySound').boundingBox();
       assert.ok(b.x + b.width > v.width - 70 && b.y < 70 && b.width >= 44 && b.height >= 44, `the sound icon top right, a finger wide: ${JSON.stringify(b)}`);
       await press('#btnLobbySound');
@@ -1574,12 +1574,11 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     const hint = await d.page.locator('#hint').boundingBox();
     assert.ok(hint, 'placing a building shows the hint');
     assert.ok(hint.y + hint.height <= mm.y + 1, 'the hint is above the minimap');
-    await d.key('Escape'); await d.key('Escape');
-    await d.eval(() => endfall.setResources(0, 0, 0));
-    await d.clickEntity(coreOf(await d.state()).id);
-    await d.key('h'); // (a Harvester it cannot pay for: a hotkey refusal is a toast)
-    const toast = await d.page.locator('#msg .toast').first().boundingBox();
-    if (toast) assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
+    await d.key('Escape');
+    await d.pressCard('Build'); await d.pressCard('Turret'); // (it needs a Garrison first: a "Requires" refusal is a toast; a cost one only shakes the button)
+    await d.page.locator('#msg .toast', { hasText: /^Requires/ }).waitFor({ timeout: 5000 });
+    const toast = await d.page.locator('#msg .toast', { hasText: /^Requires/ }).boundingBox();
+    assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

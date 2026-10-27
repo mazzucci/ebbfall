@@ -85,7 +85,7 @@ The service worker keeps a build until the next visit, so friends will often be 
 carries the protocol version and the `.wasm` hash; a mismatch shows "Update needed" with one button (fetch the new
 build, activate it, reload into the same join link). Built (2026-10-26): the build bakes in `__SIM_BUILD__` (a hash
 of the `.wasm`, vite.config.js); a room keeps its first seat's and refuses another with `version`; the lobby says so
-with RELOAD (the service worker's update, then back to `?join=CODE`); and a new build that installs while the player
+with UPDATE (the service worker's update, then back to `?join=CODE`); and a new build that installs while the player
 is out of a game (the menu or the lobby) switches over at once, back into the lobby's room. Determinism across engines is checked, not assumed: the golden
 games run in WASM in Chromium, Firefox and WebKit in CI (and a macOS ARM runner), and a hidden `?selftest` page
 runs them on a real phone. The sim's dependencies stay pinned (`libm` exactly), and no float-changing build flags

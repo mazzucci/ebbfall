@@ -1353,6 +1353,52 @@ test('the screen is lean: resources, supply, full screen, sound and pause on top
 });
 
 
+test('iPad full screen: the top bar starts after the system\'s ✕ (top left), and only there', async () => {
+  // iPadOS draws its own leave-full-screen ✕ over the page's top-left corner, in Safari (a Macintosh with touch) and in
+  // every other iPad browser.
+  const IPAD = { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    userAgent: 'Mozilla/5.0 (iPad; CPU OS 26_6_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/151.0.7922.57 Mobile/15E148 Safari/604.1' };
+  for (const dev of [IPAD, PHONE]) {
+    const d = await newGame(dev, 1, 4242, { ai: false });
+    try {
+      const left = () => d.eval(() => document.getElementById('resShard').getBoundingClientRect().left);
+      // (START went full screen already where the browser allows it: from out of full screen, settled)
+      await d.page.waitForTimeout(300);
+      await d.eval(() => document.fullscreenElement && document.exitFullscreen());
+      await d.page.waitForFunction(() => !document.fullscreenElement && !document.documentElement.classList.contains('sysx'));
+      await d.page.waitForTimeout(300);
+      const before = await left();
+      await d.eval(() => document.documentElement.requestFullscreen());
+      await d.page.waitForFunction(() => !!document.fullscreenElement);
+      if (dev === IPAD) await d.page.waitForFunction(() => document.getElementById('resShard').getBoundingClientRect().left >= 60, null, { timeout: 3000 }).catch(() => {});
+      else await d.page.waitForTimeout(300); // (the fullscreenchange event comes after fullscreenElement is set)
+      const full = await left();
+      if (dev === IPAD) assert.ok(full >= 60, `the shards clear the ✕: ${before} -> ${full}`);
+      else assert.ok(Math.abs(full - before) < 2, `a phone keeps its top bar: ${before} -> ${full}`);
+      await d.eval(() => document.exitFullscreen());
+      await d.page.waitForFunction(() => !document.fullscreenElement && !document.documentElement.classList.contains('sysx'));
+      await d.page.waitForFunction((b) => Math.abs(document.getElementById('resShard').getBoundingClientRect().left - b) < 2, before, { timeout: 3000 })
+        .catch(async () => assert.fail(`back in place out of full screen: ${before} -> ${await left()}`));
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('the top bar keeps still when SOUND ON turns to SOUND OFF (a wide screen shows the words)', async () => {
+  const d = await newGame({ viewport: { width: 1180, height: 820 } }, 1, 4242, { ai: false });
+  try {
+    const boxes = () => d.eval(() => ['btnFull', 'btnSound', 'btnPause'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; }));
+    assert.ok(await d.page.locator('#btnSound .t').isVisible(), 'the words show at this width');
+    const on = await boxes();
+    await d.page.locator('#btnSound').click();
+    assert.match(await d.page.locator('#btnSound .t > span:first-child').textContent(), /SOUND OFF/);
+    assert.deepEqual(await boxes(), on, 'nothing moved');
+    await d.page.locator('#btnSound').click();
+    assert.deepEqual(await boxes(), on, 'nor back');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('the menu shows a thumbnail of the chosen map, and a question mark for a random one', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
@@ -1672,7 +1718,7 @@ test('desktop: Shift+click on a unit queues five', async () => {
   } finally { await d.close(); }
 });
 
-test('the menu is a page of its own; while full screen, a corner button leaves it', async () => {
+test('the menu is a page of its own; a corner button beside the sound\'s goes full screen and leaves it', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
@@ -1680,18 +1726,23 @@ test('the menu is a page of its own; while full screen, a corner button leaves i
       await page.waitForFunction(() => !!window.endfall);
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
-      assert.ok(await page.locator('#btnUnfull').isHidden(), 'not full screen: no button for it');
-      // Full screen (stood in for: headless browsers have none): the button shows, top right, and leaves it.
+      // Full screen is stood in for (a headless browser's real one resizes the page under the test).
       await page.evaluate(() => {
         Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+        document.documentElement.requestFullscreen = async () => { window.fs = true; window.went = true; document.dispatchEvent(new Event('fullscreenchange')); };
         document.exitFullscreen = async () => { window.fs = false; window.left = true; document.dispatchEvent(new Event('fullscreenchange')); };
-        window.fs = true; document.dispatchEvent(new Event('fullscreenchange'));
       });
-      const b = await page.locator('#btnUnfull').boundingBox();
-      assert.ok(b && b.x + b.width > v.width - 70 && b.y < 70, `top right: ${JSON.stringify(b)}`);
-      await (device.hasTouch ? page.locator('#btnUnfull').tap() : page.locator('#btnUnfull').click());
+      const btn = page.locator('#btnUnfull'), tap = () => (device.hasTouch ? btn.tap() : btn.click());
+      assert.ok(await btn.isVisible(), 'out of full screen: the button to go in');
+      assert.equal(await btn.getAttribute('aria-label'), 'Full screen');
+      const b = await btn.boundingBox();
+      assert.ok(b && b.x + b.width > v.width - 140 && b.y < 70, `top right, by the sound: ${JSON.stringify(b)}`);
+      await tap();
+      assert.ok(await page.evaluate(() => window.went), 'went full screen');
+      assert.equal(await btn.getAttribute('aria-label'), 'Leave full screen', 'now it leaves');
+      await tap();
       assert.ok(await page.evaluate(() => window.left), 'left full screen');
-      assert.ok(await page.locator('#btnUnfull').isHidden(), 'and the button goes');
+      assert.equal(await btn.getAttribute('aria-label'), 'Full screen', 'and offers it again');
       const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
       assert.ok(sc[0] <= sc[1] + 1, `fits without scrolling: ${sc}`);
     } finally { await ctx.close(); }

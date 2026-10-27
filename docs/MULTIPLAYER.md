@@ -500,6 +500,19 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    six, three against three with four AI seats, in two browsers: the same hash trail).
    Left: allies sharing vision; an AI taking over a seat whose player left; a budget for short path searches (the
    worst tick left in 8-AI games is a burst of them).
+   - **Any team split, each AI at its own level (sim; 2026-10-27, for single player's seat list):** with fewer seats
+     than starts, `seat_starts` spreads the free starts by seat (`s * k / n`), which split 2v2v2, 4v2, 3v2 and 1v4 on
+     eight starts round a free one. With teams the free starts now go between teams (`map::team_starts`: before the
+     team whose first seat is `s`, `s * (k - n) / n` of them, so 3v3 sits as before; each team a run of consecutive
+     seats), and `World::set_teams` deals a world that has not started again on that layout (the same map and draws;
+     it then brings the fog up to date, as before). Free for all and a start for every seat keep their layout: the
+     goldens are unchanged. `Game.withSeats` takes an optional last argument, `diffs`, a difficulty per seat
+     (`World::set_diffs`, `diff_of`; the AI reads its own through `level()`, its income too; left out or empty: every
+     AI at `diff`, so online games and the goldens are unchanged; a replay keeps them); `Game.diffOf(seat)` reads it.
+     Tests: gameplay `seats.rs` (every split of three to eight seats, every turn: each team one arc of the ring;
+     allies side by side over the draws for 2v2v2, 4v2, 1v5, 3v2, 2v2v1, 1v4 and more; a re-dealt game replays
+     exactly; teams after the first tick deal nothing again, and AI seats and levels set before survive; each AI at
+     its own difficulty, a replay included).
 
 ## Open questions for the owner
 

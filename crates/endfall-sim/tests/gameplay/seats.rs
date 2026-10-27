@@ -732,9 +732,21 @@ fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
     // ally's as the nearest two starts on the map (the eight starts are 44 tiles from the next on their side and about
     // as far round the corner); six seats on eight starts used to split a team round a free start when the draw turned
     // the pattern among the seats.
+    // Five and six seats on eight starts used to split 2v2v2, 4v2, 3v2 and 1v4 round a free start whatever the draw:
+    // the free starts now go between teams (`map::team_starts`).
     for (size, teams) in [
         (96u32, vec![0u8, 0, 1, 1]),
+        (96, vec![0, 0, 1]),
+        (96, vec![0, 1, 1]),
         (128, vec![0, 0, 0, 1, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2, 2]),
+        (128, vec![0, 0, 0, 0, 1, 1]),
+        (128, vec![0, 1, 1, 1, 1, 1]),
+        (128, vec![0, 0, 0, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2]),
+        (128, vec![0, 1, 1, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2, 2, 3]),
+        (128, vec![0, 1, 1, 1, 1, 1, 1]),
         (128, vec![0, 0, 0, 0, 1, 1, 1, 1]),
         (128, vec![0, 0, 1, 1, 2, 2, 3, 3]),
     ] {
@@ -774,4 +786,194 @@ fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
             }
         }
     }
+}
+
+#[test]
+fn every_team_split_of_three_to_eight_seats_takes_one_arc_of_the_ring() {
+    // Every way to cut three to eight seats into teams of consecutive seats (each its own too), on the starts its map
+    // has, for every turn of the ring: each team's starts are one unbroken arc (no other team's start, no free start
+    // inside it), every start is taken once, and free for all keeps the layout it always had.
+    use endfall_sim::map::{seat_starts, starts_for, team_starts};
+    for n in 3..=8usize {
+        let k = starts_for(MapSize::square(if n <= 4 { 96 } else { 128 }), n);
+        for cuts in 0..1u32 << (n - 1) {
+            let mut teams = vec![0u8; n];
+            for s in 1..n {
+                teams[s] = teams[s - 1] + (cuts >> (s - 1) & 1) as u8;
+            }
+            for side in 0..(k * n) as u32 {
+                let at = team_starts(k, &teams, side);
+                let mut all = at.clone();
+                all.sort();
+                assert_eq!(
+                    all,
+                    (0..k).collect::<Vec<_>>(),
+                    "{teams:?} side {side}: every start once"
+                );
+                if teams[n - 1] as usize == n - 1 {
+                    assert_eq!(at, seat_starts(k, n, side), "free for all as before");
+                }
+                // A start for every seat, and three against three: as before for the side the menus' constructor
+                // passes a teamed game (`side % k`), so those games are dealt as they always were.
+                if n == k || teams == [0, 0, 0, 1, 1, 1] {
+                    let turned = side % k as u32;
+                    assert_eq!(
+                        team_starts(k, &teams, turned),
+                        seat_starts(k, n, turned),
+                        "{teams:?} side {side}: as before"
+                    );
+                }
+                for t in 0..=teams[n - 1] {
+                    let mine: Vec<usize> =
+                        (0..n).filter(|&s| teams[s] == t).map(|s| at[s]).collect();
+                    let arc = mine
+                        .iter()
+                        .any(|&p| (0..mine.len()).all(|i| mine.contains(&((p + i) % k))));
+                    assert!(
+                        arc,
+                        "{n} seats on {k} starts, teams {teams:?}, side {side}: team {t} on {mine:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn each_ai_seat_plays_at_its_own_difficulty() {
+    // Single player's seat list: an AI's difficulty per seat (`withSeats`' `diffs`; empty: every AI at the game's).
+    let setup = |diffs: Option<Vec<u8>>| {
+        Game::with_seat_diffs(
+            43,
+            1,
+            0,
+            0,
+            &[0, 0, 1, 0],
+            &[0, 1, 1, 1],
+            &[0, 1, 1, 1],
+            0,
+            Some(96),
+            diffs,
+        )
+    };
+    assert!(
+        setup(Some(vec![0, 0, 3])).is_err(),
+        "a difficulty per seat, or none"
+    );
+    let mut g = setup(Some(vec![2, 0, 3, 9])).unwrap();
+    let w = g.world();
+    assert_eq!(
+        (0..4).map(|s| w.diff_of(s)).collect::<Vec<_>>(),
+        [2, 0, 3, 3],
+        "each its own (9: the hardest there is)"
+    );
+    // Left out: every AI at the game's difficulty (the goldens' games), the same game as each given that one; one AI at
+    // another difficulty plays another game.
+    let mut games = [None, Some(vec![1; 4]), Some(vec![1, 1, 3, 1])].map(|d| setup(d).unwrap());
+    for _ in 0..30 * 60 {
+        games.iter_mut().for_each(|g| g.step());
+    }
+    assert_eq!(games[0].world().diff_of(2), 1);
+    assert_eq!(
+        games[0].state_hash(),
+        games[1].state_hash(),
+        "the same game"
+    );
+    assert_ne!(
+        games[0].state_hash(),
+        games[2].state_hash(),
+        "Brutal on seat 2: another game"
+    );
+    // Each plays its own: Easy keeps fewer harvesters than Brutal, which gathers 30% more on the same fields.
+    let mut hashes = Vec::new();
+    for _ in 0..30 * 240 {
+        g.step();
+        hashes.push(g.state_hash());
+    }
+    let w = g.world();
+    let (easy, brutal) = (harvesters(w, 1).len(), harvesters(w, 2).len());
+    assert!(
+        easy <= 8 && brutal > easy + 4,
+        "Easy {easy} harvesters, Brutal {brutal}"
+    );
+    assert!(
+        w.stats[2].built > w.stats[1].built,
+        "Brutal trains more than Easy"
+    );
+    // Watching it again: the same game, each AI at its own difficulty.
+    assert!(g.start_replay());
+    assert_eq!(g.world().diff_of(1), 0);
+    for (i, want) in hashes.iter().enumerate() {
+        g.step();
+        assert_eq!(g.state_hash(), *want, "replay tick {i}");
+    }
+}
+
+#[test]
+fn a_game_dealt_again_for_its_teams_replays_exactly() {
+    // 2v2v2 on eight starts: `set_teams` deals the world again (the free starts between teams); watching it again
+    // builds the same world the same way, tick for tick.
+    let mut g = Game::with_seats(
+        11,
+        1,
+        0,
+        3,
+        &[0, 1, 0, 1, 0, 1],
+        &[0, 0, 1, 1, 2, 2],
+        &[0, 1, 1, 1, 1, 1],
+        0,
+        Some(128),
+    )
+    .unwrap();
+    let mut hashes = Vec::new();
+    for _ in 0..30 * 60 {
+        g.step();
+        hashes.push(g.state_hash());
+    }
+    assert!(g.start_replay());
+    for (i, want) in hashes.iter().enumerate() {
+        g.step();
+        assert_eq!(g.state_hash(), *want, "replay tick {i}");
+    }
+}
+
+#[test]
+fn teams_deal_the_seats_again_only_before_the_first_tick_and_keep_the_ai_seats_and_their_levels() {
+    let races: Vec<&'static Faction> = (0..6)
+        .map(|s| if s % 2 == 0 { &HUMANS } else { &VAEL })
+        .collect();
+    let world = || World::with_size(12, 1, MapKind::Standard, MapSize::square(128), 2, &races);
+    // Before the first tick: dealt again (2v2v2 does not sit as six alone do), the AI seats and their levels kept.
+    let mut w = world();
+    let before = w.map.bases.clone();
+    assert!(w.set_ai_seats([false, true, true, false, true, true]));
+    assert!(w.set_diffs(&[0, 3, 0, 0, 2, 1]));
+    assert!(w.set_teams(&[0, 0, 1, 1, 2, 2]));
+    assert_ne!(
+        w.map.bases, before,
+        "dealt again: the free starts between teams"
+    );
+    assert_eq!(w.ai_seats, [false, true, true, false, true, true]);
+    assert_eq!(
+        (0..6).map(|s| w.diff_of(s)).collect::<Vec<_>>(),
+        [0, 3, 0, 0, 2, 1]
+    );
+    for _ in 0..40 {
+        w.step();
+    }
+    assert_eq!(
+        w.ai_turns().iter().map(|&t| t > 0).collect::<Vec<_>>(),
+        [false, true, true, false, true, true],
+        "the AI seats think, the people's do not"
+    );
+    // After it: the world stays as it is (only the alliances change).
+    let mut w = world();
+    w.step();
+    let (bases, units, tick) = (w.map.bases.clone(), w.units.len(), w.tick);
+    assert!(w.set_teams(&[0, 0, 1, 1, 2, 2]));
+    assert_eq!(
+        (w.map.bases.clone(), w.units.len(), w.tick),
+        (bases, units, tick),
+        "not dealt again"
+    );
 }

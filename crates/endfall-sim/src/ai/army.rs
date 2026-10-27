@@ -228,7 +228,7 @@ impl World {
             .copied()
             .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
             .collect();
-        if DIFF[self.diff].raids {
+        if self.level().raids {
             self.tend_raiders(&wasps, rally);
         }
         let raiders = self.ai().raiders.clone();
@@ -301,7 +301,7 @@ impl World {
     /// Send the whole army out once it is big enough (fewer, stronger units for a race with a smaller wave scale)
     /// and the difficulty's first-wave time and gap have passed.
     fn ai_launch_wave(&mut self, army: &[Id], t: f64, (gx, gy): (f64, f64)) {
-        let d = &DIFF[self.diff];
+        let d = self.level();
         let ai = self.ai();
         let need =
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;

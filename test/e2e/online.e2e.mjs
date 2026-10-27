@@ -178,6 +178,7 @@ test('a room of another version: the friend is told to update, and UPDATE brings
     assert.equal(await b.p.locator('#onlineStatus').textContent(), "Your Ebbfall and your friend's don't match. Tap UPDATE, then JOIN again");
     assert.equal(await b.p.locator('#btnOnlineReload').textContent(), 'UPDATE');
     assert.ok(await b.p.locator('#onlineJoin').isVisible(), 'the code box is back, to try another room');
+    for (let i = 0; i < 50 && !told.length; i++) await new Promise(r => setTimeout(r, 100)); // (the host's notice may land a moment after the friend's error)
     assert.deepEqual(told, ['version'], 'the room is told too (its player may be the one behind)');
     await Promise.all([b.p.waitForNavigation(), b.tap('#btnOnlineReload')]);
     await b.p.waitForFunction(() => !!window.endfall);

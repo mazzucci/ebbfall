@@ -178,10 +178,14 @@ impl World {
         }
     }
 
+    /// The crew the AI trains workers for, with `cores` finished Cores: the difficulty's, and five more a base.
+    pub(crate) fn harv_target(&self, cores: usize) -> usize {
+        DIFF[self.diff].harv + 5 * cores.saturating_sub(1)
+    }
+
     /// More harvesters while short of the target; an expansion gets five from the main base.
     pub(crate) fn ai_harvesters(&mut self, brain: &mut Brain) {
         let Brain { e, harv, my_b, .. } = brain.clone();
-        let d = &DIFF[self.diff];
         // Economy and build order.
         let queued_h: usize = my_b
             .iter()
@@ -199,7 +203,7 @@ impl World {
             .copied()
             .filter(|&id| self.bldg(id).is_some_and(|b| b.kind.def().hq && b.done))
             .collect();
-        let harv_target = d.harv + 5 * cores.len().saturating_sub(1);
+        let harv_target = self.harv_target(cores.len());
         // A side whose builder stays at its site until the building stands (people; a Vael planter leaves at once)
         // keeps one spare for it: the AI replaces one worker away building or repairing, so its income does not dip
         // with every building it raises. (One at most: workers are never disbanded, so more would stay for good.)

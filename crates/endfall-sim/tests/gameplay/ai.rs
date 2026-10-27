@@ -1428,3 +1428,57 @@ fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() 
     );
     assert_eq!(researched_at(0), None, "Easy never researches");
 }
+
+#[test]
+fn brutal_trains_its_workers_before_its_buildings() {
+    // Brutal's build order (three factories, supply two at a time) spent every shard while its crew was still short,
+    // so its Core stood idle between workers; and a Human builder leaves the line while it builds, so the Human AI fell
+    // behind the Vael AI in the opening. Now a worker's price stays in the bank while the crew is short: by 3:00 (its
+    // build-up done; the first waves can meet about then, so the mining margin allows for a fleeing worker or two) the Human AI's Core
+    // has stood idle for under 10 s, its crew is full and it mines within two of the Vael AI. (Without it: 18-23 s idle, a crew of 17 and two to three fewer mining.)
+    let d = &DIFF[3];
+    assert!(d.workers_first);
+    for seed in [3, 5, 17] {
+        let mut w = World::with_setup(seed, 3, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.set_ai_seats([true, true]);
+        let crew = |w: &World, s: u8| harvesters(w, s).len();
+        let mut idle = 0.0;
+        while w.time < 180.0 {
+            w.step();
+            w.events.clear();
+            let core_idle = w
+                .bldgs
+                .iter()
+                .any(|b| b.team == PLAYER && b.kind.def().hq && b.done && b.queue.is_empty());
+            if crew(&w, PLAYER) < d.harv && core_idle {
+                idle += 1.0 / 30.0;
+            }
+        }
+        let mining = |s: u8| {
+            harvesters(&w, s)
+                .iter()
+                .filter(|&&h| matches!(w.unit(h).unwrap().task, Task::Gather { .. }))
+                .count()
+        };
+        assert!(idle < 10.0, "seed {seed}: its Core stood idle {idle:.1} s");
+        let training: usize = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == PLAYER && b.kind.def().hq)
+            .map(|b| b.queue.iter().filter(|q| q.def().worker).count())
+            .sum();
+        assert!(
+            crew(&w, PLAYER) + training >= d.harv,
+            "seed {seed}: a full crew by 3:00 (counting one in training): {} + {training}",
+            crew(&w, PLAYER)
+        );
+        assert!(
+            mining(PLAYER) + 2 >= mining(ENEMY),
+            "seed {seed}: mining {} to the Vael AI's {}",
+            mining(PLAYER),
+            mining(ENEMY)
+        );
+    }
+    // The other levels build as before.
+    assert!(DIFF[..3].iter().all(|d| !d.workers_first));
+}

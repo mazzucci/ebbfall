@@ -1,11 +1,13 @@
 // The Cloudflare relay (relay/worker.js) in Node, with fake WebSocket pairs and a fake Durable Object namespace (with
 // storage, and eviction): a room opened and joined through the Worker, a game started and its turns ticking, leaving,
 // a reconnect replacing a live socket, no such room, a taken code, no free code, an evicted lobby coming back (and an
-// evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages.
+// evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages. Then the device
+// test's reports (relay/bench.js): stored and read back by code, only from the game's pages, size, JSON, rate, expiry.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { RoomObject } from '../relay/worker.js';
 import { PROTO } from '../relay/room.js';
+import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN } from '../relay/bench.js';
 
 /** A connected pair of fake sockets: what one sends, the other's listeners get. */
 function pair() {
@@ -22,8 +24,8 @@ function pair() {
   return [a, b];
 }
 const platform = { pair, respond: (client) => ({ status: 101, webSocket: client }) };
-/** A fake object's storage. */
-const storage = () => { const m = new Map(); return { async get(k) { return m.get(k); }, async put(k, v) { m.set(k, v); } }; };
+/** A fake object's storage (a Durable Object's API over a Map). */
+const storage = memoryStorage;
 /** A fake namespace: one RoomObject per name, made on first use, its storage kept when it is evicted. */
 function env(extra = {}) {
   const objects = new Map(), stores = new Map();
@@ -164,4 +166,75 @@ test('only WebSockets, only from the game\'s pages when ORIGINS is set', async (
   const ok = await worker.fetch(upgrade('new=1'), e);
   assert.equal(ok.status, 101);
   ok.webSocket.close();
+});
+
+// ---- the device test's reports ----
+const ORIGINS = 'https://ebbfall.com,http://localhost:5173';
+const post = (body, origin = 'https://ebbfall.com') => new Request('https://relay.ebbfall.com/bench', { method: 'POST', body, headers: { 'Content-Type': 'application/json', ...(origin ? { Origin: origin } : {}) } });
+const get = (code) => new Request(`https://relay.ebbfall.com/bench/${code}`);
+const REPORT = { v: 1, summary: { fps: 58.2, frameMs: { p95: 21.4 } }, device: { cores: 8 } };
+
+test('a report: POSTed from the game, a code back, read by that code (GET needs no Origin)', async () => {
+  const e = env({ ORIGINS });
+  const res = await worker.fetch(post(JSON.stringify(REPORT)), e);
+  assert.equal(res.status, 201);
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://ebbfall.com', 'the page may read the answer');
+  const { code } = await res.json();
+  assert.match(code, /^PERF-[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
+  for (const c of [code, code.toLowerCase(), code.slice(5)]) {
+    const r = await worker.fetch(get(c), e);
+    assert.equal(r.status, 200, c);
+    const got = await r.json();
+    assert.equal(got.code, code); assert.deepEqual(got.report, REPORT);
+    assert.ok(Math.abs(Date.parse(got.received) - Date.now()) < 5000);
+  }
+  assert.ok(e.objects.has('bench') && e.objects.size === 1, 'one object keeps the reports; no room opened');
+  assert.equal((await worker.fetch(get('PERF-QQQQ'), e)).status, 404, 'no such report');
+  assert.equal((await worker.fetch(get('PERF-AB1'), e)).status, 404, 'not a code');
+  assert.equal((await worker.fetch(new Request('https://relay.ebbfall.com/'), e)).status, 426, 'the rooms are still WebSocket only');
+});
+
+test('reports only from the game\'s pages; a preflight for them', async () => {
+  const e = env({ ORIGINS });
+  assert.equal((await worker.fetch(post('{}', 'https://evil.example'), e)).status, 403);
+  assert.equal((await worker.fetch(post('{}', null), e)).status, 403, 'no Origin (not a browser page)');
+  const pre = await worker.fetch(new Request('https://relay.ebbfall.com/bench', { method: 'OPTIONS', headers: { Origin: 'http://localhost:5173', 'Access-Control-Request-Method': 'POST' } }), e);
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('Access-Control-Allow-Origin'), 'http://localhost:5173');
+  assert.match(pre.headers.get('Access-Control-Allow-Methods'), /POST/);
+  assert.match(pre.headers.get('Access-Control-Allow-Headers'), /Content-Type/);
+  const bad = await worker.fetch(new Request('https://relay.ebbfall.com/bench', { method: 'OPTIONS', headers: { Origin: 'https://evil.example' } }), e);
+  assert.equal(bad.status, 403);
+  assert.equal((await worker.fetch(new Request('https://relay.ebbfall.com/bench', { method: 'PUT', body: '{}', headers: { Origin: 'https://ebbfall.com' } }), e)).status, 405);
+  assert.equal(e.objects.size, 0, 'nothing reached the store');
+});
+
+test('a report: 64 KB at most, JSON, an object', async () => {
+  const e = env({ ORIGINS });
+  const pad = (n) => JSON.stringify({ x: 'x'.repeat(n - 8) }); // (n bytes of JSON)
+  assert.equal(pad(1000).length, 1000);
+  assert.equal((await worker.fetch(post(pad(BENCH_MAX)), e)).status, 201, '64 KB: taken');
+  assert.equal((await worker.fetch(post(pad(BENCH_MAX + 1)), e)).status, 413, 'a byte more: too large');
+  const big = new Request('https://relay.ebbfall.com/bench', { method: 'POST', body: pad(200 * 1024), headers: { Origin: 'https://ebbfall.com', 'Content-Length': String(200 * 1024) } });
+  assert.equal((await worker.fetch(big, e)).status, 413, 'a large length is refused before reading');
+  for (const body of ['{"fps": 6', 'not json', '[1,2]', 'null', '42', '']) assert.equal((await worker.fetch(post(body), e)).status, 400, body);
+});
+
+test('reports: ten a minute, and gone after a week', async () => {
+  let now = Date.UTC(2026, 9, 27);
+  const st = storage(), store = new BenchStore(st, () => now);
+  const codes = [];
+  for (let i = 0; i < BENCH_PER_MIN; i++) { const r = await store.post('{"n":' + i + '}'); assert.equal(r.status, 201); codes.push((await r.json()).code.slice(5)); }
+  assert.equal((await store.post('{}')).status, 429, 'the eleventh in a minute');
+  now += 61 * 1000;
+  assert.equal((await store.post('{}')).status, 201, 'a minute later');
+  assert.equal((await store.get(codes[0])).status, 200);
+  now += BENCH_TTL - 61 * 1000 - 1;
+  assert.equal((await store.get(codes[0])).status, 200, 'still there just before a week');
+  now += 1;
+  assert.equal((await store.get(codes[0])).status, 404, 'a week: gone');
+  assert.ok(st.map.has('r:' + codes[0]), 'still stored until a sweep');
+  await store.post('{}'); // (a new report sweeps the old ones)
+  for (const c of codes) assert.ok(!st.map.has('r:' + c), 'swept');
+  assert.equal([...st.map.keys()].filter(k => k.startsWith('r:')).length, 2, 'the newer two stay');
 });

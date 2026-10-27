@@ -1,8 +1,10 @@
 // The relay on Cloudflare (docs/MULTIPLAYER.md, M3d): a Worker that sends each WebSocket to its room's Durable Object,
 // one object per room code, which runs relay/room.js's rules (the same as relay/server.mjs's, which is the Node
 // adapter). A client connects to wss://host/?room=CODE (or ?new=1 to open a room) and says hello. Config and deploy:
-// relay/wrangler.toml.
+// relay/wrangler.toml. Also the device test's reports over HTTP (relay/bench.js): POST /bench, GET /bench/<CODE>, kept
+// by one more object of the same class, named 'bench' (room codes are four capitals: never that name).
 import { Room, TURN_MS } from './room.js';
+import { benchRequest, BenchStore } from './bench.js';
 
 const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
 const MAX_MSG = 64 * 1024;
@@ -16,6 +18,8 @@ const allowed = (req, env) => !env.ORIGINS || env.ORIGINS.split(',').includes(re
 
 export default {
   async fetch(req, env) {
+    const bench = await benchRequest(req, { origins: env.ORIGINS, store: (r) => env.ROOMS.get(env.ROOMS.idFromName('bench')).fetch(r) });
+    if (bench) return bench;
     if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Ebbfall relay: WebSocket only', { status: 426 });
     if (!allowed(req, env)) return new Response('Not from here', { status: 403 });
     const q = new URL(req.url).searchParams;
@@ -42,7 +46,8 @@ const CLOUDFLARE = {
 /** A room's Durable Object: its Room, its connections, and the clock while anyone is connected. The Room lives in
  *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a small record in storage
  *  (the code, when it was last used, whether its game started) lets an evicted lobby come back, empty, for a friend who
- *  joins late. A game is not kept: an evicted or redeployed one is over (its players are told the server restarted). */
+ *  joins late. A game is not kept: an evicted or redeployed one is over (its players are told the server restarted).
+ *  The object named 'bench' is no room: it keeps the device test's reports (relay/bench.js BenchStore). */
 export class RoomObject {
   constructor(state, env, platform = CLOUDFLARE) {
     this.platform = platform; this.storage = state?.storage; this.room = null; this.conns = new Set(); this.timer = null;
@@ -50,6 +55,7 @@ export class RoomObject {
   }
 
   async fetch(req) {
+    if (new URL(req.url).hostname === 'bench') return (this.bench ||= new BenchStore(this.storage)).fetch(req); // (the reports' object)
     const q = new URL(req.url).searchParams, code = q.get('code');
     const saved = this.room ? null : await this.storage?.get('room');
     const recent = saved && Date.now() - saved.used < ROOM_IDLE_MS;

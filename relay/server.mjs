@@ -1,8 +1,12 @@
 // The relay as a Node WebSocket server (local play, a LAN or Tailscale game, the e2e tests): rooms by code over one
 // endpoint. The rules are relay/room.js's; this file only moves bytes and keeps time. Usage: node relay/server.mjs
 // [port] (default 8788). A client connects to ws://host:port/?room=CODE (or ?new=1 to open a room) and says hello.
+// Over plain HTTP on the same port, the device test's reports (relay/bench.js, kept in memory here).
+import { createServer } from 'node:http';
+import { Readable } from 'node:stream';
 import { WebSocketServer } from 'ws';
 import { Room, TURN_MS } from './room.js';
+import { benchRequest, BenchStore, memoryStorage } from './bench.js';
 
 const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
 const MAX_MSG = 64 * 1024;
@@ -41,8 +45,18 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
     else if (ws.readyState === 1) ws.send(data);
   };
   const kick = (ws) => { if (latency || jitter) later(ws, { close: true }); else ws.close(); };
-  const wss = new WebSocketServer({ port, maxPayload: MAX_MSG });
-  wss.on('error', () => {}); // (a failed listen is reported through `ready`)
+  const bench = new BenchStore(memoryStorage());
+  const http = createServer(async (req, res) => {
+    const body = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS' ? undefined : Readable.toWeb(req);
+    const headers = Object.entries(req.headers).filter(([, v]) => typeof v === 'string');
+    try {
+      const r = new Request(`http://${req.headers.host || 'localhost'}${req.url}`, { method: req.method, headers, body, duplex: 'half' });
+      const out = await benchRequest(r, { origins: '', store: (q) => bench.fetch(q) }) || new Response('Ebbfall relay: WebSocket only', { status: 426 });
+      res.writeHead(out.status, Object.fromEntries(out.headers)); res.end(Buffer.from(await out.arrayBuffer()));
+    } catch { res.writeHead(400); res.end(); }
+  });
+  const wss = new WebSocketServer({ server: http, maxPayload: MAX_MSG });
+  http.on('error', () => {}); wss.on('error', () => {}); // (a failed listen is reported through `ready`)
   wss.on('connection', (ws, req) => {
     ws.queue = []; ws.timer = null;
     ws.on('error', () => {}); // (an oversize or broken frame: `close` follows; it must not take the server down)
@@ -73,11 +87,12 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
       if (r.seats.every(s => !s.conn) && now - r.lastUsed > ROOM_IDLE_MS) rooms.delete(c);
     }
   }, TURN_MS / 4);
-  const ready = new Promise((res, rej) => { wss.once('listening', res); wss.once('error', rej); });
+  const ready = new Promise((res, rej) => { http.once('listening', res); http.once('error', rej); });
+  http.listen(port);
   return {
-    rooms, ready,
-    get port() { return wss.address().port; },
-    close: () => new Promise(res => { clearInterval(timer); for (const c of wss.clients) c.terminate(); wss.close(res); }),
+    rooms, ready, bench,
+    get port() { return http.address().port; },
+    close: () => new Promise(res => { clearInterval(timer); for (const c of wss.clients) c.terminate(); wss.close(() => { http.close(() => res()); http.closeAllConnections(); }); }),
   };
 }
 

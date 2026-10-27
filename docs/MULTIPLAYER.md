@@ -123,6 +123,12 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
 - Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size and rate,
   commands per turn and list lengths; per-address limits on creating and joining. On the free plan a flood can only
   use up the day's quota (multiplayer down until midnight UTC): acceptable for a game among friends.
+- The relay also keeps the device test's reports (`?bench`, src/client/bench.js; relay/bench.js): `POST /bench` from
+  the game's pages (ORIGINS, CORS with a preflight; JSON, 64 KB at most; 10 a minute and 500 a day) answers with a
+  code, `PERF-XXXX` in the room codes' letters, and `GET /bench/<CODE>` (from anywhere: `curl`) returns
+  `{code, received, report}` for a week. One more object of the room class, named `bench`, keeps every report (so its
+  limits count everyone's and the week's sweep is one list; no new class, no migration); the Node relay keeps them in
+  memory on the same port.
 - Cost: the free plan's duration limit (13,000 GB-s a day) allows about 85 two-player games of 20 minutes a day;
   Workers Paid ($5 a month) removes the concern. Needs from the owner, when the relay is ready: a Cloudflare API token.
 

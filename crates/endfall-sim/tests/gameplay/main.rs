@@ -13,5 +13,6 @@ mod economy;
 mod lockstep;
 mod maps;
 mod orders;
+mod paths;
 mod random_play;
 mod seats;

@@ -320,6 +320,69 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    Left: (d) group paths, then 5-8 players (128x128 maps of their own, the PLAYERS row to 8); allies sharing vision;
    an AI taking over a seat whose player left.
 
+   (d) Group paths. *Done (2026-10-27):* measured first: the worst tick of every AI game was a wave setting off, each
+   of its units planning its own cross-map route (34-94 searches in one tick, 1-3 ms each on 128x128). Now
+   (`world/paths.rs`):
+   - **One route for a group.** A long walk (start and goal 16 tiles or more apart on either axis, `LONG_SEARCH`) is
+     planned once for the units of a seat sent to the same place in the same tick (an AI's wave, a group order,
+     attack-move or formation, survivors of a fight going back to the march): the first unit's route is kept until the
+     end of the step, and a unit of that seat bound within 4 tiles of its goal from within 8 tiles of its start takes
+     it. It walks straight to the farthest of the route's first six waypoints it can reach in a straight line (the
+     smoothing's own line-of-sight test, so never through rock or a building; seeing none, a short search of at most
+     300 nodes onto the route's start, or else a search of its own), follows the route, and from its end goes on to
+     its own spot (straight from the waypoint before the end, or from the end, or by a short search that must get
+     there: a spot behind a wall from the route's end gets a search of its own). A way to the side of a building
+     (attacking, building, repairing, bringing a load back) is shared the same way by the units of a seat going to
+     that building. A building going up or coming down, or a shard field running dry, forgets the routes planned so
+     far.
+   - **A budget of long searches.** A seat runs at most two long searches a tick (`LONG_SEARCHES`; orders given between
+     steps count in the next step's; every try of a way to a building counts). A unit refused with no route asks again
+     the next tick (in the units' order, by id), standing meanwhile if it is a walker under a new order, or heading
+     straight for its target; one replanning a route it has (every 0.6-0.9 s while it closes on something) keeps it
+     until its next replan, and replans may take only the first search of a tick: the second is kept for units with no
+     route, so a new order waits a tick or two at most however many units are replanning (a review found sixty units
+     closing on a far building, replanning in id order, starving every later long order of the seat for good). Nobody
+     drops its order while it waits, and short searches are never held back.
+   - **Cheaper smoothing.** The smoothing looks at most 24 steps of the raw route ahead (`SMOOTH_LOOK`): a long straight
+     stretch gets a waypoint every 24 tiles or so instead of one, and it costs that window per waypoint instead of the
+     whole route (alone, it took the 128x128 duel's worst tick from 1.6 to 0.95 ms a search).
+   Nothing new is hashed, nothing is iterated out of order, the RNG draws as before (one per route planned); the routes
+   are new, so units walk a little differently: every golden game's 9000-tick hash moved (cinder-hard's and
+   barren-easy-scripted's at 2700 too; none at 300), and the pinned results.
+   Timings: native release, 12-minute games of Hard AIs (Humans and Vael by turns), seeds 3, 17, 29, 41 and 53 (five
+   games each), on a quiet 4-core VM; the step's time per tick, average / 99th percentile / worst (main's worst tick
+   was all path search: its A* time and searches in brackets):
+
+   | game             | main                                 | group paths           |
+   |------------------|--------------------------------------|-----------------------|
+   | 2 AIs on 64x64   | 0.083 / 0.34 / 13.3 ms (12.8 ms, 66) | 0.081 / 0.27 / 1.5 ms |
+   | 2 AIs on 96x96   | 0.112 / 0.56 / 32.5 ms (32.1 ms, 41) | 0.103 / 0.49 / 2.5 ms |
+   | 2 AIs on 128x128 | 0.149 / 1.05 / 54.8 ms (54.3 ms, 34) | 0.123 / 1.00 / 4.9 ms |
+   | 4 AIs on 96x96   | 0.259 / 1.16 / 43.9 ms (42.4 ms, 94) | 0.226 / 0.97 / 2.9 ms |
+   | 8 AIs on 128x128 | 0.518 / 2.99 / 41.1 ms (39.0 ms, 64) | 0.520 / 2.23 / 8.6 ms |
+
+   The most search time in any one tick is now 1.5-3 ms (about 6 ms with eight seats, up to 16 long searches). The
+   earlier figures (worst 87-130 ms for the 128x128 duel) were taken on a loaded VM. Balance, AI against AI over both
+   seed sets (72 games a level, the Humans' wins, Easy / Medium / Hard / Brutal): main 37.5 / 37 / 36 / 26 (136.5 of
+   288, 47%), group paths 45 / 36 / 46 / 27 (154, 53%): Easy and Hard towards the Humans, the total about 1.5
+   standard deviations of the difference between two such runs, within what a movement change brings (to watch at
+   the next balance pass). Tests: gameplay `paths.rs` (twelve Troopers sent as a group across a 128x128 map, in
+   formation and attack-moving, Standard and Labyrinth: one search, eleven routes shared, all at their spots in time;
+   thirty in six bunches well apart sent across in one tick: at most two long searches a tick, some wait, all have
+   their route within four ticks, none dropped its order, all arrive; groups scattered over winding maps: every route
+   walkable from the unit and from waypoint to waypoint (joining without the line-of-sight test fails it and the
+   first; no budget fails the second); short walks neither shared nor held back; sixty Troopers spread out, each
+   closing on a far Core: every one has its way within 3 s, and four far moves ordered 3 s in have theirs within four
+   ticks (letting replans take every search fails it); a wall across the map, one unit sent before it and one, from
+   the same place in the same tick, behind it: the second gets there (taking the first's route and a tail that stops
+   at the wall fails it); `path_cost_per_tick`, ignored, prints the table's figures). The scenarios already there (a
+   route round a building put up across it, a group sent to a walled-off spot, random play) pass unchanged; the four
+   AIs' free for all on 96x96 now runs up to 18 minutes (its seed 11 knocks out its first seat at 16 instead of 14).
+   Left before 5-8 players on 128x128: the worst tick is now the AIs' turns, all on the same tick (every 16 ticks,
+   each brain's half-second clock in step with the others): eight cost 7-10 ms together in the first minutes;
+   staggering them by seat would spread that. Then 128x128 maps of their own and the PLAYERS row to 8; on a phone
+   (WASM a few times slower) that tick would be some 30-40 ms.
+
 ## Open questions for the owner
 
 - Player names: typed once and remembered on the device (lean), or none.

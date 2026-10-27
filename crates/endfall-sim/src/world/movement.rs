@@ -41,7 +41,10 @@ impl World {
     }
 
     // ---- orders (commands.js) ----
-    pub(crate) fn path_to(&mut self, uid: Id, x: f64, y: f64) {
+    /// Plan a route to (`x`, `y`) (see paths.rs: a group's route shared, long searches budgeted). Returns false when
+    /// the unit must wait for the budget: its old route (if any) stands until its next replan, and one with none asks
+    /// again next tick.
+    pub(crate) fn path_to(&mut self, uid: Id, x: f64, y: f64) -> bool {
         if self.u(uid).kind.def().air {
             // Flyers go straight there, over rock and buildings.
             let to = Pt {
@@ -51,11 +54,16 @@ impl World {
             let u = self.um(uid);
             u.path = Some(vec![to]);
             u.repath = 0.6;
-            return;
+            return true;
         }
-        let (ux, uy) = (self.u(uid).x, self.u(uid).y);
+        let (ux, uy, team) = (self.u(uid).x, self.u(uid).y, self.u(uid).team);
         let (a, b) = (self.map.tile_of(ux, uy), self.map.tile_of(x, y));
-        let mut path = astar(&self.map, &mut self.scratch, a.0, a.1, b.0, b.1);
+        let refresh = self.u(uid).path.is_some();
+        let paths::Plan::Route(mut path) = self.plan_walk(team, (ux, uy), a, b, refresh) else {
+            // A unit with a route keeps it until its next replan; one without asks again next tick.
+            self.um(uid).repath = if refresh { 0.6 } else { 0.0 };
+            return false;
+        };
         let bi = self.map.idx(b.0, b.1);
         let blocked_tile = self.map.rock[bi] != 0 || self.map.occ[bi] != 0;
         // The exact point only if the route reaches its tile: a route that stops short (the goal is free but walled
@@ -78,6 +86,7 @@ impl World {
         let u = self.um(uid);
         u.path = path;
         u.repath = rep;
+        true
     }
 
     // ---- per-tick update (update.js) ----
@@ -131,10 +140,18 @@ impl World {
         u.repath -= dt;
         if u.path.is_none() || u.repath <= 0.0 {
             if let Geo::Rect { tx, ty, w, h, .. } = target {
-                let path = self.path_to_rect(ux, uy, (tx, ty, w, h), p);
+                // (a long way to a building is shared and waits its turn as any long search: an old route stands
+                // until the next replan meanwhile)
+                let (team, refresh) = (self.u(uid).team, self.u(uid).path.is_some());
+                let plan = self.plan_to_rect(team, (ux, uy), (tx, ty, w, h), p, refresh);
                 let u = self.um(uid);
-                u.path = path;
-                u.repath = 0.7;
+                match plan {
+                    paths::Plan::Route(path) => {
+                        u.path = path;
+                        u.repath = 0.7;
+                    }
+                    paths::Plan::Wait => u.repath = if refresh { 0.7 } else { 0.0 },
+                }
             } else {
                 let (tx, ty) = target.center();
                 self.path_to(uid, tx, ty);
@@ -160,12 +177,14 @@ impl World {
 
     /// A path to a free tile beside a building footprint that can actually be reached: the free tiles around
     /// it are tried nearest first (a free tile can be cut off by rock), falling back to the old nearest-free goal.
+    /// `charge`: a long way, for that seat: every try after the first counts against its budget of long searches.
     pub(crate) fn path_to_rect(
         &mut self,
         ux: f64,
         uy: f64,
         (tx, ty, w, h): (i32, i32, i32, i32),
         aim: (f64, f64),
+        charge: Option<u8>,
     ) -> Option<Vec<Pt>> {
         let start = self.map.tile_of(ux, uy);
         let mut ring: Vec<(f64, i32, i32)> = Vec::new();
@@ -183,10 +202,12 @@ impl World {
                 .unwrap()
                 .then((a.1, a.2).cmp(&(b.1, b.2)))
         });
+        let mut tries = 0;
         for &(_, x, y) in ring.iter().take(4) {
             if (x, y) == start {
                 return Some(Vec::new());
             }
+            self.charge_try(charge, &mut tries);
             if let Some(path) = astar(&self.map, &mut self.scratch, start.0, start.1, x, y) {
                 let goal = Pt {
                     x: x as f64 * TILE + 16.0,
@@ -198,7 +219,18 @@ impl World {
             }
         }
         let g = self.map.tile_of(aim.0, aim.1);
+        self.charge_try(charge, &mut tries);
         astar(&self.map, &mut self.scratch, start.0, start.1, g.0, g.1)
+    }
+
+    /// One more try of `path_to_rect`'s: on a long way, each after the first counts against the seat's budget.
+    fn charge_try(&mut self, charge: Option<u8>, tries: &mut u32) {
+        if let Some(team) = charge
+            && *tries > 0
+        {
+            self.plans.charge(team);
+        }
+        *tries += 1;
     }
 
     /// Back to idle (an entrenched unit holds instead: idle, it would chase what it cannot reach).
@@ -214,8 +246,8 @@ impl World {
     pub(crate) fn update_move(&mut self, uid: Id, x: f64, y: f64, dt: f64) {
         let u = self.um(uid);
         u.repath -= dt;
-        if u.path.is_none() && u.repath <= 0.0 {
-            self.path_to(uid, x, y);
+        if u.path.is_none() && u.repath <= 0.0 && !self.path_to(uid, x, y) {
+            return; // (waiting for its route: it stands this tick)
         }
         if self.u(uid).path.is_none() || self.step_path(uid, dt) {
             // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends

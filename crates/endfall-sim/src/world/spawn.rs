@@ -15,6 +15,7 @@ impl World {
         if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
             n.extractor = None;
         }
+        self.terrain_changed();
     }
 
     /// Which way a new unit of `team` faces: towards the map's centre from its start (two starts: seat 0 east, the
@@ -121,6 +122,7 @@ impl World {
                 self.map.occ[i] = id as i32;
             }
         }
+        self.terrain_changed();
         // Nudge units standing in the footprint.
         for k in 0..self.units.len() {
             let (tx2, ty2) = (

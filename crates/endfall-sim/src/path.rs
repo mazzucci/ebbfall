@@ -72,6 +72,9 @@ pub struct PathScratch {
     closed: Vec<u8>,
     stamp_arr: Vec<u32>,
     stamp: u32,
+    /// Searches run and nodes expanded since the game began: a measure of the path work, not world state.
+    pub searches: u64,
+    pub expanded: u64,
 }
 
 impl PathScratch {
@@ -83,6 +86,8 @@ impl PathScratch {
             closed: vec![0; n],
             stamp_arr: vec![0; n],
             stamp: 1,
+            searches: 0,
+            expanded: 0,
         }
     }
 }
@@ -101,6 +106,11 @@ impl PathScratch {
 /// long detour) costs about this many pops before the search gives up on the nearest point it found.
 pub const SEARCH_CAP: usize = 5000;
 
+/// How far ahead (in steps of the raw route) the smoothing looks for a straight line from each waypoint: a long
+/// straight stretch gets a waypoint every so many tiles instead of one, and smoothing a long route costs that much
+/// per waypoint rather than the route's whole length (it was about half a cross-map path's time).
+pub const SMOOTH_LOOK: usize = 24;
+
 /// World-space waypoints (excluding the start), or None if unreachable. Expands at most `SEARCH_CAP` nodes per 4096
 /// tiles of map.
 pub fn astar(
@@ -110,6 +120,20 @@ pub fn astar(
     sy: i32,
     gx: i32,
     gy: i32,
+) -> Option<Vec<Pt>> {
+    astar_capped(map, s, sx, sy, gx, gy, SEARCH_CAP * map.rock.len() / 4096)
+}
+
+/// `astar` expanding at most `cap` nodes (a short search: a unit joining a group's route, or from its end to its own
+/// spot), ending at the nearest point it found if the goal is farther.
+pub fn astar_capped(
+    map: &Map,
+    s: &mut PathScratch,
+    sx: i32,
+    sy: i32,
+    gx: i32,
+    gy: i32,
+    cap: usize,
 ) -> Option<Vec<Pt>> {
     let (gx, gy) = map.nearest_free(gx, gy, 8)?;
     let (sx, sy) = if map.blocked(sx, sy) {
@@ -135,7 +159,6 @@ pub fn astar(
         y: sy,
         f: h(sx, sy),
     });
-    let cap = SEARCH_CAP * map.rock.len() / 4096;
     let (mut best, mut best_h, mut n) = (None::<usize>, 1e9, 0);
     while !open.a.is_empty() && {
         let ok = n < cap;
@@ -186,6 +209,8 @@ pub fn astar(
             }
         }
     }
+    s.searches += 1;
+    s.expanded += n as u64;
     let best = best?;
     let mut path = Vec::new();
     let mut i = best as i32;
@@ -208,7 +233,7 @@ pub fn astar(
     };
     let mut k = 0;
     while k < path.len() {
-        let mut j = path.len() - 1;
+        let mut j = (path.len() - 1).min(k + SMOOTH_LOOK);
         while j > k && !los(map, cur, path[j]) {
             j -= 1;
         }

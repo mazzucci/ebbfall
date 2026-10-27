@@ -14,6 +14,7 @@ mod flee;
 mod fog;
 mod movement;
 mod orders;
+mod paths;
 mod seats;
 mod spawn;
 mod types;
@@ -27,6 +28,7 @@ use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 pub use command::{Command, Logged};
 pub use economy::FIELD_LOW;
+pub use paths::{LONG_SEARCH, LONG_SEARCHES, PathWork};
 pub use types::*;
 
 /// The spatial hash's cells, in world pixels (two tiles).
@@ -100,6 +102,9 @@ pub struct World {
     pub(crate) rng: Mulberry32,
     next_id: Id,
     scratch: PathScratch,
+    /// Routes planned this tick for groups to share, and each seat's long searches (paths.rs). Derived: not hashed,
+    /// emptied after every step.
+    plans: paths::Plans,
     /// The spatial hash: units by `CELL` square, row by row, `hash_w` cells across (sized to the map).
     hash: Vec<Vec<Id>>,
     hash_w: i32,
@@ -209,6 +214,7 @@ impl World {
             rng: Mulberry32::new(1),
             next_id: 1,
             scratch: PathScratch::new(0),
+            plans: paths::Plans::default(),
             hash: Vec::new(),
             hash_w: 0,
             graveyard: Vec::new(),
@@ -232,6 +238,7 @@ impl World {
         self.bldgs.clear();
         self.projs.clear();
         self.graveyard.clear();
+        self.plans = paths::Plans::default();
         self.clear_seats();
         self.over = false;
         self.winner = -1;
@@ -468,6 +475,7 @@ impl World {
         if self.tick.is_multiple_of(ARMY_LOG_EVERY) {
             self.log_armies();
         }
+        self.plans.clear();
     }
 
     /// One sample of each seat's army value for the end screen's chart.

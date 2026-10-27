@@ -298,6 +298,7 @@ impl World {
         if left <= 0 && !n.ether {
             let i = self.map.idx(n.tx, n.ty);
             self.map.occ[i] = 0;
+            self.terrain_changed();
             self.map.nodes.retain(|m| m.id != node);
             for t in 0..self.seats() as u8 {
                 if self.vis[t as usize][i] != 0 {

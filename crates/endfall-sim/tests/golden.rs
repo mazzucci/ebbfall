@@ -108,13 +108,13 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 7] = [
 ];
 
 const EXPECTED: [[u32; 3]; 7] = [
-    [2722833878, 2248442597, 1818601600],
-    [1181981252, 2206721548, 3449674134],
-    [2580715370, 3181937473, 2157284735],
-    [562279729, 2740644132, 4038384598],
-    [3551451037, 3019850516, 2952905590],
-    [1403832492, 2645042673, 3808907853],
-    [3288263299, 1779103809, 3691102001],
+    [2722833878, 2248442597, 3303194801],
+    [1181981252, 2206721548, 2505470022],
+    [2580715370, 3244212564, 4167110982],
+    [562279729, 2740644132, 2166433930],
+    [3551451037, 3019850516, 2839205849],
+    [1403832492, 405414342, 3817973753],
+    [3288263299, 1779103809, 3183914729],
 ];
 
 #[test]
@@ -143,7 +143,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
 }
 
 /// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
-const EXPECTED_VAEL: [u32; 3] = [1426854276, 1121535074, 2435997993];
+const EXPECTED_VAEL: [u32; 3] = [1426854276, 1121535074, 751607087];
 
 #[test]
 fn golden_hashes_pin_a_vael_game() {
@@ -165,7 +165,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [957636052, 737881751, 2426412840];
+const EXPECTED_VAEL_AI: [u32; 3] = [957636052, 737881751, 3255158914];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -220,9 +220,9 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "115/56/88/28 lost_to 56 | 84/88/56/0 lost_to 88 | over true winner 0 conceded -1 at 20934",
-    "106/25/78/29 lost_to 25 | 74/78/25/0 lost_to 78 | over true winner 0 conceded -1 at 13196",
-    "19/23/8/0 lost_to 23 | 70/8/23/2 lost_to 8 | over true winner 1 conceded -1 at 14018",
+    "90/51/91/11 lost_to 51 | 87/91/51/1 lost_to 91 | over true winner 0 conceded -1 at 18638",
+    "141/145/79/2 lost_to 145 | 172/79/145/27 lost_to 79 | over true winner 1 conceded -1 at 17799",
+    "15/19/3/0 lost_to 19 | 39/3/19/3 lost_to 3 | over true winner 1 conceded -1 at 9954",
 ];
 
 #[test]

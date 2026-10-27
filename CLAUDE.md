@@ -62,11 +62,12 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `starts_for`, `seat_starts`), nodes, occupancy grid, nearest_free
-  src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks)
+  src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks, a look-ahead window)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
                       starts, who is out, the last team standing), orders, spawn, economy, construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
-                      combat, movement, fog
+                      combat, movement, paths.rs (a group's one route shared by the units of one order, long
+                      searches budgeted per seat per tick), fog
   src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (docs/MULTIPLAYER.md)
@@ -176,8 +177,8 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   wave called home to a raid by another) apply only with more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
 - The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, for two players and
-  96x96 for three or four, each size with maps of its own (src/client/maps.js); 128x128 for five to eight waits for
-  group paths): index grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
+  96x96 for three or four, each size with maps of its own (src/client/maps.js); 128x128 for five to eight is next,
+  now that groups share paths): index grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
   client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
   are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.
 - Costs are `[shards, ether]`.
@@ -192,11 +193,12 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `paths`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three- and four-seat
   games through `Game::with_seats`; a seat that is out refused and inert), maps of 2, 4 and 8 starts
-  that are walkable and alike for every start, and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  that are walkable and alike for every start, group paths (one search for a group's order, long searches budgeted,
+  no shared route through rock), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command

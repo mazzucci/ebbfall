@@ -41,7 +41,9 @@ impl World {
     }
 
     // ---- orders (commands.js) ----
-    pub(crate) fn path_to(&mut self, uid: Id, x: f64, y: f64) {
+    /// Plan a route to (`x`, `y`) (see paths.rs: a group's route shared, long searches budgeted). Returns false when
+    /// the unit must wait for the next tick's budget: its old route (if any) stands and it asks again next tick.
+    pub(crate) fn path_to(&mut self, uid: Id, x: f64, y: f64) -> bool {
         if self.u(uid).kind.def().air {
             // Flyers go straight there, over rock and buildings.
             let to = Pt {
@@ -51,11 +53,14 @@ impl World {
             let u = self.um(uid);
             u.path = Some(vec![to]);
             u.repath = 0.6;
-            return;
+            return true;
         }
-        let (ux, uy) = (self.u(uid).x, self.u(uid).y);
+        let (ux, uy, team) = (self.u(uid).x, self.u(uid).y, self.u(uid).team);
         let (a, b) = (self.map.tile_of(ux, uy), self.map.tile_of(x, y));
-        let mut path = astar(&self.map, &mut self.scratch, a.0, a.1, b.0, b.1);
+        let paths::Plan::Route(mut path) = self.plan_walk(team, (ux, uy), a, b) else {
+            self.um(uid).repath = 0.0;
+            return false;
+        };
         let bi = self.map.idx(b.0, b.1);
         let blocked_tile = self.map.rock[bi] != 0 || self.map.occ[bi] != 0;
         // The exact point only if the route reaches its tile: a route that stops short (the goal is free but walled
@@ -78,6 +83,7 @@ impl World {
         let u = self.um(uid);
         u.path = path;
         u.repath = rep;
+        true
     }
 
     // ---- per-tick update (update.js) ----
@@ -131,10 +137,17 @@ impl World {
         u.repath -= dt;
         if u.path.is_none() || u.repath <= 0.0 {
             if let Geo::Rect { tx, ty, w, h, .. } = target {
-                let path = self.path_to_rect(ux, uy, (tx, ty, w, h), p);
-                let u = self.um(uid);
-                u.path = path;
-                u.repath = 0.7;
+                // (a long way to a building waits its turn as any long search: the old route stands meanwhile)
+                let team = self.u(uid).team;
+                let (a, g) = (self.map.tile_of(ux, uy), self.map.tile_of(p.0, p.1));
+                if self.may_search(team, a, g) {
+                    let path = self.path_to_rect(ux, uy, (tx, ty, w, h), p);
+                    let u = self.um(uid);
+                    u.path = path;
+                    u.repath = 0.7;
+                } else {
+                    self.um(uid).repath = 0.0;
+                }
             } else {
                 let (tx, ty) = target.center();
                 self.path_to(uid, tx, ty);
@@ -214,8 +227,8 @@ impl World {
     pub(crate) fn update_move(&mut self, uid: Id, x: f64, y: f64, dt: f64) {
         let u = self.um(uid);
         u.repath -= dt;
-        if u.path.is_none() && u.repath <= 0.0 {
-            self.path_to(uid, x, y);
+        if u.path.is_none() && u.repath <= 0.0 && !self.path_to(uid, x, y) {
+            return; // (waiting for its route: it stands this tick)
         }
         if self.u(uid).path.is_none() || self.step_path(uid, dt) {
             // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends

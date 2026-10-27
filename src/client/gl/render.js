@@ -5,7 +5,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt } from '../../engine/index.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, SEAT_COLORS } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 
@@ -35,25 +35,41 @@ for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)
   // HUD portraits are cut from a plain decoded copy of the page (the browser has it cached): reading back Pixi's
   // GPU-side texture costs about a second per page.
   const img = new Image(); img.src = new URL(sh.data.meta.image, artBase).href;
-  for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 } };
+  for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
 }
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
+/** A seat's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
+ *  (atlas.json `tints`, from look.js SEAT_COLORS; docs/ART.md). */
+export const seatTint = (team) => index.tints?.[team % index.tints.length] ?? SEAT_COLORS[team % SEAT_COLORS.length];
+/** Two tints at once (a seat's paint under an effect's tint): channel by channel product. */
+const mulTint = (a, b) => b === 0xffffff ? a : ((a >> 16) * (b >> 16) / 255) << 16 | ((a >> 8 & 255) * (b >> 8 & 255) / 255) << 8 | (a & 255) * (b & 255) / 255;
+const hex6 = (c) => '#' + c.toString(16).padStart(6, '0');
 const iconCache = new Map();
 /**
  * A small portrait of a sprite for the HTML HUD, as a data URL: the frame scaled so its larger side is `zoom` x
- * `size` css px, centred a little above its ground point, cut to a size x size square. Cached.
+ * `size` css px, centred a little above its ground point, cut to a size x size square. With `tint`, its team mask
+ * (`name_m`) in that colour over it, as the renderer draws it. Cached.
  */
-export function artIcon(name, size = 28, zoom = 1) {
-  const key = `${name}|${size}|${zoom}`;
+export function artIcon(name, size = 28, zoom = 1, tint = null) {
+  const key = `${name}|${size}|${zoom}|${tint}`;
   if (iconCache.has(key)) return iconCache.get(key);
   const fr = frames[name]; let url = '';
   if (fr) {
     const dpr = Math.min(2, window.devicePixelRatio || 1), n = Math.round(size * dpr), { x, y, w, h } = fr.f;
     const c = document.createElement('canvas'); c.width = c.height = n;
     const ctx = c.getContext('2d', { willReadFrequently: true }), k = n * zoom / Math.max(w, h); // a CPU canvas: no GPU upload of the page
-    const cx = w * fr.a.x, cy = h * fr.a.y - h * 0.08;
+    const ox = n / 2 - w * fr.a.x * k, oy = n / 2 - (h * fr.a.y - h * 0.08) * k;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(fr.img, x, y, w, h, n / 2 - cx * k, n / 2 - cy * k, w * k, h * k);
+    ctx.drawImage(fr.img, x, y, w, h, ox, oy, w * k, h * k);
+    const m = tint == null ? null : frames[name + '_m'];
+    if (m) { // the mask on a canvas of its own, multiplied by the colour, cut back to the mask's shape, then over the base
+      const t = document.createElement('canvas'); t.width = t.height = n; // (a CPU canvas as well)
+      const tc = t.getContext('2d', { willReadFrequently: true }), mask = () => tc.drawImage(m.img, m.f.x, m.f.y, m.f.w, m.f.h, ox + m.at.x * k, oy + m.at.y * k, m.f.w * k, m.f.h * k);
+      tc.imageSmoothingQuality = 'high'; mask();
+      tc.globalCompositeOperation = 'multiply'; tc.fillStyle = hex6(tint); tc.fillRect(0, 0, n, n);
+      tc.globalCompositeOperation = 'destination-in'; mask();
+      ctx.drawImage(t, 0, 0);
+    }
     url = c.toDataURL();
   }
   iconCache.set(key, url);
@@ -64,6 +80,11 @@ const sheet = { animations: Object.fromEntries(Object.entries(index.animations).
 const FACINGS = index.facings || 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
 const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFrom(t.defaultAnchor || { x: 0.5, y: 0.5 }); } };
+/** A team-coloured sprite is two: the neutral art and its team mask (`name_m`) over it in the seat's colour. Effects
+ *  (tint, alpha) go to both, the mask's tint multiplied into the seat's. (Below 1 alpha the paint reads a little more
+ *  solid than the rest: two layers.) */
+const teamSprite = (parent) => { const body = new Sprite(), paint = new Sprite(); parent.addChild(body, paint); return [body, paint]; };
+function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = tint; paint.tint = mulTint(seat, tint); body.alpha = paint.alpha = alpha; }
 
 // ---- scene ----
 const world = new Container();
@@ -76,7 +97,7 @@ app.stage.addChild(world, screen);
 const bars = new Graphics(); L.overlay.addChild(bars);
 const lines = new Graphics(); L.overlay.addChild(lines);
 const box = new Graphics(); screen.addChild(box);
-const ghost = new Sprite(); ghost.alpha = 0.6; L.overlay.addChild(ghost);
+const [ghost, ghostPaint] = teamSprite(L.overlay);
 const ghostRect = new Graphics(); L.overlay.addChild(ghostRect);
 
 // ---- camera ----
@@ -205,9 +226,11 @@ class UnitObj {
   constructor(u) {
     const layer = u.d.air ? L.air : L.units;
     this.air = !!u.d.air;
-    this.frames = (sheet.animations[`${u.type}_${u.team}_0`] || [0]).length;
-    this.body = new Sprite(); this.body.scale.set(UNIT_SCALE); layer.addChild(this.body);
-    this.flash = new Sprite(); this.flash.scale.set(UNIT_SCALE); this.flash.blendMode = 'add'; layer.addChild(this.flash);
+    this.frames = (sheet.animations[`${u.type}_0`] || [0]).length;
+    this.node = new Container(); this.node.scale.set(UNIT_SCALE); layer.addChild(this.node); // (body, paint and flash sort as one)
+    this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
+    this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
+    this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own colour)
     this.size = u.r > 12 ? 26 : 18;
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, u.team === G.me ? SEL : SEL_FOE); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0x4fd1c5, 0.18, 0.9);
@@ -218,22 +241,21 @@ class UnitObj {
     if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
     const frames = this.frames, f = Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
-    const tx = tex(`${u.type}_${u.team}_${dir}_${f}`);
-    setTex(this.body, tx); setTex(this.flash, tx);
+    const name = `${u.type}_${dir}_${f}`, tx = tex(name);
+    const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
-    this.body.position.set(u.x, u.y + bob); this.flash.position.set(u.x, u.y + bob);
-    this.body.zIndex = u.y; this.flash.zIndex = u.y + 0.1;
-    this.flash.visible = u.flash > 0; this.flash.alpha = 0.6;
+    this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y;
+    this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // Abilities: a boost glows (Stim warm, Overcharge violet); an entrenched unit shows four stakes around it, pulsing
     // while it digs in or packs up.
-    this.body.tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
+    let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
     // Warping in at a power field (the Vael): a violet ghost, more solid as it lands, inside a pulsing ring, like a site.
     const warp = u.warp > 0 ? u.warp / UNIT_WARP : 0;
     // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
     const cloak = u.cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
-    this.body.alpha = warp ? 0.2 + 0.65 * (1 - warp) : cloak;
+    if (warp) tint = u.flash > 0 ? 0xffffff : 0xcbb6ff;
+    paintAs(this.body, this.paint, this.seat, tint, warp ? 0.2 + 0.65 * (1 - warp) : cloak);
     if (warp) {
-      this.body.tint = u.flash > 0 ? 0xffffff : 0xcbb6ff;
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
       bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
     }
@@ -246,16 +268,19 @@ class UnitObj {
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
-  show(v) { this.body.visible = v; if (!v) { this.flash.visible = this.ring.visible = this.cargo.visible = false; } }
-  destroy() { for (const s of [this.body, this.flash, this.ring, this.cargo]) s.destroy(); }
+  show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; } }
+  destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); } // (a Graphics frees its context only when destroyed without options)
 }
 
 const STAGES = 8, stageTex = {};
-/** The bottom `k/STAGES` of a building texture, for the rising-from-the-ground construction reveal. */
+/** The bottom `k/STAGES` of a building texture, for the rising-from-the-ground construction reveal (of a trimmed
+ *  texture, a mask, the rows of it that fall in there). */
 function stage(name, k) {
   const key = name + k; if (stageTex[key]) return stageTex[key];
-  const base = tex(name), fr = base.frame, h = Math.max(1, Math.round(fr.height * k / STAGES));
-  const t = new Texture({ source: base.source, frame: new Rectangle(fr.x, fr.y + fr.height - h, fr.width, h) });
+  const base = tex(name), fr = base.frame, o = base.orig, tr = base.trim || new Rectangle(0, 0, o.width, o.height);
+  const h = Math.max(1, Math.round(o.height * k / STAGES)), top = o.height - h, y0 = Math.max(tr.y, top), rows = tr.y + tr.height - y0;
+  const t = rows <= 0 ? new Texture({ source: base.source, frame: new Rectangle(fr.x, fr.y, 1, 1), orig: new Rectangle(0, 0, o.width, h), trim: new Rectangle(0, 0, 0, 0) }) // (no rows: nothing to draw)
+    : new Texture({ source: base.source, frame: new Rectangle(fr.x, fr.y + y0 - tr.y, fr.width, rows), orig: new Rectangle(0, 0, o.width, h), trim: new Rectangle(tr.x, y0 - top, tr.width, rows), label: `${name}@${k}` });
   t.defaultAnchor = { x: base.defaultAnchor.x, y: 1 }; // bottom-aligned: the footprint stays put while the rest rises
   return stageTex[key] = t;
 }
@@ -264,31 +289,38 @@ class BldgObj {
   constructor(b) {
     const n = b.w;
     this.found = new Sprite(); setTex(this.found, tex(`foundation_${n}`)); L.bldgs.addChild(this.found);
-    this.body = new Sprite(); setTex(this.body, tex(`bldg_${b.type}_${b.team}`)); L.bldgs.addChild(this.body);
+    [this.body, this.paint] = teamSprite(L.bldgs); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
     this.scaffold = new Sprite(); setTex(this.scaffold, tex(`scaffold_${n}`)); L.bldgs.addChild(this.scaffold);
-    this.full = tex(`bldg_${b.type}_${b.team}`);
+    this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
     this.look = BLDG_LOOK[b.type] || {};
-    this.head = this.look.head ? new Sprite() : null; if (this.head) L.bldgs.addChild(this.head);
+    if (this.look.head) [this.head, this.headPaint] = teamSprite(L.bldgs);
     const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
     this.smokeT = 0; this.type = b.type;
-    for (const s of [this.found, this.body, this.scaffold]) s.position.set(b.x, b.y);
-    const z = (b.ty + b.h) * TILE; this.found.zIndex = z - 2; this.body.zIndex = z; this.scaffold.zIndex = z + 1; if (this.head) this.head.zIndex = z + 2;
+    for (const s of [this.found, this.body, this.paint, this.scaffold]) s.position.set(b.x, b.y);
+    // (sorted by the bottom row; buildings in one row apart by id, each one's paint and head just over its own body)
+    const z = (b.ty + b.h) * TILE, e = (b.id % 97) * 0.005; this.found.zIndex = z - 2; this.body.zIndex = z + e; this.paint.zIndex = z + e + 0.001; this.scaffold.zIndex = z + 1;
+    if (this.head) { this.head.zIndex = z + e + 0.002; this.headPaint.zIndex = z + e + 0.003; }
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
-    const name = `bldg_${b.type}_${b.team}`;
+    const name = this.name;
     this.found.visible = !b.done;
     this.scaffold.visible = !b.done;
-    if (b.done) { setTex(this.body, this.full); this.body.y = b.y; }
+    if (b.done) { setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; }
     else { // the bottom k/8 of the art, its bottom edge where the full sprite's would be
-      const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k));
-      this.body.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height;
+      const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k)); setTex(this.paint, stage(name + '_m', k));
+      this.body.y = this.paint.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height;
     }
-    this.body.alpha = b.flash > 0 ? 0.75 : 1; // hit flash
-    this.body.tint = b.done && !b.powered ? 0x6f6a88 : 0xffffff; // dark: no power field covers it
+    // hit flash; dark: no power field covers it
+    paintAs(this.body, this.paint, this.seat, b.done && !b.powered ? 0x6f6a88 : 0xffffff, b.flash > 0 ? 0.75 : 1);
     if (!b.done && FACTIONS[G.factions[b.team]]?.warp) this.warpIn(b, t, live);
-    if (this.head) { this.head.visible = b.done && live; const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS; setTex(this.head, tex(`${this.look.head}_${b.team}_${dir}`)); this.head.position.set(b.x, b.y); }
+    if (this.head) {
+      this.head.visible = this.headPaint.visible = b.done && live;
+      const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS, hn = `${this.look.head}_${dir}`;
+      setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(b.x, b.y); this.headPaint.position.set(b.x, b.y);
+      paintAs(this.head, this.headPaint, this.seat, this.body.tint, this.body.alpha);
+    }
     if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x, b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
@@ -301,16 +333,15 @@ class BldgObj {
    *  ring). Seen through fog, only the remembered ghost. */
   warpIn(b, t, live) {
     this.found.visible = this.scaffold.visible = false;
-    setTex(this.body, this.full); this.body.y = b.y;
-    this.body.alpha = (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0); // (brighter when hit)
-    this.body.tint = b.flash > 0 ? 0xffffff : 0xcbb6ff;
+    setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
+    paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xcbb6ff, (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
     if (!live || !b.planted) return;
     const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = 0.55 + 0.35 * Math.sin(t * 4);
     bars.ellipse(b.x, cy, rx, ry).fill({ color: 0x9b7bff, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.8 * pulse });
     bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xe2d6ff, alpha: 0.5 * pulse });
   }
-  show(v) { for (const s of [this.found, this.body, this.scaffold]) s.visible = s.visible && v; if (!v) { if (this.head) this.head.visible = false; if (this.glow) this.glow.visible = false; } }
-  destroy() { for (const s of [this.found, this.body, this.scaffold, this.head, this.glow]) if (s) s.destroy(); }
+  show(v) { for (const s of [this.found, this.body, this.paint, this.scaffold]) s.visible = s.visible && v; if (!v) { if (this.head) this.head.visible = this.headPaint.visible = false; if (this.glow) this.glow.visible = false; } }
+  destroy() { for (const s of [this.found, this.body, this.paint, this.scaffold, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
 }
 
 class NodeObj {
@@ -431,7 +462,7 @@ export function render(selList, place, power = false) {
     const seen = b.team === G.me || visibleEnt(b);
     let v = inView(b.x, b.y, b.r + 90);
     if (v && !seen) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
-    o.found.visible = o.body.visible = o.scaffold.visible = true;
+    o.found.visible = o.body.visible = o.paint.visible = o.scaffold.visible = true;
     if (v) o.update(b, t, dt, seen);
     o.show(v);
     if (!v) return;
@@ -473,12 +504,13 @@ export function render(selList, place, power = false) {
   updateEffects(dt);
   updateFogImage();
 
-  ghost.visible = !!place; ghostRect.visible = !!place || power; ghostRect.clear();
+  ghost.visible = ghostPaint.visible = !!place; ghostRect.visible = !!place || power; ghostRect.clear();
   const placingPowered = place && BUILDINGS[place.type].needsPower;
   if (power && !placingPowered) for (const s of G.bldgs) if (s.team === G.me && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.04 }).stroke({ width: 1, color: 0xb48cff, alpha: 0.35 });
   if (place) {
     const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, G.me);
-    setTex(ghost, tex(`bldg_${place.type}_${G.me}`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghost.tint = ok ? 0xb8ffc8 : 0xff7070;
+    setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghostPaint.position.copyFrom(ghost.position);
+    paintAs(ghost, ghostPaint, seatTint(G.me), ok ? 0xb8ffc8 : 0xff7070, 0.6);
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
     if (d.needsPower) for (const s of G.bldgs) if (s.team === G.me && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.07 }).stroke({ width: 1.5, color: 0xb48cff, alpha: 0.6 }); // the power fields it must stand in
   }
@@ -528,16 +560,24 @@ function dashed(x0, y0, x1, y1) {
   lines.stroke({ width: 1.5, color: 0xf5a524, alpha: 0.6 });
 }
 
+/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint) and its seat's tint. */
+export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible }));
+
 const pings = [];
 /** Flash a spot on the minimap (attack alerts). */
 export function ping(x, y) { pings.push({ x, y, t: performance.now() }); }
 export function clearPings() { pings.length = 0; }
 
+let seatCssList;
+const seatCss = () => seatCssList ||= SEAT_COLORS.map(hex6);
 function renderMinimap() {
-  const S = mm.width / WW, T = mm.height / WH, c = mctx; // (x and y scales: one, on a square map) c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
+  const S = mm.width / WW, T = mm.height / WH, c = mctx; // (x and y scales: one, on a square map)
+  c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
   for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * T - 1.5, 3, 3); }
-  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * T, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * T)); }
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
+  // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field.
+  const many = G.factions.length > 2, col = many ? seatCss() : null;
+  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * T, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * T)); }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[u.team] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();
   for (let i = pings.length - 1; i >= 0; i--) {

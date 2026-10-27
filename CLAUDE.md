@@ -80,7 +80,7 @@ src/client/           everything that touches the browser
   card.js             the command card: buttons for the selection, long-press details, what a button does
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts, pause
   icons.js            line icons (inline SVG) and unit/building portraits cut from the atlas
-  look.js             per-kind presentation the sim does not know: building art parts, unit voices
+  look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
@@ -93,6 +93,7 @@ src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lo
                       feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),

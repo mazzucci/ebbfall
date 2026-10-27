@@ -1462,3 +1462,25 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+test('every unit and building is drawn twice: its art, then its team mask in its seat\'s colour', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const ids = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'vanguard', x, y), endfall.engine.debugSpawn(1, 'scythe', x + 40, y)], [core.x - 60, core.y + 90]);
+    await d.centerOn(core.x - 40, core.y + 60);
+    const read = () => d.eval(() => ({ layers: endfall.teamLayers().filter(l => l.shown), tints: [0, 1].map(endfall.seatTint),
+      teams: Object.fromEntries([...endfall.G.units, ...endfall.G.bldgs].map(e => [e.id, e.team])) }));
+    await d.page.waitForFunction((ids) => ids.every(id => endfall.teamLayers().some(l => l.id === id && l.shown)), ids, { timeout: 15000 }); // (real time: no fight yet)
+    const { layers, teams, tints } = await read();
+    assert.notEqual(tints[0], tints[1]);
+    assert.ok(layers.some(l => teams[l.id] === 1) && layers.some(l => l.base.startsWith('bldg_')), 'units of both seats and a building');
+    for (const l of layers) {
+      assert.equal(l.mask, `${l.base}_m`, `${l.base}: its mask`);
+      assert.ok(l.maskOver, `${l.base}: the mask above the art`);
+      assert.equal(l.seat, tints[teams[l.id]], `${l.base}: its seat's colour`);
+      assert.equal(l.tint, l.seat, `${l.base}: the mask tinted with it (no effect on)`);
+    }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

@@ -17,7 +17,8 @@ Players never need any of this; only the PNG/JSON output ships.
 
 - **Models** (`tools/render3d/models.js` units, `buildings.js` buildings/resources/debris, `doodads.js` scenery): built from bevelled boxes,
   extruded armour plates, cylinders, spheres and capsules, in game units (1 tile = 32). Units face +x; walk frames
-  pose the legs. Team colour (`paint`) goes on panels and accents, hulls are painted steel (`trim`).
+  pose the legs. Team colour (`paint`, `paintPlain`, the `lamp`s; the Vael's `glaze`) goes on panels and accents,
+  hulls are painted steel (`trim`).
   Buildings come in three hull families so they read apart from the 55° camera, which mostly sees roofs: command and
   civil in grey steel (`trim`: Core, Airfield, Turret), military in `khaki` (Garrison vaults), industry in dark `iron`
   with fire (`ember`: Foundry). Each has one signature shape visible from above: the Core's dome, the Garrison's three
@@ -30,6 +31,17 @@ Players never need any of this; only the PNG/JSON output ships.
   from the south-east, dim sky fill, environment reflections, ACES tone mapping, a shadow catcher on the ground.
 - **Finish** (`scene.js` `finish()`): each sprite is rendered at 4x, downsampled to 2x, then given hard cast
   shadows, dark ink on silhouettes and sharp internal edges, a contrast curve and 5-bit-per-channel banding.
+- **Seat colours** (team mask): a team-coloured sprite is rendered once, its team materials in a neutral white
+  (`materials.js` `NEUTRAL`; marked with `team(material, weight)`), plus a **team mask** `<name>_m`: a second pass with
+  the same camera in which team materials are flat white (lamps 0.4, so a lamp reads as a pale tint of the colour)
+  and every other surface flat black (nearer geometry still hides paint behind it; no shadows, no glow shells). The
+  mask is the finished base pixels where the paint shows, alpha = the paint's share of the pixel; it carries the
+  base's lighting, ink and banding. The packer trims masks to their content (`trimmed`, `spriteSourceSize`), so a
+  mask lines up with its base pixel for pixel. The client draws the base, then the mask tinted with the seat's tint
+  (a multiply, batched; no filters). The tint is not the seat's colour itself: the finish's contrast curve deepens a
+  coloured paint's dark channels, so `fitTints` (`main.js`) renders a few reference sprites with real paint in each
+  colour of `SEAT_COLORS` and least-squares fits the tint that brings the mask closest; atlas.json `tints` holds them.
+  Seats 0 and 1 stay close to their old gold and magenta renders (a little flatter in the highlights). Scaffolds and rubble keep seat 0's gold (`GOLD`).
 - **Resolution**: art is drawn at 2x the game's units (64 px per tile) and the atlas declares `scale: 2`, so it is
   1:1 at the default desktop zoom and sharp on high-density phone screens; textures are filtered and mipmapped.
 
@@ -41,17 +53,40 @@ ground point: unit centre, building footprint centre.
 | Name | Notes |
 | --- | --- |
 | `ground_0..5`, `rock_<mask>_<v>` | dual-grid terrain cells (64 px); mask bits 1 TL, 2 TR, 4 BL, 8 BR = corner is rock; 3 variants that all join |
-| `<unit>_<team>_<dir>_<frame>` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up); the Vael lumen, scythe, prism, monolith, shrike, halo and sovereign (a tripod, 2 walk frames); dir 0–15, 0 = facing +x, clockwise on screen |
-| `bldg_<type>_<team>` | core, depot, extractor, barracks, forge, turret (base), airfield |
-| `turret_head_<team>_<dir>` | rotating gun, 16 facings |
+| `<unit>_<dir>_<frame>`, `<unit>_<dir>_<frame>_m` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up); the Vael lumen, scythe, prism, monolith, shrike, halo and sovereign (a tripod, 2 walk frames); dir 0–15, 0 = facing +x, clockwise on screen; animations `<unit>_<dir>`; `_m`: the team mask (trimmed) |
+| `bldg_<type>`, `bldg_<type>_m` | core, depot, extractor, barracks, forge, turret (base), airfield; the Vael conflux, spire, siphon, kiln, ward, loom, zenith |
+| `turret_head_<dir>`, `turret_head_<dir>_m` | rotating gun, 16 facings |
 | `foundation_<n>`, `scaffold_<n>`, `rubble_<n>` | construction and destruction, n = 2, 3, 4 tiles |
 | `shard_0..3`, `vent_0..3` | crystal field (full → nearly mined out), ether vent swirl |
 | `doodad_<name>` | scenery (`tools/render3d/doodads.js`): on plateaus `boulders_0..2`, `spire_0..1`, `ruin_0..1`, `wreck_0..1`; on open ground (flat, walked over) `crater_0..1`, `debris_0..1`. Placed by the client from the map seed (`src/client/scenery.js`) |
 | `boom_big_0..7`, `boom_small_0..5`, `puff_0..3`, `flash_0..2`, `spark_0..3` | effects |
 | `flag_0..3`, `sel_<r>_<0|1>`, `bolt`, `shell`, `missile`, `light`, `heal_0..2` | rally flag, selection rings (r = 12, 18, 26), projectiles, additive light, Medic heal sparkle |
 
+atlas.json also holds `tints`, the mask tint per seat (see Seat colours above).
+
+## Seat colours
+
+`SEAT_COLORS` in `src/client/look.js`, shared by the client and the art tools (one per seat, up to eight):
+
+| Seat | Colour | Hex | Mask tint (fitted) |
+| --- | --- | --- | --- |
+| 0 | gold | `#d98a1f` | `#e59321` |
+| 1 | magenta | `#c22a5a` | `#ca1a3d` |
+| 2 | teal | `#15bd96` | `#33c89a` |
+| 3 | lilac | `#c293e0` | `#d6a1e6` |
+| 4 | green | `#79d85a` | `#97e560` |
+| 5 | blue | `#388ef1` | `#3490e8` |
+| 6 | white | `#e8e8e8` | `#f4f3f3` |
+| 7 | red | `#e5553a` | `#ea4a29` |
+
+Chosen apart from each other (CIELAB distance at least 35 with normal vision, about 15-18 under simulated protanopia
+and deuteranopia, where lightness parts gold from green and red), from the dark ground, the selection marks and the
+resources' teal and violet. The minimap shows them only with more than two seats (two seats: ours amber, theirs rose).
+White on the Vael's pearl shell and lilac near their violet crystals read weaker than the rest.
+
 ## Tweaking
 
-`node tools/art/preview3d.mjs /tmp/p.png '<regex over names>' 3` renders matching 3D sprites into a contact sheet;
+`node tools/art/preview3d.mjs /tmp/p.png '<regex over names>' 3 0,1,2,m` renders matching 3D sprites into a contact sheet
+(team-coloured ones once per listed seat, `m` the bare mask);
 `node tools/art/terrain2-preview.mjs /tmp/t.png` renders a terrain patch. To replace the art by hand, keep the frame
-names, anchors and the 2x scale.
+names, anchors, the masks and the 2x scale.

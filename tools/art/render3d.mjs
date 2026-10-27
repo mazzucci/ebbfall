@@ -1,4 +1,5 @@
-// Runs tools/render3d/ in headless Chromium (playwright-core) and returns its sprites as { name, img, anchor }.
+// Runs tools/render3d/ in headless Chromium (playwright-core) and returns its sprites as { name, img, anchor } (masks:
+// `trim`; unit frames: `anim`, `frame`), and `.tints`, the mask tint per seat (tools/render3d/main.js fitTints).
 // Needs a Chromium: CHROMIUM_PATH, or the one matching playwright-core (`npx playwright-core install chromium`).
 import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
@@ -19,8 +20,9 @@ export async function render3d(filter = '') {
   });
   await page.goto('http://art.local/tools/render3d/index.html');
   await page.waitForFunction(() => window.ready === true, null, { timeout: 60000 }).catch(() => { throw new Error('renderer page failed: ' + errors.join('; ')); });
-  const list = await page.evaluate((f) => window.render(f), filter);
+  const { sprites: list, tints } = await page.evaluate((f) => window.render(f), filter);
   await browser.close();
   if (errors.length) console.warn('renderer warnings:', errors.slice(0, 5).join('; '));
-  return list.map(s => ({ name: s.name, img: { w: s.w, h: s.h, data: new Uint8ClampedArray(Buffer.from(s.data, 'base64')) }, anchor: s.anchor }));
+  const sprites = list.map(({ data, w, h, ...s }) => ({ ...s, img: { w, h, data: new Uint8ClampedArray(Buffer.from(data, 'base64')) } })); // + trim, anim, frame
+  return Object.assign(sprites, { tints });
 }

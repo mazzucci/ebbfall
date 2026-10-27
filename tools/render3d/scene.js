@@ -46,8 +46,9 @@ const octx = out.getContext('2d', { willReadFrequently: true });
 /**
  * Render `obj` (already in the scene graph or not) into a w x h px RGBA image.
  * The ground point (gx, gz) lands at pixel (ax, ay). Shadow on the ground included unless `shadow` is false.
+ * `mask`: also return its team mask (`{ img, mask }`), the same size and framing (see teamMask).
  */
-export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true }) {
+export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false }) {
   scene.add(obj);
   obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   catcher.visible = shadow;
@@ -62,14 +63,53 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true }) {
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();
   renderer.setSize(w * SS, h * SS, false);
+  const img = grab(w, h);
+  finish(img);
+  const m = mask ? teamMask(obj, img) : null;
+  scene.remove(obj);
+  return mask ? { img, mask: m } : img;
+}
+/** Render the scene and downsample it to w x h. */
+function grab(w, h) {
   renderer.render(scene, camera);
   out.width = w; out.height = h;
   octx.clearRect(0, 0, w, h); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
   octx.drawImage(renderer.domElement, 0, 0, w, h);
-  scene.remove(obj);
-  const img = octx.getImageData(0, 0, w, h);
-  finish(img);
-  return img;
+  return octx.getImageData(0, 0, w, h);
+}
+
+const flat = new Map(); // unlit stand-ins for the mask pass, by weight and side
+const flatMat = (wt, side) => {
+  const k = `${wt}|${side}`;
+  if (!flat.has(k)) flat.set(k, new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(wt, wt, wt, THREE.SRGBColorSpace), side, toneMapped: false }));
+  return flat.get(k);
+};
+/**
+ * The team mask of a finished render: the finished pixels of the team-coloured surfaces (materials marked by
+ * materials.js `team`), with alpha = their share of the pixel (lamps a fraction), everything else transparent. A second
+ * pass draws the same camera with team materials flat white (their weight) and every other surface flat black, so
+ * nearer geometry still hides paint; no shadows, no glow shells. The client tints it with the seat's colour.
+ */
+function teamMask(obj, img) {
+  const saved = [];
+  obj.traverse(o => {
+    if (!o.isMesh) return;
+    saved.push([o, o.material, o.visible]);
+    if (o.material.transparent) o.visible = false; // additive halos: glow, not surfaces
+    else o.material = flatMat(o.material.userData.team || 0, o.material.side);
+  });
+  const shadow = catcher.visible, tm = renderer.toneMapping, sm = renderer.shadowMap.enabled;
+  catcher.visible = false; renderer.toneMapping = THREE.NoToneMapping; renderer.shadowMap.enabled = false;
+  const pass = grab(img.width, img.height).data;
+  for (const [o, m, v] of saved) { o.material = m; o.visible = v; }
+  catcher.visible = shadow; renderer.toneMapping = tm; renderer.shadowMap.enabled = sm;
+  const d = img.data, md = new Uint8ClampedArray(d.length);
+  for (let i = 0; i < d.length; i += 4) {
+    const a = pass[i + 3] ? Math.round(pass[i] / 255 * d[i + 3]) : 0; // (pass[i]: the team share of what covers the pixel)
+    if (a < 4) continue;
+    md[i] = d[i]; md[i + 1] = d[i + 1]; md[i + 2] = d[i + 2]; md[i + 3] = a;
+  }
+  return new ImageData(md, img.width, img.height);
 }
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };

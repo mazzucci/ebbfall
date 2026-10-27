@@ -403,7 +403,11 @@ impl World {
             (t > d.expand_at || self.home_dry(cx, cy)) && self.ai_count(&my_b, false, f.hq) < 2;
         // Workers first (`Diff::workers_first`): while its crew is short, a worker's price stays in the bank, so a
         // building waits a moment rather than leave the Core idle for want of shards.
-        let hold = if d.workers_first && harv.len() < self.harv_target(cores.len()) {
+        // Only while a worker can be trained now (a Core, room in supply): the reserve must never hold back the Depot
+        // a supply-capped side needs to train the very worker it saves for.
+        let [used, cap] = self.sup[e as usize];
+        let can_train = !cores.is_empty() && used + f.worker.def().supply <= cap;
+        let hold = if d.workers_first && can_train && harv.len() < self.harv_target(cores.len()) {
             f.worker.def().cost
         } else {
             [0, 0]

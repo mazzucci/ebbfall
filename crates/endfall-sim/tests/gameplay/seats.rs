@@ -285,7 +285,7 @@ fn note_fights(w: &World, fights: &mut [[u32; MAX_SEATS]; MAX_SEATS]) {
 
 #[test]
 fn four_ais_fight_a_free_for_all_on_four_starts() {
-    // M4: four AIs on 96x96, each its own team, for up to fifteen minutes (the world's invariants after every tick):
+    // M4: four AIs on 96x96, each its own team, for up to eighteen minutes (the world's invariants after every tick):
     // each fields an army and fights, partners first (seats 0 and 1, 2 and 3: their waves meet on the way, see
     // `foe`), and the game moves on: a seat is knocked out, or seats across the map from each other (0 and 2, 1 and
     // 3: seats sit round the map in order) fight.
@@ -297,7 +297,7 @@ fn four_ais_fight_a_free_for_all_on_four_starts() {
     for &seed in seeds {
         let mut w = ais(seed, 96, 4, None);
         let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
-        for tick in 0..30 * 60 * 15 {
+        for tick in 0..30 * 60 * 18 {
             w.step();
             check_invariants(&w, &format!("seed {seed} tick {tick}"));
             if tick % 15 == 0 {

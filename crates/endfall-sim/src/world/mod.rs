@@ -238,6 +238,7 @@ impl World {
         self.bldgs.clear();
         self.projs.clear();
         self.graveyard.clear();
+        self.plans = paths::Plans::default();
         self.clear_seats();
         self.over = false;
         self.winner = -1;

@@ -325,6 +325,125 @@ fn a_short_walk_is_neither_shared_nor_budgeted() {
     assert_eq!(after.searches - before.searches, 12, "a search each");
 }
 
+#[test]
+fn units_closing_on_far_buildings_never_starve_a_new_order_of_its_route() {
+    // Sixty Troopers spread over seat 0's side (none near enough another to share its way), each sent at seat 1's Core
+    // across a 128x128 map: each replans its way every 0.7 s, more than the budget's long searches. A unit with a
+    // route keeps it when the budget is spent (until its next replan), and replans may use only the first of a tick's
+    // long searches: every one gets its way, and four far moves ordered three seconds in get theirs within a few
+    // ticks (they once waited for the rest of the game).
+    let mut w = big(5, MapKind::Standard);
+    let seen = home_ground(&w);
+    let core = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == ENEMY && b.kind.def().hq)
+        .unwrap()
+        .id;
+    let target = start(&w, 1);
+    let mut spots = Vec::new();
+    for y in (6..122).step_by(9) {
+        for x in (6..122).step_by(9) {
+            let open = (y - 1..=y + 1).all(|yy| (x - 1..=x + 1).all(|xx| !w.map.blocked(xx, yy)));
+            let far = (x - target.0).abs().max((y - target.1).abs()) > 2 * LONG_SEARCH;
+            if open && far && seen[w.map.idx(x, y)] {
+                spots.push((x, y));
+            }
+        }
+    }
+    assert!(spots.len() >= 64, "room for them: {}", spots.len());
+    let at = |p: (i32, i32)| (p.0 as f64 * TILE + 16.0, p.1 as f64 * TILE + 16.0);
+    let attackers: Vec<Id> = spots[..60]
+        .iter()
+        .map(|&p| w.make_unit(UnitKind::Trooper, PLAYER, at(p).0, at(p).1))
+        .collect();
+    let movers: Vec<Id> = spots[60..64]
+        .iter()
+        .map(|&p| w.make_unit(UnitKind::Trooper, PLAYER, at(p).0, at(p).1))
+        .collect();
+    for &a in &attackers {
+        w.attack_ent(a, core);
+    }
+    let mut routed = vec![false; attackers.len()];
+    for _ in 0..3 * TPS {
+        w.step();
+        for (k, &a) in attackers.iter().enumerate() {
+            routed[k] |= w
+                .unit(a)
+                .unwrap()
+                .path
+                .as_ref()
+                .is_some_and(|p| !p.is_empty());
+        }
+    }
+    assert!(
+        routed.iter().all(|&r| r),
+        "every attacker had its way within 3 s: {} of 60",
+        routed.iter().filter(|&&r| r).count()
+    );
+    // Four far moves, each to the opposite corner from where it stands.
+    for &m in &movers {
+        let u = w.unit(m).unwrap();
+        let (x, y) = (w.map.ww() - u.x, w.map.wh() - u.y);
+        w.move_to(m, x, y);
+    }
+    let mut waited = 0;
+    while movers.iter().any(|&m| w.unit(m).unwrap().path.is_none()) {
+        waited += 1;
+        assert!(
+            waited <= 4,
+            "the far moves have their routes within four ticks"
+        );
+        w.step();
+    }
+    assert!(
+        movers
+            .iter()
+            .all(|&m| matches!(w.unit(m).unwrap().task, Task::Move { .. })),
+        "and kept their orders"
+    );
+}
+
+#[test]
+fn a_unit_bound_beside_the_groups_goal_but_behind_a_wall_still_gets_there() {
+    // A wall across the map, open only at its ends: one unit sent to just before it, another (from the same place in
+    // the same tick) to just behind it. The second may not take the first's route and stop at the wall: it plans its
+    // own, round the end, and gets there.
+    let mut w = big(3, MapKind::Standard);
+    flatten(&mut w, 2..126, 2..126);
+    for y in 4..124 {
+        let i = w.map.idx(60, y);
+        if w.map.occ[i] == 0 {
+            w.map.rock[i] = 1;
+        }
+    }
+    let a = w.make_unit(
+        UnitKind::Trooper,
+        PLAYER,
+        30.0 * TILE + 16.0,
+        60.0 * TILE + 16.0,
+    );
+    let b = w.make_unit(
+        UnitKind::Trooper,
+        PLAYER,
+        30.0 * TILE + 16.0,
+        61.0 * TILE + 16.0,
+    );
+    let goal = |x: i32| (x as f64 * TILE + 16.0, 60.0 * TILE + 16.0);
+    w.move_to(a, goal(58).0, goal(58).1);
+    w.move_to(b, goal(62).0, goal(62).1);
+    walk_until_idle(&mut w, &[a, b], 120);
+    for (id, x) in [(a, 58), (b, 62)] {
+        let u = w.unit(id).unwrap();
+        assert!(
+            (u.x - goal(x).0).hypot(u.y - goal(x).1) < TILE,
+            "unit for ({x}, 60) is at ({:.1}, {:.1})",
+            u.x / TILE,
+            u.y / TILE
+        );
+    }
+}
+
 /// The path work per tick of 12-minute games of Hard AIs (two on 64x64, 96x96 and 128x128, four on 96x96, eight on
 /// 128x128; seeds by PATH_SEEDS, "3,17,29,41,53" by default): the step's time (average, 99th percentile, worst) and
 /// searches per tick (average, worst). A measure, not a test: `cargo test --release --test gameplay path_cost --

@@ -559,12 +559,13 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'the game\'s sound follows the menu\'s');
       await press('#btnSound'); // (on again, from the game's top bar)
       await press('#btnPause'); await press('#btnQuit');
-      assert.ok(await shown('#menuHome'), 'leaving a game: the first page');
+      assert.ok(await shown('#menuSolo'), 'leaving a game against the AI: the single player page, one tap from the next');
+      await press('#btnSoloBack'); assert.ok(await shown('#menuHome'));
       assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
       await press('#btnSolo');
       assert.equal(await page.locator('#race .ib.on').textContent(), 'RANDOM', 'RANDOM still chosen');
       assert.equal(await startAs(0.1), 'humans', 'and the next game the Humans');
-      await press('#btnPause'); await press('#btnQuit');
+      await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
       assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 2 lost$/, 'RANDOM\'s record: both races\' games');
       assert.ok(await page.locator('#btnFirstHome').isHidden(), 'games on the record: FIRST GAME off the first page');
       await press('#btnSolo'); assert.ok(await shown('#btnFirst'), 'still in single player');

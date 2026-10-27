@@ -188,7 +188,7 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 - [x] Lockstep core in the sim (`lockstep.rs`, the command wire format `wire.rs`), 2026-10-26
 - [x] Relay: `relay/room.js` (pure rules) + `relay/server.mjs` (Node, local play and tests), 2026-10-26
 - [x] Network client `src/net/net.js` and the Play-a-friend lobby `src/client/online.js` (room code or link, race, map, ready; leaving concedes at once), 2026-10-26
-- [ ] Relay deployed (Cloudflare Durable Object, M3d): then the PLAY A FRIEND button shows on ebbfall.com
+- [ ] Relay deployed (Cloudflare Durable Object, M3d): then MULTIPLAYER (PLAY A FRIEND) shows on ebbfall.com
 - [ ] Per-player fog of war (today fog is computed from team 0's view only)
 - [ ] Desync detection: exchange `stateHash()` every 100 ticks, dump both states on mismatch
 - [ ] Reconnect: late joiner replays the command log from tick 0

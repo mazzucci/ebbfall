@@ -60,7 +60,8 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
       assert.match(await a.p.locator('#seatList').textContent(), /Bo/, 'the friend under the name typed');
-      await b.p.waitForFunction(() => document.getElementById('onlineMapLbl').textContent === "MAP (Ann's pick)", null, { timeout: 5000 }); // (the friend sees whose pick the map is)
+      await b.p.waitForFunction(() => document.getElementById('onlineMapNote').textContent === "Ann's pick", null, { timeout: 5000 }); // (the friend sees whose pick the map is)
+      assert.equal(await b.p.locator('#onlineMapLbl').textContent(), 'MAP');
       // The friend's race: RANDOM, shown as such in the room until the start; drawn there, alike in both games.
       await b.tap('#onlineRace [data-race="random"]');
       await a.p.waitForFunction(() => /RANDOM/.test(document.getElementById('seatList').textContent));
@@ -202,7 +203,18 @@ test('a relay of a newer protocol: UPDATE is offered (not a dead end)', async ()
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 });
     assert.equal(await b.p.locator('#onlineStatus').textContent(), 'Ebbfall has an update. Tap UPDATE to get it');
     assert.equal(await b.p.locator('#btnOnlineReload').textContent(), 'UPDATE');
-  } finally { await b.ctx.close(); wss.close(); }
+  } finally { await b.ctx.close(); }
+  // Opening a room (no code yet): UPDATE comes back to the multiplayer page, not the first page.
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${wss.address().port}/`)}`;
+  const c = await page(PHONE, relayQ);
+  try {
+    await c.tap('#btnOnline'); await c.tap('#btnNewRoom');
+    await c.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 });
+    await Promise.all([c.p.waitForNavigation(), c.tap('#btnOnlineReload')]);
+    await c.p.waitForFunction(() => !!window.endfall);
+    assert.ok(await c.p.locator('#online').isVisible() && await c.p.locator('#onlineJoin').isVisible(), 'back on the multiplayer page');
+    assert.ok(!/online=/.test(c.p.url()), 'and the address is clean');
+  } finally { await c.ctx.close(); wss.close(); }
 });
 
 test('a small phone: the room fits without scrolling, its sound icon in the corner', async () => {

@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, FACTIONS, seatRaces, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -42,11 +42,10 @@ function newGame() {
 }
 
 /** An online game: the room's setup, from this side's seat (online.js). */
-function newOnlineGame(setup, seat) {
+function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup, MAP_KINDS.length);
   menu.tutorial = false;
-  const races = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS)); // (a RANDOM seat: drawn from the room's seed, alike on every client)
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat));
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat)); // (races: a RANDOM seat already drawn, online.js)
 }
 
 function begin(reset) {
@@ -72,8 +71,9 @@ function giveUp() {
   if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff);
 }
 function quitToTitle() {
+  const solo = !online.playing && !menu.tutorial;
   giveUp(); stopWatching(); stopOnline(); // (a leaving Net closes itself once its leave is out)
-  started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
+  started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
 // ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----
@@ -162,7 +162,7 @@ function rematchButton(theyWant, iWant) {
 }
 
 // ---- screens ----
-$('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
+$('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });

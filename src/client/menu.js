@@ -143,7 +143,8 @@ export function setup() {
 /** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
-export function showMenu() { renderMaps(); showRecord(); page('menuHome'); $('start').hidden = false; }
+/** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
+export function showMenu(at = 'menuHome') { renderMaps(); showRecord(); page(at); $('start').hidden = false; }
 
 // The player's record on this device, per race and difficulty: [won, lost] (the race played: a Random one's draw).
 const records = () => { try { const r = JSON.parse(store.get('record')); return r && typeof r === 'object' ? r : {}; } catch { return {}; } };

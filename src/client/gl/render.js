@@ -40,7 +40,7 @@ for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
 /** A seat's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
  *  (atlas.json `tints`, from look.js SEAT_COLORS; docs/ART.md). */
-export const seatTint = (team) => index.tints?.[team] ?? SEAT_COLORS[team % SEAT_COLORS.length];
+export const seatTint = (team) => index.tints?.[team % index.tints.length] ?? SEAT_COLORS[team % SEAT_COLORS.length];
 /** Two tints at once (a seat's paint under an effect's tint): channel by channel product. */
 const mulTint = (a, b) => b === 0xffffff ? a : ((a >> 16) * (b >> 16) / 255) << 16 | ((a >> 8 & 255) * (b >> 8 & 255) / 255) << 8 | (a & 255) * (b & 255) / 255;
 const hex6 = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -269,7 +269,7 @@ class UnitObj {
     if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; } }
-  destroy() { for (const s of [this.node, this.ring, this.cargo]) s.destroy({ children: true }); }
+  destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); } // (a Graphics frees its context only when destroyed without options)
 }
 
 const STAGES = 8, stageTex = {};
@@ -298,8 +298,9 @@ class BldgObj {
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
     this.smokeT = 0; this.type = b.type;
     for (const s of [this.found, this.body, this.paint, this.scaffold]) s.position.set(b.x, b.y);
-    const z = (b.ty + b.h) * TILE; this.found.zIndex = z - 2; this.body.zIndex = z; this.paint.zIndex = z + 0.5; this.scaffold.zIndex = z + 1;
-    if (this.head) { this.head.zIndex = z + 2; this.headPaint.zIndex = z + 2.5; }
+    // (sorted by the bottom row; buildings in one row apart by id, each one's paint and head just over its own body)
+    const z = (b.ty + b.h) * TILE, e = (b.id % 97) * 0.005; this.found.zIndex = z - 2; this.body.zIndex = z + e; this.paint.zIndex = z + e + 0.001; this.scaffold.zIndex = z + 1;
+    if (this.head) { this.head.zIndex = z + e + 0.002; this.headPaint.zIndex = z + e + 0.003; }
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {

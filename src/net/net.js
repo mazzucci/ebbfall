@@ -9,6 +9,7 @@
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
 export const PROTO = 2;
+export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
 const CHECK_EVERY = 10; // turns between hash checkpoints (relay/room.js)
@@ -25,7 +26,8 @@ export class Net {
    * @param {string} [o.room] a room code to join; none opens a new room
    * @param {string} o.name the player's name
    * @param {() => object|null} o.game the current lockstep Game (takeOrders, receiveTurn, nextTurn, tick, stateHash)
-   * @param {object} [o.on] callbacks: seat, lobby, start, away, back, left, desync, error, status
+   * @param {object} [o.on] callbacks: seat, lobby, start, away, back, left, pause ({seat, ms, left}), resume (seat; -1:
+   *   its time ran out), rematch, desync, error, notice, status
    * @param {typeof WebSocket} [o.WebSocket]
    */
   constructor({ url, room = '', name, build = '', game, on = {}, WebSocket: WS = globalThis.WebSocket, token = null }) {
@@ -103,7 +105,7 @@ export class Net {
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
-  /** Stop the clock for everyone (a few times a game), or end a pause (anyone may). */
+  /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */
   pause() { this.say({ t: 'pause' }); }
   resume() { this.say({ t: 'resume' }); }
   /** After a game: want another in this room (or not any more). */
@@ -125,7 +127,7 @@ export class Net {
         this.on.lobby?.(m); break;
       case 'rematch': if (Array.isArray(m.seats)) this.on.rematch?.(m.seats); break;
       case 'start':
-        if (!this.setup) { this.setup = m.setup; this.on.start?.(m.setup, this.seat); } // (a resume re-sends it)
+        if (!this.setup) { this.setup = m.setup; this.on.start?.(m.setup, this.seat, m); } // (a resume re-sends it; m.left: pauses left)
         break;
       case 'turn': if (validTurn(m)) this.turns.set(m.n, m.o); break;
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat); break;

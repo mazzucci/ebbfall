@@ -48,7 +48,20 @@ away (below), so nobody runs ahead. One phone's 4G hiccup costs that phone a stu
 - **The game's setup** (seed, map kind, sides, races, seats) is decided by the room and sent to everyone (today the
   menu draws it with `Math.random`). The `Game` gets a constructor for any seat (`me` set, not team 0).
 - **Pause** is the relay's: it stops the clock (a resume command could never run on a stopped clock). The pause card
-  splits into the local menu (help, sound: the game runs on) and a room pause (a few per player a game).
+  splits into the local menu and a room pause. Built (2026-10-27): online the card (src/client/pause.js) is a "Menu"
+  over a game that goes on (BACK TO GAME, HOW TO PLAY, LEAVE GAME; no RESTART: one side cannot restart a shared
+  game) with PAUSE FOR EVERYONE while this seat has pauses left. `pause {}` asks the relay (relay/room.js: `PAUSES` = 3
+  a game per seat, `PAUSE_MS` = five minutes at most, only while the clock runs and no pause is on); it tells everyone
+  `pause {seat, ms, left}` and closes no turns until `resume {}` from that same seat, or the time runs out (`resume
+  {seat: -1}`); a seat that leaves ends its own pause. Every client shows the card in its paused state: "You paused ·
+  4:12 left" with RESUME for the caller, "Paused by Bo · 4:12 left" with a greyed BO'S PAUSE for the others (nobody
+  else can end it, not even by sending `resume`), counting down from `ms`; the "Waiting for" line stays off meanwhile
+  (a seat away during a pause is not waited for: its away budget is frozen until the resume). When it ends, the
+  card closes for the caller and for those it opened for, and is the menu again for those who had opened it. A seat
+  that comes back during a pause is sent it after its turns, and `start` carries the pauses left per seat (`left`), so
+  a reloaded page offers the right count. The clients need nothing more: with no turns the lockstep `Game` waits, the
+  Net keeps acking once a second (a paused seat is not an away seat), and the relay's clock restarts from the resume
+  (no burst of turns).
 - **A seat leaving, or an AI taking it over** (games of more than two): relay-injected entries in the log, so replays
   and rejoining see them; a takeover AI plays without the AI's income or rule handicaps. `start_replay` replays the
   AI seats as they changed, not as they ended.

@@ -8,14 +8,15 @@ import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
-import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
+import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
+import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { setIconButton, portrait } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu, MAP_KINDS } from './client/menu.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
-import { initOnline, online, onlineMap, stopOnline, reloadUrl, wantRematch, theyWant } from './client/online.js';
+import { initOnline, online, onlineMap, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -51,7 +52,6 @@ function newOnlineGame(setup, seat, races) {
 function begin(reset) {
   $('help').hidden = true; stopWatching(); ended = false;
   reset();
-  $('btnRestart').hidden = online.playing; // (a shared game cannot be restarted by one side)
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
@@ -61,7 +61,13 @@ function begin(reset) {
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
   if (!menu.tutorial) toast(`Mine shards. Build ${aName(BUILDINGS[myFaction().supply].name)} before supply caps.`);
-  armLeaveGuard({ onAsk: () => {}, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
+  armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
+}
+/** The leave dialog's line: alone the game waits and leaving loses it; online it goes on (unless a room pause holds
+ *  it), and leaving hands it to the others. */
+function leaveLine() {
+  $('leaveSub').textContent = !online.playing ? 'The game is paused. If you leave, this game is lost.'
+    : `${online.hold ? 'The game is paused' : 'The game goes on'}. If you leave, ${ifYouLeave()}.`;
 }
 
 /** Leave the current game for the title screen (the next back gesture then really leaves the page). */
@@ -73,7 +79,7 @@ function giveUp() {
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
   giveUp(); stopWatching(); stopOnline(); // (a leaving Net closes itself once its leave is out)
-  started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
+  started = false; closePause(); $('end').hidden = true; $('help').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
 // ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----
@@ -125,7 +131,7 @@ function whatBeatYou() {
 }
 
 function endGame() {
-  setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
+  closePause(); setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.winner === G.teams[G.me]; // (the winner is a team)
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
   // Online, the other side has a name (a friend's, as typed in the lobby).
@@ -143,6 +149,9 @@ function endGame() {
   // Both armies over the game (the enemy's revealed now), and the result on this device's record.
   const chart = armyChart(armyLog(G.me), foes().map(armyLog).reduce((sum, l) => l.map((v, i) => v + (sum[i] || 0)), [])); // (the enemies together)
   $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
+  const fs = foes(); $('endKey').querySelector('.foe').textContent = fs.length > 1 ? 'Enemy armies' : online.playing ? `${Who(fs[0])}'s army` : 'Enemy army';
+  $('btnAgain').textContent = online.playing ? 'LEAVE ROOM' : 'NEW GAME'; // (online: this room, and its rematch, are left)
+  $('btnAgain').title = online.playing ? 'Back to the menu: out of this room' : 'Back to the menu, for another map or opponent';
   $('btnWatch').hidden = menu.tutorial || online.playing; // (the guided game's hold is not in the log; an online game is watched later)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
@@ -159,22 +168,24 @@ function rematchButton(theyWant, iWant) {
   b.textContent = !online.playing ? 'REMATCH' : iWant ? 'WAITING…' : theyWant ? 'REMATCH?' : 'REMATCH';
   b.classList.toggle('on', online.playing && theyWant && !iWant); // (they asked: the button calls)
   b.classList.toggle('wait', online.playing && iWant); // (asked: a quiet button, a tap takes it back)
+  b.title = !online.playing ? 'The same map and opponent again' : iWant ? 'Tap again to take it back' : 'Another game in this room, once everyone wants one';
 }
 
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
 initScreen(); initLeaveDialog(); initTools();
-initPause({ onResume: () => {}, onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
+initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
 const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initMenu({ onStart: newGame, onSound: syncSound });
 initOnline({
   start: newOnlineGame, leave: showMenu, quit: quitToTitle,
   room: () => { $('end').hidden = true; started = false; }, // (a rematch: from the end card back to the room)
+  pause: roomPaused, resume: roomResumed, // (a room pause: the pause card on every side)
   rematch: (they, iWant) => {
     if ($('end').hidden) return; // (the end card reads the room's wishes when it comes up)
-    if (they && !theyWantRematch && !iWant) toast('Your friend wants a rematch');
+    if (they && !theyWantRematch && !iWant) toast(wantLine());
     rematchButton(they, iWant);
   },
 });

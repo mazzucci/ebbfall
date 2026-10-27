@@ -1,13 +1,13 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the whole-army and idle-factory chips in the top bar (each only while it has something to offer), the idle-harvester key, double-click "all of this type on screen", control-group tabs
-// (tap to recall, long-press or Ctrl+click to save), and the pause menu.
-import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies, fmt } from '../engine/index.js';
+// (tap to recall, long-press or Ctrl+click to save). The pause card is pause.js.
+import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';
-import { seenLately } from './scout.js';
+import { paused, closePause } from './pause.js';
 
 export const alerts = { last: null, list: [], at: 0 };
 const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
@@ -47,7 +47,7 @@ export function goHome() {
   if (c) centerOn(c.x, c.y); else toast('No base left');
 }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; $('pause').hidden = true; updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -190,18 +190,4 @@ export function initTools() {
     $(id).addEventListener('click', fn);
   }
   updateTools();
-}
-
-// ---- pause ----
-export const paused = () => !$('pause').hidden;
-/** The pause card: four equal buttons (Resume, How to play, Restart, Leave game; leaving is giving up). */
-export function initPause({ onRestart, onQuit, onResume }) {
-  $('btnResume').addEventListener('click', () => { $('pause').hidden = true; onResume(); });
-  $('btnRestart').addEventListener('click', () => { $('pause').hidden = true; onRestart(); });
-  $('btnQuit').addEventListener('click', () => { $('pause').hidden = true; onQuit(); });
-  $('btnPause').addEventListener('click', () => togglePause());
-}
-export function togglePause() {
-  $('pause').hidden = !$('pause').hidden;
-  if (!$('pause').hidden) { $('pauseTime').textContent = fmt(G.time) + (ui.watching ? ' into the replay.' : ' into the game. Leaving or restarting gives it up.'); $('pauseSeen').innerHTML = seenLately(); $('btnResume').focus(); } // (the clock and the scouting report live here, not on screen)
 }

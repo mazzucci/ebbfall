@@ -3,7 +3,8 @@
 // back, a reconnect that resumes, a seat that leaves, a stall, hash checkpoints; and the Node server over real sockets.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS } from '../relay/room.js';
+import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES } from '../relay/room.js';
+import { PAUSES as NET_PAUSES } from '../src/net/net.js';
 
 /** A room with fake connections that record what they are sent (and whether they were kicked). */
 function room(seats = 2) {
@@ -245,6 +246,8 @@ test('a pause stops the clock for everyone until the seat that paused resumes it
   const { r, a, b, got, clear } = started();
   play(r, [a, b], 0, 1000);
   r.receive(b, { t: 'pause' });
+  assert.deepEqual(got(a, 'start')[0].left, [PAUSES, PAUSES], 'the start says the pauses each seat has');
+  assert.equal(NET_PAUSES, PAUSES, 'the client counts the same');
   assert.deepEqual([got(a, 'pause')[0].seat, got(a, 'pause')[0].left], [1, [3, 2]], 'everyone told who paused, and the pauses left');
   clear(); const turn = r.turn;
   play(r, [a, b], 1100, 20000);
@@ -292,6 +295,7 @@ test('a seat back during a pause is told; a seat that leaves ends its own pause'
   r.send = ((send) => (c, m) => { if (c === b2) sent.push(m); else send(c, m); })(r.send);
   r.connect(b2, hello({ name: 'Bo', token, next: 0 }));
   assert.ok(sent.some(m => m.t === 'pause' && m.seat === 0 && m.ms > 0), 'back: told of the pause and its time left');
+  assert.deepEqual(sent.find(m => m.t === 'start').left, [2, 3], 'and of the pauses left (a reloaded page knows them before the next pause)');
   r.receive(a, { t: 'leave' });
   assert.equal(r.hold, null, 'its pause went with it');
 });

@@ -10,7 +10,7 @@
 // {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
 // seat that paused ends its pause), leave {} (gives the game up now), over {} (its game has ended), rematch {want} (after a game: another,
 // in this room), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
-// checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby, start {setup, delay, from},
+// checkpoint turn, a multiple of CHECK_EVERY), ping {id}. Relay -> client: seat, lobby, start {setup, delay, from, left: [pauses left per seat]},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
 // {code, msg}, pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
 
@@ -26,9 +26,9 @@ const CATCH_UP = 5; // turns the clock closes at once after a stall at most (it 
 const MAX_ORDER_WORDS = 4096; // numbers a seat may send in one turn
 const MAX_ORDER_MSGS = 10; // orders messages a seat may send in one turn
 const MAX_NAME = 16;
-const OVER_GRACE_MS = 30000;
+const OVER_GRACE_MS = 30000; // once a game is over, a seat whose connection is gone this long has left the room
 export const PAUSES = 3; // pauses a seat may call in a game
-export const PAUSE_MS = 5 * 60000; // a pause's length at most (the seat that called it may end it sooner) // once a game is over, a seat whose connection is gone this long has left the room
+export const PAUSE_MS = 5 * 60000; // a pause's length at most (the seat that called it may end it sooner)
 
 /** A room of `seats` players. `send(conn, msg)` delivers a message to one connection; `kick(conn)` closes one. */
 export class Room {
@@ -73,7 +73,7 @@ export class Room {
     else {
       // Back in a game: every turn from the next one it expects, then on as before, and who else is away or gone.
       const from = Number.isInteger(hello.next) && hello.next >= 0 ? hello.next : 0;
-      this.send(conn, { t: 'start', setup: this.setup, delay: DELAY, from });
+      this.send(conn, { t: 'start', setup: this.setup, delay: DELAY, from, left: this.pausesLeft() });
       for (const b of this.log) if (b.n >= from) this.send(conn, { t: 'turn', ...b });
       this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, { t: 'away', seat: i }); });
       // (it is back once its acks show it has caught up)
@@ -168,12 +168,13 @@ export class Room {
   start() {
     this.phase = 'game';
     this.setup = { seed: this.rand() % 1000000 + 1, map: this.map, side: this.rand() % 2, races: this.seats.map(s => s.race), names: this.seats.map(s => s.name) };
-    this.each({ t: 'start', setup: this.setup, delay: DELAY, from: 0 });
+    this.each({ t: 'start', setup: this.setup, delay: DELAY, from: 0, left: this.pausesLeft() });
     for (let n = 0; n < DELAY; n++) this.bundle(n, []); // (the first turns can have no orders)
     this.turn = 0;
   }
   /** A pause: who called it, how long it has left, and every seat's pauses left. */
-  pauseMsg() { return { t: 'pause', seat: this.hold.seat, ms: Math.max(0, this.hold.until - this.now), left: this.seats.map(s => PAUSES - s.pauses) }; }
+  pauseMsg() { return { t: 'pause', seat: this.hold.seat, ms: Math.max(0, this.hold.until - this.now), left: this.pausesLeft() }; }
+  pausesLeft() { return this.seats.map(s => PAUSES - s.pauses); }
   unhold(by) {
     this.hold = null; this.each({ t: 'resume', seat: by });
     for (const s of this.seats) if (s.awaySince) s.awaySince = this.now; // (away during the pause: its budget counts from now)

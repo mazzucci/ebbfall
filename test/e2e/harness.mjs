@@ -45,8 +45,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   const touch = !!device.hasTouch;
   await (touch ? page.locator('#btnSolo').tap() : page.locator('#btnSolo').click()); // the menu's first page: SINGLE PLAYER
   if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
-  else if (race !== 'humans') await (touch ? page.locator(`#race [data-race="${race}"]`).tap() : page.locator(`#race [data-race="${race}"]`).click());
-  if (!first && diff !== 0) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
+  else if (race !== 'humans') await page.locator('#soloSeats [data-k="race0"]').selectOption(race); // (the seat list: your race, the AI's difficulty)
+  if (!first && diff !== 0) await page.locator('#soloSeats [data-k="diff1"]').selectOption(String(diff));
   if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());

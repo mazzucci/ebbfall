@@ -126,7 +126,7 @@ impl World {
             team,
             wait,
             turns: 0,
-            wave: DIFF[self.diff].wave,
+            wave: DIFF[self.diff_of(team)].wave,
             last_wave: -20.0,
             attacking: false,
             attackers: None,
@@ -153,6 +153,10 @@ impl World {
     /// The seat whose AI is taking its turn (set by `ai_tick` for the length of the turn).
     pub(crate) fn seat(&self) -> u8 {
         self.ai_turn
+    }
+    /// The difficulty of the AI taking its turn (each AI seat may have its own: `World::diff_of`).
+    pub(crate) fn level(&self) -> &'static Diff {
+        &DIFF[self.diff_of(self.seat())]
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two
@@ -315,7 +319,7 @@ impl World {
     /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
     /// (the rules are `World::auto_cast`, shared with the balance duels).
     fn ai_abilities(&mut self, _brain: &mut Brain) {
-        if DIFF[self.diff].abilities {
+        if self.level().abilities {
             self.auto_cast(self.seat());
         }
     }

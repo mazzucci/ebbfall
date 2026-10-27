@@ -457,6 +457,16 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    six, three against three with four AI seats, in two browsers: the same hash trail).
    Left: allies sharing vision; an AI taking over a seat whose player left; a budget for short path searches (the
    worst tick left in 8-AI games is a burst of them).
+   - **Single player's seat list** (2026-10-27, the owner's design; it replaced the single-player OPPONENT, YOU, ENEMY,
+     PLAYERS and TEAMS rows): a row per seat, YOU then AI 1, AI 2... (+ AI up to eight, × on any AI but the last), each
+     with its race, its team (TEAM 1 to N: any split, 1v3 as well as 2v2v2v2) and each AI's difficulty, as native
+     selects. START GAME seats the rows in team order (src/client/seats.js `arrange`: your team first, you first, then
+     the other teams as their first rows come), since only consecutive seats start side by side; each row's dot is
+     already the colour its seat will have, so rows never jump while the teams change. Everyone on one team: START GAME
+     waits ("Everyone is on one team"). `Game.withSeats` takes an optional last argument, `diffs`, a difficulty per
+     seat (`World::set_diffs`, `diff_of`; left out or empty: every AI at `diff`, so the goldens and online games are
+     unchanged; a replay keeps them); `diff` is then the hardest AI's, which is the level the device's record counts
+     the game at. The lobby keeps its PLAYERS and TEAMS rows for now (the seat list comes to it later).
 
 ## Open questions for the owner
 

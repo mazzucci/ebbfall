@@ -775,3 +775,81 @@ fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
         }
     }
 }
+
+#[test]
+fn each_ai_seat_plays_at_its_own_difficulty() {
+    // Single player's seat list: an AI's difficulty per seat (`withSeats`' `diffs`; empty: every AI at the game's).
+    let setup = |diffs: Option<Vec<u8>>| {
+        Game::with_seat_diffs(
+            43,
+            1,
+            0,
+            0,
+            &[0, 0, 1, 0],
+            &[0, 1, 1, 1],
+            &[0, 1, 1, 1],
+            0,
+            Some(96),
+            diffs,
+        )
+    };
+    assert!(
+        setup(Some(vec![0, 0, 3])).is_err(),
+        "a difficulty per seat, or none"
+    );
+    let mut g = setup(Some(vec![2, 0, 3, 9])).unwrap();
+    let w = g.world();
+    assert_eq!(
+        (0..4).map(|s| w.diff_of(s)).collect::<Vec<_>>(),
+        [2, 0, 3, 3],
+        "each its own (9: the hardest there is)"
+    );
+    // None, or an empty list: as before, every AI at the game's difficulty (the goldens' games).
+    let (mut a, mut b) = (setup(None).unwrap(), setup(Some(vec![])).unwrap());
+    let mut c = Game::with_seats(
+        43,
+        1,
+        0,
+        0,
+        &[0, 0, 1, 0],
+        &[0, 1, 1, 1],
+        &[0, 1, 1, 1],
+        0,
+        Some(96),
+    )
+    .unwrap();
+    for _ in 0..30 * 60 {
+        a.step();
+        b.step();
+        c.step();
+    }
+    assert_eq!(a.world().diff_of(2), 1);
+    assert_eq!(
+        (a.state_hash(), b.state_hash()),
+        (c.state_hash(), c.state_hash()),
+        "the same game"
+    );
+    // Each plays its own: Easy keeps fewer harvesters than Brutal, which gathers 30% more on the same fields.
+    let mut hashes = Vec::new();
+    for _ in 0..30 * 240 {
+        g.step();
+        hashes.push(g.state_hash());
+    }
+    let w = g.world();
+    let (easy, brutal) = (harvesters(w, 1).len(), harvesters(w, 2).len());
+    assert!(
+        easy <= 8 && brutal > easy + 4,
+        "Easy {easy} harvesters, Brutal {brutal}"
+    );
+    assert!(
+        w.stats[2].built > w.stats[1].built,
+        "Brutal trains more than Easy"
+    );
+    // Watching it again: the same game, each AI at its own difficulty.
+    assert!(g.start_replay());
+    assert_eq!(g.world().diff_of(1), 0);
+    for (i, want) in hashes.iter().enumerate() {
+        g.step();
+        assert_eq!(g.state_hash(), *want, "replay tick {i}");
+    }
+}

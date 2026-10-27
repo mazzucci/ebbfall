@@ -21,7 +21,7 @@ impl World {
         // and armor in turn from the difficulty's research_from (Easy never); none while saving for an expansion. Until it can afford the next one it saves up (no new units), but never while under
         // attack or short of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
         const SAVE_MAX: f64 = 30.0;
-        let d = &DIFF[self.diff];
+        let d = self.level();
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
         // army first)
         let script = &self.factions[e as usize].ai;

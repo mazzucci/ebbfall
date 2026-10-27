@@ -54,6 +54,8 @@ pub struct World {
     /// Applied commands with their tick and seat, while recording (see `record`).
     pub log: Option<Vec<Logged>>,
     pub diff: usize,
+    /// Each AI seat's difficulty, when they differ (`set_diffs`; empty: every AI plays `diff`). Read through `diff_of`.
+    pub diffs: Vec<usize>,
     pub time: f64,
     pub tick: u32,
     pub units: Vec<Unit>,
@@ -178,6 +180,7 @@ impl World {
         let mut w = World {
             seed,
             diff,
+            diffs: Vec::new(),
             map_kind,
             map_size,
             side,
@@ -314,6 +317,23 @@ impl World {
     /// Whether the scripted opponent plays this seat.
     pub fn is_ai(&self, team: u8) -> bool {
         self.ai_seats[team as usize]
+    }
+    /// The difficulty an AI seat plays at (its own, else the game's).
+    pub fn diff_of(&self, team: u8) -> usize {
+        self.diffs.get(team as usize).copied().unwrap_or(self.diff)
+    }
+    /// Give each seat's AI a difficulty of its own before play (a person's seat ignores its entry; empty: every AI
+    /// plays the game's `diff`), with fresh brains. False (nothing changes) for a list of another length.
+    pub fn set_diffs(&mut self, diffs: &[u8]) -> bool {
+        if !diffs.is_empty() && diffs.len() != self.seats() {
+            return false;
+        }
+        self.diffs = diffs
+            .iter()
+            .map(|&d| (d as usize).min(DIFF.len() - 1))
+            .collect();
+        self.init_ai();
+        true
     }
     /// G.rng(): a float in [0, 1).
     pub(crate) fn rnd(&mut self) -> f64 {

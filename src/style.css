@@ -130,7 +130,19 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) 16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
-#players .ib,#onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the teams, for four, six and eight: on the players' row while it has room) */
+#onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the lobby's teams, for four, six and eight: on the players' row while it has room) */
+/* A native select (the phone's own picker), dressed as a button with a caret: plainly tappable, a finger's height. */
+.isel{appearance:none;-webkit-appearance:none;color-scheme:dark;min-width:0;width:100%;height:32px;padding:0 18px 0 6px;background:var(--panel2) no-repeat;color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.03em;cursor:pointer;text-overflow:ellipsis;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ally) 50%),linear-gradient(135deg,var(--ally) 50%,transparent 50%);background-position:calc(100% - 12px) 55%,calc(100% - 7px) 55%;background-size:5px 5px}
+.isel:hover{border-color:var(--ally)} .isel:focus-visible{outline:2px solid var(--ally);outline-offset:1px} .isel option{background:var(--panel2);color:var(--fg)}
+.isel:disabled{opacity:1;cursor:default;background-image:none;padding-right:7px;border-style:dashed} /* (shown, not chosen: readable) */
+/* The seat list (single player): a row per seat, its choices in columns that line up; two columns of rows where there is room. */
+#soloSeats{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:4px 12px;margin:8px 0 4px}
+.srow{max-width:420px;display:grid;grid-template-columns:10px 2.6em minmax(0,1.1fr) repeat(2,minmax(0,1fr)) 32px;align-items:center;gap:4px;min-height:36px}
+.srow .dot{width:10px;height:10px;border-radius:50%;transform:none} .srow b{font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .srow.me b{color:var(--ally2)}
+.srow .ib.x{height:32px;min-width:32px;padding:0;font-size:16px;line-height:1}
+#btnAddAi{height:32px;margin:2px 0;border-style:dashed;justify-self:start;padding:0 18px;font-size:11px}
+.note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
 .ib.map small.up{margin-left:6px;font:500 10px var(--mono);letter-spacing:0;color:var(--muted);text-transform:none} /* a map's seats, when it matters */
 #onlineMaps .ib.map small.up{display:block;margin:1px 0 0;font-size:9px;line-height:1} #onlineMaps .ib.map:has(small.up){padding-top:3px;padding-bottom:3px} /* (the lobby: under the name, so four maps keep to one row) */
 .maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}

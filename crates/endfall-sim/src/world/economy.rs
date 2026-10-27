@@ -145,7 +145,7 @@ impl World {
             return self.gather_elsewhere(uid, node, ether, phase, timer);
         };
         let income = if self.is_ai(team) {
-            DIFF[self.diff].income
+            DIFF[self.diff_of(team)].income
         } else {
             1.0
         };

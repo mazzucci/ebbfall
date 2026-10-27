@@ -78,11 +78,14 @@ src/client/           everything that touches the browser
   screen.js           full screen / landscape lock, the leave-game guard
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
-                      until a first game is over), the single-player page (opponent, your race and the enemies', RANDOM
-                      too, PLAYERS 2-8 with TEAMS for four, six and eight, the maps that seat them with a preview, FIRST
-                      GAME), the About
+                      until a first game is over), the single-player page (the seat list: you and one to seven AIs, each
+                      seat's race, RANDOM too, and team, each AI's difficulty; the maps that seat them with a preview,
+                      FIRST GAME), the About
                       page (the source, the device check, the version), the sound icon; the map buttons and preview the
                       lobby shares
+  seats.js            the seat list's rows (dot, name, native selects dressed as buttons) and how rows become seats:
+                      `arrange` puts each team's seats side by side, your team first (pure but for two DOM helpers;
+                      test/seats.test.js); the lobby is to use it too
   maps.js             the maps the menus offer, by size (players decide it: 64x64 for two, 96x96 for three or four,
                       128x128 for five to eight), named fixed maps and a random one per size, badges, the map an online
                       setup plays, the team splits (FREE FOR ALL, 2v2, 3v3, 4v4, 2v2v2v2); pure (test/maps.test.js)
@@ -122,6 +125,7 @@ test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache S
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four and eight with AI seats
+test/seats.test.js    the seat list's rules: rows to seats and team ids, a new AI's team, a saved setup checked
 test/maps.test.js     the menus' maps (src/client/maps.js): sizes by players, maps that fit, badges, an online setup's map,
                       the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats, AI

@@ -180,7 +180,7 @@ impl World {
 
     /// The crew the AI trains workers for, with `cores` finished Cores: the difficulty's, and five more a base.
     pub(crate) fn harv_target(&self, cores: usize) -> usize {
-        DIFF[self.diff].harv + 5 * cores.saturating_sub(1)
+        self.level().harv + 5 * cores.saturating_sub(1)
     }
 
     /// More harvesters while short of the target; an expansion gets five from the main base.

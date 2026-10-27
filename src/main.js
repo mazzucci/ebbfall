@@ -12,7 +12,7 @@ import { initTools, updateTools, onAttacked, resetTools } from './client/tools.j
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { setIconButton, portrait } from './client/icons.js';
 import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu } from './client/menu.js';
-import { MAP_KINDS, onlineMap, teamList } from './client/maps.js';
+import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
@@ -36,12 +36,12 @@ function showPower() {
   return ui.mode === 'build' || ui.mode === 'build2' || !!ui.place || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
 }
 
-/** Start a game on the map and against the opponent chosen in the menu: one AI (the duel, as always), or two to seven,
- *  each for itself or, for four, six and eight, in even teams (seat 0, this player, with an AI or more). */
+/** Start a game on the map and against the opponents chosen in the menu: one AI (the duel, as always), or two to seven,
+ *  each for itself or in teams (the seats in team order, this player seat 0), each AI at its own difficulty. */
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
   stopOnline();
-  if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, [g.race, ...g.enemyRaces], teamList(g.players, g.teams), [false, ...g.enemyRaces.map(() => true)], 0, g.size));
+  if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs));
   else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace));
 }
 
@@ -146,7 +146,7 @@ function endLine(win) {
     const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
-  if (G.teams.length > 2) { // (free for all: nobody in particular beat this side, nor lost to it)
+  if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)
     return (win ? 'The last one standing' : G.out[G.me] && G.conceded === G.me ? 'You conceded' : G.bldgs.some(b => b.team === G.me) ? 'Nothing left to fight with' : 'Your base fell') + after;
   }
   // A duel: online, the other side has a name (a friend's, as typed in the lobby). "Conceded" is said only of an enemy.

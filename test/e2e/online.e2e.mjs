@@ -484,7 +484,7 @@ test('a small phone: the room fits without scrolling, its sound icon in the corn
     const sc = await a.p.locator('#online .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
     assert.ok(sc[0] <= sc[1] + 1, `the room fits: ${sc}`);
     assert.ok((await a.p.locator('#online h2').boundingBox()).y >= 0, 'its heading in view');
-    assert.ok(await a.p.locator('#btnOnlineReady').isVisible() && await a.p.locator('#btnLobbySound').isVisible());
+    assert.ok(await a.p.locator('#btnOnlineReady').isVisible() && await a.p.locator('#cornerSound').isVisible());
     assert.deepEqual(a.errors, []);
   } finally { await a.ctx.close(); }
 });

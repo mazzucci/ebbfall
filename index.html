@@ -59,7 +59,6 @@
   </footer>
   <div class="screen" id="start">
     <div class="card menu">
-      <div class="corner"><button class="ib msound" id="btnMenuSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button><button class="ib unfull" id="btnUnfull" hidden title="Full screen" aria-label="Full screen" aria-pressed="false"></button></div>
       <div class="page" id="menuHome">
         <!-- The shore: the water drawn back to the bottom edge, three tide lines that drift and a few shards left bare. Each line is an <svg> of its own, so its drift is one transform on the compositor; the whole thing is hidden with this page. -->
         <div class="shore" aria-hidden="true">
@@ -128,7 +127,6 @@
   </div>
   <div class="screen" id="online" hidden>
     <div class="card menu" role="dialog" aria-modal="true" aria-label="Play a friend">
-      <div class="corner"><button class="ib msound" id="btnLobbySound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button></div>
       <h2>PLAY A FRIEND</h2>
       <div id="onlineJoin">
         <div class="opt"><span class="lbl">NAME</span><input id="onlineName" maxlength="16" placeholder="Your name" autocomplete="nickname"></div>
@@ -190,6 +188,15 @@
       <div class="row"><button class="ib" id="btnAgain">NEW GAME</button><button class="ib" id="btnWatch" title="Watch the game again, both sides in view">WATCH</button><span class="spacer"></span><button class="ib big" id="btnRematch">REMATCH</button></div>
     </div>
   </div>
+  <div class="screen" id="homeTip" hidden>
+    <div class="card small" role="dialog" aria-modal="true" aria-label="Full screen">
+      <h2>Full screen</h2>
+      <p>For full screen on <span id="homeTipDevice">iPad</span>, add Ebbfall to your Home Screen: tap <b>Share <svg class="ico share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M8 10H5v11h14V10h-3"/></svg></b>, then <b>Add to Home Screen</b>. It opens as an app, full screen, and works offline.</p>
+      <div class="row"><span class="spacer"></span><button class="ib big" id="btnHomeTipOk">OK</button></div>
+    </div>
+  </div>
+  <!-- Sound and full screen over every screen and card (corner.js; in a game with nothing over it, the top bar's pair instead) -->
+  <div id="corner"><button class="ib" id="cornerFull" title="Full screen" aria-label="Full screen" aria-pressed="false"></button><button class="ib" id="cornerSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button></div>
 </div>
 <script type="module" src="/src/main.js"></script>
 </body>

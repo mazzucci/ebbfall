@@ -6,17 +6,18 @@ import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, c
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio, soundToggled } from './client/audio.js';
+import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
-import { setIconButton, portrait } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu } from './client/menu.js';
+import { portrait } from './client/icons.js';
+import { initMenu, showMenu, recordResult, guidedDone, setup, menu } from './client/menu.js';
 import { MAP_KINDS, onlineMap, teamList } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
-import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+import { initCorner } from './client/corner.js';
 import { initOnline, online, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
@@ -28,7 +29,7 @@ let started = false;
 // record, and times the loop's phases while `probe.on`.
 const BENCH = new URLSearchParams(location.search).has('bench');
 const probe = { on: false, lap() {} };
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden;
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden || !$('homeTip').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
@@ -199,11 +200,9 @@ function rematchButton(theyWant, iWant) {
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
-initScreen(); initLeaveDialog(); initTools();
+initCorner(); initLeaveDialog(); initTools();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
-const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON', audio.muted ? 'SOUND ON' : 'SOUND OFF'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
-$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
-initMenu({ onStart: newGame, onSound: syncSound });
+initMenu({ onStart: newGame });
 initOnline({
   start: newOnlineGame, leave: showMenu, quit: quitToTitle,
   room: () => { $('end').hidden = true; started = false; }, // (a rematch: from the end card back to the room)

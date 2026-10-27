@@ -77,14 +77,17 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
-  screen.js           full screen / landscape lock, the leave-game guard
+  screen.js           full screen / landscape lock (never on iPad or iPhone: `homeScreenOnly`), the leave-game guard
+  corner.js           sound and full screen always in reach: the top bar's pair in a game, the screen's corner (#corner)
+                      over every menu page, the lobby and every card; one sound setting; on iPad/iPhone the full-screen
+                      button opens the Add to Home Screen card (#homeTip)
+  store.js            what this device remembers (localStorage, endfall.*)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (opponent, your race and the enemies', RANDOM
                       too, PLAYERS 2-8 with TEAMS for four, six and eight, the maps that seat them with a preview, FIRST
                       GAME), the About
-                      page (the source, the device check, the version), the sound icon; the map buttons and preview the
-                      lobby shares
+                      page (the source, the device check, the version); the map buttons and preview the lobby shares
   maps.js             the maps the menus offer, by size (players decide it: 64x64 for two, 96x96 for three or four,
                       128x128 for five to eight), named fixed maps and a random one per size, badges, the map an online
                       setup plays, the team splits (FREE FOR ALL, 2v2, 3v3, 4v4, 2v2v2v2); pure (test/maps.test.js)
@@ -120,6 +123,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       on a small phone),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
+                      corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
+                      iPhone: no page full screen, the Home Screen card),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
                       CHECK OFFLINE against the real service worker, the app icons)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed

@@ -540,8 +540,8 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await press('#maps .map:nth-child(2)');
       const level = touch ? 3 : 2; // (Hard on the desktop, Brutal on the phone)
       await press(`#diff [data-d="${level}"]`);
-      await press('#btnMenuSound'); // (the speaker in the corner)
-      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'false');
+      await press('#cornerSound'); // (the speaker in the corner)
+      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
       assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
@@ -560,7 +560,7 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuSolo').isHidden(), 'the menu opens on its first page');
       await press('#btnSolo');
       assert.equal(await page.locator('#diff .ib.on').getAttribute('data-d'), String(level), 'opponent remembered');
-      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
+      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
       // The random map is a new one each game.
       await press('#maps .map:nth-child(4)'); await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
@@ -581,11 +581,11 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
       assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#diff')), 'How to play there; the game\'s choices are not');
-      assert.ok(await shown('#btnMenuSound'), 'the sound icon on the first page');
+      assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
       assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT'], 'a newcomer: FIRST GAME there too');
       // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
       await press('#btnAbout');
-      assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#btnMenuSound'), 'About opens, the sound icon still there');
+      assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#cornerSound'), 'About opens, the sound icon still there');
       assert.equal(await page.locator('#menuAbout h2').textContent(), 'ABOUT');
       const src = page.locator('#srcLink');
       assert.deepEqual([await src.textContent(), await src.getAttribute('href'), await src.getAttribute('target'), await src.getAttribute('rel')], ['Source code on GitHub', 'https://github.com/mazzucci/ebbfall', '_blank', 'noopener']);
@@ -599,20 +599,20 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.equal(await page.locator('#lblRace').textContent(), 'YOU');
       assert.deepEqual(await page.$$eval('#race .ib', bs => bs.map(b => b.textContent)), ['HUMANS', 'VAEL', 'RANDOM']);
       assert.equal(await page.locator('#lblSound').count(), 0, 'no SOUND row');
-      assert.ok(await shown('#btnFirst') && await shown('#btnStart') && await shown('#btnMenuSound'), 'FIRST GAME, START GAME, the sound icon');
+      assert.ok(await shown('#btnFirst') && await shown('#btnStart') && await shown('#cornerSound'), 'FIRST GAME, START GAME, the sound icon');
       await press('#btnSoloBack');
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'BACK: the first page');
-      // MULTIPLAYER: the lobby's join form, its own sound icon (the same setting); BACK.
+      // MULTIPLAYER: the lobby's join form, the same sound icon in the corner; BACK.
       await press('#btnOnline');
       assert.ok(await shown('#onlineJoin') && await page.locator('#start').isHidden(), 'multiplayer: the join form');
       assert.equal(await page.locator('#online h2').textContent(), 'PLAY A FRIEND', 'its title (under MULTIPLAYER)');
-      const v = page.viewportSize(), b = await page.locator('#btnLobbySound').boundingBox();
+      const v = page.viewportSize(), b = await page.locator('#cornerSound').boundingBox();
       assert.ok(b.x + b.width > v.width - 70 && b.y < 70 && b.width >= 44 && b.height >= 44, `the sound icon top right, a finger wide: ${JSON.stringify(b)}`);
-      await press('#btnLobbySound');
-      assert.equal(await page.locator('#btnLobbySound').getAttribute('aria-pressed'), 'false', 'sound off from the lobby');
+      await press('#cornerSound');
+      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'sound off from the lobby');
       await press('#btnOnlineBack');
       assert.ok(await shown('#menuHome'), 'BACK: the first page');
-      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'false', 'one setting: the menu\'s icon says off too');
+      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'one setting: the menu\'s icon says off too');
       // YOU = RANDOM: each START draws a race (drawn with Math.random: pinned here to see both).
       await press('#btnSolo'); await press('#race [data-race="random"]');
       const startAs = async (r) => {
@@ -626,7 +626,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       await press('#btnPause'); await press('#btnQuit');
       assert.ok(await shown('#menuSolo'), 'leaving a game against the AI: the single player page, one tap from the next');
       await press('#btnSoloBack'); assert.ok(await shown('#menuHome'));
-      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
+      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
       await press('#btnSolo');
       assert.equal(await page.locator('#race .ib.on').textContent(), 'RANDOM', 'RANDOM still chosen');
       assert.equal(await startAs(0.1), 'humans', 'and the next game the Humans');
@@ -1353,37 +1353,6 @@ test('the screen is lean: resources, supply, full screen, sound and pause on top
 });
 
 
-test('iPad full screen: the top bar starts after the system\'s ✕ (top left), and only there', async () => {
-  // iPadOS draws its own leave-full-screen ✕ over the page's top-left corner, in Safari (a Macintosh with touch) and in
-  // every other iPad browser.
-  const IPAD = { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
-    userAgent: 'Mozilla/5.0 (iPad; CPU OS 26_6_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/151.0.7922.57 Mobile/15E148 Safari/604.1' };
-  for (const dev of [IPAD, PHONE]) {
-    const d = await newGame(dev, 1, 4242, { ai: false });
-    try {
-      const left = () => d.eval(() => document.getElementById('resShard').getBoundingClientRect().left);
-      // (START went full screen already where the browser allows it: from out of full screen, settled)
-      await d.page.waitForTimeout(300);
-      await d.eval(() => document.fullscreenElement && document.exitFullscreen());
-      await d.page.waitForFunction(() => !document.fullscreenElement && !document.documentElement.classList.contains('sysx'));
-      await d.page.waitForTimeout(300);
-      const before = await left();
-      await d.eval(() => document.documentElement.requestFullscreen());
-      await d.page.waitForFunction(() => !!document.fullscreenElement);
-      if (dev === IPAD) await d.page.waitForFunction(() => document.getElementById('resShard').getBoundingClientRect().left >= 60, null, { timeout: 3000 }).catch(() => {});
-      else await d.page.waitForTimeout(300); // (the fullscreenchange event comes after fullscreenElement is set)
-      const full = await left();
-      if (dev === IPAD) assert.ok(full >= 60, `the shards clear the ✕: ${before} -> ${full}`);
-      else assert.ok(Math.abs(full - before) < 2, `a phone keeps its top bar: ${before} -> ${full}`);
-      await d.eval(() => document.exitFullscreen());
-      await d.page.waitForFunction(() => !document.fullscreenElement && !document.documentElement.classList.contains('sysx'));
-      await d.page.waitForFunction((b) => Math.abs(document.getElementById('resShard').getBoundingClientRect().left - b) < 2, before, { timeout: 3000 })
-        .catch(async () => assert.fail(`back in place out of full screen: ${before} -> ${await left()}`));
-      assert.deepEqual(d.errors, []);
-    } finally { await d.close(); }
-  }
-});
-
 test('the top bar keeps still when SOUND ON turns to SOUND OFF (a wide screen shows the words)', async () => {
   const d = await newGame({ viewport: { width: 1180, height: 820 } }, 1, 4242, { ai: false });
   try {
@@ -1732,7 +1701,7 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
         document.documentElement.requestFullscreen = async () => { window.fs = true; window.went = true; document.dispatchEvent(new Event('fullscreenchange')); };
         document.exitFullscreen = async () => { window.fs = false; window.left = true; document.dispatchEvent(new Event('fullscreenchange')); };
       });
-      const btn = page.locator('#btnUnfull'), tap = () => (device.hasTouch ? btn.tap() : btn.click());
+      const btn = page.locator('#cornerFull'), tap = () => (device.hasTouch ? btn.tap() : btn.click());
       assert.ok(await btn.isVisible(), 'out of full screen: the button to go in');
       assert.equal(await btn.getAttribute('aria-label'), 'Full screen');
       const b = await btn.boundingBox();

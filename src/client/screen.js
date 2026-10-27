@@ -1,21 +1,30 @@
-// Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab).
+// Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab). The
+// buttons that go full screen and out of it are corner.js's.
 import { $ } from './hud.js';
-import { setIconButton } from './icons.js';
 
-const root = document.documentElement;
+const root = document.documentElement, ua = navigator.userAgent;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
 export const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 export const touchDevice = matchMedia('(pointer: coarse)').matches;
 export const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
-/** A tap can take the page full screen here (not on iPhone Safari, and not needed when launched from the home screen). */
-export const canGoFullscreen = canFullscreen && !standalone;
-/** iPadOS (Safari, and every iPad browser: WebKit underneath; Safari's says Macintosh, with touch) draws its own
- *  leave-full-screen ✕ over the page's top-left corner, where the top bar keeps the shards. */
-const ipad = /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+// Whether the page's own full screen (the Fullscreen API) works for a game here. Not in WebKit on iPad (Safari, and
+// every iPad browser, WebKit underneath; iPadOS Safari says Macintosh, with touch): in a page's full screen tapped a
+// lot it asks "exit full screen? the website may be showing a fake keyboard" or leaves by itself, a guard against
+// phishing that a page cannot turn off. Not on iPhone: no API for pages. There, full screen is the Home Screen app's.
+// (A capability, not a layout: the top bar and the corner are the same everywhere.)
+const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+const ios = ipad || /iPhone|iPod/.test(ua);
+export const pageFullscreenWorks = canFullscreen && !ios;
+/** The full-screen button opens the Add to Home Screen card instead (not in the Home Screen app: full screen already). */
+export const homeScreenOnly = !standalone && (ios || (!canFullscreen && touchDevice));
+/** The device the card names. */
+export const homeScreenDevice = ipad ? 'iPad' : 'iPhone';
+/** The full-screen button goes in and out (not needed when launched from the home screen). */
+export const canGoFullscreen = pageFullscreenWorks && !standalone;
 
 /** Go full screen (must run inside a user gesture) and try to lock landscape; failures are fine. */
 export async function enterFullscreen() {
-  if (!canFullscreen || isFull()) return;
+  if (!pageFullscreenWorks || isFull()) return;
   try { await (root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen()); } catch { return; }
   try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported or not allowed */ }
 }
@@ -23,25 +32,6 @@ export async function enterFullscreen() {
 export async function exitFullscreen() {
   if (!isFull()) return;
   try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
-}
-async function toggleFullscreen() {
-  if (!isFull()) return enterFullscreen();
-  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
-}
-
-/** Wire the full-screen button and the iPhone tip. (No "turn your phone" card: the tap that starts goes full screen,
- *  which locks landscape where the browser can.) */
-export function initScreen() {
-  const btn = $('btnFull');
-  if (!canFullscreen || standalone) btn.hidden = true;
-  btn.addEventListener('click', toggleFullscreen);
-  const sync = () => {
-    setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN', isFull() ? 'FULL SCREEN' : 'EXIT FULL'); btn.title = isFull() ? 'Leave full screen' : 'Full screen';
-    root.classList.toggle('sysx', ipad && isFull()); // (room for the system's ✕: style.css)
-  };
-  document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync); sync();
-  // iPhone Safari has no full-screen API for pages; a home-screen web app opens full screen instead.
-  if (!canFullscreen && touchDevice && !standalone) $('iosTip').hidden = false;
 }
 
 // ---- leave guard ----

@@ -147,6 +147,7 @@ function sizeGrids() {
   thumb.width = MW; thumb.height = MH;
   const old = [fogTex, shadeTex];
   fogCv = canvas(); fogCtx = fogCv.getContext('2d'); fogImg = fogCtx.createImageData(MW, MH); fogTex = texture(fogCv); fog.texture = fogTex;
+  for (let i = 0; i < MW * MH; i++) fogImg.data.set([5, 7, 11, 255], i * 4); // (the fog's colour; updateFogImage sets alpha)
   shadeCv = canvas(); shadeCtx = shadeCv.getContext('2d'); shadeTex = texture(shadeCv);
   for (const t of old) t?.destroy(true); // (the shade sprite that used it goes in renderTerrain, before this)
 }
@@ -168,7 +169,7 @@ function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.shade.removeChildren().forEach(c => c.destroy());
-  sizeGrids();
+  sizeGrids(); fogTick = -1; mmAt = -Infinity; // (a new map, or a replay from its first tick: fog and minimap at once)
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its centre, offset half a tile.
@@ -426,9 +427,13 @@ function updateEffects(dt) {
 const projPool = [], partPool = [];
 function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible = true; return pool[i]; }
 
+let fogTick = -1;
+/** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. */
 function updateFogImage() {
+  if (G.tick === fogTick) return;
+  fogTick = G.tick;
   const d = fogImg.data, vis = G.vis, ex = G.explored;
-  for (let i = 0; i < MW * MH; i++) { d[i * 4] = 5; d[i * 4 + 1] = 7; d[i * 4 + 2] = 11; d[i * 4 + 3] = vis[i] ? 0 : ex[i] ? 140 : 255; }
+  for (let i = 0; i < MW * MH; i++) d[i * 4 + 3] = vis[i] ? 0 : ex[i] ? 140 : 255;
   fogCtx.putImageData(fogImg, 0, 0); fogTex.source.update();
 }
 
@@ -582,16 +587,16 @@ export function clearPings() { pings.length = 0; }
 
 let seatCssList;
 const seatCss = () => seatCssList ||= SEAT_COLORS.map(hex6);
+// The minimap's map (ground, resources, buildings, units, fog) is drawn at most ten times a second, onto a canvas of
+// its own; every frame puts that up with the pings and the view box over it, which follow the camera.
+const mmBase = document.createElement('canvas'), MM_EVERY = 100;
+let mmAt = -Infinity;
 function renderMinimap() {
   const S = mm.width / WW, T = mm.height / WH, c = mctx; // (x and y scales: one, on a square map)
-  c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
-  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * T - 1.5, 3, 3); }
-  // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field.
-  const many = G.factions.length > 2, col = many ? seatCss() : null;
-  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * T, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * T)); }
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[u.team] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
-  c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();
+  if (mmBase.width !== mm.width || mmBase.height !== mm.height) { mmBase.width = mm.width; mmBase.height = mm.height; mmAt = -Infinity; }
+  if (now - mmAt >= MM_EVERY || now < mmAt) { mmAt = now; minimapBase(mmBase.getContext('2d'), S, T); }
+  c.clearRect(0, 0, mm.width, mm.height); c.drawImage(mmBase, 0, 0);
   for (let i = pings.length - 1; i >= 0; i--) {
     const k = (now - pings[i].t) / 2500; if (k >= 1) { pings.splice(i, 1); continue; }
     c.strokeStyle = `rgba(255,90,90,${1 - k})`; c.lineWidth = 2;
@@ -601,4 +606,13 @@ function renderMinimap() {
   const vx = cam.x * S, vy = cam.y * T, vW = vw() * S, vH = vh() * T;
   c.strokeStyle = 'rgba(0,0,0,0.75)'; c.lineWidth = 4; c.strokeRect(vx, vy, vW, vH);
   c.strokeStyle = '#ffe9b0'; c.lineWidth = 2; c.strokeRect(vx, vy, vW, vH);
+}
+function minimapBase(c, S, T) {
+  c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
+  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * T - 1.5, 3, 3); }
+  // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field.
+  const many = G.factions.length > 2, col = many ? seatCss() : null;
+  for (const b of G.bldgs) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(b.tx * TILE * S, b.ty * TILE * T, Math.max(2, b.w * TILE * S), Math.max(2, b.h * TILE * T)); }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[u.team] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
+  c.drawImage(fogCv, 0, 0, mm.width, mm.height);
 }

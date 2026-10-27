@@ -91,6 +91,24 @@ There is no handling of a hidden page today. In multiplayer:
   paused. A 20-minute game is 36,000 ticks: seconds on a desktop, perhaps a minute or more on a phone; measured in
   M3a, and a saved checkpoint (World save/load, tested hash-for-hash) only if that is too slow.
 - WebGL context loss (phones drop it under memory pressure) is handled: rebuild the renderer, the game goes on.
+- **In the lobby (the lobby hold, built 2026-10-27):** the host opens a room on a phone and goes to a messaging app to
+  send the code; the phone kills the page's socket. The relay keeps the seat (name, race, token, the host's role) for
+  `LOBBY_HOLD_MS` (5 minutes), away (`here: false`) and not ready: the others see the name with AWAY and "Waiting
+  for Ann…", a friend joining takes the next truly open seat (never a held one, nor moves to it), and the room cannot
+  start while a held seat is away (it is not ready). The page keeps reconnecting (the usual backoff, capped at 4 s,
+  and at once when it is in view again: `wake`) for as long as it holds a seat, and its token takes the seat back:
+  the same code, the same seats; once the hold is over it gives up too ("Can't connect"), as a page that never got
+  a seat does after a few tries. After the hold the seat is open again (the host's: "The host left: SIT HERE", as
+  before). A player back without the token (the link opened in a messaging app's browser, then in Chrome; another
+  device) finds a full room told "a seat is kept a few minutes for a player who stepped away", and the host may free
+  an AWAY seat at once (× on it: `free {seat}`; never matched by name). Leaving the room on purpose (BACK, or a
+  single-player game from the menu) says `leave` first, and a ping after it: its pong confirms the leave arrived (no
+  pong in 2 s: the socket was half-open, so a reconnect and the leave again); the seat is open at once, and the
+  page forgets the room's token. A held seat's sim build is checked when it comes back, not against a newcomer. On
+  Cloudflare the lobby (seats with their tokens, AI seats, map, teams, difficulty; no connections) is stored when it
+  changes (at most one write a second, the last change always, at once when the last socket closes; a ready toggle
+  writes nothing), so a held seat survives the room's eviction from memory (see M3d's limits); a stored record of a
+  bad shape comes back as an empty lobby.
 
 ### Builds and versions
 
@@ -120,9 +138,17 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
   compare hashes), so the site can stay on GitHub Pages; moving it to Cloudflare is optional.
 - Plain WebSockets in a game (hibernation saves nothing while a game runs and loses in-memory state); the log stays
   in memory, and a relay restart rebuilds the room from a client's log.
-- Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size and rate,
-  commands per turn and list lengths; per-address limits on creating and joining. On the free plan a flood can only
-  use up the day's quota (multiplayer down until midnight UTC): acceptable for a game among friends.
+- Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size, orders
+  per turn and list lengths. No per-address limits on creating or joining rooms yet (a Worker has no shared memory:
+  it would take an object of its own on every connection). On the free plan a flood can only use up the day's quota
+  (multiplayer down until midnight UTC): acceptable for a game among friends.
+- The relay also keeps the device test's reports (`?bench`, src/client/bench.js; relay/bench.js): `POST /bench` from
+  the game's pages (ORIGINS, CORS with a preflight; a JSON report of a known kind and version, 64 KB at most; per
+  address (an IPv6 /64) 2 a minute and 10 a day, then 10 a minute and 500 a day in all; Origin can be faked, the
+  addresses cannot) answers with a code, `PERF-XXXXXX` in the room codes' letters (64 million: not guessed), and `GET
+  /bench/<CODE>` (from anywhere: `curl`) returns `{code, received, report}` for a week (30 reads a minute per
+  address). One more object of the room class, named `bench`, keeps every report (so its limits count everyone's and
+  the week's sweep is one list; no new class, no migration); the Node relay keeps them in memory on the same port.
 - Cost: the free plan's duration limit (13,000 GB-s a day) allows about 85 two-player games of 20 minutes a day;
   Workers Paid ($5 a month) removes the concern. Needs from the owner, when the relay is ready: a Cloudflare API token.
 
@@ -143,7 +169,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    the art, allies sharing vision, what an out seat's leftover units do (and refusing an out seat's orders: today a
    conceded player in a 2v2 could keep fighting for their ally), teams in the network setup and in the state hash
    (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded"). (All
-   but shared vision: done in M4 step 2c.)
+   but shared vision: done in M4 step 2c; shared vision on 2026-10-27, under "Allies share vision" below.)
    Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
 3. The cross-engine golden matrix in CI, and the `?selftest` page. Done (2026-10-26): `src/engine/golden.js` (the
    golden games, checked against golden.rs), `selftest.html` (the device check, for a phone), the golden games in
@@ -172,8 +198,10 @@ which must be in the same Cloudflare account, with no `relay` DNS record yet; ma
 happen when a push to main changes relay/; (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
 which the build bakes in: MULTIPLAYER appears on the menu's first page.
 Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
-an empty lobby is evicted from memory a minute or two after its last socket closes and comes back, empty, from a small
-storage record when someone joins within 10 minutes; a running game is never stored.
+a lobby is evicted from memory a minute or two after its last socket closes and comes back as it was (its seats held
+for their tokens, the lobby hold above, or empty) from its storage record when someone joins within 10 minutes (an
+alarm deletes the record once the room has been empty that long); a running game is never stored (an evicted or
+redeployed game is over).
 
 **M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats
 (up to four players, 2v2 and AI seats: step 2c, done; up to eight on 128x128: step 2e, done).
@@ -306,7 +334,30 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      on"), and the card when the game ends.
    - **Allies in the HUD:** an ally's unit selected reads "Ally", with a friendly selection ring; its capital units are
      not announced as enemies; the minimap shows every seat in its colour (more than two seats). Allies do not attack
-     each other (step a). Vision is not shared yet: later.
+     each other (step a).
+   - **Allies share vision** (2026-10-27, as in StarCraft's team games): each seat's fog is its own sight and its
+     allies', for what it sees now, what it has explored and where it detects cloaked units (an ally's detector
+     reveals a cloaked enemy to the whole team, which can then fire at it). `World::update_fog` computes each seat's
+     own layers, then ORs them across each team in place (the team's first seat gathers, the others copy; nothing
+     allocated per tick). Vision comes from what stands on the map: a seat that is out still lends the sight of what
+     it left (inert, but there) until that is destroyed, and sees what its team sees. Fog is part of the sim, the same
+     on every client; it is not hashed (a difference shows in what the AIs do, which is). With every seat its own team
+     (a duel, a free for all) nothing changes: the goldens did not move. An AI reads its seat's fog, so allied AIs
+     know what their allies see (an AI hunting an enemy only its ally sees is intended). What an ally shows it does not
+     pull it off its foe: its scout is done only on finding its foe's headquarters (not any enemy's), and with
+     nothing of its foe known a wave goes to the foe's start until that has been looked at, and only then to another
+     enemy it knows of (a 2v2 AI's first wave once crossed the map to the wrong enemy). `set_teams` brings the fog up
+     to date at once (allies share it from the first frame; a person may build where only an ally has looked). "A
+     shard field ran dry" goes to the miner's seat and the enemies who see it, not to its allies. The client reads `vis` /
+     `explored` for its seat, so the field, its fog, the minimap, the scouting line ("Seen lately") and the news
+     ("Enemy ... sighted", the first enemy flyers) all count what the team sees. On the minimap, still a colour per
+     seat, an ally's buildings are framed in white, so the team reads apart from its enemies. Tests: gameplay
+     `vision.rs` (an ally's unit shows an enemy to the team, and its detector a cloaked one; a free for all and a duel
+     see alone; an ally that is out still shows what its leftovers see, until they are gone; teams of seats apart and
+     of three, each seat's fog the OR of its allies'; building where only an ally looked; who is told a field ran dry;
+     each 2v2 AI's first wave goes for its foe; a team game's replay is the game played), golden.rs and golden.js
+     (`teams-2v2-ai`: four AIs, two against two, on 96x96), engine.test.js (G.vis with an ally, and without), e2e (a single-player 2v2: the AI ally's base and army in our sight and on the
+     minimap, framed; the enemies' bases still in the fog).
    Tests: gameplay `seats.rs` (an out seat's orders refused and its leftovers inert, deterministic; teams in the hash
    only when not the default; three seats with an idle person, four AIs free for all and a person with an AI ally
    against two through `Game::with_seats`, each to one team standing), `lockstep.rs` (two clients with an AI seat, and

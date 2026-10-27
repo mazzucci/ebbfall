@@ -1,7 +1,8 @@
 # The relay on Cloudflare (relay/worker.js): a Worker and one Durable Object per room. Deploy from relay/ with
 # `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts edit, which covers Durable Objects).
 # A deploy restarts every room: games in progress end (CI deploys only when relay/ changed).
-# The game finds it through the build's VITE_RELAY_URL (wss://relay.ebbfall.com/).
+# The game finds it through the build's VITE_RELAY_URL (wss://relay.ebbfall.com/; the device test POSTs its report to
+# https://relay.ebbfall.com/bench, kept a week by the object named 'bench', the same class: no migration).
 name = "ebbfall-relay"
 main = "worker.js"
 compatibility_date = "2026-10-01"
@@ -16,4 +17,4 @@ class_name = "RoomObject"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["RoomObject"] # (the free plan's kind; the rooms keep nothing in storage)
+new_sqlite_classes = ["RoomObject"] # (the free plan's kind; a room keeps one small record, its lobby (relay/worker.js); the bench object the reports)

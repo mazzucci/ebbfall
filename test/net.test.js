@@ -164,6 +164,96 @@ test('orders given while the socket is down are sent when it is back, not lost',
   } finally { await m.done(); }
 });
 
+// The lobby on a fake socket and clock: a Net that holds a seat keeps reconnecting (the relay holds the seat for its
+// token) until the relay would no longer hold it, one that never got a seat gives up, and a lobby leave is confirmed
+// (said again after a half-open socket lost it).
+/** A fake relay connection for the lobby: up or down (a socket opened while down closes at once); seated on hello. */
+function fakeRelay() {
+  const r = { up: true, deaf: false, made: [], hellos: [], said: [] }; // (deaf: the socket is half-open, what is sent is lost)
+  r.WS = class {
+    constructor(url) {
+      this.url = url; this.readyState = 0; r.made.push(this);
+      setTimeout(() => { if (this.readyState) return; if (r.up) { this.readyState = 1; this.onopen?.(); } else { this.readyState = 3; this.onclose?.(); } }, 10);
+    }
+    send(d) {
+      const m = JSON.parse(d);
+      if (r.deaf) return;
+      r.said.push(m.t);
+      if (m.t === 'ping') this.onmessage?.({ data: JSON.stringify({ t: 'pong', id: m.id }) });
+      if (m.proto) { r.hellos.push(m); this.onmessage?.({ data: JSON.stringify({ t: 'seat', seat: 0, token: m.token || 'tok', room: 'ABCD', proto: 3 }) }); }
+    }
+    close() { if (this.readyState === 3) return; this.readyState = 3; this.onclose?.(); }
+  };
+  return r;
+}
+
+test('a lobby Net that holds a seat keeps reconnecting past the lobby\'s tries, and gets its seat back with its token', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const r = fakeRelay(), errors = [], statuses = [];
+  const net = new Net({ url: 'ws://relay/', name: 'Ann', game: () => null, WebSocket: r.WS, on: { error: (m) => errors.push(m.code), status: (s) => statuses.push(s) } });
+  t.mock.timers.tick(20);
+  assert.equal(net.seat, 0); assert.equal(net.token, 'tok');
+  r.up = false; net.ws.close(); // (the phone switched apps: the socket is gone, and stays so a while)
+  for (let i = 0; i < 60; i++) t.mock.timers.tick(1000); // (a minute)
+  assert.ok(r.made.length > 4 + 8, `it kept trying (${r.made.length} sockets)`);
+  assert.deepEqual(errors, [], 'no "Can\'t connect"'); assert.ok(!net.closed);
+  assert.ok(r.made.length < 60 / 4 + 10, `the backoff is capped, not a storm (${r.made.length} in a minute)`);
+  const before = r.made.length;
+  net.wake(); // (the page is in view again: now, not after the backoff)
+  assert.equal(r.made.length, before + 1);
+  r.up = true; t.mock.timers.tick(20);
+  assert.equal(r.hellos.at(-1).token, 'tok', 'back with its token');
+  assert.equal(net.seat, 0); assert.equal(statuses.at(-1), 'online');
+  net.close();
+});
+
+test('a lobby Net that never got a seat gives up after a few tries: the relay cannot be reached', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const r = fakeRelay(), errors = [];
+  r.up = false;
+  const net = new Net({ url: 'ws://relay/', room: 'ABCD', name: 'Bo', token: 'stale', game: () => null, WebSocket: r.WS, on: { error: (m) => errors.push(m.code) } });
+  for (let i = 0; i < 30; i++) t.mock.timers.tick(1000);
+  assert.deepEqual(errors, ['unreachable']); assert.ok(net.closed);
+  assert.equal(r.made.length, 5, 'the first try and four more');
+});
+
+test('a lobby Net that holds a seat gives up once the relay would no longer hold it', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const r = fakeRelay(), errors = [];
+  const net = new Net({ url: 'ws://relay/', name: 'Ann', game: () => null, WebSocket: r.WS, on: { error: (m) => errors.push(m.code) } });
+  t.mock.timers.tick(20);
+  r.up = false; net.ws.close();
+  for (let i = 0; i < 4 * 60; i++) t.mock.timers.tick(1000);
+  assert.deepEqual(errors, [], 'four minutes: still trying');
+  for (let i = 0; i < 2 * 60; i++) t.mock.timers.tick(1000);
+  assert.deepEqual(errors, ['unreachable'], 'past the hold: the seat is gone, so is the room for it');
+  assert.ok(net.closed);
+});
+
+test('a lobby leave is confirmed by a pong; on a half-open socket it is said again once reconnected, then the Net closes', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const r = fakeRelay();
+  let net = new Net({ url: 'ws://relay/', name: 'Ann', game: () => null, WebSocket: r.WS });
+  t.mock.timers.tick(20);
+  net.leave();
+  assert.deepEqual(r.said.slice(-2), ['leave', 'ping']);
+  assert.ok(net.closed, 'the pong came: closed');
+  // The same on a socket that looks open but is dead: no pong, so a new socket, the leave again, its pong.
+  r.said.length = 0;
+  net = new Net({ url: 'ws://relay/', name: 'Ann', game: () => null, WebSocket: r.WS });
+  t.mock.timers.tick(20);
+  r.deaf = true; net.leave(); r.deaf = false;
+  assert.ok(!net.closed, 'no pong yet: still open');
+  const made = r.made.length;
+  t.mock.timers.tick(2000); // (PONG_MS)
+  t.mock.timers.tick(250); // (the first retry)
+  assert.equal(r.made.length, made + 1, 'a new socket');
+  t.mock.timers.tick(20);
+  assert.deepEqual(r.said.filter(x => x !== undefined), ['leave', 'ping'], 'the leave said again on it (after its hello), and confirmed');
+  assert.equal(r.hellos.at(-1).token, 'tok', 'back with its token');
+  assert.ok(net.closed);
+});
+
 test('three seats, one the AI\'s: both clients run its game alike, and the AI plays', { skip, timeout: 60000 }, async () => {
   const m = await match({ latency: 20, jitter: 30 }, (net) => { net.seats(3, 4); net.ai(2, true, 'vael'); });
   const { a, b } = m;

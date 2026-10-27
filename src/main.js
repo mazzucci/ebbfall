@@ -24,6 +24,10 @@ audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.
 const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
 
 let started = false;
+// The device test (?bench: src/client/bench.js, loaded only then) plays a game of its own through `begin`, on nobody's
+// record, and times the loop's phases while `probe.on`.
+const BENCH = new URLSearchParams(location.search).has('bench');
+const probe = { on: false, lap() {} };
 const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
@@ -78,7 +82,7 @@ function leaveLine() {
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
 function giveUp() {
   if (online.playing) { if (started && !G.over) online.net?.leave(); return; } // (an online game: the relay concedes for us at once; not on the vs-AI record)
-  if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff);
+  if (started && !G.over && !menu.tutorial && !ui.watching && !BENCH) recordResult(false, G.factions[G.me], G.diff);
 }
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
@@ -177,7 +181,7 @@ function endGame() {
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
-  if (!online.playing && !menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
+  if (!online.playing && !menu.tutorial && !BENCH) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
   if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
@@ -225,6 +229,7 @@ $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $(
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;
 function loop(now) {
+  if (probe.on) probe.lap('start', now);
   const el = Math.min(0.1, (now - last) / 1000); last = now;
   if (input.enabled()) camKeys(el);
   if (running()) {
@@ -241,6 +246,7 @@ function loop(now) {
       acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
     }
     if (acc > DT * 5 * speed) acc = 0;
+    if (probe.on) probe.lap('steps');
     drainEvents();
     if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
   }
@@ -251,10 +257,13 @@ function loop(now) {
   else if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
+  if (probe.on) probe.lap('events');
   // At most 60 frames a second (a 120 Hz phone would draw every frame twice as often for nothing: the world moves 30
   // times a second), and 20 under a card that stops the game (pause, leave, help, end).
   if (started && now - drawn >= (running() ? 12 : 50)) { drawn = now; render(ui.sel, ui.place, showPower()); }
+  if (probe.on) probe.lap('render');
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
+  if (probe.on) probe.lap('end');
   requestAnimationFrame(loop);
 }
 
@@ -262,6 +271,8 @@ new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
 window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
 bindInput(); resize(); requestAnimationFrame(loop);
+if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
+  .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
 // Ebbfall opens and plays without a connection once it has been loaded.

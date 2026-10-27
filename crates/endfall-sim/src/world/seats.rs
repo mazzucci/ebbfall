@@ -18,7 +18,7 @@ impl World {
     }
 
     /// Choose each seat's team before play: a team id per seat, each below the number of seats, at least two teams.
-    /// False (nothing changes) otherwise.
+    /// False (nothing changes) otherwise. The fog follows at once (allies share vision from the first frame).
     pub fn set_teams(&mut self, teams: &[u8]) -> bool {
         let n = self.seats();
         if teams.len() != n
@@ -28,6 +28,7 @@ impl World {
             return false;
         }
         self.teams = teams.to_vec();
+        self.update_fog();
         true
     }
 

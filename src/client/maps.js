@@ -1,8 +1,9 @@
 // The maps the menus offer (single player and the multiplayer lobby): fixed ones with made-up names and hidden
 // characters (MapKind in the sim; the end screen tells the story), and a random one generated each time, at each size
 // the menus offer. The number of players decides the size (the smallest that seats them all: a duel's 64x64, 96x96 for
-// three or four), and each size has its own maps: the generator lays a seed out differently at another size, so a
-// 96x96 map is a map of its own, with its own name. Pure: no DOM, no WASM (test/maps.test.js).
+// three or four, 128x128 for five to eight), and each size has its own maps: the generator lays a seed out differently
+// at another size, so a 96x96 map is a map of its own, with its own name. The team splits each number of players is
+// offered are here too. Pure: no DOM, no WASM (test/maps.test.js).
 import { mulberry } from '../engine/util.js';
 
 /** Map characters, in the sim's MapKind order, with the story the end screen tells. */
@@ -15,9 +16,8 @@ export const MAP_KINDS = [
   { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
 ];
 
-/** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts).
- *  128x128 (eight) waits for group paths (docs/MULTIPLAYER.md, M4 2d). */
-export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }];
+/** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts). */
+export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];
 /** The most players a game may have. */
 export const MAX_PLAYERS = SIZES.at(-1).seats;
 
@@ -35,6 +35,14 @@ export const MAPS = [
   { name: 'Shard Crown', seed: 2940, kind: 1, size: 96 },
   { name: 'Long Steppe', seed: 1582, kind: 3, size: 96 },
   { name: 'Random', random: true, size: 96 },
+  // (128x128, eight starts, two by each side. Picked from ten seeds per character by eight Medium AIs free for all, then
+  // six free for all and three against three, eight four against four and in four pairs, on two turns of the seats:
+  // every game ends, in 9 to 32 minutes, won from different starts; distinct layouts: a rock diamond in the middle, an
+  // open plain round a walled centre, a maze of rock)
+  { name: 'Iron Compass', seed: 5, kind: 0, size: 128 },
+  { name: 'Sunken Court', seed: 9, kind: 3, size: 128 },
+  { name: 'Grey Warrens', seed: 2, kind: 4, size: 128 },
+  { name: 'Random', random: true, size: 128 },
 ];
 
 /** Tiles across for a game of `players`: the smallest size that seats them all. */
@@ -48,6 +56,24 @@ export const fitMap = (i, players) => (mapsFor(players).includes(i) ? i : mapsFo
 /** Map `i`'s badge among those offered to `players`: "up to 4" when some of them seat more than the players chosen
  *  (another could still join, or a start stays free); '' otherwise (no noise). */
 export const badge = (i, players) => (mapsFor(players).some(j => seatsOf(j) > players) ? `up to ${seatsOf(i)}` : '');
+
+/** The team splits offered beyond FREE FOR ALL ('ffa'), by the number of players: even splits of allies in consecutive
+ *  seats, which sit side by side on the map (the sim's seat_starts). Three, five and seven play free for all. */
+const SPLITS = { 4: ['2v2'], 6: ['3v3'], 8: ['4v4', '2v2v2v2'] };
+/** The teams a game of `players` may choose from, FREE FOR ALL first. */
+export const teamsFor = (players) => ['ffa', ...(SPLITS[players] || [])];
+/** The team of each seat for a choice of teams (empty: each its own): '2v2' with four is seats 0 and 1 against 2 and 3,
+ *  '2v2v2v2' with eight four pairs, '4v4' the first four against the last four. */
+export function teamList(players, teams) {
+  if (teams === 'ffa' || !teamsFor(players).includes(teams)) return [];
+  const size = +teams[0];
+  return Array.from({ length: players }, (_, s) => Math.floor(s / size));
+}
+/** The choice a room's teams (a team per seat, or null) are: 'ffa', a split, or '' (none the menus offer). */
+export function teamsKey(teams) {
+  if (!Array.isArray(teams) || teams.every((t, s) => t === s)) return 'ffa';
+  return teamsFor(teams.length).find(k => k !== 'ffa' && teamList(teams.length, k).every((t, s) => t === teams[s])) || '';
+}
 
 const FIRST = ['Ashen', 'Glass', 'Hollow', 'Iron', 'Sunken', 'Cinder', 'Pale', 'Shattered', 'Silent', 'Rust', 'Frozen', 'Amber', 'Broken', 'Ember', 'Grey', 'Last'];
 const SECOND = ['Basin', 'Ridge', 'Reach', 'Mesa', 'Hollows', 'Expanse', 'Crossing', 'Wastes', 'Divide', 'Plateau', 'Gorge', 'Flats', 'Rim', 'Fields', 'Shelf', 'Sink'];

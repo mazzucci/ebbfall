@@ -342,7 +342,7 @@ test('the menus\' maps: a preview of any size with every start, and an online ro
     assert.equal(p.length, m.size * m.size, `${m.name}: a byte per tile`);
     // (a start is a 4x4 square of 4s; count the squares' top-left corners)
     const starts = [...p.keys()].filter(i => p[i] === 4 && p[i - 1] !== 4 && p[i - m.size] !== 4).length;
-    assert.equal(starts, m.size === 64 ? 2 : 4, `${m.name}: every start`);
+    assert.equal(starts, { 64: 2, 96: 4, 128: 8 }[m.size], `${m.name}: every start`);
   }
   assert.deepEqual(E.mapPreview(4242, 0), E.mapPreview(4242, 0, 64), 'a duel\'s 64x64 by default');
   // An online room of four: two people, two AIs against them; seat 1's game.

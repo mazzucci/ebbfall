@@ -264,8 +264,8 @@ fn each_main_is_a_pocket_with_one_ramp_except_on_open_plains() {
 
 #[test]
 fn the_menu_preview_shows_the_map_as_it_will_be_played() {
-    // The menus' maps (src/client/maps.js): a duel's three on 64x64, and three on 96x96 with four starts, all taken
-    // (four seats: a Core on every start).
+    // The menus' maps (src/client/maps.js): a duel's three on 64x64, three on 96x96 with four starts and three on
+    // 128x128 with eight, all taken (a Core on every start).
     for (seed, kind, n) in [
         (4242, 0, 64),
         (1998, 1, 64),
@@ -273,6 +273,9 @@ fn the_menu_preview_shows_the_map_as_it_will_be_played() {
         (1291, 0, 96),
         (2940, 1, 96),
         (1582, 3, 96),
+        (5, 0, 128),
+        (9, 3, 128),
+        (2, 4, 128),
     ] {
         let p = endfall_sim::map_preview(seed, kind, Some(n as u32));
         let seats = endfall_sim::map::max_starts(MapSize::square(n));

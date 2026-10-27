@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -230,7 +230,10 @@ function loop(now) {
   if (running()) {
     const speed = ui.watching || 1; // (a replay plays faster)
     acc += el * speed; let n = 0;
-    const done = () => ui.watching && (G.over || G.tick > replayEnd()); // (a replay stops where the game ended: its last tick's orders, then over)
+    // A replay stops where the game ended (`replayEnd`, the tick it was watched from; the same game is over there):
+    // read from the sim itself, as reading G before every step would mirror the world each time. G.over is looked at
+    // once the frame's steps are run, below.
+    const end = ui.watching ? replayEnd() : 0, done = () => ui.watching && liveGame().tick() > end;
     // Online: the relay's turns in, our orders out; behind by more than a few ticks, run faster to catch up.
     const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5 * speed;
     while ((acc >= DT || n < waiting - 9) && n++ < max && !done()) {

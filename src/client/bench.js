@@ -1,8 +1,8 @@
 // The device test (?bench, loaded by main.js only then; docs/PLAN.md): a card, START (a tap, so also full screen), then
 // an 8-seat 128x128 game the AI plays on every seat (Medium), seen with every seat's vision (a replay's), fast-forwarded
 // to 3:00 so that armies exist, then a minute of real play through the game's own loop while the camera pans to the
-// busiest spots. main.js calls `probe.lap` at the loop's phases while `probe.on`; the sim's share of a step is timed by
-// wrapping the WASM Game's own `step`. The report (measurements and device/browser info only, under 64 KB) goes to the
+// busiest spots. main.js calls `probe.lap` at the loop's phases while `probe.on`; the sim's share of the steps is timed by
+// wrapping the WASM Game's own `step` (the loop's `advance` calls it; the mirror into G runs once after a frame's steps). The report (measurements and device/browser info only, under 64 KB) goes to the
 // relay's POST /bench (relay/bench.js), which answers with a code to pass on (PERF-XXXXXX). Test knobs: &secs= (the
 // measured seconds), &at= (the game time to start from).
 import { G, DIFF, WW, resetGameSeats, startReplay, step, liveGame, clamp } from '../engine/index.js';
@@ -92,7 +92,7 @@ async function prepare() {
   const prepTicks = g.tick();
   if (to) step();
   G.events.length = 0; // (what happened while skipping: not news now)
-  // The sim's share of every step the loop takes: the WASM call timed (core.js's step adds the mirror after it).
+  // The sim's share of the steps the loop takes: the WASM call timed (`advance`; the loop then mirrors them once).
   const real = g.step;
   M = newMeasure({ prepMs, prepTicks, hidden: prepHidden });
   M.game = g; // (another game in its place, a RESTART: the test is over)
@@ -119,7 +119,7 @@ const safe = (f) => { try { return f(); } catch { return null; } };
 function newMeasure(prep) {
   const n = Math.ceil(SECS * 250) + 10, f = () => new Float32Array(n);
   return {
-    prep, wasm: 0, steps: 0, n: 0, iv: f(), sim: f(), sync: f(), other: f(), render: f(), hud: f(), nsteps: new Uint8Array(n),
+    prep, wasm: 0, steps: 0, n: 0, iv: f(), sim: f(), sync: f(), other: f(), render: f(), hud: f(), nsteps: new Uint8Array(n), drew: new Uint8Array(n), draws: 0,
     begin: 0, last: 0, prev: 0, cur: null, measured: 0, warmMax: 0, skipped: 0, gaps: 0, lost: 0, stepsAll: 0, hidden: false, away: false,
     sec: null, timeline: { t: [], fps: [], worstMs: [], sim: [], sync: [], other: [], render: [], hud: [], units: [], bldgs: [], projs: [], onScreen: [], behind: [], heapMB: [] },
     long: [], observer: null, cam: { next: 0, from: null, to: null, at: 0 }, heap0: heap(), zoom: 0, left: -1,
@@ -127,8 +127,9 @@ function newMeasure(prep) {
 }
 const heap = () => (performance.memory ? performance.memory.usedJSHeapSize / 1048576 : null);
 
-/** main.js's loop calls this at its phases: 'start' (rAF time), 'steps' (after the fixed steps; only while the game
- *  runs), 'events' (events and effects), 'render', 'end' (the HUD; the frame is done). */
+/** main.js's loop calls this at its phases: 'start' (rAF time), 'steps' (after the fixed steps and the mirror of them
+ *  into G; only while the game runs), 'events' (events and effects), 'render' (with whether it drew: at most 60 a
+ *  second), 'end' (the HUD; the frame is done). */
 function lap(k, now) {
   const t = performance.now();
   if (k === 'start') {
@@ -141,7 +142,7 @@ function lap(k, now) {
   if (!c) return;
   if (k === 'steps') { c.ran = true; c.sim = M.wasm; c.sync = d - M.wasm; c.n = M.steps; }
   else if (k === 'events') c.other = d;
-  else if (k === 'render') c.render = d;
+  else if (k === 'render') { c.render = d; c.drew = !!now; }
   else if (k === 'end') { c.hud = d; commit(c); M.cur = null; }
 }
 
@@ -154,7 +155,7 @@ function commit(c) {
     return;
   }
   const i = M.n++;
-  M.iv[i] = c.iv; M.sim[i] = c.sim; M.sync[i] = c.sync; M.other[i] = c.other; M.render[i] = c.render; M.hud[i] = c.hud; M.nsteps[i] = c.n;
+  M.iv[i] = c.iv; M.sim[i] = c.sim; M.sync[i] = c.sync; M.other[i] = c.other; M.render[i] = c.render; M.hud[i] = c.hud; M.nsteps[i] = c.n; M.drew[i] = c.drew ? 1 : 0; if (c.drew) M.draws++;
   M.measured += c.iv; M.stepsAll += c.n; M.lost = M.measured * 30 / 1000 - M.stepsAll; // (game time not kept up with: ticks)
   // A line of the timeline per second: means per frame, the worst frame, what is in the world.
   const s = M.sec ||= { from: i, worst: 0, ms: 0 };
@@ -224,7 +225,7 @@ async function finish(how) {
   const s = report.summary;
   card.hidden = false;
   const lines = how === 'done'
-    ? `<p><b>${s.fps} fps</b> on average (screen ${refreshHz} Hz) · worst frame <b>${s.frameMs.max} ms</b> · ${s.over33}% of frames over 33 ms</p>
+    ? `<p><b>${s.fps} fps</b> on average (screen ${refreshHz} Hz${s.drawFps < s.fps - 1 ? `, drawn ${s.drawFps} a second` : ''}) · worst frame <b>${s.frameMs.max} ms</b> · ${s.over33}% of frames over 33 ms</p>
        <p class="tag">Per frame: sim ${s.sim.avg} ms, mirror ${s.sync.avg} ms, drawing ${s.render.avg} ms, HUD and the rest ${r2(s.other.avg + s.hud.avg)} ms. Game speed ${Math.round(s.gameSpeed * 100)}%.</p>`
     : `<p>The test was ${how}: ${s.secs} s measured.</p>`;
   say(`${lines}<p id="benchCode" class="tag">Sending…</p>`);
@@ -266,7 +267,7 @@ function build(how) {
     device: device(),
     prep: { ticks: M.prep.prepTicks, ms: Math.round(M.prep.prepMs), msPerTick: r2(M.prep.prepMs / Math.max(1, M.prep.prepTicks)), hidden: M.prep.hidden },
     summary: {
-      secs: r1(M.measured / 1000), frames: n, fps: r1(n * 1000 / Math.max(1, M.measured)), refreshHz,
+      secs: r1(M.measured / 1000), frames: n, fps: r1(n * 1000 / Math.max(1, M.measured)), drawFps: r1(M.draws * 1000 / Math.max(1, M.measured)), refreshHz,
       frameMs: stats(M.iv, n), over16: over(16.7), over33: over(33.4), over50: over(50),
       sim: stats(M.sim, n), sync: stats(M.sync, n), other: stats(M.other, n), render: stats(M.render, n), hud: stats(M.hud, n), work: stats(work, n),
       stepsPerFrame: r2(sum(M.nsteps) / Math.max(1, n)), ticks: M.stepsAll, ticksBehind: r1(Math.max(0, M.lost)), behindMax: Math.max(0, ...T.behind),
@@ -283,7 +284,7 @@ function build(how) {
   // The last frames raw, in tenths of a ms (fewer if the report would pass the relay's 64 KB).
   for (let keep = Math.min(KEEP, n); ; keep = Math.floor(keep / 2)) {
     const tenth = (a) => Array.from(a.subarray(n - keep, n), x => Math.round(x * 10));
-    report.frames = { unit: '0.1 ms', first: n - keep, iv: tenth(M.iv), sim: tenth(M.sim), sync: tenth(M.sync), other: tenth(M.other), render: tenth(M.render), hud: tenth(M.hud), steps: Array.from(M.nsteps.subarray(n - keep, n)) };
+    report.frames = { unit: '0.1 ms', first: n - keep, iv: tenth(M.iv), sim: tenth(M.sim), sync: tenth(M.sync), other: tenth(M.other), render: tenth(M.render), hud: tenth(M.hud), steps: Array.from(M.nsteps.subarray(n - keep, n)), drew: Array.from(M.drew.subarray(n - keep, n)) };
     if (JSON.stringify(report).length <= MAX_JSON || keep < 50) break;
   }
   return report;

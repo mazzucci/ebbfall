@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -246,6 +246,7 @@ function loop(now) {
       acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
     }
     if (acc > DT * 5 * speed) acc = 0;
+    mirror(); // (this frame's ticks into G, once)
     if (probe.on) probe.lap('steps');
     drainEvents();
     if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
@@ -260,8 +261,9 @@ function loop(now) {
   if (probe.on) probe.lap('events');
   // At most 60 frames a second (a 120 Hz phone would draw every frame twice as often for nothing: the world moves 30
   // times a second), and 20 under a card that stops the game (pause, leave, help, end).
-  if (started && now - drawn >= (running() ? 12 : 50)) { drawn = now; render(ui.sel, ui.place, showPower()); }
-  if (probe.on) probe.lap('render');
+  const draw = started && now - drawn >= (running() ? 12 : 50);
+  if (draw) { drawn = now; render(ui.sel, ui.place, showPower()); }
+  if (probe.on) probe.lap('render', draw);
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
   if (probe.on) probe.lap('end');
   requestAnimationFrame(loop);

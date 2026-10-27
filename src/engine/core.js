@@ -169,6 +169,8 @@ export function resetGameSeats(seed, diff, map, side, races, teams, ai, me, size
 export function step() { if (!game.canStep()) return false; game.step(); dirty = true; sync(); return true; }
 /** One tick, mirrored at the next read of `G` or `map` (the game loop: once a frame, however many ticks it ran). */
 export function advance() { if (!game.canStep()) return false; game.step(); dirty = true; return true; }
+/** Mirror the ticks `advance` ran now (the game loop does, once its steps are done: the device test times it there). */
+export function mirror() { sync(); }
 /** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
 export function startReplay() {
   if (!game.startReplay()) return false;

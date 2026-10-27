@@ -1,7 +1,7 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -217,7 +217,7 @@ setInterval(() => {
   if (!document.hidden || !online.playing || !started) return;
   const waiting = online.net.pump(); // (also after the game: heartbeats, for a rematch)
   if (G.over) return;
-  for (let i = 0; i < waiting && step(DT); i++) online.net.ticked();
+  for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
 $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
@@ -234,7 +234,7 @@ function loop(now) {
     // Online: the relay's turns in, our orders out; behind by more than a few ticks, run faster to catch up.
     const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5 * speed;
     while ((acc >= DT || n < waiting - 9) && n++ < max && !done()) {
-      if (!step(DT)) { acc = Math.min(acc, DT); break; } // (its turn is not in yet)
+      if (!advance()) { acc = Math.min(acc, DT); break; } // (its turn is not in yet; the client's mirror of the world catches up once, after the steps)
       acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
     }
     if (acc > DT * 5 * speed) acc = 0;

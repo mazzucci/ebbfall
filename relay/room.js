@@ -78,7 +78,7 @@ export class Room {
       this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, { t: 'away', seat: i }); });
       // (it is back once its acks show it has caught up)
       s.goneSince = 0;
-      if (this.hold) this.send(conn, this.pauseMsg()); // (a pause on: it is told)
+      this.send(conn, this.hold ? this.pauseMsg() : { t: 'resume', seat: -2 }); // (told whether a pause is on: one may have ended while it was gone)
       if (this.seats.some(x => x.rematch)) this.rematchState(); // (who wants a rematch; perhaps everyone, now it is back)
     }
     return seat;
@@ -102,11 +102,16 @@ export class Room {
     // away any more, only here or gone (a rematch waits for the seats still here).
     if (msg.t === 'over' && this.phase === 'game' && !s.left) {
       s.over = true;
-      if (this.seats.every(x => x.left || x.over)) { this.phase = 'over'; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
+      if (this.seats.every(x => x.left || x.over)) { this.phase = 'over'; this.hold = null; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
       return;
     }
     if (this.phase !== 'game' || s.left) return; // (a seat that left is not heard)
-    if (msg.t === 'pause') { if (!this.hold && this.running && s.pauses < PAUSES) { s.pauses++; this.hold = { seat, until: this.now + PAUSE_MS }; this.each(this.pauseMsg()); } return; }
+    if (msg.t === 'pause') {
+      if (this.hold || !this.running || s.over || s.pauses >= PAUSES) return;
+      s.pauses++; this.hold = { seat, until: this.now + PAUSE_MS };
+      for (const x of this.seats) if (x.awaySince) { x.away += Math.max(0, this.now - x.awaySince); x.awaySince = this.now; } // (away before the pause: counted; during it: not)
+      this.each(this.pauseMsg()); return;
+    }
     if (msg.t === 'resume') { if (this.hold?.seat === seat) this.unhold(seat); return; } // (only who paused: when they are ready)
     if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; return; }
     if (msg.t === 'orders') {
@@ -196,18 +201,18 @@ export class Room {
   }
   bundle(n, o) { const b = { n, o }; this.log.push(b); this.each({ t: 'turn', ...b }); }
   away(seat) { const s = this.seats[seat]; if (s.awaySince || s.left) return; s.awaySince = this.now || 1; this.each({ t: 'away', seat }); }
-  back(seat) { const s = this.seats[seat]; if (!s.awaySince) return; s.away += Math.max(0, this.now - s.awaySince); s.awaySince = 0; this.each({ t: 'back', seat }); }
+  back(seat) { const s = this.seats[seat]; if (!s.awaySince) return; if (!this.hold) s.away += Math.max(0, this.now - s.awaySince); s.awaySince = 0; this.each({ t: 'back', seat }); } // (back during a pause: its time is nobody's)
   leave(seat) {
     const s = this.seats[seat]; if (s.left) return; s.left = true; s.awaySince = 0;
     this.inbox.push([seat, [18]]); // (Concede, as an order in the log: replays and rejoins see it)
     this.each({ t: 'left', seat });
-    if (this.hold?.seat === seat) this.unhold(seat); // (its pause goes with it)
+    if (this.hold && (this.hold.seat === seat || this.seats.filter(x => !x.left).length < 2)) this.unhold(seat); // (its pause goes with it; one seat left: nothing to wait for)
   }
   compare(turn) {
     const here = this.seats.filter(s => !s.left);
     const hs = here.map(s => s.hashes.get(turn));
     if (hs.some(h => h === undefined)) return;
-    if (hs.some(h => h !== hs[0])) { this.phase = 'over'; this.each({ t: 'desync', turn }); }
+    if (hs.some(h => h !== hs[0])) { this.phase = 'over'; this.hold = null; this.each({ t: 'desync', turn }); }
     // (checkpoints every seat has passed are done with)
     for (const s of this.seats) for (const t of s.hashes.keys()) if (t <= turn) s.hashes.delete(t);
   }

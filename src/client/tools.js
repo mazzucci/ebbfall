@@ -8,6 +8,7 @@ import { sfx, say } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { portrait, setIconButton } from './icons.js';
 import { paused, closePause } from './pause.js';
+import { online } from './online.js';
 
 export const alerts = { last: null, list: [], at: 0 };
 const ALERT_SHOWN = 10000; // ms the ⚠ chip stays after an attack
@@ -133,7 +134,7 @@ function watchCapitals() {
  *  for 10 s (a ping), the army wiped out. */
 const news = { flyer: false, army: 0, idleSince: new Map() };
 function watchNews() {
-  if (G.over || paused() || ui.watching) return; // (no news over the end card, none piling up during a pause, none in a replay)
+  if (G.over || (paused() && !(online.playing && !online.hold)) || ui.watching) return; // (no news over the end card, none piling up during a pause, none in a replay; online the Menu card leaves the game running: news too)
   if (!news.flyer) {
     const f = G.units.find(u => enemies(G.me, u.team) && u.d.air && u.d.weapon && visibleEnt(u));
     if (f) { news.flyer = true; toast('Enemy flyers spotted: get some anti-air', true, true); sfx('alert'); ping(f.x, f.y); }

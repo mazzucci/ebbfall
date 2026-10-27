@@ -129,7 +129,11 @@ function waitLine() {
   $('netWait').hidden = !text; $('netWait').firstChild.textContent = text; $('btnNetMenu').hidden = !over;
 }
 /** The game cannot go on (a desync, this screen replaced by another): say so, stop, and offer the menu. */
-function fatal(msg) { over = msg; online.dead = true; online.net?.close(); waitLine(); sfx('error'); onRematch(false, false); }
+function fatal(msg) {
+  over = msg; online.dead = true; online.net?.close();
+  if (online.hold) { online.hold = null; onResume(-2); } // (no pause any more: the card closes unless the player opened it, so the reason shows)
+  waitLine(); sfx('error'); onRematch(false, false);
+}
 /** Whether someone else in the room wants a rematch. */
 export const theyWant = () => (online.wants || []).some((w, s) => w && s !== online.seat);
 

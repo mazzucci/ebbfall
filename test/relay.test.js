@@ -285,6 +285,47 @@ test('a seat gone during a long pause is not counted away for it (its phone slep
   assert.equal(got(a, 'left').length, 0, 'and its budget is whole after the resume');
 });
 
+test('back during the pause, then a short hiccup after the resume: still in (a pause\'s time is nobody\'s)', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  r.receive(a, { t: 'pause' });
+  for (let t = 600; t <= 600 + 120000; t += 1000) { r.tick(t); r.receive(b, { t: 'ack', turn: r.turn }); } // (Ann's tab hidden two minutes: no acks)
+  r.receive(a, { t: 'ack', turn: r.turn }); // (back, still paused)
+  r.receive(a, { t: 'resume' });
+  for (let t = 121600; t <= 121600 + 20000; t += 1000) { r.tick(t); r.receive(b, { t: 'ack', turn: r.turn }); if (t < 121600 + 10000) r.receive(a, { t: 'ack', turn: r.turn }); }
+  assert.equal(got(b, 'left').length, 0, 'a ten-second hiccup after a long pause does not concede');
+});
+
+test('time away before a pause still counts (a pause does not refund it)', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  r.close(b);
+  for (let t = 600; t <= 50600; t += 1000) r.tick(t), r.receive(a, { t: 'ack', turn: r.turn });
+  r.receive(a, { t: 'pause' }); r.tick(50700); r.receive(a, { t: 'resume' });
+  for (let t = 50800; t <= 70800; t += 1000) r.tick(t), r.receive(a, { t: 'ack', turn: r.turn });
+  assert.equal(got(a, 'left')[0]?.seat, 1, 'gone 50 s, then 20 s more: out');
+});
+
+test('a rejoin is always told whether a pause is on; no pause from a seat whose game is over; the last seat standing is not kept paused', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 500);
+  const token = got(b, 'seat')[0].token;
+  r.receive(b, { t: 'pause' }); r.close(b); r.tick(600);
+  r.receive(b, { t: 'resume' }); // (from a closed connection: nothing)
+  r.tick(600 + PAUSE_MS + 100); // (the pause ran out while b was gone)
+  const b2 = { name: 'b2' }, sent = [];
+  r.send = ((send) => (c, m) => { if (c === b2) sent.push(m); else send(c, m); })(r.send);
+  r.connect(b2, hello({ name: 'Bo', token, next: 0 }));
+  assert.ok(sent.some(m => m.t === 'resume' && m.seat === -2), 'no pause on: told so (its card must not stay up)');
+  r.receive(a, { t: 'over' });
+  r.receive(a, { t: 'pause' });
+  assert.equal(r.hold, null, 'a seat whose game is over cannot pause the others');
+  r.receive(b2, { t: 'pause' });
+  assert.ok(r.hold, 'b pauses');
+  r.receive(a, { t: 'leave' });
+  assert.equal(r.hold, null, 'one seat left: no pause to wait out');
+});
+
 test('a seat back during a pause is told; a seat that leaves ends its own pause', () => {
   const { r, a, b, got } = started();
   play(r, [a, b], 0, 500);

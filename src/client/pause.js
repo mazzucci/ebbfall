@@ -66,7 +66,7 @@ export function roomPaused() { if (G.over) return; sfx('select'); if (paused()) 
 export function roomResumed(seat) {
   if (!paused()) return;
   if (!card.mine || seat === online.seat) closePause(); else render();
-  if (seat !== online.seat) toast(seat < 0 ? 'The pause is over: back to the game' : 'Back to the game');
+  if (seat !== online.seat && seat > -2) toast(seat < 0 ? 'The pause is over: back to the game' : 'Back to the game'); // (-2: the room says no pause (a rejoin) or the game cannot go on)
 }
 
 const left = () => online.left[online.seat] ?? 0;

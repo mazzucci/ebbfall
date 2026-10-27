@@ -106,8 +106,8 @@ export class Net {
   map(map) { this.say({ t: 'map', map }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */
-  pause() { this.say({ t: 'pause' }); }
-  resume() { this.say({ t: 'resume' }); }
+  pause() { this.sayOrKeep({ t: 'pause' }); }
+  resume() { this.sayOrKeep({ t: 'resume' }); }
   /** After a game: want another in this room (or not any more). */
   rematch(want) { this.sayOrKeep({ t: 'rematch', want }); }
   /** This side's game has ended (the relay stops the clock once every side's has; acks then count the turns in). */

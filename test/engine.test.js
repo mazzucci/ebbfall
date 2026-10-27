@@ -237,10 +237,12 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
-  // A tech names what it unlocks or speeds up, has one level and words of its own; each ability's tech is found.
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
+  // its own; each ability's tech is found.
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([, u]) => u.levels === 1)) {
-    assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
+    if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
+    else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech.

@@ -58,7 +58,7 @@ export function initOnline({ start, leave, quit, room, rematch, pause, resume })
   $('btnOnlineReload').addEventListener('click', reloadNewest);
   for (const b of $('onlineRace').querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.race(b.dataset.race); });
   // The host's: the players (the map follows: one that seats them), the teams for four, the AI seats' difficulty.
-  for (const b of $('onlinePlayers').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.seats(+b.dataset.n, fitMap(lobbyState?.map ?? 0, +b.dataset.n)); });
+  for (const b of $('onlinePlayers').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); const k = +b.dataset.n; if (lobbyState?.seats.some((s, i) => i >= k && !s.ai && (s.here || s.name))) { status('Someone sits in a seat that would go'); return; } online.net?.seats(k, fitMap(lobbyState?.map ?? 0, k)); });
   for (const b of $('onlineTeams').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.teams(b.dataset.teams === '2v2' ? [0, 0, 1, 1] : null); });
   for (const b of $('onlineDiff').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.diff(+b.dataset.d); });
   // A seat's own buttons (rendered with the seats): the host's + AI / × on an open or AI seat and an AI's race, and a
@@ -104,7 +104,7 @@ function connect(room) {
       rematch: (wants) => { online.wants = wants; onRematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
       start: (setup, seat, m) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.playing = true; $('online').hidden = true;
-        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'AI' : n)); // (an AI seat is "AI" in every line that names a seat)
+        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
         online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
         // (a RANDOM seat drawn from the room's seed, alike on every client: here, in a file the build hash covers)
         onStart(setup, seat, seatRaces(setup.races, setup.seed, Object.keys(FACTIONS))); online.net.loaded(); },
@@ -213,7 +213,7 @@ function renderLobby(m) {
   mapButtons($('onlineMaps'), n, fitMap(m.map, n), host ? (i) => online.net?.map(i) : null);
   const people = m.seats.filter(s => !s.ai);
   const gone = people.filter(s => !s.here && !open(s)).map(s => s.name || 'your friend');
-  status(m.seats.some(open) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
+  status(!host && open(m.seats[0]) ? 'The host left: SIT HERE on the first seat to pick' : m.seats.some(open) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 

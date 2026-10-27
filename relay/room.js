@@ -117,7 +117,7 @@ export class Room {
     // Its game is over (the clients know; the relay does not): once every seat's is, the clock stops and nobody is
     // away any more, only here or gone (a rematch waits for the seats still here).
     if (msg.t === 'over' && this.phase === 'game' && !s.left) {
-      s.over = true;
+      s.over = true; if (s.awaySince) this.back(seat); // (out and watching: nobody waits for it)
       if (this.seats.every(x => x.ai || x.left || x.over)) { this.phase = 'over'; this.hold = null; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
       return;
     }
@@ -167,12 +167,12 @@ export class Room {
     }
     // A seat silent too long, or gone: the room waits for it, within its budget for the game.
     this.seats.forEach((s, i) => {
-      if (s.left || s.ai) return; // (an AI seat runs in every client's game: never waited for)
+      if (s.left || s.ai || s.over) return; // (an AI seat runs in every client's game; a seat whose game is over (out of a free-for-all) watches: neither is waited for)
       if (!s.awaySince && (!s.conn || now - s.lastAck > AWAY_AFTER_MS)) this.away(i);
       if (s.awaySince && !this.hold && s.away + (now - s.awaySince) > AWAY_BUDGET_MS) this.leave(i); // (a pause's time is nobody's)
     });
     if (this.hold && now >= this.hold.until) this.unhold(-1); // (time's up)
-    this.paused = !!this.hold || this.seats.some(s => s.awaySince && !s.left);
+    this.paused = !!this.hold || this.seats.some(s => s.awaySince && !s.left && !s.over);
     if (this.paused) { this.next = now + TURN_MS; return; }
     if (now - this.next > CATCH_UP * TURN_MS) this.next = now - CATCH_UP * TURN_MS; // (a stall: a few turns, not a burst)
     while (now >= this.next && this.phase === 'game') { this.closeTurn(); this.next += TURN_MS; }
@@ -252,7 +252,8 @@ export class Room {
     this.turn++;
   }
   bundle(n, o) { const b = { n, o }; this.log.push(b); this.each({ t: 'turn', ...b }); }
-  away(seat) { const s = this.seats[seat]; if (s.awaySince || s.left) return; s.awaySince = this.now || 1; this.each({ t: 'away', seat }); }
+  away(seat) { const s = this.seats[seat]; if (s.awaySince || s.left || s.over) return; // (a seat whose game is over is not waited for)
+    s.awaySince = this.now || 1; this.each({ t: 'away', seat }); }
   back(seat) { const s = this.seats[seat]; if (!s.awaySince) return; if (!this.hold) s.away += Math.max(0, this.now - s.awaySince); s.awaySince = 0; this.each({ t: 'back', seat }); } // (back during a pause: its time is nobody's)
   leave(seat) {
     const s = this.seats[seat]; if (s.left) return; s.left = true; s.awaySince = 0;

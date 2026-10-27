@@ -143,7 +143,7 @@ function endLine(win) {
   const after = ' after ' + fmt(G.time) + '.';
   const mine = allies();
   if (mine.length) { // (a team game: the team's result; online, the friends on it by name)
-    const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'AI') : [];
+    const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
   if (G.teams.length > 2) { // (free for all: nobody in particular beat this side, nor lost to it)

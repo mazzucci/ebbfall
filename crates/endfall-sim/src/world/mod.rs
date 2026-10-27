@@ -446,6 +446,9 @@ impl World {
         for id in ids {
             if self.unit(id).is_some_and(|u| !self.inert(u.team)) {
                 self.update_unit(id, dt);
+            } else if let Some(i) = self.ui(id) {
+                let u = &mut self.units[i];
+                u.flash = (u.flash - dt).max(0.0); // (an out seat's leftovers stand still, but a hit's flash fades)
             }
         }
         self.separate();
@@ -453,6 +456,8 @@ impl World {
         for id in bids {
             if self.bldg(id).is_some_and(|b| !self.inert(b.team)) {
                 self.update_building(id, dt);
+            } else if let Some(b) = self.bm(id) {
+                b.flash = (b.flash - dt).max(0.0);
             }
         }
         self.update_projs(dt);

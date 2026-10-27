@@ -417,6 +417,21 @@ test('the host sets the seat count, 2 to MAX_SEATS: a seat a person holds is nev
   assert.equal(r.connect(conn('d'), hello()), -1, 'full');
 });
 
+test('a player out of a free-for-all who closes the page holds nobody up (its game is over: it watches)', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.receive(a, { t: 'seats', n: 3 }); r.connect(c, hello({ name: 'Cy' }));
+  for (const x of [a, b, c]) r.receive(x, { t: 'ready', ready: true });
+  for (const x of [a, b, c]) r.receive(x, { t: 'loaded' });
+  r.tick(0);
+  for (let t = 0; t <= 1000; t += TURN_MS) { r.tick(t); for (const x of [a, b, c]) r.receive(x, { t: 'ack', turn: r.turn }); }
+  r.receive(c, { t: 'over' }); r.close(c); // (Cy is out: the DEFEAT card, then the phone locked)
+  const turn = r.turn;
+  for (let t = 1100; t <= 31100; t += TURN_MS) { r.tick(t); for (const x of [a, b]) r.receive(x, { t: 'ack', turn: r.turn }); }
+  assert.ok(r.turn > turn + 250, `the others play on (${r.turn - turn} turns in 30 s)`);
+  assert.equal(got(a, 'away').filter(m => m.seat === 2).length, 0, 'nobody waits for it');
+});
+
 test('AI seats: the host fills open seats; no connection, never waited for, never away, nothing from them; the start carries teams, AI and difficulty', () => {
   const { r, conn, got, clear } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));

@@ -147,7 +147,7 @@ test('three seats, one the AI\'s: the host sets it up, a friend joins, both brow
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 300, null, { timeout: 40000 });
       const setup = await a.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.online.setup.diff, endfall.engine.MW, endfall.G.factions.length, endfall.G.diff, endfall.online.names]);
-      assert.deepEqual(setup, [[0, 0, 1], [0, 1, 2], 2, 96, 3, 2, ['Ann', 'Bo', 'AI']], 'three seats on 96x96, the third the AI\'s at Hard');
+      assert.deepEqual(setup, [[0, 0, 1], [0, 1, 2], 2, 96, 3, 2, ['Ann', 'Bo', 'the AI']], 'three seats on 96x96, the third the AI\'s at Hard');
       const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
       const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
       const common = [...ta.keys()].filter(t => tb.has(t));

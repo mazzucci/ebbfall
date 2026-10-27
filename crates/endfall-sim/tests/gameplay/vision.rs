@@ -314,7 +314,7 @@ fn teams_of_seats_apart_and_of_three_share_their_fog() {
                 1,
                 MapKind::Standard,
                 MapSize::square(size),
-                9,
+                1, // (a side below the starts' count: teams do not deal the seats again, `map::team_starts`)
                 &races[..seats],
             );
             assert!(w.set_ai_seats(vec![false; seats]));

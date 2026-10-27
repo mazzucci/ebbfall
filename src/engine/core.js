@@ -158,13 +158,14 @@ export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy 
   const f = (k) => { const i = Object.keys(FACTIONS).indexOf(k); if (i < 0) throw new Error(`no race ${k}`); return i; }; // (a menu's RANDOM is drawn before)
   fresh(Game.withSize(seed >>> 0, diff, map, side, f(race), f(enemy), size));
 }
-/** A game for any number of seats, seen from seat `me` (tests for now; M4's lobby): each seat's race key, team (empty:
- *  each its own) and whether the AI plays it (empty: nobody), on a `size` x `size` map with a start per seat (64: 2,
- *  96: 4, 128: 8). Throws for a setup the sim cannot play. */
-export function resetGameSeats(seed, diff, map, side, races, teams, ai, me, size = DUEL_MW) {
+/** A game for any number of seats, seen from seat `me` (single player's seat list; tests): each seat's race key, team
+ *  (empty: each its own) and whether the AI plays it (empty: nobody), on a `size` x `size` map with a start per seat
+ *  (64: 2, 96: 4, 128: 8); `diffs`, each AI seat's difficulty (empty: every AI at `diff`). Throws for a setup the sim
+ *  cannot play. */
+export function resetGameSeats(seed, diff, map, side, races, teams, ai, me, size = DUEL_MW, diffs = []) {
   const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
   fresh(Game.withSeats(seed >>> 0, diff, map, side, Uint32Array.from(races.map(f)), Uint8Array.from(teams),
-    Uint8Array.from(ai.map(a => a ? 1 : 0)), me, size));
+    Uint8Array.from(ai.map(a => a ? 1 : 0)), me, size, diffs.length ? Uint8Array.from(diffs) : undefined));
 }
 export function step() { if (!game.canStep()) return false; game.step(); dirty = true; sync(); return true; }
 /** One tick, mirrored at the next read of `G` or `map` (the game loop: once a frame, however many ticks it ran). */
@@ -180,6 +181,8 @@ export function startReplay() {
 }
 /** The tick the replay being watched ends on (0: none). */
 export const replayEnd = () => game.replayEnd();
+/** The difficulty seat `seat`'s AI plays at (single player's seat list gives each its own). */
+export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
  *  byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start. */

@@ -1,7 +1,7 @@
 // What this side has seen of the enemy's army: every enemy fighter counted once, with when it was last in view (fog
 // and cloak respected). Shown on demand only: the pause card (lately) and the end card (the whole game).
 import { G, UNITS, visibleEnt, enemies } from '../engine/index.js';
-import { portrait } from './icons.js';
+import { portrait } from './gl/render.js';
 
 const LATELY = 90; // seconds the pause card looks back
 const sightings = new Map(); // unit id -> { u (the mirror object: u.dead once it is gone), type, team, last }

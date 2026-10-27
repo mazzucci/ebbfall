@@ -1,23 +1,25 @@
-// Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
-import './style.css';
+// The game: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
+// Loaded by src/boot.js behind the menu (the renderer waits for its art, and the sim for its WASM, below); the menu and
+// the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio, soundToggled } from './client/audio.js';
+import { sfx, audio } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
-import { setIconButton, portrait } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu } from './client/menu.js';
+import { showMenu, recordResult, guidedDone, setup, menu } from './client/menu.js';
 import { MAP_KINDS, onlineMap, teamList } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
-import { initScreen, initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
-import { initOnline, online, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
+import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+import { online, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
+
+await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
@@ -199,13 +201,11 @@ function rematchButton(theyWant, iWant) {
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
-initScreen(); initLeaveDialog(); initTools();
+initLeaveDialog(); initTools();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
-const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
-$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
-initMenu({ onStart: newGame, onSound: syncSound });
-initOnline({
-  start: newOnlineGame, leave: showMenu, quit: quitToTitle,
+/** What the menu (menu.js) and the lobby (online.js) call, through src/boot.js, once this module has loaded. */
+export const game = {
+  newGame, newOnlineGame, quitToTitle,
   room: () => { $('end').hidden = true; started = false; }, // (a rematch: from the end card back to the room)
   pause: roomPaused, resume: roomResumed, // (a room pause: the pause card on every side)
   rematch: (they, iWant) => {
@@ -213,7 +213,7 @@ initOnline({
     if (they && !theyWantRematch && !iWant) toast(wantLine());
     rematchButton(they, iWant);
   },
-});
+};
 // Online, a phone puts a hidden page to sleep (and its socket with it): on coming back, make sure the socket lives.
 // A hidden desktop tab gets no frames, so its turns run from a slow timer instead.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) online.net?.wake(); });

@@ -676,6 +676,35 @@ test('MULTIPLAYER only where a relay is known: none from a strange host, unless 
   } finally { await ctx.close(); }
 });
 
+test('the menu works before the game has loaded: MULTIPLAYER at first paint, SINGLE PLAYER, START GAME waits saying so', async () => {
+  // First paint: the page's HTML alone, no scripts run (a build with the published relay shows MULTIPLAYER there).
+  const bare = await browserContext({ ...DESKTOP, javaScriptEnabled: false }), still = await bare.newPage();
+  let painted;
+  try { await still.goto(baseUrl()); painted = await still.locator('#btnOnline').isVisible(); } finally { await bare.close(); }
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage(), errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  try {
+    // The sim's WASM and the art held back: the game cannot load until they are let through.
+    let release; const held = new Promise(r => { release = r; });
+    await page.route(/\.wasm$|\/art\//, async (r) => { await held; await r.continue(); });
+    await page.goto(baseUrl(), { waitUntil: 'domcontentloaded' });
+    await page.locator('#btnOnline').waitFor({ timeout: 10000 }); // (this machine: the dev relay's address, from online.js)
+    await page.locator('#btnSolo').click();
+    await page.locator('#menuSolo').waitFor({ timeout: 5000 });
+    assert.ok(await page.evaluate(() => !window.endfall), 'the single-player page opened before the game loaded');
+    await page.locator('#btnStart').click();
+    assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…', 'START GAME says it waits');
+    assert.ok(await page.locator('#btnStart').isDisabled(), 'and takes no second tap');
+    assert.ok(await page.locator('#start').isVisible(), 'the menu stays meanwhile');
+    release();
+    await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 60000 });
+    assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the button is itself again');
+    const baked = await page.evaluate(() => endfall.online.baked);
+    assert.equal(painted, !!baked, baked ? 'the published relay: MULTIPLAYER at first paint' : 'no relay in the build: MULTIPLAYER hidden in the HTML');
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
+});
+
 test('a queued unit is cancelled with a click or tap on it, for a full refund', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });

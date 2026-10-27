@@ -38,13 +38,14 @@ const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k);
 /** The online game, while there is one: its Net, this side's seat and the room's setup; a room pause (`hold`: who
  *  called it and when it runs out, by this page's clock) and the pauses each seat has left. */
 export const online = { baked: BAKED_RELAY, net: null, seat: -1, setup: null, playing: false, names: [], rematch: false, gone: new Set(), hold: null, left: [] };
-let onStart = () => {}, onLeave = () => {}, onQuit = () => {}, onRoom = () => {}, onRematch = () => {}, onPause = () => {}, onResume = () => {};
+let loaded = Promise.resolve(), onStart = () => {}, onLeave = () => {}, onQuit = () => {}, onRoom = () => {}, onRematch = () => {}, onPause = () => {}, onResume = () => {};
 const waitingFor = new Set(); // seats the game waits for
 
-/** Wire the lobby: `start(setup, seat)` begins the game; `leave()` goes back to the menu from the lobby, `quit()`
- *  from a game that cannot go on; `pause()` / `resume(seat)` a room pause begins (or is told again) / ends. */
-export function initOnline({ start, leave, quit, room, rematch, pause, resume }) {
-  onStart = start; onLeave = leave; onQuit = quit; onRoom = room; onRematch = rematch; onPause = pause; onResume = resume;
+/** Wire the lobby: `start(setup, seat)` begins the game once `game` (a promise: the game loading, src/boot.js) has
+ *  resolved; `leave()` goes back to the menu from the lobby, `quit()` from a game that cannot go on; `pause()` /
+ *  `resume(seat)` a room pause begins (or is told again) / ends. */
+export function initOnline({ game, start, leave, quit, room, rematch, pause, resume }) {
+  loaded = game; onStart = start; onLeave = leave; onQuit = quit; onRoom = room; onRematch = rematch; onPause = pause; onResume = resume;
   $('btnNetMenu').addEventListener('click', () => { sfx('select'); onQuit(); });
   $('btnOnline').hidden = !relayUrl();
   $('btnOnline').addEventListener('click', () => { sfx('select'); openLobby(); });
@@ -104,11 +105,14 @@ function connect(room) {
       lobby: (m) => { if (online.playing) backToRoom(); renderLobby(m); },
       rematch: (wants) => { online.wants = wants; onRematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
-      start: (setup, seat, m) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.playing = true; $('online').hidden = true;
+      start: (setup, seat, m) => { online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.playing = true;
         online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
         online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
-        // (a RANDOM seat drawn from the room's seed, alike on every client: here, in a file the build hash covers)
-        onStart(setup, seat, seatRaces(setup.races, setup.seed, Object.keys(FACTIONS))); online.net.loaded(); },
+        // The game itself may still be loading (src/boot.js): the lobby stays up, "Starting…", until it has (the relay's
+        // clock waits for every seat's `loaded`). A RANDOM seat is drawn from the room's seed, alike on every client:
+        // here, in a file the build hash covers.
+        const net = online.net;
+        loaded.then(() => { if (online.net !== net) return; $('online').hidden = true; onStart(setup, seat, seatRaces(setup.races, setup.seed, Object.keys(FACTIONS))); net.loaded(); }, () => status('The game could not load: reload the page')); },
       away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
       back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${Who(s)} is back`); } },
       left: (s) => { if (s !== online.seat) { online.gone.add(s); waitingFor.delete(s); waitLine(); toast(`${Who(s)} left the game`, true, true); onRematch(false, false); } },

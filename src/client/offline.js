@@ -2,7 +2,7 @@
 // app (Chrome and Edge, on Android and desktop: `beforeinstallprompt`) and not once installed (iPhone Safari has its
 // Add to Home Screen tip instead, screen.js); CHECK OFFLINE on the About page, which asks the service worker
 // (tools/offline/sw.js) how much of the game it has stored and says it plainly.
-import { $ } from './hud.js';
+import { $ } from './ui.js';
 import { standalone } from './screen.js';
 
 let offer = null; // the browser's install offer, kept for the tap

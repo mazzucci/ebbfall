@@ -8,8 +8,8 @@
 // The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty, races, players, teams and sound are remembered on this device.
-import { mapPreview, DIFF } from '../engine/index.js';
-import { $ } from './hud.js';
+import { mapPreview, DIFF, ready } from '../engine/index.js';
+import { $ } from './ui.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { enterFullscreen, exitFullscreen } from './screen.js';
 import { icon } from './icons.js';
@@ -87,11 +87,15 @@ export function teamButtons(box, players, on, pick, titles) {
 }
 
 // A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
-// drawn a pixel per tile (64 or 96 across) and shown at one size.
+// drawn a pixel per tile (64 or 96 across) and shown at one size. The sim draws the map: until its WASM is in (the menu
+// comes first, src/boot.js), a plain ground, the map drawn when it is.
 const PREVIEW = ['#2a3442', '#7d8796', '#4fd1c5', '#a78bfa', '#f5a524'];
+let simReady = false;
+ready.then(() => { simReady = true; if (!$('start').hidden) renderMaps(); }, () => {});
 export function drawPreview(cv, i, seed, kind) {
   const g = cv.getContext('2d'), m = MAPS[i], n = m.size;
   cv.width = n; cv.height = n;
+  if (!simReady && !m.random) { g.fillStyle = PREVIEW[0]; g.fillRect(0, 0, n, n); return; }
   if (m.random) {
     g.fillStyle = PREVIEW[0]; g.fillRect(0, 0, n, n);
     g.fillStyle = '#8294aa'; g.font = `bold ${n * 0.6}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', n / 2, n / 2 + 2);

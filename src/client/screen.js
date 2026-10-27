@@ -1,5 +1,5 @@
 // Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab).
-import { $ } from './hud.js';
+import { $ } from './ui.js';
 import { setIconButton } from './icons.js';
 
 const root = document.documentElement;

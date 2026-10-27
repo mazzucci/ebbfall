@@ -5,8 +5,8 @@ import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies } from '../engine/index.
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
-import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
-import { portrait, setIconButton } from './icons.js';
+import { centerOn, ping, clearPings, cam, view, portrait } from './gl/render.js';
+import { setIconButton } from './icons.js';
 import { paused, closePause } from './pause.js';
 import { online } from './online.js';
 

@@ -123,6 +123,9 @@ export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Ma
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** Screen (canvas css px) → world px. */
 export const toWorld = (sx, sy) => ({ x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y });
+/** Whether world point (x, y) is on screen or within `m` world px of it. With eight armies most fights are elsewhere:
+ *  their effects are not made at all (decals are, and show once the camera comes). */
+export const nearView = (x, y, m = 160) => x > cam.x - m && x < cam.x + vw() + m && y > cam.y - m && y < cam.y + vh() + m;
 /** Zoom by `factor`, keeping the world point under screen point (sx, sy) fixed. */
 export function zoomAt(factor, sx, sy) {
   const before = toWorld(sx, sy);
@@ -373,7 +376,7 @@ function syncPool(pool, list, make, upd) {
 const effects = [];
 /** Spawn a one-shot animated effect; anim names come from atlas.json (boom_big, boom_small, puff, flash, spark). */
 export function addEffect(anim, x, y, o = {}) {
-  const frames = sheet.animations[anim]; if (!frames) return;
+  const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;
   const s = new Sprite(frames[0]); s.anchor.set(0.5); s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
   L.fx.addChild(s);
   const e = { s, frames, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0 };
@@ -387,7 +390,7 @@ export function boom(x, y, r) {
   for (let i = 0; i < (big ? 10 : 4); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
   const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24); scorch.position.set(x, y + 2); L.decals.addChild(scorch);
   decals.push({ s: scorch, t: 0, life: 25 });
-  if (big) { shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
+  if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
 const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xdcc8ff };
@@ -411,7 +414,12 @@ function updateEffects(dt) {
     e.s.texture = e.frames[k]; e.s.x += e.vx * dt; e.s.y += e.vy * dt; e.vx *= 0.92; e.vy *= 0.97;
     if (e.l) { e.l.alpha = 0.8 * (1 - e.t / e.life); e.l.position.copyFrom(e.s.position); }
   }
-  for (let i = decals.length - 1; i >= 0; i--) { const d = decals[i]; d.t += dt; if (d.t > d.life) { d.s.destroy(); decals.splice(i, 1); } else if (d.t > d.life - 5) d.s.alpha = Math.min(d.s.alpha, (d.life - d.t) / 5); }
+  for (let i = decals.length - 1; i >= 0; i--) {
+    const d = decals[i]; d.t += dt;
+    if (d.t > d.life) { d.s.destroy(); decals.splice(i, 1); continue; }
+    if (d.t > d.life - 5) d.s.alpha = Math.min(d.s.alpha, (d.life - d.t) / 5);
+    const v = nearView(d.s.x, d.s.y, 96); if (d.s.visible !== v) d.s.visible = v; // (off screen: not drawn)
+  }
 }
 
 // ---- projectiles and client particles (pooled) ----

@@ -14,7 +14,9 @@ pub const HOLD_WAVES_MAX: f64 = 360.0;
 impl World {
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
     /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep. The foe's first
-    /// (the nearest enemy still in: a wave does not cross the map past it), then any enemy's.
+    /// (the nearest enemy still in: a wave does not cross the map past it), then any enemy's, once the foe's start
+    /// has been looked at (explored, by this seat or an ally: it sees what they see, so it may know a farther enemy's
+    /// base before its foe's); until then, the foe's start.
     pub(crate) fn attack_target(&self) -> (f64, f64) {
         let ai = self.ai();
         let production = |id: Id| {
@@ -30,8 +32,16 @@ impl World {
                 .or_else(|| known().find(|k| production(k.0)))
                 .or_else(|| known().next())
         };
-        if let Some(k) = pick(true).or_else(|| pick(false)) {
+        if let Some(k) = pick(true) {
             return (k.1, k.2);
+        }
+        if let Some(k) = pick(false) {
+            let (fx, fy) = (self.foe_base().0 * TILE, self.foe_base().1 * TILE);
+            return if self.ai_explored(fx, fy) {
+                (k.1, k.2)
+            } else {
+                (fx, fy)
+            };
         }
         self.sweep_point()
     }
@@ -218,7 +228,7 @@ impl World {
             .copied()
             .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
             .collect();
-        if DIFF[self.diff].raids {
+        if self.level().raids {
             self.tend_raiders(&wasps, rally);
         }
         let raiders = self.ai().raiders.clone();
@@ -291,7 +301,7 @@ impl World {
     /// Send the whole army out once it is big enough (fewer, stronger units for a race with a smaller wave scale)
     /// and the difficulty's first-wave time and gap have passed.
     fn ai_launch_wave(&mut self, army: &[Id], t: f64, (gx, gy): (f64, f64)) {
-        let d = &DIFF[self.diff];
+        let d = self.level();
         let ai = self.ai();
         let need =
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
@@ -531,7 +541,8 @@ mod tests {
     #[test]
     fn a_wave_goes_for_the_foe_before_another_enemy() {
         // Four seats round a 96x96 map: seat 1's foe is its partner, seat 0. It knows seat 3's headquarters (across
-        // the map) first and a Garrison of seat 0's: the Garrison is the goal; with only seat 3's known, that.
+        // the map) first and a Garrison of seat 0's: the Garrison is the goal; with only seat 3's known, seat 0's
+        // start until that has been looked at, then seat 3's headquarters.
         let mut w = World::with_size(
             17,
             1,
@@ -554,13 +565,67 @@ mod tests {
         let rax = w.make_building(BldgKind::Barracks, 0, bx + 6, by + 6, true);
         let r = w.bldg(rax).unwrap().clone();
         w.ai_mut().known = vec![(far.id, far.x, far.y, true, 3)];
+        let start = (w.foe_base().0 * TILE, w.foe_base().1 * TILE);
+        assert_eq!(
+            w.attack_target(),
+            start,
+            "only another enemy's known: the foe's start, not yet looked at, first"
+        );
+        let (tx, ty) = w.map.tile_of(start.0, start.1);
+        let i = w.map.idx(tx, ty);
+        w.explored[1][i] = 1;
         assert_eq!(
             w.attack_target(),
             (far.x, far.y),
-            "only another enemy's known"
+            "the foe's start looked at, nothing of it known: the other enemy"
         );
         w.ai_mut().known.push((rax, r.x, r.y, false, 0));
         assert_eq!(w.attack_target(), (r.x, r.y), "the foe's first");
+    }
+
+    #[test]
+    fn the_scout_is_done_once_it_knows_its_foes_headquarters_not_another_enemys() {
+        // Seat 1's scout on its way; it knows seat 3's headquarters (an ally may show it that): it scouts on. Seat 0's
+        // (its foe's) known: back to work.
+        let mut w = World::with_size(
+            17,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS; 4],
+        );
+        w.ai_turn = 1;
+        let hq = |w: &World, s: u8| {
+            let b = w
+                .bldgs
+                .iter()
+                .find(|b| b.team == s && b.kind.def().hq)
+                .unwrap();
+            (b.id, b.x, b.y, true, s)
+        };
+        let harv: Vec<Id> = w
+            .units
+            .iter()
+            .filter(|u| u.team == 1 && u.kind.def().worker)
+            .map(|u| u.id)
+            .collect();
+        let s = harv[0];
+        let (fx, fy) = w.foe_base();
+        w.move_to(s, fx * TILE, fy * TILE);
+        w.ai_mut().scout = Some(s);
+        w.ai_mut().scouted = true;
+        w.ai_mut().known = vec![hq(&w, 3)];
+        w.tend_scout(&harv);
+        assert_eq!(
+            w.ai().scout,
+            Some(s),
+            "another enemy's headquarters: still scouting"
+        );
+        let foe = hq(&w, 0);
+        w.ai_mut().known.push(foe);
+        w.tend_scout(&harv);
+        assert_eq!(w.ai().scout, None, "the foe's: done");
     }
 
     #[test]

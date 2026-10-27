@@ -1,9 +1,10 @@
 // The relay's room (relay/room.js) with fake connections and a fake clock: the lobby, the start, the clock (only once
 // everyone has loaded), its bundles, bad input and caps, acks at a real cadence over a jittery link, a seat away and
-// back, a reconnect that resumes, a seat that leaves, a stall, hash checkpoints; and the Node server over real sockets.
+// back, a reconnect that resumes, a seat that leaves, a stall, hash checkpoints, a lobby seat held for a player whose
+// connection went; and the Node server over real sockets.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS } from '../relay/room.js';
+import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS, LOBBY_HOLD_MS } from '../relay/room.js';
 import { PAUSES as NET_PAUSES } from '../src/net/net.js';
 
 /** A room with fake connections that record what they are sent (and whether they were kicked). */
@@ -60,10 +61,10 @@ test('the lobby seats players, and the game starts when everyone is ready', () =
   assert.equal(r.connect(conn('late'), hello()), -1, 'no one joins a game that has started');
 });
 
-test('a seat freed in the lobby is a fresh seat; an old client is told to update', () => {
+test('a seat given up in the lobby is a fresh seat; an old client is told to update', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello()); r.receive(b, { t: 'race', race: 'vael' });
-  r.close(b);
+  r.receive(b, { t: 'leave' }); r.close(b);
   const b2 = conn('b2'); r.connect(b2, hello());
   assert.equal(got(b2, 'lobby').at(-1).seats[1].race, 'humans');
   const old = conn('old'); assert.equal(r.connect(old, { proto: 0 }), -1);
@@ -161,12 +162,24 @@ test('one sim build per room: another build is told to update, the same one join
 });
 
 test('a room whose seats have all left takes a new build (an opener reloading into an update keeps its room)', () => {
-  const { r, conn } = room();
+  const { r, conn, got } = room();
   const a = conn('a'), a2 = conn('a2'), b = conn('b');
   r.connect(a, hello({ build: 'old000000000' }));
+  const token = got(a, 'seat')[0].token;
   r.close(a); // (the update's reload)
-  assert.equal(r.connect(a2, hello({ build: 'new000000000' })), 0, 'the opener, back on the new build');
+  assert.equal(r.connect(a2, hello({ build: 'new000000000', token })), 0, 'the opener, back on the new build');
   assert.equal(r.connect(b, hello({ build: 'new000000000' })), 1, 'and a friend on it');
+});
+
+test('in the lobby a held seat\'s build is checked when it comes back, not against a newcomer', () => {
+  const { r, conn, got } = room();
+  const a = conn('a'), a2 = conn('a2'), b = conn('b');
+  r.connect(a, hello({ build: 'old000000000' }));
+  const token = got(a, 'seat')[0].token;
+  r.close(a); // (away on an old build: the friend, on a new one, is not turned away for it)
+  assert.equal(r.connect(b, hello({ build: 'new000000000' })), 1);
+  assert.equal(r.connect(a2, hello({ build: 'old000000000', token })), -1, 'back on the old build: told to update');
+  assert.equal(got(a2, 'error')[0].code, 'version');
 });
 
 test('a seat coming back with its token is checked against the others, not itself', () => {
@@ -532,11 +545,129 @@ test('a friend moves to an open seat (the teams are by seat); not the host, not 
   assert.deepEqual(l.seats.map(x => x.name), ['Ann', '', 'Bo', '']);
   assert.equal(r.connect(conn('c'), hello({ name: 'Cy' })), 1, 'the seat it left is open');
   // The host leaves the lobby: its seat is open, and whoever moves there is the host.
-  r.close(a);
+  r.receive(a, { t: 'leave' }); r.close(a);
   r.receive(b, { t: 'sit', seat: 0 });
   assert.equal(r.seats[0].token, token);
   r.receive(b, { t: 'diff', diff: 0 });
   assert.equal(r.diff, 0, 'the new host picks');
+});
+
+test('the lobby holds a seat whose connection went: away, not ready, a newcomer takes an open seat, the token takes it back; open again after the hold', () => {
+  const { r, conn, got } = room(3); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.tick(1000);
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.receive(b, { t: 'race', race: 'vael' }); r.receive(b, { t: 'ready', ready: true });
+  const token = got(b, 'seat')[0].token;
+  r.close(b); // (Bo's phone switched apps)
+  let l = got(a, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.race, s.ready, s.here]), [['Ann', 'humans', false, true], ['Bo', 'vael', false, false], ['', 'humans', false, false]], 'its seat: its name and race, away, not ready');
+  assert.equal(r.connect(c, hello({ name: 'Cy' })), 2, 'a newcomer takes the open seat, not the held one');
+  assert.equal(r.connect(conn('d'), hello({ name: 'Di' })), -1, 'and then the room is full');
+  r.tick(1000 + LOBBY_HOLD_MS - 1000);
+  const b2 = conn('b2');
+  assert.equal(r.connect(b2, hello({ name: 'Bo', token })), 1, 'its token takes it back');
+  assert.equal(got(b2, 'seat')[0].token, token);
+  l = got(a, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.race, s.here]), [['Ann', 'humans', true], ['Bo', 'vael', true], ['Cy', 'humans', true]], 'here again, as it was');
+  // Gone again, longer than the hold: the seat is open for anyone (and the old token is no one's).
+  r.close(b2);
+  r.tick(2 * LOBBY_HOLD_MS);
+  assert.equal(r.seats[1].token, token, 'held until the hold runs out');
+  r.tick(2 * LOBBY_HOLD_MS + LOBBY_HOLD_MS + 1);
+  l = got(a, 'lobby').at(-1);
+  assert.deepEqual(l.seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false }, 'open again, told to the room');
+  const b3 = conn('b3');
+  assert.equal(r.connect(b3, hello({ name: 'Bo', token })), 1, 'back too late: a fresh seat');
+  assert.notEqual(got(b3, 'seat')[0].token, token);
+});
+
+test('the host away in the lobby: the room waits for it (no new host, no start while a held seat is away); AI seats are as they were', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.tick(0);
+  r.connect(a, hello()); r.receive(a, { t: 'seats', n: 4, map: 4 }); r.receive(a, { t: 'ai', seat: 3, on: true, race: 'vael' });
+  const token = got(a, 'seat')[0].token;
+  r.receive(a, { t: 'ready', ready: true });
+  r.close(a); // (the host went to send the code)
+  r.connect(b, hello({ name: 'Bo' })); r.connect(c, hello({ name: 'Cy' }));
+  assert.deepEqual([got(b, 'seat')[0].seat, got(c, 'seat')[0].seat], [1, 2], 'the friends take the open seats, not the host\'s');
+  r.receive(b, { t: 'sit', seat: 0 });
+  assert.equal(r.seats[0].token, token, 'nobody moves to the host\'s held seat');
+  r.receive(b, { t: 'diff', diff: 0 });
+  assert.equal(r.diff, 1, 'nor picks for the host');
+  let l = got(b, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.here, s.ai]), [['Ann', false, false], ['Bo', true, false], ['Cy', true, false], ['', false, true]], 'the host AWAY; the AI seat as it was');
+  r.receive(b, { t: 'ready', ready: true }); r.receive(c, { t: 'ready', ready: true });
+  assert.equal(r.phase, 'lobby', 'no start while the host is away');
+  r.tick(LOBBY_HOLD_MS / 2);
+  assert.ok(r.seats[3].ai && r.seats[3].race === 'vael', 'the AI seat is not held, nor freed');
+  const a2 = conn('a2');
+  assert.equal(r.connect(a2, hello({ token })), 0, 'the host back: seat 0');
+  l = got(b, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.ready, s.here]), [['Ann', false, true], ['Bo', true, true], ['Cy', true, true], ['', false, false]], 'here, not ready');
+  r.receive(a2, { t: 'diff', diff: 2 });
+  assert.equal(r.diff, 2, 'still the host');
+  for (const x of [a2, b, c]) r.receive(x, { t: 'ready', ready: true }); // (ready again for the new difficulty)
+  assert.equal(r.phase, 'game', 'everyone ready: the start');
+  assert.deepEqual(got(a2, 'start')[0].setup.ai, [0, 0, 0, 1]);
+});
+
+test('the host gone longer than the hold: its seat is open, and a friend may take it (the new host)', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
+  r.tick(0);
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.close(a); r.tick(LOBBY_HOLD_MS + 2);
+  assert.deepEqual(got(b, 'lobby').at(-1).seats[0], { name: '', race: 'humans', ready: false, here: false, ai: false });
+  r.receive(b, { t: 'sit', seat: 0 });
+  assert.equal(got(b, 'seat').at(-1).seat, 0, 'the friend is the host now');
+});
+
+test('a lobby kept and restored (an adapter that lost its memory): the seats held, their tokens take them back', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
+  r.tick(5000);
+  r.connect(a, hello()); r.receive(a, { t: 'seats', n: 3, map: 4 }); r.receive(a, { t: 'ai', seat: 2, on: true }); r.receive(a, { t: 'diff', diff: 3 });
+  r.receive(a, { t: 'race', race: 'vael' });
+  const token = got(a, 'seat')[0].token;
+  r.close(a);
+  const kept = JSON.parse(JSON.stringify(r.keep()));
+  assert.ok(!JSON.stringify(kept).includes('conn'), 'no connections kept');
+  const y = room(); y.r.restore(kept, 9000);
+  assert.deepEqual(y.r.seats.map(s => [s.name, s.race, !!s.token, s.ai, s.goneSince]), [['Ann', 'vael', true, false, 5000], ['', 'humans', false, false, 0], ['', 'random', false, true, 0]]);
+  assert.deepEqual([y.r.map, y.r.diff, y.r.phase], [4, 3, 'lobby']);
+  const c = y.conn('c'); assert.equal(y.r.connect(c, hello({ name: 'Cy' })), 1, 'a newcomer: the open seat');
+  const a2 = y.conn('a2'); assert.equal(y.r.connect(a2, hello({ token })), 0, 'the token: its own seat');
+  y.r.tick(5000 + LOBBY_HOLD_MS + 1);
+  assert.equal(y.r.seats[0].token, token, 'here: not freed');
+});
+
+test('the host frees a held seat whose player is away (back on another browser, without its token); nothing else', () => {
+  const { r, conn, got } = room(3); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.tick(0);
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' })); r.connect(c, hello({ name: 'Cy' }));
+  r.receive(a, { t: 'free', seat: 1 }); // (Bo is here)
+  assert.ok(r.seats[1].conn, 'not a seat whose player is here');
+  r.close(b);
+  const b2 = conn('b2');
+  assert.equal(r.connect(b2, hello({ name: 'Bo' })), -1, 'Bo, on another browser: the room is full');
+  assert.deepEqual([got(b2, 'error')[0].code, got(b2, 'error')[0].msg], ['full', 'That room is full: a seat is kept a few minutes for a player who stepped away'], 'and told why');
+  r.receive(c, { t: 'free', seat: 1 }); // (not the host's call)
+  assert.ok(r.seats[1].token);
+  r.receive(a, { t: 'free', seat: 0 }); r.receive(a, { t: 'free', seat: 9 }); r.receive(a, { t: 'free', seat: '1' });
+  assert.ok(r.seats[0].conn && r.seats[1].token);
+  r.receive(a, { t: 'free', seat: 1 });
+  assert.deepEqual(got(c, 'lobby').at(-1).seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false }, 'open at once, told to all');
+  const b3 = conn('b3'); assert.equal(r.connect(b3, hello({ name: 'Bo' })), 1, 'Bo sits again');
+  r.receive(a, { t: 'ai', seat: 2, on: false }); r.receive(a, { t: 'free', seat: 2 }); // (Cy is here: neither frees it)
+  assert.ok(r.seats[2].conn);
+  const d = conn('d'); assert.equal(r.connect(d, hello()), -1);
+  assert.equal(got(d, 'error')[0].msg, 'That room is full', 'nobody held away: the plain line');
+});
+
+test('a lobby leave is confirmed: a ping right after it is answered, the seat open', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.receive(b, { t: 'leave' }); r.receive(b, { t: 'ping', id: 7 });
+  assert.equal(got(b, 'pong')[0]?.id, 7);
+  assert.equal(r.seats[1].token, null);
 });
 
 test('pings are answered, and a stranger is ignored', () => {

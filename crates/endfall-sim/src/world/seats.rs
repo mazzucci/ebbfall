@@ -18,7 +18,9 @@ impl World {
     }
 
     /// Choose each seat's team before play: a team id per seat, each below the number of seats, at least two teams.
-    /// False (nothing changes) otherwise.
+    /// False (nothing changes) otherwise. The fog follows at once (allies share vision from the first frame). With
+    /// fewer seats than starts the free starts go between teams (`map::team_starts`; each team a run of consecutive
+    /// seats): a world that has not started is dealt again on that layout (the same map, the same draws).
     pub fn set_teams(&mut self, teams: &[u8]) -> bool {
         let n = self.seats();
         if teams.len() != n
@@ -27,7 +29,17 @@ impl World {
         {
             return false;
         }
+        let k = crate::map::starts_for(self.map_size, n);
+        let moved = self.tick == 0
+            && n <= k
+            && crate::map::team_starts(k, teams, self.side)
+                != crate::map::team_starts(k, &self.teams, self.side);
         self.teams = teams.to_vec();
+        if moved {
+            self.reset(self.seed, self.diff); // (it ends with update_fog, on these teams)
+        } else {
+            self.update_fog();
+        }
         true
     }
 

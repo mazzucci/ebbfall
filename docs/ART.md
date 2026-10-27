@@ -81,7 +81,8 @@ atlas.json also holds `tints`, the mask tint per seat (see Seat colours above).
 
 Chosen apart from each other (CIELAB distance at least 35 with normal vision, about 15-18 under simulated protanopia
 and deuteranopia, where lightness parts gold from green and red), from the dark ground, the selection marks and the
-resources' teal and violet. The minimap shows them only with more than two seats (two seats: ours amber, theirs rose).
+resources' teal and violet. The minimap shows them only with more than two seats (two seats: ours amber, theirs rose); in a team game an
+ally's buildings there are framed in white.
 White on the Vael's pearl shell and lilac near their violet crystals read weaker than the rest.
 
 ## Tweaking

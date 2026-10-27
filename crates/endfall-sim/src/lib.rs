@@ -93,6 +93,22 @@ impl Game {
     pub(crate) fn valid_team(&self, t: u8) -> Option<u8> {
         ((t as usize) < self.w.seats()).then_some(t)
     }
+
+    /// `withSeats` with every AI at the game's `diff` (Rust callers; JS leaves `diffs` out).
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_seats(
+        seed: u32,
+        diff: u32,
+        map: u32,
+        side: u32,
+        factions: &[u32],
+        teams: &[u8],
+        ai: &[u8],
+        me: u8,
+        size: Option<u32>,
+    ) -> Result<Game, String> {
+        Game::with_seat_diffs(seed, diff, map, side, factions, teams, ai, me, size, None)
+    }
 }
 
 /// A race by index into FACTIONS (unknown = Humans).
@@ -149,11 +165,12 @@ impl Game {
     /// A game for any number of seats, seen from seat `me`: each seat's race (index into FACTIONS), team (empty: each
     /// seat its own) and whether the scripted opponent plays it (1) or a person (0; empty: nobody's an AI), on a map
     /// of `size` x `size` tiles (64, the default, has 2 starts; 96 has 4; 128 has 8); `side` turns the seats round the
-    /// starts. Throws for a setup the sim cannot play (fewer than 2 seats, more than the map's starts, another size,
-    /// lists of other lengths, one team).
+    /// starts; `diffs`, each AI seat's own difficulty (empty or left out: every AI plays `diff`). Throws for a setup
+    /// the sim cannot play (fewer than 2 seats, more than the map's starts, another size, lists of other lengths, one
+    /// team).
     #[wasm_bindgen(js_name = withSeats)]
     #[allow(clippy::too_many_arguments)]
-    pub fn with_seats(
+    pub fn with_seat_diffs(
         seed: u32,
         diff: u32,
         map: u32,
@@ -163,6 +180,7 @@ impl Game {
         ai: &[u8],
         me: u8,
         size: Option<u32>,
+        diffs: Option<Vec<u8>>,
     ) -> Result<Game, String> {
         let n = factions.len();
         let size = size.unwrap_or(64);
@@ -202,6 +220,9 @@ impl Game {
             return Err(
                 "Teams: an id per seat, below the number of seats, two teams at least".into(),
             );
+        }
+        if !w.set_diffs(diffs.as_deref().unwrap_or(&[])) {
+            return Err("A difficulty list of the wrong length".into());
         }
         let ai: Vec<bool> = (0..n).map(|s| ai.get(s).is_some_and(|&a| a != 0)).collect();
         w.set_ai_seats(ai);
@@ -259,6 +280,7 @@ impl Game {
             &old.factions,
         );
         w.set_teams(&old.teams);
+        w.diffs = old.diffs.clone();
         w.set_ai_seats(&old.ai_seats);
         self.w = w;
         self.replay = Some(Replay { log, next: 0, end });
@@ -273,6 +295,13 @@ impl Game {
 
     pub fn tick(&self) -> u32 {
         self.w.tick
+    }
+
+    /// The difficulty seat `seat`'s AI plays at (its own, else the game's; 0 for no such seat).
+    #[wasm_bindgen(js_name = diffOf)]
+    pub fn diff_of(&self, seat: u8) -> u32 {
+        self.valid_team(seat)
+            .map_or(0, |s| self.w.diff_of(s) as u32)
     }
 
     #[wasm_bindgen(js_name = stateHash)]
@@ -584,7 +613,7 @@ impl Game {
     pub fn occ(&self) -> Vec<i32> {
         self.w.map.occ.clone()
     }
-    /// Tiles `team` sees right now (in a replay: what any seat sees).
+    /// Tiles `team` sees right now, with its allies (they share vision; in a replay: what any seat sees).
     pub fn vis(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.vis, team)
     }
@@ -600,7 +629,7 @@ impl Game {
         self.valid_team(team)
             .map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
-    /// Tiles `team` has ever seen (in a replay: any seat).
+    /// Tiles `team` or an ally has ever seen (in a replay: any seat).
     pub fn explored(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.explored, team)
     }

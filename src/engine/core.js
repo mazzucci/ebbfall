@@ -1,7 +1,8 @@
 // The Rust sim (WASM) behind the surface the client reads: a live `G` and `map`, entity
 // objects with stable identity (selections hold them), and order functions that take those objects.
 // State is mirrored from flat snapshot arrays after every step and order, so entity objects in hand are
-// always current (a few hundred records: cheap next to rendering). Requires the WASM module to be initialised first (index.js does it in the browser,
+// always current; the game loop's `advance` leaves the mirror for the next read of `G` (once a frame, however many
+// ticks ran). Entity objects and their parts are updated in place: nothing is allocated per entity per tick. Requires the WASM module to be initialised first (index.js does it in the browser,
 // tests call initSync).
 import { Game, mapPreview as simMapPreview } from './pkg/endfall_sim.js';
 import { TILE, DUEL_MW, DUEL_MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
@@ -17,7 +18,7 @@ const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length,
 const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades, ABILITY_KEYS = SCHEMA.abilities;
 const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
 
-let game = null, dirty = true;
+let game = null, dirty = true, occStale = false, gen = 0;
 /** The map's size in tiles and in world px: the game's, set when it starts (a two-seat map's before any). Live
  *  bindings: read them where they are used, never copy them at load. */
 export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
@@ -32,17 +33,20 @@ const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ
 const live = (k) => ({ enumerable: true, get() { sync(); return S[k]; } });
 /** The world as the client sees it. Read-only: change it through the order functions below. */
 export const G = Object.defineProperties({}, Object.fromEntries(Object.keys(S).map(k => [k, live(k)])));
-export const map = Object.defineProperties({}, Object.fromEntries(Object.keys(M).map(k => [k, { enumerable: true, get() { sync(); return M[k]; } }])));
+export const map = Object.defineProperties({}, Object.fromEntries(Object.keys(M).map(k => [k, { enumerable: true, get() { sync(); if (k === 'occ') syncOcc(); return M[k]; } }])));
+/** The occupancy grid (the largest snapshot, read only by placement and the scenery) is copied when it is read. */
+function syncOcc() { if (occStale && game) { occStale = false; M.occ.set(game.occ()); } }
 
 export const idx = (x, y) => y * MW + x;
 export const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
 export const blocked = (x, y) => !inMap(x, y) || map.rock[idx(x, y)] || map.occ[idx(x, y)] !== 0;
 
-function retire(pool, seen) { for (const [id, e] of pool) if (!seen.has(id)) { e.dead = true; pool.delete(id); } }
+/** Entities not in this snapshot (their `gen` is an older one) are gone. */
+function retire(pool) { for (const [id, e] of pool) if (e.gen !== gen) { e.dead = true; pool.delete(id); } }
 
 function sync() {
   if (!dirty || !game) return;
-  dirty = false;
+  dirty = false; gen++;
   const I = game.info();
   Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], conceded: I[fi.conceded], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
   // A record per seat follows the info record, then each seat's upgrade levels.
@@ -55,62 +59,66 @@ function sync() {
     S.stats[t] = Object.assign(S.stats[t] || {}, { built: at('built'), lost: at('lost'), killed: at('killed'), razed: at('razed') });
     const ups = S.upgrades[t] ||= {}; UPGRADE_KEYS.forEach((k, i) => { ups[k] = I[lv + t * UPGRADE_KEYS.length + i]; });
   }
-  S.me = game.me(); S.replaying = game.replayEnd() > 0; S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); M.occ.set(game.occ());
+  S.me = game.me(); S.replaying = game.replayEnd() > 0; S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); occStale = true;
 
-  const N = game.nodes(), seenN = new Set(); M.nodes = [];
+  const N = game.nodes(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
-    const id = N[o + fn.id], ether = !!N[o + fn.ether]; seenN.add(id);
+    const id = N[o + fn.id], ether = !!N[o + fn.ether];
     let n = nodes.get(id);
-    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'shard', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: ether ? 2 : 1, h: ether ? 2 : 1, max: N[o + fn.amount], dead: false });
-    n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners]; n.extractorId = N[o + fn.extractor];
+    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'shard', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: ether ? 2 : 1, h: ether ? 2 : 1, max: N[o + fn.amount], dead: false, gen, amount: 0, miners: 0, extractorId: 0, extractor: null });
+    n.gen = gen; n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners]; n.extractorId = N[o + fn.extractor];
     M.nodes.push(n);
   }
-  retire(nodes, seenN);
+  retire(nodes);
 
-  const B = game.buildings(), seenB = new Set(); S.bldgs = [];
+  const B = game.buildings(); S.bldgs = [];
   for (let o = 0; o < B.length; o += BS) {
-    const id = B[o + fb.id]; seenB.add(id);
+    const id = B[o + fb.id];
     let b = bldgs.get(id);
     if (!b) {
       const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
-      bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false });
+      bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false, gen, queue: [], rally: null, research: null, vent: null });
     }
-    b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.planted = !!B[o + fb.planted]; b.powered = !!B[o + fb.powered]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
-    b.rally = B[o + fb.has_rally] ? { x: B[o + fb.rally_x], y: B[o + fb.rally_y], node: nodes.get(B[o + fb.rally_node]) || null } : null;
-    b.queue = []; for (let k = 0; k < B[o + fb.queue_len]; k++) b.queue.push(UNIT_KEYS[B[o + fb.q0 + k]]);
-    b.research = B[o + fb.research] ? { type: UPGRADE_KEYS[B[o + fb.research] - 1], prog: B[o + fb.research_prog] } : null;
+    b.gen = gen; b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.planted = !!B[o + fb.planted]; b.powered = !!B[o + fb.powered]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
+    if (B[o + fb.has_rally]) { const r = b.rally ||= {}; r.x = B[o + fb.rally_x]; r.y = B[o + fb.rally_y]; r.node = nodes.get(B[o + fb.rally_node]) || null; } else b.rally = null;
+    const q = b.queue; q.length = B[o + fb.queue_len]; for (let k = 0; k < q.length; k++) q[k] = UNIT_KEYS[B[o + fb.q0 + k]];
+    if (B[o + fb.research]) { const r = b.research ||= {}; r.type = UPGRADE_KEYS[B[o + fb.research] - 1]; r.prog = B[o + fb.research_prog]; } else b.research = null;
     S.bldgs.push(b);
   }
-  retire(bldgs, seenB);
+  retire(bldgs);
   for (const b of S.bldgs) b.vent = null;
   for (const n of M.nodes) { n.extractor = bldgs.get(n.extractorId) || null; if (n.extractor) n.extractor.vent = n; }
 
-  const U = game.units(), seenU = new Set(), attacks = []; S.units = [];
+  const U = game.units(); S.units = []; attacks.length = 0;
   for (let o = 0; o < U.length; o += US) {
-    const id = U[o + fu.id]; seenU.add(id);
+    const id = U[o + fu.id];
     let u = units.get(id);
-    if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: {}, dead: false }); }
-    u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
+    if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: { t: null, phase: null, node: null, b: null, target: null }, abCd: [0, 0], dead: false, gen }); }
+    u.gen = gen; u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
     const ct = U[o + fu.carry_type];
     u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
     // Abilities: seconds of cooldown left per slot (the kind's `abilities` order), the boost and the toggle that are on.
-    u.abCd = [U[o + fu.ab_cd0], U[o + fu.ab_cd1]]; u.boost = ABILITY_KEYS[U[o + fu.boost] - 1] || null;
-    u.mode = ABILITY_KEYS[U[o + fu.mode] - 1] || null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
-    const t = TASKS[U[o + fu.task]], target = U[o + fu.target];
-    u.task = { t };
-    if (t === 'gather') { u.task.phase = PHASES[U[o + fu.phase]]; u.task.node = nodes.get(target) || null; }
-    else if (t === 'attack') attacks.push([u, target]);
-    else if (t === 'build' || t === 'repair') u.task.b = bldgs.get(target) || null;
+    // (no ability is 0: never read a key at index -1, which is a slow property lookup)
+    u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const boost = U[o + fu.boost], mode = U[o + fu.mode];
+    u.boost = boost > 0 ? ABILITY_KEYS[boost - 1] || null : null;
+    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
+    const t = TASKS[U[o + fu.task]], target = U[o + fu.target], task = u.task;
+    task.t = t; task.phase = task.node = task.b = task.target = null;
+    if (t === 'gather') { task.phase = PHASES[U[o + fu.phase]]; task.node = nodes.get(target) || null; }
+    else if (t === 'attack') attacks.push(u, target);
+    else if (t === 'build' || t === 'repair') task.b = bldgs.get(target) || null;
     S.units.push(u);
   }
-  retire(units, seenU);
-  for (const [u, id] of attacks) u.task.target = units.get(id) || bldgs.get(id) || null;
+  retire(units);
+  for (let i = 0; i < attacks.length; i += 2) attacks[i].task.target = units.get(attacks[i + 1]) || bldgs.get(attacks[i + 1]) || null;
 
   const P = game.projectiles(); S.projs = [];
   for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
 
-  for (const e of JSON.parse(game.drainEvents())) S.events.push(e);
+  const ev = game.drainEvents();
+  if (ev !== '[]') for (const e of JSON.parse(ev)) S.events.push(e);
 }
+const attacks = []; // (units attacking, and their target's id: resolved once every unit is in)
 
 const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
@@ -150,15 +158,20 @@ export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy 
   const f = (k) => { const i = Object.keys(FACTIONS).indexOf(k); if (i < 0) throw new Error(`no race ${k}`); return i; }; // (a menu's RANDOM is drawn before)
   fresh(Game.withSize(seed >>> 0, diff, map, side, f(race), f(enemy), size));
 }
-/** A game for any number of seats, seen from seat `me` (tests for now; M4's lobby): each seat's race key, team (empty:
- *  each its own) and whether the AI plays it (empty: nobody), on a `size` x `size` map with a start per seat (64: 2,
- *  96: 4, 128: 8). Throws for a setup the sim cannot play. */
-export function resetGameSeats(seed, diff, map, side, races, teams, ai, me, size = DUEL_MW) {
+/** A game for any number of seats, seen from seat `me` (single player's seat list; tests): each seat's race key, team
+ *  (empty: each its own) and whether the AI plays it (empty: nobody), on a `size` x `size` map with a start per seat
+ *  (64: 2, 96: 4, 128: 8); `diffs`, each AI seat's difficulty (empty: every AI at `diff`). Throws for a setup the sim
+ *  cannot play. */
+export function resetGameSeats(seed, diff, map, side, races, teams, ai, me, size = DUEL_MW, diffs = []) {
   const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
   fresh(Game.withSeats(seed >>> 0, diff, map, side, Uint32Array.from(races.map(f)), Uint8Array.from(teams),
-    Uint8Array.from(ai.map(a => a ? 1 : 0)), me, size));
+    Uint8Array.from(ai.map(a => a ? 1 : 0)), me, size, diffs.length ? Uint8Array.from(diffs) : undefined));
 }
 export function step() { if (!game.canStep()) return false; game.step(); dirty = true; sync(); return true; }
+/** One tick, mirrored at the next read of `G` or `map` (the game loop: once a frame, however many ticks it ran). */
+export function advance() { if (!game.canStep()) return false; game.step(); dirty = true; return true; }
+/** Mirror the ticks `advance` ran now (the game loop does, once its steps are done: the device test times it there). */
+export function mirror() { sync(); }
 /** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
 export function startReplay() {
   if (!game.startReplay()) return false;
@@ -168,6 +181,8 @@ export function startReplay() {
 }
 /** The tick the replay being watched ends on (0: none). */
 export const replayEnd = () => game.replayEnd();
+/** The difficulty seat `seat`'s AI plays at (single player's seat list gives each its own). */
+export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
  *  byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start. */
@@ -230,9 +245,10 @@ export function canHit(shooter, target) {
   return !!w && (air ? w.dmgAir : w.dmg) > 0;
 }
 
-/** Whether this client's player (seat G.me) can see this unit or building right now. */
+/** Whether this client's player (seat G.me) can see this unit or building right now. G.vis is the team's sight (allies
+ *  share vision, crates/endfall-sim/src/world/fog.rs): our allies' are always seen, their enemies where any of us sees. */
 export function visibleEnt(e) {
-  if (e.team === S.me) return true;
+  if (e.team === S.me || !enemies(S.me, e.team)) return true;
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
   if ((e.hid >> S.me) & 1 && !S.replaying) return false; // cloaked, and we detect nothing there (a replay shows all)

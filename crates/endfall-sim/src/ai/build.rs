@@ -117,7 +117,7 @@ impl World {
             .filter(|n| !n.ether && (n.tx as f64 - cx).abs().max((n.ty as f64 - cy).abs()) <= 12.0)
             .map(|n| n.amount)
             .sum();
-        DIFF[self.diff].expands_when_dry && home < HOME_LOW
+        self.level().expands_when_dry && home < HOME_LOW
     }
 
     /// The AI keeps a free one-tile walkway around everything it builds, so it never walls its own units in.
@@ -256,7 +256,7 @@ impl World {
 
     /// How many main factories the build order wants by time `t`: the difficulty's, one more after 5 and 9 minutes.
     pub(crate) fn rax_schedule(&self, t: f64) -> usize {
-        DIFF[self.diff].rax + (t > 300.0) as usize + (t > 540.0) as usize
+        self.level().rax + (t > 300.0) as usize + (t > 540.0) as usize
     }
 
     /// Whether shards pile up for want of factories: a bank of `SHARD_FLOAT` with every main factory busy, while
@@ -272,7 +272,7 @@ impl World {
             .fold((0, 0), |(busy, all), b| {
                 (busy + (b.done && !b.queue.is_empty()) as usize, all + 1)
             });
-        let d = &DIFF[self.diff];
+        let d = &DIFF[self.diff_of(e)];
         let [used, cap] = self.sup[e as usize];
         let hq = self.factions[e as usize].hq;
         let expanded = || {
@@ -306,7 +306,7 @@ impl World {
             cores,
             ..
         } = brain.clone();
-        let d = &DIFF[self.diff];
+        let d = self.level();
         // A free vent near a point (where find_spot looks): wanting an Extractor without one would stall the build.
         let free_vent = |w: &World, (fx, fy): (f64, f64)| {
             w.map.nodes.iter().any(|n| {
@@ -507,7 +507,7 @@ impl World {
             cy,
             ..
         } = brain.clone();
-        let d = &DIFF[self.diff];
+        let d = self.level();
         // A second base, outside the build order above: the AI saves up for it (see research) and places it
         // even while supply depots go up. Sooner if the home field is running dry.
         let dry = self.home_dry(cx, cy);

@@ -126,7 +126,7 @@ impl World {
             team,
             wait,
             turns: 0,
-            wave: DIFF[self.diff].wave,
+            wave: DIFF[self.diff_of(team)].wave,
             last_wave: -20.0,
             attacking: false,
             attackers: None,
@@ -154,6 +154,10 @@ impl World {
     pub(crate) fn seat(&self) -> u8 {
         self.ai_turn
     }
+    /// The difficulty of the AI taking its turn (each AI seat may have its own: `World::diff_of`).
+    pub(crate) fn level(&self) -> &'static Diff {
+        &DIFF[self.diff_of(self.seat())]
+    }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two
     /// neighbours as near: ties go to its partner (seats 0 and 1, 2 and 3, ...), then to the next seat after its own.
@@ -161,7 +165,11 @@ impl World {
     /// the ring, every wave would find a base whose army is out, and every economy would fall at once). With two
     /// seats, the other one.
     pub(crate) fn foe(&self) -> u8 {
-        let me = self.ai_turn;
+        self.foe_of(self.ai_turn)
+    }
+    /// `foe` of seat `me` (tests: whom its scout and waves look for).
+    #[doc(hidden)]
+    pub fn foe_of(&self, me: u8) -> u8 {
         let n = self.seats() as u8;
         let (mx, my) = self.map.bases[me as usize];
         (0..n)
@@ -315,7 +323,7 @@ impl World {
     /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
     /// (the rules are `World::auto_cast`, shared with the balance duels).
     fn ai_abilities(&mut self, _brain: &mut Brain) {
-        if DIFF[self.diff].abilities {
+        if self.level().abilities {
             self.auto_cast(self.seat());
         }
     }

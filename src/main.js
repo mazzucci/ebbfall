@@ -1,8 +1,8 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -24,6 +24,10 @@ audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.
 const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
 
 let started = false;
+// The device test (?bench: src/client/bench.js, loaded only then) plays a game of its own through `begin`, on nobody's
+// record, and times the loop's phases while `probe.on`.
+const BENCH = new URLSearchParams(location.search).has('bench');
+const probe = { on: false, lap() {} };
 const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
@@ -78,7 +82,7 @@ function leaveLine() {
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
 function giveUp() {
   if (online.playing) { if (started && !G.over) online.net?.leave(); return; } // (an online game: the relay concedes for us at once; not on the vs-AI record)
-  if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff);
+  if (started && !G.over && !menu.tutorial && !ui.watching && !BENCH) recordResult(false, G.factions[G.me], G.diff);
 }
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
@@ -109,8 +113,8 @@ function drainEvents() {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') { if (!ui.watching) toast(e.msg, e.bad); } // (a replay shows the game, not its news)
     else if (e.t === 'ping') { if (!ui.watching) ping(e.x, e.y); } // (something of ours finished, or needs a look)
-    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
-    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
+    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); } // (particles on screen only)
+    else if (e.t === 'hit') { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
@@ -177,7 +181,7 @@ function endGame() {
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
-  if (!online.playing && !menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
+  if (!online.playing && !menu.tutorial && !BENCH) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
   if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
@@ -217,27 +221,33 @@ setInterval(() => {
   if (!document.hidden || !online.playing || !started) return;
   const waiting = online.net.pump(); // (also after the game: heartbeats, for a rematch)
   if (G.over) return;
-  for (let i = 0; i < waiting && step(DT); i++) online.net.ticked();
+  for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
 $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
 
 // ---- loop ----
-let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false;
+let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;
 function loop(now) {
+  if (probe.on) probe.lap('start', now);
   const el = Math.min(0.1, (now - last) / 1000); last = now;
   if (input.enabled()) camKeys(el);
   if (running()) {
     const speed = ui.watching || 1; // (a replay plays faster)
     acc += el * speed; let n = 0;
-    const done = () => ui.watching && (G.over || G.tick > replayEnd()); // (a replay stops where the game ended: its last tick's orders, then over)
+    // A replay stops where the game ended (`replayEnd`, the tick it was watched from; the same game is over there):
+    // read from the sim itself, as reading G before every step would mirror the world each time. G.over is looked at
+    // once the frame's steps are run, below.
+    const end = ui.watching ? replayEnd() : 0, done = () => ui.watching && liveGame().tick() > end;
     // Online: the relay's turns in, our orders out; behind by more than a few ticks, run faster to catch up.
     const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5 * speed;
     while ((acc >= DT || n < waiting - 9) && n++ < max && !done()) {
-      if (!step(DT)) { acc = Math.min(acc, DT); break; } // (its turn is not in yet)
+      if (!advance()) { acc = Math.min(acc, DT); break; } // (its turn is not in yet; the client's mirror of the world catches up once, after the steps)
       acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
     }
     if (acc > DT * 5 * speed) acc = 0;
+    mirror(); // (this frame's ticks into G, once)
+    if (probe.on) probe.lap('steps');
     drainEvents();
     if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
   }
@@ -248,8 +258,14 @@ function loop(now) {
   else if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
-  if (started) render(ui.sel, ui.place, showPower());
+  if (probe.on) probe.lap('events');
+  // At most 60 frames a second (a 120 Hz phone would draw every frame twice as often for nothing: the world moves 30
+  // times a second), and 20 under a card that stops the game (pause, leave, help, end).
+  const draw = started && now - drawn >= (running() ? 12 : 50);
+  if (draw) { drawn = now; render(ui.sel, ui.place, showPower()); }
+  if (probe.on) probe.lap('render', draw);
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
+  if (probe.on) probe.lap('end');
   requestAnimationFrame(loop);
 }
 
@@ -257,6 +273,8 @@ new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
 window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
 bindInput(); resize(); requestAnimationFrame(loop);
+if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
+  .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
 // Ebbfall opens and plays without a connection once it has been loaded.

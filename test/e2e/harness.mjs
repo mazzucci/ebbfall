@@ -68,7 +68,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       bldgs: endfall.G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, tx: b.tx, ty: b.ty, x: b.x, y: b.y, w: b.w, h: b.h, done: b.done, progress: b.progress, planted: b.planted, powered: b.powered, queue: b.queue.slice() })),
       nodes: endfall.map.nodes.map(n => ({ id: n.id, type: n.type, tx: n.tx, ty: n.ty, x: n.x, y: n.y, r: n.r })),
     })),
-    skip: (s) => ev((s) => endfall.skip(s), s),
+    // Skip game time, then let the frame loop run twice (or 250 ms at most): what the skipped ticks raised (toasts,
+    // alerts, effects) reaches the page as a player would see it, not on whichever frame comes next.
+    skip: (s) => ev((s) => { endfall.skip(s); return new Promise(r => { const t = setTimeout(r, 250); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(t); r(); })); }); }, s),
     grant: (shards, ether) => ev(([a, b]) => endfall.setResources(0, a, b), [shards, ether]),
     centerOn: (x, y) => ev(([x, y]) => endfall.centerOn(x, y), [x, y]),
     /** World point → page pixel (after centring the camera there, so it is on screen). */
@@ -123,6 +125,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
     /** Labels of the command card buttons as the player sees them, with their enabled state. */
     card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('.l').textContent, enabled: !b.disabled && b.getAttribute('aria-disabled') !== 'true' }))),
+    /** Wait until the card shows `label` usable (not locked): after a set-up changed what it offers (a tech
+     *  researched by the debug handle), the card is drawn again on a later frame. */
+    readyCard: (label) => page.locator('#cmd button:not([disabled]):not(.locked)', { hasText: label }).first().waitFor({ timeout: 5000 }),
     async pressCard(label) {
       const b = page.locator('#cmd button:not([disabled])', { hasText: label }).first();
       await b.waitFor({ timeout: 5000 });
@@ -140,11 +145,15 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     }, [type, near]),
     /** Select a harvester by clicking it, then place `type` (by its hotkey) at tile (tx, ty) by clicking. */
     async buildWithUI(hotkey, type, tx, ty, harvesterId) {
-      // A mining harvester moves: a tap may miss it (or let go of it); try again until it is the selection.
-      for (let i = 0; i < 4; i++) {
+      // A mining harvester moves, and while it unloads it is under the Core: a tap may miss it (or let go of it); try
+      // again, a little later each time, until it is the selection (a slow machine needs more than a few tries).
+      let picked = false;
+      for (let i = 0; i < 16 && !picked; i++) {
+        if (i) await page.waitForTimeout(150 + 50 * i);
         await d.clickEntity(harvesterId);
-        if ((await d.selection()).some(e => e.id === harvesterId)) break;
+        picked = (await d.selection()).some(e => e.id === harvesterId);
       }
+      if (!picked) throw new Error(`could not select harvester ${harvesterId} to build a ${type}`);
       if (touch) {
         // The button as the card shows it, on the page of the Build menu its race lists it on.
         const { advanced, label } = await ev((t) => {

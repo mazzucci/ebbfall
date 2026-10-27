@@ -319,6 +319,49 @@ test('a game of four seats on a four-start map mirrors every seat\'s record', { 
   assert.deepEqual([E.MW, E.G.teams.length], [64, 2]);
 });
 
+/** The client's view of the world as plain data: every mirrored field of every entity (references by id). */
+function view() {
+  const { G, map } = E, id = (e) => e ? e.id : null;
+  return JSON.stringify({
+    tick: G.tick, time: G.time, over: G.over, winner: G.winner, out: G.out, res: G.res, sup: G.sup, stats: G.stats, upgrades: G.upgrades,
+    vis: Array.from(G.vis), explored: Array.from(G.explored), occ: Array.from(map.occ),
+    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, carryType: u.carryType, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, warp: u.warp, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
+    bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, planted: b.planted, powered: b.powered, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, vent: id(b.vent), dead: b.dead })),
+    nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners, extractor: id(n.extractor) })),
+    projs: G.projs,
+  });
+}
+
+test('advance() then one read of G is the same as step() after step(): the same world, every tick\'s events, the dead let go', { skip }, () => {
+  const setup = () => E.resetGameSeats(77, 2, 0, 0, ['humans', 'vael', 'vael', 'humans'], [], [true, true, true, true], 0, 96);
+  const runs = [], TICKS = 30 * 240, chunk = (k) => 1 + (k * 5) % 7; // (1 to 7 ticks between reads)
+  // Eagerly mirrored: a step, its events; the world and the events since the last read at each read of the other run.
+  setup();
+  let events = [];
+  for (let t = 0, k = 0, next = chunk(0); t < TICKS; t++) {
+    E.step(); events.push(...E.G.events); E.G.events.length = 0;
+    if (t + 1 === next || t + 1 === TICKS) { runs.push({ hash: E.stateHash(), view: view(), events: JSON.stringify(events) }); events = []; next += chunk(++k); }
+  }
+  // Lazily: several ticks, then one read.
+  setup();
+  const held = new Map(); let i = 0, fights = 0;
+  for (let t = 0, k = 0; t < TICKS; k++) {
+    const n = Math.min(chunk(k), TICKS - t);
+    for (let j = 0; j < n; j++) assert.ok(E.advance());
+    t += n;
+    const r = runs[i++], v = view();
+    assert.equal(E.stateHash(), r.hash, `tick ${t}: the same game`);
+    assert.equal(JSON.stringify(E.G.events), r.events, `tick ${t}: every tick's events, in order`);
+    fights += E.G.events.filter(e => e.t === 'burst' || e.t === 'hit').length; E.G.events.length = 0;
+    assert.ok(v === r.view, `tick ${t}: the same mirror`);
+    for (const u of E.G.units) held.set(u.id, u);
+    for (const [id, u] of held) if (!E.G.units.includes(u)) { assert.ok(u.dead, `unit ${id} gone: marked dead`); held.delete(id); }
+  }
+  assert.equal(i, runs.length);
+  assert.ok(fights > 0, 'fights in the game (events of every kind compared)');
+  E.resetGame(4, 0); // (back to a duel's map for the tests after)
+});
+
 test('allies share vision: G.vis is what this side\'s team sees, its fog-free area and the units in it', { skip }, () => {
   // Seat 1's Trooper in the middle of a 96x96 map, an enemy (seat 2) beside it; nobody else near. Seen from seat 0.
   const look = (teams) => {

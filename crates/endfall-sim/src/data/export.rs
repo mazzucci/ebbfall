@@ -133,6 +133,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         Effect::Shields => ("shields", ""),
         Effect::Unlock(a) => ("unlock", a.def().key),
         Effect::Speed(u) => ("speed", u.def().key),
+        Effect::BuildSpeed => ("build", ""),
     };
     Obj::new()
         .str("name", d.name)
@@ -186,6 +187,7 @@ pub fn data_json() -> String {
         .num("enemy", ENEMY)
         .num("unit_warp", UNIT_WARP)
         .num("tech_speed", TECH_SPEED)
+        .num("tech_build", TECH_BUILD)
         .done();
     Obj::new()
         .raw("consts", consts)

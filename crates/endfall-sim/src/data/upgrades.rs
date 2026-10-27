@@ -1,6 +1,6 @@
 //! Team-wide upgrades: the three-level Weapons/Armor/Shields, and one-level techs (a heavy unit's ability, a faster
-//! flyer) that make each race's tech a set of choices the other side must scout. A line unit's ability (Stim, Blink)
-//! needs none: it is there from the first fight.
+//! flyer, faster construction) that make each race's tech a set of choices the other side must scout. A line unit's
+//! ability (Stim, Blink) needs none: it is there from the first fight.
 
 use super::{AbilityKind, UnitKind};
 
@@ -17,6 +17,7 @@ pub enum Upgrade {
     Slipstream,
     CloakingField,
     VeilWeave,
+    RapidConstruction,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -32,10 +33,15 @@ pub enum Effect {
     Unlock(AbilityKind),
     /// Researched, this unit kind moves `TECH_SPEED` times as fast.
     Speed(UnitKind),
+    /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
+    /// tech: a Human builder mines nothing while it builds.
+    BuildSpeed,
 }
 
 /// The speed a `Speed` tech gives its unit, as a multiple.
 pub const TECH_SPEED: f64 = 1.3;
+/// The construction rate a `BuildSpeed` tech gives, as a multiple (1.25: a building takes 80% of its time).
+pub const TECH_BUILD: f64 = 1.25;
 
 pub struct UpgradeDef {
     pub key: &'static str,
@@ -119,7 +125,6 @@ const SLIPSTREAM: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
-/// Every upgrade, in index order.
 const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
     key: "cloakingField",
     name: "Cloaking Field",
@@ -136,8 +141,16 @@ const VEIL_WEAVE: UpgradeDef = UpgradeDef {
     effect: Effect::Unlock(AbilityKind::Veil),
     ..CLOAKING_FIELD
 };
+const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
+    key: "rapidConstruction",
+    name: "Rapid Construction",
+    short: "Rapid Build",
+    effect: Effect::BuildSpeed,
+    ..TECH
+};
 
-pub const UPGRADES: [Upgrade; 9] = [
+/// Every upgrade, in index order.
+pub const UPGRADES: [Upgrade; 10] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -147,6 +160,7 @@ pub const UPGRADES: [Upgrade; 9] = [
     Upgrade::Slipstream,
     Upgrade::CloakingField,
     Upgrade::VeilWeave,
+    Upgrade::RapidConstruction,
 ];
 
 impl Upgrade {
@@ -161,6 +175,7 @@ impl Upgrade {
             Upgrade::Slipstream => &SLIPSTREAM,
             Upgrade::CloakingField => &CLOAKING_FIELD,
             Upgrade::VeilWeave => &VEIL_WEAVE,
+            Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

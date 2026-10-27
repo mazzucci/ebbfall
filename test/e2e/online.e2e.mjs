@@ -2,7 +2,7 @@
 // opens a room from the menu, the other joins by the shared link, both ready up, and the game runs in lockstep in both.
 // One gives orders; both worlds must be the same on every tick they both ran (the network layer's hash trail), and
 // leaving concedes: the other side wins. The pause card online: a menu over a game that goes on, and a pause for
-// everyone that only its caller ends.
+// everyone that only its caller ends. A room of three with an AI seat (M4): both browsers run the AI alike.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
@@ -115,6 +115,48 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       assert.ok(await b.p.evaluate(() => !!endfall.online.net && !endfall.online.net.closed), 'the new room is still open');
       assert.ok(await a.p.locator('#start').isVisible(), 'Ann is back on the menu');
       assert.deepEqual([...toasts].filter(t => /left/.test(t)), [], 'no news of her own leaving');
+      assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
+    } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});
+
+test('three seats, one the AI\'s: the host sets it up, a friend joins, both browsers run the same game and the AI plays', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(PHONE, relayQ);
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    // The host: three players (the maps that seat them, a badge: one start stays free), the AI on the third seat.
+    await a.tap('#onlinePlayers [data-n="3"]');
+    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
+    assert.deepEqual(await a.p.$$eval('#onlineMaps .map .up', bs => bs.map(b => b.textContent)), ['up to 4', 'up to 4', 'up to 4', 'up to 4'], 'the maps that seat three, each up to 4');
+    assert.ok(await a.p.locator('#onlineTeams').isHidden(), 'no teams for three');
+    await a.tap('#seatList [data-act="ai"][data-seat="2"]');
+    await a.p.waitForFunction(() => document.querySelector('#seatList .seat.ai') && !document.getElementById('onlineAi').hidden);
+    await a.tap('#onlineDiff [data-d="2"]');
+    await a.p.waitForFunction(() => document.querySelector('#onlineDiff .ib.on')?.dataset.d === '2');
+    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Send a friend the link, or add the AI, then wait here');
+    const b = await page(DESKTOP, `${relayQ}&join=${code}`);
+    try {
+      await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
+      await b.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3 && /AI/.test(document.getElementById('seatList').textContent));
+      assert.equal(await b.p.locator('#seatList [data-act]').count(), 0, 'the friend changes no seat but its own');
+      assert.ok(await b.p.locator('#onlinePlayers [data-n="2"]').isDisabled(), "the players are the host's to pick");
+      await a.p.waitForFunction(() => /Ready when you are/.test(document.getElementById('onlineStatus').textContent));
+      await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 300, null, { timeout: 40000 });
+      const setup = await a.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.online.setup.diff, endfall.engine.MW, endfall.G.factions.length, endfall.G.diff, endfall.online.names]);
+      assert.deepEqual(setup, [[0, 0, 1], [0, 1, 2], 2, 96, 3, 2, ['Ann', 'Bo', 'the AI']], 'three seats on 96x96, the third the AI\'s at Hard');
+      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
+      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
+      const common = [...ta.keys()].filter(t => tb.has(t));
+      assert.ok(common.length > 60, `both ran the same stretch (${common.length} ticks in common)`);
+      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      const ai = (x) => x.p.evaluate(() => [endfall.G.units.filter(u => u.team === 2).length, endfall.G.bldgs.some(b => b.team === 2 && b.queue.length > 0)]);
+      const [units, training] = await ai(a);
+      assert.ok(units > 4 || training, `the AI plays (${units} units, training: ${training})`);
+      assert.ok(await a.p.locator('#netWait').isHidden(), 'nobody is waited for, the AI seat least of all');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }

@@ -1366,6 +1366,102 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
   } finally { await ctx.close(); }
 });
 
+test('single player: PLAYERS decides the maps (a badge when a start stays free), TEAMS for four; four start on 96x96, two as before; a small phone holds it all', async () => {
+  const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    const maps = () => page.$$eval('#maps .map', bs => bs.map(b => b.firstChild.textContent));
+    const badges = () => page.$$eval('#maps .map .up', bs => bs.map(b => b.textContent));
+    const fits = async (what) => { const [sh, ch] = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]); assert.ok(sh <= ch + 1, `${what}: fits (${sh} > ${ch})`); };
+    await page.locator('#btnSolo').tap();
+    assert.equal(await page.locator('#players .ib.on').textContent(), '2', 'a duel by default');
+    assert.ok(await page.locator('#teams').isHidden());
+    assert.deepEqual(await maps(), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'two players: the maps as before');
+    assert.deepEqual(await badges(), [], 'no badges');
+    await page.locator('#players [data-n="3"]').tap();
+    assert.deepEqual(await maps(), ['DUST QUARTER', 'SHARD CROWN', 'LONG STEPPE', 'RANDOM'], 'three: the 96x96 maps, names of their own');
+    assert.deepEqual(await badges(), ['up to 4', 'up to 4', 'up to 4', 'up to 4'], 'each seats four: a start stays free');
+    assert.ok(await page.locator('#teams').isHidden(), 'no teams for three');
+    assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96, 'the preview at the map\'s size');
+    await fits('three players');
+    await page.locator('#players [data-n="4"]').tap();
+    assert.deepEqual(await badges(), [], 'four on four starts: no badge');
+    assert.ok(await page.locator('#teams').isVisible(), 'TEAMS for four');
+    await page.locator('#teams [data-teams="2v2"]').tap();
+    assert.equal(await page.locator('#teams .ib.on').textContent(), '2v2');
+    await fits('four players, two against two');
+    // Two against two: this player and an AI against two AIs.
+    await page.locator('#btnStart').tap();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.deepEqual(await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.me, endfall.engine.foes()]), [[0, 0, 1, 1], 96, 0, [2, 3]]);
+    // Back to the menu (leaving counts as a defeat): free for all.
+    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
+    await page.locator('#btnQuit').tap();
+    await page.locator('#menuSolo').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#players .ib.on').textContent(), '4', 'the players remembered');
+    await page.locator('#teams [data-teams="ffa"]').tap();
+    await page.locator('#btnStart').tap();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 4 && endfall.G.teams[1] === 1);
+    const four = await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.factions.length, [0, 1, 2, 3].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);
+    assert.deepEqual(four, [[0, 1, 2, 3], 96, 4, [1, 1, 1, 1]], 'four seats, each its own, a base each, on 96x96');
+    await page.evaluate(() => endfall.skip(20));
+    assert.ok(await page.evaluate(() => [1, 2, 3].every(t => endfall.G.stats[t].built > 0)), 'three AIs at work');
+    // Two again: the duel as it always was.
+    await page.evaluate(() => { document.getElementById('btnPause').click(); });
+    await page.locator('#btnQuit').tap();
+    await page.locator('#players [data-n="2"]').tap();
+    assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'back to a duel\'s map');
+    await page.locator('#btnStart').tap();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 2);
+    assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.engine.MW, endfall.G.teams]), [4242, 64, [0, 1]]);
+  } finally { await ctx.close(); }
+});
+
+test('two against two: out while the ally fights on (orders refused, told once), then the end card speaks for the team', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    await page.locator('#diff [data-d="2"]').click();
+    await page.locator('#players [data-n="4"]').click(); await page.locator('#teams [data-teams="2v2"]').click();
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
+    // An ally's trooper by our Core (vision is not shared: where we see), clicked: an ally's, not an enemy's.
+    const ally = await page.evaluate(() => { const b = endfall.G.bldgs.find(x => x.team === 0 && x.d.hq); const id = endfall.engine.debugSpawn(1, 'trooper', b.x + 100, b.y); const u = endfall.G.units.find(x => x.id === id); endfall.centerOn(u.x, u.y); return [u.x, u.y]; });
+    const canvas = await page.locator('#game').boundingBox(), cam = await page.evaluate(() => ({ x: endfall.cam.x, y: endfall.cam.y, z: endfall.cam.zoom }));
+    await page.mouse.click(canvas.x + (ally[0] - cam.x) * cam.z, canvas.y + (ally[1] - cam.y) * cam.z);
+    await page.waitForFunction(() => endfall.ui.sel.length === 1 && endfall.ui.sel[0].team === 1);
+    assert.equal(await page.locator('#selSub').textContent(), 'Ally', 'an ally, not an enemy');
+    // This player gives no order: the enemies (Hard) take its base while its ally (Hard too) fights on.
+    const toasts = new Set();
+    await page.exposeFunction('sawToast', (t) => toasts.add(t));
+    await page.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
+    let out = false;
+    for (let i = 0; i < 100 && !(await page.evaluate(() => endfall.G.over)); i++) {
+      await page.evaluate(() => endfall.skip(30));
+      await page.waitForTimeout(150); // (a frame or two: the loop notices)
+      if (!out && await page.evaluate(() => endfall.G.out[0] && !endfall.G.over)) {
+        out = true;
+        // Out: an order from this seat changes nothing.
+        const task = await page.evaluate(() => { const u = endfall.G.units.find(x => x.team === 0); if (!u) return 'idle'; endfall.engine.moveTo(u, 100, 100); endfall.skip(1); return u.dead ? 'idle' : u.task.t; });
+        assert.equal(task, 'idle', 'a seat that is out gives no orders: its units stay idle');
+        await page.waitForTimeout(300);
+      }
+    }
+    assert.ok(await page.evaluate(() => endfall.G.over), 'the game ended');
+    await page.locator('#end').waitFor({ state: 'visible' });
+    const won = await page.evaluate(() => endfall.G.winner === endfall.G.teams[0]);
+    assert.equal(await page.locator('#result').textContent(), won ? 'VICTORY' : 'DEFEAT');
+    assert.match(await page.locator('#endSub').textContent(), won ? /^Your team wins after \d\d:\d\d\.$/ : /^Your team lost after \d\d:\d\d\.$/);
+    assert.equal(await page.locator('#endKey .foe').textContent(), 'Enemy armies', 'the chart sums the enemies');
+    assert.ok(out, "this seat was out before the end (seed 7: deterministic)");
+    assert.ok([...toasts].some(t => /You are out: your team fights on/.test(t)), `told once out: ${[...toasts]}`);
+  } finally { await ctx.close(); }
+});
+
 test('phone: picking a building shows no ghost until the finger is down; lifted on red it keeps placing, on green it builds', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {

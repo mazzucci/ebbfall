@@ -130,6 +130,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) 16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
+#players .ib,#onlinePlayers .ib{min-width:40px} .diff.teams{margin-left:14px} /* (the teams, for four: on the players' row) */
+.ib.map small.up{margin-left:6px;font:500 10px var(--mono);letter-spacing:0;color:var(--muted);text-transform:none} /* a map's seats, when it matters */
 .maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}
 #mapPreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
 /* The first page, a title screen (centred): two big choices (single player, multiplayer), side by side; each opens its own page. */
@@ -277,5 +279,10 @@ body.replay #cmd{visibility:hidden}
 #online input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
 #roomCode{width:5.5em;text-transform:uppercase;text-align:center} #onlineName{width:12em}
 #onlineMapNote{font-size:12px;color:var(--muted)} #online .code{font:600 22px var(--mono);letter-spacing:.2em;color:var(--ally2);margin:0 10px}
-#seatList{display:flex;flex-direction:column;gap:4px;margin:8px 0} .seat{display:grid;grid-template-columns:1fr 6em 5em;gap:8px;padding:6px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;font-size:13px}
+#seatList{display:flex;flex-direction:column;gap:4px;margin:8px 0} .seat{display:grid;grid-template-columns:auto 1fr 6em 5em;align-items:center;gap:8px;padding:6px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;font-size:13px}
+.seat .dot{width:8px;height:8px;border-radius:50%;transform:none} /* the seat's colour in the game */
+.seat .ib{padding:2px 8px;font-size:10px;justify-self:start} .seat .ib.x{justify-self:end;min-width:28px}
+#seatList.many{display:grid;grid-template-columns:1fr 1fr;margin:6px 0} #seatList.many .seat{padding:3px 8px;min-height:30px;box-sizing:border-box} /* three or four seats: two a row (2v2: a team a row) */
+#online .card:has(#seatList.many:not(:empty)) h2{display:none} /* (three or four seats: the room's code is the title, so a phone's screen holds it all) */
+#seatList .vs{grid-column:1/-1;text-align:center;font:600 10px var(--display);letter-spacing:.2em;color:var(--muted);line-height:1}
 .seat.open{border-style:dashed;color:var(--muted)} .seat.open b{font-weight:400} .seat.me{border-color:var(--ally)} .seat .ok{color:var(--ally2)} #online .row{gap:8px;align-items:center}

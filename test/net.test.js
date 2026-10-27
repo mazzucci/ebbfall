@@ -2,40 +2,53 @@
 // Random orders from both with one socket dropped mid-game: both worlds must be the same on every tick they both ran,
 // the orders must have changed them, and the relay must see no desync. Then a phone's life: a page suspended for
 // longer than the away limit (the other side must not be blamed, the game goes on), the page coming back while a
-// reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost).
+// reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
+// of three and four with AI seats (M4): every client runs the AI alike.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { startRelay } from '../relay/server.mjs';
 import { Net } from '../src/net/net.js';
 import { seatRaces } from '../src/engine/util.js';
+import { onlineMap } from '../src/client/maps.js';
 
 const pkg = new URL('../src/engine/pkg/', import.meta.url);
 const built = existsSync(new URL('endfall_sim_bg.wasm', pkg));
 if (!built && process.env.ENDFALL_REQUIRE_WASM) throw new Error('src/engine/pkg/ is missing: run npm run build:wasm');
 const skip = !built && 'WASM not built';
 
-let sim, FACTIONS, UNIT;
+let sim, FACTIONS, UNIT, BLDG;
 async function load() {
   if (sim) return;
   sim = await import(new URL('endfall_sim.js', pkg));
   sim.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
   const data = (await import(new URL('data.js', pkg))).default;
-  FACTIONS = data.factions; UNIT = data.schema.unit;
+  FACTIONS = data.factions; UNIT = data.schema.unit; BLDG = data.schema.bldg;
 }
-/** The ids of a client's own units (the room's seed is random: so are the ids). */
-function own(c) {
+/** The ids of a client's own units, or seat `seat`'s (the room's seed is random: so are the ids). */
+function own(c, seat = c.seat) {
   const U = c.g.units(), n = UNIT.length, id = UNIT.indexOf('id'), team = UNIT.indexOf('team'), out = [];
-  for (let o = 0; o < U.length; o += n) if (U[o + team] === c.seat) out.push(U[o + id]);
+  for (let o = 0; o < U.length; o += n) if (U[o + team] === seat) out.push(U[o + id]);
   return out;
+}
+/** Whether seat `seat` has done anything of its own: more units than its start, or something in training. */
+function busy(c, seat) {
+  const B = c.g.buildings(), n = BLDG.length, team = BLDG.indexOf('team'), q = BLDG.indexOf('queue_len');
+  for (let o = 0; o < B.length; o += n) if (B[o + team] === seat && B[o + q] > 0) return true;
+  return own(c, seat).length > 4;
 }
 const fi = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
-/** The room's game for a seat, as src/engine/core.js's resetGameForSeat builds it (a RANDOM seat drawn from the seed). */
-const game = (setup, seat) => { const r = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS)); return sim.Game.forSeat(setup.seed, setup.map, setup.side, fi(r[0]), fi(r[1]), seat); };
+/** The room's game for a seat, as main.js and src/engine/core.js's resetGameForSeat build it (its map and size, a RANDOM
+ *  seat drawn from the seed, the teams, the AI seats at the room's difficulty). */
+const game = (setup, seat) => {
+  const m = onlineMap(setup), r = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS));
+  return sim.Game.withSeats(m.seed, setup.ai.some(a => a) ? setup.diff : 1, m.kind, setup.side, Uint32Array.from(r.map(fi)), Uint8Array.from(setup.teams), Uint8Array.from(setup.ai), seat, m.size);
+};
 
-/** A relay, two clients in one room, started. Each client: its Net, its Game, the hash of every tick it ran. */
-async function match(relayOpts = {}) {
+/** A relay, two clients in one room, started (`host(net)`: the host's lobby choices first). Each client: its Net, its
+ *  Game, the hash of every tick it ran. */
+async function match(relayOpts = {}, host = () => {}) {
   await load();
   const relay = startRelay({ port: 0, ...relayOpts }); await relay.ready;
   const url = `ws://localhost:${relay.port}/`, events = [];
@@ -52,7 +65,7 @@ async function match(relayOpts = {}) {
     });
   });
   const a = await client('Ann'), b = await client('Bo', a.net.room);
-  b.net.race('vael'); await wait(100);
+  b.net.race('vael'); host(a.net); await wait(100);
   a.net.ready(); b.net.ready();
   /** Run both clients' frames for `ms` (a paused client runs nothing: a suspended page); `each(elapsed)` per frame. */
   const run = async (ms, each = () => {}) => {
@@ -148,5 +161,30 @@ test('orders given while the socket is down are sent when it is back, not lost',
     await m.run(3000);
     const common = m.same(), last = Math.max(...common);
     assert.notEqual(m.a.hashes.get(last), m.idle(last), 'the orders reached both games');
+  } finally { await m.done(); }
+});
+
+test('three seats, one the AI\'s: both clients run its game alike, and the AI plays', { skip, timeout: 60000 }, async () => {
+  const m = await match({ latency: 20, jitter: 30 }, (net) => { net.seats(3, 4); net.ai(2, true, 'vael'); });
+  const { a, b } = m;
+  try {
+    let seed = 5; const rand = (n) => (seed = (seed * 1103515245 + 12345) >>> 0) % n;
+    await m.run(9000, () => { for (const c of [a, b]) if (c.g && !rand(5)) { const ids = own(c); c.g.moveTo(ids[rand(ids.length)], 300 + rand(2400), 300 + rand(2400)); } });
+    assert.deepEqual([a.setup.ai, a.setup.teams, a.g.mapW()], [[0, 0, 1], [0, 1, 2], 96], 'an AI seat, each its own team, on 96x96');
+    const common = m.same();
+    assert.ok(common.length > 150, `both ran the game (${a.g.tick()} / ${b.g.tick()} ticks)`);
+    assert.ok(busy(a, 2), 'the AI plays: it trains');
+    assert.deepEqual(m.events.filter(e => /desync|away/.test(e)), [], 'no desync, and nobody away (the AI seat least of all)');
+  } finally { await m.done(); }
+});
+
+test('two people against two AIs: one team, every client the same game', { skip, timeout: 60000 }, async () => {
+  const m = await match({}, (net) => { net.seats(4, 5); net.ai(2, true); net.ai(3, true); net.teams([0, 0, 1, 1]); net.diff(2); });
+  const { a, b } = m;
+  try {
+    await m.run(6000, () => { for (const c of [a, b]) if (c.g && c.g.tick() % 90 === 1) { const ids = own(c); c.g.moveTo(ids[0], 1500, 1500); } });
+    assert.deepEqual([a.setup.ai, a.setup.teams, a.setup.diff, a.g.mapW()], [[0, 0, 1, 1], [0, 0, 1, 1], 2, 96]);
+    assert.ok(m.same().length > 100, 'both ran it');
+    assert.ok(busy(b, 2) && busy(b, 3), 'the AIs play');
   } finally { await m.done(); }
 });

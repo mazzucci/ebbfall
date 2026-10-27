@@ -133,7 +133,9 @@ impl World {
         self.knock_out(seat);
     }
 
-    /// `seat` is out; the game is over once the seats still in are all one team (the winner).
+    /// `seat` is out; the game is over once the seats still in are all one team (the winner). While the game goes on
+    /// (more than two seats), what the seat leaves behind is inert (`inert`): its units stop where they are (a miner
+    /// lets go of its crystal) and do nothing more, nor do its buildings; they stay on the map, and can be destroyed.
     fn knock_out(&mut self, seat: u8) {
         self.out[seat as usize] = true;
         let mut left = (0..self.seats())
@@ -143,7 +145,24 @@ impl World {
         if left.all(|t| Some(t) == first) {
             self.over = true;
             self.winner = first.map_or(-1, |t| t as i32);
+            return;
         }
+        let ids: Vec<Id> = self
+            .units
+            .iter()
+            .filter(|u| u.team == seat)
+            .map(|u| u.id)
+            .collect();
+        for id in ids {
+            self.release_mine(id);
+            self.set_task(id, Task::Idle);
+        }
+    }
+
+    /// Whether `seat`'s units and buildings are left out of the tick: it is out and the game goes on without it (they
+    /// neither move, fire, mine, build, train nor research). Never in a duel: a seat out there ends the game.
+    pub fn inert(&self, seat: u8) -> bool {
+        self.out[seat as usize] && !self.over
     }
 
     pub(crate) fn check_end(&mut self) {

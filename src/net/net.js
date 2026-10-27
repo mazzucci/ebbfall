@@ -8,7 +8,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 2;
+export const PROTO = 3;
 export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
@@ -104,6 +104,13 @@ export class Net {
   // ---- the lobby ----
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
+  // (the host's: the seat count with a map that fits it, an open seat for the AI or open again, the AI's difficulty,
+  // the teams; anyone else's: moving to an open seat)
+  seats(n, map) { this.say({ t: 'seats', n, map }); }
+  ai(seat, on, race) { this.say({ t: 'ai', seat, on, race }); }
+  diff(diff) { this.say({ t: 'diff', diff }); }
+  teams(teams) { this.say({ t: 'teams', teams }); }
+  sit(seat) { this.say({ t: 'sit', seat }); }
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */
   pause() { this.sayOrKeep({ t: 'pause' }); }

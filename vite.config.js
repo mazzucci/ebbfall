@@ -6,7 +6,7 @@ import { offline } from './tools/offline/plugin.mjs';
 // The game's build, as online play sees it: a hash of the .wasm (build:wasm runs first) and of the JS that sets a game
 // up (the maps, an online room's setup, the client's view of the sim). Online, every seat must have the same
 // (relay/room.js); a change to any of these is another game.
-const SIM_INPUTS = ['src/engine/pkg/endfall_sim_bg.wasm', 'src/client/menu.js', 'src/client/online.js', 'src/engine/core.js', 'src/engine/constants.js', 'src/engine/util.js']; // (util.js: a RANDOM seat's draw)
+const SIM_INPUTS = ['src/engine/pkg/endfall_sim_bg.wasm', 'src/client/menu.js', 'src/client/online.js', 'src/engine/core.js', 'src/engine/constants.js', 'src/engine/util.js', 'src/client/maps.js']; // (util.js: a RANDOM seat's draw; maps.js: which map a room's setup plays)
 const hash = createHash('sha256');
 for (const f of SIM_INPUTS) { const p = new URL(`./${f}`, import.meta.url); hash.update(f); if (existsSync(p)) hash.update(readFileSync(p)); }
 const SIM_BUILD = hash.digest('hex').slice(0, 12);

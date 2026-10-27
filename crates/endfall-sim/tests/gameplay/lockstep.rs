@@ -24,7 +24,7 @@ struct Client {
 
 /// The same game on every client: Humans against the Vael, both with money and a small army each, in mid-map.
 fn client(seed: u32, me: u8) -> Game {
-    let mut g = Game::for_seat(seed, 0, 0, 0, 1, me);
+    let mut g = Game::with_seats(seed, 1, 0, 0, &[0, 1], &[], &[], me, None).unwrap();
     for t in 0..2u8 {
         g.set_resources(t, 3000, 1500);
         for i in 0..6 {
@@ -212,7 +212,7 @@ fn two_clients_through_a_relay_run_exactly_what_was_sent_on_every_tick() {
 
 #[test]
 fn turns_come_in_order_no_tick_runs_before_its_turn_and_the_knobs_are_refused() {
-    let mut g = Game::for_seat(5, 0, 0, 0, 0, 1);
+    let mut g = Game::with_seats(5, 1, 0, 0, &[0, 0], &[], &[], 1, None).unwrap();
     g.start_lockstep();
     assert!(!g.can_step(), "nothing allowed yet");
     g.step();
@@ -260,4 +260,58 @@ fn turns_come_in_order_no_tick_runs_before_its_turn_and_the_knobs_are_refused() 
     g.run_to(6);
     assert_eq!(g.tick(), 6);
     assert_eq!(g.world().log.as_ref().unwrap().len(), 1);
+}
+
+#[test]
+fn ai_seats_play_alike_in_every_clients_game() {
+    // M4: a room's seats the AI plays have no client: every client runs them in its own game, from the same setup (the
+    // AI seats, the teams). Two people and an AI free for all, then two people with two AIs two against two: both
+    // clients' worlds agree on every tick while both send orders, and the AI builds up.
+    let setups: [(&[u32], &[u8], &[u8]); 2] = [
+        (&[0, 1, 1], &[], &[0, 0, 1]),
+        (&[0, 1, 0, 1], &[0, 0, 1, 1], &[0, 0, 1, 1]),
+    ];
+    for (factions, teams, ai) in setups {
+        let mut gs: Vec<Game> = (0..2u8)
+            .map(|me| {
+                let mut g =
+                    Game::with_seats(77, 2, 0, 9, factions, teams, ai, me, Some(96)).unwrap();
+                g.start_lockstep();
+                g
+            })
+            .collect();
+        let mut r = [Mulberry32::new(1), Mulberry32::new(2)];
+        for turn in 0..1200u32 {
+            let mut bundle: Bundle = Vec::new();
+            for (me, g) in gs.iter_mut().enumerate() {
+                if turn % 20 == 0 {
+                    own_order(g, me as u8, &mut r[me]);
+                }
+                let w = g.take_orders();
+                if !w.is_empty() {
+                    bundle.push((me as u8, w));
+                }
+            }
+            for g in gs.iter_mut() {
+                assert!(feed(g, turn, &bundle));
+                while g.can_step() {
+                    g.step();
+                }
+            }
+            assert_eq!(
+                gs[0].state_hash(),
+                gs[1].state_hash(),
+                "{} seats: the same world at turn {turn}",
+                factions.len()
+            );
+        }
+        let w = gs[0].world();
+        let ai_seat = ai.iter().position(|&a| a == 1).unwrap() as u8;
+        assert!(
+            w.bldgs.iter().filter(|b| b.team == ai_seat).count() >= 4,
+            "{} seats: the AI seat {ai_seat} built up",
+            factions.len()
+        );
+        assert_eq!(w.teams.len(), factions.len());
+    }
 }

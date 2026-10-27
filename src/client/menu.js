@@ -1,42 +1,31 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
 // is known), How to play, About (a page: who made it, the source, the version, CHECK OFFLINE), INSTALL where the
 // browser offers it (both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
-// the single-player page holds the game against the AI (opponent, your race and the enemy's, one of three maps, the
-// guided first game; START GAME goes full screen). In the top-right corner of
+// the single-player page holds the game against the AI (opponent, your race and the enemies', the players: you and one
+// to three AIs, free for all or, for four, you and an AI against two; the maps that seat them; the guided first game;
+// START GAME goes full screen). In the top-right corner of
 // every page (and the lobby's): the sound, one setting with the game's top bar; while full screen, a button that
 // leaves it. The menu always opens on its first page (a join link opens the lobby instead).
-// Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
+// The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
-// Difficulty and sound are remembered on this device.
-import { mulberry, mapPreview, DUEL_MW as MW, DUEL_MH as MH, DIFF } from '../engine/index.js';
+// Difficulty, races, players, teams and sound are remembered on this device.
+import { mapPreview, DIFF } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { enterFullscreen, exitFullscreen } from './screen.js';
 import { icon } from './icons.js';
 import { initOffline } from './offline.js';
+import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge } from './maps.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
-/** Map characters, in the sim's MapKind order, with the story the end screen tells. */
-export const MAP_KINDS = [
-  { story: 'Old mining country: balanced fields and winding passes.' }, // Standard
-  { story: 'The crystal here ran ten times deeper than anywhere else.' }, // DeepFields
-  { story: 'An ether storm: vents everywhere, each three times as rich.' }, // EtherStorm
-  { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
-  { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
-  { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
-];
-
-/** The maps: always the same layout (like the maps of 1998), plus a random one generated each time. */
-export const MAPS = [
-  { name: 'Ashen Basin', seed: 4242, kind: 0 },
-  { name: 'Glass Reach', seed: 1998, kind: 1 },
-  { name: 'Cinder Divide', seed: 2077, kind: 4 },
-  { name: 'Random', random: true },
-];
-/** `you`, `enemy`: the races chosen ('random' too); `race`, `enemyRace`: this game's, drawn at START GAME. */
-export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, side: 0, you: 'humans', race: 'humans', enemy: 'humans', enemyRace: 'humans' };
+/** `you`, `enemy`: the races chosen ('random' too); `race`, `enemyRace`: this game's, drawn at START GAME (`enemyRaces`:
+ *  every AI's, each drawn for itself); `players`: 2 to 4, you and the AIs; `teams`: 'ffa', or '2v2' for four (seats 0
+ *  and 1, you and an AI, against 2 and 3: neighbours on the map). */
+export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, you: 'humans', race: 'humans', enemy: 'humans', enemyRace: 'humans', enemyRaces: ['humans'], players: 2, teams: 'ffa' };
 const RACES = ['humans', 'vael'];
+/** The team of each seat for the menu's choice (empty: each its own). */
+export const teamList = (players, teams) => (players === 4 && teams === '2v2' ? [0, 0, 1, 1] : []);
 /** A race for this game: the one chosen, or either at random. */
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
@@ -45,44 +34,52 @@ const urlSeed = new URLSearchParams(location.search).get('seed');
 /** Pick map `i`; the random one draws a new seed and a hidden character each time it is chosen or played. */
 function choose(i) {
   const m = MAPS[i];
-  menu.map = i;
-  menu.side = urlSeed !== null ? 0 : Math.random() < 0.5 ? 0 : 1; // which of the map's two bases is ours: drawn each game (?seed= keeps it fixed)
+  menu.map = i; menu.size = m.size;
+  // Where the seats sit round the map's starts, drawn each game (?seed= keeps it fixed): two seats, which of the two
+  // bases is ours (as always); more, any turn of the ring (the sim takes it modulo).
+  menu.side = urlSeed !== null ? 0 : menu.players === 2 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() * 2 ** 32) >>> 0;
   if (!m.random) Object.assign(menu, { seed: m.seed, kind: m.kind, name: m.name });
   else if (urlSeed !== null) Object.assign(menu, { seed: (+urlSeed) >>> 0, kind: 0, name: mapName((+urlSeed) >>> 0) });
   else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: Math.floor(Math.random() * MAP_KINDS.length), name: mapName(seed) }); }
 }
 
-const FIRST = ['Ashen', 'Glass', 'Hollow', 'Iron', 'Sunken', 'Cinder', 'Pale', 'Shattered', 'Silent', 'Rust', 'Frozen', 'Amber', 'Broken', 'Ember', 'Grey', 'Last'];
-const SECOND = ['Basin', 'Ridge', 'Reach', 'Mesa', 'Hollows', 'Expanse', 'Crossing', 'Wastes', 'Divide', 'Plateau', 'Gorge', 'Flats', 'Rim', 'Fields', 'Shelf', 'Sink'];
-/** A name for a map, the same every time for its seed. */
-export function mapName(seed) { const r = mulberry(seed ^ 0x5bd1e995); return FIRST[Math.floor(r() * FIRST.length)] + ' ' + SECOND[Math.floor(r() * SECOND.length)]; }
-
-function renderMaps() {
-  const box = $('maps'); box.innerHTML = '';
-  MAPS.forEach((m, i) => {
-    const b = document.createElement('button'), on = i === menu.map;
-    b.className = 'ib map' + (on ? ' on' : '') + (m.random ? ' random' : ''); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(on));
+/** The map buttons for `players` into `box`: those that seat them, the chosen one (`on`) lit, each with its badge (when
+ *  there is one: maps.js `badge`); `pick(i)` when one is tapped (none: shown, not chosen: the lobby's guests). */
+export function mapButtons(box, players, on, pick) {
+  box.innerHTML = '';
+  for (const i of mapsFor(players)) {
+    const m = MAPS[i], b = document.createElement('button'), lit = i === on, up = badge(i, players);
+    b.className = 'ib map' + (lit ? ' on' : '') + (m.random ? ' random' : ''); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(lit));
     b.textContent = m.name.toUpperCase(); b.dataset.map = i;
+    if (up) { const t = document.createElement('small'); t.className = 'up'; t.textContent = up; b.appendChild(t); }
     if (m.random) b.title = 'A new map every time';
-    b.addEventListener('click', () => { choose(i); renderMaps(); sfx('select'); });
+    if (pick) b.addEventListener('click', () => { pick(i); sfx('select'); }); else b.disabled = true;
     box.appendChild(b);
-  });
-  drawPreview();
+  }
+}
+function renderMaps() {
+  mapButtons($('maps'), menu.players, menu.map, (i) => { choose(i); renderMaps(); });
+  drawPreview($('mapPreview'), menu.map, menu.seed, menu.kind);
+  // The players and, for four, the teams.
+  for (const b of document.querySelectorAll('#players .ib')) { const on = +b.dataset.n === menu.players; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+  $('teams').hidden = menu.players !== 4;
+  for (const b of document.querySelectorAll('#teams .ib')) { const on = b.dataset.teams === menu.teams; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
 }
 
-// The chosen map's thumbnail: rock, fields, vents and the two starts (a Random map: a question mark).
+// A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
+// drawn a pixel per tile (64 or 96 across) and shown at one size.
 const PREVIEW = ['#2a3442', '#7d8796', '#4fd1c5', '#a78bfa', '#f5a524'];
-function drawPreview() {
-  const cv = $('mapPreview'), g = cv.getContext('2d'), m = MAPS[menu.map];
-  cv.width = MW; cv.height = MH;
+export function drawPreview(cv, i, seed, kind) {
+  const g = cv.getContext('2d'), m = MAPS[i], n = m.size;
+  cv.width = n; cv.height = n;
   if (m.random) {
-    g.fillStyle = PREVIEW[0]; g.fillRect(0, 0, MW, MH);
-    g.fillStyle = '#8294aa'; g.font = `bold ${MH * 0.6}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', MW / 2, MH / 2 + 2);
+    g.fillStyle = PREVIEW[0]; g.fillRect(0, 0, n, n);
+    g.fillStyle = '#8294aa'; g.font = `bold ${n * 0.6}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', n / 2, n / 2 + 2);
     cv.title = 'A new map every time'; return;
   }
-  const tiles = mapPreview(menu.seed, menu.kind), img = g.createImageData(MW, MH);
+  const tiles = mapPreview(seed, kind, n), img = g.createImageData(n, n);
   const rgb = PREVIEW.map(h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)));
-  for (let i = 0; i < tiles.length; i++) img.data.set([...rgb[tiles[i]], 255], i * 4);
+  for (let t = 0; t < tiles.length; t++) img.data.set([...rgb[tiles[t]], 255], t * 4);
   g.putImageData(img, 0, 0);
   cv.title = m.name;
 }
@@ -115,11 +112,20 @@ export function initMenu({ onStart, onSound }) {
   const showEnemy = () => foes.forEach(x => { const on = x.dataset.race === menu.enemy; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
   foes.forEach(b => b.addEventListener('click', () => { menu.enemy = b.dataset.race; store.set('enemy', menu.enemy); showEnemy(); sfx('select'); }));
   showEnemy();
-  choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
+  // The players (you and the AIs) and, for four, the teams: the maps follow (those that seat them).
+  const n = +store.get('players');
+  menu.players = Number.isInteger(n) && n >= 2 && n <= MAX_PLAYERS ? n : 2;
+  menu.teams = store.get('teams') === '2v2' ? '2v2' : 'ffa';
+  for (const b of document.querySelectorAll('#players .ib')) b.addEventListener('click', () => { menu.players = +b.dataset.n; store.set('players', menu.players); choose(fitMap(menu.map, menu.players)); renderMaps(); sfx('select'); });
+  for (const b of document.querySelectorAll('#teams .ib')) b.addEventListener('click', () => { menu.teams = b.dataset.teams; store.set('teams', menu.teams); renderMaps(); sfx('select'); });
+  choose(urlSeed !== null ? mapsFor(menu.players).find(i => MAPS[i].random) : mapsFor(menu.players)[0]); renderMaps();
   for (const b of document.querySelectorAll('.msound')) b.addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
   for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
-  $('btnStart').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.race = draw(menu.you); menu.enemyRace = draw(menu.enemy); onStart(); }); // each game draws our starting base (a random map, random races)
+  $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, random races: one per AI)
+    sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.race = draw(menu.you);
+    menu.enemyRaces = Array.from({ length: menu.players - 1 }, () => draw(menu.enemy)); menu.enemyRace = menu.enemyRaces[0]; onStart();
+  });
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
@@ -141,7 +147,7 @@ export function initMenu({ onStart, onSound }) {
 export function setup() {
   if (!menu.tutorial) return menu;
   const m = MAPS[0];
-  return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, side: 0, race: 'humans', enemyRace: 'humans' };
+  return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, size: m.size, side: 0, race: 'humans', enemyRace: 'humans', enemyRaces: ['humans'], players: 2, teams: 'ffa' };
 }
 
 /** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */

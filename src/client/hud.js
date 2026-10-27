@@ -1,5 +1,5 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
-import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -99,7 +99,7 @@ function renderSelection() {
     name.textContent = x.d.name;
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
-    sub.textContent = !own ? 'Enemy' : x.kind === 'unit' ? taskName(x) : x.done && x.research ? 'Researching' : x.done && x.queue.length ? 'Training' : bldgStatus(x);
+    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? 'Researching' : x.done && x.queue.length ? 'Training' : bldgStatus(x);
     life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp, '', x.sh, x.maxsh);
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');

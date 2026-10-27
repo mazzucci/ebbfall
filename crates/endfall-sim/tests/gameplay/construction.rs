@@ -670,7 +670,7 @@ fn ticks_to_build(w: &mut World, kind: BldgKind) -> u32 {
 }
 
 #[test]
-fn rapid_construction_raise_human_buildings_a_quarter_faster() {
+fn rapid_construction_raises_human_buildings_a_quarter_faster() {
     // A Garrison takes its 40 s without the tech, 40 / 1.25 = 32 s with it.
     let plain = ticks_to_build(&mut rich(5), BldgKind::Barracks);
     let mut w = rich(5);
@@ -693,7 +693,7 @@ fn rapid_construction_raise_human_buildings_a_quarter_faster() {
 }
 
 #[test]
-fn rapid_construction_cost_what_the_table_says_and_speed_up_sites_already_rising() {
+fn rapid_construction_costs_what_the_table_says_and_speed_up_sites_already_rising() {
     let up = Upgrade::RapidConstruction;
     assert_eq!(up.levels(), 1, "a one-level tech");
     let mut w = rich(5);
@@ -753,7 +753,7 @@ fn rapid_construction_cost_what_the_table_says_and_speed_up_sites_already_rising
 }
 
 #[test]
-fn rapid_construction_are_human_only_and_per_side() {
+fn rapid_construction_is_human_only_and_per_side() {
     // No Vael building researches it.
     assert!(
         BLDG_KINDS.iter().all(

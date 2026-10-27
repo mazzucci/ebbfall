@@ -1,8 +1,8 @@
 // Entry point: wires the sim (Rust/WASM via src/engine) to the client, runs the fixed-step loop, handles start/end screens.
 import './style.css';
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -113,8 +113,8 @@ function drainEvents() {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') { if (!ui.watching) toast(e.msg, e.bad); } // (a replay shows the game, not its news)
     else if (e.t === 'ping') { if (!ui.watching) ping(e.x, e.y); } // (something of ours finished, or needs a look)
-    else if (e.t === 'burst') { burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); }
-    else if (e.t === 'hit') { hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
+    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); } // (particles on screen only)
+    else if (e.t === 'hit') { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
@@ -221,13 +221,13 @@ setInterval(() => {
   if (!document.hidden || !online.playing || !started) return;
   const waiting = online.net.pump(); // (also after the game: heartbeats, for a rematch)
   if (G.over) return;
-  for (let i = 0; i < waiting && step(DT); i++) online.net.ticked();
+  for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
 $('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
 
 // ---- loop ----
-let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false;
+let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;
 function loop(now) {
   if (probe.on) probe.lap('start', now);
   const el = Math.min(0.1, (now - last) / 1000); last = now;
@@ -235,14 +235,18 @@ function loop(now) {
   if (running()) {
     const speed = ui.watching || 1; // (a replay plays faster)
     acc += el * speed; let n = 0;
-    const done = () => ui.watching && (G.over || G.tick > replayEnd()); // (a replay stops where the game ended: its last tick's orders, then over)
+    // A replay stops where the game ended (`replayEnd`, the tick it was watched from; the same game is over there):
+    // read from the sim itself, as reading G before every step would mirror the world each time. G.over is looked at
+    // once the frame's steps are run, below.
+    const end = ui.watching ? replayEnd() : 0, done = () => ui.watching && liveGame().tick() > end;
     // Online: the relay's turns in, our orders out; behind by more than a few ticks, run faster to catch up.
     const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5 * speed;
     while ((acc >= DT || n < waiting - 9) && n++ < max && !done()) {
-      if (!step(DT)) { acc = Math.min(acc, DT); break; } // (its turn is not in yet)
+      if (!advance()) { acc = Math.min(acc, DT); break; } // (its turn is not in yet; the client's mirror of the world catches up once, after the steps)
       acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
     }
     if (acc > DT * 5 * speed) acc = 0;
+    mirror(); // (this frame's ticks into G, once)
     if (probe.on) probe.lap('steps');
     drainEvents();
     if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
@@ -255,8 +259,11 @@ function loop(now) {
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
   if (probe.on) probe.lap('events');
-  if (started) render(ui.sel, ui.place, showPower());
-  if (probe.on) probe.lap('render');
+  // At most 60 frames a second (a 120 Hz phone would draw every frame twice as often for nothing: the world moves 30
+  // times a second), and 20 under a card that stops the game (pause, leave, help, end).
+  const draw = started && now - drawn >= (running() ? 12 : 50);
+  if (draw) { drawn = now; render(ui.sel, ui.place, showPower()); }
+  if (probe.on) probe.lap('render', draw);
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
   if (probe.on) probe.lap('end');
   requestAnimationFrame(loop);

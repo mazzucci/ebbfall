@@ -56,7 +56,8 @@ pub fn seat_starts(k: usize, n: usize, side: u32) -> Vec<usize> {
 /// free starts go between teams, never inside one, spread as evenly as the teams allow (before a team whose first seat
 /// is `s`, `s * (k - n) / n` of them, as many as the seats spread evenly would have there: three against three on
 /// eight starts sits as it always did), the whole turned by `side % k`. Each seat its own team, or a start for every
-/// seat: `seat_starts`.
+/// seat: `seat_starts`. Each team must be one run of consecutive seats (the menus' and the relay's are); a team that
+/// wraps round the seat order ([0, 1, 1, 1, 0]) or is spread out is not kept together.
 pub fn team_starts(k: usize, teams: &[u8], side: u32) -> Vec<usize> {
     let n = teams.len();
     let teamed = (0..n).any(|a| (a + 1..n).any(|b| teams[a] == teams[b])); // (two seats sharing a team)

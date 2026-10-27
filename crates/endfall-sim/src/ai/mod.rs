@@ -165,7 +165,11 @@ impl World {
     /// the ring, every wave would find a base whose army is out, and every economy would fall at once). With two
     /// seats, the other one.
     pub(crate) fn foe(&self) -> u8 {
-        let me = self.ai_turn;
+        self.foe_of(self.ai_turn)
+    }
+    /// `foe` of seat `me` (tests: whom its scout and waves look for).
+    #[doc(hidden)]
+    pub fn foe_of(&self, me: u8) -> u8 {
         let n = self.seats() as u8;
         let (mx, my) = self.map.bases[me as usize];
         (0..n)

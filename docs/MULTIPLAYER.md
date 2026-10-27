@@ -138,9 +138,17 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
   compare hashes), so the site can stay on GitHub Pages; moving it to Cloudflare is optional.
 - Plain WebSockets in a game (hibernation saves nothing while a game runs and loses in-memory state); the log stays
   in memory, and a relay restart rebuilds the room from a client's log.
-- Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size and rate,
-  commands per turn and list lengths; per-address limits on creating and joining. On the free plan a flood can only
-  use up the day's quota (multiplayer down until midnight UTC): acceptable for a game among friends.
+- Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size, orders
+  per turn and list lengths. No per-address limits on creating or joining rooms yet (a Worker has no shared memory:
+  it would take an object of its own on every connection). On the free plan a flood can only use up the day's quota
+  (multiplayer down until midnight UTC): acceptable for a game among friends.
+- The relay also keeps the device test's reports (`?bench`, src/client/bench.js; relay/bench.js): `POST /bench` from
+  the game's pages (ORIGINS, CORS with a preflight; a JSON report of a known kind and version, 64 KB at most; per
+  address (an IPv6 /64) 2 a minute and 10 a day, then 10 a minute and 500 a day in all; Origin can be faked, the
+  addresses cannot) answers with a code, `PERF-XXXXXX` in the room codes' letters (64 million: not guessed), and `GET
+  /bench/<CODE>` (from anywhere: `curl`) returns `{code, received, report}` for a week (30 reads a minute per
+  address). One more object of the room class, named `bench`, keeps every report (so its limits count everyone's and
+  the week's sweep is one list; no new class, no migration); the Node relay keeps them in memory on the same port.
 - Cost: the free plan's duration limit (13,000 GB-s a day) allows about 85 two-player games of 20 minutes a day;
   Workers Paid ($5 a month) removes the concern. Needs from the owner, when the relay is ready: a Cloudflare API token.
 
@@ -161,7 +169,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    the art, allies sharing vision, what an out seat's leftover units do (and refusing an out seat's orders: today a
    conceded player in a 2v2 could keep fighting for their ally), teams in the network setup and in the state hash
    (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded"). (All
-   but shared vision: done in M4 step 2c.)
+   but shared vision: done in M4 step 2c; shared vision on 2026-10-27, under "Allies share vision" below.)
    Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
 3. The cross-engine golden matrix in CI, and the `?selftest` page. Done (2026-10-26): `src/engine/golden.js` (the
    golden games, checked against golden.rs), `selftest.html` (the device check, for a phone), the golden games in
@@ -326,7 +334,30 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      on"), and the card when the game ends.
    - **Allies in the HUD:** an ally's unit selected reads "Ally", with a friendly selection ring; its capital units are
      not announced as enemies; the minimap shows every seat in its colour (more than two seats). Allies do not attack
-     each other (step a). Vision is not shared yet: later.
+     each other (step a).
+   - **Allies share vision** (2026-10-27, as in StarCraft's team games): each seat's fog is its own sight and its
+     allies', for what it sees now, what it has explored and where it detects cloaked units (an ally's detector
+     reveals a cloaked enemy to the whole team, which can then fire at it). `World::update_fog` computes each seat's
+     own layers, then ORs them across each team in place (the team's first seat gathers, the others copy; nothing
+     allocated per tick). Vision comes from what stands on the map: a seat that is out still lends the sight of what
+     it left (inert, but there) until that is destroyed, and sees what its team sees. Fog is part of the sim, the same
+     on every client; it is not hashed (a difference shows in what the AIs do, which is). With every seat its own team
+     (a duel, a free for all) nothing changes: the goldens did not move. An AI reads its seat's fog, so allied AIs
+     know what their allies see (an AI hunting an enemy only its ally sees is intended). What an ally shows it does not
+     pull it off its foe: its scout is done only on finding its foe's headquarters (not any enemy's), and with
+     nothing of its foe known a wave goes to the foe's start until that has been looked at, and only then to another
+     enemy it knows of (a 2v2 AI's first wave once crossed the map to the wrong enemy). `set_teams` brings the fog up
+     to date at once (allies share it from the first frame; a person may build where only an ally has looked). "A
+     shard field ran dry" goes to the miner's seat and the enemies who see it, not to its allies. The client reads `vis` /
+     `explored` for its seat, so the field, its fog, the minimap, the scouting line ("Seen lately") and the news
+     ("Enemy ... sighted", the first enemy flyers) all count what the team sees. On the minimap, still a colour per
+     seat, an ally's buildings are framed in white, so the team reads apart from its enemies. Tests: gameplay
+     `vision.rs` (an ally's unit shows an enemy to the team, and its detector a cloaked one; a free for all and a duel
+     see alone; an ally that is out still shows what its leftovers see, until they are gone; teams of seats apart and
+     of three, each seat's fog the OR of its allies'; building where only an ally looked; who is told a field ran dry;
+     each 2v2 AI's first wave goes for its foe; a team game's replay is the game played), golden.rs and golden.js
+     (`teams-2v2-ai`: four AIs, two against two, on 96x96), engine.test.js (G.vis with an ally, and without), e2e (a single-player 2v2: the AI ally's base and army in our sight and on the
+     minimap, framed; the enemies' bases still in the fog).
    Tests: gameplay `seats.rs` (an out seat's orders refused and its leftovers inert, deterministic; teams in the hash
    only when not the default; three seats with an idle person, four AIs free for all and a person with an AI ally
    against two through `Game::with_seats`, each to one team standing), `lockstep.rs` (two clients with an AI seat, and
@@ -477,6 +508,19 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    six, three against three with four AI seats, in two browsers: the same hash trail).
    Left: allies sharing vision; an AI taking over a seat whose player left; a budget for short path searches (the
    worst tick left in 8-AI games is a burst of them).
+   - **Any team split, each AI at its own level (sim; 2026-10-27, for single player's seat list):** with fewer seats
+     than starts, `seat_starts` spreads the free starts by seat (`s * k / n`), which split 2v2v2, 4v2, 3v2 and 1v4 on
+     eight starts round a free one. With teams the free starts now go between teams (`map::team_starts`: before the
+     team whose first seat is `s`, `s * (k - n) / n` of them, so 3v3 sits as before; each team a run of consecutive
+     seats), and `World::set_teams` deals a world that has not started again on that layout (the same map and draws;
+     it then brings the fog up to date, as before). Free for all and a start for every seat keep their layout: the
+     goldens are unchanged. `Game.withSeats` takes an optional last argument, `diffs`, a difficulty per seat
+     (`World::set_diffs`, `diff_of`; the AI reads its own through `level()`, its income too; left out or empty: every
+     AI at `diff`, so online games and the goldens are unchanged; a replay keeps them); `Game.diffOf(seat)` reads it.
+     Tests: gameplay `seats.rs` (every split of three to eight seats, every turn: each team one arc of the ring;
+     allies side by side over the draws for 2v2v2, 4v2, 1v5, 3v2, 2v2v1, 1v4 and more; a re-dealt game replays
+     exactly; teams after the first tick deal nothing again, and AI seats and levels set before survive; each AI at
+     its own difficulty, a replay included).
    - **Single player's seat list** (2026-10-27, the owner's design; it replaced the single-player OPPONENT, YOU, ENEMY,
      PLAYERS and TEAMS rows): a row per seat, YOU then AI 1, AI 2... (+ AI up to eight, × on any AI but the last), each
      with its race, its team (TEAM 1 to N: any split, 1v3 as well as 2v2v2v2) and each AI's difficulty, as native
@@ -487,11 +531,7 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      seat (`World::set_diffs`, `diff_of`; left out or empty: every AI at `diff`, so the goldens and online games are
      unchanged; a replay keeps them); `diff` is then the hardest AI's, which is the level the device's record counts
      the game at. The lobby keeps its PLAYERS and TEAMS rows for now (the seat list comes to it later).
-     Any split needed one more rule in the sim: with fewer seats than starts, `seat_starts` spread the free starts by
-     seat (`s * k / n`), which split 2v2v2, 4v2, 3v2 and 1v4 on eight starts round a free one. With teams the free
-     starts now go between teams (`map::team_starts`: before the team whose first seat is `s`, `s * (k - n) / n` of
-     them, so 3v3 sits as before; `World::set_teams` deals a world that has not started again on that layout); free
-     for all keeps its layout, so the goldens are unchanged. On a phone the selects are 16 px (iOS zooms into a
+     On a phone the selects are 16 px (iOS zooms into a
      smaller one) with short labels (HUM, VAEL, RND; T1, T2...), so eight seats sit four rows by two on 667x375.
 
 ## Open questions for the owner

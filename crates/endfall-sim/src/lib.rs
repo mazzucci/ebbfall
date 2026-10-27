@@ -613,7 +613,7 @@ impl Game {
     pub fn occ(&self) -> Vec<i32> {
         self.w.map.occ.clone()
     }
-    /// Tiles `team` sees right now (in a replay: what any seat sees).
+    /// Tiles `team` sees right now, with its allies (they share vision; in a replay: what any seat sees).
     pub fn vis(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.vis, team)
     }
@@ -629,7 +629,7 @@ impl Game {
         self.valid_team(team)
             .map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
-    /// Tiles `team` has ever seen (in a replay: any seat).
+    /// Tiles `team` or an ally has ever seen (in a replay: any seat).
     pub fn explored(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.explored, team)
     }

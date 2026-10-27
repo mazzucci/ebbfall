@@ -300,8 +300,11 @@ impl World {
             self.map.occ[i] = 0;
             self.terrain_changed();
             self.map.nodes.retain(|m| m.id != node);
+            // Told to the miner's seat and to the enemies who see it, not to its allies (who see it through its eyes:
+            // not their field).
+            let miner = self.u(uid).team;
             for t in 0..self.seats() as u8 {
-                if self.vis[t as usize][i] != 0 {
+                if self.vis[t as usize][i] != 0 && (t == miner || self.enemies(t, miner)) {
                     self.toast(t, "A shard field ran dry", false);
                 }
             }

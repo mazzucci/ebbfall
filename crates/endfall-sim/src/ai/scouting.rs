@@ -12,6 +12,12 @@ impl World {
         self.vis[self.seat() as usize][self.map.idx(tx, ty)] != 0
     }
 
+    /// Whether the AI's seat, or an ally, has ever seen a point.
+    pub(crate) fn ai_explored(&self, x: f64, y: f64) -> bool {
+        let (tx, ty) = self.map.tile_of(x, y);
+        self.explored[self.seat() as usize][self.map.idx(tx, ty)] != 0
+    }
+
     /// Whether this AI sees enemy unit `u` (in sight, and detected if cloaked).
     pub(crate) fn ai_sees_unit(&self, u: &crate::world::Unit) -> bool {
         self.ai_sees(u.x, u.y) && !self.cloaked_from(self.seat(), u)
@@ -165,10 +171,13 @@ impl World {
             self.ai_mut().scout = None;
             return;
         };
-        // Done once it is idle, has seen the enemy's headquarters, or is already mining again (sent back to work
-        // by the worker phase): it is then an ordinary worker again (free to build).
+        // Done once it is idle, has seen the foe's headquarters (another enemy's, which an ally may show it, is not
+        // what it went for), or is already mining again (sent back to work by the worker phase): it is then an
+        // ordinary worker again (free to build).
         let gathering = matches!(u.task, Task::Gather { .. });
-        let done = gathering || u.task == Task::Idle || self.ai().known.iter().any(|k| k.3);
+        let foe = self.foe();
+        let done =
+            gathering || u.task == Task::Idle || self.ai().known.iter().any(|k| k.3 && k.4 == foe);
         if done {
             if !gathering {
                 let (x, y) = self.home_of(u.x, u.y);

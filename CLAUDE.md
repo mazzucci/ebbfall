@@ -68,7 +68,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog
-  src/ai/             scripted opponent: mod.rs (its tick, phase by phase), economy, build, research, produce, army, scouting
+  src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
+                      economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (docs/MULTIPLAYER.md)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
@@ -78,11 +79,13 @@ src/client/           everything that touches the browser
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (opponent, your race and the enemies', RANDOM
-                      too, PLAYERS 2-4 with TEAMS for four, the maps that seat them with a preview, FIRST GAME), the About
+                      too, PLAYERS 2-8 with TEAMS for four, six and eight, the maps that seat them with a preview, FIRST
+                      GAME), the About
                       page (the source, the device check, the version), the sound icon; the map buttons and preview the
                       lobby shares
-  maps.js             the maps the menus offer, by size (players decide it: 64x64 for two, 96x96 for three or four), named
-                      fixed maps and a random one per size, badges, the map an online setup plays; pure (test/maps.test.js)
+  maps.js             the maps the menus offer, by size (players decide it: 64x64 for two, 96x96 for three or four,
+                      128x128 for five to eight), named fixed maps and a random one per size, badges, the map an online
+                      setup plays, the team splits (FREE FOR ALL, 2v2, 3v3, 4v4, 2v2v2v2); pure (test/maps.test.js)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   card.js             the command card: buttons for the selection, long-press details, what a button does
@@ -110,15 +113,17 @@ test/audio.test.js    the sound engine on a stub Web Audio API: every recipe pla
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
-                      the pause card's menu and a pause for everyone, a room of three with an AI seat),
+                      the pause card's menu and a pause for everyone, rooms of three and six with AI seats, eight seats
+                      on a small phone),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
                       CHECK OFFLINE against the real service worker, the app icons)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed
                       install; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
-                      a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three and
-                      four with AI seats
-test/maps.test.js     the menus' maps (src/client/maps.js): sizes by players, maps that fit, badges, an online setup's map
+                      a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
+                      four and eight with AI seats
+test/maps.test.js     the menus' maps (src/client/maps.js): sizes by players, maps that fit, badges, an online setup's map,
+                      the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats, AI
                       seats, lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
@@ -157,7 +162,9 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 ## Conventions
 
 - Seats and teams: a World has N seats (`World::seats()`, 2 to `MAX_SEATS`, at most the map's starts: 2 on 64x64, 4 on
-  96x96, 8 on 128x128, `map::max_starts`; seats sit round the map in order, `map::seat_starts`),
+  96x96, 8 on 128x128, `map::max_starts`; seats sit round the map in order, `map::seat_starts`: allies in consecutive
+  seats are neighbours, which is how the menus' teams are made, and with teams `Game::with_seats` turns the seats by
+  whole starts only, so that holds for six seats on eight starts too),
   and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
   an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
   decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one
@@ -176,9 +183,9 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
   wave called home to a raid by another) apply only with more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
-- The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, for two players and
-  96x96 for three or four, each size with maps of its own (src/client/maps.js); 128x128 for five to eight is next,
-  now that groups share paths): index grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
+- The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, for two players,
+  96x96 for three or four and 128x128 for five to eight, each size with maps of its own (src/client/maps.js)): index
+  grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
   client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
   are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.
 - Costs are `[shards, ether]`.
@@ -195,8 +202,9 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
   `combat`, `ai`, `maps`, `seats`, `paths`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
-  games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three- and four-seat
-  games through `Game::with_seats`; a seat that is out refused and inert), maps of 2, 4 and 8 starts
+  games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
+  eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
+  every 16 ticks on a tick of its own), maps of 2, 4 and 8 starts
   that are walkable and alike for every start, group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,

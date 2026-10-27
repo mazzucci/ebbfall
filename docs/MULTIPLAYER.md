@@ -176,7 +176,7 @@ an empty lobby is evicted from memory a minute or two after its last socket clos
 storage record when someone joins within 10 minutes; a running game is never stored.
 
 **M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats
-(up to four players, 2v2 and AI seats: step 2c, done).
+(up to four players, 2v2 and AI seats: step 2c, done; up to eight on 128x128: step 2e, done).
 Map size per map (`MW`/`MH` become the map's: today they are constants in the sim and the client, which allocates
 its grids when it loads): 64x64 for 2, about 96x96 for 4, 128x128 for 6-8; the generator places N bases. Pathfinding
 on up to 16k tiles: raise the search cap, maybe flow fields for big groups; measure first. Performance with ~800
@@ -382,6 +382,81 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    each brain's half-second clock in step with the others): eight cost 7-10 ms together in the first minutes;
    staggering them by seat would spread that. Then 128x128 maps of their own and the PLAYERS row to 8; on a phone
    (WASM a few times slower) that tick would be some 30-40 ms.
+
+   (e) Five to eight players on 128x128. *Done (2026-10-27):*
+   - **The AIs think on ticks of their own.** Every brain still takes its turn every 16 ticks (`AI_TURN`, about half a
+     second; a count of ticks now, where it was a half-second clock of summed `dt`s that came to 16 ticks), but the
+     k-th of m AI seats (in seat order) takes it `k * 16 / m` ticks after the first: up to sixteen never think on the
+     same tick (eight: every second tick). A lone AI thinks as it always did (first on tick 16), so a single-player
+     duel is unchanged: of the golden games only the two AI-against-AI ones moved (`EXPECTED_VAEL_AI` at 2700 and 9000,
+     and `EXPECTED_RESULTS`' first two games: the second AI now thinks 8 ticks after the first). Deterministic, nothing
+     new hashed; `World::ai_turns()` counts each seat's turns (tests).
+     Timings: native release, `path_cost_per_tick` (12-minute games of Hard AIs, seeds 3, 17, 29, 41 and 53), main and
+     this step back to back on a quiet 4-core VM; the step's time per tick, average / 99th / 99.9th percentile / worst:
+
+     | game             | main                          | AIs on ticks of their own    |
+     |------------------|-------------------------------|------------------------------|
+     | 2 AIs on 64x64   | 0.082 / 0.28 / 0.52 / 1.5 ms  | 0.072 / 0.28 / 0.55 / 4.1 ms |
+     | 2 AIs on 96x96   | 0.103 / 0.50 / 0.86 / 5.1 ms  | 0.101 / 0.34 / 0.85 / 1.9 ms |
+     | 2 AIs on 128x128 | 0.123 / 1.00 / 1.32 / 4.9 ms  | 0.127 / 0.58 / 1.46 / 4.5 ms |
+     | 4 AIs on 96x96   | 0.226 / 0.98 / 1.39 / 3.0 ms  | 0.238 / 0.70 / 1.06 / 4.8 ms |
+     | 8 AIs on 128x128 | 0.522 / 2.31 / 6.95 / 11.2 ms | 0.533 / 1.38 / 2.58 / 8.0 ms |
+
+     Eight AIs over three quiet runs: worst 10.1-11.9 ms on main, 6.1-8.0 now; 99.9th percentile 6.8-7.0 against
+     1.9-2.6. A tick with an AI's turn now costs at most about 3 ms; the worst left is a burst of short path searches
+     (60 searches, 24,000 nodes, in one game's tick, no AI turn in it): short searches have no budget (step d). The
+     single worst tick of the smaller games is noise either way (the same work, one tick in 20,000). In headless
+     Chromium (WASM, software rendering, the sim's step alone, eight Hard AIs on 128x128, seeds 3 and 17, two runs
+     each): main 0.83-1.66 ms a tick on average, 99th percentile 5.7-13.1, worst 21.6-50.4 (6 and 266 ticks over
+     16 ms); now 0.68-1.38, 1.9-7.3, worst 7.0-25.0 (0 and 5 over 16 ms); the slower run of each was on a busier
+     machine.
+     Balance, AI against AI over both seed sets (72 games a level, the Humans' wins, Easy / Medium / Hard / Brutal):
+     main 45 / 36 / 46 / 27 (154 of 288), now 38.5 / 34 / 36 / 20 (128.5): both seat orders are played, so the
+     offset favours no race; it reshuffles every AI-against-AI game as a movement change does. The total is about two
+     standard deviations of the difference between two such runs below main's, and near where it was before group
+     paths (136.5). As a check of that noise, the second AI 4 ticks after the first instead of 8 gave 37.5 / 34 / 38 /
+     33 (142.5): Brutal alone went from 20 to 33 for four ticks. To watch at the next balance pass.
+   - **128x128 maps of their own,** for five to eight players: IRON COMPASS (seed 5, standard: a rock diamond in the
+     middle ringed by fields), SUNKEN COURT (9, open plains round a walled centre), GREY WARRENS (2, labyrinth: a maze
+     of rock and narrow passes), and RANDOM. Every 128x128 map has its eight starts two by each side (step a), so the
+     layouts differ by their rock and fields. Picked from ten seeds of each character by eight Medium AIs free for all
+     (all sixty games ended, 15-35 minutes), then for the candidates eight and six free for all, three against three,
+     four against four and four pairs on two turns of the seats: every game of the three ended (9 to 32 minutes; free
+     for all 15-32, teams 9-25), won from starts on every side. Rejected: a labyrinth (seed 1) whose last two seats
+     held each other off past 45 minutes, and another (5) the same with six. Three and four players keep the 96x96
+     maps, two the duel's.
+   - **PLAYERS 2 to 8,** in single player and in the lobby (one row; the relay's `MAX_SEATS` is 8; no message changed,
+     so `PROTO` stays 3: a client of another build is turned away by the build check anyway). TEAMS on the same row:
+     FREE FOR ALL always; for four 2v2, for six 3v3, for eight 4v4 and 2v2v2v2 (maps.js `teamsFor`, `teamList`: allies
+     in consecutive seats, which `seat_starts` makes neighbours: with eight, seat s on start `side + s`; with six, on
+     starts 0, 1, 2 and 4, 5, 6 of the ring, a team on each three, a free start between them on either side). With
+     teams, the seats turn round the ring by whole starts only (`Game.withSeats` takes `side % k`): the draw that turns
+     the pattern among the seats (`side / k`, which seat is squeezed in a free for all) split a team of 3v3 round a free
+     start in four draws in six (2v2, 4v4 and 2v2v2v2 were side by side already; their seats now turn a little
+     differently for the same draw). Five and seven play free for all. A split the players are not offered plays free
+     for all (and comes back when they are). The "up to 8" badge for five to seven, as with three on 96x96 (in the
+     lobby under the map's name, so four maps keep to one row). The lobby's seats sit four a row with five or more
+     (three a row for six), a team a row with VS between for 3v3 and 4v4, the pairs apart for 2v2v2v2; all of it fits
+     a 667x375 phone, eight seats included.
+   - **Phones:** no note on the menu (the HUD stays minimal): the sim's step for eight Hard AIs in headless Chromium
+     averages 0.7-1.4 ms a tick, 99.9th percentile 2.5-10 ms; a phone's WASM a few times slower would average some
+     2-5 ms with rare ticks of 20-40 ms, inside the 33 ms a tick has at 30 Hz. The renderer with eight armies on
+     screen is not measured (software WebGL here says nothing about a phone's GPU): to try on a real phone; if big
+     games struggle there, one line under the PLAYERS row for five to eight ("big games run best on a desktop") is
+     the fallback.
+   Tests: gameplay `seats.rs` (every AI thinks every 16 ticks on a tick of its own, a lone AI first on tick 16, with two
+   to eight seats, all AIs or a person in seat 0; allies in consecutive seats start side by side whatever the draw, for
+   2v2, 3v3, 4v4 and 2v2v2v2 (without `side % k`, 3v3 fails); six and eight seats to the end on the three maps: three
+   against three with an idle person, eight free for all, four pairs; release builds only), `maps.rs` (the 128x128 maps'
+   previews with every start), an AI unit test (`turn_offset` distinct for up to sixteen brains); test/relay.test.js
+   (eight seats, two people and six AI seats in four pairs: never waited for); test/net.test.js (an eight-seat room of
+   two people and six AIs through the Node relay: the same game in both, every AI at work); test/maps.test.js (sizes to
+   eight, badges, the team splits and a room's teams back to a choice); engine.test.js (eight starts in the 128x128
+   previews); e2e: single player 5-8 (the maps, the teams for six and eight, a game of eight in four pairs and one of
+   six, three against three, on 128x128; a 667x375 phone holds it) and online (a room of eight on a small phone, then
+   six, three against three with four AI seats, in two browsers: the same hash trail).
+   Left: allies sharing vision; an AI taking over a seat whose player left; a budget for short path searches (the
+   worst tick left in 8-AI games is a burst of them).
 
 ## Open questions for the owner
 

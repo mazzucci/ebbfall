@@ -1472,7 +1472,7 @@ test('two against two: out while the ally fights on (orders refused, told once),
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
-    // An ally's trooper by our Core (vision is not shared: where we see), clicked: an ally's, not an enemy's.
+    // An ally's trooper by our Core, clicked: an ally's, not an enemy's.
     const ally = await page.evaluate(() => { const b = endfall.G.bldgs.find(x => x.team === 0 && x.d.hq); const id = endfall.engine.debugSpawn(1, 'trooper', b.x + 100, b.y); const u = endfall.G.units.find(x => x.id === id); endfall.centerOn(u.x, u.y); return [u.x, u.y]; });
     const canvas = await page.locator('#game').boundingBox(), cam = await page.evaluate(() => ({ x: endfall.cam.x, y: endfall.cam.y, z: endfall.cam.zoom }));
     await page.mouse.click(canvas.x + (ally[0] - cam.x) * cam.z, canvas.y + (ally[1] - cam.y) * cam.z);
@@ -1502,6 +1502,42 @@ test('two against two: out while the ally fights on (orders refused, told once),
     assert.equal(await page.locator('#endKey .foe').textContent(), 'Enemy armies', 'the chart sums the enemies');
     assert.ok(out, "this seat was out before the end (seed 7: deterministic)");
     assert.ok([...toasts].some(t => /You are out: your team fights on/.test(t)), `told once out: ${[...toasts]}`);
+  } finally { await ctx.close(); }
+});
+
+test('two against two: allies share vision: the AI ally\'s base and army are in our sight, on the field and on the minimap (framed)', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    await page.locator('#players [data-n="4"]').click(); await page.locator('#teams [data-teams="2v2"]').click();
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
+    await page.evaluate(() => endfall.skip(150)); // (the ally builds and trains; this player gives no order)
+    await page.waitForTimeout(400); // (a frame or two: the minimap redrawn)
+    const seen = await page.evaluate(() => {
+      const { G, engine: E } = endfall, I = (x, y) => E.idx(Math.floor(x / E.TILE), Math.floor(y / E.TILE));
+      const hq = G.bldgs.find(b => b.team === 1 && b.d.hq), mine = G.bldgs.find(b => b.team === 0 && b.d.hq);
+      const army = G.units.filter(u => u.team === 1 && !u.d.worker), all = G.units.filter(u => u.team === 1);
+      const mm = document.getElementById('minimap'), c = mm.getContext('2d'), k = mm.width / E.WW;
+      const px = (x, y) => Array.from(c.getImageData(Math.floor(x * k), Math.floor(y * k), 1, 1).data.slice(0, 3));
+      return {
+        far: Math.hypot(hq.x - mine.x, hq.y - mine.y) / E.TILE,
+        hqVis: G.vis[I(hq.x, hq.y)], hqSeen: E.visibleEnt(hq), army: army.length,
+        allSeen: all.every(u => G.vis[I(u.x, u.y)] && E.visibleEnt(u)),
+        hqPixel: px(hq.x, hq.y), frame: [hq.ty, hq.ty + 1, hq.ty + 2, hq.ty + 3].flatMap(ty => [1, 2].map(d => Array.from(c.getImageData(Math.floor(hq.tx * E.TILE * k) - d, Math.floor((ty + 0.5) * E.TILE * k), 1, 1).data.slice(0, 3)))), // (down its left side: a unit may stand on part of it)
+        enemyHq: G.bldgs.filter(b => b.team >= 2 && b.d.hq).map(b => G.vis[I(b.x, b.y)]),
+      };
+    });
+    assert.ok(seen.far > 20, `the ally's base is beyond our own sight (${seen.far} tiles)`);
+    assert.ok(seen.hqVis && seen.hqSeen, 'the ally\'s base is in our fog-free area');
+    assert.ok(seen.army > 0 && seen.allSeen, `the ally's units (${seen.army} fighters) are all in our sight`);
+    const near = (p, q) => p.every((v, i) => Math.abs(v - q[i]) <= 24);
+    assert.ok(near(seen.hqPixel, [0xc2, 0x2a, 0x5a]), `the ally's Core on the minimap in its seat's colour, clear of fog: ${seen.hqPixel}`);
+    assert.ok(seen.frame.some(p => p.every(v => v >= 200)), `framed in white, an ally's: ${seen.frame.join(' ')}`);
+    assert.deepEqual(seen.enemyHq, [0, 0], 'the enemies\' bases still in the fog');
   } finally { await ctx.close(); }
 });
 

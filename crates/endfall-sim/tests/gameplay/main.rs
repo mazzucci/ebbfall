@@ -16,3 +16,4 @@ mod orders;
 mod paths;
 mod random_play;
 mod seats;
+mod vision;

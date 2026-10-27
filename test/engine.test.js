@@ -319,6 +319,22 @@ test('a game of four seats on a four-start map mirrors every seat\'s record', { 
   assert.deepEqual([E.MW, E.G.teams.length], [64, 2]);
 });
 
+test('allies share vision: G.vis is what this side\'s team sees, its fog-free area and the units in it', { skip }, () => {
+  // Seat 1's Trooper in the middle of a 96x96 map, an enemy (seat 2) beside it; nobody else near. Seen from seat 0.
+  const look = (teams) => {
+    E.resetGameSeats(31, 1, 0, 0, ['humans', 'vael', 'humans', 'vael'], teams, [false, false, false, false], 0, 96);
+    const x = 48 * C.TILE + 16, y = 48 * C.TILE + 16, at = E.idx(48, 48);
+    assert.equal(E.G.vis[at], 0, 'the middle out of sight to begin with');
+    const ally = E.debugSpawn(1, 'trooper', x, y), enemy = E.debugSpawn(2, 'trooper', x + 40, y);
+    E.step();
+    const [a, e] = [ally, enemy].map(id => E.G.units.find(u => u.id === id));
+    return { vis: E.G.vis[at], explored: E.G.explored[at], ally: E.visibleEnt(a), enemy: E.visibleEnt(e) };
+  };
+  assert.deepEqual(look([0, 0, 1, 1]), { vis: 1, explored: 1, ally: true, enemy: true }, 'two against two: the ally\'s sight is ours');
+  assert.deepEqual(look([]), { vis: 0, explored: 0, ally: false, enemy: false }, 'free for all: our own sight only');
+  E.resetGame(4, 0);
+});
+
 test('the menus\' maps: a preview of any size with every start, and an online room\'s game with its AI seats', { skip }, async () => {
   const { MAPS, onlineMap } = await import('../src/client/maps.js');
   for (const m of MAPS.filter(x => !x.random)) {

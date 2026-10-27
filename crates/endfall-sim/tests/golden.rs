@@ -2,6 +2,7 @@
 //! to literal hashes at a few ticks. Refactors must leave these unchanged; a rule change updates them on purpose
 //! (run with `-- --nocapture` and copy the printed table).
 
+use endfall_sim::Game;
 use endfall_sim::data::*;
 use endfall_sim::map::MapKind;
 use endfall_sim::world::World;
@@ -250,5 +251,40 @@ fn golden_results_pin_stats_and_victory() {
     assert_eq!(
         got, EXPECTED_RESULTS,
         "stats or results changed: update EXPECTED_RESULTS only on purpose"
+    );
+}
+
+/// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
+/// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
+const EXPECTED_TEAMS_AI: [u32; 3] = [1818282753, 1412659752, 1023427200];
+
+#[test]
+fn golden_hashes_pin_two_against_two_ais() {
+    let mut g = Game::with_seats(
+        31,
+        1,
+        0,
+        0,
+        &[0, 1, 0, 1],
+        &[0, 0, 1, 1],
+        &[1, 1, 1, 1],
+        0,
+        Some(96),
+    )
+    .unwrap();
+    let mut got = [0u32; 3];
+    let mut c = 0;
+    for tick in 1..=CHECKS[2] {
+        g.step();
+        let _ = g.drain_events(); // (as a client does)
+        if tick == CHECKS[c] {
+            got[c] = g.state_hash();
+            c += 1;
+        }
+    }
+    println!("const EXPECTED_TEAMS_AI: [u32; 3] = {got:?};");
+    assert_eq!(
+        got, EXPECTED_TEAMS_AI,
+        "the 2v2 AI game changed: update EXPECTED_TEAMS_AI (and golden.js) only for an intended rule change"
     );
 }

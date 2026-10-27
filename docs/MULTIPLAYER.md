@@ -161,7 +161,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    the art, allies sharing vision, what an out seat's leftover units do (and refusing an out seat's orders: today a
    conceded player in a 2v2 could keep fighting for their ally), teams in the network setup and in the state hash
    (only when not the default, so the goldens stay), the end card's wording with allies ("the enemy conceded"). (All
-   but shared vision: done in M4 step 2c.)
+   but shared vision: done in M4 step 2c; shared vision on 2026-10-27, under "Allies share vision" below.)
    Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
 3. The cross-engine golden matrix in CI, and the `?selftest` page. Done (2026-10-26): `src/engine/golden.js` (the
    golden games, checked against golden.rs), `selftest.html` (the device check, for a phone), the golden games in
@@ -326,7 +326,30 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      on"), and the card when the game ends.
    - **Allies in the HUD:** an ally's unit selected reads "Ally", with a friendly selection ring; its capital units are
      not announced as enemies; the minimap shows every seat in its colour (more than two seats). Allies do not attack
-     each other (step a). Vision is not shared yet: later.
+     each other (step a).
+   - **Allies share vision** (2026-10-27, as in StarCraft's team games): each seat's fog is its own sight and its
+     allies', for what it sees now, what it has explored and where it detects cloaked units (an ally's detector
+     reveals a cloaked enemy to the whole team, which can then fire at it). `World::update_fog` computes each seat's
+     own layers, then ORs them across each team in place (the team's first seat gathers, the others copy; nothing
+     allocated per tick). Vision comes from what stands on the map: a seat that is out still lends the sight of what
+     it left (inert, but there) until that is destroyed, and sees what its team sees. Fog is part of the sim, the same
+     on every client; it is not hashed (a difference shows in what the AIs do, which is). With every seat its own team
+     (a duel, a free for all) nothing changes: the goldens did not move. An AI reads its seat's fog, so allied AIs
+     know what their allies see (an AI hunting an enemy only its ally sees is intended). What an ally shows it does not
+     pull it off its foe: its scout is done only on finding its foe's headquarters (not any enemy's), and with
+     nothing of its foe known a wave goes to the foe's start until that has been looked at, and only then to another
+     enemy it knows of (a 2v2 AI's first wave once crossed the map to the wrong enemy). `set_teams` brings the fog up
+     to date at once (allies share it from the first frame; a person may build where only an ally has looked). "A
+     shard field ran dry" goes to the miner's seat and the enemies who see it, not to its allies. The client reads `vis` /
+     `explored` for its seat, so the field, its fog, the minimap, the scouting line ("Seen lately") and the news
+     ("Enemy ... sighted", the first enemy flyers) all count what the team sees. On the minimap, still a colour per
+     seat, an ally's buildings are framed in white, so the team reads apart from its enemies. Tests: gameplay
+     `vision.rs` (an ally's unit shows an enemy to the team, and its detector a cloaked one; a free for all and a duel
+     see alone; an ally that is out still shows what its leftovers see, until they are gone; teams of seats apart and
+     of three, each seat's fog the OR of its allies'; building where only an ally looked; who is told a field ran dry;
+     each 2v2 AI's first wave goes for its foe; a team game's replay is the game played), golden.rs and golden.js
+     (`teams-2v2-ai`: four AIs, two against two, on 96x96), engine.test.js (G.vis with an ally, and without), e2e (a single-player 2v2: the AI ally's base and army in our sight and on the
+     minimap, framed; the enemies' bases still in the fog).
    Tests: gameplay `seats.rs` (an out seat's orders refused and its leftovers inert, deterministic; teams in the hash
    only when not the default; three seats with an idle person, four AIs free for all and a person with an AI ally
    against two through `Game::with_seats`, each to one team standing), `lockstep.rs` (two clients with an AI seat, and

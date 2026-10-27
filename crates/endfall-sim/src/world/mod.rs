@@ -61,11 +61,13 @@ pub struct World {
     pub projs: Vec<Proj>,
     pub res: Vec<[i32; 2]>,
     pub sup: Vec<[i32; 2]>,
+    /// Tiles each seat has ever seen, and sees now (from `update_fog`: its own sight and its allies'). Not hashed: a
+    /// difference shows in what the AI does, which is.
     pub explored: Vec<Vec<u8>>,
     pub vis: Vec<Vec<u8>>,
-    /// Tiles where each seat reveals its enemies' cloaked units (from `update_fog`, like `vis`). Rebuilt at the end of each
-    /// step, so the next step's units act on it (a detector lost this tick still counts once); derived from the world,
-    /// so not hashed.
+    /// Tiles where each seat reveals its enemies' cloaked units, by its detectors and its allies' (from `update_fog`,
+    /// like `vis`). Rebuilt at the end of each step, so the next step's units act on it (a detector lost this tick
+    /// still counts once); derived from the world, so not hashed.
     pub det: Vec<Vec<u8>>,
     pub over: bool,
     /// The team that won (-1: none yet). With every seat its own team, the winning seat.

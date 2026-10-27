@@ -34,6 +34,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
 .ib:hover{border-color:var(--ally)} .ib:focus-visible{outline:2px solid var(--ally);outline-offset:1px}
 .ib.icon{display:flex;align-items:center;gap:6px;padding:4px 8px} .ib.icon .ico{width:16px;height:16px}
+.ib.icon .t{display:grid} .ib.icon .t>*{grid-area:1/1} .ib.icon .t .alt{visibility:hidden} /* (one width for both labels: icons.js) */
 @media (max-width:1099px){.ib.icon .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}

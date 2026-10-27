@@ -36,7 +36,7 @@ export function initScreen() {
   if (!canFullscreen || standalone) btn.hidden = true;
   btn.addEventListener('click', toggleFullscreen);
   const sync = () => {
-    setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN'); btn.title = isFull() ? 'Leave full screen' : 'Full screen';
+    setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN', isFull() ? 'FULL SCREEN' : 'EXIT FULL'); btn.title = isFull() ? 'Leave full screen' : 'Full screen';
     root.classList.toggle('sysx', ipad && isFull()); // (room for the system's ✕: style.css)
   };
   document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync); sync();

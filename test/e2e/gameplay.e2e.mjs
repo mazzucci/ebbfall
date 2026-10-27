@@ -596,7 +596,7 @@ test('a newcomer\'s FIRST GAME on the first page; once the guided game is over, 
   } finally { await ctx.close(); }
 });
 
-test('no relay known: no MULTIPLAYER on the first page', async () => {
+test('MULTIPLAYER only where a relay is known: none from a strange host, unless the build has the published relay', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
     // The game from a host that is not this machine's or a LAN's (the dev relay's address is not guessed there).
@@ -604,7 +604,10 @@ test('no relay known: no MULTIPLAYER on the first page', async () => {
     await page.goto('http://ebbfall.test/', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     assert.ok(await page.locator('#btnSolo').isVisible(), 'SINGLE PLAYER');
-    assert.ok(await page.locator('#btnOnline').isHidden(), 'no MULTIPLAYER');
+    // (CI builds the published game, VITE_RELAY_URL set: there it must offer MULTIPLAYER from any host)
+    const baked = await page.evaluate(() => endfall.online.baked);
+    if (baked) assert.ok(await page.locator('#btnOnline').isVisible(), `the published relay (${baked}): MULTIPLAYER`);
+    else assert.ok(await page.locator('#btnOnline').isHidden(), 'no MULTIPLAYER');
   } finally { await ctx.close(); }
 });
 

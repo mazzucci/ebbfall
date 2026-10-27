@@ -15,7 +15,9 @@ const params = new URLSearchParams(location.search);
 const local = /^(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+|[\w-]+(\.[\w-]+)*\.ts\.net)$/.test(location.hostname);
 /** Where the relay is, or null (no online play from this page). `?relay=` only on a dev machine or a LAN (a link
  *  must not send players on the real site to someone else's relay). */
-export const relayUrl = () => ((local || import.meta.env?.DEV) && params.get('relay')) || import.meta.env?.VITE_RELAY_URL || (local ? `ws://${location.hostname}:8788/` : null);
+/** The relay this build was made with (VITE_RELAY_URL: the published game's), or ''. */
+export const BAKED_RELAY = import.meta.env?.VITE_RELAY_URL || '';
+export const relayUrl = () => ((local || import.meta.env?.DEV) && params.get('relay')) || BAKED_RELAY || (local ? `ws://${location.hostname}:8788/` : null);
 
 /** This build's sim (vite.config.js): a room's seats must share it. */
 const SIM_BUILD = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : '';
@@ -29,7 +31,7 @@ export const reloadUrl = () => { const code = online.net?.room || joining; retur
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
 /** The online game, while there is one: its Net, this side's seat and the room's setup. */
-export const online = { net: null, seat: -1, setup: null, playing: false, names: [], rematch: false, gone: new Set() };
+export const online = { baked: BAKED_RELAY, net: null, seat: -1, setup: null, playing: false, names: [], rematch: false, gone: new Set() };
 let onStart = () => {}, onLeave = () => {}, onQuit = () => {}, onRoom = () => {}, onRematch = () => {};
 const waitingFor = new Set(); // seats the game waits for
 

@@ -184,7 +184,7 @@ impl Game {
         // With teams, the seats turn round the ring by whole starts only (`side % k`): turning the pattern among the
         // seats too (`seat_starts`' `side / k`) would split a team of consecutive seats round a free start (six seats
         // on eight starts sit on 0, 1, 2 and 4, 5, 6: three against three must take one group each).
-        let teamed = teams.iter().enumerate().any(|(s, &t)| t as usize != s);
+        let teamed = (0..teams.len()).any(|a| (a + 1..teams.len()).any(|b| teams[a] == teams[b])); // (two seats sharing a team)
         let side = if teamed {
             side % map::starts_for(size, n) as u32
         } else {

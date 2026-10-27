@@ -287,6 +287,6 @@ body.replay #cmd{visibility:hidden}
 #online .card:has(#seatList.many:not(:empty)) h2{display:none} /* (three seats or more: the room's code is the title, so a phone's screen holds it all) */
 #seatList.crowd{grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:3px} #seatList.crowd .seat{grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px;padding:2px 6px;min-height:26px;font-size:11px} /* five to eight seats: four a row (six: three) */
 #seatList.crowd .seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} #seatList.crowd .seat .ib{padding:2px 5px;font-size:9px} #seatList.crowd .seat .ib.x{min-width:22px}
-#seatList.pairs .seat:nth-child(4n+2){margin-right:6px} #seatList.pairs .seat:nth-child(4n+3){margin-left:6px} /* (2v2v2v2: the pairs apart) */
+#seatList.crowd.pairs{grid-template-columns:1fr 1fr 6px 1fr 1fr} #seatList.pairs .seat:nth-child(4n+1){grid-column:1} #seatList.pairs .seat:nth-child(4n+2){grid-column:2} #seatList.pairs .seat:nth-child(4n+3){grid-column:4} #seatList.pairs .seat:nth-child(4n+4){grid-column:5} /* (2v2v2v2: the pairs apart, every chip one width) */
 #seatList .vs{grid-column:1/-1;text-align:center;font:600 10px var(--display);letter-spacing:.2em;color:var(--muted);line-height:1}
 .seat.open{border-style:dashed;color:var(--muted)} .seat.open b{font-weight:400} .seat.me{border-color:var(--ally)} .seat .ok{color:var(--ally2)} #online .row{gap:8px;align-items:center}

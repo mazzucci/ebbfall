@@ -36,6 +36,10 @@ pub struct Diff {
     /// It takes its natural as soon as the fields by its main run low, before `expand_at` (Easy keeps to its
     /// schedule: the gentle level may starve on a barren map).
     pub expands_when_dry: bool,
+    /// While its crew is short of its target, it holds a worker's price back from its buildings, so building never
+    /// leaves its Core idle for want of shards (Brutal's build order spent every shard, and its Human AI, whose
+    /// builders leave the line, fell behind the Vael's in the opening).
+    pub workers_first: bool,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -63,6 +67,7 @@ pub const DIFF: [Diff; 4] = [
         supply_at_once: 1,
         expands_when_dry: false,
         extras_after_expanding: true,
+        workers_first: false,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -87,6 +92,7 @@ pub const DIFF: [Diff; 4] = [
         supply_at_once: 1,
         expands_when_dry: true,
         extras_after_expanding: false,
+        workers_first: false,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -110,11 +116,13 @@ pub const DIFF: [Diff; 4] = [
         supply_at_once: 1,
         expands_when_dry: true,
         extras_after_expanding: false,
+        workers_first: false,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
     // factories to start, like Hard: with four, the Human AI's builders spent so long off the line (a Human builder
-    // stays until its building stands) that it gathered far less than the Vael AI.
+    // stays until its building stands) that it gathered far less than the Vael AI. It trains its workers before its
+    // buildings: its build order left its Core idle for want of shards while its crew was still short.
     Diff {
         income: 1.3,
         wave: 7,
@@ -136,5 +144,6 @@ pub const DIFF: [Diff; 4] = [
         supply_at_once: 2,
         expands_when_dry: true,
         extras_after_expanding: false,
+        workers_first: true,
     },
 ];

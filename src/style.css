@@ -137,11 +137,17 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .isel:hover{border-color:var(--ally)} .isel:focus-visible{outline:2px solid var(--ally);outline-offset:1px} .isel option{background:var(--panel2);color:var(--fg)}
 .isel:disabled{opacity:1;cursor:default;background-image:none;padding-right:7px;border-style:dashed} /* (shown, not chosen: readable) */
 /* The seat list (single player): a row per seat, its choices in columns that line up; two columns of rows where there is room. */
-#soloSeats{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:4px 12px;margin:8px 0 4px}
+#soloSeats{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:4px 10px;margin:8px 0 4px}
 .srow{max-width:420px;display:grid;grid-template-columns:10px 2.6em minmax(0,1.1fr) repeat(2,minmax(0,1fr)) 32px;align-items:center;gap:4px;min-height:36px}
 .srow .dot{width:10px;height:10px;border-radius:50%;transform:none} .srow b{font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .srow.me b{color:var(--ally2)}
 .srow .ib.x{height:32px;min-width:32px;padding:0;font-size:16px;line-height:1}
 #btnAddAi{height:32px;margin:2px 0;border-style:dashed;justify-self:start;padding:0 18px;font-size:11px}
+/* A phone: 16 px selects (smaller ones make iOS zoom the page) with short labels (HUM, T1), so that eight seats sit
+   four rows by two on a 667 px wide screen: a narrower name, the caret closer in. */
+@media (pointer:coarse){
+  .isel{font-size:16px;letter-spacing:0;padding:0 15px 0 5px;background-position:calc(100% - 11px) 55%,calc(100% - 6px) 55%}
+  .srow{grid-template-columns:10px 2.3em minmax(0,1fr) minmax(0,.7fr) minmax(0,1.45fr) 32px} .srow b{font-size:11px;letter-spacing:.02em}
+}
 .note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
 .ib.map small.up{margin-left:6px;font:500 10px var(--mono);letter-spacing:0;color:var(--muted);text-transform:none} /* a map's seats, when it matters */
 #onlineMaps .ib.map small.up{display:block;margin:1px 0 0;font-size:9px;line-height:1} #onlineMaps .ib.map:has(small.up){padding-top:3px;padding-bottom:3px} /* (the lobby: under the name, so four maps keep to one row) */

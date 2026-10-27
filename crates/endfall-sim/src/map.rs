@@ -52,6 +52,31 @@ pub fn seat_starts(k: usize, n: usize, side: u32) -> Vec<usize> {
     order
 }
 
+/// `seat_starts` for seats in teams (a team id per seat, allies in consecutive seats): with fewer seats than starts the
+/// free starts go between teams, never inside one, spread as evenly as the teams allow (before a team whose first seat
+/// is `s`, `s * (k - n) / n` of them, as many as the seats spread evenly would have there: three against three on
+/// eight starts sits as it always did), the whole turned by `side % k`. Each seat its own team, or a start for every
+/// seat: `seat_starts`.
+pub fn team_starts(k: usize, teams: &[u8], side: u32) -> Vec<usize> {
+    let n = teams.len();
+    let teamed = (0..n).any(|a| (a + 1..n).any(|b| teams[a] == teams[b])); // (two seats sharing a team)
+    if n >= k || !teamed {
+        return seat_starts(k, n, side);
+    }
+    let (turn, free) = (side as usize % k, k - n);
+    let mut first = 0; // (the first seat of this run of allies)
+    let mut order: Vec<usize> = (0..n)
+        .map(|s| {
+            if s > 0 && teams[s] != teams[s - 1] {
+                first = s;
+            }
+            (turn + s + first * free / n) % k
+        })
+        .collect();
+    order.extend((0..k).filter(|i| !order.contains(i)).collect::<Vec<_>>());
+    order
+}
+
 /// A map's size in tiles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MapSize {

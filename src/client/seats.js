@@ -6,10 +6,13 @@
 // (test/seats.test.js).
 import { SEAT_COLORS } from './look.js';
 
-/** The races a seat may pick, and the AI's difficulties (their names, for the selects). */
+/** The races a seat may pick, and the AI's difficulties (their names, for the selects; `short`: a phone's, whose
+ *  selects are 16 px so that iOS does not zoom into them, and two rows' worth must sit side by side). */
 export const RACES = ['humans', 'vael'];
 export const RACE_NAMES = { humans: 'HUMANS', vael: 'VAEL', random: 'RANDOM' };
+export const RACE_SHORT = { humans: 'HUM', vael: 'VAEL', random: 'RND' };
 export const DIFF_NAMES = ['EASY', 'MEDIUM', 'HARD', 'BRUTAL'];
+export const teamName = (t, short) => (short ? `T${t + 1}` : `TEAM ${t + 1}`);
 
 /** The game's seats for the rows (`{ team }` each, row 0 you): the rows in seat order (your team's first, you first;
  *  then the other teams in the order of their first rows, each in row order: free for all keeps the rows' order), and
@@ -20,6 +23,21 @@ export function arrange(rows) {
   const order = keys.flatMap(t => rows.map((r, i) => i).filter(i => rows[i].team === t));
   const teams = order.map(i => keys.indexOf(rows[i].team));
   return { order, teams: keys.length === rows.length ? [] : teams };
+}
+/** What START GAME plays for the rows (`draw(race)`: a RANDOM one drawn): the seats in `arrange`'s order, each one's
+ *  race, whether the AI plays it (all but you, seat 0), the teams (empty: free for all), each seat's difficulty (empty
+ *  when every AI's is the same: the sim's `diff` then, as before) and `diff`, the hardest AI's (the record's level). */
+export function startSetup(rows, draw = (r) => r) {
+  const { order, teams } = arrange(rows), seats = order.map(i => rows[i]), diffs = seats.map(r => r.diff ?? 0);
+  const diff = Math.max(...diffs.slice(1));
+  return { races: seats.map(r => draw(r.race)), ai: seats.map((_, s) => s > 0), teams, diffs: diffs.slice(1).every(d => d === diff) ? [] : diffs, diff };
+}
+/** The rows the menu before the seat list saved (`race`, `enemy`, `diff`, `players` and their `teams`: a team per
+ *  seat, maps.js `teamList`); anything not a good one: you and one AI, on Easy. */
+export function legacyRows({ race, enemy, diff, players, teams = [] }, max) {
+  const r = (k) => ([...RACES, 'random'].includes(k) ? k : 'humans'), d = Number.isInteger(diff) && diff >= 0 && diff < DIFF_NAMES.length ? diff : 0;
+  const n = Number.isInteger(players) && players >= 2 && players <= max ? players : 2;
+  return Array.from({ length: n }, (_, i) => (i ? { race: r(enemy), team: teams.length === n ? teams[i] : i, diff: d } : { race: r(race), team: teams.length === n ? teams[0] : 0 }));
 }
 /** Every row on one team: nobody to fight. */
 export const oneTeam = (rows) => rows.every(r => r.team === rows[0].team);

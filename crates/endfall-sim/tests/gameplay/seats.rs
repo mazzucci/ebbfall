@@ -732,9 +732,21 @@ fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
     // ally's as the nearest two starts on the map (the eight starts are 44 tiles from the next on their side and about
     // as far round the corner); six seats on eight starts used to split a team round a free start when the draw turned
     // the pattern among the seats.
+    // Five and six seats on eight starts used to split 2v2v2, 4v2, 3v2 and 1v4 round a free start whatever the draw:
+    // the free starts now go between teams (`map::team_starts`).
     for (size, teams) in [
         (96u32, vec![0u8, 0, 1, 1]),
+        (96, vec![0, 0, 1]),
+        (96, vec![0, 1, 1]),
         (128, vec![0, 0, 0, 1, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2, 2]),
+        (128, vec![0, 0, 0, 0, 1, 1]),
+        (128, vec![0, 1, 1, 1, 1, 1]),
+        (128, vec![0, 0, 0, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2]),
+        (128, vec![0, 1, 1, 1, 1]),
+        (128, vec![0, 0, 1, 1, 2, 2, 3]),
+        (128, vec![0, 1, 1, 1, 1, 1, 1]),
         (128, vec![0, 0, 0, 0, 1, 1, 1, 1]),
         (128, vec![0, 0, 1, 1, 2, 2, 3, 3]),
     ] {
@@ -777,6 +789,47 @@ fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
 }
 
 #[test]
+fn every_team_split_of_three_to_eight_seats_takes_one_arc_of_the_ring() {
+    // Every way to cut three to eight seats into teams of consecutive seats (each its own too), on the starts its map
+    // has, for every turn of the ring: each team's starts are one unbroken arc (no other team's start, no free start
+    // inside it), every start is taken once, and free for all keeps the layout it always had.
+    use endfall_sim::map::{seat_starts, starts_for, team_starts};
+    for n in 3..=8usize {
+        let k = starts_for(MapSize::square(if n <= 4 { 96 } else { 128 }), n);
+        for cuts in 0..1u32 << (n - 1) {
+            let mut teams = vec![0u8; n];
+            for s in 1..n {
+                teams[s] = teams[s - 1] + (cuts >> (s - 1) & 1) as u8;
+            }
+            for side in 0..(k * n) as u32 {
+                let at = team_starts(k, &teams, side);
+                let mut all = at.clone();
+                all.sort();
+                assert_eq!(
+                    all,
+                    (0..k).collect::<Vec<_>>(),
+                    "{teams:?} side {side}: every start once"
+                );
+                if teams[n - 1] as usize == n - 1 {
+                    assert_eq!(at, seat_starts(k, n, side), "free for all as before");
+                }
+                for t in 0..=teams[n - 1] {
+                    let mine: Vec<usize> =
+                        (0..n).filter(|&s| teams[s] == t).map(|s| at[s]).collect();
+                    let arc = mine
+                        .iter()
+                        .any(|&p| (0..mine.len()).all(|i| mine.contains(&((p + i) % k))));
+                    assert!(
+                        arc,
+                        "{n} seats on {k} starts, teams {teams:?}, side {side}: team {t} on {mine:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn each_ai_seat_plays_at_its_own_difficulty() {
     // Single player's seat list: an AI's difficulty per seat (`withSeats`' `diffs`; empty: every AI at the game's).
     let setup = |diffs: Option<Vec<u8>>| {
@@ -804,30 +857,22 @@ fn each_ai_seat_plays_at_its_own_difficulty() {
         [2, 0, 3, 3],
         "each its own (9: the hardest there is)"
     );
-    // None, or an empty list: as before, every AI at the game's difficulty (the goldens' games).
-    let (mut a, mut b) = (setup(None).unwrap(), setup(Some(vec![])).unwrap());
-    let mut c = Game::with_seats(
-        43,
-        1,
-        0,
-        0,
-        &[0, 0, 1, 0],
-        &[0, 1, 1, 1],
-        &[0, 1, 1, 1],
-        0,
-        Some(96),
-    )
-    .unwrap();
+    // Left out: every AI at the game's difficulty (the goldens' games), the same game as each given that one; one AI at
+    // another difficulty plays another game.
+    let mut games = [None, Some(vec![1; 4]), Some(vec![1, 1, 3, 1])].map(|d| setup(d).unwrap());
     for _ in 0..30 * 60 {
-        a.step();
-        b.step();
-        c.step();
+        games.iter_mut().for_each(|g| g.step());
     }
-    assert_eq!(a.world().diff_of(2), 1);
+    assert_eq!(games[0].world().diff_of(2), 1);
     assert_eq!(
-        (a.state_hash(), b.state_hash()),
-        (c.state_hash(), c.state_hash()),
+        games[0].state_hash(),
+        games[1].state_hash(),
         "the same game"
+    );
+    assert_ne!(
+        games[0].state_hash(),
+        games[2].state_hash(),
+        "Brutal on seat 2: another game"
     );
     // Each plays its own: Easy keeps fewer harvesters than Brutal, which gathers 30% more on the same fields.
     let mut hashes = Vec::new();

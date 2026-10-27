@@ -598,7 +598,9 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       await press('#btnSolo');
       assert.ok(await shown('#menuSolo') && await page.locator('#menuHome').isHidden(), 'single player opens its page');
       assert.deepEqual(await page.$$eval('#soloSeats .srow b', bs => bs.map(b => b.textContent)), ['YOU', 'AI 1']);
-      assert.deepEqual(await page.locator('#soloSeats [data-k="race0"] option').allTextContents(), ['HUMANS', 'VAEL', 'RANDOM']);
+      assert.deepEqual(await page.locator('#soloSeats [data-k="race0"] option').allTextContents(), device.hasTouch ? ['HUM', 'VAEL', 'RND'] : ['HUMANS', 'VAEL', 'RANDOM'], 'a phone\'s short labels (16 px selects)');
+      assert.deepEqual(await page.$$eval('#soloSeats select', ss => ss.map(s => s.getAttribute('aria-label'))), ['YOU race', 'YOU team', 'AI 1 race', 'AI 1 team', 'AI 1 difficulty'], 'each select named by its row');
+      assert.equal(await page.locator('#soloSeats select').first().evaluate(s => getComputedStyle(s).fontSize), device.hasTouch ? '16px' : '11px', 'no zoom into a select on iOS');
       assert.equal(await page.locator('#lblSound').count(), 0, 'no SOUND row');
       assert.ok(await shown('#btnFirst') && await shown('#btnStart') && await shown('#btnMenuSound'), 'FIRST GAME, START GAME, the sound icon');
       await press('#btnSoloBack');
@@ -1434,7 +1436,9 @@ test('single player: the seat list decides the players and the maps (a badge whe
     // Two again (× on two AIs): the duel as it always was.
     await page.evaluate(() => { document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').tap();
-    await seats.remove(3); await seats.remove(1);
+    await seats.remove(3);
+    await page.locator('#soloSeats [data-k="x2"]').focus(); await page.keyboard.press('Enter'); // (three rows to two: no × left)
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'diff1', 'focus on the row before\'s select');
     assert.deepEqual(await seats.rows(), ['YOU', 'AI 1']);
     assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'back to a duel\'s map');
     await page.locator('#btnStart').tap();
@@ -1453,7 +1457,7 @@ test('single player, you alone against three AIs teamed up at mixed difficulties
     await seats.add(); await seats.add();
     for (const i of [1, 2, 3]) await seats.team(i, 1); // (TEAM 2: you alone on TEAM 1)
     await seats.diff(1, 0); await seats.diff(2, 2); await seats.diff(3, 3);
-    assert.deepEqual(await page.$$eval('#soloSeats select[data-k^="team"]', ss => ss.map(s => s.selectedOptions[0].textContent)), ['TEAM 1', 'TEAM 2', 'TEAM 2', 'TEAM 2']);
+    assert.deepEqual(await page.$$eval('#soloSeats select[data-k^="team"]', ss => ss.map(s => s.selectedOptions[0].textContent)), ['T1', 'T2', 'T2', 'T2'], 'a phone\'s short team names');
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.me, endfall.engine.foes(), [1, 2, 3].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW, [0, 1, 2, 3].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);
@@ -1463,28 +1467,27 @@ test('single player, you alone against three AIs teamed up at mixed difficulties
   } finally { await ctx.close(); }
 });
 
-test('single player, five to eight (M4 2e): the 128x128 maps; eight start on 128x128 in four pairs; a small phone scrolls to START GAME, never sideways', async () => {
+test('single player, five to eight (M4 2e): the 128x128 maps; eight start on 128x128 in four pairs; a small phone holds eight seats', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     const maps = () => page.$$eval('#maps .map', bs => bs.map(b => b.firstChild.textContent));
     const badges = () => page.$$eval('#maps .map .up', bs => bs.map(b => b.textContent));
-    const narrow = async (what) => { const [sw, cw] = await page.locator('#start .card.menu').evaluate(e => [e.scrollWidth, e.clientWidth]); assert.ok(sw <= cw + 1, `${what}: no sideways scroll (${sw} > ${cw})`); };
+    const fits = async (what) => { const [sh, ch, sw, cw] = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight, e.scrollWidth, e.clientWidth]); assert.ok(sh <= ch + 1 && sw <= cw + 1, `${what}: fits (${sh} > ${ch} or ${sw} > ${cw})`); };
     const seats = seatList(page);
     await page.locator('#btnSolo').tap();
     for (let n = 3; n <= 8; n++) {
-      await seats.add();
+      if (n < 8) await seats.add(); else { await page.locator('#btnAddAi').focus(); await page.keyboard.press('Enter'); } // (the eighth by keyboard)
       if (n < 5) continue;
       assert.deepEqual(await maps(), MAPS_128, `${n}: the 128x128 maps`);
       assert.deepEqual(await badges(), n === 8 ? [] : Array(4).fill('up to 8'), `${n}: a badge while a start stays free`);
-      await narrow(`${n} players`);
+      await fits(`${n} players`);
     }
     assert.equal(await page.locator('#btnAddAi').count(), 0, 'eight: no room for another');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'x7', 'focus on the new AI\'s ×, not lost with + AI');
     assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 128, 'the preview at the map\'s size');
     for (const i of [1, 3, 5, 7]) await seats.team(i, i - 1); // (four pairs)
-    await page.locator('#btnStart').scrollIntoViewIfNeeded();
-    assert.ok(await page.locator('#btnStart').isVisible(), 'START GAME within reach');
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const eight = await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.me, endfall.engine.foes(), [0, 1, 2, 3, 4, 5, 6, 7].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);

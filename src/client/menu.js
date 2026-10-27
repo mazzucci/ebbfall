@@ -13,8 +13,8 @@ import { audio, sfx, soundToggled } from './audio.js';
 import { enterFullscreen, exitFullscreen } from './screen.js';
 import { icon } from './icons.js';
 import { initOffline } from './offline.js';
-import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor } from './maps.js';
-import { RACES, RACE_NAMES, DIFF_NAMES, arrange, oneTeam, freeTeam, compact, validRows, seatColor, selectBox, seatRow } from './seats.js';
+import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor, teamList } from './maps.js';
+import { RACES, RACE_NAMES, RACE_SHORT, DIFF_NAMES, teamName, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, selectBox, seatRow } from './seats.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -63,10 +63,12 @@ function renderMaps() {
 // last AI's); + AI below while there is room. Each dot is the colour the seat will have (the game seats the rows by
 // team: `arrange`). Everyone on one team: START GAME waits, and says why.
 const DIFF_TITLES = ['A slow, gentle opponent: time to learn and build', 'A real fight: the first attack comes at about three minutes', 'Plays the whole game well: early attacks, research, raids, split waves', 'Hard, faster, and it gathers 30% more than you'];
-const defaultRows = () => {
-  const race = (k) => ([...RACES, 'random'].includes(store.get(k)) ? store.get(k) : 'humans'), d = +store.get('diff'); // (the menu before the seat list)
-  return [{ race: race('race'), team: 0 }, { race: race('enemy'), team: 1, diff: Number.isInteger(d) && d >= 0 && d < DIFF_NAMES.length ? d : 0 }]; // (new players start on Easy)
+const defaultRows = () => { // (the menu before the seat list saved these; new players start on Easy)
+  const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
+  return legacyRows({ race: store.get('race'), enemy: store.get('enemy'), diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
 };
+/** A phone's selects: 16 px (iOS zooms into a smaller one), so shorter labels (two rows side by side on a small one). */
+const coarse = typeof matchMedia === 'function' ? matchMedia('(pointer:coarse)') : { matches: false };
 function setRows(rows) {
   const resized = rows.length !== menu.rows.length;
   menu.rows = rows; menu.players = rows.length; store.set('seats', JSON.stringify(rows));
@@ -77,17 +79,19 @@ function renderSeats() {
   const rows = menu.rows, { order } = arrange(rows), box = $('soloSeats');
   const focus = document.activeElement?.closest?.('#soloSeats') ? document.activeElement.dataset.k : null; // (kept on a redraw)
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
-  const races = [...RACES, 'random'].map(k => [k, RACE_NAMES[k]]), teams = rows.map((_, t) => [t, `TEAM ${t + 1}`]), diffs = DIFF_NAMES.map((n, d) => [d, n, DIFF_TITLES[d]]);
+  const short = coarse.matches, races = [...RACES, 'random'].map(k => [k, (short ? RACE_SHORT : RACE_NAMES)[k], RACE_NAMES[k]]);
+  const teams = rows.map((_, t) => [t, teamName(t, short), teamName(t)]), diffs = DIFF_NAMES.map((n, d) => [d, n, DIFF_TITLES[d]]);
   const cells = rows.map((r, i) => {
-    const race = selectBox(races, r.race, (v) => set(i, 'race', v), 'Race'), team = selectBox(teams, r.team, (v) => set(i, 'team', +v), 'Team');
-    const diff = i ? selectBox(diffs, r.diff, (v) => set(i, 'diff', +v), 'Difficulty') : null;
+    const name = i ? `AI ${i}` : 'YOU';
+    const race = selectBox(races, r.race, (v) => set(i, 'race', v), `${name} race`), team = selectBox(teams, r.team, (v) => set(i, 'team', +v), `${name} team`);
+    const diff = i ? selectBox(diffs, r.diff, (v) => set(i, 'diff', +v), `${name} difficulty`) : null;
     let x = null;
     if (i && rows.length > 2) {
       x = document.createElement('button'); x.className = 'ib x'; x.textContent = '×'; x.title = 'Remove this AI'; x.setAttribute('aria-label', `Remove AI ${i}`);
       x.dataset.k = `x${i}`; x.addEventListener('click', () => setRows(compact(rows.filter((_, j) => j !== i))));
     }
     [race, team, diff].forEach((c, k) => { if (c) c.dataset.k = `${['race', 'team', 'diff'][k]}${i}`; });
-    return seatRow(seatColor(order.indexOf(i)), i ? `AI ${i}` : 'YOU', [race, team, diff, x], i ? 'ai' : 'me');
+    return seatRow(seatColor(order.indexOf(i)), name, [race, team, diff, x], i ? 'ai' : 'me');
   });
   if (rows.length < MAX_PLAYERS) { // (a new AI: the last one's race and difficulty, a team of its own)
     const add = document.createElement('button'); add.className = 'ib addai'; add.id = 'btnAddAi'; add.textContent = '+ AI'; add.dataset.k = 'add'; add.title = `Another AI (up to ${MAX_PLAYERS} players)`;
@@ -95,7 +99,10 @@ function renderSeats() {
     cells.push(add);
   }
   box.replaceChildren(...cells);
-  if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
+  if (focus) { // (gone with its row, or + AI with the eighth: the nearest ×, the row before's select, else START GAME)
+    const i = /\d/.test(focus) ? +focus.replace(/\D/g, '') : rows.length;
+    ([focus, `x${i}`, `x${i - 1}`, `diff${i - 1}`, `race${i - 1}`].map(k => box.querySelector(`[data-k="${k}"]`)).find(Boolean) || $('btnStart')).focus();
+  }
   const one = oneTeam(rows);
   $('btnStart').disabled = one; $('soloNote').textContent = one ? 'Everyone is on one team' : '';
 }
@@ -158,9 +165,7 @@ export function initMenu({ onStart, onSound }) {
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.rows)) return;
     sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map);
-    const { order, teams } = arrange(menu.rows), rows = order.map(i => menu.rows[i]), diffs = rows.map(r => r.diff ?? 0);
-    menu.diff = Math.max(...diffs.slice(1)); // (the record counts a game at its hardest AI's level)
-    Object.assign(menu, { races: rows.map(r => draw(r.race)), ai: rows.map((_, s) => s > 0), teams, diffs: diffs.slice(1).every(d => d === menu.diff) ? [] : diffs });
+    Object.assign(menu, startSetup(menu.rows, draw)); // (the record counts a game at its hardest AI's level: `diff`)
     menu.race = menu.races[0]; menu.enemyRace = menu.races[1]; onStart();
   });
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).

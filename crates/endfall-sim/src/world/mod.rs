@@ -266,7 +266,7 @@ impl World {
         );
         // The seats onto the starts, then the starts nobody took.
         let ring = std::mem::take(&mut self.map.bases);
-        self.map.bases = crate::map::seat_starts(starts, self.seats(), self.side)
+        self.map.bases = crate::map::team_starts(starts, &self.teams, self.side)
             .into_iter()
             .map(|i| ring[i])
             .collect();

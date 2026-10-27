@@ -487,6 +487,12 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      seat (`World::set_diffs`, `diff_of`; left out or empty: every AI at `diff`, so the goldens and online games are
      unchanged; a replay keeps them); `diff` is then the hardest AI's, which is the level the device's record counts
      the game at. The lobby keeps its PLAYERS and TEAMS rows for now (the seat list comes to it later).
+     Any split needed one more rule in the sim: with fewer seats than starts, `seat_starts` spread the free starts by
+     seat (`s * k / n`), which split 2v2v2, 4v2, 3v2 and 1v4 on eight starts round a free one. With teams the free
+     starts now go between teams (`map::team_starts`: before the team whose first seat is `s`, `s * (k - n) / n` of
+     them, so 3v3 sits as before; `World::set_teams` deals a world that has not started again on that layout); free
+     for all keeps its layout, so the goldens are unchanged. On a phone the selects are 16 px (iOS zooms into a
+     smaller one) with short labels (HUM, VAEL, RND; T1, T2...), so eight seats sit four rows by two on 667x375.
 
 ## Open questions for the owner
 

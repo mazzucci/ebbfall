@@ -2,7 +2,8 @@
 // team first, you first), team ids in that order, a new AI's team, numbers without gaps, a saved setup checked.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arrange, oneTeam, freeTeam, compact, validRows } from '../src/client/seats.js';
+import { arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows } from '../src/client/seats.js';
+import { teamList } from '../src/client/maps.js';
 
 const rows = (...teams) => teams.map((team, i) => (i ? { race: 'humans', team, diff: 0 } : { race: 'humans', team }));
 
@@ -39,4 +40,21 @@ test('a saved setup: a good one as it is, anything else not at all', () => {
   assert.deepEqual(validRows([{ race: 'vael', team: 0, diff: 2, x: 1 }, { race: 'humans', team: 1, diff: 1 }], 8), [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 1 }], 'only what a row holds');
   for (const bad of [null, 'x', {}, [], [good[0]], Array(9).fill(good[1]), [good[0], { race: 'orcs', team: 1, diff: 0 }], [good[0], { race: 'humans', team: 2, diff: 0 }],
     [good[0], { race: 'humans', team: 1 }], [good[0], { race: 'humans', team: 1, diff: 4 }], [good[0], { race: 'humans', team: 1.5, diff: 0 }], [good[0], null]]) assert.equal(validRows(bad, 8), null, JSON.stringify(bad));
+});
+
+test('START GAME: the seats in team order, each AI\'s difficulty (none when all alike), the hardest the game\'s', () => {
+  const r = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, { race: 'random', team: 0, diff: 3 }, { race: 'humans', team: 1, diff: 2 }];
+  assert.deepEqual(startSetup(r, (k) => (k === 'random' ? 'vael' : k)), { races: ['vael', 'vael', 'humans', 'humans'], ai: [false, true, true, true], teams: [0, 0, 1, 1], diffs: [0, 3, 0, 2], diff: 3 },
+    'you and AI 2 against AI 1 and AI 3: AI 2 sits beside you, its RANDOM drawn; the record counts it at Brutal');
+  const alike = [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 2 }, { race: 'humans', team: 2, diff: 2 }];
+  assert.deepEqual(startSetup(alike), { races: ['humans', 'humans', 'humans'], ai: [false, true, true], teams: [], diffs: [], diff: 2 }, 'every AI alike: the game\'s diff, as before');
+  assert.deepEqual(startSetup([{ race: 'humans', team: 3 }, { race: 'vael', team: 0, diff: 1 }]), { races: ['humans', 'vael'], ai: [false, true], teams: [], diffs: [], diff: 1 }, 'a duel');
+});
+
+test('the old menu\'s saved choices make the first rows: players, teams, races, difficulty', () => {
+  assert.deepEqual(legacyRows({ race: 'vael', enemy: 'random', diff: 2, players: 4, teams: teamList(4, '2v2') }, 8),
+    [{ race: 'vael', team: 0 }, { race: 'random', team: 0, diff: 2 }, { race: 'random', team: 1, diff: 2 }, { race: 'random', team: 1, diff: 2 }]);
+  assert.deepEqual(legacyRows({ race: null, enemy: null, diff: null, players: 0, teams: [] }, 8), [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 0 }], 'nothing saved: you and an AI on Easy');
+  assert.deepEqual(legacyRows({ race: 'orcs', enemy: 'vael', diff: 9, players: 3 }, 8), [{ race: 'humans', team: 0 }, { race: 'vael', team: 1, diff: 0 }, { race: 'vael', team: 2, diff: 0 }], 'free for all; nonsense: the defaults');
+  assert.ok(validRows(legacyRows({ players: 8, teams: teamList(8, '2v2v2v2') }, 8), 8), 'a good setup');
 });

@@ -47,7 +47,7 @@ voice-lab.html        a page apart from the game for judging the synthesized voi
 selftest.html         the device check (a third entry): plays the golden games, says whether this device computes them
                       exactly (online play needs it); open it on a phone to check that phone
 ?bench                the device test (src/client/bench.js, in the game's own page): an 8-AI 128x128 game from 3:00, a
-                      minute measured through main.js's loop (`probe`), the report POSTed to the relay for a PERF-XXXX code
+                      minute measured through main.js's loop (`probe`), the report POSTed to the relay for a PERF-XXXXXX code
 index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays
 src/main.js           entry: wires the sim (via src/engine) to the client, fixed-step loop, start/end screens, events
 src/style.css         all styling; design tokens at the top of :root
@@ -118,7 +118,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, rooms of three and six with AI seats, eight seats
                       on a small phone),
-                      bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code),
+                      bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
+                      no keys while it measures, a swapped game stops it, a relay that does not answer),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
                       CHECK OFFLINE against the real service worker, the app icons)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed
@@ -126,6 +127,8 @@ test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache S
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four and eight with AI seats
+test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
+                      the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js
 test/maps.test.js     the menus' maps (src/client/maps.js): sizes by players, maps that fit, badges, an online setup's map,
                       the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats, AI

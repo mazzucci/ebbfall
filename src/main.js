@@ -266,7 +266,8 @@ new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
 window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
 bindInput(); resize(); requestAnimationFrame(loop);
-if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }));
+if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
+  .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
 // Ebbfall opens and plays without a connection once it has been loaded.

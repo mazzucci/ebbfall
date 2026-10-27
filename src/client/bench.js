@@ -3,7 +3,7 @@
 // to 3:00 so that armies exist, then a minute of real play through the game's own loop while the camera pans to the
 // busiest spots. main.js calls `probe.lap` at the loop's phases while `probe.on`; the sim's share of a step is timed by
 // wrapping the WASM Game's own `step`. The report (measurements and device/browser info only, under 64 KB) goes to the
-// relay's POST /bench (relay/bench.js), which answers with a code to pass on (PERF-XXXX). Test knobs: &secs= (the
+// relay's POST /bench (relay/bench.js), which answers with a code to pass on (PERF-XXXXXX). Test knobs: &secs= (the
 // measured seconds), &at= (the game time to start from).
 import { G, DIFF, WW, resetGameSeats, startReplay, step, liveGame, clamp } from '../engine/index.js';
 import { cam, view, cv, centerOn } from './gl/render.js';
@@ -24,7 +24,7 @@ const GLIDE_MS = 1500;
 const MAX_JSON = 60000;
 const BUILD = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
 
-let probe, ctx, card, badge, shield, refreshHz = 0, high = {};
+let probe, ctx, card, badge, shield, refreshHz = 0, high = {}, preparing = false, prepHidden = false, sending = 0;
 const frame = () => new Promise(r => requestAnimationFrame(() => r()));
 
 /** Called by main.js with its probe (`on`, `lap`) and its hooks: begin(reset), running(), started(), stop(). */
@@ -45,7 +45,9 @@ export function initBench(p, hooks) {
   $('benchGo').addEventListener('click', () => { enterFullscreen(); run(); }); // (full screen inside the tap)
   $('benchBack').addEventListener('click', () => { location.href = location.pathname; });
   measureRefresh().then(hz => { refreshHz = hz; });
-  document.addEventListener('visibilitychange', () => { if (probe.on) M.away = M.hidden = true; }); // (the frame after is not counted)
+  document.addEventListener('visibilitychange', () => { if (probe.on) M.away = M.hidden = true; if (preparing) prepHidden = true; }); // (the frame after is not counted)
+  // No keys while it measures (P's pause card has RESTART, hotkeys select and order): the test plays alone.
+  for (const t of ['keydown', 'keyup']) addEventListener(t, (e) => { if (probe.on) e.stopImmediatePropagation(); }, true);
   navigator.userAgentData?.getHighEntropyValues?.(['model', 'platformVersion', 'architecture', 'bitness', 'fullVersionList']).then(v => { high = v; }, () => {});
   document.body.dataset.bench = 'ready'; // (read by the browser test)
 }
@@ -65,30 +67,54 @@ async function measureRefresh() {
 let M = null; // the measurement in progress
 
 async function run() {
-  $('benchGo').hidden = true; $('benchBack').hidden = true; delete document.body.dataset.bench;
+  $('benchGo').hidden = true; $('benchBack').hidden = true; delete document.body.dataset.bench; sending++; // (a send still out is stale now)
+  try { await prepare(); } catch (e) { await failed(e); }
+}
+
+async function prepare() {
   say(`<p class="tag">Setting up the game…</p>`);
   await frame(); await frame(); // (full screen settles; the card is drawn)
   if (!refreshHz) refreshHz = await measureRefresh();
   // Every seat the AI's; every seat's vision (a replay from the first tick: none of its orders are a person's).
   resetGameSeats(MAP.seed, DIFF_MEDIUM, MAP.kind, 0, RACES, [], RACES.map(() => true), 0, MAP.size);
   startReplay();
-  const g = liveGame(), to = AT * 30, t0 = performance.now();
-  while (g.tick() < to - 1) {
-    g.runTo(Math.min(to - 1, g.tick() + 90)); // (the sim alone, no mirror between ticks)
-    say(`<p class="tag">Fast-forwarding to ${fmt(AT)}… ${Math.round(100 * g.tick() / to)}%</p>`);
-    await new Promise(r => setTimeout(r, 0));
-  }
-  const prepMs = performance.now() - t0, prepTicks = g.tick();
+  const g = liveGame(), to = AT * 30;
+  let prepMs = 0; preparing = true; prepHidden = document.hidden;
+  try {
+    while (g.tick() < to - 1) {
+      const t = performance.now();
+      g.runTo(Math.min(to - 1, g.tick() + 90)); // (the sim alone, no mirror between ticks)
+      prepMs += performance.now() - t; // (the sim's time only, not the page's between slices)
+      say(`<p class="tag">Fast-forwarding to ${fmt(AT)}… ${Math.round(100 * g.tick() / to)}%</p>`);
+      await new Promise(r => setTimeout(r, 0));
+    }
+  } finally { preparing = false; }
+  const prepTicks = g.tick();
   if (to) step();
   G.events.length = 0; // (what happened while skipping: not news now)
   // The sim's share of every step the loop takes: the WASM call timed (core.js's step adds the mirror after it).
   const real = g.step;
-  M = newMeasure({ prepMs, prepTicks });
+  M = newMeasure({ prepMs, prepTicks, hidden: prepHidden });
+  M.game = g; // (another game in its place, a RESTART: the test is over)
   g.step = function () { const t = performance.now(); real.call(this); M.wasm += performance.now() - t; M.steps++; };
   card.hidden = true; shield.hidden = false; badge.hidden = false;
   ctx.begin(() => {}); // (main.js: the game on screen, its loop running)
   probe.lap = lap; probe.on = true;
 }
+
+/** The test could not run: why, on the card (and to us, if it can be sent: a short report). */
+async function failed(e) {
+  const message = String(e?.message || e).slice(0, 500);
+  if (probe.on) { probe.on = false; probe.lap = () => {}; }
+  if (M?.game) delete M.game.step;
+  if (ctx.started()) ctx.stop();
+  card.hidden = false; shield.hidden = true; badge.hidden = true;
+  say(`<p>The test could not run: ${esc(message)}</p><p id="benchCode" class="tag">Sending…</p>`);
+  const report = { v: 1, kind: 'ebbfall-bench', build: BUILD, date: new Date().toISOString(), result: 'error', message, device: safe(device) };
+  window.endfallBench = { report, code: null };
+  await send(report);
+}
+const safe = (f) => { try { return f(); } catch { return null; } };
 
 function newMeasure(prep) {
   const n = Math.ceil(SECS * 250) + 10, f = () => new Float32Array(n);
@@ -120,7 +146,7 @@ function lap(k, now) {
 }
 
 function commit(c) {
-  if (!ctx.started()) { finish('stopped'); return; }
+  if (!ctx.started() || liveGame() !== M.game) { finish('stopped'); return; } // (left, or another game started)
   if (c.now - M.begin < WARMUP_MS) { M.warmMax = Math.max(M.warmMax, c.iv); return; }
   if (!c.ran || M.away) { // (paused, or the page was away: its frames are not the device's)
     M.skipped++; if (M.away) { M.gaps++; M.away = document.hidden; }
@@ -188,11 +214,12 @@ function busiest(last, away) {
 async function finish(how) {
   if (!probe.on) return;
   probe.on = false; probe.lap = () => {};
-  const g = liveGame(); delete g.step; // (the prototype's again)
+  delete M.game.step; // (the prototype's again)
   M.observer?.disconnect();
   ctx.stop();
   shield.hidden = true; badge.hidden = true;
-  const report = build(how);
+  let report;
+  try { report = build(how); } catch (e) { await failed(e); return; }
   window.endfallBench = { report, code: null };
   const s = report.summary;
   card.hidden = false;
@@ -201,24 +228,29 @@ async function finish(how) {
        <p class="tag">Per frame: sim ${s.sim.avg} ms, mirror ${s.sync.avg} ms, drawing ${s.render.avg} ms, HUD and the rest ${r2(s.other.avg + s.hud.avg)} ms. Game speed ${Math.round(s.gameSpeed * 100)}%.</p>`
     : `<p>The test was ${how}: ${s.secs} s measured.</p>`;
   say(`${lines}<p id="benchCode" class="tag">Sending…</p>`);
-  $('benchBack').hidden = false; $('benchGo').textContent = 'RUN AGAIN'; $('benchGo').hidden = false;
   await send(report);
 }
 
+/** POST the report; then the code (or TRY AGAIN), and RUN AGAIN / TO THE GAME once it has settled. A send that a new
+ *  run has overtaken says nothing. */
 async function send(report) {
-  const out = $('benchCode'), base = relayUrl();
-  if (!base) { out.textContent = 'Not sent: no server is known here.'; document.body.dataset.bench = 'unsent'; return; }
+  const id = ++sending, out = $('benchCode'), base = relayUrl();
+  $('benchGo').hidden = true; $('benchBack').hidden = true;
+  const settled = (state) => { $('benchBack').hidden = false; $('benchGo').textContent = 'RUN AGAIN'; $('benchGo').hidden = false; document.body.dataset.bench = state; };
+  if (!base) { out.textContent = 'Not sent: no server is known here.'; settled('unsent'); return; }
   try {
-    const res = await fetch(new URL('bench', base.replace(/^ws/, 'http')), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report) });
+    const res = await fetch(new URL('bench', base.replace(/^ws/, 'http')), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report), signal: AbortSignal.timeout(20000) });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || !body.code) throw new Error(body.error || `HTTP ${res.status}`);
+    if (id !== sending) return;
     window.endfallBench.code = body.code;
     out.innerHTML = `Your code: <b style="font-size:20px;color:var(--ally2);user-select:all">${body.code}</b> (pass it on: it is kept a week)`;
-    document.body.dataset.bench = 'sent';
+    settled('sent');
   } catch (e) {
-    out.innerHTML = `Not sent (${esc(e.message || String(e))}). <button class="ib" id="benchRetry">TRY AGAIN</button>`;
+    if (id !== sending) return;
+    out.innerHTML = `Not sent (${esc(e.name === 'TimeoutError' ? 'no answer' : e.message || String(e))}). <button class="ib" id="benchRetry">TRY AGAIN</button>`;
     $('benchRetry').addEventListener('click', () => { out.textContent = 'Sending…'; send(report); });
-    document.body.dataset.bench = 'failed';
+    settled('failed');
   }
 }
 
@@ -232,7 +264,7 @@ function build(how) {
     v: 1, kind: 'ebbfall-bench', build: BUILD, date: new Date().toISOString(), result: how,
     setup: { map: MAP.name, seed: MAP.seed, mapKind: MAP.kind, size: MAP.size, seats: SEATS, races: RACES, ai: DIFF[DIFF_MEDIUM].name, from: AT, secs: SECS, vision: 'every seat (replay)', zoom: r2(M.zoom) },
     device: device(),
-    prep: { ticks: M.prep.prepTicks, ms: Math.round(M.prep.prepMs), msPerTick: r2(M.prep.prepMs / Math.max(1, M.prep.prepTicks)) },
+    prep: { ticks: M.prep.prepTicks, ms: Math.round(M.prep.prepMs), msPerTick: r2(M.prep.prepMs / Math.max(1, M.prep.prepTicks)), hidden: M.prep.hidden },
     summary: {
       secs: r1(M.measured / 1000), frames: n, fps: r1(n * 1000 / Math.max(1, M.measured)), refreshHz,
       frameMs: stats(M.iv, n), over16: over(16.7), over33: over(33.4), over50: over(50),

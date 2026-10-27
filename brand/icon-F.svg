@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ebbfall F: Chevron ebb. Three chevrons pointing down (the fall), each narrower than the one above (the ebb): a tide mark and a rank badge in one. -->
+  <rect width="64" height="64" rx="12" fill="#0b0f16"/>
+  <g fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 13l23 15 23-15" stroke="#ffd27a"/>
+    <path d="M15 29l17 11 17-11" stroke="#f5a524"/>
+    <path d="M21 45l11 7 11-7" stroke="#b8761c"/>
+  </g>
+</svg>

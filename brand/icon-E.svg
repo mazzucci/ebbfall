@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ebbfall E: The falling wave. One gold breaker curling over and down, foam on its lip, the teal shard-shore below it as the water pulls back. -->
+  <rect width="64" height="64" rx="12" fill="#0b0f16"/>
+  <path d="M6 50C12 40 18 26 32 14c10-8 24-2 26 10-6-6-14-6-18 2-3 6 2 10 7 10C42 42 28 50 6 50Z" fill="#f5a524"/>
+  <path d="M32 14c10-8 24-2 26 10-6-6-14-6-18 2l-3-2c4-9 10-11 16-9-5-5-13-4-21-1z" fill="#ffd27a"/>
+  <path d="M8 57h48" stroke="#4fd1c5" stroke-width="4" stroke-linecap="round"/>
+</svg>

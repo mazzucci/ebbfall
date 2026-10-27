@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ebbfall C: The E that ebbs. A monogram in the title's angular spirit: the stem is the shore, the three arms are the waves, each shorter than the last, each tip cut on the slope of a falling wave face. -->
+  <rect width="64" height="64" rx="12" fill="#0b0f16"/>
+  <path d="M13 10h10v44H13z" fill="#f5a524"/>
+  <path d="M13 10h40v3l-7 7H13z" fill="#ffd27a"/>
+  <path d="M13 27h32v3l-7 7H13z" fill="#f5a524"/>
+  <path d="M13 44h24v3l-7 7H13z" fill="#c4842a"/>
+</svg>

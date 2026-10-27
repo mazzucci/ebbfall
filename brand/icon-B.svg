@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ebbfall B: Shard at low tide. The gold crystal (today's icon) revealed by the receding water: the tide line cuts it, the part still under water is dim. -->
+  <rect width="64" height="64" rx="12" fill="#0b0f16"/>
+  <path d="M32 5l17 22-17 24-17-24z" fill="#f5a524"/>
+  <path d="M32 14l9 13-9 14-9-14z" fill="#ffd27a"/>
+  <path d="M0 40h64v24H0z" fill="#0b0f16" opacity=".6"/>
+  <g fill="none" stroke-linecap="round" stroke-width="4">
+    <path d="M7 40c5-5 10-5 15 0s10 5 15 0 10-5 15 0 5 3 5 3" stroke="#4fd1c5"/>
+    <path d="M15 50c5-5 10-5 15 0s10 5 15 0" stroke="#2c8f86"/>
+  </g>
+</svg>

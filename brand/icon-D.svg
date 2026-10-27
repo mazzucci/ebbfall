@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ebbfall D: Two shores. The human shore (gold) and the Vael shore (violet, pearl rim) across a dark strait; the tide has drawn back from both. -->
+  <defs><clipPath id="r"><rect width="64" height="64" rx="12"/></clipPath></defs>
+  <rect width="64" height="64" rx="12" fill="#0b0f16"/>
+  <g clip-path="url(#r)">
+    <path d="M-2-2H44C40 8 30 10 24 18S10 32 6 44-2 50-2 50Z" fill="#f5a524"/>
+    <path d="M44-2C40 8 30 10 24 18S10 32 6 44-2 50-2 50" fill="none" stroke="#ffd27a" stroke-width="3"/>
+    <path d="M66 66H20C24 56 34 54 40 46S54 32 58 20 66 14 66 14Z" fill="#a78bfa"/>
+    <path d="M20 66C24 56 34 54 40 46S54 32 58 20 66 14 66 14" fill="none" stroke="#efe9ff" stroke-width="3"/>
+  </g>
+</svg>

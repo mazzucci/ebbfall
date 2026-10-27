@@ -1362,17 +1362,23 @@ test('iPad full screen: the top bar starts after the system\'s ✕ (top left), a
     const d = await newGame(dev, 1, 4242, { ai: false });
     try {
       const left = () => d.eval(() => document.getElementById('resShard').getBoundingClientRect().left);
+      // (START went full screen already where the browser allows it: from out of full screen, settled)
+      await d.page.waitForTimeout(300);
+      await d.eval(() => document.fullscreenElement && document.exitFullscreen());
+      await d.page.waitForFunction(() => !document.fullscreenElement && !document.documentElement.classList.contains('sysx'));
+      await d.page.waitForTimeout(300);
       const before = await left();
       await d.eval(() => document.documentElement.requestFullscreen());
       await d.page.waitForFunction(() => !!document.fullscreenElement);
-      await d.page.waitForTimeout(100);
+      if (dev === IPAD) await d.page.waitForFunction(() => document.getElementById('resShard').getBoundingClientRect().left >= 60, null, { timeout: 3000 }).catch(() => {});
+      else await d.page.waitForTimeout(300); // (the fullscreenchange event comes after fullscreenElement is set)
       const full = await left();
       if (dev === IPAD) assert.ok(full >= 60, `the shards clear the ✕: ${before} -> ${full}`);
       else assert.ok(Math.abs(full - before) < 2, `a phone keeps its top bar: ${before} -> ${full}`);
       await d.eval(() => document.exitFullscreen());
-      await d.page.waitForFunction(() => !document.fullscreenElement);
-      await d.page.waitForTimeout(100);
-      assert.ok(Math.abs((await left()) - before) < 2, 'back in place out of full screen');
+      await d.page.waitForFunction(() => !document.fullscreenElement && !document.documentElement.classList.contains('sysx'));
+      await d.page.waitForFunction((b) => Math.abs(document.getElementById('resShard').getBoundingClientRect().left - b) < 2, before, { timeout: 3000 })
+        .catch(async () => assert.fail(`back in place out of full screen: ${before} -> ${await left()}`));
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }

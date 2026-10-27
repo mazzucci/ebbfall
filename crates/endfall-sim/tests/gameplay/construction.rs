@@ -649,3 +649,140 @@ fn a_batch_warps_in_side_by_side_and_a_rally_past_the_edge_stays_on_the_map() {
     assert!(uc.warp > 0.0, "it warps in by the edge");
     assert!(uc.x >= 16.0, "on the map: {}", uc.x);
 }
+
+/// Ticks a lone builder at work takes to raise a `kind` for the player (from its first progress to done).
+fn ticks_to_build(w: &mut World, kind: BldgKind) -> u32 {
+    let h = harvesters(w, PLAYER)[0];
+    let (tx, ty) = spot(w, kind);
+    let b = w.place_building(PLAYER, kind, tx, ty, Some(h)).unwrap();
+    let mut ticks = 0;
+    for _ in 0..30 * 120 {
+        w.step();
+        let bd = w.bldg(b).unwrap();
+        if bd.progress > 0.0 {
+            ticks += 1;
+        }
+        if bd.done {
+            return ticks;
+        }
+    }
+    panic!("{kind:?} not built");
+}
+
+#[test]
+fn prefab_frames_raise_human_buildings_a_quarter_faster() {
+    // A Garrison takes its 40 s without the tech, 40 / 1.25 = 32 s with it.
+    let plain = ticks_to_build(&mut rich(5), BldgKind::Barracks);
+    let mut w = rich(5);
+    w.upgrades[PLAYER as usize][Upgrade::PrefabFrames.index()] = 1;
+    let fast = ticks_to_build(&mut w, BldgKind::Barracks);
+    let build = BldgKind::Barracks.def().build;
+    assert!(
+        (plain as f64 - build * TPS as f64).abs() <= 1.0,
+        "{plain} ticks without"
+    );
+    assert!(
+        (fast as f64 - build / TECH_BUILD * TPS as f64).abs() <= 1.0,
+        "{fast} ticks with Prefab Frames ({plain} without)"
+    );
+    assert_eq!(
+        w.bldgs.iter().filter(|b| b.done && b.hp < b.maxhp).count(),
+        0,
+        "and it stands at full health"
+    );
+}
+
+#[test]
+fn prefab_frames_cost_what_the_table_says_and_speed_up_sites_already_rising() {
+    let up = Upgrade::PrefabFrames;
+    assert_eq!(up.levels(), 1, "a one-level tech");
+    let mut w = rich(5);
+    let h = harvesters(&w, PLAYER);
+    let (rx, ry) = spot(&w, BldgKind::Barracks);
+    let rax = w.make_building(BldgKind::Barracks, PLAYER, rx, ry, true);
+    assert!(
+        w.start_research(rax, up).is_err(),
+        "researched at the Foundry only"
+    );
+    let (fx, fy) = spot(&w, BldgKind::Forge);
+    let forge = w.make_building(BldgKind::Forge, PLAYER, fx, fy, true);
+    // A second Core going up (75 s) while the Foundry researches.
+    let (tx, ty) = spot(&w, BldgKind::Core);
+    let site = w
+        .place_building(PLAYER, BldgKind::Core, tx, ty, Some(h[0]))
+        .unwrap();
+    run(&mut w, 10);
+    let step = |w: &mut World| {
+        let p = w.bldg(site).unwrap().progress;
+        w.step();
+        w.bldg(site).unwrap().progress - p
+    };
+    let before = step(&mut w);
+    assert!(before > 0.0, "the builder is at work");
+    let res = w.res[PLAYER as usize];
+    w.start_research(forge, up).unwrap();
+    let cost = up.cost(1);
+    assert_eq!(
+        w.res[PLAYER as usize],
+        [res[0] - cost[0], res[1] - cost[1]],
+        "it costs {cost:?}"
+    );
+    run(&mut w, up.time(1) as u32 - 1);
+    assert_eq!(w.upgrades[PLAYER as usize][up.index()], 0, "not yet");
+    assert!(
+        (step(&mut w) - before).abs() < 1e-12,
+        "same pace until then"
+    );
+    run(&mut w, 2);
+    assert_eq!(
+        w.upgrades[PLAYER as usize][up.index()],
+        1,
+        "researched in {} s",
+        up.time(1)
+    );
+    assert!(!w.bldg(site).unwrap().done, "the Core is still going up");
+    let after = step(&mut w);
+    assert!(
+        (after / before - TECH_BUILD).abs() < 1e-9,
+        "the site already rising goes up {TECH_BUILD} times as fast: {before} -> {after}"
+    );
+    assert!(
+        w.start_research(forge, up).is_err(),
+        "and it is done for good"
+    );
+}
+
+#[test]
+fn prefab_frames_are_human_only_and_per_side() {
+    // No Vael building researches it.
+    assert!(
+        BLDG_KINDS
+            .iter()
+            .all(|k| !k.def().researches.contains(&Upgrade::PrefabFrames) || HUMANS.builds(*k)),
+        "researched by the Humans only"
+    );
+    // The Vael player's Spire grows in its own time while the Human side has the tech.
+    let mut w = rich_vael(4242);
+    w.upgrades[ENEMY as usize][Upgrade::PrefabFrames.index()] = 1;
+    let l = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    let site = w
+        .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
+        .unwrap();
+    let mut grown = 0;
+    for _ in 0..30 * 60 {
+        w.step();
+        let b = w.bldg(site).unwrap();
+        if b.progress > 0.0 {
+            grown += 1;
+        }
+        if b.done {
+            break;
+        }
+    }
+    let build = BldgKind::Spire.def().build * TPS as f64;
+    assert!(
+        (grown as f64 - build).abs() <= 1.0,
+        "{grown} ticks, its build time {build}"
+    );
+}

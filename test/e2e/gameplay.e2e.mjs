@@ -334,7 +334,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field'], 'the Forge card: research and its cancel, the techs below');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Prefab'], 'the Forge card: research and its cancel, the techs below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -362,6 +362,62 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     assert.ok(!(await d.card()).some(c => c.label === 'Entrench'), 'a finished tech leaves the card');
     await d.clickEntity(v);
     assert.ok((await d.card()).some(c => c.label === 'Entrench' && c.enabled), 'Entrench unlocked');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: Prefab Frames researched at the Foundry, then buildings go up faster', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    await buildAndFinish(d, 'g', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
+    const pct = Math.round((rate - 1) * 100);
+    await d.clickEntity(forge.id);
+    // The Foundry's card keeps its fixed slots on a phone: two levels, Cancel's place, then its three techs.
+    const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Entrench', 'Cloak Field', 'Prefab'], 'the Foundry card');
+    const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Prefab' }).boundingBox();
+    assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, 'it fits on the screen');
+    // A long-press says what it does and costs, without researching it.
+    const cdp = await d.page.context().newCDPSession(d.page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+    await d.page.waitForTimeout(700);
+    const text = await d.page.locator('#cmdInfo').textContent();
+    assert.match(text, /Prefab/); assert.match(text, new RegExp(`Buildings go up ${pct}% faster`)); assert.match(text, /100/); assert.match(text, /60 s/);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await d.page.waitForTimeout(150);
+    assert.equal(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, forge.id), false, 'the long-press did not research it');
+    // A tap researches it: paid for, the console shows it with its bar, Cancel in its row.
+    const res = (await d.state()).res;
+    await d.pressCard('Prefab');
+    const paid = (await d.state()).res;
+    assert.ok(paid[1] === res[1] - 100 && paid[0] <= res[0] - 100 + 40, `it costs 100 shards and 100 ether (${res} -> ${paid}; shards still come in)`);
+    assert.match(await d.hudText('#mod', /Prefab Frames/), /Prefab Frames/);
+    assert.ok(await d.page.locator('#mod .rs').isVisible(), 'the console shows the research with its bar');
+    const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
+    await d.skip(4);
+    await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
+    const busy = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Prefab'], 'the card keeps its shape');
+    assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].prefabFrames)) === 1, { seconds: 70, what: 'Prefab Frames' });
+    await d.clickEntity(forge.id);
+    assert.ok(!(await d.card()).some(c => c.label === 'Prefab'), 'a finished tech leaves the card');
+    // A Depot (22 s) now goes up faster: a tick of work is rate / 22 of a second's worth (read tick by tick in one go).
+    const s = await d.state();
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, mine(s, 'harvester')[2].id);
+    const site = () => d.state().then(s => s.bldgs.find(b => b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty));
+    await until(d, async () => (await site())?.progress > 0, { seconds: 30, step: 1, what: 'the builder at work' });
+    const steps = await d.eval(([tx, ty]) => {
+      const p = () => endfall.G.bldgs.find(b => b.type === 'depot' && b.tx === tx && b.ty === ty).progress, out = [];
+      for (let i = 0; i < 30; i++) { const p0 = p(); endfall.skip(1 / 30); out.push(p() - p0); }
+      return out;
+    }, [spot.tx, spot.ty]);
+    const step = Math.max(...steps);
+    assert.ok(Math.abs(step - rate / 30 / 22) < 1e-9, `a tick of work: ${step} (${1 / 30 / 22} without the tech)`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

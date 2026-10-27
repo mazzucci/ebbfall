@@ -16,8 +16,8 @@ impl World {
             dry,
             ..
         } = brain.clone();
-        // Research: its techs (abilities, a faster flyer) as soon as their building stands, on levels whose units use
-        // abilities; weapons and armor in turn from the difficulty's research_from (Easy never); none while saving
+        // Research: an economy tech (Prefab Frames) first, once its opening factories stand; its techs (abilities, a
+        // faster flyer) as soon as their building stands, on levels whose units use abilities; weapons and armor in turn from the difficulty's research_from (Easy never); none while saving
         // for an expansion. Until it can afford the next one it saves up (no new units), but never while under
         // attack or short of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
         const SAVE_MAX: f64 = 30.0;
@@ -26,23 +26,28 @@ impl World {
         // army first)
         let script = &self.factions[e as usize].ai;
         let rax = script.rax;
-        let techs = d.abilities
-            && t > d.research_from.min(script.tech_from)
-            && self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
+        let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
+        let techs = d.abilities && t > d.research_from.min(script.tech_from) && on_schedule;
+        // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research
+        // at all: it pays back over the whole game.
+        let economy =
+            d.research_from < NEVER && on_schedule && self.ai_count(&my_b, true, rax) >= d.rax;
         let levels_due = t > d.research_from;
         let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
         let mut saving = false;
-        if (techs || levels_due) && !expand {
+        if (techs || levels_due || economy) && !expand {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
                 if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
                     continue;
                 }
-                // Techs first (an ability or speed is worth more than a level), then the lowest level (the earlier
-                // upgrade on a tie).
+                // Techs first (an ability or speed is worth more than a level; the economy's before the army's),
+                // then the lowest level (the earlier upgrade on a tie).
                 let levels = self.upgrades[e as usize];
                 let mut order = UPGRADES;
-                order.sort_by_key(|u| (u.levels() > 1, levels[u.index()], u.index()));
+                order.sort_by_key(|&u| {
+                    (u.levels() > 1, levels[u.index()], !is_economy(u), u.index())
+                });
                 let busy = |w: &World, up: Upgrade| {
                     w.bldgs
                         .iter()
@@ -53,7 +58,13 @@ impl World {
                     .into_iter()
                     .filter(|&up| {
                         here.contains(&up)
-                            && (if up.levels() == 1 { techs } else { levels_due })
+                            && (if is_economy(up) {
+                                economy
+                            } else if up.levels() == 1 {
+                                techs
+                            } else {
+                                levels_due
+                            })
                             && self.tech_of_use(e, &my_b, up)
                             && self.upgrades[e as usize][up.index()] < up.levels()
                             && !busy(self, up)
@@ -109,4 +120,9 @@ impl World {
                     .any(|k| k.def().abilities.contains(&ab))
         })
     }
+}
+
+/// A tech for the economy rather than the army (researched early, on every level that researches).
+fn is_economy(up: Upgrade) -> bool {
+    up.def().effect == Effect::BuildSpeed
 }

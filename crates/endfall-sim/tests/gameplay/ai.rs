@@ -1376,3 +1376,55 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
         );
     }
 }
+
+#[test]
+fn the_human_ai_researches_prefab_frames_early_on_hard_but_never_on_easy() {
+    // The economy tech comes first on a level that researches (once its opening factories stand); Easy never
+    // researches.
+    let researched_at = |diff: usize| {
+        let mut w = World::new(21, diff);
+        let c = w
+            .bldgs
+            .iter_mut()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap();
+        c.hp = 1e9;
+        c.maxhp = 1e9;
+        let up = Upgrade::PrefabFrames;
+        for _ in 0..30 * 600 {
+            w.step();
+            w.events.clear();
+            let mine = |k: BldgKind, done: bool| {
+                w.bldgs
+                    .iter()
+                    .filter(|b| b.team == ENEMY && b.kind == k && (b.done || !done))
+                    .count()
+            };
+            if w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.research.is_some_and(|(u, _)| u == up))
+            {
+                assert!(
+                    mine(BldgKind::Barracks, true) >= DIFF[diff].rax,
+                    "not before its opening factories stand"
+                );
+            }
+            if w.upgrades[ENEMY as usize][up.index()] > 0 {
+                let others: u8 = UPGRADES
+                    .iter()
+                    .filter(|&&u| u != up)
+                    .map(|u| w.upgrades[ENEMY as usize][u.index()])
+                    .sum();
+                assert_eq!(others, 0, "the economy tech before any other");
+                return Some(w.time);
+            }
+        }
+        None
+    };
+    let hard = researched_at(2).expect("Hard researches Prefab Frames by 10:00");
+    assert!(
+        hard < 300.0,
+        "early, before the army's techs at 5:00: {hard:.0}s"
+    );
+    assert_eq!(researched_at(0), None, "Easy never researches");
+}

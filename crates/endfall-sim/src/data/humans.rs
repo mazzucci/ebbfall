@@ -253,7 +253,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
         Upgrade::Armor,
         Upgrade::Entrenching,
         Upgrade::CloakingField,
-        Upgrade::PrefabFrames,
+        Upgrade::RapidConstruction,
     ],
     name: "Foundry",
     cost: [150, 100],

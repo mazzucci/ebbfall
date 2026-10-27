@@ -1378,7 +1378,7 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
 }
 
 #[test]
-fn the_human_ai_researches_prefab_frames_early_on_hard_but_never_on_easy() {
+fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() {
     // The economy tech comes first on a level that researches (once its opening factories stand); Easy never
     // researches.
     let researched_at = |diff: usize| {
@@ -1390,7 +1390,7 @@ fn the_human_ai_researches_prefab_frames_early_on_hard_but_never_on_easy() {
             .unwrap();
         c.hp = 1e9;
         c.maxhp = 1e9;
-        let up = Upgrade::PrefabFrames;
+        let up = Upgrade::RapidConstruction;
         for _ in 0..30 * 600 {
             w.step();
             w.events.clear();
@@ -1421,7 +1421,7 @@ fn the_human_ai_researches_prefab_frames_early_on_hard_but_never_on_easy() {
         }
         None
     };
-    let hard = researched_at(2).expect("Hard researches Prefab Frames by 10:00");
+    let hard = researched_at(2).expect("Hard researches Rapid Construction by 10:00");
     assert!(
         hard < 300.0,
         "early, before the army's techs at 5:00: {hard:.0}s"

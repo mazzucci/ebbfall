@@ -17,7 +17,7 @@ pub enum Upgrade {
     Slipstream,
     CloakingField,
     VeilWeave,
-    PrefabFrames,
+    RapidConstruction,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -141,10 +141,10 @@ const VEIL_WEAVE: UpgradeDef = UpgradeDef {
     effect: Effect::Unlock(AbilityKind::Veil),
     ..CLOAKING_FIELD
 };
-const PREFAB_FRAMES: UpgradeDef = UpgradeDef {
-    key: "prefabFrames",
-    name: "Prefab Frames",
-    short: "Prefab",
+const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
+    key: "rapidConstruction",
+    name: "Rapid Construction",
+    short: "Rapid Build",
     effect: Effect::BuildSpeed,
     ..TECH
 };
@@ -160,7 +160,7 @@ pub const UPGRADES: [Upgrade; 10] = [
     Upgrade::Slipstream,
     Upgrade::CloakingField,
     Upgrade::VeilWeave,
-    Upgrade::PrefabFrames,
+    Upgrade::RapidConstruction,
 ];
 
 impl Upgrade {
@@ -175,7 +175,7 @@ impl Upgrade {
             Upgrade::Slipstream => &SLIPSTREAM,
             Upgrade::CloakingField => &CLOAKING_FIELD,
             Upgrade::VeilWeave => &VEIL_WEAVE,
-            Upgrade::PrefabFrames => &PREFAB_FRAMES,
+            Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

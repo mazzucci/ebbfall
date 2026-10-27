@@ -670,11 +670,11 @@ fn ticks_to_build(w: &mut World, kind: BldgKind) -> u32 {
 }
 
 #[test]
-fn prefab_frames_raise_human_buildings_a_quarter_faster() {
+fn rapid_construction_raise_human_buildings_a_quarter_faster() {
     // A Garrison takes its 40 s without the tech, 40 / 1.25 = 32 s with it.
     let plain = ticks_to_build(&mut rich(5), BldgKind::Barracks);
     let mut w = rich(5);
-    w.upgrades[PLAYER as usize][Upgrade::PrefabFrames.index()] = 1;
+    w.upgrades[PLAYER as usize][Upgrade::RapidConstruction.index()] = 1;
     let fast = ticks_to_build(&mut w, BldgKind::Barracks);
     let build = BldgKind::Barracks.def().build;
     assert!(
@@ -683,7 +683,7 @@ fn prefab_frames_raise_human_buildings_a_quarter_faster() {
     );
     assert!(
         (fast as f64 - build / TECH_BUILD * TPS as f64).abs() <= 1.0,
-        "{fast} ticks with Prefab Frames ({plain} without)"
+        "{fast} ticks with Rapid Construction ({plain} without)"
     );
     assert_eq!(
         w.bldgs.iter().filter(|b| b.done && b.hp < b.maxhp).count(),
@@ -693,8 +693,8 @@ fn prefab_frames_raise_human_buildings_a_quarter_faster() {
 }
 
 #[test]
-fn prefab_frames_cost_what_the_table_says_and_speed_up_sites_already_rising() {
-    let up = Upgrade::PrefabFrames;
+fn rapid_construction_cost_what_the_table_says_and_speed_up_sites_already_rising() {
+    let up = Upgrade::RapidConstruction;
     assert_eq!(up.levels(), 1, "a one-level tech");
     let mut w = rich(5);
     let h = harvesters(&w, PLAYER);
@@ -753,17 +753,17 @@ fn prefab_frames_cost_what_the_table_says_and_speed_up_sites_already_rising() {
 }
 
 #[test]
-fn prefab_frames_are_human_only_and_per_side() {
+fn rapid_construction_are_human_only_and_per_side() {
     // No Vael building researches it.
     assert!(
-        BLDG_KINDS
-            .iter()
-            .all(|k| !k.def().researches.contains(&Upgrade::PrefabFrames) || HUMANS.builds(*k)),
+        BLDG_KINDS.iter().all(
+            |k| !k.def().researches.contains(&Upgrade::RapidConstruction) || HUMANS.builds(*k)
+        ),
         "researched by the Humans only"
     );
     // The Vael player's Spire grows in its own time while the Human side has the tech.
     let mut w = rich_vael(4242);
-    w.upgrades[ENEMY as usize][Upgrade::PrefabFrames.index()] = 1;
+    w.upgrades[ENEMY as usize][Upgrade::RapidConstruction.index()] = 1;
     let l = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Spire);
     let site = w

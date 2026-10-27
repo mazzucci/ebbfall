@@ -16,7 +16,7 @@ impl World {
             dry,
             ..
         } = brain.clone();
-        // Research: an economy tech (Prefab Frames) first, once its opening factories stand; its techs (abilities, a
+        // Research: an economy tech (Rapid Construction) first, once its opening factories stand; its techs (abilities, a
         // faster flyer) as soon as their building stands, on levels whose units use abilities; weapons and armor in turn from the difficulty's research_from (Easy never); none while saving
         // for an expansion. Until it can afford the next one it saves up (no new units), but never while under
         // attack or short of Lancers against flyers, and for at most SAVE_MAX seconds at a time.

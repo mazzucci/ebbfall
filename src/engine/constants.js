@@ -47,7 +47,7 @@ const BLDG_TEXT = {
   depot: { hot: 'D', desc: '+8 supply.' },
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers, Medics and Vanguards (Medics and Vanguards need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Entrenching, Cloaking Field and Prefab Frames; unlocks Medics and Vanguards at the Garrison.' },
+  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Entrenching, Cloaking Field and Rapid Construction; unlocks Medics and Vanguards at the Garrison.' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
   airfield: { hot: 'A', desc: 'Trains Wasps, Observers and the Bastion capital gunship.' },
   // the Vael
@@ -60,7 +60,7 @@ const BLDG_TEXT = {
   zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital walker. With its rally point in a power field, they warp in there.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
-  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, prefabFrames: { hot: 'B' } };
+  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
 const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));

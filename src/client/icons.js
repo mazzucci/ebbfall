@@ -42,7 +42,7 @@ export function setIconButton(el, name, label) { el.innerHTML = icon(name) + `<s
 
 /** Inline SVG markup for a line icon. */
 // A tech shows the icon of what it gives.
-Object.assign(P, { veil: P.cloak, entrenching: P.entrench, overchargeCore: P.overcharge, afterburners: P.speed, slipstream: P.speed, cloakingField: P.cloak, veilWeave: P.cloak, prefabFrames: P.frames });
+Object.assign(P, { veil: P.cloak, entrenching: P.entrench, overchargeCore: P.overcharge, afterburners: P.speed, slipstream: P.speed, cloakingField: P.cloak, veilWeave: P.cloak, rapidConstruction: P.frames });
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[name] || ''}"/></svg>`;
 
 /** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. In `team`'s

@@ -8,8 +8,19 @@ import { terrainSprites } from './terrain2.js';
 import { effectSprites } from './effects2.js';
 import { render3d } from './render3d.mjs';
 
-const FACINGS = 16, UNIT_FRAMES = { harvester: 2, trooper: 4, vanguard: 4, lancer: 4, medic: 4, wasp: 2, observer: 2, lumen: 2, scythe: 2, prism: 2, monolith: 2, shrike: 2, halo: 2 };
-const sprites = [...terrainSprites(), ...effectSprites(), ...await render3d()];
+const FACINGS = 16;
+const models = await render3d(), sprites = [...terrainSprites(), ...effectSprites(), ...models];
+
+// Team masks (`<name>_m`) are mostly transparent: cut to their content. The frame keeps the full size and its offset
+// (sourceSize, spriteSourceSize), so it lines up with its base frame pixel for pixel.
+for (const s of sprites) if (s.trim) {
+  const { w, h, data } = s.img; let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  if (x1 < 0) x0 = y0 = x1 = y1 = 0; // nothing painted in sight: one clear pixel
+  const tw = x1 - x0 + 1, th = y1 - y0 + 1, out = new Uint8ClampedArray(tw * th * 4);
+  for (let y = 0; y < th; y++) out.set(data.subarray(((y0 + y) * w + x0) * 4, ((y0 + y) * w + x1 + 1) * 4), y * tw * 4);
+  s.src = { x: x0, y: y0, w, h }; s.img = { w: tw, h: th, data: out };
+}
 
 // Shelf packing into 2048x2048 pages, tallest first, 4 px gutters. Terrain tiles get 4 px gutters filled with their
 // own edge pixels, so filtering and mipmaps never pull in transparency (which would draw a grid on the ground).
@@ -46,7 +57,8 @@ pages.forEach((p, n) => {
     const s = sprites[i], { w, h, data: src } = s.img;
     for (let r = 0; r < h; r++) data.set(src.subarray(r * w * 4, (r + 1) * w * 4), ((y + r) * W + x) * 4);
     const e = s.ext || 0, fw = w - e * 2, fh = h - e * 2; // extruded tiles: the frame is the inner, original tile
-    frames[s.name] = { frame: { x: x + e, y: y + e, w: fw, h: fh }, anchor: s.anchor, sourceSize: { w: fw, h: fh }, spriteSourceSize: { x: 0, y: 0, w: fw, h: fh } };
+    frames[s.name] = s.src ? { frame: { x, y, w, h }, anchor: s.anchor, trimmed: true, sourceSize: { w: s.src.w, h: s.src.h }, spriteSourceSize: { x: s.src.x, y: s.src.y, w, h } }
+      : { frame: { x: x + e, y: y + e, w: fw, h: fh }, anchor: s.anchor, sourceSize: { w: fw, h: fh }, spriteSourceSize: { x: 0, y: 0, w: fw, h: fh } };
   }
   writeFileSync(new URL(`atlas-${n}.png`, root), encodePNG({ w: W, h: height, data }));
   writeFileSync(new URL(`atlas-${n}.json`, root), JSON.stringify({ frames, meta: { app: 'endfall tools/art', image: `atlas-${n}.png`, format: 'RGBA8888', size: { w: W, h: height }, scale: '2' } }));
@@ -54,6 +66,6 @@ pages.forEach((p, n) => {
 });
 const seq = (prefix, n) => Array.from({ length: n }, (_, f) => `${prefix}${f}`);
 const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4), heal: seq('heal_', 3) };
-for (const [kind, n] of Object.entries(UNIT_FRAMES)) for (let t = 0; t < 2; t++) for (let d = 0; d < FACINGS; d++) animations[`${kind}_${t}_${d}`] = seq(`${kind}_${t}_${d}_`, n);
-writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2 }, null, 1));
+for (const s of sprites) if (s.anim) (animations[s.anim] ||= [])[s.frame] = s.name; // units: <unit>_<dir> (base frames)
+writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2, tints: models.tints }, null, 1));
 console.log(`${sprites.length} sprites on ${pages.length} page(s)`);

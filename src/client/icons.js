@@ -1,6 +1,6 @@
 // HUD icons: simple line drawings (24x24, stroked in the current text colour) for commands and the top bar, and
 // sprite portraits of units and buildings cut from the art atlas.
-import { artIcon } from './gl/render.js';
+import { artIcon, seatTint } from './gl/render.js';
 import { G } from '../engine/index.js';
 
 const P = {
@@ -48,7 +48,7 @@ export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden=
 /** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. In `team`'s
  * colours: this client's own seat unless told otherwise. */
 export function portrait(kind, type, size = 26, team = G.me) {
-  const url = kind === 'unit' ? artIcon(`${type}_${team}_2_0`, size, 2.1) // unit frames carry room for the shadow
-    : kind === 'node' ? artIcon(type === 'ether' ? 'vent_0' : 'shard_0', size, 1.2) : artIcon(`bldg_${type}_${team}`, size, 1.1);
+  const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
+    : kind === 'node' ? artIcon(type === 'ether' ? 'vent_0' : 'shard_0', size, 1.2) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }

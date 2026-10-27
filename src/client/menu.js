@@ -1,13 +1,12 @@
-// The start menu (a page of its own: opponent, race, one of three maps, sound, Exit game); the phone's "tap to play"
-// splash (that first tap enters full screen and so locks landscape, and the browser's full-screen notice shows over
-// the menu, not the battle); and the How to play card.
+// The start menu (a page of its own: opponent, race, one of three maps, sound; START GAME goes full screen,
+// and while full screen a corner button leaves it); and the How to play card.
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
 // Difficulty and sound are remembered on this device.
 import { mulberry, mapPreview, DUEL_MW as MW, DUEL_MH as MH, DIFF } from '../engine/index.js';
 import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
-import { touchDevice, enterFullscreen, exitFullscreen, canGoFullscreen, standalone } from './screen.js';
+import { enterFullscreen, exitFullscreen } from './screen.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -105,22 +104,15 @@ export function initMenu({ onStart, onSound }) {
   choose(urlSeed !== null ? MAPS.length - 1 : 0); renderMaps();
   $('btnMenuSound').addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
   soundLabel(); syncSound();
-  $('btnFirst').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = true; onStart(); });
-  $('btnStart').addEventListener('click', () => { sfx('select'); if (touchDevice) enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
+  $('btnFirst').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
+  $('btnStart').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map); menu.enemyRace = menu.enemy === 'random' ? (Math.random() < 0.5 ? 'humans' : 'vael') : menu.enemy; onStart(); }); // each game draws our starting base (a random map, a random enemy race)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
-  // Exit: a browser lets a page close itself only in some cases (a tab a script opened, or one with nothing to go
-  // back to); otherwise it leaves full screen and says how to close it, in place of the tagline (the menu keeps its size).
-  $('btnExit').addEventListener('click', () => {
-    sfx('select'); window.close();
-    setTimeout(() => { if (!window.closed) { exitFullscreen(); $('menuTag').textContent = standalone ? 'You can close the app now.' : 'You can close this tab now.'; } }, 250);
-  });
+  // Full screen (a phone's PLAY enters it): a corner button leaves it, there only while it is on. (A page cannot
+  // close its own tab; leaving full screen gives the browser's own controls back.)
+  const unfull = () => { $('btnUnfull').hidden = !document.fullscreenElement && !document.webkitFullscreenElement; };
+  $('btnUnfull').addEventListener('click', () => { sfx('select'); exitFullscreen(); });
+  document.addEventListener('fullscreenchange', unfull); document.addEventListener('webkitfullscreenchange', unfull); unfull();
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
-  // Phones: a first screen whose tap goes full screen, then the menu. (On iPhone Safari a page cannot go full
-  // screen; the menu shows the Add to Home Screen tip instead.)
-  if (touchDevice && canGoFullscreen) {
-    $('splash').hidden = false;
-    $('btnPlay').addEventListener('click', () => { enterFullscreen(); $('splash').hidden = true; });
-  }
 }
 
 /** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */

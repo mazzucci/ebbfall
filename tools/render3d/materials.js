@@ -1,5 +1,6 @@
 // Materials and procedural textures for the models. Team colour is a parameter; everything else is shared.
 import * as THREE from 'three';
+import { SEAT_COLORS } from '../../src/client/look.js';
 
 function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -50,21 +51,25 @@ const hazardTex = canvasTex(64, (g, n) => {
 });
 const treadTex = canvasTex(64, (g, n) => { g.fillStyle = '#2a2a2a'; g.fillRect(0, 0, n, n); g.fillStyle = '#111'; for (let k = 0; k < n; k += 8) g.fillRect(k, 0, 4, n); g.fillStyle = 'rgba(255,255,255,0.08)'; for (let k = 2; k < n; k += 8) g.fillRect(k, 0, 1, n); });
 
-export const TEAM_COLORS = [0xd98a1f, 0xc22a5a];
-export const TEAM_LIGHT = [0xffc65a, 0xff6fa0];
+/** Team paint: per-seat frames are rendered once in NEUTRAL (white paint, white lamps) with a team mask the client
+ *  tints with the seat's colour (docs/ART.md); scaffolds and rubble keep seat 0's gold (GOLD). */
+export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: SEAT_COLORS[0], light: 0xffc65a };
+/** Mark a material as team-coloured: its share of the team mask (1 paint; lamps less, so they read as a pale tint). */
+export const team = (m, w = 1) => { m.userData.team = w; return m; };
+export const LAMP_MASK = 0.4;
 
-export function makeMats(team) {
+export function makeMats(tc = NEUTRAL) {
   const std = (o) => new THREE.MeshStandardMaterial(o);
   return {
-    paint: std({ color: TEAM_COLORS[team], map: panel, bumpMap: bump, bumpScale: 1.2, metalness: 0.55, roughness: 0.32 }),
-    paintPlain: std({ color: TEAM_COLORS[team], metalness: 0.35, roughness: 0.4 }),
+    paint: team(std({ color: tc.paint, map: panel, bumpMap: bump, bumpScale: 1.2, metalness: 0.55, roughness: 0.32 })),
+    paintPlain: team(std({ color: tc.paint, metalness: 0.35, roughness: 0.4 })),
     trim: std({ color: 0x7c838e, map: panel, bumpMap: bump, bumpScale: 0.9, metalness: 0.8, roughness: 0.3 }),
     steel: std({ color: 0x5c636e, metalness: 0.85, roughness: 0.32 }),
     dark: std({ color: 0x2a2f38, metalness: 0.6, roughness: 0.5 }),
     gunmetal: std({ color: 0x3b414b, metalness: 0.9, roughness: 0.28 }),
     rubber: std({ color: 0x222222, map: treadTex, metalness: 0.1, roughness: 0.9 }),
     glass: std({ color: 0x1b3b4a, emissive: 0x2e9fc7, emissiveIntensity: 1.2, metalness: 0.2, roughness: 0.08 }),
-    lamp: std({ color: 0x222222, emissive: TEAM_LIGHT[team], emissiveIntensity: 3 }),
+    lamp: team(std({ color: 0x222222, emissive: tc.light, emissiveIntensity: 3 }), LAMP_MASK),
     white: std({ color: 0xfff4d0, emissive: 0xfff0c0, emissiveIntensity: 2.4 }),
     concrete: std({ color: 0x8f8f8b, map: concreteTex, metalness: 0.05, roughness: 0.92 }),
     hazard: std({ color: 0xffffff, map: hazardTex, metalness: 0.2, roughness: 0.6 }),

@@ -5,8 +5,9 @@ the enemy Command Core before their waves level yours. Two races (the human colo
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
-game keeps working with no connection (a service worker stores every file); add it to your home screen to launch it
-like an app. A new version installs itself the next time you open the game online.
+game keeps working with no connection (a service worker stores every file; About → CHECK OFFLINE says whether it is
+all there); INSTALL on the menu (Chrome, Edge) or Add to Home Screen (iPhone) launches it like an app. A new version
+installs itself the next time you open the game online.
 
 To run it from source:
 

@@ -70,7 +70,7 @@ export class RoomObject {
 
   attach(ws) {
     const room = this.room;
-    if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No such room' }); kick(ws); return; }
+    if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; }
     this.conns.add(ws); this.lastUsed = Date.now();
     if (!this.timer) this.timer = setInterval(() => room.tick(Date.now()), TURN_MS / 4);
     let seated = false;

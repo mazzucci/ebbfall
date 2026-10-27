@@ -74,25 +74,29 @@ src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
   screen.js           full screen / landscape lock, the leave-game guard
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu (opponent, three named maps, sound), the phone tap-to-play splash, How to play
+  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
+                      until a first game is over), the single-player page (opponent, your race and the enemy's, RANDOM
+                      too, three named maps, FIRST GAME), the About page (the source, the device check, the version), the
+                      sound icon
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   card.js             the command card: buttons for the selection, long-press details, what a button does
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts, pause
   icons.js            line icons (inline SVG) and unit/building portraits cut from the atlas
-  look.js             per-kind presentation the sim does not know: building art parts, unit voices
+  look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
   audio.js            Web Audio synthesized sfx
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
-  online.js           Play a friend: the lobby card (open/join a room by code or link, race, map, ready) and the glue
+  online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, map, ready) and the glue
                       between src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages, sends this side's orders,
                       feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),

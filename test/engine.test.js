@@ -237,10 +237,12 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
-  // A tech names what it unlocks or speeds up, has one level and words of its own; each ability's tech is found.
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
+  // its own; each ability's tech is found.
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([, u]) => u.levels === 1)) {
-    assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
+    if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
+    else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech.
@@ -264,6 +266,24 @@ test('the client reads its seat, and each seat\'s stats, from the game', { skip 
   assert.ok(E.visibleEnt(E.G.bldgs.find(b => b.team === E.G.me)), 'its own buildings are always visible');
   // Each seat its own team: the enemies are the other seat; the winner is a team.
   assert.deepEqual([E.G.teams, E.G.out, E.foes(), E.enemies(0, 1), E.enemies(1, 1)], [[0, 1], [false, false], [1], true, false]);
+});
+
+test('a room\'s RANDOM seat is drawn from its seed and seat: the same on every client, either race', { skip }, () => {
+  const keys = Object.keys(C.FACTIONS), seen = [new Set(), new Set()];
+  for (let seed = 1; seed <= 200; seed++) {
+    const r = E.seatRaces(['random', 'random'], seed, keys);
+    assert.deepEqual(E.seatRaces(['random', 'random'], seed, keys), r, 'the same draw every time');
+    r.forEach((k, i) => { assert.ok(keys.includes(k), k); seen[i].add(k); });
+  }
+  assert.deepEqual(seen.map(s => s.size), [keys.length, keys.length], 'each seat draws every race over many rooms');
+  assert.ok([...Array(50).keys()].some(seed => { const [x, y] = E.seatRaces(['random', 'random'], seed + 1, keys); return x !== y; }), 'the seats draw apart');
+  assert.deepEqual(E.seatRaces(['vael', 'humans'], 7, keys), ['vael', 'humans'], 'a chosen race stays');
+  // Both seats' games: the same factions, the drawn ones (never a silent Humans).
+  const vael = [...Array(100).keys()].map(i => i + 1).find(seed => E.seatRaces(['humans', 'random'], seed, keys)[1] === 'vael');
+  const factions = [0, 1].map(me => { E.resetGameForSeat(4242, 0, 0, E.seatRaces(['humans', 'random'], vael, keys), me); return E.G.factions.slice(); });
+  assert.deepEqual(factions, [['humans', 'vael'], ['humans', 'vael']]);
+  assert.throws(() => E.resetGameForSeat(4242, 0, 0, ['humans', 'random'], 0), /drawn first/, 'an undrawn RANDOM is not taken for the Humans');
+  assert.throws(() => E.resetGame(4, 0, 0, 0, 'random'), /no race random/, 'a single player\'s RANDOM is drawn by the menu, not taken for the Humans');
 });
 
 test('a game for any number of seats takes a setup it can play and refuses the rest', { skip }, () => {

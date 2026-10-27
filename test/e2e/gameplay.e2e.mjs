@@ -334,7 +334,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field'], 'the Forge card: research and its cancel, the techs below');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the Forge card: research and its cancel, the techs below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -362,6 +362,62 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     assert.ok(!(await d.card()).some(c => c.label === 'Entrench'), 'a finished tech leaves the card');
     await d.clickEntity(v);
     assert.ok((await d.card()).some(c => c.label === 'Entrench' && c.enabled), 'Entrench unlocked');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: Rapid Construction researched at the Foundry, then buildings go up faster', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    await buildAndFinish(d, 'g', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
+    const pct = Math.round((rate - 1) * 100);
+    await d.clickEntity(forge.id);
+    // The Foundry's card keeps its fixed slots on a phone: two levels, Cancel's place, then its three techs.
+    const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the Foundry card');
+    const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Rapid Build' }).boundingBox();
+    assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, 'it fits on the screen');
+    // A long-press says what it does and costs, without researching it.
+    const cdp = await d.page.context().newCDPSession(d.page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+    await d.page.waitForTimeout(700);
+    const text = await d.page.locator('#cmdInfo').textContent();
+    assert.match(text, /Rapid Build/); assert.match(text, new RegExp(`Buildings go up ${pct}% faster`)); assert.match(text, /100/); assert.match(text, /60 s/);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await d.page.waitForTimeout(150);
+    assert.equal(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, forge.id), false, 'the long-press did not research it');
+    // A tap researches it: paid for, the console shows it with its bar, Cancel in its row.
+    const res = (await d.state()).res;
+    await d.pressCard('Rapid Build');
+    const paid = (await d.state()).res;
+    assert.ok(paid[1] === res[1] - 100 && paid[0] <= res[0] - 100 + 40, `it costs 100 shards and 100 ether (${res} -> ${paid}; shards still come in)`);
+    assert.match(await d.hudText('#mod', /Rapid Construction/), /Rapid Construction/);
+    assert.ok(await d.page.locator('#mod .rs').isVisible(), 'the console shows the research with its bar');
+    const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
+    await d.skip(4);
+    await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
+    const busy = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the card keeps its shape');
+    assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].rapidConstruction)) === 1, { seconds: 70, what: 'Rapid Construction' });
+    await d.clickEntity(forge.id);
+    assert.ok(!(await d.card()).some(c => c.label === 'Rapid Build'), 'a finished tech leaves the card');
+    // A Depot (22 s) now goes up faster: a tick of work is rate / 22 of a second's worth (read tick by tick in one go).
+    const s = await d.state();
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, mine(s, 'harvester')[2].id);
+    const site = () => d.state().then(s => s.bldgs.find(b => b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty));
+    await until(d, async () => (await site())?.progress > 0, { seconds: 30, step: 1, what: 'the builder at work' });
+    const steps = await d.eval(([tx, ty]) => {
+      const p = () => endfall.G.bldgs.find(b => b.type === 'depot' && b.tx === tx && b.ty === ty).progress, out = [];
+      for (let i = 0; i < 30; i++) { const p0 = p(); endfall.skip(1 / 30); out.push(p() - p0); }
+      return out;
+    }, [spot.tx, spot.ty]);
+    const step = Math.max(...steps);
+    assert.ok(Math.abs(step - rate / 30 / 22) < 1e-9, `a tick of work: ${step} (${1 / 30 / 22} without the tech)`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -466,10 +522,8 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
       const touch = !!device.hasTouch, press = (sel) => touch ? page.locator(sel).tap() : page.locator(sel).click();
-      if (touch) {
-        assert.ok(await page.locator('#btnPlay').isVisible(), 'phone: a tap-to-play screen first');
-        await press('#btnPlay');
-      }
+      assert.ok(await page.locator('#start').isVisible(), 'straight to the menu (no tap-to-play screen)');
+      await press('#btnSolo');
       assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
       assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
       assert.equal(await page.locator('#diff .ib.on').textContent(), 'EASY', 'new players start on Easy');
@@ -477,8 +531,8 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await press('#maps .map:nth-child(2)');
       const level = touch ? 3 : 2; // (Hard on the desktop, Brutal on the phone)
       await press(`#diff [data-d="${level}"]`);
-      await press('#btnMenuSound');
-      assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF');
+      await press('#btnMenuSound'); // (the speaker in the corner)
+      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'false');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
       assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
@@ -494,15 +548,123 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       await press('#btnResume');
       // The choices are remembered.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
-      if (touch) await press('#btnPlay');
+      assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuSolo').isHidden(), 'the menu opens on its first page');
+      await press('#btnSolo');
       assert.equal(await page.locator('#diff .ib.on').getAttribute('data-d'), String(level), 'opponent remembered');
-      assert.equal(await page.locator('#btnMenuSound').textContent(), 'OFF', 'sound choice remembered');
+      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
       // The random map is a new one each game.
       await press('#maps .map:nth-child(4)'); await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
       assert.ok(![4242, 1998, 2077].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
     } finally { await ctx.close(); }
   }
+});
+
+test('the menu opens on two modes; each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const ctx = await browserContext(device), page = await ctx.newPage();
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' }); // (on this machine the dev relay's address is known)
+      await page.waitForFunction(() => !!window.endfall);
+      const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+      const shown = (sel) => page.locator(sel).isVisible();
+      assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
+      assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
+      assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#diff')), 'How to play there; the game\'s choices are not');
+      assert.ok(await shown('#btnMenuSound'), 'the sound icon on the first page');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT'], 'a newcomer: FIRST GAME there too');
+      // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
+      await press('#btnAbout');
+      assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#btnMenuSound'), 'About opens, the sound icon still there');
+      assert.equal(await page.locator('#menuAbout h2').textContent(), 'ABOUT');
+      const src = page.locator('#srcLink');
+      assert.deepEqual([await src.textContent(), await src.getAttribute('href'), await src.getAttribute('target'), await src.getAttribute('rel')], ['Source code on GitHub', 'https://github.com/mazzucci/ebbfall', '_blank', 'noopener']);
+      assert.equal(await page.locator('#checkLink').getAttribute('href'), './selftest.html');
+      assert.match(await page.locator('#buildId').textContent(), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
+      await press('#btnAboutBack');
+      assert.ok(await shown('#menuHome') && await page.locator('#menuAbout').isHidden(), 'BACK: the first page');
+      // SINGLE PLAYER: its page, YOU (with RANDOM), no SOUND row; BACK.
+      await press('#btnSolo');
+      assert.ok(await shown('#menuSolo') && await page.locator('#menuHome').isHidden(), 'single player opens its page');
+      assert.equal(await page.locator('#lblRace').textContent(), 'YOU');
+      assert.deepEqual(await page.$$eval('#race .ib', bs => bs.map(b => b.textContent)), ['HUMANS', 'VAEL', 'RANDOM']);
+      assert.equal(await page.locator('#lblSound').count(), 0, 'no SOUND row');
+      assert.ok(await shown('#btnFirst') && await shown('#btnStart') && await shown('#btnMenuSound'), 'FIRST GAME, START GAME, the sound icon');
+      await press('#btnSoloBack');
+      assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'BACK: the first page');
+      // MULTIPLAYER: the lobby's join form, its own sound icon (the same setting); BACK.
+      await press('#btnOnline');
+      assert.ok(await shown('#onlineJoin') && await page.locator('#start').isHidden(), 'multiplayer: the join form');
+      assert.equal(await page.locator('#online h2').textContent(), 'PLAY A FRIEND', 'its title (under MULTIPLAYER)');
+      const v = page.viewportSize(), b = await page.locator('#btnLobbySound').boundingBox();
+      assert.ok(b.x + b.width > v.width - 70 && b.y < 70 && b.width >= 44 && b.height >= 44, `the sound icon top right, a finger wide: ${JSON.stringify(b)}`);
+      await press('#btnLobbySound');
+      assert.equal(await page.locator('#btnLobbySound').getAttribute('aria-pressed'), 'false', 'sound off from the lobby');
+      await press('#btnOnlineBack');
+      assert.ok(await shown('#menuHome'), 'BACK: the first page');
+      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'false', 'one setting: the menu\'s icon says off too');
+      // YOU = RANDOM: each START draws a race (drawn with Math.random: pinned here to see both).
+      await press('#btnSolo'); await press('#race [data-race="random"]');
+      const startAs = async (r) => {
+        await page.evaluate((r) => { Math.random = () => r; }, r);
+        await press('#btnStart'); await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+        return page.evaluate(() => endfall.G.factions[endfall.G.me]);
+      };
+      assert.equal(await startAs(0.9), 'vael', 'RANDOM drew the Vael');
+      assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'the game\'s sound follows the menu\'s');
+      await press('#btnSound'); // (on again, from the game's top bar)
+      await press('#btnPause'); await press('#btnQuit');
+      assert.ok(await shown('#menuSolo'), 'leaving a game against the AI: the single player page, one tap from the next');
+      await press('#btnSoloBack'); assert.ok(await shown('#menuHome'));
+      assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
+      await press('#btnSolo');
+      assert.equal(await page.locator('#race .ib.on').textContent(), 'RANDOM', 'RANDOM still chosen');
+      assert.equal(await startAs(0.1), 'humans', 'and the next game the Humans');
+      await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
+      assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 2 lost$/, 'RANDOM\'s record: both races\' games');
+      assert.ok(await page.locator('#btnFirstHome').isHidden(), 'games on the record: FIRST GAME off the first page');
+      await press('#btnSolo'); assert.ok(await shown('#btnFirst'), 'still in single player');
+      await press('#race [data-race="vael"]'); await press('#btnSoloBack');
+      assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 1 lost$/, 'the Vael\'s alone');
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  }
+});
+
+test('a newcomer\'s FIRST GAME on the first page; once the guided game is over, only in single player', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#btnFirstHome').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+    assert.match(await page.locator('#tut').textContent(), /1\/6/, 'the guided game');
+    await page.evaluate(() => endfall.engine.concede()); // (set-up: the game's end is what matters)
+    await page.locator('#end').waitFor({ state: 'visible' });
+    await page.locator('#btnAgain').click();
+    assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#btnFirstHome').isHidden(), 'no FIRST GAME on the first page any more');
+    assert.equal(await page.locator('#record').textContent(), '', 'a guided game is not on the record');
+    await page.locator('#btnSolo').click();
+    assert.ok(await page.locator('#btnFirst').isVisible(), 'FIRST GAME in single player');
+    await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+    assert.ok(await page.locator('#btnFirstHome').isHidden(), 'remembered on this device');
+  } finally { await ctx.close(); }
+});
+
+test('MULTIPLAYER only where a relay is known: none from a strange host, unless the build has the published relay', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    // The game from a host that is not this machine's or a LAN's (the dev relay's address is not guessed there).
+    await page.route('http://ebbfall.test/**', async (r) => { const u = new URL(r.request().url()); r.fulfill({ response: await r.fetch({ url: baseUrl() + u.pathname.slice(1) + u.search }) }); });
+    await page.goto('http://ebbfall.test/', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    assert.ok(await page.locator('#btnSolo').isVisible(), 'SINGLE PLAYER');
+    // (CI builds the published game, VITE_RELAY_URL set: there it must offer MULTIPLAYER from any host)
+    const baked = await page.evaluate(() => endfall.online.baked);
+    if (baked) assert.ok(await page.locator('#btnOnline').isVisible(), `the published relay (${baked}): MULTIPLAYER`);
+    else assert.ok(await page.locator('#btnOnline').isHidden(), 'no MULTIPLAYER');
+  } finally { await ctx.close(); }
 });
 
 test('a queued unit is cancelled with a click or tap on it, for a full refund', async () => {
@@ -673,7 +835,7 @@ test('offline: once loaded, the game opens and plays with no connection', async 
     await ctx.setOffline(true);
     await page.reload({ waitUntil: 'load' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    await page.locator('#btnStart').click();
+    await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.ok(await page.evaluate(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'core')), 'a game started offline');
     // The typefaces come with the game, so they load offline too (and online, no font service is asked).
@@ -698,6 +860,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
   try {
     await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#btnSolo').click();
     await page.locator('#race [data-race="vael"]').click();
     assert.equal(await page.locator('#enemy .ib.on').textContent(), 'HUMANS', 'the opponent is human unless chosen');
     await page.locator('#btnStart').click();
@@ -741,6 +904,7 @@ test('the menu can pit you against a Vael opponent', async () => {
   try {
     await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#btnSolo').click();
     await page.locator('#enemy [data-race="vael"]').click();
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
@@ -1167,6 +1331,7 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     const pixels = () => page.evaluate(() => { const c = document.getElementById('mapPreview'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); });
+    await page.locator('#btnSolo').click();
     const first = await pixels();
     await page.locator('#maps .ib', { hasText: 'GLASS REACH' }).click();
     const second = await pixels();
@@ -1306,18 +1471,26 @@ test('desktop: Shift+click on a unit queues five', async () => {
   } finally { await d.close(); }
 });
 
-test('the menu is a page of its own, with Exit game', async () => {
+test('the menu is a page of its own; while full screen, a corner button leaves it', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      if (device.hasTouch) await page.locator('#btnPlay').tap();
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
-      assert.ok(await page.locator('#btnExit').isVisible(), 'Exit game');
-      await (device.hasTouch ? page.locator('#btnExit').tap() : page.locator('#btnExit').click());
-      await page.locator('#menuTag', { hasText: 'You can close this tab now.' }).waitFor(); // (a tab a page did not open cannot close itself)
+      assert.ok(await page.locator('#btnUnfull').isHidden(), 'not full screen: no button for it');
+      // Full screen (stood in for: headless browsers have none): the button shows, top right, and leaves it.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+        document.exitFullscreen = async () => { window.fs = false; window.left = true; document.dispatchEvent(new Event('fullscreenchange')); };
+        window.fs = true; document.dispatchEvent(new Event('fullscreenchange'));
+      });
+      const b = await page.locator('#btnUnfull').boundingBox();
+      assert.ok(b && b.x + b.width > v.width - 70 && b.y < 70, `top right: ${JSON.stringify(b)}`);
+      await (device.hasTouch ? page.locator('#btnUnfull').tap() : page.locator('#btnUnfull').click());
+      assert.ok(await page.evaluate(() => window.left), 'left full screen');
+      assert.ok(await page.locator('#btnUnfull').isHidden(), 'and the button goes');
       const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
       assert.ok(sc[0] <= sc[1] + 1, `fits without scrolling: ${sc}`);
     } finally { await ctx.close(); }
@@ -1349,17 +1522,28 @@ test('phone: while placing, the ghost appears under the finger and follows it; l
   } finally { await d.close(); }
 });
 
-test('the menu fits a small phone with the iPhone tip shown, its title in view', async () => {
+test('the menu fits a small phone on every page (the first with the iPhone tip shown), each heading in view', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
-    await page.locator('#btnPlay').tap();
     await page.evaluate(() => { document.getElementById('iosTip').hidden = false; });
-    const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
-    const top = (await page.locator('#start h1').boundingBox()).y;
-    assert.ok(top >= 0, `the title in view: ${top}`);
-    assert.ok(sc[0] <= sc[1] + 24, `at most a little scroll: ${sc}`);
+    const fits = async (card, heading, what) => {
+      const sc = await page.locator(card).evaluate(e => [e.scrollHeight, e.clientHeight]), top = (await page.locator(heading).boundingBox()).y;
+      assert.ok(top >= 0, `${what}: the heading in view: ${top}`);
+      assert.ok(sc[0] <= sc[1] + 1, `${what}: fits without scrolling: ${sc}`);
+    };
+    assert.ok(await page.locator('#btnFirstHome').isVisible(), 'with FIRST GAME (a newcomer)');
+    await fits('#start .card.menu', '#menuHome h1', 'the first page');
+    await page.locator('#btnAbout').tap();
+    await fits('#start .card.menu', '#menuAbout h2', 'about');
+    const b = await page.locator('#btnAboutBack').boundingBox();
+    assert.ok(b.y + b.height <= 375, `About's BACK in view: ${JSON.stringify(b)}`);
+    await page.locator('#btnAboutBack').tap();
+    await page.locator('#btnSolo').tap();
+    await fits('#start .card.menu', '#menuSolo h2', 'single player');
+    await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();
+    await fits('#online .card.menu', '#online h2', 'multiplayer');
   } finally { await ctx.close(); }
 });
 
@@ -1450,12 +1634,33 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     const hint = await d.page.locator('#hint').boundingBox();
     assert.ok(hint, 'placing a building shows the hint');
     assert.ok(hint.y + hint.height <= mm.y + 1, 'the hint is above the minimap');
-    await d.key('Escape'); await d.key('Escape');
-    await d.eval(() => endfall.setResources(0, 0, 0));
-    await d.clickEntity(coreOf(await d.state()).id);
-    await d.key('h'); // (a Harvester it cannot pay for: a hotkey refusal is a toast)
-    const toast = await d.page.locator('#msg .toast').first().boundingBox();
-    if (toast) assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
+    await d.key('Escape');
+    await d.pressCard('Build'); await d.pressCard('Turret'); // (it needs a Garrison first: a "Requires" refusal is a toast; a cost one only shakes the button)
+    await d.page.locator('#msg .toast', { hasText: /^Requires/ }).waitFor({ timeout: 5000 });
+    const toast = await d.page.locator('#msg .toast', { hasText: /^Requires/ }).boundingBox();
+    assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('every unit and building is drawn twice: its art, then its team mask in its seat\'s colour', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    const ids = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'vanguard', x, y), endfall.engine.debugSpawn(1, 'scythe', x + 40, y)], [core.x - 60, core.y + 90]);
+    await d.centerOn(core.x - 40, core.y + 60);
+    const read = () => d.eval(() => ({ layers: endfall.teamLayers().filter(l => l.shown), tints: [0, 1].map(endfall.seatTint),
+      teams: Object.fromEntries([...endfall.G.units, ...endfall.G.bldgs].map(e => [e.id, e.team])) }));
+    await d.page.waitForFunction((ids) => ids.every(id => endfall.teamLayers().some(l => l.id === id && l.shown)), ids, { timeout: 15000 }); // (real time: no fight yet)
+    const { layers, teams, tints } = await read();
+    assert.notEqual(tints[0], tints[1]);
+    assert.ok(layers.some(l => teams[l.id] === 1) && layers.some(l => l.base.startsWith('bldg_')), 'units of both seats and a building');
+    for (const l of layers) {
+      assert.equal(l.mask, `${l.base}_m`, `${l.base}: its mask`);
+      assert.ok(l.maskOver, `${l.base}: the mask above the art`);
+      assert.equal(l.seat, tints[teams[l.id]], `${l.base}: its seat's colour`);
+      assert.equal(l.tint, l.seat, `${l.base}: the mask tinted with it (no effect on)`);
+    }
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -2,7 +2,7 @@
 import './style.css';
 import * as engine from './engine/index.js';
 import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, step, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -10,7 +10,7 @@ import { sfx, audio, soundToggled } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, initPause, paused, togglePause, resetTools } from './client/tools.js';
 import { setIconButton, portrait } from './client/icons.js';
-import { initMenu, showMenu, soundChanged, recordResult, setup, menu, MAP_KINDS } from './client/menu.js';
+import { initMenu, showMenu, soundChanged, recordResult, guidedDone, setup, menu, MAP_KINDS } from './client/menu.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
@@ -22,7 +22,7 @@ audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.
 const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
 
 let started = false;
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('splash').hidden || !$('end').hidden;
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
@@ -42,10 +42,10 @@ function newGame() {
 }
 
 /** An online game: the room's setup, from this side's seat (online.js). */
-function newOnlineGame(setup, seat) {
+function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup, MAP_KINDS.length);
   menu.tutorial = false;
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, setup.races, seat));
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat)); // (races: a RANDOM seat already drawn, online.js)
 }
 
 function begin(reset) {
@@ -71,8 +71,9 @@ function giveUp() {
   if (started && !G.over && !menu.tutorial && !ui.watching) recordResult(false, G.factions[G.me], G.diff);
 }
 function quitToTitle() {
+  const solo = !online.playing && !menu.tutorial;
   giveUp(); stopWatching(); stopOnline(); // (a leaving Net closes itself once its leave is out)
-  started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu();
+  started = false; $('pause').hidden = true; $('end').hidden = true; $('help').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
 // ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----
@@ -147,6 +148,7 @@ function endGame() {
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
   if (!online.playing && !menu.tutorial) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
+  if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
  *  (`theyWant`: someone else does; `iWant`: this side asked), and none once someone has left. */
@@ -160,7 +162,7 @@ function rematchButton(theyWant, iWant) {
 }
 
 // ---- screens ----
-$('btnAgain').addEventListener('click', () => { $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
+$('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
 initScreen(); initLeaveDialog(); initTools();
 initPause({ onResume: () => {}, onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
@@ -220,7 +222,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } } };
 bindInput(); resize(); requestAnimationFrame(loop);
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so

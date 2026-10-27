@@ -198,12 +198,15 @@ impl World {
         }
     }
 
-    /// Construction progress for `dt` (a builder at work, or a planted warp site by itself). True when it is done.
+    /// Construction progress for `dt` (a builder at work, or a planted warp site by itself), at its side's rate
+    /// (a `BuildSpeed` tech). True when it is done.
     pub(crate) fn advance_construction(&mut self, b: Id, dt: f64) -> bool {
+        let team = self.bldg(b).unwrap().team;
+        let rate = self.build_rate(team);
         let bd = self.bm(b).unwrap();
         let build = bd.kind.def().build;
-        bd.progress += dt / build;
-        bd.hp = bd.maxhp.min(bd.hp + dt / build * bd.maxhp * 0.9);
+        bd.progress += dt * rate / build;
+        bd.hp = bd.maxhp.min(bd.hp + dt * rate / build * bd.maxhp * 0.9);
         if bd.progress < 1.0 {
             return false;
         }
@@ -216,6 +219,15 @@ impl World {
             bd.maxhp.min(bd.hp)
         };
         true
+    }
+
+    /// How fast `team`'s buildings go up, as a multiple: `TECH_BUILD` with its construction tech, else 1.
+    pub fn build_rate(&self, team: u8) -> f64 {
+        if self.effect_level(team, Effect::BuildSpeed) > 0 {
+            TECH_BUILD
+        } else {
+            1.0
+        }
     }
 
     /// A building just finished: supply, the news, and its crew back to work (`builder`: the one who finished it).

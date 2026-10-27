@@ -85,7 +85,7 @@ The service worker keeps a build until the next visit, so friends will often be 
 carries the protocol version and the `.wasm` hash; a mismatch shows "Update needed" with one button (fetch the new
 build, activate it, reload into the same join link). Built (2026-10-26): the build bakes in `__SIM_BUILD__` (a hash
 of the `.wasm`, vite.config.js); a room keeps its first seat's and refuses another with `version`; the lobby says so
-with RELOAD (the service worker's update, then back to `?join=CODE`); and a new build that installs while the player
+with UPDATE (the service worker's update, then back to `?join=CODE`); and a new build that installs while the player
 is out of a game (the menu or the lobby) switches over at once, back into the lobby's room. Determinism across engines is checked, not assumed: the golden
 games run in WASM in Chromium, Firefox and WebKit in CI (and a macOS ARM runner), and a hidden `?selftest` page
 runs them on a real phone. The sim's dependencies stay pinned (`libm` exactly), and no float-changing build flags
@@ -156,7 +156,7 @@ repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then runs
 (Actions, CI, Run workflow) for the first deploy, at `relay.ebbfall.com` (a custom domain on the ebbfall.com zone,
 which must be in the same Cloudflare account, with no `relay` DNS record yet; made by the deploy); later deploys
 happen when a push to main changes relay/; (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
-which the build bakes in: PLAY A FRIEND appears.
+which the build bakes in: MULTIPLAYER appears on the menu's first page.
 Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
 an empty lobby is evicted from memory a minute or two after its last socket closes and comes back, empty, from a small
 storage record when someone joins within 10 minutes; a running game is never stored.
@@ -236,13 +236,18 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    128x128 0.47-0.58 ms, worst 9-27 ms (Medium 0.62-0.66, worst 34-42); six 0.37-0.48, worst 20-43. Two Hard AIs for
    comparison: 64x64 0.07 ms, worst 8; 96x96 0.12-0.13, worst 56-77; 128x128 0.14-0.15, worst 87-130. More seats mean
    more units every tick, but shorter walks (neighbours 44-76 tiles apart), so the worst tick, a wave setting off, is
-   lower than a duel's on the same map: part (d) still matters before phones get 128x128. Left: (b) a colour per seat in
-   the art and the client (it draws its own seat and the rest in one foe's colour, allies too), the minimap and the
-   end card for more seats; (c) the
+   lower than a duel's on the same map: part (d) still matters before phones get 128x128. Left: (c) the
    lobby: seat count and map size, teams (allies in consecutive seats), AI to fill seats, the menu's preview of the
    other sizes (`mapPreview` draws a duel's map), teams in the network setup; (d) group paths. Still from M3a: allies
    sharing vision, an out seat's leftover units and buildings (an AI seat with a Core but no worker or money stays
    in), the end card's wording with allies.
+   (b) A colour for every seat. *Done (2026-10-26):* eight seat colours (`SEAT_COLORS`, src/client/look.js: gold and
+   magenta as before, then teal, lilac, green, blue, white, red; docs/ART.md). Units, buildings and turret heads are
+   rendered once in neutral paint with a team mask frame (`<name>_m`) that the renderer draws over the art tinted
+   with the seat's colour (a tint the art pipeline fits per colour, atlas.json `tints`); warp-in, construction,
+   cloak, power and hit effects reach both layers, HUD portraits composite both, and with more than two seats the
+   minimap draws every seat in its colour (two seats: ours and theirs, as before). The atlas went from 9 pages and
+   4.4 MB to 5 pages and 3.1 MB, whatever the number of seats.
 
 ## Open questions for the owner
 

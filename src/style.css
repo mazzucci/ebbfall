@@ -132,12 +132,18 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #maps{display:flex;gap:6px;flex-wrap:wrap}
 .maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}
 #mapPreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
-#btnMenuSound.on{border-color:var(--ally);color:var(--ally2)}
-/* Phones: the first screen, whose tap goes full screen. */
-.splash{display:flex;flex-direction:column;align-items:center;gap:14px;background:none;border:0;color:var(--fg);cursor:pointer;padding:40px 60px}
-.splash .t{font:700 38px var(--display);letter-spacing:.24em;color:var(--ally2)}
-.splash .s{font:600 14px var(--display);letter-spacing:.3em;color:var(--fg);border:1px solid var(--ally);border-radius:6px;padding:12px 26px;animation:pulse-warn 1.4s infinite alternate}
-#splash{background:#07090d}
+/* The first page, a title screen (centred): two big choices (single player, multiplayer), side by side; each opens its own page. */
+#menuHome{text-align:center} #menuHome .row{justify-content:center;gap:16px} #start #menuHome h1{font-size:clamp(28px,8vh,52px)} #menuHome .tag{max-width:560px;margin-left:auto;margin-right:auto} #menuHome .tip{text-align:left}
+#menuHome .rec{margin-top:8px;min-height:1em} #menuHome .rec:empty{display:none}
+/* About: a few lines, two links, the fine print. */
+#menuAbout{max-width:640px} #menuAbout p{margin:6px 0} #menuAbout a{color:var(--ally2)} #menuAbout .fine{font:11px var(--mono);color:var(--muted)}
+@media (max-height:420px){#menuAbout p{font-size:12px;line-height:1.35;margin:4px 0} #menuAbout .fine{font-size:10px}}
+.modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
+@media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}
+/* The menu's top-right corner (every page, and the lobby's): the sound (one setting with the game's top bar), and
+   leave full screen (only while full screen). */
+.card.menu{position:relative} .corner{position:absolute;top:max(8px,env(safe-area-inset-top,0px));right:max(8px,env(safe-area-inset-right,0px));display:flex;gap:6px;z-index:1}
+#online .corner{position:fixed} /* (the screen's corner, as on the menu) */ .corner .ib{min-width:44px;min-height:44px;padding:0;display:grid;place-items:center} .corner .ib[hidden]{display:none} .msound .ico{width:20px;height:20px}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
 #btnRematch.on{box-shadow:0 0 0 3px var(--ally2)} /* (online: the friend asked) */ #btnRematch.wait{background:var(--panel2);color:var(--fg);border-color:var(--line2)}
 .big{font-size:14px;padding:10px 20px;background:var(--ally);color:#1a1205;border-color:var(--ally)}
@@ -267,6 +273,6 @@ body.replay #cmd{visibility:hidden}
 /* Play a friend: the lobby */
 #online input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
 #roomCode{width:5.5em;text-transform:uppercase;text-align:center} #onlineName{width:12em}
-#online .code{font:600 22px var(--mono);letter-spacing:.2em;color:var(--ally2);margin:0 10px}
+#onlineMapNote{font-size:12px;color:var(--muted)} #online .code{font:600 22px var(--mono);letter-spacing:.2em;color:var(--ally2);margin:0 10px}
 #seatList{display:flex;flex-direction:column;gap:4px;margin:8px 0} .seat{display:grid;grid-template-columns:1fr 6em 5em;gap:8px;padding:6px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;font-size:13px}
-.seat.me{border-color:var(--ally)} .seat .ok{color:var(--ally2)} #online .row{gap:8px;align-items:center}
+.seat.open{border-style:dashed;color:var(--muted)} .seat.open b{font-weight:400} .seat.me{border-color:var(--ally)} .seat .ok{color:var(--ally2)} #online .row{gap:8px;align-items:center}

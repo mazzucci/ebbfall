@@ -1,6 +1,13 @@
 // How kinds look and sound beyond their sprites, by kind key: lights, turret heads, chimney smoke, radio voices.
 // The renderer and the sound engine read this table instead of naming kinds, so a new race adds rows here.
 
+/** Seat colours, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
+ *  white with a team mask the renderer tints, docs/ART.md), and the minimap's dots with more than two seats. Seats 0
+ *  and 1 keep the two-player gold and magenta; then teal, lilac, green, blue, white, red: apart from each other (also
+ *  with red-green colour blindness, as far as eight allow: there lightness parts gold from green and red), from the
+ *  dark ground, the selection marks and the resources' teal and violet. Shared with the art tools (tools/render3d). */
+export const SEAT_COLORS = [0xd98a1f, 0xc22a5a, 0x15bd96, 0xc293e0, 0x79d85a, 0x388ef1, 0xe8e8e8, 0xe5553a];
+
 /** Buildings: `glow` [colour, size, strength, height above the centre, flicker], `head` (a turret head sprite that
  * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). */
 export const BLDG_LOOK = {

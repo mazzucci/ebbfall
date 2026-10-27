@@ -1720,8 +1720,18 @@ test('the first page: the name in title case over the shore, whose tide lines ke
       const ebbs = () => page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb').length);
       const shore = page.locator('#menuHome .shore');
       assert.ok(await shore.isVisible(), `${w}x${h}: the shore under the first page`);
-      const tag = await page.locator('#menuTag').boundingBox(), lines = await page.locator('#menuHome .shore svg').evaluateAll(es => es.map(e => e.getBoundingClientRect().top));
-      assert.ok(lines.every(top => top >= tag.y + tag.height), `${w}x${h}: the tide lines below the tagline: ${lines} vs ${tag.y + tag.height}`);
+      const row = await page.locator('#menuHome .row').boundingBox();
+      // At both extremes of the drift (the animations paused and seeked), every tide line keeps under the row of buttons with room, and no drifting svg shows an edge inside the screen.
+      for (const at of [0, 1]) {
+        const got = await page.evaluate((at) => {
+          for (const a of document.getAnimations()) if (a.animationName === 'ebb') { a.pause(); a.currentTime = at * a.effect.getTiming().duration; }
+          const r = (e) => e.getBoundingClientRect();
+          return { lines: [...document.querySelectorAll('#menuHome .shore .tide path')].map(e => r(e).top), boxes: [...document.querySelectorAll('#menuHome .shore .tide')].map(e => { const b = r(e); return [b.left, b.right, b.bottom]; }) };
+        }, at);
+        assert.ok(got.lines.every(top => top >= row.y + row.height + 12), `${w}x${h} at ${at}: the tide lines clear the buttons: ${got.lines.map(Math.round)} vs ${row.y + row.height}`);
+        assert.ok(got.boxes.every(([l, r, b]) => l <= 0 && r >= w && b >= h), `${w}x${h} at ${at}: no edge of a drifting line in view: ${JSON.stringify(got.boxes)}`);
+      }
+      await page.evaluate(() => { for (const a of document.getAnimations()) a.play(); });
       assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
       assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : 3, `${w}x${h}: the three lines drift (none under reduced motion)`);
       await page.locator('#btnAbout').tap();

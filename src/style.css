@@ -140,7 +140,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 /* The first page's floor (the .shore in #menuHome): a dark shore under the whole screen, the water drawn back to the bottom edge, a faint glow behind the title. Under the page's content (z-index -1 in #start's stacking context; the card's own background goes, the screen's is the same colour), no pointer events; the tide lines keep to the bottom 40% of the screen, below the tagline on every phone, and the buttons over them are opaque. Each line drifts a few pixels over 18-29 s, a transform on its own <svg> (composited), none under prefers-reduced-motion; display:none with the page ends the animations, so a game pays nothing for them. */
 #start .card.menu{background:transparent}
 #menuHome .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
-#menuHome .shore svg{position:absolute;left:0;bottom:0;width:100%;height:40%}
+#menuHome .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
+@media (max-height:420px){#menuHome .shore svg{bottom:-26px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
 #menuHome .tide{animation:ebb 18s ease-in-out infinite alternate} #menuHome .tide.t2{animation-duration:23s;animation-delay:-7s} #menuHome .tide.t3{animation-duration:29s;animation-delay:-13s}
 @keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
 @media (prefers-reduced-motion:reduce){#menuHome .tide{animation:none}}

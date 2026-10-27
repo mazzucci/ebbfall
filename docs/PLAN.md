@@ -94,6 +94,12 @@ loop feels right.
   source maps) under a cache named by a hash of the files; the service worker stores them on install and serves them
   cache-first, so the game opens and plays offline. A new build installs a new cache; on the menu the page switches at
   once, in a game it says the new version loads next time.
+- [x] Install and check offline (2026-10-27): INSTALL on the menu's first page, only where the browser offers it
+  (`beforeinstallprompt`: Chrome and Edge, Android and desktop) and not once installed; iPhone keeps its Add to Home
+  Screen tip. PNG app icons (192, 512, a maskable 512) drawn from public/icon.svg by `tools/icons.mjs`. About's CHECK
+  OFFLINE asks the service worker over a MessageChannel how many of its files it holds (ready, K of N, or not available
+  here) and the version it stores; the worker now stores each file on its own, so a cut-short install resumes and a
+  check fetches what is missing (src/client/offline.js, test/offline.test.js, test/e2e/offline.e2e.mjs).
 - [x] Second race, the Vael (design: race/VAEL.md on the design-mockups branch), phase 1 (2026-10-24): their kinds
   and art (tools/render3d/vael.js), a VAEL faction chosen in the menu (and the enemy's race: Humans, Vael, Random);
   shields over hull (regenerate after 6 s, 3/s units, 2/s buildings; no repair), warp-in construction, power fields
@@ -197,7 +203,7 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 
 ### M4. Polish and ship
 - [ ] Deploy static build (GitHub Pages / Cloudflare Pages) and the relay
-- [ ] PWA manifest so it installs on a phone
+- [x] PWA manifest so it installs on a phone (PNG icons and an INSTALL button, 2026-10-27)
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

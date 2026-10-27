@@ -12,20 +12,28 @@ function files(dir, root = dir) {
   });
 }
 
+/** The service worker's source for a cache `version`, the game's `build` (the About page's version) and its files. */
+export function swSource(version, build, list) {
+  return readFileSync(new URL('./sw.js', import.meta.url), 'utf8')
+    .replace('__VERSION__', () => version)
+    .replace('__BUILD__', () => build)
+    .replace('__FILES__', () => JSON.stringify(list));
+}
+
 export function offline() {
-  let outDir = 'dist';
+  let outDir = 'dist', build = 'dev';
   return {
     name: 'endfall-offline',
     apply: 'build',
-    configResolved(c) { outDir = c.build.outDir; },
+    configResolved(c) {
+      outDir = c.build.outDir;
+      try { build = JSON.parse(c.define?.__SIM_BUILD__ ?? '"dev"'); } catch { /* keep 'dev' */ } // (vite.config.js)
+    },
     closeBundle() {
       const list = files(outDir).filter(f => !f.endsWith('.map') && f !== 'sw.js').sort();
       const h = createHash('sha256');
       for (const f of list) { h.update(f); h.update(readFileSync(join(outDir, f))); }
-      const src = readFileSync(new URL('./sw.js', import.meta.url), 'utf8')
-        .replace('__VERSION__', h.digest('hex').slice(0, 12))
-        .replace('__FILES__', JSON.stringify(['./', ...list]));
-      writeFileSync(join(outDir, 'sw.js'), src);
+      writeFileSync(join(outDir, 'sw.js'), swSource(h.digest('hex').slice(0, 12), build, ['./', ...list]));
     },
   };
 }

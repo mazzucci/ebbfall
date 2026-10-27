@@ -31,6 +31,7 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
                    # a browser: npx playwright-core install chromium)
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
                              # the 3D part needs a Chromium, see docs/ART.md)
+node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
 ```
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test` and `npm run build` on
@@ -92,6 +93,7 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
+  offline.js          INSTALL on the menu (where the browser offers it) and About's CHECK OFFLINE (asks the service worker)
   online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, map, ready) and the glue
                       between src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages, sends this side's orders,
@@ -104,7 +106,10 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone),
-                      selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit)
+                      selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
+                      CHECK OFFLINE against the real service worker, the app icons)
+test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed
+                      install; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats,
@@ -112,6 +117,8 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it once the token is set)
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
+tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js)
+tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the

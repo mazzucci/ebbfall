@@ -45,7 +45,7 @@ const MAX_NAME = 16;
 const OVER_GRACE_MS = 30000; // once a game is over, a seat whose connection is gone this long has left the room
 export const PAUSES = 3; // pauses a seat may call in a game
 export const PAUSE_MS = 5 * 60000; // a pause's length at most (the seat that called it may end it sooner)
-export const MAX_SEATS = 4; // seats a room may have (8 once larger maps are offered)
+export const MAX_SEATS = 8; // seats a room may have (the most a map seats: 128x128, eight starts)
 const DIFFS = 4; // the AI's difficulties (0 Easy to 3 Brutal)
 
 /** A room of `seats` players. `send(conn, msg)` delivers a message to one connection; `kick(conn)` closes one. */

@@ -1,16 +1,17 @@
 // Multiplayer (docs/MULTIPLAYER.md): the lobby card and the glue between the network layer (src/net/net.js) and the
 // game. Mobile-first and few words: open a room (a 4-letter code to share, or a link) or join one, pick a race (or
 // RANDOM: drawn when the game starts, alike on every client, src/engine/util.js seatRaces), ready. The room's host (the
-// first seat) also picks the players (2 to 4: the room's seats), the teams for four, the map (one that seats them) and
-// gives open seats to the AI (its race, and one difficulty for every AI seat); a friend may move to an open seat (the
-// teams are by seat: the first two against the last two). The menu's MULTIPLAYER is shown only where a relay is known:
-// `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
+// first seat) also picks the players (2 to 8: the room's seats), the teams for four, six and eight, the map (one that
+// seats them) and gives open seats to the AI (its race, and one difficulty for every AI seat); a friend may move to an
+// open seat (the teams are by seat: 2v2 the first two against the last two, 4v4 the first four, 2v2v2v2 pairs). The
+// menu's MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev
+// machine's own (port 8788) when the page comes from it.
 import { Net, PAUSES } from '../net/net.js';
 import { liveGame, seatRaces, FACTIONS } from '../engine/index.js';
 import { $, toast } from './ui.js';
 import { sfx } from './audio.js';
-import { mapButtons } from './menu.js';
-import { fitMap } from './maps.js';
+import { mapButtons, teamButtons, ROOM_TEAMS } from './menu.js';
+import { fitMap, teamList, teamsKey } from './maps.js';
 import { SEAT_COLORS } from './look.js';
 import { touchDevice, enterFullscreen } from './screen.js';
 
@@ -57,9 +58,8 @@ export function initOnline({ start, leave, quit, room, rematch, pause, resume })
   $('btnShare').addEventListener('click', share);
   $('btnOnlineReload').addEventListener('click', reloadNewest);
   for (const b of $('onlineRace').querySelectorAll('button')) b.addEventListener('click', () => { sfx('select'); online.net?.race(b.dataset.race); });
-  // The host's: the players (the map follows: one that seats them), the teams for four, the AI seats' difficulty.
+  // The host's: the players (the map follows: one that seats them), the AI seats' difficulty (the teams: renderLobby).
   for (const b of $('onlinePlayers').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); const k = +b.dataset.n; if (lobbyState?.seats.some((s, i) => i >= k && !s.ai && (s.here || s.name))) { status('Someone sits in a seat that would go'); return; } online.net?.seats(k, fitMap(lobbyState?.map ?? 0, k)); });
-  for (const b of $('onlineTeams').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.teams(b.dataset.teams === '2v2' ? [0, 0, 1, 1] : null); });
   for (const b of $('onlineDiff').querySelectorAll('button')) b.addEventListener('click', () => { if (online.seat !== 0) return; sfx('select'); online.net?.diff(+b.dataset.d); });
   // A seat's own buttons (rendered with the seats): the host's + AI / × on an open or AI seat and an AI's race, and a
   // friend's SIT HERE on an open seat.
@@ -194,12 +194,14 @@ function renderLobby(m) {
     }
     return `<div class="seat${i === online.seat ? ' me' : ''}">${dot(i)}<b>${esc(s.name || '…')}</b><span>${esc(String(s.race || '').toUpperCase())}</span><span class="${s.ready ? 'ok' : ''}">${!s.here ? 'AWAY' : s.ready ? 'READY' : ''}</span></div>`;
   };
-  // Two against two: the first two seats against the last two, a row each.
-  const vs = n === 4 && Array.isArray(m.teams) && m.teams[0] === m.teams[1] && m.teams[2] === m.teams[3] && m.teams[0] !== m.teams[2];
+  // The seats two a row (three or four), or four (five to eight; three for six): two even teams a row each, VS between;
+  // four pairs, two a row, a gap between.
+  const teams = teamsKey(m.teams), cols = n <= 4 ? 2 : n === 6 ? 3 : 4;
   const cells = m.seats.map(cell);
-  if (vs) cells.splice(2, 0, '<div class="vs">VS</div>');
+  if (teams === `${n / 2}v${n / 2}`) cells.splice(n / 2, 0, '<div class="vs">VS</div>');
   $('seatList').innerHTML = cells.join('');
-  $('seatList').classList.toggle('many', n > 2);
+  $('seatList').classList.toggle('many', n > 2); $('seatList').classList.toggle('crowd', n > 4); $('seatList').classList.toggle('pairs', teams === '2v2v2v2');
+  $('seatList').style.setProperty('--cols', cols);
   const me = m.seats[online.seat];
   if (me) {
     radio($('onlineRace'), 'race', me.race, false);
@@ -207,8 +209,7 @@ function renderLobby(m) {
   }
   // The host's choices; everyone sees them (and whose pick the map is).
   radio($('onlinePlayers'), 'n', n, !host);
-  $('onlineTeams').hidden = n !== 4;
-  radio($('onlineTeams'), 'teams', vs ? '2v2' : 'ffa', !host);
+  teamButtons($('onlineTeams'), n, teams, host ? (k) => online.net?.teams(k === 'ffa' ? null : teamList(n, k)) : null, ROOM_TEAMS);
   $('onlineAi').hidden = !m.seats.some(s => s.ai);
   radio($('onlineDiff'), 'd', m.diff ?? 1, !host);
   $('onlineMapNote').textContent = host ? '' : `${m.seats[0]?.name || 'your friend'}'s pick`; // (the joiner: who chooses)

@@ -3,7 +3,7 @@
 // the orders must have changed them, and the relay must see no desync. Then a phone's life: a page suspended for
 // longer than the away limit (the other side must not be blamed, the game goes on), the page coming back while a
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
-// of three and four with AI seats (M4): every client runs the AI alike.
+// of three, four and eight with AI seats (M4): every client runs the AI alike.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -235,5 +235,17 @@ test('two people against two AIs: one team, every client the same game', { skip,
     assert.deepEqual([a.setup.ai, a.setup.teams, a.setup.diff, a.g.mapW()], [[0, 0, 1, 1], [0, 0, 1, 1], 2, 96]);
     assert.ok(m.same().length > 100, 'both ran it');
     assert.ok(busy(b, 2) && busy(b, 3), 'the AIs play');
+  } finally { await m.done(); }
+});
+
+test('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, every client the same game, every AI at work', { skip, timeout: 60000 }, async () => {
+  const m = await match({}, (net) => { net.seats(8, 8); for (let s = 2; s < 8; s++) net.ai(s, true, s % 3 === 0 ? 'vael' : 'random'); net.teams([0, 0, 1, 1, 2, 2, 3, 3]); });
+  const { a, b } = m;
+  try {
+    await m.run(6000, () => { for (const c of [a, b]) if (c.g && c.g.tick() % 90 === 1) { const ids = own(c); c.g.moveTo(ids[0], 2000, 2000); } });
+    assert.deepEqual([a.setup.ai, a.setup.teams, a.g.mapW(), a.setup.races.length], [[0, 0, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 2, 2, 3, 3], 128, 8]);
+    assert.ok(m.same().length > 100, `both ran it (${a.g.tick()} / ${b.g.tick()} ticks)`);
+    for (let s = 2; s < 8; s++) assert.ok(busy(b, s), `the AI of seat ${s} plays`);
+    assert.deepEqual(m.events.filter(e => /desync|away/.test(e)), [], 'no desync, nobody away');
   } finally { await m.done(); }
 });

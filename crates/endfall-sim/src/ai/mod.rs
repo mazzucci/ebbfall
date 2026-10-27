@@ -1,7 +1,7 @@
-//! The scripted opponent. Runs twice a second: assigns workers, follows a build order, keeps supply ahead,
-//! expands, defends its base, raids with Wasps and attacks in growing waves. It plays under fog of war: it
-//! scouts, remembers the player buildings it has seen and sweeps the map when it knows of none. Draws only
-//! from the world RNG.
+//! The scripted opponent. Runs twice a second (every `AI_TURN` ticks, each brain on a tick of its own): assigns
+//! workers, follows a build order, keeps supply ahead, expands, defends its base, raids with Wasps and attacks in
+//! growing waves. It plays under fog of war: it scouts, remembers the player buildings it has seen and sweeps the map
+//! when it knows of none. Draws only from the world RNG.
 
 mod army;
 mod build;
@@ -16,10 +16,21 @@ use crate::map::Id;
 use crate::path::Pt;
 use crate::world::{Phase, Task, World};
 
+/// Ticks between an AI's turns (about half a second).
+pub(crate) const AI_TURN: u32 = 16;
+
+/// How many ticks after the first brain's turns the k-th of m brains takes its own: spread evenly over `AI_TURN`, so up
+/// to `AI_TURN` brains each have a tick of their own.
+fn turn_offset(k: u32, m: u32) -> u32 {
+    k * AI_TURN / m.max(1)
+}
+
 pub(crate) struct Ai {
     /// The seat it plays.
     pub team: u8,
-    pub t: f64,
+    /// Ticks until its next turn, and the turns it has taken.
+    pub wait: u32,
+    pub turns: u32,
     pub wave: usize,
     pub last_wave: f64,
     pub attacking: bool,
@@ -85,17 +96,36 @@ impl World {
             .and_then(|a| a.attackers.clone())
     }
 
-    /// A fresh brain for every AI seat.
+    /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
+    pub fn ai_turns(&self) -> Vec<u32> {
+        self.ai
+            .iter()
+            .map(|a| a.as_ref().map_or(0, |a| a.turns))
+            .collect()
+    }
+
+    /// A fresh brain for every AI seat. Each thinks on a tick of its own: the k-th of m brains (in seat order) takes its
+    /// turns `k * AI_TURN / m` ticks after the first one's, so up to sixteen never think on the same tick (eight
+    /// thinking together cost a 128x128 game its worst tick). A lone AI thinks as it always did (first after
+    /// `AI_TURN` ticks).
     pub(crate) fn init_ai(&mut self) {
+        let m = self.ai_seats.iter().filter(|&&a| a).count() as u32;
+        let mut k = 0;
         self.ai = (0..self.seats() as u8)
-            .map(|team| self.is_ai(team).then(|| self.new_brain(team)))
+            .map(|team| {
+                self.is_ai(team).then(|| {
+                    k += 1;
+                    self.new_brain(team, AI_TURN + turn_offset(k - 1, m))
+                })
+            })
             .collect();
     }
 
-    fn new_brain(&self, team: u8) -> Ai {
+    fn new_brain(&self, team: u8, wait: u32) -> Ai {
         Ai {
             team,
-            t: 0.0,
+            wait,
+            turns: 0,
             wave: DIFF[self.diff].wave,
             last_wave: -20.0,
             attacking: false,
@@ -169,28 +199,29 @@ impl World {
         self.ai[self.ai_turn as usize].as_mut().unwrap()
     }
 
-    /// Every AI seat's half-second turn, seat 0's first.
-    pub(crate) fn ai_tick(&mut self, dt: f64) {
+    /// Every AI seat's half-second turn, each when its own is due (seat order within a tick).
+    pub(crate) fn ai_tick(&mut self) {
         for i in 0..self.seats() {
             if let Some(team) = self.ai[i].as_ref().map(|a| a.team) {
                 self.ai_turn = team;
-                self.ai_turn_of_seat(dt);
+                self.ai_turn_of_seat();
             }
         }
     }
 
     /// One AI's turn: what it has and knows, then its phases in a fixed order (the order of RNG draws and of orders
     /// is part of the rules: keep it).
-    fn ai_turn_of_seat(&mut self, dt: f64) {
+    fn ai_turn_of_seat(&mut self) {
         if self.over || self.out[self.seat() as usize] {
             return; // (a seat that is out plays no more)
         }
         let a = self.ai_mut();
-        a.t += dt;
-        if a.t < 0.5 {
+        a.wait -= 1;
+        if a.wait > 0 {
             return;
         }
-        a.t = 0.0;
+        a.wait = AI_TURN;
+        a.turns += 1;
         self.update_knowledge();
         let (e, t) = (self.seat(), self.time);
         let my_b: Vec<Id> = self
@@ -329,9 +360,22 @@ pub(crate) struct Brain {
 
 #[cfg(test)]
 mod tests {
+    use super::{AI_TURN, turn_offset};
     use crate::data::*;
     use crate::map::{MapKind, MapSize};
     use crate::world::World;
+
+    #[test]
+    fn up_to_sixteen_brains_each_think_on_a_tick_of_their_own() {
+        for m in 1..=AI_TURN {
+            let ticks: Vec<u32> = (0..m).map(|k| turn_offset(k, m)).collect();
+            assert_eq!(ticks[0], 0, "the first as a lone AI");
+            assert!(
+                ticks.windows(2).all(|w| w[0] < w[1]) && ticks[m as usize - 1] < AI_TURN,
+                "{m} brains: {ticks:?}"
+            );
+        }
+    }
 
     #[test]
     fn the_ai_plays_against_the_nearest_enemy_still_in() {

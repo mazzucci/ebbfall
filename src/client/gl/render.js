@@ -159,12 +159,16 @@ sizeGrids();
 const chunks = [];
 const doodads = [];
 let doodadCheck = 0, doodadBldgs = -1; // wall-clock time of the last check, building count then
-/** Ground props under a building (its footprint or the tiles around their centre) are hidden. */
+/** Ground props under a building (its footprint or the tiles around their centre) are hidden. The footprints come
+ *  from the buildings themselves (the tiles the sim's occupancy grid gives them), not a copy of that grid. */
+let footprints = new Uint8Array(0);
 function hideCoveredDoodads() {
+  if (footprints.length !== MW * MH) footprints = new Uint8Array(MW * MH); else footprints.fill(0);
+  for (const b of G.bldgs) for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) footprints[idx(b.tx + x, b.ty + y)] = 1;
   for (const d of doodads) if (d.ground) {
     let covered = false;
-    for (let dy = -1; dy <= 1 && !covered; dy++) for (let dx = -1; dx <= 1; dx++) if (map.occ[idx(d.tx + dx, d.ty + dy)] > 0) { covered = true; break; }
-    d.s.visible = !covered;
+    for (let dy = -1; dy <= 1 && !covered; dy++) for (let dx = -1; dx <= 1; dx++) if (footprints[idx(d.tx + dx, d.ty + dy)]) { covered = true; break; }
+    if (d.s.visible === covered) d.s.visible = !covered;
   }
 }
 function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1; }

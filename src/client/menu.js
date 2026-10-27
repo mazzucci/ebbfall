@@ -1,7 +1,8 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
-// is known), How to play, About (a page: who made it, the source, the version) and the record (and FIRST GAME, until a
-// first game is over on this device); the single-player page holds the game against the AI (opponent, your race and
-// the enemy's, one of three maps, the guided first game; START GAME goes full screen). In the top-right corner of
+// is known), How to play, About (a page: who made it, the source, the version, CHECK OFFLINE), INSTALL where the
+// browser offers it (both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
+// the single-player page holds the game against the AI (opponent, your race and the enemy's, one of three maps, the
+// guided first game; START GAME goes full screen). In the top-right corner of
 // every page (and the lobby's): the sound, one setting with the game's top bar; while full screen, a button that
 // leaves it. The menu always opens on its first page (a join link opens the lobby instead).
 // Three fixed maps with made-up names and hidden characters (MapKind in the sim; the default is the standard map, the
@@ -12,6 +13,7 @@ import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { enterFullscreen, exitFullscreen } from './screen.js';
 import { icon } from './icons.js';
+import { initOffline } from './offline.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -123,7 +125,9 @@ export function initMenu({ onStart, onSound }) {
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   $('btnAbout').addEventListener('click', () => { sfx('select'); page('menuAbout'); });
   $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
-  $('buildId').textContent = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev'; // (vite.config.js: the one online play compares)
+  const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
+  $('buildId').textContent = build; // (vite.config.js: the one online play compares)
+  initOffline(build); // INSTALL (where the browser offers it), About's CHECK OFFLINE
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   // Full screen (START GAME, FIRST GAME and the lobby's READY enter it): a corner button leaves it, there only while
   // it is on. (A page cannot close its own tab; leaving full screen gives the browser's own controls back.)

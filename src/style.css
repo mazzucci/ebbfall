@@ -137,6 +137,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #menuHome .rec{margin-top:8px;min-height:1em} #menuHome .rec:empty{display:none}
 /* About: a few lines, two links, the fine print. */
 #menuAbout{max-width:640px} #menuAbout p{margin:6px 0} #menuAbout a{color:var(--ally2)} #menuAbout .fine{font:11px var(--mono);color:var(--muted)}
+#menuAbout .offmsg{flex:1 1 220px;font-size:12.5px;line-height:1.35;color:var(--ally2)} /* (CHECK OFFLINE's answer, beside it) */
 @media (max-height:420px){#menuAbout p{font-size:12px;line-height:1.35;margin:4px 0} #menuAbout .fine{font-size:10px}}
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
 @media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}

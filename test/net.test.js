@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { startRelay } from '../relay/server.mjs';
 import { Net } from '../src/net/net.js';
+import { seatRaces } from '../src/engine/util.js';
 
 const pkg = new URL('../src/engine/pkg/', import.meta.url);
 const built = existsSync(new URL('endfall_sim_bg.wasm', pkg));
@@ -30,7 +31,8 @@ function own(c) {
 }
 const fi = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
-const game = (setup, seat) => sim.Game.forSeat(setup.seed, setup.map, setup.side, fi(setup.races[0]), fi(setup.races[1]), seat);
+/** The room's game for a seat, as src/engine/core.js's resetGameForSeat builds it (a RANDOM seat drawn from the seed). */
+const game = (setup, seat) => { const r = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS)); return sim.Game.forSeat(setup.seed, setup.map, setup.side, fi(r[0]), fi(r[1]), seat); };
 
 /** A relay, two clients in one room, started. Each client: its Net, its Game, the hash of every tick it ran. */
 async function match(relayOpts = {}) {

@@ -8,7 +8,7 @@ import { TILE, DUEL_MW, DUEL_MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './co
 import { clamp } from './util.js';
 
 export * from './constants.js';
-export { clamp, dist, fmt, mulberry } from './util.js';
+export { clamp, dist, fmt, mulberry, seatRaces } from './util.js';
 
 // Snapshot record layouts, by field name (crates/endfall-sim/src/snapshot.rs declares them; pkg/data.js carries them).
 const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));
@@ -132,9 +132,9 @@ function fresh(g) {
   dirty = true; sync();
 }
 /** An online game (docs/MULTIPLAYER.md): the room's setup, seen from seat `me`, in lockstep (orders go out to the
- *  relay; the network layer feeds the turns back). */
+ *  relay; the network layer feeds the turns back). `seed` is the map's; `races` the seats' (RANDOM drawn: seatRaces). */
 export function resetGameForSeat(seed, map, side, races, me) {
-  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
+  const f = (k) => { if (k === 'random') throw new Error('a RANDOM seat is drawn first (seatRaces)'); return Math.max(0, Object.keys(FACTIONS).indexOf(k)); }; // (an unknown race: the first)
   const g = Game.forSeat(seed >>> 0, map, side, f(races[0]), f(races[1]), me);
   g.startLockstep();
   fresh(g);
@@ -144,7 +144,7 @@ export const liveGame = () => game;
 /** `side` 1: the player starts in the other base of the map; `race`, `enemy`: the player's and the AI's faction keys;
  *  `size`: the map's tiles across (64 to 128; tests: the menus offer a two-seat map's 64). */
 export function resetGame(seed, diff, map = 0, side = 0, race = 'humans', enemy = 'humans', size = DUEL_MW) {
-  const f = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
+  const f = (k) => { const i = Object.keys(FACTIONS).indexOf(k); if (i < 0) throw new Error(`no race ${k}`); return i; }; // (a menu's RANDOM is drawn before)
   fresh(Game.withSize(seed >>> 0, diff, map, side, f(race), f(enemy), size));
 }
 /** A game for any number of seats, seen from seat `me` (tests for now; M4's lobby): each seat's race key, team (empty:

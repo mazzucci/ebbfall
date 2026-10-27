@@ -74,7 +74,10 @@ src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
   screen.js           full screen / landscape lock, the leave-game guard
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu (opponent, three named maps, sound), the phone tap-to-play splash, How to play
+  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
+                      until a first game is over), the single-player page (opponent, your race and the enemy's, RANDOM
+                      too, three named maps, FIRST GAME), the About page (the source, the device check, the version), the
+                      sound icon
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   card.js             the command card: buttons for the selection, long-press details, what a button does
@@ -87,7 +90,7 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
-  online.js           Play a friend: the lobby card (open/join a room by code or link, race, map, ready) and the glue
+  online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, map, ready) and the glue
                       between src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages, sends this side's orders,
                       feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM

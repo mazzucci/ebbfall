@@ -60,7 +60,7 @@ export class Net {
     this.ws = null; this.seat = this.setup ? this.seat : -1; clearTimeout(this.pongTimer);
     if (this.closed) return;
     // The lobby gives up after a few tries (nothing is lost yet); a game keeps trying (the relay waits for it).
-    if (!this.setup && this.retries >= LOBBY_TRIES) { this.on.error?.({ code: 'unreachable', msg: 'Cannot reach the game server' }); this.close(); return; }
+    if (!this.setup && this.retries >= LOBBY_TRIES) { this.on.error?.({ code: 'unreachable', msg: 'Can\'t connect. Check your Internet and try again' }); this.close(); return; }
     this.status('reconnecting');
     const wait = RETRY_MS[Math.min(this.retries++, RETRY_MS.length - 1)];
     this.retryTimer = setTimeout(() => { if (!this.closed) this.open(); }, wait);

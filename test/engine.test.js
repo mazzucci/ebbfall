@@ -268,6 +268,24 @@ test('the client reads its seat, and each seat\'s stats, from the game', { skip 
   assert.deepEqual([E.G.teams, E.G.out, E.foes(), E.enemies(0, 1), E.enemies(1, 1)], [[0, 1], [false, false], [1], true, false]);
 });
 
+test('a room\'s RANDOM seat is drawn from its seed and seat: the same on every client, either race', { skip }, () => {
+  const keys = Object.keys(C.FACTIONS), seen = [new Set(), new Set()];
+  for (let seed = 1; seed <= 200; seed++) {
+    const r = E.seatRaces(['random', 'random'], seed, keys);
+    assert.deepEqual(E.seatRaces(['random', 'random'], seed, keys), r, 'the same draw every time');
+    r.forEach((k, i) => { assert.ok(keys.includes(k), k); seen[i].add(k); });
+  }
+  assert.deepEqual(seen.map(s => s.size), [keys.length, keys.length], 'each seat draws every race over many rooms');
+  assert.ok([...Array(50).keys()].some(seed => { const [x, y] = E.seatRaces(['random', 'random'], seed + 1, keys); return x !== y; }), 'the seats draw apart');
+  assert.deepEqual(E.seatRaces(['vael', 'humans'], 7, keys), ['vael', 'humans'], 'a chosen race stays');
+  // Both seats' games: the same factions, the drawn ones (never a silent Humans).
+  const vael = [...Array(100).keys()].map(i => i + 1).find(seed => E.seatRaces(['humans', 'random'], seed, keys)[1] === 'vael');
+  const factions = [0, 1].map(me => { E.resetGameForSeat(4242, 0, 0, E.seatRaces(['humans', 'random'], vael, keys), me); return E.G.factions.slice(); });
+  assert.deepEqual(factions, [['humans', 'vael'], ['humans', 'vael']]);
+  assert.throws(() => E.resetGameForSeat(4242, 0, 0, ['humans', 'random'], 0), /drawn first/, 'an undrawn RANDOM is not taken for the Humans');
+  assert.throws(() => E.resetGame(4, 0, 0, 0, 'random'), /no race random/, 'a single player\'s RANDOM is drawn by the menu, not taken for the Humans');
+});
+
 test('a game for any number of seats takes a setup it can play and refuses the rest', { skip }, () => {
   const seats = (f, t, ai, me) => sim.Game.withSeats(9, 1, 0, 0, Uint32Array.from(f), Uint8Array.from(t), Uint8Array.from(ai), me);
   assert.throws(() => seats([0, 1, 0], [], [], 0), /3 seats/, 'more seats than the map has starts');

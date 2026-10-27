@@ -50,14 +50,14 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
     let room = null;
     if (q.get('new')) { const c = code(); room = new Room({ code: c, send, kick, seed: seed++ }); room.lastUsed = Date.now(); rooms.set(c, room); }
     else room = rooms.get((q.get('room') || '').toUpperCase());
-    if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No such room' }); kick(ws); return; }
+    if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; }
     let seated = false;
     const silent = setTimeout(() => { if (!seated) ws.terminate(); }, HELLO_MS);
     ws.on('message', (data) => {
       let msg; try { msg = JSON.parse(data); } catch { return; }
       room.lastUsed = Date.now();
       if (!seated) {
-        if (rooms.get(room.code) !== room) { send(ws, { t: 'error', code: 'noroom', msg: 'No such room' }); kick(ws); return; } // (closed meanwhile)
+        if (rooms.get(room.code) !== room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; } // (closed meanwhile)
         seated = room.connect(ws, msg) >= 0;
         if (!seated) kick(ws);
         return;

@@ -91,6 +91,18 @@ There is no handling of a hidden page today. In multiplayer:
   paused. A 20-minute game is 36,000 ticks: seconds on a desktop, perhaps a minute or more on a phone; measured in
   M3a, and a saved checkpoint (World save/load, tested hash-for-hash) only if that is too slow.
 - WebGL context loss (phones drop it under memory pressure) is handled: rebuild the renderer, the game goes on.
+- **In the lobby (the lobby hold, built 2026-10-27):** the host opens a room on a phone and goes to a messaging app to
+  send the code; the phone kills the page's socket. The relay keeps the seat (name, race, token, the host's role) for
+  `LOBBY_HOLD_MS` (5 minutes), away (`here: false`) and not ready: the others see the name with AWAY and "Waiting
+  for Ann…", a friend joining takes the next truly open seat (never a held one, nor moves to it), and the room cannot
+  start while a held seat is away (it is not ready). The page keeps reconnecting (the usual backoff, capped at 4 s,
+  and at once when it is in view again: `wake`) for as long as it holds a seat, and its token takes the seat back:
+  the same code, the same seats. Only a page that never got a seat gives up after a few tries ("Can't connect").
+  After the hold the seat is open again (the host's: "The host left: SIT HERE", as before). Leaving the room on
+  purpose (BACK, or a single-player game from the menu) says `leave` first: the seat is open at once. A held seat's
+  sim build is checked when it comes back, not against a newcomer. On Cloudflare the lobby (seats with their tokens,
+  AI seats, map, teams, difficulty; no connections) is stored on every change, so a held seat survives the room's
+  eviction from memory (see M3d's limits).
 
 ### Builds and versions
 
@@ -172,8 +184,9 @@ which must be in the same Cloudflare account, with no `relay` DNS record yet; ma
 happen when a push to main changes relay/; (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
 which the build bakes in: MULTIPLAYER appears on the menu's first page.
 Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
-an empty lobby is evicted from memory a minute or two after its last socket closes and comes back, empty, from a small
-storage record when someone joins within 10 minutes; a running game is never stored.
+a lobby is evicted from memory a minute or two after its last socket closes and comes back as it was (its seats held
+for their tokens, the lobby hold above, or empty) from its storage record when someone joins within 10 minutes; a
+running game is never stored (an evicted or redeployed game is over).
 
 **M4. More players, larger maps (up to 8).** Teams in the lobby (free-for-all, 2v2, 4v4), AI to fill empty seats
 (up to four players, 2v2 and AI seats: step 2c, done).

@@ -124,6 +124,7 @@ function connect(room) {
       status: (s) => {
         if (s === 'online') waitingFor.clear(); // (seated again: the relay tells who is still away next)
         if (online.playing) { reconnecting = s === 'reconnecting'; waitLine(); }
+        else if (s === 'reconnecting' && online.seat >= 0) status('Reconnecting…'); // (the room keeps this seat meanwhile; its lobby says the rest)
       },
     },
   });
@@ -179,7 +180,8 @@ function renderLobby(m) {
   lobbyState = m;
   const host = online.seat === 0, n = m.seats.length;
   // A seat nobody has taken yet (no name, not here, not the AI's): an open seat; the host may give it to the AI, a
-  // friend may move there. An AI seat: its race (the host taps it for the next) and, for the host, × to open it again.
+  // friend may move there. A seat whose player is away (the relay holds it a while: a phone switched apps) is theirs:
+  // their name, AWAY. An AI seat: its race (the host taps it for the next) and, for the host, × to open it again.
   const open = (s) => !s.ai && !s.here && !s.name;
   const cell = (s, i) => {
     if (s.ai) {
@@ -213,7 +215,7 @@ function renderLobby(m) {
   mapButtons($('onlineMaps'), n, fitMap(m.map, n), host ? (i) => online.net?.map(i) : null);
   const people = m.seats.filter(s => !s.ai);
   const gone = people.filter(s => !s.here && !open(s)).map(s => s.name || 'your friend');
-  status(!host && open(m.seats[0]) ? 'The host left: SIT HERE on the first seat to pick' : m.seats.some(open) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
+  status(!host && open(m.seats[0]) ? 'The host left: SIT HERE on the first seat to pick' : m.seats.some(open) && (host || !gone.length) ? (host ? `Send a friend the link${n > 2 ? ', or add the AI' : ''}, then wait here` : 'Waiting for players…') : gone.length ? `Waiting for ${gone.join(', ')}…` : people.every(s => s.ready) ? 'Starting…' : 'Ready when you are');
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -248,5 +250,6 @@ async function share() {
   } catch { /* cancelled */ }
 }
 
-/** Leave the online game (or the lobby) for good. */
-export function stopOnline() { if (!online.net?.leaving) online.net?.close(); waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear(); }
+/** Leave the online game (or the lobby) for good. Out of a lobby: the seat is given up (the relay would hold it a while
+ *  for a player who only switched apps). */
+export function stopOnline() { if (!online.net?.leaving) { if (online.playing) online.net?.close(); else online.net?.leave(); } waitingFor.clear(); reconnecting = false; over = ''; waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear(); }

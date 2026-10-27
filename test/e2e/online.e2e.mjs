@@ -330,6 +330,51 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
   } finally { await a.ctx.close(); }
 });
 
+// The host switching apps to send the code (the lobby hold): the room keeps the host's seat, the friend sees it AWAY and
+// takes the next one, the host comes back to it.
+test('the host switches apps to send the code: the room holds its seat, the friend joins the next one, the host comes back to it', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(PHONE, relayQ);
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    const b = await page(DESKTOP, `${relayQ}&join=${code}`);
+    try {
+      // Ann's phone kills the page's socket, and every try to reconnect fails for a while (past the lobby's few tries).
+      await a.p.evaluate(() => {
+        const n = endfall.online.net, until = Date.now() + 6000, open = n.open;
+        window.tries = 0;
+        n.open = function () { if (Date.now() < until) { window.tries++; this.ws = null; this.dropped(); } else open.call(this); };
+        n.ws.close();
+      });
+      await a.p.waitForFunction(() => document.getElementById('onlineStatus').textContent === 'Reconnecting…', null, { timeout: 5000 });
+      for (let i = 0; i < 50 && relay.rooms.get(code).seats[0].conn; i++) await new Promise(r => setTimeout(r, 100));
+      assert.equal(relay.rooms.get(code).seats[0].conn, null, "the relay saw Ann's socket go");
+      // The friend joins by the link: Ann's seat is Ann's, AWAY; the friend takes the next one and waits for her.
+      await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
+      await b.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && /Bo/.test(document.getElementById('seatList').textContent));
+      assert.equal(await b.p.evaluate(() => endfall.online.seat), 1, 'the friend sits in the second seat');
+      const seatsB = () => b.p.$$eval('#seatList .seat', ss => ss.map(s => s.textContent));
+      assert.deepEqual(await seatsB(), ['AnnHUMANSAWAY', 'BoHUMANS'], 'Ann away, not an open seat');
+      assert.equal(await b.p.locator('#onlineStatus').textContent(), 'Waiting for Ann…');
+      assert.equal(await b.p.locator('#onlineMapNote').textContent(), "Ann's pick", 'Ann still picks');
+      // Ann's page reconnects by itself (no wake): her seat, the same room; both see each other.
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent), null, { timeout: 15000 });
+      assert.ok(await a.p.evaluate(() => window.tries) >= 4, 'it kept trying past the lobby\'s few tries (four: a Net with no seat gives up there)');
+      assert.deepEqual(await a.p.evaluate(() => [endfall.online.seat, document.getElementById('roomShow').textContent, document.getElementById('onlineMapNote').textContent, endfall.online.net.closed]), [0, code, '', false], 'Ann: seat 0, the same code, the host');
+      await b.p.waitForFunction(() => !/AWAY/.test(document.getElementById('seatList').textContent), null, { timeout: 5000 });
+      assert.deepEqual(await seatsB(), ['AnnHUMANS', 'BoHUMANS']);
+      for (const x of [a, b]) assert.equal(await x.p.locator('#onlineStatus').textContent(), 'Ready when you are');
+      // And the room plays: both ready, the game starts, Ann the first seat.
+      await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      assert.deepEqual(await Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.me))), [0, 1]);
+      assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
+    } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});
+
 test('a relay of a newer protocol: UPDATE is offered (not a dead end)', async () => {
   const { WebSocketServer } = await import('ws');
   const wss = new WebSocketServer({ port: 0 }); await new Promise(r => wss.on('listening', r));

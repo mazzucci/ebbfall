@@ -40,9 +40,12 @@ const CLOUDFLARE = {
 };
 
 /** A room's Durable Object: its Room, its connections, and the clock while anyone is connected. The Room lives in
- *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a small record in storage
- *  (the code, when it was last used, whether its game started) lets an evicted lobby come back, empty, for a friend who
- *  joins late. A game is not kept: an evicted or redeployed one is over (its players are told the server restarted). */
+ *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a record in storage (the code,
+ *  when it was last used, whether its game started, and the lobby itself: its seats with their names, races and tokens,
+ *  the AI seats, the map, the teams, the difficulty; Room.keep, saved on every change to the lobby) brings an evicted
+ *  lobby back as it was: a seat held for a player who switched apps (relay/room.js, LOBBY_HOLD_MS) is still theirs, and
+ *  an empty lobby comes back for a friend who joins late. A game is not kept: an evicted or redeployed one is over (its
+ *  players are told the room is gone). */
 export class RoomObject {
   constructor(state, env, platform = CLOUDFLARE) {
     this.platform = platform; this.storage = state?.storage; this.room = null; this.conns = new Set(); this.timer = null;
@@ -57,7 +60,7 @@ export class RoomObject {
       const inUse = this.room ? this.conns.size || Date.now() - this.lastUsed < ROOM_IDLE_MS : recent;
       if (inUse) return new Response('Taken', { status: 409 });
       this.open(code);
-    } else if (!this.room && recent && !saved.started) this.open(code); // (an evicted lobby: back, empty)
+    } else if (!this.room && recent && !saved.started) this.open(code, saved.lobby); // (an evicted lobby: back, its seats held)
     if (this.room) this.save();
     const [client, ws] = this.platform.pair();
     ws.accept();
@@ -65,14 +68,21 @@ export class RoomObject {
     return this.platform.respond(client);
   }
 
-  open(code) { this.room = new Room({ code, send, kick, seed: random() }); this.started = false; }
-  save() { this.storage?.put('room', { code: this.room.code, used: Date.now(), started: this.started }).catch(() => {}); }
+  open(code, kept) {
+    this.room = new Room({ code, seats: kept?.seats?.length || 2, send, kick, seed: random(), onLobby: () => this.save() });
+    if (kept) this.room.restore(kept, Date.now());
+    this.started = false;
+  }
+  save() {
+    const room = this.room, lobby = room.phase === 'lobby';
+    this.storage?.put('room', { code: room.code, used: Date.now(), started: !lobby, lobby: lobby ? room.keep() : null }).catch(() => {});
+  }
 
   attach(ws) {
     const room = this.room;
     if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; }
     this.conns.add(ws); this.lastUsed = Date.now();
-    if (!this.timer) this.timer = setInterval(() => room.tick(Date.now()), TURN_MS / 4);
+    if (!this.timer) { room.tick(Date.now()); this.timer = setInterval(() => room.tick(Date.now()), TURN_MS / 4); } // (at once: a hold that ran out while nobody was here is over before anyone is seated)
     let seated = false;
     const silent = setTimeout(() => { if (!seated) kick(ws); }, HELLO_MS);
     ws.addEventListener('message', (e) => {

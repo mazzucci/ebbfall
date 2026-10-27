@@ -3,7 +3,8 @@
 // go to the game strictly in order (a turn that arrives early waits for the gap before it); the game runs a tick only
 // once its turn is in (the `Game`'s lockstep: crates/endfall-sim/src/lockstep.rs). Every few turns it acks the last
 // turn run, with the state hash at the latest checkpoint. When the socket drops it reconnects and resumes from the
-// next turn it expects; when the page comes back into view it checks the socket is still alive.
+// next turn it expects; when the page comes back into view it checks the socket is still alive. In the lobby too, once
+// it holds a seat: the relay keeps the seat a while for its token (a phone that switched apps to send the room's code).
 //
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
@@ -16,7 +17,7 @@ const CHECK_EVERY = 10; // turns between hash checkpoints (relay/room.js)
 const RETRY_MS = [250, 500, 1000, 2000, 4000]; // between reconnect attempts (the last repeats)
 const PONG_MS = 2000; // a socket that does not answer a ping in this long is taken for dead
 const BEAT_MS = 1000; // an ack at least this often, even with no new turn run (a stalled game is not an away seat)
-const LOBBY_TRIES = 4; // failed connections before the lobby says the relay cannot be reached
+const LOBBY_TRIES = 4; // failed connections before a lobby that never got a seat says the relay cannot be reached
 const TRAIL = 300; // ticks of state hashes kept
 
 export class Net {
@@ -35,6 +36,7 @@ export class Net {
     this.seat = -1; this.setup = null; this.turns = new Map(); this.acked = -1; this.checks = new Map();
     this.trail = new Map(); // tick -> state hash, the last TRAIL ticks (a desync's first diverging tick is in it)
     this.retries = 0; this.closed = false; this.ws = null; this.pingId = 0; this.pongTimer = null; this.retryTimer = null;
+    this.held = false; // (it has had a seat, which the relay holds for its token: it keeps reconnecting in the lobby too)
     this.ackedAt = 0; this.next = 0; this.queue = []; this.leaving = false; // (orders and a leave wait here while the socket is down)
     this.open();
   }
@@ -61,8 +63,10 @@ export class Net {
   dropped() {
     this.ws = null; this.seat = this.setup ? this.seat : -1; clearTimeout(this.pongTimer);
     if (this.closed) return;
-    // The lobby gives up after a few tries (nothing is lost yet); a game keeps trying (the relay waits for it).
-    if (!this.setup && this.retries >= LOBBY_TRIES) { this.on.error?.({ code: 'unreachable', msg: 'Can\'t connect. Check your Internet and try again' }); this.close(); return; }
+    if (this.leaving && !this.queue.length) { this.close(); return; } // (its leave is out: nothing to come back for)
+    // A lobby that never got a seat gives up after a few tries (nothing is lost yet); one that holds a seat keeps
+    // trying, as a game does (the relay holds the seat, or waits for it).
+    if (!this.setup && !this.held && this.retries >= LOBBY_TRIES) { this.on.error?.({ code: 'unreachable', msg: 'Can\'t connect. Check your Internet and try again' }); this.close(); return; }
     this.status('reconnecting');
     const wait = RETRY_MS[Math.min(this.retries++, RETRY_MS.length - 1)];
     this.retryTimer = setTimeout(() => { if (!this.closed) this.open(); }, wait);
@@ -126,7 +130,7 @@ export class Net {
   message(m) {
     switch (m.t) {
       case 'seat':
-        this.seat = m.seat; this.token = m.token; this.room = m.room; this.retries = 0;
+        this.seat = m.seat; this.token = m.token; this.room = m.room; this.retries = 0; this.held = true;
         this.status('online'); this.on.seat?.(m); this.flush(); break;
       case 'lobby':
         if (!Array.isArray(m.seats)) break;

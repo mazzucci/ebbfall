@@ -1,11 +1,11 @@
 // The Cloudflare relay (relay/worker.js) in Node, with fake WebSocket pairs and a fake Durable Object namespace (with
 // storage, and eviction): a room opened and joined through the Worker, a game started and its turns ticking, leaving,
-// a reconnect replacing a live socket, no such room, a taken code, no free code, an evicted lobby coming back (and an
-// evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages.
+// a reconnect replacing a live socket, no such room, a taken code, no free code, an evicted lobby coming back (its held
+// seats too; an evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { RoomObject } from '../relay/worker.js';
-import { PROTO } from '../relay/room.js';
+import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
 
 /** A connected pair of fake sockets: what one sends, the other's listeners get. */
 function pair() {
@@ -32,7 +32,7 @@ function env(extra = {}) {
     if (!objects.has(n)) objects.set(n, new RoomObject({ storage: stores.get(n) }, null, platform));
     return objects.get(n);
   };
-  return { objects, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
+  return { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
 }
 const upgrade = (query, origin = 'https://ebbfall.com') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin } });
 const say = (ws, msg) => ws.send(JSON.stringify(msg));
@@ -120,15 +120,28 @@ test('no free code: told so', async () => {
   assert.equal((await worker.fetch(upgrade('new=1'), e)).status, 503);
 });
 
-test('an evicted lobby comes back empty for a late friend; an evicted game does not', async () => {
+test('an evicted lobby comes back as it was: the host\'s seat held (name, token), a late friend takes the next, the host\'s token seat 0', async () => {
   const e = env();
   const { a, code } = await opened(e);
-  a.close(); e.evict(code); // (the host went to a messaging app; Cloudflare dropped the empty room)
+  const token = got(a, 'seat')[0].token;
+  say(a, { t: 'race', race: 'vael' }); say(a, { t: 'seats', n: 3, map: 4 }); say(a, { t: 'ai', seat: 2, on: true });
+  a.close(); // (the host went to a messaging app to send the code)
+  await wait(0);
+  const kept = await e.stores.get(code).get('room');
+  assert.deepEqual(kept.lobby.seats.map(s => [s.name, s.race, s.token, s.ai]), [['Ann', 'vael', token, false], ['', 'humans', null, false], ['', 'random', null, true]], 'the lobby kept, with its tokens');
+  assert.ok(!('conn' in kept.lobby.seats[0]), 'no connections kept');
+  e.evict(code); // (Cloudflare dropped the empty room)
   const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   say(b, hello('Bo'));
-  assert.equal(got(b, 'seat')[0]?.seat, 0, 'the lobby again, with this friend in it');
+  assert.equal(got(b, 'seat')[0]?.seat, 1, 'the friend: the next seat, not the host\'s');
+  let l = got(b, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.race, s.here, s.ai]), [['Ann', 'vael', false, false], ['Bo', 'humans', true, false], ['', 'random', false, true]], 'Ann AWAY, the AI seat as it was');
+  assert.equal(l.map, 4);
   const a2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
-  say(a2, hello('Ann'));
+  say(a2, { t: 'hello', proto: PROTO, name: 'Ann', token });
+  assert.deepEqual([got(a2, 'seat')[0]?.seat, got(a2, 'seat')[0]?.room], [0, code], 'the host\'s token: seat 0, the same room');
+  l = got(b, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.here]), [['Ann', true], ['Bo', true], ['', false]]);
   for (const c of [a2, b]) say(c, { t: 'ready', ready: true });
   await wait(0);
   assert.equal(got(b, 'start').length, 1);
@@ -138,6 +151,28 @@ test('an evicted lobby comes back empty for a late friend; an evicted game does 
   assert.equal(got(c, 'error')[0]?.code, 'noroom', 'a game is not brought back');
   const n = await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`));
   assert.equal(n.status, 409, 'its code is not given to a new room while recent');
+});
+
+test('an evicted empty lobby comes back for a late friend; a hold that ran out while evicted is over', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  say(a, { t: 'leave' }); a.close(); // (the host gave the seat up)
+  e.evict(code);
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(b, hello('Bo'));
+  assert.equal(got(b, 'seat')[0]?.seat, 0, 'the lobby again, with this friend in it');
+  const token = got(b, 'seat')[0].token;
+  b.close(); await wait(0);
+  // Bo's seat is held; the record says since when. Long enough ago, and the hold is over by the next visit.
+  const store = e.stores.get(code), kept = await store.get('room');
+  assert.equal(kept.lobby.seats[0].token, token);
+  kept.lobby.seats[0].goneSince = Date.now() - LOBBY_HOLD_MS - 1000; await store.put('room', kept);
+  e.evict(code);
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(c, hello('Cy'));
+  assert.equal(got(c, 'seat')[0]?.seat, 0, 'the seat is open again');
+  assert.deepEqual(got(c, 'lobby').at(-1).seats.map(s => s.name), ['Cy', '']);
+  c.close();
 });
 
 test('oversize or binary messages close the connection; the room goes on', async () => {

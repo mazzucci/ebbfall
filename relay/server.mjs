@@ -51,7 +51,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
     const headers = Object.entries(req.headers).filter(([, v]) => typeof v === 'string');
     try {
       const r = new Request(`http://${req.headers.host || 'localhost'}${req.url}`, { method: req.method, headers, body, duplex: 'half' });
-      const out = await benchRequest(r, { origins: '', store: (q) => bench.fetch(q) }) || new Response('Ebbfall relay: WebSocket only', { status: 426 });
+      const out = await benchRequest(r, { origins: '', ip: req.socket.remoteAddress || '', store: (q) => bench.fetch(q) }) || new Response('Ebbfall relay: WebSocket only', { status: 426 });
       res.writeHead(out.status, Object.fromEntries(out.headers)); res.end(Buffer.from(await out.arrayBuffer()));
     } catch { res.writeHead(400); res.end(); }
   });

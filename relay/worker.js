@@ -18,7 +18,7 @@ const allowed = (req, env) => !env.ORIGINS || env.ORIGINS.split(',').includes(re
 
 export default {
   async fetch(req, env) {
-    const bench = await benchRequest(req, { origins: env.ORIGINS, store: (r) => env.ROOMS.get(env.ROOMS.idFromName('bench')).fetch(r) });
+    const bench = await benchRequest(req, { origins: env.ORIGINS, ip: req.headers.get('CF-Connecting-IP') || '', store: (r) => env.ROOMS.get(env.ROOMS.idFromName('bench')).fetch(r) });
     if (bench) return bench;
     if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Ebbfall relay: WebSocket only', { status: 426 });
     if (!allowed(req, env)) return new Response('Not from here', { status: 403 });

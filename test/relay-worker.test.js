@@ -1,11 +1,11 @@
 // The Cloudflare relay (relay/worker.js) in Node, with fake WebSocket pairs and a fake Durable Object namespace (with
 // storage, and eviction): a room opened and joined through the Worker, a game started and its turns ticking, leaving,
-// a reconnect replacing a live socket, no such room, a taken code, no free code, an evicted lobby coming back (and an
-// evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages.
+// a reconnect replacing a live socket, no such room, a taken code, no free code, an evicted lobby coming back (its held
+// seats too; an evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { RoomObject } from '../relay/worker.js';
-import { PROTO } from '../relay/room.js';
+import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
 
 /** A connected pair of fake sockets: what one sends, the other's listeners get. */
 function pair() {
@@ -23,7 +23,10 @@ function pair() {
 }
 const platform = { pair, respond: (client) => ({ status: 101, webSocket: client }) };
 /** A fake object's storage. */
-const storage = () => { const m = new Map(); return { async get(k) { return m.get(k); }, async put(k, v) { m.set(k, v); } }; };
+const storage = () => {
+  const m = new Map(), s = { puts: 0, alarm: 0 };
+  return Object.assign(s, { async get(k) { return m.get(k); }, async put(k, v) { s.puts++; m.set(k, v); }, async setAlarm(t) { s.alarm = t; }, async deleteAll() { m.clear(); } });
+};
 /** A fake namespace: one RoomObject per name, made on first use, its storage kept when it is evicted. */
 function env(extra = {}) {
   const objects = new Map(), stores = new Map();
@@ -32,7 +35,7 @@ function env(extra = {}) {
     if (!objects.has(n)) objects.set(n, new RoomObject({ storage: stores.get(n) }, null, platform));
     return objects.get(n);
   };
-  return { objects, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
+  return { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
 }
 const upgrade = (query, origin = 'https://ebbfall.com') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin } });
 const say = (ws, msg) => ws.send(JSON.stringify(msg));
@@ -120,15 +123,28 @@ test('no free code: told so', async () => {
   assert.equal((await worker.fetch(upgrade('new=1'), e)).status, 503);
 });
 
-test('an evicted lobby comes back empty for a late friend; an evicted game does not', async () => {
+test('an evicted lobby comes back as it was: the host\'s seat held (name, token), a late friend takes the next, the host\'s token seat 0', async () => {
   const e = env();
   const { a, code } = await opened(e);
-  a.close(); e.evict(code); // (the host went to a messaging app; Cloudflare dropped the empty room)
+  const token = got(a, 'seat')[0].token;
+  say(a, { t: 'race', race: 'vael' }); say(a, { t: 'seats', n: 3, map: 4 }); say(a, { t: 'ai', seat: 2, on: true });
+  a.close(); // (the host went to a messaging app to send the code)
+  await wait(0);
+  const kept = await e.stores.get(code).get('room');
+  assert.deepEqual(kept.lobby.seats.map(s => [s.name, s.race, s.token, s.ai]), [['Ann', 'vael', token, false], ['', 'humans', null, false], ['', 'random', null, true]], 'the lobby kept, with its tokens');
+  assert.ok(!('conn' in kept.lobby.seats[0]), 'no connections kept');
+  e.evict(code); // (Cloudflare dropped the empty room)
   const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   say(b, hello('Bo'));
-  assert.equal(got(b, 'seat')[0]?.seat, 0, 'the lobby again, with this friend in it');
+  assert.equal(got(b, 'seat')[0]?.seat, 1, 'the friend: the next seat, not the host\'s');
+  let l = got(b, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.race, s.here, s.ai]), [['Ann', 'vael', false, false], ['Bo', 'humans', true, false], ['', 'random', false, true]], 'Ann AWAY, the AI seat as it was');
+  assert.equal(l.map, 4);
   const a2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
-  say(a2, hello('Ann'));
+  say(a2, { t: 'hello', proto: PROTO, name: 'Ann', token });
+  assert.deepEqual([got(a2, 'seat')[0]?.seat, got(a2, 'seat')[0]?.room], [0, code], 'the host\'s token: seat 0, the same room');
+  l = got(b, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => [s.name, s.here]), [['Ann', true], ['Bo', true], ['', false]]);
   for (const c of [a2, b]) say(c, { t: 'ready', ready: true });
   await wait(0);
   assert.equal(got(b, 'start').length, 1);
@@ -138,6 +154,86 @@ test('an evicted lobby comes back empty for a late friend; an evicted game does 
   assert.equal(got(c, 'error')[0]?.code, 'noroom', 'a game is not brought back');
   const n = await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`));
   assert.equal(n.status, 409, 'its code is not given to a new room while recent');
+});
+
+test('an evicted empty lobby comes back for a late friend; a hold that ran out while evicted is over', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  say(a, { t: 'leave' }); a.close(); // (the host gave the seat up)
+  e.evict(code);
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(b, hello('Bo'));
+  assert.equal(got(b, 'seat')[0]?.seat, 0, 'the lobby again, with this friend in it');
+  const token = got(b, 'seat')[0].token;
+  b.close(); await wait(0);
+  // Bo's seat is held; the record says since when. Long enough ago, and the hold is over by the next visit.
+  const store = e.stores.get(code), kept = await store.get('room');
+  assert.equal(kept.lobby.seats[0].token, token);
+  kept.lobby.seats[0].goneSince = Date.now() - LOBBY_HOLD_MS - 1000; await store.put('room', kept);
+  e.evict(code);
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(c, hello('Cy'));
+  assert.equal(got(c, 'seat')[0]?.seat, 0, 'the seat is open again');
+  assert.deepEqual(got(c, 'lobby').at(-1).seats.map(s => s.name), ['Cy', '']);
+  c.close();
+});
+
+test('the record is written when it changes, at most once a second (the last change too), not on every message or fetch', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  const store = e.stores.get(code);
+  await wait(0);
+  const first = store.puts;
+  assert.equal(first, 1, 'the new room: one write');
+  for (let i = 0; i < 1000; i++) say(a, { t: 'ready', ready: i % 2 === 0 }); // (no change to the record)
+  for (let i = 0; i < 1000; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
+  await wait(0);
+  assert.equal(store.puts, first, 'within the second: nothing more yet');
+  await wait(1100);
+  assert.equal(store.puts, first + 1, 'then one trailing write');
+  assert.equal((await store.get('room')).lobby.seats[0].race, 'vael', 'with the last change');
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket; // (a fetch that says nothing: no write)
+  await wait(0);
+  assert.equal(store.puts, first + 1);
+  say(a, { t: 'race', race: 'humans' });
+  a.close(); b.close(); await wait(0);
+  assert.equal(store.puts, first + 2, 'the last socket gone: written at once');
+  assert.ok(!(await store.get('room')).lobby.seats[0].here, 'its seat held, away');
+  assert.ok(store.alarm > Date.now(), 'an alarm set to forget the room once idle');
+});
+
+test('an idle room\'s alarm deletes its record: the code is free, the room gone', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  a.close(); await wait(0);
+  await e.objects.get(code).alarm();
+  assert.equal(await e.stores.get(code).get('room'), undefined);
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  assert.equal(got(c, 'error')[0]?.code, 'noroom');
+  e.evict(code);
+  assert.equal((await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`))).status, 101, 'free for a new room');
+  for (const x of e.objects.get(code).conns) x.other.close();
+});
+
+test('a stored record of a bad shape comes back as an empty lobby, never a broken room', async () => {
+  const bad = [
+    { seats: [{ name: 'Solo', token: 't1' }] }, // (one seat: one player could start alone)
+    { seats: Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, token: `t${i}` })) },
+    { seats: [null, null] }, { seats: 'xx' }, { seats: [[], 5] }, 5, null,
+    { seats: [{ name: 'Ann', token: 't0' }, { name: 'Bo', token: 7 }], map: 'x', diff: 99, teams: [0, 0] },
+  ];
+  for (const lobby of bad) {
+    const st = storage(); await st.put('room', { code: 'BCDF', used: Date.now(), started: false, lobby });
+    const o = new RoomObject({ storage: st }, null, platform);
+    const c = (await o.fetch(new Request('https://room/?code=BCDF'))).webSocket;
+    say(c, hello('Cy'));
+    const seats = o.room.seats;
+    assert.ok(seats.length >= 2 && seats.length <= 8, `${JSON.stringify(lobby)}: ${seats.length} seats`);
+    assert.ok(got(c, 'seat').length === 1, `${JSON.stringify(lobby)}: a seat`);
+    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, o.room.diff, o.room.teams], [['Ann', 'Cy'], 1, 0, 1, null], 'the good parts kept (Ann held), the bad dropped (Bo, no token: open)');
+    else assert.equal(got(c, 'seat')[0].seat, 0, `${JSON.stringify(lobby)}: an empty lobby`);
+    c.close();
+  }
 });
 
 test('oversize or binary messages close the connection; the room goes on', async () => {

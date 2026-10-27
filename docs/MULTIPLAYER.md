@@ -315,13 +315,20 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      it left (inert, but there) until that is destroyed, and sees what its team sees. Fog is part of the sim, the same
      on every client; it is not hashed (a difference shows in what the AIs do, which is). With every seat its own team
      (a duel, a free for all) nothing changes: the goldens did not move. An AI reads its seat's fog, so allied AIs
-     know what their allies see (an AI hunting an enemy only its ally sees is intended). The client reads `vis` /
+     know what their allies see (an AI hunting an enemy only its ally sees is intended). What an ally shows it does not
+     pull it off its foe: its scout is done only on finding its foe's headquarters (not any enemy's), and with
+     nothing of its foe known a wave goes to the foe's start until that has been looked at, and only then to another
+     enemy it knows of (a 2v2 AI's first wave once crossed the map to the wrong enemy). `set_teams` brings the fog up
+     to date at once (allies share it from the first frame; a person may build where only an ally has looked). "A
+     shard field ran dry" goes to the miner's seat and the enemies who see it, not to its allies. The client reads `vis` /
      `explored` for its seat, so the field, its fog, the minimap, the scouting line ("Seen lately") and the news
      ("Enemy ... sighted", the first enemy flyers) all count what the team sees. On the minimap, still a colour per
      seat, an ally's buildings are framed in white, so the team reads apart from its enemies. Tests: gameplay
      `vision.rs` (an ally's unit shows an enemy to the team, and its detector a cloaked one; a free for all and a duel
-     see alone; an ally that is out still shows what its leftovers see, until they are gone), engine.test.js (G.vis
-     with an ally, and without), e2e (a single-player 2v2: the AI ally's base and army in our sight and on the
+     see alone; an ally that is out still shows what its leftovers see, until they are gone; teams of seats apart and
+     of three, each seat's fog the OR of its allies'; building where only an ally looked; who is told a field ran dry;
+     each 2v2 AI's first wave goes for its foe; a team game's replay is the game played), golden.rs and golden.js
+     (`teams-2v2-ai`: four AIs, two against two, on 96x96), engine.test.js (G.vis with an ally, and without), e2e (a single-player 2v2: the AI ally's base and army in our sight and on the
      minimap, framed; the enemies' bases still in the fog).
    Tests: gameplay `seats.rs` (an out seat's orders refused and its leftovers inert, deterministic; teams in the hash
    only when not the default; three seats with an idle person, four AIs free for all and a person with an AI ally

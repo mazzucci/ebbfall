@@ -1527,7 +1527,7 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
         far: Math.hypot(hq.x - mine.x, hq.y - mine.y) / E.TILE,
         hqVis: G.vis[I(hq.x, hq.y)], hqSeen: E.visibleEnt(hq), army: army.length,
         allSeen: all.every(u => G.vis[I(u.x, u.y)] && E.visibleEnt(u)),
-        hqPixel: px(hq.x, hq.y), frame: [1, 2, 3].map(d => Array.from(c.getImageData(Math.floor(hq.tx * E.TILE * k) - d, Math.floor(hq.y * k), 1, 1).data.slice(0, 3))),
+        hqPixel: px(hq.x, hq.y), frame: [hq.ty, hq.ty + 1, hq.ty + 2, hq.ty + 3].flatMap(ty => [1, 2].map(d => Array.from(c.getImageData(Math.floor(hq.tx * E.TILE * k) - d, Math.floor((ty + 0.5) * E.TILE * k), 1, 1).data.slice(0, 3)))), // (down its left side: a unit may stand on part of it)
         enemyHq: G.bldgs.filter(b => b.team >= 2 && b.d.hq).map(b => G.vis[I(b.x, b.y)]),
       };
     });

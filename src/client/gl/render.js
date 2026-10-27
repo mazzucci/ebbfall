@@ -578,14 +578,16 @@ function renderMinimap() {
   // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field;
   // an ally's buildings framed in white (a team game: whose colour is on our side, its base and army in our sight).
   const many = G.factions.length > 2, col = many ? seatCss() : null;
+  c.beginPath(); // (the allies' frames: one path, stroked once)
   for (const b of G.bldgs) {
     if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue;
     const x = b.tx * TILE * S, y = b.ty * TILE * T, w = Math.max(2, b.w * TILE * S), h = Math.max(2, b.h * TILE * T);
     c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(x, y, w, h);
     if (b.team === G.me || enemies(G.me, b.team)) continue;
     const x0 = Math.floor(x), y0 = Math.floor(y); // (the frame on whole pixels: crisp)
-    c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.strokeRect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
+    c.rect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
   }
+  c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
   for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[u.team] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
   const now = performance.now();

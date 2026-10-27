@@ -209,7 +209,7 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 
 - [x] Any team split, each AI at its own level (2026-10-27, sim half of single player's seat list; docs/MULTIPLAYER.md): with fewer seats than starts the free starts go between teams (`map::team_starts`), so 2v2v2, 4v2, 3v2 and 1v4 on 128x128 start side by side like 3v3 always did; `Game.withSeats`' optional `diffs` gives each AI seat its own difficulty. Goldens unchanged. Next: the single-player menu that uses them.
 
-- [x] Single player's seat list (2026-10-27, the owner's design; docs/MULTIPLAYER.md): a row per seat (you, + AI up to eight, × to remove), each with its race, its team (any split: alone against three AIs together, 2v1v1, ...) and each AI's own difficulty (`Game.withSeats`' optional `diffs`; the record counts a game at its hardest AI's level); the rows are seated in team order so allies start side by side, each row's dot the colour its seat will have. Next: the same seat list in the lobby.
+- [x] Single player's sides board (2026-10-27, the owner's pick of Fable's option A; docs/MULTIPLAYER.md): a panel per side (YOUR SIDE, ENEMIES or SIDE n), a token per seat (colour band, name, race, difficulty pips) that opens one sheet (race, an AI's difficulty and side, REMOVE), + ALLY, + AI and + SIDE up to eight; any split (alone against three AIs together, 2v1v1, ...), each AI at its own level; the record counts a game at its hardest AI's level. Next: the same board in the lobby.
 
 ### M4. Polish and ship
 - [ ] Deploy static build (GitHub Pages / Cloudflare Pages) and the relay

@@ -521,18 +521,19 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      allies side by side over the draws for 2v2v2, 4v2, 1v5, 3v2, 2v2v1, 1v4 and more; a re-dealt game replays
      exactly; teams after the first tick deal nothing again, and AI seats and levels set before survive; each AI at
      its own difficulty, a replay included).
-   - **Single player's seat list** (2026-10-27, the owner's design; it replaced the single-player OPPONENT, YOU, ENEMY,
-     PLAYERS and TEAMS rows): a row per seat, YOU then AI 1, AI 2... (+ AI up to eight, × on any AI but the last), each
-     with its race, its team (TEAM 1 to N: any split, 1v3 as well as 2v2v2v2) and each AI's difficulty, as native
-     selects. START GAME seats the rows in team order (src/client/seats.js `arrange`: your team first, you first, then
-     the other teams as their first rows come), since only consecutive seats start side by side; each row's dot is
-     already the colour its seat will have, so rows never jump while the teams change. Everyone on one team: START GAME
-     waits ("Everyone is on one team"). `Game.withSeats` takes an optional last argument, `diffs`, a difficulty per
-     seat (`World::set_diffs`, `diff_of`; left out or empty: every AI at `diff`, so the goldens and online games are
-     unchanged; a replay keeps them); `diff` is then the hardest AI's, which is the level the device's record counts
-     the game at. The lobby keeps its PLAYERS and TEAMS rows for now (the seat list comes to it later).
-     On a phone the selects are 16 px (iOS zooms into a
-     smaller one) with short labels (HUM, VAEL, RND; T1, T2...), so eight seats sit four rows by two on 667x375.
+   - **Single player's sides board** (2026-10-27, the owner's pick of Fable's option A; it replaced the single-player
+     OPPONENT, YOU, ENEMY, PLAYERS and TEAMS rows): a panel per side, YOUR SIDE first (gold), then ENEMIES (SIDE 2,
+     SIDE 3... with several), each with a count past one; a seat is a token (its in-game colour as a band, YOU or AI n,
+     its race, short on a phone, an AI's difficulty as four pips, a faint pen), + ALLY on your side and + AI on the
+     others (a new AI as its side's last), a dashed + SIDE strip for an AI on its own, eight seats at most; free for all
+     is a panel per seat (four by two on 667x375). A token opens its sheet (a bottom sheet on a phone, a dialog on a
+     wide screen, over a scrim; `role=dialog`, focus kept inside, Escape or DONE gives it back to the token): RACE,
+     an AI's PLAYS with what the level means under it, its SIDE (YOURS, SIDE n, + NEW SIDE), REMOVE (not the last
+     enemy). START GAME seats each side's rows side by side (src/client/seats.js `arrange`: yours first, you first),
+     so each band is already the colour the seat will have; everyone on one side: START GAME waits ("Everyone is on
+     one side"). Each AI at its own difficulty (`Game.withSeats`' `diffs`); `diff` is the hardest AI's, the level the
+     device's record counts the game at. On a phone the tokens' and the sheet's words are 16 px. The lobby keeps its
+     PLAYERS and TEAMS rows for now (the board's pieces are written for it).
 
 ## Open questions for the owner
 

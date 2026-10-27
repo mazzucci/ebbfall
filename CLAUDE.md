@@ -80,14 +80,15 @@ src/client/           everything that touches the browser
   screen.js           full screen / landscape lock, the leave-game guard
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
-                      until a first game is over), the single-player page (the seat list: you and one to seven AIs, each
-                      seat's race, RANDOM too, and team, each AI's difficulty; the maps that seat them with a preview,
-                      FIRST GAME), the About
+                      until a first game is over), the single-player page (the sides board: you and one to seven AIs,
+                      a panel per side, a token per seat whose sheet sets its race, RANDOM too, an AI's difficulty and
+                      side; the maps that seat them with a preview, FIRST GAME), the About
                       page (the source, the device check, the version), the sound icon; the map buttons and preview the
                       lobby shares
-  seats.js            the seat list's rows (dot, name, native selects dressed as buttons) and how rows become seats:
-                      `arrange` puts each team's seats side by side, your team first (pure but for two DOM helpers;
-                      test/seats.test.js); the lobby is to use it too
+  seats.js            the seats against the AI: rows (`{ race, team, diff }`, you first) and how they become seats
+                      (`arrange` puts each team's seats side by side, your team first; `startSetup`), pure
+                      (test/seats.test.js); and the board's DOM pieces, for the lobby too: `seatToken` (colour band,
+                      name, race, difficulty pips), `sideBox`, `newSide`, `chipRow` (a radio group), `seatSheet`
   maps.js             the maps the menus offer, by size (players decide it: 64x64 for two, 96x96 for three or four,
                       128x128 for five to eight), named fixed maps and a random one per size, badges, the map an online
                       setup plays, the team splits (FREE FOR ALL, 2v2, 3v3, 4v4, 2v2v2v2); pure (test/maps.test.js)

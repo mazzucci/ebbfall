@@ -131,22 +131,54 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
 #onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the lobby's teams, for four, six and eight: on the players' row while it has room) */
-/* A native select (the phone's own picker), dressed as a button with a caret: plainly tappable, a finger's height. */
-.isel{appearance:none;-webkit-appearance:none;color-scheme:dark;min-width:0;width:100%;height:32px;padding:0 18px 0 6px;background:var(--panel2) no-repeat;color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.03em;cursor:pointer;text-overflow:ellipsis;
-  background-image:linear-gradient(45deg,transparent 50%,var(--ally) 50%),linear-gradient(135deg,var(--ally) 50%,transparent 50%);background-position:calc(100% - 12px) 55%,calc(100% - 7px) 55%;background-size:5px 5px}
-.isel:hover{border-color:var(--ally)} .isel:focus-visible{outline:2px solid var(--ally);outline-offset:1px} .isel option{background:var(--panel2);color:var(--fg)}
-.isel:disabled{opacity:1;cursor:default;background-image:none;padding-right:7px;border-style:dashed} /* (shown, not chosen: readable) */
-/* The seat list (single player): a row per seat, its choices in columns that line up; two columns of rows where there is room. */
-#soloSeats{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:4px 10px;margin:8px 0 4px}
-.srow{max-width:420px;display:grid;grid-template-columns:10px 2.6em minmax(0,1.1fr) repeat(2,minmax(0,1fr)) 32px;align-items:center;gap:4px;min-height:36px}
-.srow .dot{width:10px;height:10px;border-radius:50%;transform:none} .srow b{font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .srow.me b{color:var(--ally2)}
-.srow .ib.x{height:32px;min-width:32px;padding:0;font-size:16px;line-height:1}
-#btnAddAi{height:32px;margin:2px 0;border-style:dashed;justify-self:start;padding:0 18px;font-size:11px}
-/* A phone: 16 px selects (smaller ones make iOS zoom the page) with short labels (HUM, T1), so that eight seats sit
-   four rows by two on a 667 px wide screen: a narrower name, the caret closer in. */
+/* The sides board (single player): a panel per side, your side first (gold); its seats as tokens, + ALLY / + AI at its
+   foot; a dashed + SIDE strip after the sides. Eight seats on a 667 px phone: two sides of four, tokens two abreast, or
+   eight sides of one, four by two. */
+.board{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;margin:6px 0 2px}
+.side{flex:1 1 140px;min-width:0;background:rgba(24,35,51,.45);border:1px solid var(--line);border-radius:6px;padding:6px}
+.side.me{border-color:#5a4a22}
+.side .hd{display:flex;align-items:baseline;gap:6px;font:11px var(--mono);letter-spacing:.14em;color:var(--muted);margin:0 2px 5px} .side.me .hd{color:var(--ally2)}
+.side .hd small{letter-spacing:0;color:var(--dim)}
+.side .seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,138px),1fr));gap:4px}
+.board .ib.add{height:28px;margin-top:4px;padding:0 10px;font-size:10px;width:100%}
+.board .ib.newside{flex:0 0 46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1;padding:4px}
+.newside .plus{font:600 18px var(--display)} .newside .t{font:10px var(--mono);letter-spacing:.1em}
+.ib.ghost{border-style:dashed;color:var(--muted)} .ib.ghost:hover{color:var(--fg)}
+/* A seat's token: one button, its colour as a band down its left edge, its name, its race, an AI's difficulty as pips;
+   a faint pen at the far end says "tap to change". */
+.board .ib.tok{display:grid;grid-template-columns:4px auto 1fr auto auto;align-items:center;gap:8px;height:36px;padding:0 8px 0 0;text-align:left;min-width:0;overflow:hidden;width:100%}
+.tok .band{align-self:stretch;border-radius:4px 0 0 4px;margin-right:-2px}
+.tok b{font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .tok.me b{color:var(--ally2)}
+.tok .race{font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tok .pen{color:var(--dim);font:12px var(--mono);line-height:1} .tok:hover .pen{color:var(--ally)}
+.board .ib.tok.on{background:#2a2415}
+.tok.ro{cursor:default;border-style:dashed} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby) */
+.lvl{display:inline-flex;gap:2px;align-items:flex-end;height:12px} .lvl i{display:block;width:4px;background:var(--line2);border-radius:1px} .lvl i.on{background:var(--ally)}
+.lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:7px} .lvl i:nth-child(3){height:9px} .lvl i:nth-child(4){height:12px}
+@media (max-height:420px){.board .ib.tok{height:32px}}
+@media (max-width:700px){.board .ib.tok{gap:6px} .tok .race{font-size:11px} .side{flex-basis:128px;padding:5px} .side .hd{font-size:10px;margin-bottom:4px} .board .ib.add{height:26px}
+  .side .seats{grid-template-columns:repeat(auto-fill,minmax(min(100%,128px),1fr))}}
+@media (max-width:480px){.board{flex-direction:column;flex-wrap:nowrap} .side{flex:0 0 auto} .board .ib.newside{flex:0 0 36px;flex-direction:row;gap:8px}
+  .sheet .opt .lbl{width:46px} .sheet .hint{margin-left:56px} .sheet .diff .ib{padding-left:7px;padding-right:7px;letter-spacing:.02em}}
+/* A seat's sheet: its choices as rows of chips. A phone: a sheet from the bottom edge; a wide screen: a small dialog. */
+.scrim{position:fixed;inset:0;background:rgba(7,9,13,.6);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--panel);border:1px solid var(--line2);border-radius:10px 10px 0 0;padding:10px 14px max(12px,env(safe-area-inset-bottom,0px));width:100%;max-width:560px;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
+@media (min-width:900px) and (min-height:500px){.scrim{align-items:center} .sheet{border-radius:8px;max-width:440px}}
+.sheet .hd{display:flex;align-items:center;gap:10px;margin-bottom:6px} .sheet .hd .band{width:4px;height:18px;border-radius:2px}
+.sheet .hd b{font:700 14px var(--display);letter-spacing:.1em} .sheet .hd .sub{font:11px var(--mono);color:var(--muted)}
+.sheet .hd .ib.x{margin-left:auto;min-width:32px;height:32px;padding:0;font-size:16px}
+.sheet .opt{margin:5px 0;flex-wrap:nowrap} .sheet .opt .lbl{width:56px;font-size:11px} .sheet .chips{flex-wrap:wrap}
+.sheet .hint{font:11px var(--mono);color:var(--muted);margin:-2px 0 2px 66px;min-height:14px}
+.sheet .ft{display:flex;gap:8px;align-items:center;margin-top:8px}
+.sheet .diff .ib{min-height:30px} .sheet .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
+.sheet .diff .ib.team{min-width:38px;padding-left:6px;padding-right:6px}
+.sheet .diff .ib.team .sw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+/* A phone: every word of the board and the sheet at 16 px (14 for a token's race), read at arm's length. */
 @media (pointer:coarse){
-  .isel{font-size:16px;letter-spacing:0;padding:0 15px 0 5px;background-position:calc(100% - 11px) 55%,calc(100% - 6px) 55%}
-  .srow{grid-template-columns:10px 2.3em minmax(0,1fr) minmax(0,.7fr) minmax(0,1.45fr) 32px} .srow b{font-size:11px;letter-spacing:.02em}
+  .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0} .board .ib.tok{gap:5px;padding-right:6px}
+  .side .hd,.board .ib.add,.board .newside .t{font-size:16px} .side .hd{letter-spacing:.08em} .board .ib.add{height:30px} .board .newside .t{letter-spacing:.02em}
+  .sheet .chips .ib,.sheet .ft .ib,.sheet .hd b,.sheet .hint,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .chips .ib{letter-spacing:.04em}
+  .sheet .opt .lbl{width:64px} .sheet .hint{margin-left:74px;line-height:1.25}
 }
 .note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
 .ib.map small.up{margin-left:6px;font:500 10px var(--mono);letter-spacing:0;color:var(--muted);text-transform:none} /* a map's seats, when it matters */

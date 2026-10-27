@@ -14,7 +14,7 @@ import { enterFullscreen, exitFullscreen } from './screen.js';
 import { icon } from './icons.js';
 import { initOffline } from './offline.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor, teamList } from './maps.js';
-import { RACES, RACE_NAMES, RACE_SHORT, DIFF_NAMES, teamName, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, selectBox, seatRow } from './seats.js';
+import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatToken, sideBox, newSide, seatSheet } from './seats.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -59,53 +59,70 @@ function renderMaps() {
   drawPreview($('mapPreview'), menu.map, menu.seed, menu.kind);
 }
 
-// The seat list: a row per seat (you, then the AIs), each with its race and team, an AI's difficulty and × (not the
-// last AI's); + AI below while there is room. Each dot is the colour the seat will have (the game seats the rows by
-// team: `arrange`). Everyone on one team: START GAME waits, and says why.
-const DIFF_TITLES = ['A slow, gentle opponent: time to learn and build', 'A real fight: the first attack comes at about three minutes', 'Plays the whole game well: early attacks, research, raids, split waves', 'Hard, faster, and it gathers 30% more than you'];
-const defaultRows = () => { // (the menu before the seat list saved these; new players start on Easy)
+// The sides board: a panel per side (YOUR SIDE first, in gold; then ENEMIES, or SIDE 2, SIDE 3... when there are
+// several), its seats as tokens (seats.js), + ALLY / + AI at its foot and a dashed + SIDE strip after the sides while
+// there is room (eight players). A token opens its seat's sheet: race, an AI's difficulty and side, REMOVE (not the
+// last enemy). Each token's band is the colour the seat will have (the game seats the rows by side: `arrange`).
+// Everyone on one side: START GAME waits, and says why.
+const defaultRows = () => { // (the menu before the board saved these; new players start on Easy)
   const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
   return legacyRows({ race: store.get('race'), enemy: store.get('enemy'), diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
 };
-/** A phone's selects: 16 px (iOS zooms into a smaller one), so shorter labels (two rows side by side on a small one). */
-const coarse = typeof matchMedia === 'function' ? matchMedia('(pointer:coarse)') : { matches: false };
+/** Where room is short (a phone): the race's short name on a token. */
+const narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 900px), (max-height: 500px)') : { matches: false, addEventListener() {} };
+let editing = -1; // (the seat whose sheet is open)
 function setRows(rows) {
   const resized = rows.length !== menu.rows.length;
   menu.rows = rows; menu.players = rows.length; store.set('seats', JSON.stringify(rows));
   if (resized) { choose(fitMap(menu.map, menu.players)); renderMaps(); }
   renderSeats(); showRecord(); sfx('select');
 }
-function renderSeats() {
-  const rows = menu.rows, { order } = arrange(rows), box = $('soloSeats');
-  const focus = document.activeElement?.closest?.('#soloSeats') ? document.activeElement.dataset.k : null; // (kept on a redraw)
-  const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
-  const short = coarse.matches, races = [...RACES, 'random'].map(k => [k, (short ? RACE_SHORT : RACE_NAMES)[k], RACE_NAMES[k]]);
-  const teams = rows.map((_, t) => [t, teamName(t, short), teamName(t)]), diffs = DIFF_NAMES.map((n, d) => [d, n, DIFF_TITLES[d]]);
-  const cells = rows.map((r, i) => {
-    const name = i ? `AI ${i}` : 'YOU';
-    const race = selectBox(races, r.race, (v) => set(i, 'race', v), `${name} race`), team = selectBox(teams, r.team, (v) => set(i, 'team', +v), `${name} team`);
-    const diff = i ? selectBox(diffs, r.diff, (v) => set(i, 'diff', +v), `${name} difficulty`) : null;
-    let x = null;
-    if (i && rows.length > 2) {
-      x = document.createElement('button'); x.className = 'ib x'; x.textContent = '×'; x.title = 'Remove this AI'; x.setAttribute('aria-label', `Remove AI ${i}`);
-      x.dataset.k = `x${i}`; x.addEventListener('click', () => setRows(compact(rows.filter((_, j) => j !== i))));
-    }
-    [race, team, diff].forEach((c, k) => { if (c) c.dataset.k = `${['race', 'team', 'diff'][k]}${i}`; });
-    return seatRow(seatColor(order.indexOf(i)), name, [race, team, diff, x], i ? 'ai' : 'me');
-  });
-  if (rows.length < MAX_PLAYERS) { // (a new AI: the last one's race and difficulty, a team of its own)
-    const add = document.createElement('button'); add.className = 'ib addai'; add.id = 'btnAddAi'; add.textContent = '+ AI'; add.dataset.k = 'add'; add.title = `Another AI (up to ${MAX_PLAYERS} players)`;
-    add.addEventListener('click', () => { const last = rows.at(-1); setRows([...rows, { race: last.race, team: freeTeam(rows), diff: last.diff }]); });
-    cells.push(add);
-  }
-  box.replaceChildren(...cells);
-  if (focus) { // (gone with its row, or + AI with the eighth: the nearest ×, the row before's select, else START GAME)
-    const i = /\d/.test(focus) ? +focus.replace(/\D/g, '') : rows.length;
-    ([focus, `x${i}`, `x${i - 1}`, `diff${i - 1}`, `race${i - 1}`].map(k => box.querySelector(`[data-k="${k}"]`)).find(Boolean) || $('btnStart')).focus();
-  }
-  const one = oneTeam(rows);
-  $('btnStart').disabled = one; $('soloNote').textContent = one ? 'Everyone is on one team' : '';
+/** The sides in `arrange`'s order (yours first): each one's team number, its heading, its name on a sheet's chip and
+ *  the colour of its first seat. */
+function sidesOf(rows) {
+  const { order } = arrange(rows), keys = [...new Set(rows.map(r => r.team))];
+  return keys.map((team, k) => ({ team, name: k ? (keys.length === 2 ? 'ENEMIES' : `SIDE ${k + 1}`) : 'YOUR SIDE', chip: k ? `SIDE ${k + 1}` : 'YOURS', color: seatColor(order.indexOf(rows.findIndex(r => r.team === team))) }));
 }
+function renderSeats() {
+  const rows = menu.rows, { order } = arrange(rows), box = $('soloBoard'), sides = sidesOf(rows), short = narrow.matches;
+  const focus = document.activeElement?.closest?.('#soloBoard') ? document.activeElement.dataset.k : null; // (kept on a redraw)
+  const room = rows.length < MAX_PLAYERS, lastAi = (team) => rows.filter((r, j) => j && (team == null || r.team === team)).at(-1);
+  const add = (team) => { const like = lastAi(team) || lastAi() || { race: 'humans', diff: 0 }; setRows([...rows, { race: like.race, team, diff: like.diff }]); }; // (a new AI: as its side's last, or the last)
+  box.replaceChildren(...sides.map(({ team, name }, k) => {
+    const tokens = rows.map((r, i) => i).filter(i => rows[i].team === team)
+      .map(i => seatToken(rows[i], i, seatColor(order.indexOf(i)), { short, side: k ? `side ${k + 1}` : 'your side', open: openSheet, on: i === editing }));
+    return sideBox(name, tokens, { me: !k, label: k ? name.toLowerCase().replace(/^./, c => c.toUpperCase()) : 'Your side',
+      add: room && { label: k ? '+ AI' : '+ ALLY', title: k ? 'Another AI on this side' : 'An AI on your side', k: `add${k}`, on: () => add(team) } });
+  }), ...(room ? [newSide(() => add(freeTeam(rows)))] : []));
+  if (focus) (box.querySelector(`[data-k="${focus}"]`) || box.querySelector('.side:last-of-type .tok:last-of-type') || $('btnStart')).focus(); // (+ AI with the eighth: the last seat)
+  const one = oneTeam(rows);
+  $('btnStart').disabled = one; $('soloNote').textContent = one ? 'Everyone is on one side' : '';
+  renderSheet();
+}
+function openSheet(i) { editing = i; renderSheet(); sfx('select'); $('soloSheet').querySelector('.chips .on')?.focus(); }
+function closeSheet() {
+  const i = editing; editing = -1; renderSeats();
+  ($('soloBoard').querySelector(`[data-k="tok${i}"]`) || $('soloBoard').querySelector(`[data-k="tok${i - 1}"]`) || $('btnStart')).focus();
+}
+/** The open seat's sheet (none: nothing), redrawn after each change with the focus where it was. */
+function renderSheet() {
+  const host = $('soloSheet'), i = editing, rows = menu.rows;
+  if (i < 0 || i >= rows.length) { host.replaceChildren(); host.hidden = true; return; }
+  const focus = document.activeElement?.closest?.('#soloSheet') ? document.activeElement.dataset.k : null;
+  const set = (k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r))), r = rows[i], { order } = arrange(rows);
+  const enemy = (j) => j && rows[j].team !== rows[0].team, alone = rows.filter(q => q.team === r.team).length === 1;
+  const canRemove = rows.length > 2 && (!enemy(i) || rows.some((_, j) => j !== i && enemy(j))); // (not the last enemy)
+  host.replaceChildren(seatSheet(r, i, seatColor(order.indexOf(i)), sidesOf(rows), {
+    alone, onRace: (v) => set('race', v), onDiff: (v) => set('diff', v), onDone: closeSheet,
+    onTeam: (v) => setRows(compact(rows.map((q, j) => (j === i ? { ...q, team: v === 'new' ? freeTeam(rows) : v } : q)))),
+    onRemove: canRemove ? () => { editing = -1; setRows(compact(rows.filter((_, j) => j !== i))); closeFocus(i); } : null,
+  }));
+  host.hidden = false;
+  if (focus) (host.querySelector(`[data-k="${focus}"]`) || host.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || host.querySelector('[data-k="done"]')).focus();
+}
+/** After REMOVE: the focus on the seat before. */
+const closeFocus = (i) => ($('soloBoard').querySelector(`[data-k="tok${i - 1}"]`) || $('btnStart')).focus();
+narrow.addEventListener?.('change', () => { if (menu.rows.length) renderSeats(); });
 
 /** What each choice of teams means, on its button, in the lobby (by seat). */
 export const ROOM_TEAMS = { ffa: 'Each for itself', '2v2': 'The first two seats against the last two: allies start side by side', '3v3': 'The first three seats against the last three', '4v4': 'The first four seats against the last four', '2v2v2v2': 'Four pairs, in seat order' };

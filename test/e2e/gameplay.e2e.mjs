@@ -1710,6 +1710,33 @@ test('the menu fits a small phone on every page (the first with the iPhone tip s
   } finally { await ctx.close(); }
 });
 
+test('the first page: the name in title case over the shore, whose tide lines keep below the tagline, go with the page and stand still under reduced motion', async () => {
+  for (const [w, h, reducedMotion] of [[844, 390, 'no-preference'], [667, 375, 'no-preference'], [412, 915, 'reduce']]) {
+    const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h }, reducedMotion }), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      assert.equal(await page.locator('#menuHome h1').textContent(), 'Ebbfall', 'the title');
+      const ebbs = () => page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb').length);
+      const shore = page.locator('#menuHome .shore');
+      assert.ok(await shore.isVisible(), `${w}x${h}: the shore under the first page`);
+      const tag = await page.locator('#menuTag').boundingBox(), lines = await page.locator('#menuHome .shore svg').evaluateAll(es => es.map(e => e.getBoundingClientRect().top));
+      assert.ok(lines.every(top => top >= tag.y + tag.height), `${w}x${h}: the tide lines below the tagline: ${lines} vs ${tag.y + tag.height}`);
+      assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
+      assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : 3, `${w}x${h}: the three lines drift (none under reduced motion)`);
+      await page.locator('#btnAbout').tap();
+      assert.ok(await shore.isHidden() && await page.locator('#menuAbout').isVisible(), 'About: no shore');
+      assert.equal(await ebbs(), 0, 'the lines stop with the page');
+    } finally { await ctx.close(); }
+  }
+  // In a game (the menu hidden), nothing of it runs either.
+  const d = await newGame(PHONE, 0, 4242, { ai: false });
+  try {
+    assert.ok(await d.page.locator('#start').isHidden() && await d.page.locator('#menuHome .shore').isHidden());
+    assert.equal(await d.eval(() => document.getAnimations().filter(a => a.animationName === 'ebb').length), 0, 'no drift in a game');
+  } finally { await d.close(); }
+});
+
 
 test('the end card can WATCH the game again: from the start, faster, both sides in view, no orders, back to the card', async () => {
   for (const dev of [DESKTOP, PHONE]) {

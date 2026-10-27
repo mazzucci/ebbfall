@@ -1,8 +1,10 @@
 // The app icons the install prompt wants (Chrome asks for PNGs of 192 and 512 pixels, and a maskable one), drawn from
 // public/icon.svg in headless Chromium (tools/chromium.mjs) and written with the art's own PNG encoder, so the same
 // SVG gives the same files. The maskable one is the icon at 80% on a full square of its background colour: the
-// launcher's mask (a circle, a squircle) only ever cuts that colour. Run after changing the SVG:
-//   node tools/icons.mjs        (writes public/icon-192.png, icon-512.png, icon-maskable-512.png; output is committed)
+// launcher's mask (a circle, a squircle) only ever cuts that colour; the Apple touch icon (180, iOS rounds its own
+// corners, no transparency) is laid out the same way. Run after changing the SVG:
+//   node tools/icons.mjs        (writes public/icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png;
+//                                output is committed)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { launchChromium } from './chromium.mjs';
 import { encodePNG } from './art/png.js';
@@ -13,7 +15,7 @@ const bg = svg.match(/<rect[^>]*fill="(#[0-9a-f]{6})"/i)?.[1];
 if (!bg) throw new Error('icon.svg: no background <rect fill> found');
 
 /** [file, size, scale of the icon in the square, background behind it (null: transparent)] */
-const ICONS = [['icon-192.png', 192, 1, null], ['icon-512.png', 512, 1, null], ['icon-maskable-512.png', 512, 0.8, bg]];
+const ICONS = [['icon-192.png', 192, 1, null], ['icon-512.png', 512, 1, null], ['icon-maskable-512.png', 512, 0.8, bg], ['apple-touch-icon.png', 180, 0.8, bg]];
 
 const browser = await launchChromium();
 try {

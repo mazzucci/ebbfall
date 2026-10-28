@@ -11,6 +11,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Ebbfall</title>
+<!-- Page errors from the first moment, for endfall.status() (the device checks read them back; tools/devices). -->
+<script>window.endfallErrors = []; (function (keep) { addEventListener('error', function (e) { keep(e.message || String(e.error)); }); addEventListener('unhandledrejection', function (e) { keep('unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason)); }); })(function (m) { if (endfallErrors.length < 20) endfallErrors.push(String(m)); });</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f16'/%3E%3Cpath d='M1.5 6.5c.5-2.5 1.6-4 3-4c2.2 0 2 4.5 3.5 8c1 2 2.3 3 6.5 3' fill='none' stroke='%23f5a524' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11 6l2.5 3.5-2.5 3.5-2.5-3.5z' fill='%234fd1c5'/%3E%3C/svg%3E">
 </head>
 <body>

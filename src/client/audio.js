@@ -15,6 +15,8 @@ export const audio = {
   /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
   now: () => performance.now(),
 };
+/** The audio context's state for the debug handle: 'none' until a sound first played, then 'suspended', 'running', ... */
+export const audioState = () => (actx ? actx.state : 'none');
 const last = {};
 
 function ctx() {

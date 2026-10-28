@@ -89,8 +89,19 @@ export function board(page, scope = 'solo') {
     spots: () => page.$$eval(`${B} > *`, cs => cs.map(c => (c.matches('.add, .split') ? '+' : c.querySelector('b')?.firstChild?.textContent ?? (c.matches('.tok') ? 'OPEN' : '')))),
     /** Each player's band colour, in spot order. */
     bands: () => page.$$eval(`${B} .tok`, ts => ts.map(t => t.querySelector('.band').style.background)),
-    /** Every cell's box, by spot (to see that nothing moved). */
-    boxes: () => page.$$eval(`${B} > *`, cs => cs.map(c => { const r = c.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); })),
+    /** Every cell's box, by spot (to see that nothing moved), once the board is laid out: shown, eight cells each with
+     *  a size, the same on two reads a frame apart (read in one go in the page: a lobby redrawing the board between a
+     *  query and its read would give a detached cell's zeros). After 10 s, whatever it is (the assertion says why). */
+    boxes: async () => {
+      const read = () => page.evaluate((B) => new Promise(r => requestAnimationFrame(() => r([...document.querySelectorAll(`${B} > *`)].map(c => { const b = c.getBoundingClientRect(); return [b.x, b.y, b.width, b.height].map(Math.round); })))), B);
+      let last = await read();
+      for (const end = Date.now() + 10000; Date.now() < end; ) {
+        const now = await read();
+        if (now.length === 8 && now.every(b => b[2] > 0 && b[3] > 0) && JSON.stringify(now) === JSON.stringify(last)) return now;
+        last = now; await new Promise(r => setTimeout(r, 50));
+      }
+      return last;
+    },
     add: () => press(`${B} [data-k="add"]`),
     race: (i, r) => sheet(i, `race:${r}`), diff: (i, d) => sheet(i, `diff:${d}`), side: (i, t) => sheet(i, `side:${t}`),
     remove: async (i) => { await open(i); await press(`${S} [data-k="remove"]`); },

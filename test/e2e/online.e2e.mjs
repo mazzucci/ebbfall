@@ -251,6 +251,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       // waits for the tap to end, so nothing changes under it), then on its side; another for the friend's side. Nothing
       // on either board moves: every spot keeps its box, the friend its seat.
       const boxes = { a: await board(a.p, 'online').boxes(), b: await board(b.p, 'online').boxes() };
+      assert.ok([...boxes.a, ...boxes.b].every(r => r[2] > 0 && r[3] > 0) && boxes.a.length === 8 && boxes.b.length === 8, `both boards laid out: ${JSON.stringify(boxes)}`);
       const held = await underFinger(b, () => a.tap('#onlineBoard [data-k="addai"]'));
       assert.deepEqual([held.before[0], held.before[1].length], [1, 2], 'before: seat 1, two tokens');
       await sidesAre(a, [['YOU'], ['Bo'], ['AI 2']]);
@@ -310,6 +311,7 @@ test('nothing on the lobby\'s board moves (upright and on its side) when the hos
     const first = await A.boxes();
     assert.equal(first.length, 8, 'eight spots');
     assert.equal(new Set(first.map(r => `${r[2]}x${r[3]}`)).size, 1, 'all one size');
+    assert.ok(first.every(r => r[2] > 0 && r[3] > 0), `laid out: ${JSON.stringify(first)}`);
     const count = (x, n) => x.p.waitForFunction((n) => document.querySelectorAll('#onlineBoard .tok').length === n, n, { timeout: RUN_MS });
     await a.tap('#onlineBoard [data-k="addai"]'); await count(a, 3);
     assert.deepEqual(await A.boxes(), first, 'an AI added: every spot where it was');
@@ -323,6 +325,7 @@ test('nothing on the lobby\'s board moves (upright and on its side) when the hos
       assert.deepEqual(await A.spots(), ['YOU', 'Bo', 'AI 2', 'OPEN', '+', '', '', ''], 'the friend in the first open seat');
       assert.deepEqual(await A.boxes(), first, 'a friend joined');
       const B = board(b.p, 'online'), second = await B.boxes();
+      assert.ok(second.length === 8 && second.every(r => r[2] > 0 && r[3] > 0), `the friend's board laid out: ${JSON.stringify(second)}`);
       assert.equal(new Set(second.map(r => r[0])).size, 4, 'four abreast on its side');
       await b.tap('#onlineBoard .tok.open'); // (SIT HERE: Bo to spot 3)
       await b.p.waitForFunction(() => endfall.online.seat === 3, null, { timeout: RUN_MS });

@@ -2,8 +2,9 @@
 // tools/render3d/models.js: game units (1 tile = 32), units face +x, y up, +z south. A polished alien artifact, not
 // a weathered machine: pearl ceramic with a clearcoat sheen and clean hairline seams, engraved channels and inlaid
 // light lines; black glass; vivid team glaze with a faint iridescence; small violet crystals wrapped in translucent
-// halos so the glow falls off instead of sitting flat. Plates are layered (a lighter top plate over a darker
-// underside) so crevices read as ambient occlusion. Everything hovers; three-fold symmetry, crescents and rings.
+// halos so the glow falls off instead of sitting flat (the Halo's mending light alone is pale aqua, so a healer never
+// reads as a weapon). Plates are layered (a lighter top plate over a darker underside) so crevices read as ambient
+// occlusion. Everything hovers; three-fold symmetry, crescents and rings.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { NEUTRAL, team } from './materials.js';
@@ -64,6 +65,11 @@ export function makeVaelMats(tc = NEUTRAL) {
     etherSoft: std({ color: 0x3a2d6e, emissive: 0x9a84e8, emissiveIntensity: 0.7, roughness: 0.3 }),
     core: std({ color: 0xd8ccff, emissive: 0xe0d4ff, emissiveIntensity: 0.95 }),
     halo1: halo(0x8f78ee, 0.16), halo2: halo(0x7a62e0, 0.09), halo3: halo(0x6a52d0, 0.045),
+    // the Halo's mending light: pearly white with a soft aqua falloff, apart from the violet of crystals and weapons
+    mend: std({ color: 0x1e9a86, emissive: 0x34ccb4, emissiveIntensity: 0.55, roughness: 0.3 }),
+    mendCore: std({ color: 0xc8fff6, emissive: 0xd8fff8, emissiveIntensity: 0.95 }),
+    mendLine: std({ color: 0x4ab8a8, emissive: 0x74f0dc, emissiveIntensity: 1.4, roughness: 0.25 }),
+    mendHalo1: halo(0x6ce8d0, 0.26), mendHalo2: halo(0x50d0b8, 0.13), mendHalo3: halo(0x40b8a0, 0.06),
     pad: std({ color: 0x241c3a, emissive: 0x6e5ac4, emissiveIntensity: 0.3, roughness: 0.55 }),
     padHalo: halo(0x7a62e0, 0.1),
   };
@@ -249,16 +255,40 @@ export function shrike(M, f) {
   g.add(b); return g;
 }
 
-/** Halo (support): a thin team ring around a bright violet heart with a wide soft halo. */
+/** Halo (support): a pearl lotus open round a pale aqua mending light, a thin black-glass halo tilted above it. Team
+ *  glaze on the outer petals' tips and a band round the calyx. A solid cup with a white-aqua heart, unlike the
+ *  Prism's open ring round a violet crystal. Kept low and wide so the portrait (cut round the ground point) frames it. */
 export function halo(M, f) {
   const g = grp(), b = grp(); b.position.y = 13 + (f % 2) * 0.8;
-  const tilt = (f % 2) ? 0.18 : -0.12;
-  ring(b, 7, 1.1, M.glazePlain, 0, { seg: 40, tilt });
-  ring(b, 7, 0.6, M.shellDark, -0.9, { seg: 40, tilt });
-  add(b, sph(2.4, 16, 12), M.gem, 0, 0, 0);
-  add(b, sph(1.2, 10, 8), M.gemCore, 0, 0, 0);
-  add(b, sph(3.4, 14, 10), M.halo1, 0, 0, 0); add(b, sph(4.8, 14, 10), M.halo2, 0, 0, 0);
-  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 - Math.PI / 2; add(b, rbox(2.6, 1.6, 2.2, 0.5), M.shell, Math.cos(a) * 7, 0.6, Math.sin(a) * 7, 0, -a, 0); limb(b, [Math.cos(a) * 6, 0, Math.sin(a) * 6], [Math.cos(a) * 2.4, 0, Math.sin(a) * 2.4], 0.3, M.glass); }
+  // the calyx: a shallow pearl bowl, darker beneath, a team band round its rim, over its lift light
+  add(b, lathe([[0, -3], [2.6, -2.7], [4.2, -1.4], [4.8, 0.2], [4.4, 1]], 24), M.shellDark, 0, 0, 0);
+  ring(b, 4.6, 0.55, M.glazePlain, 0.3, { seg: 32 });                                      // team band
+  add(b, cyl(4.1, 4.5, 0.7, 24), M.shell, 0, 1, 0);                                        // rim
+  add(b, cyl(3.3, 3.3, 0.4, 24), M.glass, 0, 1.4, 0);                                      // black-glass cup
+  lamp(b, M, 0.9, 0, -3.6, 0);
+  // petals in two tiers of three: the outer ones broad, open wide and tipped with team glaze; the inner ones
+  // lighter and steeper, cupping the light
+  const leaf = (l, w) => [[0, 0], [l * 0.22, -w * 0.4], [l * 0.55, -w * 0.5], [l * 0.85, -w * 0.3], [l, 0], [l * 0.85, w * 0.3], [l * 0.55, w * 0.5], [l * 0.22, w * 0.4]];
+  for (let k = 0; k < 6; k++) {
+    const outer = k % 2 === 0, a = k / 6 * Math.PI * 2 + Math.PI / 2, r0 = outer ? 4.2 : 3;
+    const p = grp(); p.position.set(Math.cos(a) * r0, outer ? 0.6 : 1.3, Math.sin(a) * r0);
+    p.rotation.set(0, -a, 0); p.rotateZ(outer ? 0.5 : 0.7);                                 // lean out from the rim
+    add(p, plate(leaf(outer ? 6.5 : 4.4, outer ? 4.2 : 2.8), 0.8, 0.25), outer ? M.shell : M.shellLight, 0, -0.4, 0);
+    if (outer) {
+      add(p, plate(leaf(3, 2.6).map(([x, z]) => [x + 3.5, z]), 0.5, 0.15), M.glaze, 0, 0.3, 0);    // team tip
+      add(p, rbox(2.6, 0.4, 0.5, 0.12), M.mendLine, 1.9, 0.45, 0);                          // inlaid light line
+    }
+    b.add(p);
+  }
+  // the mending light at the heart, and its soft falloff over the petals
+  add(b, sph(2.8, 16, 12), M.mend, 0, 2.8, 0); add(b, sph(1.1, 10, 8), M.mendCore, 0, 3.2, 0);
+  add(b, sph(3.8, 14, 10), M.mendHalo1, 0, 2.8, 0); add(b, sph(5.4, 14, 10), M.mendHalo2, 0, 2.8, 0); add(b, sph(7.4, 14, 10), M.mendHalo3, 0, 2.8, 0);
+  // the halo: a thin black-glass ring with a light inlaid, hung over the heart and tilted, so it reads as a halo
+  // from every facing (never the Prism's flat ring), nodding a little between frames
+  const tilt = 0.5 + ((f % 2) ? 0.07 : -0.07);
+  ring(b, 4.6, 0.34, M.glass, 5.8, { seg: 40, tilt });
+  ring(b, 4.6, 0.2, M.mendLine, 5.95, { seg: 40, tilt });
+  ring(b, 4.6, 0.6, M.mendHalo1, 5.95, { seg: 40, tilt });
   g.add(b); return g;
 }
 
@@ -304,7 +334,7 @@ export const VAEL_UNITS = {
   prism: { build: prism, frames: 2, r: 15, h: 29 },
   monolith: { build: monolith, frames: 2, r: 22, h: 40 },
   shrike: { build: shrike, frames: 2, r: 22, h: 26 },
-  halo: { build: halo, frames: 2, r: 10, h: 18 },
+  halo: { build: halo, frames: 2, r: 10, h: 28 }, // (h: headroom, so the portrait, cut round the ground point, keeps the ring)
   sovereign: { build: sovereign, frames: 2, r: 32, h: 64 },
 };
 

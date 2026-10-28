@@ -2,7 +2,7 @@
 // they tell something, and an online setup always plays a map that seats it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAPS, SIZES, MAX_PLAYERS, sizeFor, seatsOf, mapsFor, fitMap, badge, mapName, onlineMap, teamsFor, teamList, teamsKey } from '../src/client/maps.js';
+import { MAPS, SIZES, MAX_PLAYERS, sizeFor, seatsOf, mapsFor, fitMap, badge, mapName, onlineMap, teamsFor, teamList } from '../src/client/maps.js';
 
 const MAPS_128 = ['Iron Compass', 'Sunken Court', 'Grey Warrens', 'Random'];
 
@@ -51,8 +51,6 @@ test('teams: free for all for any number, and even splits of consecutive seats f
   assert.deepEqual(teamList(8, '4v4'), [0, 0, 0, 0, 1, 1, 1, 1]);
   assert.deepEqual(teamList(8, '2v2v2v2'), [0, 0, 1, 1, 2, 2, 3, 3]);
   assert.deepEqual([teamList(4, 'ffa'), teamList(6, '2v2'), teamList(5, '3v3'), teamList(8, 'nonsense')], [[], [], [], []], 'free for all, or a split these players are not offered');
-  // A room's teams back to the choice they are (the lobby lights it).
-  assert.deepEqual([null, [0, 1, 2, 3], [0, 0, 1, 1], [0, 0, 0, 1, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1], [0, 0, 1, 1, 2, 2, 3, 3], [0, 1, 1, 0]].map(teamsKey), ['ffa', 'ffa', '2v2', '3v3', '4v4', '2v2v2v2', '']);
 });
 
 test('an online setup plays its map, the room\'s seed for a random one, at the size that seats the room', () => {

@@ -108,7 +108,7 @@ There is no handling of a hidden page today. In multiplayer:
   single-player game from the menu) says `leave` first, and a ping after it: its pong confirms the leave arrived (no
   pong in 2 s: the socket was half-open, so a reconnect and the leave again); the seat is open at once, and the
   page forgets the room's token. A held seat's sim build is checked when it comes back, not against a newcomer. On
-  Cloudflare the lobby (seats with their tokens, AI seats, map, teams, difficulty; no connections) is stored when it
+  Cloudflare the lobby (seats with their tokens, sides, AI seats and their levels, the map; no connections) is stored when it
   changes (at most one write a second, the last change always, at once when the last socket closes; a ready toggle
   writes nothing), so a held seat survives the room's eviction from memory (see M3d's limits); a stored record of a
   bad shape comes back as an empty lobby.
@@ -558,8 +558,54 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      everyone on one side: START GAME waits ("Everyone is on one side"). Each AI at its own difficulty
      (`Game.withSeats`' `diffs`); `diff` is the enemies' hardest (`enemyLevel`: an ally's level does not make a win
      harder), the level the device's record counts the game at. On a phone the board's and the sheet's words are
-     16 px. Every split of five to eight fits 667x375, 844x390 and 412x915 (an e2e sweep). The lobby keeps its PLAYERS
-     and TEAMS rows for now (the board's pieces take a seat's view, ready for it).
+     16 px. Every split of five to eight fits 667x375, 844x390 and 412x915 (an e2e sweep). The lobby followed (below).
+   - **The lobby as the sides board** (2026-10-28, Fable's design, approved by the owner; `PROTO` 4): the room is single
+     player's board (src/client/seats.js `tokenEl`, `sideBox`, `newSide`, `seatSheet`, `sheetDialog`), in online.js.
+     It replaced PLAYERS 2-8, the TEAMS presets, the YOU race row, the room-wide AI difficulty and the per-seat
+     buttons. A person is a token with their name (YOU for yourself, a crown on the host, a green check once ready,
+     AWAY in amber while the relay holds the seat, with the host's × beside it: `free`); an AI is single player's AI
+     token (AI n in seat order, its race, its level as pips); an open seat is a dashed OPEN SEAT token on the side the
+     next friend joins (a guest's says SIT HERE: `sit`, taking its side). Your own token opens a sheet with your race
+     (the host's: its side too); the host's sheets move anyone between sides (SIDE, + NEW SIDE), set an AI's race and
+     level (OPEN FOR A FRIEND, REMOVE), and on an open seat offer SHARE LINK (its primary button), GIVE TO AI and
+     REMOVE; on another person their side, and FREE SEAT while they are away; never a person's race, and READY is never
+     in a sheet. The host's + AI and + SEAT on each side (up to three sides) and + SIDE add seats, eight at most; a new
+     AI copies its side's last AI (else the room's last, else RANDOM on Medium). Guests see the same board read-only
+     (others' tokens flat and dashed, `disabled`) and the map as one line ("IRON COMPASS · Ann's pick", with the
+     thumbnail the host sees too). The room's code is the title, SHARE LINK beside it (big while the host has a seat
+     open); READY is a lit toggle (✓ READY, `aria-pressed`), plain while a seat is open, disabled with "Nobody to fight"
+     while everyone is on one side; the line of what the room waits for is the footer's note. One name, MULTIPLAYER,
+     for the menu's button and the join form's heading. Eight seats fit 667x375 and 844x390 without scrolling and sit
+     two abreast at 412x915 (568x320 scrolls); the top right (100x52) stays clear for the shared corner.
+     A lobby that arrives while a finger is down in the room waits until the tap is over (its click, its cancel, or
+     1.5 s at most: a board or sheet redrawn under a finger loses the tap), and a new seat number waits with it (this
+     side's seat never runs ahead of the board it reads), and a sheet drops only the second click of a double click or tap that opened it
+     (Chrome may count a chip and DONE tapped quickly as a double tap: DONE was lost, in single player too).
+     The relay: `ai {seat, on, race?, diff?}` (a level per AI seat, Medium by default; `on` without `diff` keeps it),
+     `side {seat, team}`, `add {team, ai, race?, diff?}` (an open seat or the AI's; a team no seat has is a side of its
+     own) and `drop {seat}` (an open or AI seat; never seat 0, never a person's, never below two), all the host's in
+     the lobby; `seats {n}`, `teams {teams}` and the room's `diff` are gone. A race is `humans`, `vael` or `random`
+     (anything else is refused, in `race`, `ai`, `add` and a kept record); `ai` needs `on` (true or false), and a change
+     that changes nothing tells nobody; someone new in the lobby readies everyone again (a held seat back does not);
+     `sit {seat, team?}` carries the side the seat was seen on, and a seat that has moved to another side since (the
+     host dropped one before it) is not taken. The team is part of each seat's record,
+     and after `side`, `add` and `drop` the relay arranges the seats (`arrange`: seat 0's side first, then the sides
+     in the order they first appear, each side's seats in their order, the teams numbered 0, 1, ... in that order),
+     so every side is one run of consecutive seats (`map::team_starts`' rule) and the host stays seat 0; a record
+     moves whole (connection, token, name, race, a hold), and a connection whose seat moved is told its new one
+     (`seat`, before the lobby; Net and online.js already took one mid-lobby, and an open sheet follows its seat).
+     A seat given up, freed or released stays an open seat on its side. `lobby` carries `teams` (always a list) and a
+     `diff` per seat; `start.setup` adds `diffs` (each seat's level, 0 for a person) beside `diff` (the hardest AI's),
+     and every client passes `diffs` to `Game.withSeats` (`resetGameForSeat`); `ready` starts only with two sides or
+     more. `keep()` / `restore()` carry each seat's team and level; a record kept before PROTO 4 (a room-wide `diff`,
+     `teams` by seat or null) comes back with that level for its AIs and its teams arranged. Older clients are told
+     to UPDATE (the `proto` check). Tests: relay.test.js (add and drop: host only, people never dropped, eight at
+     most, two at least; side: each side one run, the moved told their seat, a held seat kept and taken back where it
+     went, one side does not start; a level per AI in the setup; keep and restore, and an old record); net.test.js
+     (two people against an Easy and a Brutal AI: the same world on both clients); online.e2e.mjs (the host adds AIs,
+     sets their levels and races, moves the friend to its side and an AI to the other, and two people against two AIs
+     play; the friend's read-only board and race-only sheet, READY lit; an open seat's SHARE LINK, GIVE TO AI, REMOVE
+     and SIT HERE; eight seats at 667x375, 844x390, 412x915 and 568x320, then six, three against three, play).
 
 ## Open questions for the owner
 

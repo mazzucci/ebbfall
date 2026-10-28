@@ -141,12 +141,14 @@ function fresh(g) {
 }
 /** An online game (docs/MULTIPLAYER.md): the room's setup, seen from seat `me`, in lockstep (orders go out to the
  *  relay; the network layer feeds the turns back). `seed` is the map's; `races` the seats' (RANDOM drawn: seatRaces);
- *  `teams` a team per seat (empty: each its own), `ai` the seats the AI plays (at `diff`; every client runs them alike),
- *  on a `size` x `size` map. Two people and no AI: the game a two-seat room always played. */
-export function resetGameForSeat(seed, map, side, races, me, { teams = [], ai = [], diff = 1, size = DUEL_MW } = {}) {
+ *  `teams` a team per seat (empty: each its own), `ai` the seats the AI plays (at `diff`, or each at its own: `diffs`, a
+ *  level per seat; every client runs them alike), on a `size` x `size` map. Two people and no AI: the game a two-seat
+ *  room always played. */
+export function resetGameForSeat(seed, map, side, races, me, { teams = [], ai = [], diff = 1, diffs = [], size = DUEL_MW } = {}) {
   const f = (k) => { if (k === 'random') throw new Error('a RANDOM seat is drawn first (seatRaces)'); return Math.max(0, Object.keys(FACTIONS).indexOf(k)); }; // (an unknown race: the first)
-  const g = Game.withSeats(seed >>> 0, ai.some(a => a) ? diff : 1, map, side, Uint32Array.from(races.map(f)), Uint8Array.from(teams),
-    Uint8Array.from(races.map((_, s) => (ai[s] ? 1 : 0))), me, size);
+  const any = ai.some(a => a);
+  const g = Game.withSeats(seed >>> 0, any ? diff : 1, map, side, Uint32Array.from(races.map(f)), Uint8Array.from(teams),
+    Uint8Array.from(races.map((_, s) => (ai[s] ? 1 : 0))), me, size, any && diffs.length === races.length ? Uint8Array.from(diffs) : undefined);
   g.startLockstep();
   fresh(g);
 }

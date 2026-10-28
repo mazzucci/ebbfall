@@ -130,7 +130,7 @@ test('an evicted lobby comes back as it was: the host\'s seat held (name, token)
   const e = env();
   const { a, code } = await opened(e);
   const token = got(a, 'seat')[0].token;
-  say(a, { t: 'race', race: 'vael' }); say(a, { t: 'seats', n: 3, map: 4 }); say(a, { t: 'ai', seat: 2, on: true });
+  say(a, { t: 'race', race: 'vael' }); say(a, { t: 'add', team: 2, ai: false }); say(a, { t: 'map', map: 4 }); say(a, { t: 'ai', seat: 2, on: true, diff: 3 });
   a.close(); // (the host went to a messaging app to send the code)
   await wait(0);
   const kept = await e.stores.get(code).get('room');
@@ -142,7 +142,7 @@ test('an evicted lobby comes back as it was: the host\'s seat held (name, token)
   assert.equal(got(b, 'seat')[0]?.seat, 1, 'the friend: the next seat, not the host\'s');
   let l = got(b, 'lobby').at(-1);
   assert.deepEqual(l.seats.map(s => [s.name, s.race, s.here, s.ai]), [['Ann', 'vael', false, false], ['Bo', 'humans', true, false], ['', 'random', false, true]], 'Ann AWAY, the AI seat as it was');
-  assert.equal(l.map, 4);
+  assert.deepEqual([l.map, l.seats[2].diff, l.teams], [4, 3, [0, 1, 2]], 'the map, the AI\'s level, the sides');
   const a2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   say(a2, { t: 'hello', proto: PROTO, name: 'Ann', token });
   assert.deepEqual([got(a2, 'seat')[0]?.seat, got(a2, 'seat')[0]?.room], [0, code], 'the host\'s token: seat 0, the same room');
@@ -233,7 +233,7 @@ test('a stored record of a bad shape comes back as an empty lobby, never a broke
     const seats = o.room.seats;
     assert.ok(seats.length >= 2 && seats.length <= 8, `${JSON.stringify(lobby)}: ${seats.length} seats`);
     assert.ok(got(c, 'seat').length === 1, `${JSON.stringify(lobby)}: a seat`);
-    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, o.room.diff, o.room.teams], [['Ann', 'Cy'], 1, 0, 1, null], 'the good parts kept (Ann held), the bad dropped (Bo, no token: open)');
+    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, seats.map(s => s.team)], [['Ann', 'Cy'], 1, 0, [0, 0]], 'the good parts kept (Ann held, the one side), the bad dropped (Bo, no token: open; the map)');
     else assert.equal(got(c, 'seat')[0].seat, 0, `${JSON.stringify(lobby)}: an empty lobby`);
     c.close();
   }

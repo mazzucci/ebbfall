@@ -133,12 +133,11 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 /* Start menu: one row per choice. */
 .card.menu{max-width:640px}
 /* The menu is a page of its own, not a card over the game: the whole screen, its content centred. */
-@media (max-height:420px){#start .card.menu{padding-top:max(6px,env(safe-area-inset-top,0px))!important;padding-bottom:max(6px,env(safe-area-inset-bottom,0px))!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
-#start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+@media (max-height:420px){:is(#start,#online) .card.menu{padding-top:max(6px,env(safe-area-inset-top,0px))!important;padding-bottom:max(6px,env(safe-area-inset-bottom,0px))!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
+#start,#online{padding:0;background:var(--panel)} /* (opaque: no empty game behind them) */ :is(#start,#online) .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
-#onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the lobby's teams, for four, six and eight: on the players' row while it has room) */
-/* The sides board (single player): a panel per side, your side first (gold), each as wide as its seats (`--n` tokens of
+/* The sides board (single player, and the lobby's: online.js): a panel per side, your side first (gold), each as wide as its seats (`--n` tokens of
    `--tw`, `--a` add cells of `--aw`) and wrapping, its tokens with + ALLY / + AI among them; a dashed + SIDE strip
    after the sides. Free for all is a panel per seat (eight: four by two on a 667 px phone). */
 .board{--tw:112px;--aw:56px;--cap:calc(100% - var(--tw) - 18px);display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;margin:6px 0 2px}
@@ -164,11 +163,15 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .board .ib.tok{container-type:inline-size} @container (max-width:136px){.tok .pen{display:none}} /* (a narrow token drops its pen, not a letter) */
 .tok .pen{color:var(--dim);font:12px var(--mono);line-height:1} .tok:hover .pen{color:var(--ally)}
 .board .ib.tok.on{background:#2a2415}
-.tok.ro{cursor:default;border-style:dashed} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby) */
-.tok .crown{font-size:10px;color:var(--ally);margin-left:3px;vertical-align:1px} .tok .st.ok{color:var(--ok);font:700 13px var(--mono)} .tok .race.away{color:var(--warn)}
+.tok.ro{cursor:default;border-style:dashed;background:transparent} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby: flat, information, not a button) */
+.tok .crown{font-size:10px;color:var(--ally);margin-left:3px;vertical-align:1px} .tok .st.ok{color:var(--ok);font:700 13px var(--mono)} .tok .race.away{color:var(--warn);letter-spacing:.08em}
+/* An open seat (the lobby's): dashed, its band too; a guest's SIT HERE where the pen goes. A held seat whose player is away: its token and the host's × to free it. */
+.tok.open{border-style:dashed} .tok.open .race{color:var(--muted)} .tok.open .band{background:repeating-linear-gradient(var(--line2) 0 4px,transparent 4px 8px)}
+.tok .act{font:600 10px var(--display);letter-spacing:.08em;color:var(--ally2);white-space:nowrap}
+.board .pair{flex:1 1 var(--tw);display:flex;gap:4px;min-width:0} .board .pair .ib.tok{flex:1 1 0} .board .pair .ib.x{flex:none;width:34px;height:36px;padding:0;font-size:15px;color:var(--muted)} .board .pair .ib.x:hover{color:var(--fg)}
 .lvl{display:inline-flex;gap:2px;align-items:flex-end;height:12px} .lvl i{display:block;width:4px;background:var(--line2);border-radius:1px} .lvl i.on{background:var(--ally)}
 .lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:7px} .lvl i:nth-child(3){height:9px} .lvl i:nth-child(4){height:12px}
-@media (max-height:420px){.board .ib.tok,.board .ib.add{height:32px}}
+@media (max-height:420px){.board .ib.tok,.board .ib.add,.board .pair .ib.x{height:32px}}
 @media (max-width:480px){.sheet .opt .lbl{width:46px} .sheet .hint{margin-left:56px} .sheet .diff .ib{padding-left:7px;padding-right:7px;letter-spacing:.02em}}
 /* A seat's sheet in a <dialog> (modal: the page behind it inert): its choices as rows of chips. A phone: a sheet from
    the bottom edge; a wide screen: a small dialog. The dialog itself is the scrim. */
@@ -181,7 +184,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 .sheet .hd .ib.x{margin-left:auto;min-width:32px;height:32px;padding:0;font-size:16px}
 .sheet .opt{margin:5px 0;flex-wrap:nowrap;align-items:flex-start} .sheet .opt .lbl{width:56px;font-size:11px;align-self:center} .sheet .chips{flex-wrap:wrap}
 .sheet .hint{font:11px var(--mono);color:var(--muted);margin:-2px 0 2px 66px;min-height:14px}
-.sheet .ft{display:flex;gap:8px;align-items:center;margin-top:8px}
+.sheet .ft{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap} .sheet .info{font:12px var(--mono);color:var(--muted);margin:2px 0 6px}
 .sheet .opt .ib{min-height:30px}
 .sheet .ib.team{min-width:38px;padding-left:6px;padding-right:6px} .sheet .ib.team.new{border-style:dashed;flex:none}
 .sheet .ib.team .sw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:-1px}
@@ -190,14 +193,14 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .board{--tw:126px;--aw:62px} .board .ib.tok{gap:5px;padding-right:6px}
   .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0}
   .side .hd,.board .ib.add,.board .newside .t{font-size:16px} .side .hd{letter-spacing:.06em} .board .ib.add{padding:0 6px;letter-spacing:.02em} .board .newside .t{letter-spacing:0}
-  .sheet .opt .ib,.sheet .ft .ib,.sheet .hd b,.sheet .hint,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .opt .ib{letter-spacing:.04em}
+  .sheet .opt .ib,.sheet .ft .ib,.sheet .hd b,.sheet .hint,.sheet .info,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .opt .ib{letter-spacing:.04em}
   .sheet .opt .lbl{width:64px} .sheet .hint{margin-left:74px;line-height:1.25}
 }
 .note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
 .ib.map small.up{margin-left:6px;font:500 10px var(--mono);letter-spacing:0;color:var(--muted);text-transform:none} /* a map's seats, when it matters */
 #onlineMaps .ib.map small.up{display:block;margin:1px 0 0;font-size:9px;line-height:1} #onlineMaps .ib.map:has(small.up){padding-top:3px;padding-bottom:3px} /* (the lobby: under the name, so four maps keep to one row) */
-.maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}
-#mapPreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
+.maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow :is(#maps,#onlineMaps){flex:0 1 auto;min-width:0;flex-wrap:wrap}
+#mapPreview,#onlinePreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center} .ib.map.on{border-color:var(--ally);color:var(--ally2);background:#2a2415} .ib.map.random{border-style:dashed}
 /* The first page, a title screen (centred): two big choices (single player, multiplayer), side by side; each opens its own page. */
 #menuHome{text-align:center} #menuHome .row{justify-content:center;gap:16px} #start #menuHome h1{font:700 clamp(30px,9vh,58px)/1.15 var(--display);letter-spacing:.04em} /* (the name in title case: tighter than the caps of the buttons, a size up to keep its weight) */ #menuHome .tag{max-width:560px;margin-left:auto;margin-right:auto} #menuHome .tip{text-align:left}
 /* The first page's floor (the .shore in #menuHome): a dark shore under the whole screen, the water drawn back to the bottom edge, a faint glow behind the title. Under the page's content (z-index -1 in #start's stacking context; the card's own background goes, the screen's is the same colour), no pointer events; the tide lines keep to the bottom 40% of the screen, below the tagline on every phone, and the buttons over them are opaque. Each line drifts a few pixels over 18-29 s, a transform on its own <svg> (composited), none under prefers-reduced-motion; display:none with the page ends the animations, so a game pays nothing for them. */
@@ -358,18 +361,19 @@ body.replay #cmd{visibility:hidden}
 #netWait{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:8px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font:600 12px var(--display);letter-spacing:.08em;color:var(--fg);max-width:calc(100vw - 32px)}
 #netWait[hidden]{display:none} #netWait .ib{min-width:44px;min-height:32px}
 @media (max-height:500px){#netWait{top:40px}}
-#online{background:var(--panel)} /* (opaque, as the menu: no empty game behind it) */
-/* Play a friend: the lobby */
+/* Multiplayer: the join form, then the room (online.js) */
 #online input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
 #roomCode{width:5.5em;text-transform:uppercase;text-align:center} #onlineName{width:12em}
-#onlineMapNote{font-size:12px;color:var(--muted)} #online .code{font:600 22px var(--mono);letter-spacing:.2em;color:var(--ally2);margin:0 10px}
-#seatList{display:flex;flex-direction:column;gap:4px;margin:8px 0} .seat{display:grid;grid-template-columns:auto 1fr 6em 5em;align-items:center;gap:8px;padding:6px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;font-size:13px}
-.seat .dot{width:8px;height:8px;border-radius:50%;transform:none} /* the seat's colour in the game */
-.seat .ib{padding:2px 8px;font-size:10px;justify-self:start} .seat .ib.x{justify-self:end;min-width:28px}
-#seatList.many{display:grid;grid-template-columns:1fr 1fr;margin:6px 0} #seatList.many .seat{padding:3px 8px;min-height:30px;box-sizing:border-box} /* three or four seats: two a row (2v2: a team a row) */
-#online .card:has(#seatList.many:not(:empty)) h2{display:none} /* (three seats or more: the room's code is the title, so a phone's screen holds it all) */
-#seatList.crowd{grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:3px} #seatList.crowd .seat{grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px;padding:2px 6px;min-height:26px;font-size:11px} /* five to eight seats: four a row (six: three) */
-#seatList.crowd .seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} #seatList.crowd .seat .ib{padding:2px 5px;font-size:9px} #seatList.crowd .seat .ib.x{min-width:22px}
-#seatList.crowd.pairs{grid-template-columns:1fr 1fr 6px 1fr 1fr} #seatList.pairs .seat:nth-child(4n+1){grid-column:1} #seatList.pairs .seat:nth-child(4n+2){grid-column:2} #seatList.pairs .seat:nth-child(4n+3){grid-column:4} #seatList.pairs .seat:nth-child(4n+4){grid-column:5} /* (2v2v2v2: the pairs apart, every chip one width) */
-#seatList .vs{grid-column:1/-1;text-align:center;font:600 10px var(--display);letter-spacing:.2em;color:var(--muted);line-height:1}
-.seat.open{border-style:dashed;color:var(--muted)} .seat.open b{font-weight:400} .seat.me{border-color:var(--ally)} .seat .ok{color:var(--ally2)} #online .row{gap:8px;align-items:center}
+/* The room: its code is the title, SHARE LINK beside it (the big button while the host has a seat open), keeping to
+   the left: the top-right corner (sound, full screen) stays clear. */
+#online .title{display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap;min-height:44px}
+#online .title .room{font:11px var(--mono);letter-spacing:.14em;color:var(--muted)} #online .title h2{margin:0;font:600 22px var(--mono);letter-spacing:.22em;color:var(--ally2)}
+#online .title .ib{margin-left:6px}
+@media (max-height:420px){#online .title{margin-bottom:2px;min-height:40px} #online .title h2{font-size:19px}}
+/* The map a guest sees: the host's pick, one line, no chips to grey out. */
+.mapline{display:flex;align-items:center;gap:10px;font:600 13px var(--display);letter-spacing:.08em} .mapline .pick{font:12px var(--mono);color:var(--muted);letter-spacing:0} .mapline .pick::before{content:'· '}
+/* READY a lit toggle: gold to tap, lit (the chips' "on") once ready; plain (not big) while a seat is open. The footer's
+   one line of what the room waits for: on its own line above BACK and READY on an upright phone. */
+#btnOnlineReady.lit{background:#2a2415;color:var(--ally2);border-color:var(--ally)}
+#online .foot .note{text-align:right} @media (max-width:480px){#online .foot .note{flex-basis:100%;order:-1;text-align:left}}
+#online .row{gap:8px;align-items:center}

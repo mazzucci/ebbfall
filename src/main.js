@@ -56,7 +56,7 @@ function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
   menu.tutorial = false;
   // (races: a RANDOM seat already drawn, online.js)
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: setup.diff ?? 1, size: m.size }));
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: setup.diff ?? 1, diffs: setup.diffs || [], size: m.size }));
 }
 
 function begin(reset) {

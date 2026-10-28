@@ -631,7 +631,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       // MULTIPLAYER: the lobby's join form, the same sound icon in the corner; BACK.
       await press('#btnOnline');
       assert.ok(await shown('#onlineJoin') && await page.locator('#start').isHidden(), 'multiplayer: the join form');
-      assert.equal(await page.locator('#online h2').textContent(), 'PLAY A FRIEND', 'its title (under MULTIPLAYER)');
+      assert.equal(await page.locator('#onlineJoin h2').textContent(), 'MULTIPLAYER', 'its title: the button\'s');
       const v = page.viewportSize(), b = await page.locator('#cornerSound').boundingBox();
       assert.ok(b.x + b.width > v.width - 70 && b.y < 70 && b.width >= 44 && b.height >= 44, `the sound icon top right, a finger wide: ${JSON.stringify(b)}`);
       await press('#cornerSound');
@@ -1715,6 +1715,13 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
     await p2.locator('#btnSolo').tap();
     await p2.locator('#soloBoard [data-k="tok1"]').tap(); await p2.waitForTimeout(80); await p2.touchscreen.tap(...await p2.locator('#soloBoard [data-k="tok1"]').boundingBox().then(b => [b.x + b.width / 2, b.y + b.height / 2]));
     assert.ok(await p2.locator('#soloSheet').evaluate(d => d.open), 'a double tap: the sheet stays open');
+    // Later, a chip and DONE tapped quickly one after the other (the browser may count them as a double tap): both count.
+    await p2.waitForTimeout(700);
+    const mid = (k) => p2.locator(`#soloSheet [data-k="${k}"]`).boundingBox().then(b => [b.x + b.width / 2, b.y + b.height / 2]);
+    const [chip, done] = [await mid('race:vael'), await mid('done')];
+    await p2.touchscreen.tap(...chip); await p2.waitForTimeout(150); await p2.touchscreen.tap(...done);
+    await p2.waitForFunction(() => !document.getElementById('soloSheet').open, null, { timeout: 3000 });
+    assert.match(await p2.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /VAEL/);
   } finally { await phone.close(); }
 });
 
@@ -2092,7 +2099,7 @@ test('the menu fits a small phone on every page (the first with its record and P
     await page.locator('#btnSolo').tap();
     await fits('#start .card.menu', '#menuSolo h2', 'single player');
     await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();
-    await fits('#online .card.menu', '#online h2', 'multiplayer');
+    await fits('#online .card.menu', '#onlineJoin h2', 'multiplayer');
   } finally { await ctx.close(); }
 });
 

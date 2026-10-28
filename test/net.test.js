@@ -40,10 +40,11 @@ function busy(c, seat) {
 const fi = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 /** The room's game for a seat, as main.js and src/engine/core.js's resetGameForSeat build it (its map and size, a RANDOM
- *  seat drawn from the seed, the teams, the AI seats at the room's difficulty). */
+ *  seat drawn from the seed, the teams, the AI seats each at its own level). */
 const game = (setup, seat) => {
-  const m = onlineMap(setup), r = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS));
-  return sim.Game.withSeats(m.seed, setup.ai.some(a => a) ? setup.diff : 1, m.kind, setup.side, Uint32Array.from(r.map(fi)), Uint8Array.from(setup.teams), Uint8Array.from(setup.ai), seat, m.size);
+  const m = onlineMap(setup), r = seatRaces(setup.races, setup.seed, Object.keys(FACTIONS)), any = setup.ai.some(a => a);
+  return sim.Game.withSeats(m.seed, any ? setup.diff : 1, m.kind, setup.side, Uint32Array.from(r.map(fi)), Uint8Array.from(setup.teams), Uint8Array.from(setup.ai), seat, m.size,
+    any && setup.diffs?.length === r.length ? Uint8Array.from(setup.diffs) : undefined);
 };
 
 /** A relay, two clients in one room, started (`host(net)`: the host's lobby choices first). Each client: its Net, its
@@ -255,7 +256,7 @@ test('a lobby leave is confirmed by a pong; on a half-open socket it is said aga
 });
 
 test('three seats, one the AI\'s: both clients run its game alike, and the AI plays', { skip, timeout: 60000 }, async () => {
-  const m = await match({ latency: 20, jitter: 30 }, (net) => { net.seats(3, 4); net.ai(2, true, 'vael'); });
+  const m = await match({ latency: 20, jitter: 30 }, (net) => { net.add(2, true, 'vael'); net.map(4); });
   const { a, b } = m;
   try {
     let seed = 5; const rand = (n) => (seed = (seed * 1103515245 + 12345) >>> 0) % n;
@@ -268,19 +269,22 @@ test('three seats, one the AI\'s: both clients run its game alike, and the AI pl
   } finally { await m.done(); }
 });
 
-test('two people against two AIs: one team, every client the same game', { skip, timeout: 60000 }, async () => {
-  const m = await match({}, (net) => { net.seats(4, 5); net.ai(2, true); net.ai(3, true); net.teams([0, 0, 1, 1]); net.diff(2); });
+test('two people against two AIs at different levels (Easy and Brutal): one side, every client the same game', { skip, timeout: 60000 }, async () => {
+  // (the host moves the friend to its side, then adds the two AIs on the other, each at its own level)
+  const m = await match({}, (net) => { net.side(1, 0); net.add(1, true, 'humans', 0); net.add(1, true, 'vael', 3); net.map(5); });
   const { a, b } = m;
   try {
     await m.run(6000, () => { for (const c of [a, b]) if (c.g && c.g.tick() % 90 === 1) { const ids = own(c); c.g.moveTo(ids[0], 1500, 1500); } });
-    assert.deepEqual([a.setup.ai, a.setup.teams, a.setup.diff, a.g.mapW()], [[0, 0, 1, 1], [0, 0, 1, 1], 2, 96]);
-    assert.ok(m.same().length > 100, 'both ran it');
+    assert.deepEqual([a.setup.ai, a.setup.teams, a.setup.diffs, a.setup.diff, a.g.mapW()], [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 3], 3, 96]);
+    assert.deepEqual([2, 3].map(s => [a.g.diffOf(s), b.g.diffOf(s)]), [[0, 0], [3, 3]], 'each AI at its own level, in both games');
+    assert.ok(m.same().length > 100, 'both ran it, the same world on every tick');
     assert.ok(busy(b, 2) && busy(b, 3), 'the AIs play');
+    assert.deepEqual(m.events.filter(e => /desync/.test(e)), [], 'no desync');
   } finally { await m.done(); }
 });
 
 test('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, every client the same game, every AI at work', { skip, timeout: 60000 }, async () => {
-  const m = await match({}, (net) => { net.seats(8, 8); for (let s = 2; s < 8; s++) net.ai(s, true, s % 3 === 0 ? 'vael' : 'random'); net.teams([0, 0, 1, 1, 2, 2, 3, 3]); });
+  const m = await match({}, (net) => { net.side(1, 0); for (let s = 2; s < 8; s++) net.add(s >> 1, true, s % 3 === 0 ? 'vael' : 'random', s % 4); net.map(8); });
   const { a, b } = m;
   try {
     await m.run(6000, () => { for (const c of [a, b]) if (c.g && c.g.tick() % 90 === 1) { const ids = own(c); c.g.moveTo(ids[0], 2000, 2000); } });

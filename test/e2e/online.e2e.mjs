@@ -2,7 +2,9 @@
 // opens a room from the menu, the other joins by the shared link, both ready up, and the game runs in lockstep in both.
 // One gives orders; both worlds must be the same on every tick they both ran (the network layer's hash trail), and
 // leaving concedes: the other side wins. The pause card online: a menu over a game that goes on, and a pause for
-// everyone that only its caller ends. Rooms of three and six with AI seats (M4): both browsers run the AI alike.
+// everyone that only its caller ends. The room as the sides board: the host adds AIs, sets their levels and races, moves
+// a friend between sides; the friend sees it read-only but its own race; an open seat's SHARE LINK; eight seats on a
+// phone; rooms of four and six with AI seats (M4): both browsers run the AI alike.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE, notIn, IPHONE } from './harness.mjs';
@@ -32,6 +34,36 @@ async function page(device, query) {
   const tap = (sel) => device.hasTouch ? p.locator(sel).tap() : p.locator(sel).click();
   return { ctx, p, errors, tap };
 }
+/** The room's sides board as page `x` shows it: each side's tokens, the viewer's side first, by name (YOU, Ann, AI 1;
+ *  OPEN for an open seat). */
+const sides = (x) => x.p.$$eval('#onlineBoard .side', ss => ss.map(s => [...s.querySelectorAll('.tok')].map(t => (t.classList.contains('open') ? 'OPEN' : t.querySelector('b').firstChild.textContent))));
+/** Seat `i`'s sheet on page `x`: its token, then each of `keys` (a chip or button's data-k: race:vael, diff:2, side:0,
+ *  share, remove...), then DONE (unless `done` is false: the sheet stays open). */
+async function sheet(x, i, keys = [], done = true) {
+  await x.tap(`#onlineBoard [data-k="tok${i}"]`);
+  // (a tap within 350 ms of the sheet opening is taken for a double tap's second: counted on the page's clock, from the
+  // sheet open, as a page still loading its game may take a while to handle a tap)
+  await x.p.waitForFunction(() => document.getElementById('onlineSheet').open);
+  await x.p.evaluate(() => new Promise(r => setTimeout(r, 400)));
+  for (const k of keys) await x.tap(`#onlineSheet [data-k="${k}"]`);
+  if (done) await x.tap('#onlineSheet [data-k="done"]');
+}
+/** What does not fit page `x`'s room ([] when it all does): the page scrolls (unless `scroll`), a control under the
+ *  screen's top-right corner (#corner's sound and full screen, and at least 100x52), two controls over each other, a
+ *  token cut short. */
+const fits = (x, { scroll = false } = {}) => x.p.evaluate((scroll) => {
+  const bad = [], card = document.querySelector('#online .card.menu');
+  if (!scroll && card.scrollHeight > card.clientHeight + 1) bad.push(`scrolls: ${card.scrollHeight} > ${card.clientHeight}`);
+  const hit = (r, c) => r.width > 0 && r.height > 0 && r.left < c.right - 0.5 && r.right > c.left + 0.5 && r.top < c.bottom - 0.5 && r.bottom > c.top + 0.5;
+  const c = document.getElementById('corner')?.getBoundingClientRect(); // (the shared corner, corner.js; and the room it is given)
+  const corner = { left: Math.min(innerWidth - 100, c?.width ? c.left : innerWidth), right: innerWidth, top: 0, bottom: Math.max(52, c?.height ? c.bottom : 0) };
+  const name = (e) => e.id || e.dataset.k || e.textContent.trim().slice(0, 16);
+  const rs = [...document.querySelectorAll('#online :is(button, input, h2, .note, .mapline, canvas)')].filter(e => e.offsetParent !== null).map(e => [e, e.getBoundingClientRect()]);
+  for (const [e, r] of rs) if (hit(r, corner)) bad.push(`under the corner: ${name(e)}`);
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) if (!rs[i][0].contains(rs[j][0]) && !rs[j][0].contains(rs[i][0]) && hit(rs[i][1], rs[j][1])) bad.push(`over each other: ${name(rs[i][0])} / ${name(rs[j][0])}`);
+  for (const t of document.querySelectorAll('#onlineBoard .tok')) if (t.scrollWidth > t.clientWidth + 1) bad.push(`cut: ${t.getAttribute('aria-label')}`);
+  return bad;
+}, scroll);
 
 // A busy machine may give a page a frame a second or fewer (software WebGL), and the game runs in its frames: what must
 // happen in the game (ticks, the end card) is waited for, up to RUN_MS, never timed.
@@ -69,9 +101,10 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
     // Alone in the room: the other seat is open (not someone away), and the line says what to do.
-    await a.p.waitForFunction(() => /open seat/.test(document.getElementById('seatList').textContent));
-    assert.doesNotMatch(await a.p.locator('#seatList').textContent(), /AWAY|HUMANS.*HUMANS/, 'an open seat: no race, no AWAY');
-    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Send a friend the link, then wait here');
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 1);
+    assert.deepEqual(await sides(a), [['YOU'], ['OPEN']], 'an open seat on the other side');
+    assert.doesNotMatch(await a.p.locator('#onlineBoard').textContent(), /AWAY|HUMANS.*HUMANS/, 'an open seat: no race, no AWAY');
+    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'A seat is open: share the link, or give it to the AI');
     assert.equal(await a.p.locator('#onlineMapLbl').textContent(), 'MAP', 'the host picks the map');
     assert.match(relay.rooms.get(code).seats[0].build, /^[0-9a-f]{12}$/, "the opener's seat holds its sim build (a friend's must match)");
     // The friend opens the shared link on a phone: the join form, the code filled in, the invitation said; a name,
@@ -84,14 +117,14 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     assert.equal(relay.rooms.get(code).seats.filter(s => s.conn).length, 1, 'nobody joined before JOIN');
     await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
     try {
-      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
-      assert.match(await a.p.locator('#seatList').textContent(), /Bo/, 'the friend under the name typed');
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
+      assert.deepEqual(await sides(a), [['YOU'], ['Bo']], 'the friend under the name typed');
       await b.p.waitForFunction(() => document.getElementById('onlineMapNote').textContent === "Ann's pick", null, { timeout: 5000 }); // (the friend sees whose pick the map is)
       assert.equal(await b.p.locator('#onlineMapLbl').textContent(), 'MAP');
       // The friend's race: RANDOM, shown as such in the room until the start; drawn there, alike in both games.
-      await b.tap('#onlineRace [data-race="random"]');
-      await a.p.waitForFunction(() => /RANDOM/.test(document.getElementById('seatList').textContent));
-      await b.p.waitForFunction(() => document.querySelector('#onlineRace .ib.on')?.textContent === 'RANDOM', null, { timeout: 5000 }); // (the friend's own pick, back from the relay)
+      await sheet(b, 1, ['race:random']);
+      await a.p.waitForFunction(() => /RANDOM/.test(document.getElementById('onlineBoard').textContent));
+      await b.p.waitForFunction(() => /^YOU RND, Random/.test(document.querySelector('#onlineBoard .tok.me').getAttribute('aria-label')), null, { timeout: 5000 }); // (the friend's own pick, back from the relay)
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       const drawn = await a.p.evaluate(() => { const s = endfall.online.setup; return [s.races, endfall.engine.seatRaces(s.races, s.seed, Object.keys(endfall.engine.FACTIONS))]; });
@@ -141,88 +174,202 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
   } finally { await a.ctx.close(); }
 });
 
-test('three seats, one the AI\'s: the host sets it up, a friend joins, both browsers run the same game and the AI plays', async () => {
+test('the sides board: the host adds AIs, sets their levels and races and moves the friend to its side; the friend sees the board read-only but its own race, READY lights; two people against two AIs play the same game', { engines: true }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(PHONE, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
-    // The host: three players (the maps that seat them, a badge: one start stays free), the AI on the third seat.
-    await a.tap('#onlinePlayers [data-n="3"]');
-    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
-    assert.deepEqual(await a.p.$$eval('#onlineMaps .map .up', bs => bs.map(b => b.textContent)), ['up to 4', 'up to 4', 'up to 4', 'up to 4'], 'the maps that seat three, each up to 4');
-    assert.ok(await a.p.locator('#onlineTeams').isHidden(), 'no teams for three');
-    await a.tap('#seatList [data-act="ai"][data-seat="2"]');
-    await a.p.waitForFunction(() => document.querySelector('#seatList .seat.ai') && !document.getElementById('onlineAi').hidden);
-    await a.tap('#onlineDiff [data-d="2"]');
-    await a.p.waitForFunction(() => document.querySelector('#onlineDiff .ib.on')?.dataset.d === '2');
-    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Send a friend the link, or add the AI, then wait here');
-    const b = await page(DESKTOP, `${relayQ}&join=${code}`);
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
+    assert.deepEqual(await sides(a), [['YOU'], ['OPEN']], 'the host alone: an open seat on the other side');
+    const b = await joinByLink(DESKTOP, `${relayQ}&join=${code}`, 'Bo');
     try {
-      await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
-      await b.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3 && /AI/.test(document.getElementById('seatList').textContent));
-      assert.equal(await b.p.locator('#seatList [data-act]').count(), 0, 'the friend changes no seat but its own');
-      assert.ok(await b.p.locator('#onlinePlayers [data-n="2"]').isDisabled(), "the players are the host's to pick");
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent));
+      // The friend's view: the same board, read-only but its own token; no host controls; the map as one line.
+      await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
+      assert.deepEqual(await sides(b), [['YOU'], ['Ann']], 'the friend\'s side first');
+      assert.deepEqual(await b.p.$$eval('#onlineBoard .tok', ts => ts.map(t => [t.querySelector('b').firstChild.textContent, t.disabled, t.classList.contains('ro')])), [['YOU', false, false], ['Ann', true, true]], 'the host\'s token read-only (flat), its own not');
+      assert.equal(await b.p.locator('#onlineBoard .tok:not(.me) .crown').count(), 1, 'a crown on the host');
+      assert.equal(await b.p.locator('#onlineBoard .add, #onlineBoard .newside').count(), 0, 'no + AI, + SEAT or + SIDE for the friend');
+      assert.ok(await b.p.locator('#onlineMaps').isHidden() && await b.p.locator('#onlineMapLine').isVisible(), 'no map chips: one line');
+      assert.equal(await b.p.locator('#onlineMapLine').textContent(), "ASHEN BASINAnn's pick");
+      // Its own token: a sheet with RACE only (no level, no side, and no READY).
+      await sheet(b, 1, [], false);
+      assert.deepEqual(await b.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE'], 'its own sheet: RACE only');
+      assert.deepEqual(await b.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => x.textContent)), ['DONE']);
+      await b.tap('#onlineSheet [data-k="race:vael"]');
+      await a.p.waitForFunction(() => /Bo VAEL|Bo, Vael/.test([...document.querySelectorAll('#onlineBoard .tok')].map(t => t.getAttribute('aria-label')).join()));
+      await b.tap('#onlineSheet [data-k="done"]');
+      // READY: a lit toggle (not a label that flips).
+      assert.equal(await b.p.locator('#btnOnlineReady').textContent(), 'READY');
+      await b.tap('#btnOnlineReady');
+      await b.p.waitForFunction(() => { const r = document.getElementById('btnOnlineReady'); return r.classList.contains('lit') && r.textContent === '✓ READY' && r.getAttribute('aria-pressed') === 'true'; });
+      await a.p.waitForFunction(() => !!document.querySelector('#onlineBoard [data-k="tok1"] .st.ok'), null, { timeout: RUN_MS }); // (the host sees the check)
+      // The host: an AI on its own side (the friend's seat moves: the relay keeps each side together and tells it), one
+      // on the other; each at its own level and race.
+      // (the friend's finger is down on the board meanwhile: its new seat waits with the lobby, so this side's seat never
+      // runs ahead of the board it reads)
+      const press = (x, type) => x.p.evaluate((type) => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent(type, { bubbles: true })), type);
+      await press(b, 'pointerdown');
+      await a.tap('#onlineBoard [data-k="ai0"]');
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
+      await b.p.waitForTimeout(300);
+      assert.deepEqual(await b.p.evaluate(() => [endfall.online.seat, document.querySelectorAll('#onlineBoard .tok').length]), [1, 2], 'held: the old seat and the old board, together');
+      await press(b, 'pointerup');
+      await b.p.waitForFunction(() => endfall.online.seat === 2 && document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
+      assert.deepEqual(await sides(a), [['YOU', 'AI 1'], ['Bo']]);
+      await b.p.waitForFunction(() => !document.getElementById('btnOnlineReady').classList.contains('lit'), null, { timeout: RUN_MS }); // (a new seat: everyone ready again)
+      await a.tap('#onlineBoard [data-k="ai1"]');
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 4);
+      assert.deepEqual(await sides(a), [['YOU', 'AI 1'], ['Bo', 'AI 2']]);
+      assert.deepEqual(await a.p.$$eval('#onlineMaps .map .up', bs => bs.map(x => x.textContent)), [], 'four: the 96x96 maps');
+      await sheet(a, 3, ['diff:3', 'race:vael']); // (AI 2: Brutal, Vael)
+      await sheet(a, 1, ['diff:0']); // (AI 1: Easy)
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard [data-k="tok3"] .lvl i.on').length === 4 && document.querySelectorAll('#onlineBoard [data-k="tok1"] .lvl i.on').length === 1);
+      assert.match(await b.p.locator('#onlineBoard [data-k="tok3"]').getAttribute('aria-label'), /^AI 2 VAEL, Brutal/, 'the friend sees the AI\'s race and level');
+      // The host moves the friend to its side, then its AI to the other: two people against two AIs, the friend seat 1.
+      await sheet(a, 2, ['side:0']);
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.querySelectorAll('.tok').length === 3);
+      await sheet(a, 1, ['side:1']);
+      await b.p.waitForFunction(() => endfall.online.seat === 1, null, { timeout: RUN_MS });
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.querySelectorAll('.tok').length === 2);
+      assert.deepEqual(await sides(a), [['YOU', 'Bo'], ['AI 1', 'AI 2']]);
+      await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('Ann'));
+      assert.deepEqual(await sides(b), [['Ann', 'YOU'], ['AI 1', 'AI 2']], 'the friend on the host\'s side');
+      // The host's own sheet: RACE and SIDE; another person's: SIDE only (never their race).
+      await sheet(a, 1, [], false);
+      assert.deepEqual(await a.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['SIDE'], 'a person\'s sheet: their side only');
+      await a.tap('#onlineSheet [data-k="close"]');
+      await a.p.waitForTimeout(400); await sheet(a, 0, [], false);
+      assert.deepEqual(await a.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE', 'SIDE'], 'the host\'s own: race and side');
+      await a.p.keyboard.press('Escape');
       await a.p.waitForFunction(() => /Ready when you are/.test(document.getElementById('onlineStatus').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 300, null, { timeout: START_MS });
-      const setup = await a.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.online.setup.diff, endfall.engine.MW, endfall.G.factions.length, endfall.G.diff, endfall.online.names]);
-      assert.deepEqual(setup, [[0, 0, 1], [0, 1, 2], 2, 96, 3, 2, ['Ann', 'Bo', 'the AI']], 'three seats on 96x96, the third the AI\'s at Hard');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: START_MS });
+      const setup = await a.p.evaluate(() => { const s = endfall.online.setup; return [s.ai, s.teams, s.diffs, s.diff, s.races, endfall.engine.MW, endfall.online.names]; });
+      assert.deepEqual(setup, [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 3], 3, ['humans', 'vael', 'random', 'vael'], 96, ['Ann', 'Bo', 'the AI', 'the AI']], 'two people against two AIs on 96x96, each AI at its own level');
+      assert.deepEqual(await Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.me))), [0, 1]);
       await sameWorld(a, b, 60, 'both ran the same stretch');
-      const ai = (x) => x.p.evaluate(() => [endfall.G.units.filter(u => u.team === 2).length, endfall.G.bldgs.some(b => b.team === 2 && b.queue.length > 0)]);
-      const [units, training] = await ai(a);
-      assert.ok(units > 4 || training, `the AI plays (${units} units, training: ${training})`);
+      await a.p.waitForFunction(() => [2, 3].every(t => endfall.G.units.filter(u => u.team === t).length > 4 || endfall.G.bldgs.some(b => b.team === t && b.queue.length > 0)), null, { timeout: RUN_MS, polling: 250 })
+        .catch(() => assert.fail('the AIs play'));
       // (a starved page may miss its acks a moment and be waited for: the line must go, which it would not for an AI seat)
-      await a.p.locator('#netWait').waitFor({ state: 'hidden', timeout: RUN_MS }).catch(() => assert.fail('nobody is waited for, the AI seat least of all'));
+      await a.p.locator('#netWait').waitFor({ state: 'hidden', timeout: RUN_MS }).catch(() => assert.fail('nobody is waited for, the AI seats least of all'));
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
 });
 
-test('six seats, four the AI\'s, three against three (M4 2e): eight seats fit a small phone; both browsers run the same 128x128 game', async () => {
+test('an open seat: SHARE LINK the big button (in the title and the seat\'s sheet), GIVE TO AI, REMOVE; a friend\'s SIT HERE moves them there', { engines: true }, async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(PHONE, relayQ);
+  try {
+    await a.p.evaluate(() => { window.shared = []; navigator.share = async (d) => { window.shared.push(d.url); }; });
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
+    const code = await a.p.locator('#roomShow').textContent();
+    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'A seat is open: share the link, or give it to the AI');
+    assert.deepEqual(await a.p.evaluate(() => ['btnShare', 'btnOnlineReady'].map(id => document.getElementById(id).classList.contains('big'))), [true, false], 'SHARE LINK the big button while a seat is open; READY plain');
+    await sheet(a, 1, [], false);
+    assert.equal(await a.p.locator('#onlineSheet .info').textContent(), 'The first friend to open the link takes this seat.');
+    assert.deepEqual(await a.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => [x.textContent, x.classList.contains('big')])), [['SHARE LINK', true], ['GIVE TO AI', false], ['DONE', false]], 'SHARE LINK first and big; no REMOVE at two seats');
+    assert.deepEqual(await a.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['SIDE']);
+    await a.tap('#onlineSheet [data-k="share"]');
+    await a.p.waitForFunction(() => window.shared.length === 1);
+    assert.match(await a.p.evaluate(() => window.shared[0]), new RegExp(`\\?join=${code}`), 'the room\'s link');
+    // GIVE TO AI: the seat the AI's (RANDOM on Medium, the first); its sheet now an AI's.
+    await a.tap('#onlineSheet [data-k="giveai"]');
+    await a.p.waitForFunction(() => document.querySelector('#onlineSheet .opt .lbl')?.textContent === 'RACE');
+    assert.deepEqual(await a.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE', 'PLAYS', 'SIDE'], 'the AI\'s sheet');
+    assert.deepEqual(await a.p.$$eval('#onlineSheet .chips .on', cs => cs.map(c => c.dataset.k)), ['race:random', 'diff:1', 'side:1']);
+    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Ready when you are');
+    assert.ok(!(await a.p.locator('#btnShare').getAttribute('class')).includes('big'), 'no seat open: SHARE LINK plain');
+    await a.tap('#onlineSheet [data-k="open"]'); // (OPEN FOR A FRIEND)
+    await a.p.waitForFunction(() => !!document.querySelector('#onlineSheet [data-k="share"]'));
+    await a.tap('#onlineSheet [data-k="done"]');
+    // + SEAT on the host's side, then a friend: the first open seat (the host's side); SIT HERE moves them to the other.
+    await a.tap('#onlineBoard [data-k="seat0"]');
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 2);
+    assert.equal(await a.p.locator('#onlineStatus').textContent(), '2 seats are open: share the link, or give them to the AI');
+    const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
+    try {
+      await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
+      assert.deepEqual(await sides(b), [['Ann', 'YOU'], ['OPEN']]);
+      assert.equal(await b.p.locator('#onlineBoard .tok.open .act').textContent(), 'SIT HERE');
+      assert.equal(await b.p.locator('#onlineStatus').textContent(), 'Waiting for players…');
+      // A lobby that arrives under a finger waits until the tap is over (a board redrawn mid-tap would lose the tap).
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+      await b.p.evaluate(() => endfall.online.net.race('vael'));
+      await a.p.waitForTimeout(500);
+      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo HUM/, 'not redrawn while the finger is down');
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
+      await a.p.waitForFunction(() => /^Bo VAEL/.test(document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
+      // A cancelled touch (a scroll) ends the hold at once; a finger that never lifts holds it 1.5 s at most.
+      const race = (r) => a.p.waitForFunction((r) => document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label').startsWith(`Bo ${r}`), r, { timeout: RUN_MS });
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+      await b.p.evaluate(() => endfall.online.net.race('humans'));
+      await a.p.waitForTimeout(300);
+      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo VAEL/, 'held');
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true })));
+      await race('HUM');
+      const t0 = Date.now();
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+      await b.p.evaluate(() => endfall.online.net.race('random'));
+      await race('RND');
+      assert.ok(Date.now() - t0 >= 1400, `a finger that never lifts: the lobby after 1.5 s (${Date.now() - t0} ms)`);
+      await b.tap('#onlineBoard .tok.open');
+      await b.p.waitForFunction(() => endfall.online.seat === 2, null, { timeout: RUN_MS });
+      await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('YOU') && !document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('Ann'));
+      assert.deepEqual(await sides(b), [['YOU'], ['Ann', 'OPEN']], 'the friend took the other side\'s seat');
+      // REMOVE: the open seat goes (three seats: it may).
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 1);
+      await sheet(a, 1, ['remove'], false);
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
+      await b.p.waitForFunction(() => endfall.online.seat === 1, null, { timeout: RUN_MS });
+      assert.ok(await a.p.locator('#onlineSheet').isHidden(), 'its sheet closed');
+      assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
+    } finally { await b.ctx.close(); }
+  } finally { await a.ctx.close(); }
+});
+
+test('eight seats fit a small phone (667x375), a landscape phone (844x390) and an upright one two abreast (412x915), the corner clear; six, three against three, play the same 128x128 game', async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page({ ...PHONE, viewport: { width: 667, height: 375 } }, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Annabelle'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
     const code = await a.p.locator('#roomShow').textContent();
-    const fits = async (what) => { const sc = await a.p.locator('#online .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]); assert.ok(sc[0] <= sc[1] + 1, `${what}: the room fits (${sc})`); };
-    // Eight seats, all but the host's the AI's, four against four: the whole room on a small phone.
-    await a.tap('#onlinePlayers [data-n="8"]');
-    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 8);
-    for (let s = 1; s < 8; s++) { await a.tap(`#seatList [data-act="ai"][data-seat="${s}"]`); await a.p.waitForFunction((s) => document.querySelectorAll('#seatList .seat.ai').length === s, s); }
-    assert.deepEqual(await a.p.$$eval('#onlineTeams .ib', bs => bs.map(b => b.textContent)), ['FREE FOR ALL', '4v4', '2v2v2v2'], 'the teams for eight');
-    await a.tap('#onlineTeams [data-teams="4v4"]');
-    await a.p.waitForFunction(() => !!document.querySelector('#seatList .vs'));
-    await fits('eight seats, four against four');
-    // The corner (sound, full screen) over no control of the room.
-    const under = await a.p.evaluate(() => {
-      const c = document.getElementById('corner').getBoundingClientRect(), hit = (r) => r.width > 0 && r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top;
-      return [...document.querySelectorAll('#online :is(button,input,.seat)')].filter(e => e.offsetParent !== null && hit(e.getBoundingClientRect())).map(e => e.id || e.textContent.trim().slice(0, 16));
-    });
-    assert.deepEqual(under, [], 'eight seats: nothing under the corner');
-    // Six: seat 1 open again for a friend, three against three.
-    await a.tap('#seatList [data-act="open"][data-seat="1"]');
-    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat.open').length === 1);
-    await a.tap('#onlinePlayers [data-n="6"]');
-    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 6);
-    assert.deepEqual(await a.p.$$eval('#onlineMaps .map .up', bs => bs.map(b => b.textContent)), Array(4).fill('up to 8'), 'six on the 128x128 maps: two starts stay free');
-    await a.tap('#onlineTeams [data-teams="3v3"]');
-    await a.p.waitForFunction(() => document.querySelector('#onlineTeams .ib.on')?.dataset.teams === '3v3' && !!document.querySelector('#seatList .vs'));
-    await fits('six seats, three against three');
-    const b = await page(DESKTOP, `${relayQ}&join=${code}`);
+    // Eight seats: the host and three AIs against three AIs and an open seat.
+    for (const k of ['ai0', 'ai0', 'ai0', 'ai1', 'ai1', 'ai1']) { const n = await a.p.locator('#onlineBoard .tok').count(); await a.tap(`#onlineBoard [data-k="${k}"]`); await a.p.waitForFunction((n) => document.querySelectorAll('#onlineBoard .tok').length === n + 1, n); }
+    assert.equal(await a.p.locator('#onlineBoard .add, #onlineBoard .newside').count(), 0, 'eight: nothing more to add');
+    assert.deepEqual(await sides(a), [['YOU', 'AI 1', 'AI 2', 'AI 3'], ['OPEN', 'AI 4', 'AI 5', 'AI 6']]);
+    const b = await joinByLink(DESKTOP, `${relayQ}&join=${code}`, 'Bo');
     try {
-      await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
-      await b.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 6 && /Bo/.test(document.getElementById('seatList').textContent));
-      assert.ok(await b.p.locator('#onlineTeams [data-teams="4v4"]').count() === 0 && await b.p.locator('#onlineTeams [data-teams="ffa"]').isDisabled(), "the teams are the host's to pick");
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent));
+      for (const [w, h] of [[667, 375], [844, 390], [412, 915]]) {
+        await a.p.setViewportSize({ width: w, height: h }); await a.p.waitForTimeout(300);
+        assert.deepEqual(await fits(a), [], `${w}x${h}: eight seats fit, nothing under the corner, every name whole`);
+      }
+      assert.deepEqual(await a.p.$$eval('#onlineBoard .side', ss => ss.map(s => { const t = [...s.querySelectorAll('.tok')].map(e => e.getBoundingClientRect()); return t.filter(r => Math.abs(r.top - t[0].top) < 2).length; })), [2, 2], '412x915: two abreast');
+      await a.p.setViewportSize({ width: 568, height: 320 }); await a.p.waitForTimeout(300);
+      assert.deepEqual(await fits(a, { scroll: true }), [], '568x320: it scrolls, nothing overlaps');
+      await a.p.setViewportSize({ width: 667, height: 375 }); await a.p.waitForTimeout(300);
+      // Six: two AIs go; three against three.
+      await sheet(a, 3, ['remove'], false);
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 7);
+      await sheet(a, 6, ['remove'], false);
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 6);
+      assert.deepEqual(await sides(a), [['YOU', 'AI 1', 'AI 2'], ['Bo', 'AI 3', 'AI 4']]);
+      assert.deepEqual(await a.p.$$eval('#onlineMaps .map .up', bs => bs.map(x => x.textContent)), Array(4).fill('up to 8'), 'six on the 128x128 maps: two starts stay free');
+      assert.deepEqual(await fits(a), [], 'six seats fit');
       await a.p.waitForFunction(() => /Ready when you are/.test(document.getElementById('onlineStatus').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: START_MS });
       const setup = await b.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.engine.MW, endfall.G.factions.length, endfall.G.me]);
-      assert.deepEqual(setup, [[0, 0, 1, 1, 1, 1], [0, 0, 0, 1, 1, 1], 128, 6, 1], 'six seats on 128x128, three against three, four AIs');
+      assert.deepEqual(setup, [[0, 1, 1, 0, 1, 1], [0, 0, 0, 1, 1, 1], 128, 6, 3], 'six seats on 128x128, three against three, four AIs');
       await sameWorld(a, b, 40, 'both ran the same stretch');
-      assert.ok(await a.p.evaluate(() => [2, 3, 4, 5].every(t => endfall.G.stats[t].built > 0 || endfall.G.bldgs.some(b => b.team === t && b.queue.length > 0))), 'the AIs play');
+      assert.ok(await a.p.evaluate(() => [1, 2, 4, 5].every(t => endfall.G.stats[t].built > 0 || endfall.G.bldgs.some(b => b.team === t && b.queue.length > 0))), 'the AIs play');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
@@ -266,7 +413,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
     const code = await a.p.locator('#roomShow').textContent();
     const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
     try {
-      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
       const asked = () => Promise.all([a, b].map(x => x.p.evaluate(() => window.fsAsked)));
       assert.deepEqual(await asked(), [0, 0], 'NEW ROOM and JOIN stay out of full screen (the link is shared from another app)');
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
@@ -308,7 +455,7 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
     const code = await a.p.locator('#roomShow').textContent();
     const b = await joinByLink({ ...PHONE, viewport: { width: 667, height: 375 } }, `${relayQ}&join=${code}`, 'Bo');
     try {
-      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       const runs = (what) => advances([a, b], what);
@@ -415,18 +562,18 @@ test('the host switches apps to send the code: the room holds its seat, the frie
       assert.equal(relay.rooms.get(code).seats[0].conn, null, "the relay saw Ann's socket go");
       // The friend joins by the link: Ann's seat is Ann's, AWAY; the friend takes the next one and waits for her.
       await b.p.locator('#onlineName').fill('Bo'); await b.tap('#btnJoinRoom');
-      await b.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && /Bo/.test(document.getElementById('seatList').textContent));
+      await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && /YOU/.test(document.getElementById('onlineBoard').textContent));
       assert.equal(await b.p.evaluate(() => endfall.online.seat), 1, 'the friend sits in the second seat');
-      const seatsB = () => b.p.$$eval('#seatList .seat', ss => ss.map(s => s.textContent));
-      assert.deepEqual(await seatsB(), ['AnnHUMANSAWAY', 'BoHUMANS'], 'Ann away, not an open seat');
+      const seatsB = () => b.p.$$eval('#onlineBoard .tok', ts => ts.map(t => t.getAttribute('aria-label')));
+      assert.deepEqual(await seatsB(), ['YOU HUMANS, Your side: edit', 'Ann AWAY, host, Enemies'], 'Ann away, not an open seat');
       assert.equal(await b.p.locator('#onlineStatus').textContent(), 'Waiting for Ann…');
       assert.equal(await b.p.locator('#onlineMapNote').textContent(), "Ann's pick", 'Ann still picks');
       // Ann's page reconnects by itself (no wake): her seat, the same room; both see each other.
-      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent), null, { timeout: 15000 });
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 15000 });
       assert.ok(await a.p.evaluate(() => window.tries) >= 4, 'it kept trying past the lobby\'s few tries (four: a Net with no seat gives up there)');
       assert.deepEqual(await a.p.evaluate(() => [endfall.online.seat, document.getElementById('roomShow').textContent, document.getElementById('onlineMapNote').textContent, endfall.online.net.closed]), [0, code, '', false], 'Ann: seat 0, the same code, the host');
-      await b.p.waitForFunction(() => !/AWAY/.test(document.getElementById('seatList').textContent), null, { timeout: 5000 });
-      assert.deepEqual(await seatsB(), ['AnnHUMANS', 'BoHUMANS']);
+      await b.p.waitForFunction(() => !/AWAY/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 5000 });
+      assert.deepEqual(await seatsB(), ['YOU HUMANS, Your side: edit', 'Ann HUMANS, host, Enemies']);
       for (const x of [a, b]) assert.equal(await x.p.locator('#onlineStatus').textContent(), 'Ready when you are');
       // And the room plays: both ready, the game starts, Ann the first seat.
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
@@ -448,19 +595,20 @@ test('a friend back on another browser: the host frees the AWAY seat with ×, an
     const code = await a.p.locator('#roomShow').textContent();
     const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
     try {
-      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent));
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent));
       await b.p.evaluate(() => { const n = endfall.online.net; n.open = () => {}; n.ws.close(); }); // (the in-app browser, left for good)
-      await a.p.locator('#seatList [data-act="free"][data-seat="1"]').waitFor({ state: 'visible', timeout: 5000 });
-      assert.match(await a.p.locator('#seatList .seat').nth(1).textContent(), /^BoAWAY×$/, 'the host sees Bo AWAY, and a × to free the seat');
+      await a.p.locator('#onlineBoard [data-k="free1"]').waitFor({ state: 'visible', timeout: 5000 });
+      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo AWAY, Enemies/, 'the host sees Bo AWAY, and a × to free the seat');
+      assert.equal(await a.p.locator('#onlineBoard [data-k="free1"]').getAttribute('aria-label'), "Free Bo's seat");
       assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Waiting for Bo…');
       const c = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
       try {
         await c.p.waitForFunction(() => /kept a few minutes/.test(document.getElementById('onlineStatus').textContent), null, { timeout: 5000 });
         assert.equal(await c.p.locator('#onlineStatus').textContent(), 'That room is full: a seat is kept a few minutes for a player who stepped away');
-        await a.tap('#seatList [data-act="free"][data-seat="1"]');
-        await a.p.waitForFunction(() => /open seat/.test(document.getElementById('seatList').textContent), null, { timeout: 5000 });
+        await a.tap('#onlineBoard [data-k="free1"]');
+        await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 1, null, { timeout: 5000 });
         await c.tap('#btnJoinRoom');
-        await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent), null, { timeout: 5000 });
+        await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 5000 });
         await c.p.waitForFunction(() => endfall.online.seat === 1, null, { timeout: 5000 }); // (Bo sits again, in the second seat)
         assert.deepEqual(a.errors, []); assert.deepEqual(c.errors, []);
       } finally { await c.ctx.close(); }
@@ -502,8 +650,8 @@ test('READY waits for the game to load; a seat that never loads holds the room u
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
-    await a.tap('#onlinePlayers [data-n="3"]');
-    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
+    await a.tap('#onlineBoard [data-k="seat1"]'); // (+ SEAT: an open seat more on the other side)
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
     // The friend's game still loading (its WASM and art held back): READY says so and takes no tap.
     const held = new Promise(r => { release = r; });
     await b.route(/\.wasm$|\/art\//, async (r) => { await held; await r.continue().catch(() => {}); });
@@ -518,7 +666,7 @@ test('READY waits for the game to load; a seat that never loads holds the room u
     c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
     await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
     c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build }));
-    await a.p.waitForFunction(() => /Cy/.test(document.getElementById('seatList').textContent));
+    await a.p.waitForFunction(() => /Cy/.test(document.getElementById('onlineBoard').textContent));
     c.send(JSON.stringify({ t: 'ready', ready: true }));
     await a.tap('#btnOnlineReady');
     await a.p.waitForTimeout(300);
@@ -546,18 +694,18 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
     const code = await a.p.locator('#roomShow').textContent();
-    await a.tap('#onlinePlayers [data-n="3"]');
-    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
+    await a.tap('#onlineBoard [data-k="seat1"]'); // (+ SEAT: an open seat more on the other side)
+    await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
     const b = await joinByLink({ ...DESKTOP, serviceWorkers: 'block' }, `${relayQ}&join=${code}`, 'Bo'); // (a service worker would serve the game past the routes below)
     // (seats by name: whoever's hello comes first sits first)
     const seat = (n) => relay.rooms.get(code).seats.findIndex(s => s.name === n), bo = () => relay.rooms.get(code).seats[seat('Bo')];
     try {
-      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent));
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent));
       // A third seat by the protocol alone, which gives the game up before it has loaded: a seat gone.
       c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
       await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
       c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build: await a.p.locator('#buildId').textContent() }));
-      await a.p.waitForFunction(() => /Cy/.test(document.getElementById('seatList').textContent));
+      await a.p.waitForFunction(() => /Cy/.test(document.getElementById('onlineBoard').textContent));
       c.send(JSON.stringify({ t: 'ready', ready: true })); await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       await a.p.waitForFunction(() => endfall.online.playing, null, { polling: 250 });
       c.send(JSON.stringify({ t: 'leave' })); c.close();
@@ -591,15 +739,18 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
   } finally { c?.close(); await a.ctx.close(); }
 });
 
-test('a small phone: the room fits without scrolling, its sound icon in the corner', async () => {
+test('a small phone: the room fits without scrolling, its code the title, its sound icon in the corner', async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page({ ...PHONE, viewport: { width: 667, height: 375 } }, relayQ);
   try {
-    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.tap('#btnOnline');
+    assert.equal(await a.p.locator('#onlineJoin h2').textContent(), 'MULTIPLAYER', 'one name: the button\'s and the page\'s');
+    assert.equal(await a.p.locator('#online .card').getAttribute('aria-label'), 'Multiplayer');
+    await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const sc = await a.p.locator('#online .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
-    assert.ok(sc[0] <= sc[1] + 1, `the room fits: ${sc}`);
-    assert.ok((await a.p.locator('#online h2').boundingBox()).y >= 0, 'its heading in view');
+    assert.ok(await a.p.locator('#onlineJoin h2').isHidden(), 'in the room, its code is the title');
+    assert.deepEqual(await fits(a), []);
+    assert.ok((await a.p.locator('#roomShow').boundingBox()).y >= 0, 'its title in view');
     assert.ok(await a.p.locator('#btnOnlineReady').isVisible() && await a.p.locator('#cornerSound').isVisible());
     assert.deepEqual(a.errors, []);
   } finally { await a.ctx.close(); }
@@ -624,9 +775,9 @@ test('online full screen: READY goes in; the menu leaves it and BACK TO GAME res
     const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
     try {
       await fake(b);
-      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       assert.deepEqual([await fs(a), await fs(b)], ['true,1', 'true,1'], 'READY goes full screen');
       await a.tap('#btnPause');
       assert.equal(await fs(a), 'false,1', 'the menu leaves it');

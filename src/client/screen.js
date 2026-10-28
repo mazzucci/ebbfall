@@ -9,6 +9,9 @@ export const touchDevice = matchMedia('(pointer: coarse)').matches;
 export const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
 /** A tap can take the page full screen here (not on iPhone Safari, and not needed when launched from the home screen). */
 export const canGoFullscreen = canFullscreen && !standalone;
+/** iPadOS (Safari, and every iPad browser: WebKit underneath; Safari's says Macintosh, with touch) draws its own
+ *  leave-full-screen ✕ over the page's top-left corner, where the top bar keeps the shards. */
+const ipad = /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
 /** Go full screen (must run inside a user gesture) and try to lock landscape; failures are fine. */
 export async function enterFullscreen() {
@@ -32,7 +35,10 @@ export function initScreen() {
   const btn = $('btnFull');
   if (!canFullscreen || standalone) btn.hidden = true;
   btn.addEventListener('click', toggleFullscreen);
-  const sync = () => { setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN'); btn.title = isFull() ? 'Leave full screen' : 'Full screen'; };
+  const sync = () => {
+    setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN', isFull() ? 'FULL SCREEN' : 'EXIT FULL'); btn.title = isFull() ? 'Leave full screen' : 'Full screen';
+    root.classList.toggle('sysx', ipad && isFull()); // (room for the system's ✕: style.css)
+  };
   document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync); sync();
   // iPhone Safari has no full-screen API for pages; a home-screen web app opens full screen instead.
   if (!canFullscreen && touchDevice && !standalone) $('iosTip').hidden = false;

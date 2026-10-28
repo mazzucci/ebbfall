@@ -32,8 +32,18 @@ function ctx() {
   if (actx.state !== 'running') actx.resume().catch(() => {}); // also iOS's 'interrupted' (a call, another app)
   return actx;
 }
-// After an interruption, the next touch or click brings the sound back.
-addEventListener('pointerdown', () => { if (actx && actx.state !== 'running' && !audio.muted) actx.resume().catch(() => {}); }, true);
+// Sound may start only inside a gesture the browser counts: on iPad and iPhone (WebKit) that is a touch's end, a click
+// or a key, not a finger going down. The first such gesture opens the context and plays a silent sample (what unlocks
+// WebKit's output); after an interruption (a call, another app) the next one brings the sound back.
+let unlocked = false;
+const wake = () => {
+  if (audio.muted) return;
+  try {
+    ctx();
+    if (!unlocked) { const s = actx.createBufferSource(); s.buffer = actx.createBuffer(1, 1, actx.sampleRate); s.connect(actx.destination); s.start(0); unlocked = true; }
+  } catch { /* no audio available */ }
+};
+for (const t of ['pointerdown', 'touchend', 'click', 'keydown']) addEventListener(t, wake, { capture: true, passive: true });
 
 /** Where a sound sits: [gain 0..1, pan -1..1] from its world position (none = in the player's ear). */
 function place(at) {

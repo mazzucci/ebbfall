@@ -146,7 +146,7 @@ jobs:
           fetch-depth: 2
       - id: changed
         if: env.CLOUDFLARE_API_TOKEN != ''
-        run: git diff --quiet HEAD~1 HEAD -- relay/ || echo "relay=1" >> "$GITHUB_OUTPUT"
+        run: git diff --quiet HEAD~1 HEAD -- relay/ src/client/maps.js src/engine/util.js || echo "relay=1" >> "$GITHUB_OUTPUT" # (the relay bundles the maps and their helper too)
       - uses: actions/setup-node@v7
         if: steps.changed.outputs.relay == '1' || (env.CLOUDFLARE_API_TOKEN != '' && github.event_name == 'workflow_dispatch')
         with:

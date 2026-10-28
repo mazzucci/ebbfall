@@ -46,8 +46,8 @@ const CLOUDFLARE = {
 
 /** A room's Durable Object: its Room, its connections, and the clock while anyone is connected. The Room lives in
  *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a record in storage (the code,
- *  when it was last used, whether its game started, and the lobby itself: its seats with their names, races and tokens,
- *  the AI seats, the map, the teams, the difficulty; Room.keep) brings an evicted lobby back as it was: a seat held for
+ *  when it was last used, whether its game started, and the lobby itself: its seats with their spots, teams, names, races
+ *  and tokens, the AI seats and their levels, the map; Room.keep) brings an evicted lobby back as it was: a seat held for
  *  a player who switched apps (relay/room.js, LOBBY_HOLD_MS) is still theirs, and an empty lobby comes back for a friend
  *  who joins late. The record is written when it changes (a ready toggle does not change it), at most once a SAVE_MS
  *  (the last change always, and at once when the last socket closes), and deleted by an alarm once the room has been
@@ -77,7 +77,7 @@ export class RoomObject {
   }
 
   /** A new room, or a kept lobby back (its record checked: 2 to MAX_SEATS seats, each an object; anything else, or a
-   *  record that does not restore, is an empty lobby). */
+   *  record that does not restore (Room.restore: a spot twice, none at 0), is an empty lobby). */
   open(code, kept) {
     const room = (n) => new Room({ code, seats: n, send, kick, seed: random(), onLobby: () => this.save() });
     const seats = Array.isArray(kept?.seats) ? kept.seats.filter(x => x && typeof x === 'object' && !Array.isArray(x)) : [];

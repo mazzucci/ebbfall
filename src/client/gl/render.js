@@ -410,8 +410,9 @@ export function castFx(x, y, ability) {
   addEffect('flash', x, y - 6, { life: 0.35, tint, light: tint, lightScale: 0.4 });
   if (ability === 'blink') addEffect('puff', x, y, { tint });
 }
-/** A Medic's heal (green) or a Halo's mend (violet, the Vael crystal light) landing on its patient. */
-export function healFx(x, y, tx, ty, mend = false) { addEffect('heal', tx, ty - 6, { life: 0.4, light: mend ? 0xb48cff : 0x6dff9a, lightScale: 0.35, tint: mend ? 0xc8b0ff : 0xffffff }); void x; void y; }
+/** A Medic's heal (green) or a Halo's mend (the pale aqua of the Halo's own light, not the violet of crystals and
+ *  weapons) landing on its patient. */
+export function healFx(x, y, tx, ty, mend = false) { addEffect('heal', tx, ty - 6, { life: 0.4, light: mend ? 0x7ce8d4 : 0x6dff9a, lightScale: 0.35, tint: mend ? 0xc0fff2 : 0xffffff }); void x; void y; }
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
 

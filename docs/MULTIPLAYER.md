@@ -521,6 +521,23 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      allies side by side over the draws for 2v2v2, 4v2, 1v5, 3v2, 2v2v1, 1v4 and more; a re-dealt game replays
      exactly; teams after the first tick deal nothing again, and AI seats and levels set before survive; each AI at
      its own difficulty, a replay included).
+   - **Single player's sides board** (2026-10-27, the owner's pick of Fable's option A; it replaced the single-player
+     OPPONENT, YOU, ENEMY, PLAYERS and TEAMS rows): a panel per side, YOUR SIDE first (gold), then ENEMIES (SIDE 2,
+     SIDE 3... with several), each with a count past one and as wide as its seats (up to three sides share a line, a
+     big side's tokens wrapping in it; four or more wrap, a big side never so wide that a small one cannot sit beside
+     it); a seat is a token (its in-game colour as a band, YOU or AI n, n kept while others go, its race, short on a
+     phone, an AI's difficulty as four pips, a faint pen), + ALLY on your side and + AI on the others as dashed cells
+     among the tokens (up to three sides; with more, + SIDE adds), a dashed + SIDE strip for an AI on its own, eight
+     seats at most. A token opens its sheet in a modal <dialog> (a bottom sheet on a phone, a dialog on a wide screen;
+     the page behind it inert; Escape, DONE, × or a tap that began on the scrim close it, the focus back on the token;
+     a double click or tap does not reach its chips): RACE, an AI's PLAYS with what the level means under it, its
+     SIDE (YOURS, SIDE n) and + NEW SIDE, REMOVE (not the last enemy). START GAME seats each side's rows side by side
+     (src/client/seats.js `arrange`: yours first, you first), so each band is already the colour the seat will have;
+     everyone on one side: START GAME waits ("Everyone is on one side"). Each AI at its own difficulty
+     (`Game.withSeats`' `diffs`); `diff` is the enemies' hardest (`enemyLevel`: an ally's level does not make a win
+     harder), the level the device's record counts the game at. On a phone the board's and the sheet's words are
+     16 px. Every split of five to eight fits 667x375, 844x390 and 412x915 (an e2e sweep). The lobby keeps its PLAYERS
+     and TEAMS rows for now (the board's pieces take a seat's view, ready for it).
 
 ## Open questions for the owner
 

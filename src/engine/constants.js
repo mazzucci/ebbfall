@@ -61,7 +61,8 @@ const BLDG_TEXT = {
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
   entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
-const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
+/** The difficulties' names, in the sim's order (the menus' chips write them in capitals). */
+export const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */

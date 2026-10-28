@@ -133,7 +133,63 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) 16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
-#players .ib,#onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the teams, for four, six and eight: on the players' row while it has room) */
+#onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the lobby's teams, for four, six and eight: on the players' row while it has room) */
+/* The sides board (single player): a panel per side, your side first (gold), each as wide as its seats (`--n` tokens of
+   `--tw`, `--a` add cells of `--aw`) and wrapping, its tokens with + ALLY / + AI among them; a dashed + SIDE strip
+   after the sides. Free for all is a panel per seat (eight: four by two on a 667 px phone). */
+.board{--tw:112px;--aw:56px;--cap:calc(100% - var(--tw) - 18px);display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;margin:6px 0 2px}
+.board:not(.many){flex-wrap:nowrap} /* (up to three sides on one line, the big one's tokens wrapping in it; four or more: the sides wrap, a
+   big side never wider than leaves room for a small one beside it) */
+@media (max-width:520px){.board:not(.many){flex-wrap:wrap}}
+@media (max-height:500px){.board{--cap:55%}} /* (a short screen: two sides of a line share it rather than take a line each) */
+.side{flex:var(--n) 1 min(calc(var(--n) * (var(--tw) + 4px) + var(--a) * (var(--aw) + 4px) + 8px), var(--cap));min-width:calc(var(--tw) + 12px);background:rgba(24,35,51,.45);border:1px solid var(--line);border-radius:6px;padding:5px}
+.side.me{border-color:#5a4a22}
+.side .hd{display:flex;align-items:baseline;gap:6px;font:11px var(--mono);letter-spacing:.14em;color:var(--muted);margin:0 2px 4px;line-height:1.1;white-space:nowrap;overflow:hidden} .side.me .hd{color:var(--ally2)}
+.side .hd small{letter-spacing:0;color:var(--dim)}
+.side .seats{display:flex;flex-wrap:wrap;gap:4px}
+.board .ib.add{flex:0 0 auto;min-width:var(--aw);height:36px;padding:0 8px;font-size:10px;white-space:nowrap}
+.board .ib.newside{flex:0 0 42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1;padding:4px}
+.newside .plus{font:600 18px var(--display)} .newside .t{font:10px var(--mono);letter-spacing:.1em}
+.ib.ghost{border-style:dashed;color:var(--muted)} .ib.ghost:hover{color:var(--fg)}
+/* A seat's token: one button, its colour as a band down its left edge, its name, its race, an AI's difficulty as pips;
+   a faint pen at the far end says "tap to change". */
+.board .ib.tok{flex:1 1 var(--tw);display:grid;grid-template-columns:4px auto 1fr auto auto;align-items:center;gap:7px;height:36px;padding:0 7px 0 0;text-align:left;min-width:0;overflow:hidden}
+.tok .band{align-self:stretch;border-radius:4px 0 0 4px;margin-right:-2px}
+.tok b{font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .tok.me b{color:var(--ally2)}
+.tok .race{font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap;min-width:max-content} /* (never cut: HUM, VAEL, RND) */
+.board .ib.tok{container-type:inline-size} @container (max-width:136px){.tok .pen{display:none}} /* (a narrow token drops its pen, not a letter) */
+.tok .pen{color:var(--dim);font:12px var(--mono);line-height:1} .tok:hover .pen{color:var(--ally)}
+.board .ib.tok.on{background:#2a2415}
+.tok.ro{cursor:default;border-style:dashed} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby) */
+.tok .crown{font-size:10px;color:var(--ally);margin-left:3px;vertical-align:1px} .tok .st.ok{color:var(--ok);font:700 13px var(--mono)} .tok .race.away{color:var(--warn)}
+.lvl{display:inline-flex;gap:2px;align-items:flex-end;height:12px} .lvl i{display:block;width:4px;background:var(--line2);border-radius:1px} .lvl i.on{background:var(--ally)}
+.lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:7px} .lvl i:nth-child(3){height:9px} .lvl i:nth-child(4){height:12px}
+@media (max-height:420px){.board .ib.tok,.board .ib.add{height:32px}}
+@media (max-width:480px){.sheet .opt .lbl{width:46px} .sheet .hint{margin-left:56px} .sheet .diff .ib{padding-left:7px;padding-right:7px;letter-spacing:.02em}}
+/* A seat's sheet in a <dialog> (modal: the page behind it inert): its choices as rows of chips. A phone: a sheet from
+   the bottom edge; a wide screen: a small dialog. The dialog itself is the scrim. */
+dialog.scrim{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:rgba(7,9,13,.6);color:var(--fg);align-items:flex-end;justify-content:center}
+dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
+.sheet{background:var(--panel);border:1px solid var(--line2);border-radius:10px 10px 0 0;padding:10px 14px max(12px,env(safe-area-inset-bottom,0px));width:100%;max-width:560px;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
+@media (min-width:900px) and (min-height:500px){dialog.scrim{align-items:center} .sheet{border-radius:8px;max-width:440px}}
+.sheet .hd{display:flex;align-items:center;gap:10px;margin-bottom:6px} .sheet .hd .band{width:4px;height:18px;border-radius:2px}
+.sheet .hd b{font:700 14px var(--display);letter-spacing:.1em} .sheet .hd .sub{font:11px var(--mono);color:var(--muted)}
+.sheet .hd .ib.x{margin-left:auto;min-width:32px;height:32px;padding:0;font-size:16px}
+.sheet .opt{margin:5px 0;flex-wrap:nowrap;align-items:flex-start} .sheet .opt .lbl{width:56px;font-size:11px;align-self:center} .sheet .chips{flex-wrap:wrap}
+.sheet .hint{font:11px var(--mono);color:var(--muted);margin:-2px 0 2px 66px;min-height:14px}
+.sheet .ft{display:flex;gap:8px;align-items:center;margin-top:8px}
+.sheet .opt .ib{min-height:30px}
+.sheet .ib.team{min-width:38px;padding-left:6px;padding-right:6px} .sheet .ib.team.new{border-style:dashed;flex:none}
+.sheet .ib.team .sw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+/* A phone: every word of the board and the sheet at 16 px (14 for a token's race), read at arm's length. */
+@media (pointer:coarse){
+  .board{--tw:126px;--aw:62px} .board .ib.tok{gap:5px;padding-right:6px}
+  .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0}
+  .side .hd,.board .ib.add,.board .newside .t{font-size:16px} .side .hd{letter-spacing:.06em} .board .ib.add{padding:0 6px;letter-spacing:.02em} .board .newside .t{letter-spacing:0}
+  .sheet .opt .ib,.sheet .ft .ib,.sheet .hd b,.sheet .hint,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .opt .ib{letter-spacing:.04em}
+  .sheet .opt .lbl{width:64px} .sheet .hint{margin-left:74px;line-height:1.25}
+}
+.note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
 .ib.map small.up{margin-left:6px;font:500 10px var(--mono);letter-spacing:0;color:var(--muted);text-transform:none} /* a map's seats, when it matters */
 #onlineMaps .ib.map small.up{display:block;margin:1px 0 0;font-size:9px;line-height:1} #onlineMaps .ib.map:has(small.up){padding-top:3px;padding-bottom:3px} /* (the lobby: under the name, so four maps keep to one row) */
 .maprow{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0} .maprow #maps{flex:0 1 auto;min-width:0}

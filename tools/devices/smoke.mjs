@@ -87,8 +87,9 @@ async function smoke(key) {
       return { ...how, ...(await d.eval(STATUS)) };
     });
     await step('the sound button', async () => {
-      await d.tap('#btnSound'); await sleep(500); const off = await d.eval(STATUS);
-      await d.tap('#btnSound'); await sleep(500); const on = await d.eval(STATUS);
+      const pressed = (v) => waitFor(d, `document.getElementById('btnSound').getAttribute('aria-pressed') === '${v}'`, 10000, `the sound button to read ${v}`).catch(() => {}); // (a simulator applies a tap late)
+      await d.tap('#btnSound'); await pressed('false'); const off = await d.eval(STATUS);
+      await d.tap('#btnSound'); await pressed('true'); const on = await d.eval(STATUS);
       if (off.soundButton !== 'false' || on.soundButton !== 'true') throw new Error(`the sound button read ${off.soundButton}, then ${on.soundButton}`);
       return { off: { muted: off.muted, audio: off.audio }, on: { muted: on.muted, audio: on.audio } };
     });

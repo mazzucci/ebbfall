@@ -225,7 +225,8 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #corner .ib{width:44px;height:44px;padding:0;display:grid;place-items:center} #corner .ico{width:20px;height:20px}
 @media (orientation:landscape) and (max-width:760px){.screen:not(#start,#online){padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}} /* (wider, a centred card is clear of it) */
 @media (orientation:portrait){.screen:not(#start,#online){padding-top:calc(max(8px,env(safe-area-inset-top,0px)) + 52px)}}
-@media (orientation:landscape) and (max-width:760px){#menuSolo{padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 78px)}} @media (orientation:portrait){#menuSolo{padding-top:52px}} /* (the single player board, which may scroll, clear of the corner) */
+/* A menu taller than the screen (corner.js: `tall`) scrolls: its content keeps out from under the corner. */
+#start .card.menu.tall,#online .card.menu.tall{padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}
 #homeTip{z-index:22} /* (over How to play, which is over the pause card) */ #homeTip .ico.share{width:15px;height:15px;vertical-align:-2px}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
 #btnRematch.on{box-shadow:0 0 0 3px var(--ally2)} /* (online: the friend asked) */ #btnRematch.wait{background:var(--panel2);color:var(--fg);border-color:var(--line2)}

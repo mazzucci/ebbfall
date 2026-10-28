@@ -4,7 +4,7 @@
 // Run: npm run build && npm run test:e2e
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { start, stop, browserContext, baseUrl, board, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -298,6 +298,21 @@ test('an installed app: the button where it can do something (a standalone windo
       assert.equal(await o.shown('#cornerFull'), shown, `display-mode ${m}`);
       if (shown) { await o.press('#cornerFull'); assert.equal(await o.page.evaluate(() => window.fs), true, 'and it goes full screen'); }
       assert.ok(await o.shown('#cornerSound'));
+      assert.deepEqual(o.errors, []);
+    } finally { await o.close(); }
+  }
+});
+
+test('single player\'s board with eight players (eight sides, then four against four) clear of the corner on small phones (scrolled too)', async () => {
+  for (const device of [TINY, SMALL, PORTRAIT]) {
+    const o = await open(device);
+    try {
+      const seats = board(o.page);
+      await o.press('#btnSolo');
+      for (let n = 3; n <= 8; n++) await seats.newSide();
+      await cornerOn(o, `${device.viewport.width}x${device.viewport.height}, eight sides`, '#menuSolo');
+      for (const [i, t] of [[1, 0], [2, 0], [3, 0], [4, 1], [5, 1], [6, 1], [7, 1]]) await seats.side(i, t);
+      await cornerOn(o, `${device.viewport.width}x${device.viewport.height}, four against four`, '#menuSolo');
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }
   }

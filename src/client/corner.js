@@ -48,6 +48,15 @@ function watchScreens() {
   sync();
 }
 
+/** A menu page or the lobby taller than the screen scrolls under the corner: `tall` on it moves its content out from
+ *  under it (style.css; narrower or lower content is no shorter, so it stays tall until it would fit anyway). */
+function watchTall() {
+  const cards = [...document.querySelectorAll('.card.menu')];
+  const check = () => { for (const c of cards) c.classList.toggle('tall', c.scrollHeight > c.clientHeight + 1); };
+  const ro = new ResizeObserver(check);
+  for (const c of cards) { ro.observe(c); for (const ch of c.children) ro.observe(ch); }
+}
+
 /** Wire both pairs and the Home Screen card. */
 export function initCorner() {
   if (store.get('muted') === '1') audio.muted = true;
@@ -57,5 +66,5 @@ export function initCorner() {
   syncSound(); syncFull();
   $('btnHomeTipOk').addEventListener('click', hideHomeTip);
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('homeTip').hidden) { e.preventDefault(); e.stopImmediatePropagation(); hideHomeTip(); } }, true);
-  watchScreens();
+  watchScreens(); watchTall();
 }

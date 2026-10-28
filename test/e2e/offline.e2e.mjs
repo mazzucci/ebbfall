@@ -2,9 +2,9 @@
 // when the browser offers to install (a `beforeinstallprompt`, simulated here) and is gone once installed; the About
 // page's CHECK OFFLINE hears from the service worker that the whole game is stored (or that offline play is not
 // available, where service workers are blocked); the manifest's app icons are served at the sizes they claim.
-import { test, before, after } from 'node:test';
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -51,7 +51,7 @@ for (const [name, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('CHECK OFFLINE on the About page: the whole game is stored, the version the page shows', { timeout: 120000 }, async () => {
+test('CHECK OFFLINE on the About page: the whole game is stored, the version the page shows', { timeout: 120000, engines: true }, async () => {
   const { ctx, page, errors, press } = await open(PHONE);
   try {
     await press('#btnAbout');

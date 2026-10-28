@@ -47,17 +47,51 @@ jobs:
       - run: npm run build
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
-      - name: Gameplay tests in a real browser (and the golden games in Firefox and WebKit)
+      - name: Gameplay tests in a real browser (Chromium; WebKit and Firefox in the engines job)
         run: |
-          npx playwright-core install --with-deps chromium firefox webkit
+          npx playwright-core install --with-deps chromium
           npm run test:e2e
-        env:
-          ENDFALL_ENGINES: '1'
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+  # The browser tests' cross-engine subset (the scenarios marked `engines: true`: the menu, sound and full screen, a short
+  # game through the UI, taps on a phone, joining a room through a local relay, offline, the golden games) in WebKit
+  # (Safari's engine) and Firefox, beside the build job. Firefox has WebGL only with a display: a virtual one (xvfb).
+  engines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [webkit, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/cache/restore@v6 # (the build job's cache, read only)
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+            .tools
+          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
+      - run: rustup toolchain install
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
+      - run: npx playwright-core install --with-deps ${{ matrix.engine }}
+      - name: The cross-engine subset in ${{ matrix.engine }}
+        run: |
+          if [ "$ENDFALL_ENGINE" = firefox ]; then xvfb-run -a -s '-screen 0 1920x1080x24' npm run test:e2e; else npm run test:e2e; fi
+        env:
+          ENDFALL_ENGINE: ${{ matrix.engine }}
 
   # Determinism on another CPU: the golden games natively, in WASM in Node's V8, and in WebKit (JavaScriptCore on
   # arm64, as on an iPhone) on an ARM Mac.
@@ -87,10 +121,10 @@ jobs:
       - name: The device check in WebKit
         timeout-minutes: 10
         run: |
-          npx playwright-core install chromium webkit
-          node --test --test-name-pattern=WebKit test/e2e/selftest.e2e.mjs
+          npx playwright-core install webkit
+          node --test test/e2e/selftest.e2e.mjs
         env:
-          ENDFALL_ENGINES: '1'
+          ENDFALL_ENGINE: webkit
 
   # The multiplayer relay (relay/worker.js) to Cloudflare, once the owner has added the CLOUDFLARE_API_TOKEN and
   # CLOUDFLARE_ACCOUNT_ID secrets (until then this job does nothing). Only when relay/ changed, or on a run started by
@@ -124,7 +158,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [build, arm] # (a determinism break on another CPU blocks publishing)
+    needs: [build, engines, arm] # (a determinism break in another engine or on another CPU blocks publishing)
     runs-on: ubuntu-latest
     permissions:
       pages: write

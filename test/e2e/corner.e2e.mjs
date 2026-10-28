@@ -96,6 +96,10 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       await press('#btnAbout'); await cornerOn(o, 'about', '#menuAbout');
       await press('#btnAboutBack'); await press('#btnHowTo'); await cornerOn(o, 'how to play (the menu\'s)', '#help', '#help .card');
       await press('#btnHelpClose'); await press('#btnOnline'); await cornerOn(o, 'the lobby', '#online');
+      // The join page says how it works, in two lines at most, and fits.
+      const how = await page.locator('#onlineHow').evaluate(e => ({ shown: e.offsetParent !== null, lines: Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)), fits: e.closest('.card').scrollHeight <= e.closest('.card').clientHeight + 1 }));
+      assert.deepEqual(how, { shown: true, lines: how.lines, fits: true }, 'how it works: shown, the page fits');
+      assert.ok(how.lines <= 2, `how it works in ${how.lines} lines`);
       await press('#btnOnlineBack'); await press('#btnSolo'); await cornerOn(o, 'single player', '#menuSolo');
       // In the game: the top bar's own.
       await press('#btnStart');
@@ -305,15 +309,16 @@ test('an installed app: the button where it can do something (a standalone windo
   }
 });
 
-test('single player\'s board with eight players (eight sides, then four against four) clear of the corner on small phones (scrolled too)', async () => {
+test('single player\'s board, from the top of the page, with two and with eight players (eight sides, then four against four) clear of the corner on small phones (scrolled too)', async () => {
   for (const device of [TINY, SMALL, PORTRAIT]) {
     const o = await open(device);
     try {
       const seats = board(o.page);
       await o.press('#btnSolo');
-      for (let n = 3; n <= 8; n++) await seats.newSide();
+      await cornerOn(o, `${device.viewport.width}x${device.viewport.height}, a duel`, '#menuSolo');
+      for (let n = 3; n <= 8; n++) await seats.add();
       await cornerOn(o, `${device.viewport.width}x${device.viewport.height}, eight sides`, '#menuSolo');
-      for (const [i, t] of [[1, 0], [2, 0], [3, 0], [4, 1], [5, 1], [6, 1], [7, 1]]) await seats.side(i, t);
+      for (const [i, t] of [[1, 0], [2, 0], [3, 0], [5, 4], [6, 4], [7, 4]]) await seats.side(i, t);
       await cornerOn(o, `${device.viewport.width}x${device.viewport.height}, four against four`, '#menuSolo');
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }

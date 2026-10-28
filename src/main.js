@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, portrait } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, spotTint, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -13,6 +13,7 @@ import { initTools, updateTools, onAttacked, resetTools } from './client/tools.j
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { showMenu, recordResult, guidedDone, setup, menu } from './client/menu.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
+import { setSpots } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
@@ -47,14 +48,15 @@ function showPower() {
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
   stopOnline();
+  setSpots(g.spots); // (each player in its spot's colour)
   if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs));
-  else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace));
+  else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size));
 }
 
 /** An online game: the room's setup, from this side's seat (online.js); its AI seats run in every client's game. */
 function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
-  menu.tutorial = false;
+  menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's colour: the room's setup says, alike on every client)
   // (races: a RANDOM seat already drawn, online.js)
   begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: setup.diff ?? 1, diffs: setup.diffs || [], size: m.size }));
 }
@@ -270,7 +272,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } },
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).

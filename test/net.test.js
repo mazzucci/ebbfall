@@ -3,7 +3,8 @@
 // the orders must have changed them, and the relay must see no desync. Then a phone's life: a page suspended for
 // longer than the away limit (the other side must not be blamed, the game goes on), the page coming back while a
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
-// of three, four and eight with AI seats (M4): every client runs the AI alike.
+// of three, four and eight with AI seats (M4): every client runs the AI alike; and one whose sides the start arranges
+// (a person's game seat not its lobby spot).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -59,7 +60,7 @@ async function match(relayOpts = {}, host = () => {}) {
       url, room, name, game: () => c.g,
       on: {
         seat: (m) => { c.seat = m.seat; res(c); },
-        start: (setup, seat) => { c.setup = setup; c.g = game(setup, seat); c.g.startLockstep(); c.net.loaded(); },
+        start: (setup, seat) => { c.lobbySeat = c.seat; c.seat = seat; c.setup = setup; c.g = game(setup, seat); c.g.startLockstep(); c.net.loaded(); }, // (seat: its game seat, the lobby's spot no more)
         away: (s) => events.push(`${name} away ${s}`), back: (s) => events.push(`${name} back ${s}`),
         desync: (t) => events.push(`${name} desync ${t}`), error: (m) => events.push(`${name} error ${m.code}`),
       },
@@ -181,7 +182,7 @@ function fakeRelay() {
       if (r.deaf) return;
       r.said.push(m.t);
       if (m.t === 'ping') this.onmessage?.({ data: JSON.stringify({ t: 'pong', id: m.id }) });
-      if (m.proto) { r.hellos.push(m); this.onmessage?.({ data: JSON.stringify({ t: 'seat', seat: 0, token: m.token || 'tok', room: 'ABCD', proto: 3 }) }); }
+      if (m.proto) { r.hellos.push(m); this.onmessage?.({ data: JSON.stringify({ t: 'seat', seat: 0, token: m.token || 'tok', room: 'ABCD', proto: m.proto }) }); }
     }
     close() { if (this.readyState === 3) return; this.readyState = 3; this.onclose?.(); }
   };
@@ -280,6 +281,23 @@ test('two people against two AIs at different levels (Easy and Brutal): one side
     assert.ok(m.same().length > 100, 'both ran it, the same world on every tick');
     assert.ok(busy(b, 2) && busy(b, 3), 'the AIs play');
     assert.deepEqual(m.events.filter(e => /desync/.test(e)), [], 'no desync');
+  } finally { await m.done(); }
+});
+
+test('a side arranged at the start: Bo at spot 1 plays game seat 2, beside his partner at spot 2 (setup.spots), in both games', { skip, timeout: 60000 }, async () => {
+  // (spots: Ann 0 and an AI at 3 on one side, Bo 1 and an AI at 2 on the other: the game's seats Ann, AI 3 | Bo, AI 2)
+  const m = await match({}, (net) => { net.add(1, true, 'humans', 1); net.add(0, true, 'vael', 2); net.map(4); });
+  const { a, b } = m;
+  try {
+    await m.run(5000, () => { if (b.g && !b.moved && b.g.tick() > 30) { b.moved = true; for (const id of own(b)) b.g.moveTo(id, 1500, 1500); } }); // (Bo's orders only)
+    assert.deepEqual([a.setup.teams, a.setup.spots, a.setup.names, a.setup.ai], [[0, 0, 1, 1], [0, 3, 1, 2], ['Ann', '', 'Bo', ''], [0, 1, 0, 1]]);
+    assert.deepEqual([a.lobbySeat, a.seat, b.lobbySeat, b.seat, a.net.seat, b.net.seat], [0, 0, 1, 2, 0, 2], 'Bo plays the game seat his start named');
+    assert.deepEqual([1, 3].map(s => [a.g.diffOf(s), b.g.diffOf(s)]), [[2, 2], [1, 1]], 'each AI at its level, in its game seat');
+    const common = m.same(), last = Math.max(...common);
+    assert.ok(common.length > 100, 'both ran it, the same world on every tick');
+    assert.ok(own(b).length > 0 && own(b).every(id => own(a, 2).includes(id)), 'Bo\'s units are game seat 2\'s in both games');
+    assert.notEqual(a.hashes.get(last), m.idle(last), 'Bo\'s orders reached both games');
+    assert.deepEqual(m.events.filter(e => /desync|away/.test(e)), [], 'no desync, nobody away');
   } finally { await m.done(); }
 });
 

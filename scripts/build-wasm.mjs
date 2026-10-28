@@ -4,7 +4,7 @@
 // into .tools/ on first use (checksum verified), with `cargo install` as the fallback on other platforms.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -59,8 +59,12 @@ if (!(has(bindgen) ?? '').includes(want)) {
   if (!(has(bindgen) ?? '').includes(want)) fail(`wasm-bindgen ${want} is not runnable at ${bindgen}.`);
 }
 
-run('cargo', ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'endfall-sim']);
-const wasm = join(root, 'target', 'wasm32-unknown-unknown', 'release', 'endfall_sim.wasm');
+// A target dir of this checkout's own, under target/: a cdylib's name has no hash, so two checkouts sharing a target dir
+// (a git worktree whose target/ links to the main one's) would share target/.../endfall_sim.wasm, and cargo, finding
+// it newer than this checkout's sources, would take the other checkout's build as fresh.
+const own = join(root, 'target', 'wasm-' + createHash('sha1').update(realpathSync(root)).digest('hex').slice(0, 10));
+run('cargo', ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'endfall-sim', '--target-dir', own]);
+const wasm = join(own, 'wasm32-unknown-unknown', 'release', 'endfall_sim.wasm');
 if (!existsSync(wasm)) fail('cargo finished but ' + wasm + ' is missing.');
 run(bindgen, ['--target', 'web', '--out-dir', join(root, 'src', 'engine', 'pkg'), wasm]);
 // The game's data tables (units, buildings, upgrades, factions, difficulty), straight from the Rust sim: the client

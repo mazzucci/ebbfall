@@ -1,122 +1,118 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
 // is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
 // once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
-// the single-player page holds the game against the AI (the seat list: you and one to seven AIs, each seat's race and
-// team and each AI's difficulty, seats.js; the maps that seat them; the guided first game; START GAME goes full
-// screen). The sound and full screen are the screen's corner (corner.js).
+// the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
+// seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
+// START GAME goes full screen). The sound and full screen are the screen's corner (corner.js).
 // The menu always opens on its first page (a join link opens the lobby instead).
 // The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
-// The seats (races, teams, difficulties) are remembered on this device.
+// The board (races, sides, levels) and the map are remembered on this device.
 import { mapPreview, DIFF, ready } from '../engine/index.js';
 import { $ } from './ui.js';
 import { sfx } from './audio.js';
 import { enterFullscreen } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
-import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamList } from './maps.js';
-import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatName, newAi, canRemove, sidesOf, enemyLevel, raceTitle, tokenEl, sideBox, newSide, seatSheet, sheetDialog, narrow } from './seats.js';
+import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
+import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, enemyLevel, raceTitle, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
-/** `rows`: the seat list, you first, then the AIs ({ race ('random' too), team number, an AI's `diff` }); `players`:
- *  how many (2 to 8). Drawn at START GAME, in seat order (seats.js `arrange`: your team first, you first): `races`
- *  (a RANDOM one drawn), `ai`, `teams` (an id per seat, empty: free for all), `diffs` (each AI's; empty: all at `diff`)
- *  and `diff`, the hardest AI's (the record's); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
-export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', rows: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [] };
+/** `board`: the eight spots, null when empty, you in spot 0, the AIs in others ({ race ('random' too), side number
+ *  `team`, an AI's `diff` }); `players`: how many (2 to 8). Drawn at START GAME, in seat order (seats.js `arrange`: your
+ *  side first, you first): `races` (a RANDOM one drawn), `ai`, `teams` (an id per seat, empty: free for all), `diffs`
+ *  (each AI's; empty: all at `diff`), `diff`, the hardest AI's (the record's), and `spots`, each seat's spot (its
+ *  colour); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
+export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 /** A race for this game: the one chosen, or either at random. */
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
-/** Pick map `i`; the random one draws a new seed and a hidden character each time it is chosen or played. */
+/** Pick map `i` (remembered); the random one draws a new seed and a hidden character each time it is chosen or played. */
 function choose(i) {
   const m = MAPS[i];
-  menu.map = i; menu.size = m.size;
-  // Where the seats sit round the map's starts, drawn each game (?seed= keeps it fixed): two seats, which of the two
-  // bases is ours (as always); more, any turn of the ring (the sim takes it modulo).
-  menu.side = urlSeed !== null ? 0 : menu.players === 2 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() * 2 ** 32) >>> 0;
+  menu.map = i; menu.size = m.size; store.set('map', String(i));
+  // Where the seats sit round the map's starts, drawn each game (?seed= keeps it fixed): on a two-start map, which of
+  // the two bases is ours (as always); more starts, any turn of the ring (the sim takes it modulo).
+  menu.side = urlSeed !== null ? 0 : seatsOf(i) === 2 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() * 2 ** 32) >>> 0;
   if (!m.random) Object.assign(menu, { seed: m.seed, kind: m.kind, name: m.name });
   else if (urlSeed !== null) Object.assign(menu, { seed: (+urlSeed) >>> 0, kind: 0, name: mapName((+urlSeed) >>> 0) });
   else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: Math.floor(Math.random() * MAP_KINDS.length), name: mapName(seed) }); }
 }
 
-/** The map buttons for `players` into `box`: those that seat them, the chosen one (`on`) lit, each with its badge (when
- *  there is one: maps.js `badge`); `pick(i)` when one is tapped (none: shown, not chosen). */
-export function mapButtons(box, players, on, pick) {
-  box.innerHTML = '';
-  for (const i of mapsFor(players)) {
-    const m = MAPS[i], b = document.createElement('button'), lit = i === on, up = badge(i, players);
-    b.className = 'ib map' + (lit ? ' on' : '') + (m.random ? ' random' : ''); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(lit));
-    b.textContent = m.name.toUpperCase(); b.dataset.map = i;
-    if (up) { const t = document.createElement('small'); t.className = 'up'; t.textContent = up; b.appendChild(t); }
-    if (m.random) b.title = 'A new map every time';
-    if (pick) b.addEventListener('click', () => { pick(i); sfx('select'); }); else b.disabled = true;
-    box.appendChild(b);
+/** The map list into `sel` (a <select>): every map, its name and the players it seats ("Iron Compass · up to 8"), those
+ *  with fewer starts than `players` there but not to be chosen; `on` chosen; `pick(i)` when another is. The options are
+ *  made again only when the players change (a lobby arriving while the list is open leaves it open). */
+export function mapSelect(sel, players, on, pick) {
+  if (sel.dataset.players !== String(players) || sel.options.length !== MAPS.length) {
+    sel.replaceChildren(...MAPS.map((m, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
+    sel.dataset.players = String(players);
   }
+  if (sel.value !== String(on)) sel.value = String(on);
+  sel.onchange = () => { sfx('select'); pick(+sel.value); };
 }
 function renderMaps() {
-  mapButtons($('maps'), menu.players, menu.map, (i) => { choose(i); renderMaps(); });
+  mapSelect($('mapSel'), menu.players, menu.map, (i) => { choose(i); renderMaps(); });
   drawPreview($('mapPreview'), menu.map, menu.seed, menu.kind);
 }
 
-// The sides board: a panel per side (YOUR SIDE first, in gold; then ENEMIES, or SIDE 2, SIDE 3... when there are
-// several), its seats as tokens (seats.js) with + ALLY / + AI among them (up to three sides; with more, + SIDE adds
-// and the sheet moves) and a dashed + SIDE strip after the sides while there is room (eight players). A token opens its seat's sheet: race, an AI's difficulty and side, REMOVE (not
-// the last enemy). Each token's band is the colour the seat will have (the game seats the rows by side: `arrange`).
-// Everyone on one side: START GAME waits, and says why.
+// The board: eight fixed spots (seats.js), YOU in the first, an AI in any other, each with its colour (its own in the
+// game), its race, level and side; the lowest empty spot a dashed + AI (a new AI on a side of its own), the rest faint.
+// A token opens its seat's sheet: race, an AI's level and side, REMOVE (not the last enemy). Nothing on the board moves
+// when a player comes, goes or changes side. Everyone on one side: START GAME waits, and says why. More players than
+// the map has starts: the smallest map that seats them instead, said in the note a moment.
 const defaultRows = () => { // (the menu before the board saved these; new players start on Easy)
   const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
   return legacyRows({ race: store.get('race'), enemy: store.get('enemy'), diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
 };
-let editing = -1, sheet = null; // (the seat whose sheet is open; the dialog it opens in)
-function setRows(rows) {
-  const resized = rows.length !== menu.rows.length;
-  menu.rows = rows; menu.players = rows.length; store.set('seats', JSON.stringify(rows));
-  if (resized) { choose(fitMap(menu.map, menu.players)); renderMaps(); }
+let editing = -1, sheet = null, mapNote = '', noteTimer = 0; // (the seat whose sheet is open; the dialog it opens in; the map's note)
+function setBoard(board) {
+  menu.board = board; menu.players = filled(board).length; store.set('seats', JSON.stringify(board));
+  if (!fits(menu.map, menu.players)) {
+    choose(fitMap(menu.map, menu.players)); renderMaps();
+    mapNote = `Map: ${mapLabel(menu.map).replace(' · ', ' (')})`; clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000); // (Map: Dust Quarter (up to 4))
+  } else renderMaps(); // (the list: which maps seat them)
   renderSeats(); showRecord(); sfx('select');
 }
-/** A row as the board shows it (seats.js `tokenEl`'s view). */
-const viewOf = (rows, i, side) => ({ name: seatName(rows, i), race: rows[i].race, diff: i ? rows[i].diff : null, side, me: !i });
+/** The footer's note: the map just changed, or why START GAME waits. */
+function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : ''); }
+/** A spot's player as the board shows it (seats.js `tokenEl`'s view). */
+const viewOf = (board, i) => ({ name: seatName(i), race: board[i].race, diff: i ? board[i].diff : null, side: board[i].team, sideColor: sideColor(board, board[i].team), me: !i });
 function renderSeats() {
-  const rows = menu.rows, { order } = arrange(rows), box = $('soloBoard'), sides = sidesOf(rows), short = narrow.matches, room = rows.length < MAX_PLAYERS;
+  const board = menu.board, box = $('soloBoard'), short = narrow.matches, free = firstEmpty(board);
   const focus = document.activeElement?.closest?.('#soloBoard') ? document.activeElement.dataset.k : null; // (kept on a redraw)
-  const add = (team) => { // (the focus stays on the button; with the eighth seat it goes, and the new token has it)
-    const had = box.contains(document.activeElement); setRows([...rows, newAi(rows, team)]);
-    if (had && !box.contains(document.activeElement)) box.querySelector(`[data-k="tok${rows.length}"]`)?.focus();
+  const add = () => { // (the focus goes to the new token)
+    const had = box.contains(document.activeElement); setBoard(board.map((r, i) => (i === free ? newAi(board) : r)));
+    if (had) box.querySelector(`[data-k="tok${free}"]`)?.focus();
   };
-  box.replaceChildren(...sides.map(({ team, name, label }, k) => sideBox(name,
-    rows.map((r, i) => i).filter(i => rows[i].team === team).map(i => tokenEl(viewOf(rows, i, label), seatColor(order.indexOf(i)), { short, on: i === editing, onOpen: () => openSheet(i), k: `tok${i}` })),
-    { me: !k, label, adds: room && sides.length < 4 ? [{ label: k ? '+ AI' : '+ ALLY', title: k ? 'Another AI on this side' : 'An AI on your side', k: `add${k}`, on: () => add(team) }] : [] })),
-  ...(room ? [newSide(() => add(freeTeam(rows)))] : []));
-  box.classList.toggle('many', sides.length > 3); // (four sides or more wrap)
+  box.replaceChildren(...board.map((r, i) => (r ? tokenEl(viewOf(board, i), seatColor(i), { short, on: i === editing, onOpen: () => openSheet(i), k: `tok${i}` })
+    : emptySpot(i === free ? [{ label: '+ AI', title: 'An AI on a side of its own', k: 'add', on: add }] : []))));
   if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
-  const one = oneTeam(rows);
-  $('btnStart').disabled = one; $('soloNote').textContent = one ? 'Everyone is on one side' : '';
-  renderSheet();
+  $('btnStart').disabled = oneTeam(board);
+  renderNote(); renderSheet();
 }
 function openSheet(i) { editing = i; renderSeats(); sfx('select'); $('soloSheet').querySelector('.chips .on')?.focus(); }
 function closeSheet(focusOn = editing) {
   if (editing < 0) return;
   editing = -1; renderSeats();
-  ($('soloBoard').querySelector(`[data-k="tok${focusOn}"]`) || $('soloBoard').querySelector(`[data-k="tok${focusOn - 1}"]`) || $('btnStart')).focus();
+  ($('soloBoard').querySelector(`[data-k="tok${focusOn}"]`) || $('btnStart')).focus();
 }
 /** The open seat's sheet (none: closed), redrawn after each change with the focus where it was. */
 function renderSheet() {
   sheet ||= sheetDialog($('soloSheet'));
-  const i = editing, rows = menu.rows;
-  if (i < 0 || i >= rows.length) { sheet.close(); return; }
+  const i = editing, board = menu.board;
+  if (i < 0 || !board[i]) { sheet.close(); return; }
   const host = $('soloSheet'), focus = host.contains(document.activeElement) ? document.activeElement.dataset.k : null;
-  const set = (k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r))), r = rows[i], { order } = arrange(rows), sides = sidesOf(rows);
-  const move = (team) => setRows(compact(rows.map((q, j) => (j === i ? { ...q, team } : q))));
-  const alone = rows.filter(q => q.team === r.team).length === 1;
-  sheet.show(seatSheet(viewOf(rows, i, ''), seatColor(order.indexOf(i)), {
-    sub: i ? 'computer player' : 'your seat', team: r.team, sides, onDone: () => closeSheet(),
-    onRace: (v) => set('race', v), ...(i ? { onDiff: (v) => set('diff', v), onSide: move, newSide: alone ? null : () => move(freeTeam(rows)) } : {}),
-    buttons: canRemove(rows, i) ? [{ label: 'REMOVE', title: `Remove ${seatName(rows, i)}`, k: 'remove', ghost: true, on: () => { editing = -1; setRows(compact(rows.filter((_, j) => j !== i))); ($('soloBoard').querySelector(`[data-k="tok${i - 1}"]`) || $('btnStart')).focus(); } }] : [],
+  const set = (k, v) => setBoard(board.map((r, j) => (j === i ? { ...r, [k]: v } : r))), r = board[i];
+  sheet.show(seatSheet(viewOf(board, i), seatColor(i), {
+    sub: i ? 'computer player' : 'your seat', team: r.team, sides: sideChoices(board), onDone: () => closeSheet(),
+    onRace: (v) => set('race', v), onSide: (v) => set('team', v), ...(i ? { onDiff: (v) => set('diff', v) } : {}),
+    buttons: canRemove(board, i) ? [{ label: 'REMOVE', title: `Remove ${seatName(i)}`, k: 'remove', ghost: true, on: () => { editing = -1; setBoard(board.map((q, j) => (j === i ? null : q))); ($('soloBoard').querySelector('[data-k="add"]') || $('btnStart')).focus(); } }] : [],
   }), () => closeSheet());
   if (focus) (host.querySelector(`[data-k="${focus}"]`) || host.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || host.querySelector('[data-k="done"]')).focus();
 }
-narrow.addEventListener?.('change', () => { if (menu.rows.length) renderSeats(); });
+narrow.addEventListener?.('change', () => { if (menu.board.length) renderSeats(); });
 
 // A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
 // drawn a pixel per tile (64 or 96 across) and shown at one size. The sim draws the map: until its WASM is in (the menu
@@ -141,15 +137,17 @@ export function drawPreview(cv, i, seed, kind) {
 }
 
 export function initMenu({ onStart }) {
-  // The seats (remembered on this device; a setup that is not a good one: you and an AI), and the maps that seat them.
+  // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
+  // chosen, if it seats them; else the smallest that does; ?seed=: a random one).
   let saved = null; try { saved = JSON.parse(store.get('seats')); } catch { /* none, or not ours */ }
-  menu.rows = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = menu.rows.length;
-  choose(urlSeed !== null ? mapsFor(menu.players).find(i => MAPS[i].random) : mapsFor(menu.players)[0]); renderMaps(); renderSeats(); showRecord();
+  menu.board = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = filled(menu.board).length;
+  const last = store.get('map') === null ? -1 : +store.get('map');
+  choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players)); renderMaps(); renderSeats(); showRecord();
   for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
-    if (oneTeam(menu.rows)) return;
+    if (oneTeam(menu.board)) return;
     sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map);
-    Object.assign(menu, startSetup(menu.rows, draw)); // (the record counts a game at its hardest AI's level: `diff`)
+    Object.assign(menu, startSetup(menu.board, draw)); // (the record counts a game at its hardest AI's level: `diff`)
     menu.race = menu.races[0]; menu.enemyRace = menu.races[1]; onStart();
   });
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
@@ -168,7 +166,7 @@ export function initMenu({ onStart }) {
 export function setup() {
   if (!menu.tutorial) return { ...menu };
   const m = MAPS[0];
-  return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, size: m.size, side: 0, race: 'humans', enemyRace: 'humans', players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [] };
+  return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, size: m.size, side: 0, race: 'humans', enemyRace: 'humans', players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 }
 
 /** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */
@@ -191,7 +189,7 @@ export function guidedDone() { store.set('guided', '1'); }
  *  first game); FIRST GAME there too for a newcomer: nobody has finished a game on this device yet (none on the record,
  *  no guided one). */
 function showRecord() {
-  const r = records(), you = menu.rows[0]?.race || 'humans', diff = menu.rows.length ? enemyLevel(menu.rows) : 0; // (the level a game is counted at)
+  const r = records(), you = menu.board[0]?.race || 'humans', diff = menu.board.length ? enemyLevel(menu.board) : 0; // (the level a game is counted at)
   $('btnFirstHome').hidden = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
   const [w, l] = (you === 'random' ? RACES : [you]).map(k => tally(r, `${k}:${diff}`)).reduce((a, b) => [a[0] + b[0], a[1] + b[1]]);
   const level = DIFF[diff]?.name || '';

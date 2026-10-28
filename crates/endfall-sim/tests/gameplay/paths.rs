@@ -342,8 +342,8 @@ fn units_closing_on_far_buildings_never_starve_a_new_order_of_its_route() {
         .id;
     let target = start(&w, 1);
     let mut spots = Vec::new();
-    for y in (6..122).step_by(9) {
-        for x in (6..122).step_by(9) {
+    for y in (6..122).step_by(8) {
+        for x in (6..122).step_by(8) {
             let open = (y - 1..=y + 1).all(|yy| (x - 1..=x + 1).all(|xx| !w.map.blocked(xx, yy)));
             let far = (x - target.0).abs().max((y - target.1).abs()) > 2 * LONG_SEARCH;
             if open && far && seen[w.map.idx(x, y)] {

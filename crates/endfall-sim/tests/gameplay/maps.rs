@@ -510,14 +510,16 @@ fn start_share(w: &World, b: (i32, i32)) -> (i32, usize, usize, i32, usize, usiz
 
 #[test]
 fn maps_for_more_seats_have_a_fair_start_for_each() {
-    // M4: 96x96 has four starts (the quarter turns of one), 128x128 four or eight (the quarter turns and their mirror
-    // images): every start the same ground, home field and vent, natural expansion and neighbours, all of them in
+    // M4: 96x96 has four starts (the quarter turns of one), 128x128 eight (the quarter turns and their mirror images),
+    // whatever the seats: every start the same ground, home field and vent, natural expansion and neighbours, all of them in
     // walking reach of each other; the seats spread round them, a start nobody takes left free.
     let seeds: u32 = if cfg!(debug_assertions) { 2 } else { 20 };
     for (n, seats, starts) in [
         (96, 4, 4),
         (96, 3, 4),
-        (128, 4, 4),
+        (96, 2, 4),
+        (128, 4, 8),
+        (128, 2, 8),
         (128, 8, 8),
         (128, 6, 8),
     ] {
@@ -600,7 +602,7 @@ fn maps_for_more_seats_have_a_fair_start_for_each() {
 
 #[test]
 fn seats_spread_round_the_starts_and_side_turns_them() {
-    use endfall_sim::map::{max_starts, seat_starts, starts_for};
+    use endfall_sim::map::{max_starts, seat_starts};
     assert_eq!(
         [64, 96, 128].map(|n| max_starts(MapSize::square(n))),
         [2, 4, 8]
@@ -609,20 +611,6 @@ fn seats_spread_round_the_starts_and_side_turns_them() {
         max_starts(MapSize { w: 128, h: 96 }),
         2,
         "a map that is not square"
-    );
-    let sq = MapSize::square;
-    assert_eq!(
-        [
-            (64, 2),
-            (96, 2),
-            (96, 3),
-            (96, 4),
-            (128, 3),
-            (128, 5),
-            (128, 8)
-        ]
-        .map(|(n, s)| starts_for(sq(n), s)),
-        [2, 2, 4, 4, 4, 8, 8]
     );
     assert_eq!(seat_starts(2, 2, 0), [0, 1]);
     assert_eq!(
@@ -678,13 +666,65 @@ fn seats_spread_round_the_starts_and_side_turns_them() {
     for s in 0..4u8 {
         assert_eq!(core(&b, s), core(&a, (s + 1) % 4), "seat {s} one start on");
     }
-    // Two seats on a 96x96 map: the two-start map, sides traded as before.
-    let (a, b) = (
-        seated(31, MapKind::Standard, 96, 2, 0),
-        seated(31, MapKind::Standard, 96, 2, 1),
-    );
-    assert_eq!(a.map.bases.len(), 2);
-    assert_eq!((core(&a, 0), core(&a, 1)), (core(&b, 1), core(&b, 0)));
+}
+
+#[test]
+fn a_map_keeps_all_its_starts_with_fewer_seats() {
+    // The map the menus show is the map played: two seats on a 96x96 or a 128x128 map play its four- or eight-start
+    // layout (the same rock as with every start taken), on opposite starts free for all; the starts nobody took are
+    // free ground. With teams, allies sit side by side and the free starts go between the teams.
+    for (n, k) in [(96, 4usize), (128, 8)] {
+        let full = seated(5, MapKind::Standard, n, k, 0);
+        for side in 0..(2 * k) as u32 {
+            let w = seated(5, MapKind::Standard, n, 2, side);
+            assert_eq!(
+                w.map.rock, full.map.rock,
+                "{n}x{n}, side {side}: the map with all its starts"
+            );
+            assert_eq!(w.map.bases.len(), k, "{n}x{n}: every start listed");
+            assert_eq!(
+                w.bldgs.iter().filter(|b| b.kind.def().hq).count(),
+                2,
+                "{n}x{n}: a Core per seat, none on a free start"
+            );
+            let ring = full.map.bases.clone();
+            let at = |s: u8| {
+                ring.iter()
+                    .position(|&b| b == w.map.bases[s as usize])
+                    .unwrap()
+            };
+            let apart = (at(1) + k - at(0)) % k;
+            assert_eq!(
+                apart,
+                k / 2,
+                "{n}x{n}, side {side}: two seats on opposite starts"
+            );
+        }
+    }
+    // Two against one on the eight starts: the allies side by side, three free starts on each side of the enemy.
+    let races = [&HUMANS, &VAEL, &HUMANS];
+    for side in 0..16u32 {
+        let mut w = World::with_size(5, 1, MapKind::Standard, MapSize::square(128), side, &races);
+        assert!(w.set_teams(&[0, 0, 1]));
+        let full = seated(5, MapKind::Standard, 128, 8, 0);
+        let at = |s: usize| {
+            full.map
+                .bases
+                .iter()
+                .position(|&b| b == w.map.bases[s])
+                .unwrap()
+        };
+        assert_eq!(
+            (at(1) + 8 - at(0)) % 8,
+            1,
+            "side {side}: the allies on neighbouring starts"
+        );
+        let (gap_a, gap_b) = ((at(2) + 8 - at(1)) % 8, (at(0) + 8 - at(2)) % 8);
+        assert!(
+            gap_a >= 3 && gap_b >= 3,
+            "side {side}: the enemy far from both ({gap_a}, {gap_b})"
+        );
+    }
 }
 
 #[test]

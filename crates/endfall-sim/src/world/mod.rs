@@ -167,8 +167,8 @@ impl World {
         World::with_size(seed, diff, map_kind, MapSize::DUEL, side, factions)
     }
 
-    /// `with_seats` on a map of `size` tiles, generated with the starts the seats need (`map::starts_for`: up to 4 on
-    /// 96x96, 8 on 128x128).
+    /// `with_seats` on a map of `size` tiles, generated with every start its size has (`map::max_starts`: 2 on 64x64, 4
+    /// on 96x96, 8 on 128x128), whatever the seats: the map the menus showed, its free starts free ground.
     pub fn with_size(
         seed: u32,
         diff: usize,
@@ -251,7 +251,7 @@ impl World {
         self.hold_waves = false;
         self.alerts.clear();
         self.events.clear();
-        let starts = crate::map::starts_for(self.map_size, self.seats());
+        let starts = crate::map::max_starts(self.map_size);
         self.map = Map::generate(
             seed,
             self.map_kind,

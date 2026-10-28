@@ -4,11 +4,16 @@
 // plays under the game. Units answer orders with short radio chirps, pitched by unit type.
 import { UNIT_VOICE } from './look.js';
 import { speak } from './voice.js';
+import { canSpeak, speakLine, stopSpeech, unlockSpeech } from './speech.js';
 
 let actx = null, master = null, noiseBuf = null, wind = null;
 export const audio = {
   muted: false,
-  voice: 'humans', // the announcer's style: this side's faction key
+  voice: 'humans', // the announcer's race: this side's faction key
+  // The announcer (`say`): off until it has a voice we like (the owner, 2026-10-28); the toasts it goes with stay.
+  // 'device': the device's own voice (speech.js), each race's synth style A where the device has none; 'synth': each
+  // race's synth style A (voice.js STYLES[race]); null: silent. voice-lab.html plays them all.
+  announcer: null,
   quiet: false, // the announcer holds its tongue (a replay shows the game, not its news)
   /** Set by main.js: the camera's view in world px ({ x, y, w, h }), for panning and distance. */
   view: () => null,
@@ -53,6 +58,7 @@ function make() {
  *  it back, until it runs. */
 function wake() {
   if (audio.muted || held) return;
+  if (audio.announcer === 'device') unlockSpeech(); // (iPhone and iPad: speech too starts only in a gesture)
   try {
     if (!actx) make();
     if (unlocked && actx.state === 'running') return;
@@ -83,7 +89,7 @@ function live() {
 export function holdSound(on) {
   if (held === on) return;
   held = on;
-  if (on) { grace = 0; try { actx?.suspend().catch(() => {}); } catch { /* no audio available */ } } else wake();
+  if (on) { grace = 0; stopSpeech(); try { actx?.suspend().catch(() => {}); } catch { /* no audio available */ } } else wake();
 }
 
 /** Where a sound sits: [gain 0..1, pan -1..1] from its world position (none = in the player's ear). */
@@ -159,18 +165,19 @@ const SFX = {
 const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
 const lastGain = {};
 
-/** The announcer (voice.js) in this side's race's voice (`audio.voice`, a faction key): a phrase, at most once per
- *  its gap (an attack every 20 s), muted with the rest. */
+/** The announcer (`audio.announcer`: off, the device's voice or the synth) in this side's race's voice (`audio.voice`,
+ *  a faction key): a phrase, at most once per its gap (an attack every 20 s), muted and held with the rest. */
 const SAY_GAP = { attack: 20000, research: 3000, shards: 2500, ether: 2500 }, said = {};
 let voiceBus = null, busyUntil = 0;
 /** `after`: seconds to wait first (to follow the chime or siren it goes with instead of talking over it). One phrase
  *  at a time: a new one while another plays is dropped. Not while the audio is suspended (an iOS interruption), or
  *  the phrases would all come at once later. */
 export function say(key, after = 0) {
-  if (audio.muted || audio.quiet) return;
+  if (!audio.announcer || audio.muted || audio.quiet) return;
   const now = audio.now();
   if (said[key] !== undefined && now - said[key] < (SAY_GAP[key] ?? 3000)) return;
   if (!live()) return;
+  if (audio.announcer === 'device' && deviceSay(key, after)) { said[key] = now; return; }
   try {
     if (actx.currentTime < busyUntil) return;
     said[key] = now;
@@ -179,6 +186,16 @@ export function say(key, after = 0) {
     const at = actx.currentTime + 0.05 + after;
     busyUntil = at + speak(actx, voiceBus, key, audio.voice, at);
   } catch { /* no audio available */ }
+}
+
+/** The device's voice, if it has one for this race (false: the synth speaks instead). An attack cuts a line still
+ *  speaking; any other line is dropped while one speaks. */
+function deviceSay(key, after) {
+  const style = `${audio.voice}Device`;
+  if (!canSpeak(style)) return false;
+  const go = () => { if (!audio.muted && !audio.quiet && !held) speakLine(key, style, { urgent: key === 'attack' }); };
+  if (after > 0) setTimeout(go, after * 1000); else go();
+  return true;
 }
 
 /**
@@ -214,7 +231,7 @@ function startWind() {
 }
 /** Sound switched on or off: the wind follows; switched on (a click), the context wakes. */
 export function soundToggled() {
-  if (!audio.muted) wake();
+  if (!audio.muted) wake(); else stopSpeech();
   if (audio.muted && voiceBus) { try { voiceBus.gain.setTargetAtTime(0, actx.currentTime, 0.03); busyUntil = 0; } catch { /* no audio */ } } // (a phrase stops mid-word)
   if (audio.muted && wind) { try { wind.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); wind.n.stop(actx.currentTime + 1); wind.lfo.stop(actx.currentTime + 1); } catch { /* already stopped */ } wind = null; }
 }

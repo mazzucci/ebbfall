@@ -135,6 +135,20 @@ test('a seat that leaves before it loaded holds nobody up: the clock starts, its
   assert.equal(got(a, 'away').length, 0, 'nobody waited for it');
 });
 
+test('before the clock, an away seat says whether its game is set up; an early "over" is not heard', () => {
+  const { r, a, b, got } = loading();
+  r.tick(3100);
+  assert.deepEqual(got(a, 'away').map(m => [m.seat, m.loading]), [[1, true]], 'still loading');
+  r.receive(b, { t: 'over' }); // (no game is over before the clock: a buggy or hostile client)
+  r.receive(b, { t: 'loaded' }); r.tick(3200);
+  assert.ok(r.running, 'the clock runs: the "over" did not stop it');
+  assert.equal(r.phase, 'game');
+  const x = room(3); const [p, q, s] = ['p', 'q', 's'].map(x.conn);
+  for (const k of [p, q, s]) { x.r.connect(k, hello()); x.r.receive(k, { t: 'ready', ready: true }); }
+  x.r.receive(p, { t: 'loaded' }); x.r.receive(q, { t: 'loaded' }); x.r.tick(0); x.r.close(q); x.r.tick(100);
+  assert.deepEqual(x.got(p, 'away').map(m => [m.seat, m.loading]), [[1, false]], 'set up, then gone: away, not loading');
+});
+
 test('orders are capped per seat per turn', () => {
   const { r, a, got, clear } = started(); clear();
   for (let i = 0; i < 20; i++) r.receive(a, { t: 'orders', w: [3, i] });

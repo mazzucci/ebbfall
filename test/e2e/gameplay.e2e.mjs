@@ -719,7 +719,10 @@ test('a game that never finishes loading: START GAME waits, BACK calls it off, a
     assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…');
     await page.locator('#btnSoloBack').click();
     assert.ok(await page.locator('#menuHome').isVisible(), 'BACK works while the game loads');
-    await page.locator('#btnAbout').click(); await page.locator('#menuAbout').waitFor(); await page.locator('#btnAboutBack').click();
+    await page.locator('#btnAbout').click(); await page.locator('#menuAbout').waitFor();
+    await page.locator('#btnOffline').click(); // (the service worker is registered once the game's load is over: not yet)
+    await page.waitForFunction(() => /^Not yet\. Stay online/.test(document.getElementById('offlineMsg').textContent), null, { timeout: 10000 });
+    await page.locator('#btnAboutBack').click();
     await page.locator('#btnSolo').click();
     assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the start was called off: the button is itself again');
     assert.ok(await page.locator('#btnStart').isEnabled());

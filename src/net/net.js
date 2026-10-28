@@ -162,7 +162,7 @@ export class Net {
         this.turns.set(m.n, m.o);
         if (!this.running && m.n >= this.delay) { this.running = true; this.on.clock?.(); } // (the turns past the first ones: the clock runs)
         break;
-      case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat); break;
+      case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat, m); break; // (away: m.loading, its game not set up yet)
       case 'desync': this.on.desync?.(m.turn); break;
       case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;
       case 'notice': this.on.notice?.(m); break;

@@ -10,6 +10,7 @@ import { setIconButton } from './client/icons.js';
 import { initScreen } from './client/screen.js';
 import { initMenu, soundChanged } from './client/menu.js';
 import { initOnline, reloadUrl } from './client/online.js';
+import { registered } from './client/offline.js';
 
 // ?bench: the device test plays a game of its own (main.js loads src/client/bench.js), with its own card: no menu.
 const BENCH = new URLSearchParams(location.search).has('bench');
@@ -58,7 +59,7 @@ initOnline({ game: loading });
 // Ebbfall opens and plays without a connection once it has been loaded. Registered once the game's load is over (its
 // install fetches every file again: not while the game's own load still needs the connection), loaded or not.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  const register = () => navigator.serviceWorker.register('./sw.js').catch(() => { /* not available (file://, private mode) */ });
+  const register = () => registered(navigator.serviceWorker.register('./sw.js').catch(() => null)); // (null: not available, file:// or private mode; CHECK OFFLINE says so)
   loading.catch(() => {}).then(() => { if (document.readyState === 'complete') register(); else addEventListener('load', register); });
   // A new version installed while the game is open: out of a game (the menu, the lobby: back into its room), switch to
   // it at once (online, friends must share a version); in a game, say so (it loads next time) rather than interrupt.

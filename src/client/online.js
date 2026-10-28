@@ -41,7 +41,7 @@ export const online = { baked: BAKED_RELAY, net: null, seat: -1, setup: null, pl
 /** The game (main.js `game`): `loading`, its promise (src/boot.js); `game` once it has loaded; `failed` if it could not. */
 let loading = Promise.reject(new Error('not wired')), game = null, failed = false;
 loading.catch(() => {});
-const waitingFor = new Set(); // seats the game waits for
+const waitingFor = new Set(), loadingSeats = new Set(); // seats the game waits for; those of them whose game is not set up yet
 
 /** Wire the lobby. `game`: a promise of main.js's `game` (src/boot.js loads it behind the menu), through which a game
  *  starts (`newOnlineGame`) and ends (`quitToTitle`), a rematch's room comes back (`room`), a room pause begins and
@@ -117,28 +117,38 @@ function connect(room) {
       rematch: (wants) => { online.wants = wants; game?.rematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
       // The game has loaded (READY waits for it); a start that finds it still loading (a seat taken back after a
-      // reload) begins once it has, the lobby up meanwhile. BACK before then gives the game up (stopOnline): the relay
-      // concedes for this seat and nobody waits. A game that could not load gives it up too. A RANDOM seat is drawn
-      // from the room's seed, alike on every client: here, in a file the build hash covers.
+      // reload) begins once it has, the lobby up meanwhile: the room's news meanwhile (who left, a pause, who wants a
+      // rematch: the relay tells a rejoin right after the start) is kept for it. BACK before then gives the game up
+      // (stopOnline): the relay concedes for this seat and nobody waits. A game that could not load keeps the seat
+      // (the Net closed, its token kept: the relay waits within its budget), RELOAD back into the room. A RANDOM seat is
+      // drawn from the room's seed, alike on every client: here, in a file the build hash covers.
       start: (setup, seat, m) => {
+        online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup;
+        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
+        online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
         const net = online.net;
         loading.then((g) => {
           if (online.net !== net) return;
-          online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup; online.playing = true; $('online').hidden = true;
-          online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
-          online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
+          online.playing = true; $('online').hidden = true;
           g.newOnlineGame(setup, seat, seatRaces(setup.races, setup.seed, Object.keys(FACTIONS))); net.loaded();
+          if (online.hold) g.pause(); // (a room pause on already: its card)
           slowLoad = false; clearTimeout(slowTimer); slowTimer = setTimeout(() => { slowLoad = true; waitLine(); }, 1500); // (no turns yet: the others still load)
-        }, () => { if (online.net === net) { stopOnline(); status(LOAD_FAILED); } });
+          waitLine();
+        }, () => {
+          if (online.net !== net) return;
+          joining = net.room || joining; net.close(); online.net = null; // (RELOAD: reloadUrl, back into this room with the seat's token)
+          status(LOAD_FAILED); readyButton();
+        });
       },
       clock: () => waitLine(), // (the relay's clock runs: everyone has loaded)
-      away: (s) => { if (s !== online.seat) { waitingFor.add(s); waitLine(); } },
-      back: (s) => { if (waitingFor.delete(s)) { waitLine(); toast(`${Who(s)} is back`); } },
-      left: (s) => { if (s !== online.seat) { online.gone.add(s); waitingFor.delete(s); waitLine(); toast(`${Who(s)} left the game`, true, true); game?.rematch(false, false); } },
+      away: (s, m) => { if (s !== online.seat) { waitingFor.add(s); if (m?.loading) loadingSeats.add(s); else loadingSeats.delete(s); waitLine(); } },
+      back: (s) => { loadingSeats.delete(s); if (waitingFor.delete(s)) { waitLine(); if (online.playing) toast(`${Who(s)} is back`); } },
+      left: (s) => { if (s !== online.seat) { online.gone.add(s); waitingFor.delete(s); loadingSeats.delete(s); waitLine(); if (online.playing) toast(`${Who(s)} left the game`, true, true); game?.rematch(false, false); } }, // (not over the lobby of a game still loading: the game says it)
       // A room pause: the relay's clock stops for everyone (who paused, its time left); it ends when they resume it, or
       // its time runs out (seat -1).
-      pause: (m) => { if (!online.playing) return; online.hold = { seat: m.seat, until: performance.now() + Math.max(0, m.ms || 0) }; online.left = m.left; waitLine(); game?.pause(); },
-      resume: (s) => { if (!online.hold) return; online.hold = null; waitLine(); game?.resume(s); },
+      // (heard while the game still loads: kept, and its card opens once the game is up)
+      pause: (m) => { if (!online.setup) return; online.hold = { seat: m.seat, until: performance.now() + Math.max(0, m.ms || 0) }; online.left = m.left; waitLine(); if (online.playing) game?.pause(); },
+      resume: (s) => { if (!online.hold) return; online.hold = null; waitLine(); if (online.playing) game?.resume(s); },
       desync: () => fatal('Out of sync: the game cannot go on'),
       error: (m) => {
         if (online.playing) { fatal(m.code === 'noroom' ? 'The room is gone: this game is over' : String(m.msg || 'The connection was lost')); return; }
@@ -146,7 +156,7 @@ function connect(room) {
         $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version' && m.code !== 'update'; // (another build: UPDATE)
       },
       status: (s) => {
-        if (s === 'online') waitingFor.clear(); // (seated again: the relay tells who is still away next)
+        if (s === 'online') { waitingFor.clear(); loadingSeats.clear(); } // (seated again: the relay tells who is still away next)
         if (online.playing) { reconnecting = s === 'reconnecting'; waitLine(); }
         else if (s === 'reconnecting' && online.seat >= 0) status('Reconnecting…'); // (the room keeps this seat meanwhile; its lobby says the rest)
       },
@@ -171,7 +181,7 @@ let reconnecting = false, over = '', slowLoad = false, slowTimer = 0;
 function waitLine() {
   // (a room pause says itself, on the pause card: nobody is waited for meanwhile)
   const loads = online.playing && !online.net?.running;
-  const text = over || (reconnecting ? 'Reconnecting…' : waitingFor.size && !online.hold ? `Waiting for ${[...waitingFor].map(who).join(', ')}${loads ? ' to load' : ''}…` : loads && slowLoad ? 'Waiting for the others to load…' : '');
+  const text = over || (reconnecting ? 'Reconnecting…' : waitingFor.size && !online.hold ? `Waiting for ${[...waitingFor].map(s => who(s) + (loadingSeats.has(s) ? ' to load' : '')).join(', ')}…` : loads && slowLoad ? 'Waiting for the others to load…' : '');
   $('netWait').hidden = !text; $('netWait').firstChild.textContent = text; $('btnNetMenu').hidden = !over;
 }
 /** The game cannot go on (a desync, this screen replaced by another): say so, stop, and offer the menu. */
@@ -186,7 +196,7 @@ export const theyWant = () => (online.wants || []).some((w, s) => w && s !== onl
 /** After a game, the room again (a rematch): the same seats, ready again. */
 function backToRoom() {
   online.playing = false; online.setup = null; online.ready = false; online.rematch = false; online.hold = null;
-  waitingFor.clear(); reconnecting = false; over = ''; slowLoad = false; clearTimeout(slowTimer); waitLine();
+  waitingFor.clear(); loadingSeats.clear(); reconnecting = false; over = ''; slowLoad = false; clearTimeout(slowTimer); waitLine();
   game?.room();
   $('online').hidden = false; $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; $('btnOnlineReload').hidden = true;
 }
@@ -290,5 +300,5 @@ async function share() {
 export function stopOnline() {
   const net = online.net;
   if (net && !net.leaving) { if (online.playing) net.close(); else if (!net.closed) { net.leave(); if (net.room) seatToken.del(net.room); } } // (given up: a quick rejoin is a new seat, not a fight over this one)
-  waitingFor.clear(); reconnecting = false; over = ''; slowLoad = false; clearTimeout(slowTimer); waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear();
+  waitingFor.clear(); loadingSeats.clear(); reconnecting = false; over = ''; slowLoad = false; clearTimeout(slowTimer); waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear();
 }

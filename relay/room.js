@@ -18,7 +18,8 @@
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id} (answered even after a lobby leave: the leaver's
 // confirmation that its leave arrived). Relay -> client: seat, lobby {map, diff, teams, seats: [{name,
 // race, ready, here, ai}]}, start {setup: {seed, map, side, races, names, teams, ai, diff}, delay, from, left: [pauses left per seat]},
-// turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
+// turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away {seat, loading} (loading: before the clock, its
+// game not set up yet), back/left {seat}, desync {turn}, error
 // {code, msg}, pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
 //
 // The lobby holds a seat whose connection is gone (a phone that switched apps to send the code, a reload): the seat
@@ -101,7 +102,7 @@ export class Room {
       const from = Number.isInteger(hello.next) && hello.next >= 0 ? hello.next : 0;
       this.send(conn, { t: 'start', setup: this.setup, delay: DELAY, from, left: this.pausesLeft() });
       for (const b of this.log) if (b.n >= from) this.send(conn, { t: 'turn', ...b });
-      this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, { t: 'away', seat: i }); });
+      this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, this.awayMsg(i)); });
       // (it is back once its acks show it has caught up)
       s.goneSince = 0;
       this.send(conn, this.hold ? this.pauseMsg() : { t: 'resume', seat: -2 }); // (told whether a pause is on: one may have ended while it was gone)
@@ -134,7 +135,7 @@ export class Room {
     if (msg.t === 'rematch' && this.phase !== 'lobby' && !s.left) { s.rematch = !!msg.want; this.rematchState(); return; }
     // Its game is over (the clients know; the relay does not): once every seat's is, the clock stops and nobody is
     // away any more, only here or gone (a rematch waits for the seats still here).
-    if (msg.t === 'over' && this.phase === 'game' && !s.left) {
+    if (msg.t === 'over' && this.phase === 'game' && !s.left && this.running) { // (no game can be over before the clock: a client that says so is not heard)
       s.over = true; if (s.awaySince) this.back(seat); // (out and watching: nobody waits for it)
       if (this.seats.every(x => x.ai || x.left || x.over)) { this.phase = 'over'; this.hold = null; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
       return;
@@ -311,7 +312,9 @@ export class Room {
   }
   bundle(n, o) { const b = { n, o }; this.log.push(b); this.each({ t: 'turn', ...b }); }
   away(seat) { const s = this.seats[seat]; if (s.awaySince || s.left || s.over) return; // (a seat whose game is over is not waited for)
-    s.awaySince = this.now || 1; this.each({ t: 'away', seat }); }
+    s.awaySince = this.now || 1; this.each(this.awayMsg(seat)); }
+  /** A seat is away (`loading`: its game is not set up yet, before the clock runs). */
+  awayMsg(seat) { return { t: 'away', seat, loading: !this.running && !this.seats[seat].loaded }; }
   back(seat) { const s = this.seats[seat]; if (!s.awaySince) return; if (!this.hold) s.away += Math.max(0, this.now - s.awaySince); s.awaySince = 0; this.each({ t: 'back', seat }); } // (back during a pause: its time is nobody's)
   leave(seat) {
     const s = this.seats[seat]; if (s.left) return; s.left = true; s.awaySince = 0;

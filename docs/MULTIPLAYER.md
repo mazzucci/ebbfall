@@ -26,7 +26,10 @@ client sends is stamped by the relay into turn `current + D` (D: the input delay
 slow link from the measured round trip). The closed turn's bundle `{turn, [seat, cmds]...}` goes to everyone.
 Clients send only when they have orders, plus an ack every 3 turns (the last turn run; with the state hash at the
 latest checkpoint turn, every 10th, compared whenever each seat gets there). The clock starts once every client has
-loaded the game, and a seat is away after 3 s without an ack.
+loaded the game (or left), and a seat is away after 3 s without an ack. A seat still loading 3 s after the start, or
+gone before it loaded, is away too (the others see whom they wait for), on its budget: one that never loads is conceded
+and the others play on. The client's READY waits until its game has loaded (src/boot.js loads it behind the menu), so
+a start finds every game ready.
 A client runs turns from a small buffer, a little behind the relay's clock, and catches up when behind (several
 turns a frame). The relay slows its clock when a seat's acks lag behind (a slow phone) and stops it when a seat is
 away (below), so nobody runs ahead. One phone's 4G hiccup costs that phone a stutter, not everyone a freeze.

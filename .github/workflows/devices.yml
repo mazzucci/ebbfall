@@ -1,0 +1,172 @@
+# The game on phones and tablets: an iPad and an iPhone (Safari) and a Pixel (Chrome) load the site, start a single-player
+# game through the menu, tap the sound and full-screen buttons and say what the page reports (tools/devices). On
+# BrowserStack's real devices once the BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY secrets are set; until then on
+# GitHub's own machines: Apple's iOS Simulator on macOS (Safari through Appium) and an Android emulator on Linux.
+# By hand (Actions > Devices > Run workflow) and once a week. Screenshots, summary.json and the session links are the
+# run's artifacts and its summary page.
+name: Devices
+
+on:
+  workflow_dispatch:
+    inputs:
+      devices:
+        description: 'Devices, comma-separated: ipad, iphone, pixel'
+        type: string
+        default: ipad,iphone,pixel
+      url:
+        description: The site to check
+        type: string
+        default: https://ebbfall.com/
+  schedule:
+    - cron: '17 6 * * 1' # Mondays, 06:17 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devices
+  cancel-in-progress: false
+
+env:
+  DEVICES_URL: ${{ inputs.url || 'https://ebbfall.com/' }}
+
+jobs:
+  # Which backend, and which devices go to which job.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      backend: ${{ steps.plan.outputs.backend }}
+      all: ${{ steps.plan.outputs.all }}
+      ios: ${{ steps.plan.outputs.ios }}
+      android: ${{ steps.plan.outputs.android }}
+    steps:
+      - id: plan
+        env:
+          BS_USER: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          WANT: ${{ inputs.devices || 'ipad,iphone,pixel' }}
+        run: |
+          pick() { echo "$WANT" | tr ', ' '\n\n' | grep -xE "$1" | paste -sd, - ; }
+          if [ -n "$BS_USER" ] && [ -n "$BS_KEY" ]; then
+            echo "backend=browserstack" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No BrowserStack secrets (BROWSERSTACK_USERNAME, BROWSERSTACK_ACCESS_KEY): checking on the iOS Simulator and an Android emulator instead"
+            echo "backend=simulator" >> "$GITHUB_OUTPUT"
+          fi
+          echo "all=$(pick 'ipad|iphone|pixel')" >> "$GITHUB_OUTPUT"
+          echo "ios=$(pick 'ipad|iphone')" >> "$GITHUB_OUTPUT"
+          echo "android=$(pick 'pixel')" >> "$GITHUB_OUTPUT"
+
+  # Real devices on BrowserStack Automate (Playwright, tools/devices/drivers.mjs).
+  browserstack:
+    needs: plan
+    if: needs.plan.outputs.backend == 'browserstack' && needs.plan.outputs.all != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Smoke on real devices
+        timeout-minutes: 25
+        run: node tools/devices/smoke.mjs
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          DEVICES: ${{ needs.plan.outputs.all }}
+          DEVICES_BACKEND: browserstack
+          DEVICES_OUT: devices-out
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: devices-browserstack
+          path: devices-out
+          if-no-files-found: ignore
+
+  # Safari on Apple's iOS Simulator, through Appium's XCUITest driver (WebDriver; native taps count as the user's).
+  ios:
+    needs: plan
+    if: needs.plan.outputs.backend == 'simulator' && needs.plan.outputs.ios != ''
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Appium and its XCUITest driver
+        timeout-minutes: 10
+        run: |
+          npm install -g appium@3
+          appium driver install xcuitest
+      - name: Start Appium
+        timeout-minutes: 3
+        run: |
+          appium --port 4723 --log "$RUNNER_TEMP/appium.log" --log-timestamp &
+          for i in $(seq 90); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 2; done
+          echo "Appium did not start"; cat "$RUNNER_TEMP/appium.log"; exit 1
+      - name: Smoke on the iOS Simulator
+        timeout-minutes: 30
+        run: |
+          xcrun simctl list runtimes
+          node tools/devices/smoke.mjs
+        env:
+          DEVICES: ${{ needs.plan.outputs.ios }}
+          DEVICES_BACKEND: simulator
+          DEVICES_OUT: devices-out
+          WDA_DERIVED_DATA: ${{ runner.temp }}/wda # (WebDriverAgent built once, for both simulators)
+      - name: Keep Appium's log
+        if: always()
+        run: mkdir -p devices-out && cp "$RUNNER_TEMP/appium.log" devices-out/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: devices-ios-simulator
+          path: devices-out
+          if-no-files-found: ignore
+
+  # Chrome on an Android emulator (a Play Store image: it has Chrome), through Playwright over adb.
+  android:
+    needs: plan
+    if: needs.plan.outputs.backend == 'simulator' && needs.plan.outputs.android != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Smoke on an Android emulator
+        timeout-minutes: 30
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DEVICES: ${{ needs.plan.outputs.android }}
+          DEVICES_BACKEND: emulator
+          DEVICES_OUT: devices-out
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: node tools/devices/smoke.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: devices-android-emulator
+          path: devices-out
+          if-no-files-found: ignore

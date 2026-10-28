@@ -28,14 +28,19 @@ npm run sim        # scripted 10-minute game per difficulty on the Rust sim, pri
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and
-                   # a browser: npx playwright-core install chromium)
+                   # a browser: npx playwright-core install chromium); ENDFALL_ENGINE=webkit or firefox runs the
+                   # cross-engine subset there (Firefox under xvfb-run on Linux: WebGL needs a display)
+node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
+                             # Android emulator or BrowserStack's real devices
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
                              # the 3D part needs a Chromium, see docs/ART.md)
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
 ```
 
-CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test` and `npm run build` on
-every pull request, and publishes `main` to GitHub Pages: https://ebbfall.com/
+CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
+browser tests (all in Chromium, the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
+`main` to GitHub Pages: https://ebbfall.com/. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
+iPad, an iPhone and a Pixel (docs/MULTIPLAYER.md, "Browsers and devices").
 
 A change to the simulation must keep `cargo test` and `npm test` green, in particular the determinism tests (same seed
 and commands produce the same `stateHash()`), and every rule change needs a scenario in the gameplay tests.
@@ -113,14 +118,15 @@ test/engine.test.js   the WASM sim through src/engine in Node: presentation of e
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
-test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
+test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`
+                      for the cross-engine subset and `chromium: 'why'` for Chromium-only), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, rooms of three and six with AI seats, eight seats
                       on a small phone),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
-                      selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
+                      selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
                       CHECK OFFLINE against the real service worker, the app icons)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed
                       install; the manifest's app icons
@@ -137,6 +143,10 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it once the token is set);
                       bench.js, the device test's reports over HTTP (POST /bench, GET /bench/<CODE>), in both
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
+tools/engines.mjs     the e2e tests' engine (ENDFALL_ENGINE: chromium, webkit, firefox) and its device profiles
+tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad, iPhone, Pixel per backend), drivers.mjs
+                      (BrowserStack, iOS Simulator through Appium, Android emulator, local Playwright, any WebDriver),
+                      webdriver.mjs (a fetch-only W3C client), smoke.mjs (the steps, screenshots, summary.json); README.md
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js)
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
 scripts/headless.js   scripted bot-vs-AI run for balance checks
@@ -226,6 +236,7 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 ## Testing a change by hand
 
 `npm run dev`, open the URL, Medium difficulty. `window.endfall` in the console exposes `G`, `ui`, the camera and
-`setResources` for poking at a running game (scripted playtests use it too). A sanity run: select harvesters, `B` then `D`, place a Depot near the
+`setResources` for poking at a running game (scripted playtests use it too), and `status()` (the audio context's
+state, full screen, the page's errors since it opened; the device checks read it). A sanity run: select harvesters, `B` then `D`, place a Depot near the
 Core, train Troopers from a Garrison, `A`-move into the enemy base on the far side of the map. On a phone on the same
 network, open the LAN URL Vite prints (touch controls: tap/drag to select, tap to command, two fingers to pan).

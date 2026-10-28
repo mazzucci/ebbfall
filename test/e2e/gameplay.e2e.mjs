@@ -1743,12 +1743,12 @@ test('phone: while placing, the ghost appears under the finger and follows it; l
   } finally { await d.close(); }
 });
 
-test('the menu fits a small phone on every page (the first with the iPhone tip shown), each heading in view', async () => {
+test('the menu fits a small phone on every page (the first with its record and PLAY OFFLINE\'s answer), each heading in view', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
-    await page.evaluate(() => { document.getElementById('iosTip').hidden = false; });
+    await page.evaluate(() => { document.getElementById('record').textContent = 'Easy: 3 won · 1 lost'; document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
     const fits = async (card, heading, what) => {
       const sc = await page.locator(card).evaluate(e => [e.scrollHeight, e.clientHeight]), top = (await page.locator(heading).boundingBox()).y;
       assert.ok(top >= 0, `${what}: the heading in view: ${top}`);
@@ -1768,13 +1768,13 @@ test('the menu fits a small phone on every page (the first with the iPhone tip s
   } finally { await ctx.close(); }
 });
 
-test('the first page: the name in title case over the shore, whose tide lines keep below the content (the iPhone tip too), go with the page and stand still under reduced motion', async () => {
+test('the first page: the name in title case over the shore, whose tide lines keep below the content (a record and PLAY OFFLINE's answer too), go with the page and stand still under reduced motion', async () => {
   for (const [w, h, reducedMotion, tip] of [[844, 390, 'no-preference', false], [667, 375, 'no-preference', false], [412, 915, 'reduce', false], [932, 430, 'no-preference', true], [568, 320, 'no-preference', true]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h }, reducedMotion }), page = await ctx.newPage();
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      if (tip) await page.evaluate(() => { document.getElementById('iosTip').hidden = false; document.getElementById('record').textContent = 'RECORD 3 WINS - 1 LOSS'; });
+      if (tip) await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; document.getElementById('record').textContent = 'RECORD 3 WINS - 1 LOSS'; });
       assert.equal(await page.locator('#menuHome h1').textContent(), 'Ebbfall', 'the title');
       const ebbs = () => page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb').length);
       const shore = page.locator('#menuHome .shore');

@@ -6,7 +6,7 @@ import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { icon, setIconButton } from './icons.js';
 import { store } from './store.js';
-import { isFull, toggleFullscreen, canGoFullscreen, homeScreenOnly, homeScreenDevice } from './screen.js';
+import { isFull, toggleFullscreen, canGoFullscreen, homeScreenOnly } from './screen.js';
 
 /** The sound on or off, from either pair: saved, and both pairs say so. */
 function toggleSound() {
@@ -35,11 +35,20 @@ function syncFull() {
   }
 }
 
-/** The Add to Home Screen card (the full-screen button here, and INSTALL: offline.js). */
-export function showHomeTip() { $('homeTip').hidden = false; $('btnHomeTipOk').focus(); }
-const hideHomeTip = () => { $('homeTip').hidden = true; };
+/** The Add to Home Screen card (the full-screen button here, and INSTALL: offline.js); closed, the focus goes back to
+ *  the button that opened it. */
+let opener = null;
+export function showHomeTip() { opener = document.activeElement; $('homeTip').hidden = false; $('btnHomeTipOk').focus(); }
+const hideHomeTip = () => { $('homeTip').hidden = true; if (opener?.isConnected && opener.offsetParent !== null) opener.focus(); opener = null; };
 
-/** Wire both pairs and the Home Screen card (and the first page's iPhone tip). */
+/** `overlay-open` on the root while any screen or card is up (style.css: the corner then, the top bar's pair otherwise). */
+function watchScreens() {
+  const sync = () => document.documentElement.classList.toggle('overlay-open', !!document.querySelector('.screen:not([hidden])'));
+  new MutationObserver(sync).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
+  sync();
+}
+
+/** Wire both pairs and the Home Screen card. */
 export function initCorner() {
   if (store.get('muted') === '1') audio.muted = true;
   for (const b of [$('btnSound'), $('cornerSound')]) b.addEventListener('click', toggleSound);
@@ -48,5 +57,5 @@ export function initCorner() {
   syncSound(); syncFull();
   $('btnHomeTipOk').addEventListener('click', hideHomeTip);
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('homeTip').hidden) { e.preventDefault(); e.stopImmediatePropagation(); hideHomeTip(); } }, true);
-  if (homeScreenOnly && homeScreenDevice === 'iPhone') $('iosTip').hidden = false; // (iPhone: said on the first page too)
+  watchScreens();
 }

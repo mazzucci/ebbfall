@@ -11,6 +11,7 @@ after(stop);
 
 const PORTRAIT = { ...PHONE, viewport: { width: 412, height: 915 } };
 const SMALL = { ...PHONE, viewport: { width: 667, height: 375 } };
+const TINY = { ...PHONE, viewport: { width: 568, height: 320 } };
 const IPAD = { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   userAgent: 'Mozilla/5.0 (iPad; CPU OS 26_6_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/151.0.7922.57 Mobile/15E148 Safari/604.1' };
 const IPAD_SAFARI = { ...IPAD, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15' };
@@ -43,15 +44,25 @@ async function open(device, ...inits) {
   return { ctx, page, errors, press, shown, close: () => ctx.close() };
 }
 
-/** What overlaps the corner: the controls of what is on screen (and, for a card over the game, the card itself). */
+/** What overlaps the corner: the controls of what is on screen (and, for a card over the game, the card itself), at
+ *  every scroll of a card taller than the screen (its top, its bottom and between). */
 const underCorner = (page, scope, card = '') => page.evaluate(([scope, card]) => {
   const c = document.getElementById('corner').getBoundingClientRect();
   const hit = (r) => r.width > 0 && r.height > 0 && r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top;
-  const els = [...document.querySelectorAll(`${scope} :is(button,a,input,select,canvas,h1,h2,[role=radio])`)].filter(e => e.offsetParent !== null && !e.hidden);
   const box = (e) => { if (!/^H\d$/.test(e.tagName)) return e.getBoundingClientRect(); const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect(); }; // (a heading: its words, not its line)
-  const got = els.filter(e => hit(box(e))).map(e => e.id || e.textContent.trim().slice(0, 20));
-  if (card && hit(document.querySelector(card).getBoundingClientRect())) got.push(`the card ${card}`);
-  return { got, corner: [c.left, c.top, c.width, c.height].map(Math.round) };
+  const got = new Set();
+  const look = () => {
+    const els = [...document.querySelectorAll(`${scope} :is(button,a,input,select,canvas,h1,h2,[role=radio])`)].filter(e => e.offsetParent !== null && !e.hidden);
+    for (const e of els) if (hit(box(e))) got.add(e.id || e.textContent.trim().slice(0, 20));
+    if (card && hit(document.querySelector(card).getBoundingClientRect())) got.add(`the card ${card}`);
+  };
+  const scrollers = [...document.querySelectorAll('.card')].filter(e => e.offsetParent !== null && e.scrollHeight > e.clientHeight + 1);
+  look();
+  for (const sc of scrollers) {
+    for (let y = 0; y <= sc.scrollHeight - sc.clientHeight + sc.clientHeight / 3; y += sc.clientHeight / 3) { sc.scrollTop = y; look(); }
+    sc.scrollTop = 0;
+  }
+  return { got: [...got], corner: [c.left, c.top, c.width, c.height].map(Math.round), scrolled: scrollers.length };
 }, [scope, card]);
 
 /** The corner is up, one pair on screen, a finger wide each, clear of `scope`'s controls (and `card`). */
@@ -72,7 +83,7 @@ async function topBarOn(o, what) {
   assert.ok(await o.shown('#btnSound') && await o.shown('#btnFull'), `${what}: the top bar's pair`);
 }
 
-for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrait', PORTRAIT], ['small phone', SMALL]]) {
+for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrait', PORTRAIT], ['small phone', SMALL], ['smallest phone', TINY]]) {
   test(`${label}: the corner on every menu page, the lobby and every card over the game; the top bar's pair in the game`, async () => {
     const o = await open(device);
     const { page, press, shown } = o;
@@ -128,7 +139,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
   });
 }
 
-test('desktop and Android: full screen in and out from the corner; PAUSE leaves it, BACK TO GAME restores it; the player\'s choice to leave wins until the button again', async () => {
+test('desktop and Android: full screen in and out from the corner; PAUSE leaves it, BACK TO GAME restores it; leaving with the button wins until the button again, a system exit does not', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const o = await open(device, () => {
       window.fsAsked = 0;
@@ -163,17 +174,24 @@ test('desktop and Android: full screen in and out from the corner; PAUSE leaves 
       assert.equal(await fs(), 'true,3', 'in with the button');
       await press('#btnPause'); await press('#btnResume');
       assert.equal(await fs(), 'true,4', 'BACK TO GAME restores it again');
-      // Out by the system (Esc, the gesture): the player's choice too.
+      // Out by the system (Esc, the back gesture, the page in the background): not a choice.
       await page.evaluate(() => window.systemExit());
       await press('#btnPause'); await press('#btnResume');
-      assert.equal(await fs(), 'false,4', 'a system exit: BACK TO GAME leaves it out');
+      assert.equal(await fs(), 'false,4', 'a system exit: not full screen when paused, so not after either');
       await press('#btnPause'); await press('#btnQuit'); await startGame();
-      assert.equal(await fs(), 'false,4', 'START too');
+      assert.equal(await fs(), 'true,5', 'but START goes back in');
+      await press('#btnPause'); // (out: PAUSE's own exit)
+      await press('#cornerFull');
+      assert.equal(await fs(), 'true,6', 'in from the corner, over the pause card');
+      await press('#cornerFull');
+      assert.equal(await fs(), 'false,6', 'and out with it: a choice');
+      await press('#btnQuit'); await startGame();
+      assert.equal(await fs(), 'false,6', 'START leaves it out');
       await press('#btnPause'); await press('#btnQuit');
       await press('#cornerFull');
-      assert.equal(await fs(), 'true,5', 'the corner\'s button clears it');
-      await press('#cornerFull'); await press('#cornerFull');
-      assert.equal(await fs(), 'true,6', 'out and in from the corner');
+      assert.equal(await fs(), 'true,7', 'the corner\'s button clears it');
+      await startGame();
+      assert.equal(await fs(), 'true,7', 'START: in already');
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }
   }
@@ -184,7 +202,6 @@ test('iPad (Safari and Chrome): the page never goes full screen; the button says
     const o = await open(device, COUNT_FULL, TOUCH_POINTS);
     const { page, press, shown } = o;
     try {
-      assert.ok(await page.locator('#iosTip').isHidden(), 'not the iPhone\'s line');
       await cornerOn(o, 'home', '#menuHome');
       await press('#cornerFull');
       assert.ok(await shown('#homeTip'), 'the Home Screen card');
@@ -192,6 +209,7 @@ test('iPad (Safari and Chrome): the page never goes full screen; the button says
       await cornerOn(o, 'the Home Screen card', '#homeTip', '#homeTip .card');
       await press('#btnHomeTipOk');
       assert.ok(await page.locator('#homeTip').isHidden(), 'OK closes it');
+      assert.equal(await page.evaluate(() => document.activeElement?.id), 'cornerFull', 'the focus back on the button that opened it');
       await press('#btnSolo'); await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
       assert.equal(await page.evaluate(() => window.fsAsked), 0, 'START does not ask for full screen');
@@ -218,11 +236,11 @@ test('iPad (Safari and Chrome): the page never goes full screen; the button says
   } finally { await o.close(); }
 });
 
-test('iPhone (no full-screen API): the button opens the same card, and the first page keeps its line', async () => {
+test('iPhone (no full-screen API): the button opens the same card; no line of its own on the first page', async () => {
   const o = await open(IPHONE, NO_FULL);
   const { page, press, shown } = o;
   try {
-    assert.ok(await shown('#iosTip'), 'the first page\'s iPhone line');
+    assert.equal(await page.locator('#iosTip').count(), 0, 'one design: INSTALL and the card say it');
     await cornerOn(o, 'home', '#menuHome');
     await press('#cornerFull');
     assert.match(await page.locator('#homeTip').textContent(), /Add Ebbfall to your Home Screen: tap Share/);
@@ -235,4 +253,52 @@ test('iPhone (no full-screen API): the button opens the same card, and the first
     await press('#btnHomeTipOk');
     assert.deepEqual(o.errors, []);
   } finally { await o.close(); }
+});
+
+/** Full screen stood in for (a headless browser's real one resizes the page under the test), and an exit by the system. */
+const FAKE_FULL = () => {
+  window.fsAsked = 0;
+  Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+  Element.prototype.requestFullscreen = async function () { window.fs = true; window.fsAsked++; document.dispatchEvent(new Event('fullscreenchange')); };
+  document.exitFullscreen = async () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); };
+  window.systemExit = () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); };
+};
+
+test('a replay: PAUSE leaves full screen, DONE goes back in to the end card; REMATCH goes full screen as START does', async () => {
+  const o = await open(PHONE, FAKE_FULL);
+  const { page, press } = o;
+  const fs = () => page.evaluate(() => `${!!window.fs},${window.fsAsked}`);
+  try {
+    await press('#btnSolo'); await press('#btnStart');
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+    assert.equal(await fs(), 'true,1');
+    await page.evaluate(() => { endfall.skip(5); endfall.engine.concede(); }); // (a short game: a replay of it, untouched by set-up calls)
+    await page.locator('#end').waitFor({ state: 'visible', timeout: 10000 });
+    await press('#btnWatch');
+    await page.locator('#replayBar').waitFor();
+    await press('#btnPause');
+    assert.ok(await page.locator('#btnPauseDone').isVisible());
+    assert.equal(await fs(), 'false,1', 'PAUSE leaves it');
+    await press('#btnPauseDone');
+    await page.locator('#end').waitFor();
+    assert.equal(await fs(), 'true,2', 'DONE: back to the end card, full screen again');
+    await page.evaluate(() => window.systemExit());
+    await press('#btnRematch');
+    await page.waitForFunction(() => !endfall.G.over && document.getElementById('end').hidden);
+    assert.equal(await fs(), 'true,3', 'REMATCH goes back in (a system exit is no choice)');
+    assert.deepEqual(o.errors, []);
+  } finally { await o.close(); }
+});
+
+test('an installed app: the button where it can do something (a standalone window), not where the app is full screen already', async () => {
+  const mode = (m) => new Function(`const q = window.matchMedia.bind(window); window.matchMedia = (s) => (/display-mode/.test(s) ? { matches: ${m === 'fullscreen' ? '/fullscreen/.test(s)' : '/standalone/.test(s)'}, media: s, addEventListener() {}, removeEventListener() {} } : q(s));`);
+  for (const [m, shown] of [['standalone', true], ['fullscreen', false]]) {
+    const o = await open(PHONE, FAKE_FULL, mode(m));
+    try {
+      assert.equal(await o.shown('#cornerFull'), shown, `display-mode ${m}`);
+      if (shown) { await o.press('#cornerFull'); assert.equal(await o.page.evaluate(() => window.fs), true, 'and it goes full screen'); }
+      assert.ok(await o.shown('#cornerSound'));
+      assert.deepEqual(o.errors, []);
+    } finally { await o.close(); }
+  }
 });

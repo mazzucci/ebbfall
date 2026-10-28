@@ -6,7 +6,10 @@ const root = document.documentElement, ua = navigator.userAgent;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
 export const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 export const touchDevice = matchMedia('(pointer: coarse)').matches;
+/** Opened as an installed app (the Home Screen's, or a browser's install). */
 export const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+/** Opened full screen already: an installed app that runs full screen (manifest.webmanifest asks for it). */
+const appFull = matchMedia('(display-mode: fullscreen)').matches || !!navigator.standalone;
 // Whether the page's own full screen (the Fullscreen API) works for a game here. Not in WebKit on iPad (Safari, and
 // every iPad browser, WebKit underneath; iPadOS Safari says Macintosh, with touch): in a page's full screen tapped a
 // lot it asks "exit full screen? the website may be showing a fake keyboard" or leaves by itself, a guard against
@@ -15,43 +18,33 @@ export const standalone = matchMedia('(display-mode: fullscreen), (display-mode:
 const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 const ios = ipad || /iPhone|iPod/.test(ua);
 export const pageFullscreenWorks = canFullscreen && !ios;
-/** The full-screen button opens the Add to Home Screen card instead (not in the Home Screen app: full screen already). */
-export const homeScreenOnly = !standalone && (ios || (!canFullscreen && touchDevice));
-/** The device the card names. */
-export const homeScreenDevice = ipad ? 'iPad' : 'iPhone';
-/** The full-screen button goes in and out (not needed when launched from the home screen). */
-export const canGoFullscreen = pageFullscreenWorks && !standalone;
+/** Page full screen does not work here, and the browser can add the game to the Home Screen (iPad, iPhone; not once
+ *  added): the full-screen button and INSTALL open the card that says how. */
+export const homeScreenOnly = ios && !standalone;
+/** The full-screen button goes in and out (not in an app that opened full screen). */
+export const canGoFullscreen = pageFullscreenWorks && !appFull;
 
-// The player's choice wins: leaving full screen on purpose (the full-screen button, Esc, the system's gesture: any exit
-// this page did not ask for) means no automatic entry (START, FIRST GAME, READY, BACK TO GAME) for the rest of the
-// visit, until the button goes full screen again. Kept in memory only. PAUSE's own exit is not the player's choice.
-let declined = false, ours = false, was = isFull();
-function changed() {
-  const now = isFull(); if (now === was) return; // (WebKit may tell twice: prefixed and not)
-  was = now;
-  if (!now && !ours) declined = true;
-  if (!now) ours = false;
-}
-document.addEventListener('fullscreenchange', changed); document.addEventListener('webkitfullscreenchange', changed);
+// The player's choice wins: leaving full screen with the full-screen button means no automatic entry (START, FIRST
+// GAME, REMATCH, READY, BACK TO GAME) for the rest of the visit, until the button goes full screen again. Kept in
+// memory only. Any other exit (PAUSE's own, Esc, the system's back gesture, the page going to the background) is not a
+// choice: the next automatic entry goes back in.
+let declined = false;
 
 async function goFull() {
   try { await (root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen()); } catch { return; }
   try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported or not allowed */ }
 }
+const goOut = async () => { try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ } };
 /** Go full screen, unless the player chose to leave it (must run inside a user gesture; failures are fine). */
 export async function enterFullscreen() {
   if (!pageFullscreenWorks || declined || isFull()) return;
   await goFull();
 }
 /** Leave full screen if in it, on the game's account (PAUSE: not the player's choice; failures are fine). */
-export async function exitFullscreen() {
-  if (!isFull()) return;
-  ours = true;
-  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { ours = false; }
-}
+export async function exitFullscreen() { if (isFull()) await goOut(); }
 /** The full-screen button: in (which clears a choice to stay out), or out (the player's choice). */
 export async function toggleFullscreen() {
-  if (isFull()) { declined = true; try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ } return; }
+  if (isFull()) { declined = true; await goOut(); return; }
   declined = false;
   if (pageFullscreenWorks) await goFull();
 }

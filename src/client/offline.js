@@ -61,15 +61,17 @@ export function offlineText(s, build) {
   return `Ready to play offline: everything is saved on this device ✓${s.version !== build ? ` (version ${s.version}: it loads next time)` : ''}${s.newer ? ' A newer version is on its way.' : ''}`;
 }
 
-/** PLAY OFFLINE: ask, and while it is still saving (each ask fetches what is missing) ask again, a minute at most. */
+/** PLAY OFFLINE: ask, and while it is still saving (each ask fetches what is missing) ask again: for a minute at most,
+ *  and not once the page is hidden or the menu is gone (a game started). */
 async function playOffline(btn, msg, build) {
   btn.disabled = true; msg.textContent = 'Checking…';
+  const until = performance.now() + 60000, away = () => document.hidden || $('start').hidden;
   try {
-    for (let i = 0; ; i++) {
+    for (;;) {
       const s = await offlineStatus();
       msg.textContent = offlineText(s, build);
-      if (s.state === 'ready' || s.state === 'unavailable') break;
-      if (i >= 60) { msg.textContent += ' Stay online a moment and tap again.'; break; }
+      if (s.state === 'ready' || s.state === 'unavailable' || away()) break;
+      if (performance.now() > until) { msg.textContent += ' Stay online a moment and tap again.'; break; }
       await new Promise(r => setTimeout(r, 1000));
     }
   } finally { btn.disabled = false; }

@@ -16,7 +16,7 @@ import { MAP_KINDS, onlineMap, teamList } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
-import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
+import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen } from './client/screen.js';
 import { initCorner } from './client/corner.js';
 import { initOnline, online, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
 
@@ -199,7 +199,7 @@ function rematchButton(theyWant, iWant) {
 
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
-$('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
+$('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else { enterFullscreen(); newGame(); } }); // (alone: full screen again, as START; online, READY does) the same map, seed, races and difficulty; online, another game in the room
 initCorner(); initLeaveDialog(); initTools();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
 initMenu({ onStart: newGame });

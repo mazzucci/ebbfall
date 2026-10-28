@@ -86,11 +86,9 @@
       </div>
       <div class="page" id="menuSolo" hidden>
         <h2>SINGLE PLAYER</h2>
-        <div id="soloBoard" class="board" role="group" aria-label="Sides"></div>
+        <div id="soloBoard" class="board" role="group" aria-label="Players"></div>
         <dialog id="soloSheet" class="scrim" aria-labelledby="sheetTitle"></dialog>
-        <div class="opt"><span class="lbl" id="lblMap">MAP</span>
-          <div class="maprow"><div id="maps" role="radiogroup" aria-labelledby="lblMap"></div><canvas id="mapPreview" aria-hidden="true"></canvas></div>
-        </div>
+        <div class="opt maprow"><label class="lbl" for="mapSel">MAP</label><span class="sel"><select id="mapSel"></select></span><canvas id="mapPreview" aria-hidden="true"></canvas></div>
         <div class="row"><button class="ib" id="btnSoloBack">BACK</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><span class="spacer"></span><span class="note" id="soloNote" role="status"></span><button class="ib big" id="btnStart">START GAME</button></div>
       </div>
     </div>
@@ -99,16 +97,15 @@
     <div class="card menu" role="dialog" aria-modal="true" aria-label="Multiplayer">
       <div id="onlineJoin">
         <h2>MULTIPLAYER</h2>
+        <p class="tag" id="onlineHow">Play friends online. NEW ROOM gives you a link to send. Got a link? Open it. A code? Type it, tap JOIN.</p>
         <div class="opt"><span class="lbl">NAME</span><input id="onlineName" maxlength="16" placeholder="Your name" autocomplete="nickname"></div>
         <div class="row"><button class="ib big" id="btnNewRoom">NEW ROOM</button><span class="spacer"></span><input id="roomCode" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off" aria-label="Room code"><button class="ib" id="btnJoinRoom">JOIN</button></div>
       </div>
       <div id="onlineRoom" hidden>
         <div class="title"><span class="room">ROOM</span><h2 id="roomShow"></h2><button class="ib" id="btnShare" title="The link that opens this room">SHARE LINK</button></div>
-        <div id="onlineBoard" class="board" role="group" aria-label="Sides"></div>
+        <div id="onlineBoard" class="board" role="group" aria-label="Players"></div>
         <dialog id="onlineSheet" class="scrim" aria-labelledby="sheetTitle"></dialog>
-        <div class="opt"><span class="lbl" id="onlineMapLbl">MAP</span>
-          <div class="maprow"><div id="onlineMaps" class="diff" role="radiogroup" aria-labelledby="onlineMapLbl"></div><div class="mapline" id="onlineMapLine" hidden><span id="onlineMapName"></span><span class="pick" id="onlineMapNote"></span></div><canvas id="onlinePreview" aria-hidden="true"></canvas></div>
-        </div>
+        <div class="opt maprow"><label class="lbl" id="onlineMapLbl" for="onlineMapSel">MAP</label><span class="sel" id="onlineMaps"><select id="onlineMapSel"></select></span><div class="mapline" id="onlineMapLine" hidden><span id="onlineMapName"></span><span class="pick" id="onlineMapNote"></span></div><canvas id="onlinePreview" aria-hidden="true"></canvas></div>
       </div>
       <div class="row foot"><button class="ib" id="btnOnlineBack">BACK</button><span class="spacer"></span><span class="note" id="onlineStatus" role="status" aria-live="polite"></span><button class="ib big" id="btnOnlineReload" hidden>UPDATE</button><button class="ib big" id="btnOnlineReady" hidden aria-pressed="false">READY</button></div>
     </div>

@@ -26,7 +26,6 @@ async function buildAndFinish(d, hotkey, type, harvesterIndex = 0) {
 }
 
 /** The 128x128 maps the menus offer (src/client/maps.js), as their buttons read. */
-const MAPS_128 = ['IRON COMPASS', 'SUNKEN COURT', 'GREY WARRENS', 'RANDOM'];
 
 test('a depot built through the UI finishes and raises supply', { engines: true }, async () => {
   const d = await newGame(DESKTOP);
@@ -525,7 +524,7 @@ test('control groups: Ctrl+number saves the selection, the number recalls it, a 
   } finally { await d.close(); }
 });
 
-test('the menu: three fixed maps and a random one, the opponent and sound; the choices start the game', { engines: true }, async () => {
+test('the menu: every map in one list (the duel\'s three and a random one first), the opponent and sound; the choices start the game', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device);
     const page = await ctx.newPage();
@@ -535,18 +534,20 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       const touch = !!device.hasTouch, press = (sel) => touch ? page.locator(sel).tap() : page.locator(sel).click();
       assert.ok(await page.locator('#start').isVisible(), 'straight to the menu (no tap-to-play screen)');
       await press('#btnSolo');
-      assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
-      assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
-      // The opponent's difficulty: in its token's sheet (PLAYS), with what the level means under it.
+      assert.deepEqual((await page.$$eval('#mapSel option', os => os.map(o => o.textContent))).slice(0, 4), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2'], 'named maps, nothing given away');
+      assert.equal(await page.locator('#mapSel option').count(), 12, 'every map of every size');
+      assert.equal(await page.locator('#mapSel').inputValue(), '0', 'the standard map is the default');
+      // The opponent's level: in its token's sheet (LEVEL), its name only.
       await board(page).open(1);
       assert.deepEqual(await page.$$eval('#soloSheet [data-k^="diff:"]', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD', 'BRUTAL']);
       assert.equal(await page.locator('#soloSheet [data-k^="diff:"].on').textContent(), 'EASY', 'new players start on Easy');
       const level = touch ? 3 : 2; // (Hard on the desktop, Brutal on the phone)
       await press(`#soloSheet [data-k="diff:${level}"]`);
-      assert.match(await page.locator('#soloSheet .hint').textContent(), touch ? /30% more/ : /whole game/, 'the level in a line');
+      assert.deepEqual(await page.$$eval('#soloSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE', 'LEVEL', 'SIDE']);
+      assert.equal(await page.locator('#soloSheet .hint, #soloSheet [aria-describedby]').count(), 0, 'no line on what a level means');
       await press('#soloSheet [data-k="done"]');
       assert.ok(await page.locator('#soloSheet').isHidden(), 'DONE closes the sheet');
-      await press('#maps .map:nth-child(2)');
+      await page.locator('#mapSel').selectOption('1');
       await press('#cornerSound'); // (the speaker in the corner)
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false');
       await press('#btnStart');
@@ -570,7 +571,8 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       assert.equal(await page.locator('#soloBoard [data-k="tok1"] .lvl i.on').count(), level + 1, 'its level as pips');
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
       // The random map is a new one each game.
-      await press('#maps .map:nth-child(4)'); await press('#btnStart');
+      assert.equal(await page.locator('#mapSel').inputValue(), '1', 'the map remembered');
+      await page.locator('#mapSel').selectOption('3'); await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
       assert.ok(![4242, 1998, 2077].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
     } finally { await ctx.close(); }
@@ -605,20 +607,20 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       await press('#btnSolo');
       assert.ok(await shown('#menuSolo') && await page.locator('#menuHome').isHidden(), 'single player opens its page');
       assert.deepEqual(await board(page).sides(), [['YOU'], ['AI 1']]);
-      assert.deepEqual(await page.$$eval('#soloBoard .side .hd span', hs => hs.map(h => h.textContent)), ['YOUR SIDE', 'ENEMIES']);
+      assert.deepEqual(await board(page).spots(), ['YOU', 'AI 1', '+', '', '', '', '', ''], 'eight spots: you, an AI, + AI in the next');
       assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => [t.getAttribute('aria-label'), t.querySelector('.race').textContent])),
-        device.hasTouch ? [['YOU HUM, Humans, Your side: edit', 'HUM'], ['AI 1 HUM, Humans, Easy, Enemies: edit', 'HUM']] : [['YOU HUMANS, Your side: edit', 'HUMANS'], ['AI 1 HUMANS, Easy, Enemies: edit', 'HUMANS']],
+        device.hasTouch ? [['YOU HUM, Humans, Side 1: edit', 'HUM'], ['AI 1 HUM, Humans, Easy, Side 2: edit', 'HUM']] : [['YOU HUMANS, Side 1: edit', 'HUMANS'], ['AI 1 HUMANS, Easy, Side 2: edit', 'HUMANS']],
         'each token says what it shows first, then the rest; a phone\'s short race');
       assert.equal(await page.locator('#soloBoard .tok b').first().evaluate(b => getComputedStyle(b).fontSize), device.hasTouch ? '16px' : '12px', 'a phone reads 16 px');
-      // YOUR sheet: the race only (RANDOM too), a dialog; Escape closes it and gives the focus back to the token.
+      // YOUR sheet: the race (RANDOM too) and the side, a dialog; Escape closes it and gives the focus back to the token.
       await page.locator('#soloBoard [data-k="tok0"]').focus(); await page.keyboard.press('Enter');
       assert.ok(await page.locator('#soloSheet').evaluate(d => d.open && d.matches(':modal') && d.getAttribute('aria-labelledby') === 'sheetTitle'), 'a modal dialog, named by its title');
-      assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"]', gs => gs.map(g => g.getAttribute('aria-label'))), ['Race'], 'your seat: its race only');
+      assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"]', gs => gs.map(g => g.getAttribute('aria-label'))), ['Race', 'Side'], 'your seat: its race and side, no level');
       assert.deepEqual(await page.$$eval('#soloSheet [data-k^="race:"]', bs => bs.map(b => b.textContent)), ['HUMANS', 'VAEL', 'RANDOM']);
       assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans', 'the focus on the lit chip');
       for (const key of ['Tab', 'Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
         await page.keyboard.press(key);
-        assert.ok(await page.evaluate(() => !document.activeElement.closest('#soloBoard, .row, #maps')), `${key}: nothing behind the sheet takes the focus`);
+        assert.ok(await page.evaluate(() => !document.activeElement.closest('#soloBoard, .row, .maprow')), `${key}: nothing behind the sheet takes the focus`);
       }
       await page.locator('#sheetTitle').click(); // (a click on the sheet's own words: Escape still closes it)
       await page.keyboard.press('Escape');
@@ -632,6 +634,8 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       await press('#btnOnline');
       assert.ok(await shown('#onlineJoin') && await page.locator('#start').isHidden(), 'multiplayer: the join form');
       assert.equal(await page.locator('#onlineJoin h2').textContent(), 'MULTIPLAYER', 'its title: the button\'s');
+      assert.equal(await page.locator('#onlineHow').textContent(), 'Play friends online. NEW ROOM gives you a link to send. Got a link? Open it. A code? Type it, tap JOIN.', 'how it works, in a line or two');
+      assert.ok(await shown('#onlineHow'));
       const v = page.viewportSize(), b = await page.locator('#cornerSound').boundingBox();
       assert.ok(b.x + b.width > v.width - 70 && b.y < 70 && b.width >= 44 && b.height >= 44, `the sound icon top right, a finger wide: ${JSON.stringify(b)}`);
       await press('#cornerSound');
@@ -1479,26 +1483,28 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
     const pixels = () => page.evaluate(() => { const c = document.getElementById('mapPreview'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); });
     await page.locator('#btnSolo').click();
     const first = await pixels();
-    await page.locator('#maps .ib', { hasText: 'GLASS REACH' }).click();
+    await page.locator('#mapSel').selectOption({ label: 'Glass Reach · up to 2' });
     const second = await pixels();
     assert.notEqual(first, second, 'another map, another thumbnail');
     assert.ok(new Set(second.split(',')).size > 8, 'rock, fields and starts in it');
-    await page.locator('#maps .ib.random').click();
+    await page.locator('#mapSel').selectOption({ label: 'Random · up to 2' });
     assert.equal(await page.locator('#mapPreview').getAttribute('title'), 'A new map every time');
   } finally { await ctx.close(); }
 });
 
-// Single player's sides board (src/client/seats.js, menu.js): sides of tokens, + ALLY / + AI / + SIDE, a seat's sheet.
+// Single player's board (src/client/seats.js, menu.js): eight fixed spots, + AI in the lowest empty one, a seat's sheet
+// (race, level, side), the map list.
 /** In the page: the board's words cut (by as little as a pixel's fraction: the text is wider than its box, scrolls,
  *  or ends in an ellipsis) and anything of a token past its edge; installed on every page by `cutCheck`. */
 const cutCheck = (page) => page.addInitScript(() => {
   window.cutWords = () => {
-    const words = [...document.querySelectorAll('#soloBoard .tok > *, #soloBoard .add, #soloBoard .newside .t, #soloBoard .side .hd > *')].filter(e => e.textContent.trim());
+    const words = [...document.querySelectorAll('#soloBoard .tok > *, #soloBoard .add, #mapSel')].filter(e => e.textContent.trim());
     const cut = words.filter(e => {
+      if (e.tagName === 'SELECT') { const o = e.selectedOptions[0], c = document.createElement('canvas').getContext('2d'), st = getComputedStyle(e); c.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`; return c.measureText(o.textContent).width + (o.textContent.length * parseFloat(st.letterSpacing || 0) || 0) > e.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) + 0.5; }
       const r = document.createRange(); r.selectNodeContents(e);
       return r.getBoundingClientRect().width > e.getBoundingClientRect().width + 0.01 || e.scrollWidth > e.clientWidth || (getComputedStyle(e).textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth);
     }).map(e => e.textContent);
-    const out = [...document.querySelectorAll('#soloBoard .tok')].filter(t => [...t.children].some(c => c.getBoundingClientRect().right > t.getBoundingClientRect().right + 0.5)).map(t => t.dataset.k + ' past its edge');
+    const out = [...document.querySelectorAll('#soloBoard .tok')].filter(t => [...t.children].some(c => c.getBoundingClientRect().right > t.getBoundingClientRect().right + 0.5 || c.getBoundingClientRect().bottom > t.getBoundingClientRect().bottom + 0.5)).map(t => t.dataset.k + ' past its edge');
     return [...cut, ...out];
   };
 });
@@ -1508,90 +1514,144 @@ const fitsPage = async (page, what) => {
   const [sh, ch, sw, cw] = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight, e.scrollWidth, e.clientWidth]);
   assert.ok(sh <= ch + 1 && sw <= cw + 1, `${what}: fits (${sh} > ${ch} or ${sw} > ${cw})`);
 };
+/** A board as saved: a side number per spot (null: empty), you in spot 0, the AIs Vael on Hard. */
+const saved = (...teams) => Array.from({ length: 8 }, (_, i) => (teams[i] == null ? null : i ? { race: 'vael', team: teams[i], diff: 2 } : { race: 'humans', team: teams[i] }));
+/** Each seat's Core (tile centre), by seat. */
+const cores = (page) => page.evaluate(() => endfall.G.teams.map((_, s) => { const b = endfall.G.bldgs.find(x => x.team === s && x.d.hq); return [b.tx + 2, b.ty + 2]; }));
+const apart = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-test('single player: the sides board decides the players and the maps (a badge when a start stays free); sides through the sheet; four start on 96x96, two as before; a small phone holds it all', async () => {
+test('single player: eight fixed spots; + AI fills the lowest empty one on a side of its own; sides, levels and REMOVE in the sheet; the map list (any map that seats them, the smallest that does when they outgrow it, said); a duel on an eight-start map', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    const maps = () => page.$$eval('#maps .map', bs => bs.map(b => b.firstChild.textContent));
-    const badges = () => page.$$eval('#maps .map .up', bs => bs.map(b => b.textContent));
     const seats = board(page), label = (i) => page.locator(`#soloBoard [data-k="tok${i}"]`).getAttribute('aria-label');
+    const usable = () => page.$$eval('#mapSel option', os => os.filter(o => !o.disabled).map(o => o.textContent));
     await page.locator('#btnSolo').tap();
-    assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1']], 'a duel by default');
-    assert.deepEqual(await maps(), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'two players: the maps as before');
-    assert.deepEqual(await badges(), [], 'no badges');
+    assert.deepEqual(await seats.spots(), ['YOU', 'AI 1', '+', '', '', '', '', ''], 'a duel by default; + AI in the next spot');
+    assert.equal((await usable()).length, 12, 'two players: every map');
     await seats.open(1);
     assert.equal(await page.locator('#soloSheet [data-k="remove"]').count(), 0, 'the last enemy stays');
-    assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => b.textContent)), ['YOURS', 'SIDE 2'], 'alone on its side: no new side');
-    await page.locator('#soloSheet [data-k="diff:2"]').tap(); // (HARD's line, the longest)
+    assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => b.textContent)), ['SIDE 1', 'SIDE 2'], 'as many sides as players');
     assert.ok(await sheetFits(page), 'the sheet fits the screen');
-    await page.locator('#soloSheet [data-k="diff:0"]').tap(); await page.locator('#soloSheet [data-k="close"]').tap();
+    await page.locator('#soloSheet [data-k="close"]').tap();
     await seats.diff(1, 1); await seats.race(1, 'vael');
-    await seats.add(1);
-    assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1', 'AI 2']]);
-    assert.equal(await label(2), 'AI 2 VAEL, Medium, Enemies: edit', 'a new AI: as its side\'s last');
-    assert.deepEqual(await maps(), ['DUST QUARTER', 'SHARD CROWN', 'LONG STEPPE', 'RANDOM'], 'three: the 96x96 maps, names of their own');
-    assert.deepEqual(await badges(), ['up to 4', 'up to 4', 'up to 4', 'up to 4'], 'each seats four: a start stays free');
+    // + AI: AI 2 in spot 2, on a side of its own, like the last AI. Three players: the duel's map gives way, and says so.
+    await seats.add();
+    assert.deepEqual(await seats.spots(), ['YOU', 'AI 1', 'AI 2', '+', '', '', '', '']);
+    assert.equal(await label(2), 'AI 2 VAEL, Medium, Side 3: edit', 'a new AI: a side of its own, like the last AI');
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the smallest map that seats three');
+    assert.equal(await page.locator('#soloNote').textContent(), 'Map: Dust Quarter, for 3 players', 'said a moment');
+    assert.deepEqual(await page.$$eval('#mapSel option:disabled', os => os.map(o => o.textContent)), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2'], 'the duel\'s maps not for three');
     assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96, 'the preview at the map\'s size');
-    await fitsPage(page, 'three players');
-    await seats.add(1);
-    assert.deepEqual(await badges(), [], 'four on four starts: no badge');
-    assert.deepEqual(await page.$$eval('#soloBoard .side .hd', hs => hs.map(h => h.textContent)), ['YOUR SIDE', 'ENEMIES· 3'], 'a side\'s count');
-    // Each token's band is its seat's colour in the game: AI 2 on your side takes the second seat.
+    await page.waitForFunction(() => document.getElementById('soloNote').textContent === '', null, { timeout: 6000 });
+    await seats.add();
+    // Sides through the sheet: two against two, each token's tag; nothing on the board moved.
     const bands = await seats.bands();
-    await seats.side(2, 0);
+    await seats.side(2, 0); await seats.side(3, 1);
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 2'], ['AI 1', 'AI 3']]);
-    assert.deepEqual(await seats.bands(), [bands[0], bands[2], bands[1], bands[3]], 'the bands follow the seats the sides give');
+    assert.deepEqual(await page.$$eval('#soloBoard .tok .stag', ts => ts.map(t => t.innerText)), ['S1', 'S2', 'S1', 'S2'], 'a side tag on each (short on a narrow token)');
+    assert.deepEqual(await seats.bands(), bands, 'every player keeps its colour');
+    assert.deepEqual(await seats.spots(), ['YOU', 'AI 1', 'AI 2', 'AI 3', '+', '', '', '']);
     // Everyone on one side: START GAME waits, and says why.
     await seats.side(1, 0); await seats.side(3, 0);
-    assert.deepEqual(await seats.sides(), [['YOU', 'AI 1', 'AI 2', 'AI 3']]);
     assert.ok(await page.locator('#btnStart').isDisabled());
     assert.equal(await page.locator('#soloNote').textContent(), 'Everyone is on one side');
-    // Two against two: AI 1 to a new side, AI 3 joins it.
-    await seats.side(1, 'new'); await seats.side(3, 1);
-    assert.deepEqual(await seats.sides(), [['YOU', 'AI 2'], ['AI 1', 'AI 3']]);
+    await seats.side(1, 1); await seats.side(3, 1);
     assert.ok(await page.locator('#btnStart').isEnabled()); assert.equal(await page.locator('#soloNote').textContent(), '');
     await fitsPage(page, 'four players, two against two');
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.me, endfall.engine.foes(), endfall.G.factions]), [[0, 0, 1, 1], 96, 0, [2, 3], ['humans', 'vael', 'vael', 'vael']]);
-    // Back to the menu (leaving counts as a defeat): the sides remembered; free for all.
+    // Back to the menu (leaving counts as a defeat): the board remembered. REMOVE empties a spot; + AI fills it again.
     await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').tap();
     await page.locator('#menuSolo').waitFor({ state: 'visible' });
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 2'], ['AI 1', 'AI 3']], 'the sides remembered');
-    await seats.side(2, 'new'); await seats.side(3, 'new');
-    assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1'], ['AI 2'], ['AI 3']]);
-    assert.deepEqual(await page.$$eval('#soloBoard .side .hd span', hs => hs.map(h => h.textContent)), ['YOUR SIDE', 'SIDE 2', 'SIDE 3', 'SIDE 4']);
-    await page.locator('#btnStart').tap();
-    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 4 && endfall.G.teams[1] === 1);
-    const four = await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.factions.length, [0, 1, 2, 3].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);
-    assert.deepEqual(four, [[0, 1, 2, 3], 96, 4, [1, 1, 1, 1]], 'four seats, each its own, a base each, on 96x96');
-    await page.evaluate(() => endfall.skip(20));
-    assert.ok(await page.evaluate(() => [1, 2, 3].every(t => endfall.G.stats[t].built > 0)), 'three AIs at work');
-    // Two again (REMOVE in two sheets): the duel as it always was; the focus on the seat before.
-    await page.evaluate(() => { document.getElementById('btnPause').click(); });
-    await page.locator('#btnQuit').tap();
+    await seats.remove(2);
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'add', 'REMOVE: the focus on + AI, in the spot it left');
+    assert.deepEqual(await seats.spots(), ['YOU', 'AI 1', '+', 'AI 3', '', '', '', '']);
     await seats.remove(3);
-    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'tok2', 'REMOVE: the focus on the seat before');
-    await seats.remove(1);
-    assert.deepEqual(await seats.sides(), [['YOU'], ['AI 2']], 'AI 2 keeps its name with AI 1 and AI 3 gone');
-    assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'back to a duel\'s map');
+    assert.deepEqual(await seats.spots(), ['YOU', 'AI 1', '+', '', '', '', '', '']);
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'fewer players: the map stays');
+    // A duel on an eight-start map: the map as previewed, the two far apart.
+    await page.locator('#mapSel').selectOption({ label: 'Iron Compass · up to 8' });
+    assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 128);
     await page.locator('#btnStart').tap();
-    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 2);
-    assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.engine.MW, endfall.G.teams]), [4242, 64, [0, 1]]);
+    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 2 && endfall.engine.MW === 128);
+    const [a, b] = await cores(page);
+    assert.ok(apart(a, b) > 70, `two seats on opposite starts (${Math.round(apart(a, b))} tiles apart)`);
+    assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.bldgs.filter(x => x.d.hq).length]), [5, 2], 'Iron Compass, a Core each, six starts free');
   } finally { await ctx.close(); }
 });
 
-test('single player, you alone against three AIs teamed up (+ AI twice) at mixed difficulties: they are allies, each at its own level', async () => {
+test('single player: nothing on the board moves (upright and on its side) when a player comes, goes or changes side', async () => {
+  for (const viewport of [{ width: 412, height: 915 }, { width: 844, height: 390 }]) {
+    const ctx = await browserContext({ ...PHONE, viewport }), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+      const seats = board(page), at = `${viewport.width}x${viewport.height}`;
+      await page.locator('#btnSolo').tap();
+      const first = await seats.boxes();
+      assert.equal(first.length, 8, `${at}: eight spots`);
+      assert.equal(new Set(first.map(b => `${b[2]}x${b[3]}`)).size, 1, `${at}: all one size`);
+      assert.equal(new Set(first.map(b => b[0])).size, viewport.width > viewport.height ? 4 : 2, `${at}: four abreast on its side, two upright`);
+      const same = async (what) => assert.deepEqual(await seats.boxes(), first, `${at}, ${what}: every spot where it was`);
+      await seats.add(); await same('an AI added');
+      await seats.add(); await same('another (a side of its own)');
+      await seats.side(2, 0); await same('an AI to your side');
+      await seats.side(3, 1); await same('another to the enemies');
+      await seats.remove(2); await same('an AI removed');
+      await seats.add(); await same('the spot filled again');
+      assert.deepEqual(await seats.spots(), ['YOU', 'AI 1', 'AI 2', 'AI 3', '+', '', '', '']);
+      await fitsPage(page, at);
+    } finally { await ctx.close(); }
+  }
+});
+
+test('single player: each player plays in its spot\'s colour whatever its side; two against two and one against three start with the allies side by side', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    // Two against two across the spots: you and AI 2 against AI 1 and AI 3 (the game seats you and AI 2 first).
+    await page.addInitScript((r) => { if (!sessionStorage.getItem('once')) { sessionStorage.setItem('once', '1'); localStorage.setItem('endfall.seats', JSON.stringify(r)); localStorage.setItem('endfall.map', '4'); } }, saved(0, 1, 0, 1));
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    const bands = await board(page).bands();
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.deepEqual(await page.evaluate(() => [endfall.G.teams, endfall.engine.MW]), [[0, 0, 1, 1], 96]);
+    const spots = [0, 2, 1, 3]; // (seat by seat, the spot each came from)
+    assert.deepEqual(await page.evaluate((sp) => endfall.G.teams.map((_, s) => endfall.seatTint(s) === endfall.spotTint(sp[s])), spots), [true, true, true, true], 'each seat in its spot\'s paint');
+    assert.deepEqual(await page.evaluate(() => [1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [false, false], 'not its seat number\'s');
+    assert.equal(new Set(bands).size, 4, 'four colours on the board');
+    let c = await cores(page);
+    const diag = Math.max(...[1, 2, 3].map(s => apart(c[0], c[s])));
+    assert.ok(apart(c[0], c[1]) < diag - 10 && apart(c[2], c[3]) < diag - 10, `allies on neighbouring starts: ${JSON.stringify(c)}`);
+    // One against three on an eight-start map: the three side by side.
+    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); document.getElementById('btnQuit').click(); });
+    await page.locator('#menuSolo').waitFor({ state: 'visible' });
+    await board(page).side(2, 1);
+    await page.locator('#mapSel').selectOption({ label: 'Sunken Court · up to 8' });
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.engine.MW === 128);
+    assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 1, 1, 1]);
+    c = await cores(page);
+    const near = (s, others) => Math.min(...others.filter(o => o !== s).map(o => apart(c[s], c[o])));
+    assert.ok([1, 2, 3].every(s => near(s, [1, 2, 3]) < 50), `each of the three beside another: ${JSON.stringify(c)}`);
+    assert.ok(near(0, [0, 1, 2, 3]) > 50, 'a free start between you and them');
+  } finally { await ctx.close(); }
+});
+
+test('single player, you alone against three AIs teamed up at mixed difficulties: they are allies, each at its own level', async () => {
   const ctx = await browserContext(PHONE), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     const seats = board(page);
     await page.locator('#btnSolo').tap();
-    await seats.add(1); await seats.add(1); // (+ AI twice in ENEMIES: 1v3)
+    await seats.add(); await seats.add(); await seats.side(2, 1); await seats.side(3, 1); // (1v3)
     assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1', 'AI 2', 'AI 3']]);
     await seats.diff(2, 2); await seats.diff(3, 3);
     assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => t.querySelectorAll('.lvl i.on').length)), [0, 1, 3, 4], 'the levels as pips');
@@ -1605,29 +1665,26 @@ test('single player, you alone against three AIs teamed up (+ AI twice) at mixed
   } finally { await ctx.close(); }
 });
 
-test('single player, five to eight (M4 2e): the 128x128 maps; eight sides, four pairs and four against four fit a small phone; eight start on 128x128', async () => {
+test('single player, five to eight (M4 2e): the 128x128 maps; free for all, four pairs and four against four fit a small phone; eight start on 128x128', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    const maps = () => page.$$eval('#maps .map', bs => bs.map(b => b.firstChild.textContent));
-    const badges = () => page.$$eval('#maps .map .up', bs => bs.map(b => b.textContent));
     const seats = board(page);
     await page.locator('#btnSolo').tap();
     for (let n = 3; n <= 8; n++) {
-      await seats.newSide(); // (+ SIDE: free for all)
+      await seats.add(); // (each on a side of its own: free for all)
       if (n < 5) continue;
-      assert.deepEqual(await maps(), MAPS_128, `${n}: the 128x128 maps`);
-      assert.deepEqual(await badges(), n === 8 ? [] : Array(4).fill('up to 8'), `${n}: a badge while a start stays free`);
+      assert.deepEqual(await page.$$eval('#mapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Grey Warrens · up to 8', 'Random · up to 8'], `${n}: the 128x128 maps`);
       await fitsPage(page, `${n} players, each alone`);
     }
-    assert.equal(await page.locator('#soloBoard .add, #soloBoard .newside').count(), 0, 'eight: no room for another');
+    assert.equal(await page.locator('#soloBoard .add').count(), 0, 'eight: no room for another');
     assert.equal((await seats.sides()).length, 8, 'eight sides');
     assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 128, 'the preview at the map\'s size');
-    for (const i of [1, 3, 5, 7]) await seats.side(i, i >> 1); // (four pairs)
+    for (const i of [1, 3, 5, 7]) await seats.side(i, i - 1); // (four pairs)
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 1'], ['AI 2', 'AI 3'], ['AI 4', 'AI 5'], ['AI 6', 'AI 7']]);
     await fitsPage(page, 'four pairs');
-    for (const [i, t] of [[2, 0], [3, 0], [6, 1], [7, 1]]) await seats.side(i, t);
+    for (const [i, t] of [[2, 0], [3, 0], [5, 4], [6, 4], [7, 4]]) await seats.side(i, t);
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 1', 'AI 2', 'AI 3'], ['AI 4', 'AI 5', 'AI 6', 'AI 7']]);
     await fitsPage(page, 'four against four');
     await page.locator('#btnStart').tap();
@@ -1636,28 +1693,11 @@ test('single player, five to eight (M4 2e): the 128x128 maps; eight sides, four 
     assert.deepEqual(eight, [[0, 0, 0, 0, 1, 1, 1, 1], 128, 0, [4, 5, 6, 7], [1, 1, 1, 1, 1, 1, 1, 1]], 'four against four, a base each, on 128x128');
     await page.evaluate(() => endfall.skip(20));
     assert.ok(await page.evaluate(() => [1, 2, 3, 4, 5, 6, 7].every(t => endfall.G.stats[t].built > 0)), 'seven AIs at work');
-    // Six, three against three: you and two AIs.
-    // (Out, and the page loaded again: eight armies drawn behind the menu in software WebGL leave it a frame a second.)
-    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); document.getElementById('btnQuit').click(); });
-    await page.locator('#menuSolo').waitFor({ state: 'visible' });
-    await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    await page.locator('#btnSolo').tap();
-    assert.deepEqual(await seats.sides(), [['YOU', 'AI 1', 'AI 2', 'AI 3'], ['AI 4', 'AI 5', 'AI 6', 'AI 7']], 'the sides remembered');
-    await seats.remove(7); await seats.remove(6); await seats.side(3, 1);
-    assert.deepEqual(await seats.sides(), [['YOU', 'AI 1', 'AI 2'], ['AI 3', 'AI 4', 'AI 5']]);
-    await page.locator('#btnStart').tap();
-    await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 6);
-    assert.deepEqual(await page.evaluate(() => [endfall.G.teams, endfall.engine.MW]), [[0, 0, 0, 1, 1, 1], 128]);
   } finally { await ctx.close(); }
 });
 
 test('single player: the board and an open sheet fit every phone (667x375, 844x390, 412x915), eight seats included', async () => {
-  const setups = {
-    '1v1': [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 0 }],
-    '4v4': Array.from({ length: 8 }, (_, i) => (i ? { race: 'vael', team: i >> 2, diff: i % 4 } : { race: 'humans', team: 0 })),
-    '2v2v2v2': Array.from({ length: 8 }, (_, i) => (i ? { race: 'random', team: i >> 1, diff: i % 4 } : { race: 'humans', team: 0 })),
-    ffa8: Array.from({ length: 8 }, (_, i) => (i ? { race: 'vael', team: i, diff: i % 4 } : { race: 'humans', team: 0 })),
-  };
+  const setups = { '1v1': saved(0, 1), '4v4': saved(0, 0, 0, 0, 1, 1, 1, 1), '2v2v2v2': saved(0, 0, 1, 1, 2, 2, 3, 3), ffa8: saved(0, 1, 2, 3, 4, 5, 6, 7), 'spread': saved(0, null, 1, null, 2, null, null, 1) };
   for (const [width, height] of [[667, 375], [844, 390], [412, 915]]) {
     for (const [name, rows] of Object.entries(setups)) {
       const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage(); await cutCheck(page);
@@ -1668,7 +1708,7 @@ test('single player: the board and an open sheet fit every phone (667x375, 844x3
         await page.locator('#btnSolo').tap();
         await fitsPage(page, `${name} on ${width}x${height}`);
         assert.deepEqual(await page.evaluate(() => cutWords()), [], `${name} on ${width}x${height}: no word cut`);
-        await board(page).open(rows.length - 1); await page.locator('#soloSheet [data-k="diff:2"]').tap(); // (HARD's line, the longest)
+        await board(page).open(rows.findLastIndex(Boolean)); await page.locator('#soloSheet [data-k="diff:2"]').tap();
         assert.ok(await sheetFits(page), `${name} on ${width}x${height}: the sheet fits the screen`);
       } finally { await ctx.close(); }
     }
@@ -1683,22 +1723,21 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
     assert.deepEqual(await board(page).sides(), [['YOU'], ['AI 1']], 'a saved setup that is not one: you and an AI');
-    const saved = () => page.evaluate(() => localStorage.getItem('endfall.seats'));
-    await board(page).add(1); const before = await saved();
+    const stored = () => page.evaluate(() => localStorage.getItem('endfall.seats'));
+    await board(page).add(); const before = await stored();
     // A double click on a token opens its sheet and changes nothing (its second click lands on a chip).
     const tok = await page.locator('#soloBoard [data-k="tok1"]').boundingBox();
     await page.mouse.dblclick(tok.x + tok.width / 2, tok.y + tok.height / 2);
     assert.ok(await page.locator('#soloSheet').evaluate(d => d.open), 'open');
-    assert.equal(await saved(), before, 'nothing changed');
-    // The arrow keys: along RACE, each step a choice; + NEW SIDE is not one of SIDE's (a button of its own).
+    assert.equal(await stored(), before, 'nothing changed');
+    // The arrow keys: along RACE, each step a choice.
     assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans');
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:vael');
     assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^AI 1 VAEL,/);
     await page.keyboard.press('ArrowLeft');
-    assert.equal(await saved(), before, 'and back');
-    assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"][aria-label="Side"] [role="radio"]', bs => bs.map(b => b.textContent)), ['YOURS', 'SIDE 2']);
-    assert.equal(await page.locator('#soloSheet [data-k="side:new"]').evaluate(b => !b.closest('[role="radiogroup"]')), true);
+    assert.equal(await stored(), before, 'and back');
+    assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"][aria-label="Side"] [role="radio"]', bs => bs.map(b => b.textContent)), ['SIDE 1', 'SIDE 2', 'SIDE 3'], 'three players: up to three sides');
     // A press on the sheet let go on the scrim: still open. A click on the scrim: closed, the focus back on the token.
     const sh = await page.locator('#soloSheet .sheet').boundingBox();
     await page.mouse.move(sh.x + 30, sh.y + 15); await page.mouse.down(); await page.mouse.move(5, 5); await page.mouse.up();
@@ -1732,7 +1771,7 @@ test('single player: the record counts a game at its enemies\' level (a Brutal a
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
     const seats = board(page);
-    await seats.add(0); await seats.diff(2, 3); // (+ ALLY: AI 2 on your side, Brutal; AI 1 the enemy, Easy)
+    await seats.add(); await seats.side(2, 0); await seats.diff(2, 3); // (AI 2 on your side, Brutal; AI 1 the enemy, Easy)
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 2'], ['AI 1']]);
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
@@ -1743,10 +1782,16 @@ test('single player: the record counts a game at its enemies\' level (a Brutal a
   } finally { await ctx.close(); }
 });
 
-test('single player: every split of five to eight fits 667x375, 844x390 and 412x915: no scrolling, no word cut, no heading wrapped', async () => {
+test('single player: every split of five to eight, over any spots, fits 667x375, 844x390 and 412x915: no scrolling, no word cut', async () => {
   const parts = (n, max = n) => (n === 0 ? [[]] : Array.from({ length: Math.min(n, max) }, (_, j) => Math.min(n, max) - j).flatMap(k => parts(n - k, k).map(p => [k, ...p])));
   const splits = [5, 6, 7, 8].flatMap(n => Array.from({ length: n - 1 }, (_, m) => m + 1).flatMap(mine => parts(n - mine).map(p => [mine, ...p])));
-  const rowsOf = (s) => s.flatMap((k, t) => Array.from({ length: k }, () => t)).map((team, i) => (i ? { race: 'vael', team, diff: 2, n: i } : { race: 'humans', team }));
+  // (the players spread over the spots, an empty one between where there is room, the sides taken in turn)
+  const rowsOf = (s, k) => {
+    const teams = s.flatMap((c, t) => Array.from({ length: c }, () => t)), r = Array(8).fill(null);
+    let gaps = 8 - teams.length, at = 0;
+    teams.forEach((team, i) => { r[at++] = i ? { race: 'vael', team, diff: 2 } : { race: 'humans', team }; if (gaps && (k + i) % 2) { at++; gaps--; } });
+    return r;
+  };
   assert.equal(splits.length, 102);
   for (const [width, height] of [[667, 375], [844, 390], [412, 915]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage(); await cutCheck(page);
@@ -1754,17 +1799,15 @@ test('single player: every split of five to eight fits 667x375, 844x390 and 412x
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
       const bad = [];
-      for (const s of splits) {
-        await page.evaluate((r) => localStorage.setItem('endfall.seats', JSON.stringify(r)), rowsOf(s));
+      for (const [k, s] of splits.entries()) {
+        await page.evaluate((r) => localStorage.setItem('endfall.seats', JSON.stringify(r)), rowsOf(s, k));
         await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => !!window.endfall);
         await page.evaluate(() => document.getElementById('btnSolo').click());
         const r = await page.evaluate(() => {
           const c = document.querySelector('#start .card.menu');
-          const cut = cutWords();
-          const wrapped = [...document.querySelectorAll('#soloBoard .side .hd')].filter(e => e.getBoundingClientRect().height > 30).map(e => e.textContent);
-          return { over: c.scrollHeight - c.clientHeight, overW: c.scrollWidth - c.clientWidth, cut, wrapped };
+          return { over: c.scrollHeight - c.clientHeight, overW: c.scrollWidth - c.clientWidth, cut: cutWords(), spots: document.querySelectorAll('#soloBoard > *').length, players: document.querySelectorAll('#soloBoard .tok').length };
         });
-        if (r.over > 1 || r.overW > 1 || r.cut.length || r.wrapped.length) bad.push(`${s.join('v')}: ${JSON.stringify(r)}`);
+        if (r.over > 1 || r.overW > 1 || r.cut.length || r.spots !== 8 || r.players !== s.reduce((a, b) => a + b)) bad.push(`${s.join('v')}: ${JSON.stringify(r)}`);
       }
       assert.deepEqual(bad, [], `${width}x${height}`);
     } finally { await ctx.close(); }
@@ -1777,7 +1820,7 @@ test('two against two: out while the ally fights on (orders refused, told once),
     await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
-    await board(page).diff(1, 2); await board(page).add(0); await board(page).add(1); // (you and an AI against two, all Hard)
+    const seats = board(page); await seats.diff(1, 2); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);

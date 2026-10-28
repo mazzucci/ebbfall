@@ -7,6 +7,13 @@
  *  with red-green colour blindness, as far as eight allow: there lightness parts gold from green and red), from the
  *  dark ground, the selection marks and the resources' teal and violet. Shared with the art tools (tools/render3d). */
 export const SEAT_COLORS = [0xd98a1f, 0xc22a5a, 0x15bd96, 0xc293e0, 0x79d85a, 0x388ef1, 0xe8e8e8, 0xe5553a];
+/** Each game seat's spot on the menus' board (seats.js): a player keeps its spot's colour in the game, whatever seat
+ *  its side gives it. Set when a game starts (single player's `startSetup`, a room's `setup.spots`); none: a seat's
+ *  own number. */
+let spotOf = [];
+export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice() : []; };
+/** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
+export const colorOf = (seat) => spotOf[seat] ?? seat;
 
 /** Buildings: `glow` [colour, size, strength, height above the centre, flicker], `head` (a turret head sprite that
  * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). */

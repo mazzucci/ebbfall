@@ -683,10 +683,11 @@ test('the menu works before the game has loaded: MULTIPLAYER at first paint, SIN
   try { await still.goto(baseUrl()); painted = await still.locator('#btnOnline').isVisible(); } finally { await bare.close(); }
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
+  let release = () => {};
   try {
     // The sim's WASM and the art held back: the game cannot load until they are let through.
-    let release; const held = new Promise(r => { release = r; });
-    await page.route(/\.wasm$|\/art\//, async (r) => { await held; await r.continue(); });
+    const held = new Promise(r => { release = r; });
+    await page.route(/\.wasm$|\/art\//, async (r) => { await held; await r.continue().catch(() => {}); });
     await page.goto(baseUrl(), { waitUntil: 'domcontentloaded' });
     await page.locator('#btnOnline').waitFor({ timeout: 10000 }); // (this machine: the dev relay's address, from online.js)
     await page.locator('#btnSolo').click();
@@ -696,12 +697,57 @@ test('the menu works before the game has loaded: MULTIPLAYER at first paint, SIN
     assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…', 'START GAME says it waits');
     assert.ok(await page.locator('#btnStart').isDisabled(), 'and takes no second tap');
     assert.ok(await page.locator('#start').isVisible(), 'the menu stays meanwhile');
+    assert.ok(await page.locator('#btnSoloBack').isEnabled(), 'and BACK still works (it would call the start off)');
     release();
     await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 60000 });
     assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the button is itself again');
     const baked = await page.evaluate(() => endfall.online.baked);
     assert.equal(painted, !!baked, baked ? 'the published relay: MULTIPLAYER at first paint' : 'no relay in the build: MULTIPLAYER hidden in the HTML');
     assert.deepEqual(errors, []);
+  } finally { release(); await ctx.close(); }
+});
+
+test('a game that never finishes loading: START GAME waits, BACK calls it off, and the menu goes on working', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  let release = () => {};
+  try {
+    const held = new Promise(r => { release = r; });
+    await page.route(/assets\/main-[^/]*\.js$/, async (r) => { await held; await r.continue().catch(() => {}); }); // (the game's chunk: stalled)
+    await page.goto(baseUrl(), { waitUntil: 'domcontentloaded' });
+    await page.locator('#btnSolo').click(); await page.locator('#menuSolo').waitFor();
+    await page.locator('#btnStart').click();
+    assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…');
+    await page.locator('#btnSoloBack').click();
+    assert.ok(await page.locator('#menuHome').isVisible(), 'BACK works while the game loads');
+    await page.locator('#btnAbout').click(); await page.locator('#menuAbout').waitFor(); await page.locator('#btnAboutBack').click();
+    await page.locator('#btnSolo').click();
+    assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the start was called off: the button is itself again');
+    assert.ok(await page.locator('#btnStart').isEnabled());
+    release(); // (now it loads: nothing starts by itself)
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.waitForTimeout(300);
+    assert.ok(await page.locator('#start').isVisible() && await page.evaluate(() => endfall.G.units.length === 0), 'no game started behind the menu');
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 30000 });
+  } finally { release(); await ctx.close(); }
+});
+
+test('a game that could not load says so on the menu: START GAME and FIRST GAME read RELOAD, and reload', async () => {
+  const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(); // (the service worker, registered all the same, would fetch the game past the route)
+  try {
+    let tries = 0;
+    await page.route(/assets\/main-[^/]*\.js$/, (r) => { tries++; return r.abort(); });
+    await page.goto(baseUrl(), { waitUntil: 'domcontentloaded' });
+    await page.locator('#loadFailed').waitFor({ timeout: 10000 });
+    assert.match(await page.locator('#loadFailed').textContent(), /could not load/);
+    const top = await page.evaluate(() => { const b = document.getElementById('loadFailed').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2)?.closest('#loadFailed') !== null; });
+    assert.ok(top, 'the line is on the menu, not under it');
+    await page.locator('#btnSolo').click();
+    assert.equal(await page.locator('#btnStart').textContent(), 'RELOAD'); assert.equal(await page.locator('#btnFirst').textContent(), 'RELOAD');
+    const before = tries;
+    await Promise.all([page.waitForEvent('load'), page.locator('#btnStart').click()]);
+    await page.waitForFunction(() => !!document.getElementById('loadFailed'), null, { timeout: 10000 });
+    assert.ok(tries > before, 'RELOAD loaded the page again (and the game with it)');
   } finally { await ctx.close(); }
 });
 

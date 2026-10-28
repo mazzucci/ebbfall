@@ -17,7 +17,7 @@ import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard } from './client/screen.js';
-import { online, stopOnline, reloadUrl, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
+import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
@@ -205,7 +205,7 @@ initLeaveDialog(); initTools();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
 /** What the menu (menu.js) and the lobby (online.js) call, through src/boot.js, once this module has loaded. */
 export const game = {
-  newGame, newOnlineGame, quitToTitle,
+  newGame, newOnlineGame, quitToTitle, started: () => started, // (in a game: a new version waits, src/boot.js)
   room: () => { $('end').hidden = true; started = false; }, // (a rematch: from the end card back to the room)
   pause: roomPaused, resume: roomResumed, // (a room pause: the pause card on every side)
   rematch: (they, iWant) => {
@@ -214,9 +214,8 @@ export const game = {
     rematchButton(they, iWant);
   },
 };
-// Online, a phone puts a hidden page to sleep (and its socket with it): on coming back, make sure the socket lives.
-// A hidden desktop tab gets no frames, so its turns run from a slow timer instead.
-document.addEventListener('visibilitychange', () => { if (!document.hidden) online.net?.wake(); });
+// Online, a hidden desktop tab gets no frames, so its turns run from a slow timer instead (online.js wakes the socket of
+// a page that comes back into view).
 setInterval(() => {
   if (!document.hidden || !online.playing || !started) return;
   const waiting = online.net.pump(); // (also after the game: heartbeats, for a rematch)
@@ -275,17 +274,3 @@ window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld
 bindInput(); resize(); requestAnimationFrame(loop);
 if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
   .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)
-
-// Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
-// Ebbfall opens and plays without a connection once it has been loaded.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  const register = () => navigator.serviceWorker.register('./sw.js').catch(() => { /* not available (file://, private mode) */ });
-  if (document.readyState === 'complete') register(); else addEventListener('load', register); // (the WASM start may finish after load)
-  // A new version installed while the game is open: out of a game (the menu, the lobby: back into its room), switch to
-  // it at once (online, friends must share a version); in a game, say so (it loads next time) rather than interrupt.
-  const hadController = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController) return; // the first install, not an update
-    if (!started) location.replace(reloadUrl()); else toast('A new version of Ebbfall is ready: it loads next time you open the game');
-  });
-}

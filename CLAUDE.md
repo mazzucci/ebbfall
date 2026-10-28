@@ -51,6 +51,7 @@ selftest.html         the device check (a third entry): plays the golden games, 
 index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays
 src/boot.js           entry: the menu first (menu.js, online.js's lobby, the top bar's sound and full screen wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
+                      (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens, events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
 src/style.css         all styling; design tokens at the top of :root

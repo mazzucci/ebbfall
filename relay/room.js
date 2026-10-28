@@ -58,7 +58,7 @@ export class Room {
     this.seats = Array.from({ length: seats }, () => this.empty());
     this.phase = 'lobby'; // lobby, game, over
     this.map = 0; this.diff = 1; this.teams = null; this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
-    this.running = false; // (the clock: once every seat has loaded)
+    this.running = false; this.loadFrom = 0; // (the clock: once every seat has loaded, from loadFrom on)
     this.hold = null; // a pause a seat called: { seat, until }
   }
 
@@ -147,7 +147,7 @@ export class Room {
       this.each(this.pauseMsg()); return;
     }
     if (msg.t === 'resume') { if (this.hold?.seat === seat) this.unhold(seat); return; } // (only who paused: when they are ready)
-    if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; return; }
+    if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; if (s.awaySince && !this.running) this.back(seat); return; } // (waited for while it loaded: here now)
     if (msg.t === 'orders') {
       if (!Array.isArray(msg.w) || !msg.w.every(Number.isFinite)) return;
       if (s.turnMsgs >= MAX_ORDER_MSGS || s.turnWords + msg.w.length > MAX_ORDER_WORDS) return; // (too much this turn)
@@ -156,7 +156,7 @@ export class Room {
     } else if (msg.t === 'ack' && Number.isInteger(msg.turn)) {
       s.acked = Math.max(s.acked, Math.min(msg.turn, this.turn + DELAY)); // (no further than turns that exist)
       s.lastAck = this.now; s.loaded = true;
-      if (s.awaySince && this.turn - s.acked <= BACK_LAG) this.back(seat);
+      if (s.awaySince && (!this.running || this.turn - s.acked <= BACK_LAG)) this.back(seat);
       const c = msg.check;
       if (c && Number.isInteger(c.turn) && c.turn % CHECK_EVERY === 0 && Number.isInteger(c.hash)) { s.hashes.set(c.turn, c.hash); this.compare(c.turn); }
     }
@@ -179,8 +179,15 @@ export class Room {
     if (this.phase === 'over') { this.seats.forEach((s, i) => { if (!s.conn && !s.left && s.goneSince && now - s.goneSince > OVER_GRACE_MS) this.leave(i); }); return; }
     if (this.phase !== 'game') return;
     if (!this.running) {
-      // (the clock starts once every seat has its game set up, so a slow phone's load costs no one anything)
-      if (!this.seats.every(s => s.ai || s.loaded)) return;
+      // The clock starts once every seat has its game set up (or has left). A seat still loading after AWAY_AFTER_MS,
+      // or gone before it loaded, is away (the others are told whom they wait for), within its budget for the game:
+      // a seat that never loads is conceded, and the others play on.
+      this.seats.forEach((s, i) => {
+        if (s.ai || s.left || s.loaded) return;
+        if (!s.awaySince && (!s.conn || now - this.loadFrom > AWAY_AFTER_MS)) this.away(i);
+        if (s.awaySince && s.away + (now - s.awaySince) > AWAY_BUDGET_MS) this.leave(i);
+      });
+      if (!this.seats.every(s => s.ai || s.left || s.loaded)) return;
       this.running = true; this.next = now;
       for (const s of this.seats) s.lastAck = now;
     }
@@ -270,7 +277,7 @@ export class Room {
     this.unready();
   }
   start() {
-    this.phase = 'game';
+    this.phase = 'game'; this.loadFrom = this.now; // (the seats load from now: tick waits for them)
     const n = this.seats.length;
     // (two seats draw as they always did: the seed, then which of two starts; more turn round the map's starts, any
     // number: the sim takes it modulo)

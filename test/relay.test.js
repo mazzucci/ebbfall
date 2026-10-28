@@ -76,10 +76,13 @@ test('the clock waits until everyone has loaded, then closes a turn every 100 ms
   r.connect(a, hello()); r.connect(b, hello());
   r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
   r.receive(a, { t: 'loaded' }); clear();
-  r.tick(0); r.tick(5000);
+  r.tick(0); r.tick(2000);
   assert.equal(got(a, 'turn').length, 0, 'no turns while a phone still loads');
-  assert.equal(got(a, 'away').length, 0, 'and no one is away for it');
+  assert.equal(got(a, 'away').length, 0, 'and a quick load is nobody\'s business');
+  r.tick(5000);
+  assert.deepEqual(got(a, 'away').map(m => m.seat), [1], 'a slow one is waited for, by name');
   r.receive(b, { t: 'loaded' });
+  assert.deepEqual(got(a, 'back').map(m => m.seat), [1], 'and back once it has loaded');
   r.tick(5000); r.receive(b, { t: 'orders', w: [3, 7] }); r.receive(a, { t: 'orders', w: [4, 9] });
   r.receive(a, { t: 'orders', w: [0, 1, NaN, 2] }); // (dropped: not a number)
   r.tick(5000 + TURN_MS * 2);
@@ -88,6 +91,48 @@ test('the clock waits until everyone has loaded, then closes a turn every 100 ms
   assert.deepEqual(turns[0].o, [], 'the turn closed at once (before the orders came) is empty');
   assert.deepEqual(turns[1].o, [[1, [3, 7]], [0, [4, 9]]], 'the next carries the orders, as they came');
   assert.deepEqual(got(b, 'turn'), turns, 'the same bundles to everyone');
+});
+
+/** A started game whose second seat has not loaded (the first has), the clock not running yet, at t = 0. */
+const loading = () => {
+  const x = room(); const a = x.conn('a'), b = x.conn('b');
+  x.r.connect(a, hello()); x.r.connect(b, hello({ name: 'Bo' }));
+  x.r.receive(a, { t: 'ready', ready: true }); x.r.receive(b, { t: 'ready', ready: true });
+  x.r.receive(a, { t: 'loaded' }); x.r.tick(0);
+  return { ...x, a, b };
+};
+const concededBy = (r, seat) => r.log.some(t => t.o.some(([s, w]) => s === seat && w[0] === 18));
+
+test('a seat that never loads is conceded once its budget is spent, and the others play on', () => {
+  const { r, a, got } = loading();
+  r.tick(3000); assert.equal(got(a, 'away').length, 0, 'a few seconds to load: nobody waits for it by name');
+  r.tick(3100); assert.deepEqual(got(a, 'away').map(m => m.seat), [1], 'then it is waited for, by name');
+  r.tick(63000); assert.equal(got(a, 'left').length, 0, 'within its budget');
+  r.tick(63200); assert.equal(got(a, 'left')[0].seat, 1, 'given up for it after the away budget');
+  assert.ok(r.running, 'the clock runs');
+  play(r, [a], 63300, 64000);
+  assert.ok(concededBy(r, 1), 'its concede is in the log');
+  assert.ok(got(a, 'turn').some(t => t.n > DELAY), 'turns for the seat still in');
+});
+
+test('a seat gone before it loaded is away at once, and conceded after its budget', () => {
+  const { r, a, b, got } = loading();
+  r.close(b); r.tick(100);
+  assert.deepEqual(got(a, 'away').map(m => m.seat), [1], 'away at once: no connection');
+  r.tick(59000); assert.equal(got(a, 'left').length, 0, 'within its budget: still waited for');
+  r.tick(61000); assert.equal(got(a, 'left')[0].seat, 1);
+  play(r, [a], 61100, 62000);
+  assert.ok(concededBy(r, 1));
+});
+
+test('a seat that leaves before it loaded holds nobody up: the clock starts, its concede first', () => {
+  const { r, a, b, got } = loading();
+  r.receive(b, { t: 'leave' }); r.close(b);
+  assert.equal(got(a, 'left')[0].seat, 1);
+  play(r, [a], 100, 600);
+  assert.ok(r.running, 'the clock runs at once');
+  assert.ok(concededBy(r, 1), 'its concede is in the first turn');
+  assert.equal(got(a, 'away').length, 0, 'nobody waited for it');
 });
 
 test('orders are capped per seat per turn', () => {

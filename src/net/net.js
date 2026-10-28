@@ -28,13 +28,13 @@ export class Net {
    * @param {string} [o.room] a room code to join; none opens a new room
    * @param {string} o.name the player's name
    * @param {() => object|null} o.game the current lockstep Game (takeOrders, receiveTurn, nextTurn, tick, stateHash)
-   * @param {object} [o.on] callbacks: seat, lobby, start, away, back, left, pause ({seat, ms, left}), resume (seat; -1:
-   *   its time ran out), rematch, desync, error, notice, status
+   * @param {object} [o.on] callbacks: seat, lobby, start, clock (the relay's clock runs: every seat has loaded), away,
+   *   back, left, pause ({seat, ms, left}), resume (seat; -1: its time ran out), rematch, desync, error, notice, status
    * @param {typeof WebSocket} [o.WebSocket]
    */
   constructor({ url, room = '', name, build = '', game, on = {}, WebSocket: WS = globalThis.WebSocket, token = null }) {
     Object.assign(this, { url, room, name, build, game, on, WS, token });
-    this.seat = -1; this.setup = null; this.turns = new Map(); this.acked = -1; this.checks = new Map();
+    this.seat = -1; this.setup = null; this.delay = 2; this.running = false; this.turns = new Map(); this.acked = -1; this.checks = new Map();
     this.trail = new Map(); // tick -> state hash, the last TRAIL ticks (a desync's first diverging tick is in it)
     this.retries = 0; this.closed = false; this.ws = null; this.pingId = 0; this.pongTimer = null; this.retryTimer = null;
     this.held = false; // (it has had a seat, which the relay holds for its token: it keeps reconnecting in the lobby too)
@@ -113,7 +113,7 @@ export class Net {
   }
   /** Forget the last game (a rematch's lobby): its setup, turns, acks and hashes, and orders not sent. */
   again() {
-    this.setup = null; this.ended = false; this.turns.clear(); this.checks.clear(); this.trail.clear();
+    this.setup = null; this.ended = false; this.running = false; this.turns.clear(); this.checks.clear(); this.trail.clear();
     this.acked = -1; this.ackedAt = 0; this.next = 0; this.queue = this.queue.filter(m => m.t !== 'orders');
   }
   flush() {
@@ -155,9 +155,13 @@ export class Net {
         this.on.lobby?.(m); break;
       case 'rematch': if (Array.isArray(m.seats)) this.on.rematch?.(m.seats); break;
       case 'start':
-        if (!this.setup) { this.setup = m.setup; this.on.start?.(m.setup, this.seat, m); } // (a resume re-sends it; m.left: pauses left)
+        if (!this.setup) { this.setup = m.setup; this.delay = Number.isInteger(m.delay) ? m.delay : 2; this.on.start?.(m.setup, this.seat, m); } // (a resume re-sends it; m.left: pauses left)
         break;
-      case 'turn': if (validTurn(m)) this.turns.set(m.n, m.o); break;
+      case 'turn':
+        if (!validTurn(m)) break;
+        this.turns.set(m.n, m.o);
+        if (!this.running && m.n >= this.delay) { this.running = true; this.on.clock?.(); } // (the turns past the first ones: the clock runs)
+        break;
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat); break;
       case 'desync': this.on.desync?.(m.turn); break;
       case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;

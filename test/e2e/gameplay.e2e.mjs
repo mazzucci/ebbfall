@@ -1728,6 +1728,11 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
       await page.waitForFunction(() => !!window.endfall);
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
+      if (!await page.evaluate(() => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen))) {
+        // No full-screen API for a page (WebKit as an iPhone, like iPhone Safari): no button for it.
+        assert.ok(await page.locator('#btnUnfull').isHidden(), 'no full-screen button where the page cannot have it');
+        continue;
+      }
       // Full screen is stood in for (a headless browser's real one resizes the page under the test).
       await page.evaluate(() => {
         Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });

@@ -212,6 +212,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* About: a few lines, two links, the fine print. */
 #menuAbout{max-width:640px} #menuAbout p{margin:6px 0} #menuAbout a{color:var(--ally2)} #menuAbout .fine{font:11px var(--mono);color:var(--muted)}
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
+#homeOfflineMsg:not(:empty)~.shore .tide.t1,#homeOfflineMsg:not(:empty)~.shore .tide.t2{display:none} /* (its line takes the room of the two upper tide lines; the shore comes after it in the page for this) */
 #menuAbout .offmsg{flex:1 1 220px;font-size:12.5px;line-height:1.35;color:var(--ally2)} /* (PLAY OFFLINE's answer, beside it) */
 @media (max-height:420px){#menuAbout p{font-size:12px;line-height:1.35;margin:4px 0} #menuAbout .fine{font-size:10px}}
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}

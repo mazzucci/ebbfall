@@ -131,7 +131,10 @@ jobs:
   # hand: a deploy restarts every room and ends the games in progress.
   relay:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: build
+    # The relay and the site go out together: the relay waits for every check the site waits for, and the site for the
+    # relay, so a failing check never leaves a new relay talking to the old site (a new protocol would tell every player
+    # to UPDATE to a version that is not there yet).
+    needs: [build, engines, arm]
     runs-on: ubuntu-latest
     concurrency:
       group: relay
@@ -158,7 +161,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [build, engines, arm] # (a determinism break in another engine or on another CPU blocks publishing)
+    needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
     runs-on: ubuntu-latest
     permissions:
       pages: write

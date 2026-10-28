@@ -29,7 +29,7 @@ impl World {
         {
             return false;
         }
-        let k = crate::map::starts_for(self.map_size, n);
+        let k = crate::map::max_starts(self.map_size);
         let moved = self.tick == 0
             && n <= k
             && crate::map::team_starts(k, teams, self.side)

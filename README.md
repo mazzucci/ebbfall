@@ -1,7 +1,7 @@
 # Ebbfall
 
 A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
-the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), three maps for a duel, three larger ones for three or four and three larger still for five to eight (and a random one of each size). Pre-alpha.
+the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the

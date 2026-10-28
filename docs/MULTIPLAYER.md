@@ -262,8 +262,9 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
    (the point mirror, as before: the goldens did not move), 4 (the quarter turns of 96x96 or 128x128: the four corners
    or the middles of the four sides, the seed picks) and 8 (128x128 only: the quarter turns and their mirror images,
    two starts by each side, 44 tiles from the next one on that side and from the next one round the corner).
-   `map::max_starts(size)` (2, 4, 8) replaces `STARTS`; `starts_for(size, seats)` picks the layout: two seats play the
-   two-start map at any size, 3-4 seats the four-start one, 5-8 the eight-start one. A map lists its starts in ring
+   `map::max_starts(size)` (2, 4, 8) replaces `STARTS`, and a map is always generated with all its starts (since
+   2026-10-28: the map a menu shows is the map played, two seats on 128x128 included; before, a size's map was laid
+   out with the fewest starts that seated the players). A map lists its starts in ring
    order (turned by a seed draw); `seat_starts(k, n, side)` seats them evenly round the ring, seat `s` at
    `(side + s * k / n) % k`, so seats sit round the map in order (allies in consecutive seats are neighbours: the
    lobby's job), 3 of 4 starts leave one corner free, 6 of 8 two opposite starts; a start nobody takes (its pocket and
@@ -589,7 +590,7 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      that changes nothing tells nobody; someone new in the lobby readies everyone again (a held seat back does not);
      `sit {seat, team?}` carries the side the seat was seen on, and a seat that has moved to another side since (the
      host dropped one before it) is not taken. The team is part of each seat's record,
-     and after `side`, `add` and `drop` the relay arranges the seats (`arrange`: seat 0's side first, then the sides
+     and after `side`, `add` and `drop` the relay arranges the seats (until PROTO 5, below; `arrange`: seat 0's side first, then the sides
      in the order they first appear, each side's seats in their order, the teams numbered 0, 1, ... in that order),
      so every side is one run of consecutive seats (`map::team_starts`' rule) and the host stays seat 0; a record
      moves whole (connection, token, name, race, a hold), and a connection whose seat moved is told its new one
@@ -606,6 +607,50 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      sets their levels and races, moves the friend to its side and an AI to the other, and two people against two AIs
      play; the friend's read-only board and race-only sheet, READY lit; an open seat's SHARE LINK, GIVE TO AI, REMOVE
      and SIT HERE; eight seats at 667x375, 844x390, 412x915 and 568x320, then six, three against three, play).
+   - **The board's fixed spots, the clients' part** (2026-10-28, the owner's feedback: "the buttons for selecting a player
+     are moving"; then "default to max number of sides as the number of players and keep the player spots fixed"):
+     single player and the lobby show one board (seats.js, style.css `.board`): eight equal spots, two abreast upright,
+     four on a landscape screen or wider, the page top-aligned under the corner. A token is the seat's colour band,
+     name, race, an AI's level and its side's tag (SIDE n, S n on a narrow token), and opens the sheet (RACE, LEVEL, no
+     line on what a level means, SIDE: SIDE 1 to SIDE n for n players, any higher number in use too); the lowest empty
+     spot is + AI (the lobby's host: + AI and + SEAT halves), each a new seat on a side of its own; REMOVE empties a
+     spot. Side numbers stay as chosen until the start. Each game seat plays in its spot's colour (look.js `setSpots`
+     from single player's `startSetup` or the room's `setup.spots`; render.js `seatTint`, the minimap). The map is a
+     list of every map (maps.js `mapLabel`: "Iron Compass · up to 8"), those with too few starts greyed; players past
+     the chosen map's starts move it to the smallest that seats them (`fitMap`), said in the footer's note a moment
+     (the relay does the same for a room). The sim generates a map with all its starts whatever the seats (map.rs
+     `max_starts`; `starts_for` is gone), so a duel on Iron Compass plays the map its preview shows, the two seats on
+     opposite starts and allies side by side (`team_starts`).
+   - **The board's fixed spots** (2026-10-28, `PROTO` 5; the relay's part): the board is eight fixed spots and a seat
+     keeps its spot while the sides change (PROTO 4's arranging after every `side`, `add` and `drop` made the tokens
+     jump). Each seat's record has a `spot` (0-7, unique; a room of `n` seats starts with spots 0 to n-1, each its own
+     team, the team its spot's number) and its lobby `team` (0-7, the number the host gave it: no renumbering in the
+     lobby; the clients show SIDE team + 1). In the lobby every seat number is a spot: the `seat` a connection is told,
+     and the `seat` of `ai`, `side`, `drop`, `sit` and `free`; the host is spot 0; a newcomer takes the lowest open
+     spot. `lobby {map, teams, seats}`: both lists eight long, by spot, `null` for an empty spot. `add {team, ai, race?,
+     diff?}` puts a seat at the lowest empty spot; `side {seat, team}` changes that spot's team; `drop {seat}` empties
+     its spot; none of them moves anyone, so none sends `seat`. `sit {seat, team?}` moves the guest to that spot, on its
+     side, and leaves an open seat (on the guest's old side) at the spot it left; the guest is told its new spot. `free`,
+     `ai` off, a lobby `leave` and a hold that runs out leave an open seat at the same spot, on the same side. The
+     room's map always seats the room: `map {map}` is refused unless `fits(map, seats)` (src/client/maps.js, which the
+     relay imports: pure, only src/engine/util.js after it; wrangler bundles it), and an `add` (or a restore) past the
+     map's starts sets the map to `fitMap(map, seats)` (the smallest size's first, a random map staying random); the
+     lobby's `map` says so. The game's seats are arranged only at the start, as single player's `arrange`: spot 0's
+     side first, then the sides in the order they first appear by spot, each side's seats in spot order, the teams
+     numbered 0, 1, ... in that order (`setup.teams`, a team per game seat); `setup.spots` is the spot of each game
+     seat (the clients colour a player by its spot), and `start` carries `seat`, the connection's game seat (Net takes
+     it). The setup's draws are as before (the seed, then the side), so a two-seat room's game is unchanged. In a game
+     every seat number is the game seat (orders, `away`, `left`, `pause`, a rejoin's `seat` and `start`). A rematch's
+     lobby puts the seats back on their spots and sides, and a connection whose number changes is told its spot
+     (`seat`) before the lobby. `keep()` is `{v: 5, map, seats: [{spot, team, name, race, token, ai, diff,
+     goneSince}]}`; `restore()` takes a v5 record (2-8 seats, unique spots 0-7, one at spot 0, else no room; teams 0-7,
+     else each its spot's) and still takes PROTO 4's (no `v`: spot = index, `teams` a team per seat) and PROTO 3's (a
+     room-wide `diff`, `teams` null). Tests: relay.test.js (adds at the lowest empty spot, side and drop move nobody,
+     sit, the start's arrangement and each connection's game seat, the rematch's spots, keep/restore and the old
+     records, the map against the seats, and a property test: a seat's spot changes only by its own sit, spots, tokens
+     and connections unique, each connection told its number, the map seats the room, every start arranged, every
+     rematch back on the spots); relay-worker.test.js (an evicted lobby back on its spots); net.test.js (a guest at
+     spot 1 who plays game seat 2, the same world in both games).
 
 ## Open questions for the owner
 

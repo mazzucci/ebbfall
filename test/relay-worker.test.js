@@ -134,20 +134,21 @@ test('an evicted lobby comes back as it was: the host\'s seat held (name, token)
   a.close(); // (the host went to a messaging app to send the code)
   await wait(0);
   const kept = await e.stores.get(code).get('room');
-  assert.deepEqual(kept.lobby.seats.map(s => [s.name, s.race, s.token, s.ai]), [['Ann', 'vael', token, false], ['', 'humans', null, false], ['', 'random', null, true]], 'the lobby kept, with its tokens');
+  assert.deepEqual(kept.lobby.seats.map(s => [s.spot, s.name, s.race, s.token, s.ai]), [[0, 'Ann', 'vael', token, false], [1, '', 'humans', null, false], [2, '', 'random', null, true]], 'the lobby kept, with its spots and tokens');
+  assert.equal(kept.lobby.v, 5, 'a record of PROTO 5\'s shape');
   assert.ok(!('conn' in kept.lobby.seats[0]), 'no connections kept');
   e.evict(code); // (Cloudflare dropped the empty room)
   const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   say(b, hello('Bo'));
   assert.equal(got(b, 'seat')[0]?.seat, 1, 'the friend: the next seat, not the host\'s');
   let l = got(b, 'lobby').at(-1);
-  assert.deepEqual(l.seats.map(s => [s.name, s.race, s.here, s.ai]), [['Ann', 'vael', false, false], ['Bo', 'humans', true, false], ['', 'random', false, true]], 'Ann AWAY, the AI seat as it was');
-  assert.deepEqual([l.map, l.seats[2].diff, l.teams], [4, 3, [0, 1, 2]], 'the map, the AI\'s level, the sides');
+  assert.deepEqual(l.seats.slice(0, 4).map(s => s && [s.name, s.race, s.here, s.ai]), [['Ann', 'vael', false, false], ['Bo', 'humans', true, false], ['', 'random', false, true], null], 'Ann AWAY, the AI seat as it was, each at its spot');
+  assert.deepEqual([l.map, l.seats[2].diff, l.teams.slice(0, 4)], [4, 3, [0, 1, 2, null]], 'the map, the AI\'s level, the sides');
   const a2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   say(a2, { t: 'hello', proto: PROTO, name: 'Ann', token });
   assert.deepEqual([got(a2, 'seat')[0]?.seat, got(a2, 'seat')[0]?.room], [0, code], 'the host\'s token: seat 0, the same room');
   l = got(b, 'lobby').at(-1);
-  assert.deepEqual(l.seats.map(s => [s.name, s.here]), [['Ann', true], ['Bo', true], ['', false]]);
+  assert.deepEqual(l.seats.filter(Boolean).map(s => [s.name, s.here]), [['Ann', true], ['Bo', true], ['', false]]);
   for (const c of [a2, b]) say(c, { t: 'ready', ready: true });
   await wait(0);
   assert.equal(got(b, 'start').length, 1);
@@ -177,7 +178,7 @@ test('an evicted empty lobby comes back for a late friend; a hold that ran out w
   const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   say(c, hello('Cy'));
   assert.equal(got(c, 'seat')[0]?.seat, 0, 'the seat is open again');
-  assert.deepEqual(got(c, 'lobby').at(-1).seats.map(s => s.name), ['Cy', '']);
+  assert.deepEqual(got(c, 'lobby').at(-1).seats.filter(Boolean).map(s => s.name), ['Cy', '']);
   c.close();
 });
 
@@ -223,6 +224,7 @@ test('a stored record of a bad shape comes back as an empty lobby, never a broke
     { seats: [{ name: 'Solo', token: 't1' }] }, // (one seat: one player could start alone)
     { seats: Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, token: `t${i}` })) },
     { seats: [null, null] }, { seats: 'xx' }, { seats: [[], 5] }, 5, null,
+    { v: 5, seats: [{ spot: 0, name: 'Ann', token: 't0' }, { spot: 0, name: 'Bo', token: 't1' }] }, { v: 5, seats: [{ spot: 1, name: 'Ann', token: 't0' }, { spot: 2 }] }, // (a spot twice; no host's spot)
     { seats: [{ name: 'Ann', token: 't0' }, { name: 'Bo', token: 7 }], map: 'x', diff: 99, teams: [0, 0] },
   ];
   for (const lobby of bad) {

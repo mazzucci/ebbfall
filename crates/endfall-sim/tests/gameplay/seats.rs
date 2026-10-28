@@ -793,9 +793,9 @@ fn every_team_split_of_three_to_eight_seats_takes_one_arc_of_the_ring() {
     // Every way to cut three to eight seats into teams of consecutive seats (each its own too), on the starts its map
     // has, for every turn of the ring: each team's starts are one unbroken arc (no other team's start, no free start
     // inside it), every start is taken once, and free for all keeps the layout it always had.
-    use endfall_sim::map::{seat_starts, starts_for, team_starts};
+    use endfall_sim::map::{max_starts, seat_starts, team_starts};
     for n in 3..=8usize {
-        let k = starts_for(MapSize::square(if n <= 4 { 96 } else { 128 }), n);
+        let k = max_starts(MapSize::square(if n <= 4 { 96 } else { 128 }));
         for cuts in 0..1u32 << (n - 1) {
             let mut teams = vec![0u8; n];
             for s in 1..n {

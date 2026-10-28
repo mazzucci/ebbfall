@@ -1,9 +1,10 @@
 // The maps the menus offer (single player and the multiplayer lobby): fixed ones with made-up names and hidden
 // characters (MapKind in the sim; the end screen tells the story), and a random one generated each time, at each size
-// the menus offer. The number of players decides the size (the smallest that seats them all: a duel's 64x64, 96x96 for
-// three or four, 128x128 for five to eight), and each size has its own maps: the generator lays a seed out differently
-// at another size, so a 96x96 map is a map of its own, with its own name. The team splits each number of players is
-// offered are here too. Pure: no DOM, no WASM (test/maps.test.js).
+// the menus offer. Every map is offered whatever the players: the chosen map decides the size, and it seats them if it
+// has a start for each (a duel on an eight-start map leaves six free); with more players than its starts, the smallest
+// map that seats them instead. Each size has its own maps: the generator lays a seed out differently at another size,
+// so a 96x96 map is a map of its own, with its own name. The team splits a saved setup of the menu before the board
+// names are here too. Pure: no DOM, no WASM (test/maps.test.js; the relay checks a room's map with it too).
 import { mulberry } from '../engine/util.js';
 
 /** Map characters, in the sim's MapKind order, with the story the end screen tells. */
@@ -45,17 +46,20 @@ export const MAPS = [
   { name: 'Random', random: true, size: 128 },
 ];
 
-/** Tiles across for a game of `players`: the smallest size that seats them all. */
+/** Tiles across of the smallest size that seats `players`. */
 export const sizeFor = (players) => (SIZES.find(s => s.seats >= players) || SIZES.at(-1)).size;
-/** How many players map `i` seats. */
+/** How many players map `i` seats (its starts). */
 export const seatsOf = (i) => SIZES.find(s => s.size === MAPS[i].size).seats;
-/** The maps a game of `players` is offered (indices into MAPS): those of its size, the fixed ones first. */
-export const mapsFor = (players) => MAPS.map((_, i) => i).filter(i => MAPS[i].size === sizeFor(players));
-/** Map `i` if it is offered to `players`, else the first one that is. */
-export const fitMap = (i, players) => (mapsFor(players).includes(i) ? i : mapsFor(players)[0]);
-/** Map `i`'s badge among those offered to `players`: "up to 4" when some of them seat more than the players chosen
- *  (another could still join, or a start stays free); '' otherwise (no noise). */
-export const badge = (i, players) => (mapsFor(players).some(j => seatsOf(j) > players) ? `up to ${seatsOf(i)}` : '');
+/** Whether map `i` is one and seats `players`. */
+export const fits = (i, players) => Number.isInteger(i) && i >= 0 && i < MAPS.length && seatsOf(i) >= players;
+/** Map `i` if it seats `players`; else the smallest size's that does: its random map for a random one, else its first. */
+export function fitMap(i, players) {
+  if (fits(i, players)) return i;
+  const size = sizeFor(players), random = MAPS[i]?.random === true;
+  return MAPS.findIndex(m => m.size === size && (!random || m.random));
+}
+/** A map's line in the menus' list: its name and the players it seats ("Iron Compass · up to 8"). */
+export const mapLabel = (i) => `${MAPS[i].name} · up to ${seatsOf(i)}`;
 
 /** The team splits offered beyond FREE FOR ALL ('ffa'), by the number of players: even splits of allies in consecutive
  *  seats, which sit side by side on the map (the sim's seat_starts). Three, five and seven play free for all. */
@@ -75,8 +79,9 @@ const SECOND = ['Basin', 'Ridge', 'Reach', 'Mesa', 'Hollows', 'Expanse', 'Crossi
 /** A name for a random map, the same every time for its seed. */
 export function mapName(seed) { const r = mulberry(seed ^ 0x5bd1e995); return FIRST[Math.floor(r() * FIRST.length)] + ' ' + SECOND[Math.floor(r() * SECOND.length)]; }
 
-/** The map a room's setup plays: its map if it seats the room's players (else the first that does), a fixed one's
- *  layout or, for a random one, the room's seed (a character from it); and its size. */
+/** The map a room's setup plays: its map if it seats the room's players (else `fitMap`'s: the relay never starts one
+ *  that does not), a fixed one's layout or, for a random one, the room's seed (a character from it); and its size, the
+ *  map's own. Every client derives the same from the setup. */
 export function onlineMap(setup) {
   const i = fitMap(setup.map, setup.races.length), m = MAPS[i];
   return m.random ? { seed: setup.seed, kind: setup.seed % MAP_KINDS.length, name: mapName(setup.seed), size: m.size } : { seed: m.seed, kind: m.kind, name: m.name, size: m.size };

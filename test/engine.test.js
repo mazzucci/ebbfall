@@ -397,7 +397,15 @@ test('the menus\' maps: a preview of any size with every start, and an online ro
   assert.deepEqual(E.foes(), [2, 3]);
   // A map that does not seat the room (the host's pick before the count changed): the first that does.
   assert.equal(onlineMap({ ...setup, map: 0 }).size, 96);
-  assert.equal(onlineMap({ ...setup, map: 5, races: ['humans', 'humans'] }).size, 64);
+  assert.equal(onlineMap({ ...setup, map: 5, races: ['humans', 'humans'] }).size, 96, 'two on a four-start map: its own size');
+  // Two seats on an eight-start map: the map played is the one previewed (all its starts), the two far apart.
+  const iron = MAPS.findIndex(x => x.name === 'Iron Compass'), im = onlineMap({ ...setup, map: iron, races: ['humans', 'vael'], teams: [], ai: [0, 1] });
+  E.resetGameForSeat(im.seed, im.kind, 5, ['humans', 'vael'], 0, { ai: [0, 1], size: im.size });
+  const preview = E.mapPreview(im.seed, im.kind, im.size), rock = [...preview].map(v => (v === 1 ? 1 : 0));
+  assert.equal(E.MW, 128);
+  assert.deepEqual([...E.map.rock].map(v => (v ? 1 : 0)), rock, 'the rock as previewed');
+  const cores = E.G.bldgs.filter(b => b.d.hq), gap = Math.hypot(cores[0].x - cores[1].x, cores[0].y - cores[1].y);
+  assert.equal(cores.length, 2); assert.ok(gap > 64 * 32, `the two cores far apart (${Math.round(gap / 32)} tiles)`);
   E.resetGame(4, 0); // (back to a duel's map for the tests after)
 });
 

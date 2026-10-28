@@ -206,8 +206,16 @@ test('the sides board: the host adds AIs, sets their levels and races and moves 
       await a.p.waitForFunction(() => !!document.querySelector('#onlineBoard [data-k="tok1"] .st.ok'), null, { timeout: RUN_MS }); // (the host sees the check)
       // The host: an AI on its own side (the friend's seat moves: the relay keeps each side together and tells it), one
       // on the other; each at its own level and race.
+      // (the friend's finger is down on the board meanwhile: its new seat waits with the lobby, so this side's seat never
+      // runs ahead of the board it reads)
+      const press = (x, type) => x.p.evaluate((type) => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent(type, { bubbles: true })), type);
+      await press(b, 'pointerdown');
       await a.tap('#onlineBoard [data-k="ai0"]');
-      await b.p.waitForFunction(() => endfall.online.seat === 2, null, { timeout: RUN_MS });
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
+      await b.p.waitForTimeout(300);
+      assert.deepEqual(await b.p.evaluate(() => [endfall.online.seat, document.querySelectorAll('#onlineBoard .tok').length]), [1, 2], 'held: the old seat and the old board, together');
+      await press(b, 'pointerup');
+      await b.p.waitForFunction(() => endfall.online.seat === 2 && document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
       assert.deepEqual(await sides(a), [['YOU', 'AI 1'], ['Bo']]);
       await b.p.waitForFunction(() => !document.getElementById('btnOnlineReady').classList.contains('lit'), null, { timeout: RUN_MS }); // (a new seat: everyone ready again)
@@ -295,6 +303,19 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
       assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo HUM/, 'not redrawn while the finger is down');
       await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
       await a.p.waitForFunction(() => /^Bo VAEL/.test(document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
+      // A cancelled touch (a scroll) ends the hold at once; a finger that never lifts holds it 1.5 s at most.
+      const race = (r) => a.p.waitForFunction((r) => document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label').startsWith(`Bo ${r}`), r, { timeout: RUN_MS });
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+      await b.p.evaluate(() => endfall.online.net.race('humans'));
+      await a.p.waitForTimeout(300);
+      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo VAEL/, 'held');
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true })));
+      await race('HUM');
+      const t0 = Date.now();
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+      await b.p.evaluate(() => endfall.online.net.race('random'));
+      await race('RND');
+      assert.ok(Date.now() - t0 >= 1400, `a finger that never lifts: the lobby after 1.5 s (${Date.now() - t0} ms)`);
       await b.tap('#onlineBoard .tok.open');
       await b.p.waitForFunction(() => endfall.online.seat === 2, null, { timeout: RUN_MS });
       await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('YOU') && !document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('Ann'));

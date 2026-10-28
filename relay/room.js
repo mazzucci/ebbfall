@@ -6,13 +6,14 @@
 // same sim build (an opaque string from the client), and the clients compare hashes.
 //
 // The protocol (client -> relay): hello {proto, name, build?, token?, next?} (build: the client's sim build, which
-// every seat holding a place must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race}, map {map}, ready {ready},
-// and from the host (seat 0) in the lobby: ai {seat, on, race?, diff?} (an open seat played by the AI, or open again;
+// every seat holding a place must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race} (humans, vael or random), map {map}, ready {ready},
+// and from the host (seat 0) in the lobby: ai {seat, on, race?, diff?} (on true: an open seat played by the AI; false: open again;
 // its race and difficulty, 0-3), side {seat, team} (any seat to team `team`: a number no seat has is a side of its own),
 // add {team, ai, race?, diff?} (one seat more on `team`, MAX_SEATS at most: open for a friend, or the AI's), drop {seat}
 // (an open or AI seat goes, never seat 0, never a person's, never below two), free {seat} (a held seat whose player is
-// away is open again: they came back on another browser or device, without its token); sit {seat} (a person other than
-// the host moves to an open seat, on its side); loaded {} (the game is set up: the clock may start), orders
+// away is open again: they came back on another browser or device, without its token); sit {seat, team?} (a person other than
+// the host moves to an open seat, on its side; team: the side it saw the seat on, refused if the seat moved to another);
+// loaded {} (the game is set up: the clock may start), orders
 // {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
 // seat that paused ends its pause), leave {} (gives the game up now; in the lobby: gives the seat up now), over {} (its game has ended), rematch {want} (after a game: another,
 // in this room), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
@@ -88,6 +89,7 @@ export class Room {
     }
     // Back with its token: the same seat (after a dropped connection or a reload).
     let seat = typeof hello.token === 'string' ? this.seats.findIndex(s => s.token && s.token === hello.token) : -1;
+    const newcomer = seat < 0;
     if (seat < 0) {
       if (this.phase !== 'lobby') { this.send(conn, { t: 'error', code: 'started', msg: 'That game has started' }); return -1; }
       seat = this.seats.findIndex(s => !s.token && !s.ai); // (a held seat, away, is not open)
@@ -104,7 +106,7 @@ export class Room {
     s.conn = conn; s.lastAck = this.now;
     if (this.phase === 'lobby') { s.goneSince = 0; s.name = String(hello.name || `Player ${seat + 1}`).slice(0, MAX_NAME); } // (a held seat: back)
     this.send(conn, { t: 'seat', seat, token: s.token, room: this.code, proto: PROTO });
-    if (this.phase === 'lobby') this.lobby();
+    if (this.phase === 'lobby') { if (newcomer) this.unready(); else this.lobby(); } // (someone new: the others ready again for the new line-up)
     else {
       // Back in a game: every turn from the next one it expects, then on as before, and who else is away or gone.
       const from = Number.isInteger(hello.next) && hello.next >= 0 ? hello.next : 0;
@@ -127,13 +129,13 @@ export class Room {
     if (seat < 0) return;
     const s = this.seats[seat];
     if (this.phase === 'lobby') {
-      if (msg.t === 'race' && typeof msg.race === 'string') { s.race = msg.race.slice(0, 16); s.ready = false; this.lobby(); }
+      if (msg.t === 'race' && RACES.includes(msg.race)) { s.race = msg.race; s.ready = false; this.lobby(); }
       else if (msg.t === 'map' && seat === 0 && validMap(msg.map)) { this.map = msg.map; this.unready(); }
       else if (msg.t === 'ai' && seat === 0) this.aiSeat(msg);
       else if (msg.t === 'side' && seat === 0) this.side(msg.seat, msg.team);
       else if (msg.t === 'add' && seat === 0) this.add(msg);
       else if (msg.t === 'drop' && seat === 0) this.drop(msg.seat);
-      else if (msg.t === 'sit' && seat > 0) this.sit(seat, msg.seat);
+      else if (msg.t === 'sit' && seat > 0) this.sit(seat, msg.seat, msg.team);
       else if (msg.t === 'free' && seat === 0) this.free(msg.seat);
       else if (msg.t === 'leave') { this.seats[seat] = this.empty(s.team); this.lobby(); } // (given up on purpose: open at once, no hold, on its side)
       else if (msg.t === 'ready') { s.ready = !!msg.ready; this.lobby(); if (this.seats.every(x => x.ai || (x.conn && x.ready)) && new Set(this.seats.map(x => x.team)).size > 1) this.start(); } // (everyone on one side: nobody to fight, no start)
@@ -238,7 +240,7 @@ export class Room {
   restore(k, now) {
     if (!k || !Array.isArray(k.seats) || k.seats.length < 2 || k.seats.length > MAX_SEATS || !k.seats.every(x => x && typeof x === 'object')) return false;
     this.now = now;
-    const race = (x, or) => (typeof x.race === 'string' ? x.race.slice(0, 16) : or);
+    const race = (x, or) => (RACES.includes(x.race) ? x.race : or);
     const teams = validTeams(k.teams, k.seats.length) ? k.teams : k.seats.map((_, i) => i);
     this.seats = k.seats.map((x, i) => Object.assign(this.empty(teams[i]), x.ai ? { ai: true, race: race(x, 'random'), diff: validDiff(x.diff) ? x.diff : validDiff(k.diff) ? k.diff : 1 } // (an AI seat; a held one; else open)
       : typeof x.token === 'string' && x.token ? { token: x.token.slice(0, 64), name: String(x.name || '').slice(0, MAX_NAME), race: race(x, 'humans') } : {}));
@@ -255,8 +257,14 @@ export class Room {
   aiSeat({ seat, on, race, diff }) {
     const s = Number.isInteger(seat) && seat > 0 ? this.seats[seat] : null;
     if (!s || s.token) return;
-    if (on === false) { if (s.ai) this.seats[seat] = this.empty(s.team); }
-    else Object.assign(s, { ai: true, name: '', race: typeof race === 'string' ? race.slice(0, 16) : s.ai ? s.race : 'random', diff: validDiff(diff) ? diff : s.ai ? s.diff : 1 });
+    if (on === false) {
+      if (!s.ai) return; // (nothing to change: no one ready again, nothing told)
+      this.seats[seat] = this.empty(s.team);
+    } else if (on === true) {
+      const next = { race: RACES.includes(race) ? race : s.ai ? s.race : 'random', diff: validDiff(diff) ? diff : s.ai ? s.diff : 1 };
+      if (s.ai && s.race === next.race && s.diff === next.diff) return;
+      Object.assign(s, { ai: true, name: '' }, next);
+    } else return;
     this.unready();
   }
   /** The host moves seat `seat` (anyone's: its own, a person's, the AI's, an open one) to team `team`; a team no seat
@@ -272,7 +280,7 @@ export class Room {
   add({ team, ai, race, diff }) {
     if (this.seats.length >= MAX_SEATS || !Number.isInteger(team) || team < 0 || team >= MAX_SEATS) return;
     const s = this.empty(team);
-    if (ai) Object.assign(s, { ai: true, race: typeof race === 'string' ? race.slice(0, 16) : 'random', diff: validDiff(diff) ? diff : 1 });
+    if (ai) Object.assign(s, { ai: true, race: RACES.includes(race) ? race : 'random', diff: validDiff(diff) ? diff : 1 });
     this.seats.push(s); this.arrange(); this.unready();
   }
   /** The host drops an open or AI seat (never seat 0, never one a person holds, never below two seats); the seats
@@ -304,10 +312,12 @@ export class Room {
     this.seats[seat] = this.empty(s.team); this.lobby();
   }
   /** A person (not the host) moves to an open seat, taking its place and side, its race and name along (to seat 0 only
-   *  if the host has left: it is the host then); the seat it left is open, on its side. */
-  sit(from, to) {
+   *  if the host has left: it is the host then); the seat it left is open, on its side. `team`, when given, is the side
+   *  the person saw the seat on: the seats may have moved since (the host dropped one before it), and a seat that is
+   *  now on another side, or not open, is not taken (the lobby that follows shows where things are). */
+  sit(from, to, team) {
     const t = Number.isInteger(to) && to >= 0 ? this.seats[to] : null;
-    if (!t || t.token || t.ai) return;
+    if (!t || t.token || t.ai || (Number.isInteger(team) && t.team !== team)) return;
     const s = this.seats[from];
     this.seats[from] = this.empty(s.team); this.seats[to] = Object.assign(s, { team: t.team });
     this.send(s.conn, { t: 'seat', seat: to, token: s.token, room: this.code, proto: PROTO });
@@ -374,6 +384,8 @@ export class Room {
 const validMap = (m) => Number.isInteger(m) && m >= 0 && m < 16;
 /** A team per seat, each below the number of seats (one team is a lobby's, not a game's: `ready` starts two or more). */
 const validTeams = (t, n) => Array.isArray(t) && t.length === n && t.every(x => Number.isInteger(x) && x >= 0 && x < n);
+/** The races a seat may be (RANDOM: drawn when the game starts, alike on every client). */
+const RACES = ['humans', 'vael', 'random'];
 /** An AI's level: 0 Easy to 3 Brutal. */
 const validDiff = (d) => Number.isInteger(d) && d >= 0 && d < DIFFS;
 

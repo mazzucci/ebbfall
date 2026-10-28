@@ -96,7 +96,17 @@ function invited(code) {
 }
 function openLobby() { $('btnJoinRoom').classList.remove('big'); $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 /** Out of the room (an error, a start, BACK): its sheet closed, its board forgotten. */
-function leaveRoom() { lobbyState = null; owed = null; editing = -1; sheet?.close(); }
+function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; sheet?.close(); }
+/** This side's seat in the room (the relay's `seat`): the first one, back after a reconnect, or another mid-lobby (the
+ *  seats renumbered: an open sheet follows its seat). The lobby that follows says what to do; a first seat clears the
+ *  joining line meanwhile. */
+function takeSeat(m) {
+  const first = online.seat < 0;
+  if (editing >= 0 && editing === online.seat) editing = m.seat;
+  online.seat = m.seat; seatToken.set(m.room, m.token);
+  $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; readyButton(); $('roomShow').textContent = m.room;
+  if (first || failed) status(failed ? LOAD_FAILED : '');
+}
 function status(s) { $('onlineStatus').textContent = s; }
 const name = () => { const n = $('onlineName').value.trim().slice(0, 16); if (n) store.set('name', n); return n || 'Player'; };
 
@@ -108,9 +118,9 @@ function connect(room) {
   online.net = new Net({
     url: relayUrl(), room, name: name(), build: SIM_BUILD, token: room ? seatToken.get(room) : null, game: () => (online.playing ? liveGame() : null),
     on: {
-      // (also mid-lobby: the host moved this seat to another side, and the relay renumbered the seats; an open sheet
-      // follows its seat)
-      seat: (m) => { if (editing >= 0 && editing === online.seat) editing = m.seat; online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; readyButton(); $('roomShow').textContent = m.room; status(failed ? LOAD_FAILED : ''); }, // (the lobby that follows says what to do)
+      // (also mid-lobby: the host moved this seat to another side, and the relay renumbered the seats; held with the
+      // lobby that follows while a tap is under way: holdTaps)
+      seat: (m) => { if (held && online.seat >= 0 && !online.playing) owedSeat = m; else takeSeat(m); },
       lobby: (m) => { if (online.playing) backToRoom(); if (held) owed = m; else renderLobby(m); }, // (not under a finger: holdTaps)
       rematch: (wants) => { online.wants = wants; game?.rematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
@@ -208,10 +218,16 @@ let lobbyState = null;
 let editing = -1, sheet = null, preview = ''; // (the seat whose sheet is open; the dialog it opens in; the map drawn)
 /** A tap's events go to the element it began on: a board or sheet redrawn under a finger (a lobby arriving mid-tap:
  *  someone else's change, or the answer to the last chip) would lose the tap. The relay's lobby waits (`owed`) while
- *  a pointer is down in the lobby, until its click (or a moment after the finger lifts, or at most 1.5 s). */
-let held = 0, taps = 0, owed = null; // (held: the tap under way, by number; none 0: an earlier tap's timers cannot end a later one's hold)
+ *  a pointer is down in the lobby, until its click (or a moment after the finger lifts, or its cancel, or at most
+ *  1.5 s); a new seat number (`owedSeat`) waits with it, so this side's seat never runs ahead of the board it reads. */
+let held = 0, taps = 0, owed = null, owedSeat = null; // (held: the tap under way, by number; none 0: an earlier tap's timers cannot end a later one's hold)
 function holdTaps() {
-  const done = (t) => { if (!held || t !== held) return; held = 0; if (owed) { const m = owed; owed = null; renderLobby(m); } };
+  const done = (t) => {
+    if (!held || t !== held) return;
+    held = 0;
+    if (owedSeat) { const m = owedSeat; owedSeat = null; takeSeat(m); }
+    if (owed) { const m = owed; owed = null; renderLobby(m); }
+  };
   const box = $('online');
   box.addEventListener('pointerdown', () => { const t = held = ++taps; setTimeout(() => done(t), 1500); }, true);
   box.addEventListener('pointercancel', () => done(held), true);
@@ -301,7 +317,7 @@ function lobbyLine(m) {
 function tap(i) {
   const m = lobbyState;
   if (!m || online.setup) return; // (a game has started: the board is only shown while it loads)
-  if (online.seat !== 0 && i !== online.seat && isOpen(m.seats[i])) { sfx('select'); online.net?.sit(i); return; }
+  if (online.seat !== 0 && i !== online.seat && isOpen(m.seats[i])) { sfx('select'); online.net?.sit(i, m.teams[i]); return; }
   editing = i; sfx('select'); renderLobby(m); $('onlineSheet').querySelector('.chips .on, [data-k="share"]')?.focus();
 }
 function closeSheet(focusOn = editing) {

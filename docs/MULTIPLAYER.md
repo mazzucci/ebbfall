@@ -577,13 +577,18 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      while everyone is on one side; the line of what the room waits for is the footer's note. One name, MULTIPLAYER,
      for the menu's button and the join form's heading. Eight seats fit 667x375 and 844x390 without scrolling and sit
      two abreast at 412x915 (568x320 scrolls); the top right (100x52) stays clear for the shared corner.
-     A lobby that arrives while a finger is down in the room waits until the tap is over (a board or sheet redrawn
-     under a finger loses the tap), and a sheet drops only the second click of a double click or tap that opened it
+     A lobby that arrives while a finger is down in the room waits until the tap is over (its click, its cancel, or
+     1.5 s at most: a board or sheet redrawn under a finger loses the tap), and a new seat number waits with it (this
+     side's seat never runs ahead of the board it reads), and a sheet drops only the second click of a double click or tap that opened it
      (Chrome may count a chip and DONE tapped quickly as a double tap: DONE was lost, in single player too).
      The relay: `ai {seat, on, race?, diff?}` (a level per AI seat, Medium by default; `on` without `diff` keeps it),
      `side {seat, team}`, `add {team, ai, race?, diff?}` (an open seat or the AI's; a team no seat has is a side of its
      own) and `drop {seat}` (an open or AI seat; never seat 0, never a person's, never below two), all the host's in
-     the lobby; `seats {n}`, `teams {teams}` and the room's `diff` are gone. The team is part of each seat's record,
+     the lobby; `seats {n}`, `teams {teams}` and the room's `diff` are gone. A race is `humans`, `vael` or `random`
+     (anything else is refused, in `race`, `ai`, `add` and a kept record); `ai` needs `on` (true or false), and a change
+     that changes nothing tells nobody; someone new in the lobby readies everyone again (a held seat back does not);
+     `sit {seat, team?}` carries the side the seat was seen on, and a seat that has moved to another side since (the
+     host dropped one before it) is not taken. The team is part of each seat's record,
      and after `side`, `add` and `drop` the relay arranges the seats (`arrange`: seat 0's side first, then the sides
      in the order they first appear, each side's seats in their order, the teams numbered 0, 1, ... in that order),
      so every side is one run of consecutive seats (`map::team_starts`' rule) and the host stays seat 0; a record

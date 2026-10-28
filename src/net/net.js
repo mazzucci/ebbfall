@@ -131,7 +131,7 @@ export class Net {
   side(seat, team) { this.say({ t: 'side', seat, team }); }
   add(team, ai, race, diff) { this.say({ t: 'add', team, ai, race, diff }); }
   drop(seat) { this.say({ t: 'drop', seat }); }
-  sit(seat) { this.say({ t: 'sit', seat }); }
+  sit(seat, team) { this.say({ t: 'sit', seat, team }); } // (team: the side the seat was seen on: a seat that has moved since is not taken)
   free(seat) { this.say({ t: 'free', seat }); } // (the host's: a held seat whose player is away, open again)
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */

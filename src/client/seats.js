@@ -15,7 +15,7 @@ export const RACE_KEYS = [...RACES, 'random'];
 export const RACE_NAMES = { humans: 'HUMANS', vael: 'VAEL', random: 'RANDOM' };
 export const RACE_SHORT = { humans: 'HUM', vael: 'VAEL', random: 'RND' };
 /** A race's name in a sentence ('Humans'). */
-export const raceTitle = (k) => RACE_NAMES[k][0] + RACE_NAMES[k].slice(1).toLowerCase();
+export const raceTitle = (k) => { const n = RACE_NAMES[k] || ''; return n.slice(0, 1) + n.slice(1).toLowerCase(); }; // ('' for a key that is not a race)
 export { DIFF_NAMES };
 /** What each difficulty means, under the sheet's PLAYS (and a chip's title). */
 export const DIFF_TITLES = ['A slow, gentle opponent: time to learn and build', 'A real fight: the first attack comes at about three minutes', 'Plays the whole game well: early attacks, research, raids, split waves', 'Hard, faster, and it gathers 30% more than you'];

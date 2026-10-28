@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#0b0f16"/><path d="M7 47C9 35 18 20 35 13c11-4 23 1 24 12 1 8-6 13-12 11 4-3 5-10 0-12-6-2-11 4-9 11 2 6 0 13-9 16-8 3-16 2-22-1Z" fill="#f5a524"/><path d="M29 15.5c8-4 17-4 23 1.5" fill="none" stroke="#ffd27a" stroke-width="3.2" stroke-linecap="round"/><path d="M48.5 38.1l4.6 6.4-4.6 6.4-4.6-6.4z" fill="#4fd1c5"/><path d="M56.5 43.5l2.8 4-2.8 4-2.8-4z" fill="#4fd1c5"/><path d="M12 54.5h40" stroke="#4fd1c5" stroke-width="2.6" stroke-linecap="round" stroke-opacity=".85"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ebbfall: the falling tide line (the brand's concept A), on a dark circle: one wave line that ebbs as it falls,
+       two shards the water has left bare above it. The mark is scaled into the circle so nothing touches its edge. -->
+  <rect width="64" height="64" rx="32" fill="#0b0f16"/>
+  <g transform="translate(32 33) scale(0.7) translate(-32 -27)">
+    <path d="M6 30c6-12 12-12 18 0s12 12 18 0 9 8 16 20" fill="none" stroke="#f5a524" stroke-width="7" stroke-linecap="round"/>
+    <path d="M15 4l7 9-7 9-7-9z" fill="#4fd1c5"/>
+    <path d="M41 10l5 6-5 6-5-6z" fill="#4fd1c5"/>
+  </g>
+</svg>

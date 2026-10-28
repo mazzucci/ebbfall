@@ -133,7 +133,7 @@ async function simulator(key, dev, url) {
     await wd.goto(to); // (no web view with the site found: navigate the one Appium holds)
   };
   // A real tap (sound and full screen need the user's gesture): the button as Safari's web view shows it to XCUITest,
-  // found by its accessible name and tapped in the native context, so Safari's own bars cannot shift the point (which
+  // found by its accessible name (any type: a button with aria-pressed is a toggle there) and tapped in the native context, so Safari's own bars cannot shift the point (which
   // they do to Appium's nativeWebTap on iOS 26). A script's click if the button cannot be found there.
   d.tap = async (css) => {
     const name = await wd.script("var e = document.querySelector(arguments[0]); return e ? (e.getAttribute('aria-label') || e.textContent || '').trim() : null;", css);
@@ -142,7 +142,7 @@ async function simulator(key, dev, url) {
     try {
       const page = await wd.script("var r = document.querySelector(arguments[0]).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height), innerWidth, innerHeight];", css);
       await wd.setContext('NATIVE_APP');
-      const el = await wd.find('-ios class chain', `**/XCUIElementTypeWebView/**/XCUIElementTypeButton[\`label == ${JSON.stringify(name)}\`]`);
+      const el = await wd.find('-ios class chain', `**/XCUIElementTypeWebView/**/*[\`label == ${JSON.stringify(name)}\`]`);
       const n = await wd.rect(el).catch(() => null);
       console.log(`  ${css} ("${name}"): native tap at ${n ? [n.x, n.y, n.width, n.height].map(Math.round) : '?'} (the page has it at ${page.slice(0, 4)} of ${page.slice(4)})`);
       await wd.clickElement(el);

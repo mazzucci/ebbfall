@@ -95,8 +95,10 @@ async function smoke(key) {
     await step('the full-screen button', async () => {
       const before = await d.eval(STATUS);
       if (!before.fullscreenButton) return { shown: false, fullscreen: before.fullscreen }; // (iPhone Safari: no full-screen API)
-      await d.tap('#btnFull'); await sleep(1500); const a = await d.eval(STATUS); await shot('3-full-screen-toggled');
-      await d.tap('#btnFull'); await sleep(1500); const b = await d.eval(STATUS);
+      // (each tap given up to 10 s to change it: leaving and entering full screen animate, slowly on a simulator)
+      const after = async (was) => { await waitFor(d, `!!(document.fullscreenElement || document.webkitFullscreenElement) !== ${was}`, 10000, 'full screen to change').catch(() => {}); return d.eval(STATUS); };
+      await d.tap('#btnFull'); const a = await after(before.fullscreen); await shot('3-full-screen-toggled');
+      await d.tap('#btnFull'); const b = await after(a.fullscreen);
       return { shown: true, before: before.fullscreen, afterTap: a.fullscreen, afterSecondTap: b.fullscreen };
     });
     r.status = await d.eval(STATUS);

@@ -15,35 +15,70 @@ export const audio = {
   /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
   now: () => performance.now(),
 };
-/** The audio context's state for the debug handle: 'none' until a sound first played, then 'suspended', 'running', ... */
+/** The audio context's state for the debug handle: 'none' until a gesture first opened it, then 'suspended' (not yet
+ *  allowed, or the pause card's `holdSound`), 'running', 'interrupted' (iOS: a call, another app), ... */
 export const audioState = () => (actx ? actx.state : 'none');
 const last = {};
 
-function ctx() {
-  if (!actx) {
-    actx = new (window.AudioContext || window.webkitAudioContext)();
-    const comp = actx.createDynamicsCompressor();
-    comp.threshold.value = -18; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.15;
-    master = actx.createGain(); master.gain.value = 0.9;
-    master.connect(comp).connect(actx.destination);
-    noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
-    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  }
-  if (actx.state !== 'running') actx.resume().catch(() => {}); // also iOS's 'interrupted' (a call, another app)
-  return actx;
-}
-// Sound may start only inside a gesture the browser counts: on iPad and iPhone (WebKit) that is a touch's end, a click
-// or a key, not a finger going down. The first such gesture opens the context and plays a silent sample (what unlocks
-// WebKit's output); after an interruption (a call, another app) the next one brings the sound back.
+// When sound may start. Browsers let a page's audio start only inside a gesture they count as the user's: on iPad and
+// iPhone (WebKit) that is a touch's end, a click or a key, NOT a finger going down (pointerdown, touchstart), and older
+// WebKit also wants a sound actually started inside that gesture. So the context is made, resumed and fed a silent
+// one-sample buffer only there (`wake`), on every such gesture until it is seen running after one (`unlocked`), and
+// again whenever it has stopped since: iOS's 'interrupted' (a call, the app sent to the background) comes back on the
+// next gesture, or on the page coming back into view where the browser allows it. Nothing else makes the context, and
+// nothing plays into one that is not running (`live`): sounds asked for before would otherwise all come at once.
+// The audio session is 'ambient' (Safari 17+): a game's effects, mixed with the player's music and silenced by Silent
+// Mode. Silent Mode (the ringer switch, or Control Center's bell on iPad) silences web audio on iOS by design: a
+// silent iPad is first of all worth that check. Not 'playback', which would cut other apps' audio and ignore the switch.
 let unlocked = false;
-const wake = () => {
-  if (audio.muted) return;
+/** The pause card: the output suspended (`holdSound`), the player's sound setting untouched. */
+let held = false;
+/** Until when (audio.now()) a context woken by this very gesture takes sounds before it says 'running' (the gesture's
+ *  own click, say; a context made in a click starts 'suspended' and runs a moment later). */
+let grace = 0;
+const GRACE_MS = 300;
+
+function make() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch { /* not this browser */ }
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = actx.createDynamicsCompressor();
+  comp.threshold.value = -18; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.15;
+  master = actx.createGain(); master.gain.value = 0.9;
+  master.connect(comp).connect(actx.destination);
+  noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+}
+
+/** A gesture the browser counts (or the sound switched on, or the pause card closed by one): open the context, or bring
+ *  it back, until it runs. */
+function wake() {
+  if (audio.muted || held) return;
   try {
-    ctx();
-    if (!unlocked) { const s = actx.createBufferSource(); s.buffer = actx.createBuffer(1, 1, actx.sampleRate); s.connect(actx.destination); s.start(0); unlocked = true; }
+    if (!actx) make();
+    if (unlocked && actx.state === 'running') return;
+    grace = audio.now() + GRACE_MS;
+    const s = actx.createBufferSource(); s.buffer = actx.createBuffer(1, 1, actx.sampleRate); s.connect(actx.destination); s.start(0);
+    const c = actx;
+    Promise.resolve(c.resume()).then(() => { if (c.state === 'running') unlocked = true; }, () => {});
   } catch { /* no audio available */ }
-};
-for (const t of ['pointerdown', 'touchend', 'click', 'keydown']) addEventListener(t, wake, { capture: true, passive: true });
+}
+for (const t of ['touchend', 'click', 'keydown']) addEventListener(t, wake, { capture: true, passive: true });
+// Back into view (iOS: back from another app or a call): try at once; if the browser wants a gesture, the next one does it.
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !actx || held || audio.muted || actx.state === 'running') return;
+  try { actx.resume().catch(() => {}); } catch { /* no audio available */ }
+});
+
+/** Whether a sound may be scheduled now: sound on, not held, a context running (or just woken by this gesture). */
+const live = () => !!actx && !held && !audio.muted && (actx.state === 'running' || audio.now() < grace);
+
+/** The pause card up (`on`) or closed: the game's sound (effects, the wind, the voice) stops where it is and goes on
+ *  after. The sound setting is not touched. Closed by a gesture (BACK TO GAME, P), the context resumes inside it. */
+export function holdSound(on) {
+  if (held === on) return;
+  held = on;
+  if (on) { grace = 0; try { actx?.suspend().catch(() => {}); } catch { /* no audio available */ } } else wake();
+}
 
 /** Where a sound sits: [gain 0..1, pan -1..1] from its world position (none = in the player's ear). */
 function place(at) {
@@ -129,9 +164,9 @@ export function say(key, after = 0) {
   if (audio.muted || audio.quiet) return;
   const now = audio.now();
   if (said[key] !== undefined && now - said[key] < (SAY_GAP[key] ?? 3000)) return;
+  if (!live()) return;
   try {
-    ctx();
-    if (actx.state !== 'running' || actx.currentTime < busyUntil) return;
+    if (actx.currentTime < busyUntil) return;
     said[key] = now;
     if (!voiceBus) { voiceBus = actx.createGain(); voiceBus.connect(master); }
     voiceBus.gain.cancelScheduledValues(actx.currentTime); voiceBus.gain.setValueAtTime(1, actx.currentTime);
@@ -146,7 +181,7 @@ export function say(key, after = 0) {
  */
 export function sfx(name, o = {}) {
   if (audio.muted) return;
-  const recipe = SFX[name]; if (!recipe) return;
+  const recipe = SFX[name]; if (!recipe || !live()) return;
   const now = audio.now();
   try {
     const [g, pan] = place(o.x === undefined ? null : o);
@@ -154,7 +189,6 @@ export function sfx(name, o = {}) {
     // One of a kind per short gap, unless this one is louder (an on-screen shot beats a distant one).
     if (last[name] && now - last[name] < (GAP[name] ?? 60) && g <= lastGain[name]) return;
     last[name] = now; lastGain[name] = g;
-    ctx();
     const bus = actx.createGain(); bus.gain.value = g;
     if (pan && actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pan; bus.connect(p).connect(master); } else bus.connect(master);
     recipe(bus, actx.currentTime, o);
@@ -172,8 +206,9 @@ function startWind() {
   n.connect(f).connect(g).connect(master); n.start(); lfo.start();
   wind = { n, lfo, g };
 }
-/** Sound switched on or off: the wind follows. */
+/** Sound switched on or off: the wind follows; switched on (a click), the context wakes. */
 export function soundToggled() {
+  if (!audio.muted) wake();
   if (audio.muted && voiceBus) { try { voiceBus.gain.setTargetAtTime(0, actx.currentTime, 0.03); busyUntil = 0; } catch { /* no audio */ } } // (a phrase stops mid-word)
   if (audio.muted && wind) { try { wind.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); wind.n.stop(actx.currentTime + 1); wind.lfo.stop(actx.currentTime + 1); } catch { /* already stopped */ } wind = null; }
 }

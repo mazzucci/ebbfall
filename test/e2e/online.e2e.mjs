@@ -33,9 +33,10 @@ async function page(device, query) {
   return { ctx, p, errors, tap };
 }
 
-// A busy machine may give a page a frame a second (software WebGL), and the game runs in its frames: what must happen
-// is waited for, up to RUN_MS, never timed.
-const RUN_MS = 20000;
+// A busy machine may give a page a frame a second or fewer (software WebGL), and the game runs in its frames: what must
+// happen in the game (ticks, the end card) is waited for, up to RUN_MS, never timed.
+const RUN_MS = 30000;
+const START_MS = 60000; // a game starting (its loading, then its first ticks), or a stretch of ticks
 
 /** The game runs in every page: each one's tick passes the one it was at. */
 async function advances(xs, what) {
@@ -92,7 +93,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       await a.p.waitForFunction(() => /RANDOM/.test(document.getElementById('seatList').textContent));
       await b.p.waitForFunction(() => document.querySelector('#onlineRace .ib.on')?.textContent === 'RANDOM', null, { timeout: 5000 }); // (the friend's own pick, back from the relay)
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       const drawn = await a.p.evaluate(() => { const s = endfall.online.setup; return [s.races, endfall.engine.seatRaces(s.races, s.seed, Object.keys(endfall.engine.FACTIONS))]; });
       assert.deepEqual(drawn[0], ['humans', 'random'], 'the relay passed RANDOM on');
       assert.ok(['humans', 'vael'].includes(drawn[1][1]), `a race drawn: ${drawn[1]}`);
@@ -114,14 +115,14 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       await b.p.evaluate(() => { delete endfall.online.net.ackIfDue; });
       await b.p.waitForTimeout(1500);
       await a.p.evaluate(() => { const n = endfall.online.net; n.open = n._open; n.open(); });
-      await a.p.waitForFunction(() => document.getElementById('netWait').hidden, null, { timeout: 8000 });
+      await a.p.waitForFunction(() => document.getElementById('netWait').hidden, null, { timeout: RUN_MS });
       // Ann leaves: a concede; the friend wins. Ann is told nothing about her own leaving.
       await a.p.evaluate(() => { document.getElementById('btnPause').click(); });
       const toasts = new Set();
       await a.p.exposeFunction('sawToast', (t) => toasts.add(t));
       await a.p.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
       await a.tap('#btnQuit');
-      await b.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
+      await b.p.locator('#end').waitFor({ state: 'visible', timeout: RUN_MS });
       const card = await b.p.evaluate(() => [document.getElementById('result').textContent, document.getElementById('btnWatch').hidden, document.getElementById('btnRematch').hidden]);
       assert.match(await b.p.locator('#endSub').textContent(), /^Ann conceded after /, 'the end card names the friend');
       // Straight into a new room from the end card (quickly: within the old game's clean-up delay), which must not
@@ -165,14 +166,15 @@ test('three seats, one the AI\'s: the host sets it up, a friend joins, both brow
       assert.ok(await b.p.locator('#onlinePlayers [data-n="2"]').isDisabled(), "the players are the host's to pick");
       await a.p.waitForFunction(() => /Ready when you are/.test(document.getElementById('onlineStatus').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 300, null, { timeout: 40000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 300, null, { timeout: START_MS });
       const setup = await a.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.online.setup.diff, endfall.engine.MW, endfall.G.factions.length, endfall.G.diff, endfall.online.names]);
       assert.deepEqual(setup, [[0, 0, 1], [0, 1, 2], 2, 96, 3, 2, ['Ann', 'Bo', 'the AI']], 'three seats on 96x96, the third the AI\'s at Hard');
       await sameWorld(a, b, 60, 'both ran the same stretch');
       const ai = (x) => x.p.evaluate(() => [endfall.G.units.filter(u => u.team === 2).length, endfall.G.bldgs.some(b => b.team === 2 && b.queue.length > 0)]);
       const [units, training] = await ai(a);
       assert.ok(units > 4 || training, `the AI plays (${units} units, training: ${training})`);
-      assert.ok(await a.p.locator('#netWait').isHidden(), 'nobody is waited for, the AI seat least of all');
+      // (a starved page may miss its acks a moment and be waited for: the line must go, which it would not for an AI seat)
+      await a.p.locator('#netWait').waitFor({ state: 'hidden', timeout: RUN_MS }).catch(() => assert.fail('nobody is waited for, the AI seat least of all'));
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
@@ -210,7 +212,7 @@ test('six seats, four the AI\'s, three against three (M4 2e): eight seats fit a 
       assert.ok(await b.p.locator('#onlineTeams [data-teams="4v4"]').count() === 0 && await b.p.locator('#onlineTeams [data-teams="ffa"]').isDisabled(), "the teams are the host's to pick");
       await a.p.waitForFunction(() => /Ready when you are/.test(document.getElementById('onlineStatus').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: 60000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: START_MS });
       const setup = await b.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.engine.MW, endfall.G.factions.length, endfall.G.me]);
       assert.deepEqual(setup, [[0, 0, 1, 1, 1, 1], [0, 0, 0, 1, 1, 1], 128, 6, 1], 'six seats on 128x128, three against three, four AIs');
       await sameWorld(a, b, 40, 'both ran the same stretch');
@@ -263,11 +265,11 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       assert.deepEqual(await asked(), [0, 0], 'NEW ROOM and JOIN stay out of full screen (the link is shared from another app)');
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       assert.deepEqual(await asked(), [1, 1], 'READY goes full screen: the game starts in it');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       const seed1 = await a.p.evaluate(() => endfall.online.setup.seed);
       // The game ends without anyone leaving: Ann gives in through the sim (set-up: the rematch is what is tested).
       await a.p.evaluate(() => endfall.engine.concede());
-      for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
+      for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: RUN_MS });
       assert.equal(await b.p.locator('#result').textContent(), 'VICTORY');
       assert.ok(await a.p.locator('#btnRematch').isVisible() && await b.p.locator('#btnRematch').isVisible(), 'REMATCH online');
       await a.tap('#btnRematch');
@@ -283,7 +285,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
         assert.equal(await x.p.locator('#roomShow').textContent(), code, 'the same room');
       }
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && !endfall.G.over && endfall.G.tick > 30, null, { timeout: 20000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && !endfall.G.over && endfall.G.tick > 30, null, { timeout: START_MS });
       assert.notEqual(await a.p.evaluate(() => endfall.online.setup.seed), seed1, 'a new game');
       await sameWorld(a, b, 30, 'both ran the new game');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
@@ -302,7 +304,7 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       const runs = (what) => advances([a, b], what);
       // Standing still: each page has run every turn it has, then for a second no turn comes and nothing runs (turns
       // arrive whether or not the page gets frames: a busy machine cannot hide one).
@@ -374,7 +376,7 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       await a.tap('#btnStay');
       // The end card names the friend's army, leaves the room (no NEW GAME), and a rematch asked can be taken back.
       await a.p.evaluate(() => endfall.engine.concede()); // (set-up: the end card is what is tested)
-      for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: 15000 });
+      for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: RUN_MS });
       assert.deepEqual(await b.p.evaluate(() => [document.getElementById('btnAgain').textContent, document.querySelector('#endKey .foe').textContent]), ['LEAVE ROOM', "Ann's army"]);
       await b.tap('#btnRematch');
       assert.equal(await b.p.locator('#btnRematch').getAttribute('title'), 'Tap again to take it back');
@@ -422,7 +424,7 @@ test('the host switches apps to send the code: the room holds its seat, the frie
       for (const x of [a, b]) assert.equal(await x.p.locator('#onlineStatus').textContent(), 'Ready when you are');
       // And the room plays: both ready, the game starts, Ann the first seat.
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       assert.deepEqual(await Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.me))), [0, 1]);
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
@@ -519,12 +521,12 @@ test('READY waits for the game to load; a seat that never loads holds the room u
     await b.locator('#btnOnlineReady:not([disabled])', { hasText: /^READY$/ }).waitFor({ timeout: 60000 });
     await b.locator('#btnOnlineReady').click();
     // Started: both games set up, the relay's clock waits for Cy's, and says so by name.
-    for (const p of [a.p, b]) await p.waitForFunction(() => !document.getElementById('netWait').hidden && /Waiting for Cy to load…/.test(document.getElementById('netWait').textContent), null, { timeout: 15000, polling: 250 });
+    for (const p of [a.p, b]) await p.waitForFunction(() => !document.getElementById('netWait').hidden && /Waiting for Cy to load…/.test(document.getElementById('netWait').textContent), null, { timeout: START_MS, polling: 250 });
     assert.ok(await a.p.evaluate(() => endfall.G.tick) <= 6, 'the clock waits');
     // Cy gives up (BACK after the start: a leave): conceded, and the others play on.
     c.send(JSON.stringify({ t: 'leave' })); c.close();
-    for (const p of [a.p, b]) await p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 150, null, { timeout: 30000, polling: 250 });
-    await a.p.locator('#netWait').waitFor({ state: 'hidden', timeout: 10000 }); // (nobody waited for any more; a busy test machine may keep a page from acking a moment)
+    for (const p of [a.p, b]) await p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 150, null, { timeout: START_MS, polling: 250 });
+    await a.p.locator('#netWait').waitFor({ state: 'hidden', timeout: RUN_MS }); // (nobody waited for any more; a busy test machine may keep a page from acking a moment)
     assert.deepEqual(a.errors, []); assert.deepEqual(errors, []);
   } finally { release(); c?.close(); await cb.close(); await a.ctx.close(); }
 });
@@ -553,7 +555,7 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       c.send(JSON.stringify({ t: 'ready', ready: true })); await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       await a.p.waitForFunction(() => endfall.online.playing, null, { polling: 250 });
       c.send(JSON.stringify({ t: 'leave' })); c.close();
-      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.G.tick > 30, null, { timeout: 20000, polling: 250 });
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.G.tick > 30, null, { timeout: START_MS, polling: 250 });
       // Ann pauses for everyone.
       await a.tap('#btnPause'); await a.tap('#btnPauseAll');
       await a.p.waitForFunction(() => /^You paused/.test(document.getElementById('pauseTime').textContent), null, { timeout: 5000 });
@@ -561,7 +563,7 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       await b.p.route(/assets\/main-[^/]*\.js$/, r => r.abort());
       await b.p.goto(`${baseUrl()}?${relayQ}&join=${code}`, { waitUntil: 'domcontentloaded' });
       await b.p.locator('#onlineJoin').waitFor({ state: 'visible' }); await b.p.locator('#btnJoinRoom').click();
-      await b.p.waitForFunction(() => /could not load/.test(document.getElementById('onlineStatus').textContent), null, { timeout: 15000, polling: 250 });
+      await b.p.waitForFunction(() => /could not load/.test(document.getElementById('onlineStatus').textContent), null, { timeout: START_MS, polling: 250 });
       assert.equal(await b.p.locator('#btnOnlineReady').textContent(), 'RELOAD');
       assert.ok(!bo().left, 'the seat is not given up');
       assert.ok(await b.p.evaluate((k) => !!sessionStorage.getItem(`endfall.seat.${k}`), code), 'and its token is kept');
@@ -578,7 +580,7 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       assert.deepEqual(await b.p.evaluate(() => [...endfall.online.gone]), [seat('Cy')], 'Cy gone');
       assert.equal(bo().left, false, 'still in the game');
       await a.tap('#btnResume');
-      for (const x of [a, b]) { const t = await x.p.evaluate(() => endfall.G.tick); await x.p.waitForFunction((t0) => endfall.G.tick > t0 + 30, t, { timeout: 30000, polling: 250 }); }
+      for (const x of [a, b]) { const t = await x.p.evaluate(() => endfall.G.tick); await x.p.waitForFunction((t0) => endfall.G.tick > t0 + 30, t, { timeout: START_MS, polling: 250 }); }
     } finally { release(); await b.ctx.close(); }
   } finally { c?.close(); await a.ctx.close(); }
 });

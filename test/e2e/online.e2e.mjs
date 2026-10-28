@@ -34,6 +34,25 @@ async function page(device, query) {
   const tap = (sel) => device.hasTouch ? p.locator(sel).tap() : p.locator(sel).click();
   return { ctx, p, errors, tap };
 }
+/** A finger down on page `x`'s board while `act()` makes the relay send it a lobby: the moment that lobby arrives (its
+ *  handler hooked, so no fixed wait), the page still shows its old seat and board, unless the hold's 1.5 s cap had run
+ *  out by then (a slow machine: nothing to tell then); then the finger lifts (`end`: pointerup, or pointercancel). Returns
+ *  the board and seat from before, and when the lobby came (ms after the finger went down). */
+async function underFinger(x, act, end = 'pointerup') {
+  await x.p.evaluate(() => {
+    const read = () => [endfall.online.seat, [...document.querySelectorAll('#onlineBoard .tok')].map(t => t.getAttribute('aria-label'))];
+    const net = endfall.online.net, on = net.on.lobby;
+    window.held = { before: read(), at: null, t0: performance.now() };
+    net.on.lobby = (m) => { on(m); net.on.lobby = on; window.held.at = { ms: performance.now() - window.held.t0, now: read() }; };
+    document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  });
+  await act();
+  await x.p.waitForFunction(() => !!window.held.at, null, { timeout: RUN_MS });
+  const h = await x.p.evaluate(() => window.held);
+  if (h.at.ms < 1400) assert.deepEqual(h.at.now, h.before, `not redrawn while the finger is down (the lobby came ${Math.round(h.at.ms)} ms after it)`);
+  await x.p.evaluate((end) => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent(end, { bubbles: true })), end);
+  return h;
+}
 /** The room's sides board as page `x` shows it: each side's tokens, the viewer's side first, by name (YOU, Ann, AI 1;
  *  OPEN for an open seat). */
 const sides = (x) => x.p.$$eval('#onlineBoard .side', ss => ss.map(s => [...s.querySelectorAll('.tok')].map(t => (t.classList.contains('open') ? 'OPEN' : t.querySelector('b').firstChild.textContent))));
@@ -210,13 +229,8 @@ test('the sides board: the host adds AIs, sets their levels and races and moves 
       // on the other; each at its own level and race.
       // (the friend's finger is down on the board meanwhile: its new seat waits with the lobby, so this side's seat never
       // runs ahead of the board it reads)
-      const press = (x, type) => x.p.evaluate((type) => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent(type, { bubbles: true })), type);
-      await press(b, 'pointerdown');
-      await a.tap('#onlineBoard [data-k="ai0"]');
-      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
-      await b.p.waitForTimeout(300);
-      assert.deepEqual(await b.p.evaluate(() => [endfall.online.seat, document.querySelectorAll('#onlineBoard .tok').length]), [1, 2], 'held: the old seat and the old board, together');
-      await press(b, 'pointerup');
+      const held = await underFinger(b, () => a.tap('#onlineBoard [data-k="ai0"]'));
+      assert.deepEqual([held.before[0], held.before[1].length], [1, 2], 'before: seat 1, two tokens');
       await b.p.waitForFunction(() => endfall.online.seat === 2 && document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
       assert.deepEqual(await sides(a), [['YOU', 'AI 1'], ['Bo']]);
@@ -299,20 +313,13 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
       assert.deepEqual(await sides(b), [['Ann', 'YOU'], ['OPEN']]);
       assert.equal(await b.p.locator('#onlineBoard .tok.open .act').textContent(), 'SIT HERE');
       assert.equal(await b.p.locator('#onlineStatus').textContent(), 'Waiting for players…');
-      // A lobby that arrives under a finger waits until the tap is over (a board redrawn mid-tap would lose the tap).
-      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
-      await b.p.evaluate(() => endfall.online.net.race('vael'));
-      await a.p.waitForTimeout(500);
-      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo HUM/, 'not redrawn while the finger is down');
-      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
-      await a.p.waitForFunction(() => /^Bo VAEL/.test(document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
-      // A cancelled touch (a scroll) ends the hold at once; a finger that never lifts holds it 1.5 s at most.
+      // A lobby that arrives under a finger waits until the tap is over (a board redrawn mid-tap would lose the tap);
+      // a cancelled touch (a scroll) ends the hold too; a finger that never lifts holds it 1.5 s at most.
       const race = (r) => a.p.waitForFunction((r) => document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label').startsWith(`Bo ${r}`), r, { timeout: RUN_MS });
-      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
-      await b.p.evaluate(() => endfall.online.net.race('humans'));
-      await a.p.waitForTimeout(300);
-      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo VAEL/, 'held');
-      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true })));
+      await race('HUM'); // (the host's board has Bo too, before a finger goes down on it)
+      await underFinger(a, () => b.p.evaluate(() => endfall.online.net.race('vael')));
+      await race('VAEL');
+      await underFinger(a, () => b.p.evaluate(() => endfall.online.net.race('humans')), 'pointercancel');
       await race('HUM');
       const t0 = Date.now();
       await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));

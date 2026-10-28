@@ -96,19 +96,26 @@ async function simulator(key, dev) {
   if (dev.platform !== 'ios') throw new Error(`${key} is not an iOS device: the simulator backend runs Safari on iOS (use emulator for Android)`);
   const sim = bootSimulator(dev);
   console.log(`${key}: ${sim.name}, iOS ${sim.version} (${sim.udid})`);
-  const wd = await webdriverSession(process.env.APPIUM_URL || 'http://127.0.0.1:4723', {
+  const caps = {
     platformName: 'iOS', browserName: 'Safari',
     'appium:automationName': 'XCUITest', 'appium:udid': sim.udid, 'appium:platformVersion': sim.version,
     'appium:nativeWebTap': true, // (real taps: sound and full screen need the user's gesture)
     'appium:isHeadless': true, 'appium:simulatorStartupTimeout': 600000, // (booted here, without its window)
     'appium:noReset': true, // (a fresh simulator: no Safari data to scrub, which takes minutes on a CI machine)
     'appium:safariIgnoreFraudWarning': true, 'appium:newCommandTimeout': 300,
+    'appium:webviewConnectTimeout': 120000, 'appium:webviewConnectRetries': 120, // (Safari's page, slow to show on a CI Mac)
     'appium:wdaLaunchTimeout': 600000, 'appium:wdaConnectionTimeout': 600000,
     // WebDriverAgent: Appium's prebuilt one for simulators (WDA_APP: `appium driver run xcuitest download-wda -- --kind=sim
     // --platform=ios --outdir=...`), else built here by xcodebuild (minutes; WDA_DERIVED_DATA keeps it for the next).
     ...(process.env.WDA_APP ? { 'appium:usePreinstalledWDA': true, 'appium:prebuiltWDAPath': process.env.WDA_APP }
       : { 'appium:showXcodeLog': true, ...(process.env.WDA_DERIVED_DATA ? { 'appium:derivedDataPath': process.env.WDA_DERIVED_DATA } : {}) }),
-  });
+  };
+  // A second try: a session can fail on a busy CI Mac for reasons of the moment (Appium's device listing, say).
+  let wd;
+  for (let i = 1; !wd; i++) {
+    try { wd = await webdriverSession(process.env.APPIUM_URL || 'http://127.0.0.1:4723', caps); }
+    catch (e) { if (i >= 2) throw e; console.log(`${key}: ${e.message.split('\n')[0].slice(0, 300)}; trying again`); }
+  }
   return webdriverDriver(wd, `${sim.name}, iOS ${sim.version} (Simulator)`);
 }
 

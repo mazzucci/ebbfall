@@ -54,8 +54,16 @@ export async function start() {
   browser = await launchEngine(ENGINE);
 }
 export async function stop() { await browser?.close(); server?.close(); }
+// ENDFALL_CPU_THROTTLE=n (n > 1): every page's CPU slowed n times (CDP, so Chromium only), to shake out tests that
+// time what they should wait for (a busy machine gives a page few frames).
+const THROTTLE = Number(process.env.ENDFALL_CPU_THROTTLE) || 0;
+async function context(device) {
+  const ctx = await browser.newContext(deviceFor(ENGINE, device));
+  if (THROTTLE > 1 && ENGINE === 'chromium') ctx.on('page', (p) => ctx.newCDPSession(p).then(s => s.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })).catch(() => {}));
+  return ctx;
+}
 /** A bare browser context and the URL the game is served at (for tests of the menu itself). */
-export const browserContext = (device) => browser.newContext(deviceFor(ENGINE, device));
+export const browserContext = (device) => context(device);
 export const baseUrl = () => base;
 
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };

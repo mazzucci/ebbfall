@@ -16,6 +16,7 @@ test('?bench plays its game, measures it, and sends the report for a code', { ti
   const p = await ctx.newPage(), errors = [];
   p.on('pageerror', e => errors.push(e.message));
   p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  await ctx.addInitScript(() => { window.fsAsked = 0; Element.prototype.requestFullscreen = function () { window.fsAsked++; return Promise.reject(new Error('(headless)')); }; }); // (counts the asks for full screen)
   try {
     await p.goto(`${baseUrl()}?bench&secs=5&at=30&relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`, { waitUntil: 'networkidle' });
     await p.waitForFunction(() => document.body.dataset.bench === 'ready', null, { timeout: 60000 });
@@ -23,6 +24,7 @@ test('?bench plays its game, measures it, and sends the report for a code', { ti
     assert.ok(!(await p.locator('#start').isVisible()), 'not the menu');
     assert.match(await p.locator('#bench').textContent(), /nothing about you/);
     await p.locator('#benchGo').tap();
+    assert.equal(await p.evaluate(() => window.fsAsked), 1, 'START goes full screen (inside the tap)');
     await p.waitForFunction(() => document.getElementById('bench').hidden, null, { timeout: 120000 });
     await p.keyboard.press('p'); // (the pause card's RESTART would swap the game: no keys while it measures)
     await p.keyboard.press('Escape');

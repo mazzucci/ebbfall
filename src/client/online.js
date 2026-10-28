@@ -20,6 +20,7 @@ import { mapButtons, drawPreview, showMenu } from './menu.js';
 import { MAPS, MAX_PLAYERS, fitMap } from './maps.js';
 import { arrange, sidesOf, newAi, freeTeam, seatColor, raceTitle, tokenEl, sideBox, newSide, seatSheet, sheetDialog, narrow } from './seats.js';
 import { touchDevice, enterFullscreen } from './screen.js';
+import { store } from './store.js';
 
 const params = new URLSearchParams(location.search);
 // (this machine, a LAN, or a Tailscale network)
@@ -39,7 +40,6 @@ const lobbyLink = () => `${location.origin}${location.pathname}?online=1${params
 /** Where a reload should land: back in the lobby's room, if there is one and no game is on; else this page. */
 export const reloadUrl = () => { const code = online.net?.room || joining; return online.playing ? location.href : code ? joinLink(code) : !$('online').hidden ? lobbyLink() : location.href; };
 
-const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
 /** The online game, while there is one: its Net, this side's seat and the room's setup; a room pause (`hold`: who
  *  called it and when it runs out, by this page's clock) and the pauses each seat has left. */

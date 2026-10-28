@@ -34,7 +34,7 @@ export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other
 export const notIn = (engines, why) => (engines.includes(ENGINE) ? `${ENGINE_NAME}: ${why}` : false);
 /** Known differences, not faults of the game (ENDFALL_ALL=1 runs found them): */
 export const ESC_LEAVES_FULL_SCREEN = 'START takes a desktop page really full screen here, and the first Esc only leaves it (the page never sees that key)';
-export const IPHONE = 'its phone profile is an iPhone: no full-screen API for a page, and the iPhone tip shows';
+export const IPHONE = 'its phone profile is an iPhone: no full screen for a page (the full-screen button opens the Add to Home Screen card)';
 
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
@@ -91,9 +91,11 @@ export function board(page) {
 }
 
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
-/** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false } = {}) {
+/** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
+ *  function run in the page before the game loads. */
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false, init = null } = {}) {
   const ctx = await browserContext(device);
+  if (init) await ctx.addInitScript(init); // (a script run before the page's own, e.g. a stand-in for full screen)
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));

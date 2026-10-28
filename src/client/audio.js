@@ -56,10 +56,11 @@ function wake() {
   try {
     if (!actx) make();
     if (unlocked && actx.state === 'running') return;
-    grace = audio.now() + GRACE_MS;
+    if (actx.state === 'suspended') grace = audio.now() + GRACE_MS; // (not 'interrupted': iOS gives it back when it will)
     const s = actx.createBufferSource(); s.buffer = actx.createBuffer(1, 1, actx.sampleRate); s.connect(actx.destination); s.start(0);
     const c = actx;
-    Promise.resolve(c.resume()).then(() => { if (c.state === 'running') unlocked = true; }, () => {});
+    // (a resume that did not take shuts the window: no sounds queued for a context that will not run)
+    Promise.resolve(c.resume()).then(() => { if (c.state === 'running') unlocked = true; else grace = 0; }, () => { grace = 0; });
   } catch { /* no audio available */ }
 }
 for (const t of ['touchend', 'click', 'keydown']) addEventListener(t, wake, { capture: true, passive: true });
@@ -69,8 +70,13 @@ if (typeof document !== 'undefined') document.addEventListener('visibilitychange
   try { actx.resume().catch(() => {}); } catch { /* no audio available */ }
 });
 
-/** Whether a sound may be scheduled now: sound on, not held, a context running (or just woken by this gesture). */
-const live = () => !!actx && !held && !audio.muted && (actx.state === 'running' || audio.now() < grace);
+/** Whether a sound may be scheduled now: sound on, not held, a context running (or just woken by this gesture). A page
+ *  the user has already acted on (a reload by script, an online rejoin: Chrome remembers the activation) makes its
+ *  context on the first sound instead of waiting for the next gesture. */
+function live() {
+  if (!actx && !held && !audio.muted && globalThis.navigator?.userActivation?.hasBeenActive) wake();
+  return !!actx && !held && !audio.muted && (actx.state === 'running' || audio.now() < grace);
+}
 
 /** The pause card up (`on`) or closed: the game's sound (effects, the wind, the voice) stops where it is and goes on
  *  after. The sound setting is not touched. Closed by a gesture (BACK TO GAME, P), the context resumes inside it. */

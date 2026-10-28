@@ -18,7 +18,14 @@ class Ctx {
   static allow = true;
   constructor() { this.state = 'suspended'; this.sampleRate = 8000; this.destination = new Node(); this.resumes = 0; Ctx.made++; Ctx.last = this; }
   get currentTime() { return Ctx.now; }
-  resume() { this.resumes++; if (Ctx.allow) this.state = 'running'; return Promise.resolve(); }
+  /** `lag`: resume() starts the context only a moment later (as browsers do), not at once. */
+  static lag = false;
+  resume() {
+    this.resumes++;
+    if (!Ctx.allow) return Promise.resolve();
+    if (Ctx.lag) return new Promise(r => setTimeout(() => { this.state = 'running'; r(); }, 20));
+    this.state = 'running'; return Promise.resolve();
+  }
   suspend() { this.state = 'suspended'; return Promise.resolve(); }
   createDynamicsCompressor() { const n = new Node(); n.threshold = new Param(); n.ratio = new Param(); n.attack = new Param(); n.release = new Param(); return n; }
   createGain() { return new Node(); } createOscillator() { return new Node(); } createBiquadFilter() { return new Node(); }
@@ -33,6 +40,7 @@ const docListeners = {};
 globalThis.document = { visibilityState: 'visible', addEventListener: (t, fn) => { (docListeners[t] ||= []).push(fn); } };
 const fire = (t) => (t === 'visibilitychange' ? docListeners : listeners)[t]?.forEach(f => f());
 const settle = () => new Promise(r => setTimeout(r, 0)); // (resume()'s promise)
+const lagged = () => new Promise(r => setTimeout(r, 40)); // (a lagging resume() done)
 
 const { sfx, say, audio, audioState, holdSound, soundToggled } = await import('../src/client/audio.js');
 const { PHRASES, STYLES } = await import('../src/client/voice.js');
@@ -105,6 +113,43 @@ test('the pause card holds the sound: suspended, nothing plays, no gesture resum
   assert.equal(heard(), true);
 });
 
+/** A sound asked for `ms` later on the page's clock: whether it was scheduled. */
+const heardIn = (ms, name) => { clock0 += ms; ramps.length = 0; sfx(name); return ramps.length > 0; };
+
+test('the window after a gesture: a sound in it is scheduled while the context starts, one after it is not; a resume that does not take, an interruption or the pause card shuts it', async () => {
+  const c = Ctx.last;
+  c.state = 'suspended'; Ctx.lag = true; // (the browser suspended it; resume() runs it a moment later)
+  fire('touchend');
+  assert.equal(c.state, 'suspended', '(still starting)');
+  assert.equal(heardIn(100, 'select'), true, 'inside the window: scheduled (the gesture\'s own click)');
+  assert.equal(heardIn(300, 'build'), false, 'after the window, still not running: not scheduled');
+  await lagged(); assert.equal(audioState(), 'running');
+  // A resume that does not take closes the window at once.
+  c.state = 'suspended'; Ctx.lag = false; Ctx.allow = false;
+  fire('click'); await settle();
+  assert.equal(heardIn(10, 'select'), false, 'the resume failed: no window');
+  Ctx.allow = true;
+  // Interrupted (iOS): no window, the sound waits for the context to run.
+  c.state = 'interrupted'; Ctx.lag = true;
+  fire('touchend');
+  assert.equal(heardIn(10, 'build'), false, 'interrupted: no window');
+  await lagged(); assert.equal(audioState(), 'running');
+  // The pause card shuts it.
+  c.state = 'suspended';
+  fire('touchend'); holdSound(true);
+  audio.muted = true; holdSound(false); audio.muted = false; // (released without a wake: the window is what is left)
+  assert.equal(heardIn(10, 'select'), false, 'holdSound(true) closed the window');
+  await lagged(); Ctx.lag = false;
+  // A held context does not come back on visibilitychange.
+  fire('touchend'); await settle(); assert.equal(audioState(), 'running');
+  holdSound(true); await settle();
+  const n = c.resumes;
+  fire('visibilitychange'); await settle();
+  assert.deepEqual([audioState(), c.resumes], ['suspended', n], 'held: back in view, still suspended');
+  holdSound(false); await settle();
+  assert.equal(audioState(), 'running');
+});
+
 test('every recipe plays, placed or not, with sound envelopes', async () => {
   audio.view = () => ({ x: 0, y: 0, w: 800, h: 450 });
   let clock = 1e6; audio.now = () => clock; // (past the sounds the gesture tests played)
@@ -172,4 +217,21 @@ test('the voice prototype speaks every phrase in every style', async () => {
     assert.ok(ramps.length > 50, `${key} ${style} moved its formants`);
   }
   assert.deepEqual(errors, []);
+});
+
+test('a page the user has already acted on (a reload by script, an online rejoin) makes its context on the first sound; one not acted on waits for a gesture', async () => {
+  const fresh = await import('../src/client/audio.js?fresh'); // (a new module: no context yet)
+  fresh.audio.now = () => 5e8;
+  const active = { hasBeenActive: false };
+  Object.defineProperty(globalThis.navigator, 'userActivation', { configurable: true, get: () => active });
+  try {
+    const made = Ctx.made;
+    ramps.length = 0; fresh.sfx('select');
+    assert.deepEqual([Ctx.made - made, ramps.length, fresh.audioState()], [0, 0, 'none'], 'not acted on: no context, no sound');
+    active.hasBeenActive = true;
+    ramps.length = 0; fresh.sfx('build');
+    assert.equal(Ctx.made - made, 1, 'acted on: a context on the first sound');
+    assert.equal(Ctx.last.resumes, 1, 'resumed');
+    assert.ok(ramps.length > 0, 'and the sound played');
+  } finally { delete globalThis.navigator.userActivation; }
 });

@@ -47,6 +47,7 @@ Each option has an environment variable too: `DEVICES`, `DEVICES_URL`, `DEVICES_
 On iPad and iPhone (the simulator and BrowserStack) the audio must read `running` once the sound button has switched
 the sound back on: the taps are the user's, so WebKit lets the sound start. The iOS Simulator has an audio device (the
 Mac's; it reads `running`, first seen in the Devices run of 2026-10-28); Playwright's own WebKit on Linux has none, so
-`local` does not check it. A device in Silent Mode still reads `running`: iOS silences web audio there by design.
+`local` does not check it. When a tap fell back to a script's click (no gesture of the user's), a context not running
+is a warning, not a failure. A device in Silent Mode still reads `running`: iOS silences web audio there by design.
 
 A build from before `endfall.status()` (2026-10-28) is still checked; its audio state reads `unknown`.

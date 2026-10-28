@@ -79,6 +79,13 @@ export function artIcon(name, size = 28, zoom = 1, tint = null) {
   iconCache.set(key, url);
   return url;
 }
+/** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. In `team`'s
+ * colours: this client's own seat unless told otherwise. */
+export function portrait(kind, type, size = 26, team = G.me) {
+  const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
+    : kind === 'node' ? artIcon(type === 'ether' ? 'vent_0' : 'shard_0', size, 1.2) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
+  return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
+}
 const tex = (name) => textures[name] || Texture.EMPTY;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 const FACINGS = index.facings || 16;

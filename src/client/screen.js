@@ -1,6 +1,6 @@
 // Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab). The
 // buttons that go full screen and out of it are corner.js's.
-import { $ } from './hud.js';
+import { $ } from './ui.js';
 
 const root = document.documentElement, ua = navigator.userAgent;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);

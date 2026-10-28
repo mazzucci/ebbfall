@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { offline } from './tools/offline/plugin.mjs';
@@ -11,7 +11,15 @@ const hash = createHash('sha256');
 for (const f of SIM_INPUTS) { const p = new URL(`./${f}`, import.meta.url); hash.update(f); if (existsSync(p)) hash.update(readFileSync(p)); }
 const SIM_BUILD = hash.digest('hex').slice(0, 12);
 
-export default defineConfig({
+// MULTIPLAYER on the menu's first page: hidden in index.html, and shown by online.js where a relay is known. A build
+// with the published relay (VITE_RELAY_URL) knows it from the start: the button is shown in the HTML itself, at first
+// paint, not a moment later once the scripts have run.
+const bakedRelay = (relay) => ({
+  name: 'endfall-baked-relay',
+  transformIndexHtml: (html) => (relay ? html.replace(/<button\b[^>]*\bid="btnOnline"[^>]*>/, (tag) => tag.replace(/\s+hidden(?=[\s>])/, '')) : html),
+});
+
+export default defineConfig(({ mode }) => ({
   define: { __SIM_BUILD__: JSON.stringify(SIM_BUILD) },
   // Relative asset paths so the built dist/ works from any static host or file path.
   base: './',
@@ -19,5 +27,5 @@ export default defineConfig({
   // voice-lab.html: a page apart from the game, for judging the synthesized voice (not linked from the game);
   // selftest.html: the device check (the golden games: does this device compute the same game?).
   build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { index: 'index.html', 'voice-lab': 'voice-lab.html', selftest: 'selftest.html' } } },
-  plugins: [offline()], // dist/sw.js: the game keeps working offline once opened
-});
+  plugins: [bakedRelay(loadEnv(mode, process.cwd(), 'VITE_').VITE_RELAY_URL), offline()], // dist/sw.js: the game keeps working offline once opened
+}));

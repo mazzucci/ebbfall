@@ -2,7 +2,7 @@
 // every menu page, the lobby and every card over the game (pause, leave, end, How to play); style.css shows one pair
 // or the other, never both. One setting each: the sound (remembered on this device) and full screen, which on iPad and
 // iPhone is the Home Screen app's: there the button opens a card that says how (screen.js `pageFullscreenWorks`).
-import { $ } from './hud.js';
+import { $ } from './ui.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { icon, setIconButton } from './icons.js';
 import { store } from './store.js';

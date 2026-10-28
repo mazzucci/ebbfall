@@ -18,7 +18,8 @@
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id} (answered even after a lobby leave: the leaver's
 // confirmation that its leave arrived). Relay -> client: seat, lobby {map, diff, teams, seats: [{name,
 // race, ready, here, ai}]}, start {setup: {seed, map, side, races, names, teams, ai, diff}, delay, from, left: [pauses left per seat]},
-// turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away/back/left {seat}, desync {turn}, error
+// turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away {seat, loading} (loading: before the clock, its
+// game not set up yet), back/left {seat}, desync {turn}, error
 // {code, msg}, pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
 //
 // The lobby holds a seat whose connection is gone (a phone that switched apps to send the code, a reload): the seat
@@ -58,7 +59,7 @@ export class Room {
     this.seats = Array.from({ length: seats }, () => this.empty());
     this.phase = 'lobby'; // lobby, game, over
     this.map = 0; this.diff = 1; this.teams = null; this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
-    this.running = false; // (the clock: once every seat has loaded)
+    this.running = false; this.loadFrom = 0; // (the clock: once every seat has loaded, from loadFrom on)
     this.hold = null; // a pause a seat called: { seat, until }
   }
 
@@ -101,7 +102,7 @@ export class Room {
       const from = Number.isInteger(hello.next) && hello.next >= 0 ? hello.next : 0;
       this.send(conn, { t: 'start', setup: this.setup, delay: DELAY, from, left: this.pausesLeft() });
       for (const b of this.log) if (b.n >= from) this.send(conn, { t: 'turn', ...b });
-      this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, { t: 'away', seat: i }); });
+      this.seats.forEach((x, i) => { if (x.left) this.send(conn, { t: 'left', seat: i }); else if (x.awaySince && i !== seat) this.send(conn, this.awayMsg(i)); });
       // (it is back once its acks show it has caught up)
       s.goneSince = 0;
       this.send(conn, this.hold ? this.pauseMsg() : { t: 'resume', seat: -2 }); // (told whether a pause is on: one may have ended while it was gone)
@@ -134,7 +135,7 @@ export class Room {
     if (msg.t === 'rematch' && this.phase !== 'lobby' && !s.left) { s.rematch = !!msg.want; this.rematchState(); return; }
     // Its game is over (the clients know; the relay does not): once every seat's is, the clock stops and nobody is
     // away any more, only here or gone (a rematch waits for the seats still here).
-    if (msg.t === 'over' && this.phase === 'game' && !s.left) {
+    if (msg.t === 'over' && this.phase === 'game' && !s.left && this.running) { // (no game can be over before the clock: a client that says so is not heard)
       s.over = true; if (s.awaySince) this.back(seat); // (out and watching: nobody waits for it)
       if (this.seats.every(x => x.ai || x.left || x.over)) { this.phase = 'over'; this.hold = null; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
       return;
@@ -147,7 +148,7 @@ export class Room {
       this.each(this.pauseMsg()); return;
     }
     if (msg.t === 'resume') { if (this.hold?.seat === seat) this.unhold(seat); return; } // (only who paused: when they are ready)
-    if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; return; }
+    if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; if (s.awaySince && !this.running) this.back(seat); return; } // (waited for while it loaded: here now)
     if (msg.t === 'orders') {
       if (!Array.isArray(msg.w) || !msg.w.every(Number.isFinite)) return;
       if (s.turnMsgs >= MAX_ORDER_MSGS || s.turnWords + msg.w.length > MAX_ORDER_WORDS) return; // (too much this turn)
@@ -156,7 +157,7 @@ export class Room {
     } else if (msg.t === 'ack' && Number.isInteger(msg.turn)) {
       s.acked = Math.max(s.acked, Math.min(msg.turn, this.turn + DELAY)); // (no further than turns that exist)
       s.lastAck = this.now; s.loaded = true;
-      if (s.awaySince && this.turn - s.acked <= BACK_LAG) this.back(seat);
+      if (s.awaySince && (!this.running || this.turn - s.acked <= BACK_LAG)) this.back(seat);
       const c = msg.check;
       if (c && Number.isInteger(c.turn) && c.turn % CHECK_EVERY === 0 && Number.isInteger(c.hash)) { s.hashes.set(c.turn, c.hash); this.compare(c.turn); }
     }
@@ -179,8 +180,15 @@ export class Room {
     if (this.phase === 'over') { this.seats.forEach((s, i) => { if (!s.conn && !s.left && s.goneSince && now - s.goneSince > OVER_GRACE_MS) this.leave(i); }); return; }
     if (this.phase !== 'game') return;
     if (!this.running) {
-      // (the clock starts once every seat has its game set up, so a slow phone's load costs no one anything)
-      if (!this.seats.every(s => s.ai || s.loaded)) return;
+      // The clock starts once every seat has its game set up (or has left). A seat still loading after AWAY_AFTER_MS,
+      // or gone before it loaded, is away (the others are told whom they wait for), within its budget for the game:
+      // a seat that never loads is conceded, and the others play on.
+      this.seats.forEach((s, i) => {
+        if (s.ai || s.left || s.loaded) return;
+        if (!s.awaySince && (!s.conn || now - this.loadFrom > AWAY_AFTER_MS)) this.away(i);
+        if (s.awaySince && s.away + (now - s.awaySince) > AWAY_BUDGET_MS) this.leave(i);
+      });
+      if (!this.seats.every(s => s.ai || s.left || s.loaded)) return;
       this.running = true; this.next = now;
       for (const s of this.seats) s.lastAck = now;
     }
@@ -270,7 +278,7 @@ export class Room {
     this.unready();
   }
   start() {
-    this.phase = 'game';
+    this.phase = 'game'; this.loadFrom = this.now; // (the seats load from now: tick waits for them)
     const n = this.seats.length;
     // (two seats draw as they always did: the seed, then which of two starts; more turn round the map's starts, any
     // number: the sim takes it modulo)
@@ -304,7 +312,9 @@ export class Room {
   }
   bundle(n, o) { const b = { n, o }; this.log.push(b); this.each({ t: 'turn', ...b }); }
   away(seat) { const s = this.seats[seat]; if (s.awaySince || s.left || s.over) return; // (a seat whose game is over is not waited for)
-    s.awaySince = this.now || 1; this.each({ t: 'away', seat }); }
+    s.awaySince = this.now || 1; this.each(this.awayMsg(seat)); }
+  /** A seat is away (`loading`: its game is not set up yet, before the clock runs). */
+  awayMsg(seat) { return { t: 'away', seat, loading: !this.running && !this.seats[seat].loaded }; }
   back(seat) { const s = this.seats[seat]; if (!s.awaySince) return; if (!this.hold) s.away += Math.max(0, this.now - s.awaySince); s.awaySince = 0; this.each({ t: 'back', seat }); } // (back during a pause: its time is nobody's)
   leave(seat) {
     const s = this.seats[seat]; if (s.left) return; s.left = true; s.awaySince = 0;

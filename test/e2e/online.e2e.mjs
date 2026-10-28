@@ -481,6 +481,106 @@ test('a relay of a newer protocol: UPDATE is offered (not a dead end)', async ()
   } finally { await c.ctx.close(); wss.close(); }
 });
 
+test('READY waits for the game to load; a seat that never loads holds the room up until it gives up, then the others play on', async () => {
+  const { default: WebSocket } = await import('ws');
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  const cb = await browserContext(DESKTOP), b = await cb.newPage(), errors = [];
+  b.on('pageerror', e => errors.push(e.message));
+  let release = () => {}, c = null;
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    await a.tap('#onlinePlayers [data-n="3"]');
+    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
+    // The friend's game still loading (its WASM and art held back): READY says so and takes no tap.
+    const held = new Promise(r => { release = r; });
+    await b.route(/\.wasm$|\/art\//, async (r) => { await held; await r.continue().catch(() => {}); });
+    await b.goto(`${baseUrl()}?${relayQ}&join=${code}`, { waitUntil: 'domcontentloaded' });
+    await b.locator('#onlineJoin').waitFor({ state: 'visible' });
+    await b.locator('#onlineName').fill('Bo'); await b.locator('#btnJoinRoom').click();
+    await b.locator('#btnOnlineReady').waitFor({ state: 'visible' });
+    assert.equal(await b.locator('#btnOnlineReady').textContent(), 'LOADING…', 'READY waits for the game');
+    assert.ok(await b.locator('#btnOnlineReady').isDisabled());
+    // A third seat by the protocol alone: a tab that readies, then never loads its game (it died, or it is very slow).
+    const build = await a.p.locator('#buildId').textContent();
+    c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
+    await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
+    c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build }));
+    await a.p.waitForFunction(() => /Cy/.test(document.getElementById('seatList').textContent));
+    c.send(JSON.stringify({ t: 'ready', ready: true }));
+    await a.tap('#btnOnlineReady');
+    await a.p.waitForTimeout(300);
+    assert.equal(relay.rooms.get(code).phase, 'lobby', 'no start while the friend cannot be ready');
+    release();
+    await b.locator('#btnOnlineReady:not([disabled])', { hasText: /^READY$/ }).waitFor({ timeout: 60000 });
+    await b.locator('#btnOnlineReady').click();
+    // Started: both games set up, the relay's clock waits for Cy's, and says so by name.
+    for (const p of [a.p, b]) await p.waitForFunction(() => !document.getElementById('netWait').hidden && /Waiting for Cy to load…/.test(document.getElementById('netWait').textContent), null, { timeout: 15000, polling: 250 });
+    assert.ok(await a.p.evaluate(() => endfall.G.tick) <= 6, 'the clock waits');
+    // Cy gives up (BACK after the start: a leave): conceded, and the others play on.
+    c.send(JSON.stringify({ t: 'leave' })); c.close();
+    for (const p of [a.p, b]) await p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 150, null, { timeout: 30000, polling: 250 });
+    await a.p.locator('#netWait').waitFor({ state: 'hidden', timeout: 10000 }); // (nobody waited for any more; a busy test machine may keep a page from acking a moment)
+    assert.deepEqual(a.errors, []); assert.deepEqual(errors, []);
+  } finally { release(); c?.close(); await cb.close(); await a.ctx.close(); }
+});
+
+test('a rejoin whose game cannot load keeps its seat; one while it loads finds the room\'s news kept (a pause, a seat gone)', async () => {
+  const { default: WebSocket } = await import('ws');
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  let c = null, release = () => {};
+  try {
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    await a.tap('#onlinePlayers [data-n="3"]');
+    await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
+    const b = await joinByLink({ ...DESKTOP, serviceWorkers: 'block' }, `${relayQ}&join=${code}`, 'Bo'); // (a service worker would serve the game past the routes below)
+    // (seats by name: whoever's hello comes first sits first)
+    const seat = (n) => relay.rooms.get(code).seats.findIndex(s => s.name === n), bo = () => relay.rooms.get(code).seats[seat('Bo')];
+    try {
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent));
+      // A third seat by the protocol alone, which gives the game up before it has loaded: a seat gone.
+      c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
+      await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
+      c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build: await a.p.locator('#buildId').textContent() }));
+      await a.p.waitForFunction(() => /Cy/.test(document.getElementById('seatList').textContent));
+      c.send(JSON.stringify({ t: 'ready', ready: true })); await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      await a.p.waitForFunction(() => endfall.online.playing, null, { polling: 250 });
+      c.send(JSON.stringify({ t: 'leave' })); c.close();
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.G.tick > 30, null, { timeout: 20000, polling: 250 });
+      // Ann pauses for everyone.
+      await a.tap('#btnPause'); await a.tap('#btnPauseAll');
+      await a.p.waitForFunction(() => /^You paused/.test(document.getElementById('pauseTime').textContent), null, { timeout: 5000 });
+      // Bo reloads into the room, but the game cannot load (its chunk refused): the seat is kept, not given up.
+      await b.p.route(/assets\/main-[^/]*\.js$/, r => r.abort());
+      await b.p.goto(`${baseUrl()}?${relayQ}&join=${code}`, { waitUntil: 'domcontentloaded' });
+      await b.p.locator('#onlineJoin').waitFor({ state: 'visible' }); await b.p.locator('#btnJoinRoom').click();
+      await b.p.waitForFunction(() => /could not load/.test(document.getElementById('onlineStatus').textContent), null, { timeout: 15000, polling: 250 });
+      assert.equal(await b.p.locator('#btnOnlineReady').textContent(), 'RELOAD');
+      assert.ok(!bo().left, 'the seat is not given up');
+      assert.ok(await b.p.evaluate((k) => !!sessionStorage.getItem(`endfall.seat.${k}`), code), 'and its token is kept');
+      // RELOAD, the game loading slowly this time: the room's news (the pause, Cy gone) arrives meanwhile, and is kept.
+      await b.p.unroute(/assets\/main-[^/]*\.js$/);
+      const held = new Promise(r => { release = r; });
+      await b.p.route(/assets\/main-[^/]*\.js$/, async (r) => { await held; await r.continue().catch(() => {}); });
+      await Promise.all([b.p.waitForNavigation(), b.p.locator('#btnOnlineReady').click()]);
+      await b.p.locator('#onlineJoin').waitFor({ state: 'visible' }); await b.p.locator('#btnJoinRoom').click();
+      await b.p.waitForTimeout(1500); // (the start, Cy's leave and the pause, told while the game loads)
+      release();
+      await b.p.waitForFunction(() => window.endfall && endfall.online.playing && !document.getElementById('pause').hidden, null, { timeout: 60000, polling: 250 });
+      assert.equal(await b.p.locator('#pause h2').textContent(), 'Paused', 'the pause, on its card');
+      assert.deepEqual(await b.p.evaluate(() => [...endfall.online.gone]), [seat('Cy')], 'Cy gone');
+      assert.equal(bo().left, false, 'still in the game');
+      await a.tap('#btnResume');
+      for (const x of [a, b]) { const t = await x.p.evaluate(() => endfall.G.tick); await x.p.waitForFunction((t0) => endfall.G.tick > t0 + 30, t, { timeout: 30000, polling: 250 }); }
+    } finally { release(); await b.ctx.close(); }
+  } finally { c?.close(); await a.ctx.close(); }
+});
+
 test('a small phone: the room fits without scrolling, its sound icon in the corner', async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page({ ...PHONE, viewport: { width: 667, height: 375 } }, relayQ);

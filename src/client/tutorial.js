@@ -6,7 +6,7 @@ import { G, UNITS, BUILDINGS, holdWaves } from '../engine/index.js';
 const HOLD_WAVES = 360;
 import { $, ui, toast } from './ui.js';
 import { myFaction } from './hud.js';
-import { portrait } from './icons.js';
+import { portrait } from './gl/render.js';
 import { sfx } from './audio.js';
 import { alerts } from './tools.js';
 

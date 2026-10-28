@@ -4,6 +4,8 @@ import { G, BUILDINGS, FACTIONS } from '../engine/index.js';
 import { sfx } from './audio.js';
 
 export const $ = (id) => document.getElementById(id);
+/** What the menu and the lobby say when the game (src/boot.js loads it behind them) could not load. */
+export const LOAD_FAILED = 'The game could not load. Check your connection, then RELOAD';
 
 /** Client-only UI state: what the local player has selected and which command is armed. */
 export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false, watching: 0 }; // box: SELECT armed ('held' / 'once'); watching: a replay's speed (0: playing)

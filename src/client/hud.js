@@ -3,7 +3,8 @@ import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, hasReq, c
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
-import { icon, portrait } from './icons.js';
+import { icon } from './icons.js';
+import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand } from './card.js';
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)

@@ -2,7 +2,7 @@
 // app (Chrome and Edge, on Android and desktop: `beforeinstallprompt`) and not once installed (iPhone Safari has its
 // Add to Home Screen tip instead, screen.js); CHECK OFFLINE on the About page, which asks the service worker
 // (tools/offline/sw.js) how much of the game it has stored and says it plainly.
-import { $ } from './hud.js';
+import { $ } from './ui.js';
 import { standalone } from './screen.js';
 
 let offer = null; // the browser's install offer, kept for the tap
@@ -20,6 +20,10 @@ function ask(worker, ms) {
 }
 const within = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
 
+/** The service worker's registration, once src/boot.js has asked for it (null before). */
+let registering = null;
+export const registered = (p) => { registering = p; };
+
 /** What is stored for offline play: {state: 'ready' | 'partial' | 'none'} with the worker's answer, or 'unavailable'
  *  (no service worker here: an old browser, private mode, storage blocked, or the dev server). The newest worker is
  *  asked (one installing: how far it got; a newer one waiting: the version that loads next); on a first visit the
@@ -33,7 +37,8 @@ export async function offlineStatus(ms = 4000) {
   // The working copy first (the active worker: what plays offline now); with none yet (a first visit), the one
   // installing. A newer build on its way is only mentioned.
   const worker = reg && (reg.active || reg.installing || reg.waiting);
-  if (!worker) return { state: 'unavailable' };
+  // (none: in a built game not registered yet, src/boot.js registers it once the game's load is over; else none here)
+  if (!worker) return { state: !registering && import.meta.env?.PROD ? 'none' : 'unavailable' };
   const s = await ask(worker, ms);
   if (!s) return { state: 'none' }; // (no answer in time: a worker busy installing, or one from before this check)
   if (s.error) return { state: 'unavailable', ...s };

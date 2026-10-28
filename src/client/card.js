@@ -4,7 +4,8 @@ import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, castAbility, hasReq, canAffor
 import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
 import { sfx, say } from './audio.js';
-import { icon, portrait } from './icons.js';
+import { icon } from './icons.js';
+import { portrait } from './gl/render.js';
 
 let cardKey = '';
 export function invalidateCard() { cardKey = ''; }

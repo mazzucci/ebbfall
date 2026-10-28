@@ -21,11 +21,11 @@ const PW_VERSION = JSON.parse(readFileSync(require.resolve('playwright-core/pack
 /** Which backend to use when none is named: BrowserStack when its secrets are set, else a local dry run. */
 export const defaultBackend = () => (process.env.BROWSERSTACK_USERNAME && process.env.BROWSERSTACK_ACCESS_KEY ? 'browserstack' : 'local');
 
-export async function openDriver(backend, key) {
+export async function openDriver(backend, key, { url } = {}) {
   const dev = DEVICES[key];
   if (!dev) throw new Error(`unknown device ${key}: one of ${Object.keys(DEVICES).join(', ')}`);
   if (backend === 'browserstack') return browserstack(key, dev);
-  if (backend === 'simulator') return simulator(key, dev);
+  if (backend === 'simulator') return simulator(key, dev, url);
   if (backend === 'emulator') return emulator(dev);
   if (backend === 'local') return local(dev);
   if (backend === 'webdriver') return webdriver(key);
@@ -92,7 +92,7 @@ function bootSimulator(dev) {
   throw new Error(`no ${kind.source.slice(1)} simulator installed (xcrun simctl list devices available)`);
 }
 
-async function simulator(key, dev) {
+async function simulator(key, dev, url) {
   if (dev.platform !== 'ios') throw new Error(`${key} is not an iOS device: the simulator backend runs Safari on iOS (use emulator for Android)`);
   const sim = bootSimulator(dev);
   console.log(`${key}: ${sim.name}, iOS ${sim.version} (${sim.udid})`);
@@ -101,6 +101,7 @@ async function simulator(key, dev) {
     'appium:automationName': 'XCUITest', 'appium:udid': sim.udid, 'appium:platformVersion': sim.version,
     'appium:isHeadless': true, 'appium:simulatorStartupTimeout': 600000, // (booted here, without its window)
     'appium:noReset': true, // (a fresh simulator: no Safari data to scrub, which takes minutes on a CI machine)
+    ...(url ? { 'appium:safariInitialUrl': url } : {}), // (Safari opens on the site: an iPad otherwise shows a new tab in front)
     'appium:safariIgnoreFraudWarning': true, 'appium:newCommandTimeout': 300,
     'appium:webviewConnectTimeout': 120000, 'appium:webviewConnectRetries': 120, // (Safari's page, slow to show on a CI Mac)
     'appium:wdaLaunchTimeout': 600000, 'appium:wdaConnectionTimeout': 600000,

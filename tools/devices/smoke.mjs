@@ -26,8 +26,19 @@ const STATUS = `(function () {
   st.started = !!(e && e.G && e.G.units.length > 0);
   st.fullscreenElement = document.fullscreenElement ? document.fullscreenElement.tagName : (document.webkitFullscreenElement ? document.webkitFullscreenElement.tagName : null);
   st.fullscreenButton = !!b && !b.hidden; st.soundButton = s ? s.getAttribute('aria-pressed') : null;
+  var start = document.getElementById('start');
+  st.menuShown = !!start && !start.hidden; st.toasts = Array.prototype.map.call(document.querySelectorAll('#msg .toast'), function (t) { return t.textContent; });
   st.viewport = [innerWidth, innerHeight, devicePixelRatio]; st.userAgent = navigator.userAgent;
   return st;
+})()`;
+// A build without its own error capture (before endfall.status()): catch what goes wrong from the menu on.
+const CATCH = `(function () {
+  if (window.endfallErrors) return false;
+  window.endfallErrors = [];
+  var keep = function (m) { if (endfallErrors.length < 20) endfallErrors.push(String(m)); };
+  addEventListener('error', function (e) { keep(e.message || String(e.error)); });
+  addEventListener('unhandledrejection', function (e) { keep('unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason)); });
+  return true;
 })()`;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -50,10 +61,11 @@ async function smoke(key) {
     try { s.result = await fn(); s.ok = true; } catch (e) { s.error = e.message.split('\n')[0]; throw e; } finally { s.ms = Date.now() - t; }
   };
   try {
-    await step('open the device', async () => { d = await openDriver(o.backend, key); r.on = d.device || DEVICES[key].label; });
+    await step('open the device', async () => { d = await openDriver(o.backend, key, { url: o.url }); r.on = d.device || DEVICES[key].label; });
     await step('the first page', async () => {
       await d.goto(o.url);
       await waitFor(d, `!!window.endfall && !!document.getElementById('btnSolo') && !document.getElementById('menuHome').hidden`, 180000, 'the menu');
+      await d.eval(CATCH);
       await shot('1-menu');
     });
     await step('SINGLE PLAYER', async () => { await d.tap('#btnSolo'); await waitFor(d, `!document.getElementById('menuSolo').hidden`, 60000, 'the single-player page'); });

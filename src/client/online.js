@@ -120,8 +120,10 @@ function connect(room) {
     on: {
       // (also mid-lobby: the host moved this seat to another side, and the relay renumbered the seats; held with the
       // lobby that follows while a tap is under way: holdTaps)
-      seat: (m) => { if (held && online.seat >= 0 && !online.playing) owedSeat = m; else takeSeat(m); },
-      lobby: (m) => { if (online.playing) backToRoom(); if (held) owed = m; else renderLobby(m); }, // (not under a finger: holdTaps)
+      // (a seat that moved mid-lobby waits for the lobby the relay sends right after it: this side's seat and the board
+      // it reads change together, never one ahead of the other; and neither under a finger: holdTaps)
+      seat: (m) => { if (online.seat >= 0 && !online.setup) owedSeat = m; else takeSeat(m); },
+      lobby: (m) => { if (online.playing) backToRoom(); if (held) owed = m; else showLobby(m); },
       rematch: (wants) => { online.wants = wants; game?.rematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
       // The game has loaded (READY waits for it); a start that finds it still loading (a seat taken back after a
@@ -219,20 +221,24 @@ let editing = -1, sheet = null, preview = ''; // (the seat whose sheet is open; 
 /** A tap's events go to the element it began on: a board or sheet redrawn under a finger (a lobby arriving mid-tap:
  *  someone else's change, or the answer to the last chip) would lose the tap. The relay's lobby waits (`owed`) while
  *  a pointer is down in the lobby, until its click (or a moment after the finger lifts, or its cancel, or at most
- *  1.5 s); a new seat number (`owedSeat`) waits with it, so this side's seat never runs ahead of the board it reads. */
+ *  1.5 s); a new seat number (`owedSeat`) waits with it. */
 let held = 0, taps = 0, owed = null, owedSeat = null; // (held: the tap under way, by number; none 0: an earlier tap's timers cannot end a later one's hold)
 function holdTaps() {
   const done = (t) => {
     if (!held || t !== held) return;
     held = 0;
-    if (owedSeat) { const m = owedSeat; owedSeat = null; takeSeat(m); }
-    if (owed) { const m = owed; owed = null; renderLobby(m); }
+    if (owed) { const m = owed; owed = null; showLobby(m); }
   };
   const box = $('online');
   box.addEventListener('pointerdown', () => { const t = held = ++taps; setTimeout(() => done(t), 1500); }, true);
   box.addEventListener('pointercancel', () => done(held), true);
   box.addEventListener('pointerup', () => { const t = held; setTimeout(() => done(t), 400); }, true);
   box.addEventListener('click', () => { const t = held; setTimeout(() => done(t)); }, true);
+}
+/** A lobby from the relay: the seat it sent before it first (`owedSeat`: the seats were renumbered), then the board. */
+function showLobby(m) {
+  if (owedSeat) { const s = owedSeat; owedSeat = null; takeSeat(s); }
+  renderLobby(m);
 }
 /** A seat nobody has taken (no name, not here, not the AI's): open for a friend. */
 const isOpen = (s) => !s.ai && !s.here && !s.name;

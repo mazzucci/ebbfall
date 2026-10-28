@@ -83,7 +83,7 @@ for (const [label, device, collapsed] of TABS) {
       // A drag on the map pans it, never the page.
       const st = await d.page.locator('#stage').boundingBox();
       await d.page.touchscreen.tap(st.x + st.width / 2, st.y + st.height / 3);
-      await d.page.mouse.wheel(0, 400);
+      await d.page.mouse.wheel(0, 400).catch(() => {}); // (mobile WebKit under test has no wheel)
       assert.deepEqual(await pageStill(d.page), { x: 0, y: 0, over: 0, wide: 0 }, `${label}: a wheel does not scroll the page`);
       // The bars collapse (or come back): the layout follows, the middle of the map stays the middle.
       const mid = () => d.eval(() => { const v = endfall.view, c = endfall.cam; return [c.x + v.w / 2 / c.zoom, c.y + v.h / 2 / c.zoom]; });

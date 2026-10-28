@@ -1983,7 +1983,9 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
       if (!await page.evaluate(() => endfall.status().pageFullscreen)) {
-        // No full screen for the page (WebKit as an iPhone, like iPhone Safari): the button says how to get it instead.
+        // No full screen for the page: on iPad and iPhone the button says how to get it (the Home Screen card); a
+        // browser with no full-screen API and no Home Screen to add to (WebKit's phone profile here) has no button.
+        if (!await page.locator('#cornerFull').isVisible()) { assert.equal(await page.evaluate(() => endfall.status().fullscreenEnabled), false, 'no button only where there is no full screen at all'); continue; }
         await (device.hasTouch ? page.locator('#cornerFull').tap() : page.locator('#cornerFull').click());
         assert.ok(await page.locator('#homeTip').isVisible(), 'the Add to Home Screen card where the page cannot go full screen');
         continue;
@@ -2033,9 +2035,11 @@ test('a game\'s sound and full-screen buttons, for real: sound is on after START
         await press('#btnFull'); await full(true);
       } else {
         assert.equal((await status()).fullscreen, false, 'never full screen where the page does not go there (iPhone, iPad)');
-        await press('#btnFull');
-        assert.ok(await d.page.locator('#homeTip').isVisible(), 'the button: the Add to Home Screen card');
-        await press('#btnHomeTipOk');
+        if (await d.page.locator('#btnFull').isVisible()) { // (iPad, iPhone: the Home Screen card; no full-screen API at all and no Home Screen to add to: no button)
+          await press('#btnFull');
+          assert.ok(await d.page.locator('#homeTip').isVisible(), 'the button: the Add to Home Screen card');
+          await press('#btnHomeTipOk');
+        } else assert.equal((await status()).fullscreenEnabled, false, 'no button only where there is no full screen at all');
       }
       assert.deepEqual((await status()).errors, [], 'no page errors');
       assert.deepEqual(d.errors, []);

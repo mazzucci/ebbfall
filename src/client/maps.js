@@ -69,11 +69,6 @@ export function teamList(players, teams) {
   const size = +teams[0];
   return Array.from({ length: players }, (_, s) => Math.floor(s / size));
 }
-/** The choice a room's teams (a team per seat, or null) are: 'ffa', a split, or '' (none the menus offer). */
-export function teamsKey(teams) {
-  if (!Array.isArray(teams) || teams.every((t, s) => t === s)) return 'ffa';
-  return teamsFor(teams.length).find(k => k !== 'ffa' && teamList(teams.length, k).every((t, s) => t === teams[s])) || '';
-}
 
 const FIRST = ['Ashen', 'Glass', 'Hollow', 'Iron', 'Sunken', 'Cinder', 'Pale', 'Shattered', 'Silent', 'Rust', 'Frozen', 'Amber', 'Broken', 'Ember', 'Grey', 'Last'];
 const SECOND = ['Basin', 'Ridge', 'Reach', 'Mesa', 'Hollows', 'Expanse', 'Crossing', 'Wastes', 'Divide', 'Plateau', 'Gorge', 'Flats', 'Rim', 'Fields', 'Shelf', 'Sink'];

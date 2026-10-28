@@ -13,8 +13,8 @@ import { audio, sfx, soundToggled } from './audio.js';
 import { enterFullscreen, exitFullscreen, isFull, canGoFullscreen } from './screen.js';
 import { icon } from './icons.js';
 import { initOffline } from './offline.js';
-import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor, teamList } from './maps.js';
-import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatName, newAi, canRemove, sidesOf, enemyLevel, raceTitle, tokenEl, sideBox, newSide, seatSheet, sheetDialog } from './seats.js';
+import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamList } from './maps.js';
+import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatName, newAi, canRemove, sidesOf, enemyLevel, raceTitle, tokenEl, sideBox, newSide, seatSheet, sheetDialog, narrow } from './seats.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -41,7 +41,7 @@ function choose(i) {
 }
 
 /** The map buttons for `players` into `box`: those that seat them, the chosen one (`on`) lit, each with its badge (when
- *  there is one: maps.js `badge`); `pick(i)` when one is tapped (none: shown, not chosen: the lobby's guests). */
+ *  there is one: maps.js `badge`); `pick(i)` when one is tapped (none: shown, not chosen). */
 export function mapButtons(box, players, on, pick) {
   box.innerHTML = '';
   for (const i of mapsFor(players)) {
@@ -68,8 +68,6 @@ const defaultRows = () => { // (the menu before the board saved these; new playe
   const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
   return legacyRows({ race: store.get('race'), enemy: store.get('enemy'), diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
 };
-/** Where room is short (a phone): the race's short name on a token. */
-const narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 900px), (max-height: 500px)') : { matches: false, addEventListener() {} };
 let editing = -1, sheet = null; // (the seat whose sheet is open; the dialog it opens in)
 function setRows(rows) {
   const resized = rows.length !== menu.rows.length;
@@ -119,26 +117,6 @@ function renderSheet() {
   if (focus) (host.querySelector(`[data-k="${focus}"]`) || host.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || host.querySelector('[data-k="done"]')).focus();
 }
 narrow.addEventListener?.('change', () => { if (menu.rows.length) renderSeats(); });
-
-/** What each choice of teams means, on its button, in the lobby (by seat). */
-export const ROOM_TEAMS = { ffa: 'Each for itself', '2v2': 'The first two seats against the last two: allies start side by side', '3v3': 'The first three seats against the last three', '4v4': 'The first four seats against the last four', '2v2v2v2': 'Four pairs, in seat order' };
-const picks = new WeakMap(); // (each box's current pick: the buttons outlive a render)
-/** The teams `players` may choose from into `box` (hidden when free for all is all there is), `on` lit; `pick(k)` when
- *  one is tapped (none: shown, not chosen: the lobby's guests). */
-export function teamButtons(box, players, on, pick, titles) {
-  const keys = teamsFor(players);
-  box.hidden = keys.length < 2; picks.set(box, pick);
-  if (box.dataset.keys !== keys.join()) {
-    box.dataset.keys = keys.join(); box.innerHTML = '';
-    for (const k of keys) {
-      const b = document.createElement('button');
-      b.className = 'ib'; b.dataset.teams = k; b.setAttribute('role', 'radio'); b.textContent = k === 'ffa' ? 'FREE FOR ALL' : k; b.title = titles[k];
-      b.addEventListener('click', () => { const p = picks.get(box); if (p) { p(k); sfx('select'); } });
-      box.appendChild(b);
-    }
-  }
-  for (const b of box.querySelectorAll('.ib')) { const lit = b.dataset.teams === on; b.classList.toggle('on', lit); b.setAttribute('aria-checked', String(lit)); b.disabled = !pick && !lit; }
-}
 
 // A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
 // drawn a pixel per tile (64 or 96 across) and shown at one size. The sim draws the map: until its WASM is in (the menu

@@ -67,8 +67,7 @@ test('a seat given up in the lobby is a fresh seat; an old client is told to upd
   r.receive(b, { t: 'leave' }); r.close(b);
   const b2 = conn('b2'); r.connect(b2, hello());
   assert.equal(got(b2, 'lobby').at(-1).seats[1].race, 'humans');
-  const old = conn('old'); assert.equal(r.connect(old, { proto: 0 }), -1);
-  assert.equal(got(old, 'error')[0].code, 'update');
+  for (const proto of [0, 3]) { const old = conn('old'); assert.equal(r.connect(old, { proto, name: 'Old' }), -1); assert.equal(got(old, 'error')[0].code, 'update', `PROTO ${proto}: told to update`); }
 });
 
 test('the clock waits until everyone has loaded, then closes a turn every 100 ms', () => {
@@ -462,37 +461,112 @@ test('a two-seat room is as it was: the same draws for the setup, each seat its 
   const s = got(a, 'start')[0].setup;
   // (the seed and side the relay drew before seat counts, with the room's seed 7)
   assert.deepEqual({ seed: s.seed, map: s.map, side: s.side, races: s.races, names: s.names }, { seed: 271533, map: 0, side: 0, races: ['humans', 'humans'], names: ['Ann', 'Bo'] });
-  assert.deepEqual([s.teams, s.ai, s.diff], [[0, 1], [0, 0], 1]);
-  assert.equal(got(a, 'lobby').at(-1).seats.length, 2);
+  assert.deepEqual([s.teams, s.ai, s.diffs, s.diff], [[0, 1], [0, 0], [0, 0], 1]);
+  assert.deepEqual([got(a, 'lobby').at(-1).seats.length, got(a, 'lobby').at(-1).teams], [2, [0, 1]], 'two seats, each its own side');
 });
 
-test('the host sets the seat count, 2 to MAX_SEATS: a seat a person holds is never dropped, the teams go back to each its own', () => {
+test('the host adds seats (open, or the AI\'s, on a side; MAX_SEATS at most) and drops open and AI seats, never a person\'s, never below two', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
-  r.receive(b, { t: 'seats', n: 4 }); // (not the host's)
+  r.receive(b, { t: 'add', team: 1, ai: true }); r.receive(b, { t: 'drop', seat: 1 }); // (not the host's)
   assert.equal(r.seats.length, 2);
   r.receive(a, { t: 'ready', ready: true });
-  r.receive(a, { t: 'seats', n: 4, map: 4 });
-  const l = got(b, 'lobby').at(-1);
-  assert.equal(l.seats.length, 4, 'four seats');
-  assert.equal(l.map, 4, 'with a map that seats them');
+  r.receive(a, { t: 'add', team: 0, ai: false }); // (an open seat for a friend, on the host's side)
+  let l = got(b, 'lobby').at(-1);
+  assert.deepEqual([l.seats.length, l.teams], [3, [0, 0, 1]], 'three seats, the new one on the host\'s side: each side one run of seats');
+  assert.deepEqual(got(b, 'seat').map(m => m.seat), [1, 2], 'Bo moved to seat 2, and was told');
   assert.ok(l.seats.every(x => !x.ready), 'everyone ready again for the new setup');
-  for (const n of [1, MAX_SEATS + 1, 2.5, '3']) { r.receive(a, { t: 'seats', n }); assert.equal(r.seats.length, 4, `${n} seats refused`); }
-  r.receive(a, { t: 'teams', teams: [0, 0, 1, 1] });
-  assert.deepEqual(got(b, 'lobby').at(-1).teams, [0, 0, 1, 1]);
-  const c = conn('c'); assert.equal(r.connect(c, hello({ name: 'Cy' })), 2, 'a third joins the next open seat');
-  r.receive(a, { t: 'seats', n: 2 });
-  assert.equal(r.seats.length, 4, 'not while a person holds a seat that would go');
-  r.receive(a, { t: 'seats', n: 3 });
-  assert.equal(r.seats.length, 3, 'an empty seat goes');
-  assert.equal(got(c, 'lobby').at(-1).teams, null, 'the teams: each its own again');
+  r.receive(a, { t: 'add', team: 5, ai: true, race: 'vael', diff: 3 }); // (a team no seat has: a side of its own)
+  l = got(b, 'lobby').at(-1);
+  assert.deepEqual([l.teams, l.seats[3].ai, l.seats[3].race, l.seats[3].diff], [[0, 0, 1, 2], true, 'vael', 3], 'an AI on a side of its own, numbered after the others');
+  for (const bad of [{ team: -1 }, { team: 2.5 }, { team: '1' }, { team: MAX_SEATS }]) r.receive(a, { t: 'add', ai: true, ...bad });
+  assert.equal(r.seats.length, 4, 'a bad side refused');
+  r.receive(a, { t: 'add', team: 1, ai: true, race: 7, diff: 9 });
+  assert.deepEqual([r.seats[3].race, r.seats[3].diff], ['random', 1], 'a bad race or level: RANDOM on Medium');
+  while (r.seats.length < MAX_SEATS) r.receive(a, { t: 'add', team: 1, ai: true });
+  r.receive(a, { t: 'add', team: 1, ai: true });
+  assert.equal(r.seats.length, MAX_SEATS, `${MAX_SEATS} seats at most`);
+  const c = conn('c'); assert.equal(r.connect(c, hello({ name: 'Cy' })), 1, 'a third joins the open seat (on the host\'s side)');
+  // Drops: never seat 0, never a person (here, or held for one away); the seats after it move up, their connections told.
+  for (const seat of [0, 1, 9, '2', -1]) r.receive(a, { t: 'drop', seat });
+  assert.equal(r.seats.length, MAX_SEATS, 'not the host, not a person, not a seat that is not there');
+  r.close(c); r.receive(a, { t: 'drop', seat: 1 });
+  assert.equal(r.seats[1].name, 'Cy', 'nor a held seat (its player away)');
+  r.receive(a, { t: 'drop', seat: 3 }); // (an AI after Bo: nobody moves)
+  assert.deepEqual([got(b, 'seat').at(-1).seat, r.seats[2].name, r.seats.length], [2, 'Bo', MAX_SEATS - 1]);
+  r.receive(a, { t: 'free', seat: 1 }); r.receive(a, { t: 'drop', seat: 1 }); // (Cy's seat freed, then dropped: Bo moves up)
+  assert.deepEqual([got(b, 'seat').at(-1).seat, r.seats[1].name], [1, 'Bo'], 'Bo moved up, and was told');
+  while (r.seats.length > 2) r.receive(a, { t: 'drop', seat: 2 });
+  assert.deepEqual(r.seats.map(x => x.name), ['Ann', 'Bo']);
+  r.receive(b, { t: 'leave' }); r.receive(a, { t: 'ai', seat: 1, on: true }); r.receive(a, { t: 'drop', seat: 1 });
+  assert.deepEqual([r.seats.length, r.seats[1].ai], [2, true], 'two seats at least');
   assert.equal(r.connect(conn('d'), hello()), -1, 'full');
 });
 
+test('the host moves anyone between sides: each side one run of seats, the moved told their seat, a held seat kept; one side does not start', () => {
+  const { r, conn, got, clear } = room(); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.tick(1000);
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.receive(a, { t: 'add', team: 0, ai: true, race: 'vael', diff: 2 }); // (Ann and an AI against Bo)
+  r.receive(a, { t: 'add', team: 1, ai: false });
+  r.connect(c, hello({ name: 'Cy' }));
+  const names = () => r.seats.map(x => x.name || (x.ai ? 'AI' : ''));
+  assert.deepEqual([names(), r.seats.map(x => x.team)], [['Ann', 'AI', 'Bo', 'Cy'], [0, 0, 1, 1]]);
+  r.receive(b, { t: 'side', seat: 2, team: 0 }); // (not the host's)
+  assert.equal(r.seats[2].team, 1);
+  for (const [seat, team] of [[9, 0], [2, -1], [2, MAX_SEATS], [2, 0.5], ['2', 0]]) r.receive(a, { t: 'side', seat, team });
+  assert.deepEqual(r.seats.map(x => x.team), [0, 0, 1, 1], 'a bad seat or side refused');
+  const bo = r.seats[2].token, cy = r.seats[3].token;
+  r.close(c); clear(); // (Cy away: the seat held for her)
+  // Bo to the host's side: nothing moves but the line between the sides.
+  r.receive(a, { t: 'side', seat: 2, team: 0 });
+  let l = got(a, 'lobby').at(-1);
+  assert.deepEqual([l.seats.map(x => x.name), l.teams], [['Ann', '', 'Bo', 'Cy'], [0, 0, 0, 1]]);
+  assert.equal(got(b, 'seat').length, 0, 'nobody moved');
+  // The AI to Cy's side: it goes after Bo, who moves up to seat 1, and is told.
+  r.receive(a, { t: 'side', seat: 1, team: 1 });
+  l = got(a, 'lobby').at(-1);
+  assert.deepEqual([names(), l.teams], [['Ann', 'Bo', 'AI', 'Cy'], [0, 0, 1, 1]], 'each side one run of seats');
+  assert.deepEqual(got(b, 'seat').map(m => [m.seat, m.token]), [[1, bo]], 'Bo told his new seat, his token with it');
+  assert.deepEqual([l.seats[2].race, l.seats[2].diff], ['vael', 2], 'the AI as it was');
+  assert.deepEqual([r.seats[3].token, l.seats[3].here, l.seats[3].name], [cy, false, 'Cy'], 'Cy\'s held seat as it was, away');
+  // A side of its own (a number no seat has), between the others where its first seat is.
+  r.receive(a, { t: 'side', seat: 1, team: 6 });
+  assert.deepEqual([names(), got(a, 'lobby').at(-1).teams], [['Ann', 'Bo', 'AI', 'Cy'], [0, 1, 2, 2]], 'Bo on a side of his own');
+  r.receive(a, { t: 'side', seat: 2, team: 0 }); // (the AI to Ann's side: Bo moves down)
+  assert.deepEqual([names(), got(a, 'lobby').at(-1).teams, got(b, 'seat').at(-1).seat], [['Ann', 'AI', 'Bo', 'Cy'], [0, 0, 1, 2], 2]);
+  // The host moves too: its side is always the first, and it seat 0.
+  clear();
+  r.receive(a, { t: 'side', seat: 0, team: 2 }); // (Ann joins Cy)
+  assert.deepEqual([names(), got(a, 'lobby').at(-1).teams], [['Ann', 'Cy', 'AI', 'Bo'], [0, 0, 1, 2]]);
+  assert.deepEqual([got(a, 'seat').length, got(b, 'seat').map(m => m.seat)], [0, [3]], 'the host stays seat 0; Bo told his');
+  // Cy comes back with her token: her seat, wherever it went meanwhile.
+  const c2 = conn('c2'); assert.equal(r.connect(c2, hello({ name: 'Cy', token: cy })), 1, 'the held seat taken back where it went');
+  // Everyone on one side: allowed in the lobby (the host passes through it), but no start.
+  r.receive(a, { t: 'side', seat: 2, team: 0 }); r.receive(a, { t: 'side', seat: 3, team: 0 });
+  assert.deepEqual(got(a, 'lobby').at(-1).teams, [0, 0, 0, 0]);
+  for (const x of [a, b, c2]) r.receive(x, { t: 'ready', ready: true });
+  assert.equal(r.phase, 'lobby', 'nobody to fight: no start');
+  r.receive(a, { t: 'side', seat: 3, team: 1 });
+  for (const x of [a, b, c2]) r.receive(x, { t: 'ready', ready: true });
+  assert.equal(r.phase, 'game', 'two sides: the start');
+  assert.deepEqual([got(a, 'start')[0].setup.teams, got(a, 'start')[0].setup.names], [[0, 0, 0, 1], ['Ann', 'Cy', '', 'Bo']]);
+});
+
+test('a guest who sits in an open seat takes its side; the seat it left stays open on its own', () => {
+  const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
+  r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
+  r.receive(a, { t: 'add', team: 0, ai: false }); // (Ann and an open seat against Bo)
+  assert.equal(got(b, 'seat').at(-1).seat, 2);
+  r.receive(b, { t: 'sit', seat: 1 });
+  const l = got(a, 'lobby').at(-1);
+  assert.deepEqual([l.seats.map(x => x.name), l.teams], [['Ann', 'Bo', ''], [0, 0, 1]], 'Bo on Ann\'s side; the open seat on the other');
+  assert.equal(got(b, 'seat').at(-1).seat, 1);
+});
 test('a player out of a free-for-all who closes the page holds nobody up (its game is over: it watches)', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b'), c = conn('c');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
-  r.receive(a, { t: 'seats', n: 3 }); r.connect(c, hello({ name: 'Cy' }));
+  r.receive(a, { t: 'add', team: 2, ai: false }); r.connect(c, hello({ name: 'Cy' }));
   for (const x of [a, b, c]) r.receive(x, { t: 'ready', ready: true });
   for (const x of [a, b, c]) r.receive(x, { t: 'loaded' });
   r.tick(0);
@@ -504,68 +578,70 @@ test('a player out of a free-for-all who closes the page holds nobody up (its ga
   assert.equal(got(a, 'away').filter(m => m.seat === 2).length, 0, 'nobody waits for it');
 });
 
-test('AI seats: the host fills open seats; no connection, never waited for, never away, nothing from them; the start carries teams, AI and difficulty', () => {
+test('AI seats: the host fills open seats, each at its own level; no connection, never waited for, never away, nothing from them; the start carries teams, AI and levels', () => {
   const { r, conn, got, clear } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
-  r.receive(a, { t: 'seats', n: 4, map: 4 });
-  r.receive(b, { t: 'ai', seat: 2, on: true }); // (not the host's)
-  assert.ok(!r.seats[2].ai);
-  r.receive(a, { t: 'ai', seat: 2, on: true });
-  r.receive(a, { t: 'ai', seat: 3, on: true, race: 'vael' });
-  r.receive(a, { t: 'ai', seat: 1, on: true }); // (a person's seat)
+  r.receive(a, { t: 'add', team: 1, ai: false }); r.receive(a, { t: 'add', team: 0, ai: false }); r.receive(a, { t: 'map', map: 4 });
+  assert.deepEqual([r.seats.map(x => x.name), r.seats.map(x => x.team)], [['Ann', '', 'Bo', ''], [0, 0, 1, 1]]);
+  r.receive(b, { t: 'ai', seat: 1, on: true }); // (not the host's)
+  assert.ok(!r.seats[1].ai);
+  r.receive(a, { t: 'ai', seat: 1, on: true });
+  r.receive(a, { t: 'ai', seat: 3, on: true, race: 'vael', diff: 3 });
+  r.receive(a, { t: 'ai', seat: 2, on: true }); // (a person's seat)
   r.receive(a, { t: 'ai', seat: 0, on: true }); // (the host's own)
   let l = got(b, 'lobby').at(-1);
-  assert.deepEqual(l.seats.map(x => [x.ai, x.race]), [[false, 'humans'], [false, 'humans'], [true, 'random'], [true, 'vael']]);
-  r.receive(a, { t: 'ai', seat: 2, race: 'humans' }); // (an AI seat's race)
-  r.receive(a, { t: 'ai', seat: 3, on: false }); r.receive(a, { t: 'ai', seat: 3, on: true, race: 'vael' }); // (open again, then the AI's again)
-  assert.deepEqual(r.seats.map(x => x.ai), [false, false, true, true]);
+  assert.deepEqual(l.seats.map(x => [x.ai, x.race, x.diff]), [[false, 'humans', 1], [true, 'random', 1], [false, 'humans', 1], [true, 'vael', 3]], 'RANDOM on Medium unless told');
+  r.receive(a, { t: 'ai', seat: 1, race: 'humans' }); // (an AI seat's race: its level kept)
+  r.receive(a, { t: 'ai', seat: 1, on: true, diff: 0 }); // (its level: its race kept)
+  r.receive(a, { t: 'ai', seat: 1, on: true, diff: 4 }); r.receive(a, { t: 'ai', seat: 1, on: true, diff: 1.5 }); // (no such level)
+  r.receive(a, { t: 'ai', seat: 3, on: false }); r.receive(a, { t: 'ai', seat: 3, on: true, race: 'vael', diff: 2 }); // (open again, then the AI's again)
+  assert.deepEqual(r.seats.map(x => [x.ai, x.race, x.diff, x.team]), [[false, 'humans', 1, 0], [true, 'humans', 0, 0], [false, 'humans', 1, 1], [true, 'vael', 2, 1]]);
   assert.equal(r.connect(conn('c'), hello()), -1, 'nobody takes an AI seat');
-  r.receive(a, { t: 'diff', diff: 3 }); r.receive(a, { t: 'diff', diff: 9 });
-  r.receive(a, { t: 'teams', teams: [0, 0, 0, 0] }); r.receive(a, { t: 'teams', teams: [0, 1] }); r.receive(a, { t: 'teams', teams: [0, 0, 4, 4] }); // (one team; another length; ids too high)
-  r.receive(a, { t: 'teams', teams: [0, 1, 1, 0] });
-  l = got(b, 'lobby').at(-1);
-  assert.deepEqual([l.diff, l.teams], [3, [0, 1, 1, 0]]);
   // Ready: the people only.
   r.receive(a, { t: 'ready', ready: true });
   assert.equal(r.phase, 'lobby');
   r.receive(b, { t: 'ready', ready: true });
   assert.equal(r.phase, 'game');
   const s = got(a, 'start')[0].setup;
-  assert.deepEqual([s.races, s.names, s.teams, s.ai, s.diff, s.map], [['humans', 'humans', 'humans', 'vael'], ['Ann', 'Bo', '', ''], [0, 1, 1, 0], [0, 0, 1, 1], 3, 4]);
+  assert.deepEqual([s.races, s.names, s.teams, s.ai, s.diffs, s.diff, s.map], [['humans', 'humans', 'humans', 'vael'], ['Ann', '', 'Bo', ''], [0, 0, 1, 1], [0, 1, 0, 1], [0, 0, 0, 2], 2, 4], 'each AI at its own level; diff the hardest');
   assert.ok(Number.isInteger(s.side) && s.side >= 0, 'any turn of the seats round the starts');
   // The clock starts once the people have loaded, and runs on their acks: the AI seats are never waited for.
   r.receive(a, { t: 'loaded' }); r.receive(b, { t: 'loaded' }); r.tick(0); clear();
   play(r, [a, b], 0, 20000);
   assert.equal(got(a, 'away').length, 0, 'nobody away, the AI seats least of all');
   assert.ok(r.turn > 190, 'the clock ran');
-  assert.ok(r.log.every(t => t.o.every(([seat]) => seat < 2)), 'no orders from an AI seat');
+  assert.ok(r.log.every(t => t.o.every(([seat]) => seat === 0 || seat === 2)), 'no orders from an AI seat');
   // Hash checks among the people; the game is over once theirs are.
   const cp = Math.floor(r.turn / CHECK_EVERY) * CHECK_EVERY;
   r.receive(a, { t: 'ack', turn: r.turn, check: { turn: cp, hash: 5 } }); r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp, hash: 5 } });
   assert.equal(got(a, 'desync').length, 0);
   r.receive(a, { t: 'over' }); r.receive(b, { t: 'over' });
   assert.equal(r.phase, 'over');
-  // A rematch: the people want one; the AI seats stay the AI's.
+  // A rematch: the people want one; the AI seats stay the AI's, at their levels, on their sides.
   r.receive(a, { t: 'rematch', want: true }); r.receive(b, { t: 'rematch', want: true });
   assert.equal(r.phase, 'lobby');
-  assert.deepEqual(got(a, 'lobby').at(-1).seats.map(x => x.ai), [false, false, true, true]);
+  l = got(a, 'lobby').at(-1);
+  assert.deepEqual([l.seats.map(x => [x.ai, x.diff]), l.teams], [[[false, 1], [true, 0], [false, 1], [true, 2]], [0, 0, 1, 1]]);
 });
 
 test('eight seats (M4 2e): two people and six AI seats, four against four; the people alone are waited for', () => {
   const { r, conn, got, clear } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
   assert.equal(MAX_SEATS, 8);
-  r.receive(a, { t: 'seats', n: 8, map: 8 });
-  assert.equal(r.seats.length, 8, 'eight seats');
-  for (let s = 2; s < 8; s++) r.receive(a, { t: 'ai', seat: s, on: true, race: s % 2 ? 'vael' : 'humans' });
-  r.receive(a, { t: 'teams', teams: [0, 0, 0, 0, 1, 1, 1, 1] });
+  for (let k = 0; k < 6; k++) r.receive(a, { t: 'add', team: k < 3 ? 0 : 1, ai: true, race: k % 2 ? 'vael' : 'humans', diff: k % 4 });
+  r.receive(a, { t: 'map', map: 8 });
   const l = got(b, 'lobby').at(-1);
   assert.deepEqual([l.seats.length, l.seats.filter(x => x.ai).length, l.teams, l.map], [8, 6, [0, 0, 0, 0, 1, 1, 1, 1], 8]);
+  assert.equal(got(b, 'seat').at(-1).seat, 4, 'Bo first on his side');
   assert.equal(r.connect(conn('c'), hello({ name: 'Cy' })), -1, 'every seat taken: full');
-  r.receive(a, { t: 'teams', teams: [0, 0, 1, 1, 2, 2, 3, 3] });
+  // Four pairs: two AIs to a side of their own, two more to another (a number no seat has, then joined).
+  r.receive(a, { t: 'side', seat: 2, team: 5 }); r.receive(a, { t: 'side', seat: 2, team: 1 });
+  r.receive(a, { t: 'side', seat: 6, team: 5 }); r.receive(a, { t: 'side', seat: 6, team: 3 });
+  assert.deepEqual(got(a, 'lobby').at(-1).teams, [0, 0, 1, 1, 2, 2, 3, 3]);
   r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
   const s = got(a, 'start')[0].setup;
-  assert.deepEqual([s.teams, s.ai, s.races.length, s.names.length], [[0, 0, 1, 1, 2, 2, 3, 3], [0, 0, 1, 1, 1, 1, 1, 1], 8, 8]);
+  assert.deepEqual([s.teams, s.ai.filter(Boolean).length, s.races.length, s.names.length, s.ai[got(b, 'seat').at(-1).seat]], [[0, 0, 1, 1, 2, 2, 3, 3], 6, 8, 8, 0]);
+  assert.deepEqual(s.diffs.filter((_, i) => s.ai[i]).sort(), [0, 0, 1, 1, 2, 3], 'each AI\'s level');
   r.receive(a, { t: 'loaded' }); r.receive(b, { t: 'loaded' }); r.tick(0); clear();
   play(r, [a, b], 0, 5000);
   assert.ok(r.turn > 45, 'the clock ran on the people\'s acks');
@@ -573,11 +649,10 @@ test('eight seats (M4 2e): two people and six AI seats, four against four; the p
   r.receive(a, { t: 'over' }); r.receive(b, { t: 'over' });
   assert.equal(r.phase, 'over', 'over once the people\'s games are');
 });
-
 test('a person who leaves a game with AI seats: one person left, a pause ends; the AI seats are not counted in', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
-  r.receive(a, { t: 'seats', n: 3, map: 4 }); r.receive(a, { t: 'ai', seat: 2, on: true });
+  r.receive(a, { t: 'add', team: 2, ai: true });
   r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
   r.receive(a, { t: 'loaded' }); r.receive(b, { t: 'loaded' }); r.tick(0);
   play(r, [a, b], 0, 1000);
@@ -588,10 +663,10 @@ test('a person who leaves a game with AI seats: one person left, a pause ends; t
   assert.equal(got(a, 'left')[0].seat, 1);
 });
 
-test('a friend moves to an open seat (the teams are by seat); not the host, not to a held or AI seat', () => {
+test('a friend moves to an open seat (taking its side); not the host, not to a held or AI seat', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
-  r.receive(a, { t: 'seats', n: 4, map: 4 }); r.receive(a, { t: 'ai', seat: 3, on: true });
+  r.receive(a, { t: 'add', team: 2, ai: false }); r.receive(a, { t: 'add', team: 3, ai: true });
   const token = r.seats[1].token;
   r.receive(b, { t: 'sit', seat: 3 }); // (the AI's)
   r.receive(b, { t: 'sit', seat: 0 }); // (the host's)
@@ -607,8 +682,8 @@ test('a friend moves to an open seat (the teams are by seat); not the host, not 
   r.receive(a, { t: 'leave' }); r.close(a);
   r.receive(b, { t: 'sit', seat: 0 });
   assert.equal(r.seats[0].token, token);
-  r.receive(b, { t: 'diff', diff: 0 });
-  assert.equal(r.diff, 0, 'the new host picks');
+  r.receive(b, { t: 'ai', seat: 3, on: true, diff: 0 });
+  assert.equal(r.seats[3].diff, 0, 'the new host picks');
 });
 
 test('the lobby holds a seat whose connection went: away, not ready, a newcomer takes an open seat, the token takes it back; open again after the hold', () => {
@@ -634,7 +709,7 @@ test('the lobby holds a seat whose connection went: away, not ready, a newcomer 
   assert.equal(r.seats[1].token, token, 'held until the hold runs out');
   r.tick(2 * LOBBY_HOLD_MS + LOBBY_HOLD_MS + 1);
   l = got(a, 'lobby').at(-1);
-  assert.deepEqual(l.seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false }, 'open again, told to the room');
+  assert.deepEqual(l.seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false, diff: 1 }, 'open again, told to the room');
   const b3 = conn('b3');
   assert.equal(r.connect(b3, hello({ name: 'Bo', token })), 1, 'back too late: a fresh seat');
   assert.notEqual(got(b3, 'seat')[0].token, token);
@@ -643,7 +718,7 @@ test('the lobby holds a seat whose connection went: away, not ready, a newcomer 
 test('the host away in the lobby: the room waits for it (no new host, no start while a held seat is away); AI seats are as they were', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b'), c = conn('c');
   r.tick(0);
-  r.connect(a, hello()); r.receive(a, { t: 'seats', n: 4, map: 4 }); r.receive(a, { t: 'ai', seat: 3, on: true, race: 'vael' });
+  r.connect(a, hello()); r.receive(a, { t: 'add', team: 2, ai: false }); r.receive(a, { t: 'add', team: 3, ai: true, race: 'vael' });
   const token = got(a, 'seat')[0].token;
   r.receive(a, { t: 'ready', ready: true });
   r.close(a); // (the host went to send the code)
@@ -651,8 +726,8 @@ test('the host away in the lobby: the room waits for it (no new host, no start w
   assert.deepEqual([got(b, 'seat')[0].seat, got(c, 'seat')[0].seat], [1, 2], 'the friends take the open seats, not the host\'s');
   r.receive(b, { t: 'sit', seat: 0 });
   assert.equal(r.seats[0].token, token, 'nobody moves to the host\'s held seat');
-  r.receive(b, { t: 'diff', diff: 0 });
-  assert.equal(r.diff, 1, 'nor picks for the host');
+  r.receive(b, { t: 'ai', seat: 3, on: true, diff: 0 }); r.receive(b, { t: 'side', seat: 3, team: 0 }); r.receive(b, { t: 'add', team: 0, ai: true });
+  assert.deepEqual([r.seats[3].diff, r.seats[3].team, r.seats.length], [1, 3, 4], 'nor picks for the host');
   let l = got(b, 'lobby').at(-1);
   assert.deepEqual(l.seats.map(s => [s.name, s.here, s.ai]), [['Ann', false, false], ['Bo', true, false], ['Cy', true, false], ['', false, true]], 'the host AWAY; the AI seat as it was');
   r.receive(b, { t: 'ready', ready: true }); r.receive(c, { t: 'ready', ready: true });
@@ -663,8 +738,8 @@ test('the host away in the lobby: the room waits for it (no new host, no start w
   assert.equal(r.connect(a2, hello({ token })), 0, 'the host back: seat 0');
   l = got(b, 'lobby').at(-1);
   assert.deepEqual(l.seats.map(s => [s.name, s.ready, s.here]), [['Ann', false, true], ['Bo', true, true], ['Cy', true, true], ['', false, false]], 'here, not ready');
-  r.receive(a2, { t: 'diff', diff: 2 });
-  assert.equal(r.diff, 2, 'still the host');
+  r.receive(a2, { t: 'ai', seat: 3, on: true, diff: 2 });
+  assert.equal(r.seats[3].diff, 2, 'still the host');
   for (const x of [a2, b, c]) r.receive(x, { t: 'ready', ready: true }); // (ready again for the new difficulty)
   assert.equal(r.phase, 'game', 'everyone ready: the start');
   assert.deepEqual(got(a2, 'start')[0].setup.ai, [0, 0, 0, 1]);
@@ -675,29 +750,45 @@ test('the host gone longer than the hold: its seat is open, and a friend may tak
   r.tick(0);
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
   r.close(a); r.tick(LOBBY_HOLD_MS + 2);
-  assert.deepEqual(got(b, 'lobby').at(-1).seats[0], { name: '', race: 'humans', ready: false, here: false, ai: false });
+  assert.deepEqual(got(b, 'lobby').at(-1).seats[0], { name: '', race: 'humans', ready: false, here: false, ai: false, diff: 1 });
   r.receive(b, { t: 'sit', seat: 0 });
   assert.equal(got(b, 'seat').at(-1).seat, 0, 'the friend is the host now');
 });
 
-test('a lobby kept and restored (an adapter that lost its memory): the seats held, their tokens take them back', () => {
+test('a lobby kept and restored (an adapter that lost its memory): the seats held, on their sides, the AIs at their levels; their tokens take them back', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.tick(5000);
-  r.connect(a, hello()); r.receive(a, { t: 'seats', n: 3, map: 4 }); r.receive(a, { t: 'ai', seat: 2, on: true }); r.receive(a, { t: 'diff', diff: 3 });
+  r.connect(a, hello()); r.receive(a, { t: 'add', team: 2, ai: true, diff: 3 }); r.receive(a, { t: 'map', map: 4 });
   r.receive(a, { t: 'race', race: 'vael' });
-  const token = got(a, 'seat')[0].token;
-  r.close(a);
+  r.connect(b, hello({ name: 'Bo' })); r.receive(a, { t: 'side', seat: 1, team: 0 }); // (Bo on Ann's side, against the AI)
+  r.receive(a, { t: 'add', team: 1, ai: true, race: 'humans', diff: 0 });
+  const token = got(a, 'seat')[0].token, bo = got(b, 'seat').at(-1).token;
+  r.close(a); r.close(b);
   const kept = JSON.parse(JSON.stringify(r.keep()));
   assert.ok(!JSON.stringify(kept).includes('conn'), 'no connections kept');
   const y = room(); y.r.restore(kept, 9000);
-  assert.deepEqual(y.r.seats.map(s => [s.name, s.race, !!s.token, s.ai, s.goneSince]), [['Ann', 'vael', true, false, 5000], ['', 'humans', false, false, 0], ['', 'random', false, true, 0]]);
-  assert.deepEqual([y.r.map, y.r.diff, y.r.phase], [4, 3, 'lobby']);
-  const c = y.conn('c'); assert.equal(y.r.connect(c, hello({ name: 'Cy' })), 1, 'a newcomer: the open seat');
+  assert.deepEqual(y.r.seats.map(s => [s.name, s.race, !!s.token, s.ai, s.diff, s.team]), [['Ann', 'vael', true, false, 1, 0], ['Bo', 'humans', true, false, 1, 0], ['', 'random', false, true, 3, 1], ['', 'humans', false, true, 0, 1]], 'the seats, their sides and levels');
+  assert.deepEqual([y.r.seats[0].goneSince, y.r.map, y.r.phase], [5000, 4, 'lobby']);
   const a2 = y.conn('a2'); assert.equal(y.r.connect(a2, hello({ token })), 0, 'the token: its own seat');
+  const b2 = y.conn('b2'); assert.equal(y.r.connect(b2, hello({ token: bo })), 1);
+  assert.deepEqual(y.got(a2, 'lobby').at(-1).teams, [0, 0, 1, 1]);
   y.r.tick(5000 + LOBBY_HOLD_MS + 1);
   assert.equal(y.r.seats[0].token, token, 'here: not freed');
+  for (const x of [a2, b2]) y.r.receive(x, { t: 'ready', ready: true });
+  assert.deepEqual(y.got(a2, 'start')[0].setup.diffs, [0, 0, 3, 0], 'each AI at the level it had');
 });
 
+test('a lobby kept by the relay before the sides board (a room-wide difficulty, teams by seat or none) comes back arranged', () => {
+  const y = room();
+  y.r.restore({ map: 8, diff: 2, teams: null, seats: [{ name: 'Ann', token: 't0', goneSince: 1 }, { ai: true, race: 'vael' }, { name: '', token: null, ai: false }] }, 100);
+  assert.deepEqual(y.r.seats.map(s => [s.name, s.ai, s.diff, s.team]), [['Ann', false, 1, 0], ['', true, 2, 1], ['', false, 1, 2]], 'each its own side; the AI at the room\'s level');
+  const z = room();
+  z.r.restore({ map: 4, diff: 3, teams: [0, 1, 1, 0], seats: [{ name: 'Ann', token: 't0' }, { ai: true }, { ai: true, diff: 0 }, {}] }, 100);
+  assert.deepEqual(z.r.seats.map(s => [s.name, s.ai, s.diff, s.team]), [['Ann', false, 1, 0], ['', false, 1, 0], ['', true, 3, 1], ['', true, 0, 1]], 'the sides kept together; a level of its own kept');
+  const w = room();
+  w.r.restore({ teams: [0, 9], seats: [{ name: 'Ann', token: 't0' }, { ai: true, diff: 7 }] }, 100);
+  assert.deepEqual(w.r.seats.map(s => [s.diff, s.team]), [[1, 0], [1, 1]], 'bad teams: each its own; a bad level: Medium');
+});
 test('the host frees a held seat whose player is away (back on another browser, without its token); nothing else', () => {
   const { r, conn, got } = room(3); const a = conn('a'), b = conn('b'), c = conn('c');
   r.tick(0);
@@ -713,7 +804,7 @@ test('the host frees a held seat whose player is away (back on another browser, 
   r.receive(a, { t: 'free', seat: 0 }); r.receive(a, { t: 'free', seat: 9 }); r.receive(a, { t: 'free', seat: '1' });
   assert.ok(r.seats[0].conn && r.seats[1].token);
   r.receive(a, { t: 'free', seat: 1 });
-  assert.deepEqual(got(c, 'lobby').at(-1).seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false }, 'open at once, told to all');
+  assert.deepEqual(got(c, 'lobby').at(-1).seats[1], { name: '', race: 'humans', ready: false, here: false, ai: false, diff: 1 }, 'open at once, told to all');
   const b3 = conn('b3'); assert.equal(r.connect(b3, hello({ name: 'Bo' })), 1, 'Bo sits again');
   r.receive(a, { t: 'ai', seat: 2, on: false }); r.receive(a, { t: 'free', seat: 2 }); // (Cy is here: neither frees it)
   assert.ok(r.seats[2].conn);

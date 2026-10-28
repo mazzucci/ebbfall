@@ -629,7 +629,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       // MULTIPLAYER: the lobby's join form, its own sound icon (the same setting); BACK.
       await press('#btnOnline');
       assert.ok(await shown('#onlineJoin') && await page.locator('#start').isHidden(), 'multiplayer: the join form');
-      assert.equal(await page.locator('#online h2').textContent(), 'PLAY A FRIEND', 'its title (under MULTIPLAYER)');
+      assert.equal(await page.locator('#onlineJoin h2').textContent(), 'MULTIPLAYER', 'its title: the button\'s');
       const v = page.viewportSize(), b = await page.locator('#btnLobbySound').boundingBox();
       assert.ok(b.x + b.width > v.width - 70 && b.y < 70 && b.width >= 44 && b.height >= 44, `the sound icon top right, a finger wide: ${JSON.stringify(b)}`);
       await press('#btnLobbySound');
@@ -2080,7 +2080,7 @@ test('the menu fits a small phone on every page (the first with the iPhone tip s
     await page.locator('#btnSolo').tap();
     await fits('#start .card.menu', '#menuSolo h2', 'single player');
     await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();
-    await fits('#online .card.menu', '#online h2', 'multiplayer');
+    await fits('#online .card.menu', '#onlineJoin h2', 'multiplayer');
   } finally { await ctx.close(); }
 });
 

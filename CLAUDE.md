@@ -94,12 +94,13 @@ src/client/           everything that touches the browser
   seats.js            the seats against the AI: rows (`{ race, team, diff }`, you first) and how they become seats
                       (`arrange` puts each team's seats side by side, your team first; `startSetup`), pure
                       (test/seats.test.js: `arrange`, `startSetup`, `enemyLevel`, `newAi`, `canRemove`, `sidesOf`, ...); and
-                      the board's DOM pieces, for the lobby too, built from a seat's view, not a row: `tokenEl` (colour
-                      band, name, race, difficulty pips), `sideBox`, `newSide`, `chipRow` (a radio group), `seatSheet`,
+                      the board's DOM pieces, the lobby's too, built from a seat's view, not a row: `tokenEl` (colour
+                      band, name, race, difficulty pips; a host's crown, a ready check, AWAY, an open seat's SIT HERE),
+                      `sideBox`, `newSide`, `chipRow` (a radio group), `seatSheet` (rows by option, footer buttons),
                       `sheetDialog` (a modal <dialog>)
   maps.js             the maps the menus offer, by size (players decide it: 64x64 for two, 96x96 for three or four,
                       128x128 for five to eight), named fixed maps and a random one per size, badges, the map an online
-                      setup plays, the team splits (FREE FOR ALL, 2v2, 3v3, 4v4, 2v2v2v2); pure (test/maps.test.js)
+                      setup plays, the team splits a saved setup of the menu before the board names; pure (test/maps.test.js)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   card.js             the command card: buttons for the selection, long-press details, what a button does
@@ -116,8 +117,10 @@ src/client/           everything that touches the browser
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
   offline.js          INSTALL on the menu (where the browser offers it) and About's CHECK OFFLINE (asks the service worker)
-  online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, ready; the host's
-                      players, teams, map, AI seats and their difficulty; moving to an open seat) and the glue between
+  online.js           Multiplayer: the lobby (open/join a room by code or link; the room is single player's sides board:
+                      people, AIs and open seats as tokens, your race in your token's sheet, READY a lit toggle; the
+                      host's sheets move anyone between sides, set an AI's race and level, share or fill or remove an
+                      open seat; + AI / + SEAT / + SIDE; the map; a guest's board read-only, SIT HERE) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
                       with VITE_RELAY_URL shows MULTIPLAYER in the HTML itself, vite.config.js)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages, sends this side's orders,
@@ -129,8 +132,9 @@ test/audio.test.js    the sound engine on a stub Web Audio API: every recipe pla
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
-                      the pause card's menu and a pause for everyone, rooms of three and six with AI seats, eight seats
-                      on a small phone),
+                      the pause card's menu and a pause for everyone, the sides board (AIs, levels, sides, a guest's
+                      view, an open seat's SHARE LINK), two people against two AIs, six with AI seats, eight seats on
+                      phones),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
@@ -139,14 +143,15 @@ test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache S
                       install; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
-                      four and eight with AI seats
+                      four (two AIs at different levels) and eight with AI seats
 test/seats.test.js    the seat list's rules: rows to seats and team ids, a new AI's team, a saved setup checked
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
                       the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js
 test/maps.test.js     the menus' maps (src/client/maps.js): sizes by players, maps that fit, badges, an online setup's map,
                       the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats, AI
-                      seats, lobby, the turn clock, the log, away and back, desync checks); server.mjs, a Node WebSocket server
+                      seats and their levels, sides kept as runs of seats, lobby, the turn clock, the log, away and back,
+                      desync checks); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it once the token is set);
                       bench.js, the device test's reports over HTTP (POST /bench, GET /bench/<CODE>), in both

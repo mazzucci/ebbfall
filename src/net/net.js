@@ -9,7 +9,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 3;
+export const PROTO = 4;
 export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
@@ -124,12 +124,13 @@ export class Net {
   // ---- the lobby ----
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
-  // (the host's: the seat count with a map that fits it, an open seat for the AI or open again, the AI's difficulty,
-  // the teams, freeing an away seat; anyone else's: moving to an open seat)
-  seats(n, map) { this.say({ t: 'seats', n, map }); }
-  ai(seat, on, race) { this.say({ t: 'ai', seat, on, race }); }
-  diff(diff) { this.say({ t: 'diff', diff }); }
-  teams(teams) { this.say({ t: 'teams', teams }); }
+  // (the host's: a seat for the AI or open again, its race and difficulty; a seat to another side (a team no seat has:
+  // a side of its own); a seat more on a side, open or the AI's; an open or AI seat less; freeing an away seat. Anyone
+  // else's: moving to an open seat. The relay keeps each side's seats together, and tells a seat that moved: `seat`)
+  ai(seat, on, race, diff) { this.say({ t: 'ai', seat, on, race, diff }); }
+  side(seat, team) { this.say({ t: 'side', seat, team }); }
+  add(team, ai, race, diff) { this.say({ t: 'add', team, ai, race, diff }); }
+  drop(seat) { this.say({ t: 'drop', seat }); }
   sit(seat) { this.say({ t: 'sit', seat }); }
   free(seat) { this.say({ t: 'free', seat }); } // (the host's: a held seat whose player is away, open again)
   ready(ready = true) { this.say({ t: 'ready', ready }); }

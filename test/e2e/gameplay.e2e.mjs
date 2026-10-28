@@ -1651,6 +1651,7 @@ test('single player: nothing on the board moves (upright and on its side) when a
       const first = await seats.boxes();
       assert.equal(first.length, 8, `${at}: eight spots`);
       assert.equal(new Set(first.map(b => `${b[2]}x${b[3]}`)).size, 1, `${at}: all one size`);
+      assert.ok(first.every(b => b[2] > 0 && b[3] > 0), `${at}: laid out: ${JSON.stringify(first)}`);
       assert.equal(new Set(first.map(b => b[0])).size, viewport.width > viewport.height ? 4 : 2, `${at}: four abreast on its side, two upright`);
       const same = async (what) => assert.deepEqual(await seats.boxes(), first, `${at}, ${what}: every spot where it was`);
       await seats.add(); await same('an AI added');

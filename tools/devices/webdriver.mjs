@@ -39,6 +39,9 @@ export async function webdriverSession(base, capabilities) {
     async click(css) { await call('POST', s(`/element/${await this.find('css selector', css)}/click`), {}); },
     /** Appium's contexts: NATIVE_APP (the app's own views) or a web view's (WEBVIEW_...). */
     context: () => call('GET', s('/context')),
+    contexts: () => call('GET', s('/contexts')),
+    /** An element's rectangle ({ x, y, width, height }). */
+    rect: (id) => call('GET', s(`/element/${id}/rect`)),
     setContext: (name) => call('POST', s('/context'), { name }),
     /** A PNG of the screen (Appium: the whole simulator screen, Safari's bars too), as a Buffer. */
     screenshot: async () => Buffer.from(await call('GET', s('/screenshot')), 'base64'),

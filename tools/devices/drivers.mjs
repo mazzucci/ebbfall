@@ -38,6 +38,7 @@ function pageDriver(page, close, extra = {}) {
     goto: (url) => page.goto(url, { timeout: 90000 }),
     async tap(css) { const l = page.locator(css).first(); try { await l.tap({ timeout: 15000 }); } catch (e) { if (!/hasTouch|touch/i.test(e.message)) throw e; await l.click({ timeout: 15000 }); } },
     eval: (expr) => page.evaluate(expr),
+    scriptClick: (css) => page.locator(css).first().evaluate(e => e.click()),
     screenshot: () => page.screenshot({ timeout: 120000 }),
     link: async () => null,
     finish: async () => {},
@@ -117,6 +118,20 @@ async function simulator(key, dev, url) {
     catch (e) { if (i >= 2) throw e; console.log(`${key}: ${e.message.split('\n')[0].slice(0, 300)}; trying again`); }
   }
   const d = webdriverDriver(wd, `${sim.name}, iOS ${sim.version} (Simulator)`);
+  // Safari on an iPad can come up with a new tab in front of the site's: open the site again (simctl brings it to the
+  // front), then follow the web view that shows it.
+  d.goto = async (to) => {
+    try { execFileSync('xcrun', ['simctl', 'openurl', sim.udid, to], { stdio: 'ignore', timeout: 60000 }); } catch { await wd.goto(to); return; }
+    const host = new URL(to).host;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      for (const c of (await wd.contexts().catch(() => [])).filter(c => /^WEBVIEW/.test(typeof c === 'string' ? c : c.id)).reverse()) {
+        const name = typeof c === 'string' ? c : c.id;
+        try { await wd.setContext(name); if ((await wd.script('return location.host')) === host) return; } catch { /* a page going away */ }
+      }
+    }
+    await wd.goto(to); // (no web view with the site found: navigate the one Appium holds)
+  };
   // A real tap (sound and full screen need the user's gesture): the button as Safari's web view shows it to XCUITest,
   // found by its accessible name and tapped in the native context, so Safari's own bars cannot shift the point (which
   // they do to Appium's nativeWebTap on iOS 26). A script's click if the button cannot be found there.
@@ -125,14 +140,19 @@ async function simulator(key, dev, url) {
     if (!name) throw new Error(`no ${css} on the page`);
     const web = await wd.context();
     try {
+      const page = await wd.script("var r = document.querySelector(arguments[0]).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height), innerWidth, innerHeight];", css);
       await wd.setContext('NATIVE_APP');
-      await wd.clickElement(await wd.find('-ios class chain', `**/XCUIElementTypeWebView/**/XCUIElementTypeButton[\`label == ${JSON.stringify(name)}\`]`));
+      const el = await wd.find('-ios class chain', `**/XCUIElementTypeWebView/**/XCUIElementTypeButton[\`label == ${JSON.stringify(name)}\`]`);
+      const n = await wd.rect(el).catch(() => null);
+      console.log(`  ${css} ("${name}"): native tap at ${n ? [n.x, n.y, n.width, n.height].map(Math.round) : '?'} (the page has it at ${page.slice(0, 4)} of ${page.slice(4)})`);
+      await wd.clickElement(el);
       return;
     } catch (e) {
       console.log(`  ${css} ("${name}"): no native tap (${e.message.split('\n')[0].slice(0, 200)}); a script's click instead`);
     } finally { await wd.setContext(web).catch(() => {}); }
     await wd.click(css);
   };
+  d.scriptClick = (css) => wd.click(css);
   // One simulator at a time: a CI Mac has a few cores.
   d.close = async () => { await wd.close(); try { execFileSync('xcrun', ['simctl', 'shutdown', sim.udid], { stdio: 'ignore', timeout: 120000 }); } catch { /* already down */ } };
   return d;
@@ -144,6 +164,7 @@ function webdriverDriver(wd, device) {
     device,
     goto: (url) => wd.goto(url),
     tap: (css) => wd.click(css),
+    scriptClick: (css) => wd.click(css),
     eval: (expr) => wd.script(`return (${expr});`),
     screenshot: () => wd.screenshot(),
     link: async () => null, finish: async () => {},

@@ -51,6 +51,17 @@ async function waitFor(d, expr, ms, what) {
   }
 }
 
+/** Tap `css` and wait for `expr`; a tap that changes nothing in 30 s is retried as a script's click (and said so: the
+ *  device took the touch but the page did not act on it, worth a look on the real thing). */
+async function press(d, css, expr, ms, what) {
+  await d.tap(css);
+  try { await waitFor(d, expr, Math.min(ms, 30000), what); return {}; } catch (e) { if (ms <= 30000 || !d.scriptClick) throw e; }
+  console.log(`  ${css}: the tap changed nothing in 30 s; a script's click`);
+  await d.scriptClick(css);
+  await waitFor(d, expr, ms - 30000, what);
+  return { nativeTapIgnored: true };
+}
+
 async function smoke(key) {
   const r = { device: key, label: DEVICES[key].label, backend: o.backend, url: o.url, ok: false, steps: [], screenshots: [], session: null, status: {} };
   let d;
@@ -68,13 +79,12 @@ async function smoke(key) {
       await d.eval(CATCH);
       await shot('1-menu');
     });
-    await step('SINGLE PLAYER', async () => { await d.tap('#btnSolo'); await waitFor(d, `!document.getElementById('menuSolo').hidden`, 60000, 'the single-player page'); });
+    await step('SINGLE PLAYER', () => press(d, '#btnSolo', `!document.getElementById('menuSolo').hidden`, 60000, 'the single-player page'));
     await step('START GAME', async () => {
-      await d.tap('#btnStart');
-      await waitFor(d, `!!(window.endfall && endfall.G && endfall.G.units.length > 0)`, 180000, 'the game');
+      const how = await press(d, '#btnStart', `!!(window.endfall && endfall.G && endfall.G.units.length > 0)`, 180000, 'the game');
       await sleep(3000); // (a few frames drawn)
       await shot('2-game');
-      return d.eval(STATUS);
+      return { ...how, ...(await d.eval(STATUS)) };
     });
     await step('the sound button', async () => {
       await d.tap('#btnSound'); await sleep(500); const off = await d.eval(STATUS);
@@ -91,6 +101,8 @@ async function smoke(key) {
     });
     r.status = await d.eval(STATUS);
     r.ok = r.status.started && r.status.errors.length === 0;
+    const ignored = r.steps.filter(x => x.result && x.result.nativeTapIgnored).map(x => x.name);
+    if (ignored.length) r.note = `the device's tap did nothing on ${ignored.join(', ')}: a script's click went on`;
     if (!r.ok) r.reason = r.status.errors.length ? `page errors: ${r.status.errors.join(' | ')}` : 'no game running at the end';
   } catch (e) {
     r.reason = e.message.split('\n')[0];
@@ -111,14 +123,14 @@ for (const key of o.devices.split(',').map(s => s.trim()).filter(Boolean)) {
   console.log(`${key}: ${o.backend}, ${o.url}`);
   const r = await smoke(key);
   results.push(r);
-  console.log(`${key}: ${r.ok ? 'PASS' : 'FAIL'}${r.on ? ` on ${r.on}` : ''}${r.reason ? `: ${r.reason}` : ''}`);
+  console.log(`${key}: ${r.ok ? 'PASS' : 'FAIL'}${r.on ? ` on ${r.on}` : ''}${r.reason ? `: ${r.reason}` : ''}${r.note ? ` (${r.note})` : ''}`);
   console.log(`  audio ${r.status.audio}, full screen ${r.status.fullscreen}, errors ${JSON.stringify(r.status.errors || [])}${r.session ? `\n  session ${r.session}` : ''}`);
 }
 writeFileSync(join(o.out, 'summary.json'), JSON.stringify({ date: new Date().toISOString(), url: o.url, backend: o.backend, results }, null, 2) + '\n');
 // On GitHub Actions, a table on the run's page too, with each session's link.
 if (process.env.GITHUB_STEP_SUMMARY) {
   const cell = (v) => String(v ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
-  const rows = results.map(r => `| ${cell(r.on || r.label)} | ${r.ok ? 'pass' : `**fail**: ${cell(r.reason)}`} | ${cell(r.status.audio)} | ${cell(r.status.fullscreen)} | ${cell((r.status.errors || []).join('; ') || 'none')} | ${r.session ? `[session](${r.session})` : ''} |`);
+  const rows = results.map(r => `| ${cell(r.on || r.label)} | ${r.ok ? 'pass' : `**fail**: ${cell(r.reason)}`}${r.note ? ` (${cell(r.note)})` : ''} | ${cell(r.status.audio)} | ${cell(r.status.fullscreen)} | ${cell((r.status.errors || []).join('; ') || 'none')} | ${r.session ? `[session](${r.session})` : ''} |`);
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, [`### Devices: ${o.backend}, ${o.url}`, '', '| Device | Result | Audio | Full screen | Page errors | Link |', '|---|---|---|---|---|---|', ...rows, ''].join('\n') + '\n');
 }
 if (results.some(r => !r.ok)) process.exitCode = 1;

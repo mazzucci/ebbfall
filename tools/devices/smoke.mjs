@@ -27,7 +27,8 @@ const STATUS = `(function () {
   st.fullscreenElement = document.fullscreenElement ? document.fullscreenElement.tagName : (document.webkitFullscreenElement ? document.webkitFullscreenElement.tagName : null);
   st.fullscreenButton = !!b && !b.hidden; st.soundButton = s ? s.getAttribute('aria-pressed') : null;
   var start = document.getElementById('start');
-  st.menuShown = !!start && !start.hidden; st.toasts = Array.prototype.map.call(document.querySelectorAll('#msg .toast'), function (t) { return t.textContent; });
+  var end = document.getElementById('end');
+  st.menuShown = !!start && !start.hidden; st.endCard = !!end && !end.hidden; // (a slow device's game can be lost before the last taps) st.toasts = Array.prototype.map.call(document.querySelectorAll('#msg .toast'), function (t) { return t.textContent; });
   st.viewport = [innerWidth, innerHeight, devicePixelRatio]; st.userAgent = navigator.userAgent;
   return st;
 })()`;

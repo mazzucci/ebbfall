@@ -285,12 +285,12 @@ test('pause stops the game, BACK TO GAME (or P) goes on, and restart begins a ne
     assert.equal(await d.eval(() => endfall.G.time), t0, 'no game time passes while paused');
     await d.key('p');
     assert.ok(!(await d.page.locator('#pause').isVisible()), 'P resumes');
-    await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 5000 }); // (throws if time stays still)
+    await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 15000 }); // (throws if time stays still; generous: a busy machine may give the page a frame a second)
     await d.page.locator('#btnPause').click();
     const t1 = await d.eval(() => endfall.G.time);
     await d.page.locator('#btnResume').click();
     assert.ok(await d.page.locator('#pause').isHidden(), 'BACK TO GAME closes the card');
-    await d.page.waitForFunction((t1) => endfall.G.time > t1, t1, { timeout: 5000 });
+    await d.page.waitForFunction((t1) => endfall.G.time > t1, t1, { timeout: 15000 });
     await d.page.locator('#btnPause').click();
     await d.page.locator('#btnRestart').click();
     await d.page.waitForFunction(() => endfall.G.time < 1, null, { timeout: 5000 }); // a new game started
@@ -958,7 +958,7 @@ test('phone held upright: no card asks to turn it, and the game runs on', async 
   const d = await newGame({ ...PHONE, viewport: { width: 390, height: 844 } }, 1, 4242, { ai: false }); // held upright
   try {
     const t0 = await d.eval(() => endfall.G.time);
-    await d.page.waitForFunction((t0) => endfall.G.time > t0 + 0.5, t0, { timeout: 5000 });
+    await d.page.waitForFunction((t0) => endfall.G.time > t0 + 0.5, t0, { timeout: 15000 });
     assert.equal(await d.page.locator('#rotate').count(), 0, 'no turn-your-phone card');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -1249,8 +1249,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
     const t0 = await d.eval(() => endfall.G.time);
     await d.pressCard('Trooper'); await d.pressCard('Trooper');
     assert.deepEqual((await rax()).map(x => x.queue.length), [1, 1], 'one Trooper in each queue');
-    await d.page.waitForTimeout(600);
-    assert.ok(await d.eval(() => endfall.G.time) > t0, 'the game runs on');
+    await d.page.waitForFunction((t0) => endfall.G.time > t0, t0, { timeout: 15000 }).catch(() => assert.fail('the game runs on')); // (waited for: a busy machine may give the page a frame a second)
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2151,7 +2150,7 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       const t0 = await d.eval(() => endfall.G.tick); await d.page.waitForTimeout(500);
       assert.equal(await d.eval(() => endfall.G.tick), t0, 'the replay waits');
       await tap('#btnResume');
-      await d.page.waitForFunction((t0) => endfall.G.tick > t0, t0, { timeout: 5000 });
+      await d.page.waitForFunction((t0) => endfall.G.tick > t0, t0, { timeout: 15000 });
       await tap('#btnSpeed');
       assert.equal(await d.page.locator('#btnSpeed').textContent(), '8×', 'faster');
       // It ends where the game ended, back on the end card, the record unchanged.

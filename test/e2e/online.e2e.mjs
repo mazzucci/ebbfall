@@ -33,6 +33,30 @@ async function page(device, query) {
   return { ctx, p, errors, tap };
 }
 
+// A busy machine may give a page a frame a second (software WebGL), and the game runs in its frames: what must happen
+// is waited for, up to RUN_MS, never timed.
+const RUN_MS = 20000;
+
+/** The game runs in every page: each one's tick passes the one it was at. */
+async function advances(xs, what) {
+  const t = await Promise.all(xs.map(x => x.p.evaluate(() => endfall.G.tick)));
+  await Promise.all(xs.map((x, i) => x.p.waitForFunction((t0) => endfall.G.tick > t0, t[i], { timeout: RUN_MS, polling: 100 })
+    .catch(() => assert.fail(`${what}: a page stayed at tick ${t[i]} (${t})`))));
+}
+
+/** Both pages ran the same world: their trails of state hashes share more than `n` ticks, and agree on each. */
+async function sameWorld(a, b, n, what) {
+  const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
+  let ta, tb, common;
+  for (const end = Date.now() + RUN_MS; ; await a.p.waitForTimeout(250)) {
+    [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
+    common = [...ta.keys()].filter(t => tb.has(t));
+    if (common.length > n || Date.now() > end) break;
+  }
+  assert.ok(common.length > n, `${what} (${common.length} ticks in common)`);
+  for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+}
+
 test('two players: open a room, join by its link, ready, play in lockstep, and leaving concedes', async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(DESKTOP, relayQ);
@@ -78,13 +102,9 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       const id = await a.p.evaluate(() => { const h = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h, h.x + 300, h.y + 200); return h.id; });
       const at = (x) => x.p.evaluate((id) => { const u = endfall.G.units.find(u => u.id === id); return [Math.round(u.x), Math.round(u.y)]; }, id);
       const before = await at(b);
-      await a.p.waitForTimeout(4000);
-      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
-      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
-      const common = [...ta.keys()].filter(t => tb.has(t));
-      assert.ok(common.length > 60, `both ran the same stretch (${common.length} ticks in common)`);
-      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
-      assert.notDeepEqual(await at(b), before, "Ann's order ran in the friend's game too");
+      await sameWorld(a, b, 60, 'both ran the same stretch');
+      await b.p.waitForFunction(([id, x, y]) => { const u = endfall.G.units.find(u => u.id === id); return Math.round(u.x) !== x || Math.round(u.y) !== y; }, [id, ...before], { timeout: RUN_MS, polling: 100 })
+        .catch(() => assert.fail("Ann's order ran in the friend's game too"));
       // The friend stalls (no acks): Ann's screen says who it waits for. Ann drops offline meanwhile, the friend comes
       // back unseen, Ann reconnects: the line must not stay up.
       await b.p.evaluate(() => { endfall.online.net.ackIfDue = () => {}; });
@@ -148,11 +168,7 @@ test('three seats, one the AI\'s: the host sets it up, a friend joins, both brow
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 300, null, { timeout: 40000 });
       const setup = await a.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.online.setup.diff, endfall.engine.MW, endfall.G.factions.length, endfall.G.diff, endfall.online.names]);
       assert.deepEqual(setup, [[0, 0, 1], [0, 1, 2], 2, 96, 3, 2, ['Ann', 'Bo', 'the AI']], 'three seats on 96x96, the third the AI\'s at Hard');
-      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
-      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
-      const common = [...ta.keys()].filter(t => tb.has(t));
-      assert.ok(common.length > 60, `both ran the same stretch (${common.length} ticks in common)`);
-      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      await sameWorld(a, b, 60, 'both ran the same stretch');
       const ai = (x) => x.p.evaluate(() => [endfall.G.units.filter(u => u.team === 2).length, endfall.G.bldgs.some(b => b.team === 2 && b.queue.length > 0)]);
       const [units, training] = await ai(a);
       assert.ok(units > 4 || training, `the AI plays (${units} units, training: ${training})`);
@@ -197,11 +213,7 @@ test('six seats, four the AI\'s, three against three (M4 2e): eight seats fit a 
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: 60000 });
       const setup = await b.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.engine.MW, endfall.G.factions.length, endfall.G.me]);
       assert.deepEqual(setup, [[0, 0, 1, 1, 1, 1], [0, 0, 0, 1, 1, 1], 128, 6, 1], 'six seats on 128x128, three against three, four AIs');
-      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
-      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
-      const common = [...ta.keys()].filter(t => tb.has(t));
-      assert.ok(common.length > 40, `both ran the same stretch (${common.length} ticks in common)`);
-      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      await sameWorld(a, b, 40, 'both ran the same stretch');
       assert.ok(await a.p.evaluate(() => [2, 3, 4, 5].every(t => endfall.G.stats[t].built > 0 || endfall.G.bldgs.some(b => b.team === t && b.queue.length > 0))), 'the AIs play');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
@@ -273,12 +285,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && !endfall.G.over && endfall.G.tick > 30, null, { timeout: 20000 });
       assert.notEqual(await a.p.evaluate(() => endfall.online.setup.seed), seed1, 'a new game');
-      await a.p.waitForTimeout(2000);
-      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
-      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
-      const common = [...ta.keys()].filter(t => tb.has(t));
-      assert.ok(common.length > 30, `both ran the new game (${common.length} ticks in common)`);
-      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      await sameWorld(a, b, 30, 'both ran the new game');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
@@ -296,9 +303,14 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
-      const ticks = () => Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.tick)));
-      const runs = async (what) => { const t = await ticks(); await a.p.waitForTimeout(800); const u = await ticks(); assert.ok(u[0] > t[0] && u[1] > t[1], `${what}: ${t} -> ${u}`); };
-      const stands = async (what) => { await a.p.waitForTimeout(500); const t = await ticks(); await a.p.waitForTimeout(1000); assert.deepEqual(await ticks(), t, what); };
+      const runs = (what) => advances([a, b], what);
+      // Standing still: each page has run every turn it has, then for a second no turn comes and nothing runs (turns
+      // arrive whether or not the page gets frames: a busy machine cannot hide one).
+      const now = () => Promise.all([a, b].map(x => x.p.evaluate(() => { const n = endfall.online.net, g = n.game(); return [endfall.G.tick, g.nextTurn(), n.turns.size]; })));
+      const stands = async (what) => {
+        for (const x of [a, b]) await x.p.waitForFunction(() => { const n = endfall.online.net, g = n.game(); return !n.turns.size && !g.canStep() && endfall.G.tick === g.tick(); }, null, { timeout: RUN_MS, polling: 100 });
+        const t = await now(); await a.p.waitForTimeout(1000); assert.deepEqual(await now(), t, what);
+      };
       const card = (x) => x.p.evaluate(() => ({
         open: !document.getElementById('pause').hidden, h: document.querySelector('#pause h2').textContent, line: document.getElementById('pauseTime').textContent,
         buttons: [...document.querySelectorAll('#pause .pausegrid button')].filter(b => !b.hidden).map(b => (b.disabled ? '(' + b.textContent + ')' : b.textContent)),
@@ -347,11 +359,7 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       await b.p.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'Back to the game'), null, { timeout: 3000 });
       await runs('both run again');
       assert.deepEqual(await b.p.evaluate(() => [window.fs, window.fsOut || 0, window.fsAsked]), [true, 0, 0], 'Ann\'s pause left the friend\'s full screen alone');
-      const trail = (x) => x.p.evaluate(() => [...endfall.online.net.trail]);
-      const [ta, tb] = [new Map(await trail(a)), new Map(await trail(b))];
-      const common = [...ta.keys()].filter(t => tb.has(t));
-      assert.ok(common.length > 20, `both ran on (${common.length} ticks in common)`);
-      for (const t of common) assert.equal(ta.get(t), tb.get(t), `the same world at tick ${t}`);
+      await sameWorld(a, b, 20, 'both ran on');
       // One pause fewer for Ann; the friend still has all three.
       await a.tap('#btnPause');
       assert.ok((await card(a)).buttons.includes('PAUSE FOR EVERYONE2 left'));

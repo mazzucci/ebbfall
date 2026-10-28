@@ -25,8 +25,16 @@ export async function start() {
   browser = await launchChromium();
 }
 export async function stop() { await browser?.close(); server?.close(); }
+// ENDFALL_CPU_THROTTLE=n (n > 1): every page's CPU slowed n times (CDP), to shake out tests that time what they should
+// wait for (a busy machine gives a page few frames).
+const THROTTLE = Number(process.env.ENDFALL_CPU_THROTTLE) || 0;
+async function context(device) {
+  const ctx = await browser.newContext(device);
+  if (THROTTLE > 1) ctx.on('page', (p) => ctx.newCDPSession(p).then(s => s.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })).catch(() => {}));
+  return ctx;
+}
 /** A bare browser context and the URL the game is served at (for tests of the menu itself). */
-export const browserContext = (device) => browser.newContext(device);
+export const browserContext = (device) => context(device);
 export const baseUrl = () => base;
 
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
@@ -56,7 +64,7 @@ export function board(page) {
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
 export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false } = {}) {
-  const ctx = await browser.newContext(device);
+  const ctx = await context(device);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));

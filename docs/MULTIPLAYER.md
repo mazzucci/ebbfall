@@ -558,6 +558,9 @@ units on a mid phone decides whether 8 is offered on phones (4 is the likely com
      while everyone is on one side; the line of what the room waits for is the footer's note. One name, MULTIPLAYER,
      for the menu's button and the join form's heading. Eight seats fit 667x375 and 844x390 without scrolling and sit
      two abreast at 412x915 (568x320 scrolls); the top right (100x52) stays clear for the shared corner.
+     A lobby that arrives while a finger is down in the room waits until the tap is over (a board or sheet redrawn
+     under a finger loses the tap), and a sheet drops only the second click of a double click or tap that opened it
+     (Chrome may count a chip and DONE tapped quickly as a double tap: DONE was lost, in single player too).
      The relay: `ai {seat, on, race?, diff?}` (a level per AI seat, Medium by default; `on` without `diff` keeps it),
      `side {seat, team}`, `add {team, ai, race?, diff?}` (an open seat or the AI's; a team no seat has is a side of its
      own) and `drop {seat}` (an open or AI seat; never seat 0, never a person's, never below two), all the host's in

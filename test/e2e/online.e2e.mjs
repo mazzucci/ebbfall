@@ -40,7 +40,11 @@ const sides = (x) => x.p.$$eval('#onlineBoard .side', ss => ss.map(s => [...s.qu
 /** Seat `i`'s sheet on page `x`: its token, then each of `keys` (a chip or button's data-k: race:vael, diff:2, side:0,
  *  share, remove...), then DONE (unless `done` is false: the sheet stays open). */
 async function sheet(x, i, keys = [], done = true) {
-  await x.tap(`#onlineBoard [data-k="tok${i}"]`); await x.p.waitForTimeout(400); // (a tap within 350 ms of opening is a double tap's second)
+  await x.tap(`#onlineBoard [data-k="tok${i}"]`);
+  // (a tap within 350 ms of the sheet opening is taken for a double tap's second: counted on the page's clock, from the
+  // sheet open, as a page still loading its game may take a while to handle a tap)
+  await x.p.waitForFunction(() => document.getElementById('onlineSheet').open);
+  await x.p.evaluate(() => new Promise(r => setTimeout(r, 400)));
   for (const k of keys) await x.tap(`#onlineSheet [data-k="${k}"]`);
   if (done) await x.tap('#onlineSheet [data-k="done"]');
 }
@@ -265,6 +269,13 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
       assert.deepEqual(await sides(b), [['Ann', 'YOU'], ['OPEN']]);
       assert.equal(await b.p.locator('#onlineBoard .tok.open .act').textContent(), 'SIT HERE');
       assert.equal(await b.p.locator('#onlineStatus').textContent(), 'Waiting for players…');
+      // A lobby that arrives under a finger waits until the tap is over (a board redrawn mid-tap would lose the tap).
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+      await b.p.evaluate(() => endfall.online.net.race('vael'));
+      await a.p.waitForTimeout(500);
+      assert.match(await a.p.locator('#onlineBoard [data-k="tok1"]').getAttribute('aria-label'), /^Bo HUM/, 'not redrawn while the finger is down');
+      await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
+      await a.p.waitForFunction(() => /^Bo VAEL/.test(document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label')), null, { timeout: 3000 });
       await b.tap('#onlineBoard .tok.open');
       await b.p.waitForFunction(() => endfall.online.seat === 2, null, { timeout: 5000 });
       await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('YOU') && !document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('Ann'));

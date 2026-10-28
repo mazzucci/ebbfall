@@ -75,6 +75,7 @@ export function initOnline({ game: g }) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) online.net?.wake(); });
   $('btnShare').addEventListener('click', share);
   $('btnOnlineReload').addEventListener('click', reloadNewest);
+  holdTaps();
   narrow.addEventListener?.('change', () => { if (lobbyState) renderLobby(lobbyState); }); // (a token's race, short or not)
   simReady.then(() => { preview = ''; if (lobbyState) renderLobby(lobbyState); }, () => {}); // (the map's thumbnail, once the sim can draw it)
   $('onlineName').value = store.get('name') || '';
@@ -95,7 +96,7 @@ function invited(code) {
 }
 function openLobby() { $('btnJoinRoom').classList.remove('big'); $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 /** Out of the room (an error, a start, BACK): its sheet closed, its board forgotten. */
-function leaveRoom() { lobbyState = null; editing = -1; sheet?.close(); }
+function leaveRoom() { lobbyState = null; owed = null; editing = -1; sheet?.close(); }
 function status(s) { $('onlineStatus').textContent = s; }
 const name = () => { const n = $('onlineName').value.trim().slice(0, 16); if (n) store.set('name', n); return n || 'Player'; };
 
@@ -110,7 +111,7 @@ function connect(room) {
       // (also mid-lobby: the host moved this seat to another side, and the relay renumbered the seats; an open sheet
       // follows its seat)
       seat: (m) => { if (editing >= 0 && editing === online.seat) editing = m.seat; online.seat = m.seat; seatToken.set(m.room, m.token); $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; readyButton(); $('roomShow').textContent = m.room; status(failed ? LOAD_FAILED : ''); }, // (the lobby that follows says what to do)
-      lobby: (m) => { if (online.playing) backToRoom(); renderLobby(m); },
+      lobby: (m) => { if (online.playing) backToRoom(); if (held) owed = m; else renderLobby(m); }, // (not under a finger: holdTaps)
       rematch: (wants) => { online.wants = wants; game?.rematch(theyWant(), !!wants[online.seat]); },
       notice: (m) => { if (m.code === 'version' && !online.playing) { status('A friend\'s Ebbfall didn\'t match yours. Tap UPDATE to update; you keep this room'); $('btnOnlineReload').hidden = false; } },
       // The game has loaded (READY waits for it); a start that finds it still loading (a seat taken back after a
@@ -205,6 +206,18 @@ export function wantRematch() { online.rematch = !online.rematch; online.net?.re
 /** The last lobby the relay sent: `{ map, teams: [a team per seat], seats: [{ name, race, ready, here, ai, diff }] }`. */
 let lobbyState = null;
 let editing = -1, sheet = null, preview = ''; // (the seat whose sheet is open; the dialog it opens in; the map drawn)
+/** A tap's events go to the element it began on: a board or sheet redrawn under a finger (a lobby arriving mid-tap:
+ *  someone else's change, or the answer to the last chip) would lose the tap. The relay's lobby waits (`owed`) while
+ *  a pointer is down in the lobby, until its click (or a moment after the finger lifts, or at most 1.5 s). */
+let held = 0, taps = 0, owed = null; // (held: the tap under way, by number; none 0: an earlier tap's timers cannot end a later one's hold)
+function holdTaps() {
+  const done = (t) => { if (!held || t !== held) return; held = 0; if (owed) { const m = owed; owed = null; renderLobby(m); } };
+  const box = $('online');
+  box.addEventListener('pointerdown', () => { const t = held = ++taps; setTimeout(() => done(t), 1500); }, true);
+  box.addEventListener('pointercancel', () => done(held), true);
+  box.addEventListener('pointerup', () => { const t = held; setTimeout(() => done(t), 400); }, true);
+  box.addEventListener('click', () => { const t = held; setTimeout(() => done(t)); }, true);
+}
 /** A seat nobody has taken (no name, not here, not the AI's): open for a friend. */
 const isOpen = (s) => !s.ai && !s.here && !s.name;
 /** An AI seat's name: AI and its number among the AI seats, in seat order. */

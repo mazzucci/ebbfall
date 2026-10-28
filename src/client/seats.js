@@ -202,14 +202,15 @@ export function seatSheet(view, color, { sub = '', info = '', team = null, sides
 }
 /** A `<dialog>` as the sheets' scrim: a bottom sheet on a phone, a small dialog on a wide screen, modal (the page
  *  behind it inert). `show(sheet, onClose)` puts a sheet in (opening it if it was not), `close()` closes it. Escape,
- *  and a tap on the scrim that also began there, call `onClose`. A click that is part of a double click, or comes
- *  within 350 ms of opening (the second tap of a double tap on a token), does nothing. */
+ *  and a tap on the scrim that also began there, call `onClose`. The second click of a double click or tap on a token
+ *  does nothing: a click within 350 ms of opening, or one the browser counts as a double's (`detail` 2) within 600 ms.
+ *  Later, a quick tap after another is a tap (a chip, then DONE: the browser may count it as a double tap too). */
 export function sheetDialog(dialog) {
   let onClose = () => {}, since = 0, downOnScrim = false;
   dialog.addEventListener('cancel', (e) => { e.preventDefault(); onClose(); });
   dialog.addEventListener('close', () => onClose()); // (a second Escape, which the browser does not let a page cancel)
   dialog.addEventListener('pointerdown', (e) => { downOnScrim = e.target === dialog; });
-  const early = (e) => e.detail > 1 || performance.now() - since < 350; // (a double click's second, or a double tap's)
+  const early = (e) => { const t = performance.now() - since; return t < 350 || (e.detail > 1 && t < 600); }; // (a double click's second, or a double tap's)
   dialog.addEventListener('mousedown', (e) => { if (early(e)) e.preventDefault(); }, true); // (nor does it move the focus)
   dialog.addEventListener('click', (e) => {
     if (e.detail > 0 && early(e)) { e.stopPropagation(); e.preventDefault(); return; }

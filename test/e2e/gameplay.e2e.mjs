@@ -1745,6 +1745,13 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
     await p2.locator('#btnSolo').tap();
     await p2.locator('#soloBoard [data-k="tok1"]').tap(); await p2.waitForTimeout(80); await p2.touchscreen.tap(...await p2.locator('#soloBoard [data-k="tok1"]').boundingBox().then(b => [b.x + b.width / 2, b.y + b.height / 2]));
     assert.ok(await p2.locator('#soloSheet').evaluate(d => d.open), 'a double tap: the sheet stays open');
+    // Later, a chip and DONE tapped quickly one after the other (the browser may count them as a double tap): both count.
+    await p2.waitForTimeout(700);
+    const mid = (k) => p2.locator(`#soloSheet [data-k="${k}"]`).boundingBox().then(b => [b.x + b.width / 2, b.y + b.height / 2]);
+    const [chip, done] = [await mid('race:vael'), await mid('done')];
+    await p2.touchscreen.tap(...chip); await p2.waitForTimeout(150); await p2.touchscreen.tap(...done);
+    await p2.waitForFunction(() => !document.getElementById('soloSheet').open, null, { timeout: 3000 });
+    assert.match(await p2.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /VAEL/);
   } finally { await phone.close(); }
 });
 

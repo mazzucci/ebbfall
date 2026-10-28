@@ -41,9 +41,14 @@ let opener = null;
 export function showHomeTip() { opener = document.activeElement; $('homeTip').hidden = false; $('btnHomeTipOk').focus(); }
 const hideHomeTip = () => { $('homeTip').hidden = true; if (opener?.isConnected && opener.offsetParent !== null) opener.focus(); opener = null; };
 
-/** `overlay-open` on the root while any screen or card is up (style.css: the corner then, the top bar's pair otherwise). */
+/** `overlay-open` on the root while any screen or card is up (style.css: the corner then, the top bar's pair otherwise).
+ *  The one exception to "sound always in reach": the pause card (and How to play over it), which pauses the sound
+ *  itself (pause.js, audio.js `holdSound`), shows the corner's full screen only. */
 function watchScreens() {
-  const sync = () => document.documentElement.classList.toggle('overlay-open', !!document.querySelector('.screen:not([hidden])'));
+  const sync = () => {
+    document.documentElement.classList.toggle('overlay-open', !!document.querySelector('.screen:not([hidden])'));
+    const off = !$('pause').hidden; if ($('cornerSound').hidden !== off) $('cornerSound').hidden = off; // (only a change: setting it is a mutation this observer sees)
+  };
   new MutationObserver(sync).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
   sync();
 }

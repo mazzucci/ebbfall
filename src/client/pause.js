@@ -8,9 +8,12 @@
 // Opening it leaves full screen (the player may be off to another app); BACK TO GAME (and a replay's DONE) goes back
 // into it if it was on, unless the player has left it with the full-screen button since (screen.js). A pause someone
 // else called leaves this side's full screen alone.
+// While the card is up the game's sound is paused (audio.js `holdSound`: effects, the wind, the voice), and the corner
+// has no sound button (corner.js); closing it brings the sound back. The sound setting itself is not touched. Online and
+// in a replay too, though the game may go on under the card: the card covers it, so it is not heard either.
 import { G, fmt } from '../engine/index.js';
 import { $, ui, toast } from './ui.js';
-import { sfx } from './audio.js';
+import { sfx, holdSound } from './audio.js';
 import { seenLately } from './scout.js';
 import { online, who, Who, ifYouLeave } from './online.js';
 import { isFull, enterFullscreen, exitFullscreen } from './screen.js';
@@ -45,7 +48,7 @@ export function togglePause() {
 }
 
 function openCard() {
-  $('pause').hidden = false;
+  $('pause').hidden = false; holdSound(true);
   const seen = ui.watching ? '' : seenLately(); // (the clock and the scouting report live here, not on screen; a replay shows both sides)
   $('pauseSeen').innerHTML = seen; $('pauseSeen').hidden = !seen;
   render();
@@ -57,11 +60,13 @@ function openCard() {
 export function closePause(back = false) {
   if (back) backToFull();
   $('pause').hidden = true; clearInterval(card.timer); card.timer = 0; card.mine = false; card.wasFull = false;
+  holdSound(false); // (inside BACK TO GAME's click or P's key, the sound comes back at once, iOS too)
 }
 function backToFull() { if (card.wasFull) enterFullscreen(); card.wasFull = false; }
 
-/** A room pause began (or this side, back, is told of it): every side shows the card, in its paused state. */
-export function roomPaused() { if (G.over) return; sfx('select'); if (paused()) render(); else { card.mine = false; card.wasFull = false; openCard(); } }
+/** A room pause began (or this side, back, is told of it): every side shows the card, in its paused state (silently:
+ *  the card pauses the sound). */
+export function roomPaused() { if (G.over) return; if (paused()) render(); else { card.mine = false; card.wasFull = false; openCard(); } }
 /** The room pause is over (`seat` resumed it; -1: its time ran out): the card closes for whoever did not open it (and
  *  for the one who resumed it), or is the menu again. */
 export function roomResumed(seat) {

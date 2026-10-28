@@ -46,6 +46,8 @@ const CATCH = `(function () {
   return true;
 })()`;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+/** Backends whose iPad and iPhone have an audio device: the sound must run there once switched on. */
+const AUDIBLE = ['simulator', 'browserstack'];
 
 async function waitFor(d, expr, ms, what) {
   const until = Date.now() + ms;
@@ -101,6 +103,22 @@ async function smoke(key) {
       // (press() has waited for each switch; read back, the button and, where the build says, the sound itself)
       if (off.soundButton !== 'false' || on.soundButton !== 'true') throw new Error(`the sound button read ${off.soundButton}, then ${on.soundButton}`);
       if (off.muted !== null && (off.muted !== true || on.muted !== false)) throw new Error(`muted read ${off.muted}, then ${on.muted}`);
+      // iPad and iPhone: the sound is on and the device has taken the taps as the user's, so the audio runs (WebKit
+      // opens it only in a touch's end, a click or a key: audio.js). The simulator has the Mac's audio device and
+      // says 'running' (Devices run of 2026-10-28); Playwright's own WebKit on Linux has none (local: not checked).
+      // A tap that fell back to a script's click (here or before) is no gesture of the user's: then a silent context is
+      // only a warning.
+      if (DEVICES[key].platform === 'ios' && AUDIBLE.includes(o.backend) && on.audio !== 'unknown') {
+        const scripted = a.nativeTapIgnored || b.nativeTapIgnored || r.steps.some(x => x.result && x.result.nativeTapIgnored);
+        try {
+          await waitFor(d, `window.endfall.status().audio === 'running'`, 10000, 'the audio to run after the sound was switched on');
+          on.audio = 'running';
+        } catch {
+          const msg = `the audio read ${(await d.eval(STATUS)).audio} after the sound was switched on, not running`;
+          if (!scripted) throw new Error(msg);
+          warn(`${d.device || 'the device'}: ${msg}, but a tap fell back to a script's click (no gesture of the user's): not failed`);
+        }
+      }
       return { ...((a.nativeTapIgnored || b.nativeTapIgnored) ? { nativeTapIgnored: true } : {}), off: { muted: off.muted, audio: off.audio }, on: { muted: on.muted, audio: on.audio } };
     });
     await step('the full-screen button', async () => {

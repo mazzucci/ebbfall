@@ -95,8 +95,9 @@ src/client/           everything that touches the browser
                       iPad or iPhone), the player's choice to leave it, the page held still in a browser tab, the
                       leave-game guard
   corner.js           sound and full screen always in reach: the top bar's pair in a game, the screen's corner (#corner)
-                      over every menu page, the lobby and every card; one sound setting; on iPad/iPhone the full-screen
-                      button opens the Add to Home Screen card (#homeTip)
+                      over every menu page, the lobby and every card (the pause card: full screen only, as it pauses the
+                      sound); one sound setting; on iPad/iPhone the full-screen button opens the Add to Home Screen card
+                      (#homeTip)
   store.js            what this device remembers (localStorage, endfall.*)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
@@ -131,7 +132,8 @@ src/client/           everything that touches the browser
   look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
-  audio.js            Web Audio synthesized sfx
+  audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
+                      a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)

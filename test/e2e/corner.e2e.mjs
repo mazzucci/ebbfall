@@ -3,8 +3,9 @@
 // content. On iPad and iPhone the page never goes full screen: the button says how to add Ebbfall to the Home Screen.
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
+import { launchChromium, GL_ARGS } from '../../tools/chromium.mjs';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE as IPHONE_PROFILE } from './harness.mjs';
+import { test, ENGINE, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE as IPHONE_PROFILE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -65,10 +66,12 @@ const underCorner = (page, scope, card = '') => page.evaluate(([scope, card]) =>
   return { got: [...got], corner: [c.left, c.top, c.width, c.height].map(Math.round), scrolled: scrollers.length };
 }, [scope, card]);
 
-/** The corner is up, one pair on screen, a finger wide each, clear of `scope`'s controls (and `card`). */
-async function cornerOn(o, what, scope, card = '') {
-  assert.ok(await o.shown('#corner') && await o.shown('#cornerSound') && await o.shown('#cornerFull'), `${what}: the corner's sound and full screen`);
-  for (const id of ['cornerSound', 'cornerFull']) {
+/** The corner is up, one pair on screen, a finger wide each, clear of `scope`'s controls (and `card`). `sound: false`:
+ *  the pause card's corner, full screen without the sound button (the card pauses the sound itself). */
+async function cornerOn(o, what, scope, card = '', { sound = true } = {}) {
+  assert.ok(await o.shown('#corner') && await o.shown('#cornerFull'), `${what}: the corner's full screen`);
+  assert.equal(await o.shown('#cornerSound'), sound, `${what}: ${sound ? 'the corner\'s sound' : 'no sound button'}`);
+  for (const id of sound ? ['cornerSound', 'cornerFull'] : ['cornerFull']) {
     const b = await o.page.locator(`#${id}`).boundingBox();
     assert.ok(b.width >= 40 && b.height >= 40, `${what}: #${id} a finger wide: ${JSON.stringify(b)}`);
   }
@@ -104,10 +107,10 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       await page.evaluate(() => endfall.engine.disableAi());
       await topBarOn(o, 'a game');
       // The pause card, How to play over it, the leave card.
-      await press('#btnPause'); await cornerOn(o, 'the pause card', '#pause', '#pause .card');
+      await press('#btnPause'); await cornerOn(o, 'the pause card', '#pause', '#pause .card', { sound: false });
       const bar = await underCorner(page, '#top');
       assert.deepEqual(bar.got.filter(id => /^res/.test(id)), [], 'the top bar\'s figures clear of the corner');
-      await press('#btnPauseHelp'); await cornerOn(o, 'how to play (the pause card\'s)', '#help', '#help .card');
+      await press('#btnPauseHelp'); await cornerOn(o, 'how to play (the pause card\'s)', '#help', '#help .card', { sound: false }); // (still paused)
       await press('#btnHelpClose'); await press('#btnResume'); await topBarOn(o, 'back to the game');
       await page.keyboard.press('Backspace'); await page.locator('#leave').waitFor();
       await cornerOn(o, 'the leave card', '#leave', '#leave .card');
@@ -131,10 +134,9 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'the top bar says off too');
       await press('#btnSound');
       assert.equal(await page.evaluate(() => localStorage.getItem('endfall.muted')), '0');
-      await press('#btnPause');
-      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting in the corner');
-      await press('#btnQuit');
+      await press('#btnPause'); await press('#btnQuit');
       await page.locator('#start').waitFor();
+      assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting in the corner');
       await press('#cornerSound');
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'off after a reload');
@@ -321,4 +323,106 @@ test('single player\'s board, from the top of the page, with two and with eight 
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }
   }
+});
+
+test('the pause card pauses the sound: no sound button in its corner (full screen stays), the audio suspended while it is up and running after BACK TO GAME, P, Esc, RESTART or LEAVE GAME; the sound setting untouched; a replay\'s too', { engines: true }, async (t) => {
+  const o = await open(DESKTOP);
+  // (Esc, RESTART and LEAVE GAME below too)
+  const { page, press, shown } = o;
+  // (headless Chromium has a stand-in audio device; WebKit and Firefox here may have none: their context never runs,
+  // "Failed to start the audio device", and only the card's side is checked there)
+  let device = true;
+  const audio = async (want, what) => {
+    if (!device) return;
+    await page.waitForFunction((w) => endfall.status().audio === w, want, { timeout: 5000 })
+      .catch(async () => assert.fail(`${what}: the audio ${await page.evaluate(() => endfall.status().audio)}, not ${want}`));
+  };
+  const setting = () => page.evaluate(() => [endfall.status().muted, localStorage.getItem('endfall.muted')]);
+  try {
+    await press('#btnSolo'); await press('#btnStart');
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden); // (the AI on: a game a replay can show)
+    if (ENGINE !== 'chromium') device = await page.waitForFunction(() => endfall.status().audio === 'running', null, { timeout: 5000 }).then(() => true, () => false);
+    if (!device) t.diagnostic(`no audio device in this ${ENGINE}: the audio's state not checked`);
+    await audio('running', 'a game started by a click');
+    const before = await setting();
+    await press('#btnPause');
+    assert.ok(await shown('#cornerFull') && !(await shown('#cornerSound')), 'the corner: full screen, no sound button');
+    await audio('suspended', 'the pause card up');
+    assert.deepEqual(await setting(), before, 'the sound setting untouched');
+    await press('#btnResume');
+    await audio('running', 'BACK TO GAME');
+    assert.ok(await shown('#btnSound'), 'the top bar\'s sound button again');
+    await page.keyboard.press('p'); await audio('suspended', 'P');
+    await page.keyboard.press('p'); await audio('running', 'P again');
+    assert.deepEqual(await setting(), before, 'the sound setting still untouched');
+    // Muted, the card does not switch the sound on, nor off for good.
+    await press('#btnSound');
+    await press('#btnPause'); await press('#btnResume');
+    assert.deepEqual(await setting(), [true, '1'], 'still off after the card');
+    await press('#btnSound'); await audio('running', 'switched on again');
+    assert.deepEqual(await setting(), [false, '0']);
+    // Every way off the card brings the sound back: Esc, RESTART, LEAVE GAME.
+    await press('#btnPause'); await audio('suspended', 'the card again');
+    await page.keyboard.press('Escape'); await page.locator('#pause').waitFor({ state: 'hidden' });
+    await audio('running', 'Esc');
+    await press('#btnPause'); await audio('suspended', 'the card again');
+    await press('#btnRestart'); await page.waitForFunction(() => endfall.G.time < 1 && document.getElementById('pause').hidden);
+    await audio('running', 'RESTART');
+    await press('#btnPause'); await audio('suspended', 'the card again');
+    await press('#btnQuit'); await page.locator('#start').waitFor();
+    await audio('running', 'LEAVE GAME');
+    assert.ok(await shown('#cornerSound'), 'the menu\'s corner has its sound button');
+    assert.deepEqual(await setting(), [false, '0'], 'the setting untouched by them all');
+    await press('#btnStart'); // (LEAVE GAME goes back to the single-player page)
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+    // A replay's pause card: the same.
+    await page.evaluate(() => { endfall.skip(5); endfall.engine.concede(); });
+    await page.locator('#end').waitFor({ state: 'visible', timeout: 10000 });
+    assert.ok(await shown('#cornerSound'), 'the end card has its sound button');
+    await press('#btnWatch'); await page.locator('#replayBar').waitFor();
+    await press('#btnPause');
+    assert.ok(!(await shown('#cornerSound')), 'a replay\'s pause card: no sound button');
+    await audio('suspended', 'a replay\'s pause card');
+    await press('#btnResume'); await audio('running', 'BACK TO REPLAY');
+    assert.deepEqual(o.errors, []);
+  } finally { await o.close(); }
+});
+
+test('under a strict autoplay policy, nothing opens the sound before the first click, and the clicks get it running (no script touches the page first: an evaluate would count as the user\'s activation)', { chromium: 'the --autoplay-policy switch is Chromium\'s' }, async () => {
+  const browser = await launchChromium([...GL_ARGS, '--autoplay-policy=user-gesture-required']);
+  try {
+    const ctx = await browser.newContext(DESKTOP);
+    await ctx.addInitScript(COUNT_FULL);
+    // Every AudioContext the page makes, logged as it is made: its state and whether the user had acted yet; then its states.
+    // (The log is the guard: Chromium's headless shell starts a context made before any gesture 'running' even under this
+    // policy, so the state alone would not catch a context opened too early.)
+    await ctx.addInitScript(() => {
+      const log = window.audioLog = [], A = window.AudioContext;
+      window.AudioContext = class extends A {
+        constructor(...a) {
+          super(...a);
+          log.push({ made: this.state, active: navigator.userActivation.hasBeenActive });
+          this.addEventListener('statechange', () => log.push({ state: this.state }));
+        }
+      };
+    });
+    const page = await ctx.newPage(), errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
+    await page.locator('#btnSolo').click(); // (the first thing that touches the page)
+    await page.locator('#btnStart').click();
+    await page.locator('#start').waitFor({ state: 'hidden', timeout: 60000 });
+    await page.locator('#btnPause').waitFor();
+    await page.waitForFunction(() => endfall.status().audio === 'running', null, { timeout: 5000 })
+      .catch(async () => assert.fail(`the clicks did not get the sound running: ${JSON.stringify(await page.evaluate(() => [endfall.status().audio, window.audioLog]))}`));
+    const log = await page.evaluate(() => window.audioLog);
+    assert.equal(log.filter(e => 'made' in e).length, 1, `one context: ${JSON.stringify(log)}`);
+    assert.equal(log[0].active, true, `made only once the user had acted: ${JSON.stringify(log)}`);
+    // The pause card under the same policy: suspended, and running again after BACK TO GAME.
+    await page.locator('#btnPause').click();
+    await page.waitForFunction(() => endfall.status().audio === 'suspended', null, { timeout: 5000 });
+    await page.locator('#btnResume').click();
+    await page.waitForFunction(() => endfall.status().audio === 'running', null, { timeout: 5000 });
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
 });

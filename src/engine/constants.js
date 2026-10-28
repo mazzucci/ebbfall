@@ -99,5 +99,7 @@ for (const u of Object.values(UPGRADES)) {
 export const unlockOf = (k) => Object.keys(UPGRADES).find(u => UPGRADES[u].effect === 'unlock' && UPGRADES[u].of === k) || null;
 /** The snapshot record layouts (field names per record) and code names, from crates/endfall-sim/src/snapshot.rs. */
 export const SCHEMA = D.schema;
+/** Units a building's production queue holds (`QUEUE_MAX` in crates/endfall-sim/src/data/mod.rs): the console's slots. */
+export const QUEUE_MAX = D.schema.queueSlots;
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 export const DIFF = D.diff.map((d, i) => ({ name: DIFF_NAMES[i], ...d }));

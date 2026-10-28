@@ -1,5 +1,5 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
-import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -108,7 +108,7 @@ function renderSelection() {
     } else if (x.kind === 'bldg' && own && x.research) {
       module('res' + x.id + x.research.type + G.upgrades[x.team][x.research.type], researchModule(x));
       mod.querySelector('.res i').style.width = (x.research.prog * 100) + '%';
-    } else if (x.kind === 'bldg' && own && x.queue.length) {
+    } else if (x.kind === 'bldg' && own && x.d.trains?.length) { // (its slots even when idle: nothing moves as it fills)
       module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>');
       renderQueue($('queue'), x, 30);
     } else if (x.kind === 'unit' || x.d.weapon) {
@@ -179,18 +179,20 @@ const warps = (team) => !!FACTIONS[G.factions[team]]?.warp;
 /** The player's side (faction data: worker, headquarters, Build list pages). */
 export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /**
- * A building's production queue in the selection console: a progress bar and one button per unit; a click or tap
- * cancels that unit (full refund).
+ * A building's production queue in the selection console: one slot per unit it can hold, filled from the left (the
+ * one in training first), the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.
+ * A click or tap on a unit cancels it (full refund).
  */
 function renderQueue(box, b, size = 26) {
   if (!box) return;
-  const key = b && b.queue.length ? b.id + ':' + b.queue.join() : '';
+  const q = b.queue, key = b.id + ':' + q.join();
   if (box.dataset.k !== key) {
-    box.dataset.k = key;
-    box.innerHTML = key ? '<div class="bar prod"><i></i></div>' + b.queue.map((t, i) =>
-      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span></button>`).join('') : '';
+    box.dataset.k = key; box.classList.toggle('idle', !q.length);
+    box.innerHTML = '<div class="bar prod"><i></i></div>' + q.map((t, i) =>
+      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span></button>`).join('') +
+      '<span class="qe" aria-hidden="true"></span>'.repeat(Math.max(0, QUEUE_MAX - q.length));
   }
-  if (key) box.querySelector('.prod i').style.width = (b.prog * 100) + '%';
+  box.querySelector('.prod i').style.width = (q.length ? b.prog * 100 : 0) + '%';
 }
 function queueClick(ev) {
   const q = ev.target.closest('.qi'); if (!q) return;

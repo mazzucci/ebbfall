@@ -11,12 +11,13 @@ const mine = (s, type) => s.units.filter(u => u.team === 0 && u.type === type);
 const myBldg = (s, type) => s.bldgs.filter(b => b.team === 0 && b.type === type);
 const coreOf = (s) => myBldg(s, 'core')[0];
 
-/** Build `type` through the UI next to the core and wait until it is finished. Returns the building. */
-async function buildAndFinish(d, hotkey, type, harvesterIndex = 0) {
+/** Build `type` through the UI next to the headquarters and wait until it is finished. Returns the building. (The
+ *  Vael: `{ hq: 'conflux', worker: 'lumen' }`.) */
+async function buildAndFinish(d, hotkey, type, harvesterIndex = 0, { hq = 'core', worker = 'harvester' } = {}) {
   let s = await d.state();
-  const core = coreOf(s), spot = await d.findSpot(type, { tx: core.tx + 1, ty: core.ty + 1 });
+  const core = myBldg(s, hq)[0], spot = await d.findSpot(type, { tx: core.tx + 1, ty: core.ty + 1 });
   assert.ok(spot, `room for a ${type}`);
-  const h = mine(s, 'harvester')[harvesterIndex];
+  const h = mine(s, worker)[harvesterIndex];
   await d.buildWithUI(hotkey, type, spot.tx, spot.ty, h.id);
   s = await d.state();
   const b = s.bldgs.find(b => b.team === 0 && b.type === type && b.tx === spot.tx && b.ty === spot.ty);
@@ -862,6 +863,60 @@ for (const [label, device] of [['phone', PHONE], ['small phone', { ...PHONE, vie
       await insideConsole(d, '#mod .st, #hpNum, #selName');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
+  });
+}
+
+/** The console's who side (portrait, name, health) and its production queue: the boxes, each unit's x, every slot. */
+const queueLayout = (d) => d.page.evaluate(() => {
+  const box = (e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }, q = document.querySelector('#queue');
+  return {
+    who: Object.fromEntries(['selPor', 'selName', 'life'].map(id => [id, box(document.getElementById(id))])),
+    queue: box(q), units: [...q.querySelectorAll('.qi')].map(e => box(e)[0]), slots: [...q.querySelectorAll('.qi, .qe')].map(box),
+  };
+});
+
+// The production queue fills from the left, the unit in training first, in a fixed row of slots (the free ones empty
+// outlines): the portrait, the name and the health stay where they are from an empty queue to a full one and as units
+// finish, on a desktop and on a phone, for both races.
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: ['g', 'barracks'], unit: 'Trooper' }],
+  ['vael', { hq: 'conflux', worker: 'lumen', supply: ['s', 'spire'], factory: ['k', 'kiln'], unit: 'Scythe' }]]) {
+  test(`the production queue fills from the left and nothing in the console moves (${race})`, { chromium: CDP_TOUCH }, async () => {
+    for (const device of [DESKTOP, PHONE]) {
+      const d = await newGame(device, 1, 4242, { ai: false, race });
+      const where = `${race}, ${d.touch ? 'phone' : 'desktop'}`;
+      try {
+        await d.grant(5000, 5000);
+        if (R.supply) await buildAndFinish(d, ...R.supply, 0, R); // (room for five 2-supply Scythes)
+        const f = await buildAndFinish(d, ...R.factory, 1, R);
+        await d.clickEntity(f.id);
+        const queued = async () => (await d.state()).bldgs.find(b => b.id === f.id).queue.length;
+        const shown = (n) => d.page.waitForFunction((n) => document.querySelectorAll('#queue .qi').length === n, n, { timeout: 5000 });
+        await shown(0);
+        const max = await d.eval(() => endfall.engine.QUEUE_MAX);
+        assert.equal(max, 5, 'the queue holds five');
+        const empty = await queueLayout(d);
+        assert.equal(empty.slots.length, max, `${where}: every slot is drawn with nothing queued`);
+        const check = async (n, what) => {
+          await shown(n);
+          const l = await queueLayout(d);
+          assert.equal(l.units.length, n, `${where}, ${what}: ${n} queued`);
+          assert.ok(l.units.every((x, i) => !i || x > l.units[i - 1]), `${where}, ${what}: left to right ${l.units}`);
+          if (n) assert.ok(Math.abs(l.units[0] - l.queue[0]) < 0.5, `${where}, ${what}: the first at the queue's left edge (${l.units[0]} vs ${l.queue[0]})`);
+          assert.deepEqual(l.who, empty.who, `${where}, ${what}: the portrait, name and health stay put`);
+          assert.deepEqual([l.queue, l.slots], [empty.queue, empty.slots], `${where}, ${what}: the queue keeps its place and its slots`);
+        };
+        for (let n = 1; n <= max; n++) {
+          await d.pressCard(R.unit);
+          assert.equal(await queued(), n, `${where}: ${n} queued (toasts: ${(await d.toasts()).join(' | ')})`);
+          if (n === 1 || n === 3 || n === max) await check(n, `${n} queued`);
+        }
+        await d.pressCard(R.unit); // one more than it holds
+        assert.equal(await queued(), max, `${where}: a full queue takes no more`);
+        await until(d, async () => (await queued()) === max - 1, { seconds: 60, step: 1, what: `the first ${R.unit} to finish` });
+        await check(max - 1, 'the first one finished');
+        assert.deepEqual(d.errors, []);
+      } finally { await d.close(); }
+    }
   });
 }
 

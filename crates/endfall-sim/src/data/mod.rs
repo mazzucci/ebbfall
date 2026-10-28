@@ -332,6 +332,8 @@ const UNIT: UnitDef = UnitDef {
     cloaked: false,
     detect: 0.0,
 };
+/// Units a building's production queue holds (the one in training first).
+pub const QUEUE_MAX: usize = 5;
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;
 /// Seconds to mine a load: 8 shards, or 6 ether (faster, so one vent still feeds about three harvesters).

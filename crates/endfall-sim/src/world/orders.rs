@@ -103,7 +103,7 @@ impl World {
         {
             return Err(format!("Requires {}", r.def().name));
         }
-        if qlen >= 5 {
+        if qlen >= crate::data::QUEUE_MAX {
             return Err("Queue is full".into());
         }
         if !self.can_afford(team, d.cost) {

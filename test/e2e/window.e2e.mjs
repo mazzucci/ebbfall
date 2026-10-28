@@ -3,9 +3,9 @@
 // viewport's size: the HUD and every card's buttons inside the screen (a card taller than it scrolls inside itself),
 // the page never scrolls, the map fills the room, and it all fits again when the bars collapse mid-game.
 // Run: npm run build && npm run test:e2e
-import { test, before, after } from 'node:test';
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, newGame, browserContext, baseUrl } from './harness.mjs';
+import { test, start, stop, newGame, browserContext, baseUrl } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -57,7 +57,7 @@ async function gameFits(d, what) {
 const frames = (page) => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 150)))));
 
 for (const [label, device, collapsed] of TABS) {
-  test(`${label} in a browser tab (${device.viewport.width}x${device.viewport.height}): the menus, the game and its cards fit, and fit again when the bars collapse`, async () => {
+  test(`${label} in a browser tab (${device.viewport.width}x${device.viewport.height}): the menus, the game and its cards fit, and fit again when the bars collapse`, { engines: label === 'iPad landscape' }, async () => {
     // The menu's pages and the lobby: every button reachable and inside the screen; the page still.
     const ctx = await browserContext(device), page = await ctx.newPage();
     await ctx.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('(a tab)')); });

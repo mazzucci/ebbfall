@@ -1,7 +1,8 @@
-// End-to-end gameplay through the real UI in headless Chromium. Run: npm run build && npm run test:e2e
-import { test, before, after } from 'node:test';
+// End-to-end gameplay through the real UI in a headless browser (Chromium; ENDFALL_ENGINE=webkit or firefox runs the
+// scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, ESC_LEAVES_FULL_SCREEN, IPHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -27,7 +28,7 @@ async function buildAndFinish(d, hotkey, type, harvesterIndex = 0) {
 /** The 128x128 maps the menus offer (src/client/maps.js), as their buttons read. */
 const MAPS_128 = ['IRON COMPASS', 'SUNKEN COURT', 'GREY WARRENS', 'RANDOM'];
 
-test('a depot built through the UI finishes and raises supply', async () => {
+test('a depot built through the UI finishes and raises supply', { engines: true }, async () => {
   const d = await newGame(DESKTOP);
   try {
     await d.grant(500, 0);
@@ -174,7 +175,7 @@ test('harvesters mine ether once an extractor stands on the vent', async () => {
   } finally { await d.close(); }
 });
 
-test('phone: tap selects, the command card works, the HUD shows status, back asks before leaving', async () => {
+test('phone: tap selects, the command card works, the HUD shows status, back asks before leaving', { engines: true }, async () => {
   const d = await newGame(PHONE);
   try {
     await d.grant(1000, 0);
@@ -185,7 +186,8 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     assert.equal(await d.hudText('#selName', /^Harvester$/), 'Harvester');
     const [mm, info, cmd] = await Promise.all(['#minimap', '#info', '#cmd'].map(q => d.page.locator(q).boundingBox()));
     assert.ok(info.x >= mm.x + mm.width && info.x + info.width <= cmd.x, 'the console sits between the minimap and the command card');
-    assert.ok(info.height <= 70 && info.y + info.height <= 390, 'low, at the bottom of the screen');
+    const vh = await d.eval(() => innerHeight); // (390, or more where full screen takes the whole display: Firefox)
+    assert.ok(info.height <= 70 && info.y + info.height <= vh && info.y >= vh - 80, `low, at the bottom of the screen: ${JSON.stringify(info)} in ${vh}`);
     assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Attack', 'Hold', 'Deselect'], 'a Harvester card: three a row, leading with Build, Deselect last');
     await d.pressCard('Build');
     const depot = d.page.locator('#cmd button', { hasText: 'Depot' });
@@ -205,7 +207,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
   } finally { await d.close(); }
 });
 
-test('a whole game against the AI runs to the end without errors', async () => {
+test('a whole game against the AI runs to the end without errors', { engines: true }, async () => {
   const d = await newGame(DESKTOP, 2);
   try {
     await until(d, async () => (await d.state()).over, { seconds: 1500, step: 30, what: 'the game to end' });
@@ -249,7 +251,7 @@ test('an attack raises an alert, and Space jumps to it', async () => {
   } finally { await d.close(); }
 });
 
-test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', async () => {
+test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const s = await d.state(), core = coreOf(s);
@@ -375,7 +377,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
   } finally { await d.close(); }
 });
 
-test('phone: Rapid Construction researched at the Foundry, then buildings go up faster', async () => {
+test('phone: Rapid Construction researched at the Foundry, then buildings go up faster', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
@@ -439,7 +441,7 @@ test('a game starts fully zoomed out over the base', async () => {
   } finally { await d.close(); }
 });
 
-test('harvesters repair a damaged building (right-click on desktop, the Repair button on a phone)', async () => {
+test('harvesters repair a damaged building (right-click on desktop, the Repair button on a phone)', { chromium: CDP_TOUCH }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });
     try {
@@ -504,7 +506,7 @@ test('a resource field can be selected to see what is left (desktop click, phone
   }
 });
 
-test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', async () => {
+test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const h = mine(await d.state(), 'harvester')[0];
@@ -523,7 +525,7 @@ test('control groups: Ctrl+number saves the selection, the number recalls it, a 
   } finally { await d.close(); }
 });
 
-test('the menu: three fixed maps and a random one, the opponent and sound; the choices start the game', async () => {
+test('the menu: three fixed maps and a random one, the opponent and sound; the choices start the game', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device);
     const page = await ctx.newPage();
@@ -575,7 +577,7 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
   }
 });
 
-test('the menu opens on two modes; each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', async () => {
+test('the menu opens on two modes; each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -801,7 +803,7 @@ test('a queued unit is cancelled with a click or tap on it, for a full refund', 
   }
 });
 
-test('phone: a long-press on a command button shows what it is and costs, without pressing it', async () => {
+test('phone: a long-press on a command button shows what it is and costs, without pressing it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const h = mine(await d.state(), 'harvester')[0];
@@ -910,7 +912,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
   } finally { await d.close(); }
 });
 
-test('phone: a site that loses its builder says so once; no keyboard letters; group tiles by type', async () => {
+test('phone: a site that loses its builder says so once; no keyboard letters; group tiles by type', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(2000, 0);
@@ -991,7 +993,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
   } finally { await ctx.close(); }
 });
 
-test('phone: as the Vael, a Lumen plants a Spire and is free at once; the seed grows by itself', async () => {
+test('phone: as the Vael, a Lumen plants a Spire and is free at once; the seed grows by itself', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
   try {
     await d.grant(1000, 0);
@@ -1024,7 +1026,7 @@ test('the menu can pit you against a Vael opponent', async () => {
   } finally { await ctx.close(); }
 });
 
-test('phone: placing a building lets the worker go; a tap on a blocked spot says why and keeps placing', async () => {
+test('phone: placing a building lets the worker go; a tap on a blocked spot says why and keeps placing', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
@@ -1164,7 +1166,7 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
   } finally { await d.close(); }
 });
 
-test('phone: as the Vael, a Kiln whose rally point is in a power field warps its unit in there', async () => {
+test('phone: as the Vael, a Kiln whose rally point is in a power field warps its unit in there', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
   try {
     await d.grant(2000, 500);
@@ -1228,7 +1230,7 @@ test('a double-click on a factory selects all of them and they train as one; the
   } finally { await d.close(); }
 });
 
-test('phone: a double-tap on a factory selects all of them, the console shows them, and they train as one', async () => {
+test('phone: a double-tap on a factory selects all of them, the console shows them, and they train as one', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {
     await d.grant(3000, 500);
@@ -1255,7 +1257,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it beats and what beats it', async () => {
+test('phone: a long-press on a unit to train shows what it beats and what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -1277,7 +1279,7 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
   } finally { await d.close(); }
 });
 
-test('phone: Home looks at the base (beside SELECT, no wider than the minimap together); the Army chip appears with an army and a second tap looks at it', async () => {
+test('phone: Home looks at the base (beside SELECT, no wider than the minimap together); the Army chip appears with an army and a second tap looks at it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
@@ -1302,7 +1304,7 @@ test('phone: Home looks at the base (beside SELECT, no wider than the minimap to
   } finally { await d.close(); }
 });
 
-test('phone: the pause card has four equal buttons and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', async () => {
+test('phone: the pause card has four equal buttons and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', { skip: notIn(['webkit'], IPHONE) }, async () => {
   const d = await newGame({ ...PHONE, viewport: { width: 667, height: 375 } }, 1, 4242);
   try {
     // Full screen (stood in for: headless browsers have none, or a real one START may have entered).
@@ -1348,7 +1350,7 @@ test('the first enemy capital unit seen is announced, once', async () => {
   } finally { await d.close(); }
 });
 
-test('phone: a tap on a type tile keeps only that type, a long-press drops it', async () => {
+test('phone: a tap on a type tile keeps only that type, a long-press drops it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
@@ -1387,7 +1389,7 @@ test('a click on a unit tile selects that unit alone, Shift+click drops it', asy
   } finally { await d.close(); }
 });
 
-test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', async () => {
+test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
@@ -1972,7 +1974,7 @@ test('desktop: Shift+click on a unit queues five', async () => {
   } finally { await d.close(); }
 });
 
-test('the menu is a page of its own; a corner button beside the sound\'s goes full screen and leaves it', async () => {
+test('the menu is a page of its own; a corner button beside the sound\'s goes full screen and leaves it', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
@@ -1980,6 +1982,12 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
       await page.waitForFunction(() => !!window.endfall);
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
+      if (!await page.evaluate(() => endfall.status().pageFullscreen)) {
+        // No full screen for the page (WebKit as an iPhone, like iPhone Safari): the button says how to get it instead.
+        await (device.hasTouch ? page.locator('#cornerFull').tap() : page.locator('#cornerFull').click());
+        assert.ok(await page.locator('#homeTip').isVisible(), 'the Add to Home Screen card where the page cannot go full screen');
+        continue;
+      }
       // Full screen is stood in for (a headless browser's real one resizes the page under the test).
       await page.evaluate(() => {
         Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
@@ -2003,7 +2011,39 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
   }
 });
 
-test('phone: while placing, the ghost appears under the finger and follows it; lifted over the HUD it builds nothing', async () => {
+test('a game\'s sound and full-screen buttons, for real: sound is on after START, goes off and on; full screen goes out and back in where the browser has it', { engines: true }, async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const status = () => d.eval(() => endfall.status());
+      const press = (sel) => (d.touch ? d.page.locator(sel).tap() : d.page.locator(sel).click());
+      const full = (want) => d.page.waitForFunction((w) => endfall.status().fullscreen === w, want, { timeout: 10000 });
+      // START was a tap, so the sound engine is up. Chromium's headless audio runs; WebKit and Firefox find no audio
+      // device on a server, so there the context stays suspended (a phone or a desktop plays it: tools/devices checks).
+      await d.page.waitForFunction((running) => (running ? endfall.status().audio === 'running' : endfall.status().audio !== 'none'), ENGINE === 'chromium', { timeout: 10000 });
+      assert.equal((await status()).muted, false, 'sound on by default');
+      await press('#btnSound');
+      assert.equal(await d.page.locator('#btnSound').getAttribute('aria-pressed'), 'false');
+      assert.equal((await status()).muted, true, 'the sound button mutes');
+      await press('#btnSound');
+      assert.equal((await status()).muted, false, 'and unmutes');
+      if ((await status()).pageFullscreen) { // (the game's word on whether the page goes full screen: not iPhone or iPad)
+        await full(true); // (START asked for it; the change can land a few frames later)
+        await press('#btnFull'); await full(false);
+        await press('#btnFull'); await full(true);
+      } else {
+        assert.equal((await status()).fullscreen, false, 'never full screen where the page does not go there (iPhone, iPad)');
+        await press('#btnFull');
+        assert.ok(await d.page.locator('#homeTip').isVisible(), 'the button: the Add to Home Screen card');
+        await press('#btnHomeTipOk');
+      }
+      assert.deepEqual((await status()).errors, [], 'no page errors');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('phone: while placing, the ghost appears under the finger and follows it; lifted over the HUD it builds nothing', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(500, 0);
@@ -2172,7 +2212,7 @@ test('an attack by something unseen says so, even on screen, and names what dete
   }
 });
 
-test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', async () => {
+test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');

@@ -2,9 +2,9 @@
 // every card over the game, the top bar's pair in a game with nothing over it; never both, never over a card's
 // content. On iPad and iPhone the page never goes full screen: the button says how to add Ebbfall to the Home Screen.
 // Run: npm run build && npm run test:e2e
-import { test, before, after } from 'node:test';
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, browserContext, baseUrl, board, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE as IPHONE_PROFILE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -84,7 +84,7 @@ async function topBarOn(o, what) {
 }
 
 for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrait', PORTRAIT], ['small phone', SMALL], ['smallest phone', TINY]]) {
-  test(`${label}: the corner on every menu page, the lobby and every card over the game; the top bar's pair in the game`, async () => {
+  test(`${label}: the corner on every menu page, the lobby and every card over the game; the top bar's pair in the game`, { engines: device === DESKTOP }, async () => {
     const o = await open(device);
     const { page, press, shown } = o;
     try {
@@ -139,7 +139,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
   });
 }
 
-test('desktop and Android: full screen in and out from the corner; PAUSE leaves it, BACK TO GAME restores it; leaving with the button wins until the button again, a system exit does not', async () => {
+test('desktop and Android: full screen in and out from the corner; PAUSE leaves it, BACK TO GAME restores it; leaving with the button wins until the button again, a system exit does not', { skip: notIn(['webkit'], IPHONE_PROFILE) }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const o = await open(device, () => {
       window.fsAsked = 0;
@@ -264,7 +264,7 @@ const FAKE_FULL = () => {
   window.systemExit = () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); };
 };
 
-test('a replay: PAUSE leaves full screen, DONE goes back in to the end card; REMATCH goes full screen as START does', async () => {
+test('a replay: PAUSE leaves full screen, DONE goes back in to the end card; REMATCH goes full screen as START does', { skip: notIn(['webkit'], IPHONE_PROFILE) }, async () => {
   const o = await open(PHONE, FAKE_FULL);
   const { page, press } = o;
   const fs = () => page.evaluate(() => `${!!window.fs},${window.fsAsked}`);

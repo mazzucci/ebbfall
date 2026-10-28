@@ -3,9 +3,9 @@
 // the first page, About and the pause card; PLAY OFFLINE otherwise and once installed, which hears from the service
 // worker that the whole game is saved (saving it first if need be; or that offline play is not available, where
 // service workers are blocked); the manifest's app icons are served at the sizes they claim.
-import { test, before, after } from 'node:test';
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -120,7 +120,7 @@ test('INSTALL on the About page and in the pause card too, one offer for all; no
   } finally { await app.close(); }
 });
 
-test('PLAY OFFLINE on the About page: saving, then everything saved; a file gone missing is saved again', { timeout: 180000 }, async () => {
+test('PLAY OFFLINE on the About page: saving, then everything saved; a file gone missing is saved again', { timeout: 180000, engines: true }, async () => {
   const { ctx, page, errors, press } = await open(PHONE);
   try {
     await press('#btnAbout');

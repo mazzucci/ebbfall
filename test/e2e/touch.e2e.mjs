@@ -1,8 +1,8 @@
 // Touch navigation on a landscape phone: one-finger pan and glide, SELECT + drag for a box, the minimap nudge.
 // Gestures go through CDP touch events, like a finger on the glass.
-import { test, before, after } from 'node:test';
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, newGame, PHONE } from './harness.mjs';
+import { test, start, stop, newGame, PHONE, CDP_TOUCH } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -34,7 +34,7 @@ async function swipe(d, from, to, { steps = 8, ms = 16, hold = [], settle = 0, h
 }
 const canvasBox = (d) => d.page.locator('#game').boundingBox();
 
-test('phone: one finger pans the map without selecting; a flick glides and a tap stops it', async () => {
+test('phone: one finger pans the map without selecting; a flick glides and a tap stops it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const box = await canvasBox(d), y = box.y + box.height * 0.45;
@@ -67,7 +67,7 @@ test('phone: one finger pans the map without selecting; a flick glides and a tap
   } finally { await d.close(); }
 });
 
-test('phone: SELECT then drag draws a box (tap to arm once, or hold it with the other hand)', async () => {
+test('phone: SELECT then drag draws a box (tap to arm once, or hold it with the other hand)', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const s = await d.state(), hs = s.units.filter(u => u.team === 0 && u.type === 'harvester');
@@ -102,7 +102,7 @@ test('phone: SELECT then drag draws a box (tap to arm once, or hold it with the 
   } finally { await d.close(); }
 });
 
-test('phone: dragging the minimap nudges the view from where the finger lands; a tap jumps', async () => {
+test('phone: dragging the minimap nudges the view from where the finger lands; a tap jumps', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const mm = await d.page.locator('#minimap').boundingBox(), WW = await d.eval(() => endfall.engine.WW);
@@ -121,7 +121,7 @@ test('phone: dragging the minimap nudges the view from where the finger lands; a
   } finally { await d.close(); }
 });
 
-test('phone: the minimap, enlarged under the finger, is drawn in front of the selection console', async () => {
+test('phone: the minimap, enlarged under the finger, is drawn in front of the selection console', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.eval(() => { endfall.ui.sel = [endfall.G.units.find(u => u.team === 0)]; }); // a selection: the console shows

@@ -136,8 +136,8 @@ impl Game {
         ))
     }
 
-    /// `withSetup` on a map of `size` x `size` tiles, 64 to 128 (throws otherwise), with two starts. For tests: the
-    /// menus offer the two-seat maps' 64x64 only (more seats on larger maps: `withSeats`).
+    /// `withSetup` on a map of `size` x `size` tiles, 64, 96 or 128 (throws otherwise): two seats on a map with all its
+    /// starts (`side` turns them round it), the rest free ground. Single player's duel on any map.
     #[wasm_bindgen(js_name = withSize)]
     #[allow(clippy::too_many_arguments)]
     pub fn with_size(
@@ -203,11 +203,7 @@ impl Game {
         // seats too (`seat_starts`' `side / k`) would split a team of consecutive seats round a free start (six seats
         // on eight starts sit on 0, 1, 2 and 4, 5, 6: three against three must take one group each).
         let teamed = (0..teams.len()).any(|a| (a + 1..teams.len()).any(|b| teams[a] == teams[b])); // (two seats sharing a team)
-        let side = if teamed {
-            side % map::starts_for(size, n) as u32
-        } else {
-            side
-        };
+        let side = if teamed { side % starts as u32 } else { side };
         let mut w = World::with_size(
             seed,
             diff as usize,

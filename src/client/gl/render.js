@@ -5,7 +5,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies } from '../../engine/index.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, SEAT_COLORS } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, SEAT_COLORS, colorOf } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 
@@ -42,9 +42,11 @@ for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)
   for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
 }
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
-/** A seat's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
+/** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
  *  (atlas.json `tints`, from look.js SEAT_COLORS; docs/ART.md). */
-export const seatTint = (team) => index.tints?.[team % index.tints.length] ?? SEAT_COLORS[team % SEAT_COLORS.length];
+export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
+/** A seat's paint in this game: its spot's (look.js `colorOf`: a player keeps its board spot's colour). */
+export const seatTint = (team) => spotTint(colorOf(team));
 /** Two tints at once (a seat's paint under an effect's tint): channel by channel product. */
 const mulTint = (a, b) => b === 0xffffff ? a : ((a >> 16) * (b >> 16) / 255) << 16 | ((a >> 8 & 255) * (b >> 8 & 255) / 255) << 8 | (a & 255) * (b & 255) / 255;
 const hex6 = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -633,12 +635,12 @@ function minimapBase(c, S, T) {
   for (const b of G.bldgs) {
     if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue;
     const x = b.tx * TILE * S, y = b.ty * TILE * T, w = Math.max(2, b.w * TILE * S), h = Math.max(2, b.h * TILE * T);
-    c.fillStyle = many ? col[b.team] : b.team === G.me ? ALLY : FOE; c.fillRect(x, y, w, h);
+    c.fillStyle = many ? col[colorOf(b.team)] : b.team === G.me ? ALLY : FOE; c.fillRect(x, y, w, h);
     if (b.team === G.me || enemies(G.me, b.team)) continue;
     const x0 = Math.floor(x), y0 = Math.floor(y); // (the frame on whole pixels: crisp)
     c.rect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[u.team] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[colorOf(u.team)] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
 }

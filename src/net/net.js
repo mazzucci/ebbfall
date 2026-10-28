@@ -9,7 +9,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 4;
+export const PROTO = 5; // (relay/room.js: 5, the board's fixed spots; the game's seats arranged at the start)
 export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
@@ -124,14 +124,16 @@ export class Net {
   // ---- the lobby ----
   race(race) { this.say({ t: 'race', race }); }
   map(map) { this.say({ t: 'map', map }); }
-  // (the host's: a seat for the AI or open again, its race and difficulty; a seat to another side (a team no seat has:
-  // a side of its own); a seat more on a side, open or the AI's; an open or AI seat less; freeing an away seat. Anyone
-  // else's: moving to an open seat. The relay keeps each side's seats together, and tells a seat that moved: `seat`)
+  // (every `seat` in the lobby is a spot on the board, which a seat keeps while the sides change. The host's: a seat for
+  // the AI or open again, its race and difficulty; a seat to another side (a team no seat has: a side of its own); a
+  // seat more on a side, at the lowest empty spot, open or the AI's; an open or AI seat less, its spot empty; freeing
+  // an away seat. Anyone else's: moving to an open seat, its spot (the relay tells it: `seat`). The relay arranges the
+  // game's seats only at the start: `start` carries this side's game seat)
   ai(seat, on, race, diff) { this.say({ t: 'ai', seat, on, race, diff }); }
   side(seat, team) { this.say({ t: 'side', seat, team }); }
   add(team, ai, race, diff) { this.say({ t: 'add', team, ai, race, diff }); }
   drop(seat) { this.say({ t: 'drop', seat }); }
-  sit(seat, team) { this.say({ t: 'sit', seat, team }); } // (team: the side the seat was seen on: a seat that has moved since is not taken)
+  sit(seat, team) { this.say({ t: 'sit', seat, team }); } // (team: the side the seat was seen on: a seat the host has moved to another side since is not taken)
   free(seat) { this.say({ t: 'free', seat }); } // (the host's: a held seat whose player is away, open again)
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */
@@ -155,8 +157,8 @@ export class Net {
         if (this.setup) this.again(); // (a rematch: the room is a lobby again)
         this.on.lobby?.(m); break;
       case 'rematch': if (Array.isArray(m.seats)) this.on.rematch?.(m.seats); break;
-      case 'start':
-        if (!this.setup) { this.setup = m.setup; this.delay = Number.isInteger(m.delay) ? m.delay : 2; this.on.start?.(m.setup, this.seat, m); } // (a resume re-sends it; m.left: pauses left)
+      case 'start': // (m.seat: this side's game seat, the lobby's spot no more; a resume re-sends it; m.left: pauses left)
+        if (!this.setup) { if (Number.isInteger(m.seat)) this.seat = m.seat; this.setup = m.setup; this.delay = Number.isInteger(m.delay) ? m.delay : 2; this.on.start?.(m.setup, this.seat, m); }
         break;
       case 'turn':
         if (!validTurn(m)) break;

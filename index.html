@@ -87,44 +87,12 @@
       </div>
       <div class="page" id="menuSolo" hidden>
         <h2>SINGLE PLAYER</h2>
-        <div class="opt"><span class="lbl" id="lblDiff">OPPONENT</span>
-          <div class="diff" id="diff" role="radiogroup" aria-labelledby="lblDiff">
-            <button class="ib on" data-d="0" role="radio" aria-checked="true" title="A slow, gentle opponent: time to learn and build">EASY</button>
-            <button class="ib" data-d="1" role="radio" aria-checked="false" title="A real fight: the first attack comes at about three minutes">MEDIUM</button>
-            <button class="ib" data-d="2" role="radio" aria-checked="false" title="Plays the whole game well: early attacks, research, raids, split waves">HARD</button>
-            <button class="ib" data-d="3" role="radio" aria-checked="false" title="Hard, faster, and it gathers 30% more than you">BRUTAL</button>
-          </div>
-        </div>
-        <div class="opt"><span class="lbl" id="lblRace">YOU</span>
-          <div class="diff" id="race" role="radiogroup" aria-labelledby="lblRace">
-            <button class="ib on" data-race="humans" role="radio" aria-checked="true" title="Industrial colonists: Harvesters build and repair">HUMANS</button>
-            <button class="ib" data-race="vael" role="radio" aria-checked="false" title="Ceramic constructs of living ether">VAEL</button>
-            <button class="ib" data-race="random" role="radio" aria-checked="false" title="Either race, drawn each game">RANDOM</button>
-          </div>
-        </div>
-        <div class="opt"><span class="lbl" id="lblEnemy">ENEMY</span>
-          <div class="diff" id="enemy" role="radiogroup" aria-labelledby="lblEnemy">
-            <button class="ib on" data-race="humans" role="radio" aria-checked="true">HUMANS</button>
-            <button class="ib" data-race="vael" role="radio" aria-checked="false">VAEL</button>
-            <button class="ib" data-race="random" role="radio" aria-checked="false" title="Either race, drawn each game">RANDOM</button>
-          </div>
-        </div>
-        <div class="opt"><span class="lbl" id="lblPlayers">PLAYERS</span>
-          <div class="diff" id="players" role="radiogroup" aria-labelledby="lblPlayers">
-            <button class="ib on" data-n="2" role="radio" aria-checked="true" title="You against one AI">2</button>
-            <button class="ib" data-n="3" role="radio" aria-checked="false" title="You and two AIs, each for itself">3</button>
-            <button class="ib" data-n="4" role="radio" aria-checked="false" title="You and three AIs">4</button>
-            <button class="ib" data-n="5" role="radio" aria-checked="false" title="You and four AIs, each for itself">5</button>
-            <button class="ib" data-n="6" role="radio" aria-checked="false" title="You and five AIs">6</button>
-            <button class="ib" data-n="7" role="radio" aria-checked="false" title="You and six AIs, each for itself">7</button>
-            <button class="ib" data-n="8" role="radio" aria-checked="false" title="You and seven AIs">8</button>
-          </div>
-          <div class="diff teams" id="teams" role="radiogroup" aria-label="Teams" hidden></div>
-        </div>
+        <div id="soloBoard" class="board" role="group" aria-label="Sides"></div>
+        <dialog id="soloSheet" class="scrim" aria-labelledby="sheetTitle"></dialog>
         <div class="opt"><span class="lbl" id="lblMap">MAP</span>
           <div class="maprow"><div id="maps" role="radiogroup" aria-labelledby="lblMap"></div><canvas id="mapPreview" aria-hidden="true"></canvas></div>
         </div>
-        <div class="row"><button class="ib" id="btnSoloBack">BACK</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><span class="spacer"></span><button class="ib big" id="btnStart">START GAME</button></div>
+        <div class="row"><button class="ib" id="btnSoloBack">BACK</button><button class="ib" id="btnFirst" title="A guided game on Easy: a short checklist shows you the way">FIRST GAME</button><span class="spacer"></span><span class="note" id="soloNote" role="status"></span><button class="ib big" id="btnStart">START GAME</button></div>
       </div>
     </div>
   </div>

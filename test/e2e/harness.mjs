@@ -61,6 +61,27 @@ export const baseUrl = () => base;
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
+/** Single player's sides board through its UI: a side's + ALLY / + AI (`k`: the side, 0 yours), + SIDE, and a seat's
+ *  sheet (its token, chips, DONE): a race, a difficulty, a side (its team number, the side's place; 'new'), REMOVE. */
+export function board(page) {
+  let touch = null; // (a phone's context taps)
+  const press = async (sel) => { touch ??= await page.evaluate(() => navigator.maxTouchPoints > 0); await (touch ? page.locator(sel).tap() : page.locator(sel).click()); };
+  const open = async (i) => { await press(`#soloBoard [data-k="tok${i}"]`); await page.waitForTimeout(400); }; // (a tap within 350 ms of opening is the double tap's second)
+  const sheet = async (i, ...keys) => { await open(i); for (const k of keys) await press(`#soloSheet [data-k="${k}"]`); await press('#soloSheet [data-k="done"]'); };
+  return {
+    /** Each side's seats, by name, yours first. */
+    sides: () => page.$$eval('#soloBoard .side', ss => ss.map(s => [...s.querySelectorAll('.tok b')].map(b => b.textContent))),
+    /** Each seat's band colour, in row order (YOU, AI 1, ...). */
+    bands: () => page.$$eval('#soloBoard .tok', ts => ts.sort((a, b) => +a.dataset.k.slice(3) - +b.dataset.k.slice(3)).map(t => t.querySelector('.band').style.background)),
+    add: (k = 1) => press(`#soloBoard [data-k="add${k}"]`),
+    newSide: () => press('#soloBoard [data-k="newside"]'),
+    race: (i, r) => sheet(i, `race:${r}`), diff: (i, d) => sheet(i, `diff:${d}`), side: (i, t) => sheet(i, `side:${t}`),
+    remove: async (i) => { await open(i); await press('#soloSheet [data-k="remove"]'); },
+    /** Open seat `i`'s sheet (and wait past the double tap's guard). */
+    open,
+  };
+}
+
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
 export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false } = {}) {
@@ -74,8 +95,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   const touch = !!device.hasTouch;
   await (touch ? page.locator('#btnSolo').tap() : page.locator('#btnSolo').click()); // the menu's first page: SINGLE PLAYER
   if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
-  else if (race !== 'humans') await (touch ? page.locator(`#race [data-race="${race}"]`).tap() : page.locator(`#race [data-race="${race}"]`).click());
-  if (!first && diff !== 0) await (touch ? page.locator(`#diff [data-d="${diff}"]`).tap() : page.locator(`#diff [data-d="${diff}"]`).click());
+  else if (race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
+  if (!first && diff !== 0) await board(page).diff(1, diff);
   if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());

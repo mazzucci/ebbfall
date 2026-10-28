@@ -22,17 +22,49 @@ export const homeScreenDevice = ipad ? 'iPad' : 'iPhone';
 /** The full-screen button goes in and out (not needed when launched from the home screen). */
 export const canGoFullscreen = pageFullscreenWorks && !standalone;
 
-/** Go full screen (must run inside a user gesture) and try to lock landscape; failures are fine. */
-export async function enterFullscreen() {
-  if (!pageFullscreenWorks || isFull()) return;
+// The player's choice wins: leaving full screen on purpose (the full-screen button, Esc, the system's gesture: any exit
+// this page did not ask for) means no automatic entry (START, FIRST GAME, READY, BACK TO GAME) for the rest of the
+// visit, until the button goes full screen again. Kept in memory only. PAUSE's own exit is not the player's choice.
+let declined = false, ours = false, was = isFull();
+function changed() {
+  const now = isFull(); if (now === was) return; // (WebKit may tell twice: prefixed and not)
+  was = now;
+  if (!now && !ours) declined = true;
+  if (!now) ours = false;
+}
+document.addEventListener('fullscreenchange', changed); document.addEventListener('webkitfullscreenchange', changed);
+
+async function goFull() {
   try { await (root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen()); } catch { return; }
   try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported or not allowed */ }
 }
-/** Leave full screen if in it (failures are fine). */
+/** Go full screen, unless the player chose to leave it (must run inside a user gesture; failures are fine). */
+export async function enterFullscreen() {
+  if (!pageFullscreenWorks || declined || isFull()) return;
+  await goFull();
+}
+/** Leave full screen if in it, on the game's account (PAUSE: not the player's choice; failures are fine). */
 export async function exitFullscreen() {
   if (!isFull()) return;
-  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
+  ours = true;
+  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { ours = false; }
 }
+/** The full-screen button: in (which clears a choice to stay out), or out (the player's choice). */
+export async function toggleFullscreen() {
+  if (isFull()) { declined = true; try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ } return; }
+  declined = false;
+  if (pageFullscreenWorks) await goFull();
+}
+
+// ---- the page in a browser tab ----
+// The layout is the dynamic viewport (style.css: 100dvh), so the browser's bars coming and going, a rotation, split
+// view or Slide Over resize the stage (main.js watches it). The page itself never scrolls: if the browser moved it
+// anyway (a rotation, the keyboard of a field just closed), put it back, and keep the pinch of the page's zoom off it
+// (WebKit's gesture events: the map has its own pinch).
+const settle = () => { if ((scrollX || scrollY) && !document.activeElement?.matches('input, textarea')) scrollTo(0, 0); };
+for (const [t, on] of [['resize', window], ['orientationchange', window], ['resize', window.visualViewport], ['scroll', window]]) on?.addEventListener(t, settle, { passive: true });
+document.addEventListener('focusout', () => setTimeout(settle, 100));
+for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
 
 // ---- leave guard ----
 let armed = false, onLeave = () => {}, onAsk = () => {}, onResume = () => {};

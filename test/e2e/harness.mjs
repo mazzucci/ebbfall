@@ -33,9 +33,11 @@ export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
-/** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false } = {}) {
+/** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
+ *  function run in the page before the game loads. */
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false, init = null } = {}) {
   const ctx = await browser.newContext(device);
+  if (init) await ctx.addInitScript(init); // (a script run before the page's own, e.g. a stand-in for full screen)
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));

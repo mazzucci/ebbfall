@@ -6,7 +6,7 @@ import { $ } from './hud.js';
 import { audio, sfx, soundToggled } from './audio.js';
 import { icon, setIconButton } from './icons.js';
 import { store } from './store.js';
-import { isFull, enterFullscreen, exitFullscreen, canGoFullscreen, homeScreenOnly, homeScreenDevice } from './screen.js';
+import { isFull, toggleFullscreen, canGoFullscreen, homeScreenOnly, homeScreenDevice } from './screen.js';
 
 /** The sound on or off, from either pair: saved, and both pairs say so. */
 function toggleSound() {
@@ -23,7 +23,7 @@ function syncSound() {
 /** Full screen in or out; on iPad and iPhone, the card that tells how. */
 function fullScreenButton() {
   sfx('select');
-  if (homeScreenOnly) showHomeTip(); else (isFull() ? exitFullscreen : enterFullscreen)();
+  if (homeScreenOnly) showHomeTip(); else toggleFullscreen();
 }
 function syncFull() {
   const on = isFull(), title = on ? 'Leave full screen' : 'Full screen';

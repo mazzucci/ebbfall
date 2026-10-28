@@ -12,12 +12,17 @@
   --display:"Chakra Petch",system-ui,sans-serif; --mono:"Share Tech Mono",ui-monospace,Menlo,monospace;
   color-scheme:dark;
 }
-html,body{height:100%}
+/* A browser tab as well as full screen: the page is the dynamic viewport (Safari's and Chrome's bars come and go; 100%
+   where dvh is unknown), it never scrolls, pulls to refresh or rubber-bands, and taps on it are not browser gestures
+   (no double-tap zoom, no long-press callout or selection loupe; the map takes every touch). Menus and cards taller
+   than the screen scroll inside themselves. */
+html,body{height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
 [hidden]{display:none!important}
 *{box-sizing:border-box}
 img,canvas{max-width:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);overflow:hidden;
-  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button,a,input{touch-action:manipulation} #top,#stage,#hud{touch-action:none} .card{overscroll-behavior:contain}
 #app{height:100%;display:flex;flex-direction:column;box-sizing:border-box;
   padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-top:max(8px,env(safe-area-inset-top,0px));padding-bottom:max(8px,env(safe-area-inset-bottom,0px));gap:8px}
 #top{display:flex;align-items:center;gap:14px;height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;flex:none;min-width:0}
@@ -114,7 +119,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* shards always in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:5px;height:5px;flex:none}
 .cb.cancel{color:var(--foe2)}
-.screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;padding:16px;box-sizing:border-box}
+.screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;box-sizing:border-box;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .card{background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:22px 24px;max-width:520px;width:100%;box-sizing:border-box;max-height:100%;overflow:auto}
 .card h1{margin:0 0 2px;font-size:30px;letter-spacing:.2em;color:var(--ally2)}
 .card .tag{font:13px var(--mono);color:var(--muted);margin-bottom:14px}
@@ -127,8 +133,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 /* Start menu: one row per choice. */
 .card.menu{max-width:640px}
 /* The menu is a page of its own, not a card over the game: the whole screen, its content centred. */
-@media (max-height:420px){#start .card.menu{padding-top:6px!important;padding-bottom:6px!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
-#start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) 16px max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+@media (max-height:420px){#start .card.menu{padding-top:max(6px,env(safe-area-inset-top,0px))!important;padding-bottom:max(6px,env(safe-area-inset-bottom,0px))!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
+#start{padding:0;background:var(--panel)} #start .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 #maps{display:flex;gap:6px;flex-wrap:wrap}
 #players .ib,#onlinePlayers .ib{min-width:32px;padding-left:4px;padding-right:4px} .diff.teams{margin-left:6px} /* (the teams, for four, six and eight: on the players' row while it has room) */
@@ -161,7 +167,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 #corner{position:fixed;z-index:30;top:max(8px,env(safe-area-inset-top,0px));right:max(8px,env(safe-area-inset-right,0px));display:none;gap:6px}
 body:has(.screen:not([hidden])) #corner{display:flex} body:has(.screen:not([hidden])) #top .ib.icon{visibility:hidden}
 #corner .ib{width:44px;height:44px;padding:0;display:grid;place-items:center} #corner .ico{width:20px;height:20px}
-@media (orientation:landscape){.screen:not(#start,#online){padding-left:calc(max(8px,env(safe-area-inset-right,0px)) + 102px);padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}}
+@media (orientation:landscape){.screen:not(#start,#online){--side:calc(max(8px,env(safe-area-inset-left,0px),env(safe-area-inset-right,0px)) + 102px);padding-left:var(--side);padding-right:var(--side)}}
 @media (orientation:portrait){.screen:not(#start,#online){padding-top:calc(max(8px,env(safe-area-inset-top,0px)) + 52px)}}
 #homeTip{z-index:22} /* (over How to play, which is over the pause card) */ #homeTip .ico.share{width:15px;height:15px;vertical-align:-2px}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
@@ -187,7 +193,8 @@ body:has(.screen:not([hidden])) #corner{display:flex} body:has(.screen:not([hidd
 .tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)} .tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
 #btnBox{position:absolute;left:8px;bottom:166px;z-index:3;min-height:44px}
 #btnHome{position:absolute;left:128px;bottom:166px;z-index:3;min-height:44px;min-width:44px;justify-content:center} #btnHome .t{display:none}
-@media (max-width:620px){#btnBox,#btnHome{bottom:8px}} /* (a narrow window: the panels are in a band below, the corner is free) */
+@media (max-width:620px){#btnBox,#btnHome{bottom:8px}}
+@media (max-width:440px){#top{gap:5px;padding:0 6px} #top .ib.icon{padding:3px 6px}} @media (max-width:400px){#resSup .lbl{display:none}} /* (an upright phone: the top bar keeps to the screen) */ /* (a narrow window: the panels are in a band below, the corner is free) */
 @media (any-pointer:coarse){#hint{left:180px}} /* clear of SELECT and Home on tablets */
 .tb.grp{min-width:34px;justify-content:center} .tb.grp span{color:var(--muted)} .tb.grp.empty{opacity:.5}
 @keyframes pulse{from{box-shadow:0 0 0 rgba(255,90,90,0)}to{box-shadow:0 0 12px rgba(255,90,90,.7)}}

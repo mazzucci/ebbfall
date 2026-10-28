@@ -1,12 +1,13 @@
-// Install and offline, on the menu: INSTALL on the first page, only where the browser offers to install the game as an
-// app (Chrome and Edge, on Android and desktop: `beforeinstallprompt`) and not once installed (iPhone Safari has its
-// Add to Home Screen tip instead, screen.js); CHECK OFFLINE on the About page, which asks the service worker
+// Install and offline, on the menu: INSTALL (every `.install` button: the first page, the About page and the pause
+// card, alone or online), only where the browser offers to install the game as an app (Chrome and Edge, on Android and
+// desktop: `beforeinstallprompt`) and not once installed; never a prompt the player did not tap for (iPad and iPhone
+// Safari have the Add to Home Screen card instead, corner.js); CHECK OFFLINE on the About page, which asks the service worker
 // (tools/offline/sw.js) how much of the game it has stored and says it plainly.
 import { $ } from './hud.js';
 import { standalone } from './screen.js';
 
 let offer = null; // the browser's install offer, kept for the tap
-const showInstall = () => { const b = $('btnInstall'); if (b) b.hidden = !offer || standalone; };
+const showInstall = () => { for (const b of document.querySelectorAll('.install')) b.hidden = !offer || standalone; };
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); offer = e; showInstall(); }); // (our button, not the browser's banner)
 addEventListener('appinstalled', () => { offer = null; showInstall(); });
 
@@ -52,12 +53,13 @@ export function offlineText(s, build) {
 /** Wire INSTALL and CHECK OFFLINE (`build`: the version the About page shows). */
 export function initOffline(build) {
   showInstall();
-  $('btnInstall').addEventListener('click', async () => {
+  const install = async () => {
     const e = offer; if (!e) return;
     try { await e.prompt(); await e.userChoice; } catch { /* already used, or not allowed */ }
     if (offer === e) offer = null; // (an offer prompts once; the browser may make another later)
     showInstall();
-  });
+  };
+  for (const b of document.querySelectorAll('.install')) b.addEventListener('click', install);
   const msg = $('offlineMsg'), btn = $('btnOffline');
   btn.addEventListener('click', async () => {
     btn.disabled = true; msg.textContent = 'Checking…';

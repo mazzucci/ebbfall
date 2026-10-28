@@ -128,32 +128,52 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
   });
 }
 
-test('desktop and Android: the corner goes full screen and out; START asks for it, PAUSE leaves it', async () => {
+test('desktop and Android: full screen in and out from the corner; PAUSE leaves it, BACK TO GAME restores it; the player\'s choice to leave wins until the button again', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const o = await open(device, () => {
       window.fsAsked = 0;
       Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
       Element.prototype.requestFullscreen = async function () { window.fs = true; window.fsAsked++; document.dispatchEvent(new Event('fullscreenchange')); };
       document.exitFullscreen = async () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); };
+      window.systemExit = () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); }; // (Esc, the system's gesture)
     });
     const { page, press } = o;
+    const fs = () => page.evaluate(() => `${!!window.fs},${window.fsAsked}`);
+    const startGame = async () => { await press('#btnStart'); await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden); };
     try {
       const btn = page.locator('#cornerFull');
       assert.equal(await btn.getAttribute('aria-label'), 'Full screen');
-      await press('#cornerFull');
-      assert.equal(await page.evaluate(() => [window.fs, window.fsAsked].join()), 'true,1', 'in');
-      assert.equal(await btn.getAttribute('aria-label'), 'Leave full screen');
-      await press('#cornerFull');
-      assert.equal(await page.evaluate(() => window.fs), false, 'out');
-      assert.equal(await btn.getAttribute('aria-label'), 'Full screen');
-      await press('#btnSolo'); await press('#btnStart');
-      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-      assert.equal(await page.evaluate(() => [window.fs, window.fsAsked].join()), 'true,2', 'START goes full screen');
+      await press('#btnSolo'); await startGame();
+      assert.equal(await fs(), 'true,1', 'START goes full screen');
       assert.equal(await page.locator('#btnFull').getAttribute('aria-label'), 'Leave full screen', 'the top bar\'s says so');
       await press('#btnPause');
-      assert.equal(await page.evaluate(() => window.fs), false, 'PAUSE leaves it');
+      assert.equal(await fs(), 'false,1', 'PAUSE leaves it');
+      assert.equal(await btn.getAttribute('aria-label'), 'Full screen', 'the corner says so');
       await press('#btnResume');
-      assert.equal(await page.evaluate(() => window.fs), true, 'BACK TO GAME goes back in');
+      assert.equal(await fs(), 'true,2', 'BACK TO GAME: in again, as it was');
+      // Out with the button: the player's choice.
+      await press('#btnFull');
+      assert.equal(await fs(), 'false,2', 'out with the top bar\'s button');
+      await press('#btnPause'); await press('#btnResume');
+      assert.equal(await fs(), 'false,2', 'BACK TO GAME leaves it out');
+      await press('#btnPause'); await press('#btnQuit'); await startGame();
+      assert.equal(await fs(), 'false,2', 'and so does START');
+      // The button again: in, and the automatic entries are back.
+      await press('#btnFull');
+      assert.equal(await fs(), 'true,3', 'in with the button');
+      await press('#btnPause'); await press('#btnResume');
+      assert.equal(await fs(), 'true,4', 'BACK TO GAME restores it again');
+      // Out by the system (Esc, the gesture): the player's choice too.
+      await page.evaluate(() => window.systemExit());
+      await press('#btnPause'); await press('#btnResume');
+      assert.equal(await fs(), 'false,4', 'a system exit: BACK TO GAME leaves it out');
+      await press('#btnPause'); await press('#btnQuit'); await startGame();
+      assert.equal(await fs(), 'false,4', 'START too');
+      await press('#btnPause'); await press('#btnQuit');
+      await press('#cornerFull');
+      assert.equal(await fs(), 'true,5', 'the corner\'s button clears it');
+      await press('#cornerFull'); await press('#cornerFull');
+      assert.equal(await fs(), 'true,6', 'out and in from the corner');
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }
   }
@@ -184,7 +204,6 @@ test('iPad (Safari and Chrome): the page never goes full screen; the button says
       assert.ok(await page.locator('#homeTip').isHidden() && await page.locator('#pause').isHidden(), 'Esc closes it (and opens nothing else)');
       await press('#btnPause'); await press('#btnResume');
       assert.equal(await page.evaluate(() => window.fsAsked), 0, 'nor BACK TO GAME');
-      assert.equal(await page.evaluate(() => document.documentElement.className.includes('sysx')), false);
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }
   }

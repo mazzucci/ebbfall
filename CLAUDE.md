@@ -77,7 +77,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap
-  screen.js           full screen / landscape lock (never on iPad or iPhone: `homeScreenOnly`), the leave-game guard
+  screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
+                      iPad or iPhone), the player's choice to leave it, the page held still in a browser tab, the
+                      leave-game guard
   corner.js           sound and full screen always in reach: the top bar's pair in a game, the screen's corner (#corner)
                       over every menu page, the lobby and every card; one sound setting; on iPad/iPhone the full-screen
                       button opens the Add to Home Screen card (#homeTip)
@@ -106,7 +108,8 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
-  offline.js          INSTALL on the menu (where the browser offers it) and About's CHECK OFFLINE (asks the service worker)
+  offline.js          INSTALL on the first page, About and the pause card (where the browser offers it, not once installed)
+                      and About's CHECK OFFLINE (asks the service worker)
   online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, ready; the host's
                       players, teams, map, AI seats and their difficulty; moving to an open seat) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
@@ -124,7 +127,9 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
-                      iPhone: no page full screen, the Home Screen card),
+                      iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
+                      window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
+                      fit, no page scroll, the map fills the room and fits again when the bars collapse),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
                       CHECK OFFLINE against the real service worker, the app icons)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed

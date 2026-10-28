@@ -51,6 +51,37 @@ for (const [name, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
+test('INSTALL on the About page and in the pause card too, one offer for all; none in the installed app', { timeout: 180000 }, async () => {
+  const { ctx, page, errors, press } = await open(PHONE);
+  try {
+    assert.equal(await page.locator('.install:visible').count(), 0, 'no offer: no INSTALL anywhere');
+    assert.equal(await offer(page), true);
+    await press('#btnAbout');
+    assert.ok(await page.locator('#btnAboutInstall').isVisible(), 'on the About page');
+    await press('#btnAboutBack'); await press('#btnSolo'); await press('#btnStart');
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+    await press('#btnPause');
+    assert.ok(await page.locator('#btnPauseInstall').isVisible(), 'in the pause card');
+    await press('#btnPauseInstall');
+    await page.waitForFunction(() => window.prompted === 1);
+    await page.evaluate(() => window.choose({ outcome: 'accepted' }));
+    await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
+    await page.locator('#btnPauseInstall').waitFor({ state: 'hidden' });
+    assert.ok(await page.locator('#pause').isVisible(), 'the card stays');
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
+  // Opened as the installed app: an offer (a browser may still make one) shows nothing.
+  const app = await browserContext(PHONE);
+  try {
+    await app.addInitScript(() => { Object.defineProperty(navigator, 'standalone', { configurable: true, get: () => true }); });
+    const p = await app.newPage();
+    await p.goto(baseUrl(), { waitUntil: 'networkidle' }); await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    assert.equal(await offer(p), true);
+    await p.locator('#btnAbout').tap();
+    assert.equal(await p.locator('.install:visible').count(), 0, 'installed: no INSTALL');
+  } finally { await app.close(); }
+});
+
 test('CHECK OFFLINE on the About page: the whole game is stored, the version the page shows', { timeout: 120000 }, async () => {
   const { ctx, page, errors, press } = await open(PHONE);
   try {

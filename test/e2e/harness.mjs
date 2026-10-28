@@ -30,6 +30,11 @@ export function test(name, opts, fn) {
 }
 /** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
 export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
+/** A test's `skip` in these engines, with the reason (`{ skip: notIn(['webkit'], IPHONE) }`); false elsewhere. */
+export const notIn = (engines, why) => (engines.includes(ENGINE) ? `${ENGINE_NAME}: ${why}` : false);
+/** Known differences, not faults of the game (ENDFALL_ALL=1 runs found them): */
+export const ESC_LEAVES_FULL_SCREEN = 'START takes a desktop page really full screen here, and the first Esc only leaves it (the page never sees that key)';
+export const IPHONE = 'its phone profile is an iPhone: no full-screen API for a page, and the iPhone tip shows';
 
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };

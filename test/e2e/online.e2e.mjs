@@ -5,7 +5,7 @@
 // everyone that only its caller ends. Rooms of three and six with AI seats (M4): both browsers run the AI alike.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE, notIn, IPHONE } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
 import { PROTO } from '../../relay/room.js';
 
@@ -237,7 +237,7 @@ test('a room of another version: the friend is told to update, and UPDATE brings
   } finally { host.close(); await b.ctx.close(); }
 });
 
-test('a rematch: both ask from the end card, both are back in the room, ready, and play again in lockstep', async () => {
+test('a rematch: both ask from the end card, both are back in the room, ready, and play again in lockstep', { skip: notIn(['webkit'], IPHONE) }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(DESKTOP, relayQ);
   try {

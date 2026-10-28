@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, newGame, until, browserContext, baseUrl, DESKTOP, PHONE, CDP_TOUCH, ENGINE } from './harness.mjs';
+import { test, start, stop, newGame, until, browserContext, baseUrl, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, ESC_LEAVES_FULL_SCREEN, IPHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -251,7 +251,7 @@ test('an attack raises an alert, and Space jumps to it', async () => {
   } finally { await d.close(); }
 });
 
-test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', async () => {
+test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const s = await d.state(), core = coreOf(s);
@@ -506,7 +506,7 @@ test('a resource field can be selected to see what is left (desktop click, phone
   }
 });
 
-test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', async () => {
+test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const h = mine(await d.state(), 'harvester')[0];
@@ -1202,7 +1202,7 @@ test('phone: Home looks at the base (beside SELECT, no wider than the minimap to
   } finally { await d.close(); }
 });
 
-test('phone: the pause card has four equal buttons and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', async () => {
+test('phone: the pause card has four equal buttons and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', { skip: notIn(['webkit'], IPHONE) }, async () => {
   const d = await newGame({ ...PHONE, viewport: { width: 667, height: 375 } }, 1, 4242);
   try {
     // Full screen (stood in for: headless browsers have none, or a real one START may have entered).
@@ -1355,7 +1355,7 @@ test('the screen is lean: resources, supply, full screen, sound and pause on top
 });
 
 
-test('iPad full screen: the top bar starts after the system\'s ✕ (top left), and only there', async () => {
+test('iPad full screen: the top bar starts after the system\'s ✕ (top left), and only there', { skip: notIn(['webkit', 'firefox'], 'it asks for full screen from a script, outside a gesture, which only Chromium under test allows') }, async () => {
   // iPadOS draws its own leave-full-screen ✕ over the page's top-left corner, in Safari (a Macintosh with touch) and in
   // every other iPad browser.
   const IPAD = { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
@@ -1833,7 +1833,7 @@ test('the menu fits a small phone on every page (the first with the iPhone tip s
   } finally { await ctx.close(); }
 });
 
-test('the first page: the name in title case over the shore, whose tide lines keep below the content (the iPhone tip too), go with the page and stand still under reduced motion', async () => {
+test('the first page: the name in title case over the shore, whose tide lines keep below the content (the iPhone tip too), go with the page and stand still under reduced motion', { skip: notIn(['webkit'], IPHONE) }, async () => {
   for (const [w, h, reducedMotion, tip] of [[844, 390, 'no-preference', false], [667, 375, 'no-preference', false], [412, 915, 'reduce', false], [932, 430, 'no-preference', true], [568, 320, 'no-preference', true]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h }, reducedMotion }), page = await ctx.newPage();
     try {
@@ -1952,7 +1952,7 @@ test('an attack by something unseen says so, even on screen, and names what dete
   }
 });
 
-test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', async () => {
+test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');

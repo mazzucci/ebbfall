@@ -108,8 +108,9 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
-  offline.js          INSTALL on the first page, About and the pause card (where the browser offers it, not once installed)
-                      and About's CHECK OFFLINE (asks the service worker)
+  offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
+                      first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
+                      installs, and About) asks the service worker and says so until everything is saved
   online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, ready; the host's
                       players, teams, map, AI seats and their difficulty; moving to an open seat) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788)
@@ -131,8 +132,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
                       fit, no page scroll, the map fills the room and fits again when the bars collapse),
                       selftest.e2e.mjs (the golden games in Chromium, Firefox and WebKit), offline.e2e.mjs (INSTALL,
-                      CHECK OFFLINE against the real service worker, the app icons)
-test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed
+                      PLAY OFFLINE against the real service worker, the app icons)
+test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
                       install; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,

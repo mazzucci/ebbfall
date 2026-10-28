@@ -35,7 +35,8 @@ function syncFull() {
   }
 }
 
-function showHomeTip() { $('homeTip').hidden = false; $('btnHomeTipOk').focus(); }
+/** The Add to Home Screen card (the full-screen button here, and INSTALL: offline.js). */
+export function showHomeTip() { $('homeTip').hidden = false; $('btnHomeTipOk').focus(); }
 const hideHomeTip = () => { $('homeTip').hidden = true; };
 
 /** Wire both pairs and the Home Screen card (and the first page's iPhone tip). */
@@ -45,7 +46,6 @@ export function initCorner() {
   for (const b of [$('btnFull'), $('cornerFull')]) b.addEventListener('click', fullScreenButton);
   document.addEventListener('fullscreenchange', syncFull); document.addEventListener('webkitfullscreenchange', syncFull);
   syncSound(); syncFull();
-  $('homeTipDevice').textContent = homeScreenDevice;
   $('btnHomeTipOk').addEventListener('click', hideHomeTip);
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('homeTip').hidden) { e.preventDefault(); e.stopImmediatePropagation(); hideHomeTip(); } }, true);
   if (homeScreenOnly && homeScreenDevice === 'iPhone') $('iosTip').hidden = false; // (iPhone: said on the first page too)

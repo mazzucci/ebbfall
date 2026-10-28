@@ -1,6 +1,6 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
-// is known), How to play, About (a page: who made it, the source, the version, CHECK OFFLINE), INSTALL where the
-// browser offers it (both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
+// is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
+// once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
 // the single-player page holds the game against the AI (opponent, your race and the enemies', the players: you and one
 // to seven AIs, free for all or, for four, six and eight, even teams of you and AIs against AIs; the maps that seat them;
 // the guided first game; START GAME goes full screen). The sound and full screen are the screen's corner (corner.js).
@@ -139,7 +139,7 @@ export function initMenu({ onStart }) {
   $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
-  initOffline(build); // INSTALL (where the browser offers it), About's CHECK OFFLINE
+  initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
 }

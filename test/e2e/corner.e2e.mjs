@@ -188,7 +188,7 @@ test('iPad (Safari and Chrome): the page never goes full screen; the button says
       await cornerOn(o, 'home', '#menuHome');
       await press('#cornerFull');
       assert.ok(await shown('#homeTip'), 'the Home Screen card');
-      assert.match(await page.locator('#homeTip').textContent(), /For full screen on iPad, add Ebbfall to your Home Screen: tap Share\s*, then Add to Home Screen\. It opens as an app, full screen, and works offline\./);
+      assert.match(await page.locator('#homeTip').textContent(), /Add to Home Screen\s*Add Ebbfall to your Home Screen: tap Share\s*, then Add to Home Screen\. It opens as an app, full screen, and plays offline\./);
       await cornerOn(o, 'the Home Screen card', '#homeTip', '#homeTip .card');
       await press('#btnHomeTipOk');
       assert.ok(await page.locator('#homeTip').isHidden(), 'OK closes it');
@@ -225,7 +225,7 @@ test('iPhone (no full-screen API): the button opens the same card, and the first
     assert.ok(await shown('#iosTip'), 'the first page\'s iPhone line');
     await cornerOn(o, 'home', '#menuHome');
     await press('#cornerFull');
-    assert.match(await page.locator('#homeTip').textContent(), /For full screen on iPhone, add Ebbfall to your Home Screen/);
+    assert.match(await page.locator('#homeTip').textContent(), /Add Ebbfall to your Home Screen: tap Share/);
     await press('#btnHomeTipOk');
     await press('#btnSolo'); await press('#btnStart');
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);

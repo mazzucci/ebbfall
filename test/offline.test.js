@@ -1,4 +1,4 @@
-// The service worker (tools/offline/sw.js, as the build writes it) in Node on a fake Cache Storage: what CHECK OFFLINE
+// The service worker (tools/offline/sw.js, as the build writes it) in Node on a fake Cache Storage: what PLAY OFFLINE
 // hears back (all files stored, some, none, no storage), and an install that resumes where it stopped. Also the
 // manifest's app icons, which the install prompt needs.
 import { test } from 'node:test';
@@ -39,7 +39,7 @@ function worker(caches, flags = {}) {
   return on;
 }
 
-/** What the worker answers CHECK OFFLINE's message. */
+/** What the worker answers PLAY OFFLINE's message. */
 async function ask(on) {
   let reply, waited;
   const port = { postMessage: (m) => { reply = structuredClone(m); } }; // (as a real port would: a copy, in this realm)

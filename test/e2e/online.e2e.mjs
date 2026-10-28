@@ -533,7 +533,10 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
     await a.tap('#onlinePlayers [data-n="3"]');
     await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 3);
     const b = await joinByLink({ ...DESKTOP, serviceWorkers: 'block' }, `${relayQ}&join=${code}`, 'Bo'); // (a service worker would serve the game past the routes below)
+    // (seats by name: whoever's hello comes first sits first)
+    const seat = (n) => relay.rooms.get(code).seats.findIndex(s => s.name === n), bo = () => relay.rooms.get(code).seats[seat('Bo')];
     try {
+      await a.p.waitForFunction(() => /Bo/.test(document.getElementById('seatList').textContent));
       // A third seat by the protocol alone, which gives the game up before it has loaded: a seat gone.
       c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
       await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
@@ -552,7 +555,7 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       await b.p.locator('#onlineJoin').waitFor({ state: 'visible' }); await b.p.locator('#btnJoinRoom').click();
       await b.p.waitForFunction(() => /could not load/.test(document.getElementById('onlineStatus').textContent), null, { timeout: 15000, polling: 250 });
       assert.equal(await b.p.locator('#btnOnlineReady').textContent(), 'RELOAD');
-      assert.ok(!relay.rooms.get(code).seats[1].left, 'the seat is not given up');
+      assert.ok(!bo().left, 'the seat is not given up');
       assert.ok(await b.p.evaluate((k) => !!sessionStorage.getItem(`endfall.seat.${k}`), code), 'and its token is kept');
       // RELOAD, the game loading slowly this time: the room's news (the pause, Cy gone) arrives meanwhile, and is kept.
       await b.p.unroute(/assets\/main-[^/]*\.js$/);
@@ -564,8 +567,8 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       release();
       await b.p.waitForFunction(() => window.endfall && endfall.online.playing && !document.getElementById('pause').hidden, null, { timeout: 60000, polling: 250 });
       assert.equal(await b.p.locator('#pause h2').textContent(), 'Paused', 'the pause, on its card');
-      assert.deepEqual(await b.p.evaluate(() => [...endfall.online.gone]), [2], 'Cy gone');
-      assert.equal(relay.rooms.get(code).seats[1].left, false, 'still in the game');
+      assert.deepEqual(await b.p.evaluate(() => [...endfall.online.gone]), [seat('Cy')], 'Cy gone');
+      assert.equal(bo().left, false, 'still in the game');
       await a.tap('#btnResume');
       for (const x of [a, b]) { const t = await x.p.evaluate(() => endfall.G.tick); await x.p.waitForFunction((t0) => endfall.G.tick > t0 + 30, t, { timeout: 30000, polling: 250 }); }
     } finally { release(); await b.ctx.close(); }

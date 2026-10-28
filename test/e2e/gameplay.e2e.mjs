@@ -1441,6 +1441,19 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
 });
 
 // Single player's sides board (src/client/seats.js, menu.js): sides of tokens, + ALLY / + AI / + SIDE, a seat's sheet.
+/** In the page: the board's words cut (by as little as a pixel's fraction: the text is wider than its box, scrolls,
+ *  or ends in an ellipsis) and anything of a token past its edge; installed on every page by `cutCheck`. */
+const cutCheck = (page) => page.addInitScript(() => {
+  window.cutWords = () => {
+    const words = [...document.querySelectorAll('#soloBoard .tok > *, #soloBoard .add, #soloBoard .newside .t, #soloBoard .side .hd > *')].filter(e => e.textContent.trim());
+    const cut = words.filter(e => {
+      const r = document.createRange(); r.selectNodeContents(e);
+      return r.getBoundingClientRect().width > e.getBoundingClientRect().width + 0.01 || e.scrollWidth > e.clientWidth || (getComputedStyle(e).textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth);
+    }).map(e => e.textContent);
+    const out = [...document.querySelectorAll('#soloBoard .tok')].filter(t => [...t.children].some(c => c.getBoundingClientRect().right > t.getBoundingClientRect().right + 0.5)).map(t => t.dataset.k + ' past its edge');
+    return [...cut, ...out];
+  };
+});
 /** The open sheet is on the screen, top to bottom, and needs no scrolling. */
 const sheetFits = (page) => page.locator('#soloSheet .sheet').evaluate(e => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 0.5 && e.scrollHeight <= e.clientHeight + 1; });
 const fitsPage = async (page, what) => {
@@ -1599,14 +1612,14 @@ test('single player: the board and an open sheet fit every phone (667x375, 844x3
   };
   for (const [width, height] of [[667, 375], [844, 390], [412, 915]]) {
     for (const [name, rows] of Object.entries(setups)) {
-      const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage();
+      const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage(); await cutCheck(page);
       try {
         await page.addInitScript((r) => localStorage.setItem('endfall.seats', JSON.stringify(r)), rows);
         await page.goto(baseUrl(), { waitUntil: 'networkidle' });
         await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
         await page.locator('#btnSolo').tap();
         await fitsPage(page, `${name} on ${width}x${height}`);
-        assert.deepEqual(await page.$$eval('#soloBoard .tok .race, #soloBoard .tok b', es => es.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent)), [], `${name} on ${width}x${height}: no word cut`);
+        assert.deepEqual(await page.evaluate(() => cutWords()), [], `${name} on ${width}x${height}: no word cut`);
         await board(page).open(rows.length - 1); await page.locator('#soloSheet [data-k="diff:2"]').tap(); // (HARD's line, the longest)
         assert.ok(await sheetFits(page), `${name} on ${width}x${height}: the sheet fits the screen`);
       } finally { await ctx.close(); }
@@ -1681,7 +1694,7 @@ test('single player: every split of five to eight fits 667x375, 844x390 and 412x
   const rowsOf = (s) => s.flatMap((k, t) => Array.from({ length: k }, () => t)).map((team, i) => (i ? { race: 'vael', team, diff: 2, n: i } : { race: 'humans', team }));
   assert.equal(splits.length, 102);
   for (const [width, height] of [[667, 375], [844, 390], [412, 915]]) {
-    const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage();
+    const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage(); await cutCheck(page);
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
@@ -1692,7 +1705,7 @@ test('single player: every split of five to eight fits 667x375, 844x390 and 412x
         await page.evaluate(() => document.getElementById('btnSolo').click());
         const r = await page.evaluate(() => {
           const c = document.querySelector('#start .card.menu');
-          const cut = [...document.querySelectorAll('#soloBoard .tok .race, #soloBoard .tok b, #soloBoard .add, #soloBoard .newside .t, #soloBoard .side .hd')].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
+          const cut = cutWords();
           const wrapped = [...document.querySelectorAll('#soloBoard .side .hd')].filter(e => e.getBoundingClientRect().height > 30).map(e => e.textContent);
           return { over: c.scrollHeight - c.clientHeight, overW: c.scrollWidth - c.clientWidth, cut, wrapped };
         });

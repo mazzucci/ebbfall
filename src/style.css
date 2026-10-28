@@ -156,7 +156,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);ov
 .board .ib.tok{flex:1 1 var(--tw);display:grid;grid-template-columns:4px auto 1fr auto auto;align-items:center;gap:7px;height:36px;padding:0 7px 0 0;text-align:left;min-width:0;overflow:hidden}
 .tok .band{align-self:stretch;border-radius:4px 0 0 4px;margin-right:-2px}
 .tok b{font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .tok.me b{color:var(--ally2)}
-.tok .race{font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tok .race{font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap;min-width:max-content} /* (never cut: HUM, VAEL, RND) */
+.board .ib.tok{container-type:inline-size} @container (max-width:136px){.tok .pen{display:none}} /* (a narrow token drops its pen, not a letter) */
 .tok .pen{color:var(--dim);font:12px var(--mono);line-height:1} .tok:hover .pen{color:var(--ally)}
 .board .ib.tok.on{background:#2a2415}
 .tok.ro{cursor:default;border-style:dashed} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby) */

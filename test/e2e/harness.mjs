@@ -35,8 +35,10 @@ export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor:
 /** Single player's sides board through its UI: a side's + ALLY / + AI (`k`: the side, 0 yours), + SIDE, and a seat's
  *  sheet (its token, chips, DONE): a race, a difficulty, a side (its team number, the side's place; 'new'), REMOVE. */
 export function board(page) {
-  const press = (sel) => page.locator(sel).click();
-  const sheet = async (i, ...keys) => { await press(`#soloBoard [data-k="tok${i}"]`); for (const k of keys) await press(`#soloSheet [data-k="${k}"]`); await press('#soloSheet [data-k="done"]'); };
+  let touch = null; // (a phone's context taps)
+  const press = async (sel) => { touch ??= await page.evaluate(() => navigator.maxTouchPoints > 0); await (touch ? page.locator(sel).tap() : page.locator(sel).click()); };
+  const open = async (i) => { await press(`#soloBoard [data-k="tok${i}"]`); await page.waitForTimeout(400); }; // (a tap within 350 ms of opening is the double tap's second)
+  const sheet = async (i, ...keys) => { await open(i); for (const k of keys) await press(`#soloSheet [data-k="${k}"]`); await press('#soloSheet [data-k="done"]'); };
   return {
     /** Each side's seats, by name, yours first. */
     sides: () => page.$$eval('#soloBoard .side', ss => ss.map(s => [...s.querySelectorAll('.tok b')].map(b => b.textContent))),
@@ -45,7 +47,9 @@ export function board(page) {
     add: (k = 1) => press(`#soloBoard [data-k="add${k}"]`),
     newSide: () => press('#soloBoard [data-k="newside"]'),
     race: (i, r) => sheet(i, `race:${r}`), diff: (i, d) => sheet(i, `diff:${d}`), side: (i, t) => sheet(i, `side:${t}`),
-    remove: async (i) => { await press(`#soloBoard [data-k="tok${i}"]`); await press('#soloSheet [data-k="remove"]'); },
+    remove: async (i) => { await open(i); await press('#soloSheet [data-k="remove"]'); },
+    /** Open seat `i`'s sheet (and wait past the double tap's guard). */
+    open,
   };
 }
 

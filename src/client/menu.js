@@ -14,7 +14,7 @@ import { enterFullscreen, exitFullscreen } from './screen.js';
 import { icon } from './icons.js';
 import { initOffline } from './offline.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor, teamList } from './maps.js';
-import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatToken, sideBox, newSide, seatSheet } from './seats.js';
+import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatName, newAi, canRemove, sidesOf, enemyLevel, raceTitle, tokenEl, sideBox, newSide, seatSheet, sheetDialog } from './seats.js';
 
 const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
@@ -60,9 +60,9 @@ function renderMaps() {
 }
 
 // The sides board: a panel per side (YOUR SIDE first, in gold; then ENEMIES, or SIDE 2, SIDE 3... when there are
-// several), its seats as tokens (seats.js), + ALLY / + AI at its foot and a dashed + SIDE strip after the sides while
-// there is room (eight players). A token opens its seat's sheet: race, an AI's difficulty and side, REMOVE (not the
-// last enemy). Each token's band is the colour the seat will have (the game seats the rows by side: `arrange`).
+// several), its seats as tokens (seats.js) with + ALLY / + AI among them (up to three sides; with more, + SIDE adds
+// and the sheet moves) and a dashed + SIDE strip after the sides while there is room (eight players). A token opens its seat's sheet: race, an AI's difficulty and side, REMOVE (not
+// the last enemy). Each token's band is the colour the seat will have (the game seats the rows by side: `arrange`).
 // Everyone on one side: START GAME waits, and says why.
 const defaultRows = () => { // (the menu before the board saved these; new players start on Easy)
   const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
@@ -70,58 +70,54 @@ const defaultRows = () => { // (the menu before the board saved these; new playe
 };
 /** Where room is short (a phone): the race's short name on a token. */
 const narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 900px), (max-height: 500px)') : { matches: false, addEventListener() {} };
-let editing = -1; // (the seat whose sheet is open)
+let editing = -1, sheet = null; // (the seat whose sheet is open; the dialog it opens in)
 function setRows(rows) {
   const resized = rows.length !== menu.rows.length;
   menu.rows = rows; menu.players = rows.length; store.set('seats', JSON.stringify(rows));
   if (resized) { choose(fitMap(menu.map, menu.players)); renderMaps(); }
   renderSeats(); showRecord(); sfx('select');
 }
-/** The sides in `arrange`'s order (yours first): each one's team number, its heading, its name on a sheet's chip and
- *  the colour of its first seat. */
-function sidesOf(rows) {
-  const { order } = arrange(rows), keys = [...new Set(rows.map(r => r.team))];
-  return keys.map((team, k) => ({ team, name: k ? (keys.length === 2 ? 'ENEMIES' : `SIDE ${k + 1}`) : 'YOUR SIDE', chip: k ? `SIDE ${k + 1}` : 'YOURS', color: seatColor(order.indexOf(rows.findIndex(r => r.team === team))) }));
-}
+/** A row as the board shows it (seats.js `tokenEl`'s view). */
+const viewOf = (rows, i, side) => ({ name: seatName(rows, i), race: rows[i].race, diff: i ? rows[i].diff : null, side, me: !i });
 function renderSeats() {
-  const rows = menu.rows, { order } = arrange(rows), box = $('soloBoard'), sides = sidesOf(rows), short = narrow.matches;
+  const rows = menu.rows, { order } = arrange(rows), box = $('soloBoard'), sides = sidesOf(rows), short = narrow.matches, room = rows.length < MAX_PLAYERS;
   const focus = document.activeElement?.closest?.('#soloBoard') ? document.activeElement.dataset.k : null; // (kept on a redraw)
-  const room = rows.length < MAX_PLAYERS, lastAi = (team) => rows.filter((r, j) => j && (team == null || r.team === team)).at(-1);
-  const add = (team) => { const like = lastAi(team) || lastAi() || { race: 'humans', diff: 0 }; setRows([...rows, { race: like.race, team, diff: like.diff }]); }; // (a new AI: as its side's last, or the last)
-  box.replaceChildren(...sides.map(({ team, name }, k) => {
-    const tokens = rows.map((r, i) => i).filter(i => rows[i].team === team)
-      .map(i => seatToken(rows[i], i, seatColor(order.indexOf(i)), { short, side: k ? `side ${k + 1}` : 'your side', open: openSheet, on: i === editing }));
-    return sideBox(name, tokens, { me: !k, label: k ? name.toLowerCase().replace(/^./, c => c.toUpperCase()) : 'Your side',
-      add: room && { label: k ? '+ AI' : '+ ALLY', title: k ? 'Another AI on this side' : 'An AI on your side', k: `add${k}`, on: () => add(team) } });
-  }), ...(room ? [newSide(() => add(freeTeam(rows)))] : []));
-  if (focus) (box.querySelector(`[data-k="${focus}"]`) || box.querySelector('.side:last-of-type .tok:last-of-type') || $('btnStart')).focus(); // (+ AI with the eighth: the last seat)
+  const add = (team) => { // (the focus stays on the button; with the eighth seat it goes, and the new token has it)
+    const had = box.contains(document.activeElement); setRows([...rows, newAi(rows, team)]);
+    if (had && !box.contains(document.activeElement)) box.querySelector(`[data-k="tok${rows.length}"]`)?.focus();
+  };
+  box.replaceChildren(...sides.map(({ team, name, label }, k) => sideBox(name,
+    rows.map((r, i) => i).filter(i => rows[i].team === team).map(i => tokenEl(viewOf(rows, i, label), seatColor(order.indexOf(i)), { short, on: i === editing, onOpen: () => openSheet(i), k: `tok${i}` })),
+    { me: !k, label, adds: room && sides.length < 4 ? [{ label: k ? '+ AI' : '+ ALLY', title: k ? 'Another AI on this side' : 'An AI on your side', k: `add${k}`, on: () => add(team) }] : [] })),
+  ...(room ? [newSide(() => add(freeTeam(rows)))] : []));
+  box.classList.toggle('many', sides.length > 3); // (four sides or more wrap)
+  if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
   const one = oneTeam(rows);
   $('btnStart').disabled = one; $('soloNote').textContent = one ? 'Everyone is on one side' : '';
   renderSheet();
 }
-function openSheet(i) { editing = i; renderSheet(); sfx('select'); $('soloSheet').querySelector('.chips .on')?.focus(); }
-function closeSheet() {
-  const i = editing; editing = -1; renderSeats();
-  ($('soloBoard').querySelector(`[data-k="tok${i}"]`) || $('soloBoard').querySelector(`[data-k="tok${i - 1}"]`) || $('btnStart')).focus();
+function openSheet(i) { editing = i; renderSeats(); sfx('select'); $('soloSheet').querySelector('.chips .on')?.focus(); }
+function closeSheet(focusOn = editing) {
+  if (editing < 0) return;
+  editing = -1; renderSeats();
+  ($('soloBoard').querySelector(`[data-k="tok${focusOn}"]`) || $('soloBoard').querySelector(`[data-k="tok${focusOn - 1}"]`) || $('btnStart')).focus();
 }
-/** The open seat's sheet (none: nothing), redrawn after each change with the focus where it was. */
+/** The open seat's sheet (none: closed), redrawn after each change with the focus where it was. */
 function renderSheet() {
-  const host = $('soloSheet'), i = editing, rows = menu.rows;
-  if (i < 0 || i >= rows.length) { host.replaceChildren(); host.hidden = true; return; }
-  const focus = document.activeElement?.closest?.('#soloSheet') ? document.activeElement.dataset.k : null;
-  const set = (k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r))), r = rows[i], { order } = arrange(rows);
-  const enemy = (j) => j && rows[j].team !== rows[0].team, alone = rows.filter(q => q.team === r.team).length === 1;
-  const canRemove = rows.length > 2 && (!enemy(i) || rows.some((_, j) => j !== i && enemy(j))); // (not the last enemy)
-  host.replaceChildren(seatSheet(r, i, seatColor(order.indexOf(i)), sidesOf(rows), {
-    alone, onRace: (v) => set('race', v), onDiff: (v) => set('diff', v), onDone: closeSheet,
-    onTeam: (v) => setRows(compact(rows.map((q, j) => (j === i ? { ...q, team: v === 'new' ? freeTeam(rows) : v } : q)))),
-    onRemove: canRemove ? () => { editing = -1; setRows(compact(rows.filter((_, j) => j !== i))); closeFocus(i); } : null,
-  }));
-  host.hidden = false;
+  sheet ||= sheetDialog($('soloSheet'));
+  const i = editing, rows = menu.rows;
+  if (i < 0 || i >= rows.length) { sheet.close(); return; }
+  const host = $('soloSheet'), focus = host.contains(document.activeElement) ? document.activeElement.dataset.k : null;
+  const set = (k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r))), r = rows[i], { order } = arrange(rows), sides = sidesOf(rows);
+  const move = (team) => setRows(compact(rows.map((q, j) => (j === i ? { ...q, team } : q))));
+  const alone = rows.filter(q => q.team === r.team).length === 1;
+  sheet.show(seatSheet(viewOf(rows, i, ''), seatColor(order.indexOf(i)), {
+    sub: i ? 'computer player' : 'your seat', team: r.team, sides, onDone: () => closeSheet(),
+    onRace: (v) => set('race', v), ...(i ? { onDiff: (v) => set('diff', v), onSide: move, newSide: alone ? null : () => move(freeTeam(rows)) } : {}),
+    buttons: canRemove(rows, i) ? [{ label: 'REMOVE', title: `Remove ${seatName(rows, i)}`, k: 'remove', ghost: true, on: () => { editing = -1; setRows(compact(rows.filter((_, j) => j !== i))); ($('soloBoard').querySelector(`[data-k="tok${i - 1}"]`) || $('btnStart')).focus(); } }] : [],
+  }), () => closeSheet());
   if (focus) (host.querySelector(`[data-k="${focus}"]`) || host.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || host.querySelector('[data-k="done"]')).focus();
 }
-/** After REMOVE: the focus on the seat before. */
-const closeFocus = (i) => ($('soloBoard').querySelector(`[data-k="tok${i - 1}"]`) || $('btnStart')).focus();
 narrow.addEventListener?.('change', () => { if (menu.rows.length) renderSeats(); });
 
 /** What each choice of teams means, on its button, in the lobby (by seat). */
@@ -229,12 +225,12 @@ export function guidedDone() { store.set('guided', '1'); }
  *  first game); FIRST GAME there too for a newcomer: nobody has finished a game on this device yet (none on the record,
  *  no guided one). */
 function showRecord() {
-  const r = records(), you = menu.rows[0]?.race || 'humans', diff = Math.max(0, ...menu.rows.slice(1).map(x => x.diff));
+  const r = records(), you = menu.rows[0]?.race || 'humans', diff = menu.rows.length ? enemyLevel(menu.rows) : 0; // (the level a game is counted at)
   $('btnFirstHome').hidden = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
   const [w, l] = (you === 'random' ? RACES : [you]).map(k => tally(r, `${k}:${diff}`)).reduce((a, b) => [a[0] + b[0], a[1] + b[1]]);
   const level = DIFF[diff]?.name || '';
   $('record').textContent = w + l ? `${level}: ${w} won · ${l} lost` : '';
-  $('record').title = w + l ? `Your record ${you === 'random' ? 'with either race' : `as the ${you === 'vael' ? 'Vael' : 'Humans'}`} on ${level}` : '';
+  $('record').title = w + l ? `Your record ${you === 'random' ? 'with either race' : `as the ${raceTitle(you)}`} on ${level}` : '';
 }
 /** The top bar's sound button changed the setting: keep the menu and the saved choice in step. */
 export function soundChanged() { store.set('muted', audio.muted ? '1' : '0'); soundLabel(); }

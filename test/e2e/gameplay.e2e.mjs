@@ -536,7 +536,7 @@ test('the menu: three fixed maps and a random one, the opponent and sound; the c
       assert.deepEqual(await page.$$eval('#maps .map', bs => bs.map(b => b.textContent)), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'named maps, nothing given away');
       assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'the standard map is the default');
       // The opponent's difficulty: in its token's sheet (PLAYS), with what the level means under it.
-      await press('#soloBoard [data-k="tok1"]');
+      await board(page).open(1);
       assert.deepEqual(await page.$$eval('#soloSheet [data-k^="diff:"]', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD', 'BRUTAL']);
       assert.equal(await page.locator('#soloSheet [data-k^="diff:"].on').textContent(), 'EASY', 'new players start on Easy');
       const level = touch ? 3 : 2; // (Hard on the desktop, Brutal on the phone)
@@ -605,16 +605,20 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.deepEqual(await board(page).sides(), [['YOU'], ['AI 1']]);
       assert.deepEqual(await page.$$eval('#soloBoard .side .hd span', hs => hs.map(h => h.textContent)), ['YOUR SIDE', 'ENEMIES']);
       assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => [t.getAttribute('aria-label'), t.querySelector('.race').textContent])),
-        [['YOU, Humans, your side: edit', device.hasTouch ? 'HUM' : 'HUMANS'], ['AI 1, Humans, Easy, side 2: edit', device.hasTouch ? 'HUM' : 'HUMANS']], 'each token says what it is; a phone\'s short race');
+        device.hasTouch ? [['YOU HUM, Humans, Your side: edit', 'HUM'], ['AI 1 HUM, Humans, Easy, Enemies: edit', 'HUM']] : [['YOU HUMANS, Your side: edit', 'HUMANS'], ['AI 1 HUMANS, Easy, Enemies: edit', 'HUMANS']],
+        'each token says what it shows first, then the rest; a phone\'s short race');
       assert.equal(await page.locator('#soloBoard .tok b').first().evaluate(b => getComputedStyle(b).fontSize), device.hasTouch ? '16px' : '12px', 'a phone reads 16 px');
       // YOUR sheet: the race only (RANDOM too), a dialog; Escape closes it and gives the focus back to the token.
       await page.locator('#soloBoard [data-k="tok0"]').focus(); await page.keyboard.press('Enter');
-      assert.equal(await page.locator('#soloSheet [role="dialog"]').getAttribute('aria-modal'), 'true');
+      assert.ok(await page.locator('#soloSheet').evaluate(d => d.open && d.matches(':modal') && d.getAttribute('aria-labelledby') === 'sheetTitle'), 'a modal dialog, named by its title');
       assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"]', gs => gs.map(g => g.getAttribute('aria-label'))), ['Race'], 'your seat: its race only');
       assert.deepEqual(await page.$$eval('#soloSheet [data-k^="race:"]', bs => bs.map(b => b.textContent)), ['HUMANS', 'VAEL', 'RANDOM']);
       assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans', 'the focus on the lit chip');
-      await page.keyboard.press('Tab'); await page.keyboard.press('Tab'); await page.keyboard.press('Tab');
-      assert.ok(await page.evaluate(() => !!document.activeElement.closest('#soloSheet')), 'Tab stays in the sheet');
+      for (const key of ['Tab', 'Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
+        await page.keyboard.press(key);
+        assert.ok(await page.evaluate(() => !document.activeElement.closest('#soloBoard, .row, #maps')), `${key}: nothing behind the sheet takes the focus`);
+      }
+      await page.locator('#sheetTitle').click(); // (a click on the sheet's own words: Escape still closes it)
       await page.keyboard.press('Escape');
       assert.ok(await page.locator('#soloSheet').isHidden());
       assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'tok0', 'Escape: the focus back on the token');
@@ -648,7 +652,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       await press('#btnSoloBack'); assert.ok(await shown('#menuHome'));
       assert.equal(await page.locator('#btnMenuSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
       await press('#btnSolo');
-      assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU, Random,/, 'RANDOM still chosen');
+      assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (RND, Random|RANDOM),/, 'RANDOM still chosen');
       assert.equal(await startAs(0.1), 'humans', 'and the next game the Humans');
       await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
       assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 2 lost$/, 'RANDOM\'s record: both races\' games');
@@ -891,7 +895,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnSolo').click();
     await board(page).race(0, 'vael');
-    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^AI 1, Humans,/, 'the opponent is human unless chosen');
+    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^AI 1 HUMANS,/, 'the opponent is human unless chosen');
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
@@ -1391,6 +1395,8 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
 });
 
 // Single player's sides board (src/client/seats.js, menu.js): sides of tokens, + ALLY / + AI / + SIDE, a seat's sheet.
+/** The open sheet is on the screen, top to bottom, and needs no scrolling. */
+const sheetFits = (page) => page.locator('#soloSheet .sheet').evaluate(e => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 0.5 && e.scrollHeight <= e.clientHeight + 1; });
 const fitsPage = async (page, what) => {
   const [sh, ch, sw, cw] = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight, e.scrollWidth, e.clientWidth]);
   assert.ok(sh <= ch + 1 && sw <= cw + 1, `${what}: fits (${sh} > ${ch} or ${sw} > ${cw})`);
@@ -1408,16 +1414,16 @@ test('single player: the sides board decides the players and the maps (a badge w
     assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1']], 'a duel by default');
     assert.deepEqual(await maps(), ['ASHEN BASIN', 'GLASS REACH', 'CINDER DIVIDE', 'RANDOM'], 'two players: the maps as before');
     assert.deepEqual(await badges(), [], 'no badges');
-    await page.locator('#soloBoard [data-k="tok1"]').tap();
+    await seats.open(1);
     assert.equal(await page.locator('#soloSheet [data-k="remove"]').count(), 0, 'the last enemy stays');
     assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => b.textContent)), ['YOURS', 'SIDE 2'], 'alone on its side: no new side');
-    const sheet = await page.locator('#soloSheet .sheet').boundingBox();
-    assert.ok(sheet.y >= 0 && sheet.height < 375 && await page.locator('#soloSheet .sheet').evaluate(s => s.scrollHeight <= s.clientHeight), `the sheet fits without scrolling (${Math.round(sheet.height)} px)`);
-    await page.locator('#soloSheet [data-k="close"]').tap();
+    await page.locator('#soloSheet [data-k="diff:2"]').tap(); // (HARD's line, the longest)
+    assert.ok(await sheetFits(page), 'the sheet fits the screen');
+    await page.locator('#soloSheet [data-k="diff:0"]').tap(); await page.locator('#soloSheet [data-k="close"]').tap();
     await seats.diff(1, 1); await seats.race(1, 'vael');
     await seats.add(1);
     assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1', 'AI 2']]);
-    assert.equal(await label(2), 'AI 2, Vael, Medium, side 2: edit', 'a new AI: as its side\'s last');
+    assert.equal(await label(2), 'AI 2 VAEL, Medium, Enemies: edit', 'a new AI: as its side\'s last');
     assert.deepEqual(await maps(), ['DUST QUARTER', 'SHARD CROWN', 'LONG STEPPE', 'RANDOM'], 'three: the 96x96 maps, names of their own');
     assert.deepEqual(await badges(), ['up to 4', 'up to 4', 'up to 4', 'up to 4'], 'each seats four: a start stays free');
     assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96, 'the preview at the map\'s size');
@@ -1463,7 +1469,7 @@ test('single player: the sides board decides the players and the maps (a badge w
     await seats.remove(3);
     assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'tok2', 'REMOVE: the focus on the seat before');
     await seats.remove(1);
-    assert.deepEqual(await seats.sides(), [['YOU'], ['AI 1']]);
+    assert.deepEqual(await seats.sides(), [['YOU'], ['AI 2']], 'AI 2 keeps its name with AI 1 and AI 3 gone');
     assert.equal(await page.locator('#maps .map.on').textContent(), 'ASHEN BASIN', 'back to a duel\'s map');
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0 && endfall.G.teams.length === 2);
@@ -1524,9 +1530,12 @@ test('single player, five to eight (M4 2e): the 128x128 maps; eight sides, four 
     await page.evaluate(() => endfall.skip(20));
     assert.ok(await page.evaluate(() => [1, 2, 3, 4, 5, 6, 7].every(t => endfall.G.stats[t].built > 0)), 'seven AIs at work');
     // Six, three against three: you and two AIs.
-    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
-    await page.locator('#btnQuit').tap();
+    // (Out, and the page loaded again: eight armies drawn behind the menu in software WebGL leave it a frame a second.)
+    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); document.getElementById('btnQuit').click(); });
     await page.locator('#menuSolo').waitFor({ state: 'visible' });
+    await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').tap();
+    assert.deepEqual(await seats.sides(), [['YOU', 'AI 1', 'AI 2', 'AI 3'], ['AI 4', 'AI 5', 'AI 6', 'AI 7']], 'the sides remembered');
     await seats.remove(7); await seats.remove(6); await seats.side(3, 1);
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 1', 'AI 2'], ['AI 3', 'AI 4', 'AI 5']]);
     await page.locator('#btnStart').tap();
@@ -1552,11 +1561,99 @@ test('single player: the board and an open sheet fit every phone (667x375, 844x3
         await page.locator('#btnSolo').tap();
         await fitsPage(page, `${name} on ${width}x${height}`);
         assert.deepEqual(await page.$$eval('#soloBoard .tok .race, #soloBoard .tok b', es => es.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent)), [], `${name} on ${width}x${height}: no word cut`);
-        await page.locator(`#soloBoard [data-k="tok${rows.length - 1}"]`).tap();
-        const s = await page.locator('#soloSheet .sheet').evaluate(e => [e.getBoundingClientRect().top, e.scrollHeight, e.clientHeight]);
-        assert.ok(s[0] >= 0 && s[1] <= s[2], `${name} on ${width}x${height}: the sheet fits without scrolling (${s})`);
+        await board(page).open(rows.length - 1); await page.locator('#soloSheet [data-k="diff:2"]').tap(); // (HARD's line, the longest)
+        assert.ok(await sheetFits(page), `${name} on ${width}x${height}: the sheet fits the screen`);
       } finally { await ctx.close(); }
     }
+  }
+});
+
+test('single player, the sheet: a modal one; a double click changes nothing, a scrim tap closes it (one that began there), the arrow keys move along a row; a bad saved setup', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.addInitScript(() => { if (!sessionStorage.getItem('once')) { sessionStorage.setItem('once', '1'); localStorage.setItem('endfall.seats', '[{"race":"orcs"'); } });
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    assert.deepEqual(await board(page).sides(), [['YOU'], ['AI 1']], 'a saved setup that is not one: you and an AI');
+    const saved = () => page.evaluate(() => localStorage.getItem('endfall.seats'));
+    await board(page).add(1); const before = await saved();
+    // A double click on a token opens its sheet and changes nothing (its second click lands on a chip).
+    const tok = await page.locator('#soloBoard [data-k="tok1"]').boundingBox();
+    await page.mouse.dblclick(tok.x + tok.width / 2, tok.y + tok.height / 2);
+    assert.ok(await page.locator('#soloSheet').evaluate(d => d.open), 'open');
+    assert.equal(await saved(), before, 'nothing changed');
+    // The arrow keys: along RACE, each step a choice; + NEW SIDE is not one of SIDE's (a button of its own).
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:vael');
+    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^AI 1 VAEL,/);
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await saved(), before, 'and back');
+    assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"][aria-label="Side"] [role="radio"]', bs => bs.map(b => b.textContent)), ['YOURS', 'SIDE 2']);
+    assert.equal(await page.locator('#soloSheet [data-k="side:new"]').evaluate(b => !b.closest('[role="radiogroup"]')), true);
+    // A press on the sheet let go on the scrim: still open. A click on the scrim: closed, the focus back on the token.
+    const sh = await page.locator('#soloSheet .sheet').boundingBox();
+    await page.mouse.move(sh.x + 30, sh.y + 15); await page.mouse.down(); await page.mouse.move(5, 5); await page.mouse.up();
+    assert.ok(await page.locator('#soloSheet').evaluate(d => d.open), 'a drag out of the sheet does not close it');
+    await page.waitForTimeout(400); await page.mouse.click(5, 5);
+    assert.ok(await page.locator('#soloSheet').isHidden(), 'a click on the scrim closes it');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'tok1');
+  } finally { await ctx.close(); }
+  // A phone: a double tap on a token leaves its sheet open.
+  const phone = await browserContext(PHONE), p2 = await phone.newPage();
+  try {
+    await p2.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await p2.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await p2.locator('#btnSolo').tap();
+    await p2.locator('#soloBoard [data-k="tok1"]').tap(); await p2.waitForTimeout(80); await p2.touchscreen.tap(...await p2.locator('#soloBoard [data-k="tok1"]').boundingBox().then(b => [b.x + b.width / 2, b.y + b.height / 2]));
+    assert.ok(await p2.locator('#soloSheet').evaluate(d => d.open), 'a double tap: the sheet stays open');
+  } finally { await phone.close(); }
+});
+
+test('single player: the record counts a game at its enemies\' level (a Brutal ally against an Easy enemy is an Easy game)', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    const seats = board(page);
+    await seats.add(0); await seats.diff(2, 3); // (+ ALLY: AI 2 on your side, Brutal; AI 1 the enemy, Easy)
+    assert.deepEqual(await seats.sides(), [['YOU', 'AI 2'], ['AI 1']]);
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 3, 0], 'the game\'s level Easy, the ally Brutal');
+    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
+    await page.locator('#btnQuit').click(); await page.locator('#btnSoloBack').click();
+    assert.equal(await page.locator('#record').textContent(), 'Easy: 0 won · 1 lost', 'counted at Easy');
+  } finally { await ctx.close(); }
+});
+
+test('single player: every split of five to eight fits 667x375, 844x390 and 412x915: no scrolling, no word cut, no heading wrapped', async () => {
+  const parts = (n, max = n) => (n === 0 ? [[]] : Array.from({ length: Math.min(n, max) }, (_, j) => Math.min(n, max) - j).flatMap(k => parts(n - k, k).map(p => [k, ...p])));
+  const splits = [5, 6, 7, 8].flatMap(n => Array.from({ length: n - 1 }, (_, m) => m + 1).flatMap(mine => parts(n - mine).map(p => [mine, ...p])));
+  const rowsOf = (s) => s.flatMap((k, t) => Array.from({ length: k }, () => t)).map((team, i) => (i ? { race: 'vael', team, diff: 2, n: i } : { race: 'humans', team }));
+  assert.equal(splits.length, 102);
+  for (const [width, height] of [[667, 375], [844, 390], [412, 915]]) {
+    const ctx = await browserContext({ ...PHONE, viewport: { width, height } }), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+      const bad = [];
+      for (const s of splits) {
+        await page.evaluate((r) => localStorage.setItem('endfall.seats', JSON.stringify(r)), rowsOf(s));
+        await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => !!window.endfall);
+        await page.evaluate(() => document.getElementById('btnSolo').click());
+        const r = await page.evaluate(() => {
+          const c = document.querySelector('#start .card.menu');
+          const cut = [...document.querySelectorAll('#soloBoard .tok .race, #soloBoard .tok b, #soloBoard .add, #soloBoard .newside .t, #soloBoard .side .hd')].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
+          const wrapped = [...document.querySelectorAll('#soloBoard .side .hd')].filter(e => e.getBoundingClientRect().height > 30).map(e => e.textContent);
+          return { over: c.scrollHeight - c.clientHeight, overW: c.scrollWidth - c.clientWidth, cut, wrapped };
+        });
+        if (r.over > 1 || r.overW > 1 || r.cut.length || r.wrapped.length) bad.push(`${s.join('v')}: ${JSON.stringify(r)}`);
+      }
+      assert.deepEqual(bad, [], `${width}x${height}`);
+    } finally { await ctx.close(); }
   }
 });
 

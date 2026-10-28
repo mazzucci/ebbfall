@@ -5,9 +5,9 @@
 // everyone that only its caller ends. The room as the sides board: the host adds AIs, sets their levels and races, moves
 // a friend between sides; the friend sees it read-only but its own race; an open seat's SHARE LINK; eight seats on a
 // phone; rooms of four and six with AI seats (M4): both browsers run the AI alike.
-import { test, before, after } from 'node:test';
+import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE, notIn, IPHONE } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
 import { PROTO } from '../../relay/room.js';
 
@@ -63,7 +63,7 @@ const fits = (x, { scroll = false } = {}) => x.p.evaluate((scroll) => {
   return bad;
 }, scroll);
 
-test('two players: open a room, join by its link, ready, play in lockstep, and leaving concedes', async () => {
+test('two players: open a room, join by its link, ready, play in lockstep, and leaving concedes', { engines: true }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(DESKTOP, relayQ);
   try {
@@ -151,7 +151,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
   } finally { await a.ctx.close(); }
 });
 
-test('the sides board: the host adds AIs, sets their levels and races and moves the friend to its side; the friend sees the board read-only but its own race, READY lights; two people against two AIs play the same game', async () => {
+test('the sides board: the host adds AIs, sets their levels and races and moves the friend to its side; the friend sees the board read-only but its own race, READY lights; two people against two AIs play the same game', { engines: true }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(PHONE, relayQ);
   try {
@@ -232,7 +232,7 @@ test('the sides board: the host adds AIs, sets their levels and races and moves 
   } finally { await a.ctx.close(); }
 });
 
-test('an open seat: SHARE LINK the big button (in the title and the seat\'s sheet), GIVE TO AI, REMOVE; a friend\'s SIT HERE moves them there', async () => {
+test('an open seat: SHARE LINK the big button (in the title and the seat\'s sheet), GIVE TO AI, REMOVE; a friend\'s SIT HERE moves them there', { engines: true }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(PHONE, relayQ);
   try {
@@ -366,7 +366,7 @@ test('a room of another version: the friend is told to update, and UPDATE brings
   } finally { host.close(); await b.ctx.close(); }
 });
 
-test('a rematch: both ask from the end card, both are back in the room, ready, and play again in lockstep', async () => {
+test('a rematch: both ask from the end card, both are back in the room, ready, and play again in lockstep', { skip: notIn(['webkit'], IPHONE) }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(DESKTOP, relayQ);
   try {

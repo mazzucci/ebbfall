@@ -1,11 +1,40 @@
-// Browser test harness: serves dist/ on a local port, launches headless Chromium, and gives tests helpers that
-// drive the real UI (mouse, keyboard, touch). The window.endfall debug handle is used only to read positions,
-// fast-forward time and grant resources; every game action goes through clicks, taps and keys.
+// Browser test harness: serves dist/ on a local port, launches the browser (ENDFALL_ENGINE: chromium, the default,
+// webkit or firefox; tools/engines.mjs), and gives tests helpers that drive the real UI (mouse, keyboard, touch). The
+// window.endfall debug handle is used only to read positions, fast-forward time and grant resources; every game action
+// goes through clicks, taps and keys.
+import { test as nodeTest } from 'node:test';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchChromium } from '../../tools/chromium.mjs';
+import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
+
+export const ENGINE = engineName();
+/** The engine's name as people write it: Chromium, WebKit, Firefox. */
+export const ENGINE_NAME = ENGINES[ENGINE];
+
+/**
+ * node:test's `test`, aware of the engine. Two options of its own: `engines: true` puts a scenario in the cross-engine
+ * subset (the one CI runs in WebKit and Firefox too), and `chromium: 'why'` keeps a scenario to Chromium (CDP touch,
+ * Chromium's own APIs). In WebKit and Firefox only the subset runs, unless ENDFALL_ALL=1: then all but the
+ * Chromium-only ones, each skipped with its reason.
+ */
+export function test(name, opts = {}, fn) {
+  if (typeof opts === 'function') [opts, fn] = [{}, opts];
+  const { engines, chromium, ...rest } = opts;
+  if (ENGINE !== 'chromium' && !rest.skip) {
+    if (chromium) rest.skip = `Chromium only: ${chromium}`;
+    else if (!engines && !process.env.ENDFALL_ALL) rest.skip = `not in the cross-engine subset (ENDFALL_ALL=1 runs it in ${ENGINE_NAME})`;
+  }
+  return nodeTest(name, rest, fn);
+}
+/** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
+export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
+/** A test's `skip` in these engines, with the reason (`{ skip: notIn(['webkit'], IPHONE) }`); false elsewhere. */
+export const notIn = (engines, why) => (engines.includes(ENGINE) ? `${ENGINE_NAME}: ${why}` : false);
+/** Known differences, not faults of the game (ENDFALL_ALL=1 runs found them): */
+export const ESC_LEAVES_FULL_SCREEN = 'START takes a desktop page really full screen here, and the first Esc only leaves it (the page never sees that key)';
+export const IPHONE = 'its phone profile is an iPhone: no full-screen API for a page, and the iPhone tip shows';
 
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
@@ -22,11 +51,11 @@ export async function start() {
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;
-  browser = await launchChromium();
+  browser = await launchEngine(ENGINE);
 }
 export async function stop() { await browser?.close(); server?.close(); }
 /** A bare browser context and the URL the game is served at (for tests of the menu itself). */
-export const browserContext = (device) => browser.newContext(device);
+export const browserContext = (device) => browser.newContext(deviceFor(ENGINE, device));
 export const baseUrl = () => base;
 
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
@@ -56,7 +85,7 @@ export function board(page) {
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks. */
 export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false } = {}) {
-  const ctx = await browser.newContext(device);
+  const ctx = await browserContext(device);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -75,7 +104,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   // view slowly enough to stretch a double-click past its window).
   const startZoom = await page.evaluate(() => endfall.cam.zoom);
   await page.evaluate((z) => { const c = endfall.G.bldgs.find(b => b.team === 0); endfall.cam.zoom = z; endfall.centerOn(c.x + 40, c.y); }, touch ? 1.75 : 2);
-  const cdp = touch ? await ctx.newCDPSession(page) : null;
+  // Touch: CDP in Chromium (taps and gestures); elsewhere Playwright's touchscreen, which can only tap.
+  const cdp = touch && ENGINE === 'chromium' ? await ctx.newCDPSession(page) : null;
+  const gesture = () => { if (!cdp) throw new Error(`a touch gesture in ${ENGINE_NAME}: ${CDP_TOUCH} (mark the test { chromium: CDP_TOUCH })`); };
   const ev = (fn, arg) => page.evaluate(fn, arg);
 
   const d = {
@@ -105,6 +136,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       return [canvas.x + (wx - c.x) * c.z, canvas.y + (wy - c.y) * c.z];
     },
     async tapAt(x, y) {
+      if (!cdp) { await page.touchscreen.tap(x, y); await page.waitForTimeout(60); return; }
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForTimeout(60);
@@ -112,6 +144,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     /** Two quick taps (sent together: the software-rendered phone handles each tap late, so taps sent one after the
      *  other land outside the double-tap window). */
     async doubleTapAt(x, y) {
+      gesture();
       const p = [{ x, y }];
       await Promise.all([['touchStart', p], ['touchEnd', []], ['touchStart', p], ['touchEnd', []]].map(([type, touchPoints]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints })));
       await page.waitForTimeout(120);
@@ -193,10 +226,11 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     },
     /** One finger from (x0, y0) to (x1, y1) in a few steps, then lifted. */
     /** One finger down, moved, lifted: separately, to look between. */
-    async touchDown(x, y) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); await page.waitForTimeout(60); },
-    async touchMove(x, y) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] }); await page.waitForTimeout(60); },
-    async touchUp() { await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await page.waitForTimeout(60); },
+    async touchDown(x, y) { gesture(); await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); await page.waitForTimeout(60); },
+    async touchMove(x, y) { gesture(); await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] }); await page.waitForTimeout(60); },
+    async touchUp() { gesture(); await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await page.waitForTimeout(60); },
     async dragTo(x0, y0, x1, y1) {
+      gesture();
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
       for (let i = 1; i <= 4; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * i / 4, y: y0 + (y1 - y0) * i / 4 }] });
       await page.waitForTimeout(30); // (a pause before lifting: no glide)

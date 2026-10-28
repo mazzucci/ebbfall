@@ -121,7 +121,7 @@ build, activate it, reload into the same join link). Built (2026-10-26): the bui
 of the `.wasm`, vite.config.js); a room keeps its first seat's and refuses another with `version`; the lobby says so
 with UPDATE (the service worker's update, then back to `?join=CODE`); and a new build that installs while the player
 is out of a game (the menu or the lobby) switches over at once, back into the lobby's room. Determinism across engines is checked, not assumed: the golden
-games run in WASM in Chromium, Firefox and WebKit in CI (and a macOS ARM runner), and a hidden `?selftest` page
+games run in WASM in Chromium, Firefox and WebKit in CI (the build and engines jobs, and a macOS ARM runner), and a hidden `?selftest` page
 runs them on a real phone. The sim's dependencies stay pinned (`libm` exactly), and no float-changing build flags
 (SIMD, a fast-math `wasm-opt`).
 
@@ -155,6 +155,25 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
 - Cost: the free plan's duration limit (13,000 GB-s a day) allows about 85 two-player games of 20 minutes a day;
   Workers Paid ($5 a month) removes the concern. Needs from the owner, when the relay is ready: a Cloudflare API token.
 
+### Browsers and devices
+
+- Every pull request (.github/workflows/ci.yml): the whole browser suite (test/e2e) in Chromium in the build job, and
+  in the `engines` job, beside it, the cross-engine subset (the scenarios marked `engines: true`: the menu, sound and
+  full screen, a short game through the UI, taps on a phone, joining a room through a local relay, CHECK OFFLINE, the
+  golden games) in WebKit and in Firefox (`ENDFALL_ENGINE=webkit|firefox npm run test:e2e`; Firefox under `xvfb-run`,
+  as it has WebGL only with a display). Scenarios that need Chromium (gestures through CDP: drags, long presses,
+  double taps, two fingers) say so and skip elsewhere; `ENDFALL_ALL=1` runs all the others in WebKit or Firefox too.
+  Headless engines on a server have no audio device: only Chromium's audio context runs there.
+- Phones and tablets (.github/workflows/devices.yml, **Devices**, by hand and on Mondays): an iPad and an iPhone
+  (Safari) and a Pixel (Chrome) load the site (https://ebbfall.com/ unless told otherwise), start a single-player game
+  through the menu, tap the sound and full-screen buttons and read back `endfall.status()` (the audio context's state,
+  full screen and whether the page may have it, the page's errors since it opened). Screenshots, `summary.json` and the session links are the run's
+  artifacts and its summary. With the `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` secrets it uses
+  BrowserStack's real devices (Playwright, as BrowserStack documents it); without them, GitHub's machines: Safari on
+  the iOS Simulator on macOS (Appium's XCUITest driver, native taps) and Chrome on an Android emulator (a Play Store
+  image, Playwright over adb). Free on a public repository, but slow (the first iOS run builds WebDriverAgent), hence
+  not on every pull request. The scripts and how to run them by hand: tools/devices/README.md.
+
 ## Milestones (in order)
 
 **M3a. Lockstep core, and N seats in the sim.** Both are pure sim work protected by the goldens, and every later step
@@ -176,7 +195,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
    Stats and results, which the state hash does not cover, are pinned in golden.rs too (`EXPECTED_RESULTS`).
 3. The cross-engine golden matrix in CI, and the `?selftest` page. Done (2026-10-26): `src/engine/golden.js` (the
    golden games, checked against golden.rs), `selftest.html` (the device check, for a phone), the golden games in
-   Chromium, Firefox and WebKit in CI's e2e step, and natively and in WASM on an ARM Mac (CI's `arm` job, which
+   Chromium, Firefox and WebKit in CI's e2e steps (since 2026-10-28 Firefox and WebKit in the engines job), and natively and in WASM on an ARM Mac (CI's `arm` job, which
    publishing waits for).
 
 **M3b. Relay and net client.** The relay state machine and its Node adapter; `src/net/` (socket, turn buffer,

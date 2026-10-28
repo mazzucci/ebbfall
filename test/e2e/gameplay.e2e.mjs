@@ -441,7 +441,7 @@ test('a game starts fully zoomed out over the base', async () => {
   } finally { await d.close(); }
 });
 
-test('harvesters repair a damaged building (right-click on desktop, the Repair button on a phone)', async () => {
+test('harvesters repair a damaged building (right-click on desktop, the Repair button on a phone)', { chromium: CDP_TOUCH }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });
     try {

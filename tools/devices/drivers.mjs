@@ -100,9 +100,14 @@ async function simulator(key, dev) {
     platformName: 'iOS', browserName: 'Safari',
     'appium:automationName': 'XCUITest', 'appium:udid': sim.udid, 'appium:platformVersion': sim.version,
     'appium:nativeWebTap': true, // (real taps: sound and full screen need the user's gesture)
+    'appium:isHeadless': true, 'appium:simulatorStartupTimeout': 600000, // (booted here, without its window)
+    'appium:noReset': true, // (a fresh simulator: no Safari data to scrub, which takes minutes on a CI machine)
     'appium:safariIgnoreFraudWarning': true, 'appium:newCommandTimeout': 300,
-    'appium:wdaLaunchTimeout': 600000, 'appium:wdaConnectionTimeout': 600000, // (the first run builds WebDriverAgent)
-    ...(process.env.WDA_DERIVED_DATA ? { 'appium:derivedDataPath': process.env.WDA_DERIVED_DATA } : {}), // (built once, for both simulators)
+    'appium:wdaLaunchTimeout': 600000, 'appium:wdaConnectionTimeout': 600000,
+    // WebDriverAgent: Appium's prebuilt one for simulators (WDA_APP: `appium driver run xcuitest download-wda -- --kind=sim
+    // --platform=ios --outdir=...`), else built here by xcodebuild (minutes; WDA_DERIVED_DATA keeps it for the next).
+    ...(process.env.WDA_APP ? { 'appium:usePreinstalledWDA': true, 'appium:prebuiltWDAPath': process.env.WDA_APP }
+      : { 'appium:showXcodeLog': true, ...(process.env.WDA_DERIVED_DATA ? { 'appium:derivedDataPath': process.env.WDA_DERIVED_DATA } : {}) }),
   });
   return webdriverDriver(wd, `${sim.name}, iOS ${sim.version} (Simulator)`);
 }

@@ -102,11 +102,16 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Appium and its XCUITest driver
+      - name: Appium, its XCUITest driver and a prebuilt WebDriverAgent
         timeout-minutes: 10
         run: |
           npm install -g appium@3
           appium driver install xcuitest
+          # (without it, Appium builds WebDriverAgent with xcodebuild: several minutes)
+          if appium driver run xcuitest download-wda -- --kind=sim --platform=ios --outdir="$RUNNER_TEMP/wda-app"; then
+            app=$(find "$RUNNER_TEMP/wda-app" -maxdepth 2 -name '*.app' | head -1)
+            [ -n "$app" ] && echo "WDA_APP=$app" >> "$GITHUB_ENV"
+          else echo "::notice::No prebuilt WebDriverAgent: Appium builds it"; fi
       - name: Start Appium
         timeout-minutes: 3
         run: |

@@ -87,11 +87,10 @@ async function smoke(key) {
       return { ...how, ...(await d.eval(STATUS)) };
     });
     await step('the sound button', async () => {
-      const pressed = (v) => waitFor(d, `document.getElementById('btnSound').getAttribute('aria-pressed') === '${v}'`, 10000, `the sound button to read ${v}`).catch(() => {}); // (a simulator applies a tap late)
-      await d.tap('#btnSound'); await pressed('false'); const off = await d.eval(STATUS);
-      await d.tap('#btnSound'); await pressed('true'); const on = await d.eval(STATUS);
-      if (off.soundButton !== 'false' || on.soundButton !== 'true') throw new Error(`the sound button read ${off.soundButton}, then ${on.soundButton}`);
-      return { off: { muted: off.muted, audio: off.audio }, on: { muted: on.muted, audio: on.audio } };
+      const sound = (v) => `document.getElementById('btnSound').getAttribute('aria-pressed') === '${v}'`;
+      const a = await press(d, '#btnSound', sound('false'), 40000, 'the sound button to read off'); const off = await d.eval(STATUS);
+      const b = await press(d, '#btnSound', sound('true'), 40000, 'the sound button to read on'); const on = await d.eval(STATUS);
+      return { ...((a.nativeTapIgnored || b.nativeTapIgnored) ? { nativeTapIgnored: true } : {}), off: { muted: off.muted, audio: off.audio }, on: { muted: on.muted, audio: on.audio } };
     });
     await step('the full-screen button', async () => {
       const before = await d.eval(STATUS);

@@ -53,7 +53,7 @@ ground point: unit centre, building footprint centre.
 | Name | Notes |
 | --- | --- |
 | `ground_0..5`, `rock_<mask>_<v>` | dual-grid terrain cells (64 px); mask bits 1 TL, 2 TR, 4 BL, 8 BR = corner is rock; 3 variants that all join |
-| `<unit>_<dir>_<frame>`, `<unit>_<dir>_<frame>_m` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up); the Vael lumen, scythe, prism, monolith, shrike, halo and sovereign (a tripod, 2 walk frames); dir 0–15, 0 = facing +x, clockwise on screen; animations `<unit>_<dir>`; `_m`: the team mask (trimmed) |
+| `<unit>_<dir>_<frame>`, `<unit>_<dir>_<frame>_m` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up); the Vael lumen, scythe, prism, monolith, shrike, halo (a pearl lotus round a pale aqua light under a tilted ring: the one Vael unit whose light is not violet, so the healer and the Prism's crystal ring part at a glance) and sovereign (a tripod, 2 walk frames); dir 0–15, 0 = facing +x, clockwise on screen; animations `<unit>_<dir>`; `_m`: the team mask (trimmed) |
 | `bldg_<type>`, `bldg_<type>_m` | core, depot, extractor, barracks, forge, turret (base), airfield; the Vael conflux, spire, siphon, kiln, ward, loom, zenith |
 | `turret_head_<dir>`, `turret_head_<dir>_m` | rotating gun, 16 facings |
 | `foundation_<n>`, `scaffold_<n>`, `rubble_<n>` | construction and destruction, n = 2, 3, 4 tiles |

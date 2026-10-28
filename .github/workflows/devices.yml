@@ -19,8 +19,6 @@ on:
         default: https://ebbfall.com/
   schedule:
     - cron: '17 6 * * 1' # Mondays, 06:17 UTC
-  pull_request: # TEMPORARY: a run of the pinned versions on macos-15; removed before merging
-    paths: ['.github/workflows/devices.yml', 'tools/devices/**']
 
 permissions:
   contents: read

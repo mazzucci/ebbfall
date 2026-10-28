@@ -23,9 +23,11 @@ Each option has an environment variable too: `DEVICES`, `DEVICES_URL`, `DEVICES_
   BROWSERSTACK_USERNAME=... BROWSERSTACK_ACCESS_KEY=... node tools/devices/smoke.mjs
   ```
 - `simulator` (a Mac with Xcode): Safari on the newest iOS runtime's iPad and iPhone simulators, booted with `xcrun
-  simctl`, through Appium's XCUITest driver at `APPIUM_URL` (default http://127.0.0.1:4723). Taps are native taps
-  (`nativeWebTap`), so the browser takes them as the user's (sound and full screen need that). The first session
-  builds WebDriverAgent (minutes); `WDA_DERIVED_DATA=<dir>` keeps the build for the next.
+  simctl`, through Appium's XCUITest driver at `APPIUM_URL` (default http://127.0.0.1:4723). Taps are native taps on
+  the button as Safari's web view shows it to XCUITest (found by its accessible name), so the browser takes them as
+  the user's (sound and full screen need that). WebDriverAgent: `WDA_APP=<.../WebDriverAgentRunner-Runner.app>` uses
+  Appium's prebuilt one (`appium driver run xcuitest download-wda -- --kind=sim --platform=ios --outdir=<dir>`);
+  otherwise the first session builds it (minutes; `WDA_DERIVED_DATA=<dir>` keeps the build for the next).
   ```sh
   npm install -g appium@3 && appium driver install xcuitest && appium &
   node tools/devices/smoke.mjs --backend simulator --devices ipad,iphone

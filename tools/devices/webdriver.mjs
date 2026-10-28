@@ -33,10 +33,13 @@ export async function webdriverSession(base, capabilities) {
     goto: (url) => call('POST', s('/url'), { url }),
     /** Run a function body in the page (`return ...`), with arguments. */
     script: (body, ...args) => call('POST', s('/execute/sync'), { script: body, args }),
-    async click(css) {
-      const el = await call('POST', s('/element'), { using: 'css selector', value: css });
-      await call('POST', s(`/element/${el[ELEMENT]}/click`), {});
-    },
+    /** An element's id, by any strategy the endpoint knows (CSS; Appium's '-ios class chain' in its native context). */
+    find: async (using, value) => (await call('POST', s('/element'), { using, value }))[ELEMENT],
+    clickElement: (id) => call('POST', s(`/element/${id}/click`), {}),
+    async click(css) { await call('POST', s(`/element/${await this.find('css selector', css)}/click`), {}); },
+    /** Appium's contexts: NATIVE_APP (the app's own views) or a web view's (WEBVIEW_...). */
+    context: () => call('GET', s('/context')),
+    setContext: (name) => call('POST', s('/context'), { name }),
     /** A PNG of the screen (Appium: the whole simulator screen, Safari's bars too), as a Buffer. */
     screenshot: async () => Buffer.from(await call('GET', s('/screenshot')), 'base64'),
     close: () => call('DELETE', s('')).catch(() => {}),

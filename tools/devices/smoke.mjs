@@ -53,13 +53,13 @@ async function smoke(key) {
     await step('open the device', async () => { d = await openDriver(o.backend, key); r.on = d.device || DEVICES[key].label; });
     await step('the first page', async () => {
       await d.goto(o.url);
-      await waitFor(d, `!!window.endfall && !!document.getElementById('btnSolo') && !document.getElementById('menuHome').hidden`, 120000, 'the menu');
+      await waitFor(d, `!!window.endfall && !!document.getElementById('btnSolo') && !document.getElementById('menuHome').hidden`, 180000, 'the menu');
       await shot('1-menu');
     });
-    await step('SINGLE PLAYER', async () => { await d.tap('#btnSolo'); await waitFor(d, `!document.getElementById('menuSolo').hidden`, 15000, 'the single-player page'); });
+    await step('SINGLE PLAYER', async () => { await d.tap('#btnSolo'); await waitFor(d, `!document.getElementById('menuSolo').hidden`, 60000, 'the single-player page'); });
     await step('START GAME', async () => {
       await d.tap('#btnStart');
-      await waitFor(d, `!!(window.endfall && endfall.G && endfall.G.units.length > 0)`, 90000, 'the game');
+      await waitFor(d, `!!(window.endfall && endfall.G && endfall.G.units.length > 0)`, 180000, 'the game');
       await sleep(3000); // (a few frames drawn)
       await shot('2-game');
       return d.eval(STATUS);

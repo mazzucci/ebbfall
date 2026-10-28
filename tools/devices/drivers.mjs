@@ -99,7 +99,6 @@ async function simulator(key, dev) {
   const caps = {
     platformName: 'iOS', browserName: 'Safari',
     'appium:automationName': 'XCUITest', 'appium:udid': sim.udid, 'appium:platformVersion': sim.version,
-    'appium:nativeWebTap': true, // (real taps: sound and full screen need the user's gesture)
     'appium:isHeadless': true, 'appium:simulatorStartupTimeout': 600000, // (booted here, without its window)
     'appium:noReset': true, // (a fresh simulator: no Safari data to scrub, which takes minutes on a CI machine)
     'appium:safariIgnoreFraudWarning': true, 'appium:newCommandTimeout': 300,
@@ -116,7 +115,26 @@ async function simulator(key, dev) {
     try { wd = await webdriverSession(process.env.APPIUM_URL || 'http://127.0.0.1:4723', caps); }
     catch (e) { if (i >= 2) throw e; console.log(`${key}: ${e.message.split('\n')[0].slice(0, 300)}; trying again`); }
   }
-  return webdriverDriver(wd, `${sim.name}, iOS ${sim.version} (Simulator)`);
+  const d = webdriverDriver(wd, `${sim.name}, iOS ${sim.version} (Simulator)`);
+  // A real tap (sound and full screen need the user's gesture): the button as Safari's web view shows it to XCUITest,
+  // found by its accessible name and tapped in the native context, so Safari's own bars cannot shift the point (which
+  // they do to Appium's nativeWebTap on iOS 26). A script's click if the button cannot be found there.
+  d.tap = async (css) => {
+    const name = await wd.script("var e = document.querySelector(arguments[0]); return e ? (e.getAttribute('aria-label') || e.textContent || '').trim() : null;", css);
+    if (!name) throw new Error(`no ${css} on the page`);
+    const web = await wd.context();
+    try {
+      await wd.setContext('NATIVE_APP');
+      await wd.clickElement(await wd.find('-ios class chain', `**/XCUIElementTypeWebView/**/XCUIElementTypeButton[\`label == ${JSON.stringify(name)}\`]`));
+      return;
+    } catch (e) {
+      console.log(`  ${css} ("${name}"): no native tap (${e.message.split('\n')[0].slice(0, 200)}); a script's click instead`);
+    } finally { await wd.setContext(web).catch(() => {}); }
+    await wd.click(css);
+  };
+  // One simulator at a time: a CI Mac has a few cores.
+  d.close = async () => { await wd.close(); try { execFileSync('xcrun', ['simctl', 'shutdown', sim.udid], { stdio: 'ignore', timeout: 120000 }); } catch { /* already down */ } };
+  return d;
 }
 
 /** A WebDriver session as a driver. */

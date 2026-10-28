@@ -57,7 +57,7 @@ jobs:
             echo "backend=simulator" >> "$GITHUB_OUTPUT"
           fi
           echo "all=$(pick 'ipad|iphone|pixel')" >> "$GITHUB_OUTPUT"
-          echo "ios=$(pick 'ipad|iphone')" >> "$GITHUB_OUTPUT"
+          echo "ios=$(pick 'ipad|iphone' | sed 's/[^,][^,]*/"&"/g; s/^/[/; s/$/]/')" >> "$GITHUB_OUTPUT" # (a JSON list: a job each)
           echo "android=$(pick 'pixel')" >> "$GITHUB_OUTPUT"
 
   # Real devices on BrowserStack Automate (Playwright, tools/devices/drivers.mjs).
@@ -89,12 +89,17 @@ jobs:
           path: devices-out
           if-no-files-found: ignore
 
-  # Safari on Apple's iOS Simulator, through Appium's XCUITest driver (WebDriver; native taps count as the user's).
+  # Safari on Apple's iOS Simulator, through Appium's XCUITest driver (WebDriver; native taps count as the user's). A
+  # job per device: one simulator is about all a CI Mac runs at a usable speed.
   ios:
     needs: plan
-    if: needs.plan.outputs.backend == 'simulator' && needs.plan.outputs.ios != ''
+    if: needs.plan.outputs.backend == 'simulator' && needs.plan.outputs.ios != '[]'
     runs-on: macos-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        device: ${{ fromJSON(needs.plan.outputs.ios) }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -124,17 +129,16 @@ jobs:
           xcrun simctl list runtimes
           node tools/devices/smoke.mjs
         env:
-          DEVICES: ${{ needs.plan.outputs.ios }}
+          DEVICES: ${{ matrix.device }}
           DEVICES_BACKEND: simulator
           DEVICES_OUT: devices-out
-          WDA_DERIVED_DATA: ${{ runner.temp }}/wda # (WebDriverAgent built once, for both simulators)
       - name: Keep Appium's log
         if: always()
         run: mkdir -p devices-out && cp "$RUNNER_TEMP/appium.log" devices-out/ 2>/dev/null || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: devices-ios-simulator
+          name: devices-ios-simulator-${{ matrix.device }}
           path: devices-out
           if-no-files-found: ignore
 

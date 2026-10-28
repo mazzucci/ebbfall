@@ -17,7 +17,7 @@ import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/inde
 import { $, toast, LOAD_FAILED } from './ui.js';
 import { sfx } from './audio.js';
 import { mapSelect, drawPreview, showMenu } from './menu.js';
-import { MAPS, MAX_PLAYERS, fitMap } from './maps.js';
+import { MAPS, MAX_PLAYERS, fitMap, mapLabel } from './maps.js';
 import { filled, freeTeam, firstEmpty, sideChoices, sideColor, seatColor, raceTitle, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 import { touchDevice, enterFullscreen } from './screen.js';
 import { store } from './store.js';
@@ -96,7 +96,7 @@ function invited(code) {
 }
 function openLobby() { $('btnJoinRoom').classList.remove('big'); $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 /** Out of the room (an error, a start, BACK): its sheet closed, its board forgotten. */
-function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; lastMap = null; sheet?.close(); }
+function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; lastMap = null; mapNote = ''; clearTimeout(noteTimer); sheet?.close(); }
 /** This side's seat in the room (the relay's `seat`): the first one, back after a reconnect, or another mid-lobby (the
  *  seats renumbered: an open sheet follows its seat). The lobby that follows says what to do; a first seat clears the
  *  joining line meanwhile. */
@@ -299,7 +299,7 @@ function renderLobby(m) {
   // seat more than the map's starts: the relay moved to the smallest map that seats them, said a moment.
   const map = fitMap(m.map, n);
   if (lastMap && lastMap.map !== map && n > lastMap.n) {
-    mapNote = `Map: ${MAPS[map].name}, for ${n} players`; clearTimeout(noteTimer);
+    mapNote = `Map: ${mapLabel(map).replace(' · ', ' (')})`; clearTimeout(noteTimer); // (Map: Dust Quarter (up to 4))
     noteTimer = setTimeout(() => { mapNote = ''; if (lobbyState) status(lobbyLine(lobbyState)); }, 4000);
   }
   lastMap = { map, n };

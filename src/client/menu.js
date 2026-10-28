@@ -42,10 +42,14 @@ function choose(i) {
 }
 
 /** The map list into `sel` (a <select>): every map, its name and the players it seats ("Iron Compass · up to 8"), those
- *  with fewer starts than `players` there but not to be chosen; `on` chosen; `pick(i)` when another is. */
+ *  with fewer starts than `players` there but not to be chosen; `on` chosen; `pick(i)` when another is. The options are
+ *  made again only when the players change (a lobby arriving while the list is open leaves it open). */
 export function mapSelect(sel, players, on, pick) {
-  sel.replaceChildren(...MAPS.map((m, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
-  sel.value = String(on);
+  if (sel.dataset.players !== String(players) || sel.options.length !== MAPS.length) {
+    sel.replaceChildren(...MAPS.map((m, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
+    sel.dataset.players = String(players);
+  }
+  if (sel.value !== String(on)) sel.value = String(on);
   sel.onchange = () => { sfx('select'); pick(+sel.value); };
 }
 function renderMaps() {
@@ -67,7 +71,7 @@ function setBoard(board) {
   menu.board = board; menu.players = filled(board).length; store.set('seats', JSON.stringify(board));
   if (!fits(menu.map, menu.players)) {
     choose(fitMap(menu.map, menu.players)); renderMaps();
-    mapNote = `Map: ${MAPS[menu.map].name}, for ${menu.players} players`; clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000);
+    mapNote = `Map: ${mapLabel(menu.map).replace(' · ', ' (')})`; clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000); // (Map: Dust Quarter (up to 4))
   } else renderMaps(); // (the list: which maps seat them)
   renderSeats(); showRecord(); sfx('select');
 }

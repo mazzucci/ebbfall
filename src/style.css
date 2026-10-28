@@ -197,7 +197,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 .sel select{appearance:none;-webkit-appearance:none;width:100%;min-height:36px;background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 13px var(--display);letter-spacing:.06em;padding:4px 30px 4px 10px;cursor:pointer;text-overflow:ellipsis}
 .sel select:hover{border-color:var(--ally)} .sel select:focus-visible{outline:2px solid var(--ally);outline-offset:1px} .sel select option{background:var(--panel);color:var(--fg)} .sel select option:disabled{color:var(--dim)}
 .sel::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ally2);pointer-events:none;font-size:14px}
-@media (pointer:coarse){.sel select{font-size:16px;letter-spacing:.02em;min-height:40px}}
+@media (pointer:coarse){.sel select{font-size:16px;letter-spacing:.02em;min-height:44px}} /* (a finger's height) */
 .sel[hidden]{display:none}
 #mapPreview,#onlinePreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center}
 @media (max-height:420px){#mapPreview,#onlinePreview{width:48px;height:48px}}

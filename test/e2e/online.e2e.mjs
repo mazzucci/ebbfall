@@ -328,8 +328,10 @@ test('nothing on the lobby\'s board moves (upright and on its side) when the hos
       await b.p.waitForFunction(() => endfall.online.seat === 3, null, { timeout: RUN_MS });
       await a.p.waitForFunction(() => document.querySelector('#onlineBoard [data-k="tok3"] b')?.textContent === 'Bo');
       assert.deepEqual(await A.spots(), ['YOU', 'OPEN', 'AI 2', 'Bo', '+', '', '', '']);
+      await a.p.evaluate(() => { document.querySelector('#onlineMapSel option').dataset.mark = '1'; }); // (the host's map list: kept while the players stay as many)
       await sheet(a, 3, ['side:0']); await sheet(a, 2, ['side:1']);
       await sidesAre(a, [['YOU', 'Bo'], ['OPEN', 'AI 2']]);
+      assert.equal(await a.p.locator('#onlineMapSel option[data-mark]').count(), 1, 'lobbies with as many players: the map list not made again (an open list stays open)');
       await sheet(a, 1, ['remove'], false); await count(a, 3);
       await sidesAre(b, [['Ann', 'YOU'], ['AI 2']]);
       assert.deepEqual([await A.boxes(), await B.boxes()], [first, second], 'moves, a sit and a drop: every spot where it was, on both boards');
@@ -372,7 +374,7 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 2);
     await sheet(a, 1, ['side:0']);
     await sidesAre(a, [['YOU', 'OPEN'], ['OPEN']]);
-    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Map: Dust Quarter, for 3 players', 'a seat past the map\'s starts: the smallest map that seats them, said a moment');
+    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Map: Dust Quarter (up to 4)', 'a seat past the map\'s starts: the smallest map that seats them, said a moment');
     await a.p.waitForFunction(() => document.getElementById('onlineStatus').textContent === '2 seats are open: share the link, or give them to the AI', null, { timeout: 8000 });
     const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
     try {

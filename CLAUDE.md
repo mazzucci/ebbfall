@@ -29,7 +29,7 @@ cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/ga
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and
                    # a browser: npx playwright-core install chromium); ENDFALL_ENGINE=webkit or firefox runs the
-                   # cross-engine subset there (`engines: true`: 10 tests in Firefox, 9 in WebKit, which skips the
+                   # cross-engine subset there (`engines: true`; WebKit skips the
                    # menu's focus test); ENDFALL_ALL=1 runs all but the Chromium-only ones. Firefox has WebGL on Linux
                    # only with a display: it runs headed whenever DISPLAY is set (so on a desktop it takes your screen,
                    # full screen too); use xvfb-run -a npm run test:e2e, as CI does
@@ -57,7 +57,7 @@ selftest.html         the device check (a third entry): plays the golden games, 
 ?bench                the device test (src/client/bench.js, in the game's own page): an 8-AI 128x128 game from 3:00, a
                       minute measured through main.js's loop (`probe`), the report POSTed to the relay for a PERF-XXXXXX code
 index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays
-src/boot.js           entry: the menu first (menu.js, online.js's lobby, the top bar's sound and full screen wired at once,
+src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
@@ -91,14 +91,19 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap; the
                       HUD's portraits cut from the atlas (`portrait`)
-  screen.js           full screen / landscape lock, the leave-game guard
+  screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
+                      iPad or iPhone), the player's choice to leave it, the page held still in a browser tab, the
+                      leave-game guard
+  corner.js           sound and full screen always in reach: the top bar's pair in a game, the screen's corner (#corner)
+                      over every menu page, the lobby and every card; one sound setting; on iPad/iPhone the full-screen
+                      button opens the Add to Home Screen card (#homeTip)
+  store.js            what this device remembers (localStorage, endfall.*)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (the sides board: you and one to seven AIs,
                       a panel per side, a token per seat whose sheet sets its race, RANDOM too, an AI's difficulty and
                       side; the maps that seat them with a preview, FIRST GAME), the About
-                      page (the source, the device check, the version), the sound icon; the map buttons and preview the
-                      lobby shares
+                      page (the source, the device check, the version); the map buttons and preview the lobby shares
   seats.js            the seats against the AI: rows (`{ race, team, diff }`, you first) and how they become seats
                       (`arrange` puts each team's seats side by side, your team first; `startSetup`), pure
                       (test/seats.test.js: `arrange`, `startSetup`, `enemyLevel`, `newAi`, `canRemove`, `sidesOf`, ...); and
@@ -123,7 +128,9 @@ src/client/           everything that touches the browser
                       shards/ether, in each race's voice); voice-lab.html plays every phrase
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
-  offline.js          INSTALL on the menu (where the browser offers it) and About's CHECK OFFLINE (asks the service worker)
+  offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
+                      first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
+                      installs, and About) asks the service worker and says so until everything is saved
   online.js           Multiplayer: the lobby card (open/join a room by code or link, race or RANDOM, ready; the host's
                       players, teams, map, AI seats and their difficulty; moving to an open seat) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
@@ -142,9 +149,13 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       on a small phone),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
+                      corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
+                      iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
+                      window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
+                      fit, no page scroll, the map fills the room and fits again when the bars collapse),
                       selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
-                      CHECK OFFLINE against the real service worker, the app icons)
-test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: CHECK OFFLINE's answer, a resumed
+                      PLAY OFFLINE against the real service worker, the app icons)
+test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
                       install; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,

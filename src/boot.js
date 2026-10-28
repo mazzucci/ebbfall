@@ -1,14 +1,13 @@
-// Entry point: the menu first. The menu's pages, the lobby, INSTALL and CHECK OFFLINE (menu.js, online.js, offline.js)
-// and the top bar's sound and full-screen buttons are wired as soon as this small graph is in; nothing here imports the
+// Entry point: the menu first. The menu's pages, the lobby, INSTALL and PLAY OFFLINE (menu.js, online.js, offline.js)
+// and the sound and full screen (corner.js: the screen's corner and the top bar's pair) are wired as soon as this small
+// graph is in, so they work before the game has loaded, and if it cannot; nothing here imports the
 // renderer. The game (main.js: the renderer and its art, the loop) loads behind the menu, and the sim's WASM with it
 // (src/engine starts it on import). What starts a game waits for it: START GAME and FIRST GAME read LOADING… (the
 // lobby's READY too: online.js), and RELOAD if it could not load.
 import './style.css';
 import { $, toast, LOAD_FAILED } from './client/ui.js';
-import { audio, sfx, soundToggled } from './client/audio.js';
-import { setIconButton } from './client/icons.js';
-import { initScreen } from './client/screen.js';
-import { initMenu, soundChanged } from './client/menu.js';
+import { initCorner } from './client/corner.js';
+import { initMenu } from './client/menu.js';
 import { initOnline, reloadUrl } from './client/online.js';
 import { registered } from './client/offline.js';
 
@@ -38,11 +37,11 @@ function play(go) {
   if (game) { go(game); return; }
   pending = go; startButtons('LOADING…', true);
 }
-// Any other tap in the menu meanwhile (BACK, another choice; not the corner's sound and full screen) calls the waiting
-// start off: a game starts as it was asked for, or not at all.
+// Any other tap in the menu meanwhile (BACK, another choice; the corner's sound and full screen are not the menu's)
+// calls the waiting start off: a game starts as it was asked for, or not at all.
 $('start').addEventListener('click', (e) => {
   const b = e.target.closest('button');
-  if (pending && b && !STARTS.includes(b.id) && !b.closest('.corner')) { pending = null; startButtons(null, false); }
+  if (pending && b && !STARTS.includes(b.id)) { pending = null; startButtons(null, false); }
 }, true);
 loading.then((g) => { const go = pending; pending = null; startButtons(null, false); go?.(g); }, (e) => {
   failed = true; pending = null; startButtons('RELOAD', false); console.error(e);
@@ -50,17 +49,15 @@ loading.then((g) => { const go = pending; pending = null; startButtons(null, fal
   $('start').querySelector('.card').appendChild(p);
 });
 
-const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON', audio.muted ? 'SOUND ON' : 'SOUND OFF'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
-$('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
-initScreen();
-initMenu({ onStart: BENCH ? () => {} : () => play(g => g.newGame()), onSound: syncSound });
+initCorner();
+initMenu({ onStart: BENCH ? () => {} : () => play(g => g.newGame()) });
 initOnline({ game: loading });
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
 // Ebbfall opens and plays without a connection once it has been loaded. Registered once the game's load is over (its
 // install fetches every file again: not while the game's own load still needs the connection), loaded or not.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  const register = () => registered(navigator.serviceWorker.register('./sw.js').catch(() => null)); // (null: not available, file:// or private mode; CHECK OFFLINE says so)
+  const register = () => registered(navigator.serviceWorker.register('./sw.js').catch(() => null)); // (null: not available, file:// or private mode; PLAY OFFLINE says so)
   loading.catch(() => {}).then(() => { if (document.readyState === 'complete') register(); else addEventListener('load', register); });
   // A new version installed while the game is open: out of a game (the menu, the lobby: back into its room), switch to
   // it at once (online, friends must share a version); in a game, say so (it loads next time) rather than interrupt.

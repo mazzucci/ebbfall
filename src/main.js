@@ -16,7 +16,7 @@ import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
-import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, isFull } from './client/screen.js';
+import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
@@ -30,7 +30,7 @@ let started = false;
 // record, and times the loop's phases while `probe.on`.
 const BENCH = new URLSearchParams(location.search).has('bench');
 const probe = { on: false, lap() {} };
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden;
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden || !$('homeTip').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
@@ -200,7 +200,7 @@ function rematchButton(theyWant, iWant) {
 
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
-$('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else newGame(); }); // the same map, seed, races and difficulty; online, another game in the room
+$('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else { enterFullscreen(); newGame(); } }); // (alone: full screen again, as START; online, READY does) the same map, seed, races and difficulty; online, another game in the room
 initLeaveDialog(); initTools();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
 /** What the menu (menu.js) and the lobby (online.js) call, through src/boot.js, once this module has loaded. */
@@ -272,8 +272,9 @@ new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
 window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
-  // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari).
-  status: () => ({ audio: audioState(), muted: audio.muted, fullscreen: isFull(), fullscreenEnabled: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), errors: (window.endfallErrors || []).slice() }) };
+  // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
+  // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).
+  status: () => ({ audio: audioState(), muted: audio.muted, fullscreen: isFull(), fullscreenEnabled: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), pageFullscreen: pageFullscreenWorks, errors: (window.endfallErrors || []).slice() }) };
 bindInput(); resize(); requestAnimationFrame(loop);
 if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
   .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)

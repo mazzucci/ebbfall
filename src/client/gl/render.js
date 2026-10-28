@@ -119,10 +119,10 @@ const ghostRect = new Graphics(); L.overlay.addChild(ghostRect);
 // ---- camera ----
 let shake = 0;
 export function resize() {
-  const r = cv.parentElement.getBoundingClientRect();
+  const r = cv.parentElement.getBoundingClientRect(), mid = toWorld(view.w / 2, view.h / 2); // (the point in the middle stays there)
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
-  app.renderer.resize(view.w, view.h); clampCam();
+  app.renderer.resize(view.w, view.h); centerOn(mid.x, mid.y);
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
 /** Where the HUD floats over the map the camera may scroll that far past the edges (the panels are taller with a

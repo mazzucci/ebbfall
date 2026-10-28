@@ -196,6 +196,12 @@ test('six seats, four the AI\'s, three against three (M4 2e): eight seats fit a 
     await a.tap('#onlineTeams [data-teams="4v4"]');
     await a.p.waitForFunction(() => !!document.querySelector('#seatList .vs'));
     await fits('eight seats, four against four');
+    // The corner (sound, full screen) over no control of the room.
+    const under = await a.p.evaluate(() => {
+      const c = document.getElementById('corner').getBoundingClientRect(), hit = (r) => r.width > 0 && r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top;
+      return [...document.querySelectorAll('#online :is(button,input,.seat)')].filter(e => e.offsetParent !== null && hit(e.getBoundingClientRect())).map(e => e.id || e.textContent.trim().slice(0, 16));
+    });
+    assert.deepEqual(under, [], 'eight seats: nothing under the corner');
     // Six: seat 1 open again for a friend, three against three.
     await a.tap('#seatList [data-act="open"][data-seat="1"]');
     await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat.open').length === 1);
@@ -594,7 +600,52 @@ test('a small phone: the room fits without scrolling, its sound icon in the corn
     const sc = await a.p.locator('#online .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
     assert.ok(sc[0] <= sc[1] + 1, `the room fits: ${sc}`);
     assert.ok((await a.p.locator('#online h2').boundingBox()).y >= 0, 'its heading in view');
-    assert.ok(await a.p.locator('#btnOnlineReady').isVisible() && await a.p.locator('#btnLobbySound').isVisible());
+    assert.ok(await a.p.locator('#btnOnlineReady').isVisible() && await a.p.locator('#cornerSound').isVisible());
     assert.deepEqual(a.errors, []);
+  } finally { await a.ctx.close(); }
+});
+
+test('online full screen: READY goes in; the menu leaves it and BACK TO GAME restores it; RESUME of one\'s own pause too; a friend\'s pause leaves it alone', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  // Full screen stood in for, its state kept (a headless browser's real one resizes the page under the test).
+  const fake = (x) => x.p.evaluate(() => {
+    window.fsAsked = 0; window.fs = false;
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
+    document.documentElement.requestFullscreen = async () => { window.fs = true; window.fsAsked++; document.dispatchEvent(new Event('fullscreenchange')); };
+    document.exitFullscreen = async () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); };
+  });
+  const fs = (x) => x.p.evaluate(() => `${!!window.fs},${window.fsAsked}`);
+  const a = await page(DESKTOP, relayQ);
+  try {
+    await fake(a);
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    const code = await a.p.locator('#roomShow').textContent();
+    const b = await joinByLink(PHONE, `${relayQ}&join=${code}`, 'Bo');
+    try {
+      await fake(b);
+      await a.p.waitForFunction(() => document.querySelectorAll('#seatList .seat').length === 2 && !/AWAY|open seat/.test(document.getElementById('seatList').textContent));
+      await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: 20000 });
+      assert.deepEqual([await fs(a), await fs(b)], ['true,1', 'true,1'], 'READY goes full screen');
+      await a.tap('#btnPause');
+      assert.equal(await fs(a), 'false,1', 'the menu leaves it');
+      await a.tap('#btnResume');
+      assert.equal(await fs(a), 'true,2', 'BACK TO GAME restores it');
+      await a.tap('#btnPause'); await a.tap('#btnPauseAll');
+      await b.p.locator('#pause').waitFor({ state: 'visible', timeout: 10000 });
+      assert.equal(await fs(b), 'true,1', 'a friend\'s pause leaves the friend\'s full screen alone');
+      await a.p.waitForFunction(() => document.getElementById('btnResume').textContent === 'RESUME' && !document.getElementById('btnResume').disabled, null, { timeout: 10000 });
+      await a.tap('#btnResume');
+      await a.p.waitForFunction(() => window.fs === true, null, { timeout: 5000 });
+      assert.equal(await fs(a), 'true,3', 'RESUME of one\'s own pause restores it');
+      await b.p.locator('#pause').waitFor({ state: 'hidden', timeout: 10000 });
+      assert.equal(await fs(b), 'true,1');
+      // Out with the button: BACK TO GAME leaves it so.
+      await a.tap('#btnFull');
+      await a.tap('#btnPause'); await a.tap('#btnResume');
+      assert.equal(await fs(a), 'false,3', 'the player\'s choice');
+      assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
+    } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
 });

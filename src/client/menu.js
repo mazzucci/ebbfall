@@ -1,22 +1,22 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
-// is known), How to play, About (a page: who made it, the source, the version, CHECK OFFLINE), INSTALL where the
-// browser offers it (both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
+// is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
+// once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
 // the single-player page holds the game against the AI (the seat list: you and one to seven AIs, each seat's race and
 // team and each AI's difficulty, seats.js; the maps that seat them; the guided first game; START GAME goes full
-// screen). In the top-right corner of every page (and the lobby's): the sound, one setting with the game's top bar; while full screen, a button that leaves it. The menu always opens on its first page (a join link opens the lobby instead).
+// screen). The sound and full screen are the screen's corner (corner.js).
+// The menu always opens on its first page (a join link opens the lobby instead).
 // The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
-// The seats (races, teams, difficulties) and sound are remembered on this device.
+// The seats (races, teams, difficulties) are remembered on this device.
 import { mapPreview, DIFF, ready } from '../engine/index.js';
 import { $ } from './ui.js';
-import { audio, sfx, soundToggled } from './audio.js';
-import { enterFullscreen, exitFullscreen, isFull, canGoFullscreen } from './screen.js';
-import { icon } from './icons.js';
+import { sfx } from './audio.js';
+import { enterFullscreen } from './screen.js';
+import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor, teamList } from './maps.js';
 import { RACES, arrange, startSetup, legacyRows, oneTeam, freeTeam, compact, validRows, seatColor, seatName, newAi, canRemove, sidesOf, enemyLevel, raceTitle, tokenEl, sideBox, newSide, seatSheet, sheetDialog } from './seats.js';
 
-const store = { get: (k) => { try { return localStorage.getItem('endfall.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('endfall.' + k, v); } catch { /* private mode */ } } };
 
 /** `rows`: the seat list, you first, then the AIs ({ race ('random' too), team number, an AI's `diff` }); `players`:
  *  how many (2 to 8). Drawn at START GAME, in seat order (seats.js `arrange`: your team first, you first): `races`
@@ -162,22 +162,11 @@ export function drawPreview(cv, i, seed, kind) {
   cv.title = m.name;
 }
 
-/** Reflect audio.muted on the menu's and the lobby's sound icons and the top bar. */
-let syncSound = () => {};
-function soundLabel() {
-  const on = !audio.muted;
-  for (const b of document.querySelectorAll('.msound')) { b.innerHTML = icon(on ? 'sound' : 'mute'); b.setAttribute('aria-pressed', String(on)); b.title = on ? 'Sound (on)' : 'Sound (off)'; }
-}
-
-export function initMenu({ onStart, onSound }) {
-  syncSound = onSound;
-  if (store.get('muted') === '1') audio.muted = true;
+export function initMenu({ onStart }) {
   // The seats (remembered on this device; a setup that is not a good one: you and an AI), and the maps that seat them.
   let saved = null; try { saved = JSON.parse(store.get('seats')); } catch { /* none, or not ours */ }
   menu.rows = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = menu.rows.length;
   choose(urlSeed !== null ? mapsFor(menu.players).find(i => MAPS[i].random) : mapsFor(menu.players)[0]); renderMaps(); renderSeats(); showRecord();
-  for (const b of document.querySelectorAll('.msound')) b.addEventListener('click', () => { audio.muted = !audio.muted; store.set('muted', audio.muted ? '1' : '0'); soundLabel(); syncSound(); soundToggled(); if (!audio.muted) sfx('select'); });
-  soundLabel(); syncSound();
   for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.rows)) return;
@@ -192,19 +181,8 @@ export function initMenu({ onStart, onSound }) {
   $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
-  initOffline(build); // INSTALL (where the browser offers it), About's CHECK OFFLINE
+  initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
-  // Full screen (START GAME, FIRST GAME and the lobby's READY enter it): a corner button beside the sound's goes in and
-  // out, where a page can (not iPhone Safari, not a home-screen app, already full screen). (A page cannot close its own
-  // tab; leaving full screen gives the browser's own controls back.)
-  const fs = $('btnUnfull');
-  const syncFs = () => {
-    const on = isFull(); fs.hidden = !canGoFullscreen && !on;
-    fs.innerHTML = icon(on ? 'unfull' : 'full'); fs.title = on ? 'Leave full screen' : 'Full screen';
-    fs.setAttribute('aria-label', fs.title); fs.setAttribute('aria-pressed', String(on));
-  };
-  fs.addEventListener('click', () => { sfx('select'); (isFull() ? exitFullscreen : enterFullscreen)(); });
-  document.addEventListener('fullscreenchange', syncFs); document.addEventListener('webkitfullscreenchange', syncFs); syncFs();
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
 }
 
@@ -242,5 +220,3 @@ function showRecord() {
   $('record').textContent = w + l ? `${level}: ${w} won · ${l} lost` : '';
   $('record').title = w + l ? `Your record ${you === 'random' ? 'with either race' : `as the ${raceTitle(you)}`} on ${level}` : '';
 }
-/** The top bar's sound button changed the setting: keep the menu and the saved choice in step. */
-export function soundChanged() { store.set('muted', audio.muted ? '1' : '0'); soundLabel(); }

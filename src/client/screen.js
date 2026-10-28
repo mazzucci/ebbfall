@@ -1,48 +1,63 @@
-// Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab).
+// Full screen, landscape lock and the "leave the game?" guard (back swipe/button, Backspace, closing the tab). The
+// buttons that go full screen and out of it are corner.js's.
 import { $ } from './ui.js';
-import { setIconButton } from './icons.js';
 
-const root = document.documentElement;
+const root = document.documentElement, ua = navigator.userAgent;
 const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
 export const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 export const touchDevice = matchMedia('(pointer: coarse)').matches;
+/** Opened as an installed app (the Home Screen's, or a browser's install). */
 export const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
-/** A tap can take the page full screen here (not on iPhone Safari, and not needed when launched from the home screen). */
-export const canGoFullscreen = canFullscreen && !standalone;
-/** iPadOS (Safari, and every iPad browser: WebKit underneath; Safari's says Macintosh, with touch) draws its own
- *  leave-full-screen ✕ over the page's top-left corner, where the top bar keeps the shards. */
-const ipad = /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+/** Opened full screen already: an installed app that runs full screen (manifest.webmanifest asks for it). */
+const appFull = matchMedia('(display-mode: fullscreen)').matches || !!navigator.standalone;
+// Whether the page's own full screen (the Fullscreen API) works for a game here. Not in WebKit on iPad (Safari, and
+// every iPad browser, WebKit underneath; iPadOS Safari says Macintosh, with touch): in a page's full screen tapped a
+// lot it asks "exit full screen? the website may be showing a fake keyboard" or leaves by itself, a guard against
+// phishing that a page cannot turn off. Not on iPhone: no API for pages. There, full screen is the Home Screen app's.
+// (A capability, not a layout: the top bar and the corner are the same everywhere.)
+const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+const ios = ipad || /iPhone|iPod/.test(ua);
+export const pageFullscreenWorks = canFullscreen && !ios;
+/** Page full screen does not work here, and the browser can add the game to the Home Screen (iPad, iPhone; not once
+ *  added): the full-screen button and INSTALL open the card that says how. */
+export const homeScreenOnly = ios && !standalone;
+/** The full-screen button goes in and out (not in an app that opened full screen). */
+export const canGoFullscreen = pageFullscreenWorks && !appFull;
 
-/** Go full screen (must run inside a user gesture) and try to lock landscape; failures are fine. */
-export async function enterFullscreen() {
-  if (!canFullscreen || isFull()) return;
+// The player's choice wins: leaving full screen with the full-screen button means no automatic entry (START, FIRST
+// GAME, REMATCH, READY, BACK TO GAME) for the rest of the visit, until the button goes full screen again. Kept in
+// memory only. Any other exit (PAUSE's own, Esc, the system's back gesture, the page going to the background) is not a
+// choice: the next automatic entry goes back in.
+let declined = false;
+
+async function goFull() {
   try { await (root.requestFullscreen ? root.requestFullscreen({ navigationUI: 'hide' }) : root.webkitRequestFullscreen()); } catch { return; }
   try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported or not allowed */ }
 }
-/** Leave full screen if in it (failures are fine). */
-export async function exitFullscreen() {
-  if (!isFull()) return;
-  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
+const goOut = async () => { try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ } };
+/** Go full screen, unless the player chose to leave it (must run inside a user gesture; failures are fine). */
+export async function enterFullscreen() {
+  if (!pageFullscreenWorks || declined || isFull()) return;
+  await goFull();
 }
-async function toggleFullscreen() {
-  if (!isFull()) return enterFullscreen();
-  try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ }
+/** Leave full screen if in it, on the game's account (PAUSE: not the player's choice; failures are fine). */
+export async function exitFullscreen() { if (isFull()) await goOut(); }
+/** The full-screen button: in (which clears a choice to stay out), or out (the player's choice). */
+export async function toggleFullscreen() {
+  if (isFull()) { declined = true; await goOut(); return; }
+  declined = false;
+  if (pageFullscreenWorks) await goFull();
 }
 
-/** Wire the full-screen button and the iPhone tip. (No "turn your phone" card: the tap that starts goes full screen,
- *  which locks landscape where the browser can.) */
-export function initScreen() {
-  const btn = $('btnFull');
-  if (!canFullscreen || standalone) btn.hidden = true;
-  btn.addEventListener('click', toggleFullscreen);
-  const sync = () => {
-    setIconButton(btn, isFull() ? 'unfull' : 'full', isFull() ? 'EXIT FULL' : 'FULL SCREEN', isFull() ? 'FULL SCREEN' : 'EXIT FULL'); btn.title = isFull() ? 'Leave full screen' : 'Full screen';
-    root.classList.toggle('sysx', ipad && isFull()); // (room for the system's ✕: style.css)
-  };
-  document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync); sync();
-  // iPhone Safari has no full-screen API for pages; a home-screen web app opens full screen instead.
-  if (!canFullscreen && touchDevice && !standalone) $('iosTip').hidden = false;
-}
+// ---- the page in a browser tab ----
+// The layout is the dynamic viewport (style.css: 100dvh), so the browser's bars coming and going, a rotation, split
+// view or Slide Over resize the stage (main.js watches it). The page itself never scrolls: if the browser moved it
+// anyway (a rotation, the keyboard of a field just closed), put it back, and keep the pinch of the page's zoom off it
+// (WebKit's gesture events: the map has its own pinch).
+const settle = () => { if ((scrollX || scrollY) && !document.activeElement?.matches('input, textarea')) scrollTo(0, 0); };
+for (const [t, on] of [['resize', window], ['orientationchange', window], ['resize', window.visualViewport], ['scroll', window]]) on?.addEventListener(t, settle, { passive: true });
+document.addEventListener('focusout', () => setTimeout(settle, 100));
+for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
 
 // ---- leave guard ----
 let armed = false, onLeave = () => {}, onAsk = () => {}, onResume = () => {};

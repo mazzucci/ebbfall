@@ -21,6 +21,7 @@ mkdirSync(o.out, { recursive: true });
 
 // What the page says of itself. Builds before endfall.status() (2026-10-28) answer from the DOM, without the audio.
 // `fullscreenEnabled`: whether this page may go full screen at all (no on iPhone Safari), whatever the button shows.
+// `pageFullscreen`: whether the game takes the page full screen (not on iPad or iPhone: the button opens a card there).
 const STATUS = `(function () {
   var e = window.endfall, b = document.getElementById('btnFull'), s = document.getElementById('btnSound');
   var st = e && typeof e.status === 'function' ? e.status() : { audio: 'unknown', muted: null, fullscreen: !!(document.fullscreenElement || document.webkitFullscreenElement), errors: (window.endfallErrors || []).slice() };
@@ -104,7 +105,13 @@ async function smoke(key) {
     });
     await step('the full-screen button', async () => {
       const before = await d.eval(STATUS);
-      if (!before.fullscreenEnabled) return { enabled: false, shown: before.fullscreenButton, fullscreen: before.fullscreen }; // (iPhone Safari: no full screen for a page)
+      if (!(before.pageFullscreen ?? before.fullscreenEnabled)) { // (iPhone and iPad: the game does not take the page full screen; the button opens the Add to Home Screen card)
+        if (!before.fullscreenButton) return { enabled: false, shown: false, fullscreen: before.fullscreen };
+        await d.tap('#btnFull'); const card = await d.eval(`!document.getElementById('homeTip').hidden`); await shot('3-home-screen-card');
+        await d.tap('#btnHomeTipOk');
+        if (!card) throw new Error('the full-screen button did not open the Add to Home Screen card');
+        return { enabled: false, shown: true, card, fullscreen: before.fullscreen };
+      }
       // (each tap given up to 10 s to change it: leaving and entering full screen animate, slowly on a simulator)
       const after = async (was) => { await waitFor(d, `!!(document.fullscreenElement || document.webkitFullscreenElement) !== ${was}`, 10000, 'full screen to change').catch(() => {}); return d.eval(STATUS); };
       await d.tap('#btnFull'); const a = await after(before.fullscreen); await shot('3-full-screen-toggled');

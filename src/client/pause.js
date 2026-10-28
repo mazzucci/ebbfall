@@ -5,8 +5,9 @@
 //   PLAY, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (docs/MULTIPLAYER.md) shows
 //   the card on every side, with who paused and the time left; only the one who paused can end it early (RESUME: the
 //   others see whose pause it is, greyed), and once it is over the card closes for those who did not open it.
-// Opening it leaves full screen (the player may be off to another app); BACK TO GAME goes back into it if it was on. A
-// pause someone else called leaves this side's full screen alone.
+// Opening it leaves full screen (the player may be off to another app); BACK TO GAME (and a replay's DONE) goes back
+// into it if it was on, unless the player has left it with the full-screen button since (screen.js). A pause someone
+// else called leaves this side's full screen alone.
 import { G, fmt } from '../engine/index.js';
 import { $, ui, toast } from './ui.js';
 import { sfx } from './audio.js';
@@ -31,7 +32,7 @@ export function initPause(h) {
   $('btnPauseAll').addEventListener('click', () => { sfx('select'); online.net?.pause(); });
   $('btnRestart').addEventListener('click', () => { closePause(true); onRestart(); });
   $('btnQuit').addEventListener('click', () => { closePause(false); onQuit(); });
-  $('btnPauseDone').addEventListener('click', () => { closePause(false); onDone(); });
+  $('btnPauseDone').addEventListener('click', () => { closePause(true); onDone(); }); // (back to the end card: full screen again if it was on)
   $('btnPause').addEventListener('click', () => togglePause());
 }
 

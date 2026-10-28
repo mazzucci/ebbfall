@@ -159,7 +159,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
 
 - Every pull request (.github/workflows/ci.yml): the whole browser suite (test/e2e) in Chromium in the build job, and
   in the `engines` job, beside it, the cross-engine subset (the scenarios marked `engines: true`: the menu, sound and
-  full screen, a short game through the UI, taps on a phone, joining a room through a local relay, CHECK OFFLINE, the
+  full screen, a short game through the UI, taps on a phone, joining a room through a local relay, PLAY OFFLINE, the
   golden games) in WebKit and in Firefox (`ENDFALL_ENGINE=webkit|firefox npm run test:e2e`; Firefox under `xvfb-run`,
   as it has WebGL only with a display). Scenarios that need Chromium (gestures through CDP: drags, long presses,
   double taps, two fingers) say so and skip elsewhere; `ENDFALL_ALL=1` runs all the others in WebKit or Firefox too.

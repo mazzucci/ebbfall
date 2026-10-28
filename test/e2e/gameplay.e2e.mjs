@@ -2013,7 +2013,7 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
       await page.waitForFunction(() => !!window.endfall);
       const r = await page.locator('#start .card.menu').boundingBox(), v = page.viewportSize();
       assert.ok(r.width >= v.width - 1 && r.height >= v.height - 1, `the whole screen: ${JSON.stringify(r)}`);
-      if (!await page.evaluate(() => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen))) {
+      if (!await page.evaluate(() => endfall.status().fullscreenEnabled)) {
         // No full-screen API for a page (WebKit as an iPhone, like iPhone Safari): no button for it.
         assert.ok(await page.locator('#btnUnfull').isHidden(), 'no full-screen button where the page cannot have it');
         continue;
@@ -2057,11 +2057,11 @@ test('a game\'s sound and full-screen buttons, for real: sound is on after START
       assert.equal((await status()).muted, true, 'the sound button mutes');
       await press('#btnSound');
       assert.equal((await status()).muted, false, 'and unmutes');
-      if (await d.page.locator('#btnFull').isVisible()) {
+      if ((await status()).fullscreenEnabled) { // (the browser's word on whether a page may go full screen: not iPhone Safari)
         await full(true); // (START asked for it; the change can land a few frames later)
         await press('#btnFull'); await full(false);
         await press('#btnFull'); await full(true);
-      } else assert.equal((await status()).fullscreen, false, 'no full-screen button where the page cannot have it (iPhone Safari)');
+      } else assert.equal((await status()).fullscreen, false, 'never full screen where the page cannot have it (iPhone Safari)');
       assert.deepEqual((await status()).errors, [], 'no page errors');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }

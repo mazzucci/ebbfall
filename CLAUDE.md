@@ -29,7 +29,10 @@ cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/ga
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and
                    # a browser: npx playwright-core install chromium); ENDFALL_ENGINE=webkit or firefox runs the
-                   # cross-engine subset there (Firefox under xvfb-run on Linux: WebGL needs a display)
+                   # cross-engine subset there (`engines: true`: 10 tests in Firefox, 9 in WebKit, which skips the
+                   # menu's focus test); ENDFALL_ALL=1 runs all but the Chromium-only ones. Firefox has WebGL on Linux
+                   # only with a display: it runs headed whenever DISPLAY is set (so on a desktop it takes your screen,
+                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
                              # Android emulator or BrowserStack's real devices
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
@@ -251,6 +254,7 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 
 `npm run dev`, open the URL, Medium difficulty. `window.endfall` in the console exposes `G`, `ui`, the camera and
 `setResources` for poking at a running game (scripted playtests use it too), and `status()` (the audio context's
-state, full screen, the page's errors since it opened; the device checks read it). A sanity run: select harvesters, `B` then `D`, place a Depot near the
+state, mute, full screen and whether the page may go full screen at all (`fullscreenEnabled`, the browser's word: false
+on iPhone Safari; branch on it, not on the button), the page's errors since it opened; the device checks read it). A sanity run: select harvesters, `B` then `D`, place a Depot near the
 Core, train Troopers from a Garrison, `A`-move into the enemy base on the far side of the map. On a phone on the same
 network, open the LAN URL Vite prints (touch controls: tap/drag to select, tap to command, two fingers to pan).

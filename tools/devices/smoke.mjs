@@ -20,6 +20,7 @@ const { values: o } = parseArgs({ options: {
 mkdirSync(o.out, { recursive: true });
 
 // What the page says of itself. Builds before endfall.status() (2026-10-28) answer from the DOM, without the audio.
+// `fullscreenEnabled`: whether this page may go full screen at all (no on iPhone Safari), whatever the button shows.
 const STATUS = `(function () {
   var e = window.endfall, b = document.getElementById('btnFull'), s = document.getElementById('btnSound');
   var st = e && typeof e.status === 'function' ? e.status() : { audio: 'unknown', muted: null, fullscreen: !!(document.fullscreenElement || document.webkitFullscreenElement), errors: (window.endfallErrors || []).slice() };
@@ -28,7 +29,9 @@ const STATUS = `(function () {
   st.fullscreenButton = !!b && !b.hidden; st.soundButton = s ? s.getAttribute('aria-pressed') : null;
   var start = document.getElementById('start');
   var end = document.getElementById('end');
-  st.menuShown = !!start && !start.hidden; st.endCard = !!end && !end.hidden; // (a slow device's game can be lost before the last taps) st.toasts = Array.prototype.map.call(document.querySelectorAll('#msg .toast'), function (t) { return t.textContent; });
+  st.menuShown = !!start && !start.hidden; st.endCard = !!end && !end.hidden; // (a slow device's game can be lost before the last taps)
+  st.toasts = Array.prototype.map.call(document.querySelectorAll('#msg .toast'), function (t) { return t.textContent; });
+  if (st.fullscreenEnabled === undefined) st.fullscreenEnabled = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled); // (older builds)
   st.viewport = [innerWidth, innerHeight, devicePixelRatio]; st.userAgent = navigator.userAgent;
   return st;
 })()`;
@@ -52,12 +55,15 @@ async function waitFor(d, expr, ms, what) {
   }
 }
 
+/** A warning: an annotation on the run's page on GitHub Actions, a line otherwise. */
+const warn = (msg) => console.log(process.env.GITHUB_ACTIONS ? `::warning title=Devices::${msg.replace(/[\r\n]+/g, ' ')}` : `  warning: ${msg}`);
+
 /** Tap `css` and wait for `expr`; a tap that changes nothing in 30 s is retried as a script's click (and said so: the
  *  device took the touch but the page did not act on it, worth a look on the real thing). */
 async function press(d, css, expr, ms, what) {
   await d.tap(css);
   try { await waitFor(d, expr, Math.min(ms, 30000), what); return {}; } catch (e) { if (ms <= 30000 || !d.scriptClick) throw e; }
-  console.log(`  ${css}: the tap changed nothing in 30 s; a script's click`);
+  warn(`${d.device || 'the device'}: the tap on ${css} changed nothing in 30 s; a script's click went on (a dropped tap on a simulator; on a real device, worth a look)`);
   await d.scriptClick(css);
   await waitFor(d, expr, ms - 30000, what);
   return { nativeTapIgnored: true };
@@ -91,16 +97,19 @@ async function smoke(key) {
       const sound = (v) => `document.getElementById('btnSound').getAttribute('aria-pressed') === '${v}'`;
       const a = await press(d, '#btnSound', sound('false'), 40000, 'the sound button to read off'); const off = await d.eval(STATUS);
       const b = await press(d, '#btnSound', sound('true'), 40000, 'the sound button to read on'); const on = await d.eval(STATUS);
+      // (press() has waited for each switch; read back, the button and, where the build says, the sound itself)
+      if (off.soundButton !== 'false' || on.soundButton !== 'true') throw new Error(`the sound button read ${off.soundButton}, then ${on.soundButton}`);
+      if (off.muted !== null && (off.muted !== true || on.muted !== false)) throw new Error(`muted read ${off.muted}, then ${on.muted}`);
       return { ...((a.nativeTapIgnored || b.nativeTapIgnored) ? { nativeTapIgnored: true } : {}), off: { muted: off.muted, audio: off.audio }, on: { muted: on.muted, audio: on.audio } };
     });
     await step('the full-screen button', async () => {
       const before = await d.eval(STATUS);
-      if (!before.fullscreenButton) return { shown: false, fullscreen: before.fullscreen }; // (iPhone Safari: no full-screen API)
+      if (!before.fullscreenEnabled) return { enabled: false, shown: before.fullscreenButton, fullscreen: before.fullscreen }; // (iPhone Safari: no full screen for a page)
       // (each tap given up to 10 s to change it: leaving and entering full screen animate, slowly on a simulator)
       const after = async (was) => { await waitFor(d, `!!(document.fullscreenElement || document.webkitFullscreenElement) !== ${was}`, 10000, 'full screen to change').catch(() => {}); return d.eval(STATUS); };
       await d.tap('#btnFull'); const a = await after(before.fullscreen); await shot('3-full-screen-toggled');
       await d.tap('#btnFull'); const b = await after(a.fullscreen);
-      return { shown: true, before: before.fullscreen, afterTap: a.fullscreen, afterSecondTap: b.fullscreen };
+      return { enabled: true, shown: before.fullscreenButton, before: before.fullscreen, afterTap: a.fullscreen, afterSecondTap: b.fullscreen };
     });
     r.status = await d.eval(STATUS);
     r.ok = r.status.started && r.status.errors.length === 0;

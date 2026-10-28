@@ -272,7 +272,8 @@ new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
 window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, seatTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) { step(DT); noteSightings(); } },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
-  status: () => ({ audio: audioState(), muted: audio.muted, fullscreen: isFull(), errors: (window.endfallErrors || []).slice() }) };
+  // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari).
+  status: () => ({ audio: audioState(), muted: audio.muted, fullscreen: isFull(), fullscreenEnabled: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), errors: (window.endfallErrors || []).slice() }) };
 bindInput(); resize(); requestAnimationFrame(loop);
 if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
   .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)

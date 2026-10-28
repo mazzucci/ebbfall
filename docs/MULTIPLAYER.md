@@ -167,7 +167,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
 - Phones and tablets (.github/workflows/devices.yml, **Devices**, by hand and on Mondays): an iPad and an iPhone
   (Safari) and a Pixel (Chrome) load the site (https://ebbfall.com/ unless told otherwise), start a single-player game
   through the menu, tap the sound and full-screen buttons and read back `endfall.status()` (the audio context's state,
-  full screen, the page's errors since it opened). Screenshots, `summary.json` and the session links are the run's
+  full screen and whether the page may have it, the page's errors since it opened). Screenshots, `summary.json` and the session links are the run's
   artifacts and its summary. With the `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` secrets it uses
   BrowserStack's real devices (Playwright, as BrowserStack documents it); without them, GitHub's machines: Safari on
   the iOS Simulator on macOS (Appium's XCUITest driver, native taps) and Chrome on an Android emulator (a Play Store

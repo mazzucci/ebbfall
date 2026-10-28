@@ -19,7 +19,7 @@ export const ENGINE_NAME = ENGINES[ENGINE];
  * Chromium's own APIs). In WebKit and Firefox only the subset runs, unless ENDFALL_ALL=1: then all but the
  * Chromium-only ones, each skipped with its reason.
  */
-export function test(name, opts, fn) {
+export function test(name, opts = {}, fn) {
   if (typeof opts === 'function') [opts, fn] = [{}, opts];
   const { engines, chromium, ...rest } = opts;
   if (ENGINE !== 'chromium' && !rest.skip) {

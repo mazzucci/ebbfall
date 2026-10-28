@@ -21,11 +21,12 @@ let game = null, failed = false;
 const loading = import('./main.js').then(m => (game = m.game));
 
 const STARTS = ['btnStart', 'btnFirst', 'btnFirstHome'], labels = new Map();
-/** The start buttons read `text`, disabled if `off`; no text: their own labels again. */
+/** The start buttons read `text`, disabled if `off`; no text: their own labels, and state, again (START GAME is the
+ *  menu's to disable too: everyone on one side). */
 function startButtons(text, off) {
   for (const b of STARTS.map($)) {
-    if (text && !labels.has(b)) labels.set(b, b.innerHTML);
-    b.disabled = off; if (text) b.textContent = text; else if (labels.has(b)) b.innerHTML = labels.get(b);
+    if (text && !labels.has(b)) labels.set(b, { html: b.innerHTML, disabled: b.disabled });
+    if (text) { b.textContent = text; b.disabled = off; } else if (labels.has(b)) { b.innerHTML = labels.get(b).html; b.disabled = labels.get(b).disabled; labels.delete(b); }
   }
 }
 /** A start waiting for the game to load (its `go`), or null. */

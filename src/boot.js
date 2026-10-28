@@ -27,7 +27,7 @@ function play(go) {
     .finally(() => { $('start').inert = false; bs.forEach((b, i) => { b.disabled = false; b.innerHTML = was[i]; }); });
 }
 
-const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
+const syncSound = () => { setIconButton($('btnSound'), audio.muted ? 'mute' : 'sound', audio.muted ? 'SOUND OFF' : 'SOUND ON', audio.muted ? 'SOUND ON' : 'SOUND OFF'); $('btnSound').title = audio.muted ? 'Sound (off)' : 'Sound (on)'; $('btnSound').setAttribute('aria-pressed', String(!audio.muted)); };
 $('btnSound').addEventListener('click', () => { audio.muted = !audio.muted; syncSound(); soundChanged(); soundToggled(); if (!audio.muted) sfx('select'); });
 initScreen();
 initMenu({ onStart: () => play(g => g.newGame()), onSound: syncSound });

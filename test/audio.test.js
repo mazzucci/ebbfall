@@ -8,6 +8,7 @@ const ramps = [], errors = [];
 // (times must be non-negative and, per parameter, never go back: a real AudioParam throws or misbehaves)
 const when = (p, t, what) => { if (t === undefined) return; if (!(t >= 0)) errors.push(`${what} at ${t}`); if (t < (p.last ?? 0)) errors.push(`${what} back in time: ${t} < ${p.last}`); p.last = t; };
 class Param { constructor(v = 0) { this.value = v; } cancelScheduledValues() {} setValueAtTime(v, t) { when(this, t, 'set'); this.value = v; } exponentialRampToValueAtTime(v, t) { when(this, t, 'ramp'); if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } linearRampToValueAtTime(v, t) { when(this, t, 'linear ramp'); if (!Number.isFinite(v)) errors.push(`linear ramp to ${v}`); ramps.push(v); } setTargetAtTime() {} }
+let silentStarts = 0;
 class Node { constructor() { this.gain = new Param(1); this.frequency = new Param(440); this.Q = new Param(1); this.pan = new Param(0); } connect(n) { return n; } start(t) { if (t !== undefined && !(t >= 0)) errors.push(`start at ${t}`); } stop() {} }
 class Ctx {
   static now = 0;
@@ -16,17 +17,25 @@ class Ctx {
   resume() { return Promise.resolve(); }
   createDynamicsCompressor() { const n = new Node(); n.threshold = new Param(); n.ratio = new Param(); n.attack = new Param(); n.release = new Param(); return n; }
   createGain() { return new Node(); } createOscillator() { return new Node(); } createBiquadFilter() { return new Node(); }
-  createStereoPanner() { return new Node(); } createBufferSource() { return new Node(); }
+  createStereoPanner() { return new Node(); } createBufferSource() { const n = new Node(), start = n.start.bind(n); n.start = (t) => { if (t === 0 && n.buffer?.length === 1) silentStarts++; start(t); }; return n; }
   createWaveShaper() { return new Node(); } createDelay() { const n = new Node(); n.delayTime = new Param(); return n; }
-  createBuffer(_c, n) { return { getChannelData: () => new Float32Array(n) }; }
+  createBuffer(_c, n) { return { length: n, getChannelData: () => new Float32Array(n) }; }
 }
 globalThis.window = { AudioContext: Ctx };
-globalThis.addEventListener = () => {};
+const listeners = {}; // (the module's gesture listeners, by event type)
+globalThis.addEventListener = (t, fn) => { (listeners[t] ||= []).push(fn); };
 
 const { sfx, say, audio } = await import('../src/client/audio.js');
 const { PHRASES, STYLES } = await import('../src/client/voice.js');
 const src = readFileSync(new URL('../src/client/audio.js', import.meta.url), 'utf8');
 const recipes = [...src.matchAll(/^ {2}([a-z]+): \(b, t/gm)].map(m => m[1]);
+
+test('a touch\'s end, a click or a key wakes the sound (WebKit counts those, not a finger going down); once unlocked, a silent sample is not played again; muted, nothing', () => {
+  for (const t of ['touchend', 'click', 'keydown', 'pointerdown']) assert.ok(listeners[t]?.length, `listens for ${t}`);
+  audio.muted = true; listeners.touchend.forEach(f => f()); assert.equal(silentStarts, 0, 'muted: no sound opened');
+  audio.muted = false; listeners.touchend.forEach(f => f()); assert.equal(silentStarts, 1, 'the first gesture plays the silent sample');
+  listeners.click.forEach(f => f()); listeners.keydown.forEach(f => f()); assert.equal(silentStarts, 1, 'once');
+});
 
 test('every recipe plays, placed or not, with sound envelopes', async () => {
   audio.view = () => ({ x: 0, y: 0, w: 800, h: 450 });

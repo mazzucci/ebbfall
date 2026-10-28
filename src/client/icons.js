@@ -36,7 +36,11 @@ const P = {
 };
 
 /** Give a top-bar button an icon and a label (the label shows on wide screens only). */
-export function setIconButton(el, name, label) { el.innerHTML = icon(name) + `<span class="t">${label}</span>`; }
+/** An icon button's content: its icon and label. `alt`, the label it switches to (SOUND ON / SOUND OFF), is laid
+ *  under it unseen, so the button keeps one width and the bar does not move when it switches. */
+export function setIconButton(el, name, label, alt = '') {
+  el.innerHTML = icon(name) + `<span class="t"><span>${label}</span>${alt ? `<span class="alt" aria-hidden="true">${alt}</span>` : ''}</span>`;
+}
 
 /** Inline SVG markup for a line icon. */
 // A tech shows the icon of what it gives.

@@ -11,7 +11,7 @@
 import { mapPreview, DIFF, ready } from '../engine/index.js';
 import { $ } from './ui.js';
 import { audio, sfx, soundToggled } from './audio.js';
-import { enterFullscreen, exitFullscreen } from './screen.js';
+import { enterFullscreen, exitFullscreen, isFull, canGoFullscreen } from './screen.js';
 import { icon } from './icons.js';
 import { initOffline } from './offline.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, mapsFor, fitMap, badge, teamsFor } from './maps.js';
@@ -158,11 +158,17 @@ export function initMenu({ onStart, onSound }) {
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
   initOffline(build); // INSTALL (where the browser offers it), About's CHECK OFFLINE
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
-  // Full screen (START GAME, FIRST GAME and the lobby's READY enter it): a corner button leaves it, there only while
-  // it is on. (A page cannot close its own tab; leaving full screen gives the browser's own controls back.)
-  const unfull = () => { $('btnUnfull').hidden = !document.fullscreenElement && !document.webkitFullscreenElement; };
-  $('btnUnfull').addEventListener('click', () => { sfx('select'); exitFullscreen(); });
-  document.addEventListener('fullscreenchange', unfull); document.addEventListener('webkitfullscreenchange', unfull); unfull();
+  // Full screen (START GAME, FIRST GAME and the lobby's READY enter it): a corner button beside the sound's goes in and
+  // out, where a page can (not iPhone Safari, not a home-screen app, already full screen). (A page cannot close its own
+  // tab; leaving full screen gives the browser's own controls back.)
+  const fs = $('btnUnfull');
+  const syncFs = () => {
+    const on = isFull(); fs.hidden = !canGoFullscreen && !on;
+    fs.innerHTML = icon(on ? 'unfull' : 'full'); fs.title = on ? 'Leave full screen' : 'Full screen';
+    fs.setAttribute('aria-label', fs.title); fs.setAttribute('aria-pressed', String(on));
+  };
+  fs.addEventListener('click', () => { sfx('select'); (isFull() ? exitFullscreen : enterFullscreen)(); });
+  document.addEventListener('fullscreenchange', syncFs); document.addEventListener('webkitfullscreenchange', syncFs); syncFs();
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
 }
 

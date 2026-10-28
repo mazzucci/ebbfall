@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Ebbfall</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f16'/%3E%3Cpath d='M8 2l5 6-5 6-5-6z' fill='%23f5a524'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f16'/%3E%3Cpath d='M1.5 6.5c.5-2.5 1.6-4 3-4c2.2 0 2 4.5 3.5 8c1 2 2.3 3 6.5 3' fill='none' stroke='%23f5a524' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11 6l2.5 3.5-2.5 3.5-2.5-3.5z' fill='%234fd1c5'/%3E%3C/svg%3E">
 </head>
 <body>
 <div id="app">
@@ -59,9 +59,16 @@
   </footer>
   <div class="screen" id="start">
     <div class="card menu">
-      <div class="corner"><button class="ib msound" id="btnMenuSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button><button class="ib unfull" id="btnUnfull" hidden title="Leave full screen" aria-label="Leave full screen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button></div>
+      <div class="corner"><button class="ib msound" id="btnMenuSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button><button class="ib unfull" id="btnUnfull" hidden title="Full screen" aria-label="Full screen" aria-pressed="false"></button></div>
       <div class="page" id="menuHome">
-        <h1>EBBFALL</h1>
+        <!-- The shore: the water drawn back to the bottom edge, three tide lines that drift and a few shards left bare. Each line is an <svg> of its own, so its drift is one transform on the compositor; the whole thing is hidden with this page. -->
+        <div class="shore" aria-hidden="true">
+          <svg class="tide t1" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 286c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/></svg>
+          <svg class="tide t2" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 318c60-8 120 8 180 0s120-8 180 0 120 8 180 0 120-8 180 0 120 8 180 0 60-4 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".16"/></svg>
+          <svg class="tide t3" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="shoreSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fd1c5" stop-opacity="0"/><stop offset="1" stop-color="#4fd1c5" stop-opacity=".14"/></linearGradient></defs><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0V460H-40Z" fill="url(#shoreSea)"/><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="2" stroke-opacity=".32"/></svg>
+          <svg viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><g fill="#4fd1c5" fill-opacity=".32"><path d="M92 300l6 8-6 8-6-8z"/><path d="M104 306l4 5-4 5-4-5z"/><path d="M690 332l7 9-7 9-7-9z"/><path d="M706 340l4 5-4 5-4-5z"/><path d="M410 338l5 6-5 6-5-6z"/><path d="M780 296l4 5-4 5-4-5z"/><path d="M250 324l4 5-4 5-4-5z"/></g></svg>
+        </div>
+        <h1>Ebbfall</h1>
         <div class="tag" id="menuTag">A browser RTS in the 1998 mold. Mine, build, raise an army and level the enemy Command Core on the far side of the map before their waves level yours.</div>
         <div class="modes"><button class="ib big mode" id="btnSolo" title="A game against the computer">SINGLE PLAYER</button><button class="ib big mode" id="btnOnline" title="Play a friend over the Internet" hidden>MULTIPLAYER</button></div>
         <div class="row"><button class="ib" id="btnFirstHome" title="A guided game on Easy: a short checklist shows you the way" hidden>FIRST GAME</button><button class="ib" id="btnHowTo">HOW TO PLAY</button><button class="ib" id="btnAbout">ABOUT</button><button class="ib" id="btnInstall" title="Install Ebbfall as an app: its own icon, full screen, plays offline" hidden>INSTALL</button></div>

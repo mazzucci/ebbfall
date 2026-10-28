@@ -34,13 +34,6 @@ pub fn max_starts(size: MapSize) -> usize {
     }
 }
 
-/// The starts a map for `seats` seats is generated with: the fewest of 2, 4 and 8 that seat them all (3 seats play on
-/// a four-start map, 5 to 7 on an eight-start one), at most the size's `max_starts` (a World refuses the rest).
-pub fn starts_for(size: MapSize, seats: usize) -> usize {
-    let k = [2, 4, 8].into_iter().find(|&k| k >= seats).unwrap_or(8);
-    k.min(max_starts(size))
-}
-
 /// Which of a map's `k` starts (in ring order) each of `n` seats takes, then the starts nobody takes: the seats spread
 /// evenly round the ring (3 of 4 leave one corner free, 6 of 8 two opposite starts), the whole turned by `side % k`
 /// (two seats on two starts: 1 trades them), and with fewer seats than starts the pattern turned among the seats by

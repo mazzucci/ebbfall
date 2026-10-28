@@ -236,7 +236,8 @@ test('the sides board: the host adds AIs, sets their levels and races and moves 
       await b.p.waitForFunction(() => endfall.online.seat === 1, null, { timeout: RUN_MS });
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.querySelectorAll('.tok').length === 2);
       assert.deepEqual(await sides(a), [['YOU', 'Bo'], ['AI 1', 'AI 2']]);
-      await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .side')[0]?.textContent.includes('Ann'));
+      // (the friend's seat and board change together: its new seat waits for the lobby that follows it)
+      assert.equal(await b.p.evaluate(() => document.querySelectorAll('#onlineBoard .side')[0].querySelectorAll('.tok').length), 2, 'its seat moved: its board with it');
       assert.deepEqual(await sides(b), [['Ann', 'YOU'], ['AI 1', 'AI 2']], 'the friend on the host\'s side');
       // The host's own sheet: RACE and SIDE; another person's: SIDE only (never their race).
       await sheet(a, 1, [], false);

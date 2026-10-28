@@ -60,7 +60,9 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 /* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */
 #info{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:10px 18px;overflow:hidden}
-#info .who{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 240px}
+/* The who side takes the room the module leaves (never its own content's width), so a longer status or a queue that
+   fills up moves nothing; too narrow for both, the module goes under it, whatever it shows. */
+#info .who{display:flex;align-items:center;gap:12px;flex:1 1 0;min-width:min(200px,100%)}
 #selPor{width:52px;height:52px;flex:none;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line2);border-radius:4px} #selPor:empty{display:none}
 #info .id{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
@@ -76,10 +78,13 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px}
 #mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
 #mod .q .bar.prod{order:2;flex:1 1 100%;height:6px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
+#mod .q.idle .bar.prod{visibility:hidden} /* (its room kept) */
 .bar{height:8px;background:#0a0e14;border:1px solid var(--line);border-radius:2px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;background:var(--ok);transition:width .15s linear}
 .bar.prod i{background:var(--ally)}
-/* Queued units: a tap or click cancels one (a small ✕ shows they can be cancelled). */
+/* Queued units: a tap or click cancels one (a small ✕ shows they can be cancelled). Every slot the queue holds is
+   drawn, the free ones as faint outlines: the queue fills from the left and keeps its width. */
+.qe{width:32px;height:32px;border:1px dashed var(--line2);border-radius:3px;opacity:.45}
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
 .qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
@@ -324,26 +329,26 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #endKey .foe::before{background:var(--foe)}
 .rec{font:12px var(--mono);color:var(--muted);text-align:center;align-self:center}
 
-/* The compact console (landscape phones, and narrow or portrait screens): the module keeps its size and the name side
-   gives way (the name ellipsizes); the queue stays one row with its bar underneath. */
+/* The compact console (landscape phones, and narrow or portrait screens): one row; the module keeps its size and the
+   name side gives way (the name ellipsizes); the queue stays one row with its bar underneath. */
 @media (max-width:620px), (max-height:500px) and (orientation:landscape) and (pointer:coarse){
-  #info .who{flex:0 1 auto;gap:9px;min-width:0} /* (the module follows the health, so a queue grows to the right) */ #selPor{width:48px;height:48px} #selPor .por{width:42px;height:42px}
+  #info .who{gap:9px;min-width:0} #info:has(#group:not([hidden])) .who{flex:0 1 auto} /* (a group: its words, then the tiles) */ #selPor{width:48px;height:48px} #selPor .por{width:42px;height:42px}
   #info .id{gap:4px} #info .nm,.life{overflow:hidden} #info h2{font-size:14px} #info .sub{font-size:11px}
   .life .bars{width:96px;flex:none} .life .bar{height:6px} .life .bar.sh{height:4px} #hpNum{font-size:14px}
   #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden} .st{font-size:15px} .st .ico{width:15px;height:15px}
   .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
   #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}
-  #mod .q .qi{width:32px;height:32px;flex:none} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px}
+  #mod .q .qi,#mod .q .qe{width:32px;height:32px;flex:none} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px}
   #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none} #mod>.bar.build{width:110px}
   .gi.gt{width:44px;height:36px} .gi.gt b{font:600 12px var(--mono);color:var(--fg);right:3px;top:auto;bottom:4px}
 }
 /* Small phones (iPhone SE class): fewer words, smaller bars, so the figures stay whole. */
 @media (max-width:720px) and (max-height:500px) and (orientation:landscape) and (pointer:coarse), (max-width:420px){
-  #info .sub{display:none} .life .bars{width:56px} #hpNum{font-size:12px} #info{padding:6px 8px;gap:8px} #mod{gap:9px;padding-left:9px}
+  #info .sub{display:none} .life{gap:6px} .life .bars{width:52px} #hpNum{font-size:12px} #info{padding:6px 8px;gap:8px} #mod{gap:9px;padding-left:9px}
   #selPor{width:40px;height:40px} #selPor .por{width:36px;height:36px} .st{font-size:14px}
-  .pips{display:none} .rs{min-width:110px} #mod .q .qi{width:26px;height:26px} #mod .q .qi .por{width:22px;height:22px}
+  .pips{display:none} .rs{min-width:110px}
+  #mod .q{gap:3px} #mod .q .qi,#mod .q .qe{width:24px;height:24px} #mod .q .qi .por{width:20px;height:20px} /* (the portrait stays) */
   #hpNum .mx{display:none}
-  #info:has(#queue) #selPor{display:none} /* a full queue needs the room: the name and health stay readable */
 }
 /* Touch: keyboard letters on the buttons are noise. */
 @media (pointer:coarse){.cb .k{display:none}}

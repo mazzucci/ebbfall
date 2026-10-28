@@ -41,8 +41,9 @@ pub const TASKS: &[&str] = &[
 ];
 pub const PHASES: &[&str] = &["go", "wait", "mine", "return"];
 pub const PROJ_KINDS: &[&str] = &["bolt", "shell", "missile"];
-/// Queue slots sent per building (the queue holds up to five).
-pub const QUEUE_SLOTS: usize = 5;
+/// Queue slots sent per building: all of them (q0..q4 below).
+pub const QUEUE_SLOTS: usize = crate::data::QUEUE_MAX;
+const _: () = assert!(QUEUE_SLOTS == 5, "the bldg record has q0..q4");
 
 fn queued(b: &Bldg, i: usize) -> f64 {
     b.queue.get(i).map_or(-1.0, |k: &UnitKind| k.index() as f64)

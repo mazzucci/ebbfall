@@ -29,15 +29,19 @@ try {
     const d = g.getImageData(0, 0, n, n).data, want = [1, 3, 5].map(i => parseInt(bg.slice(i, i + 2), 16));
     let r2 = 0;
     for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] === 0 || (Math.abs(d[i] - want[0]) < 6 && Math.abs(d[i + 1] - want[1]) < 6 && Math.abs(d[i + 2] - want[2]) < 6)) continue;
+      if (d[i + 3] < 128 || (Math.abs(d[i] - want[0]) < 6 && Math.abs(d[i + 1] - want[1]) < 6 && Math.abs(d[i + 2] - want[2]) < 6)) continue;
       const p = i / 4, x = p % n + 0.5 - n / 2, y = Math.floor(p / n) + 0.5 - n / 2; r2 = Math.max(r2, x * x + y * y);
     }
     return Math.sqrt(r2) / n;
   }, { svg, bg });
-  const maskable = Math.min(0.8, Math.floor((SAFE - MARGIN) / reach * 100) / 100);
-  console.log(`icons: the icon reaches ${reach.toFixed(3)} of its width from the centre; the maskable one at ${maskable}`);
+  // Fitted to what is drawn, not to the square: a mark on its own plate (a circle of the background's colour) is scaled up
+  // past 1 so it fills the launcher's shape as much as the safe zone allows (the plate's edge is the background, unseen).
+  // iOS rounds a square's corners only a little (about 22%): its icon may reach a little further than the safe circle.
+  const fit = (r) => Math.min(1.4, Math.floor((r - MARGIN) / reach * 100) / 100);
+  const maskable = fit(SAFE), apple = fit(0.44);
+  console.log(`icons: the icon reaches ${reach.toFixed(3)} of its width from the centre; the maskable one at ${maskable}, the Apple one at ${apple}`);
   /** [file, size, scale of the icon in the square, background behind it (null: transparent)] */
-  const ICONS = [['icon-192.png', 192, 1, null], ['icon-512.png', 512, 1, null], ['icon-maskable-512.png', 512, maskable, bg], ['apple-touch-icon.png', 180, 0.8, bg]];
+  const ICONS = [['icon-192.png', 192, 1, null], ['icon-512.png', 512, 1, null], ['icon-maskable-512.png', 512, maskable, bg], ['apple-touch-icon.png', 180, apple, bg]];
   for (const [file, size, scale, fill] of ICONS) {
     const data = await page.evaluate(async ({ svg, size, scale, fill }) => {
       const img = new Image();

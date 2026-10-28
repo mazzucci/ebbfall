@@ -1863,7 +1863,7 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
     await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
-    await board(page).add(0); await board(page).add(1); // (+ ALLY, + AI: you and an AI against two)
+    const seats = board(page); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two)
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
@@ -1887,7 +1887,7 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
     assert.ok(seen.hqVis && seen.hqSeen, 'the ally\'s base is in our fog-free area');
     assert.ok(seen.army > 0 && seen.allSeen, `the ally's units (${seen.army} fighters) are all in our sight`);
     const near = (p, q) => p.every((v, i) => Math.abs(v - q[i]) <= 24);
-    assert.ok(near(seen.hqPixel, [0xc2, 0x2a, 0x5a]), `the ally's Core on the minimap in its seat's colour, clear of fog: ${seen.hqPixel}`);
+    assert.ok(near(seen.hqPixel, [0x15, 0xbd, 0x96]), `the ally's Core on the minimap in its spot's colour (AI 2's teal, though it plays seat 1), clear of fog: ${seen.hqPixel}`);
     assert.ok(seen.frame.some(p => p.every(v => v >= 200)), `framed in white, an ally's: ${seen.frame.join(' ')}`);
     assert.deepEqual(seen.enemyHq, [0, 0], 'the enemies\' bases still in the fog');
   } finally { await ctx.close(); }

@@ -62,7 +62,7 @@ export function closePause(back = false) {
   $('pause').hidden = true; clearInterval(card.timer); card.timer = 0; card.mine = false; card.wasFull = false;
   holdSound(false); // (inside BACK TO GAME's click or P's key, the sound comes back at once, iOS too)
 }
-function backToFull() { if (card.wasFull) enterFullscreen(); card.wasFull = false; }
+function backToFull() { if (card.wasFull) enterFullscreen({ restore: true }); card.wasFull = false; }
 
 /** A room pause began (or this side, back, is told of it): every side shows the card, in its paused state (silently:
  *  the card pauses the sound). */

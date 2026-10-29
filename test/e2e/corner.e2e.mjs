@@ -145,8 +145,9 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
   });
 }
 
-test('desktop and Android: full screen in and out from the corner; PAUSE leaves it, BACK TO GAME restores it; leaving with the button wins until the button again, a system exit does not', { skip: notIn(['webkit'], IPHONE_PROFILE) }, async () => {
+test('desktop and Android: full screen in and out from the corner; START goes in on a touch screen, not with a mouse; PAUSE leaves it, BACK TO GAME restores it; leaving with the button wins until the button again, a system exit does not', { skip: notIn(['webkit'], IPHONE_PROFILE) }, async () => {
   for (const device of [DESKTOP, PHONE]) {
+    const touch = !!device.hasTouch, who = touch ? 'Android' : 'desktop'; // (the automatic entries are a touch screen's: a mouse has room enough)
     const o = await open(device, () => {
       window.fsAsked = 0;
       Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => (window.fs ? document.documentElement : null) });
@@ -155,49 +156,55 @@ test('desktop and Android: full screen in and out from the corner; PAUSE leaves 
       window.systemExit = () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); }; // (Esc, the system's gesture)
     });
     const { page, press } = o;
-    const fs = () => page.evaluate(() => `${!!window.fs},${window.fsAsked}`);
+    let asked = 0; // (the asks for full screen so far: each step that asks adds one)
+    const fs = async (full, what) => assert.equal(await page.evaluate(() => `${!!window.fs},${window.fsAsked}`), `${full},${asked}`, `${who}: ${what}`);
     const startGame = async () => { await press('#btnStart'); await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden); };
     try {
       const btn = page.locator('#cornerFull');
       assert.equal(await btn.getAttribute('aria-label'), 'Full screen');
       await press('#btnSolo'); await startGame();
-      assert.equal(await fs(), 'true,1', 'START goes full screen');
+      if (touch) { asked++; await fs(true, 'START goes full screen'); } else {
+        await fs(false, 'START asks for no full screen');
+        assert.equal(await page.locator('#btnFull').getAttribute('aria-label'), 'Full screen', 'the top bar\'s offers it');
+        await press('#btnFull'); asked++;
+        await fs(true, 'in with the top bar\'s button');
+      }
       assert.equal(await page.locator('#btnFull').getAttribute('aria-label'), 'Leave full screen', 'the top bar\'s says so');
       await press('#btnPause');
-      assert.equal(await fs(), 'false,1', 'PAUSE leaves it');
+      await fs(false, 'PAUSE leaves it');
       assert.equal(await btn.getAttribute('aria-label'), 'Full screen', 'the corner says so');
-      await press('#btnResume');
-      assert.equal(await fs(), 'true,2', 'BACK TO GAME: in again, as it was');
+      await press('#btnResume'); asked++;
+      await fs(true, 'BACK TO GAME: in again, as it was');
       // Out with the button: the player's choice.
       await press('#btnFull');
-      assert.equal(await fs(), 'false,2', 'out with the top bar\'s button');
+      await fs(false, 'out with the top bar\'s button');
       await press('#btnPause'); await press('#btnResume');
-      assert.equal(await fs(), 'false,2', 'BACK TO GAME leaves it out');
+      await fs(false, 'BACK TO GAME leaves it out');
       await press('#btnPause'); await press('#btnQuit'); await startGame();
-      assert.equal(await fs(), 'false,2', 'and so does START');
+      await fs(false, 'and so does START');
       // The button again: in, and the automatic entries are back.
-      await press('#btnFull');
-      assert.equal(await fs(), 'true,3', 'in with the button');
-      await press('#btnPause'); await press('#btnResume');
-      assert.equal(await fs(), 'true,4', 'BACK TO GAME restores it again');
+      await press('#btnFull'); asked++;
+      await fs(true, 'in with the button');
+      await press('#btnPause'); await press('#btnResume'); asked++;
+      await fs(true, 'BACK TO GAME restores it again');
       // Out by the system (Esc, the back gesture, the page in the background): not a choice.
       await page.evaluate(() => window.systemExit());
       await press('#btnPause'); await press('#btnResume');
-      assert.equal(await fs(), 'false,4', 'a system exit: not full screen when paused, so not after either');
+      await fs(false, 'a system exit: not full screen when paused, so not after either');
       await press('#btnPause'); await press('#btnQuit'); await startGame();
-      assert.equal(await fs(), 'true,5', 'but START goes back in');
-      await press('#btnPause'); // (out: PAUSE's own exit)
+      if (touch) { asked++; await fs(true, 'but START goes back in'); } else await fs(false, 'START: still no ask with a mouse');
+      await press('#btnPause'); // (out: PAUSE's own exit, on a touch screen)
+      await press('#cornerFull'); asked++;
+      await fs(true, 'in from the corner, over the pause card');
       await press('#cornerFull');
-      assert.equal(await fs(), 'true,6', 'in from the corner, over the pause card');
-      await press('#cornerFull');
-      assert.equal(await fs(), 'false,6', 'and out with it: a choice');
+      await fs(false, 'and out with it: a choice');
       await press('#btnQuit'); await startGame();
-      assert.equal(await fs(), 'false,6', 'START leaves it out');
+      await fs(false, 'START leaves it out');
       await press('#btnPause'); await press('#btnQuit');
-      await press('#cornerFull');
-      assert.equal(await fs(), 'true,7', 'the corner\'s button clears it');
+      await press('#cornerFull'); asked++;
+      await fs(true, 'the corner\'s button clears it');
       await startGame();
-      assert.equal(await fs(), 'true,7', 'START: in already');
+      await fs(true, 'START: in already');
       assert.deepEqual(o.errors, []);
     } finally { await o.close(); }
   }

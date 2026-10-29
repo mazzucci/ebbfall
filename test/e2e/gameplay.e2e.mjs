@@ -2264,9 +2264,11 @@ test('the menu is a page of its own; a corner button beside the sound\'s goes fu
   }
 });
 
-test('a game\'s sound and full-screen buttons, for real: sound is on after START, goes off and on; full screen goes out and back in where the browser has it', { engines: true }, async () => {
+test('a game\'s sound and full-screen buttons, for real: sound is on after START, goes off and on; START goes full screen on a touch screen, not with a mouse; the button goes out and back in where the browser has it', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE]) {
-    const d = await newGame(device, 1, 4242, { ai: false });
+    // (the asks for full screen counted, the browser's own still answering them)
+    const count = () => { for (const k of ['requestFullscreen', 'webkitRequestFullscreen']) { const f = Element.prototype[k]; if (f) Element.prototype[k] = function (...a) { window.fsAsked = (window.fsAsked || 0) + 1; return f.apply(this, a); }; } };
+    const d = await newGame(device, 1, 4242, { ai: false, init: count });
     try {
       const status = () => d.eval(() => endfall.status());
       const press = (sel) => (d.touch ? d.page.locator(sel).tap() : d.page.locator(sel).click());
@@ -2281,7 +2283,12 @@ test('a game\'s sound and full-screen buttons, for real: sound is on after START
       await press('#btnSound');
       assert.equal((await status()).muted, false, 'and unmutes');
       if ((await status()).pageFullscreen) { // (the game's word on whether the page goes full screen: not iPhone or iPad)
-        await full(true); // (START asked for it; the change can land a few frames later)
+        if (device.hasTouch) await full(true); // (START asked for it; the change can land a few frames later)
+        else { // (a mouse: room enough, START asks for none; the button goes in)
+          assert.equal(await d.eval(() => window.fsAsked || 0), 0, 'START asks for no full screen with a mouse');
+          assert.equal((await status()).fullscreen, false);
+          await press('#btnFull'); await full(true);
+        }
         await press('#btnFull'); await full(false);
         await press('#btnFull'); await full(true);
       } else {

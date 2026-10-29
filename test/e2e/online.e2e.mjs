@@ -500,7 +500,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       const asked = () => Promise.all([a, b].map(x => x.p.evaluate(() => window.fsAsked)));
       assert.deepEqual(await asked(), [0, 0], 'NEW ROOM and JOIN stay out of full screen (the link is shared from another app)');
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
-      assert.deepEqual(await asked(), [1, 1], 'READY goes full screen: the game starts in it');
+      assert.deepEqual(await asked(), [0, 1], 'READY goes full screen on the phone (the game starts in it), not on the desktop (a mouse: room enough)');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
       const seed1 = await a.p.evaluate(() => endfall.online.setup.seed);
       // The game ends without anyone leaving: Ann gives in through the sim (set-up: the rematch is what is tested).
@@ -521,6 +521,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
         assert.equal(await x.p.locator('#roomShow').textContent(), code, 'the same room');
       }
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
+      assert.deepEqual(await asked(), [0, 2], 'REMATCH, then READY: full screen again on the phone, still none on the desktop');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && !endfall.G.over && endfall.G.tick > 30, null, { timeout: START_MS });
       assert.notEqual(await a.p.evaluate(() => endfall.online.setup.seed), seed1, 'a new game');
       await sameWorld(a, b, 30, 'both ran the new game');
@@ -839,7 +840,7 @@ test('a small phone: the room fits without scrolling, its code the title, its so
   } finally { await a.ctx.close(); }
 });
 
-test('online full screen: READY goes in; the menu leaves it and BACK TO GAME restores it; RESUME of one\'s own pause too; a friend\'s pause leaves it alone', async () => {
+test('online full screen: READY goes in on a touch screen, not with a mouse (the button does); the menu leaves it and BACK TO GAME restores it; RESUME of one\'s own pause too; a friend\'s pause leaves it alone', async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   // Full screen stood in for, its state kept (a headless browser's real one resizes the page under the test).
   const fake = (x) => x.p.evaluate(() => {
@@ -861,7 +862,9 @@ test('online full screen: READY goes in; the menu leaves it and BACK TO GAME res
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 30, null, { timeout: START_MS });
-      assert.deepEqual([await fs(a), await fs(b)], ['true,1', 'true,1'], 'READY goes full screen');
+      assert.deepEqual([await fs(a), await fs(b)], ['false,0', 'true,1'], 'READY goes full screen on the phone, and asks for none on the desktop');
+      await a.tap('#btnFull');
+      assert.equal(await fs(a), 'true,1', 'the desktop: in with the button');
       await a.tap('#btnPause');
       assert.equal(await fs(a), 'false,1', 'the menu leaves it');
       await a.tap('#btnResume');

@@ -39,7 +39,7 @@ const UNIT_TEXT = {
   prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard', 'sovereign'] },
   monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard'], weak: ['wasp'] },
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['wasp', 'vanguard'], weak: ['lancer', 'trooper'] },
-  sovereign: { hot: 'V', desc: 'Capital walker. A towering tripod whose beam splashes the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
+  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far.' },
 };
 const BLDG_TEXT = {
@@ -57,7 +57,7 @@ const BLDG_TEXT = {
   kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Halos and Monoliths (Halos and Monoliths need a Loom). With its rally point in a power field, they warp in there.' },
   loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital walker. With its rally point in a power field, they warp in there.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
   entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };

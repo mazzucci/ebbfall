@@ -112,6 +112,26 @@ function inlay(parent, M, w, d, x, y, z, ry = 0) {
   add(parent, rbox(w, 0.5, d + 0.8, 0.15), M.shellDeep, x, y, z, 0, ry, 0);
   add(parent, rbox(w * 0.9, 0.6, d * 0.35, 0.1), M.ether, x, y + 0.1, z, 0, ry, 0);
 }
+/** A helix round the y axis at x = cx: `turns` turns from radius r0 to r1 (geometric), y0 to y1, over t0..t1 of the
+ *  whole; traced from the apex (r1) down to the mouth (r0) the turns run clockwise seen from above: a right-handed shell. */
+class Helix extends THREE.Curve {
+  constructor(o) { super(); Object.assign(this, { cx: 0, a0: 0, t0: 0, t1: 1 }, o); }
+  getPoint(t, v = new THREE.Vector3()) {
+    const u = this.t0 + (this.t1 - this.t0) * t, a = this.a0 + u * this.turns * Math.PI * 2, r = this.r0 * (this.r1 / this.r0) ** u;
+    return v.set(this.cx + Math.cos(a) * r, this.y0 + (this.y1 - this.y0) * u, -Math.sin(a) * r);
+  }
+}
+/** A coiled shell: a tube along a helix whose radius tapers from tube0 to tube1 (geometrically, over the whole helix). */
+export function coil(o, tube0, tube1, seg = 96, rad = 16) {
+  return memo(`coil${JSON.stringify([o, tube0, tube1, seg, rad])}`, () => {
+    const path = new Helix(o), g = new THREE.TubeGeometry(path, seg, 1, rad, false), p = g.attributes.position, P = new THREE.Vector3();
+    for (let i = 0; i <= seg; i++) {
+      const t = path.getUtoTmapping(i / seg), u = path.t0 + (path.t1 - path.t0) * t, k = tube0 * (tube1 / tube0) ** u; path.getPoint(t, P); // (the tube samples the path by arc length)
+      for (let j = 0; j <= rad; j++) { const n = i * (rad + 1) + j; p.setXYZ(n, P.x + (p.getX(n) - P.x) * k, P.y + (p.getY(n) - P.y) * k, P.z + (p.getZ(n) - P.z) * k); }
+    }
+    g.computeVertexNormals(); return boxUV(g);
+  });
+}
 /** Three-lobed plinth outline (top view) of radius r. */
 const tri = (r, k = 0.55) => { const p = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, rr = r * (1 - k * 0.5 + k * 0.5 * Math.cos(3 * a)); p.push([Math.cos(a) * rr, Math.sin(a) * rr]); } return p; };
 /** A plinth: a darker base plate, a pearl step with a bevel, a glass ring and a soft pad. */
@@ -292,39 +312,61 @@ export function halo(M, f) {
   g.add(b); return g;
 }
 
-/** Sovereign: the Vael capital walker. A pearl body on three long jointed legs, a crystal crown, a team band and a
- *  forward beam emitter; frames lift one leg. */
+/** Sovereign: the Vael capital barge. A broad pearl hull gliding low over the ground, a coiled ceramic shell (a
+ *  tapering tube wound round a stern axis) climbing to a crystal apex, and at its bow a great violet lens in a
+ *  black-glass cradle, from which the beam fires (the sim starts the bolt at the unit's centre; the lens is the visual
+ *  muzzle). Team glaze as a ridge spiralling along the shell, on the vane tips and the brow, and as arcs on the lift
+ *  ring. Four frames (UNIT_FPS in look.js slows them to 4/s): a bob, and the lift ring's arcs and lamps turn a third of
+ *  a turn over the cycle. No legs: it
+ *  hovers lower than the Halo, its shadow right beneath it, so it reads as a heavy ground unit, never a flyer. */
 export function sovereign(M, f) {
   const g = grp(), b = grp();
-  const bob = (f % 2) * 0.8; b.position.y = 32 + bob;
+  const F = 4, ph = f / F * Math.PI * 2, bob = 0.6 + 0.6 * Math.sin(ph); b.position.y = 7 + bob;
+  // the hull: a teardrop barge, wide at the stern, drawn to a prow at +x; a lighter deck plate, a darker underside
+  const hull = [[22, 0], [19, -6], [12, -12], [0, -16.5], [-12, -15.5], [-20, -10], [-23, 0], [-20, 10], [-12, 15.5], [0, 16.5], [12, 12], [19, 6]];
+  add(b, plate(hull, 5.5, 1.6), M.shell, 0, 0, 0);
+  add(b, plate(hull.map(([x, z]) => [x * 0.88 - 1, z * 0.84]), 2.2, 0.8), M.shellDark, 0, -1.8, 0);        // underside
+  add(b, plate(hull.map(([x, z]) => [x * 0.9 - 1.2, z * 0.86]), 1.2, 0.5), M.shellLight, 0, 5.3, 0);       // deck plate
+  add(b, lathe([[0, -5], [7, -4.2], [11, -1.5], [12, 0]], 24), M.glass, -5, 0, 0);                         // black-glass keel
+  // the lift ring under the rim: a glass ring with three team arcs and three lamps that turn with the frames
+  ring(b, 17.5, 1.3, M.glass, -1.2, { seg: 56 });
   for (let k = 0; k < 3; k++) {
-    const a = k / 3 * Math.PI * 2 + Math.PI / 3, lift = (f % 2) && k === 0 ? 3 : 0;
-    const c = Math.cos(a), s = Math.sin(a);
-    const hip = [c * 9, 31 + bob, s * 9], knee = [c * 19, 40 + bob, s * 19], foot = [c * 24, 2 + lift, s * 24];
-    limb(g, hip, knee, 3, M.shellDark);
-    limb(g, knee, foot, 2.3, M.shell);
-    // Plates down the shin, and a lit seam.
-    const mid = [(knee[0] + foot[0]) / 2, (knee[1] + foot[1]) / 2, (knee[2] + foot[2]) / 2];
-    const tilt = Math.atan2(Math.hypot(foot[0] - knee[0], foot[2] - knee[2]), knee[1] - foot[1]);
-    const shin = add(g, rbox(5, 20, 4.2, 1.2), M.shellLight, mid[0], mid[1], mid[2]);
-    shin.rotation.set(0, -a, 0); shin.rotateZ(-tilt);
-    add(g, sph(3.6, 14, 10), M.shellLight, ...knee);
-    add(g, rbox(2.2, 1.2, 2.2, 0.4), M.glaze, knee[0], knee[1] + 3.4, knee[2]);                 // team knee caps
-    add(g, cyl(4.2, 5.2, 2.4, 16), M.shellDark, foot[0], foot[1], foot[2]);                      // foot pad
-    lamp(g, M, 0.8, knee[0], knee[1] + 1, knee[2]);
+    const a0 = k / 3 * Math.PI * 2 + ph / 3 + 0.4;
+    ring(b, 17.5, 1.6, M.glazePlain, -1.1, { arc: Math.PI / 4, a0, seg: 56 });
+    const a = a0 - Math.PI / 8; lamp(b, M, 1.1, Math.cos(a) * 15, -3.2, -Math.sin(a) * 15);                 // (the arc spans a0 - π/4 .. a0: the lamp under its middle)
   }
-  add(b, lathe([[0, -9], [10, -8], [14, -3], [14.5, 2], [11, 8], [5, 11.5], [0, 12]], 30), M.shell, 0, 0, 0); // body
-  add(b, lathe([[0, -9.5], [9, -8.6], [12, -5]], 26), M.glass, 0, 0, 0);                       // black-glass belly
-  ring(b, 14.6, 1.6, M.glaze, 0.5);                                                             // team band
-  ring(b, 12, 0.5, M.ether, 4.5, { seg: 48 });
-  ring(b, 12, 1, M.halo1, 4.5, { seg: 48 });
-  // The beam emitter: a long pearl prong with a lit tip, facing +x.
-  add(b, rbox(14, 4.4, 6, 1.4), M.shellLight, 15, -0.5, 0);
-  add(b, rbox(3, 3.6, 3.6, 0.8), M.shellDark, 22.5, -0.5, 0);
-  lamp(b, M, 1.8, 24.5, -0.5, 0, M.core);
-  // The crown: a cluster of crystals on top.
-  gem(b, M, 4.6, 2.6, 0, 16, 0);
-  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; gem(b, M, 2.2, 2.2, Math.cos(a) * 5, 13.5, Math.sin(a) * 5); }
+  // the shell: a tapering tube coiled round a stern axis, the body whorl low and fat with its mouth at the bow, the
+  // spire sinking into it as it climbs to the apex crystal; a team ridge along the whorls' shoulder and a lit seam in
+  // the crevice between them
+  const H = { cx: -6, turns: 1.9, r0: 10.5, r1: 1.3, y0: 13, y1: 23.5 }, T0 = 8.5, T1 = 1.4;
+  add(b, coil(H, T0, T1), M.shell, 0, 0, 0);
+  add(b, sph(T0 * 0.98, 16, 12), M.shell, H.cx + H.r0, H.y0, 0);                                            // the mouth, closed
+  add(b, rbox(3, 2.4, 13, 0.6), M.glass, -21.2, 2.8, 0); add(b, rbox(1.2, 0.8, 10, 0.3), M.ether, -22.6, 2.8, 0); add(b, rbox(1.6, 1.6, 11, 0.4), M.halo1, -22.7, 2.8, 0); // the stern drive slot
+  add(b, coil({ ...H, r0: H.r0 + T0 * 0.5, r1: H.r1 + T1 * 0.5, y0: H.y0 + T0 * 0.62, y1: H.y1 + T1 * 0.62, t0: 0.04, t1: 0.93 }, T0 * 0.34, T1 * 0.34, 96, 10), M.glaze, 0, 0, 0); // team ridge
+  const seam = { ...H, r0: H.r0 - T0 * 0.55, r1: H.r1 - T1 * 0.55, y0: H.y0 + T0 * 0.75, y1: H.y1 + T1 * 0.75, t0: 0.08, t1: 0.9 };
+  add(b, coil(seam, 0.5, 0.25, 96, 8), M.ether, 0, 0, 0); add(b, coil(seam, 1, 0.5, 96, 8), M.halo1, 0, 0, 0);    // lit seam and its glow
+  gem(b, M, 2.4, 2.2, H.cx + Math.cos(H.turns * Math.PI * 2) * H.r1, H.y1 + 2.6, -Math.sin(H.turns * Math.PI * 2) * H.r1); // the apex crystal
+  // the bow: the body's neck flowing from the shell's aperture onto the prow, a team brow, and the lens in its cradle
+  add(b, sph(5.5, 18, 12), M.shellLight, 10, 6.4, 0).scale.set(1.5, 0.55, 1.1);
+  add(b, rbox(5, 1.2, 7, 0.4), M.glaze, 12, 9.2, 0);                                                        // brow
+  add(b, rbox(3.6, 0.5, 0.6, 0.15), M.ether, 12, 9.9, 0);
+  const lens = grp(); lens.position.set(18, 7.2, 0); lens.rotation.z = -Math.PI / 2;                       // crystal along +x
+  gem(lens, M, 3.7, 2.2);
+  add(lens, crystal(3.9, 0.3), M.glass);                                                                   // glass belt
+  b.add(lens);
+  add(b, torus(4.2, 0.6, Math.PI * 2, 28), M.glass, 16, 7.2, 0, 0, Math.PI / 2, 0);                        // the cradle's ring
+  for (const side of [-1, 1]) limb(b, [13, 6.2, side * 5.5], [16, 7.2, side * 3.6], 0.55, M.glass);
+  lamp(b, M, 1.6, 24.5, 7.2, 0, M.core);                                                                   // the muzzle
+  // eye vanes flanking the lens, and the side vanes: swept pearl fins with team tips and a lit edge
+  for (const side of [-1, 1]) {
+    add(b, plate([[6, side * 7], [16, side * 8.5], [19, side * 6], [12, side * 5], [6, side * 5]], 1.2, 0.3), M.glass, 0, 6.6, 0);
+    const v = grp(); v.position.set(-6, 5.2, side * 15.5); v.rotation.x = side * 0.22;
+    const pts = [[8, 0], [2, side * 6], [-8, side * 9], [-14, side * 7.5], [-10, side * 3], [-6, 0]];
+    add(v, plate(pts, 1.8, 0.5), M.shell, 0, 0, 0);
+    add(v, plate([[-6, side * 6.5], [-9, side * 8.4], [-13, side * 7.3], [-10, side * 4.5]], 1.2, 0.3), M.glaze, 0, 1.2, 0); // team tip
+    add(v, rbox(10, 0.5, 0.6, 0.15), M.ether, -4, 1.9, side * 5.2, 0, -side * 0.5, 0);                     // lit edge
+    b.add(v);
+  }
   g.add(b); return g;
 }
 
@@ -335,7 +377,7 @@ export const VAEL_UNITS = {
   monolith: { build: monolith, frames: 2, r: 22, h: 40 },
   shrike: { build: shrike, frames: 2, r: 22, h: 26 },
   halo: { build: halo, frames: 2, r: 10, h: 28 }, // (h: headroom, so the portrait, cut round the ground point, keeps the ring)
-  sovereign: { build: sovereign, frames: 2, r: 32, h: 64 },
+  sovereign: { build: sovereign, frames: 4, r: 32, h: 30 }, // (r: the lens's faint outer glow reaches 33 ahead, the vane tips 31; h: the apex crystal, 30 up, bobbing)
 };
 
 // ---------------- buildings ----------------

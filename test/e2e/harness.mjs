@@ -33,7 +33,6 @@ export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other
 /** A test's `skip` in these engines, with the reason (`{ skip: notIn(['webkit'], IPHONE) }`); false elsewhere. */
 export const notIn = (engines, why) => (engines.includes(ENGINE) ? `${ENGINE_NAME}: ${why}` : false);
 /** Known differences, not faults of the game (ENDFALL_ALL=1 runs found them): */
-export const ESC_LEAVES_FULL_SCREEN = 'START takes a desktop page really full screen here, and the first Esc only leaves it (the page never sees that key)';
 export const IPHONE = 'its phone profile is an iPhone: no full screen for a page (the full-screen button opens the Add to Home Screen card)';
 
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build

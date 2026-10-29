@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, ESC_LEAVES_FULL_SCREEN, IPHONE } from './harness.mjs';
+import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -251,7 +251,7 @@ test('an attack raises an alert, and Space jumps to it', async () => {
   } finally { await d.close(); }
 });
 
-test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
+test('the army chip, the idle-harvester key, and double-click selects all of a type on screen', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const s = await d.state(), core = coreOf(s);
@@ -506,7 +506,7 @@ test('a resource field can be selected to see what is left (desktop click, phone
   }
 });
 
-test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
+test('control groups: Ctrl+number saves the selection, the number recalls it, a tab shows the saved group', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const h = mine(await d.state(), 'harvester')[0];
@@ -2474,7 +2474,7 @@ test('an attack by something unseen says so, even on screen, and names what dete
   }
 });
 
-test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', { skip: notIn(['webkit', 'firefox'], ESC_LEAVES_FULL_SCREEN) }, async () => {
+test('desktop: the HUD floats over the map: no band across the bottom, the console between the minimap and the card', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');

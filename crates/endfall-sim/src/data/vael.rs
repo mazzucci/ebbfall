@@ -118,7 +118,7 @@ pub(super) const HALO: UnitDef = UnitDef {
     req: Some(BldgKind::Loom),
     ..UNIT
 };
-/// The Vael capital walker: a towering tripod whose beam splashes the ground from far off; it cannot hit flyers.
+/// The Vael capital barge: a great shell gliding low, whose beam splashes the ground from far off; it cannot hit flyers.
 pub(super) const SOVEREIGN: UnitDef = UnitDef {
     key: "sovereign",
     name: "Sovereign",

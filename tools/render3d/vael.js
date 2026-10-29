@@ -113,7 +113,7 @@ function inlay(parent, M, w, d, x, y, z, ry = 0) {
   add(parent, rbox(w * 0.9, 0.6, d * 0.35, 0.1), M.ether, x, y + 0.1, z, 0, ry, 0);
 }
 /** A helix round the y axis at x = cx: `turns` turns from radius r0 to r1 (geometric), y0 to y1, over t0..t1 of the
- *  whole; -z is north so the turns run clockwise seen from above. */
+ *  whole; traced from the apex (r1) down to the mouth (r0) the turns run clockwise seen from above: a right-handed shell. */
 class Helix extends THREE.Curve {
   constructor(o) { super(); Object.assign(this, { cx: 0, a0: 0, t0: 0, t1: 1 }, o); }
   getPoint(t, v = new THREE.Vector3()) {
@@ -316,7 +316,8 @@ export function halo(M, f) {
  *  tapering tube wound round a stern axis) climbing to a crystal apex, and at its bow a great violet lens in a
  *  black-glass cradle, from which the beam fires (the sim starts the bolt at the unit's centre; the lens is the visual
  *  muzzle). Team glaze as a ridge spiralling along the shell, on the vane tips and the brow, and as arcs on the lift
- *  ring. Four frames: a slow bob, and the lift ring's arcs and lamps turn a third of a turn over the cycle. No legs: it
+ *  ring. Four frames (UNIT_FPS in look.js slows them to 4/s): a bob, and the lift ring's arcs and lamps turn a third of
+ *  a turn over the cycle. No legs: it
  *  hovers lower than the Halo, its shadow right beneath it, so it reads as a heavy ground unit, never a flyer. */
 export function sovereign(M, f) {
   const g = grp(), b = grp();
@@ -332,7 +333,7 @@ export function sovereign(M, f) {
   for (let k = 0; k < 3; k++) {
     const a0 = k / 3 * Math.PI * 2 + ph / 3 + 0.4;
     ring(b, 17.5, 1.6, M.glazePlain, -1.1, { arc: Math.PI / 4, a0, seg: 56 });
-    const a = a0 + Math.PI / 8; lamp(b, M, 1.1, Math.cos(a) * 15, -3.2, -Math.sin(a) * 15);
+    const a = a0 - Math.PI / 8; lamp(b, M, 1.1, Math.cos(a) * 15, -3.2, -Math.sin(a) * 15);                 // (the arc spans a0 - π/4 .. a0: the lamp under its middle)
   }
   // the shell: a tapering tube coiled round a stern axis, the body whorl low and fat with its mouth at the bow, the
   // spire sinking into it as it climbs to the apex crystal; a team ridge along the whorls' shoulder and a lit seam in
@@ -342,20 +343,20 @@ export function sovereign(M, f) {
   add(b, sph(T0 * 0.98, 16, 12), M.shell, H.cx + H.r0, H.y0, 0);                                            // the mouth, closed
   add(b, rbox(3, 2.4, 13, 0.6), M.glass, -21.2, 2.8, 0); add(b, rbox(1.2, 0.8, 10, 0.3), M.ether, -22.6, 2.8, 0); add(b, rbox(1.6, 1.6, 11, 0.4), M.halo1, -22.7, 2.8, 0); // the stern drive slot
   add(b, coil({ ...H, r0: H.r0 + T0 * 0.5, r1: H.r1 + T1 * 0.5, y0: H.y0 + T0 * 0.62, y1: H.y1 + T1 * 0.62, t0: 0.04, t1: 0.93 }, T0 * 0.34, T1 * 0.34, 96, 10), M.glaze, 0, 0, 0); // team ridge
-  add(b, coil({ ...H, r0: H.r0 - T0 * 0.55, r1: H.r1 - T1 * 0.55, y0: H.y0 + T0 * 0.75, y1: H.y1 + T1 * 0.75, t0: 0.08, t1: 0.9 }, 0.5, 0.25, 96, 8), M.ether, 0, 0, 0);          // lit seam
-  add(b, coil({ ...H, r0: H.r0 - T0 * 0.55, r1: H.r1 - T1 * 0.55, y0: H.y0 + T0 * 0.75, y1: H.y1 + T1 * 0.75, t0: 0.08, t1: 0.9 }, 1, 0.5, 96, 8), M.halo1, 0, 0, 0);
+  const seam = { ...H, r0: H.r0 - T0 * 0.55, r1: H.r1 - T1 * 0.55, y0: H.y0 + T0 * 0.75, y1: H.y1 + T1 * 0.75, t0: 0.08, t1: 0.9 };
+  add(b, coil(seam, 0.5, 0.25, 96, 8), M.ether, 0, 0, 0); add(b, coil(seam, 1, 0.5, 96, 8), M.halo1, 0, 0, 0);    // lit seam and its glow
   gem(b, M, 2.4, 2.2, H.cx + Math.cos(H.turns * Math.PI * 2) * H.r1, H.y1 + 2.6, -Math.sin(H.turns * Math.PI * 2) * H.r1); // the apex crystal
   // the bow: the body's neck flowing from the shell's aperture onto the prow, a team brow, and the lens in its cradle
   add(b, sph(5.5, 18, 12), M.shellLight, 10, 6.4, 0).scale.set(1.5, 0.55, 1.1);
   add(b, rbox(5, 1.2, 7, 0.4), M.glaze, 12, 9.2, 0);                                                        // brow
   add(b, rbox(3.6, 0.5, 0.6, 0.15), M.ether, 12, 9.9, 0);
-  const lens = grp(); lens.position.set(19, 7.2, 0); lens.rotation.z = -Math.PI / 2;                       // crystal along +x
-  gem(lens, M, 4, 2.2);
+  const lens = grp(); lens.position.set(18, 7.2, 0); lens.rotation.z = -Math.PI / 2;                       // crystal along +x
+  gem(lens, M, 3.7, 2.2);
   add(lens, crystal(3.9, 0.3), M.glass);                                                                   // glass belt
   b.add(lens);
-  add(b, torus(4.5, 0.6, Math.PI * 2, 28), M.glass, 17, 7.2, 0, 0, Math.PI / 2, 0);                        // the cradle's ring
-  for (const side of [-1, 1]) limb(b, [14, 6.2, side * 5.5], [17, 7.2, side * 3.6], 0.55, M.glass);
-  lamp(b, M, 1.6, 26, 7.2, 0, M.core);                                                                   // the muzzle
+  add(b, torus(4.2, 0.6, Math.PI * 2, 28), M.glass, 16, 7.2, 0, 0, Math.PI / 2, 0);                        // the cradle's ring
+  for (const side of [-1, 1]) limb(b, [13, 6.2, side * 5.5], [16, 7.2, side * 3.6], 0.55, M.glass);
+  lamp(b, M, 1.6, 24.5, 7.2, 0, M.core);                                                                   // the muzzle
   // eye vanes flanking the lens, and the side vanes: swept pearl fins with team tips and a lit edge
   for (const side of [-1, 1]) {
     add(b, plate([[6, side * 7], [16, side * 8.5], [19, side * 6], [12, side * 5], [6, side * 5]], 1.2, 0.3), M.glass, 0, 6.6, 0);
@@ -376,7 +377,7 @@ export const VAEL_UNITS = {
   monolith: { build: monolith, frames: 2, r: 22, h: 40 },
   shrike: { build: shrike, frames: 2, r: 22, h: 26 },
   halo: { build: halo, frames: 2, r: 10, h: 28 }, // (h: headroom, so the portrait, cut round the ground point, keeps the ring)
-  sovereign: { build: sovereign, frames: 4, r: 28, h: 38 },
+  sovereign: { build: sovereign, frames: 4, r: 32, h: 30 }, // (r: the lens's faint outer glow reaches 33 ahead, the vane tips 31; h: the apex crystal, 30 up, bobbing)
 };
 
 // ---------------- buildings ----------------

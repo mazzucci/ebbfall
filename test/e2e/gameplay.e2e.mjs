@@ -986,9 +986,11 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
 
 // The console fits every phone, fluidly: an Airfield and a Zenith with a full queue and a research, at every landscape
 // width from 640 to 900 (360 and 390 high) and upright from 360 to 430 wide: the name and the health figure whole,
-// everything inside the console (and its module), clear of the command card and the minimap.
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Wasp', tech: 'Afterburn' }],
-  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream' }]]) {
+// everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
+// building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
+// capital unit's (the most figures): whole, on one line or two, inside the console.
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Wasp', tech: 'Afterburn', capital: 'bastion' }],
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream', capital: 'sovereign' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -1002,6 +1004,20 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
       await d.page.waitForFunction(() => document.querySelector('#qres:not(.idle)'), null, { timeout: 5000 });
       await d.page.evaluate(() => document.fullscreenElement && document.exitFullscreen()); // (a page in full screen keeps its size)
       await d.page.waitForFunction(() => !document.fullscreenElement);
+      /** Each name of both races in the console as it stands (set in one go, measured and put back before a frame
+       *  can draw it again): the ones cut off or spilling out of the console. */
+      const names = (kinds) => d.page.evaluate((kinds) => {
+        const E = endfall.engine, h = document.getElementById('selName'), was = h.textContent, bad = [];
+        const box = (id) => document.getElementById(id).getBoundingClientRect(), info = box('info');
+        for (const k of kinds) for (const { name } of Object.values(E[k])) {
+          h.textContent = name;
+          const cut = h.scrollWidth > h.clientWidth || h.scrollHeight > h.clientHeight + 1; // (a third line, clamped)
+          const out = ['selName', 'life', 'hpNum'].some(id => { const b = box(id); return b.top < info.top - 0.5 || b.bottom > info.bottom + 0.5 || b.left < info.left - 0.5 || b.right > info.right + 0.5; });
+          if (cut || out || box('hpNum').right > box('life').right + 0.5) bad.push(name + (cut ? ' cut' : ' outside'));
+        }
+        h.textContent = was;
+        return bad;
+      }, kinds);
       const sizes = [];
       for (const h of [360, 390]) for (let w = 640; w <= 900; w += 20) sizes.push([w, h]);
       for (let w = 360; w <= 430; w += 10) sizes.push([w, 860]);
@@ -1031,7 +1047,19 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
         for (const p of m.slots) assert.ok(inside(p, m.mod), `${where}: ${p.c} inside its module ${JSON.stringify([p, m.mod])}`);
         assert.ok(apart(m.info, m.cmd), `${where}: clear of the command card ${JSON.stringify([m.info, m.cmd])}`);
         assert.ok(apart(m.info, m.minimap), `${where}: clear of the minimap ${JSON.stringify([m.info, m.minimap])}`);
+        assert.deepEqual(await names(['UNITS', 'BUILDINGS']), [], `${where}: every name whole and inside the console`);
         if ([640, 740, 760, 780, 360, 430].includes(w) && h !== 390) await d.page.screenshot({ path: `/tmp/qres-shots/fit-${race}-${w}x${h}.png` }).catch(() => {});
+      }
+      // A capital unit (its figures the most a unit shows): every unit's name in its console, at the narrowest sizes.
+      const f0 = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id), f.id);
+      const cap = await d.eval(([k, x, y]) => endfall.engine.debugSpawn(0, k, x, y), [R.capital, f0.x - 260, f0.y - 200]); // (clear of the new flyers)
+      assert.ok(cap, `a ${R.capital}`);
+      for (const [w, h] of [[640, 360], [720, 360], [740, 360], [360, 860], [430, 860]]) {
+        await d.page.setViewportSize({ width: w, height: h });
+        for (let i = 0; i < 5 && !(await d.selection()).some(e => e.id === cap); i++) await d.clickEntity(cap);
+        assert.deepEqual((await d.selection()).map(e => e.id), [cap], `${race}, ${w}x${h}: the ${R.capital} selected`);
+        await d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+        assert.deepEqual(await names(['UNITS']), [], `${race}, ${w}x${h}, a ${R.capital}'s console: every unit's name whole and inside`);
       }
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }

@@ -6,7 +6,7 @@ import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test, start, stop, browserContext, baseUrl, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, PHONE, ENGINE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -26,7 +26,10 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
     assert.equal(small, 0, 'big enough to tap');
     assert.equal(await p.evaluate(() => window.voiceLab.state()), 'none', 'no sound before a tap');
     await p.locator('#vaelClear [data-p="attack"]').tap();
-    await p.waitForFunction(() => window.voiceLab.state() === 'running', null, { timeout: 5000 });
+    // (headless Chromium has a stand-in audio device; WebKit and Firefox on a server may have none, their context never
+    // runs: there the tap must open it, not necessarily run it)
+    if (ENGINE === 'chromium') await p.waitForFunction(() => window.voiceLab.state() === 'running', null, { timeout: 5000 });
+    else await p.waitForFunction(() => window.voiceLab.state() !== 'none', null, { timeout: 5000 });
     await p.locator('#vaelDevice [data-p="ether"]').tap(); // (the device's voice, or the synth where it has none)
     await p.locator('#humansRadio [data-p="research"]').tap();
     await p.locator('#stop').tap();

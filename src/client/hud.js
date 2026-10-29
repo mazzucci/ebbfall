@@ -69,8 +69,8 @@ function researchModule(b) {
 let modKey = '';
 const compactMq = matchMedia('(max-width: 620px), (max-height: 500px) and (orientation: landscape) and (pointer: coarse)');
 /** The selection console: portrait, name and a few words, a health bar, then one module (fight figures, research,
- * the production queue, construction, or the tiles of a group). Rebuilt only when what it shows changes, so its
- * buttons survive between frames; bars and numbers update in place. */
+ * the production queue (a factory's research beside it), construction, or the tiles of a group). Rebuilt only when
+ * what it shows changes, so its buttons survive between frames; bars and numbers update in place. */
 function renderSelection() {
   if (!stripBound) { stripBound = true; bindStrip(); }
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
@@ -100,17 +100,21 @@ function renderSelection() {
     name.textContent = x.d.name;
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
-    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? 'Researching' : x.done && x.queue.length ? 'Training' : bldgStatus(x);
+    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length ? 'Training' : bldgStatus(x);
     life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp, '', x.sh, x.maxsh);
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
+    } else if (x.kind === 'bldg' && own && x.d.trains?.length) {
+      // Its slots even when idle: nothing moves as it fills. A factory that also researches keeps a tile beside them
+      // for its research (empty room when there is none), so a research starting or ending moves nothing either.
+      const rs = x.d.researches?.length ? '<div id="qres" class="rq"></div>' : '';
+      module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>' + rs);
+      renderQueue($('queue'), x, 30);
+      if (rs) renderQueueResearch($('qres'), x);
     } else if (x.kind === 'bldg' && own && x.research) {
       module('res' + x.id + x.research.type + G.upgrades[x.team][x.research.type], researchModule(x));
       mod.querySelector('.res i').style.width = (x.research.prog * 100) + '%';
-    } else if (x.kind === 'bldg' && own && x.d.trains?.length) { // (its slots even when idle: nothing moves as it fills)
-      module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>');
-      renderQueue($('queue'), x, 30);
     } else if (x.kind === 'unit' || x.d.weapon) {
       const h = fightStats(x); module('f' + h, h);
     } else module('', '');
@@ -193,6 +197,19 @@ function renderQueue(box, b, size = 26) {
       '<span class="qe" aria-hidden="true"></span>'.repeat(Math.max(0, QUEUE_MAX - q.length));
   }
   box.querySelector('.prod i').style.width = (q.length ? b.prog * 100 : 0) + '%';
+}
+/** The research of a building that also trains, beside its queue (a slim line over it on small phones): the tech's
+ *  icon and its own bar, the name in the tooltip (and in the few words above, where there is room). Cancelled from
+ *  the card, like any research. */
+function renderQueueResearch(box, b) {
+  const r = b.research, key = r ? r.type + G.upgrades[b.team][r.type] : '';
+  if (box.dataset.k !== key) {
+    box.dataset.k = key; box.classList.toggle('idle', !r);
+    const u = r && UPGRADES[r.type], lv = r && G.upgrades[b.team][r.type] + 1, name = r ? u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : '') : '';
+    box.title = r ? 'Researching ' + name : ''; box.setAttribute('aria-label', box.title);
+    box.innerHTML = (r ? icon(r.type) : '<span class="ico"></span>') + '<div class="bar res"><i></i></div>';
+  }
+  box.querySelector('.res i').style.width = (r ? r.prog * 100 : 0) + '%';
 }
 function queueClick(ev) {
   const q = ev.target.closest('.qi'); if (!q) return;

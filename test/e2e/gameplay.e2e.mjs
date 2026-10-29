@@ -920,6 +920,70 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
   });
 }
 
+// A factory that also researches (the Humans' Airfield, the Vael's Zenith) shows its research beside its queue (over
+// it on small phones): the queued units stay in their slots, the research shows with its own bar, and nothing in the
+// console moves when the research starts or ends; a queued unit is still cancelled with a tap. Two devices per race:
+// all four screens.
+const SMALL_PHONE = { ...PHONE, viewport: { width: 667, height: 375 } }, UPRIGHT = { ...PHONE, viewport: { width: 412, height: 915 } };
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['g', 'barracks'], ['a', 'airfield']], unit: 'Wasp', tech: 'Afterburn', name: 'Afterburners', devices: [DESKTOP, SMALL_PHONE] }],
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream', name: 'Slipstream', devices: [PHONE, UPRIGHT] }]]) {
+  test(`a factory's research shows beside its queue, and nothing in the console moves as it starts and ends (${race})`, async () => {
+    for (const device of R.devices) {
+      const d = await newGame(device, 1, 4242, { ai: false, race });
+      const where = `${race}, ${device.viewport.width}x${device.viewport.height}`;
+      try {
+        await d.grant(5000, 5000);
+        let f; for (const [i, [hot, type]] of R.steps.entries()) f = await buildAndFinish(d, hot, type, i, R);
+        await d.clickEntity(f.id);
+        const layout = () => d.page.evaluate(() => {
+          const box = (e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }, q = document.querySelector('#queue'), r = document.querySelector('#qres');
+          return {
+            who: Object.fromEntries(['selPor', 'selName', 'life'].map(id => [id, box(document.getElementById(id))])),
+            queue: box(q), slots: [...q.querySelectorAll('.qi, .qe')].map(box), units: [...q.querySelectorAll('.qi')].map(e => box(e)[0]),
+            res: r && box(r), researching: !!r && !r.classList.contains('idle') && getComputedStyle(r).visibility === 'visible', title: r?.title,
+          };
+        });
+        const shown = (n) => d.page.waitForFunction((n) => document.querySelectorAll('#queue .qi').length === n, n, { timeout: 5000 });
+        await shown(0);
+        const idle = await layout();
+        assert.ok(idle.res, `${where}: the research has its room beside the queue`);
+        assert.equal(idle.researching, false, `${where}: nothing researching, nothing shown`);
+        await d.pressCard(R.unit); await d.pressCard(R.unit);
+        await shown(2);
+        const queued = await layout();
+        assert.deepEqual([queued.who, queued.queue, queued.slots, queued.res], [idle.who, idle.queue, idle.slots, idle.res], `${where}: two queued, nothing moved`);
+        // The research, started from the card.
+        await d.pressCard(R.tech);
+        assert.ok(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, f.id), `${where}: researching (toasts: ${(await d.toasts()).join(' | ')})`);
+        await d.page.waitForFunction(() => document.querySelector('#qres:not(.idle)'), null, { timeout: 5000 });
+        const both = await layout();
+        assert.ok(both.researching, `${where}: the research shows`);
+        assert.equal(both.title, 'Researching ' + R.name, `${where}: it says which`);
+        assert.equal(both.units.length, 2, `${where}: the queued units still show`);
+        assert.deepEqual(both.units, queued.units, `${where}: in their slots`);
+        assert.deepEqual([both.who, both.queue, both.slots, both.res], [idle.who, idle.queue, idle.slots, idle.res], `${where}: the research started, nothing moved`);
+        await insideConsole(d, '#queue .qi, #queue .qe, #queue .prod, #qres, #selPor, #hpNum');
+        const [num, life] = await d.page.evaluate(() => ['hpNum', 'life'].map(id => document.getElementById(id).getBoundingClientRect().right));
+        assert.ok(num <= life + 0.5, `${where}: the health figure whole (${num} vs ${life})`);
+        await d.page.screenshot({ path: `/tmp/qres-shots/${race}-${device.viewport.width}x${device.viewport.height}.png` }).catch(() => {});
+        // A tap on the second unit still cancels it; the research goes on.
+        const second = d.page.locator('#queue .qi[data-i="1"]');
+        await (d.touch ? second.tap() : second.click());
+        const now = (await d.state()).bldgs.find(b => b.id === f.id);
+        assert.equal(now.queue.length, 1, `${where}: the tapped unit cancelled`);
+        assert.ok(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, f.id), `${where}: the research goes on`);
+        // The research ends: its tile goes, its room stays.
+        await until(d, async () => !(await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).research, f.id)), { seconds: 90, step: 5, what: `${R.name} to finish` });
+        await d.page.waitForFunction(() => document.querySelector('#qres.idle'), null, { timeout: 5000 });
+        const done = await layout();
+        assert.equal(done.researching, false, `${where}: done, the research tile goes`);
+        assert.deepEqual([done.who, done.queue, done.slots, done.res], [idle.who, idle.queue, idle.slots, idle.res], `${where}: the research ended, nothing moved`);
+        assert.deepEqual(d.errors, []);
+      } finally { await d.close(); }
+    }
+  });
+}
+
 test('a box over units and buildings selects only the units, and only the fighters among them', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

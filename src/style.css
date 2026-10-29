@@ -79,6 +79,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
 #mod .q .bar.prod{order:2;flex:1 1 100%;height:6px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
 #mod .q.idle .bar.prod{visibility:hidden} /* (its room kept) */
+/* A factory's research, beside its queue (over it on small phones): the tech's icon over a bar of its own, as tall as
+   the queue; its room kept while there is none, so nothing moves when one starts or ends. */
+#mod .rq{display:flex;flex-direction:column;gap:5px;flex:none} #mod .rq.idle{visibility:hidden} #mod .rq .bar{height:6px}
+#mod .rq>.ico{width:32px;height:32px;box-sizing:border-box;padding:5px;border:1px solid var(--ether);border-radius:3px;background:var(--panel2);color:var(--ether)}
 .bar{height:8px;background:#0a0e14;border:1px solid var(--line);border-radius:2px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;background:var(--ok);transition:width .15s linear}
 .bar.prod i{background:var(--ally)}
@@ -339,6 +343,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
   #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}
   #mod .q .qi,#mod .q .qe{width:32px;height:32px;flex:none} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px}
+  #mod .rq{gap:4px} #mod .rq .bar{height:5px} :where(#info:has(#qres)) .life .bars{width:72px} /* (room for the research beside the queue: the figures stay whole) */
   #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none} #mod>.bar.build{width:110px}
   .gi.gt{width:44px;height:36px} .gi.gt b{font:600 12px var(--mono);color:var(--fg);right:3px;top:auto;bottom:4px}
 }
@@ -348,6 +353,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #selPor{width:40px;height:40px} #selPor .por{width:36px;height:36px} .st{font-size:14px}
   .pips{display:none} .rs{min-width:110px}
   #mod .q{gap:3px} #mod .q .qi,#mod .q .qe{width:24px;height:24px} #mod .q .qi .por{width:20px;height:20px} /* (the portrait stays) */
+  /* (no room beside the queue: the research is a slim line over it, in the console's spare height) */
+  #mod:has(#qres){flex-direction:column;align-items:stretch;gap:3px} #mod .rq{order:-1;flex-direction:row;align-items:center;gap:4px}
+  #mod .rq>.ico{width:12px;height:12px;padding:0;border:0;background:none} #mod .rq .bar{flex:1;height:4px}
   #hpNum .mx{display:none}
 }
 /* Touch: keyboard letters on the buttons are noise. */

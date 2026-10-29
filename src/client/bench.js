@@ -1,4 +1,4 @@
-// The device test (?bench, loaded by main.js only then; docs/PLAN.md): a card, START (a tap, so also full screen), then
+// The device test (?bench, loaded by main.js only then; docs/PLAN.md): a card, START (a tap, so also full screen on a touch screen), then
 // an 8-seat 128x128 game the AI plays on every seat (Medium), seen with every seat's vision (a replay's), fast-forwarded
 // to 3:00 so that armies exist, then a minute of real play through the game's own loop while the camera pans to the
 // busiest spots. main.js calls `probe.lap` at the loop's phases while `probe.on`; the sim's share of the steps is timed by

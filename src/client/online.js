@@ -59,7 +59,7 @@ export function initOnline({ game: g }) {
   $('btnOnline').hidden = !relayUrl();
   $('btnOnline').addEventListener('click', () => { sfx('select'); openLobby(); });
   // (opening or joining a room stays out of full screen: the host's next step is sharing the link from another app;
-  // READY's tap goes full screen, so the game starts in it, as the menu's START GAME does)
+  // READY's tap goes full screen on a touch screen, so the game starts in it, as the menu's START GAME does)
   $('btnNewRoom').addEventListener('click', () => { sfx('select'); connect(''); });
   $('btnJoinRoom').addEventListener('click', () => { const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); connect(c); } else status('Type the 4-letter code'); });
   $('roomCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoinRoom').click(); });

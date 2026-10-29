@@ -3,7 +3,7 @@
 // once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
 // the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
 // seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
-// START GAME goes full screen). The sound and full screen are the screen's corner (corner.js).
+// START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
 // The menu always opens on its first page (a join link opens the lobby instead).
 // The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.

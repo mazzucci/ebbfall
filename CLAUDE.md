@@ -93,8 +93,9 @@ src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap; the
                       HUD's portraits cut from the atlas (`portrait`)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
-                      iPad or iPhone), the player's choice to leave it, the page held still in a browser tab, the
-                      leave-game guard
+                      iPad or iPhone); START, FIRST GAME, REMATCH and READY go full screen on a touch screen only (with a
+                      mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
+                      player's choice to leave it, the page held still in a browser tab, the leave-game guard
   corner.js           sound and full screen always in reach: the top bar's pair in a game, the screen's corner (#corner)
                       over every menu page, the lobby and every card (the pause card: full screen only, as it pauses the
                       sound); one sound setting; on iPad/iPhone the full-screen button opens the Add to Home Screen card

@@ -202,7 +202,7 @@ function rematchButton(theyWant, iWant) {
 
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
-$('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else { enterFullscreen(); newGame(); } }); // (alone: full screen again, as START; online, READY does) the same map, seed, races and difficulty; online, another game in the room
+$('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else { enterFullscreen(); newGame(); } }); // (alone: full screen again on a touch screen, as START; online, READY does) the same map, seed, races and difficulty; online, another game in the room
 initLeaveDialog(); initTools();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
 /** What the menu (menu.js) and the lobby (online.js) call, through src/boot.js, once this module has loaded. */

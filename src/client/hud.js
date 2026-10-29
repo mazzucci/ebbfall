@@ -81,15 +81,17 @@ function renderSelection() {
     const [c, m] = maxsh ? [cur + Math.round(sh), max + maxsh] : [cur, max];
     const t = m ? `${c}<span class="mx">/${m}</span>` : String(c); if ($('hpNum').innerHTML !== t) $('hpNum').innerHTML = t;
   };
+  // The name, and in its title in full (on the narrowest console a very long one may end in an ellipsis).
+  const named = (t) => { if (name.textContent !== t) name.textContent = t; if (name.title !== t) name.title = t; };
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
   info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;
   if (!sel.length) {
-    name.textContent = 'Nothing selected'; sub.textContent = touchUi ? 'Tap a unit or a building' : 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
+    named('Nothing selected'); sub.textContent = touchUi ? 'Tap a unit or a building' : 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
     module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
   } else if (sel.length === 1 && sel[0].kind === 'node') {
     // A resource field: what is left and who works it.
     const n = sel[0], ether = n.type === 'ether';
-    name.textContent = ether ? 'Ether vent' : 'Shard field';
+    named(ether ? 'Ether vent' : 'Shard field');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
     sub.textContent = ether && !n.extractor ? `Build ${aName(BUILDINGS[myFaction().ether].name)} on it to mine` : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
@@ -97,7 +99,7 @@ function renderSelection() {
     module('node' + working, `<span class="st" title="${UNITS[myFaction().worker].name}s working it" aria-label="${UNITS[myFaction().worker].name}s working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === G.me;
-    name.textContent = x.d.name;
+    named(x.d.name);
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
     sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length ? 'Training' : bldgStatus(x);
@@ -120,7 +122,7 @@ function renderSelection() {
     } else module('', '');
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
-    name.textContent = sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units'); $('selPor').innerHTML = ''; selKey = ''; module('', '');
+    named(sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units')); $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     $('life').hidden = true;
     if (compactMq.matches) { // small screens: one tile per type, with its count and the group's health

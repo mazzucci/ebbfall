@@ -47,6 +47,22 @@ const { PHRASES, STYLES } = await import('../src/client/voice.js');
 const src = readFileSync(new URL('../src/client/audio.js', import.meta.url), 'utf8');
 const recipes = [...src.matchAll(/^ {2}([a-z]+): \(b, t/gm)].map(m => m[1]);
 
+/** A stub speechSynthesis (installed until `remove()`): the lines spoken and the cancels. */
+function speechStub(voices) {
+  const sp = { voices: [...voices], spoken: [], cancels: 0, speaking: false, pending: false,
+    getVoices() { return this.voices; }, speak(u) { this.spoken.push(u); }, cancel() { this.cancels++; this.speaking = false; }, addEventListener() {},
+    remove() { delete globalThis.speechSynthesis; delete globalThis.SpeechSynthesisUtterance; } };
+  globalThis.speechSynthesis = sp;
+  globalThis.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; this.volume = 1; } };
+  return sp;
+}
+const VOICES = {
+  daniel: { name: 'Daniel', lang: 'en-GB', localService: true, voiceURI: 'd' },
+  samantha: { name: 'Samantha', lang: 'en-US', localService: true, voiceURI: 's' },
+  google: { name: 'Google US English', lang: 'en-US', localService: false, voiceURI: 'g' },
+  thomas: { name: 'Thomas', lang: 'fr-FR', localService: true, voiceURI: 't' },
+};
+
 let clock0 = 0; audio.now = () => clock0;
 /** A sound asked for now: whether it was scheduled (past the repeat gap of the last one). */
 const heard = (name = 'select') => { clock0 += 1000; ramps.length = 0; sfx(name); return ramps.length > 0; };
@@ -163,21 +179,42 @@ test('every recipe plays, placed or not, with sound envelopes', async () => {
   assert.deepEqual(errors, []);
 });
 
-test('the announcer says every phrase in every race\'s voice, one at a time, not again within its gap, not when muted or quiet', async () => {
+test('the announcer is off in the game: say() makes no sound and no speech, gestures do not unlock speech', async () => {
+  let clock = 9e7; audio.now = () => clock;
+  assert.equal(audio.announcer, null, 'off until a voice is chosen');
+  const sp = speechStub([VOICES.daniel]);
+  try {
+    fire('touchend'); fire('click');
+    for (const voice of ['humans', 'vael']) for (const key of Object.keys(PHRASES)) {
+      audio.voice = voice; ramps.length = 0; say(key);
+      assert.equal(ramps.length, 0, `${voice} ${key}: no sound`);
+      clock += 30000;
+    }
+    ramps.length = 0; sfx('researched');
+    assert.ok(ramps.length > 0, 'the research chime still plays');
+    holdSound(true); holdSound(false); await settle();
+    assert.deepEqual([sp.spoken.length, sp.cancels], [0, 0], 'speechSynthesis untouched');
+  } finally { sp.remove(); }
+});
+
+test('the synth announcer says every phrase in every race\'s voice, one at a time, not again within its gap, not when muted or quiet', async () => {
   const { FACTIONS } = await import('../src/engine/pkg/data.js').catch(() => ({ FACTIONS: null }));
   let clock = 1e8; audio.now = () => clock; // (past every sound the earlier tests played)
   const actx = new window.AudioContext(); // (the module's context is made on first use; time is read from it)
   Ctx.now += 100; // (past anything an earlier test said)
+  audio.announcer = 'synth';
   const keys = Object.keys(PHRASES);
-  for (const voice of Object.keys(STYLES)) for (const key of keys) {
-    audio.voice = voice; ramps.length = 0; errors.length = 0;
+  // (the device announcer without speechSynthesis speaks in the synth too)
+  for (const announcer of ['synth', 'device']) for (const voice of ['humans', 'vael']) for (const key of keys) {
+    audio.announcer = announcer; audio.voice = voice; ramps.length = 0; errors.length = 0;
     say(key);
-    assert.ok(ramps.length > 0, `${voice} said ${key}`);
+    assert.ok(ramps.length > 0, `${announcer} ${voice} said ${key}`);
     ramps.length = 0; say(key);
     assert.equal(ramps.length, 0, `${key} not repeated at once`);
     clock += 30000; Ctx.now += 10; // (past the gap, and past the phrase on the audio clock)
   }
   assert.deepEqual(errors, []);
+  audio.announcer = 'synth';
   // One at a time: another phrase while one plays is dropped.
   say('shards'); ramps.length = 0; say('ether');
   assert.equal(ramps.length, 0, 'not over another phrase');
@@ -189,8 +226,95 @@ test('the announcer says every phrase in every race\'s voice, one at a time, not
   ramps.length = 0; sfx('done'); const chime = ramps.length;
   clock += 30000; ramps.length = 0; sfx('researched');
   assert.ok(ramps.length > chime, 'researched says research complete');
-  if (FACTIONS) assert.deepEqual(Object.keys(STYLES).sort(), Object.keys(FACTIONS).sort(), 'a voice per faction');
+  if (FACTIONS) for (const f of Object.keys(FACTIONS)) assert.ok(STYLES[f] && STYLES[`${f}Device`], `a synth and a device voice for ${f}`);
+  audio.announcer = null; Ctx.now += 10;
   void actx;
+});
+
+test('the device\'s voice: each race its own voice, pitch and rate, the phrase\'s text; one line at a time, an attack cuts in; silent muted; cancelled by the pause card and the sound switched off', async () => {
+  let clock = 2e8; audio.now = () => clock;
+  const sp = speechStub([VOICES.thomas, VOICES.google, VOICES.samantha, VOICES.daniel]);
+  audio.announcer = 'device';
+  try {
+    fire('touchend');
+    assert.deepEqual(sp.spoken.map(u => [u.text, u.volume]), [['', 0]], 'a gesture unlocks speech (iPhone, iPad): an empty line, inside it');
+    fire('click'); assert.equal(sp.spoken.length, 1, 'once');
+    sp.spoken.length = 0; ramps.length = 0;
+    audio.voice = 'humans'; say('attack');
+    audio.voice = 'vael'; clock += 30000; say('research');
+    assert.equal(ramps.length, 0, 'no synth');
+    assert.deepEqual(sp.spoken.map(u => [u.text, u.voice.name, u.lang, u.pitch, u.rate]), [
+      ['Base under attack', 'Daniel', 'en-GB', 1, 1.03], ['Research complete', 'Samantha', 'en-US', 1.2, 0.95]]);
+    // The repeat gap holds; a line speaking drops a new one, an attack cuts it.
+    sp.spoken.length = 0; clock += 1000; say('research'); assert.equal(sp.spoken.length, 0, 'not again within its gap');
+    sp.speaking = true; clock += 30000; say('shards');
+    assert.equal(sp.spoken.length, 0, 'not over a line still speaking');
+    say('attack');
+    assert.deepEqual([sp.cancels, sp.spoken.map(u => u.text)], [1, ['Base under attack']], 'an attack cuts in');
+    // Muted: nothing; switched off mid-line: cut; the pause card: cut, and nothing while it is up.
+    sp.spoken.length = 0; clock += 30000;
+    audio.muted = true; say('ether'); assert.equal(sp.spoken.length, 0, 'muted');
+    soundToggled(); assert.equal(sp.cancels, 2, 'switched off: the line is cut');
+    audio.muted = false; soundToggled(); await settle();
+    holdSound(true); assert.equal(sp.cancels, 3, 'the pause card cuts the line');
+    say('ether'); assert.equal(sp.spoken.length, 0, 'nothing while it is up');
+    holdSound(false); await settle();
+    sp.speaking = false; say('ether'); assert.equal(sp.spoken.length, 1, 'and speaks after');
+    // `after`: the line waits (for the chime or the siren it goes with), and not if the sound went off meanwhile.
+    sp.spoken.length = 0; clock += 30000; say('shards', 0.02); assert.equal(sp.spoken.length, 0, 'not yet');
+    await new Promise(r => setTimeout(r, 40)); assert.equal(sp.spoken.length, 1, 'after its wait');
+    clock += 30000; say('research', 0.02); audio.muted = true;
+    await new Promise(r => setTimeout(r, 40)); assert.equal(sp.spoken.length, 1, 'muted during the wait: not said');
+    audio.muted = false; soundToggled(); await settle();
+  } finally { sp.remove(); audio.announcer = null; }
+});
+
+test('the device\'s voice falls back to the synth: no speechSynthesis, no English voice, or online voices only', async () => {
+  let clock = 3e8; audio.now = () => clock;
+  audio.announcer = 'device'; audio.voice = 'vael';
+  try {
+    for (const voices of [null, [], [VOICES.thomas], [VOICES.google]]) {
+      const sp = voices && speechStub(voices);
+      try {
+        ramps.length = 0; Ctx.now += 10; clock += 30000; say('attack');
+        assert.ok(ramps.length > 0, `the synth speaks (${voices ? voices.map(v => v.name) : 'no speechSynthesis'})`);
+        assert.equal(sp?.spoken.length ?? 0, 0, 'and the device does not');
+      } finally { sp?.remove(); }
+    }
+  } finally { audio.announcer = null; Ctx.now += 10; }
+});
+
+test('the device\'s voice picker: the Humans a known name or a US voice, the Vael another; one voice: both, apart by pitch; a pick by hand wins', async () => {
+  const { voiceFor, picked, canSpeak, speakLine } = await import('../src/client/speech.js');
+  const pick = (voices) => { const sp = speechStub(voices); try { return [voiceFor('humans')?.name, voiceFor('vael')?.name]; } finally { sp.remove(); } };
+  assert.deepEqual(pick([VOICES.samantha, VOICES.daniel, VOICES.google]), ['Daniel', 'Samantha'], 'Apple');
+  const android = [{ name: 'English United Kingdom', lang: 'en_GB', localService: true, voiceURI: 'gb' }, { name: 'English United States', lang: 'en-US', localService: true, voiceURI: 'us' }, { name: 'English India', lang: 'en-IN', localService: true, voiceURI: 'in' }];
+  assert.deepEqual(pick(android), ['English United States', 'English United Kingdom'], 'Android: by accent');
+  assert.deepEqual(pick([VOICES.samantha]), ['Samantha', 'Samantha'], 'one voice: both');
+  const sp = speechStub([VOICES.samantha, VOICES.google]);
+  try {
+    speakLine('attack', 'humansDevice'); speakLine('attack', 'vaelDevice', { urgent: true });
+    assert.deepEqual(sp.spoken.map(u => [u.voice.name, u.pitch, u.rate]), [['Samantha', 1, 1.03], ['Samantha', 1.2, 0.95]], 'one voice on the device (Google\'s is online): apart by pitch and rate');
+    picked.vael = 'g';
+    assert.equal(voiceFor('vael').name, 'Google US English', 'picked by hand (online too)');
+    sp.voices.length = 0; sp.voices.push(VOICES.samantha);
+    assert.equal(voiceFor('vael').name, 'Samantha', 'a pick the device no longer has: the automatic one');
+    assert.equal(canSpeak('vaelClear'), false, 'a synth style is not the device\'s');
+  } finally { delete picked.vael; sp.remove(); }
+});
+
+test('the Vael styles are friendly by construction: unison copies only (no fifths or fourths), no long echo, little vibrato, no growl; pitched as asked', () => {
+  const vael = Object.entries(STYLES).filter(([k, s]) => k.startsWith('vael') && !s.device);
+  assert.deepEqual(vael.map(([k]) => k), ['vaelClear', 'vaelWarm', 'vaelAiry', 'vael']);
+  for (const [k, s] of vael) {
+    for (const v of s.voices || []) assert.ok(Math.abs(Math.log2(v.mul ?? 1) * 1200) <= 10 && (v.delay ?? 0) <= 0.01, `${k}: a copy within 10 cents and 10 ms`);
+    for (const [t, level] of s.room || []) assert.ok(t < 0.06 && level <= 0.1, `${k}: a short, quiet reflection`);
+    assert.ok(!s.radio && (s.vib ?? 1.2) <= 0.6 && s.pitch >= 110 && s.hp >= 150, `${k}: no radio, little vibrato, no low growl`);
+  }
+  assert.ok(STYLES.vaelClear.pitch > STYLES.humansRadio.pitch && STYLES.vaelWarm.pitch < STYLES.vaelClear.pitch, 'A above the operator, B below A');
+  assert.equal(STYLES.vael, STYLES.vaelClear, 'the Vael\'s synth voice is A');
+  assert.equal(STYLES.humans, STYLES.humansRadio, 'the Humans\' is A');
+  assert.equal(STYLES.humansRadio.radio.drive, 0, 'the clean radio does not clip');
 });
 
 test('every sound the sim asks for has a recipe', () => {

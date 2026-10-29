@@ -5,31 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ebbfall voice lab</title>
 <style>
-  body{background:#0d1117;color:#c9d1d9;font:15px/1.5 system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px}
-  h1{font-size:20px;color:#f5c26b;letter-spacing:.1em} p{color:#8b949e}
-  .row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}
-  button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:12px 14px;font-size:15px;min-height:44px}
-  button:active{background:#2a2415;border-color:#f5a524}
-  h2{font-size:15px;margin:18px 0 0;color:#e6edf3}
+  body{background:#0d1117;color:#c9d1d9;font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:20px auto;padding:0 14px 40px}
+  h1{font-size:20px;color:#f5c26b;letter-spacing:.1em;margin:0 0 6px} p{color:#8b949e;margin:6px 0}
+  h2{font-size:18px;margin:26px 0 4px;color:#f5c26b;letter-spacing:.06em}
+  .style{background:#11161d;border:1px solid #21262d;border-radius:10px;padding:10px 12px 12px;margin:12px 0}
+  h3{font-size:16px;margin:0;color:#e6edf3} h3 b{display:inline-block;min-width:1.6em;color:#f5c26b}
+  .note{font-size:14px;margin:2px 0 8px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  button,select{font:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:8px}
+  button{min-height:56px;padding:10px 8px}
+  button:active,button.on{background:#2a2415;border-color:#f5a524}
+  select{width:100%;min-height:48px;padding:8px;margin:0 0 8px}
+  #stop{width:100%;margin-top:18px}
 </style>
 </head>
 <body>
 <h1>EBBFALL VOICE LAB</h1>
-<p>The game's synthesized announcer: no recordings, the voice is built from a buzz and a hiss shaped like a mouth. Four phrases, two styles. Turn the sound on (on an iPhone, the ring/silent switch to ring) and tap.</p>
-<h2>Humans: radio operator</h2>
-<div class="row"><button data-p="attack" data-s="humans">Base under attack</button><button data-p="research" data-s="humans">Research complete</button><button data-p="shards" data-s="humans">Not enough shards</button><button data-p="ether" data-s="humans">Not enough ether</button></div>
-<h2>Vael: chorus</h2>
-<div class="row"><button data-p="attack" data-s="vael">Base under attack</button><button data-p="research" data-s="vael">Research complete</button><button data-p="shards" data-s="vael">Not enough shards</button><button data-p="ether" data-s="vael">Not enough ether</button></div>
-<h2>For comparison: this device's own speech voice</h2>
-<p>Clear, but it differs on every phone and cannot be put through the radio.</p>
-<div class="row"><button data-tts="Base under attack">Base under attack</button><button data-tts="Research complete">Research complete</button><button data-tts="Not enough shards">Not enough shards</button><button data-tts="Not enough ether">Not enough ether</button></div>
-<script type="module">
-  import { speak, PHRASES, STYLES } from './src/client/voice.js';
-  let ctx = null;
-  const audio = () => { ctx ??= new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state !== 'running') ctx.resume().catch(() => {}); return ctx; };
-  for (const b of document.querySelectorAll('[data-p]')) b.addEventListener('click', () => { const c = audio(); speak(c, c.destination, b.dataset.p, b.dataset.s); });
-  for (const b of document.querySelectorAll('[data-tts]')) b.addEventListener('click', () => { const u = new SpeechSynthesisUtterance(b.dataset.tts); u.rate = 0.95; u.pitch = 0.8; if (speechSynthesis.speaking) speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 0); });
-  window.voiceLab = { speak, PHRASES, STYLES };
-</script>
+<p>Options for the announcer ("Base under attack", "Research complete", "Not enough shards/ether"). It is off in the game until one of them sounds right. Turn the sound on (on an iPhone, the ring/silent switch to ring) and tap a phrase.</p>
+<p>A, B and C are the game's own synthesizer: no recordings, a buzz and a hiss shaped like a mouth. D is this device's own speech voice, which differs from phone to phone: pick another of its voices to try it.</p>
+<div id="lab"></div>
+<button id="stop">Stop</button>
+<script type="module" src="./src/client/voice-lab.js"></script>
 </body>
 </html>

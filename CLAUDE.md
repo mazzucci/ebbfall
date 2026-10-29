@@ -51,7 +51,8 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
 ## Layout
 
 ```
-voice-lab.html        a page apart from the game for judging the synthesized voice (a second Vite entry)
+voice-lab.html        a page apart from the game for judging the announcer's voices (a second Vite entry;
+                      src/client/voice-lab.js): each race's synth styles A, B, C and the device's voice D, one tap a phrase
 selftest.html         the device check (a third entry): plays the golden games, says whether this device computes them
                       exactly (online play needs it); open it on a phone to check that phone
 ?bench                the device test (src/client/bench.js, in the game's own page): an 8-AI 128x128 game from 3:00, a
@@ -135,7 +136,11 @@ src/client/           everything that touches the browser
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
-                      shards/ether, in each race's voice); voice-lab.html plays every phrase
+                      shards/ether, in each race's voice): STYLES, three a race, and each race's device style
+  speech.js           the announcer in the device's own voice (Web Speech API): a voice per race picked from the device's
+                      English voices, the synth where it has none; unlocked in a gesture, cut by the pause card and mute.
+                      The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
+                      finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
@@ -169,7 +174,9 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
                       fit, no page scroll, the map fills the room and fits again when the bars collapse),
                       selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
-                      PLAY OFFLINE against the real service worker, the app icons)
+                      PLAY OFFLINE against the real service worker, the app icons), voice.e2e.mjs (the voice lab
+                      loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
+                      rumble; ENDFALL_VOICE_OUT=dir writes WAVs to listen to)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
                       install; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,

@@ -984,6 +984,60 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
   });
 }
 
+// The console fits every phone, fluidly: an Airfield and a Zenith with a full queue and a research, at every landscape
+// width from 640 to 900 (360 and 390 high) and upright from 360 to 430 wide: the name and the health figure whole,
+// everything inside the console (and its module), clear of the command card and the minimap.
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Wasp', tech: 'Afterburn' }],
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream' }]]) {
+  test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
+    const d = await newGame(PHONE, 1, 4242, { ai: false, race });
+    try {
+      await d.grant(5000, 5000);
+      let f; for (const [i, [hot, type]] of R.steps.entries()) f = await buildAndFinish(d, hot, type, i, R);
+      await d.clickEntity(f.id);
+      const queued = async () => (await d.state()).bldgs.find(b => b.id === f.id).queue.length;
+      for (let i = 0; i < 5; i++) await d.pressCard(R.unit);
+      assert.equal(await queued(), 5, `a full queue (toasts: ${(await d.toasts()).join(' | ')})`);
+      await d.pressCard(R.tech);
+      await d.page.waitForFunction(() => document.querySelector('#qres:not(.idle)'), null, { timeout: 5000 });
+      await d.page.evaluate(() => document.fullscreenElement && document.exitFullscreen()); // (a page in full screen keeps its size)
+      await d.page.waitForFunction(() => !document.fullscreenElement);
+      const sizes = [];
+      for (const h of [360, 390]) for (let w = 640; w <= 900; w += 20) sizes.push([w, h]);
+      for (let w = 360; w <= 430; w += 10) sizes.push([w, 860]);
+      for (const [w, h] of sizes) {
+        const where = `${race}, ${w}x${h}`;
+        await d.page.setViewportSize({ width: w, height: h });
+        while (await queued() < 5) await d.pressCard(R.unit); // (keep it full: units finish meanwhile)
+        await d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+        const m = await d.page.evaluate(() => {
+          const r = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, r: b.right, b: b.bottom, c: e.id || e.className.baseVal || e.className }; }, $ = (id) => document.getElementById(id);
+          const name = $('selName'), num = $('hpNum');
+          return {
+            info: r($('info')), mod: r($('mod')), life: r($('life')), num: r(num), cmd: r($('cmd')), minimap: r($('minimap')),
+            parts: [...document.querySelectorAll('#queue .qi, #queue .qe, #queue .prod, #qres, #qres > *, #selPor, #selName, #life, #hpNum')].map(r),
+            slots: [...document.querySelectorAll('#queue .qi, #queue .qe, #queue .prod, #qres, #qres > *')].map(r),
+            units: document.querySelectorAll('#queue .qi').length, researching: !!document.querySelector('#qres:not(.idle)'),
+            nameCut: name.scrollWidth > name.clientWidth, numCut: num.scrollWidth > num.clientWidth,
+          };
+        });
+        const inside = (a, o) => a.x >= o.x - 0.5 && a.y >= o.y - 0.5 && a.r <= o.r + 0.5 && a.b <= o.b + 0.5;
+        const apart = (a, o) => a.r <= o.x + 0.5 || o.r <= a.x + 0.5 || a.b <= o.y + 0.5 || o.b <= a.y + 0.5;
+        assert.equal(m.units, 5, `${where}: the full queue shows`);
+        assert.ok(m.researching, `${where}: the research shows`);
+        assert.ok(!m.nameCut, `${where}: the name whole`);
+        assert.ok(!m.numCut && m.num.r <= m.life.r + 0.5, `${where}: the health figure whole (${m.num.r} vs ${m.life.r})`);
+        for (const p of m.parts) assert.ok(inside(p, m.info), `${where}: ${p.c} inside the console ${JSON.stringify([p, m.info])}`);
+        for (const p of m.slots) assert.ok(inside(p, m.mod), `${where}: ${p.c} inside its module ${JSON.stringify([p, m.mod])}`);
+        assert.ok(apart(m.info, m.cmd), `${where}: clear of the command card ${JSON.stringify([m.info, m.cmd])}`);
+        assert.ok(apart(m.info, m.minimap), `${where}: clear of the minimap ${JSON.stringify([m.info, m.minimap])}`);
+        if ([640, 740, 760, 780, 360, 430].includes(w) && h !== 390) await d.page.screenshot({ path: `/tmp/qres-shots/fit-${race}-${w}x${h}.png` }).catch(() => {});
+      }
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
 test('a box over units and buildings selects only the units, and only the fighters among them', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

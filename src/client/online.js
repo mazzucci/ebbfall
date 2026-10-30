@@ -33,8 +33,20 @@ export const relayUrl = () => ((local || import.meta.env?.DEV) && params.get('re
 
 /** This build's sim (vite.config.js): a room's seats must share it. */
 const SIM_BUILD = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : '';
-/** The link that opens room `code` (with this page's test relay, if any). */
-const joinLink = (code) => `${location.origin}${location.pathname}?join=${code}${params.get('relay') ? `&relay=${encodeURIComponent(params.get('relay'))}` : ''}`;
+/** The link that opens room `code` (with this page's test relay, if any): what the address bar shows in the room, and
+ *  what SHARE LINK shares. (`?join=CODE`, the links before 2026-10-30, still opens it.) */
+const joinLink = (code) => `${location.origin}${location.pathname}?room=${code}${params.get('relay') ? `&relay=${encodeURIComponent(params.get('relay'))}` : ''}`;
+/** This page's address with `?room=` set to `code` (none: removed), every other parameter kept (?relay=, ?bench...);
+ *  replaced in place (no reload, no history entry; the leave guard's entry keeps its state). Set in the room (from its
+ *  `seat`) and on a room's link; removed on leaving it. */
+let urlRoom = '';
+function roomInUrl(code) {
+  urlRoom = code || '';
+  const q = new URLSearchParams(location.search);
+  q.delete('join'); if (code) q.set('room', code); else q.delete('room');
+  const url = `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`;
+  if (url !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', url);
+}
 /** The multiplayer page again (after an update, with no room yet). */
 const lobbyLink = () => `${location.origin}${location.pathname}?online=1${params.get('relay') ? `&relay=${encodeURIComponent(params.get('relay'))}` : ''}`;
 /** Where a reload should land: back in the lobby's room, if there is one and no game is on; else this page. */
@@ -60,9 +72,13 @@ export function initOnline({ game: g }) {
   $('btnOnline').addEventListener('click', () => { sfx('select'); openLobby(); });
   // (opening or joining a room stays out of full screen: the host's next step is sharing the link from another app;
   // READY's tap goes full screen on a touch screen, so the game starts in it, as the menu's START GAME does)
-  $('btnNewRoom').addEventListener('click', () => { sfx('select'); connect(''); });
-  $('btnJoinRoom').addEventListener('click', () => { const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); connect(c); } else status('Type the 4-letter code'); });
+  // (both need a name: dimmed (aria-disabled, still focusable) until one is typed; a tap or Enter meanwhile asks for it)
+  $('btnNewRoom').addEventListener('click', () => { if (needName()) return; sfx('select'); connect(''); });
+  $('btnJoinRoom').addEventListener('click', () => { if (needName()) return; const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); connect(c); } else status('Type the 4-letter code'); });
   $('roomCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoinRoom').click(); });
+  $('onlineName').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !needName() && $('roomCode').value.trim()) $('btnJoinRoom').click(); });
+  $('onlineName').addEventListener('input', nameGate);
+  addEventListener('popstate', () => roomInUrl(urlRoom)); // (the leave guard's history.back lands on an entry with an address of its own)
   $('btnOnlineBack').addEventListener('click', () => { sfx('select'); stopOnline(); $('online').hidden = true; showMenu(); });
   // READY once the game has loaded (a room's start must find it ready: the relay's clock waits for every seat); a game
   // that could not load: RELOAD.
@@ -78,23 +94,38 @@ export function initOnline({ game: g }) {
   holdTaps();
   narrow.addEventListener?.('change', () => { if (lobbyState) renderLobby(lobbyState); }); // (a token's race, short or not)
   simReady.then(() => { preview = ''; if (lobbyState) renderLobby(lobbyState); }, () => {}); // (the map's thumbnail, once the sim can draw it)
-  $('onlineName').value = store.get('name') || '';
-  // A shared link (?join=CODE): straight to that room.
+  $('onlineName').value = store.get('name') || ''; nameGate();
   // After UPDATE with no room yet (?online=1): straight back to the multiplayer page.
-  if (params.get('online') !== null) { params.delete('online'); history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`); if (relayUrl()) openLobby(); }
-  const join = params.get('join');
-  if (join) { params.delete('join'); history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`); } // (a reload later is not a join again)
-  // A shared link (?join=CODE): the join form, the code filled in, a name to type first.
-  if (join && relayUrl()) invited(join.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4));
+  if (params.get('online') !== null) { const q = new URLSearchParams(location.search); q.delete('online'); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`); if (relayUrl()) openLobby(); }
+  // A room's link (?room=CODE, or an older ?join=CODE), or a reload in the room: straight into it with the name this
+  // device remembers (this tab's seat token takes its seat back); no name yet: the join form asks for one first.
+  const link = (params.get('room') || params.get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+  if (!link || !relayUrl()) { roomInUrl(''); return; } // (no room to go to here)
+  roomInUrl(link);
+  if (typedName()) { openLobby(); $('roomCode').value = link; connect(link); } else invited(link);
 }
 
 function invited(code) {
   openLobby();
   $('roomCode').value = code; $('btnJoinRoom').classList.add('big');
-  status(`You're invited to room ${code}: ${$('onlineName').value.trim() ? 'tap JOIN' : 'type your name, then JOIN'}`); // (a name remembered: one tap)
+  status(`You're invited to room ${code}: type your name, then JOIN`);
   if (!touchDevice) $('onlineName').focus();
 }
-function openLobby() { $('btnJoinRoom').classList.remove('big'); $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
+/** The name typed (trimmed, 16 at most; the relay checks it too); NEW ROOM and JOIN dimmed while there is none, the
+ *  nudge gone once there is. */
+const typedName = () => $('onlineName').value.trim().slice(0, 16);
+function nameGate() {
+  const none = !typedName();
+  for (const b of [$('btnNewRoom'), $('btnJoinRoom')]) { if (none) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled'); }
+  if (!none) $('onlineNameNote').hidden = true;
+}
+/** No name yet: the field focused and a word beside it (true: nothing else to do). */
+function needName() {
+  if (typedName()) return false;
+  $('onlineNameNote').hidden = false; $('onlineName').focus();
+  return true;
+}
+function openLobby() { $('btnJoinRoom').classList.remove('big'); $('onlineNameNote').hidden = true; $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 /** Out of the room (an error, a start, BACK): its sheet closed, its board forgotten. */
 function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; lastMap = null; mapNote = ''; clearTimeout(noteTimer); sheet?.close(); }
 /** This side's seat in the room (the relay's `seat`): the first one, back after a reconnect, or another mid-lobby (the
@@ -103,12 +134,12 @@ function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing 
 function takeSeat(m) {
   const first = online.seat < 0;
   if (editing >= 0 && editing === online.seat) editing = m.seat;
-  online.seat = m.seat; seatToken.set(m.room, m.token);
+  online.seat = m.seat; seatToken.set(m.room, m.token); roomInUrl(m.room); // (the room's link in the address bar)
   $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; readyButton(); $('roomShow').textContent = m.room;
   if (first || failed) status(failed ? LOAD_FAILED : '');
 }
 function status(s) { $('onlineStatus').textContent = s; }
-const name = () => { const n = $('onlineName').value.trim().slice(0, 16); if (n) store.set('name', n); return n || 'Player'; };
+const name = () => { const n = typedName(); if (n) store.set('name', n); return n; };
 
 function connect(room) {
   stopOnline();
@@ -165,7 +196,7 @@ function connect(room) {
       error: (m) => {
         if (online.playing) { fatal(m.code === 'noroom' ? 'The room is gone: this game is over' : String(m.msg || 'The connection was lost')); return; }
         status(m.code === 'version' ? 'Your Ebbfall and your friend\'s don\'t match. Tap UPDATE, then JOIN again' : String(m.msg || ''));
-        leaveRoom(); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version' && m.code !== 'update'; // (another build: UPDATE)
+        roomInUrl(''); leaveRoom(); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version' && m.code !== 'update'; // (another build: UPDATE)
       },
       status: (s) => {
         if (s === 'online') { waitingFor.clear(); loadingSeats.clear(); } // (seated again: the relay tells who is still away next)
@@ -411,6 +442,6 @@ async function share() {
 export function stopOnline() {
   const net = online.net;
   if (net && !net.leaving) { if (online.playing) net.close(); else if (!net.closed) { net.leave(); if (net.room) seatToken.del(net.room); } } // (given up: a quick rejoin is a new seat, not a fight over this one)
-  leaveRoom();
+  leaveRoom(); roomInUrl(''); // (out of the room: its code off the address bar)
   waitingFor.clear(); loadingSeats.clear(); reconnecting = false; over = ''; slowLoad = false; clearTimeout(slowTimer); waitLine(); Object.assign(online, { net: null, seat: -1, setup: null, playing: false, ready: false, names: [], rematch: false, wants: [], dead: false, hold: null, left: [] }); online.gone.clear();
 }

@@ -39,6 +39,23 @@ const play = (r, conns, from, ms, every = 3) => {
   }
 };
 
+test('a name is required: trimmed, cut to 16, and a newcomer with none (empty, blank, missing, not a string) turned away; a seat back by its token keeps its name', () => {
+  const { r, conn, got } = room();
+  for (const name of ['', '   ', undefined, null, 42, { a: 1 }]) {
+    const c = conn('c');
+    assert.equal(r.connect(c, { proto: PROTO, name }), -1, `${JSON.stringify(name)}: no seat`);
+    assert.deepEqual(got(c, 'error').map(m => m.code), ['name'], `${JSON.stringify(name)}: told why`);
+  }
+  assert.ok(r.seats.every(s => !s.token), 'nobody seated, no seat held');
+  const a = conn('a'), b = conn('b');
+  assert.equal(r.connect(a, hello({ name: '  Ann  ' })), 0);
+  assert.equal(r.connect(b, hello({ name: 'Bartholomew the Bold' })), 1);
+  assert.deepEqual(got(b, 'lobby').at(-1).seats.slice(0, 2).map(s => s.name), ['Ann', 'Bartholomew the'], 'trimmed, then cut to 16 (and trimmed again)');
+  const b2 = conn('b2');
+  assert.equal(r.connect(b2, { proto: PROTO, token: got(b, 'seat')[0].token }), 1, 'back with its token and no name: its seat');
+  assert.equal(got(b2, 'lobby').at(-1).seats[1].name, 'Bartholomew the', 'its name kept');
+});
+
 test('the lobby seats players, and the game starts when everyone is ready', () => {
   const { r, conn, got } = room();
   const a = conn('a'), b = conn('b'), c = conn('c');

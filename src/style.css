@@ -389,6 +389,8 @@ body.replay #cmd{visibility:hidden}
 /* Multiplayer: the join form, then the room (online.js) */
 #online input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
 #roomCode{width:5.5em;text-transform:uppercase;text-align:center} #onlineName{width:12em}
+/* NEW ROOM and JOIN until a name is typed: dimmed as a disabled button, still focusable (a tap or Enter asks for the name) */
+#onlineJoin .ib[aria-disabled="true"]{opacity:.45;cursor:default} #onlineJoin .ib[aria-disabled="true"]:hover{border-color:var(--line2)}
 #onlineHow{margin:0 0 6px;max-width:540px;font-size:12px;line-height:1.4} /* (how it works, two lines on a phone) */
 /* The room: its code is the title, SHARE LINK beside it (the big button while the host has a seat open), keeping to
    the left: the top-right corner (sound, full screen) stays clear. */

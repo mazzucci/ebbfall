@@ -94,6 +94,14 @@ There is no handling of a hidden page today. In multiplayer:
   paused. A 20-minute game is 36,000 ticks: seconds on a desktop, perhaps a minute or more on a phone; measured in
   M3a, and a saved checkpoint (World save/load, tested hash-for-hash) only if that is too slow.
 - WebGL context loss (phones drop it under memory pressure) is handled: rebuild the renderer, the game goes on.
+- **A name, and the room in the address bar (2026-10-30):** NEW ROOM and JOIN are dimmed (`aria-disabled`, still
+  focusable) until a name is typed; a tap or Enter meanwhile focuses the field with "Enter your name" beside it. The
+  name is remembered on the device (store.js `name`) and filled in. The relay trims it, cuts it to 16 and turns a
+  hello without one away (`error {code: 'name'}`). In a room (on its `seat`) the address is `?room=CODE` (replaced in
+  place, the other parameters kept), the same link SHARE LINK shares; leaving the room (BACK, the menu from a game, the
+  end card's) takes it off. A page opened on `?room=CODE` (a friend's link, a reload, UPDATE; an older `?join=CODE`
+  too) goes straight into the room with the remembered name, this tab's seat token taking its seat back; with no name
+  it shows the join form, the code filled in, and joins nothing until one is typed.
 - **In the lobby (the lobby hold, built 2026-10-27):** the host opens a room on a phone and goes to a messaging app to
   send the code; the phone kills the page's socket. The relay keeps the seat (name, race, token, the host's role) for
   `LOBBY_HOLD_MS` (5 minutes), away (`here: false`) and not ready: the others see the name with AWAY and "Waiting
@@ -119,7 +127,7 @@ The service worker keeps a build until the next visit, so friends will often be 
 carries the protocol version and the `.wasm` hash; a mismatch shows "Update needed" with one button (fetch the new
 build, activate it, reload into the same join link). Built (2026-10-26): the build bakes in `__SIM_BUILD__` (a hash
 of the `.wasm`, vite.config.js); a room keeps its first seat's and refuses another with `version`; the lobby says so
-with UPDATE (the service worker's update, then back to `?join=CODE`); and a new build that installs while the player
+with UPDATE (the service worker's update, then back to `?room=CODE`); and a new build that installs while the player
 is out of a game (the menu or the lobby) switches over at once, back into the lobby's room. Determinism across engines is checked, not assumed: the golden
 games run in WASM in Chromium, Firefox and WebKit in CI (the build and engines jobs, and a macOS ARM runner), and a hidden `?selftest` page
 runs them on a real phone. The sim's dependencies stay pinned (`libm` exactly), and no float-changing build flags
@@ -281,7 +289,7 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
 acks, reconnect); the setup message and seat constructor in use; away and back. E2E: two browser contexts through
 the local relay with injected latency and jitter, socket kills, hidden-page emulation and CPU throttling.
 
-**M3c. Lobby, mobile-first.** MULTIPLAYER on the menu: create a room (the code, a share link `ebbfall.com/?join=CODE`
+**M3c. Lobby, mobile-first.** MULTIPLAYER on the menu: create a room (the code, a share link `ebbfall.com/?room=CODE`, `?join=CODE` until 2026-10-30
 through the phone's share sheet) or join by code; seats with race picks (2 for now); ready; start. Few words, big
 buttons. The end card names the other player; rematch. Rematch built (2026-10-26): REMATCH on the online end card (lit when
 the friend asked; WAITING… once this side did); when every seat still there wants one, the room is a lobby again

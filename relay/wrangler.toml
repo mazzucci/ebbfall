@@ -1,6 +1,7 @@
 # The relay on Cloudflare (relay/worker.js): a Worker and one Durable Object per room. Deploy from relay/ with
 # `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts edit, which covers Durable Objects).
-# A deploy restarts every room: games in progress end (CI deploys only when relay/ changed).
+# A deploy restarts every room: games in progress end (CI deploys only when the live relay's GET /version says another
+# build than this commit's: .github/workflows/ci.yml passes it as `--var RELAY_BUILD:<hash>`).
 # The game finds it through the build's VITE_RELAY_URL (wss://relay.ebbfall.com/; the device test POSTs its report to
 # https://relay.ebbfall.com/bench, kept a week by the object named 'bench', the same class: no migration).
 name = "ebbfall-relay"

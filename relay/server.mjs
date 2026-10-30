@@ -1,12 +1,14 @@
 // The relay as a Node WebSocket server (local play, a LAN or Tailscale game, the e2e tests): rooms by code over one
 // endpoint. The rules are relay/room.js's; this file only moves bytes and keeps time. Usage: node relay/server.mjs
 // [port] (default 8788). A client connects to ws://host:port/?room=CODE (or ?new=1 to open a room) and says hello.
-// Over plain HTTP on the same port, the device test's reports (relay/bench.js, kept in memory here).
+// Over plain HTTP on the same port, the device test's reports (relay/bench.js, kept in memory here) and GET /version
+// (relay/version.js; the build is RELAY_BUILD from the environment, or none).
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import { WebSocketServer } from 'ws';
 import { Room, TURN_MS } from './room.js';
 import { benchRequest, BenchStore, memoryStorage } from './bench.js';
+import { versionRequest } from './version.js';
 
 const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
 const MAX_MSG = 64 * 1024;
@@ -14,8 +16,9 @@ const ROOM_IDLE_MS = 10 * 60 * 1000; // a room with nobody in it this long is cl
 const HELLO_MS = 10000; // a connection that has not said hello by then is closed
 
 /** Start a relay on `port` (0: any free one). `latency`/`jitter` (ms): test knobs, a delay on everything the relay
- *  sends (in order per connection). Returns { port, ready, close, rooms }. */
-export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
+ *  sends (in order per connection). `build`: what GET /version says it is (null: none). Returns { port, ready, close,
+ *  rooms }. */
+export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null } = {}) {
   const rooms = new Map();
   let seed = Date.now() >>> 0;
   const code = () => {
@@ -51,7 +54,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
     const headers = Object.entries(req.headers).filter(([, v]) => typeof v === 'string');
     try {
       const r = new Request(`http://${req.headers.host || 'localhost'}${req.url}`, { method: req.method, headers, body, duplex: 'half' });
-      const out = await benchRequest(r, { origins: '', ip: req.socket.remoteAddress || '', store: (q) => bench.fetch(q) }) || new Response('Ebbfall relay: WebSocket only', { status: 426 });
+      const out = versionRequest(r, build) || await benchRequest(r, { origins: '', ip: req.socket.remoteAddress || '', store: (q) => bench.fetch(q) }) || new Response('Ebbfall relay: WebSocket only', { status: 426 });
       res.writeHead(out.status, Object.fromEntries(out.headers)); res.end(Buffer.from(await out.arrayBuffer()));
     } catch { res.writeHead(400); res.end(); }
   });
@@ -97,7 +100,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0 } = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const r = startRelay({ port: Number(process.argv[2] || 8788) });
+  const r = startRelay({ port: Number(process.argv[2] || 8788), build: process.env.RELAY_BUILD || null });
   await r.ready;
   console.log(`Ebbfall relay on ws://localhost:${r.port}`);
 }

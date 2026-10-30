@@ -2,9 +2,11 @@
 // one object per room code, which runs relay/room.js's rules (the same as relay/server.mjs's, which is the Node
 // adapter). A client connects to wss://host/?room=CODE (or ?new=1 to open a room) and says hello. Config and deploy:
 // relay/wrangler.toml. Also the device test's reports over HTTP (relay/bench.js): POST /bench, GET /bench/<CODE>, kept
-// by one more object of the same class, named 'bench' (room codes are four capitals: never that name).
+// by one more object of the same class, named 'bench' (room codes are four capitals: never that name). And GET /version
+// (relay/version.js): its protocol and the build CI deployed (the RELAY_BUILD var), which CI reads before deploying.
 import { Room, TURN_MS, MAX_SEATS } from './room.js';
 import { benchRequest, BenchStore } from './bench.js';
+import { versionRequest } from './version.js';
 
 const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
 const MAX_MSG = 64 * 1024;
@@ -19,6 +21,8 @@ const allowed = (req, env) => !env.ORIGINS || env.ORIGINS.split(',').includes(re
 
 export default {
   async fetch(req, env) {
+    const version = versionRequest(req, env.RELAY_BUILD);
+    if (version) return version;
     const bench = await benchRequest(req, { origins: env.ORIGINS, ip: req.headers.get('CF-Connecting-IP') || '', store: (r) => env.ROOMS.get(env.ROOMS.idFromName('bench')).fetch(r) });
     if (bench) return bench;
     if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Ebbfall relay: WebSocket only', { status: 426 });

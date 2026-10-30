@@ -14,6 +14,7 @@ import { sfx } from './audio.js';
 import { enterFullscreen } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
+import { initOptions } from './options.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, enemyLevel, raceTitle, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
@@ -160,6 +161,7 @@ export function initMenu({ onStart }) {
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
+  initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
 
 /** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */

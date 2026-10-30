@@ -565,16 +565,22 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       let c = await card(a);
       assert.equal(c.h, 'Menu');
       assert.match(c.line, /^\d+:\d\d in\. The game goes on while this is open\.$/);
-      assert.deepEqual(c.buttons, ['BACK TO GAME', 'HOW TO PLAY', 'PAUSE FOR EVERYONE3 left', 'LEAVE GAME'], 'no RESTART online; a pause for everyone, with the pauses left');
+      assert.deepEqual(c.buttons, ['BACK TO GAME', 'HOW TO PLAY', 'OPTIONS', 'PAUSE FOR EVERYONE3 left', 'LEAVE GAME'], 'no RESTART online; a pause for everyone, with the pauses left; OPTIONS (a mouse: CONTROLS)');
       assert.equal(await a.p.locator('#btnQuit').getAttribute('title'), 'Back to the menu: Bo wins');
       assert.equal((await card(b)).open, false, 'the friend\'s screen is untouched');
       await runs('the game goes on under the menu');
+      // OPTIONS from the menu (a mouse: CONTROLS): over it the game goes on too; Esc: the menu again.
+      await a.tap('#btnPauseOptions');
+      assert.ok(await a.p.locator('#options').isVisible(), 'OPTIONS over the menu');
+      await runs('the game goes on under OPTIONS');
+      await a.p.keyboard.press('Escape');
+      assert.ok(await a.p.locator('#options').isHidden() && (await card(a)).open, 'Esc: the menu again');
       // The friend's phone sleeps (its socket gone); Ann pauses for everyone meanwhile.
       await b.p.evaluate(() => { const n = endfall.online.net; n._open = n.open; n.open = () => {}; n.ws.close(); });
       await a.tap('#btnPauseAll');
       await a.p.waitForFunction(() => /^You paused · [45]:\d\d left$/.test(document.getElementById('pauseTime').textContent), null, { timeout: 5000 });
       c = await card(a);
-      assert.deepEqual([c.h, c.buttons], ['Paused', ['RESUME', 'HOW TO PLAY', 'LEAVE GAME']], 'the one who paused: RESUME; no second pause');
+      assert.deepEqual([c.h, c.buttons], ['Paused', ['RESUME', 'HOW TO PLAY', 'OPTIONS', 'LEAVE GAME']], 'the one who paused: RESUME; no second pause');
       await a.p.waitForTimeout(3500); // (the friend is away by now: the pause says it all, nobody is "waited for")
       assert.ok(await a.p.locator('#netWait').isHidden(), 'no "Waiting for" over a pause');
       // Back: the friend is told of the pause, and shown it, with its time running down.

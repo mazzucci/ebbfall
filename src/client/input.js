@@ -1,6 +1,7 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
-// draws a box; the minimap grows under the finger and moves the view by the finger's travel.
+// draws a box; the minimap grows under the finger and moves the view by the finger's travel. A mouse: the middle
+// button held and dragged pans. The keyboard's camera and command keys follow the controls scheme (controls.js).
 import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, enemies, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
@@ -9,6 +10,7 @@ import { marker } from './fx.js';
 import { askLeave } from './screen.js';
 import { goHome, selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup } from './tools.js';
 import { togglePause, paused } from './pause.js';
+import { wasd } from './controls.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
@@ -37,7 +39,14 @@ const FLING_MIN = 40;
 export function stopGlide() { fling.vx = fling.vy = 0; fling.samples = []; }
 /** Show the SELECT button's state and the hint. */
 function boxButton() { setBox(); setHint(); }
-const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
+const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 };
+/** The keys held down, by where they are on the keyboard (`ev.code`: KeyW, ArrowUp...): a modifier that changes the
+ *  letter (Option+D on a Mac is '∂') cannot strand one, and W A S D are the same keys on any layout. Let go of all of
+ *  them when the page loses the keyboard (no keyup comes then). */
+const held = new Set();
+const letGo = () => { held.clear(); mid = null; };
+/** The middle button held down on the map: the pointer's last point (it drags the map), else null. */
+let mid = null;
 /** Set by main.js: whether input should reach the game right now. */
 export const input = { enabled: () => true };
 
@@ -218,12 +227,15 @@ export function bindInput() {
 /** The map: pointer down / move / up (tap, box, one-finger pan with glide, two-finger pan and pinch), the wheel. */
 function bindCanvas() {
   cv.addEventListener('contextmenu', e => e.preventDefault());
+  // The middle button pans: no autoscroll, no paste, no click.
+  for (const t of ['mousedown', 'auxclick']) cv.addEventListener(t, e => { if (e.button === 1) e.preventDefault(); });
   // Any touch anywhere (the map, a button, the minimap) catches a gliding camera, like a spinning list.
   window.addEventListener('pointerdown', () => { fling.caught = !!(fling.vx || fling.vy); stopGlide(); }, true);
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
     if (ev.pointerType === 'touch') { if (pointers.size === 2) { if (ui.place) ui.place.tx = ui.place.ty = -99; drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
+    if (ev.button === 1 && ev.pointerType === 'mouse') { mid = p; edge.x = edge.y = 0; return; } // (a drag of the map: no selection, no order)
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
     // A touch that stops a gliding camera does nothing else.
@@ -236,6 +248,8 @@ function bindCanvas() {
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
+    if (mid && (!(ev.buttons & 4) || !input.enabled())) mid = null; // (let go while another button stays down; a card came up)
+    if (mid) { cam.x -= (p.x - mid.x) / cam.zoom; cam.y -= (p.y - mid.y) / cam.zoom; clampCam(); mid = p; return; }
     if (pan && pointers.size >= 2) {
       // Two fingers: pan with the midpoint, pinch to zoom around it.
       const [a, b] = [...pointers.values()]; const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
@@ -260,6 +274,7 @@ function bindCanvas() {
   });
   const endPointer = ev => {
     const p = canvasPos(ev); pointers.delete(ev.pointerId); if (pointers.size < 2) pan = null;
+    if (mid && !(ev.buttons & 4)) { mid = null; if (ev.button === 1) return; } // (the middle button let go)
     if (!drag.down) return; drag.down = false;
     if (!input.enabled()) { drag.box = false; drag.pan = false; return; }
     if (drag.pan) { // let go mid-swipe: the camera glides on
@@ -282,7 +297,7 @@ function bindCanvas() {
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);
-  cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; drag.down = false; drag.box = false; drag.pan = false; });
+  cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; mid = null; drag.down = false; drag.box = false; drag.pan = false; });
   cv.addEventListener('pointerleave', () => { edge.x = 0; edge.y = 0; });
   // Wheel pans; Ctrl+wheel (and trackpad pinch, which arrives as Ctrl+wheel) zooms around the cursor.
   cv.addEventListener('wheel', ev => {
@@ -347,12 +362,15 @@ function bindSelectButton() {
   }
 }
 
-/** Hotkeys: control groups, alerts, idle workers, pause, Home, the command card's keys; held keys for the camera. */
+/** Hotkeys: control groups, alerts, idle workers, pause, Home, the command card's keys (the controls scheme's:
+ *  cards.js gives each button its key); held keys for the camera (in WASD, W A S D only move it). */
 function bindKeys() {
   window.addEventListener('keydown', ev => {
     if (ev.target.tagName === 'INPUT') return;
-    const k = ev.key; keys[k.toLowerCase()] = true;
+    const k = ev.key;
+    if (!ev.metaKey) held.add(ev.code); // (with Cmd down a Mac sends no keyup for the letter)
     if (!$('help').hidden) { if (k === 'Escape') { $('help').hidden = true; ev.preventDefault(); } return; } // Help on top: Esc closes it
+    if (!$('options').hidden) return; // OPTIONS on top (options.js: Esc closes it)
     if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
     if (!input.enabled()) return;
     if (/^[1-9]$/.test(k)) {
@@ -366,23 +384,33 @@ function bindKeys() {
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
     if (k === 'Home') { goHome(); ev.preventDefault(); return; }
-    const items = ui.watching ? [] : cardItems(); const it = items.find(i => i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
+    // WASD: by the key's place (`ev.code`), on any layout: W A S D move the camera (camKeys), never an order; a card
+    // button's key is its slot's; Q the army. CLASSIC: by the letter (`ev.key`), so a letter stays its command's.
+    const grid = wasd();
+    if (grid && PAN_CODES.includes(ev.code) && !ev.ctrlKey && !ev.metaKey) return;
+    const is = (key) => (grid ? ev.code === 'Key' + key : key.toLowerCase() === k.toLowerCase());
+    const items = ui.watching ? [] : cardItems(); const it = items.find(i => i.key && i.key !== 'Esc' && is(i.key));
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id, ev.shiftKey ? 5 : 1); invalidateCard(); ev.preventDefault(); return; } // (Shift: five of a unit)
-    if (!it && (k === 'q' || k === 'Q')) selectArmy();
+    if (!it && is('Q')) selectArmy();
   });
-  window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
+  window.addEventListener('keyup', ev => { held.delete(ev.code); });
+  addEventListener('blur', letGo);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); });
 }
+const PAN_CODES = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
 
-/** Arrow keys / WASD (when nothing is selected), mouse edge scrolling and the touch glide. */
+/** Arrow keys / WASD (always in the WASD scheme; in the classic one when nothing is selected), mouse edge scrolling
+ *  and the touch glide. */
 export function camKeys(dt) {
   if (fling.vx || fling.vy) {
     cam.x += fling.vx * dt; cam.y += fling.vy * dt; clampCam();
     const k = Math.exp(-3.2 * dt); fling.vx *= k; fling.vy *= k;
     if (Math.hypot(fling.vx, fling.vy) < FLING_MIN) fling.vx = fling.vy = 0;
   }
-  let dx = 0, dy = 0; const free = !playerSel().length; // a selected enemy or field leaves WASD to the camera
-  if (keys.arrowleft || (keys.a && free)) dx -= 1; if (keys.arrowright || (keys.d && free)) dx += 1;
-  if (keys.arrowup || (keys.w && free)) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;
-  if (drag.ptype === 'mouse' && !drag.down) { dx += edge.x; dy += edge.y; }
+  let dx = 0, dy = 0; const free = wasd() || !playerSel().length; // (classic: a selected enemy or field leaves WASD to the camera)
+  const on = (arrow, letter) => held.has(arrow) || (free && held.has(letter));
+  if (on('ArrowLeft', 'KeyA')) dx -= 1; if (on('ArrowRight', 'KeyD')) dx += 1;
+  if (on('ArrowUp', 'KeyW')) dy -= 1; if (on('ArrowDown', 'KeyS')) dy += 1;
+  if (drag.ptype === 'mouse' && !drag.down && !mid) { dx += edge.x; dy += edge.y; }
   if (dx || dy) { cam.x += dx * 620 * dt / cam.zoom; cam.y += dy * 620 * dt / cam.zoom; clampCam(); }
 }

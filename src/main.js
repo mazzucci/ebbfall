@@ -31,7 +31,7 @@ let started = false;
 // record, and times the loop's phases while `probe.on`.
 const BENCH = new URLSearchParams(location.search).has('bench');
 const probe = { on: false, lap() {} };
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('end').hidden || !$('homeTip').hidden;
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('options').hidden || !$('end').hidden || !$('homeTip').hidden;
 // (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
@@ -62,7 +62,7 @@ function newOnlineGame(setup, seat, races) {
 }
 
 function begin(reset) {
-  $('help').hidden = true; stopWatching(); ended = false; outSaid = false;
+  $('help').hidden = true; $('options').hidden = true; stopWatching(); ended = false; outSaid = false;
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
@@ -91,7 +91,7 @@ function giveUp() {
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
   giveUp(); stopWatching(); stopOnline(); // (a leaving Net closes itself once its leave is out)
-  started = false; closePause(); $('end').hidden = true; $('help').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
+  started = false; closePause(); $('end').hidden = true; $('help').hidden = true; $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
 // ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----

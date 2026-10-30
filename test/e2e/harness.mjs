@@ -226,7 +226,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       }
       return null;
     }, [type, near]),
-    /** Select a harvester by clicking it, then place `type` (by its hotkey) at tile (tx, ty) by clicking. */
+    /** Select a harvester by clicking it, then place `type` (by its hotkey: B then it; or `hotkey` the keys to press,
+     *  ['e', 'e'] in the WASD scheme) at tile (tx, ty) by clicking. */
     async buildWithUI(hotkey, type, tx, ty, harvesterId) {
       // A mining harvester moves, and while it unloads it is under the Core: a tap may miss it (or let go of it); try
       // again, a little later each time, until it is the selection (a slow machine needs more than a few tries).
@@ -245,7 +246,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
         }, type);
         await d.pressCard('Build'); if (advanced) await d.pressCard('Advanced'); await d.pressCard(label);
       }
-      else { await d.key('b'); await d.key(hotkey); }
+      else for (const k of Array.isArray(hotkey) ? hotkey : ['b', hotkey]) await d.key(k);
       const w = await ev((t) => endfall.engine.BUILDINGS[t], type);
       const [x, y] = await d.screen((tx + w.w / 2) * 32, (ty + w.h / 2) * 32);
       // Touch: the ghost appears under the finger and follows it; drag it onto this exact spot and let go, as a

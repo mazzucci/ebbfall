@@ -107,7 +107,12 @@ src/client/           everything that touches the browser
                       over every menu page, the lobby and every card (the pause card: full screen only, as it pauses the
                       sound); one sound setting; on iPad/iPhone the full-screen button opens the Add to Home Screen card
                       (#homeTip)
-  store.js            what this device remembers (localStorage, endfall.*)
+  store.js            what this device remembers (localStorage, endfall.*; endfall.controls: the keyboard scheme)
+  controls.js         the desktop keyboard scheme: CLASSIC (letters; arrows, edge, minimap, middle drag) or WASD (W A S D
+                      always pan; a command's key is its card slot's, GRID: E R T / F G H / C V B by key position),
+                      `keyed`; shown where `(pointer: fine)`
+  options.js          the OPTIONS card: a list of settings (CONTROLS for now), its button shown where any applies;
+                      opened from the menu's first page and the pause card
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (the board: eight fixed spots, you and one to
@@ -132,7 +137,9 @@ src/client/           everything that touches the browser
                       setup of the menu before the board names; pure (test/maps.test.js; the relay imports it too)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
-  card.js             the command card: buttons for the selection, long-press details, what a button does
+  cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
+                      test/cards.test.js)
+  card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, in a replay BACK TO REPLAY / DONE, online a menu over a game that
@@ -191,6 +198,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
                       seat 2 (the start arranges the sides)
+test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
+                      a WASD key per button by slot, none twice on a card, never W A S D, Q or P
 test/seats.test.js    the board's rules: spots to seats, team ids and each seat's spot, a new AI's spot and side, the
                       sides a sheet offers, a saved board checked (and one from before the spots)
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);

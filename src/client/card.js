@@ -1,125 +1,24 @@
-// The command card: the buttons for what is selected (orders, the Build pages, training, research), the long-press
-// details on touch, and what a button does (doCommand).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, unlockOf } from '../engine/index.js';
-import { $, ui, toast, playerSel, ARMED, armedButton, setBox, setHint, clearMode, setSelection } from './ui.js';
-import { updateHud, myFaction, buildersOf, ROMAN } from './hud.js';
+// The command card's buttons (what they hold: cards.js), the long-press details on touch, and what a button does
+// (doCommand).
+import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
+import { updateHud } from './hud.js';
+import { cardItems, myFaction, leastBusy, researching, mostBusy } from './cards.js';
+import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
 import { icon } from './icons.js';
 import { portrait } from './gl/render.js';
 
 let cardKey = '';
 export function invalidateCard() { cardKey = ''; }
-
-/**
- * The command card: three buttons a row (big enough for a thumb), fixed slots (slot = row * 3 + column) so a command
- * keeps its place. No Stop or Move buttons: a tap on the ground moves, Hold stops (their keys still work: `hidden`
- * items have a key but no button). Units have Deselect in the last slot; a building or field is let go with a tap on
- * the ground. An armed order's own button
- * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
- */
-const COLS = 3;
-/** Whether unit `u` could use ability `k` now (it has it, it is ready, it is not digging in or packing up). */
-function canUse(u, k) {
-  const slot = (UNITS[u.type].abilities || []).indexOf(k);
-  return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0 && !(u.warp > 0); // (a cost it cannot pay is refused by the sim, with a toast)
-}
-/** The selection's abilities, one button each (in table order): greyed while none of their units can use it, lit while a
- *  toggle is on for all of them. No countdowns: a button comes back when it is ready. */
-function abilityItems(units) {
-  return Object.keys(ABILITIES).filter(k => units.some(u => (UNITS[u.type].abilities || []).includes(k))).map(k => {
-    const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k)), tech = unlockOf(k);
-    if (tech && !G.upgrades[G.me][tech]) { // not researched yet: locked, and where to research it
-      const at = Object.values(BUILDINGS).find(d => (d.researches || []).includes(tech));
-      return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, locked: true, tip: `${a.desc} Research ${UPGRADES[tech].name} at the ${at?.name ?? 'tech building'} first.` };
-    }
-    // Lit while on: a toggle for all of them, a timed one (Stim, Cloak) while any of them is under it (no countdown).
-    const on = a.toggle ? have.every(u => u.mode === k) : have.some(u => u.boost === k);
-    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), active: on, tip: a.desc };
-  });
-}
-
-export function cardItems() {
-  const sel = playerSel();
-  if (!sel.length) return []; // a field or an enemy: nothing to command
-  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const items = [];
-  const at = (slot, it) => { while (items.some(i => i.slot === slot)) slot++; it.slot = slot; items.push(it); }; // never two in a slot
-  const hidden = (it) => items.push({ ...it, hidden: true, slot: -1 });
-  const bldgItem = (k) => {
-    const d = BUILDINGS[k];
-    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(G.me, k), por: ['bldg', k], tip: d.desc };
-  };
-  const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
-  if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
-    const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic;
-    page.forEach((k, i) => at(i, bldgItem(k)));
-    (adv ? f.buildBasic : f.buildAdvanced).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
-    if (!adv) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.map(k => BUILDINGS[k].name).join(', ') });
-    at(5, adv ? { ...back, id: 'build1' } : back);
-  } else if (units.length) {
-    const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
-    const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
-    const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // the Vael regenerate shields instead
-    if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
-    else { orders.forEach((it, i) => at(i, it)); if (workers) work.forEach((it, i) => at(COLS + i, it)); }
-    abilityItems(units).forEach((it, i) => at(orders.length + i, it)); // after the orders, on their row
-    // Let go of units (a tap on the ground would move them): the last slot of the card.
-    at(Math.ceil((Math.max(...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
-    hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
-  } else if (bl.length === 1 || (bl.length && bl.every(o => o.done && o.type === bl[0].type))) {
-    // One building, or several finished ones of a kind (a double-tap): their shared card, shown for the one with the
-    // shortest queue (where a unit goes next).
-    const b = bl.length === 1 ? bl[0] : leastBusy(bl);
-    if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: myFaction().warp ? 'Plant' : 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to ${myFaction().warp ? 'plant it' : 'finish construction'}` });
-    if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
-    const trains = b.done ? b.d.trains || [] : [];
-    trains.forEach((t, i) => {
-      const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc, strong: d.strong, weak: d.weak });
-    });
-    if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
-    if (b.done && b.d.researches.length) {
-      // Fixed slots: a research building's own row holds two researches and Cancel, the techs go below. A factory's one
-      // tech sits after its units and Rally, and while it researches its button becomes the Cancel (the card keeps its
-      // shape; the queue's Cancel keeps its own slot). A finished tech leaves its slot empty.
-      const slots = trains.length ? [trains.length + 1] : [0, 1, 3, 4, 5], busy = researching(bl);
-      const cancelr = busy && { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' };
-      b.d.researches.forEach((k, i) => {
-        const u = UPGRADES[k];
-        const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
-        if (trains.length && busy?.research.type === k) { at(slots[i] ?? i, cancelr); return; }
-        if (lv > u.levels) return;
-        at(slots[i] ?? i, { id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
-      });
-      if (busy && !trains.length) at(2, cancelr);
-    }
-    // A dark building (no power field) trains and researches nothing: its buttons say so.
-    if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ` Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it.` });
-    // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
-    if (trains.length) {
-      const last = mostBusy(bl).queue.at(-1);
-      at(5, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, dis: !last, ...(last ? { por: ['unit', last], badge: true } : { icon: 'x' }), tip: 'Cancel the last unit in the queue (refund)' });
-    }
-  }
-  // An armed order: its button becomes Cancel (Esc), lit, in the same place.
-  const armedId = armedButton(), armedAt = items.find(i => i.id === armedId && !i.hidden);
-  if (armedAt) {
-    Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
-    // One live Cancel at a time (Deselect stays); the queue's keeps its slot, greyed out, so the card keeps its shape.
-    for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
-  }
-  for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
-    const [sh, et] = G.res[G.me];
-    it.poor = true;
-    it.tip = (it.tip ? it.tip + ' ' : '') + (sh < it.cost[0] ? `Not enough shards (needs ${it.cost[0]}).` : `Not enough ether (needs ${it.cost[1]}).`);
-  }
-  return items.sort((p, q) => p.slot - q.slot);
-}
+export { cardItems };
+// A new controls scheme (controls.js) puts other keys on the buttons: drawn again at once.
+onControls(() => { cardKey = ''; buildCard(); });
 
 export function buildCard() {
   const items = cardItems().filter(i => !i.hidden);
   if (press.held && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed)
-  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.locked, i.active, i.label, i.slot, i.poor, i.tip, i.por]));
+  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.locked, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key]));
   if (key === cardKey) return; cardKey = key;
   const c = $('cmd'); c.innerHTML = '';
   const slots = items.length ? items[items.length - 1].slot + 1 : 0;
@@ -131,9 +30,9 @@ export function buildCard() {
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
     if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
-    b.title = `${it.label} (${it.key})` + (it.tip ? ': ' + it.tip : '') + vsText(it);
+    b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '') + vsText(it);
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
-    b.innerHTML = `<span class="k">${it.key}</span><span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
+    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
       if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
@@ -168,13 +67,6 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
   clearTimeout(press.timer);
   if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
 }, true);
-
-/** Of several buildings of a kind: the powered one with the shortest queue (then the most progress, then by id). */
-const leastBusy = (bs) => bs.slice().sort((p, q) => (p.d.needsPower && !p.powered) - (q.d.needsPower && !q.powered) || p.queue.length - q.queue.length || q.prog - p.prog || p.id - q.id)[0];
-/** The first of them researching (what a research Cancel shows and cancels). */
-const researching = (bs) => bs.find(o => o.research);
-/** The one with the longest queue (a Cancel takes its last unit). */
-const mostBusy = (bs) => bs.slice().sort((p, q) => q.queue.length - p.queue.length || p.id - q.id)[0];
 
 /** A refused button press. Short of shards or ether, or an ability that is already on or not ready: the button
  *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is

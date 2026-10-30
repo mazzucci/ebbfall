@@ -813,8 +813,16 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
             let teams: Vec<u8> = (0..n).map(|s| (s * 2 / n) as u8).collect();
             for side in [0u32, 1, 5, 17, 63, 1000, 123_456_789] {
                 let m = side % (k * n) as u32;
-                assert_eq!(seat_starts(k, n, side), seat_starts(k, n, m), "seat_starts k={k} n={n} side={side}");
-                assert_eq!(team_starts(k, &teams, side), team_starts(k, &teams, m), "team_starts k={k} n={n} side={side}");
+                assert_eq!(
+                    seat_starts(k, n, side),
+                    seat_starts(k, n, m),
+                    "seat_starts k={k} n={n} side={side}"
+                );
+                assert_eq!(
+                    team_starts(k, &teams, side),
+                    team_starts(k, &teams, m),
+                    "team_starts k={k} n={n} side={side}"
+                );
             }
         }
     }

@@ -1,13 +1,15 @@
 // The Cloudflare relay (relay/worker.js) in Node, with fake WebSocket pairs and a fake Durable Object namespace (with
 // storage, and eviction): a room opened and joined through the Worker, a game started and its turns ticking, leaving,
 // a reconnect replacing a live socket, no such room, a taken code, no free code, an evicted lobby coming back (its held
-// seats too; an evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages. Then the
+// seats too; an evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages; GET
+// /version (the protocol, and the build CI deployed, which it reads before deploying the relay or the site). Then the
 // device test's reports (relay/bench.js): stored and read back by code, only from the game's pages, size, JSON, a known
 // kind, limits per address and in all (by the minute, by the UTC day), expiry and the sweep of a backlog.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { RoomObject } from '../relay/worker.js';
 import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
+import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
 
 /** A connected pair of fake sockets: what one sends, the other's listeners get. */
@@ -265,6 +267,21 @@ test('only WebSockets, only from the game\'s pages when ORIGINS is set', async (
   const ok = await worker.fetch(upgrade('new=1'), e);
   assert.equal(ok.status, 101);
   ok.webSocket.close();
+});
+
+test('GET /version: the protocol and the build CI deployed, from anywhere, never cached; the client speaks that protocol', async () => {
+  assert.equal(CLIENT_PROTO, PROTO, 'src/net/net.js and relay/room.js agree (CI publishes the site only when the live relay says this PROTO)');
+  const e = env({ ORIGINS: 'https://ebbfall.com', RELAY_BUILD: '0123456789abcdef' });
+  const res = await worker.fetch(new Request('https://relay.ebbfall.com/version'), e); // (no Origin: curl in CI)
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('Content-Type'), 'application/json');
+  assert.equal(res.headers.get('Cache-Control'), 'no-store');
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+  assert.deepEqual(await res.json(), { proto: PROTO, build: '0123456789abcdef' });
+  assert.deepEqual(await (await worker.fetch(new Request('https://relay.ebbfall.com/version'), env())).json(), { proto: PROTO, build: null }, 'deployed without a build (by hand): null, so CI deploys');
+  assert.equal((await worker.fetch(new Request('https://relay.ebbfall.com/version', { method: 'POST', body: 'x' }), e)).status, 405);
+  assert.equal((await worker.fetch(new Request('https://relay.ebbfall.com/version/x'), e)).status, 426, 'only that path');
+  assert.equal(e.objects.size, 0, 'no object woken');
 });
 
 // ---- the device test's reports ----

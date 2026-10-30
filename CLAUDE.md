@@ -42,7 +42,14 @@ node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) afte
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
 browser tests (all in Chromium, the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
-`main` to GitHub Pages: https://ebbfall.com/. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
+`main` to GitHub Pages: https://ebbfall.com/. On `main` the relay goes first (the `relay` job, then `deploy`): it is
+deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
+run must not leave a relay change undeployed): the job hashes the bundle wrangler would upload (`deploy --dry-run`,
+wrangler pinned) with wrangler.toml, reads the live build from `GET https://relay.ebbfall.com/version`
+(`{proto, build}`, relay/version.js), and deploys with `--var RELAY_BUILD:<hash>` when they differ, when there is no
+/version, or on a run started by hand; then waits for /version to say the new build. The `deploy` job (the site)
+publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/net.js's, which a test keeps equal), so
+the site never outruns the relay. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
 iPad, an iPhone and a Pixel (docs/MULTIPLAYER.md, "Browsers and devices").
 
 A change to the simulation must keep `cargo test` and `npm test` green, in particular the determinism tests (same seed
@@ -196,8 +203,9 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       its seats (it imports src/client/maps.js), lobby, the turn clock, the log, away and back,
                       desync checks); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
-                      Worker and one Durable Object per room; wrangler.toml; CI deploys it once the token is set);
-                      bench.js, the device test's reports over HTTP (POST /bench, GET /bench/<CODE>), in both
+                      Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
+                      this commit's build); bench.js, the device test's reports over HTTP (POST /bench, GET
+                      /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 tools/engines.mjs     the e2e tests' engine (ENDFALL_ENGINE: chromium, webkit, firefox) and its device profiles
 tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad, iPhone, Pixel per backend), drivers.mjs

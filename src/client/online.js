@@ -20,7 +20,7 @@ import { mapSelect, drawPreview, showMenu } from './menu.js';
 import { MAPS, MAX_PLAYERS, fitMap, mapLabel } from './maps.js';
 import { filled, freeTeam, firstEmpty, sideChoices, sideColor, seatColor, raceTitle, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 import { touchDevice, enterFullscreen } from './screen.js';
-import { store } from './store.js';
+import { cleanName, playerName } from './store.js';
 
 const params = new URLSearchParams(location.search);
 // (this machine, a LAN, or a Tailscale network)
@@ -78,8 +78,10 @@ export function initOnline({ game: g }) {
   $('roomCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoinRoom').click(); });
   $('onlineName').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !needName() && $('roomCode').value.trim()) $('btnJoinRoom').click(); });
   $('onlineName').addEventListener('input', nameGate);
+  // (kept as typed, on change or blur, under the key OPTIONS' NAME shows too: store.js `playerName`)
+  for (const t of ['change', 'blur']) $('onlineName').addEventListener(t, saveName);
   addEventListener('popstate', () => roomInUrl(urlRoom)); // (the leave guard's history.back lands on an entry with an address of its own)
-  $('btnOnlineBack').addEventListener('click', () => { sfx('select'); stopOnline(); $('online').hidden = true; showMenu(); });
+  $('btnOnlineBack').addEventListener('click', () => { sfx('select'); if (document.activeElement === $('onlineName')) saveName(); stopOnline(); $('online').hidden = true; showMenu(); });
   // READY once the game has loaded (a room's start must find it ready: the relay's clock waits for every seat); a game
   // that could not load: RELOAD.
   $('btnOnlineReady').addEventListener('click', () => {
@@ -94,7 +96,7 @@ export function initOnline({ game: g }) {
   holdTaps();
   narrow.addEventListener?.('change', () => { if (lobbyState) renderLobby(lobbyState); }); // (a token's race, short or not)
   simReady.then(() => { preview = ''; if (lobbyState) renderLobby(lobbyState); }, () => {}); // (the map's thumbnail, once the sim can draw it)
-  $('onlineName').value = store.get('name') || ''; nameGate();
+  loadName();
   // After UPDATE with no room yet (?online=1): straight back to the multiplayer page.
   if (params.get('online') !== null) { const q = new URLSearchParams(location.search); q.delete('online'); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`); if (relayUrl()) openLobby(); }
   // A room's link (?room=CODE, or an older ?join=CODE), or a reload in the room: straight into it with the name this
@@ -113,7 +115,11 @@ function invited(code) {
 }
 /** The name typed (trimmed, 16 at most; the relay checks it too); NEW ROOM and JOIN dimmed while there is none, the
  *  nudge gone once there is. */
-const typedName = () => $('onlineName').value.trim().slice(0, 16);
+const typedName = () => cleanName($('onlineName').value);
+/** The field shows the name this device remembers (OPTIONS may have changed it since: in a game's pause card too). */
+function loadName() { $('onlineName').value = playerName.get(); nameGate(); }
+/** The name typed, remembered (none too: the field emptied; NEW ROOM and JOIN still ask for one). */
+function saveName() { playerName.set($('onlineName').value); }
 function nameGate() {
   const none = !typedName();
   for (const b of [$('btnNewRoom'), $('btnJoinRoom')]) { if (none) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled'); }
@@ -125,7 +131,7 @@ function needName() {
   $('onlineNameNote').hidden = false; $('onlineName').focus();
   return true;
 }
-function openLobby() { $('btnJoinRoom').classList.remove('big'); $('onlineNameNote').hidden = true; $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
+function openLobby() { loadName(); $('btnJoinRoom').classList.remove('big'); $('onlineNameNote').hidden = true; $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 /** Out of the room (an error, a start, BACK): its sheet closed, its board forgotten. */
 function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; lastMap = null; mapNote = ''; clearTimeout(noteTimer); sheet?.close(); }
 /** This side's seat in the room (the relay's `seat`): the first one, back after a reconnect, or another mid-lobby (the
@@ -139,7 +145,7 @@ function takeSeat(m) {
   if (first || failed) status(failed ? LOAD_FAILED : '');
 }
 function status(s) { $('onlineStatus').textContent = s; }
-const name = () => { const n = typedName(); if (n) store.set('name', n); return n; };
+const name = () => { const n = typedName(); if (n) playerName.set(n); return n; };
 
 function connect(room) {
   stopOnline();
@@ -196,7 +202,7 @@ function connect(room) {
       error: (m) => {
         if (online.playing) { fatal(m.code === 'noroom' ? 'The room is gone: this game is over' : String(m.msg || 'The connection was lost')); return; }
         status(m.code === 'version' ? 'Your Ebbfall and your friend\'s don\'t match. Tap UPDATE, then JOIN again' : String(m.msg || ''));
-        roomInUrl(''); leaveRoom(); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version' && m.code !== 'update'; // (another build: UPDATE)
+        roomInUrl(''); leaveRoom(); loadName(); $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = m.code !== 'version' && m.code !== 'update'; // (another build: UPDATE)
       },
       status: (s) => {
         if (s === 'online') { waitingFor.clear(); loadingSeats.clear(); } // (seated again: the relay tells who is still away next)

@@ -314,6 +314,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
    to play is. */
 #options{z-index:21} #optionsList{margin:10px 0 14px} .setting{margin:0 0 12px} .setting .opt{margin:0;flex-wrap:nowrap}
 .setting .line{font:11px var(--mono);color:var(--muted);margin-top:6px}
+#options input{flex:1 1 auto;min-width:0;max-width:12em} /* (16 px type, as the lobby's: iOS zooms into a smaller field) */
 .card h2{margin:0 0 4px;font-size:20px;letter-spacing:.08em}
 .tip{font-size:12.5px;color:var(--ally2);border:1px solid var(--line2);border-radius:4px;padding:6px 10px;background:var(--panel2)}
 @media (prefers-reduced-motion:reduce){.toast,.tb.alert,.cb.refused{animation:none} #minimap{transition:none!important}}
@@ -387,7 +388,7 @@ body.replay #cmd{visibility:hidden}
 #netWait[hidden]{display:none} #netWait .ib{min-width:44px;min-height:32px}
 @media (max-height:500px){#netWait{top:40px}}
 /* Multiplayer: the join form, then the room (online.js) */
-#online input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
+:is(#online,#options) input{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 16px var(--display);letter-spacing:.08em;padding:6px 8px;min-height:36px;box-sizing:border-box}
 #roomCode{width:5.5em;text-transform:uppercase;text-align:center} #onlineName{width:12em}
 /* NEW ROOM and JOIN until a name is typed: dimmed as a disabled button, still focusable (a tap or Enter asks for the name) */
 #onlineJoin .ib[aria-disabled="true"]{opacity:.45;cursor:default} #onlineJoin .ib[aria-disabled="true"]:hover{border-color:var(--line2)}

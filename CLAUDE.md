@@ -108,12 +108,16 @@ src/client/           everything that touches the browser
                       over every menu page, the lobby and every card (the pause card: full screen only, as it pauses the
                       sound); one sound setting; on iPad/iPhone the full-screen button opens the Add to Home Screen card
                       (#homeTip)
-  store.js            what this device remembers (localStorage, endfall.*; endfall.controls: the keyboard scheme)
+  store.js            what this device remembers (localStorage, endfall.*; endfall.controls: the keyboard scheme); the
+                      player's name, one key (endfall.name) and one sanitiser (`cleanName`: trimmed, 16 at most, as the
+                      relay takes it) behind `playerName` get/set, shared by the lobby's NAME and OPTIONS' (test/store.test.js)
   controls.js         the desktop keyboard scheme: CLASSIC (letters; arrows, edge, minimap, middle drag) or WASD (W A S D
                       always pan; a command's key is its card slot's, GRID: E R T / F G H / C V B by key position),
                       `keyed`; shown where `(pointer: fine)`
-  options.js          the OPTIONS card: a list of settings (CONTROLS for now), its button shown where any applies;
-                      opened from the menu's first page and the pause card
+  options.js          the OPTIONS card: a list of settings drawn by one helper, chips or a text field: NAME (every device,
+                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed) and CONTROLS (where
+                      `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
+                      page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (the board: eight fixed spots, you and one to
@@ -212,6 +216,7 @@ test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS bin
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
+test/store.test.js    the player's name: `cleanName` (and that the relay names a hello the same), `playerName`'s one key
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
                       does when they outgrow one), labels, an online setup's map at its own size, the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats on

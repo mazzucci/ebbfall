@@ -94,11 +94,10 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       // The menu's pages and the lobby.
       await cornerOn(o, 'home', '#menuHome');
       await press('#btnAbout'); await cornerOn(o, 'about', '#menuAbout');
-      // OPTIONS: where it has a setting for this device (CONTROLS: a mouse and a keyboard), so on the desktop only.
-      const options = device === DESKTOP;
+      // OPTIONS: on every device (NAME; CONTROLS too with a mouse and a keyboard).
       await press('#btnAboutBack');
-      assert.equal(await shown('#btnOptions'), options, `OPTIONS ${options ? '' : 'not '}on the first page`);
-      if (options) { await press('#btnOptions'); await cornerOn(o, 'options (the menu\'s)', '#options', '#options .card'); await press('#btnOptionsClose'); }
+      assert.ok(await shown('#btnOptions'), 'OPTIONS on the first page');
+      await press('#btnOptions'); await cornerOn(o, 'options (the menu\'s)', '#options', '#options .card'); await press('#btnOptionsClose');
       await press('#btnAbout');
       await press('#btnAboutBack'); await press('#btnHowTo'); await cornerOn(o, 'how to play (the menu\'s)', '#help', '#help .card');
       await press('#btnHelpClose'); await press('#btnOnline'); await cornerOn(o, 'the lobby', '#online');
@@ -117,8 +116,8 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       const bar = await underCorner(page, '#top');
       assert.deepEqual(bar.got.filter(id => /^res/.test(id)), [], 'the top bar\'s figures clear of the corner');
       await press('#btnPauseHelp'); await cornerOn(o, 'how to play (the pause card\'s)', '#help', '#help .card', { sound: false }); // (still paused)
-      assert.equal(await shown('#btnPauseOptions'), options, `OPTIONS ${options ? '' : 'not '}on the pause card`);
-      if (options) { await press('#btnHelpClose'); await press('#btnPauseOptions'); await cornerOn(o, 'options (the pause card\'s)', '#options', '#options .card', { sound: false }); await press('#btnOptionsClose'); await press('#btnPauseHelp'); } // (still paused)
+      assert.ok(await shown('#btnPauseOptions'), 'OPTIONS on the pause card');
+      await press('#btnHelpClose'); await press('#btnPauseOptions'); await cornerOn(o, 'options (the pause card\'s)', '#options', '#options .card', { sound: false }); await press('#btnOptionsClose'); await press('#btnPauseHelp'); // (still paused)
       await press('#btnHelpClose'); await press('#btnResume'); await topBarOn(o, 'back to the game');
       await page.keyboard.press('Backspace'); await page.locator('#leave').waitFor();
       await cornerOn(o, 'the leave card', '#leave', '#leave .card');

@@ -626,11 +626,11 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       let c = await card(a);
       assert.equal(c.h, 'Menu');
       assert.match(c.line, /^\d+:\d\d in\. The game goes on while this is open\.$/);
-      assert.deepEqual(c.buttons, ['BACK TO GAME', 'HOW TO PLAY', 'OPTIONS', 'PAUSE FOR EVERYONE3 left', 'LEAVE GAME'], 'no RESTART online; a pause for everyone, with the pauses left; OPTIONS (a mouse: CONTROLS)');
+      assert.deepEqual(c.buttons, ['BACK TO GAME', 'HOW TO PLAY', 'OPTIONS', 'PAUSE FOR EVERYONE3 left', 'LEAVE GAME'], 'no RESTART online; a pause for everyone, with the pauses left; OPTIONS');
       assert.equal(await a.p.locator('#btnQuit').getAttribute('title'), 'Back to the menu: Bo wins');
       assert.equal((await card(b)).open, false, 'the friend\'s screen is untouched');
       await runs('the game goes on under the menu');
-      // OPTIONS from the menu (a mouse: CONTROLS): over it the game goes on too; Esc: the menu again.
+      // OPTIONS from the menu: over it the game goes on too; Esc: the menu again.
       await a.tap('#btnPauseOptions');
       assert.ok(await a.p.locator('#options').isVisible(), 'OPTIONS over the menu');
       await runs('the game goes on under OPTIONS');
@@ -650,7 +650,7 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       c = await card(b);
       assert.equal(c.h, 'Paused');
       assert.match(c.line, /^Paused by Ann · [45]:\d\d left$/);
-      assert.deepEqual(c.buttons, ["(ANN'S PAUSE)", 'HOW TO PLAY', 'LEAVE GAME'], 'the others: whose pause it is, greyed; no RESUME');
+      assert.deepEqual(c.buttons, ["(ANN'S PAUSE)", 'HOW TO PLAY', 'OPTIONS', 'LEAVE GAME'], 'the others: whose pause it is, greyed; no RESUME');
       const sc = await b.p.locator('#pause .card').evaluate(e => [e.scrollHeight, e.clientHeight]);
       assert.ok(sc[0] <= sc[1] + 1, `fits a small phone: ${sc}`);
       await stands('both games stand still');

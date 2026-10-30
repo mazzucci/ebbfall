@@ -593,7 +593,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
       assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there; the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', ...(device.hasTouch ? [] : ['OPTIONS']), 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS with a mouse (CONTROLS); PLAY OFFLINE (nothing to install here)');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
       // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
       await press('#btnAbout');
       assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#cornerSound'), 'About opens, the sound icon still there');
@@ -1508,7 +1508,7 @@ test('phone: Home looks at the base (beside SELECT, no wider than the minimap to
   } finally { await d.close(); }
 });
 
-test('phone: the pause card has four equal buttons and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', { skip: notIn(['webkit'], IPHONE) }, async () => {
+test('phone: the pause card has five buttons (BACK TO GAME across, four equal below) and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat', { skip: notIn(['webkit'], IPHONE) }, async () => {
   const d = await newGame({ ...PHONE, viewport: { width: 667, height: 375 } }, 1, 4242);
   try {
     // Full screen (stood in for: headless browsers have none, or a real one START may have entered).
@@ -1522,8 +1522,9 @@ test('phone: the pause card has four equal buttons and fits a small phone; PAUSE
     await d.page.locator('#btnPause').tap();
     assert.deepEqual(await fs(), [false, 1, 0], 'PAUSE leaves full screen');
     const boxes = await d.page.$$eval('#pause .pausegrid button', bs => bs.filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; }));
-    assert.deepEqual(boxes.map(b => b[0]), ['BACK TO GAME', 'HOW TO PLAY', 'RESTART', 'LEAVE GAME']);
-    assert.ok(boxes.every(b => b[1] === boxes[0][1] && b[2] === boxes[0][2] && b[2] >= 44), `one size, big enough: ${JSON.stringify(boxes)}`);
+    assert.deepEqual(boxes.map(b => b[0]), ['BACK TO GAME', 'HOW TO PLAY', 'OPTIONS', 'RESTART', 'LEAVE GAME']);
+    assert.ok(boxes.every(b => b[2] === boxes[0][2] && b[2] >= 44), `one height, big enough: ${JSON.stringify(boxes)}`);
+    assert.ok(boxes.slice(1).every(b => b[1] === boxes[1][1]) && boxes[0][1] > 2 * boxes[1][1], `four of one width, BACK TO GAME across: ${JSON.stringify(boxes)}`);
     const sc = await d.page.locator('#pause .card').evaluate(e => [e.scrollHeight, e.clientHeight]);
     assert.ok(sc[0] <= sc[1] + 1, `fits without scrolling: ${sc}`);
     assert.equal(await d.page.locator('#btnConcede').count(), 0, 'no Concede (leaving is giving up)');
@@ -2589,10 +2590,10 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     assert.ok(await page.locator('#pause').isVisible(), 'over the pause card');
     assert.ok(await page.locator('#cornerFull').isVisible() && await page.locator('#cornerSound').isHidden(), 'the corner keeps the pause card\'s rule: full screen, no sound button');
     assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'CLASSIC', 'CLASSIC by default');
-    assert.match(await opts.locator('.line').textContent(), /^Arrows/);
+    assert.match(await opts.locator('.setting:has([data-k^="controls:"]) .line').textContent(), /^Arrows/);
     await opts.locator('[data-k="controls:wasd"]').click();
     assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'WASD');
-    assert.match(await opts.locator('.line').textContent(), /^WASD moves the map/);
+    assert.match(await opts.locator('.setting:has([data-k^="controls:"]) .line').textContent(), /^WASD moves the map/);
     assert.ok(await page.$eval('#options .card', c => c.scrollHeight <= c.clientHeight + 1), 'the OPTIONS card fits');
     const t0 = await d.eval(() => endfall.G.time);
     await page.locator('#btnOptionsClose').click();
@@ -2711,7 +2712,7 @@ test('desktop, WASD controls: a held key is let go when the page loses the keybo
   } finally { await d.close(); }
 });
 
-test('desktop, WASD stored: the lobby\'s name field takes W A S D as letters', async () => {
+test('desktop, WASD stored: the lobby\'s name field and OPTIONS\' take W A S D as letters', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
     await ctx.addInitScript(() => localStorage.setItem('endfall.controls', 'wasd'));
@@ -2720,7 +2721,39 @@ test('desktop, WASD stored: the lobby\'s name field takes W A S D as letters', a
     await page.locator('#onlineName').fill('');
     await page.locator('#onlineName').pressSequentially('Wasd sad');
     assert.equal(await page.locator('#onlineName').inputValue(), 'Wasd sad');
+    await page.locator('#btnOnlineBack').click();
+    await page.locator('#btnOptions').click();
+    const f = page.locator('#options input');
+    assert.equal(await f.inputValue(), 'Wasd sad', 'the lobby\'s name, kept on the way out');
+    await f.fill(''); await f.pressSequentially('Dew saw');
+    assert.equal(await f.inputValue(), 'Dew saw');
   } finally { await ctx.close(); }
+});
+
+test('desktop, WASD stored, a game paused under OPTIONS: W A S D and the grid keys typed in its NAME are letters, never a pan or an order', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false, init: () => localStorage.setItem('endfall.controls', 'wasd') });
+  try {
+    const { page } = d;
+    await toMiddle(d);
+    const id = await selectedTrooper(d);
+    const cam = () => d.eval(() => [endfall.cam.x, endfall.cam.y]), c0 = await cam(), task = (await d.state()).units.find(u => u.id === id).task;
+    await d.key('p'); await page.locator('#btnPauseOptions').click();
+    const f = page.locator('#options input');
+    assert.notEqual(await page.evaluate(() => document.activeElement?.tagName), 'INPUT', 'opening the card focuses no field');
+    await f.click(); await f.fill('');
+    await f.pressSequentially('Dew saw'); // (E: Attack's key in WASD)
+    for (const k of ['d', 'w']) { await page.keyboard.down(k); await page.waitForTimeout(400); await page.keyboard.up(k); } // (held, as a pan would be)
+    assert.equal(await f.inputValue(), 'Dew sawdw', 'typed as letters');
+    assert.deepEqual(await cam(), c0, 'the camera stayed');
+    assert.equal(await d.eval(() => endfall.ui.mode), null, 'no order armed');
+    await page.locator('#btnOptionsClose').click(); await page.locator('#btnResume').click();
+    await page.waitForTimeout(500);
+    assert.deepEqual(await cam(), c0, 'nor did it move once the game went on (no key left held)');
+    assert.deepEqual((await d.selection()).map(e => e.id), [id], 'the Trooper still selected');
+    assert.equal((await d.state()).units.find(u => u.id === id).task, task, 'and given no order');
+    assert.equal(await d.eval(() => localStorage.getItem('endfall.name')), 'Dew sawdw', 'the name kept');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
 });
 
 test('desktop: OPTIONS on the menu\'s first page; the choice is remembered across a reload and shown there; How to play tells of both schemes', { engines: true }, async () => {
@@ -2785,14 +2818,92 @@ test('desktop: the middle button dragged moves the map in both schemes, selectin
   } finally { await d.close(); }
 });
 
-test('phone: no OPTIONS (nothing to set on a touch screen) on the menu or the pause card', async () => {
+test('phone: OPTIONS on the menu and the pause card, NAME only (no CONTROLS); the keyboard comes only with a tap on the field, whose type is 16 px; the page held still meanwhile does not fight it', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
-    await d.page.locator('#btnPause').tap();
-    assert.ok(await d.page.locator('#pause').isVisible());
-    assert.ok(await d.page.locator('#btnPauseOptions').isHidden(), 'no OPTIONS on the pause card');
-    assert.equal(await d.eval(() => document.getElementById('btnOptions').hidden), true, 'nor on the menu');
+    const { page } = d;
     assert.equal(await d.eval(() => matchMedia('(pointer: fine)').matches), false);
+    assert.equal(await d.eval(() => document.getElementById('btnOptions').hidden), false, 'OPTIONS on the menu');
+    await page.locator('#btnPause').tap();
+    assert.ok(await page.locator('#pause').isVisible() && await page.locator('#btnPauseOptions').isVisible(), 'OPTIONS on the pause card');
+    assert.ok(await page.$eval('#pause .card', c => c.scrollHeight <= c.clientHeight + 1 && c.getBoundingClientRect().bottom <= innerHeight), 'the pause card fits with it');
+    await page.locator('#btnPauseOptions').tap();
+    assert.deepEqual(await page.$$eval('#options .setting .lbl', ls => ls.map(l => l.textContent)), ['NAME'], 'NAME, no CONTROLS on a touch screen');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'btnOptionsClose', 'opened: BACK has the focus, not the field (no keyboard)');
+    const f = page.locator('#options input');
+    assert.equal(await f.evaluate(e => getComputedStyle(e).fontSize), '16px', 'no zoom on iOS');
+    assert.equal(await f.getAttribute('maxlength'), '16');
+    assert.ok(await page.$eval('#options .card', c => c.scrollHeight <= c.clientHeight + 1 && c.getBoundingClientRect().bottom <= innerHeight), 'the card fits');
+    await f.tap();
+    assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'INPUT', 'a tap: the field');
+    // The keyboard scrolls the page to the field: the page's hold (screen.js `settle`) lets it be while the field has the
+    // focus, and puts the page back once it goes.
+    await page.evaluate(() => { const s = document.createElement('div'); s.id = 'tall'; s.style.cssText = 'position:absolute;top:0;left:0;height:3000px;width:1px'; document.documentElement.appendChild(s); scrollTo(0, 120); visualViewport.dispatchEvent(new Event('resize')); dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => scrollY), 120, 'left where the keyboard put it');
+    await f.fill('Pip');
+    await f.press('Enter');
+    assert.notEqual(await page.evaluate(() => document.activeElement?.tagName), 'INPUT', 'Enter: the keyboard away');
+    await page.waitForFunction(() => scrollY === 0, null, { timeout: 2000 });
+    await page.evaluate(() => document.getElementById('tall').remove());
+    assert.equal(await d.eval(() => localStorage.getItem('endfall.name')), 'Pip', 'kept');
+    await page.locator('#btnOptionsClose').tap();
+    assert.ok(await page.locator('#options').isHidden() && await page.locator('#pause').isVisible(), 'BACK: the pause card');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+  test(`${label}: the name typed in OPTIONS (from the menu) is the lobby's, and the lobby's is OPTIONS': one name`, async () => {
+    const ctx = await browserContext(device), page = await ctx.newPage();
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      await press('#btnOptions');
+      const f = page.locator('#options input');
+      assert.equal(await f.inputValue(), '', 'no name yet');
+      assert.equal(await page.locator('#options .note, #options [role="alert"]').count(), 0, 'and no nagging for one here');
+      await press('#options input'); await f.fill('  Rook  ');
+      await press('#btnOptionsClose');
+      assert.equal(await page.evaluate(() => localStorage.getItem('endfall.name')), 'Rook', 'kept, trimmed');
+      await press('#btnOnline');
+      assert.equal(await page.locator('#onlineName').inputValue(), 'Rook', 'the lobby shows it');
+      assert.equal(await page.locator('#btnNewRoom').getAttribute('aria-disabled'), null, 'and NEW ROOM is ready');
+      await press('#onlineName'); await page.locator('#onlineName').fill('Bishop');
+      await press('#btnOnlineBack');
+      await press('#btnOptions');
+      assert.equal(await f.inputValue(), 'Bishop', 'OPTIONS shows the lobby\'s');
+      // Emptied in OPTIONS: allowed there; the lobby has no name either and asks for one before NEW ROOM.
+      await press('#options input'); await f.fill('');
+      await page.keyboard.press('Escape');
+      assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
+      await press('#btnOnline');
+      assert.equal(await page.locator('#onlineName').inputValue(), '');
+      assert.equal(await page.locator('#btnNewRoom').getAttribute('aria-disabled'), 'true', 'NEW ROOM wants a name');
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+}
+
+test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PLAY OFFLINE) fits at 667x375, 844x390, 412x915 and 568x320: one line on its side, upright two centred lines; no scrolling', async () => {
+  for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
+    const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      const got = await page.evaluate(() => {
+        const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return { t: b.textContent, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom }; });
+        const c = document.querySelector('#start .card.menu');
+        return { bs, sc: [c.scrollHeight, c.clientHeight] };
+      });
+      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.ok(got.bs.every(b => b.l >= 0 && b.r <= w && b.b <= h), `${w}x${h}: every button in view: ${JSON.stringify(got.bs)}`);
+      assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
+      const lines = [...new Set(got.bs.map(b => b.top))];
+      assert.equal(lines.length, w > h ? 1 : 2, `${w}x${h}: ${w > h ? 'one line' : 'two lines'}: ${lines}`);
+      for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centred: ${l} | ${w - r}`); }
+    } finally { await ctx.close(); }
+  }
 });

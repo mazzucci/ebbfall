@@ -1,6 +1,6 @@
 // The service worker (tools/offline/sw.js, as the build writes it) in Node on a fake Cache Storage: what PLAY OFFLINE
-// hears back (all files stored, some, none, no storage), and an install that resumes where it stopped. Also the
-// manifest's app icons, which the install prompt needs.
+// hears back (all files stored, some, none, no storage), an install that resumes where it stopped, and Cloudflare's
+// analytics beacon left to the network. Also the manifest's app icons, which the install prompt needs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
@@ -93,6 +93,16 @@ test('an install cut short resumes: only the missing files are fetched', async (
   await done;
   assert.deepEqual(fetched.sort(), ['art/atlas-0.png', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
+});
+
+test("Cloudflare's analytics beacon is left to the network: never stored, never answered from the cache", async () => {
+  // (Web Analytics, injected into index.html at Cloudflare's edge: a cross-origin script, and a POST to /cdn-cgi/rum)
+  const on = worker(fakeCaches(FILES));
+  for (const [url, method] of [['https://static.cloudflareinsights.com/beacon.min.js', 'GET'], ['http://x/cdn-cgi/rum', 'POST']]) {
+    let answered = false;
+    on.fetch({ request: { url, method, mode: 'no-cors' }, respondWith: () => { answered = true; } });
+    assert.equal(answered, false, url);
+  }
 });
 
 test('the manifest has PNG icons of 192 and 512 pixels and a maskable one, and the files exist', () => {

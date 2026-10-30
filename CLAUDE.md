@@ -42,8 +42,9 @@ node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) afte
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
 browser tests (all in Chromium, the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
-`main` to GitHub Pages: https://ebbfall.com/. On `main` the relay goes first (the `relay` job, then `deploy`): it is
-deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
+`main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
+docs/MULTIPLAYER.md, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
+then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
 run must not leave a relay change undeployed): the job hashes the bundle wrangler would upload (`deploy --dry-run`,
 wrangler pinned) with wrangler.toml, reads the live build from `GET https://relay.ebbfall.com/version`
 (`{proto, build}`, relay/version.js), and deploys with `--var RELAY_BUILD:<hash>` when they differ, when there is no
@@ -193,7 +194,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
                       rumble; ENDFALL_VOICE_OUT=dir writes WAVs to listen to)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
-                      install; the manifest's app icons
+                      install, Cloudflare's analytics beacon left to the network; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
@@ -204,6 +205,11 @@ test/seats.test.js    the board's rules: spots to seats, team ids and each seat'
                       sides a sheet offers, a saved board checked (and one from before the spots)
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
                       the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js
+test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding: the page for every link, headers,
+                      what is not a file, www and http, the beacon only with a token, _headers, wrangler.toml; with dist/
+                      built, every file the service worker stores
+test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: the apex's and www's records read, never written, GitHub
+                      Pages' picked out (never relay.ebbfall.com or others), the summary, a restore past a failure
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
                       does when they outgrow one), labels, an online setup's map at its own size, the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats on
@@ -215,6 +221,14 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
                       this commit's build); bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
+site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting): dist/ as a Worker's static assets
+                      (wrangler.toml: ebbfall.com and www as custom domains, exact paths as on GitHub Pages, the Worker
+                      first only for / and /index.html); worker.js (the game's page, the place for link previews and the
+                      optional analytics beacon; www and http to https://ebbfall.com/; a page load that is not a file goes
+                      to /, a missing file is a 404), cache.js (assets/ immutable; the pages, sw.js and the manifest
+                      no-cache), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
+                      hostnames' DNS records logged before a deploy, read only, and restored by hand for a rollback;
+                      wrangler replaces them with the custom domains'); CI's deploy job
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
 tools/engines.mjs     the e2e tests' engine (ENDFALL_ENGINE: chromium, webkit, firefox) and its device profiles
 tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad, iPhone, Pixel per backend), drivers.mjs

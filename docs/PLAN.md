@@ -215,7 +215,7 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 - [x] A steady board and any map (2026-10-28, the owner's feedback on the live board): single player and the lobby share one board of eight fixed spots (two abreast upright, four on its side), every token, add cell and empty spot the same size; a player keeps its spot, and that spot's colour in the game, whatever its side (a tag on its token, chosen in its sheet: RACE, LEVEL, SIDE; no side panels, no + SIDE; + AI, and the lobby host's + SEAT, in the lowest empty spot; REMOVE empties a spot); the pages top-aligned. The map is one list of every map ("Iron Compass · up to 8"), any that seats the players (a duel on an eight-start map); more players than its starts: the smallest map that does, said a moment. The sim generates a map with all its starts whatever the seats (the map played is the one previewed). The relay (`PROTO` 5) keeps seats on their spots in the lobby and arranges them by side at the start (`setup.spots`). The join page says how it works in a line.
 
 ### M4. Polish and ship
-- [ ] Deploy static build (GitHub Pages / Cloudflare Pages) and the relay
+- [x] Deploy static build and the relay: the relay a Cloudflare Worker (relay.ebbfall.com), the site GitHub Pages, then (2026-10-30) a Cloudflare Worker with static assets (site/, docs/MULTIPLAYER.md Hosting), the base for per-link previews
 - [x] PWA manifest so it installs on a phone (PNG icons and an INSTALL button, 2026-10-27)
 - [ ] Settings: key bindings, scroll speed, sound volume
 

@@ -1,0 +1,32 @@
+# The site on Cloudflare (site/worker.js): the built game (dist/, `npm run build` at the repo root) as a Worker's static
+# assets, at https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting). CI deploys it from main (the `deploy` job); by hand,
+# from site/ with `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts and Routes edit, DNS
+# edit on the zone, as a custom domain makes its own DNS record). A hostname's records of its own (GitHub Pages') are
+# replaced in the same call: wrangler overrides them without asking when not on a terminal (CI), and asks at one.
+name = "ebbfall-site"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+# www answers too, sent on to ebbfall.com by the Worker (worker.js CANONICAL), as GitHub Pages did.
+routes = [
+  { pattern = "ebbfall.com", custom_domain = true },
+  { pattern = "www.ebbfall.com", custom_domain = true },
+]
+workers_dev = false # (one address: the game's storage and service worker belong to its origin)
+preview_urls = false
+
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+# Files at their exact paths, as GitHub Pages serves them (no /selftest.html -> /selftest redirect, which the service
+# worker could not answer a page load with); the Worker answers what is not a file (worker.js `notFound`).
+html_handling = "none"
+not_found_handling = "none"
+# The Worker runs first only for the game's page (the place for link previews); every other file is served by
+# Cloudflare directly, with dist/_headers, and costs no Worker request.
+run_worker_first = ["/", "/index.html"]
+
+[build]
+command = "node build.mjs" # (writes dist/_headers from cache.js)
+
+[dev]
+upstream_protocol = "https" # (wrangler dev hands the Worker https://ebbfall.com/...: not sent on to https by worker.js)

@@ -6,8 +6,8 @@ const FILES = __FILES__;
 
 // Each file is stored on its own and kept: an install cut short (a phone losing its signal) resumes where it stopped
 // the next time, and PLAY OFFLINE can say how far it got (and, asking, fetches what is missing).
-// Fetched past the browser's HTTP cache (`reload`): a copy from before a deploy (GitHub Pages lets them live 10
-// minutes) would otherwise be stored for good, an index.html pointing at another build's files. One file failing
+// Fetched past the browser's HTTP cache (`reload`): a copy from before a deploy (GitHub Pages let them live 10
+// minutes; site/cache.js revalidates all but assets/) would otherwise be stored for good, an index.html pointing at another build's files. One file failing
 // fails the install (nothing half stored is ever served: the build before stays). Refilling after a check fetches
 // from the network as it is then: should a newer build be deployed meanwhile, its next install sets things right.
 let filling = null;

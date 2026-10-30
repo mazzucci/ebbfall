@@ -182,7 +182,7 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
 - **What it serves.** dist/ as the Worker's assets at their exact paths, as Pages served them (/selftest.html,
   /voice-lab.html, `?bench`, the service worker's scope at /: html_handling "none", no /selftest.html -> /selftest
   redirect, which the service worker could not answer a page load with). The Worker runs first only for the game's page
-  (/ and /index.html: worker.js `page`, where the preview tags will go, through HTMLRewriter); every other file is
+  (/ and /index.html: worker.js `page`, which writes a link's own card in, below); every other file is
   served by Cloudflare alone and costs no Worker request (the free plan's 100,000 a day are shared with the relay; past
   them, a route's request goes by its failure mode: fail open, the default, passes it on to the origin, GitHub Pages'
   last deploy behind the proxied records; fail closed answers an error until midnight UTC; far from today's traffic,
@@ -191,8 +191,27 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
   http), the game's one origin.
 - **Cache headers** (site/cache.js, for the Worker's responses and, through dist/_headers written before each deploy,
   for the files served alone): assets/ (Vite's hashed names) immutable; the pages, sw.js and the manifest `no-cache`
-  (revalidated on every load, so a deploy is seen at once and the service worker's update finds the new build); art/
-  and the icons Cloudflare's default (`max-age=0, must-revalidate`, with an ETag). Pages sent `max-age=600` for all.
+  (revalidated on every load, so a deploy is seen at once and the service worker's update finds the new build); art/,
+  the icons, og.png, robots.txt and sitemap.xml Cloudflare's default (`max-age=0, must-revalidate`, with an ETag).
+  Pages sent `max-age=600` for all.
+- **Search and link previews.** index.html's head is the site's card for every visit and crawler: the title ("Ebbfall:
+  a free browser RTS in the 1998 mold"), a description, `rel=canonical` https://ebbfall.com/, Open Graph and X
+  (`summary_large_image`) tags with public/og.png (1200x630, made by tools/og.mjs from the game's own sprites), and
+  JSON-LD (`VideoGame` and `WebApplication`: free, single player and multiplayer, no ratings). robots.txt allows
+  everything and names sitemap.xml, which lists the one page; both are plain files (and, like og.png, left out of the
+  offline store: tools/offline/plugin.mjs `WEB_ONLY`). A link with a card of its own gets it from the Worker:
+  site/preview.js `preview(url)` maps the URL to the fields it changes (a room's link, `?room=CODE` or the older
+  `?join=CODE`: "Join my Ebbfall game: room CODE", its own description, og:url the page with that room alone), and
+  `page` writes them into the og: and twitter: tags with HTMLRewriter, with or without the beacon (below). The code is
+  echoed only when it is one the relay could have made (four of its letters, upper-cased as the client reads it);
+  anything else gets the site's card, so no text of a link's query ever reaches the page. The `<title>`, the
+  description and the canonical stay the site's (a room is not a page to index). A challenge's link (SHARE after a
+  victory) is one more entry in preview.js's `LINKS`. **ETag**: the file's own (and the assets' 304) for the file as it
+  is; a rewritten page is built whole and tagged with a hash of its bytes (`"p-..."`), so a browser's copy is kept with
+  a 304 exactly when it is the same page, whatever changed (the card's wording in a deploy that left index.html alone,
+  the room, the token). Crawlers rarely revalidate; the cards are checked by fetching a room link (`curl -s
+  'https://ebbfall.com/?room=WGNJ' | grep og:`) or with a platform's own debugger (Facebook's Sharing Debugger, which
+  WhatsApp shares; Discord and X cache a URL's card for a while).
 - **The switch** changes the server, not the origin: the service worker, its caches and what the device remembers
   carry over; the next visit's sw.js check installs the build the Worker serves, as after any deploy.
 - **How the Worker gets the traffic: zone routes over proxied records.** `ebbfall.com/*` and `www.ebbfall.com/*` are
@@ -224,8 +243,8 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
   Whether automatic injection also covers a Worker's responses on a route is not documented: after the switch,
   `curl -s https://ebbfall.com/ | grep beacon.min.js`. If it is not there, set the repo variable CF_ANALYTICS_TOKEN (the
   site's token from the Web Analytics dashboard): the deploy passes it to the Worker, whose `page` then adds the beacon
-  with HTMLRewriter, and the page's ETag gets `-rum` at the end (a browser's copy from before is fetched again, not
-  kept with a 304). Never both (every visit would count twice). Either way the beacon is a deferred cross-origin
+  with HTMLRewriter, and the page's ETag becomes its bytes' hash (above: a browser's copy from before is fetched again,
+  not kept with a 304). Never both (every visit would count twice). Either way the beacon is a deferred cross-origin
   script in index.html, and the service worker's copy of index.html may carry it: tools/offline/sw.js answers only
   same-origin GETs, so the beacon (and its report, a POST to /cdn-cgi/rum) goes to the network, is never stored, and
   offline it simply does not load: the game plays on (test/offline.test.js; checked in Chromium through `wrangler

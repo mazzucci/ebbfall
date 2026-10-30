@@ -217,6 +217,7 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 ### M4. Polish and ship
 - [x] Deploy static build and the relay: the relay a Cloudflare Worker (relay.ebbfall.com), the site GitHub Pages, then (2026-10-30) a Cloudflare Worker with static assets (site/, docs/MULTIPLAYER.md Hosting), the base for per-link previews
 - [x] PWA manifest so it installs on a phone (PNG icons and an INSTALL button, 2026-10-27)
+- [x] Search and link previews (2026-10-30, step 1 of the owner's growth plan): a real title, description, canonical, Open Graph and X cards with a 1200x630 image of the game's own sprites (tools/og.mjs), JSON-LD, robots.txt and a sitemap; a room's link shows its own card ("Join my Ebbfall game: room WGNJ", site/preview.js through the Worker). Next: a challenge's link (SHARE after a victory) with a card of its own
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

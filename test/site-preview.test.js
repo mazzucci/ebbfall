@@ -1,6 +1,7 @@
 // What a shared link shows (site/preview.js) and the head every visit and crawler gets (index.html): a room's link
 // gets its own card only for a code the relay could have made (hostile, overlong or vowel-bearing codes get the site's
-// card, and nothing of the query reaches the page but the code), the card's fields land on tags index.html has, the
+// card, and nothing of the query reaches the page but the code), a challenge's (SHARE after a victory) only for a code
+// the game makes, its words made from the code's values and its link made again from them, the card's fields land on tags index.html has, the
 // head's title, description, canonical, Open Graph and X tags and structured data, the preview image (public/og.png:
 // 1200x630, small), robots.txt and sitemap.xml, and that none of those is stored for offline play.
 import { test } from 'node:test';
@@ -45,13 +46,33 @@ test("a room's link has a card of its own: which room, the canonical page with t
   assert.equal(preview(at('index.html?room=WGNJ')).url, 'https://ebbfall.com/?room=WGNJ');
 });
 
+const VS = '1.8.5.ky.h00v13v23v33'; // (Iron Compass, you against three Brutal Vael AIs, won in 12:34: test/challenge.test.js)
+test("a challenge's link has a card of its own: the setup in words, its link made again from the code's values", () => {
+  assert.deepEqual(preview(at(`?vs=${VS}`)), {
+    title: 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass',
+    description: 'Humans vs Vael · won in 12:34 · free, in your browser',
+    url: `https://ebbfall.com/?vs=${VS}`,
+  });
+  assert.equal(preview(at(`?vs=${VS}&relay=wss://x.example/&seed=7`)).url, `https://ebbfall.com/?vs=${VS}`, 'only the challenge: no other parameter');
+  assert.equal(preview(at(`?seed=7&vs=${VS}`)).url, `https://ebbfall.com/?vs=${VS}`);
+  assert.equal(preview(at(`index.html?vs=${VS}`)).url, `https://ebbfall.com/?vs=${VS}`);
+  assert.equal(preview(at(`?vs=${VS}&vs=1.0.1.4z.v00h12`)).url, `https://ebbfall.com/?vs=${VS}`, 'the first, as the client reads it');
+  assert.equal(preview(at('?vs=1.3.0.2s0.h00h10.4.21i3v9')).url, 'https://ebbfall.com/?vs=1.3.0.2s0.h00h10.4.21i3v9', "a random map's seed and character");
+  assert.equal(preview(at(`?room=WGNJ&vs=${VS}`)).title, 'Join my Ebbfall game: room WGNJ', "a room's link first (the client opens the room)");
+  assert.equal(preview(at(`?room=WGNA&vs=${VS}`)).title, 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', 'not a room: the challenge');
+});
+
 test("anything else keeps the site's card: hostile, overlong and unknown links reflect nothing", () => {
   for (const q of ['', '?seed=7', '?bench', '?room=<script>', '?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=WGNJX', '?room=ABCD',
-    '?room="onload="x', '?join=WGN%00', '?room=' + 'Z'.repeat(1000)]) {
+    '?room="onload="x', '?join=WGN%00', '?room=' + 'Z'.repeat(1000),
+    '?vs=', '?vs=2.8.5.ky.h00v13v23v33', '?vs=1.8.5.ky.h00v13v23v33.', '?vs=1.8.5.KY.h00v13v23v33', '?vs=1.8.11.ky.h00v13v23v33', '?vs=1.0.0.ky.h00v13v23',
+    '?vs=%3Cscript%3E', '?vs=1.8.5.ky.h00v13v23v33%22', '?vs=1.8.5.ky.h00v13v23v33<b>', '?vs="onload="x', '?vs=1.8.5.ky.h00v13v23v33%00', '?vs=' + '1'.repeat(5000),
+    '?VS=1.8.5.ky.h00v13v23v33', '?v=1.8.5.ky.h00v13v23v33']) {
     assert.equal(preview(at(q)), null, q);
   }
   // Whatever the link, a card's text is plain: no markup, quotes or entities to escape.
   for (const code of ['BCDF', 'ZZZZ', 'WGNJ']) for (const v of Object.values(preview(at(`?room=${code}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
+  for (const vs of [VS, '1.3.0.2s0.h00h10.4.21i3v9', '1.4.2.1p.v00xh01v12h11']) for (const v of Object.values(preview(at(`?vs=${vs}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
 });
 
 test("the room alphabet is the relay's (every place that makes a code)", () => {

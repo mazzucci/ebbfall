@@ -1,5 +1,10 @@
 // Small helpers for the client and tests. Nothing here touches the DOM or global state.
 
+/** The difficulties' names, in the sim's order (the menus' chips write them in capitals): here, with no import, so the
+ *  site's challenge cards (src/client/challenge.js) name them too; constants.js passes them on, and
+ *  test/challenge.test.js keeps them as many as the sim's levels. */
+export const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
+
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 

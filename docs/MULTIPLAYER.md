@@ -206,11 +206,16 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
   echoed only when it is one the relay could have made (four of its letters, upper-cased as the client reads it);
   anything else gets the site's card, so no text of a link's query ever reaches the page. The `<title>`, the
   description and the canonical stay the site's (a room is not a page to index). A challenge's link (SHARE after a
-  victory) is one more entry in preview.js's `LINKS`. **ETag**: the file's own (and the assets' 304) for the file as it
+  victory against the AI, `?vs=CODE`: src/client/challenge.js, which the Worker bundles; it imports only maps.js and
+  src/engine/util.js, no WASM) is the second entry: the code is read only if it is exactly one the game makes (a
+  versioned code of numbers and enumerated values, the map, starts, seats' races, sides and levels and the winner's
+  time; no free text at all), and the card is made from those values alone ("Can you beat this? 1 vs 3 Brutal AIs on
+  Iron Compass", "Humans vs Vael · won in 12:34 · free, in your browser"), og:url the link encoded again from them,
+  never the query as it came; the image stays og.png. **ETag**: the file's own (and the assets' 304) for the file as it
   is; a rewritten page is built whole and tagged with a hash of its bytes (`"p-..."`), so a browser's copy is kept with
   a 304 exactly when it is the same page, whatever changed (the card's wording in a deploy that left index.html alone,
   the room, the token). Crawlers rarely revalidate; the cards are checked by fetching a room link (`curl -s
-  'https://ebbfall.com/?room=WGNJ' | grep og:`) or with a platform's own debugger (Facebook's Sharing Debugger, which
+  'https://ebbfall.com/?room=WGNJ' | grep og:`, or a challenge's: `?vs=1.8.5.ky.h00v13v23v33`) or with a platform's own debugger (Facebook's Sharing Debugger, which
   WhatsApp shares; Discord and X cache a URL's card for a while).
 - **The switch** changes the server, not the origin: the service worker, its caches and what the device remembers
   carry over; the next visit's sw.js check installs the build the Worker serves, as after any deploy.

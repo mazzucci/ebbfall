@@ -7,7 +7,7 @@
 import './style.css';
 import { $, toast, LOAD_FAILED } from './client/ui.js';
 import { initCorner } from './client/corner.js';
-import { initMenu } from './client/menu.js';
+import { initMenu, pendingChallenge } from './client/menu.js';
 import { initOnline, reloadUrl } from './client/online.js';
 import { registered } from './client/offline.js';
 
@@ -53,6 +53,10 @@ initCorner();
 initMenu({ onStart: BENCH ? () => {} : () => play(g => g.newGame()) });
 initOnline({ game: loading });
 
+/** Where a reload lands: online.js's answer (a room's link, the lobby's), else a challenge still to play (menu.js:
+ *  its link left the address once read), else this page. */
+const here = () => { const url = reloadUrl(); return url === location.href ? pendingChallenge() || url : url; };
+
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
 // Ebbfall opens and plays without a connection once it has been loaded. Registered once the game's load is over (its
 // install fetches every file again: not while the game's own load still needs the connection), loaded or not.
@@ -64,6 +68,6 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) return; // the first install, not an update
-    if (!game?.started()) location.replace(reloadUrl()); else toast('A new version of Ebbfall is ready: it loads next time you open the game');
+    if (!game?.started()) location.replace(here()); else toast('A new version of Ebbfall is ready: it loads next time you open the game');
   });
 }

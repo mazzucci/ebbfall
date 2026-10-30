@@ -2,7 +2,7 @@
 // paths (wrangler.toml's html_handling = "none"): the game's page for / and every link into it (?room=, ?bench), the
 // other pages, the cache headers (hashed assets for good; the pages, the service worker and the manifest checked every
 // time), what is not a file (a page load goes to the game, a missing script is a 404), www and http sent to
-// https://ebbfall.com/, a room's link with its own card (with or without the beacon) and an ETag that never keeps a stale
+// https://ebbfall.com/, a room's link and a challenge's (SHARE after a victory) with their own cards (with or without the beacon) and an ETag that never keeps a stale
 // card, Cloudflare's analytics beacon only with a token, the _headers file the deploy writes, and the config it runs
 // with. With dist/ built: every file the service worker stores is served, as is, and so are robots.txt, the sitemap and
 // the preview image.
@@ -166,8 +166,28 @@ test("a room's link: its own card in the og: and twitter: tags, with or without 
   }
 });
 
+test("a challenge's link: its own card, the setup in words and its link made again from the code; the rest as it is", async () => {
+  const VS = '1.8.5.ky.h00v13v23v33'; // (test/challenge.test.js)
+  for (const env of [{}, { CF_ANALYTICS_TOKEN: 'abc' }]) {
+    for (const q of [`?vs=${VS}`, `?vs=${VS}&relay=wss://x.example/`, `?seed=7&vs=${VS}`]) {
+      const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
+      assert.equal(res.status, 200, q);
+      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', `${q} ${k}`);
+      for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Humans vs Vael · won in 12:34 · free, in your browser');
+      assert.equal(content(html, 'og:url'), `https://ebbfall.com/?vs=${VS}`, 'the code, nothing else of the query');
+      assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');
+      const strip = (h) => h.replace(/<meta (?:property|name)="(?:og|twitter):(?:title|description|url)" content="[^"]*">/g, '').replace(/<script defer src="https:\/\/static\.cloudflareinsights[^<]*<\/script>/, '');
+      assert.equal(strip(html), strip(PAGE['/index.html']), q);
+    }
+  }
+  const a = await get(`/?vs=${VS}`, NAVIGATE, 'GET', {}, PAGE), b = await get('/?vs=1.0.1.4z.v00h12', NAVIGATE, 'GET', {}, PAGE);
+  assert.notEqual(a.headers.get('ETag'), b.headers.get('ETag'), 'another challenge, another card');
+  assert.equal((await get(`/?vs=${VS}`, { 'If-None-Match': a.headers.get('ETag') }, 'GET', {}, PAGE)).status, 304);
+});
+
 test("hostile or unknown links get the site's card, and nothing of their query in the page", async () => {
-  for (const q of ['?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=<script>', '?room=WGNJX', '?room=ABCD', '?join="onload="x', '?seed=7']) {
+  for (const q of ['?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=<script>', '?room=WGNJX', '?room=ABCD', '?join="onload="x', '?seed=7',
+    '?vs=%3Cscript%3E', '?vs=1.8.5.ky.h00v13v23v33%22', '?vs=2.8.5.ky.h00v13v23v33', '?vs=1.8.5.ky.h00v13v23v33x', '?vs="onload="x', '?vs=' + 'a'.repeat(3000)]) {
     const res = await get('/' + q, NAVIGATE, 'GET', {}, PAGE), html = await res.text();
     assert.equal(html, PAGE['/index.html'], `${q}: the file as it is`);
     assert.equal(res.headers.get('ETag'), '"e"', `${q}: the file's own ETag`);

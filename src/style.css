@@ -242,7 +242,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #start .card.menu.tall,#online .card.menu.tall{padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}
 #homeTip{z-index:22} /* (over How to play, which is over the pause card) */ #homeTip .ico.share{width:15px;height:15px;vertical-align:-2px}
 .diff .ib.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
-#btnRematch.on{box-shadow:0 0 0 3px var(--ally2)} /* (online: the friend asked) */ #btnRematch.wait{background:var(--panel2);color:var(--fg);border-color:var(--line2)}
+#btnRematch{margin-left:auto} /* (wrapped onto a line of its own on a narrow screen: still on the right) */ #btnRematch.on{box-shadow:0 0 0 3px var(--ally2)} /* (online: the friend asked) */ #btnRematch.wait{background:var(--panel2);color:var(--fg);border-color:var(--line2)}
 .big{font-size:14px;padding:10px 20px;background:var(--ally);color:#1a1205;border-color:var(--ally)}
 .big:hover{background:var(--ally2)}
 #result{font-size:26px;letter-spacing:.14em;margin:0}

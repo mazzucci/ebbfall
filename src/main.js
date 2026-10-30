@@ -11,7 +11,8 @@ import { sfx, audio, audioState } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
-import { showMenu, recordResult, guidedDone, setup, menu } from './client/menu.js';
+import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge } from './client/menu.js';
+import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { setSpots } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
@@ -182,6 +183,7 @@ function endGame() {
   $('btnAgain').textContent = online.playing ? 'LEAVE ROOM' : 'NEW GAME'; // (online: this room, and its rematch, are left)
   $('btnAgain').title = online.playing ? 'Back to the menu: out of this room' : 'Back to the menu, for another map or opponent';
   $('btnWatch').hidden = menu.tutorial || online.playing; // (the guided game's hold is not in the log; an online game is watched later)
+  showShare(win && !online.playing && !BENCH ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
@@ -203,7 +205,7 @@ function rematchButton(theyWant, iWant) {
 // ---- screens ----
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else { enterFullscreen(); newGame(); } }); // (alone: full screen again on a touch screen, as START; online, READY does) the same map, seed, races and difficulty; online, another game in the room
-initLeaveDialog(); initTools();
+initLeaveDialog(); initTools(); initShare();
 initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
 /** What the menu (menu.js) and the lobby (online.js) call, through src/boot.js, once this module has loaded. */
 export const game = {

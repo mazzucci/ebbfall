@@ -42,12 +42,12 @@ function withCache(res, path) {
 async function page(req, url, env) {
   const card = preview(url), token = beaconToken(env);
   const file = (method, headers) => env.ASSETS.fetch(new Request(new URL('/index.html', url), { method, headers }));
-  if (!card && !token) {
+  if ((!card && !token) || (req.method !== 'GET' && req.method !== 'HEAD')) { // (any other method: the assets' answer, as for any file)
     const res = await file(req.method, req.headers);
     return res.status === 404 ? notFound(req, url) : withCache(res, '/index.html');
   }
   const headers = new Headers(req.headers);
-  headers.delete('If-None-Match'); headers.delete('If-Modified-Since');
+  for (const h of ['If-None-Match', 'If-Modified-Since', 'Range', 'If-Range']) headers.delete(h); // (the whole file, always: it is rewritten and hashed)
   const res = await file('GET', headers);
   if (res.status === 404) return notFound(req, url);
   if (!res.ok) return withCache(res, '/index.html');

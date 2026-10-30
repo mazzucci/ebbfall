@@ -21,6 +21,7 @@ const assets = (files) => ({
     this.seen.push(path);
     if (!(path in files)) return new Response('', { status: 404 });
     if (req.headers.get('If-None-Match') === '"e"') return new Response(null, { status: 304, headers: { ETag: '"e"' } });
+    if (req.headers.has('Range')) return new Response(files[path].slice(0, 10), { status: 206, headers: { ETag: '"e"' } });
     const body = req.method === 'HEAD' ? null : files[path];
     return new Response(body, { headers: { 'Content-Type': TYPES[path.split('.').pop()] || 'application/octet-stream', 'Cache-Control': 'public, max-age=0, must-revalidate', ETag: '"e"' } });
   },
@@ -196,6 +197,14 @@ test("a room's page has its own ETag: a 304 only for that card's bytes, never a 
   assert.equal(h.status, 200);
   assert.equal(h.headers.get('ETag'), tag);
   assert.equal(await h.text(), '');
+});
+
+test("a room's page is always built from the whole file, and only for GET and HEAD", async () => {
+  const ranged = await get('/?room=WGNJ', { Range: 'bytes=0-9', 'If-Range': '"e"' }, 'GET', {}, PAGE);
+  assert.equal(ranged.status, 200, 'never a rewritten fragment');
+  assert.match(await ranged.text(), /room WGNJ/);
+  const post = await get('/?room=WGNJ', {}, 'POST', {}, PAGE);
+  assert.doesNotMatch(post.headers.get('ETag') || '', /^"p-/, "another method: the assets' answer, not a card");
 });
 
 test('robots.txt, the sitemap and the preview image are files: served as they are, never the game or a 404', async () => {

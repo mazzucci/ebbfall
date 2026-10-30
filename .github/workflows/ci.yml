@@ -47,6 +47,7 @@ jobs:
       - run: npm run build
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
+      - run: node --test test/site-worker.test.js # (again, with dist/ built: its checks of the built page and service worker)
       - name: Gameplay tests in a real browser (Chromium; WebKit and Firefox in the engines job)
         run: |
           npx playwright-core install --with-deps chromium

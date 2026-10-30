@@ -1,8 +1,9 @@
 // What a shared link to the game's page shows in a chat or a feed (WhatsApp, Discord, iMessage, X: their Open Graph and
 // Twitter cards). index.html's head carries the site's card (title, description, image, url); a link with a card of its
-// own (a room's, `?room=CODE`) changes some of those fields, which site/worker.js writes into the page with
+// own (a room's, `?room=CODE`; a challenge's, `?vs=`, SHARE after a victory) changes some of those fields, which site/worker.js writes into the page with
 // HTMLRewriter. Pure, no Workers runtime: the worker imports it, test/site-preview.test.js tests it. A module of its
 // own: a Worker's entry module may export only handlers.
+import * as challenge from '../src/client/challenge.js';
 
 /** The game's one address (worker.js sends www and http here). */
 export const ORIGIN = 'https://ebbfall.com';
@@ -24,7 +25,7 @@ export function roomCode(params) {
 /**
  * The links with a card of their own, in order (the first that answers wins): each takes the page's URL and returns the
  * fields it changes ({title, description, url}, any of them; the image and the rest stay the site's), or null when the
- * link is not of its kind. A challenge link (SHARE after a victory) is one more entry here.
+ * link is not of its kind.
  */
 const LINKS = [
   function room(url) {
@@ -34,6 +35,12 @@ const LINKS = [
       description: 'Tap to join the room and play with me in your browser: free, nothing to install.',
       url: `${ORIGIN}/?room=${code}`,
     };
+  },
+  // A challenge (SHARE after a victory against the AI: src/client/challenge.js): the setup it names, in words made from
+  // its values alone (a code that is not exactly one the game makes is no challenge), and its link made again from them.
+  function vs(url) {
+    const c = challenge.decode(url.searchParams.get(challenge.PARAM));
+    return c && { ...challenge.card(c), url: challenge.link(c, ORIGIN) };
   },
 ];
 

@@ -2,6 +2,7 @@
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
 // Costs are [shards, ether]. Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
+import { DIFF_NAMES } from './util.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
 
 export const TILE = D.consts.tile;
@@ -61,8 +62,6 @@ const BLDG_TEXT = {
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
   entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
-/** The difficulties' names, in the sim's order (the menus' chips write them in capitals). */
-export const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
@@ -101,5 +100,7 @@ export const unlockOf = (k) => Object.keys(UPGRADES).find(u => UPGRADES[u].effec
 export const SCHEMA = D.schema;
 /** Units a building's production queue holds (`QUEUE_MAX` in crates/endfall-sim/src/data/mod.rs): the console's slots. */
 export const QUEUE_MAX = D.schema.queueSlots;
+/** The difficulties' names (util.js: pure, as the site's challenge cards name the levels too). */
+export { DIFF_NAMES };
 /** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 export const DIFF = D.diff.map((d, i) => ({ name: DIFF_NAMES[i], ...d }));

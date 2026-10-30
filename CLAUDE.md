@@ -74,6 +74,7 @@ index.html            page shell: top bar, canvas stage, HUD (minimap, selection
 src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
+                      (an update reloads the menu at once, into the room or the challenge it was on)
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens, events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
 src/style.css         all styling; design tokens at the top of :root
@@ -129,7 +130,9 @@ src/client/           everything that touches the browser
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
                       + AI in the lowest empty spot; the map list, any map that seats them, with a preview, FIRST GAME),
                       the About page (the source, the device check, the version); the map list and preview the lobby
-                      shares
+                      shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
+                      in the footer, the parameter dropped from the address, nothing saved until the player changes the
+                      board or the map (then it is theirs: saved, and an ordinary game)
   seats.js            the board's eight fixed spots (a seat keeps its spot, and its spot's colour in the game, whatever
                       its side; adding fills the lowest empty spot, removing empties one: nothing moves): a spot per
                       entry (`{ race, team, diff }`, null when empty, you in spot 0) and how they become the game's
@@ -145,6 +148,14 @@ src/client/           everything that touches the browser
                       smallest that seats them when they outgrow it), named fixed maps and a random one per size, a
                       map's label ("Iron Compass · up to 8"), the map an online setup plays, the team splits a saved
                       setup of the menu before the board names; pure (test/maps.test.js; the relay imports it too)
+  challenge.js        SHARE's challenge link (`?vs=CODE`): a single-player setup (the map, its seed and starts, each
+                      spot's race, side and level) and the winner's time as a short versioned code of numbers and
+                      enumerated values, `encode`/`decode` (strict: only exactly what encode makes), `fromSetup` (the
+                      menu's game), and every word said of it (the link's card, SHARE's line, the menu's CHALLENGE line);
+                      pure, no free text (test/challenge.test.js; site/preview.js imports it for the link's card)
+  share.js            the end card's SHARE after a victory against the AI (not online, not the guided game): the
+                      challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
+                      cancelled sheet says nothing
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
@@ -199,6 +210,9 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
                       fit, no page scroll, the map fills the room and fits again when the bars collapse),
+                      share.e2e.mjs (SHARE after a victory: the link copied or shared, a cancelled sheet, the end card on
+                      small screens; the link opens the same setup and START plays the same start, nothing saved; a
+                      change makes it the player's; a bad link opens the plain menu; none after the guided game),
                       selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
                       PLAY OFFLINE against the real service worker, the app icons), voice.e2e.mjs (the voice lab
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
@@ -216,16 +230,20 @@ test/seats.test.js    the board's rules: spots to seats, team ids and each seat'
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
                       the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
-                      every link, a room's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
+                      every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
                       headers, what is not a file, www and http, the beacon only with a token, _headers, wrangler.toml;
                       with dist/ built, every file the service worker stores, robots.txt, the sitemap and og.png
 test/site-preview.test.js the link cards (site/preview.js): a room's code checked against the relay's alphabet (hostile,
-                      overlong, lower case), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
+                      overlong, lower case), a challenge's card and its link made again from the code (hostile and other
+                      codes: the site's card), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
                       robots.txt and the sitemap, and that the build's service worker leaves those out
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
 test/store.test.js    the player's name: `cleanName` (and that the relay names a hello the same), `playerName`'s one key
+test/challenge.test.js a challenge's code (src/client/challenge.js): setups round-trip, the code canonical (sides as they
+                      first appear, the side modulo starts x players), hostile, malformed and other versions refused (a
+                      fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
                       does when they outgrow one), labels, an online setup's map at its own size, the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats on
@@ -243,7 +261,8 @@ site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosti
                       a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
                       bytes sent; www and http to https://ebbfall.com/; a page load that is not a file goes to /, a
                       missing file is a 404), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
-                      with CODE checked against the relay's alphabet; a challenge's link is one more entry in `LINKS`),
+                      with CODE checked against the relay's alphabet; a challenge's, `?vs=CODE`, through
+                      src/client/challenge.js, its words from the code's values alone),
                       cache.js (assets/ immutable; the pages, sw.js and the manifest
                       no-cache), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see

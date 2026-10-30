@@ -217,7 +217,8 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 ### M4. Polish and ship
 - [x] Deploy static build and the relay: the relay a Cloudflare Worker (relay.ebbfall.com), the site GitHub Pages, then (2026-10-30) a Cloudflare Worker with static assets (site/, docs/MULTIPLAYER.md Hosting), the base for per-link previews
 - [x] PWA manifest so it installs on a phone (PNG icons and an INSTALL button, 2026-10-27)
-- [x] Search and link previews (2026-10-30, step 1 of the owner's growth plan): a real title, description, canonical, Open Graph and X cards with a 1200x630 image of the game's own sprites (tools/og.mjs), JSON-LD, robots.txt and a sitemap; a room's link shows its own card ("Join my Ebbfall game: room WGNJ", site/preview.js through the Worker). Next: a challenge's link (SHARE after a victory) with a card of its own
+- [x] Search and link previews (2026-10-30, step 1 of the owner's growth plan): a real title, description, canonical, Open Graph and X cards with a 1200x630 image of the game's own sprites (tools/og.mjs), JSON-LD, robots.txt and a sitemap; a room's link shows its own card ("Join my Ebbfall game: room WGNJ", site/preview.js through the Worker)
+- [x] SHARE after a victory, with a challenge link (2026-10-30, growth plan step 1): after a win against the AI (not the guided game, not online) the end card's SHARE shares `?vs=CODE` (src/client/challenge.js: the map, its seed and starts, each spot's race, side and level, the winner's time; numbers and enums only, a strict versioned code) through the share sheet, or copies it (LINK COPIED); the link opens the single-player page on that setup with a line ("CHALLENGE · won in 12:34 · beat it"), the same game on START, nothing saved until the player changes the setup; its card in a chat: "Can you beat this? 1 vs 3 Brutal AIs on Iron Compass". Later maybe: online games
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

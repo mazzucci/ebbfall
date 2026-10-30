@@ -4,10 +4,14 @@
 // the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
 // seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
-// The menu always opens on its first page (a join link opens the lobby instead).
+// The menu always opens on its first page (a join link opens the lobby instead; a challenge link, the single-player
+// page).
 // The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
 // others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
-// The board (races, sides, levels) and the map are remembered on this device.
+// The board (races, sides, levels) and the map are remembered on this device. A challenge link (`?vs=`, SHARE after a
+// victory: challenge.js) opens the single-player page on its setup, its seed and starts too, with a line that says so;
+// it is not remembered: the player's own saved setup is back on the next visit, and the first change to the board or
+// the map makes the setup theirs (saved, as every change is) and the challenge an ordinary game.
 import { mapPreview, DIFF, ready } from '../engine/index.js';
 import { $ } from './ui.js';
 import { sfx } from './audio.js';
@@ -16,6 +20,7 @@ import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
+import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, enemyLevel, raceTitle, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
@@ -24,16 +29,17 @@ import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName,
  *  side first, you first): `races` (a RANDOM one drawn), `ai`, `teams` (an id per seat, empty: free for all), `diffs`
  *  (each AI's; empty: all at `diff`), `diff`, the hardest AI's (the record's), and `spots`, each seat's spot (its
  *  colour); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
-export const menu = { tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
+export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 /** A race for this game: the one chosen, or either at random. */
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
 
-/** Pick map `i` (remembered); the random one draws a new seed and a hidden character each time it is chosen or played. */
+/** Pick map `i` (remembered); the random one draws a new seed and a hidden character each time it is chosen or played.
+ *  (A challenge's map, seed and starts are its own: picking one makes the setup the player's.) */
 function choose(i) {
   const m = MAPS[i];
-  menu.map = i; menu.size = m.size; store.set('map', String(i));
+  menu.challenge = null; menu.map = i; menu.size = m.size; store.set('map', String(i));
   // Where the seats sit round the map's starts, drawn each game (?seed= keeps it fixed): on a two-start map, which of
   // the two bases is ours (as always); more starts, any turn of the ring (the sim takes it modulo).
   menu.side = urlSeed !== null ? 0 : seatsOf(i) === 2 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() * 2 ** 32) >>> 0;
@@ -69,6 +75,7 @@ const defaultRows = () => { // (the menu before the board saved these; new playe
 };
 let editing = -1, sheet = null, mapNote = '', noteTimer = 0; // (the seat whose sheet is open; the dialog it opens in; the map's note)
 function setBoard(board) {
+  if (menu.challenge) { menu.challenge = null; store.set('map', String(menu.map)); } // (the setup is the player's now: its map too)
   menu.board = board; menu.players = filled(board).length; store.set('seats', JSON.stringify(board));
   if (!fits(menu.map, menu.players)) {
     choose(fitMap(menu.map, menu.players)); renderMaps();
@@ -76,8 +83,8 @@ function setBoard(board) {
   } else renderMaps(); // (the list: which maps seat them)
   renderSeats(); showRecord(); sfx('select');
 }
-/** The footer's note: the map just changed, or why START GAME waits. */
-function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : ''); }
+/** The footer's note: the map just changed, why START GAME waits, or the challenge it plays. */
+function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : menu.challenge ? line(menu.challenge) : ''); }
 /** A spot's player as the board shows it (seats.js `tokenEl`'s view). */
 const viewOf = (board, i) => ({ name: seatName(i), race: board[i].race, diff: i ? board[i].diff : null, side: board[i].team, sideColor: sideColor(board, board[i].team), me: !i });
 function renderSeats() {
@@ -143,11 +150,12 @@ export function initMenu({ onStart }) {
   let saved = null; try { saved = JSON.parse(store.get('seats')); } catch { /* none, or not ours */ }
   menu.board = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = filled(menu.board).length;
   const last = store.get('map') === null ? -1 : +store.get('map');
-  choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players)); renderMaps(); renderSeats(); showRecord();
+  choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
+  takeChallenge(); renderMaps(); renderSeats(); showRecord();
   for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
-    sfx('select'); enterFullscreen(); menu.tutorial = false; choose(menu.map);
+    sfx('select'); enterFullscreen(); menu.tutorial = false; if (!menu.challenge) choose(menu.map); // (a challenge: its own seed and starts)
     Object.assign(menu, startSetup(menu.board, draw)); // (the record counts a game at its hardest AI's level: `diff`)
     menu.race = menu.races[0]; menu.enemyRace = menu.races[1]; onStart();
   });
@@ -162,6 +170,28 @@ export function initMenu({ onStart }) {
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   initOptions(); // OPTIONS, here and on the pause card (options.js)
+}
+
+/** A challenge link (`?vs=CODE`): its setup on the single-player page, the line saying so, nothing saved; the
+ *  parameter leaves the address once read (good or not: a code that is not a good one is the plain menu). */
+function takeChallenge() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has(PARAM)) return;
+  const c = decode(q.get(PARAM));
+  q.delete(PARAM); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
+  if (!c) return;
+  const m = mapOf(c);
+  Object.assign(menu, { challenge: c, board: c.spots.map(r => r && { ...r }), players: filled(c.spots).length, map: c.map, size: m.size, seed: m.seed, kind: m.kind, name: m.name, side: c.side });
+  page('menuSolo');
+}
+/** The challenge of the game just won in `secs` (the menu's setup, as START GAME seated it), or null (the guided game). */
+export const wonChallenge = (secs) => (menu.tutorial ? null : fromSetup(menu, secs));
+/** Where a reload should land while a challenge is set (the player has not changed it): its link (an update of the game
+ *  reloads the menu: src/boot.js), else ''. */
+export function pendingChallenge() {
+  if (!menu.challenge) return '';
+  const q = new URLSearchParams(location.search); q.set(PARAM, encode(menu.challenge)); // (the address's other parameters kept: ?seed=, ?relay=)
+  return `${location.origin}${location.pathname}?${q}${location.hash}`;
 }
 
 /** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */

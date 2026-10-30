@@ -1,5 +1,5 @@
-# Test and build on every push and pull request; publish the playable game from main to GitHub Pages
-# (https://ebbfall.com/).
+# Test and build on every push and pull request; publish the playable game from main to https://ebbfall.com/, a
+# Cloudflare Worker (site/).
 name: CI
 
 on:
@@ -159,21 +159,53 @@ jobs:
         working-directory: relay
         run: npx --yes wrangler@4 deploy
 
+  # The site: https://ebbfall.com/ (and www) as a Cloudflare Worker with static assets (site/: worker.js, wrangler.toml;
+  # docs/MULTIPLAYER.md, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
+  # tested there). Before the deploy, site/dns.mjs deletes GitHub Pages' old DNS records for the two hostnames, which a
+  # custom domain cannot share (on later runs there are none left: it deletes nothing); what it deletes is in the job
+  # summary, for a rollback, and is put back at once if the deploy then fails. Needs the CLOUDFLARE_API_TOKEN (Workers
+  # Scripts and Routes edit, DNS edit) and CLOUDFLARE_ACCOUNT_ID secrets; without them it does nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: cloudflare
+      url: https://ebbfall.com/
     concurrency:
-      group: pages
+      group: site
       cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/configure-pages@v6
-      - id: deployment
-        uses: actions/deploy-pages@v5
-
+      - name: No Cloudflare secrets, no deploy
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: echo "::warning::No CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID secret, so the site is not deployed"
+      - uses: actions/checkout@v7
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+      - uses: actions/download-artifact@v8
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/pages
+      - name: Unpack the build
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: mkdir dist && tar -xf "$RUNNER_TEMP/pages/artifact.tar" -C dist && test -f dist/index.html && test -f dist/sw.js
+      - uses: actions/setup-node@v7
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        with:
+          node-version-file: .nvmrc
+      - name: Clear GitHub Pages' DNS records for ebbfall.com and www
+        id: dns
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: node site/dns.mjs remove-pages "$RUNNER_TEMP/pages-dns.json"
+      - name: Deploy the site's Worker
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        working-directory: site
+        env:
+          CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # (unset: no beacon from the Worker; worker.js `page`)
+        run: npx --yes wrangler@4 deploy ${CF_ANALYTICS_TOKEN:+--var "CF_ANALYTICS_TOKEN:$CF_ANALYTICS_TOKEN"} # (its [build] step writes dist/_headers first)
+      - name: The deploy failed, so GitHub Pages' DNS records go back
+        if: failure() && (steps.dns.outcome == 'success' || steps.dns.outcome == 'failure')
+        run: if [ -f "$RUNNER_TEMP/pages-dns.json" ]; then node site/dns.mjs restore "$RUNNER_TEMP/pages-dns.json"; fi

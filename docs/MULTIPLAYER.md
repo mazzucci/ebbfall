@@ -138,7 +138,7 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
 
 - The relay is **its own Worker**, deployed only when relay code changes: a deploy restarts the objects and drops
   every socket, so it must not ride on every site merge. The relay never needs to know the game's build (clients
-  compare hashes), so the site can stay on GitHub Pages; moving it to Cloudflare is optional.
+  compare hashes), so the site and the relay are two Workers (the site: below).
 - Plain WebSockets in a game (hibernation saves nothing while a game runs and loses in-memory state); the log stays
   in memory, and a relay restart rebuilds the room from a client's log.
 - Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size, orders
@@ -154,6 +154,56 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
   the week's sweep is one list; no new class, no migration); the Node relay keeps them in memory on the same port.
 - Cost: the free plan's duration limit (13,000 GB-s a day) allows about 85 two-player games of 20 minutes a day;
   Workers Paid ($5 a month) removes the concern. Needs from the owner, when the relay is ready: a Cloudflare API token.
+
+### The site: a Cloudflare Worker
+
+Since 2026-10-30 (the owner's call: straight to it, rolled back if it does not work) https://ebbfall.com/ is a
+Cloudflare Worker with static assets, `ebbfall-site` (site/), no longer GitHub Pages: a room's, a challenge's or a
+replay's link can then show its own preview (Open Graph tags per URL, which a static host cannot do).
+
+- **What it serves.** dist/ as the Worker's assets at their exact paths, as Pages served them (/selftest.html,
+  /voice-lab.html, `?bench`, the service worker's scope at /: html_handling "none", no /selftest.html -> /selftest
+  redirect, which the service worker could not answer a page load with). The Worker runs first only for the game's page
+  (/ and /index.html: worker.js `page`, where the preview tags will go, through HTMLRewriter); every other file is
+  served by Cloudflare alone and costs no Worker request (the free plan's 100,000 a day are shared with the relay). A
+  page load that is not a file goes to / (its query kept), a missing file is a 404. www.ebbfall.com and plain http go
+  to https://ebbfall.com/ (the zone does not force https: relay.ebbfall.com answers http), the game's one origin.
+- **Cache headers** (site/cache.js, for the Worker's responses and, through dist/_headers written before each deploy,
+  for the files served alone): assets/ (Vite's hashed names) immutable; the pages, sw.js and the manifest `no-cache`
+  (revalidated on every load, so a deploy is seen at once and the service worker's update finds the new build); art/
+  and the icons Cloudflare's default (`max-age=0, must-revalidate`, with an ETag). Pages sent `max-age=600` for all.
+- **The switch** changes the server, not the origin: the service worker, its caches and what the device remembers
+  carry over; the next visit's sw.js check installs the build the Worker serves, as after any deploy.
+- **Deploy** (ci.yml's `deploy` job, after build, engines, arm and the relay, with the files the build job tested):
+  `node site/dns.mjs remove-pages` first deletes GitHub Pages' DNS records for ebbfall.com and www.ebbfall.com (A
+  185.199.108-111.153, AAAA 2606:50c0:8000-8003::153, a CNAME to *.github.io: a custom domain will not take a hostname
+  with records of its own, and in CI wrangler cannot ask to override them), writes each into the job summary, and
+  touches nothing else (relay.ebbfall.com, mail, TXT); later runs find none. Then `wrangler deploy` binds both
+  hostnames as custom domains (each gets a record of the Worker's). If the deploy fails, the deleted records are put
+  back at once (`dns.mjs restore`). Pages' own settings are left as they were: its custom domain keeps ebbfall.com
+  claimed by this repository, and its last deploy is the rollback.
+- **Web Analytics.** Cloudflare's, cookie-less. The owner turned on automatic injection for the zone; until the switch
+  ebbfall.com's records were DNS-only (grey: GitHub's addresses, no Cloudflare in the way), so nothing was injected.
+  Whether automatic injection also covers a Worker's responses on a custom domain is not documented: after the switch,
+  `curl -s https://ebbfall.com/ | grep beacon.min.js`. If it is not there, set the repo variable CF_ANALYTICS_TOKEN (the
+  site's token from the Web Analytics dashboard): the deploy passes it to the Worker, whose `page` then adds the beacon
+  with HTMLRewriter. Never both (every visit would count twice). Either way the beacon is a deferred cross-origin
+  script in index.html, and the service worker's copy of index.html may carry it: tools/offline/sw.js answers only
+  same-origin GETs, so the beacon (and its report, a POST to /cdn-cgi/rum) goes to the network, is never stored, and
+  offline it simply does not load: the game plays on (test/offline.test.js; checked in Chromium through `wrangler
+  dev`, offline).
+- **Rollback**, in this order (a hostname cannot hold a custom domain and records of its own at once):
+  1. Revert the PR that moved the site (this one: ci.yml's `deploy` back to GitHub Pages), so that main's next
+     run publishes to Pages and no longer clears its records. Until then Pages still serves its last deploy.
+  2. Remove the Worker's custom domains: Cloudflare dashboard, Workers & Pages, ebbfall-site, Settings, Domains &
+     Routes: ebbfall.com and www.ebbfall.com (this deletes their records).
+  3. Recreate the records logged in the first deploy's job summary: `CLOUDFLARE_API_TOKEN=... node site/dns.mjs
+     restore records.json` with the summary's JSON as records.json, or by hand in the dashboard (DNS-only, as they
+     were: four A records for the apex, www a CNAME to mazzucci.github.io). GitHub's certificate for the two
+     hostnames is still valid (it renews once the records point back).
+  Later, once the Worker has served ebbfall.com for a while: turn GitHub Pages off (Settings, Pages, or `gh api -X
+  DELETE repos/mazzucci/ebbfall/pages`); after that a rollback needs Pages turned back on with the custom domain
+  first, before any record points at GitHub again (or someone else's Pages site could claim the hostname).
 
 ### Browsers and devices
 

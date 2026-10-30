@@ -801,3 +801,21 @@ fn every_start_of_a_larger_map_mines_alike_from_the_first_minute() {
         }
     }
 }
+
+/// A challenge link (src/client/challenge.js) carries `side` reduced to `side % (k * n)`: the starts must depend on
+/// nothing more of it, free for all or in teams (where `team_starts` turns by `side % k` alone), or every link shared
+/// before a change here would start its game elsewhere.
+#[test]
+fn starts_depend_on_side_modulo_starts_times_seats_only() {
+    use endfall_sim::map::{seat_starts, team_starts};
+    for k in [2usize, 4, 6, 8] {
+        for n in 2..=k {
+            let teams: Vec<u8> = (0..n).map(|s| (s * 2 / n) as u8).collect();
+            for side in [0u32, 1, 5, 17, 63, 1000, 123_456_789] {
+                let m = side % (k * n) as u32;
+                assert_eq!(seat_starts(k, n, side), seat_starts(k, n, m), "seat_starts k={k} n={n} side={side}");
+                assert_eq!(team_starts(k, &teams, side), team_starts(k, &teams, m), "team_starts k={k} n={n} side={side}");
+            }
+        }
+    }
+}

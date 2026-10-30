@@ -100,7 +100,7 @@ export const unlockOf = (k) => Object.keys(UPGRADES).find(u => UPGRADES[u].effec
 export const SCHEMA = D.schema;
 /** Units a building's production queue holds (`QUEUE_MAX` in crates/endfall-sim/src/data/mod.rs): the console's slots. */
 export const QUEUE_MAX = D.schema.queueSlots;
-/** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 /** The difficulties' names (util.js: pure, as the site's challenge cards name the levels too). */
 export { DIFF_NAMES };
+/** AI opponent tuning per difficulty. first/gap: seconds before the first wave and between waves. */
 export const DIFF = D.diff.map((d, i) => ({ name: DIFF_NAMES[i], ...d }));

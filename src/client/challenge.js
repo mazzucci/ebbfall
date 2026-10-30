@@ -11,7 +11,8 @@
 // player, each `x` (empty) or a race letter (h, v), its side (0-7, numbered as they first appear: yours 0) and an AI's
 // level (0-3; yours 0). Only letters, digits and dots, never one at the end: a chat's link detection keeps all of it.
 // Parsing is strict: a code is good only if it is exactly what encoding its values gives back (anything else, another
-// version included, opens the plain menu). Pure: no DOM, no WASM (test/challenge.test.js; the site's Worker imports it).
+// version included, opens the plain menu). <kind> is one digit: a tenth map kind needs version 2.
+// Pure: no DOM, no WASM (test/challenge.test.js; the site's Worker imports it).
 import { MAPS, MAP_KINDS, seatsOf, mapName } from './maps.js';
 import { DIFF_NAMES } from '../engine/util.js';
 

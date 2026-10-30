@@ -20,7 +20,7 @@ import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
 import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
-import { PARAM, decode, fromSetup, mapOf, line, link } from './challenge.js';
+import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, enemyLevel, raceTitle, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
@@ -188,7 +188,11 @@ function takeChallenge() {
 export const wonChallenge = (secs) => (menu.tutorial ? null : fromSetup(menu, secs));
 /** Where a reload should land while a challenge is set (the player has not changed it): its link (an update of the game
  *  reloads the menu: src/boot.js), else ''. */
-export const pendingChallenge = () => (menu.challenge ? link(menu.challenge, location.origin, location.pathname) : '');
+export function pendingChallenge() {
+  if (!menu.challenge) return '';
+  const q = new URLSearchParams(location.search); q.set(PARAM, encode(menu.challenge)); // (the address's other parameters kept: ?seed=, ?relay=)
+  return `${location.origin}${location.pathname}?${q}${location.hash}`;
+}
 
 /** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */
 export function setup() {

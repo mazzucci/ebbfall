@@ -5,10 +5,12 @@
 // (tools/chromium.mjs) and written as a PNG. Kept small for the apps that fetch it (WhatsApp skips large images):
 // the screenshot's colours are reduced to a palette (an indexed PNG) when that is what fits. Run after changing the
 // icon, the art or the wording:
-//   node tools/og.mjs [out.png]     (default public/og.png; output is committed)
+//   node tools/og.mjs [out.png]     (default public/og.png; output is committed; OG_RAW=raw.png also writes the
+//                                    screenshot before its colours are reduced)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { launchChromium } from './chromium.mjs';
+import { chunk } from './art/png.js';
 
 const root = new URL('../', import.meta.url);
 const out = process.argv[2] || new URL('public/og.png', root).pathname;
@@ -127,8 +129,9 @@ try {
 } finally { await browser.close(); }
 
 /**
- * An RGB PNG reduced to 256 colours (median cut over the image's colours, each pixel its nearest palette entry; no
- * dithering: flat areas stay flat and compress), written as an indexed PNG (colour type 3) with per-row filter 0.
+ * RGBA pixels reduced to 256 colours (median cut over the image's colours, each pixel its nearest palette entry after
+ * a light error diffusion, DITHER: gradients keep from banding, flat areas stay flat and compress), written as an
+ * indexed PNG (colour type 3), opaque, filter 0 on every row.
  */
 function indexed({ w, h, data }) {
   const n = w * h, rgb = new Uint32Array(n);
@@ -186,10 +189,4 @@ function indexed({ w, h, data }) {
   }
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 3;
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('PLTE', Buffer.from(pal.flat())), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
-}
-function chunk(type, data) {
-  const crc = (buf) => { let c = -1; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; } return (c ^ -1) >>> 0; };
-  const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-  const td = Buffer.concat([Buffer.from(type, 'ascii'), data]), c = Buffer.alloc(4); c.writeUInt32BE(crc(td));
-  return Buffer.concat([len, td, c]);
 }

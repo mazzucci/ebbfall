@@ -4,7 +4,8 @@ import { deflateSync, inflateSync } from 'node:zlib';
 const CRC = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
 const crc32 = (buf) => { let c = -1; for (const b of buf) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0; };
 
-function chunk(type, data) {
+/** A PNG chunk: length, type, data, CRC. */
+export function chunk(type, data) {
   const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
   const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
   const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));

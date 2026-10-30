@@ -132,15 +132,16 @@ test('the _headers file the deploy writes says what the Worker does, for the fil
   for (const p of inputs) assert.equal(cacheControl('/' + p), 'no-cache', p);
 });
 
-test('wrangler.toml: dist/ as the assets, exact paths, the Worker first only for the page, ebbfall.com and www as custom domains', () => {
+test('wrangler.toml: dist/ as the assets, exact paths, the Worker first only for the page, ebbfall.com and www as routes', () => {
   const toml = readFileSync(new URL('../site/wrangler.toml', import.meta.url), 'utf8');
   assert.match(toml, /^main = "worker\.js"$/m);
   assert.match(toml, /^directory = "\.\.\/dist"$/m);
   assert.match(toml, /^binding = "ASSETS"$/m);
   assert.match(toml, /^html_handling = "none"$/m);
   assert.match(toml, /^run_worker_first = \["\/", "\/index\.html"\]$/m);
-  assert.match(toml, /\{ pattern = "ebbfall\.com", custom_domain = true \}/);
-  assert.match(toml, /\{ pattern = "www\.ebbfall\.com", custom_domain = true \}/);
+  assert.match(toml, /\{ pattern = "ebbfall\.com\/\*", zone_name = "ebbfall\.com" \}/);
+  assert.match(toml, /\{ pattern = "www\.ebbfall\.com\/\*", zone_name = "ebbfall\.com" \}/);
+  assert.doesNotMatch(toml, /custom_domain/, 'routes over the proxied records: a custom domain needs the records gone first');
   assert.doesNotMatch(toml, /relay\.ebbfall\.com/, "the relay's domain is the relay Worker's");
   assert.match(toml, /^workers_dev = false/m);
 });

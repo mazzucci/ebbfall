@@ -1,15 +1,25 @@
-// The site's hostnames' DNS records (ebbfall.com, www.ebbfall.com), read and logged for a rollback, and put back by
-// hand if one is needed (docs/MULTIPLAYER.md, Hosting). Through Cloudflare's API with CLOUDFLARE_API_TOKEN. It never
-// deletes anything: `wrangler deploy` replaces GitHub Pages' records with the Worker's custom domains itself (in CI, not
-// a TTY, it sets override_existing_dns_record), in one call, with no moment without records.
+// The site's hostnames' DNS records (ebbfall.com, www.ebbfall.com) and the Worker in front of them (docs/MULTIPLAYER.md,
+// Hosting), through Cloudflare's API with CLOUDFLARE_API_TOKEN (DNS edit; Workers Scripts edit for `drop-domains`).
+// The Worker answers the hostnames through zone routes (wrangler.toml), which see only proxied traffic: switching the
+// site over is turning the proxy on for GitHub Pages' own records, an edit in place (never a delete: the hostnames
+// resolve throughout, to GitHub until the edit, to Cloudflare and so the Worker after it); rolling back is turning it
+// off. (A custom domain would need the records gone first: Cloudflare refuses one on a hostname with records of its
+// own, wrangler's override notwithstanding, code 100117.)
 //
-//   node site/dns.mjs log <file.json>    (CI, before the deploy) list both hostnames' records into the job summary, and
-//                                        GitHub Pages' among them (A 185.199.108-111.153, AAAA 2606:50c0:8000-8003::153,
-//                                        a CNAME to *.github.io) as JSON into the file and the summary: what a rollback
-//                                        recreates. Reads only; a read that fails is a warning, never a failed deploy.
-//   node site/dns.mjs check              the same reads, printed (exits non-zero when they fail: the token's rights).
-//   node site/dns.mjs restore <file.json> create those records again, each on its own (any already there are left as
-//                                        they are; one failing does not stop the others; exits non-zero if any failed).
+//   node site/dns.mjs log <file.json>     (CI, before the deploy) both hostnames' records into the job summary, GitHub
+//                                         Pages' among them (A 185.199.108-111.153, AAAA 2606:50c0:8000-8003::153, a
+//                                         CNAME to *.github.io) also as JSON, into the file and the summary. Reads
+//                                         only; a read that fails is a warning, never a failed deploy.
+//   node site/dns.mjs check               the same reads, printed (exits non-zero when they fail: the token's rights).
+//   node site/dns.mjs proxy               (CI, after the deploy) GitHub Pages' records proxied, in one batch of PATCHes
+//                                         (only `proxied`, only those records: never relay.ebbfall.com or another);
+//                                         nothing to do once they are.
+//   node site/dns.mjs unproxy             the rollback: the same records DNS-only again, straight to GitHub Pages.
+//   node site/dns.mjs drop-domains        Workers custom domains of ebbfall-site on the two hostnames deleted, if any
+//                                         (with CLOUDFLARE_ACCOUNT_ID; a failed attempt could leave one; reads only
+//                                         when there is none).
+//   node site/dns.mjs restore <file.json> create logged records again, each on its own (any already there are left
+//                                         as they are; one failing does not stop the others; exits non-zero if any did).
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -69,10 +79,37 @@ const line = (r) => `${r.type} ${r.name} ${r.content}${r.proxied ? ' (proxied)' 
 /** The job summary's section: every record, GitHub's marked, and GitHub's as JSON for `restore`. */
 export function summary({ all, pages }) {
   return '### DNS records of ebbfall.com and www.ebbfall.com, before this deploy\n\n'
-    + 'For a rollback (docs/MULTIPLAYER.md, Hosting): `node site/dns.mjs restore records.json` with the JSON below as '
-    + 'records.json, or by hand in the dashboard.\n\n| type | name | content | proxied | ttl | GitHub Pages |\n|---|---|---|---|---|---|\n'
+    + 'For a rollback (docs/MULTIPLAYER.md, Hosting): `node site/dns.mjs unproxy`; should records be missing, '
+    + '`node site/dns.mjs restore records.json` with the JSON below as records.json, or by hand in the dashboard.\n\n| type | name | content | proxied | ttl | GitHub Pages |\n|---|---|---|---|---|---|\n'
     + all.map(r => `| ${r.type} | ${r.name} | ${r.content} | ${r.proxied} | ${r.ttl} | ${isPagesRecord(r) ? 'yes' : ''} |`).join('\n')
     + '\n\n```json\n' + JSON.stringify(pages, null, 2) + '\n```\n';
+}
+
+/**
+ * GitHub Pages' records proxied (`on`) or DNS-only, in one batch (Cloudflare applies it in one transaction: all or none),
+ * PATCHing `proxied` only; the records already so are left out, and with none left nothing is sent. Logs each record
+ * before and after; returns the records changed.
+ */
+export async function setProxied(call, on, log = console.log) {
+  const zone = await zoneId(call), recs = await records(call, zone);
+  const todo = recs.filter(r => isPagesRecord(r) && !!r.proxied !== on);
+  for (const r of recs.filter(x => isPagesRecord(x))) log(`before ${line(r)}`);
+  if (!todo.length) { log(`nothing to change: GitHub Pages' records are ${on ? 'proxied' : 'DNS-only'} already`); return []; }
+  await call('POST', `/zones/${zone}/dns_records/batch`, { patches: todo.map(r => ({ id: r.id, proxied: on })) });
+  for (const r of (await records(call, zone)).filter(x => isPagesRecord(x))) log(`after  ${line(r)}`);
+  return todo.map(r => ({ ...kept(r), proxied: on }));
+}
+
+/** The Worker's custom domains on the hostnames (left by a failed attempt), deleted; returns their hostnames. */
+export async function dropDomains(call, account, service = 'ebbfall-site', log = console.log) {
+  const found = (await call('GET', `/accounts/${account}/workers/domains?service=${service}`))
+    .filter(d => d.service === service && HOSTS.includes(String(d.hostname).toLowerCase()));
+  if (!found.length) log(`no custom domains of ${service} on ${HOSTS.join(', ')}`);
+  for (const d of found) {
+    await call('DELETE', `/accounts/${account}/workers/domains/${d.id}`);
+    log(`deleted the custom domain ${d.hostname} (${service})`);
+  }
+  return found.map(d => d.hostname);
 }
 
 /** Create `saved` records again, but those already there, each on its own; returns how many failed. */
@@ -94,14 +131,22 @@ export async function restore(call, saved, log = console.log) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, file] = process.argv.slice(2), token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!token || !['log', 'check', 'restore'].includes(cmd) || (cmd !== 'check' && !file)) {
-    console.error('usage: CLOUDFLARE_API_TOKEN=... node site/dns.mjs log <file.json> | check | restore <file.json>');
+  const COMMANDS = ['log', 'check', 'proxy', 'unproxy', 'drop-domains', 'restore'];
+  if (!token || !COMMANDS.includes(cmd) || (['log', 'restore'].includes(cmd) && !file)) {
+    console.error(`usage: CLOUDFLARE_API_TOKEN=... node site/dns.mjs log <file.json> | check | proxy | unproxy | drop-domains | restore <file.json>`);
     process.exit(2);
   }
   const call = api(token);
   if (cmd === 'restore') {
     const failed = await restore(call, JSON.parse(readFileSync(file, 'utf8')));
     if (failed) { console.error(`${failed} record(s) not restored`); process.exit(1); }
+  } else if (cmd === 'proxy' || cmd === 'unproxy') {
+    await setProxied(call, cmd === 'proxy');
+  } else if (cmd === 'drop-domains') {
+    if (!process.env.CLOUDFLARE_ACCOUNT_ID) { console.error('drop-domains needs CLOUDFLARE_ACCOUNT_ID'); process.exit(2); }
+    try { await dropDomains(call, process.env.CLOUDFLARE_ACCOUNT_ID); } catch (err) { // (none was ever made: a warning)
+      console.log(`::warning::Could not check the Worker's custom domains: ${err.message}`);
+    }
   } else if (cmd === 'check') {
     const s = await snapshot(call);
     for (const r of s.all) console.log(`${isPagesRecord(r) ? 'pages ' : 'other '} ${line(r)}`);
@@ -111,7 +156,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       for (const r of s.all) console.log(`${isPagesRecord(r) ? 'pages ' : 'other '} ${line(r)}`);
       writeFileSync(file, JSON.stringify(s.pages, null, 2) + '\n');
       if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary(s));
-    } catch (err) { // (the deploy does not need these reads: wrangler replaces the records itself)
+    } catch (err) { // (nothing below needs these reads)
       console.log(`::warning::Could not read the DNS records for the rollback log (the token's DNS read right?): ${err.message}`);
     }
   }

@@ -1,15 +1,17 @@
 # The site on Cloudflare (site/worker.js): the built game (dist/, `npm run build` at the repo root) as a Worker's static
 # assets, at https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting). CI deploys it from main (the `deploy` job); by hand,
-# from site/ with `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts and Routes edit, DNS
-# edit on the zone, as a custom domain makes its own DNS record). A hostname's records of its own (GitHub Pages') are
-# replaced in the same call: wrangler overrides them without asking when not on a terminal (CI), and asks at one.
+# from site/ with `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts edit, and Workers
+# Routes edit on the zone).
 name = "ebbfall-site"
 main = "worker.js"
 compatibility_date = "2026-10-01"
-# www answers too, sent on to ebbfall.com by the Worker (worker.js CANONICAL), as GitHub Pages did.
+# Zone routes, not custom domains: the hostnames keep their own DNS records (GitHub Pages', which a custom domain would
+# need deleted first: a gap), and a route sees what Cloudflare proxies, so the switch is turning the proxy on for those
+# records (site/dns.mjs proxy, after this deploy), and the rollback turning it off. www answers too, sent on to
+# ebbfall.com by the Worker (worker.js CANONICAL), as GitHub Pages did.
 routes = [
-  { pattern = "ebbfall.com", custom_domain = true },
-  { pattern = "www.ebbfall.com", custom_domain = true },
+  { pattern = "ebbfall.com/*", zone_name = "ebbfall.com" },
+  { pattern = "www.ebbfall.com/*", zone_name = "ebbfall.com" },
 ]
 workers_dev = false # (one address: the game's storage and service worker belong to its origin)
 preview_urls = false

@@ -166,7 +166,8 @@ src/client/           everything that touches the browser
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
                       share or fill or remove an open seat; + AI / + SEAT in the lowest empty spot; the map list; a
-                      guest's board read-only, SIT HERE) and the glue between
+                      guest's board read-only, SIT HERE; a name first, NEW ROOM and JOIN dimmed
+                      without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
                       with VITE_RELAY_URL shows MULTIPLAYER in the HTML itself, vite.config.js)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages (seats by spot), its game seat

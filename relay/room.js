@@ -5,7 +5,7 @@
 // bundle to everyone. It never looks inside an order (the clients decode them); it only checks that every seat has the
 // same sim build (an opaque string from the client), and the clients compare hashes.
 //
-// The protocol (client -> relay): hello {proto, name, build?, token?, next?} (build: the client's sim build, which
+// The protocol (client -> relay): hello {proto, name, build?, token?, next?} (name: trimmed, 16 characters at most; a newcomer without one refused with error `name`; build: the client's sim build, which
 // every seat holding a place must share, or their games would differ; next: the next turn the client expects, when it comes back), race {race} (humans, vael or random), map {map}, ready {ready},
 // and from the host (spot 0) in the lobby, every `seat` there a spot: ai {seat, on, race?, diff?} (on true: an open seat
 // played by the AI; false: open again; its race and difficulty, 0-3), side {seat, team} (that spot's seat to team `team`,
@@ -90,6 +90,10 @@ export class Room {
     const build = typeof hello.build === 'string' ? hello.build.slice(0, 64) : '';
     // (in the lobby, a held seat that is away is checked when it comes back: a newcomer is not turned away for it)
     const mine = typeof hello.token === 'string' ? this.seats.find(s => s.token && s.token === hello.token) : null;
+    // A name to show the others: trimmed, MAX_NAME at most. A newcomer without one is turned away (the client asks for
+    // one first); a seat back with its token and none keeps the name it had.
+    const name = typeof hello.name === 'string' ? hello.name.trim().slice(0, MAX_NAME).trim() : '';
+    if (!name && !mine) { this.send(conn, { t: 'error', code: 'name', msg: 'Enter your name' }); return -1; }
     const other = this.seats.find(s => s.token && s !== mine && (s.conn || this.phase !== 'lobby'));
     if (other && other.build !== build) {
       this.send(conn, { t: 'error', code: 'version', msg: 'Your Ebbfall and your friend\'s don\'t match' });
@@ -113,7 +117,7 @@ export class Room {
     s.build = build;
     if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'This room is open on another screen' }); this.kick(s.conn); }
     s.conn = conn; s.lastAck = this.now;
-    if (this.phase === 'lobby') { s.goneSince = 0; s.name = String(hello.name || `Player ${s.spot + 1}`).slice(0, MAX_NAME); } // (a held seat: back)
+    if (this.phase === 'lobby') { s.goneSince = 0; s.name = name || s.name; } // (a held seat: back)
     this.tell(s);
     if (this.phase === 'lobby') { if (newcomer) this.unready(); else this.lobby(); return s.spot; } // (someone new: the others ready again for the new line-up)
     // Back in a game: every turn from the next one it expects, then on as before, and who else is away or gone.

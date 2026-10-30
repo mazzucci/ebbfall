@@ -167,7 +167,7 @@ export class Net {
         break;
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat, m); break; // (away: m.loading, its game not set up yet)
       case 'desync': this.on.desync?.(m.turn); break;
-      case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced'].includes(m.code)) this.close(); break;
+      case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced', 'name'].includes(m.code)) this.close(); break;
       case 'notice': this.on.notice?.(m); break;
       case 'pause': if (Number.isInteger(m.seat) && Array.isArray(m.left)) this.on.pause?.(m); break;
       case 'resume': this.on.resume?.(m.seat); break;

@@ -18,6 +18,7 @@ const assets = (files) => ({
     const path = new URL(req.url).pathname;
     this.seen.push(path);
     if (!(path in files)) return new Response('', { status: 404 });
+    if (req.headers.get('If-None-Match') === '"e"') return new Response(null, { status: 304, headers: { ETag: '"e"' } });
     const body = req.method === 'HEAD' ? null : files[path];
     return new Response(body, { headers: { 'Content-Type': TYPES[path.split('.').pop()] || 'application/octet-stream', 'Cache-Control': 'public, max-age=0, must-revalidate', ETag: '"e"' } });
   },
@@ -104,6 +105,15 @@ test("Cloudflare's analytics beacon: in the game's page only with a token (a def
     assert.ok(html.endsWith(`<canvas></canvas><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"abc123DEF"}'></script></body>`), html);
     assert.doesNotMatch(await (await get('/selftest.html', {}, 'GET', { CF_ANALYTICS_TOKEN: 'abc' })).text(), /cloudflareinsights/, 'the game\'s page only');
     assert.doesNotMatch(await (await get('/', {}, 'GET', { CF_ANALYTICS_TOKEN: 'x"><script>' })).text(), /cloudflareinsights/, 'a malformed token adds nothing');
+    // The page with the beacon has an ETag of its own: a copy from before the token is not kept (a 304), its own is.
+    const env = { CF_ANALYTICS_TOKEN: 'abc' };
+    assert.equal((await get('/', {}, 'GET', env)).headers.get('ETag'), '"e-rum"');
+    assert.equal((await get('/', { 'If-None-Match': '"e"' }, 'GET', env)).status, 200, 'a copy without the beacon');
+    const again = await get('/', { 'If-None-Match': '"e-rum"' }, 'GET', env);
+    assert.equal(again.status, 304, 'a copy with it');
+    assert.equal(again.headers.get('ETag'), '"e-rum"');
+    assert.equal((await get('/', { 'If-None-Match': '"e"' })).status, 304, 'no token: the file\'s own ETag');
+    assert.equal((await get('/sw.js', {}, 'GET', env)).headers.get('ETag'), '"e"', 'the page only');
   } finally { delete globalThis.HTMLRewriter; }
 });
 

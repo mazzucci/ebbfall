@@ -196,11 +196,12 @@ jobs:
 
   # The site: https://ebbfall.com/ (and www) as a Cloudflare Worker with static assets (site/: worker.js, wrangler.toml;
   # docs/MULTIPLAYER.md, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
-  # tested there). First the relay check: the site never outruns the relay. Then, before the deploy, site/dns.mjs deletes
-  # GitHub Pages' old DNS records for the two hostnames, which a custom domain cannot share (on later runs there are
-  # none left: it deletes nothing); what it deletes is in the job summary, for a rollback, and is put back at once if the
-  # deploy then fails. Needs the CLOUDFLARE_API_TOKEN (Workers Scripts and Routes edit, DNS edit) and
-  # CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
+  # tested there). First the relay check: the site never outruns the relay. `wrangler deploy` binds the custom domains,
+  # replacing GitHub Pages' DNS records itself in the same call (not a TTY: it overrides them without asking), so the
+  # hostnames are never without records; before it, site/dns.mjs logs those records into the job summary for a rollback
+  # (reads only; a read that fails is a warning). Needs the CLOUDFLARE_API_TOKEN (Workers Scripts and Routes edit, DNS
+  # edit for the custom domains' records; DNS read for the log) and CLOUDFLARE_ACCOUNT_ID secrets; without them it
+  # deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
@@ -251,16 +252,16 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         with:
           node-version-file: .nvmrc
-      - name: Clear GitHub Pages' DNS records for ebbfall.com and www
-        id: dns
+      - name: The DNS records before this deploy, for a rollback (job summary)
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
-        run: node site/dns.mjs remove-pages "$RUNNER_TEMP/pages-dns.json"
+        run: node site/dns.mjs log "$RUNNER_TEMP/pages-dns.json"
+      - name: Install wrangler and check the Worker's config (nothing published)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        working-directory: site
+        run: npx --yes "$WRANGLER" deploy --dry-run
       - name: Deploy the site's Worker
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         working-directory: site
         env:
           CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # (unset: no beacon from the Worker; worker.js `page`)
         run: npx --yes "$WRANGLER" deploy ${CF_ANALYTICS_TOKEN:+--var "CF_ANALYTICS_TOKEN:$CF_ANALYTICS_TOKEN"} # (its [build] step writes dist/_headers first)
-      - name: The deploy failed, so GitHub Pages' DNS records go back
-        if: failure() && (steps.dns.outcome == 'success' || steps.dns.outcome == 'failure')
-        run: if [ -f "$RUNNER_TEMP/pages-dns.json" ]; then node site/dns.mjs restore "$RUNNER_TEMP/pages-dns.json"; fi

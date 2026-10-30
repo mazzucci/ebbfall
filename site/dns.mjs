@@ -1,12 +1,15 @@
-// GitHub Pages' DNS records for the site's hostnames, out of the way of the Worker's custom domains (wrangler.toml), and
-// back for a rollback (docs/MULTIPLAYER.md, Hosting). Through Cloudflare's API with CLOUDFLARE_API_TOKEN (DNS edit on
-// the zone); CI's deploy job runs it before `wrangler deploy`.
+// The site's hostnames' DNS records (ebbfall.com, www.ebbfall.com), read and logged for a rollback, and put back by
+// hand if one is needed (docs/MULTIPLAYER.md, Hosting). Through Cloudflare's API with CLOUDFLARE_API_TOKEN. It never
+// deletes anything: `wrangler deploy` replaces GitHub Pages' records with the Worker's custom domains itself (in CI, not
+// a TTY, it sets override_existing_dns_record), in one call, with no moment without records.
 //
-//   node site/dns.mjs remove-pages <file.json>   delete ebbfall.com's and www.ebbfall.com's A/AAAA/CNAME records that
-//                                                point to GitHub Pages; they are written to the file (and to the job
-//                                                summary) before the first is deleted. Nothing else is touched (relay.ebbfall.com, MX,
-//                                                TXT, ...); with nothing of GitHub's left it deletes nothing.
-//   node site/dns.mjs restore <file.json>        create those records again (any already there are left as they are).
+//   node site/dns.mjs log <file.json>    (CI, before the deploy) list both hostnames' records into the job summary, and
+//                                        GitHub Pages' among them (A 185.199.108-111.153, AAAA 2606:50c0:8000-8003::153,
+//                                        a CNAME to *.github.io) as JSON into the file and the summary: what a rollback
+//                                        recreates. Reads only; a read that fails is a warning, never a failed deploy.
+//   node site/dns.mjs check              the same reads, printed (exits non-zero when they fail: the token's rights).
+//   node site/dns.mjs restore <file.json> create those records again, each on its own (any already there are left as
+//                                        they are; one failing does not stop the others; exits non-zero if any failed).
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -30,10 +33,10 @@ export function isPagesRecord(r, hosts = HOSTS) {
 /** What a record is recreated from. */
 export const kept = (r) => ({ type: r.type, name: r.name, content: r.content, ttl: r.ttl, proxied: r.proxied, comment: r.comment ?? undefined });
 
-/** Cloudflare's API: `call(method, path, body)` -> result, throwing on an error. */
-export function api(token, fetchFn = fetch) {
+/** Cloudflare's API: `call(method, path, body)` -> result, throwing on an error. (`base`: the tests' unreachable one.) */
+export function api(token, fetchFn = fetch, base = process.env.CLOUDFLARE_API_BASE || 'https://api.cloudflare.com/client/v4') {
   return async (method, path, body) => {
-    const res = await fetchFn('https://api.cloudflare.com/client/v4' + path, {
+    const res = await fetchFn(base + path, {
       method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body && JSON.stringify(body),
     });
     const j = await res.json().catch(() => ({}));
@@ -48,56 +51,68 @@ async function zoneId(call) {
   return zones[0].id;
 }
 
-/** The hostnames' records, each host's in full. */
+/** The hostnames' records, each host's in full, read only. */
 async function records(call, zone) {
   const all = [];
   for (const h of HOSTS) all.push(...await call('GET', `/zones/${zone}/dns_records?name=${h}&per_page=100`));
   return all.filter(r => HOSTS.includes(String(r.name).toLowerCase()));
 }
 
-const line = (r) => `${r.type} ${r.name} ${r.content}${r.proxied ? ' (proxied)' : ''}`;
-
-/**
- * Delete GitHub Pages' records; returns them (and logs every record of the hostnames, kept or not). `save` gets them
- * before the first is deleted: a run cut short halfway can still be put back.
- */
-export async function removePages(call, log = console.log, save = () => {}) {
-  const zone = await zoneId(call), recs = await records(call, zone), gone = recs.filter(r => isPagesRecord(r));
-  for (const r of recs) log(`${isPagesRecord(r) ? 'delete' : 'keep  '} ${line(r)}`);
-  save(gone.map(kept));
-  for (const r of gone) await call('DELETE', `/zones/${zone}/dns_records/${r.id}`);
-  return gone.map(kept);
+/** Every record of the hostnames, and GitHub Pages' among them (as they would be recreated). Reads only. */
+export async function snapshot(call) {
+  const all = await records(call, await zoneId(call));
+  return { all, pages: all.filter(r => isPagesRecord(r)).map(kept) };
 }
 
-/** Create `saved` records again, but those already there. */
+const line = (r) => `${r.type} ${r.name} ${r.content}${r.proxied ? ' (proxied)' : ''}`;
+
+/** The job summary's section: every record, GitHub's marked, and GitHub's as JSON for `restore`. */
+export function summary({ all, pages }) {
+  return '### DNS records of ebbfall.com and www.ebbfall.com, before this deploy\n\n'
+    + 'For a rollback (docs/MULTIPLAYER.md, Hosting): `node site/dns.mjs restore records.json` with the JSON below as '
+    + 'records.json, or by hand in the dashboard.\n\n| type | name | content | proxied | ttl | GitHub Pages |\n|---|---|---|---|---|---|\n'
+    + all.map(r => `| ${r.type} | ${r.name} | ${r.content} | ${r.proxied} | ${r.ttl} | ${isPagesRecord(r) ? 'yes' : ''} |`).join('\n')
+    + '\n\n```json\n' + JSON.stringify(pages, null, 2) + '\n```\n';
+}
+
+/** Create `saved` records again, but those already there, each on its own; returns how many failed. */
 export async function restore(call, saved, log = console.log) {
   const zone = await zoneId(call), recs = await records(call, zone);
+  let failed = 0;
   for (const r of saved) {
     if (recs.some(x => x.type === r.type && x.name === r.name && x.content === r.content)) { log(`there  ${line(r)}`); continue; }
-    await call('POST', `/zones/${zone}/dns_records`, r);
-    log(`create ${line(r)}`);
+    try {
+      await call('POST', `/zones/${zone}/dns_records`, r);
+      log(`create ${line(r)}`);
+    } catch (err) {
+      failed++;
+      log(`FAILED ${line(r)}: ${err.message}`);
+    }
   }
+  return failed;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, file] = process.argv.slice(2), token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!token || !file || !['remove-pages', 'restore'].includes(cmd)) {
-    console.error('usage: CLOUDFLARE_API_TOKEN=... node site/dns.mjs remove-pages|restore <file.json>');
+  if (!token || !['log', 'check', 'restore'].includes(cmd) || (cmd !== 'check' && !file)) {
+    console.error('usage: CLOUDFLARE_API_TOKEN=... node site/dns.mjs log <file.json> | check | restore <file.json>');
     process.exit(2);
   }
   const call = api(token);
-  if (cmd === 'restore') await restore(call, JSON.parse(readFileSync(file, 'utf8')));
-  else {
-    const gone = await removePages(call, console.log, (list) => {
-      writeFileSync(file, JSON.stringify(list, null, 2) + '\n');
-      const summary = process.env.GITHUB_STEP_SUMMARY;
-      if (!summary || !list.length) return;
-      appendFileSync(summary, '### GitHub Pages DNS records deleted\n\nFor a rollback (docs/MULTIPLAYER.md, Hosting): '
-        + '`node site/dns.mjs restore records.json` with the JSON below as records.json, or by hand in the dashboard.\n\n'
-        + '| type | name | content | proxied | ttl |\n|---|---|---|---|---|\n'
-        + list.map(r => `| ${r.type} | ${r.name} | ${r.content} | ${r.proxied} | ${r.ttl} |`).join('\n')
-        + '\n\n```json\n' + JSON.stringify(list, null, 2) + '\n```\n');
-    });
-    console.log(gone.length ? `deleted ${gone.length} GitHub Pages record(s)` : 'no GitHub Pages records left: nothing to delete');
+  if (cmd === 'restore') {
+    const failed = await restore(call, JSON.parse(readFileSync(file, 'utf8')));
+    if (failed) { console.error(`${failed} record(s) not restored`); process.exit(1); }
+  } else if (cmd === 'check') {
+    const s = await snapshot(call);
+    for (const r of s.all) console.log(`${isPagesRecord(r) ? 'pages ' : 'other '} ${line(r)}`);
+  } else {
+    try {
+      const s = await snapshot(call);
+      for (const r of s.all) console.log(`${isPagesRecord(r) ? 'pages ' : 'other '} ${line(r)}`);
+      writeFileSync(file, JSON.stringify(s.pages, null, 2) + '\n');
+      if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary(s));
+    } catch (err) { // (the deploy does not need these reads: wrangler replaces the records itself)
+      console.log(`::warning::Could not read the DNS records for the rollback log (the token's DNS read right?): ${err.message}`);
+    }
   }
 }

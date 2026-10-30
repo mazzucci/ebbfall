@@ -1,8 +1,8 @@
 # The site on Cloudflare (site/worker.js): the built game (dist/, `npm run build` at the repo root) as a Worker's static
 # assets, at https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting). CI deploys it from main (the `deploy` job); by hand,
 # from site/ with `npx wrangler deploy` (CLOUDFLARE_API_TOKEN in the environment: Workers Scripts and Routes edit, DNS
-# edit on the zone, as a custom domain makes its own DNS record). A custom domain will not take a hostname that has
-# records of its own: the deploy job removes GitHub Pages' first (site/dns.mjs).
+# edit on the zone, as a custom domain makes its own DNS record). A hostname's records of its own (GitHub Pages') are
+# replaced in the same call: wrangler overrides them without asking when not on a terminal (CI), and asks at one.
 name = "ebbfall-site"
 main = "worker.js"
 compatibility_date = "2026-10-01"

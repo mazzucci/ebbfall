@@ -30,10 +30,29 @@ function withCache(res, path) {
  * (docs/MULTIPLAYER.md, Hosting), and both at once would count every visit twice.
  */
 function page(req, res, url, env) {
-  const token = env.CF_ANALYTICS_TOKEN;
-  if (!token || !/^[\w-]+$/.test(token) || !res.ok) return res;
+  const token = beaconToken(env);
+  if (!token || !res.ok) return res;
   const beacon = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"${token}"}'></script>`;
   return new HTMLRewriter().on('body', { element: (e) => e.append(beacon, { html: true }) }).transform(res);
+}
+
+/** CF_ANALYTICS_TOKEN when the Worker adds the beacon (and only a well-formed one), else null. */
+const beaconToken = (env) => (env.CF_ANALYTICS_TOKEN && /^[\w-]+$/.test(env.CF_ANALYTICS_TOKEN) ? env.CF_ANALYTICS_TOKEN : null);
+
+/**
+ * The page with the beacon is another page than the file: its ETag gets RUM at the end, so that a browser's copy from
+ * before the token was set is not answered 304 (it would go on without the beacon), and the If-None-Match it sends back
+ * loses it again before the assets compare it with the file's (a tag without it is a copy without the beacon: dropped).
+ */
+const RUM = '-rum';
+/** If-None-Match as the assets should see it: only the tags with RUM (copies with the beacon), RUM taken off. */
+const untagged = (inm) => inm.split(',').map(t => t.trim()).filter(t => t.endsWith(`${RUM}"`)).map(t => t.slice(0, -RUM.length - 1) + '"').join(', ');
+function tagged(res) {
+  const etag = res.headers.get('ETag');
+  if (!etag) return res;
+  const out = new Response(res.body, res);
+  out.headers.set('ETag', etag.replace(/"$/, `${RUM}"`));
+  return out;
 }
 
 /**
@@ -54,9 +73,15 @@ export default {
     if (url.hostname === 'www.' + CANONICAL || (url.hostname === CANONICAL && url.protocol === 'http:')) {
       return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL}${url.pathname}${url.search}` } });
     }
-    const path = url.pathname === '/' ? '/index.html' : url.pathname;
-    const res = await env.ASSETS.fetch(new Request(new URL(path, url), req));
+    const path = url.pathname === '/' ? '/index.html' : url.pathname, rum = path === '/index.html' && !!beaconToken(env);
+    const headers = new Headers(req.headers);
+    if (rum && headers.has('If-None-Match')) {
+      const inm = untagged(headers.get('If-None-Match'));
+      if (inm) headers.set('If-None-Match', inm); else headers.delete('If-None-Match');
+    }
+    const res = await env.ASSETS.fetch(new Request(new URL(path, url), { method: req.method, headers }));
     if (res.status === 404) return notFound(req, url);
-    return path === '/index.html' ? page(req, withCache(res, path), url, env) : withCache(res, path);
+    if (path !== '/index.html') return withCache(res, path);
+    return page(req, rum ? tagged(withCache(res, path)) : withCache(res, path), url, env);
   },
 };

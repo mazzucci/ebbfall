@@ -1,9 +1,11 @@
-// site/dns.mjs: GitHub Pages' DNS records cleared for the site Worker's custom domains, on a fake Cloudflare API. Only
-// the apex's and www's A/AAAA/CNAME records that point to GitHub are deleted (never relay.ebbfall.com, mail, TXT or
-// anything else); a second run deletes nothing; a rollback creates them again, once.
+// site/dns.mjs on a fake Cloudflare API: the site's hostnames' records read (never written) and GitHub Pages' among
+// them picked out for a rollback (never relay.ebbfall.com, mail, TXT or anything else); the summary a rollback reads;
+// a restore that creates each missing record once and goes on past one that fails.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isPagesRecord, removePages, restore, api } from '../site/dns.mjs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { isPagesRecord, snapshot, summary, restore, api } from '../site/dns.mjs';
 
 const PAGES = [
   { id: 'a1', type: 'A', name: 'ebbfall.com', content: '185.199.108.153', proxied: false, ttl: 1 },
@@ -31,8 +33,8 @@ test("GitHub Pages' records for the apex and www, and nothing else", () => {
   assert.ok(isPagesRecord({ type: 'CNAME', name: 'WWW.ebbfall.com.', content: 'Mazzucci.GitHub.io.' }), 'case and a final dot');
 });
 
-/** A fake Cloudflare API over `recs` (the zone's records), keeping the calls it was given. */
-function cloudflare(recs) {
+/** A fake Cloudflare API over `recs` (the zone's records), keeping the calls it was given; `failPost` content fails. */
+function cloudflare(recs, { failPost = null } = {}) {
   const calls = [], zone = 'z1';
   let next = 100;
   const fetchFn = async (url, { method, headers, body }) => {
@@ -40,41 +42,56 @@ function cloudflare(recs) {
     calls.push(`${method} ${path}${u.search}`);
     assert.equal(headers.Authorization, 'Bearer tok');
     const ok = (result) => new Response(JSON.stringify({ success: true, result }), { status: 200 });
+    const no = (status, message) => new Response(JSON.stringify({ success: false, errors: [{ message }] }), { status });
     if (method === 'GET' && path === '/zones') return ok(u.searchParams.get('name') === 'ebbfall.com' ? [{ id: zone }] : []);
     if (method === 'GET' && path === `/zones/${zone}/dns_records`) return ok(recs.filter(r => r.name === u.searchParams.get('name')));
-    if (method === 'DELETE') { const id = path.split('/').pop(), i = recs.findIndex(r => r.id === id); assert.ok(i >= 0, id); recs.splice(i, 1); return ok({ id }); }
-    if (method === 'POST') { const r = { id: 'n' + next++, ...JSON.parse(body) }; recs.push(r); return ok(r); }
-    return new Response(JSON.stringify({ success: false, errors: [{ message: 'no' }] }), { status: 400 });
+    if (method === 'POST') {
+      const r = JSON.parse(body);
+      if (r.content === failPost) return no(400, 'record rejected');
+      recs.push({ id: 'n' + next++, ...r });
+      return ok(r);
+    }
+    return no(400, 'no');
   };
   return { recs, calls, call: api('tok', fetchFn) };
 }
 
-test("removePages deletes only GitHub's records, logs every record of the hosts, and a second run deletes nothing", async () => {
-  const cf = cloudflare([...PAGES, ...OTHERS].map(r => ({ ...r }))), logged = [];
-  let saved = null;
-  const gone = await removePages(cf.call, (l) => logged.push(l), (list) => { saved = list; assert.ok(!cf.calls.some(c => c.startsWith('DELETE')), 'saved before any is deleted'); });
-  assert.deepEqual(saved, gone);
-  assert.deepEqual(gone.map(r => r.content).sort(), PAGES.map(r => r.content).sort());
-  assert.ok(gone.every(r => !('id' in r)), 'saved without ids: to be created again');
-  assert.deepEqual(cf.recs.map(r => r.id).sort(), OTHERS.map(r => r.id).sort());
-  assert.ok(logged.some(l => l.startsWith('keep') && l.includes('MX ebbfall.com')));
-  assert.equal(logged.filter(l => l.startsWith('delete')).length, PAGES.length);
-  assert.ok(!cf.calls.some(c => c.includes('relay') || c.includes('other.')), 'the other hosts are never even listed');
-  const again = cloudflare(cf.recs);
-  assert.deepEqual(await removePages(again.call, () => {}), []);
-  assert.ok(!again.calls.some(c => c.startsWith('DELETE')));
-});
-
-test('restore creates the saved records again, and only those not there', async () => {
+test("snapshot reads the two hostnames' records, writes nothing, and picks GitHub's out for a rollback", async () => {
   const cf = cloudflare([...PAGES, ...OTHERS].map(r => ({ ...r })));
-  const gone = await removePages(cf.call, () => {});
-  cf.recs.push({ id: 'x', ...gone[0] }); // (one put back by hand already)
-  await restore(cf.call, gone, () => {});
-  for (const r of PAGES) assert.equal(cf.recs.filter(x => x.type === r.type && x.name === r.name && x.content === r.content).length, 1, r.content);
-  assert.equal(cf.calls.filter(c => c.startsWith('POST')).length, PAGES.length - 1);
+  const s = await snapshot(cf.call);
+  assert.ok(cf.calls.every(c => c.startsWith('GET ')), cf.calls.join());
+  assert.ok(!cf.calls.some(c => c.includes('relay') || c.includes('other.')), 'the other hosts are never even listed');
+  assert.equal(cf.recs.length, PAGES.length + OTHERS.length);
+  assert.deepEqual(s.pages.map(r => r.content).sort(), PAGES.map(r => r.content).sort());
+  assert.ok(s.pages.every(r => !('id' in r)), 'kept without ids: to be created again');
+  assert.ok(s.all.some(r => r.type === 'MX'), 'every record of the hosts is in the log');
+  const md = summary(s);
+  assert.match(md, /\| MX \| ebbfall\.com \| mx\.example\.com \| false \| 1 \| {2}\|/);
+  assert.match(md, /\| CNAME \| www\.ebbfall\.com \| mazzucci\.github\.io \| false \| 1 \| yes \|/);
+  assert.deepEqual(JSON.parse(md.match(/```json\n([\s\S]*?)```/)[1]), JSON.parse(JSON.stringify(s.pages)));
 });
 
-test('an API error stops it, with what Cloudflare said', async () => {
+test('restore creates the saved records again, only those not there, and goes on past one that fails', async () => {
+  const saved = (await snapshot(cloudflare(PAGES.map(r => ({ ...r }))).call)).pages;
+  const cf = cloudflare([{ id: 'x', ...saved[0] }, { id: 'w', type: 'AAAA', name: 'ebbfall.com', content: '100::', proxied: true, ttl: 1 }], { failPost: '185.199.110.153' });
+  const logged = [];
+  assert.equal(await restore(cf.call, saved, (l) => logged.push(l)), 1);
+  for (const r of saved) assert.equal(cf.recs.filter(x => x.type === r.type && x.name === r.name && x.content === r.content).length, r.content === '185.199.110.153' ? 0 : 1, r.content);
+  assert.equal(cf.calls.filter(c => c.startsWith('POST')).length, saved.length - 1);
+  assert.ok(logged.some(l => l.startsWith('FAILED') && l.includes('185.199.110.153') && l.includes('record rejected')));
+});
+
+test('an API error says what Cloudflare said', async () => {
   const call = api('tok', async () => new Response(JSON.stringify({ success: false, errors: [{ code: 10000, message: 'Authentication error' }] }), { status: 403 }));
-  await assert.rejects(removePages(call, () => {}), /403.*Authentication error/);
+  await assert.rejects(snapshot(call), /403.*Authentication error/);
+});
+
+test('the CLI: usage without a token or a command; `log` only warns when the reads fail (the deploy goes on)', () => {
+  const script = fileURLToPath(new URL('../site/dns.mjs', import.meta.url));
+  const run = (args, env) => spawnSync(process.execPath, [script, ...args], { env: { PATH: process.env.PATH, ...env }, encoding: 'utf8' });
+  assert.equal(run(['log', 'x.json'], {}).status, 2);
+  assert.equal(run(['delete'], { CLOUDFLARE_API_TOKEN: 't' }).status, 2);
+  const r = run(['log', '/nonexistent-dir/x.json'], { CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_API_BASE: 'http://127.0.0.1:9/client/v4' }); // (nothing listens there)
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /::warning::Could not read the DNS records/);
 });

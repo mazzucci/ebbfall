@@ -1,8 +1,9 @@
 // The OPTIONS card: this device's settings, a row each (OPTIONS below: a setting is one more entry there). It opens from
 // the menu's first page and from the pause card (over it: the game stays paused, and the corner keeps the pause card's
 // rule, full screen only); BACK or Esc returns to whichever opened it. Its buttons show only where some setting applies
-// to this device: today only CONTROLS, for a mouse and a keyboard, so none on a touch screen.
-import { $ } from './ui.js';
+// to this device: today only CONTROLS, for a mouse and a keyboard, so none on a touch screen. While it is up the page
+// under it is inert (ui.js `modalCards`), as under How to play.
+import { $, modalCards } from './ui.js';
 import { chipRow } from './seats.js';
 import { SCHEMES, scheme, setScheme, offered } from './controls.js';
 
@@ -38,13 +39,15 @@ function openOptions() {
   $('options').hidden = false;
   ($('optionsList').querySelector('[aria-checked="true"]') || $('btnOptionsClose')).focus();
 }
+let settle = () => {};
 function closeOptions() {
-  $('options').hidden = true;
+  $('options').hidden = true; settle(); // (the page under it out of `inert` now, so the focus can go back)
   if (opener?.isConnected && opener.offsetParent !== null) opener.focus(); opener = null;
 }
 
 /** Wire the card and its two buttons (the menu's and the pause card's). */
 export function initOptions() {
+  settle = modalCards(['help', 'options']); // (How to play too: Tab stays in the card)
   for (const id of ['btnOptions', 'btnPauseOptions']) { const b = $(id); b.hidden = !anyOptions(); b.addEventListener('click', openOptions); }
   $('btnOptionsClose').addEventListener('click', closeOptions);
   // Esc closes it, before anything under it (the pause card) sees the key.

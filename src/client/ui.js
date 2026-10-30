@@ -58,3 +58,21 @@ export function clearMode() { ui.mode = null; ui.place = null; setHint(); }
 
 /** Select `list` (and disarm). The caller redraws the HUD (updateHud) when it needs to at once. */
 export function setSelection(list) { ui.sel = list; clearMode(); }
+
+/** Cards that sit over everything (How to play, OPTIONS: `ids`): while one is up, the rest of the page is `inert` (Tab
+ *  and clicks stay in the card), all but `keep` (the corner, and the cards that may open over it). Returns `settle()`,
+ *  which applies it at once (before moving the focus back under a card just closed). */
+export function modalCards(ids, keep = ['corner', 'homeTip', 'leave']) {
+  const cards = ids.map($);
+  const settle = () => {
+    const top = cards.find(c => !c.hidden);
+    for (const el of document.body.children) {
+      const want = !!top && el !== top && !keep.includes(el.id) && el.tagName === 'DIV';
+      if (el.inert !== want) el.inert = want;
+    }
+  };
+  const mo = new MutationObserver(settle);
+  for (const c of cards) mo.observe(c, { attributes: true, attributeFilter: ['hidden'] });
+  settle();
+  return settle;
+}

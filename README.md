@@ -18,9 +18,14 @@ npm run dev      # http://localhost:5173
 npm test         # headless simulation tests
 ```
 
-**Mouse:** left-click or drag to select, right-click to move / attack / gather / set a rally point. `A` attack-move,
-`S` stop, `H` hold, `B` build (with Harvesters selected), `Ctrl`+`1`–`9` saves a control group, `Home` jumps to
-your Core. `Backspace` (or the browser's back gesture) asks before leaving a game.
+**Mouse and keyboard:** left-click or drag to select, right-click to move / attack / gather / set a rally point; hold
+the middle button and drag to move the map. Two keyboard schemes, chosen in OPTIONS (the menu's first page or the pause
+card, with a mouse): **Classic** moves the map with the arrow keys or the screen's edge, and each command has its own
+letter (`A` attack-move, `S` stop, `H` hold, `B` build with Harvesters selected); **WASD** moves the map with `W` `A`
+`S` `D` whatever is selected, and a command's key is its button's place on the card (`E` `R` `T` the top row, `F` `G`
+`H` the middle one, `C` `V` `B` the bottom one). In both, `Ctrl`+`1`–`9` saves a control group, `Q` selects the army,
+`Space` looks at the last attack, `Home` jumps to your Core, `P` pauses. `Backspace` (or the browser's back gesture)
+asks before leaving a game.
 
 **Units:** Harvesters mine, build and repair. The Garrison trains Troopers (shoot ground and air), Lancers (anti-air
 missiles), Medics (heal infantry) and Vanguards (heavy walkers whose shells splash, ground only); Medics and Vanguards

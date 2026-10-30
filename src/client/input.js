@@ -39,7 +39,12 @@ const FLING_MIN = 40;
 export function stopGlide() { fling.vx = fling.vy = 0; fling.samples = []; }
 /** Show the SELECT button's state and the hint. */
 function boxButton() { setBox(); setHint(); }
-const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 }; const keys = {};
+const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 };
+/** The keys held down, by where they are on the keyboard (`ev.code`: KeyW, ArrowUp...): a modifier that changes the
+ *  letter (Option+D on a Mac is '∂') cannot strand one, and W A S D are the same keys on any layout. Let go of all of
+ *  them when the page loses the keyboard (no keyup comes then). */
+const held = new Set();
+const letGo = () => { held.clear(); mid = null; };
 /** The middle button held down on the map: the pointer's last point (it drags the map), else null. */
 let mid = null;
 /** Set by main.js: whether input should reach the game right now. */
@@ -243,7 +248,7 @@ function bindCanvas() {
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
-    if (mid && !(ev.buttons & 4)) mid = null; // (let go while another button stays down)
+    if (mid && (!(ev.buttons & 4) || !input.enabled())) mid = null; // (let go while another button stays down; a card came up)
     if (mid) { cam.x -= (p.x - mid.x) / cam.zoom; cam.y -= (p.y - mid.y) / cam.zoom; clampCam(); mid = p; return; }
     if (pan && pointers.size >= 2) {
       // Two fingers: pan with the midpoint, pinch to zoom around it.
@@ -362,7 +367,8 @@ function bindSelectButton() {
 function bindKeys() {
   window.addEventListener('keydown', ev => {
     if (ev.target.tagName === 'INPUT') return;
-    const k = ev.key; keys[k.toLowerCase()] = true;
+    const k = ev.key;
+    if (!ev.metaKey) held.add(ev.code); // (with Cmd down a Mac sends no keyup for the letter)
     if (!$('help').hidden) { if (k === 'Escape') { $('help').hidden = true; ev.preventDefault(); } return; } // Help on top: Esc closes it
     if (!$('options').hidden) return; // OPTIONS on top (options.js: Esc closes it)
     if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
@@ -378,13 +384,20 @@ function bindKeys() {
     if (k === 'Escape') { doCommand('esc'); return; }
     if (k === 'Backspace') { askLeave(); ev.preventDefault(); return; }
     if (k === 'Home') { goHome(); ev.preventDefault(); return; }
-    if (wasd() && /^[wasd]$/i.test(k) && !ev.ctrlKey && !ev.metaKey) return; // the camera's (camKeys), never an order
-    const items = ui.watching ? [] : cardItems(); const it = items.find(i => i.key && i.key.toLowerCase() === k.toLowerCase() && i.key !== 'Esc');
+    // WASD: by the key's place (`ev.code`), on any layout: W A S D move the camera (camKeys), never an order; a card
+    // button's key is its slot's; Q the army. CLASSIC: by the letter (`ev.key`), so a letter stays its command's.
+    const grid = wasd();
+    if (grid && PAN_CODES.includes(ev.code) && !ev.ctrlKey && !ev.metaKey) return;
+    const is = (key) => (grid ? ev.code === 'Key' + key : key.toLowerCase() === k.toLowerCase());
+    const items = ui.watching ? [] : cardItems(); const it = items.find(i => i.key && i.key !== 'Esc' && is(i.key));
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id, ev.shiftKey ? 5 : 1); invalidateCard(); ev.preventDefault(); return; } // (Shift: five of a unit)
-    if (!it && (k === 'q' || k === 'Q')) selectArmy();
+    if (!it && is('Q')) selectArmy();
   });
-  window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
+  window.addEventListener('keyup', ev => { held.delete(ev.code); });
+  addEventListener('blur', letGo);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); });
 }
+const PAN_CODES = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
 
 /** Arrow keys / WASD (always in the WASD scheme; in the classic one when nothing is selected), mouse edge scrolling
  *  and the touch glide. */
@@ -395,8 +408,9 @@ export function camKeys(dt) {
     if (Math.hypot(fling.vx, fling.vy) < FLING_MIN) fling.vx = fling.vy = 0;
   }
   let dx = 0, dy = 0; const free = wasd() || !playerSel().length; // (classic: a selected enemy or field leaves WASD to the camera)
-  if (keys.arrowleft || (keys.a && free)) dx -= 1; if (keys.arrowright || (keys.d && free)) dx += 1;
-  if (keys.arrowup || (keys.w && free)) dy -= 1; if (keys.arrowdown || (keys.s && free)) dy += 1;
+  const on = (arrow, letter) => held.has(arrow) || (free && held.has(letter));
+  if (on('ArrowLeft', 'KeyA')) dx -= 1; if (on('ArrowRight', 'KeyD')) dx += 1;
+  if (on('ArrowUp', 'KeyW')) dy -= 1; if (on('ArrowDown', 'KeyS')) dy += 1;
   if (drag.ptype === 'mouse' && !drag.down && !mid) { dx += edge.x; dy += edge.y; }
   if (dx || dy) { cam.x += dx * 620 * dt / cam.zoom; cam.y += dy * 620 * dt / cam.zoom; clampCam(); }
 }

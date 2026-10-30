@@ -81,7 +81,7 @@ function cards(race) {
 for (const race of ['humans', 'vael']) {
   test(`every card the ${race} can show has a WASD key for each of its buttons, never W A S D, none twice`, { skip }, () => {
     const all = cards(race);
-    assert.ok(all.length > 500, `the cards were read (${all.length})`);
+    assert.ok(all.length >= { humans: 3500, vael: 1900 }[race], `every card was read (${all.length}: 3576 and 1924 when written)`);
     let most = 0;
     for (const [what, items] of all) {
       const wasd = keyed(items.map(i => ({ ...i })), 'wasd'), shown = wasd.filter(i => !i.hidden);

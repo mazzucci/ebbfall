@@ -2417,7 +2417,7 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
       // PAUSE in a replay: the replay waits; BACK TO REPLAY, or DONE (no restarting, nothing given up).
       await tap('#btnPause');
       const shown = await d.page.$$eval('#pause .pausegrid button', bs => bs.filter(b => !b.hidden).map(b => b.textContent));
-      assert.deepEqual(shown, ['BACK TO REPLAY', 'DONE'], 'the replay\'s pause card');
+      assert.deepEqual(shown, ['BACK TO REPLAY', 'DONE'], 'the replay\'s pause card (no HOW TO PLAY, no OPTIONS: on a desktop too)');
       assert.match(await d.page.locator('#pauseTime').textContent(), /^\d+:\d\d into the replay\.$/);
       const t0 = await d.eval(() => endfall.G.tick); await d.page.waitForTimeout(500);
       assert.equal(await d.eval(() => endfall.G.tick), t0, 'the replay waits');
@@ -2645,6 +2645,82 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then E placed a Depot (toasts: ${(await d.toasts()).join(' | ')})`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+test('desktop, WASD controls: a held key is let go when the page loses the keyboard or its keyup has another letter; Esc closes OPTIONS, then the pause card; Shift+key trains five; Ctrl+number keeps a group; a middle drag let go off the map, or under a card, ends; Tab skips what is under OPTIONS', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false, init: () => localStorage.setItem('endfall.controls', 'wasd') });
+  try {
+    const { page } = d;
+    const camX = () => d.eval(() => endfall.cam.x);
+    const still = async (what) => { const a = await camX(); await page.waitForTimeout(600); assert.equal(await camX(), a, what); };
+    // A held D, then the window loses the keyboard (no keyup comes): the camera stops.
+    await toMiddle(d);
+    await page.keyboard.down('d');
+    await page.waitForFunction((x) => endfall.cam.x > x, await camX(), { timeout: 5000 });
+    await d.eval(() => window.dispatchEvent(new Event('blur')));
+    await still('the camera stops when the window loses the keyboard');
+    await page.keyboard.up('d');
+    // Held D let go as another letter (Option+D on a Mac is '∂'): the same key (KeyD), so the camera stops.
+    await page.keyboard.down('d');
+    await page.waitForFunction((x) => endfall.cam.x > x, await camX(), { timeout: 5000 });
+    await d.eval(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: '∂', code: 'KeyD', altKey: true })));
+    await still('a keyup of another letter, the same key, lets it go');
+    await page.keyboard.up('d');
+
+    // OPTIONS over the pause card: Tab never reaches what is under it (inert); Esc closes it, then the card.
+    await d.key('p'); await page.locator('#btnPauseOptions').click();
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press('Tab');
+      const at = await page.evaluate(() => { const e = document.activeElement; return e?.closest('#app, #pause, #help, #end') ? e.id || e.tagName : ''; });
+      assert.equal(at, '', `Tab ${i + 1}: nothing under OPTIONS takes the focus`);
+    }
+    await d.key('Escape');
+    assert.ok(await page.locator('#options').isHidden() && await page.locator('#pause').isVisible(), 'Esc: OPTIONS goes, the pause card stays');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'btnPauseOptions', 'the focus back on OPTIONS');
+    await d.key('Escape');
+    assert.ok(await page.locator('#pause').isHidden(), 'Esc again: back to the game');
+
+    // Shift with a grid key trains five; Ctrl+1 keeps a group, 1 brings it back.
+    await d.grant(5000, 0);
+    const core = coreOf(await d.state());
+    await d.clickEntity(core.id);
+    await page.keyboard.press('Shift+E');
+    assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 5, 'Shift+E: five Harvesters');
+    const id = await selectedTrooper(d);
+    await page.keyboard.press('Control+1'); await d.key('Escape');
+    assert.deepEqual(await d.selection(), [], 'let go');
+    await d.key('1');
+    assert.deepEqual((await d.selection()).map(e => e.id), [id], '1: the group again');
+
+    // A middle drag let go over the minimap: it ends there (moving the mouse over the map after moves nothing).
+    await toMiddle(d);
+    const box = await page.locator('#game').boundingBox(), mm = await page.locator('#minimap').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3); await page.mouse.down({ button: 'middle' });
+    await page.mouse.move(mm.x + mm.width / 2, mm.y + mm.height / 2, { steps: 5 }); await page.mouse.up({ button: 'middle' });
+    const after = await d.eval(() => [endfall.cam.x, endfall.cam.y]);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 }); await page.waitForTimeout(200);
+    assert.deepEqual(await d.eval(() => [endfall.cam.x, endfall.cam.y]), after, 'the drag is over');
+    assert.deepEqual((await d.selection()).map(e => e.id), [id], 'and selected nothing');
+    // A middle drag when a card comes up (P) ends there too: nothing moves under the pause card.
+    await page.mouse.down({ button: 'middle' }); await d.key('p');
+    const under = await d.eval(() => [endfall.cam.x, endfall.cam.y]);
+    await page.mouse.move(box.x + 100, box.y + 100, { steps: 5 });
+    assert.deepEqual(await d.eval(() => [endfall.cam.x, endfall.cam.y]), under, 'no pan under the pause card');
+    await page.mouse.up({ button: 'middle' });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('desktop, WASD stored: the lobby\'s name field takes W A S D as letters', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await ctx.addInitScript(() => localStorage.setItem('endfall.controls', 'wasd'));
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.locator('#btnOnline').click();
+    await page.locator('#onlineName').fill('');
+    await page.locator('#onlineName').pressSequentially('Wasd sad');
+    assert.equal(await page.locator('#onlineName').inputValue(), 'Wasd sad');
+  } finally { await ctx.close(); }
 });
 
 test('desktop: OPTIONS on the menu\'s first page; the choice is remembered across a reload and shown there; How to play tells of both schemes', { engines: true }, async () => {

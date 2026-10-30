@@ -3,8 +3,9 @@
 // deploy); this Worker runs only for the game's page (/ and /index.html, `run_worker_first`) and for whatever is not a
 // file. Served at exact paths, as GitHub Pages serves them (html_handling = "none": no redirect from /selftest.html to
 // /selftest, which the service worker could not answer a page load with). It answers ebbfall.com and www.ebbfall.com
-// (wrangler.toml's custom domains): www and plain http go to https://ebbfall.com/, the game's one origin (its service
-// worker, its saved settings). Thin on purpose: the next step adds link previews to the game's page (`page`).
+// (wrangler.toml's routes, over the proxied records): www and plain http go to https://ebbfall.com/, the game's one
+// origin (its service worker, its saved settings). Thin on purpose: the next step adds link previews to the game's page
+// (`page`).
 
 import { cacheControl } from './cache.js';
 

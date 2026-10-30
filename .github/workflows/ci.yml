@@ -196,12 +196,12 @@ jobs:
 
   # The site: https://ebbfall.com/ (and www) as a Cloudflare Worker with static assets (site/: worker.js, wrangler.toml;
   # docs/MULTIPLAYER.md, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
-  # tested there). First the relay check: the site never outruns the relay. `wrangler deploy` binds the custom domains,
-  # replacing GitHub Pages' DNS records itself in the same call (not a TTY: it overrides them without asking), so the
-  # hostnames are never without records; before it, site/dns.mjs logs those records into the job summary for a rollback
-  # (reads only; a read that fails is a warning). Needs the CLOUDFLARE_API_TOKEN (Workers Scripts and Routes edit, DNS
-  # edit for the custom domains' records; DNS read for the log) and CLOUDFLARE_ACCOUNT_ID secrets; without them it
-  # deploys nothing.
+  # tested there). First the relay check: the site never outruns the relay. The Worker answers through zone routes,
+  # which see proxied traffic only: the deploy attaches them first (nothing changes yet), then site/dns.mjs proxy turns
+  # the proxy on for GitHub Pages' own DNS records, an edit in place (the hostnames resolve throughout: to GitHub until
+  # then, to the Worker after); a failed deploy proxies nothing. The records are logged into the job summary first, for
+  # a rollback (`dns.mjs unproxy`). Needs the CLOUDFLARE_API_TOKEN (Workers Scripts edit, Workers Routes edit and DNS
+  # edit on the zone) and CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
@@ -255,13 +255,19 @@ jobs:
       - name: The DNS records before this deploy, for a rollback (job summary)
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: node site/dns.mjs log "$RUNNER_TEMP/pages-dns.json"
+      - name: No custom domain left of ebbfall-site on the two hostnames (#174's first attempt)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: node site/dns.mjs drop-domains
       - name: Install wrangler and check the Worker's config (nothing published)
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         working-directory: site
         run: npx --yes "$WRANGLER" deploy --dry-run
-      - name: Deploy the site's Worker
+      - name: Deploy the site's Worker and its routes
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         working-directory: site
         env:
           CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # (unset: no beacon from the Worker; worker.js `page`)
         run: npx --yes "$WRANGLER" deploy ${CF_ANALYTICS_TOKEN:+--var "CF_ANALYTICS_TOKEN:$CF_ANALYTICS_TOKEN"} # (its [build] step writes dist/_headers first)
+      - name: The hostnames through Cloudflare, so to the Worker (GitHub Pages' records proxied; once)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: node site/dns.mjs proxy

@@ -1,11 +1,13 @@
 // The Node relay's HTTP side (relay/server.mjs over relay/bench.js) on a real port: a report POSTed and read back by
 // its code, CORS for the page, an oversize body without a length refused as it streams in, a client that gives up
-// mid-body (the server lives on), the per-address limit by the socket's address, and anything else is not ours (426).
+// mid-body (the server lives on), the per-address limit by the socket's address, GET /version, and anything else is
+// not ours (426).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import { startRelay } from '../relay/server.mjs';
 import { BENCH_MAX, BENCH_IP_PER_MIN } from '../relay/bench.js';
+import { PROTO } from '../relay/room.js';
 
 let relay, base;
 before(async () => { relay = startRelay({ port: 0 }); await relay.ready; base = `http://127.0.0.1:${relay.port}`; });
@@ -56,4 +58,13 @@ test('the Node relay limits an address by its socket; other paths are not HTTP',
     assert.equal((await fetch(`http://127.0.0.1:${fresh.port}/`)).status, 426);
     assert.equal((await fetch(`http://127.0.0.1:${fresh.port}/elsewhere`, { method: 'POST', body: 'x' })).status, 426);
   } finally { await fresh.close(); }
+});
+
+test('the Node relay answers GET /version as the Worker does: its protocol, and the build it was started with', async () => {
+  const res = await fetch(`${base}/version`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await res.json(), { proto: PROTO, build: null });
+  const built = startRelay({ port: 0, build: 'abc' }); await built.ready;
+  try { assert.deepEqual(await (await fetch(`http://127.0.0.1:${built.port}/version`)).json(), { proto: PROTO, build: 'abc' }); } finally { await built.close(); }
 });

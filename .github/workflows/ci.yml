@@ -127,8 +127,13 @@ jobs:
           ENDFALL_ENGINE: webkit
 
   # The multiplayer relay (relay/worker.js) to Cloudflare, once the owner has added the CLOUDFLARE_API_TOKEN and
-  # CLOUDFLARE_ACCOUNT_ID secrets (until then this job does nothing). Only when relay/ changed, or on a run started by
-  # hand: a deploy restarts every room and ends the games in progress.
+  # CLOUDFLARE_ACCOUNT_ID secrets (until then this job does nothing). Deployed when the live relay is not this commit's:
+  # its build (a hash of the bundle wrangler would upload, and of wrangler.toml) is passed at deploy as the RELAY_BUILD
+  # var and served at GET /version (relay/version.js); a relay whose /version says another build, or none (deployed by
+  # hand, or before /version), is deployed, as on a run started by hand. Not on every push: a deploy restarts every room
+  # and ends the games in progress. (Not "did this push change relay/": a run that was cancelled or failed would leave
+  # the change undeployed for good.) Wrangler is pinned: its bundle is the build, and a new wrangler may bundle the same
+  # code differently (a bump redeploys once).
   relay:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     # The relay and the site go out together: the relay waits for every check the site waits for, and the site for the
@@ -142,33 +147,66 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      RELAY_URL: ${{ vars.RELAY_URL || 'wss://relay.ebbfall.com/' }} # (relay/wrangler.toml's custom domain)
+      WRANGLER: wrangler@4.156.0
     steps:
       - uses: actions/checkout@v7
         if: env.CLOUDFLARE_API_TOKEN != ''
-        with:
-          fetch-depth: 2
-      - id: changed
-        if: env.CLOUDFLARE_API_TOKEN != ''
-        run: git diff --quiet HEAD~1 HEAD -- relay/ src/client/maps.js src/engine/util.js || echo "relay=1" >> "$GITHUB_OUTPUT" # (the relay bundles the maps and their helper too)
       - uses: actions/setup-node@v7
-        if: steps.changed.outputs.relay == '1' || (env.CLOUDFLARE_API_TOKEN != '' && github.event_name == 'workflow_dispatch')
+        if: env.CLOUDFLARE_API_TOKEN != ''
         with:
           node-version-file: .nvmrc
-      - name: Deploy the relay
-        if: steps.changed.outputs.relay == '1' || (env.CLOUDFLARE_API_TOKEN != '' && github.event_name == 'workflow_dispatch')
+      - name: This commit's relay build (a hash of the bundle and its config)
+        id: build
+        if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: relay
-        run: npx --yes wrangler@4 deploy
+        run: |
+          out="$RUNNER_TEMP/relay-bundle"
+          npx --yes "$WRANGLER" deploy --dry-run --outdir "$out" > /dev/null
+          build=$(cd "$out" && find . -name '*.js' | LC_ALL=C sort | xargs cat | cat - "$GITHUB_WORKSPACE/relay/wrangler.toml" | sha256sum | cut -c1-16)
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "This commit's relay build: $build"
+      - name: The live relay's build (GET /version)
+        id: live
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        env:
+          BUILD: ${{ steps.build.outputs.build }}
+        run: |
+          base="${RELAY_URL/#ws/http}"; base="${base%/}"
+          live=$(curl -fsS --max-time 15 --retry 3 "$base/version" | jq -r '.build // empty' 2> /dev/null || true)
+          echo "The live relay's build: ${live:-none (no /version, or no answer)}"
+          if [ "$live" = "$BUILD" ]; then echo "The relay is up to date: not deployed"; else echo "deploy=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Deploy the relay
+        if: steps.live.outputs.deploy == '1' || (env.CLOUDFLARE_API_TOKEN != '' && github.event_name == 'workflow_dispatch')
+        working-directory: relay
+        run: npx --yes "$WRANGLER" deploy --var "RELAY_BUILD:${{ steps.build.outputs.build }}"
+      - name: The live relay is the new build
+        if: steps.live.outputs.deploy == '1' || (env.CLOUDFLARE_API_TOKEN != '' && github.event_name == 'workflow_dispatch')
+        env:
+          BUILD: ${{ steps.build.outputs.build }}
+        run: |
+          base="${RELAY_URL/#ws/http}"; base="${base%/}"
+          for i in $(seq 24); do
+            live=$(curl -fsS --max-time 10 "$base/version" | jq -r '.build // empty' 2> /dev/null || true)
+            if [ "$live" = "$BUILD" ]; then echo "The relay serves build $BUILD"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::$base/version still says build '${live:-none}' two minutes after deploying $BUILD"
+          exit 1
 
   # The site: https://ebbfall.com/ (and www) as a Cloudflare Worker with static assets (site/: worker.js, wrangler.toml;
   # docs/MULTIPLAYER.md, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
-  # tested there). Before the deploy, site/dns.mjs deletes GitHub Pages' old DNS records for the two hostnames, which a
-  # custom domain cannot share (on later runs there are none left: it deletes nothing); what it deletes is in the job
-  # summary, for a rollback, and is put back at once if the deploy then fails. Needs the CLOUDFLARE_API_TOKEN (Workers
-  # Scripts and Routes edit, DNS edit) and CLOUDFLARE_ACCOUNT_ID secrets; without them it does nothing.
+  # tested there). First the relay check: the site never outruns the relay. Then, before the deploy, site/dns.mjs deletes
+  # GitHub Pages' old DNS records for the two hostnames, which a custom domain cannot share (on later runs there are
+  # none left: it deletes nothing); what it deletes is in the job summary, for a rollback, and is put back at once if the
+  # deploy then fails. Needs the CLOUDFLARE_API_TOKEN (Workers Scripts and Routes edit, DNS edit) and
+  # CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     environment:
       name: cloudflare
       url: https://ebbfall.com/
@@ -178,12 +216,29 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      RELAY_URL: ${{ vars.RELAY_URL }} # (the relay the build baked in; unset: no multiplayer, nothing to check)
+      WRANGLER: wrangler@4.156.0 # (the relay job's)
     steps:
+      - uses: actions/checkout@v7
+      # The site never outruns the relay: a client of another protocol than the live relay's could open no room ("Ebbfall
+      # has an update"). The relay job deployed it if it was not this commit's; this checks that it took. It fails the
+      # job before anything below touches DNS or the site.
+      - name: The live relay speaks this site's protocol
+        if: env.RELAY_URL != ''
+        run: |
+          want=$(sed -n 's/^export const PROTO = \([0-9][0-9]*\);.*/\1/p' relay/room.js) # (src/net/net.js's too: test/relay-worker.test.js)
+          [ -n "$want" ] || { echo "::error::No PROTO found in relay/room.js"; exit 1; }
+          base="${RELAY_URL/#ws/http}"; base="${base%/}"
+          for i in $(seq 12); do
+            live=$(curl -fsS --max-time 10 "$base/version" | jq -r '.proto // empty' 2> /dev/null || true)
+            if [ "$live" = "$want" ]; then echo "The relay at $base speaks PROTO $want"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::The relay at $base speaks PROTO ${live:-unknown (no /version)}, this site's client PROTO $want: not publishing a site that could not open a room. Deploy the relay (Actions, CI, Run workflow), then run this again."
+          exit 1
       - name: No Cloudflare secrets, no deploy
         if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
         run: echo "::warning::No CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID secret, so the site is not deployed"
-      - uses: actions/checkout@v7
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
       - uses: actions/download-artifact@v8
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         with:
@@ -205,7 +260,7 @@ jobs:
         working-directory: site
         env:
           CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # (unset: no beacon from the Worker; worker.js `page`)
-        run: npx --yes wrangler@4 deploy ${CF_ANALYTICS_TOKEN:+--var "CF_ANALYTICS_TOKEN:$CF_ANALYTICS_TOKEN"} # (its [build] step writes dist/_headers first)
+        run: npx --yes "$WRANGLER" deploy ${CF_ANALYTICS_TOKEN:+--var "CF_ANALYTICS_TOKEN:$CF_ANALYTICS_TOKEN"} # (its [build] step writes dist/_headers first)
       - name: The deploy failed, so GitHub Pages' DNS records go back
         if: failure() && (steps.dns.outcome == 'success' || steps.dns.outcome == 'failure')
         run: if [ -f "$RUNNER_TEMP/pages-dns.json" ]; then node site/dns.mjs restore "$RUNNER_TEMP/pages-dns.json"; fi

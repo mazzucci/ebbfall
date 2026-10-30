@@ -136,9 +136,19 @@ from. With two players the game ends "out of sync"; with more, the odd one out r
 The relay is a pure state machine with an injected clock (rooms, seats, turns, the log), with two thin adapters: a
 Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare Durable Object, one per room.
 
-- The relay is **its own Worker**, deployed only when relay code changes: a deploy restarts the objects and drops
-  every socket, so it must not ride on every site merge. The relay never needs to know the game's build (clients
-  compare hashes), so the site and the relay are two Workers (the site: below).
+- The relay is **its own Worker**, deployed only when the live relay is not this commit's: a deploy restarts the
+  objects and drops every socket, so it must not ride on every site merge. The relay never needs to know the game's
+  build (clients compare hashes), so the site and the relay are two Workers (the site: below).
+- `GET /version` (relay/version.js, in both adapters; public, no secrets, never cached) answers `{proto, build}`: the
+  protocol it speaks (relay/room.js PROTO) and its build, a hash CI makes of the bundle wrangler would upload
+  (`wrangler deploy --dry-run --outdir`, wrangler pinned) and of wrangler.toml, passed at deploy as the `RELAY_BUILD`
+  var (null when deployed without it, by hand). On a push to main CI's `relay` job compares the live build with this
+  commit's and deploys when they differ, when there is no /version (an older relay, or no answer), or on a run started
+  by hand, then waits for /version to say the new build. It does not ask what the push changed: once (#162) a
+  protocol change (PROTO 5) went out with a run that was cancelled, the next run's diff had no relay change, and the
+  site shipped a PROTO 5 client against a PROTO 4 relay (every new room: "Ebbfall has an update"). The `deploy` job,
+  after the relay, publishes the site only when the live relay's `proto` is this commit's (src/net/net.js's equals
+  relay/room.js's: test/relay-worker.test.js), and fails with an error otherwise: the site never outruns the relay.
 - Plain WebSockets in a game (hibernation saves nothing while a game runs and loses in-memory state); the log stays
   in memory, and a relay restart rebuilds the room from a client's log.
 - Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size, orders
@@ -175,7 +185,8 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
 - **The switch** changes the server, not the origin: the service worker, its caches and what the device remembers
   carry over; the next visit's sw.js check installs the build the Worker serves, as after any deploy.
 - **Deploy** (ci.yml's `deploy` job, after build, engines, arm and the relay, with the files the build job tested):
-  `node site/dns.mjs remove-pages` first deletes GitHub Pages' DNS records for ebbfall.com and www.ebbfall.com (A
+  once the live relay's `/version` says this commit's PROTO (above; nothing below runs otherwise),
+  `node site/dns.mjs remove-pages` deletes GitHub Pages' DNS records for ebbfall.com and www.ebbfall.com (A
   185.199.108-111.153, AAAA 2606:50c0:8000-8003::153, a CNAME to *.github.io: a custom domain will not take a hostname
   with records of its own, and in CI wrangler cannot ask to override them), writes each into the job summary, and
   touches nothing else (relay.ebbfall.com, mail, TXT); later runs find none. Then `wrangler deploy` binds both
@@ -267,7 +278,7 @@ To switch it on, the owner: (1) creates a Cloudflare API token (template "Edit C
 repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then runs the CI workflow once by hand
 (Actions, CI, Run workflow) for the first deploy, at `relay.ebbfall.com` (a custom domain on the ebbfall.com zone,
 which must be in the same Cloudflare account, with no `relay` DNS record yet; made by the deploy); later deploys
-happen when a push to main changes relay/; (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
+happen when a push to main finds the live relay on another build (Hosting, `GET /version`); (2) adds the repository variable `RELAY_URL` = `wss://relay.ebbfall.com/`,
 which the build bakes in: MULTIPLAYER appears on the menu's first page.
 Limits: a deploy restarts every room, ending the games in progress (their players are told the server restarted);
 a lobby is evicted from memory a minute or two after its last socket closes and comes back as it was (its seats held

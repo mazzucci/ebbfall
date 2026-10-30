@@ -38,6 +38,8 @@ node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
                              # the 3D part needs a Chromium, see docs/ART.md)
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
+node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
+                             # wording (a Chromium too; output is committed, kept under 300 KB)
 ```
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
@@ -65,7 +67,10 @@ selftest.html         the device check (a third entry): plays the golden games, 
                       exactly (online play needs it); open it on a phone to check that phone
 ?bench                the device test (src/client/bench.js, in the game's own page): an 8-AI 128x128 game from 3:00, a
                       minute measured through main.js's loop (`probe`), the report POSTed to the relay for a PERF-XXXXXX code
-index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays
+index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays; its head is
+                      what search engines and shared links show (title, description, canonical, og: and twitter: cards
+                      with public/og.png, JSON-LD), and the About page and How to play are the text crawlers read: keep
+                      them true to the game (test/site-preview.test.js)
 src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
@@ -210,9 +215,13 @@ test/seats.test.js    the board's rules: spots to seats, team ids and each seat'
                       sides a sheet offers, a saved board checked (and one from before the spots)
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
                       the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js
-test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding: the page for every link, headers,
-                      what is not a file, www and http, the beacon only with a token, _headers, wrangler.toml; with dist/
-                      built, every file the service worker stores
+test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
+                      every link, a room's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
+                      headers, what is not a file, www and http, the beacon only with a token, _headers, wrangler.toml;
+                      with dist/ built, every file the service worker stores, robots.txt, the sitemap and og.png
+test/site-preview.test.js the link cards (site/preview.js): a room's code checked against the relay's alphabet (hostile,
+                      overlong, lower case), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
+                      robots.txt and the sitemap, and that the build's service worker leaves those out
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -230,9 +239,12 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting): dist/ as a Worker's static assets
                       (wrangler.toml: ebbfall.com/* and www as zone routes, exact paths as on GitHub Pages, the Worker
-                      first only for / and /index.html); worker.js (the game's page, the place for link previews and the
-                      optional analytics beacon; www and http to https://ebbfall.com/; a page load that is not a file goes
-                      to /, a missing file is a 404), cache.js (assets/ immutable; the pages, sw.js and the manifest
+                      first only for / and /index.html); worker.js (the game's page, rewritten with HTMLRewriter only for
+                      a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
+                      bytes sent; www and http to https://ebbfall.com/; a page load that is not a file goes to /, a
+                      missing file is a 404), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
+                      with CODE checked against the relay's alphabet; a challenge's link is one more entry in `LINKS`),
+                      cache.js (assets/ immutable; the pages, sw.js and the manifest
                       no-cache), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see
                       the traffic, DNS-only again for a rollback); CI's deploy job
@@ -241,8 +253,13 @@ tools/engines.mjs     the e2e tests' engine (ENDFALL_ENGINE: chromium, webkit, f
 tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad, iPhone, Pixel per backend), drivers.mjs
                       (BrowserStack, iOS Simulator through Appium, Android emulator, local Playwright, any WebDriver),
                       webdriver.mjs (a fetch-only W3C client), smoke.mjs (the steps, screenshots, summary.json); README.md
-tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js)
+tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
+                      file of dist/ but source maps and WEB_ONLY
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
+tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
+                      own sprites, composed in headless Chromium, reduced to 256 colours to stay small; output committed
+public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for
+                      crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the

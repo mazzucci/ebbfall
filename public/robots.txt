@@ -1,0 +1,6 @@
+# Ebbfall (https://ebbfall.com/): everything may be crawled. The game's page is the one page to index: its links
+# (?room=, ...) name it as their canonical.
+User-agent: *
+Allow: /
+
+Sitemap: https://ebbfall.com/sitemap.xml

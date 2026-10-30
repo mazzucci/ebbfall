@@ -593,7 +593,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
       assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there; the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; PLAY OFFLINE (nothing to install here)');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', ...(device.hasTouch ? [] : ['OPTIONS']), 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS with a mouse (CONTROLS); PLAY OFFLINE (nothing to install here)');
       // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
       await press('#btnAbout');
       assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#cornerSound'), 'About opens, the sound icon still there');

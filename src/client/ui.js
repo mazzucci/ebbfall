@@ -24,7 +24,7 @@ export function toast(msg, bad, silent) {
 /** The selection, minus what is not ours or is gone. */
 export const playerSel = () => ui.sel.filter(e => e.team === G.me && !e.dead);
 
-export const touchUi = matchMedia('(pointer: coarse)').matches;
+export const touchUi = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; // (no matchMedia: Node, test/cards.test.js)
 
 /**
  * Orders armed from the command card that wait for a tap or click on the map. Each says which card button it

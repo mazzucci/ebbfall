@@ -7,13 +7,10 @@ import { icon } from './icons.js';
 import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand } from './card.js';
+import { myFaction, buildersOf, ROMAN } from './cards.js';
+export { myFaction, buildersOf, ROMAN }; // (the card's own helpers: cards.js)
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)
 export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; // (the state lives in ui.js)
-
-/** Harvesters currently working on building b. */
-export const buildersOf = (b) => G.units.filter(u => u.task.t === 'build' && u.task.b === b);
-
-export const ROMAN = ['', 'I', 'II', 'III'];
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
@@ -182,8 +179,6 @@ function taskName(u) {
 export const aName = (name) => (/^[AEIOU]/.test(name) ? 'an ' : 'a ') + name;
 /** Whether `team`'s race warps its buildings in (a worker plants a site, which then grows by itself). */
 const warps = (team) => !!FACTIONS[G.factions[team]]?.warp;
-/** The player's side (faction data: worker, headquarters, Build list pages). */
-export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /**
  * A building's production queue in the selection console: one slot per unit it can hold, filled from the left (the
  * one in training first), the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.

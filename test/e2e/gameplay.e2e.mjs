@@ -2523,3 +2523,200 @@ test('every unit and building is drawn twice: its art, then its team mask in its
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+// ---- Controls (src/client/controls.js, the OPTIONS card: options.js): CLASSIC or WASD, the middle button's pan ----
+
+/** Hold `key` for `ms`, and on until a frame has moved the camera (a software-rendered page draws few frames a second;
+ *  3 s at most), and return how far the camera went (world px). */
+async function holdKey(d, key, ms = 300) {
+  const at = () => d.eval(() => ({ x: endfall.cam.x, y: endfall.cam.y }));
+  const a = await at();
+  await d.page.keyboard.down(key); await d.page.waitForTimeout(ms);
+  await d.page.waitForFunction((a) => endfall.cam.x !== a.x || endfall.cam.y !== a.y, a, { timeout: 3000 }).catch(() => {});
+  await d.page.keyboard.up(key);
+  const b = await at();
+  return { dx: b.x - a.x, dy: b.y - a.y };
+}
+/** The command card's buttons as [slot, key shown, label] (gaps keep their slots). */
+const cardKeys = (d) => d.page.$$eval('#cmd > *', cs => cs.map((c, i) => c.matches('button') && [i, c.querySelector('.k')?.textContent ?? '', c.querySelector('.l').textContent]).filter(Boolean));
+/** Open OPTIONS from the pause card (P), choose `scheme` ('classic' or 'wasd'), BACK to the pause card, BACK TO GAME. */
+async function pickControls(d, scheme) {
+  await d.key('p');
+  await d.page.locator('#btnPauseOptions').click();
+  await d.page.locator(`#options [data-k="controls:${scheme}"]`).click();
+  await d.page.locator('#btnOptionsClose').click();
+  await d.page.locator('#btnResume').click();
+}
+/** A Trooper of ours beside the Core, selected with a click. Returns its id. */
+async function selectedTrooper(d) {
+  const core = coreOf(await d.state());
+  const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 120, core.y + 70]);
+  await d.clickEntity(id);
+  assert.deepEqual((await d.selection()).map(e => e.id), [id], 'the Trooper is selected');
+  return id;
+}
+/** Centre the camera on the map's middle (room to move every way). */
+const toMiddle = (d) => d.eval(() => endfall.centerOn(endfall.engine.WW / 2, endfall.engine.WH / 2));
+
+test('desktop, CLASSIC controls (the default): with a unit selected A arms attack-move, the arrow keys move the map and W does not', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await selectedTrooper(d);
+    assert.deepEqual((await cardKeys(d)).map(([, k, l]) => `${l} ${k}`), ['Attack A', 'Hold H', 'Stim T', 'Deselect Esc'], 'each button its own letter');
+    await d.key('a');
+    assert.equal(await d.eval(() => endfall.ui.mode), 'attack', 'A arms attack-move');
+    await d.key('Escape');
+    await toMiddle(d);
+    const right = await holdKey(d, 'ArrowRight'), up = await holdKey(d, 'ArrowUp');
+    assert.ok(right.dx > 5 && Math.abs(right.dy) < 1 && up.dy < -5, `the arrows move the map: ${JSON.stringify([right, up])}`);
+    assert.deepEqual(await holdKey(d, 'w'), { dx: 0, dy: 0 }, 'W leaves the map be while a unit is selected');
+    assert.equal(await d.eval(() => localStorage.getItem('endfall.controls')), null, 'nothing chosen, nothing stored');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('desktop, WASD controls: chosen in OPTIONS from the pause card (still paused), W A S D move the map whatever is selected and give no order; the buttons show their grid keys, which train and build', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  const { GRID } = await import('../../src/client/controls.js');
+  try {
+    const { page } = d;
+    await d.key('p');
+    assert.ok(await page.locator('#btnPauseOptions').isVisible(), 'OPTIONS on the pause card');
+    assert.ok(await page.$eval('#pause .card', c => c.scrollHeight <= c.clientHeight + 1), 'the pause card fits with OPTIONS');
+    await page.locator('#btnPauseOptions').click();
+    const opts = page.locator('#options');
+    assert.ok(await opts.isVisible(), 'OPTIONS opens');
+    assert.ok(await page.locator('#pause').isVisible(), 'over the pause card');
+    assert.ok(await page.locator('#cornerFull').isVisible() && await page.locator('#cornerSound').isHidden(), 'the corner keeps the pause card\'s rule: full screen, no sound button');
+    assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'CLASSIC', 'CLASSIC by default');
+    assert.match(await opts.locator('.line').textContent(), /^Arrows/);
+    await opts.locator('[data-k="controls:wasd"]').click();
+    assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'WASD');
+    assert.match(await opts.locator('.line').textContent(), /^WASD moves the map/);
+    assert.ok(await page.$eval('#options .card', c => c.scrollHeight <= c.clientHeight + 1), 'the OPTIONS card fits');
+    const t0 = await d.eval(() => endfall.G.time);
+    await page.locator('#btnOptionsClose').click();
+    assert.ok(await opts.isHidden() && await page.locator('#pause').isVisible(), 'BACK: the pause card again');
+    assert.equal(await d.eval(() => endfall.G.time), t0, 'still paused');
+    await page.locator('#btnResume').click();
+    assert.equal(await d.eval(() => localStorage.getItem('endfall.controls')), 'wasd', 'remembered on the device');
+
+    // A unit selected and on the move: W A S D move the map, nothing else (A arms no attack, S stops nothing).
+    const id = await selectedTrooper(d);
+    const shown = await cardKeys(d);
+    assert.deepEqual(shown.map(([, k, l]) => `${l} ${k}`), ['Attack E', 'Hold R', 'Stim T', 'Deselect H'], 'each button its slot\'s key');
+    for (const [slot, k] of shown) assert.equal(k, GRID[slot]);
+    const W = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
+    await d.rightClickWorld(W[0] / 2, W[1] / 2); // (the camera is centred there too)
+    assert.equal((await d.state()).units.find(u => u.id === id).task, 'move');
+    const moves = {};
+    for (const k of ['w', 'a', 's', 'd']) moves[k] = await holdKey(d, k);
+    assert.ok(moves.w.dy < -5 && moves.s.dy > 5 && moves.a.dx < -5 && moves.d.dx > 5, `W A S D move the map: ${JSON.stringify(moves)}`);
+    assert.equal(await d.eval(() => endfall.ui.mode), null, 'no order armed');
+    assert.deepEqual((await d.selection()).map(e => e.id), [id], 'the Trooper still selected');
+    assert.equal((await d.state()).units.find(u => u.id === id).task, 'move', 'S did not stop it');
+    await d.key('e');
+    assert.equal(await d.eval(() => endfall.ui.mode), 'attack', 'E (Attack\'s slot) arms attack-move');
+    assert.equal(await page.locator('#cmd [data-id="esc"] .k').textContent(), 'E', 'its Cancel keeps the key');
+    await d.key('e');
+    assert.equal(await d.eval(() => endfall.ui.mode), null, 'and E again cancels it');
+
+    // A grid key trains: the Core's first button (Harvester) is E.
+    await d.grant(2000, 0);
+    const core = coreOf(await d.state());
+    await d.clickEntity(core.id);
+    assert.deepEqual((await cardKeys(d))[0].slice(1), ['E', 'Harvester']);
+    await d.key('e');
+    assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue[0], 'harvester', 'E trains a Harvester');
+
+    // The Build menu: E (Build), then the page's keys by slot; E builds a Depot.
+    const h = mine(await d.state(), 'harvester')[0], spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
+    await d.key('e');
+    await page.locator('#cmd [data-id="b_depot"]').waitFor({ timeout: 5000 }); // (drawn on the next HUD tick)
+    const page1 = await cardKeys(d);
+    assert.deepEqual(page1.map(([, k, l]) => `${l} ${k}`).slice(0, 2), ['Depot E', 'Garrison R'], 'the Build page\'s keys');
+    for (const [slot, k] of page1) assert.equal(k, GRID[slot]);
+    await d.key('g'); // Advanced (slot 4)
+    await page.locator('#cmd [data-id="build1"]').waitFor({ timeout: 5000 });
+    for (const [slot, k] of await cardKeys(d)) assert.equal(k, GRID[slot], 'the Advanced page\'s keys');
+    await d.key('Escape'); await d.key('Escape');
+    await d.buildWithUI(['e', 'e'], 'depot', spot.tx, spot.ty, h.id);
+    assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then E placed a Depot (toasts: ${(await d.toasts()).join(' | ')})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('desktop: OPTIONS on the menu\'s first page; the choice is remembered across a reload and shown there; How to play tells of both schemes', { engines: true }, async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.locator('#btnOptions').click();
+    assert.ok(await page.locator('#options').isVisible() && await page.locator('#cornerSound').isVisible(), 'OPTIONS over the menu, the corner whole');
+    await page.locator('#options [data-k="controls:wasd"]').click();
+    await page.locator('#btnOptionsClose').click();
+    assert.ok(await page.locator('#options').isHidden() && await page.locator('#menuHome').isVisible(), 'BACK: the menu again');
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#btnOptions').click();
+    assert.equal(await page.locator('#options [aria-checked="true"]').textContent(), 'WASD', 'remembered');
+    await page.keyboard.press('Escape');
+    assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
+    await page.locator('#btnHowTo').click();
+    const help = await page.locator('#help').textContent();
+    assert.match(help, /Classic:.*WASD:.*OPTIONS|OPTIONS.*Classic:.*WASD:/s);
+    assert.match(help, /middle button/);
+    // A small desktop window: the first page's row of buttons and the card still fit.
+    await page.locator('#btnHelpClose').click();
+    await page.setViewportSize({ width: 844, height: 390 });
+    const row = await page.$eval('#btnOptions', b => { const r = b.getBoundingClientRect(); return [r.right <= innerWidth, r.bottom <= innerHeight]; });
+    assert.deepEqual(row, [true, true], 'OPTIONS in view at 844x390');
+    await page.locator('#btnOptions').click();
+    assert.ok(await page.$eval('#options .card', c => c.scrollHeight <= c.clientHeight + 1 && c.getBoundingClientRect().bottom <= innerHeight), 'the OPTIONS card fits 844x390');
+  } finally { await ctx.close(); }
+});
+
+test('desktop: the middle button dragged moves the map in both schemes, selecting nothing and ordering nothing', { engines: true }, async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const { page } = d;
+    let sx = -1, sy = -1; // (the mouse's way: the map's middle comes into view, no edge stops the camera)
+    const drag = async () => {
+      const box = await page.locator('#game').boundingBox(), x = box.x + box.width / 2, y = box.y + box.height / 2;
+      const c0 = await d.eval(() => ({ x: endfall.cam.x, y: endfall.cam.y }));
+      await page.mouse.move(x, y); await page.mouse.down({ button: 'middle' });
+      await page.mouse.move(x + 120 * sx, y + 80 * sy, { steps: 6 }); await page.mouse.up({ button: 'middle' });
+      await page.waitForTimeout(80);
+      const c1 = await d.eval(() => ({ x: endfall.cam.x, y: endfall.cam.y }));
+      return { dx: c1.x - c0.x, dy: c1.y - c0.y };
+    };
+    for (const scheme of ['classic', 'wasd']) {
+      if (scheme === 'wasd') await pickControls(d, 'wasd');
+      const id = await selectedTrooper(d);
+      const task = (await d.state()).units.find(u => u.id === id).task;
+      const u = (await d.state()).units.find(u => u.id === id), W = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
+      sx = u.x < W[0] / 2 ? -1 : 1; sy = u.y < W[1] / 2 ? -1 : 1;
+      await d.centerOn(u.x, u.y); // (the drag starts over the Trooper and its base)
+      const z = await d.eval(() => endfall.cam.zoom), moved = await drag();
+      assert.ok(Math.abs(moved.dx + 120 * sx / z) < 2 && Math.abs(moved.dy + 80 * sy / z) < 2, `${scheme}: the map follows the drag: ${JSON.stringify(moved)}`);
+      assert.deepEqual((await d.selection()).map(e => e.id), [id], `${scheme}: the selection stays`);
+      assert.equal(await d.eval(() => endfall.ui.mode), null, `${scheme}: no order armed`);
+      assert.equal((await d.state()).units.find(u => u.id === id).task, task, `${scheme}: no order given`);
+      await d.key('Escape'); // nothing selected: a drag selects nothing either
+      await d.centerOn(u.x, u.y); await drag();
+      assert.deepEqual(await d.selection(), [], `${scheme}: a drag over the base selects nothing`);
+    }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: no OPTIONS (nothing to set on a touch screen) on the menu or the pause card', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.page.locator('#btnPause').tap();
+    assert.ok(await d.page.locator('#pause').isVisible());
+    assert.ok(await d.page.locator('#btnPauseOptions').isHidden(), 'no OPTIONS on the pause card');
+    assert.equal(await d.eval(() => document.getElementById('btnOptions').hidden), true, 'nor on the menu');
+    assert.equal(await d.eval(() => matchMedia('(pointer: fine)').matches), false);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

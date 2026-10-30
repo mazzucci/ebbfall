@@ -1,8 +1,9 @@
 // The pause card (the top bar's PAUSE, or P). What it is depends on the game:
-// - alone (or the guided game) it pauses: BACK TO GAME, HOW TO PLAY, RESTART, LEAVE GAME (leaving gives the game up);
+// - alone (or the guided game) it pauses: BACK TO GAME, HOW TO PLAY, OPTIONS (where this device has any: options.js),
+//   RESTART, LEAVE GAME (leaving gives the game up);
 // - in a replay: BACK TO REPLAY, DONE (back to the end card);
 // - online it is a menu and the game goes on under it (only the relay can stop a shared clock): BACK TO GAME, HOW TO
-//   PLAY, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (docs/MULTIPLAYER.md) shows
+//   PLAY, OPTIONS, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (docs/MULTIPLAYER.md) shows
 //   the card on every side, with who paused and the time left; only the one who paused can end it early (RESUME: the
 //   others see whose pause it is, greyed), and once it is over the card closes for those who did not open it.
 // Opening it leaves full screen (the player may be off to another app); BACK TO GAME (and a replay's DONE) goes back
@@ -17,6 +18,7 @@ import { sfx, holdSound } from './audio.js';
 import { seenLately } from './scout.js';
 import { online, who, Who, ifYouLeave } from './online.js';
 import { isFull, enterFullscreen, exitFullscreen } from './screen.js';
+import { anyOptions } from './options.js';
 
 /** mine: the player opened the card (not a room pause); wasFull: full screen was on when they did. */
 const card = { mine: false, wasFull: false, timer: 0 };
@@ -59,7 +61,7 @@ function openCard() {
 /** Close the card; `back`: to the game, so into full screen again if it was on when the player paused. */
 export function closePause(back = false) {
   if (back) backToFull();
-  $('pause').hidden = true; clearInterval(card.timer); card.timer = 0; card.mine = false; card.wasFull = false;
+  $('pause').hidden = true; $('options').hidden = true; clearInterval(card.timer); card.timer = 0; card.mine = false; card.wasFull = false; // (OPTIONS over it goes too: a room pause that ends)
   holdSound(false); // (inside BACK TO GAME's click or P's key, the sound comes back at once, iOS too)
 }
 function backToFull() { if (card.wasFull) enterFullscreen({ restore: true }); card.wasFull = false; }
@@ -96,6 +98,7 @@ function render() {
   all.hidden = !net || !!hold || left() <= 0;
   all.innerHTML = `PAUSE FOR EVERYONE<small>${left()} left</small>`; all.setAttribute('aria-label', `Pause for everyone, ${left()} left`);
   $('btnPauseHelp').hidden = watching;
+  $('btnPauseOptions').hidden = watching || !anyOptions();
   $('btnRestart').hidden = net || watching; // (a shared game cannot be restarted by one side)
   $('btnQuit').hidden = watching;
   $('btnQuit').title = net ? `Back to the menu: ${ifYouLeave()}` : 'Back to the menu: the game counts as lost';

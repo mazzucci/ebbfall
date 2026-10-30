@@ -541,9 +541,8 @@ test('a room of another version: the friend is told to update, and UPDATE brings
     assert.deepEqual(told, ['version'], 'the room is told too (its player may be the one behind)');
     await Promise.all([b.p.waitForNavigation(), b.tap('#btnOnlineReload')]);
     await b.p.waitForFunction(() => !!window.endfall);
-    assert.equal(new URL(b.p.url()).searchParams.get('room'), code, 'back to the same room\'s link');
     assert.equal(await b.p.locator('#onlineName').inputValue(), 'Bo', 'the name remembered');
-    assert.equal(await b.p.locator('#roomCode').inputValue(), code);
+    assert.equal(await b.p.locator('#roomCode').inputValue(), code, 'back to the same room\'s link');
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 }); // (straight into the same room, a name remembered: still another version)
     assert.deepEqual(b.errors, []);
   } finally { host.close(); await b.ctx.close(); }

@@ -122,6 +122,68 @@ fn the_ai_answers_flyers_with_lancers() {
 }
 
 #[test]
+fn the_ai_answers_flyers_with_interceptors_once_its_factory_can() {
+    // Three Raiders watching its base. Without a Factory: two Lancers per flyer. With a Factory and a Foundry: its
+    // Factory trains Interceptors (worth two Lancers each) and its Garrison brings only half the answer in Lancers.
+    let trained = |w: &World, k: UnitKind| {
+        count(w, ENEMY, k)
+            + w.bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY)
+                .flat_map(|b| b.queue.iter())
+                .filter(|&&q| q == k)
+                .count()
+    };
+    for factory in [false, true] {
+        let mut w = World::new(9, 1);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let b = w.map.bases[ENEMY as usize];
+        w.make_building(BldgKind::Barracks, ENEMY, b.0 - 4, b.1 + 6, true);
+        if factory {
+            w.make_building(BldgKind::Forge, ENEMY, b.0 + 6, b.1 - 1, true);
+            w.make_building(BldgKind::Factory, ENEMY, b.0 + 6, b.1 + 6, true);
+        }
+        let (cx, cy) = core(&w, ENEMY);
+        for k in 0..3 {
+            let id = w.make_unit(
+                UnitKind::Raider,
+                PLAYER,
+                (cx as f64 - 7.0) * TILE - k as f64 * 30.0,
+                (cy as f64 + 9.0) * TILE,
+            );
+            let r = w.units.iter_mut().find(|u| u.id == id).unwrap();
+            (r.hp, r.maxhp) = (1e9, 1e9); // (they stay to be seen)
+            w.hold_unit(id);
+        }
+        for _ in 0..30 * 90 {
+            w.res[ENEMY as usize] = [3000, 1000];
+            w.step();
+            w.events.clear();
+        }
+        let (lancers, icps) = (
+            trained(&w, UnitKind::Lancer),
+            trained(&w, UnitKind::Interceptor),
+        );
+        if factory {
+            assert!(icps >= 1, "Interceptors from the Factory: {icps}");
+            assert!(lancers <= 3, "Lancers to half the answer: {lancers}");
+            assert!(
+                lancers + 2 * icps <= 7,
+                "two answers per flyer, no more: {lancers} Lancers, {icps} Interceptors"
+            );
+        } else {
+            assert_eq!(icps, 0);
+            assert!(
+                (4..=6).contains(&lancers),
+                "two Lancers per flyer: {lancers}"
+            );
+        }
+    }
+}
+
+#[test]
 fn the_ai_only_reacts_to_flyers_it_has_seen() {
     let mut w = World::new(31, 0);
     run(&mut w, 150);

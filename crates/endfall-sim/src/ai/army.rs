@@ -204,11 +204,14 @@ impl World {
         } else {
             seen_air
         };
-        let lancers = self
+        // Its answer to them so far, in `anti_air` units (an Interceptor is worth two Lancers).
+        let script = &self.factions[e as usize].ai;
+        let anti_air = self
             .units
             .iter()
-            .filter(|u| u.team == e && u.kind == self.factions[e as usize].ai.anti_air)
-            .count();
+            .filter(|u| u.team == e)
+            .map(|u| script.answer_weight(u.kind))
+            .sum();
 
         // An enemy field detector (a unit that detects, not a tower at home) seen beside enemy fighters: its army
         // carries detection, so its cloaked fighters would be found (`cloak_ratio`).
@@ -229,7 +232,7 @@ impl World {
         brain.intruder = intruder;
         brain.raid = raid;
         brain.enemy_air = enemy_air;
-        brain.lancers = lancers;
+        brain.anti_air = anti_air;
     }
 
     /// The army: jump intruders, Raider raids, waves to where the player is believed to be, retreat, regroup.
@@ -435,10 +438,12 @@ impl World {
             .copied()
             .filter(|a| {
                 let d = self.u(*a).kind.def();
-                // (walking fighters: not a raider's kind, a flyer or a capital giant)
+                // (walking fighters that can hit the ground: not a raider's kind, a flyer, a capital giant or an
+                // Interceptor)
                 !guards.contains(a)
                     && !out.contains(a)
                     && d.armed()
+                    && Self::hits_of(self.u(*a).kind).0
                     && !d.air
                     && !d.capital
                     && self.u(*a).kind != raider
@@ -481,9 +486,16 @@ impl World {
             .copied()
             .filter(|a| attackers.contains(a))
             .collect();
+        // (a unit armed only against flyers, an Interceptor, cannot take a base: it neither keeps a wave out nor counts
+        // as what is left of it)
+        let air_only = |w: &World, a: Id| {
+            let k = w.u(a).kind;
+            k.def().armed() && !Self::hits_of(k).0
+        };
+        let left = alive.iter().filter(|&&a| !air_only(self, a)).count();
         if alive.is_empty() {
             self.ai_mut().attacking = false;
-        } else if lost || (wave_size >= 4 && alive.len() * 10 < wave_size * 4) {
+        } else if lost || left == 0 || (wave_size >= 4 && left * 10 < wave_size * 4) {
             // Pull the survivors back instead of feeding them in one by one.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
@@ -590,6 +602,67 @@ mod tests {
         assert!(raided(4, 1 + 1), "any enemy");
         // Two seats: a duel's waves meet on the way, and the rules stay as they were.
         assert!(!raided(2, 0), "two seats: the wave stays out");
+    }
+
+    #[test]
+    fn a_wave_left_with_only_interceptors_comes_home() {
+        // Three Troopers and three Interceptors out: with the Troopers alive it stays out; once only the Interceptors
+        // (which cannot hit the ground) are left, it is beaten and comes home, though half of it lives.
+        for troopers_fall in [false, true] {
+            let mut w = World::new(17, 1);
+            w.ai_turn = 1;
+            let (bx, by) = w.map.bases[1];
+            let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+            let wave: Vec<Id> = (0..6)
+                .map(|i| {
+                    let k = if i < 3 {
+                        UnitKind::Trooper
+                    } else {
+                        UnitKind::Interceptor
+                    };
+                    w.make_unit(k, 1, 1000.0 + i as f64 * 30.0, 1000.0)
+                })
+                .collect();
+            if troopers_fall {
+                w.units
+                    .retain(|u| u.kind != UnitKind::Trooper || u.team != 1);
+            }
+            w.update_fog();
+            let ai = w.ai_mut();
+            ai.attacking = true;
+            ai.attackers = Some(wave.clone());
+            ai.wave_size = 6;
+            ai.last_wave = 0.0;
+            let alive: Vec<Id> = wave
+                .iter()
+                .copied()
+                .filter(|&a| w.unit(a).is_some())
+                .collect();
+            let my_b = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == 1)
+                .map(|b| b.id)
+                .collect();
+            let mut b = Brain {
+                e: 1,
+                t: 100.0,
+                my_b,
+                army: alive.clone(),
+                rally: Pt { x: hx, y: hy },
+                ..Brain::default()
+            };
+            w.ai_watch(&mut b);
+            w.ai_army(&mut b);
+            assert_eq!(!w.ai().attacking, troopers_fall, "home: {troopers_fall}");
+            if troopers_fall {
+                assert!(
+                    alive
+                        .iter()
+                        .all(|&a| matches!(w.u(a).task, Task::Move { .. }))
+                );
+            }
+        }
     }
 
     #[test]

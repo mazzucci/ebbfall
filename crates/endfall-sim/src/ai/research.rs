@@ -11,7 +11,7 @@ impl World {
             my_b,
             intruder,
             enemy_air,
-            lancers,
+            anti_air,
             expand,
             dry,
             ..
@@ -19,7 +19,7 @@ impl World {
         // Research: an economy tech (Rapid Construction) first, once its opening factories stand; its techs
         // (abilities, a faster flyer) as soon as their building stands, on levels whose units use abilities; weapons
         // and armor in turn from the difficulty's research_from (Easy never); none while saving for an expansion. Until it can afford the next one it saves up (no new units), but never while under
-        // attack or short of Lancers against flyers, and for at most SAVE_MAX seconds at a time.
+        // attack or short of anti-air against flyers, and for at most SAVE_MAX seconds at a time.
         const SAVE_MAX: f64 = 30.0;
         let d = self.level();
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
@@ -33,7 +33,7 @@ impl World {
         let economy =
             d.research_from < NEVER && on_schedule && self.ai_count(&my_b, true, rax) >= d.rax;
         let levels_due = t > d.research_from;
-        let threatened = intruder.is_some() || (enemy_air > 0 && lancers < enemy_air * 2);
+        let threatened = intruder.is_some() || (enemy_air > 0 && anti_air < enemy_air * 2);
         let mut saving = false;
         if (techs || levels_due || economy) && !expand {
             for &bid in &my_b {

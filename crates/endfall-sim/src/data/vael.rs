@@ -35,6 +35,7 @@ pub const VAEL: Faction = Faction {
         heavy: None,
         basic: UnitKind::Scythe,
         anti_air: UnitKind::Prism,
+        heavy_anti_air: None,
         mix: &[
             (UnitKind::Prism, 1, 0.0),
             (UnitKind::Monolith, 3, 0.0),

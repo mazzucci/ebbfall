@@ -9,7 +9,7 @@ loop feels right.
 - Playable in the browser and offline (installable, service worker): two races, three named map characters,
   a scripted opponent for either race with four difficulties (Easy, Medium, Hard, Brutal: by how well it plays; only Brutal gathers faster), random start side.
 - Humans: Core, Depot, Ether Rig, Garrison, Foundry, Factory, Turret, Airfield; Harvester, Trooper, Lancer, Medic,
-  Vanguard, Siege Tank, Raider, Observer. Workers build and repair; upgrades at the Foundry.
+  Vanguard, Siege Tank, Interceptor, Raider, Observer. Workers build and repair; upgrades at the Foundry.
 - Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith; Lumen, Scythe, Prism, Monolith, Halo, Umbra, Shrike, Sovereign. Warp-in
   construction, power fields, shields that regenerate; no repair.
 - Economy: shards (finite fields) and ether (vents that need a refinery); supply from headquarters and supply
@@ -286,6 +286,29 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   two frames flicker the jet's exhaust. The name follows the look (key `raider`, `UnitKind::Raider` in place in the
   kinds list, so indices, replays, the wire and the goldens are unchanged; its CLASSIC hotkey stays W, as R is Rally
   on the Airfield's card). Art and names only: no stats changed.
+- [x] The Interceptor (2026-10-31, the 2026-10-30 balance study's "Skyguard", owner approved and named): the Humans'
+  ground anti-air vehicle. **Interceptor** (Factory, I; 100/50, 2 supply, 110 hp, armour 1, speed 115, sight 9, 24 s;
+  needs the Foundry like the other vehicles: the Lancer is the anti-air before it), missiles at flyers only, 28 every
+  1.0 s at 6.5 tiles (+3 a Weapons level), no ground attack at all, no ability, no detection (the Observer's job, so
+  the Umbra keeps its counterplay). Its text starts "Ground missile vehicle"; its art is a compact six-wheeled hull
+  with a box launcher of six missiles raised at the sky (models.js `interceptor`, two frames: the wheels turn).
+  Cost-equal duels (2200 / 4400): +0.81 / +0.80 against Raiders, +0.70 / +0.71 against Shrikes, +0.52 / +0.38
+  against Bastions; -1.00 against any ground army; Trooper+Interceptor -0.92 / -0.91 against Troopers and +0.76 /
+  +0.73 against Shrikes. The **Lancer** goes 75/25 -> 60/25, the cheap early anti-air: against Raiders +0.78 / +0.78
+  -> +0.83 / +0.81, Shrikes +0.78 / +0.76 -> +0.81 / +0.80, Bastions +0.32 / +0.20 -> +0.31 / +0.25, Troopers -0.77 /
+  -0.79 -> -0.74 / -0.74, Lancer+Trooper against Prisms -0.33 / -0.34 -> -0.19 / +0.27. The **Human AI** answers
+  flyers it sees with two "answers" a flyer as before, now counted with an Interceptor worth two Lancers
+  (`AiScript::heavy_anti_air`, `answer_weight`): once its Factory can train one, the Factory fills the answer with
+  Interceptors and the Garrison brings only half of it in Lancers (all of it while the Factory's queue is full). A wave
+  whose survivors are only Interceptors is beaten and comes home (they cannot take a base), and none is kept as a guard
+  at an expansion. AI against AI, Humans against Vael, 240 games a level (20 seeds, six maps, both starts): Medium
+  49.2% -> 46.9% Humans, Hard 47.9% -> 48.3%; Shrikes in 108 and 130 games (unchanged), the Humans winning 62 -> 56.5
+  and 61 -> 62 of those; Bastions in 87 -> 88 and 100 -> 97 games; Interceptors in 62 and 78 games (115 and 130 of
+  them); Lancers trained 544 -> 316 and 668 -> 393. Goldens: two of the three result games (Human AI mirrors) move,
+  as each AI answers the other's Raiders differently; no hash table changes. Tests: balance.rs (the duels, the
+  reprice), combat.rs (no ground target, ordered or not; it shoots a Raider down), ai.rs (Interceptors from the
+  Factory, Lancers to half), army.rs (a wave of Interceptors alone comes home), the e2e (the Factory's card, I and its
+  WASD key, a Raider shot down beside an untouched Trooper).
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

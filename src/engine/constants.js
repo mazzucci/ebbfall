@@ -28,12 +28,12 @@ export const TECH_BUILD = D.consts.tech_build;
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
   trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
-  vanguard: { hot: 'V', desc: 'Heavy walker for the front line: it fights on the move, with long range and thick plate, and its shells splash onto nearby ground units. Cannot hit flyers.' },
+  vanguard: { hot: 'V', desc: 'Heavy walker for the front line: fights on the move, with long range and thick plate. Its shells splash.' },
   lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
-  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.' },
+  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, it shells from afar with heavy splash, not up close; on the move, a light gun.' },
   bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
@@ -43,14 +43,14 @@ const UNIT_TEXT = {
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).' },
   sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
-  umbra: { hot: 'U', desc: 'The Lumen is the Vael\'s light; the Umbra is its shadow. Always cloaked: unseen and untargetable except near a detector. Cuts down any ground army that brings none, siege lines too; found, it is a costly blade. Cannot hit flyers.' },
+  umbra: { hot: 'U', desc: 'The Lumen\'s shadow: always cloaked, unseen and untargetable except near a detector. Cuts down ground armies.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
   depot: { hot: 'D', desc: '+8 supply.' },
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers and Medics (Medics need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics at the Garrison and vehicles at the Factory.' },
+  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics and vehicles.' },
   factory: { hot: 'R', desc: 'Builds vehicles: Vanguards and Siege Tanks (both need a Foundry).' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
   airfield: { hot: 'A', desc: 'Trains Raiders, Observers and the Bastion capital gunship.' },
@@ -58,10 +58,10 @@ const BLDG_TEXT = {
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
-  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths, Halos and Umbras (all but Scythes and Prisms need a Loom). With its rally point in a power field, they warp in there.' },
+  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths, Halos and Umbras (the last three need a Loom). Rally in a power field to warp in.' },
   loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths, Halos and Umbras.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes and the Sovereign capital barge. Rally in a power field to warp them in.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
   afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
@@ -83,15 +83,15 @@ export const FACTIONS = D.factions;
 /** A side's own kinds (`f`: a FACTIONS entry): its buildings and the units they train. */
 export const kindsOf = (f) => { const b = [f.hq, ...f.buildBasic, ...f.buildAdvanced]; return new Set([...b, ...b.flatMap(k => BUILDINGS[k].trains || [])]); };
 /** Upgrade `k`'s words for side `f`. Weapons, which both races research, names that side's own weapons only. */
-export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage for every weapon (' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
-  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? `, its light gun +${UNITS[t].light.upDmg}` : ''}`).join(', ') + ' per level).';
+export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage per level: ' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
+  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? ` (light gun +${UNITS[t].light.upDmg})` : ''}`).join(', ') + '.';
 const ABILITY_TEXT = {
   stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
   cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
   veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
-  deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. On its tracks it has only a light gun. Then the button reads Undeploy.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, neither moving nor firing meanwhile), with only its light gun. A move order packs it up too.' } },
+  deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, no moving or firing meanwhile); it deploys by itself on reaching its target.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, no moving or firing meanwhile). A move order packs it up too.' } },
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions; a toggle's `off`: its button's
  *  name, icon and words while it is on (the button names the action, src/client/cards.js `abilityTargets`). */

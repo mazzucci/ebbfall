@@ -1,6 +1,7 @@
 //! The AI's build order and expansion: what to build next, where, and by whom; tending its sites.
 
 use super::*;
+use crate::map::Node;
 
 /// Unspent shards the AI counts as piling up (it then adds a factory).
 const SHARD_FLOAT: i32 = 400;
@@ -10,11 +11,41 @@ const SHARD_FLOAT: i32 = 400;
 /// pay for it).
 const HOME_LOW: i32 = 2000;
 /// How far from its centre the AI looks for room for a building (tiles), and how far once there is none nearer and
-/// no second base to build by: a full main pocket must not hold its factories up until the natural stands.
+/// no second base to build by: a full main pocket must not hold its factories up until the natural stands (26, not
+/// 22, since a main has two vents: a cramped one filled up sooner and the room left lay just past 22).
 const ROOM: f64 = 15.0;
-const ROOM_FAR: f64 = 22.0;
+const ROOM_FAR: f64 = 26.0;
+/// How far (tiles) from the middle of another start the AI keeps its far buildings: past that start's pocket.
+const POCKET_ROOM: f64 = 16.0;
 
 impl World {
+    /// Whether vent `n` is one for the base at (cx, cy) (tiles) to take: within 16 tiles of it, and an expansion's vent
+    /// (one within 7.5 tiles of its middle) only once a finished Core of ours stands at that expansion. (A main's
+    /// search can reach a natural's vent, which waits for the natural's Core; every main lies 18 tiles or more from
+    /// every expansion.)
+    pub(crate) fn vent_of_base(&self, n: &Node, cx: f64, cy: f64) -> bool {
+        let e = self.seat();
+        // (the middles of the vent and of a Core, in the tile units of `expansions`: a tile's middle is its index)
+        let (vx, vy) = (n.tx as f64 + 0.5, n.ty as f64 + 0.5);
+        let ours = |ex: f64, ey: f64| {
+            self.bldgs.iter().any(|b| {
+                b.team == e
+                    && b.done
+                    && b.kind.def().hq
+                    && jsmath::hypot(
+                        b.tx as f64 + b.w as f64 / 2.0 - 0.5 - ex,
+                        b.ty as f64 + b.h as f64 / 2.0 - 0.5 - ey,
+                    ) < 16.0
+            })
+        };
+        jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy) < 16.0
+            && self
+                .map
+                .expansions
+                .iter()
+                .all(|&(ex, ey)| jsmath::hypot(vx - ex, vy - ey) > 7.5 || ours(ex, ey))
+    }
+
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
         self.find_spot_within(kind, cx, cy, 3.5, ROOM, &|_, _, _| true)
     }
@@ -33,9 +64,9 @@ impl World {
         if d.on_vent {
             let (mut best, mut bd) = (None, 1e9);
             for n in &self.map.nodes {
-                if n.ether && n.extractor.is_none() {
+                if n.ether && n.extractor.is_none() && self.vent_of_base(n, cx, cy) {
                     let dd = jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy);
-                    if dd < bd && dd < 16.0 {
+                    if dd < bd {
                         bd = dd;
                         best = Some((n.tx, n.ty));
                     }
@@ -75,16 +106,26 @@ impl World {
     }
 
     /// Room out past the main (rings `from` to `ROOM_FAR`): only where a worker can walk from the main (rings that far
-    /// out can fall in a sealed pocket), and clear of the natural's site (the Core it saves for goes there).
+    /// out can fall in a sealed pocket), clear of the natural's site (the Core it saves for goes there), of every
+    /// expansion (a neighbour's natural may lie that far out) and of every other start.
     fn find_far_spot(&mut self, kind: BldgKind, cx: f64, cy: f64, from: f64) -> Option<(i32, i32)> {
         let start = self.map.nearest_free(cx as i32, cy as i32, 6)?;
         let reach = self.walkable_from(start);
         let natural = self.expansion_spot(cx, cy);
+        let me = self.seat() as usize;
         let ok = |w: &World, tx: i32, ty: i32| {
+            let (x, y) = (tx as f64, ty as f64);
             // (the walkway tile left of it: free, so reachable if the site is)
             w.map.in_map(tx - 1, ty)
                 && reach[w.map.idx(tx - 1, ty)]
                 && natural.is_none_or(|(nx, ny)| (tx - nx).abs().max((ty - ny).abs()) > 7)
+                && w.map
+                    .expansions
+                    .iter()
+                    .all(|&(ex, ey)| (x - ex).abs().max((y - ey).abs()) > 7.0)
+                && w.map.bases.iter().enumerate().all(|(s, &(bx, by))| {
+                    s == me || jsmath::hypot(x - bx as f64 - 2.0, y - by as f64 - 2.0) > POCKET_ROOM
+                })
         };
         self.find_spot_within(kind, cx, cy, from, ROOM_FAR, &ok)
     }
@@ -309,13 +350,12 @@ impl World {
         let d = self.level();
         // A free vent near a point (where find_spot looks): wanting an Extractor without one would stall the build.
         let free_vent = |w: &World, (fx, fy): (f64, f64)| {
-            w.map.nodes.iter().any(|n| {
-                n.ether
-                    && n.extractor.is_none()
-                    && jsmath::hypot(n.tx as f64 - fx, n.ty as f64 - fy) < 16.0
-            })
+            w.map
+                .nodes
+                .iter()
+                .any(|n| n.ether && n.extractor.is_none() && w.vent_of_base(n, fx, fy))
         };
-        // Where a second Extractor would go once the home vent runs dry: a free vent by the expansion.
+        // Where a refinery goes once the main's vents are taken (or have run dry): a free vent by the expansion.
         let exp_vent = cores.get(1).map(|&exp| {
             let b = self.bldg(exp).unwrap();
             (b.tx as f64 + 2.0, b.ty as f64 + 2.0)
@@ -342,6 +382,14 @@ impl World {
             .mix
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
+        // Another refinery once one flows and the tech that spends ether is going up (from the level's
+        // `vents_from`), unless ether is piling up; one site at a time (a vent's crew is trained when it stands).
+        let more_ether = ext.is_some()
+            && flowing
+            && t > d.vents_from
+            && self.ai_count(&my_b, false, s.tech) >= 1
+            && !self.ai().ether_lean
+            && !building.contains(&f.ether);
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
@@ -370,9 +418,14 @@ impl World {
             && self.ai_count(&my_b, false, f.ether) == 0
             && (ether_early || self.ai_count(&my_b, false, s.rax) >= 1)
             && free_vent(self, (cx, cy)))
-            || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, f.ether) < 2)
+            || (more_ether && free_vent(self, (cx, cy)))
+            || (exp_vent.is_some()
+                && !building.contains(&f.ether)
+                && (!flowing || (more_ether && !free_vent(self, (cx, cy)))))
         {
-            Some(f.ether) // the second when the home vent has run dry: the expansion's
+            // (the first in the main; its second once the first flows and its tech is going up; then the
+            // expansion's, or at once if the main's have run dry)
+            Some(f.ether)
         } else if self.ai_count(&my_b, false, s.rax) < rax_schedule
             || self.extra_rax(e, &my_b, rax_schedule)
         {
@@ -420,13 +473,7 @@ impl World {
         let spot = match placeable {
             Some(w) => {
                 let (fx, fy) = match exp_vent {
-                    Some(at)
-                        if w == f.ether
-                            && (self.ai_count(&my_b, false, w) >= 1
-                                || !free_vent(self, (cx, cy))) =>
-                    {
-                        at
-                    }
+                    Some(at) if w == f.ether && !free_vent(self, (cx, cy)) => at, // (the main's taken)
                     _ => match (relight, detector_at) {
                         (Some(at), _) if w == f.supply => at, // by the dark building
                         (_, Some((x, y))) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark

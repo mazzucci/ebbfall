@@ -87,10 +87,26 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                 MapKind::DeepFields => {
                     assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
                 }
-                MapKind::EtherStorm => assert!(
-                    vents > std_vents && ether > std_ether * 3,
-                    "seed {seed}: more, richer vents"
-                ),
+                MapKind::EtherStorm => {
+                    // (a centre vent always, which a standard map has only with its centre field)
+                    let centre = w.map.occ[w.map.idx(w.map.w / 2, w.map.h / 2)];
+                    assert!(
+                        centre < 0 && w.map.node(-centre as Id).unwrap().ether,
+                        "seed {seed}: a vent in the centre"
+                    );
+                    assert!(
+                        vents >= std_vents && ether >= std_ether * 3,
+                        "seed {seed}: richer vents"
+                    );
+                    assert!(
+                        w.map
+                            .nodes
+                            .iter()
+                            .filter(|n| n.ether)
+                            .all(|n| n.amount == 15000),
+                        "seed {seed}: three times the ether in every vent"
+                    );
+                }
                 MapKind::Barren => assert!(
                     shards < std_shards / 2 && ether < std_ether,
                     "seed {seed}: picked clean"
@@ -822,6 +838,128 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
                     team_starts(k, &teams, side),
                     team_starts(k, &teams, m),
                     "team_starts k={k} n={n} side={side}"
+                );
+            }
+        }
+    }
+}
+
+/// Steps (4-neighbour, over free ground) from `from` to every tile, or `u32::MAX` where it cannot walk.
+fn steps_from(w: &World, from: (i32, i32)) -> Vec<u32> {
+    let mut d = vec![u32::MAX; w.map.rock.len()];
+    let mut todo = std::collections::VecDeque::from([from]);
+    d[w.map.idx(from.0, from.1)] = 0;
+    while let Some((x, y)) = todo.pop_front() {
+        let here = d[w.map.idx(x, y)];
+        for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
+            if !w.map.blocked(nx, ny) && d[w.map.idx(nx, ny)] == u32::MAX {
+                d[w.map.idx(nx, ny)] = here + 1;
+                todo.push_back((nx, ny));
+            }
+        }
+    }
+    d
+}
+
+#[test]
+fn every_base_has_two_vents_alike_for_every_start_and_in_easy_reach() {
+    // Two vents by every main, one to either side of its Core (its field behind it), and two by every expansion,
+    // whatever the size, the kind and the symmetry: on open ground inside the main's pocket, owning their tiles, a
+    // short walk from beside the Core, and the same for every start.
+    let seeds: u32 = if cfg!(debug_assertions) { 4 } else { 40 };
+    for n in [64, 96, 128] {
+        let starts = endfall_sim::map::max_starts(MapSize::square(n));
+        for seed in 0..seeds {
+            for kind in MapKind::ALL {
+                let seed = seed * 11 + 1;
+                let w = seated(seed, kind, n, starts, 0);
+                let ctx = format!("{n}x{n} seed {seed} {kind:?}");
+                let vents: Vec<&endfall_sim::map::Node> =
+                    w.map.nodes.iter().filter(|v| v.ether).collect();
+                // (a vent's centre, in tiles: its top-left tile's corner plus one)
+                let centre = |v: &endfall_sim::map::Node| (v.tx as f64 + 1.0, v.ty as f64 + 1.0);
+                let d = |a: (f64, f64), b: (f64, f64)| {
+                    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
+                };
+                for v in &vents {
+                    for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        let i = w.map.idx(v.tx + x, v.ty + y);
+                        assert_eq!(
+                            w.map.occ[i],
+                            -(v.id as i32),
+                            "{ctx}: vent {} owns its tiles",
+                            v.id
+                        );
+                        assert_eq!(w.map.rock[i], 0, "{ctx}: vent {} on open ground", v.id);
+                    }
+                }
+                let mut first: Option<Vec<i64>> = None;
+                for &b in &w.map.bases {
+                    let c = (b.0 as f64 + 2.0, b.1 as f64 + 2.0);
+                    let home: Vec<_> = vents.iter().filter(|v| d(centre(v), c) <= 10.0).collect();
+                    assert_eq!(home.len(), 2, "{ctx}: two vents by the main at {b:?}");
+                    // Inside the pocket (its wall starts 12 tiles from the Core's centre), clear of the Core.
+                    let mut far: Vec<i64> = home
+                        .iter()
+                        .map(|v| {
+                            let r = d(centre(v), c);
+                            assert!(
+                                (5.0..=9.5).contains(&r),
+                                "{ctx}: the vent at {},{} is {r:.1} from the Core",
+                                v.tx,
+                                v.ty
+                            );
+                            (r * 1000.0).round() as i64
+                        })
+                        .collect();
+                    // A short walk from beside the Core to each: around nothing in the way.
+                    let start = w.map.nearest_free(b.0 + 1, b.1 + 4, 6).unwrap();
+                    let steps = steps_from(&w, start);
+                    for v in &home {
+                        let near = (-1..=2)
+                            .flat_map(|y| (-1..=2).map(move |x| (v.tx + x, v.ty + y)))
+                            .filter(|&(x, y)| w.map.in_map(x, y))
+                            .map(|(x, y)| steps[w.map.idx(x, y)])
+                            .min()
+                            .unwrap();
+                        assert!(
+                            near <= 16,
+                            "{ctx}: the vent at {},{}: {near} steps from the Core",
+                            v.tx,
+                            v.ty
+                        );
+                    }
+                    // Alike for every start (the starts are images of each other).
+                    far.sort();
+                    match &first {
+                        None => first = Some(far),
+                        Some(f) => assert_eq!(
+                            &far, f,
+                            "{ctx}: the main at {b:?} has its vents as the first has"
+                        ),
+                    }
+                }
+                // Two by every expansion, all mirrored: every vent is a main's, an expansion's or the centre's.
+                for &e in &w.map.expansions {
+                    let by = vents.iter().filter(|v| d(centre(v), e) <= 7.5).count();
+                    assert!(
+                        by >= 2,
+                        "{ctx}: the expansion at ({:.1}, {:.1}) has {by} vents",
+                        e.0,
+                        e.1
+                    );
+                }
+                let mid = w.map.occ[w.map.idx(n / 2, n / 2)];
+                let centre_vent = mid < 0 && w.map.node(-mid as Id).unwrap().ether;
+                assert_eq!(
+                    vents.len(),
+                    2 * w.map.bases.len() + 2 * w.map.expansions.len() + centre_vent as usize,
+                    "{ctx}: two vents a base, and the centre's"
+                );
+                assert_eq!(
+                    w.map.expansions.len() % starts,
+                    0,
+                    "{ctx}: every start's expansions"
                 );
             }
         }

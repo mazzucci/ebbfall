@@ -11,7 +11,7 @@ import { mulberry } from '../engine/util.js';
 export const MAP_KINDS = [
   { story: 'Old mining country: balanced fields and winding passes.' }, // Standard
   { story: 'The crystal here ran ten times deeper than anywhere else.' }, // DeepFields
-  { story: 'An ether storm: vents everywhere, each three times as rich.' }, // EtherStorm
+  { story: 'An ether storm: every vent three times as rich, and one more in the middle of it all.' }, // EtherStorm
   { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
   { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
   { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren

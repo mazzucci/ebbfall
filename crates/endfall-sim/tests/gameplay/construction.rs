@@ -345,38 +345,62 @@ fn vael_production_needs_power_and_goes_dark_without_it() {
         !w.can_place(BldgKind::Kiln, far, cy, PLAYER)
             || w.powered_at(PLAYER, (far as f64 + 1.5) * TILE, (cy as f64 + 1.5) * TILE)
     );
-    // A Spire, then a Kiln covered only by it (not by the Conflux).
-    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
+    // A Spire, then a Kiln covered only by it (not by the Conflux): the first Spire spot round the Core with room for
+    // a Kiln beyond it.
+    let conflux = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
+        .unwrap();
+    let (hx, hy) = (conflux.x, conflux.y);
+    let beyond = |w: &World, (stx, sty): (i32, i32), powered: bool| {
+        let (sx, sy) = ((stx + 1) as f64 * TILE, (sty + 1) as f64 * TILE);
+        (-8..=8)
+            .flat_map(|dy| (-8..=8).map(move |dx| (stx + 1 + dx, sty + 1 + dy)))
+            .find(|&(tx, ty)| {
+                let (kx, ky) = ((tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE);
+                let apart = tx + 3 <= stx || stx + 2 <= tx || ty + 3 <= sty || sty + 2 <= ty;
+                // (its ground free: power it has only once the Spire stands)
+                let free = if powered {
+                    w.can_place(BldgKind::Kiln, tx, ty, PLAYER)
+                } else {
+                    // (can_place but for power: free, explored ground, no field on its edge)
+                    (-1..=3).all(|y| {
+                        (-1..=3).all(|x| {
+                            let (xx, yy) = (tx + x, ty + y);
+                            let edge = !(0..3).contains(&x) || !(0..3).contains(&y);
+                            w.map.in_map(xx, yy)
+                                && w.map.occ[w.map.idx(xx, yy)] >= 0
+                                && (edge
+                                    || (!w.map.blocked(xx, yy)
+                                        && w.explored[PLAYER as usize][w.map.idx(xx, yy)] != 0))
+                        })
+                    })
+                };
+                apart
+                    && free
+                    && endfall_sim::jsmath::dist(kx, ky, hx, hy) > 7.5 * TILE
+                    && endfall_sim::jsmath::dist(kx, ky, sx, sy) < 6.0 * TILE
+            })
+    };
+    let at = (3..7)
+        .flat_map(|r| (0..24).map(move |a| (r, a)))
+        .map(|(r, a)| {
+            let ang = a as f64 / 24.0 * std::f64::consts::TAU;
+            (
+                (cx as f64 + 1.0 + ang.cos() * r as f64).round() as i32,
+                (cy as f64 + 1.0 + ang.sin() * r as f64).round() as i32,
+            )
+        })
+        .find(|&t| w.can_place(BldgKind::Spire, t.0, t.1, PLAYER) && beyond(&w, t, false).is_some())
+        .expect("a Spire spot with room beyond it");
+    let spire = w
+        .place_building(PLAYER, BldgKind::Spire, at.0, at.1, Some(l[0]))
+        .unwrap();
+    run(&mut w, 90);
+    assert!(w.bldg(spire).unwrap().done);
     let (sx, sy) = (w.bldg(spire).unwrap().x, w.bldg(spire).unwrap().y);
-    let (hx, hy) = (
-        w.bldg(
-            w.bldgs
-                .iter()
-                .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
-                .unwrap()
-                .id,
-        )
-        .unwrap()
-        .x,
-        w.bldgs
-            .iter()
-            .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
-            .unwrap()
-            .y,
-    );
-    let mut site = None;
-    'find: for dy in -8..=8 {
-        for dx in -8..=8 {
-            let (tx, ty) = ((sx / TILE) as i32 + dx, (sy / TILE) as i32 + dy);
-            let (kx, ky) = ((tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE);
-            if w.can_place(BldgKind::Kiln, tx, ty, PLAYER)
-                && endfall_sim::jsmath::dist(kx, ky, hx, hy) > 7.5 * TILE
-            {
-                site = Some((tx, ty));
-                break 'find;
-            }
-        }
-    }
+    let site = beyond(&w, at, true);
     let (tx, ty) = site.expect("a spot only the Spire covers");
     let kiln = w
         .place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1]))

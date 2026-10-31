@@ -221,8 +221,8 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "108/112/73/0 lost_to 112 | 156/73/112/20 lost_to 73 | over true winner 1 conceded -1 at 23663",
-    "103/26/68/24 lost_to 26 | 64/68/26/0 lost_to 68 | over true winner 0 conceded -1 at 13157",
+    "99/103/65/0 lost_to 103 | 114/65/103/24 lost_to 65 | over true winner 1 conceded -1 at 23056",
+    "125/44/77/37 lost_to 44 | 73/77/44/0 lost_to 77 | over true winner 0 conceded -1 at 14543",
     "11/15/1/0 lost_to 15 | 33/1/15/2 lost_to 1 | over true winner 1 conceded -1 at 8540",
 ];
 

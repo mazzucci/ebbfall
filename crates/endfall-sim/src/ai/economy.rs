@@ -5,10 +5,10 @@ use super::*;
 /// Harvesters a flowing vent keeps busy (one mines at a time, `MINE_SLOTS`; a load takes `ETHER_MINE_TIME`): the AI
 /// crews each of its refineries with this many, and trains this many more workers for every one past the first.
 pub(crate) const ETHER_CREW: usize = 3;
-/// Banked ether above which the AI keeps one harvester on ether in all (it is piling up), and below which it crews its
-/// refineries again. (Lowered from 400 and 250 with a second vent in every main: its bank of ether doubled; then from
-/// 300 and 150 in the balance pass: both AIs still floated about 200 ether at 8:00 while short of shards, which cost
-/// the Human AI most, its builders mining nothing; Humans' wins of 240 Medium / Hard games 96 / 97 -> 132 / 118.)
+/// Banked ether, over what it is saving up for (`ether_saved_for`), above which the AI keeps one harvester on ether in
+/// all (it is piling up), and below which it crews its refineries again. (Lowered from 400 and 250 with a second vent in
+/// every main: its bank of ether doubled; then from 300 and 150 in the balance pass: both AIs still floated about 200
+/// ether at 8:00 while short of shards, which cost the Human AI most, its builders mining nothing.)
 const ETHER_LEAN: [i32; 2] = [75, 150];
 
 impl World {
@@ -78,7 +78,9 @@ impl World {
 
     /// Workers: idle ones mine; ether workers follow the cap; nobody stays on a dry vent while one flows.
     pub(crate) fn ai_workers(&mut self, brain: &mut Brain) {
-        let Brain { e, harv, my_b, .. } = brain.clone();
+        let Brain {
+            e, t, harv, my_b, ..
+        } = brain.clone();
         // Keep a crew of three on each flowing refinery once one stands, one in all while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
@@ -88,7 +90,8 @@ impl World {
             .iter()
             .filter(|&&h| self.gathering_ether(h) == Some(true))
             .count();
-        let stock = self.res[e as usize][1];
+        // (over what it saves up for: its capital unit when due, its next weapons/armour/shields level)
+        let stock = self.res[e as usize][1] - self.ether_saved_for(e, &my_b, t);
         let ai = self.ai_mut();
         if stock > ETHER_LEAN[1] {
             ai.ether_lean = true;
@@ -114,6 +117,26 @@ impl World {
         }
         brain.ext = ext;
         brain.flowing = flowing;
+    }
+
+    /// The ether `e` is saving up for: its capital unit when one is due, and the next level of a weapons, armour or
+    /// shields upgrade its finished buildings research, once its level researches levels (the cheapest next one).
+    fn ether_saved_for(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
+        let capital = self.capital_due(e, my_b, t).map_or(0, |k| k.def().cost[1]);
+        let levels = self.upgrades[e as usize];
+        let level = (t > self.level().research_from)
+            .then(|| {
+                my_b.iter()
+                    .filter_map(|&id| self.bldg(id))
+                    .filter(|b| b.done)
+                    .flat_map(|b| b.kind.def().researches.iter().copied())
+                    .filter(|u| u.levels() > 1 && levels[u.index()] < u.levels())
+                    .map(|u| u.cost(levels[u.index()] + 1)[1])
+                    .min()
+            })
+            .flatten()
+            .unwrap_or(0);
+        capital + level
     }
 
     /// Send worker `h` to the nearest field of ours within `range` px of it, if there is one (a vent if `ether`:

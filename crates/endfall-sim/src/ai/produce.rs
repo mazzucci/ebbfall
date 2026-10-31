@@ -48,7 +48,7 @@ impl World {
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
         // Hit by something unseen (anywhere): one detector of its own goes with the army (its side's field detector:
         // an Observer, a Halo), first from the factory that trains it, and nothing is held back from it.
-        let detector = self.factions[e as usize]
+        let mut wanted_detector = self.factions[e as usize]
             .field_detector()
             .filter(|&k| self.ai().unseen_hit && mine(self, k) == 0);
         for &bid in &my_b {
@@ -57,7 +57,7 @@ impl World {
                 continue;
             }
             let s = &self.factions[e as usize].ai;
-            let detector = detector.filter(|k| {
+            let detector = wanted_detector.filter(|k| {
                 b.kind.def().trains.contains(k)
                     && k.def()
                         .req
@@ -136,8 +136,12 @@ impl World {
                 let [used, cap] = self.sup[e as usize];
                 let room = Some(u) == detector
                     || capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
-                if room && self.can_afford(e, need(u)) {
-                    let _ = self.queue_unit(bid, u);
+                if room
+                    && self.can_afford(e, need(u))
+                    && self.queue_unit(bid, u).is_ok()
+                    && Some(u) == detector
+                {
+                    wanted_detector = None; // (one: not one from every factory that trains it this turn)
                 }
             }
         }

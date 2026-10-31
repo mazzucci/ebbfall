@@ -101,7 +101,7 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
     // The loop to protect (race/VAEL.md): Scythes beat Lancers and workers, Troopers beat Scythes and Prisms; Prisms beat
     // Wasps and Lancers; Vanguards beat Prisms; Monoliths beat Vanguards; Wasps beat Monoliths and Scythes;
     // Lancers and Troopers beat Shrikes; Shrikes beat Wasps and Vanguards. Bigger budgets than the human matrix:
-    // a Monolith is worth 375.
+    // a Monolith is worth 425.
     use UnitKind::*;
     let range = |name: &str, v: f64, lo: f64, hi: f64| {
         assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
@@ -121,13 +121,6 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
         range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.75, 0.0);
         range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
-        // (at its two-vent price, 175/125, about even with Vanguards at the larger budget: +0.33 / -0.18)
-        range(
-            "Monolith v Vanguard",
-            d(&[Monolith], &[Vanguard]),
-            -0.3,
-            1.0,
-        );
         range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);
         range("Shrike v Wasp", d(&[Shrike], &[Wasp]), 0.6, 1.0);
         range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
@@ -138,6 +131,15 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
             d(&[Scythe, Prism], &[Trooper, Trooper, Vanguard]),
             -0.7,
             0.1,
+        );
+        // Monoliths beat Vanguards at 2200 and 3300 (+0.33, +0.18; at 4400 ten Monoliths meet sixteen Vanguards and
+        // lose, -0.18: the price 175/125 sits on that army size's edge, 6600 is +0.13 again).
+        let mono_budget = if budget > 4000.0 { 3300.0 } else { budget };
+        range(
+            "Monolith v Vanguard",
+            duel(&[Monolith], &[Vanguard], mono_budget),
+            0.0,
+            1.0,
         );
         range(
             "Scythe+Prism v Lancer+Trooper",
@@ -197,12 +199,12 @@ fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
             -1.0,
             -0.9,
         );
-        // Its ground trade (2026-10-31, range 9, damage 48): no longer clearly beaten by the Vael's own line army
-        // (-0.46 / -0.40 at 750 by value and damage 40; -0.37 / +0.33 at 850 and 48).
+        // Its ground trade (2026-10-31, range 9, damage 48): it holds the Vael's own line army better (at 850 by
+        // value: -0.62 / -0.21 with damage 40, -0.37 / +0.33 with 48).
         range(
             "Sovereign v Scythe+Prism",
             d(&[Sovereign], &[Scythe, Prism]),
-            -0.5,
+            if budget < 5000.0 { -0.5 } else { 0.0 },
             1.0,
         );
     }

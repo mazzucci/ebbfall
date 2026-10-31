@@ -33,9 +33,9 @@ pub const VAEL: Faction = Faction {
             (UnitKind::Prism, 1, 0.0),
             (UnitKind::Monolith, 3, 0.0),
             (UnitKind::Halo, 6, 0.0),
-            // (an Umbra per four Scythes from 5:00, after the Halos (the army's detector), fewer and then none once
-            // they keep dying where the enemy detects: `World::cloak_ratio`)
-            (UnitKind::Umbra, 4, 300.0),
+            // (an Umbra per six Scythes from 5:00, after the Halos (the army's detector), until it has seen an enemy
+            // detector with the enemy army: `World::cloak_ratio`)
+            (UnitKind::Umbra, 6, 300.0),
         ],
         raider: UnitKind::Shrike,
         wave_scale: 0.6,

@@ -71,9 +71,9 @@ pub(crate) struct Ai {
     pub unseen_hit: bool,
     /// The second prong of the wave out (its fastest third, sent at a known expansion), if it split.
     pub prong: Vec<Id>,
-    /// What its always-cloaked fighters (the Umbra) have earned: the value of what they killed less the value of
-    /// those lost (one dies only where the enemy detects it, or to splash). Its mix brings them while they pay.
-    pub cloak_paid: f64,
+    /// It has seen an enemy field detector (a unit that detects: an Observer, a Halo) with an enemy army: its
+    /// always-cloaked fighters (the Umbra) would be found there, so its mix brings no more of them.
+    pub detector_seen: bool,
 }
 
 impl World {
@@ -154,7 +154,7 @@ impl World {
             cloak_hit: None,
             unseen_hit: false,
             prong: Vec::new(),
-            cloak_paid: 0.0,
+            detector_seen: false,
             sweep: 0,
             sweep_since: 0.0,
             ether_lean: false,

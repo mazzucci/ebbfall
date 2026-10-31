@@ -23,11 +23,6 @@ fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_arm
     on - took
 }
 
-/// What a unit or building is worth in an AI's ledgers: its shards and ether (as the army chart counts it).
-fn worth(cost: [i32; 2]) -> f64 {
-    (cost[0] + cost[1]) as f64
-}
-
 /// How far (px, to the patient's edge) a healer reaches: a Medic 2.5 tiles, a Halo (`mend`) 3.
 fn heal_reach(mend: bool) -> f64 {
     (if mend { 3.0 } else { 2.5 }) * TILE
@@ -255,8 +250,6 @@ impl World {
                 if let Some(slot) = killer.filter(|&s| s != usize::MAX) {
                     self.count_loss(team, slot);
                 }
-                let value = worth(self.units[self.ui(target).unwrap()].kind.def().cost);
-                self.cloak_earned(killer, credit, team, value);
                 self.kill(target, credit);
             }
         } else if let Some(i) = self.bi(target) {
@@ -269,8 +262,6 @@ impl World {
             }
             b.flash = 0.12;
             if b.hp <= 0.0 {
-                let (value, team) = (worth(b.kind.def().cost), b.team);
-                self.cloak_earned(killer, credit, team, value);
                 self.kill(target, credit);
             }
         }
@@ -341,21 +332,6 @@ impl World {
         }
     }
 
-    /// A kill of seat `victim`'s, worth `value`, by what `slot` names (a `lost_to` slot), for seat `by`: an AI's
-    /// always-cloaked fighter (the Umbra) earns its keep in that AI's ledger (`Ai::cloak_paid`), against an enemy only.
-    fn cloak_earned(&mut self, slot: Option<usize>, by: Option<u8>, victim: u8, value: f64) {
-        let fighter = slot
-            .and_then(|s| UNIT_KINDS.get(s))
-            .is_some_and(|k| k.cloaked_fighter());
-        if let Some(ai) = by
-            .filter(|&k| fighter && self.enemies(k, victim))
-            .and_then(|t| self.ai.get_mut(t as usize))
-            .and_then(|a| a.as_mut())
-        {
-            ai.cloak_paid += value;
-        }
-    }
-
     /// One more of `team`'s units lost to what `slot` names, for the end screen.
     fn count_loss(&mut self, team: u8, slot: usize) {
         let row = &mut self.lost_to[team as usize];
@@ -389,11 +365,6 @@ impl World {
                 n: 10,
             });
             self.stats[team as usize].lost += 1;
-            if u.kind.cloaked_fighter()
-                && let Some(ai) = self.ai.get_mut(team as usize).and_then(|a| a.as_mut())
-            {
-                ai.cloak_paid -= worth(u.kind.def().cost); // (found and killed: the money lost)
-            }
             let by = by.filter(|&k| self.enemies(k, team));
             if let Some(k) = by {
                 self.stats[k as usize].killed += 1;
@@ -569,12 +540,15 @@ impl World {
             u.heal_fx -= dt;
             if u.heal_fx <= 0.0 {
                 u.heal_fx = 0.4;
+                // (shown only to the seats that see both ends: a mend must not give away a cloaked patient)
+                let seen = self.seen_mask(team, uid) & self.seen_mask(team, pid);
                 self.emit(Event::Heal {
                     x: mx,
                     y: my,
                     tx,
                     ty,
                     mend,
+                    seen,
                 });
             }
         } else if let (true, Some((_, sx, sy))) = (idle, seek) {

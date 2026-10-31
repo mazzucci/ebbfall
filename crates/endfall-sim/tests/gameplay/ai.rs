@@ -1776,7 +1776,8 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
 #[test]
 fn the_vael_ai_mixes_in_umbras_once_its_loom_stands_but_not_on_easy() {
     // Money to spare against an idle Human player: from 5:00, with its Loom up, the Vael AI's Kilns mix in Umbras
-    // (one per four Scythes while they pay). Easy, which does not adapt, never fields an unseen killer.
+    // (one per six Scythes until it sees detection with the enemy army). Easy, which does not adapt, never fields an
+    // unseen killer.
     for (diff, want) in [(1, true), (2, true), (0, false)] {
         let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {

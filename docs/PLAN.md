@@ -244,22 +244,25 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   125/100, 2 supply, 60 hull + 60 shields, armour 1, speed 95, sight 8, 30 s; needs the Loom), melee 32 every 1.2 s
   (+3 a Weapons level), ground only. Nothing new in the sim: `UnitDef::cloaked` (the Observer's permanent cloak) on a
   fighter, so detection (Turret, Observer, Ward, Halo), targeting, the unseen-attacker alert and its toast, the
-  snapshot's `hid`/`cloaked` and the owner's shimmer all apply as they are. No counter lists (the owner: players work
-  counters out). Cost-equal duels (2200/4400): +1.00 against Troopers, Trooper+Vanguard+Medic, Trooper+Siege Tank and
-  a deployed tank line; -0.81/-0.85 against Troopers with an Observer, -0.60/-0.83 with a tank too, -0.75 against
-  Prisms with a Halo (the mirror); 0.00 against Wasps (neither can touch the other); Scythe+Umbra +0.62 against
-  Troopers. The **Vael AI** mixes one per four Scythes from 5:00 once its Loom stands (after its Halos), by a ledger
-  of what its cloaked fighters killed against what they cost when lost (`Ai::cloak_paid`, `World::cloak_ratio`): as
-  scripted while they pay, half as many while behind by less than two of them, none further behind; none on Easy (an
-  unseen killer is no lesson for a beginner). The **Human AI** hit by something unseen raises its Airfield as soon as
-  its Foundry stands (where its level raises one at all), so its Observer comes with the army in time. AI against AI,
-  Humans against Vael (six maps, twenty seeds, both sides: 240 games a level): Medium 44.2% Humans (main 47.3%), Hard
-  41.0% (main 44.4%); Umbras in 76 and 101 of the games, about 1.5 and 1.9 a game, killing about 6 units for 0.6-0.7
-  lost; the Human AI fields an Observer in 51 and 65 games (main 14 and 20). Art: a lean dark chevron of shadow
-  ceramic with lit violet edges (vael.js `umbra`). Tests: balance.rs (the duels and the tank line), cloak.rs,
-  combat.rs (no air), ai.rs (the Vael AI's Umbras, the Human AI's Airfield and Observer), produce.rs (the ledger), and
-  the e2e (the Kiln's card, U and its WASD key, the shimmer, an enemy unseen until a Halo). Goldens unchanged (no Vael
-  golden game is checked past 5:00; the result games are Human mirrors).
+  snapshot's `hid`/`cloaked` and the owner's shimmer all apply as they are; splash from a shot at something seen still
+  hits it. A Halo's or Medic's mend is shown only to the seats that see both ends (`Event::Heal::seen`, as shots are):
+  it no longer gives away a cloaked patient. No counter lists (the owner: players work counters out). Cost-equal duels
+  (2200/4400): +1.00 against Troopers, Trooper+Vanguard+Medic, Trooper+Siege Tank and a deployed tank line;
+  -0.81/-0.85 against Troopers with an Observer, -0.60/-0.83 with a tank too, -0.75 against Prisms with a Halo (the
+  mirror); 0.00 against Wasps (neither can touch the other); Scythe+Umbra +0.62 against Troopers. The **Vael AI**
+  mixes one per six Scythes from 5:00 once its Loom stands (after its Halos) until it sees an enemy field detector (a
+  unit that detects: an Observer, a Halo) within 8 tiles of enemy fighters (`Ai::detector_seen`,
+  `World::cloak_ratio`), none from then on, as a player stops sending blades that would only be found; none on Easy
+  (an unseen killer is no lesson for a beginner). The **Human AI** hit by something unseen raises its Airfield as soon
+  as its Foundry stands (where its level raises one at all), so its Observer comes with the army in time. AI against
+  AI, Humans against Vael (six maps, ten seeds, both sides: 120 games a level): Medium 47.9% Humans (main 46.3%), Hard
+  42.9% (main 43.8%); Umbras in 16 and 35 of the games, 1.2 and 1.6 a game, killing 2-5 units for 0.4-0.5 lost; the
+  Human AI fields an Observer in 11 and 21 games (main 6 and 10). One per four Scythes measured 45.0% / 37.9%: too
+  much on Hard. Art: a lean dark chevron of shadow ceramic with lit violet edges (vael.js `umbra`). Tests: balance.rs
+  (the duels and the tank line), cloak.rs (and the hidden mend), combat.rs (no air), ai.rs (the Vael AI's Umbras, the
+  Human AI's Airfield and Observer), produce.rs (the detector rule), and the e2e (the Kiln's card, U and its WASD key,
+  the shimmer, an enemy unseen until a Halo). Goldens unchanged (no Vael golden game is checked past 5:00; the result
+  games are Human mirrors).
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

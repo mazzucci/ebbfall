@@ -660,7 +660,7 @@ impl Game {
                 {
                     None
                 }
-                Event::Fire { seen, .. } | Event::Cast { seen, .. }
+                Event::Fire { seen, .. } | Event::Cast { seen, .. } | Event::Heal { seen, .. }
                     if (seen >> me) & 1 == 0 && self.replay.is_none() =>
                 {
                     None
@@ -698,7 +698,9 @@ fn event_json(e: &Event) -> String {
             .num("y", y)
             .num("building", building)
             .num("unseen", unseen),
-        Event::Heal { x, y, tx, ty, mend } => o("heal")
+        Event::Heal {
+            x, y, tx, ty, mend, ..
+        } => o("heal")
             .num("x", x)
             .num("y", y)
             .num("tx", tx)
@@ -827,7 +829,16 @@ mod tests {
             weapon: "shell",
             seen: 0b11,
         });
+        g.w.emit(Event::Heal {
+            x: 5.0,
+            y: 6.0,
+            tx: 7.0,
+            ty: 8.0,
+            mend: true,
+            seen: 0b10,
+        });
         let out = g.drain_events();
+        assert!(!out.contains("heal"), "only mends this seat sees: {out}");
         assert!(
             out.contains("mine") && !out.contains("theirs") && !out.contains("coin"),
             "{out}"

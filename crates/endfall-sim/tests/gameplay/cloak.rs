@@ -376,3 +376,46 @@ fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
         "detected, it is shot"
     );
 }
+
+#[test]
+fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
+    // A Halo mends an Umbra's shields in the player's sight: the Halo is seen, the Umbra is not, so the mend's
+    // light (which runs from one to the other) is not shown to the player; once an Observer detects the Umbra, it is.
+    let mut w = flat_arena(14);
+    w.factions = vec![&HUMANS, &VAEL];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x - 6.5 * TILE, y);
+    let halo = w.make_unit(UnitKind::Halo, ENEMY, x, y + TILE);
+    let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x, y);
+    for u in [trooper, halo, umbra] {
+        w.hold_unit(u);
+    }
+    let mends = |w: &mut World, secs: u32| -> Vec<u8> {
+        w.units.iter_mut().find(|u| u.id == umbra).unwrap().sh = 0.0;
+        let mut seen = Vec::new();
+        for _ in 0..secs * TPS {
+            w.step();
+            for e in w.events.drain(..) {
+                if let endfall_sim::world::Event::Heal { seen: s, .. } = e {
+                    seen.push(s);
+                }
+            }
+        }
+        seen
+    };
+    let seen = mends(&mut w, 2);
+    assert!(w.seen_by(PLAYER, halo) && !w.seen_by(PLAYER, umbra));
+    assert!(!seen.is_empty(), "the Halo mends the Umbra");
+    assert!(
+        seen.iter()
+            .all(|s| s & 1 << PLAYER == 0 && s & 1 << ENEMY != 0),
+        "its own side sees the mend, the player does not: {seen:?}"
+    );
+    let obs = w.make_unit(UnitKind::Observer, PLAYER, x - 2.0 * TILE, y);
+    w.hold_unit(obs);
+    let seen = mends(&mut w, 2);
+    assert!(
+        seen.iter().any(|s| s & 1 << PLAYER != 0),
+        "detected: the mend shows ({seen:?})"
+    );
+}

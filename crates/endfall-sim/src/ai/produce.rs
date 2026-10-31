@@ -186,27 +186,17 @@ impl World {
         (have < CAPITAL_AT.iter().filter(|&&at| t > at).count()).then_some(k)
     }
 
-    /// A mix ratio (one `k` per `per` line units) for an always-cloaked fighter (the Umbra), by how the last ones
-    /// fared (`Ai::cloak_paid`): as scripted while they have paid for themselves (what they killed is worth at least
-    /// what was lost: the enemy has not brought detection to them), half as many while they are behind by less than
-    /// two of them, then none (they keep dying where the enemy detects). None on a level that does not adapt (Easy:
-    /// an unseen killer is no lesson for a beginner). Any other unit: `per` as it is.
+    /// A mix ratio (one `k` per `per` line units) for an always-cloaked fighter (the Umbra): as scripted until it has
+    /// seen an enemy field detector with an enemy army (`Ai::detector_seen`), none from then on. A player who sees
+    /// detection walking with the enemy army stops sending blades that would only be found: the Human AI, once hit
+    /// unseen, keeps an Observer with its army for the rest of the game, and a Vael army mixes in Halos, so a detector
+    /// seen once is one met again. None on a level that does not adapt (Easy: an unseen killer is no lesson for a
+    /// beginner). Any other unit: `per` as it is.
     pub(crate) fn cloak_ratio(&self, k: UnitKind, per: usize) -> Option<usize> {
         if !k.cloaked_fighter() {
             return Some(per);
         }
-        if !self.level().answers {
-            return None;
-        }
-        let (paid, cost) = (self.ai().cloak_paid, k.def().cost);
-        let worth = (cost[0] + cost[1]) as f64;
-        if paid >= 0.0 {
-            Some(per)
-        } else if paid > -2.0 * worth {
-            Some(per * 2)
-        } else {
-            None
-        }
+        (self.level().answers && !self.ai().detector_seen).then_some(per)
     }
 
     /// A mix ratio (one `k` per `per` line units) answered to what the enemy fields: a splashing specialist comes
@@ -228,7 +218,9 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use crate::ai::Brain;
     use crate::data::*;
+    use crate::map::MapKind;
     use crate::world::World;
 
     #[test]
@@ -257,53 +249,38 @@ mod tests {
     }
 
     #[test]
-    fn umbras_come_while_they_pay_and_stop_once_they_keep_dying() {
-        // The ledger: an Umbra's kill earns what it killed is worth; an Umbra lost costs its price (225). The ratio:
-        // as scripted while the ledger is even or ahead, halved behind by less than two Umbras, none further behind,
-        // and none at all on Easy. Other units keep theirs.
-        let mut w = World::with_setup(
-            17,
-            1,
-            crate::map::MapKind::Standard,
-            false,
-            [&HUMANS, &VAEL],
-        );
+    fn umbras_come_until_an_enemy_detector_is_seen_with_its_army() {
+        // The Vael AI mixes in Umbras as scripted; an enemy Observer it sees alone (a scout) changes nothing; one it
+        // sees beside enemy fighters (with their army) stops them for good. Never on Easy; other units keep theirs.
+        let mut w = World::with_setup(17, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.ai_turn = ENEMY;
         assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4));
-        assert_eq!(w.cloak_ratio(UnitKind::Monolith, 3), Some(3));
-        let (x, y) = (30.0 * TILE, 30.0 * TILE);
-        let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x, y);
-        let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x + 20.0, y);
-        w.damage(trooper, 1e6, Some(umbra));
-        let trooper_worth =
-            (UnitKind::Trooper.def().cost[0] + UnitKind::Trooper.def().cost[1]) as f64;
-        assert_eq!(w.ai().cloak_paid, trooper_worth, "a kill earns");
-        let depot = w.make_building(BldgKind::Depot, PLAYER, 20, 20, true);
-        w.damage(depot, 1e6, Some(umbra));
-        assert_eq!(
-            w.ai().cloak_paid,
-            trooper_worth + 100.0,
-            "a building razed too"
-        );
-        w.ai_mut().cloak_paid = trooper_worth;
-        let shooter = w.make_unit(UnitKind::Trooper, PLAYER, x + 20.0, y);
-        w.damage(umbra, 1e6, Some(shooter));
-        assert_eq!(w.ai().cloak_paid, trooper_worth - 225.0, "a loss costs");
+        let (x, y) = (32.0 * TILE, 32.0 * TILE);
+        w.make_unit(UnitKind::Halo, ENEMY, x, y); // (its eyes: it sees the cloaked Observer only where it detects)
+        let obs = w.make_unit(UnitKind::Observer, PLAYER, x + 2.0 * TILE, y);
+        let watch = |w: &mut World| {
+            w.update_fog();
+            let mut b = Brain {
+                e: ENEMY,
+                ..Brain::default()
+            };
+            w.ai_watch(&mut b);
+        };
+        watch(&mut w);
+        assert!(w.ai_sees_unit(w.unit(obs).unwrap()), "it sees the Observer");
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4), "a lone scout");
+        w.make_unit(UnitKind::Trooper, PLAYER, x + 4.0 * TILE, y);
+        watch(&mut w);
         assert_eq!(
             w.cloak_ratio(UnitKind::Umbra, 4),
-            Some(8),
-            "behind: half as many"
+            None,
+            "with the army: none"
         );
-        w.ai_mut().cloak_paid = -450.0;
-        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), None, "two behind: none");
+        w.units.retain(|u| u.team != PLAYER);
+        watch(&mut w);
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), None, "for good");
         assert_eq!(w.cloak_ratio(UnitKind::Monolith, 3), Some(3));
-        let mut easy = World::with_setup(
-            17,
-            0,
-            crate::map::MapKind::Standard,
-            false,
-            [&HUMANS, &VAEL],
-        );
+        let mut easy = World::with_setup(17, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
         easy.ai_turn = ENEMY;
         assert_eq!(easy.cloak_ratio(UnitKind::Umbra, 4), None, "never on Easy");
     }

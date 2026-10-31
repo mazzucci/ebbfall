@@ -102,6 +102,9 @@ pub struct Map {
     /// next one's neighbour round the map); a World puts them in seat order (`seat_starts`), the starts nobody took
     /// after the seats' (a World refuses more seats than its map has bases).
     pub bases: Vec<(i32, i32)>,
+    /// The middle of each expansion's clearing (tiles; every start's images too, the natural's first): its field on
+    /// the side away from its main, a vent to either side of the room for its Core. Empty on a test arena.
+    pub expansions: Vec<(f64, f64)>,
 }
 
 /// The character of a map, chosen in the menu. The order is the client's index: append only.
@@ -112,7 +115,7 @@ pub enum MapKind {
     Standard,
     /// Ten times the shards in every field.
     DeepFields,
-    /// Extra vents, each holding three times the ether.
+    /// Rich vents, each holding three times the ether, and always one in the centre.
     EtherStorm,
     /// Little rock: open ground, fast attacks.
     OpenPlains,
@@ -237,6 +240,37 @@ impl Sym {
 const POCKET_R: f64 = 12.0;
 /// The pocket's one ramp, in tiles across.
 const RAMP_W: f64 = 4.5;
+/// How far (degrees) a main's vents lie round from the direction of its field, one to either side (90: square to it).
+const MAIN_VENT_TURN: f64 = 78.0;
+/// Where an expansion's two vents may lie, the first that fits on each side: the turn (degrees) from the direction
+/// of its field, and the distance (tiles) from the site's middle.
+const EXP_VENT_AT: [(f64, f64); 11] = [
+    (90.0, 5.5),
+    (90.0, 4.5),
+    (115.0, 5.5),
+    (115.0, 4.5),
+    (140.0, 5.5),
+    (140.0, 4.5),
+    (90.0, 6.5),
+    (115.0, 6.5),
+    (65.0, 5.5),
+    (65.0, 6.5),
+    (140.0, 6.5),
+];
+/// Vents lie at least this many tiles apart (top-left to top-left, either way): two tiles of ground between them.
+const VENT_GAP: i32 = 4;
+
+/// The 2x2 block at `v` (top-left) mirrored across the line through `c` heading `dir`, clamped onto the map a tile in.
+fn mirror_block(v: (i32, i32), c: (f64, f64), dir: f64, w: i32, h: i32) -> (i32, i32) {
+    let (ux, uy) = (jsmath::cos(dir), jsmath::sin(dir));
+    let (rx, ry) = (v.0 as f64 + 0.5 - c.0, v.1 as f64 + 0.5 - c.1); // (from c to the block's centre)
+    let along = rx * ux + ry * uy;
+    let (mx, my) = (c.0 + 2.0 * along * ux - rx, c.1 + 2.0 * along * uy - ry);
+    (
+        (jsmath::round(mx - 0.5) as i32).clamp(1, w - 3),
+        (jsmath::round(my - 0.5) as i32).clamp(1, h - 3),
+    )
+}
 
 impl Map {
     /// Open ground, no fields; the two starts near opposite corners (test arenas: generated maps choose their own).
@@ -250,6 +284,7 @@ impl Map {
             shade: vec![0.0; n],
             nodes: Vec::new(),
             bases: vec![(9, size.h - 10), (size.w - 10, 9)],
+            expansions: Vec::new(),
         }
     }
 
@@ -407,6 +442,8 @@ impl Map {
         }
         if middle {
             open.push((centre.0, centre.1, 6.5));
+        } else if kind == MapKind::EtherStorm {
+            open.push((centre.0, centre.1, 3.5)); // (its centre vent, without a field)
         }
         // Open ground just outside each ramp, so it leads somewhere.
         let ramp_out = (
@@ -493,6 +530,10 @@ impl Map {
             MapKind::Barren => (0.4, 0.6),
             _ => (1.0, 1.0),
         };
+        m.expansions = sites
+            .iter()
+            .flat_map(|&p| (0..k).map(move |g| sym.point(g, p)))
+            .collect();
         for n in &mut m.nodes {
             n.amount = jsmath::round(n.amount as f64 * if n.ether { ether } else { shard }) as i32;
         }
@@ -500,8 +541,9 @@ impl Map {
     }
 
     /// The resource fields of a generated map, each start's the exact tile-for-tile image of the first's: each base's
-    /// own field behind it (away from the centre) with a vent to one side, the expansions (nearest the main first:
-    /// the natural and every other one have a vent, all of them on an ether storm), and the centre field and vent.
+    /// own field behind it (away from the centre) with a vent to either side, the centre field (if any) and vent (if
+    /// any: always on an ether storm), then the expansions (nearest the main first), each with its field on the far
+    /// side from the main and a vent to either side of the room for its Core.
     #[allow(clippy::too_many_arguments)]
     fn place_fields(
         &mut self,
@@ -518,31 +560,25 @@ impl Map {
             tiles.iter().map(|&t| sym.tile(g, t)).collect()
         };
         let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
-        let side = away + PI * 0.5;
+        // The first vent: 8 tiles out to one side of the Core, a little behind its flank (towards its field), which
+        // leaves the front of the pocket, towards its ramp, for buildings.
+        let side = away + MAIN_VENT_TURN * PI / 180.0;
         let v0 = (
             (jsmath::round(c0.0 + jsmath::cos(side) * 8.0) as i32 - 1).clamp(1, mw - 3),
             (jsmath::round(c0.1 + jsmath::sin(side) * 8.0) as i32 - 1).clamp(1, mh - 3),
         );
+        // The second vent: the first's mirror image across the line from the Core through its field (tile for tile
+        // where that line is a symmetry of the grid: a start in a corner or by the middle of a side).
+        let v1 = mirror_block(v0, c0, away, mw, mh);
         let home = self.add_shards(next_id, c0.0, c0.1, away, 7, 6.5);
-        self.add_vent(next_id, v0.0, v0.1);
-        for g in 1..sym.k {
-            self.add_shards_at(next_id, &images(&home, g));
-            let v = sym.block(g, v0, 2);
+        for v in [v0, v1] {
             self.add_vent(next_id, v.0, v.1);
         }
-        for (i, &p) in sites.iter().enumerate() {
-            // The crystals lie on the far side of the site from the main, clear of the main's ramp.
-            let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
-            let field = self.add_shards(next_id, p.0, p.1, out, 5, 4.5);
-            for g in 1..sym.k {
-                self.add_shards_at(next_id, &images(&field, g));
-            }
-            if i % 2 == 0 || kind == MapKind::EtherStorm {
-                let v = (jsmath::round(p.0) as i32 - 1, jsmath::round(p.1) as i32 - 1);
-                for g in 0..sym.k {
-                    let v = sym.block(g, v, 2);
-                    self.add_vent(next_id, v.0, v.1);
-                }
+        for g in 1..sym.k {
+            self.add_shards_at(next_id, &images(&home, g));
+            for v in [v0, v1] {
+                let v = sym.block(g, v, 2);
+                self.add_vent(next_id, v.0, v.1);
             }
         }
         if middle {
@@ -550,8 +586,67 @@ impl Map {
             for g in 1..sym.k {
                 self.add_shards_at(next_id, &images(&left, g)); // (where an image falls on the field, it is the field)
             }
+        }
+        if middle || kind == MapKind::EtherStorm {
             self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the centre is its own image
         }
+        for &p in sites {
+            // The crystals lie on the far side of the site from the main, clear of the main's ramp.
+            let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
+            let field = self.add_shards(next_id, p.0, p.1, out, 5, 4.5);
+            for g in 1..sym.k {
+                self.add_shards_at(next_id, &images(&field, g));
+            }
+            // A vent to either side of the site's middle, where its Core goes: square to the field if it fits,
+            // else turned towards the main (never into the field), nearer in if need be.
+            for hand in [1.0, -1.0] {
+                let fit = [VENT_GAP, VENT_GAP - 1].iter().find_map(|&gap| {
+                    EXP_VENT_AT.iter().find_map(|&(turn, r)| {
+                        let a = out + hand * turn * PI / 180.0;
+                        let v = (
+                            jsmath::round(p.0 + jsmath::cos(a) * r) as i32 - 1,
+                            jsmath::round(p.1 + jsmath::sin(a) * r) as i32 - 1,
+                        );
+                        self.vent_fits(sym, v, gap).then_some(v)
+                    })
+                });
+                if let Some(v) = fit {
+                    for g in 0..sym.k {
+                        let v = sym.block(g, v, 2);
+                        self.add_vent(next_id, v.0, v.1);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Whether a vent (2x2, top-left `v`) and its images fit: on the map, a tile clear of the edge, on open ground with
+    /// a tile of it (no rock, crystal or vent) round each, so workers can walk all round it, and `gap` from every other
+    /// vent (`VENT_GAP`, or a tile less where an expansion has no room else). Every field so far is the same in every
+    /// start's share, so what is free round `v` is free round each image.
+    fn vent_fits(&self, sym: Sym, v: (i32, i32), gap: i32) -> bool {
+        let clear = (-1..=2).all(|dy| {
+            (-1..=2).all(|dx| {
+                let (x, y) = (v.0 + dx, v.1 + dy);
+                self.in_map(x, y) && self.occ[self.idx(x, y)] == 0 && self.rock[self.idx(x, y)] == 0
+            })
+        });
+        let apart = |a: (i32, i32), b: (i32, i32)| (a.0 - b.0).abs().max((a.1 - b.1).abs()) >= gap;
+        let imgs: Vec<(i32, i32)> = (0..sym.k).map(|g| sym.block(g, v, 2)).collect();
+        clear
+            && self
+                .nodes
+                .iter()
+                .filter(|n| n.ether)
+                .all(|n| apart(v, (n.tx, n.ty)))
+            && v.0 >= 1
+            && v.1 >= 1
+            && v.0 <= self.w - 3
+            && v.1 <= self.h - 3
+            && imgs
+                .iter()
+                .enumerate()
+                .all(|(i, a)| imgs[i + 1..].iter().all(|&b| apart(*a, b)))
     }
 
     /// An arc of `n` shard crystals around (cx, cy) facing `ang`; returns the tiles used (to mirror them exactly).

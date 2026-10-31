@@ -680,7 +680,7 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
 }
 
 #[test]
-fn the_ai_taps_its_expansion_vent_when_the_home_vent_runs_dry() {
+fn the_ai_taps_its_expansion_vents_when_the_home_vents_run_dry() {
     let mut w = World::new(33, 1);
     let c = w
         .bldgs
@@ -689,39 +689,45 @@ fn the_ai_taps_its_expansion_vent_when_the_home_vent_runs_dry() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    // The vent by the AI's base holds little: it runs dry early.
+    // The two vents by the AI's base hold little: they run dry early.
     let (ex, ey) = core(&w, ENEMY);
-    let home = w
+    let home: Vec<Id> = w
         .map
         .nodes
         .iter()
-        .filter(|n| n.ether)
-        .min_by_key(|n| (n.tx - ex).abs() + (n.ty - ey).abs())
-        .unwrap()
-        .id;
-    w.map.node_mut(home).unwrap().amount = 300;
+        .filter(|n| n.ether && (n.tx - ex).abs().max((n.ty - ey).abs()) <= 10)
+        .map(|n| n.id)
+        .collect();
+    assert_eq!(home.len(), 2, "two vents by the main");
+    for &v in &home {
+        w.map.node_mut(v).unwrap().amount = 300;
+    }
     run(&mut w, 840);
-    assert_eq!(w.map.node(home).unwrap().amount, 0, "the home vent ran dry");
+    for &v in &home {
+        assert_eq!(w.map.node(v).unwrap().amount, 0, "the home vents ran dry");
+    }
     let tapped: Vec<_> = w
         .map
         .nodes
         .iter()
-        .filter(|n| n.ether && n.id != home)
+        .filter(|n| n.ether && !home.contains(&n.id))
         .filter(|n| {
             n.extractor
                 .and_then(|x| w.bldg(x))
                 .is_some_and(|b| b.team == ENEMY)
         })
         .collect();
-    assert_eq!(tapped.len(), 1, "a second Extractor on another vent");
+    assert!(!tapped.is_empty(), "an Extractor on another vent");
     let on_dry = w
         .units
         .iter()
-        .filter(|u| u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if node == home))
+        .filter(|u| {
+            u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if home.contains(&node))
+        })
         .count();
     assert!(
-        on_dry <= 1,
-        "at most one harvester on the dry vent: {on_dry}"
+        on_dry <= 2,
+        "at most one harvester on each dry vent: {on_dry}"
     );
     // Later, saving ether (one worker on it): nobody heads for the dry vent while the other flows.
     for _ in 0..12 {
@@ -730,35 +736,37 @@ fn the_ai_taps_its_expansion_vent_when_the_home_vent_runs_dry() {
             .units
             .iter()
             .filter(|u| u.team == ENEMY && u.carry == 0)
-            .filter(|u| matches!(u.task, Task::Gather { node, phase: Phase::Go | Phase::Wait, .. } if node == home))
+            .filter(|u| matches!(u.task, Task::Gather { node, phase: Phase::Go | Phase::Wait, .. } if home.contains(&node)))
             .count();
         assert!(
-            busy_dry <= 1,
+            busy_dry <= 2,
             "{busy_dry} head for the dry vent at {}s",
             w.time as i32
         );
     }
-    let flowing = w
+    let flowing: Vec<Id> = w
         .map
         .nodes
         .iter()
-        .filter(|n| n.ether && n.id != home && n.amount > 0)
-        .find(|n| {
+        .filter(|n| n.ether && !home.contains(&n.id) && n.amount > 0)
+        .filter(|n| {
             n.extractor
                 .and_then(|x| w.bldg(x))
                 .is_some_and(|b| b.team == ENEMY)
         })
-        .map(|n| n.id);
+        .map(|n| n.id)
+        .collect();
     let miners = w
         .units
         .iter()
         .filter(|u| {
-            u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if Some(node) == flowing)
+            u.team == ENEMY
+                && matches!(u.task, Task::Gather { node, .. } if flowing.contains(&node))
         })
         .count();
     assert!(
         miners >= 1,
-        "someone mines the flowing vent at {}s",
+        "someone mines the flowing vents at {}s",
         w.time as i32
     );
 }
@@ -947,11 +955,12 @@ fn an_ai_with_ether_piling_up_leans_on_its_specialists() {
 
 #[test]
 fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
-    // (Medium seeds and maps where a main pocket once filled up and the AI fell behind its factory schedule)
+    // (Medium seeds and maps where the AI once fell behind its factory schedule, a main pocket full; 38 in place of 44
+    // since each main has two vents: 44's pocket now fills with Spires before 6:00, and 38 fell behind before)
     for (seed, kind, races) in [
         (3, MapKind::Standard, [&HUMANS, &VAEL]),
         (21, MapKind::Labyrinth, [&VAEL, &HUMANS]),
-        (44, MapKind::Labyrinth, [&VAEL, &HUMANS]),
+        (38, MapKind::Labyrinth, [&VAEL, &HUMANS]),
     ] {
         let mut w = World::with_setup(seed, 1, kind, false, races);
         w.set_ai_seats([true, true]);
@@ -1214,7 +1223,8 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
     // off to build is replaced and its income does not dip with every building it raises; one at most (the extra
     // ones stay for good), and the Vael AI, whose planter leaves at once, keeps none.
     let mut w = World::new(17, 1);
-    let target = DIFF[1].harv;
+    // (its difficulty's, and a crew for its second vent once that flows)
+    let target = |w: &World| w.harv_target_of(ENEMY, 1);
     let core = |w: &World| {
         w.bldgs
             .iter()
@@ -1229,7 +1239,7 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
     };
     // Wait for a full crew, nothing queued at the Core and nobody off building.
     let mut t = 0;
-    while !(harvesters(&w, ENEMY).len() >= target
+    while !(harvesters(&w, ENEMY).len() >= target(&w)
         && w.bldg(core(&w).0).unwrap().queue.is_empty()
         && !building(&w))
     {
@@ -1239,7 +1249,7 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
         t += 1;
     }
     // Exactly a full crew (earlier builders' replacements are still about): the extra ones fall.
-    while harvesters(&w, ENEMY).len() > target {
+    while harvesters(&w, ENEMY).len() > target(&w) {
         let extra = *harvesters(&w, ENEMY).last().unwrap();
         w.damage(extra, 1e9, None);
         w.step();
@@ -1260,7 +1270,8 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
         })
         .find(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
         .expect("room for a Depot");
-    w.res[ENEMY as usize][0] += 100;
+    // (the Depot's price, and a worker's: its bank may be spent just now)
+    w.res[ENEMY as usize][0] += 100 + UnitKind::Harvester.def().cost[0];
     w.place_building(ENEMY, BldgKind::Depot, tx, ty, Some(builder))
         .expect("placed");
     run(&mut w, 2);
@@ -1279,7 +1290,7 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
     // And no more than one, however long it runs.
     run(&mut w, 30);
     assert!(
-        harvesters(&w, ENEMY).len() <= target + 1,
+        harvesters(&w, ENEMY).len() <= target(&w) + 1,
         "one spare at most: {}",
         harvesters(&w, ENEMY).len()
     );
@@ -1304,7 +1315,9 @@ fn the_vael_ai_keeps_no_spare_worker() {
                 .iter()
                 .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
                 .count();
-            let target = d.harv + 5 * cores.saturating_sub(1);
+            // (its difficulty's, five more a base, and a crew for each flowing vent past the first)
+            let target = w.harv_target_of(ENEMY, cores);
+            assert!(target >= d.harv + 5 * cores.saturating_sub(1));
             most = most.max(harvesters(&w, ENEMY).len() as i64 - target as i64);
         }
         assert!(most <= 0, "diff {diff}: {most} over its target");
@@ -1481,4 +1494,84 @@ fn brutal_trains_its_workers_before_its_buildings() {
     }
     // The other levels build as before.
     assert!(DIFF[..3].iter().all(|d| !d.workers_first));
+}
+
+#[test]
+fn the_ai_takes_both_vents_of_its_main_and_crews_them() {
+    // Every main has two vents. The AI raises its second refinery once the first flows and its tech is going up
+    // (Medium: before 4:00), mines both, and trains a crew for the second, so its shards do not pay for its ether.
+    // Easy keeps to one until its natural is due (`Diff::vents_from`).
+    let home_vents = |w: &World, seat: u8| -> Vec<Id> {
+        let c = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == seat && b.kind.def().hq)
+            .map(|b| (b.tx, b.ty))
+            .unwrap();
+        w.map
+            .nodes
+            .iter()
+            .filter(|n| n.ether && (n.tx - c.0 - 1).abs().max((n.ty - c.1 - 1).abs()) <= 10)
+            .map(|n| n.id)
+            .collect()
+    };
+    let rig_of = |w: &World, seat: u8, v: Id| {
+        w.map
+            .node(v)
+            .and_then(|n| n.extractor)
+            .and_then(|x| w.bldg(x))
+            .is_some_and(|b| b.team == seat && b.done)
+    };
+    for (seed, kind, races) in [
+        (3, MapKind::Standard, [&HUMANS, &VAEL]),
+        (7, MapKind::Labyrinth, [&VAEL, &HUMANS]),
+        (11, MapKind::Barren, [&HUMANS, &HUMANS]),
+        (5, MapKind::OpenPlains, [&VAEL, &VAEL]),
+    ] {
+        let mut w = World::with_setup(seed, 1, kind, false, races);
+        w.set_ai_seats([true, true]);
+        w.hold_waves = true; // (its economy, not a fight)
+        let homes = [home_vents(&w, 0), home_vents(&w, 1)];
+        let mut mined = [vec![false; 2], vec![false; 2]];
+        for _ in 0..30 * 240 {
+            w.step();
+            w.events.clear();
+            for seat in 0..2u8 {
+                for (i, &v) in homes[seat as usize].iter().enumerate() {
+                    mined[seat as usize][i] |= w.units.iter().any(|u| {
+                        u.team == seat && matches!(u.task, Task::Gather { node, phase: Phase::Mine, .. } if node == v)
+                    });
+                }
+            }
+        }
+        for seat in 0..2u8 {
+            let ctx = format!("seed {seed} {kind:?} seat {seat}");
+            assert_eq!(
+                homes[seat as usize].len(),
+                2,
+                "{ctx}: two vents by the main"
+            );
+            for (i, &v) in homes[seat as usize].iter().enumerate() {
+                assert!(rig_of(&w, seat, v), "{ctx}: a refinery on vent {v} by 4:00");
+                assert!(mined[seat as usize][i], "{ctx}: vent {v} mined");
+            }
+            let crew = harvesters(&w, seat).len();
+            assert!(
+                crew > DIFF[1].harv,
+                "{ctx}: workers trained for the second vent's crew: {crew}"
+            );
+        }
+    }
+    // Easy: one refinery until its natural is due.
+    let mut w = World::with_setup(3, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    w.set_ai_seats([true, true]);
+    w.hold_waves = true;
+    run(&mut w, 300);
+    for seat in 0..2u8 {
+        let rigs = home_vents(&w, seat)
+            .iter()
+            .filter(|&&v| rig_of(&w, seat, v))
+            .count();
+        assert_eq!(rigs, 1, "Easy seat {seat}: one refinery at 5:00");
+    }
 }

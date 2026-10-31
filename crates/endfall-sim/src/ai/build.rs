@@ -10,9 +10,10 @@ const SHARD_FLOAT: i32 = 400;
 /// pay for it).
 const HOME_LOW: i32 = 2000;
 /// How far from its centre the AI looks for room for a building (tiles), and how far once there is none nearer and
-/// no second base to build by: a full main pocket must not hold its factories up until the natural stands.
+/// no second base to build by: a full main pocket must not hold its factories up until the natural stands (26, not
+/// 22, since a main has two vents: a cramped one filled up sooner and the room left lay just past 22).
 const ROOM: f64 = 15.0;
-const ROOM_FAR: f64 = 22.0;
+const ROOM_FAR: f64 = 26.0;
 
 impl World {
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
@@ -315,7 +316,7 @@ impl World {
                     && jsmath::hypot(n.tx as f64 - fx, n.ty as f64 - fy) < 16.0
             })
         };
-        // Where a second Extractor would go once the home vent runs dry: a free vent by the expansion.
+        // Where a refinery goes once the main's vents are taken (or have run dry): a free vent by the expansion.
         let exp_vent = cores.get(1).map(|&exp| {
             let b = self.bldg(exp).unwrap();
             (b.tx as f64 + 2.0, b.ty as f64 + 2.0)
@@ -342,6 +343,14 @@ impl World {
             .mix
             .iter()
             .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
+        // Another refinery once one flows and the tech that spends ether is going up (from the level's
+        // `vents_from`), unless ether is piling up; one site at a time (a vent's crew is trained when it stands).
+        let more_ether = ext.is_some()
+            && flowing
+            && t > d.vents_from
+            && self.ai_count(&my_b, false, s.tech) >= 1
+            && !self.ai().ether_lean
+            && !building.contains(&f.ether);
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
@@ -370,9 +379,12 @@ impl World {
             && self.ai_count(&my_b, false, f.ether) == 0
             && (ether_early || self.ai_count(&my_b, false, s.rax) >= 1)
             && free_vent(self, (cx, cy)))
-            || (!flowing && exp_vent.is_some() && self.ai_count(&my_b, false, f.ether) < 2)
+            || (more_ether && free_vent(self, (cx, cy)))
+            || (exp_vent.is_some() && (!flowing || (more_ether && !free_vent(self, (cx, cy)))))
         {
-            Some(f.ether) // the second when the home vent has run dry: the expansion's
+            // (the first in the main; its second once the first flows and its tech is going up; then the
+            // expansion's, or at once if the main's have run dry)
+            Some(f.ether)
         } else if self.ai_count(&my_b, false, s.rax) < rax_schedule
             || self.extra_rax(e, &my_b, rax_schedule)
         {
@@ -420,13 +432,7 @@ impl World {
         let spot = match placeable {
             Some(w) => {
                 let (fx, fy) = match exp_vent {
-                    Some(at)
-                        if w == f.ether
-                            && (self.ai_count(&my_b, false, w) >= 1
-                                || !free_vent(self, (cx, cy))) =>
-                    {
-                        at
-                    }
+                    Some(at) if w == f.ether && !free_vent(self, (cx, cy)) => at, // (the main's taken)
                     _ => match (relight, detector_at) {
                         (Some(at), _) if w == f.supply => at, // by the dark building
                         (_, Some((x, y))) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark

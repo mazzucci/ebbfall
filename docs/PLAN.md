@@ -10,7 +10,7 @@ loop feels right.
   a scripted opponent for either race with four difficulties (Easy, Medium, Hard, Brutal: by how well it plays; only Brutal gathers faster), random start side.
 - Humans: Core, Depot, Ether Rig, Garrison, Foundry, Factory, Turret, Airfield; Harvester, Trooper, Lancer, Medic,
   Vanguard, Siege Tank, Raider, Observer. Workers build and repair; upgrades at the Foundry.
-- Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith; Lumen, Scythe, Prism, Monolith, Shrike. Warp-in
+- Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith; Lumen, Scythe, Prism, Monolith, Halo, Umbra, Shrike, Sovereign. Warp-in
   construction, power fields, shields that regenerate; no repair.
 - Economy: shards (finite fields) and ether (vents that need a refinery); supply from headquarters and supply
   buildings. Fog of war, control groups, rally points, attack-move, hold.
@@ -129,7 +129,7 @@ loop feels right.
   Balance kept: Humans win 11/23 on Easy and 7/24 on Medium against the Vael in AI-vs-AI (12 and 9 before).
 - [x] AI room in a walled main (2026-10-25): after the main pockets a quarter of AI seats fell behind their factory schedule (the pocket filled under the AI's placement rules) and banked 500-5,000 shards. Its field clearance now scales with the building (2 tiles plus half its size: 3.5 for a 3x3, was 4.5 for all), and when the main has no room it builds by its second base. Behind schedule at 8 minutes: 3 seats of 48 (was 12). A scenario pins three of the seeds.
 - [x] Macro help (2026-10-25, holistic review item 12): a double-click / double-tap on a finished building selects all of ours of its type on screen (it used to select nothing); with several factories of a kind selected the card is theirs, a unit goes to the one with the shortest queue, Cancel takes the last from the longest, Rally sets them all, research goes to an idle one. A third top-bar chip (landscape and desktop) counts idle factories (finished, powered, nothing queued) and selects the next one (`,`). Not done: a x5 action (the long-press panel is not interactive; five taps or two factories do it); new HQs already send their workers to the nearest field.
-- [x] Counters (2026-10-25, holistic review item 23): every fighter's long-press detail shows "Strong against" and "Weak against" with portraits (the tooltip names them on desktop), from `strong`/`weak` in constants.js, measured with the balance.rs duels; a test keeps the table to real kinds and fighters, and whatever a fighter beats lists it as a weakness. The counters name the other race mostly (a mirror match shows little).
+- [x] Counters (2026-10-25, holistic review item 23): every fighter's long-press detail shows "Strong against" and "Weak against" with portraits (the tooltip names them on desktop), from `strong`/`weak` in constants.js, measured with the balance.rs duels; a test keeps the table to real kinds and fighters, and whatever a fighter beats lists it as a weakness. The counters name the other race mostly (a mirror match shows little). Removed 2026-10-31 (owner's call): players connect the dots themselves, and a unit's detail names no unit of the other race. The detail and the tooltip show a unit's name, cost and what it does; the `strong` and `weak` lists are gone, and the end card no longer says what beats your worst loss; descriptions say a unit's role, never an enemy unit (a Scythe was "slower than a Trooper", a Monolith "outranges walkers", a Shrike "hunts gunships"; Cloak and Veil listed both races' detectors; Weapons listed every unit of both races, now a side's own), and test/engine.test.js keeps it so.
 - [x] Group pace (2026-10-25, holistic review item 15): a selection given one attack-move (`Command::GroupAttackMove`, `attackMoveGroup`) or move (formation) marches at its slowest member's speed (`Unit::pace`; flyers and walkers each by their own), healers at 90% of it so they trail the fighters; the cap holds on the move, not in a fight, and the march resumes at the pace after one (the group re-forms); any new order clears it. Medics no longer outrun Troopers into a fight. The AI still orders unit by unit.
 - [x] Camera help (2026-10-25, holistic review item 13): a Home button beside SELECT on touch screens (the Home key on a keyboard); a second tap on the Army chip (or Q) within a second also looks at the army; the ATTACK chip (or Space) cycles through the last three places attacked (more than 8 tiles apart), newest first.
 - [x] Concede (2026-10-25, holistic review item 22): CONCEDE on the pause card (a first tap asks "GIVE UP? TAP AGAIN" for 4 s) ends the game as a defeat through `Command::Concede` (a network command like the others; `World::conceded` for the end screen's "You conceded"). Losing still needs everything destroyed otherwise; Quit leaves without a result.
@@ -174,7 +174,7 @@ loop feels right.
 - [x] The AI answers cloak (2026-10-25): hit by something it cannot see, it remembers where (`Ai::cloak_hit`, set in `damage`) and raises its tower (Turret or Ward, both detectors) by that spot ahead of its build order, unless a detector of its own already stands within 6 tiles; the mark clears once one does.
 - [x] Games end when they are decided (2026-10-26, playtest review items 3 and 4): a side is out once nothing of it can act (no headquarters that stands or grows, no worker, no fighter, no factory with a unit in training or the means to train one): a few Depots no longer keep a lost game going for a minute; the end card then says "Nothing left to fight with". The AI's required wave size still grows after each launch but only up to `Diff::wave_max` (12/14/16/14: Easy keeps growing a while), so a winning AI goes out to finish instead of waiting at home for its twentieth unit. AI-vs-AI over two seed sets: Humans win 33 and 39 of 72 on Medium and Hard; average game about 10 minutes.
 - [x] Toast diet (2026-10-26, playtest review item 2: nothing pops up over a fight): no toast for a finished building (the minimap ping and chime say it); "destroyed" only for the headquarters, a factory or a research building (the rest is the burst); a press it cannot pay for (shards, ether) shakes the button and flashes its cost with the error sound instead of a toast (the long-press detail says what is short; "Supply blocked" stays a toast: it asks for a decision); at most two toasts (an alert is the last to go), bottom-left above SELECT (phone) or at the stage's bottom-left (desktop), never in the middle of the screen.
-- [x] The end screen says what beat you (2026-10-26, playtest review item 5): the sim counts each side's units lost by what killed them (`World::lost_to`, a unit or turret kind; not hashed, like the army log; `Game::lostTo`), and the end card adds one line under the stats: "Most of your losses: to Monoliths (31) and Prisms (14)", with their portraits, and what beats the worst of them ("Raiders beat Monoliths", from the units' weak-against list). Detail on demand, on the one screen built for it.
+- [x] The end screen says what beat you (2026-10-26, playtest review item 5): the sim counts each side's units lost by what killed them (`World::lost_to`, a unit or turret kind; not hashed, like the army log; `Game::lostTo`), and the end card adds one line under the stats: "Most of your losses: to Monoliths (31) and Prisms (14)", with their portraits, and what beats the worst of them ("Raiders beat Monoliths", from the units' weak-against list). Detail on demand, on the one screen built for it. Since 2026-10-31 the line names only what killed your units, not what beats them (the counters are the player's to find; see Counters).
 - [x] Labels that fit and a tell for an active ability (2026-10-26, playtest review item 12): short labels for the long techs (Entrench, Afterburn, Overcharge, Cloak Field); a Stim, Overcharge, Cloak or Veil is refused while more than half of it is left (a thumb that taps twice pays once; the button shakes), and a timed ability's button is lit while any selected unit is under it (no countdown).
 - [x] Shift queues five (2026-10-26, playtest review item 6, desktop half): Shift+click on a unit button, or Shift with its key, queues five, spread over the selected factories. The phone half (a long-press on an affordable unit repeats instead of showing its detail) waits for the owner: it would trade away the detail on demand.
 - [x] Owner's playtest notes (2026-10-25): no "turn your phone" card (the tap that starts goes full screen, which locks landscape; a phone held upright simply plays upright); the menu is a page of its own (the whole screen, content centred) with EXIT GAME (a page can close itself only as a home-screen app; otherwise it leaves full screen and says the tab can be closed); the pause card is four equal buttons (Resume, How to play, Restart, Leave game) and Concede is gone (leaving a game in progress gives it up: a defeat on the record, as the leave dialog says); placing a building shows no ghost until the finger is down: the ghost appears under it, green or red, follows it, and the building goes where the finger lifts; lifted on red it says why and keeps placing (the Build button is its Cancel), as an armed Attack waits for its target. Replaces the placement ghost of 2026-10-25.
@@ -238,7 +238,48 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   AI, on two vents and after the balance pass, Humans against Vael (240 games a level): Medium 50.4% Humans (main 51.7%),
   Hard 51.2% (main 41.7%); tanks in 175 and 154 of the games, Bastions and Sovereigns about as often as before (fewer
   Sovereigns: 74 and 70 against 87). Tests: gameplay/siege.rs, the siege
-  line and counters in balance.rs; the client shows the selected tank's reach and blind ring.
+  line and counters in balance.rs; the client showed the selected tank's reach and blind ring (dropped the same day:
+  no other unit shows its range).
+- [x] Deploy is the one toggle (2026-10-31, the owner's asks after playing the Siege Tank): a selected tank no longer
+  shows range rings (no unit does); a toggle's button names the action a tap takes, not the state: **Deploy** while
+  any selected tank is on its tracks (for those only: the sim flips each unit it is sent), **Undeploy** with its own
+  icon (the tank on its tracks, outriggers folded up) once all of them are deployed or settling in, on the same key,
+  never lit (`abilityTargets` in src/client/cards.js; a timed ability is still lit while it runs). The Vanguard's
+  **Entrench** is retired, too close to Deploy: the Vanguard is the front line that fights on the move, the tank the
+  artillery that sets up. `AbilityKind::Entrench` and `Upgrade::Entrenching` keep their places (snapshot indices), but
+  no unit has it and the Foundry no longer researches it; the toggle effect is `AbilityEffect::Settle`; the AI's dig-in
+  rule is gone (the tank's deploy and pack-up stay). Balance, before and after (no stat change made): cost-equal duels, means
+  against a 13-army roster at 2400 / 3400, unchanged in the open (Vanguards +0.01 / -0.03, with techs -0.07 / -0.10;
+  Trooper+Vanguard +0.11 / +0.19): an army on the move never dug in; holding a line against attackers, with the AI's
+  micro, -0.46 / -0.50 before and -0.36 / -0.33 after (2 s dug in without firing cost more than +3 range gave, but
+  against Monoliths -0.72 / -0.65 to -1.00 / -0.79). Monoliths still beat Vanguards (+0.33 at 2200, +0.18 at 3300).
+  AI vs AI, Humans against the Vael over two seed sets (240 games a level, six map kinds, both starts): Medium 117 to
+  111 (49% to 46%), Hard 109 to 109 (45%). Golden games that moved: vael-ai-vs-human-ai at 5:00 and the first two
+  results games (the Human AI's Foundry no longer researches Entrenching).
+- [x] The Umbra (2026-10-31, the 2026-10-30 balance study's Vael unit, owner approved): "shadow", the Lumen's
+  (light's) other half; a Vael blade, always cloaked, the Vael's answer to the siege line. **Umbra** (Kiln, U;
+  125/100, 2 supply, 60 hull + 60 shields, armour 1, speed 95, sight 8, 30 s; needs the Loom), melee 32 every 1.2 s
+  (+3 a Weapons level), ground only. Nothing new in the sim: `UnitDef::cloaked` (the Observer's permanent cloak) on a
+  fighter, so detection (Turret, Observer, Ward, Halo), targeting, the unseen-attacker alert and its toast, the
+  snapshot's `hid`/`cloaked` and the owner's shimmer all apply as they are; splash from a shot at something seen still
+  hits it. A Halo's or Medic's mend is shown only to the seats that see both ends (`Event::Heal::seen`, as shots are):
+  it no longer gives away a cloaked patient. No counter lists (the owner: players work counters out). Cost-equal duels
+  (2200/4400): +1.00 against Troopers, Trooper+Vanguard+Medic, Trooper+Siege Tank and a deployed tank line;
+  -0.81/-0.85 against Troopers with an Observer, -0.60/-0.83 with a tank too, -0.75 against Prisms with a Halo (the
+  mirror); 0.00 against Raiders (neither can touch the other); Scythe+Umbra +0.62 against Troopers. The **Vael AI**
+  mixes one per six Scythes from 5:00 once its Loom stands (after its Halos) until it sees an enemy field detector (a
+  unit that detects: an Observer, a Halo) within 8 tiles of enemy fighters (`Ai::detector_seen`,
+  `World::cloak_ratio`), none from then on, as a player stops sending blades that would only be found; none on Easy
+  (an unseen killer is no lesson for a beginner). The **Human AI** hit by something unseen raises its Airfield as soon
+  as its Foundry stands (where its level raises one at all), so its Observer comes with the army in time. AI against
+  AI, Humans against Vael (six maps, ten seeds, both sides: 120 games a level): Medium 47.9% Humans (main 46.3%), Hard
+  42.9% (main 43.8%); Umbras in 16 and 35 of the games, 1.2 and 1.6 a game, killing 2-5 units for 0.4-0.5 lost; the
+  Human AI fields an Observer in 11 and 21 games (main 6 and 10). One per four Scythes measured 45.0% / 37.9%: too
+  much on Hard. Art: a lean dark chevron of shadow ceramic with lit violet edges (vael.js `umbra`). Tests: balance.rs
+  (the duels and the tank line), cloak.rs (and the hidden mend), combat.rs (no air), ai.rs (the Vael AI's Umbras, the
+  Human AI's Airfield and Observer), produce.rs (the detector rule), and the e2e (the Kiln's card, U and its WASD key,
+  the shimmer, an enemy unseen until a Halo). Goldens unchanged (no Vael golden game is checked past 5:00; the result
+  games are Human mirrors).
 - [x] The Raider (2026-10-31, the owner's ask): the Humans' air raider redrawn and renamed. Its two dark rotors were
   hardly visible on dark ground, so it is now a small light attack jet seen from above (tools/render3d/models.js
   `raider`): a slim pale-steel fuselage, swept wings with team-painted outer panels, a team tail fin, no rotors; its

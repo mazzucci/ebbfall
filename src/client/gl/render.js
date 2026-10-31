@@ -274,8 +274,7 @@ class UnitObj {
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y;
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
-    // Abilities: a boost glows (Stim warm, Overcharge violet); an entrenched unit shows four stakes around it, pulsing
-    // while it digs in or packs up.
+    // Abilities: a boost glows (Stim warm, Overcharge violet); a deployed tank shows it in its pose (UNIT_POSE).
     let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
     // Warping in at a power field (the Vael): a violet ghost, more solid as it lands, inside a pulsing ring, like a site.
     const warp = u.warp > 0 ? u.warp / UNIT_WARP : 0;
@@ -287,22 +286,8 @@ class UnitObj {
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
       bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
     }
-    if ((u.mode || u.swap > 0) && !pose) { // (a unit with poses shows it in its sprite)
-      const r = u.r * UNIT_SCALE + 6, a = u.swap > 0 ? 0.35 + 0.35 * Math.sin(t * 8) : 0.85;
-      for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2, c = Math.cos(an), d = Math.sin(an); lines.moveTo(u.x + c * r, u.y + d * r * 0.7).lineTo(u.x + c * (r + 5), u.y + d * (r + 5) * 0.7).stroke({ width: 2, color: 0xf5c542, alpha: a }); }
-    }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
-    // A siege gun of ours, selected: the reach of the gun it fires now. Deployed (or deploying, fainter): the siege
-    // gun's, and its blind ring inside (nothing there can be hit); on its tracks: its light gun's.
-    const w = u.d.weapon;
-    if (s && w?.minRange > 0 && u.team === G.me) {
-      const a = u.swap > 0 ? 0.22 : 0.45;
-      if (u.mode) {
-        lines.circle(u.x, u.y, w.range * TILE + u.r).stroke({ width: 1.5, color: 0xf5c542, alpha: a });
-        lines.circle(u.x, u.y, w.minRange * TILE + u.r).stroke({ width: 1.5, color: 0xe5553a, alpha: a });
-      } else if (u.d.light) lines.circle(u.x, u.y, u.d.light.range * TILE + u.r).stroke({ width: 1.5, color: 0xf5c542, alpha: a });
-    }
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
@@ -424,7 +409,7 @@ export function boom(x, y, r) {
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
 const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xdcc8ff };
-const CAST_TINT = { stim: 0xff8070, entrench: 0xf5c542, deploy: 0xf5c542, blink: 0xb48cff, overcharge: 0xc8a0ff };
+const CAST_TINT = { stim: 0xff8070, deploy: 0xf5c542, blink: 0xb48cff, overcharge: 0xc8a0ff };
 /** An ability used: a flash on the caster in its colour (a Blink also leaves a puff where it lands). */
 export function castFx(x, y, ability) {
   const tint = CAST_TINT[ability] ?? 0xffffff;
@@ -607,8 +592,9 @@ function dashed(x0, y0, x1, y1) {
   lines.stroke({ width: 1.5, color: 0xf5a524, alpha: 0.6 });
 }
 
-/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint) and its seat's tint. */
-export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible }));
+/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque: a cloaked
+ *  unit shimmers) and its seat's tint. */
+export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
 const pings = [];
 /** Flash a spot on the minimap (attack alerts). */

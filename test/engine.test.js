@@ -55,16 +55,25 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
   assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
-  assert.match(C.UPGRADES.weapons.desc, /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
+  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
 });
 
-test('every fighter names what it beats and what beats it, in real kinds', { skip }, () => {
-  for (const [k, u] of Object.entries(C.UNITS)) {
-    const fighter = !!u.weapon && !u.worker;
-    assert.equal(!!(u.strong?.length && u.weak?.length), fighter, `${k}: counters for fighters only`);
-    for (const o of [...(u.strong || []), ...(u.weak || [])]) assert.ok(C.UNITS[o] && o !== k, `${k}: ${o} is another unit`);
-    assert.ok(!(u.strong || []).some(o => (u.weak || []).includes(o)), `${k}: nothing both`);
-    for (const o of u.strong || []) if (C.UNITS[o].strong) assert.ok(C.UNITS[o].weak.includes(k), `${o} lists ${k} as a weakness (${k} is strong against it)`);
+test('no unit lists what it beats or what beats it: players find the counters themselves', { skip }, () => {
+  for (const [k, u] of Object.entries(C.UNITS)) assert.ok(!('strong' in u) && !('weak' in u), `${k}: no counter lists (balance.rs keeps the counter loops)`);
+});
+
+test('no text a side reads on its card names the other race\'s units or buildings', { skip }, () => {
+  for (const [fk, f] of Object.entries(C.FACTIONS)) {
+    const own = C.kindsOf(f), defs = (k) => C.UNITS[k] || C.BUILDINGS[k];
+    const theirs = [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)].filter(([k]) => !own.has(k)).map(([, d]) => d.name);
+    const techs = [...own].flatMap(k => C.BUILDINGS[k]?.researches || []);
+    const texts = [...[...own].map(k => [k, defs(k).desc]), ...[...own].flatMap(k => C.UNITS[k]?.abilities || []).flatMap(a => [[a, C.ABILITIES[a].desc], [a + ' (off)', C.ABILITIES[a].off?.desc || '']]), // (a toggle's other face too)
+      ...techs.map(t => [t, C.upgradeDesc(t, f)])];
+    const names = techs.map(t => C.UPGRADES[t].name); // (a tech's own name may hold a word that is a building's: Overcharge Core)
+    for (const [k, text] of texts) {
+      const bare = names.reduce((s, n) => s.replaceAll(n, ''), text);
+      for (const n of theirs) assert.ok(!new RegExp(`\\b${n}s?\\b`).test(bare), `${fk}: ${k}'s text names ${n}: ${text}`);
+    }
   }
 });
 
@@ -239,14 +248,16 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found.
-  for (const [k, u] of Object.entries(C.UPGRADES).filter(([, u]) => u.levels === 1)) {
+  // its own; each ability's tech is found. A retired one (Entrenching: no building researches it) keeps only its place.
+  const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
+  assert.ok(!researched('entrenching') && researched('cloakingField'));
+  for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
-  // fires at all: no tech).
+  // fires at all: no tech). (Entrench is retired: no unit has it, but the kinds keep their places.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);

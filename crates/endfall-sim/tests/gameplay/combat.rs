@@ -57,26 +57,30 @@ fn flyers_cross_cliffs_in_a_straight_line() {
 
 #[test]
 fn ground_only_weapons_cannot_touch_flyers() {
-    let mut w = arena(7);
-    let van = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
-    let raider = w.make_unit(UnitKind::Raider, ENEMY, 680.0, 900.0);
-    w.attack_ent(van, raider);
-    assert_eq!(
-        w.unit(van).unwrap().task,
-        Task::Idle,
-        "an order to shoot a flyer is refused"
-    );
-    w.hold_unit(raider); // the raider just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
-    run(&mut w, 8);
-    let v = w.unit(van).unwrap();
-    assert!(
-        !matches!(v.task, Task::Attack { .. }),
-        "the vanguard neither auto-targets nor retaliates against the raider"
-    );
-    assert!(
-        w.unit(raider).is_some_and(|u| u.hp == u.maxhp),
-        "and never hurts it"
-    );
+    // A Vanguard's shells and an Umbra's blade (melee: the Vael's cloaked blade is useless against air).
+    for kind in [UnitKind::Vanguard, UnitKind::Umbra] {
+        let mut w = arena(7);
+        let van = w.make_unit(kind, PLAYER, 600.0, 900.0);
+        let raider = w.make_unit(UnitKind::Raider, ENEMY, 680.0, 900.0);
+        assert!(!w.can_hit(van, raider), "{kind:?} cannot hit a flyer");
+        w.attack_ent(van, raider);
+        assert_eq!(
+            w.unit(van).unwrap().task,
+            Task::Idle,
+            "{kind:?}: an order to hit a flyer is refused"
+        );
+        w.hold_unit(raider); // the raider just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
+        run(&mut w, 8);
+        let v = w.unit(van).unwrap();
+        assert!(
+            !matches!(v.task, Task::Attack { .. }),
+            "{kind:?} neither auto-targets nor retaliates against the raider"
+        );
+        assert!(
+            w.unit(raider).is_some_and(|u| u.hp == u.maxhp),
+            "{kind:?} never hurts it"
+        );
+    }
 }
 
 #[test]
@@ -256,8 +260,10 @@ fn weapons_upgrades_add_each_units_bonus() {
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        assert!(
+        // (but a retired one: Entrenching keeps its index, and nothing researches it)
+        assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
+            u != Upgrade::Entrenching,
             "{u:?} is researched at some building"
         );
         assert_eq!(Upgrade::parse(u.def().key), Some(u));

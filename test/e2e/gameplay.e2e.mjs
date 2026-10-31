@@ -347,7 +347,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the Forge card: research and its cancel, the techs below');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Cloak Field', 'Rapid Build'], 'the Forge card: research and its cancel, the techs below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -360,21 +360,21 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'trooper damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 3, 'a few figures: ground, air, armor');
-    // A Trooper's Stim is there from the start; a Vanguard's Entrench waits for Entrenching, researched at the Foundry.
+    // A Trooper's Stim is there from the start; a Raider's Cloak waits for Cloaking Field, researched at the Foundry.
     assert.ok((await d.card()).some(c => c.label === 'Stim' && c.enabled), 'Stim from the start');
-    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'vanguard', x, y), [forge.x + 60, forge.y + 90]);
+    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'raider', x, y), [forge.x + 60, forge.y + 90]);
     await d.clickEntity(v);
-    assert.ok((await d.card()).some(c => c.label === 'Entrench' && !c.enabled), 'Entrench locked');
-    await d.pressCard('Entrench');
-    assert.ok((await d.toasts()).some(t => /Research Entrenching first/.test(t)), 'it says which tech');
+    assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'Cloak locked');
+    await d.pressCard('Cloak');
+    assert.ok((await d.toasts()).some(t => /Research Cloaking Field first/.test(t)), 'it says which tech');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
-    await d.pressCard('Entrench'); // (the tech's short label on the Foundry)
-    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 90, what: 'Entrenching' });
+    await d.pressCard('Cloak Field'); // (the tech's short label on the Foundry)
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].cloakingField)) === 1, { seconds: 120, what: 'Cloaking Field' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Entrench'), 'a finished tech leaves the card');
+    assert.ok(!(await d.card()).some(c => c.label === 'Cloak Field'), 'a finished tech leaves the card');
     await d.clickEntity(v);
-    assert.ok((await d.card()).some(c => c.label === 'Entrench' && c.enabled), 'Entrench unlocked');
+    assert.ok((await d.card()).some(c => c.label === 'Cloak' && c.enabled), 'Cloak unlocked');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -388,9 +388,9 @@ test('phone: Rapid Construction researched at the Foundry, then buildings go up 
     const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
     const pct = Math.round((rate - 1) * 100);
     await d.clickEntity(forge.id);
-    // The Foundry's card keeps its fixed slots on a phone: two levels, Cancel's place, then its three techs.
+    // The Foundry's card keeps its fixed slots on a phone: two levels, Cancel's place, then its two techs.
     const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the Foundry card');
+    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Cloak Field', 'Rapid Build'], 'the Foundry card');
     const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Rapid Build' }).boundingBox();
     assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, 'it fits on the screen');
     // A long-press says what it does and costs, without researching it.
@@ -413,7 +413,7 @@ test('phone: Rapid Construction researched at the Foundry, then buildings go up 
     await d.skip(4);
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     const busy = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the card keeps its shape');
+    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Cloak Field', 'Rapid Build'], 'the card keeps its shape');
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].rapidConstruction)) === 1, { seconds: 70, what: 'Rapid Construction' });
     await d.clickEntity(forge.id);
@@ -1318,29 +1318,40 @@ test('a Vael unit\'s health figure counts hull and shields together', async () =
   } finally { await d.close(); }
 });
 
-test('phone: one tap on the card uses an ability for the selection (Stim, then Entrench as a toggle)', async () => {
+test('phone: one tap on the card uses an ability for the selection (Stim); a toggle names its action (Deploy, Undeploy)', async () => {
   const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 26, y)), [core.x + 180, core.y + 120]);
-    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'vanguard', x, y), [core.x + 180, core.y + 200]);
+    const tanks = await d.eval(([x, y]) => [0, 1].map(i => endfall.engine.debugSpawn(0, 'siegeTank', x + i * 40, y)), [core.x + 180, core.y + 210]);
     await d.boxSelect(core.x + 150, core.y + 90, core.x + 260, core.y + 150); // (the troopers only)
-    const units = () => d.eval((ids) => endfall.G.units.filter(u => ids.includes(u.id)).map(u => ({ hp: u.hp, boost: u.boost, mode: u.mode })), [...ids, v]);
+    const units = () => d.eval((ids) => endfall.G.units.filter(u => ids.includes(u.id)).map(u => ({ hp: u.hp, boost: u.boost, mode: u.mode, swap: u.swap })), [...ids, ...tanks]);
     assert.deepEqual((await d.selection()).map(e => e.id).sort(), ids.slice().sort());
     await d.pressCard('Stim');
     const after = await units();
     assert.ok(after.slice(0, 3).every(u => u.boost === 'stim' && u.hp === 38), `all three stimmed for 10 health: ${JSON.stringify(after)}`);
-    // The Vanguard: Entrench (set up: Entrenching researched) is a toggle, lit while on; a second tap packs it up.
-    await d.eval(() => endfall.engine.debugResearch(0, 'entrenching'));
-    await d.clickEntity(v);
-    await d.readyCard('Entrench');
-    await d.pressCard('Entrench');
-    assert.equal((await units())[3].mode, 'entrench');
-    await d.skip(3);
-    assert.ok((await d.card()).some(c => c.label === 'Entrench'), 'the button stays');
-    assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Entrench' }).count(), 'lit while entrenched');
-    await d.pressCard('Entrench');
-    assert.equal((await units())[3].mode, null, 'packed up');
+    // Two Siege Tanks, one deployed (alone, from its card): with both, the card offers Deploy, for the one on its tracks.
+    await d.clickEntity(tanks[0]);
+    await d.pressCard('Deploy');
+    await d.skip(3.5);
+    await d.boxSelect(core.x + 150, core.y + 180, core.x + 260, core.y + 240);
+    assert.deepEqual((await d.selection()).map(e => e.id).sort(), tanks.slice().sort());
+    const labels = async () => (await d.card()).map(c => c.label);
+    assert.ok((await labels()).includes('Deploy') && !(await labels()).includes('Undeploy'), `one on its tracks: Deploy (${await labels()})`);
+    await d.pressCard('Deploy');
+    let [a, b] = (await units()).slice(3);
+    assert.ok(a.mode === 'deploy' && a.swap === 0, `the deployed one stays deployed: ${JSON.stringify(a)}`);
+    assert.equal(b.mode, 'deploy', 'the other deploys');
+    // All deployed (or settling in): the button reads Undeploy, plain (not lit), and packs them all up.
+    await d.skip(3.5);
+    await d.page.locator('#cmd button .l', { hasText: /^Undeploy$/ }).waitFor({ timeout: 5000 });
+    assert.ok(!(await labels()).includes('Deploy'), 'no Deploy while all are deployed');
+    assert.equal(await d.page.locator('#cmd button.active').count(), 0, 'a toggle is never lit: its button names the action');
+    await d.pressCard('Undeploy');
+    [a, b] = (await units()).slice(3);
+    assert.ok(a.mode === null && b.mode === null && a.swap > 0 && b.swap > 0, `both packing up: ${JSON.stringify([a, b])}`);
+    await d.skip(3.5);
+    await d.page.locator('#cmd button .l', { hasText: /^Deploy$/ }).waitFor({ timeout: 5000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1353,13 +1364,17 @@ test('a Siege Tank deploys from its card (D), shells what is in reach but not in
     const me = () => d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return u && { x: u.x, y: u.y, mode: u.mode, swap: u.swap, task: u.task.t }; }, tank);
     await d.clickEntity(tank);
     assert.ok((await d.card()).some(c => c.label === 'Deploy' && c.enabled), `Deploy on the card: ${JSON.stringify(await d.card())}`);
-    assert.equal(await d.page.locator('#cmd button', { hasText: 'Deploy' }).locator('.k').textContent(), 'D', 'its key');
+    assert.equal(await d.page.locator('#cmd button').filter({ has: d.page.locator('.l', { hasText: /^Deploy$/ }) }).locator('.k').textContent(), 'D', 'its key');
     await d.page.keyboard.press('d');
     assert.equal((await me()).mode, 'deploy');
     assert.match(await d.hudText('#selSub', /Deploying/), /Deploying/, 'the console says it is deploying');
     await d.skip(3.5);
     assert.match(await d.hudText('#selSub', /Deployed/), /Deployed/);
-    assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Deploy' }).count(), 'lit while deployed');
+    // Deployed: its button names what a tap does now, Undeploy, on the same key; not lit.
+    await d.page.locator('#cmd button .l', { hasText: /^Undeploy$/ }).waitFor({ timeout: 5000 });
+    const undeploy = d.page.locator('#cmd button').filter({ has: d.page.locator('.l', { hasText: /^Undeploy$/ }) });
+    assert.equal(await undeploy.locator('.k').textContent(), 'D', 'the same key');
+    assert.ok(!(await undeploy.getAttribute('class')).includes('active'), 'not lit');
     // An enemy 7 tiles off is shelled; one inside the blind ring (1.5 tiles) is not.
     const at = await me();
     const [far, near] = await d.eval(([x, y, T]) => [endfall.engine.debugSpawn(1, 'medic', x + 7 * T, y), endfall.engine.debugSpawn(1, 'medic', x - 1.5 * T, y)], [at.x, at.y, T]);
@@ -1496,7 +1511,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it beats and what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -1511,8 +1526,11 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
     await d.page.waitForTimeout(700);
     const info = d.page.locator('#cmdInfo');
-    assert.match(await info.textContent(), /Strong against.*Weak against/);
-    assert.equal(await info.locator('.vs img').count(), 4, 'portraits: Scythe and Raider; Vanguard and Sovereign');
+    const text = await info.textContent();
+    assert.match(text, /^Trooper\s*50\s*Rifle infantry\./, 'its name, cost and what it does');
+    assert.doesNotMatch(text, /against|Scythe|Raider|Vanguard|Sovereign/i, 'no counters: players find them themselves');
+    assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
+    assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Trooper' }).getAttribute('title'), /against/i, 'nor in the tooltip');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -2231,7 +2249,7 @@ test('the pause card reports what of theirs was seen lately; nothing in the fog 
   }
 });
 
-test('the end card says what killed most of your units, and what beats it', async () => {
+test('the end card says what killed most of your units, not what beats it', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state()), at = { x: core.x + 220, y: core.y + 60 };
@@ -2243,8 +2261,8 @@ test('the end card says what killed most of your units, and what beats it', asyn
     assert.match(why, /Most of your losses: to Monoliths \(2\)/, why);
     assert.match(await d.page.locator('#endSeen').textContent(), /^You saw: 1$/, 'what was scouted of their army, the whole game');
     assert.equal(await d.page.locator('#endSeen .seen').getAttribute('title'), '1 Monolith');
-    assert.match(why, /beat Monoliths/, 'and what beats them');
-    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
+    assert.doesNotMatch(why, /beat/, 'not what beats them: players work the counters out');
+    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one line, portraits inline');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2679,6 +2697,50 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     await d.key('Escape'); await d.key('Escape');
     await d.buildWithUI(['e', 'e'], 'depot', spot.tx, spot.ty, h.id);
     assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then E placed a Depot (toasts: ${(await d.toasts()).join(' | ')})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('desktop, as the Vael: the Kiln trains an Umbra once a Loom stands (U, or its slot\'s key in WASD); its owner sees it shimmer, the enemy only where it detects', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
+  const { GRID } = await import('../../src/client/controls.js');
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(3000, 2000);
+    await buildAndFinish(d, 's', 'spire', 0, V);
+    const kiln = await buildAndFinish(d, 'k', 'kiln', 1, V);
+    await d.clickEntity(kiln.id);
+    const slot = (await cardKeys(d)).find(([, , l]) => l === 'Umbra');
+    assert.ok(slot, 'the Kiln offers the Umbra');
+    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'locked until a Loom stands');
+    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Scythe', 'Prism', 'Monolith', 'Halo', 'Umbra', 'Cancel', 'Rally'], 'five units, the queue\'s Cancel in its place, Rally below');
+    await buildAndFinish(d, 'l', 'loom', 2, V);
+    await d.clickEntity(kiln.id);
+    await d.readyCard('Umbra');
+    const queue = async () => (await d.state()).bldgs.find(b => b.id === kiln.id).queue;
+    await d.key('u');
+    assert.deepEqual(await queue(), ['umbra'], `U trains an Umbra (toasts: ${(await d.toasts()).join(' | ')})`);
+    // In WASD its key is its slot's.
+    await pickControls(d, 'wasd');
+    await d.clickEntity(kiln.id);
+    const [at, key] = (await cardKeys(d)).find(([, , l]) => l === 'Umbra');
+    assert.equal(key, GRID[at], 'its grid key shown');
+    await d.key(key.toLowerCase());
+    assert.deepEqual(await queue(), ['umbra', 'umbra'], `${key} trains another`);
+    // Its owner sees it as a shimmer of itself.
+    await until(d, async () => mine(await d.state(), 'umbra').length > 0, { seconds: 60, step: 0.5, what: 'the Umbra' });
+    const u = mine(await d.state(), 'umbra')[0];
+    await d.centerOn(u.x, u.y);
+    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown), u.id, { timeout: 10000 });
+    const own = await d.eval((id) => endfall.teamLayers().find(l => l.id === id), u.id);
+    assert.ok(own.alpha > 0.2 && own.alpha < 0.6, `drawn translucent for its owner (${own.alpha})`);
+    // An enemy Umbra beside it: not drawn at all, until a Halo of ours detects it.
+    const foe = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [u.x + 200, u.y]);
+    await d.skip(1);
+    assert.ok(!(await d.eval((id) => endfall.teamLayers().some(l => l.id === id && l.shown), foe)), 'an enemy Umbra is unseen');
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'halo', x, y), [u.x + 180, u.y]);
+    await d.skip(1);
+    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown && l.alpha < 0.6), foe, { timeout: 10000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

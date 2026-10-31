@@ -21,8 +21,8 @@ const P = {
   stim: 'M13 2 5 14h6l-2 8 8-12h-6z',
   speed: 'M5 6l6 6-6 6M12 6l6 6-6 6',
   cloak: 'M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6M4 20 20 4',
-  entrench: 'M4 18h16M6 18v-4h12v4M9 14V9h6v5M12 9V4',
   deploy: 'M3 15h18M7 15l-3 5M17 15l3 5M8 15v-4h7v4M13 11l7-7',
+  undeploy: 'M4 13h16a2.5 2.5 0 0 1 0 5H4a2.5 2.5 0 0 1 0-5zM8 13V9h7v4M15 11h6M5 13 2 9M19 13l3-4', // (on its tracks: legs folded up, barrel down)
   blink: 'M4 12h9M10 8l4 4-4 4M17 6v12M20 9v6',
   overcharge: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M14 2l1 4-4-1',
   shields: 'M12 3a9 9 0 1 0 0.01 0M12 7a5 5 0 1 0 0.01 0M12 3v4M21 12h-4M12 21v-4M3 12h4',
@@ -45,6 +45,6 @@ export function setIconButton(el, name, label, alt = '') {
 
 /** Inline SVG markup for a line icon. */
 // A tech shows the icon of what it gives.
-Object.assign(P, { veil: P.cloak, entrenching: P.entrench, overchargeCore: P.overcharge, afterburners: P.speed, slipstream: P.speed, cloakingField: P.cloak, veilWeave: P.cloak, rapidConstruction: P.frames });
+Object.assign(P, { veil: P.cloak, overchargeCore: P.overcharge, afterburners: P.speed, slipstream: P.speed, cloakingField: P.cloak, veilWeave: P.cloak, rapidConstruction: P.frames });
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[name] || ''}"/></svg>`;
 

@@ -79,6 +79,7 @@ kinds! {
         Bastion => humans::BASTION,
         Sovereign => vael::SOVEREIGN,
         SiegeTank => humans::SIEGE_TANK,
+        Umbra => vael::UMBRA,
     }
 }
 
@@ -178,17 +179,21 @@ impl Weapon {
 }
 
 impl UnitKind {
-    /// Its toggle (Entrench, Deploy), if it has one: the first of its abilities that settles it in.
+    /// Its toggle (Deploy), if it has one: the first of its abilities that settles it in.
     pub fn toggle(self) -> Option<AbilityKind> {
         self.def()
             .abilities
             .iter()
             .copied()
-            .find(|a| matches!(a.def().effect, AbilityEffect::Entrench { .. }))
+            .find(|a| matches!(a.def().effect, AbilityEffect::Settle { .. }))
     }
     /// Its weapon fires only while its toggle is on (a Siege Tank).
     pub fn siege(self) -> bool {
         self.def().weapon.is_some_and(|w| w.siege) && self.toggle().is_some()
+    }
+    /// Armed and always cloaked (the Umbra; not the unarmed Observer): a fighter that wins where it is not detected.
+    pub fn cloaked_fighter(self) -> bool {
+        self.def().cloaked && self.def().armed()
     }
 }
 

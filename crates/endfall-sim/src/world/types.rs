@@ -143,7 +143,7 @@ pub struct Unit {
     pub ab_cd: [f64; ABILITY_SLOTS],
     /// A timed boost (Stim, Overcharge) and the game time it ends.
     pub boost: Option<(AbilityKind, f64)>,
-    /// The toggle that is on (Entrench), and the seconds left settling in or packing up (no moving or firing then).
+    /// The toggle that is on (Deploy), and the seconds left settling in or packing up (no moving or firing then).
     pub mode: Option<AbilityKind>,
     pub swap: f64,
     /// Seconds left warping in (a Vael unit sent to a power field): it cannot move, fire or heal, but can be hit.
@@ -259,6 +259,9 @@ pub enum Event {
         ty: f64,
         /// A Halo mending shields (a Medic healing otherwise).
         mend: bool,
+        /// The seats that see both the healer and its patient, bit `t` for seat `t` (as `Fire::seen`): a cloaked
+        /// patient's mend is not shown where it is not detected.
+        seen: u8,
     },
     Sfx {
         team: u8,

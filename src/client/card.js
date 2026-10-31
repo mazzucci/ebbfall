@@ -3,7 +3,7 @@
 import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud } from './hud.js';
-import { cardItems, myFaction, leastBusy, researching, mostBusy } from './cards.js';
+import { cardItems, myFaction, leastBusy, researching, mostBusy, abilityTargets } from './cards.js';
 import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
 import { icon } from './icons.js';
@@ -30,7 +30,7 @@ export function buildCard() {
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
     if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis; if (it.locked) b.setAttribute('aria-disabled', 'true'); // locked: tappable, it explains what is missing
-    b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '') + vsText(it);
+    b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
     b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
@@ -55,12 +55,8 @@ function showDetail(it) {
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
   box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px'; box.style.maxWidth = Math.max(220, r.width) + 'px';
-  const vs = (label, kinds) => kinds?.length ? `<span class="vs">${label}${kinds.map(k => portrait('unit', k, 22)).join('')}<span class="sr">: ${names(kinds)}</span></span>` : '';
-  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>` + (it.strong || it.weak ? `<span class="vsr">${vs('Strong against', it.strong)}${vs('Weak against', it.weak)}</span>` : '');
+  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>`;
 }
-/** A fighter's counters in words, for a mouse's tooltip. */
-const vsText = (it) => (it.strong?.length ? ` Strong against ${names(it.strong)}.` : '') + (it.weak?.length ? ` Weak against ${names(it.weak)}.` : '');
-const names = (ks) => ks.map(k => UNITS[k].name + 's').join(' and ');
 function hideDetail() { clearTimeout(press.hide); $('cmdInfo').hidden = true; }
 // Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.
 for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => {
@@ -98,7 +94,7 @@ export function doCommand(id, times = 1) {
     if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
-  if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) refuse(id, err); return; } // (the cast event plays its sound)
+  if (id.startsWith('a_')) { const k = id.slice(2), err = castAbility(abilityTargets(units, k).units, k); if (err) refuse(id, err); return; } // (the cast event plays its sound; a toggle: the units its button names)
   if (id.startsWith('t_')) { // (`times`: Shift queues five, spread over the selected factories as it goes)
     let queued = 0;
     for (let i = 0; i < times; i++) {

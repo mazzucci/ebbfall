@@ -22,34 +22,35 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 
-/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A fighter's `strong`/`weak`: the kinds
- *  it beats, and is beaten by, in a cost-equal fight (measured with the duels of tests/gameplay/balance.rs). Whatever a
- *  fighter is strong against lists it as a weakness. */
+/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does,
+ *  never which enemy units it beats or loses to: players find the counters themselves (the duels of
+ *  tests/gameplay/balance.rs keep the design's counter loops). */
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
-  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', strong: ['scythe', 'raider'], weak: ['vanguard', 'sovereign'] },
-  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism', 'siegeTank'], weak: ['monolith', 'shrike', 'bastion'] },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['raider', 'shrike'], weak: ['trooper', 'scythe', 'prism', 'sovereign', 'siegeTank'] },
+  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
+  vanguard: { hot: 'V', desc: 'Heavy walker for the front line: it fights on the move, with long range and thick plate, and its shells splash onto nearby ground units. Cannot hit flyers.' },
+  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).', strong: ['monolith', 'scythe', 'siegeTank'], weak: ['trooper', 'lancer', 'prism', 'shrike'] },
+  raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
-  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.', strong: ['lancer', 'prism'], weak: ['vanguard', 'monolith', 'raider', 'shrike'] },
-  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.', strong: ['vanguard', 'scythe', 'sovereign'], weak: ['lancer', 'prism', 'shrike'] },
+  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.' },
+  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Slower than a Trooper. Cannot hit flyers.', strong: ['lancer', 'harvester'], weak: ['trooper', 'raider', 'bastion'] },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['raider', 'lancer'], weak: ['trooper', 'vanguard', 'sovereign', 'siegeTank'] },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard', 'siegeTank'], weak: ['raider'] },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['raider', 'vanguard', 'siegeTank'], weak: ['lancer', 'trooper'] },
-  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['raider', 'bastion', 'shrike'] },
+  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.' },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.' },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).' },
+  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
+  umbra: { hot: 'U', desc: 'The Lumen is the Vael\'s light; the Umbra is its shadow. Always cloaked: unseen and untargetable except near a detector. Cuts down any ground army that brings none, siege lines too; found, it is a costly blade. Cannot hit flyers.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
   depot: { hot: 'D', desc: '+8 supply.' },
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers and Medics (Medics need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Entrenching, Cloaking Field and Rapid Construction; unlocks Medics at the Garrison and vehicles at the Factory.' },
+  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics at the Garrison and vehicles at the Factory.' },
   factory: { hot: 'R', desc: 'Builds vehicles: Vanguards and Siege Tanks (both need a Foundry).' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
   airfield: { hot: 'A', desc: 'Trains Raiders, Observers and the Bastion capital gunship.' },
@@ -57,13 +58,13 @@ const BLDG_TEXT = {
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
-  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Halos and Monoliths (Halos and Monoliths need a Loom). With its rally point in a power field, they warp in there.' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths.' },
+  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths, Halos and Umbras (all but Scythes and Prisms need a Loom). With its rally point in a power field, they warp in there.' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths, Halos and Umbras.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
   zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
-  entrenching: { hot: 'D' }, afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
+  afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
@@ -77,19 +78,23 @@ export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.en
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
-UPGRADES.weapons.desc = 'More damage for every weapon (' + Object.entries(UP_DMG).map(([k, n]) => `${(UNITS[k] || BUILDINGS[k]).name} +${n}${UNITS[k]?.light?.upDmg ? `, its light gun +${UNITS[k].light.upDmg}` : ''}`).join(', ') + ' per level).';
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
+/** A side's own kinds (`f`: a FACTIONS entry): its buildings and the units they train. */
+export const kindsOf = (f) => { const b = [f.hq, ...f.buildBasic, ...f.buildAdvanced]; return new Set([...b, ...b.flatMap(k => BUILDINGS[k].trains || [])]); };
+/** Upgrade `k`'s words for side `f`. Weapons, which both races research, names that side's own weapons only. */
+export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage for every weapon (' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
+  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? `, its light gun +${UNITS[t].light.upDmg}` : ''}`).join(', ') + ' per level).';
 const ABILITY_TEXT = {
   stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
-  entrench: { hot: 'E', desc: 'Dig in: +3 range, but cannot move (2 s to dig in or pack up). Tap again, or order a move, to pack up.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
-  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
-  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
-  deploy: { hot: 'D', desc: 'Deployed, it fires its siege gun (3 s to deploy or pack up, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. On its tracks it has only a light gun. Tap again, or order a move, to pack up.' },
+  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
+  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
+  deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. On its tracks it has only a light gun. Then the button reads Undeploy.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, neither moving nor firing meanwhile), with only its light gun. A move order packs it up too.' } },
 };
-/** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
+/** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions; a toggle's `off`: its button's
+ *  name, icon and words while it is on (the button names the action, src/client/cards.js `abilityTargets`). */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 // A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
 for (const u of Object.values(UPGRADES)) {

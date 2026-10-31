@@ -106,7 +106,6 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
         splash_r: SHELL_SPLASH_R,
         ..W
     }),
-    abilities: &[AbilityKind::Entrench],
     ..UNIT
 };
 /// Back-line artillery: deployed (`Deploy`), its siege gun outranges everything on the ground and splashes hard, but
@@ -297,7 +296,6 @@ pub(super) const FORGE: BldgDef = BldgDef {
     researches: &[
         Upgrade::Weapons,
         Upgrade::Armor,
-        Upgrade::Entrenching,
         Upgrade::CloakingField,
         Upgrade::RapidConstruction,
     ],

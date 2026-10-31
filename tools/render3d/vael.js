@@ -71,6 +71,10 @@ export function makeVaelMats(tc = NEUTRAL) {
     mendLine: std({ color: 0x4ab8a8, emissive: 0x74f0dc, emissiveIntensity: 1.4, roughness: 0.25 }),
     mendHalo1: halo(0x6ce8d0, 0.26), mendHalo2: halo(0x50d0b8, 0.13), mendHalo3: halo(0x40b8a0, 0.06),
     pad: std({ color: 0x241c3a, emissive: 0x6e5ac4, emissiveIntensity: 0.3, roughness: 0.55 }),
+    // the Umbra's shadow ceramic: near-black violet with a mirror clearcoat and a violet sheen, so its form shows by
+    // its highlights and lit edges rather than by its surface
+    umbral: phys({ color: 0x2a2334, bumpMap: pearlBump, bumpScale: 0.5, metalness: 0.35, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.5, sheenColor: 0x9a80f0, sheenRoughness: 0.4 }),
+    umbralDeep: phys({ color: 0x15111b, metalness: 0.4, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
     padHalo: halo(0x7a62e0, 0.1),
   };
 }
@@ -312,6 +316,54 @@ export function halo(M, f) {
   g.add(b); return g;
 }
 
+/** Umbra (cloaked blade): a lean shadow hovering upright, darker than every other Vael. A faceted shroud of shadow
+ *  ceramic hangs from its shoulders to a point above the ground, its edges lit with ether, a ragged hem of three dark
+ *  shards trailing behind; a hooded cowl with a single violet eye; and two long blades swept back from the shoulders
+ *  like folded wings, black glass edged with light. Team glaze on the collar and the blade roots. From above it is a dark
+ *  chevron outlined in violet, never the Scythe's pale knight with a crescent at each hand; the lit edges keep it legible
+ *  at the shimmer its owner sees it in. */
+export function umbra(M, f) {
+  const g = grp(), b = grp(); b.position.y = 3 + (f % 2) * 0.8;
+  const flex = (f % 2) ? 0.08 : -0.06;
+  // the shroud: a six-sided spindle, apex down, its three front edges lit
+  add(b, cone(4.6, 15, 6), M.umbral, 0, 10, 0, Math.PI, Math.PI / 6, 0);
+  add(b, cone(3.4, 6, 6), M.umbralDeep, 0, 19.8, 0, 0, Math.PI / 6, 0);                    // the chest, closing the spindle
+  for (const a of [-Math.PI / 3, 0, Math.PI / 3]) {                                       // lit ribs from shoulder to point
+    const [x, z] = [Math.cos(a) * 4.6, Math.sin(a) * 4.6];
+    limb(b, [x, 17.4, z], [0, 2.6, 0], 0.32, M.ether); limb(b, [x, 17.4, z], [0, 2.6, 0], 0.8, M.halo1);
+  }
+  lamp(b, M, 0.7, 0, 2.4, 0);                                                              // the lift light at its point
+  // the ragged hem: three dark shards trailing low behind, lit along their edge
+  for (const [z, l, y] of [[-2.4, 7, 6], [0, 9, 4.5], [2.4, 7, 6]]) {
+    const h = grp(); h.position.set(-2.5, y, z); h.rotation.z = 0.5 + flex;
+    add(h, plate([[0, -1], [-l, 0], [0, 1]], 0.5, 0.15), M.umbralDeep, 0, 0, 0);
+    add(h, rbox(l * 0.8, 0.3, 0.3, 0.1), M.etherSoft, -l * 0.4, 0.5, 0);
+    b.add(h);
+  }
+  // the collar: a team ring at the shoulders
+  add(b, torus(4.2, 0.6, Math.PI * 2, 24), M.glazePlain, 0, 17.6, 0, Math.PI / 2);
+  // the blades: slender, swept back and out from the shoulders, black glass with a lit leading edge and a light
+  // channel down the middle
+  for (const side of [-1, 1]) {
+    const w = grp(); w.position.set(1, 18.4, side * 4); w.rotation.x = side * (0.3 + flex); w.rotation.z = -0.12;
+    const pts = [[3, 0], [-2, side * 2.4], [-8, side * 6], [-14, side * 9.4], [-9.5, side * 5.4], [-3.5, side * 1], [-1, side * -0.6]];
+    add(w, plate(pts, 1.1, 0.3), M.glassBlade, 0, -0.5, 0);
+    add(w, plate([[0, side * 0.6], [-6, side * 4.2], [-11, side * 7.2], [-6.5, side * 3.4]], 0.5, 0.15), M.ether, 0, 0.55, 0); // light channel
+    limb(w, [2.4, 0.4, side * 0.5], [-13.6, 0.4, side * 9.1], 0.35, M.ether);                // the lit edge
+    limb(w, [2.4, 0.4, side * 0.5], [-13.6, 0.4, side * 9.1], 0.9, M.halo1);
+    limb(w, [2.4, 0.4, side * 0.5], [-13.6, 0.4, side * 9.1], 1.4, M.halo2);
+    add(w, plate([[3, 0], [-1, side * 2], [-3.5, side * 2.2], [-2.5, side * -0.4]], 1.2, 0.3), M.glaze, 0, 0.2, 0); // team root
+    b.add(w);
+  }
+  // the cowl: a hood drawn forward to a peak, one violet eye in its shadow
+  add(b, sph(2.9, 16, 12), M.umbral, 0.3, 22.6, 0).scale.set(1.15, 1.05, 0.95);
+  add(b, cone(2.4, 5, 12), M.umbral, 1.6, 24.2, 0, 0, 0, -1.15);                          // the peak, leaning forward
+  add(b, sph(2.2, 14, 10), M.umbralDeep, 1.6, 22.2, 0).scale.set(0.8, 0.9, 0.85);         // the face, in shadow
+  add(b, rbox(0.8, 0.7, 2.2, 0.3), M.gemCore, 3.2, 22.4, 0);                               // the eye
+  add(b, rbox(1.2, 1.1, 3, 0.4), M.halo1, 3.3, 22.4, 0); add(b, rbox(1.6, 1.6, 3.8, 0.5), M.halo2, 3.4, 22.4, 0);
+  g.add(b); return g;
+}
+
 /** Sovereign: the Vael capital barge. A broad pearl hull gliding low over the ground, a coiled ceramic shell (a
  *  tapering tube wound round a stern axis) climbing to a crystal apex, and at its bow a great violet lens in a
  *  black-glass cradle, from which the beam fires (the sim starts the bolt at the unit's centre; the lens is the visual
@@ -377,6 +429,7 @@ export const VAEL_UNITS = {
   monolith: { build: monolith, frames: 2, r: 22, h: 40 },
   shrike: { build: shrike, frames: 2, r: 22, h: 26 },
   halo: { build: halo, frames: 2, r: 10, h: 28 }, // (h: headroom, so the portrait, cut round the ground point, keeps the ring)
+  umbra: { build: umbra, frames: 2, r: 17, h: 28 }, // (r: the blade tips sweep 15 back)
   sovereign: { build: sovereign, frames: 4, r: 32, h: 30 }, // (r: the lens's faint outer glow reaches 33 ahead, the vane tips 31; h: the apex crystal, 30 up, bobbing)
 };
 

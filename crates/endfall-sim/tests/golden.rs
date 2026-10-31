@@ -166,7 +166,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [4134931756, 2318313087, 2833836852];
+const EXPECTED_VAEL_AI: [u32; 3] = [4134931756, 2318313087, 1490290840];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -221,8 +221,8 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "126/130/109/0 lost_to 130 | 171/109/130/15 lost_to 109 | over true winner 1 conceded -1 at 29358",
-    "222/98/137/28 lost_to 98 | 133/137/98/2 lost_to 137 | over true winner 0 conceded -1 at 19677",
+    "170/98/126/14 lost_to 98 | 122/126/98/0 lost_to 126 | over true winner 0 conceded -1 at 26413",
+    "245/98/128/29 lost_to 98 | 129/128/98/2 lost_to 128 | over true winner 0 conceded -1 at 21321",
     "18/22/9/0 lost_to 22 | 56/9/22/2 lost_to 9 | over true winner 1 conceded -1 at 11226",
 ];
 

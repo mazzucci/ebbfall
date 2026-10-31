@@ -395,7 +395,7 @@ impl World {
     pub(crate) fn live(&self, uid: Id) -> Live {
         let u = self.u(uid);
         let d = u.kind.def();
-        // Entrenched: farther; settling in or packing up: no reach at all (it cannot fire then).
+        // Settled in: its toggle's extra reach; settling in or packing up: no reach at all (it cannot fire then).
         let range = match self.reach_add(uid) {
             Some(add) => self.active_weapon(uid).map_or(0.0, |w| w.range + add) * TILE,
             None => 0.0,

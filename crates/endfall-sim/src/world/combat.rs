@@ -48,7 +48,7 @@ impl World {
     /// flies or not (`flier`): nearer than `range` px (edge distance). A siege gun (`siege`: its blind ring, px) also
     /// takes nothing nearer than its ring and only what `team` sees (its sight and its allies': it outranges its own
     /// sight, so it needs a spotter); other shooters reach about as far as they see and take what is in reach, as
-    /// a tile-centre sight test fails at its edge (an entrenched Vanguard, a Sovereign). Priority first (see
+    /// a tile-centre sight test fails at its edge (a Sovereign). Priority first (see
     /// `threat_tier`: whatever can hurt the shooter, then other units, then plain buildings), then distance.
     #[allow(clippy::too_many_arguments)]
     pub fn find_target(
@@ -540,12 +540,15 @@ impl World {
             u.heal_fx -= dt;
             if u.heal_fx <= 0.0 {
                 u.heal_fx = 0.4;
+                // (shown only to the seats that see both ends: a mend must not give away a cloaked patient)
+                let seen = self.seen_mask(team, uid) & self.seen_mask(team, pid);
                 self.emit(Event::Heal {
                     x: mx,
                     y: my,
                     tx,
                     ty,
                     mend,
+                    seen,
                 });
             }
         } else if let (true, Some((_, sx, sy))) = (idle, seek) {

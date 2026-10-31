@@ -41,7 +41,7 @@ const SCENE = [
   // the clash: fire across the middle, a blast
   ['boom_big_3', 610, 525], ['flash_1', 470, 488], ['flash_0', 742, 497], ['spark_1', 560, 590],
   // in the air
-  ['wasp_1_0', 395, 395, 0], ['shrike_8_0', 840, 395, 1],
+  ['raider_1_0', 395, 395, 0], ['shrike_8_0', 840, 395, 1],
 ];
 
 const pages = JSON.parse(readFileSync(new URL('public/art/atlas.json', root))).pages;

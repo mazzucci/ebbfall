@@ -6,7 +6,7 @@ on the Playwright phone (844x390, touch) against the Vael on Medium, one Vael ga
 Hard, one Humans game on the phone against the Humans on Hard, plus the menu, How-to, FIRST GAME, pause and end
 screens on both devices (screenshots were read, not just taken). Beside the browser: a scripted "competent" player on
 the engine API against every level (`bot.mjs`), a native AI-vs-AI pacing run (12 games per race pairing on Medium and
-Hard, 6 on Easy and Brutal, six map characters, both sides), and four exploit probes (Turret turtle, cloaked Wasp raid,
+Hard, 6 on Easy and Brutal, six map characters, both sides), and four exploit probes (Turret turtle, cloaked Raider raid,
 passive player, Stim re-cast). No console or page errors in any browser game.
 
 ## 1. Verdict
@@ -69,8 +69,8 @@ phone build is for.
   game: 303 s on Medium, 220 s on Hard, in 24 of 24 games each.
 - Turret turtle (a Garrison, 4 Turrets and 8 Troopers on hold, replaced when they die, nothing else) vs Medium:
   Turrets gone by 6-7 min, Core down 8:07-8:24 in three seeds. Not farmable.
-- Cloaked Wasp raid vs the Medium Human AI (4 Wasps with Cloaking Field at the mineral line at 4:00): 8-9 workers killed
-  in the 12-second cloak, then all four Wasps died to the home army in the 40-second cooldown. The AI built no detector
+- Cloaked Raider raid vs the Medium Human AI (4 Raiders with Cloaking Field at the mineral line at 4:00): 8-9 workers killed
+  in the 12-second cloak, then all four Raiders died to the home army in the 40-second cooldown. The AI built no detector
   (`crates/endfall-sim/src/ai/` has none); the cooldown, not the AI, keeps the raid honest.
 - Stim: a second tap two seconds after the first is accepted and costs another 10 hull (cooldown 1 s).
 - A main's shard field is 7 crystals x 1,500 = 10,500 shards, dry around minute 10-12 with 16 workers; the natural has
@@ -155,8 +155,8 @@ in 1998. Size S. Auto. Files: `src/client/card.js` (`press` timers, `showDetail`
 ### Tier 2: the opponent and the information war
 
 **7. The AI answers cloak with a detector.** Why: PLAN lists it as the next step and the probe shows the gap: four
-cloaked Wasps killed 8-9 of the Medium AI's 12 workers in one 12-second cloak and it never built a Turret at the line;
-only the 40-second cooldown saved it. A player who times two Wasp cloaks on the AI's mineral line farms it; the AI
+cloaked Raiders killed 8-9 of the Medium AI's 12 workers in one 12-second cloak and it never built a Turret at the line;
+only the 40-second cooldown saved it. A player who times two Raider cloaks on the AI's mineral line farms it; the AI
 cannot do the same back (its raiders cloak, the player has Turrets if they built them). StarCraft's AI put Turrets at
 every mineral line once a Wraith showed. Proposal: when a seat loses a unit to something it could not see (the sim knows:
 the shooter was `cloaked_from` it), the AI queues its tower at that mineral line (it has `find_spot` and `seen_air_until`

@@ -220,8 +220,10 @@ def_struct! {
         mend: bool = "mend",
         /// A finished building of this kind is needed to train the unit.
         req: Option<BldgKind> = "req",
-        /// What it shoots with; None = unarmed.
+        /// What it shoots with; None = unarmed. A siege gun's (`Weapon::siege`) only while its toggle is on.
         weapon: Option<Weapon> = "weapon",
+        /// A siege gun's light gun, what it shoots with while its toggle is off (on its tracks); None = nothing then.
+        light: Option<Weapon> = "light",
         /// Its abilities (at most ABILITY_SLOTS), in card order.
         abilities: &'static [AbilityKind] = "abilities",
         /// A capital unit: one of a side's late, expensive giants (announced when the other side first sees one).
@@ -366,6 +368,7 @@ const UNIT: UnitDef = UnitDef {
     worker: false,
     shields: 0.0,
     weapon: None,
+    light: None,
     abilities: &[],
     capital: false,
     cloaked: false,

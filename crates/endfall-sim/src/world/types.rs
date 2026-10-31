@@ -28,6 +28,9 @@ pub(crate) struct Live {
     pub min: f64,
     /// A siege gun's reach once deployed (px, plus its radius), deployed or not: where it sets up. None otherwise.
     pub siege: Option<f64>,
+    /// A deployed siege gun's blind ring (px; it also fires only on what its side sees): `find_target`'s for the gun
+    /// it fires now. None for every other shooter, a siege gun on its tracks (its light gun) included.
+    pub ring: Option<f64>,
     pub combat: bool,
     pub team: u8,
     pub r: f64,
@@ -37,8 +40,9 @@ pub(crate) struct Live {
 }
 
 impl Live {
-    /// For `find_target`: a siege gun's blind ring (it also takes only what its side sees), None for other shooters.
-    pub fn blind(&self) -> Option<f64> {
+    /// For `find_target`, looking for where to set up: a siege gun's blind ring whether it is deployed or not (what
+    /// it will deploy for must be outside it, and seen), None for other shooters.
+    pub fn setup_ring(&self) -> Option<f64> {
         self.siege.map(|_| self.min)
     }
 }

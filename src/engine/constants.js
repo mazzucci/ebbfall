@@ -33,7 +33,7 @@ const UNIT_TEXT = {
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).', strong: ['monolith', 'scythe', 'siegeTank'], weak: ['trooper', 'lancer', 'prism', 'shrike'] },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
-  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deploy it to fire: then it outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers. Fires as far as your side can see. Behind a line it breaks massed infantry and towers; alone it is easy prey.', strong: ['lancer', 'prism'], weak: ['vanguard', 'monolith', 'wasp', 'shrike'] },
+  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.', strong: ['lancer', 'prism'], weak: ['vanguard', 'monolith', 'wasp', 'shrike'] },
   bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.', strong: ['vanguard', 'scythe', 'sovereign'], weak: ['lancer', 'prism', 'shrike'] },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
@@ -77,7 +77,7 @@ export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.en
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
-UPGRADES.weapons.desc = 'More damage for every weapon (' + Object.entries(UP_DMG).map(([k, n]) => `${(UNITS[k] || BUILDINGS[k]).name} +${n}`).join(', ') + ' per level).';
+UPGRADES.weapons.desc = 'More damage for every weapon (' + Object.entries(UP_DMG).map(([k, n]) => `${(UNITS[k] || BUILDINGS[k]).name} +${n}${UNITS[k]?.light?.upDmg ? `, its light gun +${UNITS[k].light.upDmg}` : ''}`).join(', ') + ' per level).';
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
 const ABILITY_TEXT = {
@@ -87,7 +87,7 @@ const ABILITY_TEXT = {
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
   cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
   veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
-  deploy: { hot: 'D', desc: 'Deployed, it fires (3 s to deploy or pack up, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. Tap again, or order a move, to pack up.' },
+  deploy: { hot: 'D', desc: 'Deployed, it fires its siege gun (3 s to deploy or pack up, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. On its tracks it has only a light gun. Tap again, or order a move, to pack up.' },
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);

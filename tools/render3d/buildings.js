@@ -169,59 +169,54 @@ function prismX(profile, len) {
   return boxUV(geo);
 }
 
-/** Factory: the vehicle works, industry family. A long dark iron hall under a sawtooth roof whose glazed faces look
- *  south, a gantry crane spanning the whole roof on team-painted girders, a big hazard-framed bay door onto
- *  a striped vehicle apron, team pilasters beside the door. */
+/** Factory: the vehicle works, industry family. A broad, flat-roofed iron hall under a dark roof with a raised rim, a
+ *  great team-coloured cog on the roof (what reads from above, at any size), two squat smokestacks at its back corner,
+ *  and a big hazard-framed bay door onto a dark vehicle apron, team pilasters beside the door. */
 export function factory(M) {
   const g = grp();
   add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
-  const X = 84, Z0 = -44, Z1 = 12, top = 23;                                                        // hall
-  add(g, rbox(X, top - 3, Z1 - Z0, 2), M.iron, 0, 3 + (top - 3) / 2, (Z0 + Z1) / 2);
-  add(g, rbox(X + 0.6, 2, Z1 - Z0 + 0.6, 0.6), M.dark, 0, 4, (Z0 + Z1) / 2);                       // plinth
-  const teeth = 4, d = (Z1 - Z0) / teeth, th = 9;                                                    // sawtooth roof
-  for (let k = 0; k < teeth; k++) {
-    const z0 = Z0 + k * d, z1 = z0 + d;
-    add(g, prismX([[z0, 0], [z1, 0], [z1, th]], X - 2), M.iron, 0, top, 0);
-    add(g, rbox(X - 4, th * 0.42, 0.6, 0.2), M.glass, 0, top + th * 0.45, z1 + 0.1);               // south glazing
-    for (let x = -36; x <= 36; x += 8) add(g, rbox(0.8, th * 0.7, 0.9, 0.2), M.dark, x, top + th * 0.42, z1 + 0.2);
-    add(g, rbox(X - 2, 0.8, 2, 0.3), M.paint, 0, top + th + 0.2, z1 - 0.8);                       // team ridge
-    for (const sx of [-1, 1]) add(g, prismX([[z0, 0], [z1, 0], [z1, th]], 1), M.paint, sx * (X / 2 - 0.5), top, 0); // team gable ends
+  const X = 86, Z0 = -44, Z1 = 14, top = 21, ZC = (Z0 + Z1) / 2;                                       // hall
+  add(g, rbox(X, top - 3, Z1 - Z0, 2), M.iron, 0, 3 + (top - 3) / 2, ZC);
+  add(g, rbox(X + 0.6, 2, Z1 - Z0 + 0.6, 0.6), M.dark, 0, 4, ZC);                                     // plinth
+  add(g, rbox(X - 2, 1.6, Z1 - Z0 - 2, 0.5), M.iron, 0, top + 0.6, ZC);                               // dark iron roof
+  for (let x = -36; x <= 36; x += 12) add(g, rbox(1.2, 0.5, Z1 - Z0 - 4, 0.2), M.dark, x, top + 1.5, ZC); // seams
+  for (const [x, z] of [[-34, 4], [36, -36], [36, 4]]) {                                                // roof vents
+    add(g, rbox(7, 2.4, 7, 0.6), M.gunmetal, x, top + 2.4, z);
+    add(g, rbox(5, 0.4, 5, 0.2), M.dark, x, top + 3.7, z);
+  }
+  for (const sz of [-1, 1]) add(g, rbox(X, 2.4, 2.4, 0.6), M.iron, 0, top + 1.2, ZC + sz * ((Z1 - Z0) / 2 - 1.2)); // rim
+  for (const sx of [-1, 1]) add(g, rbox(2.4, 2.4, Z1 - Z0, 0.6), M.iron, sx * (X / 2 - 1.2), top + 1.2, ZC);
+  // The cog: a toothed team-coloured wheel with a dark hub, raised on the roof.
+  const CX = 6, CZ = ZC, R = 15, y = top + 1.6;
+  add(g, cyl(R, R, 1.6, 40), M.paint, CX, y + 0.8, CZ);
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2;
+    add(g, rbox(6, 1.6, 5, 0.4), M.paint, CX + Math.cos(a) * (R + 1.6), y + 0.8, CZ + Math.sin(a) * (R + 1.6), 0, -a, 0);
+  }
+  add(g, cyl(7.2, 7.2, 1.9, 32), M.dark, CX, y + 0.95, CZ);                                         // the hole
+  add(g, cyl(3.2, 3.2, 2.6, 20), M.gunmetal, CX, y + 1.3, CZ);                                       // axle
+  // Two squat smokestacks at the back corner, banded, a faint glow inside.
+  for (const [x, z] of [[-33, -33], [-21, -36]]) {
+    add(g, cyl(5.2, 6, 18, 20), M.iron, x, top + 9, z);
+    add(g, cyl(5.5, 5.5, 1.6, 20), M.hazard, x, top + 6, z);
+    add(g, cyl(5.8, 5.8, 1.4, 20), M.dark, x, top + 18, z);                                         // rim
+    add(g, cyl(3.8, 3.8, 0.6, 16), M.slag, x, top + 18.5, z);
   }
   // The bay door on the south wall: a ribbed shutter, raised a little over a lit gap, in a hazard frame.
   const DZ = Z1 + 0.6;
-  add(g, rbox(40, 15, 1.2, 0.4), M.dark, 0, 13, DZ);
-  for (let y = 7; y <= 19; y += 2) add(g, rbox(39, 0.5, 0.6, 0.2), M.steel, 0, y, DZ + 0.6);
+  add(g, rbox(40, 14, 1.2, 0.4), M.dark, 0, 12, DZ);
+  for (let y2 = 7; y2 <= 18; y2 += 2) add(g, rbox(39, 0.5, 0.6, 0.2), M.steel, 0, y2, DZ + 0.6);
   add(g, rbox(39, 2.4, 0.4, 0.1), M.ember, 0, 4.4, Z1 + 0.2);
-  for (const sx of [-1, 1]) add(g, rbox(3, 19, 2.4, 0.6), M.hazard, sx * 21.5, 12.5, DZ + 0.4);
-  add(g, rbox(46, 2.6, 2.6, 0.6), M.hazard, 0, 21.4, DZ + 0.4);
+  for (const sx of [-1, 1]) add(g, rbox(3, 17, 2.4, 0.6), M.hazard, sx * 21.5, 11.5, DZ + 0.4);
+  add(g, rbox(46, 2.6, 2.6, 0.6), M.hazard, 0, 19.6, DZ + 0.4);
   for (const sx of [-1, 1]) {
-    add(g, rbox(7, top - 3, 3, 1), M.paint, sx * 28, 13, DZ + 0.6);                                  // team pilasters
-    add(g, rbox(9, 8, 1, 0.4), M.dark, sx * 36, 11, DZ + 0.2);                                       // side doors / vents
-    for (const y of [8.5, 10.5, 12.5]) add(g, rbox(8, 0.6, 0.6, 0.2), M.steel, sx * 36, y, DZ + 0.7);
+    add(g, rbox(7, top - 3, 3, 1), M.paint, sx * 29, 12, DZ + 0.6);                                   // team pilasters
+    add(g, rbox(9, 7, 1, 0.4), M.dark, sx * 37, 10, DZ + 0.2);                                        // side vents
   }
-  add(g, sph(1.3, 10, 8), M.white, 0, 24.8, DZ + 1);
-  // Apron: a dark vehicle lane out of the bay with hazard edges and a dashed centre line.
-  add(g, rbox(40, 0.8, 32, 0.3), M.dark, 0, 3.3, 29);
-  for (const sx of [-1, 1]) add(g, rbox(1.8, 0.6, 32, 0.2), M.hazard, sx * 21, 3.6, 29);
-  for (const z of [18, 26, 34, 42]) add(g, rbox(1.4, 0.5, 4.5, 0.2), M.mark, 0, 3.8, z);
-  // Gantry crane spanning the hall east-west: A-frame legs at both ends, twin team girders with hazard ends, a trolley.
-  const CZ = -12, CY = 41;
-  for (const sx of [-1, 1]) {
-    const x = sx * 44.5;
-    add(g, rbox(4, 2, 18, 0.6), M.dark, x, 4, CZ);
-    for (const dz of [-7, 7]) limb(g, [x, 4, CZ + dz], [x, CY, CZ + dz * 0.45], 1.5, M.steel);
-    add(g, rbox(3, 1.4, 12, 0.5), M.gunmetal, x, 20, CZ);
-    add(g, rbox(4.6, 3.6, 10, 1), M.gunmetal, x, CY, CZ);
-    add(g, sph(1.1, 8, 6), M.lamp, x, CY + 2.6, CZ + 4);
-  }
-  for (const dz of [-3, 3]) {
-    add(g, rbox(91, 2.8, 2.2, 0.5), M.paint, 0, CY + 0.4, CZ + dz);
-    for (const sx of [-1, 1]) add(g, rbox(8, 3, 2.4, 0.5), M.hazard, sx * 38, CY + 0.4, CZ + dz);
-  }
-  add(g, rbox(9, 4, 9.6, 1.2), M.trim, 12, CY + 2.6, CZ);                                          // trolley
-  add(g, rbox(4, 1.2, 4, 0.4), M.dark, 12, CY + 5.2, CZ);
-  for (const dz of [-1, 1]) add(g, cyl(0.25, 0.25, 6, 6), M.steel, 12, CY - 3, CZ + dz);
-  add(g, rbox(3.4, 1.8, 3.4, 0.5), M.hazard, 12, CY - 6.4, CZ);                                     // hook block
+  add(g, sph(1.3, 10, 8), M.white, 0, 22.4, DZ + 1);
+  // Apron: a dark vehicle lane out of the bay with hazard edges.
+  add(g, rbox(40, 0.8, 28, 0.3), M.dark, 0, 3.3, 31);
+  for (const sx of [-1, 1]) add(g, rbox(1.8, 0.6, 28, 0.2), M.hazard, sx * 21, 3.6, 31);
   return g;
 }
 

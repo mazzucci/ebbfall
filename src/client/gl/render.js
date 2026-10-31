@@ -293,12 +293,15 @@ class UnitObj {
     }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
-    // A siege gun of ours, selected: where it reaches deployed, and its blind ring inside (nothing there can be hit).
+    // A siege gun of ours, selected: the reach of the gun it fires now. Deployed (or deploying, fainter): the siege
+    // gun's, and its blind ring inside (nothing there can be hit); on its tracks: its light gun's.
     const w = u.d.weapon;
     if (s && w?.minRange > 0 && u.team === G.me) {
-      const deployed = !!u.mode && !(u.swap > 0), a = deployed ? 0.45 : 0.22;
-      lines.circle(u.x, u.y, w.range * TILE + u.r).stroke({ width: 1.5, color: 0xf5c542, alpha: a });
-      lines.circle(u.x, u.y, w.minRange * TILE + u.r).stroke({ width: 1.5, color: 0xe5553a, alpha: a });
+      const a = u.swap > 0 ? 0.22 : 0.45;
+      if (u.mode) {
+        lines.circle(u.x, u.y, w.range * TILE + u.r).stroke({ width: 1.5, color: 0xf5c542, alpha: a });
+        lines.circle(u.x, u.y, w.minRange * TILE + u.r).stroke({ width: 1.5, color: 0xe5553a, alpha: a });
+      } else if (u.d.light) lines.circle(u.x, u.y, u.d.light.range * TILE + u.r).stroke({ width: 1.5, color: 0xf5c542, alpha: a });
     }
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }

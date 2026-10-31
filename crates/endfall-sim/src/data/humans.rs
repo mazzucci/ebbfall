@@ -109,9 +109,9 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
     abilities: &[AbilityKind::Entrench],
     ..UNIT
 };
-/// Back-line artillery: it must deploy to fire (`Deploy`), then outranges everything on the ground and splashes
-/// hard, but cannot hit what comes within its blind ring, nor flyers. Its reach is past its own sight: it fires on
-/// what its side sees.
+/// Back-line artillery: deployed (`Deploy`), its siege gun outranges everything on the ground and splashes hard, but
+/// cannot hit what comes within its blind ring, nor flyers, and its reach is past its own sight: it fires on what its
+/// side sees. On its tracks it has only a light gun.
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Siege Tank",
@@ -134,6 +134,15 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
         up_dmg: 5.0,
         splash: 0.75,
         splash_r: 64.0,
+        ..W
+    }),
+    // On its tracks: a light gun, clearly second to the siege gun (no splash, no blind ring, no need of a spotter).
+    light: Some(Weapon {
+        range: 6.0,
+        dmg: 13.0,
+        cd: 1.2,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
         ..W
     }),
     abilities: &[AbilityKind::Deploy],

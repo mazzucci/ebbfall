@@ -47,8 +47,11 @@ const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-l
 function fightStats(x) {
   const up = G.upgrades[x.team], bonus = (UP_DMG[x.type] || 0) * effectLevel(up, 'weapons');
   let h = '';
-  const wp = x.d.weapon;
-  if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
+  const wp = x.d.weapon, light = x.d.light;
+  if (light) { // a siege gun: both guns, the one it fires now first (Deployed, or the light gun on its tracks)
+    const guns = [[wp, bonus, 'Deployed: siege gun damage against ground'], [light, (light.upDmg || 0) * effectLevel(up, 'weapons'), 'On its tracks: light gun damage against ground']];
+    for (const [g, b, t] of x.mode ? guns : guns.reverse()) h += stat('dmg', g.dmg, b, t);
+  } else if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
   if (wp?.dmgAir) h += stat('air', wp.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends shields (per second)' : 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');

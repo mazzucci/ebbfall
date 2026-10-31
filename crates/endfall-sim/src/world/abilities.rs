@@ -254,7 +254,7 @@ impl World {
         let c = self.live(uid);
         let reach = c.siege.unwrap_or(0.0);
         if self
-            .find_target(ux, uy, team, reach, c.blind(), false, c.hits, air)
+            .find_target(ux, uy, team, reach, c.ring, false, c.hits, air)
             .is_none()
         {
             let _ = self.cast(uid, k);
@@ -270,10 +270,10 @@ impl World {
         self.boost_mul(uid, |f, _| f)
     }
     /// Extra reach in tiles (entrenched), or None while settling in or packing up (no firing then), and for a siege
-    /// gun while it is not deployed.
+    /// gun on its tracks with no light gun.
     pub(crate) fn reach_add(&self, uid: Id) -> Option<f64> {
         let u = self.u(uid);
-        if u.swap > 0.0 || (u.mode.is_none() && u.kind.siege()) {
+        if u.swap > 0.0 || (u.mode.is_none() && u.kind.siege() && u.kind.def().light.is_none()) {
             return None;
         }
         Some(match u.mode.map(|k| k.def().effect) {

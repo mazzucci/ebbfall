@@ -55,16 +55,30 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
   assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
-  assert.match(C.UPGRADES.weapons.desc, /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
+  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
 });
 
-test('every fighter names what it beats and what beats it, in real kinds', { skip }, () => {
+test('every fighter names what beats it (the end card\'s advice), in real kinds; nothing names what it beats', { skip }, () => {
   for (const [k, u] of Object.entries(C.UNITS)) {
     const fighter = !!u.weapon && !u.worker;
-    assert.equal(!!(u.strong?.length && u.weak?.length), fighter, `${k}: counters for fighters only`);
-    for (const o of [...(u.strong || []), ...(u.weak || [])]) assert.ok(C.UNITS[o] && o !== k, `${k}: ${o} is another unit`);
-    assert.ok(!(u.strong || []).some(o => (u.weak || []).includes(o)), `${k}: nothing both`);
-    for (const o of u.strong || []) if (C.UNITS[o].strong) assert.ok(C.UNITS[o].weak.includes(k), `${o} lists ${k} as a weakness (${k} is strong against it)`);
+    assert.equal(!!u.weak?.length, fighter, `${k}: counters for fighters only`);
+    for (const o of u.weak || []) assert.ok(C.UNITS[o] && o !== k, `${k}: ${o} is another unit`);
+    assert.equal(u.strong, undefined, `${k}: no strong-against list (players find the counters themselves)`);
+  }
+});
+
+test('no text a side reads on its card names the other race\'s units or buildings', { skip }, () => {
+  for (const [fk, f] of Object.entries(C.FACTIONS)) {
+    const own = C.kindsOf(f), defs = (k) => C.UNITS[k] || C.BUILDINGS[k];
+    const theirs = [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)].filter(([k]) => !own.has(k)).map(([, d]) => d.name);
+    const techs = [...own].flatMap(k => C.BUILDINGS[k]?.researches || []);
+    const texts = [...[...own].map(k => [k, defs(k).desc]), ...[...own].flatMap(k => C.UNITS[k]?.abilities || []).map(a => [a, C.ABILITIES[a].desc]),
+      ...techs.map(t => [t, C.upgradeDesc(t, f)])];
+    const names = techs.map(t => C.UPGRADES[t].name); // (a tech's own name may hold a word that is a building's: Overcharge Core)
+    for (const [k, text] of texts) {
+      const bare = names.reduce((s, n) => s.replaceAll(n, ''), text);
+      for (const n of theirs) assert.ok(!new RegExp(`\\b${n}s?\\b`).test(bare), `${fk}: ${k}'s text names ${n}: ${text}`);
+    }
   }
 });
 

@@ -1496,7 +1496,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it beats and what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -1511,8 +1511,11 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
     await d.page.waitForTimeout(700);
     const info = d.page.locator('#cmdInfo');
-    assert.match(await info.textContent(), /Strong against.*Weak against/);
-    assert.equal(await info.locator('.vs img').count(), 4, 'portraits: Scythe and Wasp; Vanguard and Sovereign');
+    const text = await info.textContent();
+    assert.match(text, /^Trooper\s*50\s*Rifle infantry\./, 'its name, cost and what it does');
+    assert.doesNotMatch(text, /against|Scythe|Wasp|Vanguard|Sovereign/i, 'no counters: players find them themselves');
+    assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
+    assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Trooper' }).getAttribute('title'), /against/i, 'nor in the tooltip');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

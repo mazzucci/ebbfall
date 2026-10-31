@@ -199,25 +199,42 @@ export function medic(M, f) {
   return g;
 }
 
-/** Wasp: a two-rotor gunship hovering 16 units up; frames turn the rotor blades. */
+/** Wasp: a light jet raider flying 16 units up. A slim steel fuselage, a bubble canopy, swept wings whose outer panels
+ *  carry the team paint, a team tail fin over swept tailplanes, rocket pods under the wings; frames flicker the jet's
+ *  exhaust (short and hot, long and bright). No rotors: the plane reads by its silhouette, not by dark moving parts. */
+const EXHAUST_GLOW = new THREE.MeshBasicMaterial({ color: 0xff9a3a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+/** The Wasp's skin: the hull steel (`trim`) lighter and less mirror-like, so a small curved fuselage stays pale over dark
+ *  ground instead of reflecting the dim sky. */
+const SKIN = new WeakMap();
+const skin = (M) => { if (!SKIN.has(M)) { const m = M.trim.clone(); m.color.set(0x98a0ab); m.metalness = 0.55; m.roughness = 0.4; m.bumpScale = 0.5; SKIN.set(M, m); } return SKIN.get(M); };
 export function wasp(M, f) {
-  const g = grp(), body = grp();
+  const g = grp(), body = grp(), H = skin(M);
   body.position.y = 16;
-  add(body, plate([[-11, -3], [6, -4], [11, -2], [12, 0], [11, 2], [6, 4], [-11, 3]], 5, 1.2), M.paint, 0, -2.5, 0);
-  add(body, rbox(14, 2.4, 2.4, 0.8), M.trim, -14, 0.6, 0);                             // tail boom
-  add(body, rbox(3, 5, 1, 0.4), M.paint, -20, 2.6, 0);                                 // fin
-  add(body, rbox(1.6, 0.8, 7, 0.3), M.trim, -20, 0.8, 0);
-  add(body, sph(3, 16, 12), M.glass, 6.5, 1.6, 0).scale.set(1.4, 0.6, 0.9);            // canopy
+  const burn = f % 2;
+  limb(body, [-13, 0, 0], [10, 0, 0], 2.5, H).scale.set(1, 1, 0.85);              // fuselage
+  add(body, sph(2.5, 16, 12), H, 11.5, -0.2, 0).scale.set(1.8, 0.8, 0.85);        // nose
+  add(body, cyl(0.35, 0.35, 3, 8), M.steel, 15.4, -0.4, 0, 0, 0, Math.PI / 2);          // nose gun
+  add(body, plate([[7, -1.3], [-9, -1.6], [-12, -0.8], [-12, 0.8], [-9, 1.6], [7, 1.3]], 1.2, 0.4), M.trim, 0, 1.9, 0); // spine
+  add(body, sph(2.2, 16, 12), M.glass, 6.2, 1.5, 0).scale.set(1.9, 0.8, 0.8);          // canopy
   for (const side of [-1, 1]) {
-    add(body, rbox(6, 1.4, 6, 0.4), M.trim, -1, 0.4, side * 6.5);                      // stub wing
-    const nac = grp(); nac.position.set(-1, 1.4, side * 10);
-    add(nac, cyl(3.2, 3.2, 3, 18), M.dark, 0, 0, 0);
-    add(nac, new THREE.TorusGeometry(5.6, 0.5, 6, 24), M.steel, 0, 1.4, 0, Math.PI / 2);
-    for (let k = 0; k < 3; k++) add(nac, rbox(10.6, 0.25, 1.2, 0.1), M.rotor, 0, 1.6, 0, 0, k / 3 * Math.PI + (f % 2) * Math.PI / 6 * side, 0);
-    body.add(nac);
-    add(body, cyl(0.45, 0.45, 5, 8), M.gunmetal, 11, -2.4, side * 1.6, 0, 0, Math.PI / 2); // nose guns
+    const s = side;
+    add(body, plate([[5, s * 1.5], [-3.5, s * 16], [-8, s * 16], [-6.5, s * 1.5]], 1.4, 0.5), H, 0, -0.6, 0);        // wing
+    add(body, plate([[0.9, s * 9], [-3.2, s * 15.6], [-7.7, s * 15.6], [-6.9, s * 9]], 0.9, 0.3), M.paint, 0, 0.5, 0);  // team outer panel
+    add(body, rbox(7.4, 0.4, 0.6, 0.2), M.hazard, -3, 1.2, s * 8.8);                                    // panel edge
+    add(body, sph(0.6, 8, 6), M.lamp, -5.8, 0.2, s * 16.3);                                                                 // wingtip lights
+    add(body, cyl(0.85, 0.85, 6, 10), M.steel, 1.5, -1.6, s * 6.5, 0, 0, Math.PI / 2);                                       // rocket pod
+    add(body, sph(0.85, 8, 6), M.steel, 4.5, -1.6, s * 6.5);
+    add(body, plate([[-10.5, s * 1.2], [-14, s * 6.5], [-16.2, s * 6.5], [-15.2, s * 1.2]], 1, 0.35), H, 0, 0.2, 0); // tailplane
+    add(body, rbox(3, 1.4, 1.2, 0.5), M.gunmetal, 2, 0.6, s * 2.6);                                                         // intake
   }
-  add(body, sph(0.7, 8, 6), M.lamp, -20.5, 5, 0);
+  // tail fin: a swept team slab standing up from the tail
+  add(body, rbox(5, 5.2, 0.9, 0.4), M.paint, -13.4, 3.4, 0, 0, 0, 0.5);
+  // the jet: nozzle, a hot core and its glow, longer and brighter on frame 1
+  add(body, cyl(1.7, 1.4, 2, 14), M.gunmetal, -15.2, 0, 0, 0, 0, Math.PI / 2);
+  const L = burn ? 6 : 3.4;
+  add(body, cyl(0.15, 1.15, L, 12), M.ember, -16.2 - L / 2, 0, 0, 0, 0, Math.PI / 2);
+  add(body, cyl(0.4, 1.9, L * 1.25, 12), EXHAUST_GLOW, -16 - L * 0.62, 0, 0, 0, 0, Math.PI / 2);
+  add(body, sph(0.6, 8, 6), M.lamp, -13.8, 6.1, 0);                                        // fin light
   g.add(body);
   return g;
 }
@@ -367,7 +384,7 @@ export const UNIT_MODELS = {
   vanguard: { build: vanguard, frames: 4, r: 26, h: 24 },
   lancer: { build: lancer, frames: 4, r: 18, h: 18 },
   medic: { build: medic, frames: 4, r: 18, h: 16 },
-  wasp: { build: wasp, frames: 2, r: 26, h: 26 },
+  wasp: { build: wasp, frames: 2, r: 24, h: 26 }, // (r: the exhaust glow reaches 23.5 behind)
   observer: { build: observer, frames: 2, r: 13, h: 26 },
   bastion: { build: bastion, frames: 2, r: 36, h: 38 },
   siegeTank: { build: siegeTank, frames: 4, r: 35, h: 30 },

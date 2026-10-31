@@ -93,13 +93,10 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
     try {
       // The menu's pages and the lobby.
       await cornerOn(o, 'home', '#menuHome');
-      await press('#btnAbout'); await cornerOn(o, 'about', '#menuAbout');
       // OPTIONS: on every device (NAME; CONTROLS too with a mouse and a keyboard).
-      await press('#btnAboutBack');
       assert.ok(await shown('#btnOptions'), 'OPTIONS on the first page');
       await press('#btnOptions'); await cornerOn(o, 'options (the menu\'s)', '#options', '#options .card'); await press('#btnOptionsClose');
-      await press('#btnAbout');
-      await press('#btnAboutBack'); await press('#btnHowTo'); await cornerOn(o, 'how to play (the menu\'s)', '#help', '#help .card');
+      await press('#btnHowTo'); await cornerOn(o, 'how to play (the menu\'s)', '#help', '#help .card');
       await press('#btnHelpClose'); await press('#btnOnline'); await cornerOn(o, 'the lobby', '#online');
       // The join page says how it works, in two lines at most, and fits.
       const how = await page.locator('#onlineHow').evaluate(e => ({ shown: e.offsetParent !== null, lines: Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)), fits: e.closest('.card').scrollHeight <= e.closest('.card').clientHeight + 1 }));

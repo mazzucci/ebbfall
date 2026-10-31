@@ -1,4 +1,4 @@
-// The service worker (tools/offline/sw.js, as the build writes it) in Node on a fake Cache Storage: what PLAY OFFLINE
+// The service worker (tools/offline/sw.js, as the build writes it) in Node on a fake Cache Storage: what SAVE OFFLINE
 // hears back (all files stored, some, none, no storage), an install that resumes where it stopped, and Cloudflare's
 // analytics beacon left to the network. Also the manifest's app icons, which the install prompt needs.
 import { test } from 'node:test';
@@ -39,7 +39,7 @@ function worker(caches, flags = {}) {
   return on;
 }
 
-/** What the worker answers PLAY OFFLINE's message. */
+/** What the worker answers SAVE OFFLINE's message. */
 async function ask(on) {
   let reply, waited;
   const port = { postMessage: (m) => { reply = structuredClone(m); } }; // (as a real port would: a copy, in this realm)
@@ -48,7 +48,7 @@ async function ask(on) {
   return reply;
 }
 
-test('every file stored: ready, with the build the About page shows', async () => {
+test('every file stored: ready, with the build the first page\'s footer shows', async () => {
   assert.deepEqual(await ask(worker(fakeCaches(FILES))), { version: 'b1d0', total: 5, stored: 5 });
 });
 

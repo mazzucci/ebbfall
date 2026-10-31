@@ -40,6 +40,10 @@ node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art o
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
 node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
                              # wording (a Chromium too; output is committed, kept under 300 KB)
+node tools/docs-shots.mjs [key ...] # re-capture the docs' in-game screenshots (public/docs-img/shots/*.webp, committed,
+                             # each under 100 KB; tools/docs/shots.mjs lists them) after the game's look changes: needs
+                             # `npm run build` first and a Chromium; not run in CI. Then `npm run build` shows them
+node tools/docs/build.mjs    # the docs alone into dist/ (npm run build makes them anyway: the Vite plugin)
 ```
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
@@ -69,8 +73,8 @@ selftest.html         the device check (a third entry): plays the golden games, 
                       minute measured through main.js's loop (`probe`), the report POSTed to the relay for a PERF-XXXXXX code
 index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays; its head is
                       what search engines and shared links show (title, description, canonical, og: and twitter: cards
-                      with public/og.png, JSON-LD), and the About page and How to play are the text crawlers read: keep
-                      them true to the game (test/site-preview.test.js)
+                      with public/og.png, JSON-LD); its How to play card is also the docs' How to play page (taken at
+                      build time: one text), so keep it true to the game (test/site-preview.test.js, test/docs.test.js)
 src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
@@ -125,12 +129,14 @@ src/client/           everything that touches the browser
                       `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
-                      until a first game is over), the single-player page (the board: eight fixed spots, you and one to
+  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, OPTIONS, INSTALL or SAVE OFFLINE,
+                      the record; FIRST GAME until a first game is over; a quiet footer: About Ebbfall and Docs, links
+                      to /docs/ in a tab of their own, dimmed and "online only" offline, GitHub, the version), the
+                      single-player page (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
                       + AI in the lowest empty spot; the map list, any map that seats them, with a preview, FIRST GAME),
-                      the About page (the source, the device check, the version); the map list and preview the lobby
-                      shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
+                      the map list and preview the lobby shares; `?first` (the docs' link) starts the guided first game
+                      and leaves the address; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
                       board or the map (then it is theirs: saved, and an ordinary game)
   seats.js            the board's eight fixed spots (a seat keeps its spot, and its spot's colour in the game, whatever
@@ -180,8 +186,8 @@ src/client/           everything that touches the browser
   fx.js               particles and markers (client-only, fed by sim events)
   scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
-                      first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
-                      installs, and About) asks the service worker and says so until everything is saved
+                      first page and the pause card; SAVE OFFLINE (the first page once installed or where nothing
+                      installs) asks the service worker, which fetches what is missing, and says so until all is saved
   online.js           Multiplayer: the lobby (open/join a room by code or link, a line on how; the room is single
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
@@ -214,7 +220,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       small screens; the link opens the same setup and START plays the same start, nothing saved; a
                       change makes it the player's; a bad link opens the plain menu; none after the guided game),
                       selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
-                      PLAY OFFLINE against the real service worker, the app icons), voice.e2e.mjs (the voice lab
+                      SAVE OFFLINE against the real service worker, the app icons), docs.e2e.mjs (`?first` starts the
+                      guided game; the docs fit phones and a desktop without a script; the footer opens them), voice.e2e.mjs (the voice lab
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
                       rumble; ENDFALL_VOICE_OUT=dir writes WAVs to listen to)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
@@ -237,6 +244,9 @@ test/site-preview.test.js the link cards (site/preview.js): a room's code checke
                       overlong, lower case), a challenge's card and its link made again from the code (hostile and other
                       codes: the site's card), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
                       robots.txt and the sitemap, and that the build's service worker leaves those out
+test/docs.test.js     the docs (tools/docs) built into a temporary folder: a page per unit and building, every internal
+                      link resolving, the sitemap, data.json against the tables, each page's head, How to play the
+                      game's card, no counter lists, no race's pages naming the other's kinds, no "AI" (the computer)
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -257,14 +267,15 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting): dist/ as a Worker's static assets
                       (wrangler.toml: ebbfall.com/* and www as zone routes, exact paths as on GitHub Pages, the Worker
-                      first only for / and /index.html); worker.js (the game's page, rewritten with HTMLRewriter only for
+                      first only for / and /index.html); worker.js (a docs folder's address, /docs/units/trooper/, is
+                      its index.html; an unknown /docs/ page the docs' own 404 page, with a 404; the game's page, rewritten with HTMLRewriter only for
                       a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
                       bytes sent; www and http to https://ebbfall.com/; a page load that is not a file goes to /, a
                       missing file is a 404), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
                       with CODE checked against the relay's alphabet; a challenge's, `?vs=CODE`, through
                       src/client/challenge.js, its words from the code's values alone),
-                      cache.js (assets/ immutable; the pages, sw.js and the manifest
-                      no-cache), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
+                      cache.js (assets/ immutable; the pages, sw.js, the manifest and /docs/ no-cache; /docs-img/ a
+                      day), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see
                       the traffic, DNS-only again for a rollback); CI's deploy job
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
@@ -275,10 +286,24 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
                       file of dist/ but source maps and WEB_ONLY
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
+tools/docs/           the docs micro-site at /docs/ (docs/MULTIPLAYER.md, Hosting: "The docs"), built by `npm run build`
+                      into dist/ (build.mjs: the Vite plugin `docs()`, /llms.txt, /sitemap.xml): data.mjs (the races'
+                      kinds, what trains and researches what, /docs/data.json, all from src/engine/constants.js),
+                      pages.mjs (the reference pages generated from the data: races, a page per unit and building, the
+                      lists, the tech trees; How to play taken from index.html's card; the hand-written pages/*.html,
+                      the docs home and About: edit them rather than add to them), html.mjs and docs.css (the shell
+                      and look: plain HTML, no script), stats.mjs (the preview card's two stat rows, the stat-chips
+                      branch's `statRows` until it is on main), sprites.mjs (each kind's frame cut from the atlas in
+                      seat 0's gold into dist/docs-img/sprites/), shots.mjs (the screenshots, below). Never stored
+                      for offline play (tools/offline/plugin.mjs WEB_ONLY: docs/, docs-img/, llms.txt). No counter lists
+                      and no race's pages naming the other race's units; "the computer", never "AI"
+tools/docs-shots.mjs  the docs' in-game screenshots, set up through the test hooks (test/e2e/harness.mjs; the room through
+                      a local relay), encoded as WebP by the browser into public/docs-img/shots/ (committed); by hand
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colours to stay small; output committed
-public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for
-                      crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
+public/               copied as is into dist/: the icons, the manifest, art/; og.png and robots.txt are for crawlers and
+                      link previews, docs-img/shots/ the docs' screenshots (tools/offline/plugin.mjs WEB_ONLY: not
+                      stored for offline play; sitemap.xml and llms.txt are made by the build, tools/docs)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the

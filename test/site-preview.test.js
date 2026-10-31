@@ -6,7 +6,7 @@
 // 1200x630, small), robots.txt and sitemap.xml, and that none of those is stored for offline play.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ORIGIN, ROOM_ALPHABET, ROOM_LETTERS, roomCode, preview, edits, TAGS } from '../site/preview.js';
@@ -148,26 +148,25 @@ test('the preview image: a 1200x630 PNG as the head says, small enough for every
   assert.ok(png.length < 300 * 1024, `${Math.round(png.length / 1024)} KB`);
 });
 
-test('robots.txt lets everything be crawled and names the sitemap; the sitemap lists the game', () => {
+test('robots.txt lets everything be crawled and names the sitemap (made by the build: test/docs.test.js)', () => {
   const robots = read('public/robots.txt');
   assert.match(robots, /^User-agent: \*$/m);
   assert.match(robots, /^Allow: \/$/m);
   assert.doesNotMatch(robots, /^Disallow: \S/m);
   assert.match(robots, new RegExp(`^Sitemap: ${ORIGIN}/sitemap\\.xml$`, 'm'));
-  const sitemap = read('public/sitemap.xml');
-  assert.match(sitemap, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
-  assert.deepEqual([...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]), [`${ORIGIN}/`]);
+  assert.throws(() => read('public/sitemap.xml'), 'no hand-kept sitemap: tools/docs/build.mjs writes dist/sitemap.xml, the game and every docs page');
 });
 
 test('the files for crawlers and previews are not stored for offline play (the build\'s service worker leaves them out)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'endfall-sw-'));
   try {
-    for (const f of ['index.html', 'og.png', 'robots.txt', 'sitemap.xml', 'icon.svg']) writeFileSync(join(dir, f), f);
+    mkdirSync(join(dir, 'docs', 'units', 'trooper'), { recursive: true }); mkdirSync(join(dir, 'docs-img', 'sprites'), { recursive: true });
+    for (const f of ['index.html', 'og.png', 'robots.txt', 'sitemap.xml', 'icon.svg', 'llms.txt', 'docs/index.html', 'docs/data.json', 'docs/units/trooper/index.html', 'docs-img/sprites/trooper.png']) writeFileSync(join(dir, f), f);
     const plugin = offline();
     plugin.configResolved({ build: { outDir: dir }, define: {} });
     plugin.closeBundle();
     const files = JSON.parse(readFileSync(join(dir, 'sw.js'), 'utf8').match(/^const FILES = (.*);$/m)[1]);
     assert.deepEqual(files, ['./', 'icon.svg', 'index.html']);
-    assert.deepEqual([...WEB_ONLY].sort(), ['og.png', 'robots.txt', 'sitemap.xml']);
+    assert.deepEqual([...WEB_ONLY].sort(), ['docs-img/', 'docs/', 'llms.txt', 'og.png', 'robots.txt', 'sitemap.xml'], 'the docs (pages, data, images) and the files for crawlers and agents');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -1,4 +1,4 @@
-// Entry point: the menu first. The menu's pages, the lobby, INSTALL and PLAY OFFLINE (menu.js, online.js, offline.js)
+// Entry point: the menu first. The menu's pages, the lobby, INSTALL and SAVE OFFLINE (menu.js, online.js, offline.js)
 // and the sound and full screen (corner.js: the screen's corner and the top bar's pair) are wired as soon as this small
 // graph is in, so they work before the game has loaded, and if it cannot; nothing here imports the
 // renderer. The game (main.js: the renderer and its art, the loop) loads behind the menu, and the sim's WASM with it
@@ -61,7 +61,7 @@ const here = () => { const url = reloadUrl(); return url === location.href ? pen
 // Ebbfall opens and plays without a connection once it has been loaded. Registered once the game's load is over (its
 // install fetches every file again: not while the game's own load still needs the connection), loaded or not.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  const register = () => registered(navigator.serviceWorker.register('./sw.js').catch(() => null)); // (null: not available, file:// or private mode; PLAY OFFLINE says so)
+  const register = () => registered(navigator.serviceWorker.register('./sw.js').catch(() => null)); // (null: not available, file:// or private mode; SAVE OFFLINE says so)
   loading.catch(() => {}).then(() => { if (document.readyState === 'complete') register(); else addEventListener('load', register); });
   // A new version installed while the game is open: out of a game (the menu, the lobby: back into its room), switch to
   // it at once (online, friends must share a version); in a game, say so (it loads next time) rather than interrupt.

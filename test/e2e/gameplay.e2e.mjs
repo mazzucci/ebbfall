@@ -595,17 +595,20 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
       assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there; the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
-      // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
-      await press('#btnAbout');
-      assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#cornerSound'), 'About opens, the sound icon still there');
-      assert.equal(await page.locator('#menuAbout h2').textContent(), 'ABOUT');
-      const src = page.locator('#srcLink');
-      assert.deepEqual([await src.textContent(), await src.getAttribute('href'), await src.getAttribute('target'), await src.getAttribute('rel')], ['Source code on GitHub', 'https://github.com/mazzucci/ebbfall', '_blank', 'noopener']);
-      assert.equal(await page.locator('#checkLink').getAttribute('href'), './selftest.html');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'OPTIONS', 'SAVE OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); SAVE OFFLINE (nothing to install here)');
+      // The footer: About Ebbfall and the docs (a tab of their own), the source, the version; no About page in the game.
+      const links = await page.$$eval('#homeFoot a', as => as.map(a => [a.textContent, a.getAttribute('href'), a.target, a.rel]));
+      assert.deepEqual(links, [['About Ebbfall', '/docs/about/', '_blank', 'noopener'], ['Docs', '/docs/', '_blank', 'noopener'], ['GitHub', 'https://github.com/mazzucci/ebbfall', '_blank', 'noopener']]);
+      assert.ok(await shown('#homeFoot') && await page.locator('#docsOffline').isHidden(), 'the footer; online: no note');
       assert.match(await page.locator('#buildId').textContent(), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
-      await press('#btnAboutBack');
-      assert.ok(await shown('#menuHome') && await page.locator('#menuAbout').isHidden(), 'BACK: the first page');
+      assert.equal(await page.locator('#btnAbout, #menuAbout').count(), 0, 'no About page: the docs hold it');
+      if (device === DESKTOP && ENGINE === 'chromium') { // (offline, the docs cannot load: their links say so, quietly; Chromium's offline fires the page's events)
+        await ctx.setOffline(true);
+        await page.locator('#docsOffline').waitFor();
+        assert.ok(await page.locator('#homeFoot').evaluate(e => e.classList.contains('off')), 'offline: dimmed, online only');
+        await ctx.setOffline(false);
+        await page.locator('#docsOffline').waitFor({ state: 'hidden' });
+      }
       // SINGLE PLAYER: its page, the sides board (YOU on your side, AI 1 the enemy), no SOUND row; BACK.
       await press('#btnSolo');
       assert.ok(await shown('#menuSolo') && await page.locator('#menuHome').isHidden(), 'single player opens its page');
@@ -752,10 +755,8 @@ test('a game that never finishes loading: START GAME waits, BACK calls it off, a
     assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…');
     await page.locator('#btnSoloBack').click();
     assert.ok(await page.locator('#menuHome').isVisible(), 'BACK works while the game loads');
-    await page.locator('#btnAbout').click(); await page.locator('#menuAbout').waitFor();
-    await page.locator('#btnOffline').click(); // (the service worker is registered once the game's load is over: not yet)
-    await page.waitForFunction(() => /^Saving for offline…/.test(document.getElementById('offlineMsg').textContent), null, { timeout: 10000 });
-    await page.locator('#btnAboutBack').click();
+    await page.locator('#btnInstall').click(); // SAVE OFFLINE (the service worker is registered once the game's load is over: not yet)
+    await page.waitForFunction(() => /^Saving…/.test(document.getElementById('homeOfflineMsg').textContent), null, { timeout: 10000 });
     await page.locator('#btnSolo').click();
     assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the start was called off: the button is itself again');
     assert.ok(await page.locator('#btnStart').isEnabled());
@@ -2384,12 +2385,12 @@ test('phone: while placing, the ghost appears under the finger and follows it; l
   } finally { await d.close(); }
 });
 
-test('the menu fits a small phone on every page (the first with its record and PLAY OFFLINE\'s answer), each heading in view', async () => {
+test('the menu fits a small phone on every page (the first with its record, SAVE OFFLINE\'s answer and the footer), each heading in view', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
-    await page.evaluate(() => { document.getElementById('record').textContent = 'Easy: 3 won · 1 lost'; document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
+    await page.evaluate(() => { document.getElementById('record').textContent = 'Easy: 3 won · 1 lost'; document.getElementById('homeOfflineMsg').textContent = 'Saved: Ebbfall plays with no connection ✓'; });
     const fits = async (card, heading, what) => {
       const sc = await page.locator(card).evaluate(e => [e.scrollHeight, e.clientHeight]), top = (await page.locator(heading).boundingBox()).y;
       assert.ok(top >= 0, `${what}: the heading in view: ${top}`);
@@ -2397,11 +2398,8 @@ test('the menu fits a small phone on every page (the first with its record and P
     };
     assert.ok(await page.locator('#btnFirstHome').isVisible(), 'with FIRST GAME (a newcomer)');
     await fits('#start .card.menu', '#menuHome h1', 'the first page');
-    await page.locator('#btnAbout').tap();
-    await fits('#start .card.menu', '#menuAbout h2', 'about');
-    const b = await page.locator('#btnAboutBack').boundingBox();
-    assert.ok(b.y + b.height <= 375, `About's BACK in view: ${JSON.stringify(b)}`);
-    await page.locator('#btnAboutBack').tap();
+    const f = await page.locator('#homeFoot').boundingBox();
+    assert.ok(f.y + f.height <= 375, `the footer in view: ${JSON.stringify(f)}`);
     await page.locator('#btnSolo').tap();
     await fits('#start .card.menu', '#menuSolo h2', 'single player');
     await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();
@@ -2409,13 +2407,13 @@ test('the menu fits a small phone on every page (the first with its record and P
   } finally { await ctx.close(); }
 });
 
-test('the first page: the name in title case over the shore, whose tide lines keep below the content (a record and PLAY OFFLINE\'s answer too), go with the page and stand still under reduced motion', async () => {
+test('the first page: the name in title case over the shore, whose tide lines keep below the content (a record, SAVE OFFLINE\'s answer and the footer too), go with the page and stand still under reduced motion', async () => {
   for (const [w, h, reducedMotion, tip] of [[844, 390, 'no-preference', false], [667, 375, 'no-preference', false], [412, 915, 'reduce', false], [932, 430, 'no-preference', true], [568, 320, 'no-preference', true]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h }, reducedMotion }), page = await ctx.newPage();
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      if (tip) await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; document.getElementById('record').textContent = 'RECORD 3 WINS - 1 LOSS'; });
+      if (tip) await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Saved: Ebbfall plays with no connection ✓'; document.getElementById('record').textContent = 'RECORD 3 WINS - 1 LOSS'; });
       assert.equal(await page.locator('#menuHome h1').textContent(), 'Ebbfall', 'the title');
       const ebbs = () => page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb').length);
       const shore = page.locator('#menuHome .shore');
@@ -2434,8 +2432,8 @@ test('the first page: the name in title case over the shore, whose tide lines ke
       await page.evaluate(() => { for (const a of document.getAnimations()) a.play(); });
       assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
       assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
-      await page.locator('#btnAbout').tap();
-      assert.ok(await shore.isHidden() && await page.locator('#menuAbout').isVisible(), 'About: no shore');
+      await page.locator('#btnSolo').tap();
+      assert.ok(await shore.isHidden() && await page.locator('#menuSolo').isVisible(), 'single player: no shore');
       assert.equal(await ebbs(), 0, 'the lines stop with the page');
     } finally { await ctx.close(); }
   }
@@ -3019,7 +3017,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PLAY OFFLINE) fits at 667x375, 844x390, 412x915 and 568x320: one line on its side, upright two centred lines; no scrolling', async () => {
+test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, OPTIONS, SAVE OFFLINE) fits at 667x375, 844x390, 412x915 and 568x320: one line on its side, upright two centred lines; no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
     try {
@@ -3030,7 +3028,7 @@ test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PL
         const c = document.querySelector('#start .card.menu');
         return { bs, sc: [c.scrollHeight, c.clientHeight] };
       });
-      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'HOW TO PLAY', 'OPTIONS', 'SAVE OFFLINE'], `${w}x${h}`);
       assert.ok(got.bs.every(b => b.l >= 0 && b.r <= w && b.b <= h), `${w}x${h}: every button in view: ${JSON.stringify(got.bs)}`);
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];

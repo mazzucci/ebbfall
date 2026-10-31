@@ -65,7 +65,7 @@ for (const [label, device, collapsed] of TABS) {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
       const tap = (sel) => page.locator(sel).tap();
-      for (const [open, scope, back] of [[null, '#menuHome'], ['#btnSolo', '#menuSolo', '#btnSoloBack'], ['#btnAbout', '#menuAbout', '#btnAboutBack'], ['#btnHowTo', '#help', '#btnHelpClose'], ['#btnOnline', '#online', '#btnOnlineBack']]) {
+      for (const [open, scope, back] of [[null, '#menuHome'], ['#btnSolo', '#menuSolo', '#btnSoloBack'], ['#btnHowTo', '#help', '#btnHelpClose'], ['#btnOnline', '#online', '#btnOnlineBack']]) {
         if (open) await tap(open);
         assert.deepEqual(await outside(page, scope), [], `${label}, ${scope}: the buttons inside the screen`);
         assert.deepEqual(await pageStill(page), { x: 0, y: 0, over: 0, wide: 0 }, `${label}, ${scope}: the page does not scroll`);

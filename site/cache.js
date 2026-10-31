@@ -6,8 +6,10 @@
  * Cache-Control by path. Vite's output in assets/ is named by its content: kept for good. The pages, the service
  * worker and the manifest are checked on every load (no-cache: a 304 when unchanged), so a deploy is seen at once and
  * the service worker's update finds the new build (tools/offline/sw.js stores each file fetched past the HTTP cache, and
- * boot.js switches to a new version when it is installed). Anything else (art/, the icons): Cloudflare's own default,
- * revalidated every time as well (`public, max-age=0, must-revalidate`, with an ETag).
+ * boot.js switches to a new version when it is installed). The docs (/docs/: pages and data.json) likewise; their
+ * images (/docs-img/: sprites and screenshots, named by what they show, not by content) kept a day. No two rules may
+ * match one path: Cloudflare's _headers would join both values. Anything else (art/, the icons, llms.txt):
+ * Cloudflare's own default, revalidated every time as well (`public, max-age=0, must-revalidate`, with an ETag).
  */
 export const CACHE = [
   ['/assets/*', 'public, max-age=31536000, immutable'],
@@ -16,6 +18,8 @@ export const CACHE = [
   ['/voice-lab.html', 'no-cache'],
   ['/sw.js', 'no-cache'],
   ['/manifest.webmanifest', 'no-cache'],
+  ['/docs/*', 'no-cache'],
+  ['/docs-img/*', 'public, max-age=86400'],
 ];
 
 /** The Cache-Control CACHE gives `path`, or null (the asset's own). */

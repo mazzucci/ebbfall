@@ -5,7 +5,8 @@
 // /selftest, which the service worker could not answer a page load with). It answers ebbfall.com and www.ebbfall.com
 // (wrangler.toml's routes, over the proxied records): www and plain http go to https://ebbfall.com/, the game's one
 // origin (its service worker, its saved settings). The game's page gets a shared link's own card (preview.js: a
-// room's) and, with a token, the analytics beacon (`page`).
+// room's) and, with a token, the analytics beacon (`page`). The docs (/docs/, tools/docs) are files too; the Worker
+// answers their folder addresses (/docs/units/trooper/ is that folder's index.html) and their own 404 (`docs`).
 
 import { cacheControl } from './cache.js';
 import { ORIGIN, preview, edits } from './preview.js';
@@ -84,7 +85,36 @@ function notFound(req, url) {
   if (navigate && (req.method === 'GET' || req.method === 'HEAD')) {
     return new Response(null, { status: 302, headers: { Location: new URL('/' + url.search, url).href, 'Cache-Control': 'no-store' } });
   }
-  return new Response('Not found\n', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+  return missing();
+}
+const missing = () => new Response('Not found\n', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+
+/**
+ * The docs (tools/docs: dist/docs/), which link to folders (/docs/units/trooper/): with html_handling "none" the
+ * assets serve exact files only, so a folder's address is not a file and comes here; it gets the folder's index.html
+ * (/docs, and a folder without its slash, are sent to the address with it, as a folder's relative links need). Any
+ * other /docs/ address is the docs' own 404 page, with a 404 status: a mistyped or old docs link (a unit renamed) is
+ * shown where it went wrong, with links back into the docs, rather than the game's redirect (which would drop a reader
+ * who came for the docs onto the game's menu with no word of why). Requests that are not page loads (an image) get the
+ * plain 404, as anywhere.
+ */
+async function docs(req, url, env) {
+  const asset = (path, method = req.method) => env.ASSETS.fetch(new Request(new URL(path, url), { method, headers: req.headers }));
+  const path = url.pathname;
+  if (path.endsWith('/')) {
+    const res = await asset(path + 'index.html');
+    if (res.status !== 404) return withCache(res, path + 'index.html');
+  } else if (!/\.\w+$/.test(path) && (await asset(path + '/index.html', 'HEAD')).ok) {
+    return new Response(null, { status: 301, headers: { Location: new URL(path + '/' + url.search, url).href, 'Cache-Control': 'no-store' } });
+  } else {
+    const res = await asset(path); // (a file: here only in tests and wrangler dev; Cloudflare serves files itself)
+    if (res.status !== 404) return withCache(res, path);
+  }
+  const navigate = req.headers.get('Sec-Fetch-Mode') === 'navigate' || (req.headers.get('Accept') || '').includes('text/html');
+  if (!navigate || (req.method !== 'GET' && req.method !== 'HEAD')) return notFound(req, url);
+  const page = await env.ASSETS.fetch(new Request(new URL('/docs/404.html', url), { method: 'GET' }));
+  if (!page.ok) return missing(); // (a build without the docs' 404 page: still a 404, never the game)
+  return new Response(req.method === 'HEAD' ? null : page.body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
 export default {
@@ -94,6 +124,8 @@ export default {
       return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL}${url.pathname}${url.search}` } });
     }
     if (url.pathname === '/' || url.pathname === '/index.html') return page(req, url, env);
+    if (url.pathname === '/docs') return new Response(null, { status: 301, headers: { Location: new URL('/docs/' + url.search, url).href, 'Cache-Control': 'no-store' } });
+    if (url.pathname.startsWith('/docs/')) return docs(req, url, env);
     const res = await env.ASSETS.fetch(new Request(new URL(url.pathname, url), { method: req.method, headers: req.headers }));
     return res.status === 404 ? notFound(req, url) : withCache(res, url.pathname);
   },

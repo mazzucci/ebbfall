@@ -198,8 +198,8 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
   a free browser RTS in the 1998 mold"), a description, `rel=canonical` https://ebbfall.com/, Open Graph and X
   (`summary_large_image`) tags with public/og.png (1200x630, made by tools/og.mjs from the game's own sprites), and
   JSON-LD (`VideoGame` and `WebApplication`: free, single player and multiplayer, no ratings). robots.txt allows
-  everything and names sitemap.xml, which lists the one page; both are plain files (and, like og.png, left out of the
-  offline store: tools/offline/plugin.mjs `WEB_ONLY`). A link with a card of its own gets it from the Worker:
+  everything and names sitemap.xml, which lists the game's page and every docs page (made by the build, tools/docs:
+  below); both are plain files (and, like og.png, left out of the offline store: tools/offline/plugin.mjs `WEB_ONLY`). A link with a card of its own gets it from the Worker:
   site/preview.js `preview(url)` maps the URL to the fields it changes (a room's link, `?room=CODE` or the older
   `?join=CODE`: "Join my Ebbfall game: room CODE", its own description, og:url the page with that room alone), and
   `page` writes them into the og: and twitter: tags with HTMLRewriter, with or without the beacon (below). The code is
@@ -217,6 +217,23 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
   the room, the token). Crawlers rarely revalidate; the cards are checked by fetching a room link (`curl -s
   'https://ebbfall.com/?room=WGNJ' | grep og:`, or a challenge's: `?vs=1.8.5.ky.h00v13v23v33`) or with a platform's own debugger (Facebook's Sharing Debugger, which
   WhatsApp shares; Discord and X cache a URL's card for a while).
+- **The docs** (tools/docs; 2026-10-31): a small static site at /docs/ telling visitors, search engines and agents what
+  Ebbfall is and how it plays, without playing. Built with the game (`npm run build`, a Vite plugin) into dist/docs/
+  (plain HTML, no script; a page per race, unit and building, the lists, the tech trees, generated from the sim's
+  tables at every build, so a rebalance needs no edit; How to play taken from index.html's card; the docs home and
+  About hand-written), dist/docs-img/ (sprites cut from the atlas at build time; the screenshots, committed in
+  public/docs-img/shots/ by tools/docs-shots.mjs), /docs/data.json, /llms.txt and /sitemap.xml. Each page has its own
+  title, description, canonical, og: and twitter: tags (og.png) and BreadcrumbList JSON-LD. **Serving**: the pages
+  link to folders (/docs/units/trooper/), and with `html_handling = "none"` the assets serve exact files only, so a
+  folder's address misses them and reaches the Worker (as anything that is not a file does: run_worker_first stays
+  the game's page alone), which answers it with the folder's index.html (`docs`: a Worker request per docs page view,
+  none for their images; /docs and a folder without its slash are sent to it with a 301). An unknown /docs/ address
+  is the docs' own 404 page with a 404 status, not the game's 302: someone who came for the docs (an old link to a
+  renamed unit) is told where it went wrong, with links back into the docs, rather than dropped on the game's menu;
+  and a crawler sees a 404 to forget, not a redirect to follow. Images and scripts there get the plain 404.
+  **Cache**: the pages and data.json `no-cache` like the game's page; /docs-img/ (named by what they show, not by
+  content) a day. **Offline**: none of it is stored (`WEB_ONLY`: docs/, docs-img/, llms.txt); the game's first page
+  links to the docs in its footer, dimmed and "online only" while the browser is offline.
 - **The switch** changes the server, not the origin: the service worker, its caches and what the device remembers
   carry over; the next visit's sw.js check installs the build the Worker serves, as after any deploy.
 - **How the Worker gets the traffic: zone routes over proxied records.** `ebbfall.com/*` and `www.ebbfall.com/*` are
@@ -270,7 +287,7 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
 
 - Every pull request (.github/workflows/ci.yml): the whole browser suite (test/e2e) in Chromium in the build job, and
   in the `engines` job, beside it, the cross-engine subset (the scenarios marked `engines: true`: the menu, sound and
-  full screen, a short game through the UI, taps on a phone, joining a room through a local relay, PLAY OFFLINE, the
+  full screen, a short game through the UI, taps on a phone, joining a room through a local relay, SAVE OFFLINE, the
   golden games) in WebKit and in Firefox (`ENDFALL_ENGINE=webkit|firefox npm run test:e2e`; Firefox under `xvfb-run`,
   as it has WebGL only with a display). Scenarios that need Chromium (gestures through CDP: drags, long presses,
   double taps, two fingers) say so and skip elsewhere; `ENDFALL_ALL=1` runs all the others in WebKit or Firefox too.

@@ -1,0 +1,86 @@
+/* The docs' look (tools/docs/html.mjs inlines it in every page): the game's dark style and its two typefaces
+   (src/style.css's tokens), no framework and no script. One design for every device, laid out by the viewport only. */
+:root{--bg:#0b0f16;--panel:#121a25;--panel2:#182333;--line:#263548;--line2:#34475f;--fg:#dde5ee;--muted:#8294aa;--dim:#54657a;
+  --ally:#f5a524;--ally2:#ffd27a;--shard:#4fd1c5;--ether:#a78bfa;--ok:#5ad67d;--shield:#cfe6ff;
+  --display:"Chakra Petch",system-ui,sans-serif;--mono:"Share Tech Mono",ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:500 16px/1.55 var(--display)}
+a{color:var(--ally2);text-underline-offset:3px} a:hover{color:var(--ally)}
+img{max-width:100%;height:auto}
+.wrap{max-width:1040px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right))}
+h1,h2,h3{font-weight:700;line-height:1.2;letter-spacing:.02em}
+h1{font-size:clamp(28px,6vw,40px);margin:.3em 0 .35em} h2{font-size:22px;margin:1.6em 0 .6em} h3{font-size:17px;margin:1.2em 0 .4em}
+p,ul,ol,dl{margin:.6em 0}
+kbd{font:13px var(--mono);background:var(--panel2);border:1px solid var(--line2);border-bottom-width:2px;border-radius:3px;padding:0 4px}
+.lead{font-size:18px;color:var(--fg);max-width:44em} .muted{color:var(--muted)}
+/* Header: the wordmark, the sections, PLAY; on a narrow screen the sections take a row of their own and scroll. */
+.top{border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2}
+.top .wrap{display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;min-height:54px;padding-top:6px;padding-bottom:6px}
+.brand{display:flex;align-items:center;gap:8px;color:var(--fg);text-decoration:none;font:700 20px var(--display);letter-spacing:.14em}
+.brand svg{width:30px;height:30px}
+.nav{display:flex;gap:4px 16px;overflow-x:auto;scrollbar-width:none;font:600 13px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.nav a{color:var(--muted);text-decoration:none;white-space:nowrap;padding:4px 0} .nav a:hover,.nav a[aria-current]{color:var(--ally2)}
+.btn{display:inline-block;background:var(--ally);color:#1a1205;border-radius:5px;font:700 14px var(--display);letter-spacing:.1em;text-decoration:none;padding:9px 16px;text-transform:uppercase}
+.btn:hover{background:var(--ally2);color:#1a1205} .btn.alt{background:var(--panel2);color:var(--fg);border:1px solid var(--line2)} .btn.alt:hover{border-color:var(--ally)}
+.top .play{margin-left:auto;padding:7px 14px}
+@media (max-width:719px){.nav{order:3;flex-basis:100%;margin:0 -2px;gap:4px 14px;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}}
+/* Breadcrumbs */
+.crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:2px 0;padding:0;margin:14px 0 0;font:13px var(--mono);color:var(--muted)}
+.crumbs li+li::before{content:"›";margin:0 8px;color:var(--dim)} .crumbs a{color:var(--muted)}
+main{padding-bottom:40px} main>h1:first-child{margin-top:22px}
+/* Cards and grids */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:0;margin:.8em 0;list-style:none}
+.grid.wide{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+a.card{display:block;color:var(--fg);text-decoration:none} a.card.kind{display:flex} a.card:hover{border-color:var(--ally)}
+.kind{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;height:100%}
+.kind .pic{height:96px;display:flex;align-items:flex-end;justify-content:center}
+.kind .pic img{max-height:96px;width:auto}
+.kind b{font-size:15px} .kind small{font:12px var(--mono);color:var(--muted)}
+.cost{display:inline-flex;gap:10px;align-items:center;font:14px var(--mono);white-space:nowrap}
+.cost i{display:inline-block;width:8px;height:8px;margin-right:4px;vertical-align:1px} .cost .s{background:var(--shard);transform:rotate(45deg);border-radius:1px} .cost .e{background:var(--ether);border-radius:50%}
+/* A kind's page: the sprite beside its name and stats */
+.hero{display:flex;gap:18px 26px;align-items:center;flex-wrap:wrap;margin:6px 0 4px}
+.hero .pic{flex:none;min-width:120px;display:flex;justify-content:center} .hero .pic img{max-height:min(200px,30vh);width:auto}
+.hero .who{flex:1 1 260px}
+.tag{display:inline-block;font:12px/1 var(--mono);color:var(--muted);border:1px solid var(--line2);border-radius:3px;padding:3px 6px;letter-spacing:.04em;margin-right:4px;text-decoration:none}
+a.tag:hover{color:var(--ally2);border-color:var(--ally)}
+.stats{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;max-width:30em}
+.sr{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.sc{display:inline-flex;align-items:baseline;gap:5px;font:16px/1.2 var(--mono);white-space:nowrap}
+.sc small{font:600 11px var(--display);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.sc.hp b{color:var(--ok)} .sc.shields b{color:var(--shield)} .sc.armor b,.sc.dmg b{color:var(--ally2)} .sc.dim{opacity:.45}
+.sc b{font-weight:400}
+.facts{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:12px 0}
+.facts dt{color:var(--muted);font:600 12px/1.9 var(--display);letter-spacing:.08em;text-transform:uppercase} .facts dd{margin:0}
+.list{padding-left:1.2em} .list li{margin:.35em 0}
+.mini{display:inline-flex;align-items:center;gap:6px;vertical-align:middle;margin:2px 14px 2px 0}
+.mini img{height:28px;width:auto}
+/* Tech tree: nested lists with connector lines, readable on a phone (it grows down, not across) */
+.tree,.tree ul{list-style:none;margin:0;padding:0}
+.tree ul{margin-left:14px;padding-left:16px}
+.tree li{position:relative;padding:6px 0}
+.tree ul>li::before{content:"";position:absolute;left:-16px;top:30px;width:14px;border-top:2px solid var(--line2)}
+.tree ul>li::after{content:"";position:absolute;left:-16px;top:0;bottom:0;border-left:2px solid var(--line2)} .tree ul>li:last-child::after{bottom:auto;height:32px}
+.node{display:inline-flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;max-width:100%}
+.node .pic img{height:44px;width:auto}
+.node b a{color:var(--fg)} .node .row{font-size:14px;color:var(--muted);margin-top:2px}
+.node .row a{color:var(--fg)} .node .row .need{color:var(--ally2)}
+/* Screenshots: a phone's in a phone's frame (CSS only), a desktop's with a thin border */
+.shots{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;margin:1.2em 0}
+figure{margin:0} figcaption{font-size:13px;color:var(--muted);margin-top:8px;max-width:36em}
+.shot img{display:block;border-radius:6px;border:1px solid var(--line2)}
+.shot.phone img{border:7px solid #1d2532;border-radius:20px;box-shadow:0 0 0 1px var(--line2),0 8px 24px rgba(0,0,0,.45)}
+.shot.portrait{max-width:min(260px,100%)} .shot.landscape{max-width:min(560px,100%)} .shot.desktop{max-width:100%}
+/* The docs home: the modes */
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;margin:1.2em 0}
+.mode h2{margin:.1em 0 .3em;font-size:20px;color:var(--ally2)} .mode p{margin:.3em 0 .8em}
+.mode.soon{border-style:dashed;background:transparent} .mode.soon h2{color:var(--muted)}
+.mode figure{margin-top:10px}
+.common{font-size:17px;border-left:3px solid var(--shard);padding-left:12px;margin:1.4em 0}
+.ctas{display:flex;flex-wrap:wrap;gap:10px;margin:1.2em 0}
+.prose{max-width:44em} .prose li{margin:.5em 0}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:14px;padding:18px 0 calc(18px + env(safe-area-inset-bottom))}
+footer .wrap{display:flex;flex-wrap:wrap;gap:6px 18px} footer a{color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

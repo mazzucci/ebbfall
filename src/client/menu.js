@@ -1,6 +1,7 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
-// is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
-// once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
+// is known), How to play, OPTIONS, INSTALL (SAVE OFFLINE once installed; both: offline.js), the record (and FIRST GAME,
+// until a first game is over on this device) and a quiet footer (About Ebbfall and the docs, at /docs/: what Ebbfall
+// is, online only; GitHub; the version);
 // the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
 // seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
@@ -152,6 +153,7 @@ export function initMenu({ onStart }) {
   const last = store.get('map') === null ? -1 : +store.get('map');
   choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
   takeChallenge(); renderMaps(); renderSeats(); showRecord();
+  if (takeFirst()) { menu.tutorial = true; onStart(); } // (a link to the guided first game: /?first, the docs')
   for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
@@ -162,11 +164,13 @@ export function initMenu({ onStart }) {
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
-  $('btnAbout').addEventListener('click', () => { sfx('select'); page('menuAbout'); });
-  $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
-  initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
+  // The footer's links to the docs (a site of their own, not saved for offline play): offline, dimmed and "online only"
+  // (the browser's word for it, `navigator.onLine`, kept up to date by its events).
+  const docsOnline = () => { const off = navigator.onLine === false; $('docsOffline').hidden = !off; $('homeFoot').classList.toggle('off', off); };
+  addEventListener('online', docsOnline); addEventListener('offline', docsOnline); docsOnline();
+  initOffline(build); // INSTALL, then SAVE OFFLINE (offline.js)
   $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   initOptions(); // OPTIONS, here and on the pause card (options.js)
@@ -183,6 +187,14 @@ function takeChallenge() {
   const m = mapOf(c);
   Object.assign(menu, { challenge: c, board: c.spots.map(r => r && { ...r }), players: filled(c.spots).length, map: c.map, size: m.size, seed: m.seed, kind: m.kind, name: m.name, side: c.side });
   page('menuSolo');
+}
+/** A link to the guided first game (`?first`, from the docs): the parameter leaves the address once read, and the
+ *  guided game starts (once the game has loaded: src/boot.js `play`). Not over a challenge, a room's link or ?bench. */
+function takeFirst() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('first')) return false;
+  q.delete('first'); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
+  return !menu.challenge && !['room', 'join', 'bench', 'online'].some(k => q.has(k));
 }
 /** The challenge of the game just won in `secs` (the menu's setup, as START GAME seated it), or null (the guided game). */
 export const wonChallenge = (secs) => (menu.tutorial ? null : fromSetup(menu, secs));
@@ -201,7 +213,7 @@ export function setup() {
   return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, size: m.size, side: 0, race: 'humans', enemyRace: 'humans', players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 }
 
-/** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */
+/** Show one page of the menu: `menuHome` (the first) or `menuSolo`. */
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */

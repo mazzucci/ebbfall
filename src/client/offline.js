@@ -1,8 +1,9 @@
-// Install and offline. The first page has one button for both: INSTALL until the game is installed, then PLAY OFFLINE.
+// Install and offline. The first page has one button for both: INSTALL until the game is installed, then SAVE OFFLINE
+// (a button names what it does: it makes sure the game is saved to play with no connection later).
 // INSTALL opens the browser's own prompt where it offers one (Chrome and Edge, on Android and desktop:
 // `beforeinstallprompt`), or the Add to Home Screen card where that is the way (iPad and iPhone: corner.js); it shows
-// on the About page and in the pause card (alone or online) too, every `.install` button, one handler. PLAY OFFLINE
-// (the first page once installed, or where nothing can install; always on the About page) asks the service worker
+// in the pause card (alone or online) too, every `.install` button, one handler. SAVE OFFLINE
+// (the first page once installed, or where nothing can install) asks the service worker
 // (tools/offline/sw.js) how much of the game it has stored, which also fetches what is missing, and says so until it
 // is all there. Never a prompt or a card the player did not tap for.
 import { $ } from './ui.js';
@@ -16,8 +17,8 @@ function showInstall() {
   const way = installWay();
   for (const b of document.querySelectorAll('.install')) b.hidden = !way;
   const home = $('btnInstall'); if (!home) return;
-  home.textContent = way ? 'INSTALL' : 'PLAY OFFLINE';
-  home.title = way ? 'Install Ebbfall as an app: its own icon, full screen, plays offline' : 'Is the whole game saved on this device, to play with no connection?';
+  home.textContent = way ? 'INSTALL' : 'SAVE OFFLINE';
+  home.title = way ? 'Install Ebbfall as an app: its own icon, full screen, plays offline' : 'Save the whole game on this device, to play with no connection';
 }
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); offer = e; showInstall(); }); // (our button, not the browser's banner)
 addEventListener('appinstalled', () => { offer = null; installed = true; showInstall(); });
@@ -58,17 +59,17 @@ export async function offlineStatus(ms = 4000) {
   return { state: s.stored >= s.total ? 'ready' : 'partial', newer, ...s };
 }
 
-/** The sentence PLAY OFFLINE shows for a status (`build`: this page's version). */
+/** The sentence SAVE OFFLINE shows for a status (`build`: this page's version). */
 export function offlineText(s, build) {
   if (s.state === 'unavailable') return "Offline play isn't available in this browser.";
-  if (s.state === 'none') return 'Saving for offline…';
-  if (s.state === 'partial') return `Saving for offline… ${Math.floor((100 * s.stored) / s.total)}%`;
-  return `Ready to play offline: everything is saved on this device ✓${s.version !== build ? ` (version ${s.version}: it loads next time)` : ''}${s.newer ? ' A newer version is on its way.' : ''}`;
+  if (s.state === 'none') return 'Saving…';
+  if (s.state === 'partial') return `Saving… ${Math.floor((100 * s.stored) / s.total)}%`;
+  return `Saved: Ebbfall plays with no connection ✓${s.version !== build ? ` (version ${s.version}: it loads next time)` : ''}${s.newer ? ' A newer version is on its way.' : ''}`;
 }
 
-/** PLAY OFFLINE: ask, and while it is still saving (each ask fetches what is missing) ask again: for a minute at most,
+/** SAVE OFFLINE: ask, and while it is still saving (each ask fetches what is missing) ask again: for a minute at most,
  *  and not once the page is hidden or the menu is gone (a game started). */
-async function playOffline(btn, msg, build) {
+async function saveOffline(btn, msg, build) {
   btn.disabled = true; msg.textContent = 'Checking…';
   const until = performance.now() + 60000, away = () => document.hidden || $('start').hidden;
   try {
@@ -82,7 +83,7 @@ async function playOffline(btn, msg, build) {
   } finally { btn.disabled = false; }
 }
 
-/** Wire INSTALL and PLAY OFFLINE (`build`: the version the About page shows). */
+/** Wire INSTALL and SAVE OFFLINE (`build`: the version the first page's footer shows). */
 export function initOffline(build) {
   showInstall();
   const install = async () => {
@@ -93,7 +94,6 @@ export function initOffline(build) {
     showInstall();
   };
   for (const b of document.querySelectorAll('.install')) b.addEventListener('click', install);
-  const home = $('btnInstall'), about = $('btnOffline');
-  home.addEventListener('click', () => (installWay() ? install() : playOffline(home, $('homeOfflineMsg'), build)));
-  about.addEventListener('click', () => playOffline(about, $('offlineMsg'), build));
+  const home = $('btnInstall');
+  home.addEventListener('click', () => (installWay() ? install() : saveOffline(home, $('homeOfflineMsg'), build)));
 }

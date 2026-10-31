@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { offline } from './tools/offline/plugin.mjs';
+import { docs } from './tools/docs/build.mjs';
 
 // The game's build, as online play sees it: a hash of the .wasm (build:wasm runs first) and of the JS that sets a game
 // up (the maps, an online room's setup, the client's view of the sim). Online, every seat must have the same
@@ -27,5 +28,5 @@ export default defineConfig(({ mode }) => ({
   // voice-lab.html: a page apart from the game, for judging the synthesized voice (not linked from the game);
   // selftest.html: the device check (the golden games: does this device compute the same game?).
   build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { index: 'index.html', 'voice-lab': 'voice-lab.html', selftest: 'selftest.html' } } },
-  plugins: [bakedRelay(loadEnv(mode, process.cwd(), 'VITE_').VITE_RELAY_URL), offline()], // dist/sw.js: the game keeps working offline once opened
+  plugins: [bakedRelay(loadEnv(mode, process.cwd(), 'VITE_').VITE_RELAY_URL), docs(), offline()], // the docs at /docs/ (tools/docs, not stored offline); dist/sw.js: the game keeps working offline once opened
 }));

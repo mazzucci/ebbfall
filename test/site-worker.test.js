@@ -8,18 +8,18 @@
 // the preview image.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import worker from '../site/worker.js';
 import { CACHE, cacheControl, headersFile } from '../site/cache.js';
 
-const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', wasm: 'application/wasm', png: 'image/png', webmanifest: 'application/manifest+json', json: 'application/json', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
+const TYPES = { webp: 'image/webp', txt: 'text/plain; charset=utf-8', html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', wasm: 'application/wasm', png: 'image/png', webmanifest: 'application/manifest+json', json: 'application/json', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
 /** A fake ASSETS binding over `files` (path -> body): Cloudflare's default headers, 404 for anything else. */
 const assets = (files) => ({
   seen: [],
   async fetch(req) {
     const path = new URL(req.url).pathname;
     this.seen.push(path);
-    if (!(path in files)) return new Response('', { status: 404 });
+    if (files[path] === undefined) return new Response('', { status: 404 });
     if (req.headers.get('If-None-Match') === '"e"') return new Response(null, { status: 304, headers: { ETag: '"e"' } });
     if (req.headers.has('Range')) return new Response(files[path].slice(0, 10), { status: 206, headers: { ETag: '"e"' } });
     const body = req.method === 'HEAD' ? null : files[path];
@@ -31,6 +31,8 @@ const FILES = {
   '/selftest.html': 'selftest', '/voice-lab.html': 'voice lab', '/sw.js': 'sw', '/manifest.webmanifest': '{}',
   '/assets/index-Bx1y2z3w.js': 'js', '/assets/endfall_sim_bg-ClB66k65.wasm': 'wasm', '/art/atlas-0.png': 'png',
   '/robots.txt': 'User-agent: *', '/sitemap.xml': '<urlset/>', '/og.png': 'png',
+  '/docs/index.html': '<h1>Play your way</h1>', '/docs/units/trooper/index.html': '<h1>Trooper</h1>', '/docs/404.html': '<h1>Not found</h1>',
+  '/docs/data.json': '{}', '/docs-img/sprites/trooper.png': 'png', '/docs-img/shots/battle.webp': 'webp', '/llms.txt': '# Ebbfall',
 };
 const ORIGIN = 'https://ebbfall.com';
 const get = (path, headers = {}, method = 'GET', env = {}, files = FILES) => worker.fetch(new Request(ORIGIN + path, { method, headers }), { ASSETS: assets(files), ...env });
@@ -108,6 +110,47 @@ test('not a file: a page load goes to the game (its query kept), a missing scrip
     assert.doesNotMatch(res.headers.get('Content-Type'), /html/, `${path}: never the game's HTML in place of a file`);
     assert.equal(res.headers.get('Cache-Control'), 'no-store', path);
   }
+});
+
+test('the docs: a folder\'s address is its index.html, checked on every load; /docs and a folder without its slash get it', async () => {
+  for (const [path, file] of [['/docs/', '/docs/index.html'], ['/docs/units/trooper/', '/docs/units/trooper/index.html'], ['/docs/units/trooper/?ref=x', '/docs/units/trooper/index.html']]) {
+    const res = await get(path, NAVIGATE);
+    assert.equal(res.status, 200, path);
+    assert.equal(await res.text(), FILES[file], path);
+    assert.match(res.headers.get('Content-Type'), /^text\/html/, path);
+    assert.equal(res.headers.get('Cache-Control'), 'no-cache', path);
+  }
+  assert.equal((await get('/docs/units/trooper/', { 'If-None-Match': '"e"' })).status, 304, 'revalidated: a 304 when unchanged');
+  assert.equal((await get('/docs/', {}, 'HEAD')).status, 200);
+  for (const [path, to] of [['/docs', '/docs/'], ['/docs?x=1', '/docs/?x=1'], ['/docs/units/trooper', '/docs/units/trooper/']]) {
+    const res = await get(path, NAVIGATE);
+    assert.equal(res.status, 301, path);
+    assert.equal(res.headers.get('Location'), ORIGIN + to, path);
+  }
+  for (const path of ['/docs/data.json', '/docs/units/trooper/index.html']) assert.equal((await get(path)).headers.get('Cache-Control'), 'no-cache', path);
+  for (const path of ['/docs-img/sprites/trooper.png', '/docs-img/shots/battle.webp']) assert.equal((await get(path)).headers.get('Cache-Control'), 'public, max-age=86400', `${path}: kept a day`);
+  const llms = await get('/llms.txt');
+  assert.equal(llms.status, 200);
+  assert.equal(llms.headers.get('Cache-Control'), 'public, max-age=0, must-revalidate', "llms.txt: Cloudflare's own");
+});
+
+test('the docs: an unknown page is the docs\' own 404 page with a 404 status (not the game\'s redirect); a missing image a plain 404', async () => {
+  for (const path of ['/docs/nope/', '/docs/units/wasp/', '/docs/units/wasp', '/docs/old.html']) {
+    const res = await get(path, NAVIGATE);
+    assert.equal(res.status, 404, path);
+    assert.equal(await res.text(), FILES['/docs/404.html'], `${path}: the docs' 404 page`);
+    assert.match(res.headers.get('Content-Type'), /^text\/html/);
+    assert.equal(res.headers.get('Cache-Control'), 'no-store');
+  }
+  const head = await get('/docs/nope/', NAVIGATE, 'HEAD');
+  assert.equal(head.status, 404); assert.equal(await head.text(), '');
+  for (const path of ['/docs/units/wasp.png', '/docs-img/sprites/wasp.png', '/docs/nope/']) {
+    const res = await get(path, { Accept: 'image/*', 'Sec-Fetch-Mode': 'no-cors' });
+    assert.equal(res.status, 404, path);
+    assert.doesNotMatch(res.headers.get('Content-Type'), /html/, `${path}: never a page in place of a file`);
+  }
+  const bare = await get('/docs/nope/', NAVIGATE, 'GET', {}, { ...FILES, '/docs/404.html': undefined });
+  assert.equal(bare.status, 404, 'no 404 page built: the plain 404');
 });
 
 test('www.ebbfall.com and plain http go to https://ebbfall.com/, path and query kept: the game has one origin', async () => {
@@ -243,6 +286,9 @@ test("the Worker's module exports its handler only (the Workers runtime refuses 
 test('the _headers file the deploy writes says what the Worker does, for the files Cloudflare serves alone', () => {
   const text = headersFile(), rules = [...text.matchAll(/^(\/\S*)\n {2}Cache-Control: (.+)$/gm)].map(m => [m[1], m[2]]);
   assert.deepEqual(rules, CACHE);
+  // No path matches two rules: Cloudflare's _headers would send both values joined.
+  const hits = (p, q) => (p.endsWith('/*') ? q.startsWith(p.slice(0, -1)) : q === p);
+  for (const [p] of CACHE) for (const [q] of CACHE) if (p !== q) assert.ok(!hits(p, q.replace(/\*$/, 'x')), `${p} and ${q} overlap`);
   assert.equal(cacheControl('/assets/x-12345678.js'), 'public, max-age=31536000, immutable');
   assert.equal(cacheControl('/art/atlas.json'), null);
   // Every page the build makes (vite.config.js's inputs) is checked on every load.
@@ -268,15 +314,22 @@ test('wrangler.toml: dist/ as the assets, exact paths, the Worker first only for
 const dist = new URL('../dist/', import.meta.url);
 test('with dist/ built: every file the service worker stores is served as it is, with no redirect', { skip: !existsSync(new URL('sw.js', dist)) && 'dist/ not built' }, async () => {
   const files = JSON.parse(readFileSync(new URL('sw.js', dist), 'utf8').match(/^const FILES = (.*);$/m)[1]);
-  const disk = { async fetch(req) { const p = new URL(req.url).pathname.slice(1); return existsSync(new URL(p, dist)) && p ? new Response(readFileSync(new URL(p, dist))) : new Response('', { status: 404 }); } };
+  const disk = { async fetch(req) { const p = decodeURIComponent(new URL(req.url).pathname.slice(1)); return p && !p.endsWith('/') && existsSync(new URL(p, dist)) && !statSync(new URL(p, dist)).isDirectory() ? new Response(readFileSync(new URL(p, dist))) : new Response('', { status: 404 }); } };
   for (const f of files) {
     const res = await worker.fetch(new Request(new URL(f, 'https://ebbfall-site.example.workers.dev/')), { ASSETS: disk });
     assert.equal(res.status, 200, f);
     const want = readFileSync(new URL(f === './' ? 'index.html' : f, dist));
     assert.ok(Buffer.from(await res.arrayBuffer()).equals(want), f);
   }
-  // The files for crawlers and link previews are built too, and left out of the offline store.
-  for (const f of ['robots.txt', 'sitemap.xml', 'og.png']) {
+  // The files for crawlers, agents and link previews are built too, and left out of the offline store, as are the docs.
+  assert.ok(!files.some(f => f.startsWith('docs/') || f.startsWith('docs-img/')), 'no docs in the offline store');
+  for (const f of ['docs/index.html', 'docs/units/trooper/index.html', 'docs/data.json', 'docs/404.html']) assert.ok(existsSync(new URL(f, dist)), f);
+  for (const path of ['/docs/', '/docs/units/siegeTank/', '/docs/buildings/factory/', '/docs/tech/']) {
+    const res = await worker.fetch(new Request(new URL(path, 'https://ebbfall-site.example.workers.dev/'), { headers: NAVIGATE }), { ASSETS: disk });
+    assert.equal(res.status, 200, path);
+    assert.match(await res.text(), /<h1>/, path);
+  }
+  for (const f of ['robots.txt', 'sitemap.xml', 'og.png', 'llms.txt']) {
     assert.ok(existsSync(new URL(f, dist)), f);
     assert.ok(!files.includes(f), `${f}: not stored for offline play`);
   }

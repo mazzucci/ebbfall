@@ -1,4 +1,4 @@
-// How kinds look and sound beyond their sprites, by kind key: lights, turret heads, chimney smoke, radio voices.
+// How kinds look and sound beyond their sprites, by kind key: lights, turret heads, chimney smoke, radio voices, poses.
 // The renderer and the sound engine read this table instead of naming kinds, so a new race adds rows here.
 
 /** Seat colours, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
@@ -30,9 +30,14 @@ export const BLDG_LOOK = {
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
-export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, wasp: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, bastion: 180, sovereign: 160 };
+export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, siegeTank: 230, wasp: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, bastion: 180, sovereign: 160 };
 
 /** Animation frames per second by unit type (default: 14 for flyers, whose rotors always spin; 8 for walkers while
  *  they move). 0 holds the first frame: the Shrike glides on its swept wing (its two poses flickered at 14/s). The
  *  Sovereign's four hover frames (a bob, its lift ring turning) run at 4/s: a heavy barge, not a bounce. */
 export const UNIT_FPS = { shrike: 0, sovereign: 4 };
+
+/** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
+ *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Siege Tank: two tread
+ *  frames, half deployed, deployed (tools/render3d/models.js, docs/ART.md). */
+export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };

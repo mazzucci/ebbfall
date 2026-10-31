@@ -243,8 +243,24 @@ impl World {
             return;
         }
         self.release_mine(uid);
-        self.unentrench_to_move(uid); // (an attack order means going there)
+        // (an attack order means going there; a deployed siege gun stays set up for a target it can shell from here)
+        if !self.shells_from_here(uid, target) {
+            self.unentrench_to_move(uid);
+        }
         self.set_task(uid, Task::Attack { target, back: None });
+    }
+    /// Whether `uid` is a deployed siege gun with `target` between its blind ring and its reach, in its side's sight.
+    fn shells_from_here(&self, uid: Id, target: Id) -> bool {
+        let u = self.u(uid);
+        if u.mode.is_none() || !u.kind.siege() {
+            return false;
+        }
+        let c = self.live(uid);
+        let reach = c.siege.unwrap_or(0.0);
+        self.geo(target).is_some_and(|g| {
+            let d = g.edge_dist(u.x, u.y);
+            d >= c.min && d < reach && self.seen_by(u.team, target)
+        })
     }
     pub fn stop_unit(&mut self, uid: Id) {
         self.release_mine(uid);

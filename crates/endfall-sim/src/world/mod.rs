@@ -400,8 +400,18 @@ impl World {
             Some(add) => d.weapon.map_or(0.0, |w| w.range + add) * TILE,
             None => 0.0,
         };
+        let min = d
+            .weapon
+            .filter(|w| w.min_range > 0.0)
+            .map_or(0.0, |w| w.min_range * TILE + u.r);
+        let siege = d
+            .weapon
+            .filter(|_| u.kind.siege())
+            .map(|w| w.range * TILE + u.r);
         Live {
             range,
+            min,
+            siege,
             combat: d.threat(),
             team: u.team,
             r: u.r,

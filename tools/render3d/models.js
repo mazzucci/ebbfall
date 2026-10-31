@@ -285,6 +285,87 @@ export function bastion(M, f) {
   return g;
 }
 
+/** Siege Tank: low tracked artillery with one long telescoping gun. Frames by state, not a walk cycle: 0 and 1 travel
+ *  (barrel level on its travel lock, legs folded along the tracks, the treads shifted half a link), 2 half deployed,
+ *  3 deployed (four team-painted stabiliser legs splayed out and planted, the hull lifted, the barrel raised and run
+ *  out). */
+export function siegeTank(M, f) {
+  const g = grp(), body = grp();
+  const st = f < 2 ? 0 : f - 1;                                      // 0 travel, 1 half, 2 deployed
+  const lift = [0, 0.6, 1.2][st], elev = [0, 0.3, 0.62][st], ext = [0, 3, 6][st];
+  // Tracks (on the ground whatever the state): open belts with steel grousers that move half a link between the
+  // two travel frames, road wheels, sprocket and idler.
+  const shift = st ? 0 : (f % 2) * 1.2;
+  for (const side of [-1, 1]) {
+    const z = side * 8.8;
+    add(g, rbox(32, 6.6, 5.6, 3.1), M.rubber, 0, 3.3, z);
+    for (let x = -12 + shift; x <= 11.3; x += 2.4) add(g, rbox(1.1, 0.7, 6, 0.25), M.steel, x, 6.65, z);
+    for (const x of [-9.6, -4.8, 0, 4.8, 9.6]) {
+      add(g, cyl(2.2, 2.2, 0.8, 14), M.steel, x, 3, side * 11.7, Math.PI / 2);
+      add(g, cyl(0.8, 0.8, 1, 8), M.dark, x, 3, side * 12, Math.PI / 2);
+    }
+    add(g, cyl(2.8, 2.8, 1, 12), M.gunmetal, -13.4, 3.8, side * 11.6, Math.PI / 2);   // drive sprocket
+    add(g, cyl(2.3, 2.3, 1, 12), M.gunmetal, 13.6, 3.6, side * 11.6, Math.PI / 2);    // idler
+  }
+  // The hull: a low wedge between the tracks, team glacis and mudguards, exhausts, lights.
+  body.position.y = lift;
+  add(body, plate([[-15, -6.2], [10, -6.2], [15, -3.8], [15, 3.8], [10, 6.2], [-15, 6.2]], 6.5, 1.2), M.trim, 0, 3, 0);
+  add(body, plate([[-15.4, -6.8], [11, -6.8], [14, -4.4], [14, 4.4], [11, 6.8], [-15.4, 6.8]], 1.4, 0.5), M.trim, 0, 8.8, 0);
+  add(body, plate([[9, -6], [14.6, -3.8], [14.6, 3.8], [9, 6]], 1.6, 0.5), M.paint, 0, 9.2, 0);   // team glacis
+  for (const side of [-1, 1]) {
+    add(body, rbox(4.6, 0.8, 6.4, 0.3), M.paint, 13.6, 7.2, side * 8.8);                          // team mudguards
+    add(body, rbox(4, 0.8, 6.4, 0.3), M.trim, -14, 7.2, side * 8.8);
+    add(body, rbox(3.4, 1.8, 2.2, 0.6), M.dark, -11.5, 11, side * 4.6);                           // exhausts
+    add(body, cyl(0.7, 0.7, 2, 10), M.gunmetal, -13.6, 11, side * 4.6, 0, 0, Math.PI / 2);
+    add(body, sph(0.8, 10, 8), M.white, 15, 8, side * 4.4);                                       // headlights
+    add(body, sph(0.7, 8, 6), M.lamp, -15.5, 8.8, side * 5);                                      // tail lights
+  }
+  add(body, rbox(1.2, 0.6, 12, 0.2), M.hazard, -14.6, 10.3, 0);
+  // Travel lock: a cradle on the glacis the barrel rests in; gone once the gun lifts.
+  if (!st) {
+    for (const dz of [-2.4, 2.4]) add(body, rbox(1.2, 1.6, 1, 0.3), M.gunmetal, 12.4, 11, dz);
+    add(body, rbox(1.4, 0.7, 5.8, 0.25), M.hazard, 12.4, 11.3, 0);
+  }
+  // Turret: a long armoured box set back on the hull, team cheeks and roof stripe, hatch, sensor, antenna.
+  add(body, cyl(5.6, 6, 1.2, 22), M.gunmetal, -4, 10.4, 0);
+  add(body, plate([[-13, -5.4], [-3, -6], [2.5, -4], [2.5, 4], [-3, 6], [-13, 5.4]], 4.8, 1.1), M.trim, 0, 10.8, 0);
+  for (const side of [-1, 1]) add(body, rbox(9, 2.8, 1, 0.4), M.paint, -5.5, 13.2, side * 5.9);
+  add(body, rbox(9, 0.6, 2.6, 0.2), M.paint, -5, 15.7, 0);
+  add(body, cyl(1.8, 1.8, 0.8, 14), M.dark, -8.5, 16, -3);                                         // hatch
+  add(body, rbox(2.8, 1.4, 2.4, 0.5), M.dark, -10.5, 16.2, 2.8); add(body, sph(0.6, 8, 6), M.lamp, -10.5, 17.2, 2.8);
+  add(body, rbox(0.8, 1, 9, 0.3), M.hazard, -13.2, 13.4, 0);                                       // bustle stripe
+  add(body, cyl(0.2, 0.2, 6, 6), M.steel, -12, 19, -4);
+  // The gun: mantlet, sleeve, an inner tube that runs out by `ext`, a muzzle brake. Pivot at x 1.5, raised by `elev`.
+  const gun = grp(); gun.position.set(1.5, 13, 0); gun.rotation.z = elev;
+  add(gun, rbox(4.2, 4.4, 5.8, 1), M.gunmetal, 0, 0, 0);
+  add(gun, cyl(2, 2.1, 12, 14), M.steel, 8, 0, 0, 0, 0, -Math.PI / 2);
+  add(gun, cyl(2.2, 2.2, 1.6, 14), M.paint, 5, 0, 0, 0, 0, -Math.PI / 2);                         // team band
+  for (const dz of [-1.3, 1.3]) add(gun, cyl(0.5, 0.5, 7, 8), M.gunmetal, 5.5, 1.9, dz, 0, 0, -Math.PI / 2); // recoil cylinders
+  add(gun, cyl(2.3, 2.3, 1.2, 14), M.dark, 14, 0, 0, 0, 0, -Math.PI / 2);                         // sleeve collar
+  add(gun, cyl(1.4, 1.4, 12, 12), M.gunmetal, 16 + ext, 0, 0, 0, 0, -Math.PI / 2);                // inner tube
+  if (ext) add(gun, cyl(1.55, 1.55, 0.7, 12), M.hazard, 15.2, 0, 0, 0, 0, -Math.PI / 2);          // run-out ring
+  add(gun, rbox(3.6, 2.8, 3.6, 0.7), M.dark, 23.6 + ext, 0, 0);                                   // muzzle brake
+  body.add(gun);
+  g.add(body);
+  // Stabiliser legs at the four corners: folded along the tracks when travelling, swung out and down to plant their
+  // pads when deployed (half way in frame 2). Team paint on the upper legs so a deployed tank reads at a glance.
+  const H0 = [13, 8.4, 12.2], T = [16, 1.2, 18.5];
+  const D = new THREE.Vector3(T[0] - H0[0], T[1] - H0[1] - 1.2, T[2] - H0[2]), L = D.length();
+  const dir = new THREE.Vector3(-1, 0.04, 0).normalize().lerp(D.normalize(), st / 2).normalize();
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const h = [sx * H0[0], H0[1] + lift, sz * H0[2]];
+    const foot = [h[0] + dir.x * sx * L, h[1] + dir.y * L, h[2] + dir.z * sz * L];
+    const at = (k) => foot.map((v, i) => v + (h[i] - v) * k);
+    add(g, rbox(3, 2.4, 2.2, 0.6), M.dark, ...h);
+    limb(g, h, at(0.45), 1.35, M.paint);
+    limb(g, at(0.45), foot, 1, M.steel);
+    limb(g, at(0.18), at(0.32), 1.15, M.hazard);
+    limb(g, [h[0] - sx * 3.5, h[1] + 1.4, h[2] - sz * 2], at(0.6), 0.5, M.gunmetal);              // hydraulic ram
+    add(g, cyl(2.5, 2.8, 1.1, 14), M.dark, foot[0], foot[1] - 0.3, foot[2], sz * (Math.PI / 2) * (1 - st / 2));
+  }
+  return g;
+}
+
 export const UNIT_MODELS = {
   // r: the farthest any part reaches from the centre (any facing must fit), h: height
   harvester: { build: harvester, frames: 2, r: 23, h: 15 },
@@ -295,4 +376,5 @@ export const UNIT_MODELS = {
   wasp: { build: wasp, frames: 2, r: 26, h: 26 },
   observer: { build: observer, frames: 2, r: 13, h: 26 },
   bastion: { build: bastion, frames: 2, r: 36, h: 38 },
+  siegeTank: { build: siegeTank, frames: 4, r: 27, h: 34 },
 };

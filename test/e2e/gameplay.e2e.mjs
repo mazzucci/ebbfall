@@ -47,7 +47,8 @@ test('every finished production building offers its unit, and pressing it trains
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
     await buildAndFinish(d, 't', 'turret', 2);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
-    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [rax, 'Vanguard', 'vanguard'], [airfield, 'Wasp', 'wasp'], [airfield, 'Observer', 'observer']]) {
+    const factory = await buildAndFinish(d, 'r', 'factory', 0);
+    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [factory, 'Vanguard', 'vanguard'], [factory, 'Siege Tank', 'siegeTank'], [airfield, 'Wasp', 'wasp'], [airfield, 'Observer', 'observer']]) {
       await d.clickEntity(b.id);
       const card = await d.card();
       const why = async () => JSON.stringify({ card, sel: await d.selection(), ui: await d.eval(() => [endfall.ui.mode, endfall.ui.place]), at: b, near: (await d.state()).units.filter(u => Math.hypot(u.x - b.x, u.y - b.y) < 70).map(u => [u.type, Math.round(u.x - b.x), Math.round(u.y - b.y)]) });
@@ -328,12 +329,13 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.grant(5000, 5000);
     const rax = await buildAndFinish(d, 'g', 'barracks', 0);
     const forge = await buildAndFinish(d, 'f', 'forge', 1);
-    // The Garrison trains all four infantry and walkers once the Foundry stands; the Foundry only researches.
+    // The Garrison trains the infantry, Medics once the Foundry stands (vehicles come from the Factory); the Foundry
+    // only researches.
     await d.clickEntity(rax.id);
-    await d.pressCard('Vanguard');
+    await d.pressCard('Medic');
     let slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Vanguard', 'Rally', 'Cancel'], 'the Garrison card');
-    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the Vanguard
+    assert.deepEqual(slots, ['Trooper', 'Lancer', 'Medic', 'Rally', '', 'Cancel'], 'the Garrison card');
+    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the Medic
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0);
     await d.clickEntity(forge.id);
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && c.enabled), 'Weapons I offered');
@@ -1339,6 +1341,39 @@ test('phone: one tap on the card uses an ability for the selection (Stim, then E
     assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Entrench' }).count(), 'lit while entrenched');
     await d.pressCard('Entrench');
     assert.equal((await units())[3].mode, null, 'packed up');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a Siege Tank deploys from its card (D), shells what is in reach but not inside its blind ring, and a move packs it up', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), T = 32; // (a tile, px)
+    const tank = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'siegeTank', x, y), [core.x + 180, core.y + 200]);
+    const me = () => d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return u && { x: u.x, y: u.y, mode: u.mode, swap: u.swap, task: u.task.t }; }, tank);
+    await d.clickEntity(tank);
+    assert.ok((await d.card()).some(c => c.label === 'Deploy' && c.enabled), `Deploy on the card: ${JSON.stringify(await d.card())}`);
+    assert.equal(await d.page.locator('#cmd button', { hasText: 'Deploy' }).locator('.k').textContent(), 'D', 'its key');
+    await d.page.keyboard.press('d');
+    assert.equal((await me()).mode, 'deploy');
+    assert.match(await d.hudText('#selSub', /Deploying/), /Deploying/, 'the console says it is deploying');
+    await d.skip(3.5);
+    assert.match(await d.hudText('#selSub', /Deployed/), /Deployed/);
+    assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Deploy' }).count(), 'lit while deployed');
+    // An enemy 7 tiles off is shelled; one inside the blind ring (1.5 tiles) is not.
+    const at = await me();
+    const [far, near] = await d.eval(([x, y, T]) => [endfall.engine.debugSpawn(1, 'medic', x + 7 * T, y), endfall.engine.debugSpawn(1, 'medic', x - 1.5 * T, y)], [at.x, at.y, T]);
+    const hp = (id) => d.eval((id) => endfall.G.units.find(u => u.id === id)?.hp ?? 0, id);
+    const full = await hp(near);
+    await until(d, async () => (await hp(far)) === 0, { seconds: 20, what: 'the far Medic to fall' });
+    assert.equal(await hp(near), full, 'nothing inside its blind ring is hit');
+    // A move order packs it up first, then it drives.
+    await d.rightClickWorld(at.x, at.y - 6 * T);
+    const packing = await me();
+    assert.ok(packing.mode === null && packing.swap > 0, `packing up: ${JSON.stringify(packing)}`);
+    await d.skip(5);
+    const moved = await me();
+    assert.ok(at.y - moved.y > T, `on its way once packed up: ${JSON.stringify(moved)}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

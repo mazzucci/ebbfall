@@ -78,6 +78,7 @@ kinds! {
         Halo => vael::HALO,
         Bastion => humans::BASTION,
         Sovereign => vael::SOVEREIGN,
+        SiegeTank => humans::SIEGE_TANK,
     }
 }
 
@@ -98,6 +99,7 @@ kinds! {
         Loom => vael::LOOM,
         Ward => vael::WARD,
         Zenith => vael::ZENITH,
+        Factory => humans::FACTORY,
     }
 }
 
@@ -129,6 +131,10 @@ def_struct! {
     pub struct Weapon {
         /// Reach in tiles (edge to edge).
         range: f64 = "range",
+        /// Nothing nearer than this many tiles (edge to edge) can be hit: a siege gun's blind ring (0 = none).
+        min_range: f64 = "minRange",
+        /// Fires only while its unit's toggle is on (a Siege Tank deployed); on the move it cannot fire at all.
+        siege: bool = "siege",
         /// Damage per shot against ground targets (units and buildings); 0 = cannot attack the ground.
         dmg: f64 = "dmg",
         /// Damage per shot against flying units; 0 = cannot attack the air.
@@ -148,6 +154,8 @@ def_struct! {
 /// The defaults a weapon in the tables fills in from.
 pub(crate) const W: Weapon = Weapon {
     range: 0.0,
+    min_range: 0.0,
+    siege: false,
     dmg: 0.0,
     dmg_air: 0.0,
     cd: 1.0,
@@ -166,6 +174,21 @@ impl Weapon {
     /// What it can hit: (ground, air).
     pub fn hits(&self) -> (bool, bool) {
         (self.dmg > 0.0, self.dmg_air > 0.0)
+    }
+}
+
+impl UnitKind {
+    /// Its toggle (Entrench, Deploy), if it has one: the first of its abilities that settles it in.
+    pub fn toggle(self) -> Option<AbilityKind> {
+        self.def()
+            .abilities
+            .iter()
+            .copied()
+            .find(|a| matches!(a.def().effect, AbilityEffect::Entrench { .. }))
+    }
+    /// Its weapon fires only while its toggle is on (a Siege Tank).
+    pub fn siege(self) -> bool {
+        self.def().weapon.is_some_and(|w| w.siege) && self.toggle().is_some()
     }
 }
 
@@ -279,12 +302,16 @@ pub struct AiScript {
     pub tech: BldgKind,
     pub tower: BldgKind,
     pub air: BldgKind,
+    /// Its vehicle bay, if it has one: it trains only the mixed-in units it can make, by the mix's ratios (beside
+    /// the main factory, which then keeps to its own).
+    pub heavy: Option<BldgKind>,
     /// The cheap line unit the main factory trains by default.
     pub basic: UnitKind,
     /// The answer to enemy flyers (two per flyer seen).
     pub anti_air: UnitKind,
-    /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands).
-    pub mix: &'static [(UnitKind, usize)],
+    /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands, and not before
+    /// `.2` seconds of game time: a late specialist).
+    pub mix: &'static [(UnitKind, usize, f64)],
     /// The air factory's raider (raids workers; at most six).
     pub raider: UnitKind,
     /// Wave sizes scale by this (fewer, stronger units: 0.6).

@@ -5,7 +5,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies } from '../../engine/index.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, SEAT_COLORS, colorOf } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, colorOf } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 
@@ -265,7 +265,9 @@ class UnitObj {
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
     if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
-    const frames = this.frames, f = Math.floor(this.walk) % frames;
+    // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
+    const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
+    const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     const name = `${u.type}_${dir}_${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
@@ -285,12 +287,19 @@ class UnitObj {
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
       bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
     }
-    if (u.mode || u.swap > 0) {
+    if ((u.mode || u.swap > 0) && !pose) { // (a unit with poses shows it in its sprite)
       const r = u.r * UNIT_SCALE + 6, a = u.swap > 0 ? 0.35 + 0.35 * Math.sin(t * 8) : 0.85;
       for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2, c = Math.cos(an), d = Math.sin(an); lines.moveTo(u.x + c * r, u.y + d * r * 0.7).lineTo(u.x + c * (r + 5), u.y + d * (r + 5) * 0.7).stroke({ width: 2, color: 0xf5c542, alpha: a }); }
     }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
+    // A siege gun of ours, selected: where it reaches deployed, and its blind ring inside (nothing there can be hit).
+    const w = u.d.weapon;
+    if (s && w?.minRange > 0 && u.team === G.me) {
+      const deployed = !!u.mode && !(u.swap > 0), a = deployed ? 0.45 : 0.22;
+      lines.circle(u.x, u.y, w.range * TILE + u.r).stroke({ width: 1.5, color: 0xf5c542, alpha: a });
+      lines.circle(u.x, u.y, w.minRange * TILE + u.r).stroke({ width: 1.5, color: 0xe5553a, alpha: a });
+    }
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
@@ -412,7 +421,7 @@ export function boom(x, y, r) {
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
 const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xdcc8ff };
-const CAST_TINT = { stim: 0xff8070, entrench: 0xf5c542, blink: 0xb48cff, overcharge: 0xc8a0ff };
+const CAST_TINT = { stim: 0xff8070, entrench: 0xf5c542, deploy: 0xf5c542, blink: 0xb48cff, overcharge: 0xc8a0ff };
 /** An ability used: a flash on the caster in its colour (a Blink also leaves a puff where it lands). */
 export function castFx(x, y, ability) {
   const tint = CAST_TINT[ability] ?? 0xffffff;

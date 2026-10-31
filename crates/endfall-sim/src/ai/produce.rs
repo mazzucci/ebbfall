@@ -7,7 +7,7 @@ use super::*;
 const CAPITAL_AT: [f64; 2] = [450.0, 660.0];
 
 /// Unspent ether the AI counts as piling up (it then leans on its ether-hungry specialists).
-const ETHER_FLOAT: i32 = 200;
+pub(crate) const ETHER_FLOAT: i32 = 200;
 
 impl World {
     /// Production: the right unit from each building, rally points, nothing while saving.
@@ -22,8 +22,8 @@ impl World {
             want,
             ..
         } = brain.clone();
-        // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers, bring a Medic per six
-        // Troopers and, once the Forge stands, a Vanguard per two.
+        // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers and bring a Medic per six
+        // Troopers; the Factory, once the Forge stands, a Vanguard per two and, from 5:30, a Siege Tank per six.
         let mine = |w: &World, k: UnitKind| {
             w.units
                 .iter()
@@ -52,15 +52,18 @@ impl World {
                 continue;
             }
             let s = &self.factions[e as usize].ai;
-            // The main factory answers enemy flyers, then mixes its specialists in by ratio (each once its
-            // requirement stands: a Vanguard per two Troopers once the Forge stands beats massed infantry).
-            // Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
+            // The main factory answers enemy flyers, then each factory mixes in the specialists it trains by ratio
+            // (each once its requirement stands: a Vanguard per two Troopers once the Forge stands beats massed
+            // infantry). Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
             let floating = self.res[e as usize][1] >= ETHER_FLOAT;
-            let mixed = s.mix.iter().find(|&&(k, per)| {
+            let heavy = s.heavy == Some(b.kind);
+            let mixed = s.mix.iter().find(|&&(k, per, from)| {
                 let per = self.answer_ratio(k, if floating { per.div_ceil(2) } else { per });
-                k.def()
-                    .req
-                    .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+                b.kind.def().trains.contains(&k)
+                    && t >= from
+                    && k.def()
+                        .req
+                        .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
                     && (mine(self, k) + 1) * per <= mine(self, s.basic)
             });
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
@@ -87,12 +90,12 @@ impl World {
             }
             let u = if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
                 s.anti_air
-            } else if b.kind == s.rax
-                && let Some(&(k, _)) = mixed
+            } else if (b.kind == s.rax || heavy)
+                && let Some(&(k, _, _)) = mixed
             {
                 k
-            } else if b.kind == s.air && mine(self, s.raider) >= 6 {
-                continue;
+            } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {
+                continue; // (the vehicle bay trains only what the mix calls for)
             } else {
                 b.kind.def().trains[0]
             };
@@ -100,6 +103,8 @@ impl World {
             // shards it waits for them instead, as a Trooper would only delay the specialist.
             let u = if self.res[e as usize][1] >= need(u.def().cost)[1] {
                 u
+            } else if heavy {
+                continue;
             } else {
                 b.kind.def().trains[0]
             };

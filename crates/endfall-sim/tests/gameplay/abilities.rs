@@ -30,6 +30,7 @@ fn range_scene(kind: UnitKind, seed: u32) -> (World, Id, Id) {
     let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 34.0 * TILE, 30.0 * TILE);
     set_hp(&mut w, foe, 1e6);
     w.hold_unit(foe);
+    w.update_fog(); // (they see each other from the first tick: nothing fires at what its side does not see)
     w.attack_ent(me, foe);
     (w, me, foe)
 }

@@ -22,7 +22,12 @@ pub struct Back {
 /// and modes will change there and only there.
 #[derive(Clone, Copy)]
 pub(crate) struct Live {
+    /// Reach (px, to the target's edge, from the shooter's centre: its radius not counted); 0 while it cannot fire.
     pub range: f64,
+    /// A siege gun's blind ring (px, the same measure as find_target's: plus its radius); 0 = none.
+    pub min: f64,
+    /// A siege gun's reach once deployed (px, plus its radius), deployed or not: where it sets up. None otherwise.
+    pub siege: Option<f64>,
     pub combat: bool,
     pub team: u8,
     pub r: f64,

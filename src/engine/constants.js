@@ -28,18 +28,19 @@ export const TECH_BUILD = D.consts.tech_build;
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
   trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', strong: ['scythe', 'wasp'], weak: ['vanguard', 'sovereign'] },
-  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism'], weak: ['monolith', 'shrike', 'bastion'] },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['wasp', 'shrike'], weak: ['trooper', 'scythe', 'prism', 'sovereign'] },
+  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism', 'siegeTank'], weak: ['monolith', 'shrike', 'bastion'] },
+  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['wasp', 'shrike'], weak: ['trooper', 'scythe', 'prism', 'sovereign', 'siegeTank'] },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).', strong: ['monolith', 'scythe'], weak: ['trooper', 'lancer', 'prism', 'shrike'] },
+  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).', strong: ['monolith', 'scythe', 'siegeTank'], weak: ['trooper', 'lancer', 'prism', 'shrike'] },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
+  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deploy it to fire: then it outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers. Fires as far as your side can see. Behind a line it breaks massed infantry and towers; alone it is easy prey.', strong: ['lancer', 'prism'], weak: ['vanguard', 'monolith', 'wasp', 'shrike'] },
   bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.', strong: ['vanguard', 'scythe', 'sovereign'], weak: ['lancer', 'prism', 'shrike'] },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
   scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Slower than a Trooper. Cannot hit flyers.', strong: ['lancer', 'harvester'], weak: ['trooper', 'wasp', 'bastion'] },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard', 'sovereign'] },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard'], weak: ['wasp'] },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['wasp', 'vanguard'], weak: ['lancer', 'trooper'] },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard', 'sovereign', 'siegeTank'] },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard', 'siegeTank'], weak: ['wasp'] },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['wasp', 'vanguard', 'siegeTank'], weak: ['lancer', 'trooper'] },
   sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far.' },
 };
@@ -47,8 +48,9 @@ const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
   depot: { hot: 'D', desc: '+8 supply.' },
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
-  barracks: { hot: 'G', desc: 'Trains Troopers, Lancers, Medics and Vanguards (Medics and Vanguards need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Entrenching, Cloaking Field and Rapid Construction; unlocks Medics and Vanguards at the Garrison.' },
+  barracks: { hot: 'G', desc: 'Trains Troopers, Lancers and Medics (Medics need a Foundry).' },
+  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Entrenching, Cloaking Field and Rapid Construction; unlocks Medics at the Garrison and vehicles at the Factory.' },
+  factory: { hot: 'R', desc: 'Builds vehicles: Vanguards and Siege Tanks (both need a Foundry).' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
   airfield: { hot: 'A', desc: 'Trains Wasps, Observers and the Bastion capital gunship.' },
   // the Vael
@@ -85,6 +87,7 @@ const ABILITY_TEXT = {
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
   cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Ward, Observer).' },
   veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Ward, Observer).' },
+  deploy: { hot: 'D', desc: 'Deployed, it fires (3 s to deploy or pack up, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. Tap again, or order a move, to pack up.' },
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);

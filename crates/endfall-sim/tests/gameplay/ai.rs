@@ -924,24 +924,27 @@ fn each_ai_takes_ether_when_it_has_something_to_spend_it_on() {
 
 #[test]
 fn an_ai_with_ether_piling_up_leans_on_its_specialists() {
-    // A Vanguard per two Troopers normally; with ether in the bank, one per Trooper.
+    // A Vanguard per two Troopers and a Siege Tank per six normally; with ether in the bank, one per Trooper and one
+    // per three. (Two Factories: one could not keep up with a Garrison's Troopers either way.)
     let mut w = World::new(9, 1);
     let b = w.map.bases[ENEMY as usize];
     w.make_building(BldgKind::Forge, ENEMY, b.0 + 6, b.1 - 1, true);
     w.make_building(BldgKind::Barracks, ENEMY, b.0 - 4, b.1 + 6, true);
+    w.make_building(BldgKind::Factory, ENEMY, b.0 + 6, b.1 + 6, true);
+    w.make_building(BldgKind::Factory, ENEMY, b.0 + 10, b.1 + 6, true);
     for _ in 0..30 * 120 {
         w.res[ENEMY as usize] = [3000, 1000];
         w.step();
         w.events.clear();
     }
-    let (troopers, vanguards) = (
+    let (troopers, vehicles) = (
         count(&w, ENEMY, UnitKind::Trooper),
-        count(&w, ENEMY, UnitKind::Vanguard),
+        count(&w, ENEMY, UnitKind::Vanguard) + count(&w, ENEMY, UnitKind::SiegeTank),
     );
     assert!(troopers >= 3, "it trained: {troopers}");
     assert!(
-        vanguards * 2 > troopers,
-        "more than a Vanguard per two Troopers: {vanguards} to {troopers}"
+        vehicles * 2 > troopers,
+        "more than a vehicle per two Troopers: {vehicles} to {troopers}"
     );
 }
 
@@ -961,11 +964,12 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
             w.events.clear();
         }
         for seat in 0..2u8 {
-            let rax = w.factions[seat as usize].ai.rax;
+            // (main factories and a vehicle bay: both count against the schedule)
+            let s = &w.factions[seat as usize].ai;
             let n = w
                 .bldgs
                 .iter()
-                .filter(|b| b.team == seat && b.kind == rax)
+                .filter(|b| b.team == seat && (b.kind == s.rax || Some(b.kind) == s.heavy))
                 .count();
             assert!(
                 n >= 3,
@@ -1182,6 +1186,9 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
                 .filter(|b| b.team == ENEMY && b.kind == k && b.done)
                 .count()
         };
+        // (main factories and a vehicle bay: both count against the schedule)
+        let factories =
+            |w: &World| count(w, f_ai.ai.rax) + f_ai.ai.heavy.map_or(0, |h| count(w, h));
         let mut hqs_at_9 = 0;
         while w.time < 960.0 {
             w.step();
@@ -1196,9 +1203,9 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         assert!(harvesters(&w, ENEMY).len() >= 10, "{name}: crewed");
         let schedule = DIFF[0].rax + 2; // (one more after 5 and after 9 minutes)
         assert!(
-            count(&w, f_ai.ai.rax) > schedule,
+            factories(&w) > schedule,
             "{name}: a factory beyond its schedule: {}",
-            count(&w, f_ai.ai.rax)
+            factories(&w)
         );
         assert_eq!(
             w.upgrades[ENEMY as usize].iter().sum::<u8>(),
@@ -1214,6 +1221,8 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
     // off to build is replaced and its income does not dip with every building it raises; one at most (the extra
     // ones stay for good), and the Vael AI, whose planter leaves at once, keeps none.
     let mut w = World::new(17, 1);
+    let home = w.bldgs.iter_mut().find(|b| b.team == PLAYER).unwrap();
+    (home.hp, home.maxhp) = (1e9, 1e9); // (the idle player's base stands: its waves do not end the game first)
     let target = DIFF[1].harv;
     let core = |w: &World| {
         w.bldgs

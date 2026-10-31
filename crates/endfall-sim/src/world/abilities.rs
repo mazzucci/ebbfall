@@ -28,7 +28,11 @@ impl World {
             return Err(format!("{} is not ready", ability.def().name));
         }
         if u.swap > 0.0 {
-            return Err("Busy entrenching".into());
+            return Err(if u.mode.is_some() {
+                "Busy settling in".into()
+            } else {
+                "Busy packing up".into()
+            });
         }
         if u.warp > 0.0 {
             return Err("Still warping in".into());
@@ -65,7 +69,7 @@ impl World {
                 u.hp -= hp;
                 u.boost = Some((ability, now + secs));
             }
-            AbilityEffect::Entrench { swap, .. } => {
+            AbilityEffect::Entrench { .. } => {
                 let entrenching = self.u(uid).mode.is_none();
                 if entrenching {
                     // Settles in where it stands and holds: it fires at what comes into its (longer) reach.
@@ -74,9 +78,7 @@ impl World {
                 } else {
                     self.set_task(uid, Task::Idle);
                 }
-                let u = self.um(uid);
-                u.mode = entrenching.then_some(ability);
-                u.swap = swap;
+                self.set_toggle(uid, ability, entrenching);
             }
             AbilityEffect::Blink { dist } => self.blink(uid, dist * TILE),
             // (the boost timer carries it: a cloaking unit has no other timed ability)
@@ -94,6 +96,30 @@ impl World {
             seen,
         });
         Ok(())
+    }
+
+    /// Turns `uid`'s toggle `ability` on or off, whatever it is doing (its task stays): `swap` seconds of settling in
+    /// or packing up start.
+    pub(crate) fn set_toggle(&mut self, uid: Id, ability: AbilityKind, on: bool) {
+        if let AbilityEffect::Entrench { swap, .. } = ability.def().effect {
+            let u = self.um(uid);
+            u.mode = on.then_some(ability);
+            u.swap = swap;
+        }
+    }
+
+    /// A siege gun sets up by itself on reaching its target (an attack, an attack-move or an idle unit's own pick):
+    /// its toggle goes on as if cast, the task stays (it fires once settled).
+    pub(crate) fn deploy(&mut self, uid: Id) {
+        let Some(k) = self.u(uid).kind.toggle() else {
+            return;
+        };
+        if self.u(uid).mode.is_some() || self.can_cast(uid, k).is_err() {
+            return;
+        }
+        let task = self.u(uid).task;
+        let _ = self.cast(uid, k);
+        self.um(uid).task = task; // (cast holds it: keep the attack)
     }
 
     /// Every unit of `units` that can use `ability` does (a selection taps once); Err only if none could, with the
@@ -215,6 +241,26 @@ impl World {
         u.kind.def().speed * tech
     }
 
+    /// A deployed siege gun at rest (idle or holding) with nothing to shell packs up (`auto_cast_for`).
+    fn siege_pack_up(&mut self, uid: Id) {
+        let u = self.u(uid);
+        let (Some(k), true) = (u.kind.toggle(), u.mode.is_some()) else {
+            return;
+        };
+        if !matches!(u.task, Task::Idle | Task::Hold) || self.can_cast(uid, k).is_err() {
+            return;
+        }
+        let (ux, uy, team, air) = (u.x, u.y, u.team, u.kind.def().air);
+        let c = self.live(uid);
+        let reach = c.siege.unwrap_or(0.0);
+        if self
+            .find_target(ux, uy, team, reach, c.min, false, c.hits, air)
+            .is_none()
+        {
+            let _ = self.cast(uid, k);
+        }
+    }
+
     /// Whether `team` may use `ability`: no tech unlocks it, or that tech is researched.
     pub fn ability_unlocked(&self, team: u8, ability: AbilityKind) -> bool {
         Upgrade::unlocking(ability).is_none_or(|up| self.upgrades[team as usize][up.index()] > 0)
@@ -223,10 +269,11 @@ impl World {
     pub(crate) fn fire_mul(&self, uid: Id) -> f64 {
         self.boost_mul(uid, |f, _| f)
     }
-    /// Extra reach in tiles (entrenched), or None while settling in or packing up (no firing then).
+    /// Extra reach in tiles (entrenched), or None while settling in or packing up (no firing then), and for a siege
+    /// gun while it is not deployed.
     pub(crate) fn reach_add(&self, uid: Id) -> Option<f64> {
         let u = self.u(uid);
-        if u.swap > 0.0 {
+        if u.swap > 0.0 || (u.mode.is_none() && u.kind.siege()) {
             return None;
         }
         Some(match u.mode.map(|k| k.def().effect) {
@@ -239,14 +286,26 @@ impl World {
     /// Overcharge once in a fight at reach, Blink to close on a target out of reach, Entrench when enemies are in
     /// entrenched reach but none is close, and packing up when nothing is left in reach. Sees only what `team` sees.
     pub fn auto_cast(&mut self, team: u8) {
+        self.auto_cast_for(team, true);
+    }
+
+    /// `auto_cast`, with the abilities other than a siege gun's toggle only if `skills` (a level that uses them).
+    /// A siege gun deploys by itself on reaching a target (its attack), so here it only packs up: once deployed, idle
+    /// or holding with nothing its side sees between its blind ring and its reach, so it can follow its army.
+    pub(crate) fn auto_cast_for(&mut self, team: u8, skills: bool) {
         let ids: Vec<Id> = self
             .units
             .iter()
             .filter(|u| u.team == team && !u.kind.def().abilities.is_empty())
+            .filter(|u| skills || u.kind.siege())
             .map(|u| u.id)
             .collect();
         for uid in ids {
             let Some(u) = self.unit(uid) else { continue };
+            if u.kind.siege() {
+                self.siege_pack_up(uid);
+                continue;
+            }
             let (ux, uy, task, hp, maxhp, mode, boost) =
                 (u.x, u.y, u.task, u.hp, u.maxhp, u.mode, u.boost);
             let d = u.kind.def();

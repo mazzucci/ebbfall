@@ -21,8 +21,10 @@ Players never need any of this; only the PNG/JSON output ships.
   hulls are painted steel (`trim`).
   Buildings come in three hull families so they read apart from the 55° camera, which mostly sees roofs: command and
   civil in grey steel (`trim`: Core, Airfield, Turret), military in `khaki` (Garrison vaults), industry in dark `iron`
-  with fire (`ember`: Foundry). Each has one signature shape visible from above: the Core's dome, the Garrison's three
-  vaults and parade yard, the Foundry's twin chimneys, the Airfield's round pad with its H, the Ether Rig's derrick.
+  with fire (`ember`: Foundry, Factory). Each has one signature shape visible from above: the Core's dome, the
+  Garrison's three vaults and parade yard, the Foundry's twin chimneys, the Factory's long sawtooth roof (glazed
+  faces south) under a gantry crane on team girders, its hazard-framed bay door and striped vehicle apron, the
+  Airfield's round pad with its H, the Ether Rig's derrick.
 - **Materials** (`materials.js`): physically based (metalness/roughness) with procedural canvas textures: panel
   seams, rivets, edge wear, rust drips, stencils, concrete, hazard stripes, tread. UVs are box-projected at 16 units
   per repeat so detail keeps one scale on any size.
@@ -53,8 +55,8 @@ ground point: unit centre, building footprint centre.
 | Name | Notes |
 | --- | --- |
 | `ground_0..5`, `rock_<mask>_<v>` | dual-grid terrain cells (64 px); mask bits 1 TL, 2 TR, 4 BL, 8 BR = corner is rock; 3 variants that all join |
-| `<unit>_<dir>_<frame>`, `<unit>_<dir>_<frame>_m` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up); the Vael lumen, scythe, prism, monolith, shrike, halo (a pearl lotus round a pale aqua light under a tilted ring: the one Vael unit whose light is not violet, so the healer and the Prism's crystal ring part at a glance) and sovereign (the capital: a pearl hull gliding 7 units up (lower than the Halo: a ground unit, its shadow right beneath it), a coiled ceramic shell with a team ridge spiralling to an apex crystal, a violet lens at the bow that is the beam's visual muzzle, swept side vanes; 4 frames at 4/s (`UNIT_FPS`): a bob, and the lift ring's team arcs and lamps turn a third of a turn); dir 0–15, 0 = facing +x, clockwise on screen; animations `<unit>_<dir>`; `_m`: the team mask (trimmed) |
-| `bldg_<type>`, `bldg_<type>_m` | core, depot, extractor, barracks, forge, turret (base), airfield; the Vael conflux, spire, siphon, kiln, ward, loom, zenith |
+| `<unit>_<dir>_<frame>`, `<unit>_<dir>_<frame>_m` | harvester (2 frames), trooper, vanguard, lancer, medic (4 walk frames), wasp (2 rotor frames, hovering 16 units up; anchor = the ground point below it), observer (2 fan frames, hovering 18 units up), bastion (2 fan frames, hovering 24 units up), siegeTank (4 frames by state, not a walk cycle: the client picks them, `UNIT_POSE` in src/client/look.js; 0 and 1 travelling, the barrel level on its travel lock, legs folded, the track grousers half a link apart so the pair animates as it drives; 2 half deployed, legs half down, barrel half raised and run out; 3 deployed, four team-painted stabiliser legs planted, hull lifted, barrel raised and fully run out); the Vael lumen, scythe, prism, monolith, shrike, halo (a pearl lotus round a pale aqua light under a tilted ring: the one Vael unit whose light is not violet, so the healer and the Prism's crystal ring part at a glance) and sovereign (the capital: a pearl hull gliding 7 units up (lower than the Halo: a ground unit, its shadow right beneath it), a coiled ceramic shell with a team ridge spiralling to an apex crystal, a violet lens at the bow that is the beam's visual muzzle, swept side vanes; 4 frames at 4/s (`UNIT_FPS`): a bob, and the lift ring's team arcs and lamps turn a third of a turn); dir 0–15, 0 = facing +x, clockwise on screen; animations `<unit>_<dir>`; `_m`: the team mask (trimmed) |
+| `bldg_<type>`, `bldg_<type>_m` | core, depot, extractor, barracks, forge, turret (base), airfield, factory; the Vael conflux, spire, siphon, kiln, ward, loom, zenith |
 | `turret_head_<dir>`, `turret_head_<dir>_m` | rotating gun, 16 facings |
 | `foundation_<n>`, `scaffold_<n>`, `rubble_<n>` | construction and destruction, n = 2, 3, 4 tiles |
 | `shard_0..3`, `vent_0..3` | crystal field (full → nearly mined out), ether vent swirl |

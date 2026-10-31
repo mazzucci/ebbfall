@@ -131,6 +131,7 @@ impl World {
                 by,
                 team,
                 w.range * TILE,
+                w.min_range * TILE,
                 false,
                 w.hits(),
                 false, // (buildings stand on the ground)

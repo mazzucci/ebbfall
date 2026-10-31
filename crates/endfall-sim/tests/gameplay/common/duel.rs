@@ -60,6 +60,12 @@ pub fn flatten(w: &mut World, xs: std::ops::Range<i32>, ys: std::ops::Range<i32>
 pub type Micro = fn(&mut World, &[Id], &[Id]);
 /// No micro: the armies just fight.
 pub fn no_micro(_: &mut World, _: &[Id], _: &[Id]) {}
+/// The scripted opponent's use of abilities (`World::auto_cast`): Stim, Blink, Entrench, Cloak, a tank packing up.
+pub fn ability_micro(w: &mut World, mine: &[Id], _: &[Id]) {
+    if let Some(team) = mine.iter().find_map(|&u| w.unit(u)).map(|u| u.team) {
+        w.auto_cast(team);
+    }
+}
 
 pub fn duel_once(
     a: &[UnitKind],

@@ -45,8 +45,10 @@ impl World {
 
     // ---- combat ----
     /// The best enemy in range for a weapon that `hits` (ground, air), shooting from (x, y), for a shooter that
-    /// flies or not (`flier`). Priority first (see `threat_tier`: whatever can hurt the shooter, then other units,
-    /// then plain buildings), then distance.
+    /// flies or not (`flier`): nearer than `range` px (edge distance) and, for a siege gun, no nearer than `min`
+    /// (0: none). Only what `team` sees (its sight and its allies': a gun that outranges its own sight needs a
+    /// spotter). Priority first (see `threat_tier`: whatever can hurt the shooter, then other units, then plain
+    /// buildings), then distance.
     #[allow(clippy::too_many_arguments)]
     pub fn find_target(
         &self,
@@ -54,13 +56,18 @@ impl World {
         y: f64,
         team: u8,
         range: f64,
+        min: f64,
         only_units: bool,
         hits: (bool, bool),
         flier: bool,
     ) -> Option<Id> {
         let mut best: Option<(u8, f64, Id)> = None;
         let mut consider = |tier: u8, d: f64, id: Id| {
-            if d < range && best.is_none_or(|(bt, bd, _)| (tier, d) < (bt, bd)) {
+            if d < range
+                && (min <= 0.0 || d >= min)
+                && best.is_none_or(|(bt, bd, _)| (tier, d) < (bt, bd))
+                && self.seen_by(team, id)
+            {
                 best = Some((tier, d, id));
             }
         };
@@ -590,13 +597,14 @@ impl World {
         if c.combat && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
+            // (an idle siege gun looks as far as it shoots: it sets up where it stands)
             let rng = if hold {
                 c.range + c.r
             } else {
-                c.sight * TILE * 0.85
+                c.siege.unwrap_or(c.sight * TILE * 0.85)
             };
-            if let Some(t) = self.find_target(ux, uy, c.team, rng, false, c.hits, c.kind.def().air)
-            {
+            let flier = c.kind.def().air;
+            if let Some(t) = self.find_target(ux, uy, c.team, rng, c.min, false, c.hits, flier) {
                 let (tx, ty) = self.geo(t).unwrap().center();
                 if hold {
                     if self.u(uid).cd <= 0.0 {
@@ -629,7 +637,8 @@ impl World {
                 ux,
                 uy,
                 c.team,
-                c.sight * TILE * 0.85,
+                c.siege.unwrap_or(c.sight * TILE * 0.85),
+                c.min,
                 false,
                 c.hits,
                 c.kind.def().air,
@@ -687,6 +696,17 @@ impl World {
             .geo(target)
             .filter(|_| self.team_of(target).is_some() && !self.hidden_from(c.team, target))
         else {
+            // A deployed siege gun takes the next target in its reach before packing up for the march.
+            if let Some(reach) = c.siege.filter(|_| self.u(uid).mode.is_some()) {
+                let (ux, uy, flier) = (self.u(uid).x, self.u(uid).y, c.kind.def().air);
+                if let Some(t2) =
+                    self.find_target(ux, uy, c.team, reach, c.min, false, c.hits, flier)
+                    && let Task::Attack { target, .. } = &mut self.um(uid).task
+                {
+                    *target = t2;
+                    return;
+                }
+            }
             match back {
                 Some(b) => self.resume_back(uid, b),
                 None => self.resume_after(uid),
@@ -711,10 +731,10 @@ impl World {
                 let now = self.threat_tier(target, flier);
                 let seen = c.sight * TILE * 0.85;
                 let better = self
-                    .find_target(ux, uy, c.team, seen, false, c.hits, flier)
+                    .find_target(ux, uy, c.team, seen, c.min, false, c.hits, flier)
                     .filter(|&t2| self.threat_tier(t2, flier) == 0)
                     .or_else(|| {
-                        self.find_target(ux, uy, c.team, c.range + c.r, false, c.hits, flier)
+                        self.find_target(ux, uy, c.team, c.range + c.r, c.min, false, c.hits, flier)
                     })
                     .filter(|&t2| self.threat_tier(t2, flier) < now);
                 if let Some(t2) = better
@@ -725,9 +745,80 @@ impl World {
             }
         }
         self.um(uid).aggro_cd -= dt;
-        // Like the JS, this tick still closes on and fires at the original target.
-        if self.approach(uid, t, c.range + c.r * 0.5, dt) && self.u(uid).cd <= 0.0 {
+        if let Some(reach) = c.siege {
+            self.siege_attack(uid, target, t, back, c, reach, dt);
+            return;
+        }
+        // Like the JS, this tick still closes on and fires at the original target (once its side sees it).
+        if self.approach(uid, t, c.range + c.r * 0.5, dt)
+            && self.u(uid).cd <= 0.0
+            && self.seen_by(c.team, target)
+        {
             self.fire(uid, target);
+        }
+    }
+
+    /// A siege gun's attack: on the move it closes to its deployed `reach` of the target (px, its radius counted) and
+    /// deploys there; deployed, it never walks: it fires at the target while it is between its blind ring and its
+    /// reach and seen, else takes the best other one there, else goes back to what it was doing (packing up for it)
+    /// or, sent at this target, holds. A target inside its blind ring is given up.
+    #[allow(clippy::too_many_arguments)]
+    fn siege_attack(
+        &mut self,
+        uid: Id,
+        target: Id,
+        t: Geo,
+        back: Option<Back>,
+        c: Live,
+        reach: f64,
+        dt: f64,
+    ) {
+        let u = self.u(uid);
+        let (ux, uy, deployed, swap) = (u.x, u.y, u.mode.is_some(), u.swap);
+        if swap > 0.0 {
+            return; // settling in or packing up: neither walking nor firing
+        }
+        let d = t.edge_dist(ux, uy);
+        let seen = self.seen_by(c.team, target);
+        let in_band = d >= c.min && d < reach && seen;
+        if !deployed {
+            if d < c.min {
+                match back {
+                    Some(b) => self.resume_back(uid, b),
+                    None => self.set_idle(uid),
+                }
+            } else if in_band {
+                self.deploy(uid);
+            } else {
+                // (in reach but out of its side's sight: on until its own eyes see it)
+                let close = if d < reach {
+                    c.sight * TILE * 0.8
+                } else {
+                    reach - TILE * 0.5
+                };
+                self.approach(uid, t, close, dt);
+            }
+            return;
+        }
+        if in_band {
+            let (cx, cy) = t.center();
+            let u = self.um(uid);
+            u.face = jsmath::atan2(cy - uy, cx - ux);
+            if u.cd <= 0.0 {
+                self.fire(uid, target);
+            }
+            return;
+        }
+        let flier = c.kind.def().air;
+        if let Some(t2) = self.find_target(ux, uy, c.team, reach, c.min, false, c.hits, flier) {
+            if let Task::Attack { target, .. } = &mut self.um(uid).task {
+                *target = t2;
+            }
+            return;
+        }
+        match back {
+            Some(b) => self.resume_back(uid, b),
+            None => self.set_idle(uid),
         }
     }
 

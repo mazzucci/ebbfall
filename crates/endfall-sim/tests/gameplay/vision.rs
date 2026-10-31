@@ -452,3 +452,40 @@ fn a_team_game_watched_again_is_the_game_played() {
         );
     }
 }
+
+/// A Vanguard of the player's and a Sovereign of the other side's on flat ground (the Vael's), both too sturdy to fall.
+fn reach_scene(v: (f64, f64), s: (f64, f64), vanguard: u8) -> (World, Id, Id) {
+    let mut w = tech_arena(8);
+    w.factions = vec![&HUMANS, &VAEL];
+    let van = w.make_unit(UnitKind::Vanguard, vanguard, v.0 * TILE, v.1 * TILE);
+    let sov = w.make_unit(UnitKind::Sovereign, 1 - vanguard, s.0 * TILE, s.1 * TILE);
+    set_hp(&mut w, van, 1e6);
+    set_hp(&mut w, sov, 1e6);
+    w.update_fog();
+    (w, van, sov)
+}
+
+/// What is left of a unit: hull and shields.
+fn left(w: &World, u: Id) -> f64 {
+    w.unit(u).map_or(0.0, |u| u.hp + u.sh)
+}
+
+#[test]
+fn shooters_whose_reach_meets_their_sight_still_fire_there() {
+    // Only a siege gun (it outranges its own sight) needs its side to see its target: a gun whose reach is at the
+    // edge of its sight fires as far as it reaches, wherever the target's tile centre falls.
+    // An entrenched Vanguard (reach 9, sight 9) answers a Sovereign holding at its reach, 9.76 tiles centre to centre.
+    let (mut w, van, sov) = reach_scene((30.0, 30.5), (39.76, 30.5), PLAYER);
+    w.cast(van, AbilityKind::Entrench).unwrap();
+    w.hold_unit(sov);
+    let full = left(&w, sov);
+    run(&mut w, 12);
+    assert!(left(&w, sov) < full, "the entrenched Vanguard fires back");
+    // A Sovereign (reach 9, sight 10) sent at a holding Vanguard 12 tiles off closes to its reach and fires.
+    let (mut w, van, sov) = reach_scene((30.05, 30.5), (18.0, 30.5), ENEMY);
+    w.hold_unit(van);
+    w.attack_ent(sov, van);
+    let full = left(&w, van);
+    run(&mut w, 20);
+    assert!(left(&w, van) < full, "the Sovereign fires");
+}

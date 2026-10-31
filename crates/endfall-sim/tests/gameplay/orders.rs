@@ -142,8 +142,8 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     }
     assert_eq!(
         w.queue_unit(rax, UnitKind::Vanguard),
-        Err("Requires Foundry".into()),
-        "a Garrison trains vanguards only once a Foundry stands"
+        Err("Garrison cannot train that".into()),
+        "vehicles come from the Factory"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
     let depot = build(&mut w, BldgKind::Depot, h[1], 90);
@@ -177,21 +177,34 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 }
 
 #[test]
-fn medics_and_vanguards_need_a_forge_and_an_airfield_a_garrison() {
+fn medics_and_vehicles_need_a_forge_and_an_airfield_or_a_factory_a_garrison() {
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
-    let (tx, ty) = spot(&w, BldgKind::Airfield);
-    assert_eq!(
-        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
-        Err("Requires Garrison".into()),
-        "air is a branch off the first factory"
-    );
-    let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
-    for k in [UnitKind::Medic, UnitKind::Vanguard] {
+    for k in [BldgKind::Airfield, BldgKind::Factory] {
+        let (tx, ty) = spot(&w, k);
         assert_eq!(
-            w.queue_unit(rax, k),
+            w.place_building(PLAYER, k, tx, ty, Some(h[1])),
+            Err("Requires Garrison".into()),
+            "air and vehicles are branches off the first factory: {k:?}"
+        );
+    }
+    let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
+    assert_eq!(
+        w.queue_unit(rax, UnitKind::Medic),
+        Err("Requires Foundry".into())
+    );
+    // The Factory (no Foundry needed to build it) trains Vanguards and Siege Tanks, both once a Foundry stands.
+    let fac = build(&mut w, BldgKind::Factory, h[3], 120);
+    for k in [UnitKind::Vanguard, UnitKind::SiegeTank] {
+        assert_eq!(
+            w.queue_unit(fac, k),
             Err("Requires Foundry".into()),
             "{k:?}"
+        );
+        assert_eq!(
+            w.queue_unit(rax, k),
+            Err("Garrison cannot train that".into()),
+            "{k:?}: not at the Garrison"
         );
     }
     let (tx, ty) = spot(&w, BldgKind::Airfield);
@@ -202,7 +215,9 @@ fn medics_and_vanguards_need_a_forge_and_an_airfield_a_garrison() {
     );
     build(&mut w, BldgKind::Forge, h[2], 120);
     assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
-    assert!(w.queue_unit(rax, UnitKind::Vanguard).is_ok());
+    build(&mut w, BldgKind::Depot, h[0], 60); // (room for both)
+    assert!(w.queue_unit(fac, UnitKind::Vanguard).is_ok());
+    assert!(w.queue_unit(fac, UnitKind::SiegeTank).is_ok());
 }
 
 #[test]

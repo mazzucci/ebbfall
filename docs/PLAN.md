@@ -8,8 +8,8 @@ loop feels right.
 
 - Playable in the browser and offline (installable, service worker): two races, three named map characters,
   a scripted opponent for either race with four difficulties (Easy, Medium, Hard, Brutal: by how well it plays; only Brutal gathers faster), random start side.
-- Humans: Core, Depot, Ether Rig, Garrison, Foundry, Turret, Airfield; Harvester, Trooper, Vanguard, Lancer, Medic,
-  Wasp, Observer. Workers build and repair; upgrades at the Foundry.
+- Humans: Core, Depot, Ether Rig, Garrison, Foundry, Factory, Turret, Airfield; Harvester, Trooper, Lancer, Medic,
+  Vanguard, Siege Tank, Wasp, Observer. Workers build and repair; upgrades at the Foundry.
 - Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith; Lumen, Scythe, Prism, Monolith, Shrike. Warp-in
   construction, power fields, shields that regenerate; no repair.
 - Economy: shards (finite fields) and ether (vents that need a refinery); supply from headquarters and supply
@@ -221,6 +221,24 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
 - [x] PWA manifest so it installs on a phone (PNG icons and an INSTALL button, 2026-10-27)
 - [x] Search and link previews (2026-10-30, step 1 of the owner's growth plan): a real title, description, canonical, Open Graph and X cards with a 1200x630 image of the game's own sprites (tools/og.mjs), JSON-LD, robots.txt and a sitemap; a room's link shows its own card ("Join my Ebbfall game: room WGNJ", site/preview.js through the Worker)
 - [x] SHARE after a victory, with a challenge link (2026-10-30, growth plan step 1): after a win against the AI (not the guided game, not online) the end card's SHARE shares `?vs=CODE` (src/client/challenge.js: the map, its seed and starts, each spot's race, side and level, the winner's time; numbers and enums only, a strict versioned code) through the share sheet, or copies it (LINK COPIED); the link opens the single-player page on that setup with a line ("CHALLENGE · won in 12:34 · beat it"), the same game on START, nothing saved until the player changes the setup; its card in a chat: "Can you beat this? 1 vs 3 Brutal AIs on Iron Compass". Later maybe: online games
+- [x] The Factory and the Siege Tank (2026-10-31, the owner's ask for more depth): a Human vehicle bay, the
+  **Factory** (Advanced page, R; 125/50, 3x3, 35 s, needs the Garrison), now trains the Vanguard (moved from the Garrison) and
+  the **Siege Tank** (150/125, 3 supply, 160 hp, armour 1, speed 62; both need the Foundry). Its siege gun fires
+  only **Deployed** (`Deploy`, D: the Entrench toggle generalised, 3 s to deploy or pack up; `Weapon::siege`): 11
+  tiles, 60 damage (+5 a level), 75% splash within 64 px, every 3 s, ground only, and a blind ring
+  (`Weapon::min_range`, 2.5 tiles) it cannot hit inside. On its tracks it fires a light gun (`UnitDef::light`, the
+  owner's later ask: range 6, 13 damage (+1) every 1.2 s, ground only, no splash; it fights what is too close to set
+  up for, and fires while it closes in). It deploys by itself on reaching what it was sent at (an attack, an attack-move, an idle
+  tank's own pick), stays set up while targets remain in its reach, then goes back to its march; a move order packs it
+  up; sent at a target inside its blind ring while deployed, it holds. A siege gun fires only at what its side sees
+  (`find_target`), so a tank's reach past its sight needs a spotter; other shooters, whose reach is within their
+  sight, fire as before (a check there failed at the edge of sight: an entrenched Vanguard, a Sovereign). The AI raises a Factory once its Foundry stands (Easy not before 3:35:
+  `Diff::heavy_at`), counts it against its factory schedule (an extra one only with ether piling up), mixes in a tank
+  per six Troopers from 5:30 and packs a deployed tank up when nothing is left in its reach (every level). AI against
+  AI, on two vents and after the balance pass, Humans against Vael (240 games a level): Medium 50.4% Humans (main 51.7%),
+  Hard 51.2% (main 41.7%); tanks in 175 and 154 of the games, Bastions and Sovereigns about as often as before (fewer
+  Sovereigns: 74 and 70 against 87). Tests: gameplay/siege.rs, the siege
+  line and counters in balance.rs; the client shows the selected tank's reach and blind ring.
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

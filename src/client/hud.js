@@ -47,8 +47,11 @@ const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-l
 function fightStats(x) {
   const up = G.upgrades[x.team], bonus = (UP_DMG[x.type] || 0) * effectLevel(up, 'weapons');
   let h = '';
-  const wp = x.d.weapon;
-  if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
+  const wp = x.d.weapon, light = x.d.light;
+  if (light) { // a siege gun: both guns, the one it fires now first (Deployed, or the light gun on its tracks)
+    const guns = [[wp, bonus, 'Deployed: siege gun damage against ground'], [light, (light.upDmg || 0) * effectLevel(up, 'weapons'), 'On its tracks: light gun damage against ground']];
+    for (const [g, b, t] of x.mode ? guns : guns.reverse()) h += stat('dmg', g.dmg, b, t);
+  } else if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
   if (wp?.dmgAir) h += stat('air', wp.dmgAir, bonus, 'Damage against flyers');
   if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends shields (per second)' : 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');
@@ -170,6 +173,7 @@ let stripBound = false;
 function taskName(u) {
   const T = u.task;
   if (u.warp > 0) return 'Warping in'; // (before any order it was given meanwhile)
+  if (u.mode === 'deploy') return u.swap > 0 ? 'Deploying' : 'Deployed'; // (firing or not: a deployed tank shells what it can)
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
   if (T.t === 'build') return warps(u.team) ? 'Planting' : 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (u.mode === 'entrench') return u.swap > 0 ? 'Digging in' : 'Entrenched'; if (u.swap > 0) return 'Packing up';

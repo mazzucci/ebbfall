@@ -28,8 +28,10 @@ letter (`A` attack-move, `S` stop, `H` hold, `B` build with Harvesters selected)
 asks before leaving a game.
 
 **Units:** Harvesters mine, build and repair. The Garrison trains Troopers (shoot ground and air), Lancers (anti-air
-missiles), Medics (heal infantry) and Vanguards (heavy walkers whose shells splash, ground only); Medics and Vanguards
-need a Foundry, which researches weapon and armor upgrades. The Airfield trains Wasps, gunships that fly over cliffs
+missiles) and Medics (heal infantry). The Factory builds Vanguards (heavy walkers whose shells splash, ground only) and
+Siege Tanks (artillery whose siege gun fires only when deployed: the longest reach on the ground and a heavy splash,
+but a blind ring close in, ground only, and it fires only at what your side can see; on its tracks, a light gun). Medics and both vehicles need a Foundry,
+which researches weapon and armor upgrades. The Airfield trains Wasps, gunships that fly over cliffs
 and buildings, and Observers, cheap unarmed flying scouts. Turrets hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

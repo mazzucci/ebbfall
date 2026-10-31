@@ -397,11 +397,22 @@ impl World {
         let d = u.kind.def();
         // Entrenched: farther; settling in or packing up: no reach at all (it cannot fire then).
         let range = match self.reach_add(uid) {
-            Some(add) => d.weapon.map_or(0.0, |w| w.range + add) * TILE,
+            Some(add) => self.active_weapon(uid).map_or(0.0, |w| w.range + add) * TILE,
             None => 0.0,
         };
+        let min = d
+            .weapon
+            .filter(|w| w.min_range > 0.0)
+            .map_or(0.0, |w| w.min_range * TILE + u.r);
+        let siege = d
+            .weapon
+            .filter(|_| u.kind.siege())
+            .map(|w| w.range * TILE + u.r);
         Live {
             range,
+            min,
+            siege,
+            ring: siege.filter(|_| u.mode.is_some()).map(|_| min),
             combat: d.threat(),
             team: u.team,
             r: u.r,

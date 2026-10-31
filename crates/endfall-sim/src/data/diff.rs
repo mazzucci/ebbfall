@@ -6,8 +6,8 @@ pub const NEVER: f64 = f64::MAX;
 
 /// AI tuning per difficulty. `first`/`gap`: seconds before the first wave and between waves. `extra_rax`: main
 /// factories it may add beyond its schedule (`rax`, one more after 5 and 9 minutes) to spend shards piling up.
-/// `research_from`/`expand_at`/`air_at`: seconds before it researches, takes a second base, raises an air factory
-/// (NEVER: it does not). `raids`: flyers hunt the player's workers. `prong`: a big wave sends a third at an
+/// `research_from`/`expand_at`/`air_at`/`heavy_at`: seconds before it researches, takes a second base, raises an air
+/// factory, raises its vehicle bay (NEVER: it does not). `raids`: flyers hunt the player's workers. `prong`: a big wave sends a third at an
 /// expansion. `answers`: it adapts its mix to what it has seen. `abilities`: its units use theirs.
 /// `supply_ahead`: free supply below which it builds more; `supply_at_once`: how many supply buildings at a time.
 pub struct Diff {
@@ -22,6 +22,7 @@ pub struct Diff {
     pub research_from: f64,
     pub expand_at: f64,
     pub air_at: f64,
+    pub heavy_at: f64,
     pub raids: bool,
     pub prong: bool,
     pub answers: bool,
@@ -46,10 +47,11 @@ pub struct Diff {
 }
 
 pub const DIFF: [Diff; 4] = [
-    // Easy: a slow, plain script. Few workers, one factory to start; no research, flyers, abilities or adapting. It
-    // takes its natural after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds
-    // its early waves still meets a growing army later. One vent until then: a second's crew of workers would only
-    // pile up shards it has no factory to spend on.
+    // Easy: a slow, plain script. Few workers, one factory to start; no research, flyers, abilities or adapting. Its
+    // second factory, from 3:35, is its vehicle bay (where its Vanguards come from). It takes its natural after 9:00
+    // (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still meets a
+    // growing army later. One vent until then: a second's crew of workers would only pile up shards it has no factory
+    // to spend on.
     Diff {
         income: 1.0,
         wave: 4,
@@ -62,6 +64,7 @@ pub const DIFF: [Diff; 4] = [
         research_from: NEVER,
         expand_at: 540.0,
         air_at: NEVER,
+        heavy_at: 215.0,
         raids: false,
         prong: false,
         answers: false,
@@ -88,6 +91,7 @@ pub const DIFF: [Diff; 4] = [
         research_from: 420.0,
         expand_at: 420.0,
         air_at: 330.0,
+        heavy_at: 0.0,
         raids: true,
         prong: false,
         answers: true,
@@ -113,6 +117,7 @@ pub const DIFF: [Diff; 4] = [
         research_from: 300.0,
         expand_at: 330.0,
         air_at: 300.0,
+        heavy_at: 0.0,
         raids: true,
         prong: true,
         answers: true,
@@ -142,6 +147,7 @@ pub const DIFF: [Diff; 4] = [
         research_from: 300.0,
         expand_at: 330.0,
         air_at: 300.0,
+        heavy_at: 0.0,
         raids: true,
         prong: true,
         answers: true,

@@ -328,11 +328,10 @@ impl World {
     }
 
     /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
-    /// (the rules are `World::auto_cast`, shared with the balance duels).
+    /// (the rules are `World::auto_cast`, shared with the balance duels). A siege gun packs up on every level (it
+    /// is how it follows its army); the other abilities only on a level that uses them.
     fn ai_abilities(&mut self, _brain: &mut Brain) {
-        if self.level().abilities {
-            self.auto_cast(self.seat());
-        }
+        self.auto_cast_for(self.seat(), self.level().abilities);
     }
 
     /// How many of our buildings of kind `k` (only finished ones if `done`).

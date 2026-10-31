@@ -1,5 +1,6 @@
 //! The AI's build order and expansion: what to build next, where, and by whom; tending its sites.
 
+use super::produce::ETHER_FLOAT;
 use super::*;
 use crate::map::Node;
 
@@ -300,19 +301,36 @@ impl World {
         self.level().rax + (t > 300.0) as usize + (t > 540.0) as usize
     }
 
-    /// Whether shards pile up for want of factories: a bank of `SHARD_FLOAT` with every main factory busy, while
+    /// How many factories of `e`'s count against that schedule: its main factories, and its vehicle bay (a side with
+    /// one makes its specialists there, not at a Garrison: the same production as one more Garrison).
+    fn factories(&self, e: u8, my_b: &[Id]) -> usize {
+        let s = &self.factions[e as usize].ai;
+        self.ai_count(my_b, false, s.rax) + s.heavy.map_or(0, |h| self.ai_count(my_b, false, h))
+    }
+
+    /// The factory to add when shards pile up for want of one: a bank of `SHARD_FLOAT` with every one of a kind busy
+    /// (its vehicle bays first, which work only when the mix calls for their units, and only with ether in the bank,
+    /// then its main factories), while
     /// not supply-blocked (busy queues that cannot finish are not a factory problem) and not saving up (for an
     /// expansion or research: the bank is spoken for), and while under the difficulty's allowance of extra factories
-    /// over the `schedule`.
-    pub(crate) fn extra_rax(&self, e: u8, my_b: &[Id], schedule: usize) -> bool {
-        let rax = self.factions[e as usize].ai.rax;
-        let (busy, all) = my_b
-            .iter()
-            .filter_map(|&id| self.bldg(id))
-            .filter(|b| b.kind == rax)
-            .fold((0, 0), |(busy, all), b| {
-                (busy + (b.done && !b.queue.is_empty()) as usize, all + 1)
-            });
+    /// over the `schedule`. None: no extra factory.
+    pub(crate) fn extra_rax(&self, e: u8, my_b: &[Id], schedule: usize) -> Option<BldgKind> {
+        let s = &self.factions[e as usize].ai;
+        let busy_all = |k: BldgKind| {
+            let (busy, all) = my_b
+                .iter()
+                .filter_map(|&id| self.bldg(id))
+                .filter(|b| b.kind == k)
+                .fold((0, 0), |(busy, all), b| {
+                    (busy + (b.done && !b.queue.is_empty()) as usize, all + 1)
+                });
+            all > 0 && busy == all
+        };
+        // (a second vehicle bay only with ether piling up too: its units spend it)
+        let kind = s
+            .heavy
+            .filter(|&h| busy_all(h) && self.res[e as usize][1] >= ETHER_FLOAT)
+            .or(busy_all(s.rax).then_some(s.rax))?;
         let d = &DIFF[self.diff_of(e)];
         let [used, cap] = self.sup[e as usize];
         let hq = self.factions[e as usize].hq;
@@ -323,13 +341,12 @@ impl World {
                 .count()
                 >= 2
         };
-        self.res[e as usize][0] >= SHARD_FLOAT
-            && all > 0
-            && busy == all
-            && all < schedule + d.extra_rax
+        (self.res[e as usize][0] >= SHARD_FLOAT
+            && self.factories(e, my_b) < schedule + d.extra_rax
             && cap - used >= 4
             && self.ai().saving_since.is_none()
-            && (!d.extras_after_expanding || expanded())
+            && (!d.extras_after_expanding || expanded()))
+        .then_some(kind)
     }
 
     /// The build order: one wanted building at a time, placed by a free harvester.
@@ -381,7 +398,7 @@ impl World {
         let ether_early = s
             .mix
             .iter()
-            .any(|&(k, _)| k.def().cost[1] > 0 && k.def().req.is_none());
+            .any(|&(k, _, _)| k.def().cost[1] > 0 && k.def().req.is_none());
         // Another refinery once one flows and the tech that spends ether is going up (from the level's
         // `vents_from`), unless ether is piling up; one site at a time (a vent's crew is trained when it stands).
         let more_ether = ext.is_some()
@@ -426,10 +443,10 @@ impl World {
             // (the first in the main; its second once the first flows and its tech is going up; then the
             // expansion's, or at once if the main's have run dry)
             Some(f.ether)
-        } else if self.ai_count(&my_b, false, s.rax) < rax_schedule
-            || self.extra_rax(e, &my_b, rax_schedule)
-        {
+        } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
+        } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
+            Some(k)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && ext.is_some()
             && self.ai_count(&my_b, false, s.tech) == 0
@@ -437,6 +454,13 @@ impl World {
             && (t > 150.0 || self.res[e as usize][1] >= s.tech.def().cost[1])
         {
             Some(s.tech)
+        } else if let Some(heavy) = s.heavy
+            && self.ai_count(&my_b, true, s.rax) >= 1
+            && self.ai_count(&my_b, true, s.tech) >= 1
+            && self.ai_count(&my_b, false, heavy) == 0
+            && t > d.heavy_at
+        {
+            Some(heavy) // (once its vehicles' tech stands)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && self.ai_count(&my_b, false, s.tower) < (t > 240.0) as usize + (t > 480.0) as usize
         {
@@ -650,36 +674,71 @@ mod tests {
         let mut my_b = vec![rax];
         w.res[ENEMY as usize] = [500, 0];
         assert!(
-            !w.extra_rax(ENEMY, &my_b, 1),
+            w.extra_rax(ENEMY, &my_b, 1).is_none(),
             "an idle factory spends them first"
         );
         w.bm(rax).unwrap().queue.push(UnitKind::Trooper);
-        assert!(w.extra_rax(ENEMY, &my_b, 1), "busy, and shards in the bank");
+        assert_eq!(
+            w.extra_rax(ENEMY, &my_b, 1),
+            Some(BldgKind::Barracks),
+            "busy, and shards in the bank"
+        );
         my_b.push(site);
-        assert!(!w.extra_rax(ENEMY, &my_b, 1), "one is still going up");
+        assert!(
+            w.extra_rax(ENEMY, &my_b, 1).is_none(),
+            "one is still going up"
+        );
         my_b.pop();
         w.res[ENEMY as usize] = [300, 0];
-        assert!(!w.extra_rax(ENEMY, &my_b, 1), "not piling up");
+        assert!(w.extra_rax(ENEMY, &my_b, 1).is_none(), "not piling up");
         w.res[ENEMY as usize] = [500, 0];
         w.sup[ENEMY as usize] = [10, 12];
         assert!(
-            !w.extra_rax(ENEMY, &my_b, 1),
+            w.extra_rax(ENEMY, &my_b, 1).is_none(),
             "supply-blocked: a factory would not help"
         );
         w.recalc_supply(ENEMY);
         w.ai_mut().saving_since = Some(0.0);
         assert!(
-            !w.extra_rax(ENEMY, &my_b, 1),
+            w.extra_rax(ENEMY, &my_b, 1).is_none(),
             "saving up: the bank is spoken for"
         );
         w.ai_mut().saving_since = None;
-        assert!(w.extra_rax(ENEMY, &my_b, 1));
+        assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Barracks));
         // Easy: its extras wait for a second base.
         w.diff = 0;
-        assert!(!w.extra_rax(ENEMY, &my_b, 1), "Easy expands first");
+        assert!(w.extra_rax(ENEMY, &my_b, 1).is_none(), "Easy expands first");
         let hq = w.factions[ENEMY as usize].hq;
         my_b.push(w.make_building(hq, ENEMY, 20, 40, true));
         my_b.push(w.make_building(hq, ENEMY, 50, 40, true));
-        assert!(w.extra_rax(ENEMY, &my_b, 1), "and then adds factories");
+        assert!(
+            w.extra_rax(ENEMY, &my_b, 1).is_some(),
+            "and then adds factories"
+        );
+        // A vehicle bay counts as one; busy too (its units are behind the mix), another of those first.
+        w.diff = 1;
+        let bay = w.make_building(BldgKind::Factory, ENEMY, 40, 20, true);
+        my_b.push(bay);
+        assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Barracks));
+        w.bm(bay).unwrap().queue.push(UnitKind::Vanguard);
+        assert_eq!(
+            w.extra_rax(ENEMY, &my_b, 1),
+            Some(BldgKind::Barracks),
+            "no ether piling up for its vehicles"
+        );
+        w.res[ENEMY as usize] = [500, 300];
+        assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Factory));
+        w.make_building(BldgKind::Barracks, ENEMY, 44, 20, true);
+        let full = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY)
+            .map(|b| b.id)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            w.extra_rax(ENEMY, &full, 0),
+            None,
+            "no more than the allowance: three factories over a schedule of none"
+        );
     }
 }

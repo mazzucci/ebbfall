@@ -22,6 +22,7 @@ const P = {
   speed: 'M5 6l6 6-6 6M12 6l6 6-6 6',
   cloak: 'M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6M4 20 20 4',
   entrench: 'M4 18h16M6 18v-4h12v4M9 14V9h6v5M12 9V4',
+  deploy: 'M3 15h18M7 15l-3 5M17 15l3 5M8 15v-4h7v4M13 11l7-7',
   blink: 'M4 12h9M10 8l4 4-4 4M17 6v12M20 9v6',
   overcharge: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M14 2l1 4-4-1',
   shields: 'M12 3a9 9 0 1 0 0.01 0M12 7a5 5 0 1 0 0.01 0M12 3v4M21 12h-4M12 21v-4M3 12h4',

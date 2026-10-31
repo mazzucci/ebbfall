@@ -161,6 +161,65 @@ export function forge(M) {
   return g;
 }
 
+/** A prism along x (length `len`, centred) from a side profile of [z, y] points. */
+function prismX(profile, len) {
+  const s = new THREE.Shape(profile.map(([z, y]) => new THREE.Vector2(-z, y)));
+  const geo = new THREE.ExtrudeGeometry(s, { depth: len, bevelEnabled: false });
+  geo.rotateY(Math.PI / 2); geo.translate(-len / 2, 0, 0); geo.computeVertexNormals();
+  return boxUV(geo);
+}
+
+/** Factory: the vehicle works, industry family. A broad, flat-roofed iron hall under a dark roof with a raised rim, a
+ *  great team-coloured cog on the roof (what reads from above, at any size), two squat smokestacks at its back corner,
+ *  and a big hazard-framed bay door onto a dark vehicle apron, team pilasters beside the door. */
+export function factory(M) {
+  const g = grp();
+  add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
+  const X = 86, Z0 = -44, Z1 = 14, top = 21, ZC = (Z0 + Z1) / 2;                                       // hall
+  add(g, rbox(X, top - 3, Z1 - Z0, 2), M.iron, 0, 3 + (top - 3) / 2, ZC);
+  add(g, rbox(X + 0.6, 2, Z1 - Z0 + 0.6, 0.6), M.dark, 0, 4, ZC);                                     // plinth
+  add(g, rbox(X - 2, 1.6, Z1 - Z0 - 2, 0.5), M.iron, 0, top + 0.6, ZC);                               // dark iron roof
+  for (let x = -36; x <= 36; x += 12) add(g, rbox(1.2, 0.5, Z1 - Z0 - 4, 0.2), M.dark, x, top + 1.5, ZC); // seams
+  for (const [x, z] of [[-34, 4], [36, -36], [36, 4]]) {                                                // roof vents
+    add(g, rbox(7, 2.4, 7, 0.6), M.gunmetal, x, top + 2.4, z);
+    add(g, rbox(5, 0.4, 5, 0.2), M.dark, x, top + 3.7, z);
+  }
+  for (const sz of [-1, 1]) add(g, rbox(X, 2.4, 2.4, 0.6), M.iron, 0, top + 1.2, ZC + sz * ((Z1 - Z0) / 2 - 1.2)); // rim
+  for (const sx of [-1, 1]) add(g, rbox(2.4, 2.4, Z1 - Z0, 0.6), M.iron, sx * (X / 2 - 1.2), top + 1.2, ZC);
+  // The cog: a toothed team-coloured wheel with a dark hub, raised on the roof.
+  const CX = 6, CZ = ZC, R = 15, y = top + 1.6;
+  add(g, cyl(R, R, 1.6, 40), M.paint, CX, y + 0.8, CZ);
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2;
+    add(g, rbox(6, 1.6, 5, 0.4), M.paint, CX + Math.cos(a) * (R + 1.6), y + 0.8, CZ + Math.sin(a) * (R + 1.6), 0, -a, 0);
+  }
+  add(g, cyl(7.2, 7.2, 1.9, 32), M.dark, CX, y + 0.95, CZ);                                         // the hole
+  add(g, cyl(3.2, 3.2, 2.6, 20), M.gunmetal, CX, y + 1.3, CZ);                                       // axle
+  // Two squat smokestacks at the back corner, banded, a faint glow inside.
+  for (const [x, z] of [[-33, -33], [-21, -36]]) {
+    add(g, cyl(5.2, 6, 18, 20), M.iron, x, top + 9, z);
+    add(g, cyl(5.5, 5.5, 1.6, 20), M.hazard, x, top + 6, z);
+    add(g, cyl(5.8, 5.8, 1.4, 20), M.dark, x, top + 18, z);                                         // rim
+    add(g, cyl(3.8, 3.8, 0.6, 16), M.slag, x, top + 18.5, z);
+  }
+  // The bay door on the south wall: a ribbed shutter, raised a little over a lit gap, in a hazard frame.
+  const DZ = Z1 + 0.6;
+  add(g, rbox(40, 14, 1.2, 0.4), M.dark, 0, 12, DZ);
+  for (let y2 = 7; y2 <= 18; y2 += 2) add(g, rbox(39, 0.5, 0.6, 0.2), M.steel, 0, y2, DZ + 0.6);
+  add(g, rbox(39, 2.4, 0.4, 0.1), M.ember, 0, 4.4, Z1 + 0.2);
+  for (const sx of [-1, 1]) add(g, rbox(3, 17, 2.4, 0.6), M.hazard, sx * 21.5, 11.5, DZ + 0.4);
+  add(g, rbox(46, 2.6, 2.6, 0.6), M.hazard, 0, 19.6, DZ + 0.4);
+  for (const sx of [-1, 1]) {
+    add(g, rbox(7, top - 3, 3, 1), M.paint, sx * 29, 12, DZ + 0.6);                                   // team pilasters
+    add(g, rbox(9, 7, 1, 0.4), M.dark, sx * 37, 10, DZ + 0.2);                                        // side vents
+  }
+  add(g, sph(1.3, 10, 8), M.white, 0, 22.4, DZ + 1);
+  // Apron: a dark vehicle lane out of the bay with hazard edges.
+  add(g, rbox(40, 0.8, 28, 0.3), M.dark, 0, 3.3, 31);
+  for (const sx of [-1, 1]) add(g, rbox(1.8, 0.6, 28, 0.2), M.hazard, sx * 21, 3.6, 31);
+  return g;
+}
+
 /** Airfield: a big round landing pad (white ring, team-colour H, edge lights) with a tall control tower and radar,
  *  a service shed, fuel tanks and a windsock. */
 export function airfield(M) {

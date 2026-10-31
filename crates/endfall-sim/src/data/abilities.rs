@@ -13,8 +13,8 @@ pub enum AbilityEffect {
         speed: f64,
         hp: f64,
     },
-    /// A toggle: entrenched, +`range` tiles of reach and no moving; `swap` seconds to settle in or pack up, without
-    /// moving or firing.
+    /// A toggle: entrenched (or deployed), +`range` tiles of reach and no moving; `swap` seconds to settle in or pack
+    /// up, without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
     Entrench { range: f64, swap: f64 },
     /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
     Blink { dist: f64 },
@@ -59,6 +59,16 @@ const ENTRENCH: AbilityDef = AbilityDef {
         swap: 2.0,
     },
 };
+/// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slower to set up.
+const DEPLOY: AbilityDef = AbilityDef {
+    key: "deploy",
+    name: "Deploy",
+    effect: AbilityEffect::Entrench {
+        range: 0.0,
+        swap: 3.0,
+    },
+    ..ENTRENCH
+};
 const BLINK: AbilityDef = AbilityDef {
     key: "blink",
     name: "Blink",
@@ -102,5 +112,6 @@ kinds! {
         Overcharge => OVERCHARGE,
         Cloak => CLOAK,
         Veil => VEIL,
+        Deploy => DEPLOY,
     }
 }

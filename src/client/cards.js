@@ -60,9 +60,17 @@ export function cardItems() {
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
     const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // the Vael regenerate shields instead
+    const abilities = abilityItems(units);
     if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
-    else { orders.forEach((it, i) => at(i, it)); if (workers) work.forEach((it, i) => at(COLS + i, it)); }
-    abilityItems(units).forEach((it, i) => at(orders.length + i, it)); // after the orders, on their row
+    else {
+      orders.forEach((it, i) => at(i, it));
+      // Workers in an army: their row. Where the army's abilities need the room (the card keeps its three rows), Build
+      // stays and Gather and Repair give way (their keys still work in CLASSIC; a tap on a field or a damaged
+      // building still gathers or repairs).
+      const room = COLS * 3 - 1 - orders.length - abilities.length; // (the last slot: Deselect)
+      if (workers) work.forEach((it, i) => i < Math.max(1, room) ? at(COLS + i, it) : hidden(it));
+    }
+    abilities.forEach((it, i) => at(orders.length + i, it)); // after the orders, on their row
     // Let go of units (a tap on the ground would move them): the last slot of the card.
     at(Math.ceil((Math.max(...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });

@@ -1,6 +1,7 @@
 //! Orders (what the Game API and the AI ask for) and the rules that accept or refuse them: placing, paying, training, research, rally points.
 
 use super::*;
+use std::cmp::Ordering;
 
 impl World {
     pub fn can_place(&self, kind: BldgKind, tx: i32, ty: i32, team: u8) -> bool {
@@ -243,8 +244,35 @@ impl World {
             return;
         }
         self.release_mine(uid);
-        self.unentrench_to_move(uid); // (an attack order means going there)
+        // An attack order means going there; a deployed siege gun stays set up for a target it can shell from here,
+        // and for one inside its blind ring it holds (packing up to drive away is the player's call).
+        match self.deployed_reach(uid, target) {
+            Some(Ordering::Less) => {
+                self.set_task(uid, Task::Hold);
+                return;
+            }
+            Some(Ordering::Equal) => {}
+            _ => self.unentrench_to_move(uid),
+        }
         self.set_task(uid, Task::Attack { target, back: None });
+    }
+    /// Where `target` lies for `uid` if that is a deployed siege gun: inside its blind ring (Less), between the ring
+    /// and its reach and seen by its side (Equal), or beyond (Greater, unseen too); None for any other unit.
+    fn deployed_reach(&self, uid: Id, target: Id) -> Option<Ordering> {
+        let u = self.u(uid);
+        if u.mode.is_none() || !u.kind.siege() {
+            return None;
+        }
+        let c = self.live(uid);
+        let reach = c.siege.unwrap_or(0.0);
+        let d = self.geo(target)?.edge_dist(u.x, u.y);
+        Some(if d < c.min {
+            Ordering::Less
+        } else if d < reach && self.seen_by(u.team, target) {
+            Ordering::Equal
+        } else {
+            Ordering::Greater
+        })
     }
     pub fn stop_unit(&mut self, uid: Id) {
         self.release_mine(uid);

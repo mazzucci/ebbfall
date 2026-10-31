@@ -1,4 +1,5 @@
-//! The Humans: the Core, harvesters that build and repair, infantry, Turrets and Wasps.
+//! The Humans: the Core, harvesters that build and repair, infantry, vehicles (Vanguards and Siege Tanks from the
+//! Factory), Turrets and Wasps.
 
 use super::*;
 
@@ -13,7 +14,12 @@ pub const HUMANS: Faction = Faction {
         BldgKind::Extractor,
         BldgKind::Turret,
     ],
-    build_advanced: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Core],
+    build_advanced: &[
+        BldgKind::Forge,
+        BldgKind::Airfield,
+        BldgKind::Core,
+        BldgKind::Factory,
+    ],
     supply: BldgKind::Depot,
     ether: BldgKind::Extractor,
     power: None,
@@ -25,9 +31,14 @@ pub const HUMANS: Faction = Faction {
         tech: BldgKind::Forge,
         tower: BldgKind::Turret,
         air: BldgKind::Airfield,
+        heavy: Some(BldgKind::Factory),
         basic: UnitKind::Trooper,
         anti_air: UnitKind::Lancer,
-        mix: &[(UnitKind::Medic, 6), (UnitKind::Vanguard, 2)],
+        mix: &[
+            (UnitKind::Medic, 6, 0.0),
+            (UnitKind::SiegeTank, 6, 330.0),
+            (UnitKind::Vanguard, 2, 0.0),
+        ],
         raider: UnitKind::Wasp,
         wave_scale: 1.0,
         tech_from: 300.0,
@@ -96,6 +107,45 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
         ..W
     }),
     abilities: &[AbilityKind::Entrench],
+    ..UNIT
+};
+/// Back-line artillery: deployed (`Deploy`), its siege gun outranges everything on the ground and splashes hard, but
+/// cannot hit what comes within its blind ring, nor flyers, and its reach is past its own sight: it fires on what its
+/// side sees. On its tracks it has only a light gun.
+pub(super) const SIEGE_TANK: UnitDef = UnitDef {
+    key: "siegeTank",
+    name: "Siege Tank",
+    cost: [150, 125],
+    supply: 3,
+    hp: 160.0,
+    armor: 1.0,
+    speed: 62.0,
+    sight: 10.0,
+    r: 14.0,
+    build: 32.0,
+    req: Some(BldgKind::Forge),
+    weapon: Some(Weapon {
+        range: 11.0,
+        min_range: 2.5,
+        siege: true,
+        dmg: 60.0,
+        cd: 3.0,
+        proj: Some(ProjKind::Shell),
+        up_dmg: 5.0,
+        splash: 0.75,
+        splash_r: 64.0,
+        ..W
+    }),
+    // On its tracks: a light gun, clearly second to the siege gun (no splash, no blind ring, no need of a spotter).
+    light: Some(Weapon {
+        range: 6.0,
+        dmg: 13.0,
+        cd: 1.2,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
+        ..W
+    }),
+    abilities: &[AbilityKind::Deploy],
     ..UNIT
 };
 pub(super) const LANCER: UnitDef = UnitDef {
@@ -239,12 +289,7 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
     hp: 720.0,
     build: 40.0,
     sight: 7.0,
-    trains: &[
-        UnitKind::Trooper,
-        UnitKind::Lancer,
-        UnitKind::Medic,
-        UnitKind::Vanguard,
-    ],
+    trains: &[UnitKind::Trooper, UnitKind::Lancer, UnitKind::Medic],
     ..BLDG
 };
 pub(super) const FORGE: BldgDef = BldgDef {
@@ -262,6 +307,20 @@ pub(super) const FORGE: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     trains: &[],
+    req: Some(BldgKind::Barracks),
+    ..BLDG
+};
+/// The vehicle bay: Vanguards and Siege Tanks (both need the Foundry too).
+pub(super) const FACTORY: BldgDef = BldgDef {
+    key: "factory",
+    name: "Factory",
+    cost: [125, 50],
+    w: 3,
+    h: 3,
+    hp: 800.0,
+    build: 35.0,
+    sight: 7.0,
+    trains: &[UnitKind::Vanguard, UnitKind::SiegeTank],
     req: Some(BldgKind::Barracks),
     ..BLDG
 };

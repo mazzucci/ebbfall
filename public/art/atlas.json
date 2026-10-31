@@ -4,7 +4,8 @@
   "atlas-1.json",
   "atlas-2.json",
   "atlas-3.json",
-  "atlas-4.json"
+  "atlas-4.json",
+  "atlas-5.json"
  ],
  "animations": {
   "boom_big": [
@@ -698,6 +699,102 @@
   "bastion_15": [
    "bastion_15_0",
    "bastion_15_1"
+  ],
+  "siegeTank_0": [
+   "siegeTank_0_0",
+   "siegeTank_0_1",
+   "siegeTank_0_2",
+   "siegeTank_0_3"
+  ],
+  "siegeTank_1": [
+   "siegeTank_1_0",
+   "siegeTank_1_1",
+   "siegeTank_1_2",
+   "siegeTank_1_3"
+  ],
+  "siegeTank_2": [
+   "siegeTank_2_0",
+   "siegeTank_2_1",
+   "siegeTank_2_2",
+   "siegeTank_2_3"
+  ],
+  "siegeTank_3": [
+   "siegeTank_3_0",
+   "siegeTank_3_1",
+   "siegeTank_3_2",
+   "siegeTank_3_3"
+  ],
+  "siegeTank_4": [
+   "siegeTank_4_0",
+   "siegeTank_4_1",
+   "siegeTank_4_2",
+   "siegeTank_4_3"
+  ],
+  "siegeTank_5": [
+   "siegeTank_5_0",
+   "siegeTank_5_1",
+   "siegeTank_5_2",
+   "siegeTank_5_3"
+  ],
+  "siegeTank_6": [
+   "siegeTank_6_0",
+   "siegeTank_6_1",
+   "siegeTank_6_2",
+   "siegeTank_6_3"
+  ],
+  "siegeTank_7": [
+   "siegeTank_7_0",
+   "siegeTank_7_1",
+   "siegeTank_7_2",
+   "siegeTank_7_3"
+  ],
+  "siegeTank_8": [
+   "siegeTank_8_0",
+   "siegeTank_8_1",
+   "siegeTank_8_2",
+   "siegeTank_8_3"
+  ],
+  "siegeTank_9": [
+   "siegeTank_9_0",
+   "siegeTank_9_1",
+   "siegeTank_9_2",
+   "siegeTank_9_3"
+  ],
+  "siegeTank_10": [
+   "siegeTank_10_0",
+   "siegeTank_10_1",
+   "siegeTank_10_2",
+   "siegeTank_10_3"
+  ],
+  "siegeTank_11": [
+   "siegeTank_11_0",
+   "siegeTank_11_1",
+   "siegeTank_11_2",
+   "siegeTank_11_3"
+  ],
+  "siegeTank_12": [
+   "siegeTank_12_0",
+   "siegeTank_12_1",
+   "siegeTank_12_2",
+   "siegeTank_12_3"
+  ],
+  "siegeTank_13": [
+   "siegeTank_13_0",
+   "siegeTank_13_1",
+   "siegeTank_13_2",
+   "siegeTank_13_3"
+  ],
+  "siegeTank_14": [
+   "siegeTank_14_0",
+   "siegeTank_14_1",
+   "siegeTank_14_2",
+   "siegeTank_14_3"
+  ],
+  "siegeTank_15": [
+   "siegeTank_15_0",
+   "siegeTank_15_1",
+   "siegeTank_15_2",
+   "siegeTank_15_3"
   ],
   "lumen_0": [
    "lumen_0_0",

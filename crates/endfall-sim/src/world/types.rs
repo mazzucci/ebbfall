@@ -22,13 +22,29 @@ pub struct Back {
 /// and modes will change there and only there.
 #[derive(Clone, Copy)]
 pub(crate) struct Live {
+    /// Reach (px, to the target's edge, from the shooter's centre: its radius not counted); 0 while it cannot fire.
     pub range: f64,
+    /// A siege gun's blind ring (px, the same measure as find_target's: plus its radius); 0 = none.
+    pub min: f64,
+    /// A siege gun's reach once deployed (px, plus its radius), deployed or not: where it sets up. None otherwise.
+    pub siege: Option<f64>,
+    /// A deployed siege gun's blind ring (px; it also fires only on what its side sees): `find_target`'s for the gun
+    /// it fires now. None for every other shooter, a siege gun on its tracks (its light gun) included.
+    pub ring: Option<f64>,
     pub combat: bool,
     pub team: u8,
     pub r: f64,
     pub sight: f64,
     pub kind: UnitKind,
     pub hits: (bool, bool),
+}
+
+impl Live {
+    /// For `find_target`, looking for where to set up: a siege gun's blind ring whether it is deployed or not (what
+    /// it will deploy for must be outside it, and seen), None for other shooters.
+    pub fn setup_ring(&self) -> Option<f64> {
+        self.siege.map(|_| self.min)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

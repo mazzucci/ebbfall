@@ -7,6 +7,7 @@ import { cardItems, myFaction, leastBusy, researching, mostBusy, abilityTargets 
 import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
 import { icon } from './icons.js';
+import { statsHtml } from './stats.js';
 import { portrait } from './gl/render.js';
 
 let cardKey = '';
@@ -47,15 +48,22 @@ export function buildCard() {
   }
 }
 
-// ---- long-press on a command button (touch): what it is, what it costs, what it needs ----
+// ---- long-press on a command button (touch): what it is, what it costs, its stats (stats.js), what it needs ----
 const press = { timer: 0, held: '', hide: 0 };
 function showDetail(it) {
   const box = $('cmdInfo'), r = $('cmd').getBoundingClientRect(); // (the card survives rebuilds; its buttons may not)
   const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''} ${it.cost[1] ? `<i class="dot ether"></i>${it.cost[1]}` : ''}</span>` : '';
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
-  box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px'; box.style.maxWidth = Math.max(220, r.width) + 'px';
-  box.innerHTML = `<b>${it.label}</b>${cost}<span class="d">${it.tip || ''}</span>`;
+  box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px';
+  const kind = /^[tb]_/.test(it.id) ? it.id.slice(2) : ''; // (a unit to train or a building to place: its stats)
+  box.innerHTML = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}<span class="d">${it.tip || ''}</span>`;
+  // Wide enough for the stat rows on one line each; wider still, up to the screen's width, while it is too tall for
+  // the room above the card (a short landscape phone and a long description).
+  const room = Math.max(220, r.right - 8);
+  for (const w of [300, 380, 480, room]) { box.style.maxWidth = Math.min(Math.max(w, r.width), room) + 'px'; if (box.getBoundingClientRect().top >= 4) break; }
+  const top = box.getBoundingClientRect().top; // still too tall (the smallest phones): lowered over the card's top edge
+  if (top < 4) box.style.bottom = (innerHeight - r.top + 6 - (4 - top)) + 'px';
 }
 function hideDetail() { clearTimeout(press.hide); $('cmdInfo').hidden = true; }
 // Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.

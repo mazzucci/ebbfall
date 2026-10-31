@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -83,7 +83,7 @@ export function cardItems() {
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc, strong: d.strong, weak: d.weak });
+      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc });
     });
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
@@ -97,7 +97,7 @@ export function cardItems() {
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
         if (trains.length && busy?.research.type === k) { at(slots[i] ?? i, cancelr); return; }
         if (lv > u.levels) return;
-        at(slots[i] ?? i, { id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: u.desc + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
+        at(slots[i] ?? i, { id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
       if (busy && !trains.length) at(2, cancelr);
     }

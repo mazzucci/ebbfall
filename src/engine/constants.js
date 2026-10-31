@@ -22,26 +22,26 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 
-/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A fighter's `strong`/`weak`: the kinds
- *  it beats, and is beaten by, in a cost-equal fight (measured with the duels of tests/gameplay/balance.rs). Whatever a
- *  fighter is strong against lists it as a weakness. */
+/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does,
+ *  never which enemy units it beats or loses to: players find the counters themselves (the duels of
+ *  tests/gameplay/balance.rs keep the design's counter loops). */
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
-  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', strong: ['scythe', 'wasp'], weak: ['vanguard', 'sovereign'] },
-  vanguard: { hot: 'V', desc: 'Heavy walker for the front line: it fights on the move, with long range and thick plate, and its shells splash onto nearby ground units. Cannot hit flyers.', strong: ['trooper', 'prism', 'siegeTank'], weak: ['monolith', 'shrike', 'bastion'] },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', strong: ['wasp', 'shrike'], weak: ['trooper', 'scythe', 'prism', 'sovereign', 'siegeTank'] },
+  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
+  vanguard: { hot: 'V', desc: 'Heavy walker for the front line: it fights on the move, with long range and thick plate, and its shells splash onto nearby ground units. Cannot hit flyers.' },
+  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).', strong: ['monolith', 'scythe', 'siegeTank'], weak: ['trooper', 'lancer', 'prism', 'shrike'] },
+  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
-  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.', strong: ['lancer', 'prism'], weak: ['vanguard', 'monolith', 'wasp', 'shrike'] },
-  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.', strong: ['vanguard', 'scythe', 'sovereign'], weak: ['lancer', 'prism', 'shrike'] },
+  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.' },
+  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Slower than a Trooper. Cannot hit flyers.', strong: ['lancer', 'harvester'], weak: ['trooper', 'wasp', 'bastion'] },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', strong: ['wasp', 'lancer'], weak: ['trooper', 'vanguard', 'sovereign', 'siegeTank'] },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard', 'siegeTank'], weak: ['wasp'] },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['wasp', 'vanguard', 'siegeTank'], weak: ['lancer', 'trooper'] },
-  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
+  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.' },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.' },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).' },
+  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
 };
 const BLDG_TEXT = {
@@ -77,15 +77,19 @@ export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.en
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
-UPGRADES.weapons.desc = 'More damage for every weapon (' + Object.entries(UP_DMG).map(([k, n]) => `${(UNITS[k] || BUILDINGS[k]).name} +${n}${UNITS[k]?.light?.upDmg ? `, its light gun +${UNITS[k].light.upDmg}` : ''}`).join(', ') + ' per level).';
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
+/** A side's own kinds (`f`: a FACTIONS entry): its buildings and the units they train. */
+export const kindsOf = (f) => { const b = [f.hq, ...f.buildBasic, ...f.buildAdvanced]; return new Set([...b, ...b.flatMap(k => BUILDINGS[k].trains || [])]); };
+/** Upgrade `k`'s words for side `f`. Weapons, which both races research, names that side's own weapons only. */
+export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage for every weapon (' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
+  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? `, its light gun +${UNITS[t].light.upDmg}` : ''}`).join(', ') + ' per level).';
 const ABILITY_TEXT = {
   stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
-  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
-  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
+  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
+  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
   deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. On its tracks it has only a light gun. Then the button reads Undeploy.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, neither moving nor firing meanwhile), with only its light gun. A move order packs it up too.' } },
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions; a toggle's `off`: its button's

@@ -126,7 +126,7 @@ pub(super) const HALO: UnitDef = UnitDef {
 pub(super) const SOVEREIGN: UnitDef = UnitDef {
     key: "sovereign",
     name: "Sovereign",
-    cost: [350, 200],
+    cost: [350, 250],
     supply: 6,
     hp: 300.0,
     shields: 250.0,
@@ -151,7 +151,7 @@ pub(super) const SOVEREIGN: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Monolith",
-    cost: [175, 100],
+    cost: [175, 125],
     supply: 4,
     hp: 160.0,
     shields: 140.0,

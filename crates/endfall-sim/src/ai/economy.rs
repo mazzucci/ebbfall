@@ -6,8 +6,10 @@ use super::*;
 /// crews each of its refineries with this many, and trains this many more workers for every one past the first.
 pub(crate) const ETHER_CREW: usize = 3;
 /// Banked ether above which the AI keeps one harvester on ether in all (it is piling up), and below which it crews its
-/// refineries again. (Lowered from 400 and 250 with a second vent in every main: its bank of ether doubled.)
-const ETHER_LEAN: [i32; 2] = [150, 300];
+/// refineries again. (Lowered from 400 and 250 with a second vent in every main: its bank of ether doubled; then from
+/// 300 and 150 in the balance pass: both AIs still floated about 200 ether at 8:00 while short of shards, which cost
+/// the Human AI most, its builders mining nothing; Humans' wins of 240 Medium / Hard games 96 / 97 -> 132 / 118.)
+const ETHER_LEAN: [i32; 2] = [75, 150];
 
 impl World {
     /// The point our nearest finished Core stands on (where harvesters should mine), else the given point.

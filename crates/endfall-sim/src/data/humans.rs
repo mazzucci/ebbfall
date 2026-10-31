@@ -134,7 +134,7 @@ pub(super) const MEDIC: UnitDef = UnitDef {
 pub(super) const BASTION: UnitDef = UnitDef {
     key: "bastion",
     name: "Bastion",
-    cost: [300, 200],
+    cost: [300, 250],
     supply: 6,
     hp: 450.0,
     armor: 2.0,

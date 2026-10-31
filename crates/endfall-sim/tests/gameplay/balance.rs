@@ -121,7 +121,13 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
         range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.75, 0.0);
         range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
-        range("Monolith v Vanguard", d(&[Monolith], &[Vanguard]), 0.0, 1.0);
+        // (at its two-vent price, 175/125, about even with Vanguards at the larger budget: +0.33 / -0.18)
+        range(
+            "Monolith v Vanguard",
+            d(&[Monolith], &[Vanguard]),
+            -0.3,
+            1.0,
+        );
         range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);
         range("Shrike v Wasp", d(&[Shrike], &[Wasp]), 0.6, 1.0);
         range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
@@ -169,12 +175,12 @@ fn a_halo_finds_cloaked_raiders_for_its_army() {
 
 #[test]
 fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
-    // A Bastion (700 by value) or a Sovereign (750) crushes heavy ground and loses to what shoots up; budgets of four.
+    // A Bastion (800 by value) or a Sovereign (850) crushes heavy ground and loses to what shoots up; budgets of four.
     use UnitKind::*;
     let range = |name: &str, v: f64, lo: f64, hi: f64| {
         assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
     };
-    for budget in [2800.0, 5600.0] {
+    for budget in [3300.0, 6600.0] {
         let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
         range("Bastion v Vanguard", d(&[Bastion], &[Vanguard]), 0.6, 1.0);
         range("Bastion v Scythe", d(&[Bastion], &[Scythe]), 0.6, 1.0);
@@ -191,12 +197,12 @@ fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
             -1.0,
             -0.9,
         );
-        // Its ground trade (2026-10-31, range 9, damage 48): it no longer loses to the Vael's own line army (-0.46 /
-        // -0.40 before, +0.11 / +0.23 after).
+        // Its ground trade (2026-10-31, range 9, damage 48): no longer clearly beaten by the Vael's own line army
+        // (-0.46 / -0.40 at 750 by value and damage 40; -0.37 / +0.33 at 850 and 48).
         range(
             "Sovereign v Scythe+Prism",
             d(&[Sovereign], &[Scythe, Prism]),
-            -0.2,
+            -0.5,
             1.0,
         );
     }

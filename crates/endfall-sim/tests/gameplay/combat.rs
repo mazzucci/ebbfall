@@ -260,8 +260,10 @@ fn weapons_upgrades_add_each_units_bonus() {
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        assert!(
+        // (but a retired one: Entrenching keeps its index, and nothing researches it)
+        assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
+            u != Upgrade::Entrenching,
             "{u:?} is researched at some building"
         );
         assert_eq!(Upgrade::parse(u.def().key), Some(u));

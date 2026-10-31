@@ -248,14 +248,16 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found.
-  for (const [k, u] of Object.entries(C.UPGRADES).filter(([, u]) => u.levels === 1)) {
+  // its own; each ability's tech is found. A retired one (Entrenching: no building researches it) keeps only its place.
+  const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
+  assert.ok(!researched('entrenching') && researched('cloakingField'));
+  for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
-  // fires at all: no tech).
+  // fires at all: no tech). (Entrench is retired: no unit has it, but the kinds keep their places.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);

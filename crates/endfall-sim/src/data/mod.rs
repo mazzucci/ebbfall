@@ -179,13 +179,13 @@ impl Weapon {
 }
 
 impl UnitKind {
-    /// Its toggle (Entrench, Deploy), if it has one: the first of its abilities that settles it in.
+    /// Its toggle (Deploy), if it has one: the first of its abilities that settles it in.
     pub fn toggle(self) -> Option<AbilityKind> {
         self.def()
             .abilities
             .iter()
             .copied()
-            .find(|a| matches!(a.def().effect, AbilityEffect::Entrench { .. }))
+            .find(|a| matches!(a.def().effect, AbilityEffect::Settle { .. }))
     }
     /// Its weapon fires only while its toggle is on (a Siege Tank).
     pub fn siege(self) -> bool {

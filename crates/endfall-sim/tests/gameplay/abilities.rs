@@ -1,4 +1,5 @@
-//! Unit abilities: Stim, Entrench, Blink, Overcharge; casting for a selection, refusals, the AI using them.
+//! Unit abilities: Stim, Blink, Overcharge, Cloak and Deploy's toggle rules; casting for a selection, refusals, the AI
+//! using them.
 
 use super::common::*;
 use endfall_sim::world::{Command, Event};
@@ -66,35 +67,6 @@ fn stim_costs_hull_and_fires_and_runs_faster_for_a_while() {
     // Not when too hurt to pay for it.
     set_hp(&mut a, p, 9.0);
     assert_eq!(a.cast(p, AbilityKind::Stim), Err("Too hurt".to_string()));
-}
-
-#[test]
-fn entrench_reaches_farther_but_cannot_move_and_packs_up_to_walk() {
-    // A target at 8 tiles: out of a Vanguard's normal reach (6), inside its entrenched one (9).
-    let mut w = tech_arena(3);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 30.0 * TILE, 30.0 * TILE);
-    let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 38.5 * TILE, 30.0 * TILE);
-    set_hp(&mut w, foe, 1e6);
-    w.hold_unit(foe);
-    w.hold_unit(v);
-    assert_eq!(shots(&mut w, v, 3), 0, "out of reach on hold");
-    w.cast(v, AbilityKind::Entrench).unwrap();
-    assert_eq!(shots(&mut w, v, 2), 0, "no shots while settling in (2 s)");
-    assert!(shots(&mut w, v, 4) > 0, "entrenched, it reaches 8 tiles");
-    // It cannot be pushed into walking: a move order packs it up first (2 s), then it walks.
-    let x0 = w.unit(v).unwrap().x;
-    w.move_to(v, 10.0 * TILE, 30.0 * TILE);
-    assert!(w.unit(v).unwrap().mode.is_none());
-    run(&mut w, 1);
-    assert_eq!(w.unit(v).unwrap().x, x0, "still packing up");
-    run(&mut w, 3);
-    assert!(w.unit(v).unwrap().x < x0 - TILE, "then it walks");
-    // Stop keeps an entrenched unit entrenched (holding).
-    let v2 = w.make_unit(UnitKind::Vanguard, PLAYER, 20.0 * TILE, 40.0 * TILE);
-    w.cast(v2, AbilityKind::Entrench).unwrap();
-    w.stop_unit(v2);
-    let u = w.unit(v2).unwrap();
-    assert!(u.mode.is_some() && u.task == Task::Hold);
 }
 
 #[test]
@@ -193,8 +165,8 @@ fn a_selection_casts_together_and_only_its_own_units() {
 
 #[test]
 fn the_ai_uses_abilities_in_its_fights() {
-    // Two AIs, Humans against the Vael: in their fights both sides cast, a researched ability too (Entrench or
-    // Overcharge: the AI researches its techs and uses them).
+    // Two AIs, Humans against the Vael: in their fights both sides cast, a researched ability too (Overcharge: the AI
+    // researches its techs and uses them).
     // (over a few games: whether a researched ability gets its moment depends on how a game goes)
     let mut cast: Vec<&str> = Vec::new();
     let mut techs = String::new();
@@ -215,7 +187,7 @@ fn the_ai_uses_abilities_in_its_fights() {
             }
         }
         techs += &format!(" {:?}", w.upgrades);
-        if cast.contains(&"entrench") || cast.contains(&"overcharge") {
+        if cast.contains(&"overcharge") {
             break;
         }
     }
@@ -224,44 +196,50 @@ fn the_ai_uses_abilities_in_its_fights() {
         "both sides used abilities: {cast:?}"
     );
     assert!(
-        cast.contains(&"entrench") || cast.contains(&"overcharge"),
+        cast.contains(&"overcharge"),
         "a researched ability was used: {cast:?} (techs{techs})"
     );
 }
 
 #[test]
-fn an_attack_order_packs_an_entrenched_unit_up_and_a_lost_target_leaves_it_holding() {
+fn an_attack_order_packs_a_deployed_unit_up_and_a_lost_target_or_stop_leaves_it_holding() {
+    // (the toggle's rules, on the one unit that has one: the Siege Tank's Deploy)
     let mut w = tech_arena(8);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 20.0 * TILE, 30.0 * TILE);
-    w.cast(v, AbilityKind::Entrench).unwrap();
-    run(&mut w, 3);
-    let far = w.make_unit(UnitKind::Trooper, ENEMY, 34.0 * TILE, 30.0 * TILE);
+    let v = w.make_unit(UnitKind::SiegeTank, PLAYER, 20.0 * TILE, 30.0 * TILE);
+    w.cast(v, AbilityKind::Deploy).unwrap();
+    run(&mut w, 4);
+    let far = w.make_unit(UnitKind::Trooper, ENEMY, 36.0 * TILE, 30.0 * TILE);
     w.hold_unit(far);
     w.attack_ent(v, far);
     assert!(
         w.unit(v).unwrap().mode.is_none(),
-        "an attack order means going there: it packs up"
+        "an attack order past its reach means going there: it packs up"
     );
     let x0 = w.unit(v).unwrap().x;
     run(&mut w, 5);
     assert!(
         w.unit(v).unwrap().x > x0 + TILE,
-        "then it walks to the target"
+        "then it drives to the target"
     );
-    // Entrenched, and its target gone: it holds where it is, still entrenched (it does not wander off).
-    let v2 = w.make_unit(UnitKind::Vanguard, PLAYER, 20.0 * TILE, 40.0 * TILE);
-    w.cast(v2, AbilityKind::Entrench).unwrap();
-    run(&mut w, 3);
+    // Deployed, and its target gone: it holds where it is, still deployed (it does not wander off).
+    let v2 = w.make_unit(UnitKind::SiegeTank, PLAYER, 20.0 * TILE, 40.0 * TILE);
+    w.cast(v2, AbilityKind::Deploy).unwrap();
+    run(&mut w, 4);
     let t = w.make_unit(UnitKind::Trooper, ENEMY, 27.0 * TILE, 40.0 * TILE);
     w.hold_unit(t);
+    w.update_fog();
     run(&mut w, 15);
-    assert!(w.unit(t).is_none(), "it shot the trooper in its reach");
+    assert!(w.unit(t).is_none(), "it shelled the trooper in its reach");
     let u = w.unit(v2).unwrap();
     assert!(
         u.mode.is_some() && u.task == Task::Hold,
-        "and holds, entrenched: {:?}",
+        "and holds, deployed: {:?}",
         u.task
     );
+    // Stop keeps a deployed unit deployed (holding).
+    w.stop_unit(v2);
+    let u = w.unit(v2).unwrap();
+    assert!(u.mode.is_some() && u.task == Task::Hold);
 }
 
 #[test]
@@ -302,25 +280,67 @@ fn the_ai_does_not_restim_while_a_stim_runs() {
 #[test]
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
     let (mut w, forge) = forge_arena(11);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 640.0, 1280.0);
+    let v = w.make_unit(UnitKind::Wasp, PLAYER, 640.0, 1280.0);
     assert_eq!(
-        w.cast(v, AbilityKind::Entrench),
-        Err("Research Entrenching first".into()),
+        w.cast(v, AbilityKind::Cloak),
+        Err("Research Cloaking Field first".into()),
         "locked until researched"
     );
     // A line unit's ability needs no tech.
     let t = w.make_unit(UnitKind::Trooper, PLAYER, 700.0, 1280.0);
     assert!(w.cast(t, AbilityKind::Stim).is_ok(), "Stim from the start");
-    research_level(&mut w, forge, Upgrade::Entrenching);
-    assert!(w.cast(v, AbilityKind::Entrench).is_ok(), "unlocked");
+    research_level(&mut w, forge, Upgrade::CloakingField);
+    assert!(w.cast(v, AbilityKind::Cloak).is_ok(), "unlocked");
     assert_eq!(
-        w.start_research(forge, Upgrade::Entrenching),
-        Err("Entrenching is fully upgraded".into()),
+        w.start_research(forge, Upgrade::CloakingField),
+        Err("Cloaking Field is fully upgraded".into()),
         "one level"
     );
-    // The other side's Vanguards are still locked: a tech is a team's.
-    let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 900.0, 1280.0);
-    assert!(w.cast(foe, AbilityKind::Entrench).is_err());
+    // The other side's Wasps are still locked: a tech is a team's.
+    let foe = w.make_unit(UnitKind::Wasp, ENEMY, 900.0, 1280.0);
+    assert!(w.cast(foe, AbilityKind::Cloak).is_err());
+}
+
+#[test]
+fn the_vanguards_entrench_is_retired() {
+    // Too close to the Siege Tank's Deploy (2026-10-31): no unit has it, nothing researches its tech; the kinds keep
+    // their places (the snapshot sends indices).
+    assert!(
+        UNIT_KINDS
+            .iter()
+            .all(|k| !k.def().abilities.contains(&AbilityKind::Entrench))
+    );
+    assert!(
+        BLDG_KINDS
+            .iter()
+            .all(|b| !b.def().researches.contains(&Upgrade::Entrenching))
+    );
+    assert_eq!(UnitKind::Vanguard.toggle(), None);
+    assert_eq!(UnitKind::SiegeTank.toggle(), Some(AbilityKind::Deploy));
+    // A cast of it (from an old client, a replay, the wire) is refused; so is its research at a Foundry.
+    let (mut w, forge) = forge_arena(13);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 640.0, 1280.0);
+    let cast = Command::Cast {
+        units: vec![v],
+        ability: AbilityKind::Entrench,
+    };
+    assert_eq!(
+        w.apply(PLAYER, &cast),
+        Err("Cannot use Entrench".to_string())
+    );
+    assert!(w.unit(v).unwrap().mode.is_none());
+    let research = Command::Research {
+        bldg: forge,
+        up: Upgrade::Entrenching,
+    };
+    assert_eq!(
+        w.apply(PLAYER, &research),
+        Err("Cannot research Entrenching".to_string())
+    );
+    assert_eq!(w.upgrades[PLAYER as usize][Upgrade::Entrenching.index()], 0);
+    // On the wire the cast still decodes (its index kept its place), to the same command.
+    let words = cast.encode();
+    assert_eq!(Command::decode(&words), Some((cast, words.len())));
 }
 
 #[test]

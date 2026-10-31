@@ -128,19 +128,14 @@ function drainEvents() {
   G.events.length = 0;
 }
 
-/** The end card's one line on what killed most of this side's units, and what beats the worst of them: where a
- *  player learns the counters (detail on demand, on the screen built for it). */
+/** The end card's one line on what killed most of this side's units (what beats those, the player works out). */
 function whatBeatYou() {
   const kinds = [...Object.keys(UNITS).map(k => ['unit', k]), ...Object.keys(BUILDINGS).map(k => ['bldg', k])];
   const top = lostTo(G.me).map((n, i) => [n, ...kinds[i]]).filter(([n]) => n > 0).sort((p, q) => q[0] - p[0]).slice(0, 2);
   const el = $('endWhy'); el.hidden = !top.length; if (!top.length) return;
   const name = (t, k) => (t === 'unit' ? UNITS : BUILDINGS)[k].name + 's';
   const pic = (t, k) => portrait(t, k, 22, foes()[0]); // (in an enemy's colours)
-  // (only what this side can train: advice it can act on)
-  const f = myFaction(), mine = new Set([...f.buildBasic, ...f.buildAdvanced].flatMap(b => BUILDINGS[b].trains || []).concat(BUILDINGS[f.hq].trains || []));
-  const worst = top[0], beats = worst[1] === 'unit' ? (UNITS[worst[2]].weak || []).filter(k => mine.has(k)) : [];
-  el.innerHTML = `Most of your losses: to ${top.map(([n, t, k]) => `${pic(t, k)}${name(t, k)} (${n})`).join(' and ')}.` +
-    (beats.length ? ` ${beats.slice(0, 2).map(k => name('unit', k)).join(' and ')} beat ${name('unit', worst[2])}.` : '');
+  el.innerHTML = `Most of your losses: to ${top.map(([n, t, k]) => `${pic(t, k)}${name(t, k)} (${n})`).join(' and ')}.`;
 }
 
 /** This side's allies (the other seats of its team). */

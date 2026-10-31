@@ -607,8 +607,9 @@ function dashed(x0, y0, x1, y1) {
   lines.stroke({ width: 1.5, color: 0xf5a524, alpha: 0.6 });
 }
 
-/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint) and its seat's tint. */
-export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible }));
+/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque: a cloaked
+ *  unit shimmers) and its seat's tint. */
+export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
 const pings = [];
 /** Flash a spot on the minimap (attack alerts). */

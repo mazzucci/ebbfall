@@ -77,6 +77,9 @@ impl World {
             let heavy = s.heavy == Some(b.kind);
             let mixed = s.mix.iter().find(|&&(k, per, from)| {
                 let per = self.answer_ratio(k, if floating { per.div_ceil(2) } else { per });
+                let Some(per) = self.cloak_ratio(k, per) else {
+                    return false;
+                };
                 b.kind.def().trains.contains(&k)
                     && t >= from
                     && k.def()
@@ -183,6 +186,19 @@ impl World {
         (have < CAPITAL_AT.iter().filter(|&&at| t > at).count()).then_some(k)
     }
 
+    /// A mix ratio (one `k` per `per` line units) for an always-cloaked fighter (the Umbra): as scripted until it has
+    /// seen an enemy field detector with an enemy army (`Ai::detector_seen`), none from then on. A player who sees
+    /// detection walking with the enemy army stops sending blades that would only be found: the Human AI, once hit
+    /// unseen, keeps an Observer with its army for the rest of the game, and a Vael army mixes in Halos, so a detector
+    /// seen once is one met again. None on a level that does not adapt (Easy: an unseen killer is no lesson for a
+    /// beginner). Any other unit: `per` as it is.
+    pub(crate) fn cloak_ratio(&self, k: UnitKind, per: usize) -> Option<usize> {
+        if !k.cloaked_fighter() {
+            return Some(per);
+        }
+        (self.level().answers && !self.ai().detector_seen).then_some(per)
+    }
+
     /// A mix ratio (one `k` per `per` line units) answered to what the enemy fields: a splashing specialist comes
     /// twice as often against massed infantry (8+ seen), half as often against heavies (4+) with little infantry.
     pub(crate) fn answer_ratio(&self, k: UnitKind, per: usize) -> usize {
@@ -202,7 +218,9 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use crate::ai::Brain;
     use crate::data::*;
+    use crate::map::MapKind;
     use crate::world::World;
 
     #[test]
@@ -228,5 +246,42 @@ mod tests {
             4,
             "fewer heavies against heavies"
         );
+    }
+
+    #[test]
+    fn umbras_come_until_an_enemy_detector_is_seen_with_its_army() {
+        // The Vael AI mixes in Umbras as scripted; an enemy Observer it sees alone (a scout) changes nothing; one it
+        // sees beside enemy fighters (with their army) stops them for good. Never on Easy; other units keep theirs.
+        let mut w = World::with_setup(17, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.ai_turn = ENEMY;
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4));
+        let (x, y) = (32.0 * TILE, 32.0 * TILE);
+        w.make_unit(UnitKind::Halo, ENEMY, x, y); // (its eyes: it sees the cloaked Observer only where it detects)
+        let obs = w.make_unit(UnitKind::Observer, PLAYER, x + 2.0 * TILE, y);
+        let watch = |w: &mut World| {
+            w.update_fog();
+            let mut b = Brain {
+                e: ENEMY,
+                ..Brain::default()
+            };
+            w.ai_watch(&mut b);
+        };
+        watch(&mut w);
+        assert!(w.ai_sees_unit(w.unit(obs).unwrap()), "it sees the Observer");
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4), "a lone scout");
+        w.make_unit(UnitKind::Trooper, PLAYER, x + 4.0 * TILE, y);
+        watch(&mut w);
+        assert_eq!(
+            w.cloak_ratio(UnitKind::Umbra, 4),
+            None,
+            "with the army: none"
+        );
+        w.units.retain(|u| u.team != PLAYER);
+        watch(&mut w);
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), None, "for good");
+        assert_eq!(w.cloak_ratio(UnitKind::Monolith, 3), Some(3));
+        let mut easy = World::with_setup(17, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        easy.ai_turn = ENEMY;
+        assert_eq!(easy.cloak_ratio(UnitKind::Umbra, 4), None, "never on Easy");
     }
 }

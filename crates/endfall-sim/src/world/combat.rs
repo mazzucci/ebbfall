@@ -540,12 +540,15 @@ impl World {
             u.heal_fx -= dt;
             if u.heal_fx <= 0.0 {
                 u.heal_fx = 0.4;
+                // (shown only to the seats that see both ends: a mend must not give away a cloaked patient)
+                let seen = self.seen_mask(team, uid) & self.seen_mask(team, pid);
                 self.emit(Event::Heal {
                     x: mx,
                     y: my,
                     tx,
                     ty,
                     mend,
+                    seen,
                 });
             }
         } else if let (true, Some((_, sx, sy))) = (idle, seek) {

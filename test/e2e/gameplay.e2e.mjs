@@ -1101,7 +1101,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     assert.equal(await d.eval(() => endfall.ui.place), null, 'and it stops the placing');
     await d.pressCard('Build');
     await d.pressCard('Advanced');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Foundry', 'Airfield', 'Core', 'Back'], 'the advanced page');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Foundry', 'Airfield', 'Core', 'Factory', 'Back'], 'the advanced page');
     await d.pressCard('Back');
     assert.ok((await d.card()).some(c => c.label === 'Depot'), 'back to the basic page');
     await d.pressCard('Back');

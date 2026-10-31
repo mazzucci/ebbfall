@@ -156,6 +156,8 @@ src/client/           everything that touches the browser
   share.js            the end card's SHARE after a victory against the AI (not online, not the guided game): the
                       challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
                       cancelled sheet says nothing
+  qr.js               the lobby's QR: a link as a QR code (qrcode-generator, MIT; error correction M, the quiet zone of 4
+                      modules), an SVG image; online.js imports it at QR's first tap, never with the page (test/qr.test.js)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar and selection panel
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
@@ -163,8 +165,8 @@ src/client/           everything that touches the browser
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
-  pause.js            the pause card: alone it pauses, in a replay BACK TO REPLAY / DONE, online a menu over a game that
-                      goes on, with a pause for everyone (the relay's) and its state on every side; full screen out/in
+  pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for everyone
+                      (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
   look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour)
@@ -187,7 +189,8 @@ src/client/           everything that touches the browser
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
                       share or fill or remove an open seat; + AI / + SEAT in the lowest empty spot; the map list; a
                       guest's board read-only, SIT HERE; a name first, NEW ROOM and JOIN dimmed
-                      without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
+                      without one; in a room the address is ?room=CODE, the link a reload or a friend opens; SHARE LINK
+                      shares it, QR shows it as a QR code in a sheet, for a friend's phone camera) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
                       with VITE_RELAY_URL shows MULTIPLAYER in the HTML itself, vite.config.js)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages (seats by spot), its game seat
@@ -202,7 +205,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
-                      guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their
+                      guest's view, an open seat's SHARE LINK), the room's QR code (read back from the screen with jsQR,
+                      the encoder loaded only at the tap), two people against two AIs, six with AI seats in their
                       spots' colours, eight seats on phones),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
@@ -244,6 +248,8 @@ test/store.test.js    the player's name: `cleanName` (and that the relay names a
 test/challenge.test.js a challenge's code (src/client/challenge.js): setups round-trip, the code canonical (sides as they
                       first appear, the side modulo starts x players), hostile, malformed and other versions refused (a
                       fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text
+test/qr.test.js       the lobby's QR code (src/client/qr.js) read back with jsQR (a dev dependency): the exact link, from
+                      the modules and from the SVG, error correction M, the quiet zone
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
                       does when they outgrow one), labels, an online setup's map at its own size, the team splits
 relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats on

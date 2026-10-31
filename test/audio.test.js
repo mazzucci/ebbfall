@@ -197,7 +197,7 @@ test('the announcer is off in the game: say() makes no sound and no speech, gest
   } finally { sp.remove(); }
 });
 
-test('the synth announcer says every phrase in every race\'s voice, one at a time, not again within its gap, not when muted or quiet', async () => {
+test('the synth announcer says every phrase in every race\'s voice, one at a time, not again within its gap, not when muted', async () => {
   const { FACTIONS } = await import('../src/engine/pkg/data.js').catch(() => ({ FACTIONS: null }));
   let clock = 1e8; audio.now = () => clock; // (past every sound the earlier tests played)
   const actx = new window.AudioContext(); // (the module's context is made on first use; time is read from it)
@@ -220,7 +220,6 @@ test('the synth announcer says every phrase in every race\'s voice, one at a tim
   assert.equal(ramps.length, 0, 'not over another phrase');
   Ctx.now += 10; clock += 30000;
   audio.muted = true; ramps.length = 0; say('ether'); assert.equal(ramps.length, 0, 'muted'); audio.muted = false;
-  audio.quiet = true; ramps.length = 0; say('ether'); assert.equal(ramps.length, 0, 'quiet (a replay)'); audio.quiet = false;
   // The research sound speaks: more than the chime alone.
   Ctx.now += 10; clock += 30000;
   ramps.length = 0; sfx('done'); const chime = ramps.length;

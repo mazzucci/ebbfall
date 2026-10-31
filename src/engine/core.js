@@ -174,15 +174,14 @@ export function step() { if (!game.canStep()) return false; game.step(); dirty =
 export function advance() { if (!game.canStep()) return false; game.step(); dirty = true; return true; }
 /** Mirror the ticks `advance` ran now (the game loop does, once its steps are done: the device test times it there). */
 export function mirror() { sync(); }
-/** Watch the game just played again from its first tick (both sides in view, no orders taken); false if it cannot be. */
+/** Play the game so far again from its first tick, its logged orders on their ticks (every seat's vision, no orders
+ *  taken: the device test's game); false if it cannot be. */
 export function startReplay() {
   if (!game.startReplay()) return false;
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
   units.clear(); bldgs.clear(); nodes.clear(); S.events.length = 0;
   dirty = true; sync(); return true;
 }
-/** The tick the replay being watched ends on (0: none). */
-export const replayEnd = () => game.replayEnd();
 /** The difficulty seat `seat`'s AI plays at (single player's seat list gives each its own). */
 export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }

@@ -4,13 +4,17 @@
 // leaving concedes: the other side wins. The pause card online: a menu over a game that goes on, and a pause for
 // everyone that only its caller ends. The room as the board of eight fixed spots: the host adds AIs, sets their levels,
 // races and sides, puts a friend on its side; nothing on the board moves meanwhile; the friend sees it read-only but its
-// own race; an open seat's SHARE LINK; eight seats on a phone; rooms of four and six with AI seats (M4): both browsers
-// run the AI alike, each player in its spot's colour.
+// own race; an open seat's SHARE LINK; the room's QR code, read back from the screen; eight seats on a phone; rooms of
+// four and six with AI seats (M4): both browsers run the AI alike, each player in its spot's colour.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { test, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
+import { createRequire } from 'node:module';
 import { PROTO } from '../../relay/room.js';
+
+/** A QR decoder (jsQR, a dev dependency) to put in a page: the lobby's QR code read back from the screen. */
+const JSQR = createRequire(import.meta.url).resolve('jsqr');
 
 let relay;
 before(async () => { await start(); relay = startRelay({ port: 0, latency: 40, jitter: 60 }); await relay.ready; });
@@ -196,12 +200,12 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       await a.p.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
       await a.tap('#btnQuit');
       await b.p.locator('#end').waitFor({ state: 'visible', timeout: RUN_MS });
-      const card = await b.p.evaluate(() => [document.getElementById('result').textContent, document.getElementById('btnWatch').hidden, document.getElementById('btnRematch').hidden]);
+      const card = await b.p.evaluate(() => [document.getElementById('result').textContent, document.getElementById('btnRematch').hidden]);
       assert.match(await b.p.locator('#endSub').textContent(), /^Ann conceded after /, 'the end card names the friend');
       // Straight into a new room from the end card (quickly: within the old game's clean-up delay), which must not
       // close the new room.
       await b.p.evaluate(() => { for (const id of ['btnAgain', 'btnOnline', 'btnNewRoom']) document.getElementById(id).click(); });
-      assert.deepEqual(card, ['VICTORY', true, true], 'the friend wins; no watch online, and no rematch with a friend who left');
+      assert.deepEqual(card, ['VICTORY', true], 'the friend wins; no rematch with a friend who left');
       await b.p.waitForFunction((old) => { const c = document.getElementById('roomShow').textContent; return /^[A-Z]{4}$/.test(c) && c !== old; }, code);
       const code2 = await b.p.locator('#roomShow').textContent();
       assert.notEqual(code2, code);
@@ -475,6 +479,58 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
+});
+
+test('QR: the room\'s link as a QR code on demand (the encoder loaded at the first tap), big enough to scan and read back from the screen, the same link SHARE LINK shares; DONE and Esc close it', { engines: true }, async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  for (const device of [DESKTOP, PHONE, { ...PHONE, viewport: { width: 390, height: 844 } }, { ...PHONE, viewport: { width: 667, height: 375 } }]) {
+    const a = await page(device, relayQ), at = `${device.viewport.width}x${device.viewport.height}`;
+    try {
+      await a.p.evaluate(() => { window.shared = []; navigator.share = async (d) => { window.shared.push(d.url); }; });
+      await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+      await a.p.waitForFunction(() => /^[A-Z]{4,}$/.test(document.getElementById('roomShow').textContent));
+      const code = await a.p.locator('#roomShow').textContent(), link = `${baseUrl()}?room=${code}&${relayQ}`;
+      const loaded = () => a.p.evaluate(() => performance.getEntriesByType('resource').some(e => /\/assets\/qr-[^/]*\.js$/.test(e.name)));
+      assert.equal(await loaded(), false, `${at}: no QR encoder before QR is tapped`);
+      assert.ok(await a.p.locator('#btnQr').isVisible() && await a.p.locator('#qrSheet').isHidden(), `${at}: QR beside SHARE LINK, no code on the page`);
+      assert.deepEqual(await fits(a), [], `${at}: the room's title row fits with QR`);
+      await a.tap('#btnQr');
+      await a.p.waitForFunction(() => { const i = document.querySelector('#qrSheet[open] img'); return !!i && i.complete && i.naturalWidth > 0; }, null, { timeout: RUN_MS });
+      assert.equal(await loaded(), true, `${at}: the encoder loaded at the tap`);
+      const img = a.p.locator('#qrSheet img');
+      assert.equal(await img.getAttribute('alt'), 'QR code for the room link');
+      assert.equal(await a.p.evaluate(() => document.getElementById(document.getElementById('qrSheet').getAttribute('aria-labelledby')).textContent), 'SCAN TO JOIN');
+      assert.equal(await a.p.locator('#qrSheet .url').textContent(), link, `${at}: the link under the code, as text`);
+      // Big, square and whole on the screen, white round the code (its quiet zone in the image itself).
+      const box = await img.boundingBox(), min = device.hasTouch ? 240 : 300;
+      assert.ok(box.width >= min && Math.abs(box.width - box.height) < 1, `${at}: ${box.width}x${box.height}, at least ${min} px`);
+      assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= device.viewport.width && box.y + box.height <= device.viewport.height, `${at}: on the screen: ${JSON.stringify(box)}`);
+      const done = await a.p.locator('#qrSheet [data-k="done"]').boundingBox();
+      assert.ok(done.y + done.height <= device.viewport.height && done.x + done.width <= device.viewport.width, `${at}: DONE on the screen`);
+      // Read back from the screen's pixels (a decoder in the page, as a phone's camera would): the exact link.
+      const png = (await img.screenshot()).toString('base64');
+      await a.p.addScriptTag({ path: JSQR });
+      const read = await a.p.evaluate(async (b64) => {
+        const i = new Image(); i.src = 'data:image/png;base64,' + b64; await i.decode();
+        const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight;
+        const g = c.getContext('2d'); g.drawImage(i, 0, 0);
+        return window.jsQR(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
+      }, png);
+      assert.equal(read, link, `${at}: the code on the screen reads as the room's link`);
+      // DONE closes it (the focus back on QR); SHARE LINK shares the same link; Esc closes it too.
+      await a.tap('#qrSheet [data-k="done"]');
+      await a.p.locator('#qrSheet').waitFor({ state: 'hidden' });
+      if (!device.hasTouch) assert.equal(await a.p.evaluate(() => document.activeElement?.id), 'btnQr', 'the focus back on QR');
+      await a.tap('#btnShare');
+      await a.p.waitForFunction(() => window.shared.length === 1);
+      assert.equal(await a.p.evaluate(() => window.shared[0]), link, `${at}: SHARE LINK shares the link the code holds`);
+      if (!device.hasTouch) {
+        await a.tap('#btnQr'); await a.p.locator('#qrSheet[open]').waitFor();
+        await a.p.keyboard.press('Escape'); await a.p.locator('#qrSheet').waitFor({ state: 'hidden' });
+      }
+      assert.deepEqual(a.errors, []);
+    } finally { await a.ctx.close(); }
+  }
 });
 
 test('eight seats fit a small phone (667x375), a landscape phone (844x390) and an upright one two abreast (412x915), the corner clear; six, three against three, play the same 128x128 game', async () => {

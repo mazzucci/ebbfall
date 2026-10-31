@@ -10,8 +10,9 @@
 // same board, read-only but their own token, SIT HERE on an open seat, and the map as one line. A seat keeps its spot
 // (and its colour, in the game too) whatever its side; the relay seats the sides together only when the game starts.
 // READY is a lit toggle; the room's code is the title, SHARE LINK beside it (the big button while the host has a seat
-// open). The menu's MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's VITE_RELAY_URL, or
-// the dev machine's own (port 8788) when the page comes from it.
+// open), and QR, the same link as a QR code for a friend's phone to scan (qr.js, loaded at the first tap). The menu's
+// MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev machine's
+// own (port 8788) when the page comes from it.
 import { Net, PAUSES } from '../net/net.js';
 import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/index.js';
 import { $, toast, LOAD_FAILED } from './ui.js';
@@ -92,6 +93,7 @@ export function initOnline({ game: g }) {
   // Online, a phone puts a hidden page to sleep (and its socket with it): on coming back, make sure the socket lives.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) online.net?.wake(); });
   $('btnShare').addEventListener('click', share);
+  $('btnQr').addEventListener('click', showQr);
   $('btnOnlineReload').addEventListener('click', reloadNewest);
   holdTaps();
   narrow.addEventListener?.('change', () => { if (lobbyState) renderLobby(lobbyState); }); // (a token's race, short or not)
@@ -133,7 +135,7 @@ function needName() {
 }
 function openLobby() { loadName(); $('btnJoinRoom').classList.remove('big'); $('onlineNameNote').hidden = true; $('start').hidden = true; $('online').hidden = false; $('onlineJoin').hidden = false; $('onlineRoom').hidden = true; $('btnOnlineReady').hidden = true; $('btnOnlineReload').hidden = true; status(''); }
 /** Out of the room (an error, a start, BACK): its sheet closed, its board forgotten. */
-function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; lastMap = null; mapNote = ''; clearTimeout(noteTimer); sheet?.close(); }
+function leaveRoom() { lobbyState = null; owed = null; owedSeat = null; editing = -1; lastMap = null; mapNote = ''; clearTimeout(noteTimer); sheet?.close(); qrSheet?.close(); }
 /** This side's seat in the room (the relay's `seat`): the first one, back after a reconnect, or another mid-lobby (the
  *  seats renumbered: an open sheet follows its seat). The lobby that follows says what to do; a first seat clears the
  *  joining line meanwhile. */
@@ -174,7 +176,7 @@ function connect(room) {
         online.seat = seat; owedSeat = null; // (the game's seat: the relay seats the sides together at the start)
         online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
         online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
-        editing = -1; sheet?.close(); // (the lobby stays up while the game loads, its sheet closed)
+        editing = -1; sheet?.close(); qrSheet?.close(); // (the lobby stays up while the game loads, its sheets closed)
         const net = online.net;
         loading.then((g) => {
           if (online.net !== net) return;
@@ -441,6 +443,29 @@ async function share() {
     if (navigator.share) await navigator.share({ title: 'Ebbfall', text: `Play me in Ebbfall: room ${code}`, url });
     else { await navigator.clipboard.writeText(url); toast('Link copied'); }
   } catch { /* cancelled */ }
+}
+
+/** QR: the room's link (SHARE LINK's) as a QR code in a sheet, big, dark on light, for a friend's phone camera; the link
+ *  under it as text. The encoder (qr.js) is loaded at the first tap, not with the page. */
+let qrSheet = null;
+async function showQr() {
+  const code = $('roomShow').textContent;
+  if (!code) return;
+  sfx('select');
+  let qr;
+  try { qr = await import('./qr.js'); } catch { toast('The QR code could not load', true); return; }
+  if ($('roomShow').textContent !== code || $('onlineRoom').hidden) return; // (out of the room meanwhile)
+  const url = joinLink(code), close = () => { qrSheet.close(); $('btnQr').focus(); };
+  const s = document.createElement('div'); s.className = 'sheet qr';
+  s.innerHTML = '<div class="hd"><b id="qrTitle">SCAN TO JOIN</b><span class="sub"></span><button class="ib x" aria-label="Close" data-k="close">×</button></div>'
+    + '<div class="qrbody"><img class="qrimg" alt="QR code for the room link"><div class="qrside"><p class="url"></p><div class="ft"><span class="spacer"></span><button class="ib big" data-k="done">DONE</button></div></div></div>';
+  s.querySelector('.sub').textContent = `room ${code}`;
+  s.querySelector('img').src = qr.qrImage(url);
+  s.querySelector('.url').textContent = url;
+  for (const k of ['close', 'done']) s.querySelector(`[data-k="${k}"]`).addEventListener('click', close);
+  qrSheet ||= sheetDialog($('qrSheet'));
+  qrSheet.show(s, close);
+  s.querySelector('[data-k="done"]').focus();
 }
 
 /** Leave the online game (or the lobby) for good. Out of a lobby: the seat is given up (the relay would hold it a while

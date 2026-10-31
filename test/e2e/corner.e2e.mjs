@@ -284,7 +284,7 @@ const FAKE_FULL = () => {
   window.systemExit = () => { window.fs = false; document.dispatchEvent(new Event('fullscreenchange')); };
 };
 
-test('a replay: PAUSE leaves full screen, DONE goes back in to the end card; REMATCH goes full screen as START does', { skip: notIn(['webkit'], IPHONE_PROFILE) }, async () => {
+test('the end card: REMATCH goes full screen as START does', { skip: notIn(['webkit'], IPHONE_PROFILE) }, async () => {
   const o = await open(PHONE, FAKE_FULL);
   const { page, press } = o;
   const fs = () => page.evaluate(() => `${!!window.fs},${window.fsAsked}`);
@@ -292,20 +292,12 @@ test('a replay: PAUSE leaves full screen, DONE goes back in to the end card; REM
     await press('#btnSolo'); await press('#btnStart');
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
     assert.equal(await fs(), 'true,1');
-    await page.evaluate(() => { endfall.skip(5); endfall.engine.concede(); }); // (a short game: a replay of it, untouched by set-up calls)
+    await page.evaluate(() => { endfall.skip(5); endfall.engine.concede(); }); // (a short game)
     await page.locator('#end').waitFor({ state: 'visible', timeout: 10000 });
-    await press('#btnWatch');
-    await page.locator('#replayBar').waitFor();
-    await press('#btnPause');
-    assert.ok(await page.locator('#btnPauseDone').isVisible());
-    assert.equal(await fs(), 'false,1', 'PAUSE leaves it');
-    await press('#btnPauseDone');
-    await page.locator('#end').waitFor();
-    assert.equal(await fs(), 'true,2', 'DONE: back to the end card, full screen again');
     await page.evaluate(() => window.systemExit());
     await press('#btnRematch');
     await page.waitForFunction(() => !endfall.G.over && document.getElementById('end').hidden);
-    assert.equal(await fs(), 'true,3', 'REMATCH goes back in (a system exit is no choice)');
+    assert.equal(await fs(), 'true,2', 'REMATCH goes back in (a system exit is no choice)');
     assert.deepEqual(o.errors, []);
   } finally { await o.close(); }
 });
@@ -339,7 +331,7 @@ test('single player\'s board, from the top of the page, with two and with eight 
   }
 });
 
-test('the pause card pauses the sound: no sound button in its corner (full screen stays), the audio suspended while it is up and running after BACK TO GAME, P, Esc, RESTART or LEAVE GAME; the sound setting untouched; a replay\'s too', { engines: true }, async (t) => {
+test('the pause card pauses the sound: no sound button in its corner (full screen stays), the audio suspended while it is up and running after BACK TO GAME, P, Esc, RESTART or LEAVE GAME; the sound setting untouched', { engines: true }, async (t) => {
   const o = await open(DESKTOP);
   // (Esc, RESTART and LEAVE GAME below too)
   const { page, press, shown } = o;
@@ -354,7 +346,7 @@ test('the pause card pauses the sound: no sound button in its corner (full scree
   const setting = () => page.evaluate(() => [endfall.status().muted, localStorage.getItem('endfall.muted')]);
   try {
     await press('#btnSolo'); await press('#btnStart');
-    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden); // (the AI on: a game a replay can show)
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
     if (ENGINE !== 'chromium') device = await page.waitForFunction(() => endfall.status().audio === 'running', null, { timeout: 5000 }).then(() => true, () => false);
     if (!device) t.diagnostic(`no audio device in this ${ENGINE}: the audio's state not checked`);
     await audio('running', 'a game started by a click');
@@ -387,17 +379,6 @@ test('the pause card pauses the sound: no sound button in its corner (full scree
     await audio('running', 'LEAVE GAME');
     assert.ok(await shown('#cornerSound'), 'the menu\'s corner has its sound button');
     assert.deepEqual(await setting(), [false, '0'], 'the setting untouched by them all');
-    await press('#btnStart'); // (LEAVE GAME goes back to the single-player page)
-    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-    // A replay's pause card: the same.
-    await page.evaluate(() => { endfall.skip(5); endfall.engine.concede(); });
-    await page.locator('#end').waitFor({ state: 'visible', timeout: 10000 });
-    assert.ok(await shown('#cornerSound'), 'the end card has its sound button');
-    await press('#btnWatch'); await page.locator('#replayBar').waitFor();
-    await press('#btnPause');
-    assert.ok(!(await shown('#cornerSound')), 'a replay\'s pause card: no sound button');
-    await audio('suspended', 'a replay\'s pause card');
-    await press('#btnResume'); await audio('running', 'BACK TO REPLAY');
     assert.deepEqual(o.errors, []);
   } finally { await o.close(); }
 });

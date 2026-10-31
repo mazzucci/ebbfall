@@ -309,6 +309,17 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   reprice), combat.rs (no ground target, ordered or not; it shoots a Raider down), ai.rs (Interceptors from the
   Factory, Lancers to half), army.rs (a wave of Interceptors alone comes home), the e2e (the Factory's card, I and its
   WASD key, a Raider shot down beside an untouched Trooper).
+- [x] No WATCH on the end card, and a QR code for a room's link (2026-10-31, the owner's two requests): the end card
+  keeps NEW GAME, SHARE (after a victory against the AI) and REMATCH; the replay viewer is gone from the client (WATCH,
+  the replay bar's speed and DONE, the pause card's BACK TO REPLAY and DONE, the hushed announcer). A save game may come
+  later. The sim's replay stays (`Game::start_replay` and the command log): the device test (?bench) plays through it,
+  and the goldens, the challenge link's same start and the balance lab stand on the same determinism. In the lobby, QR
+  beside SHARE LINK opens a sheet with the room's link (SHARE LINK's own, so it follows the room codes) as a QR code,
+  big and dark on white with its quiet zone, and the link as text: a friend in the same room scans the screen with a
+  phone. The encoder is qrcode-generator (Kazuhiko Arase, MIT; error correction M, an SVG image), a chunk of its own
+  (22 KB, 8 KB gzipped) loaded at the first tap, stored for offline play like every file; no network. Tests:
+  test/qr.test.js (read back with jsQR, a dev dependency: the exact link, level M, the quiet zone), the online e2e
+  (the code on the screen read back, the encoder not loaded before the tap, DONE and Esc).
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

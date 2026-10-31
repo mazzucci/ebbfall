@@ -2,7 +2,7 @@
 // Loaded by src/boot.js behind the menu (the renderer waits for its art, and the sim for its WASM, below); the menu and
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, armyLog, lostTo, foes, enemies } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, spotTint, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -63,7 +63,7 @@ function newOnlineGame(setup, seat, races) {
 }
 
 function begin(reset) {
-  $('help').hidden = true; $('options').hidden = true; stopWatching(); ended = false; outSaid = false;
+  $('help').hidden = true; $('options').hidden = true; ended = false; outSaid = false;
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
@@ -87,43 +87,26 @@ function leaveLine() {
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
 function giveUp() {
   if (online.playing) { if (started && !G.over) online.net?.leave(); return; } // (an online game: the relay concedes for us at once; not on the vs-AI record)
-  if (started && !G.over && !menu.tutorial && !ui.watching && !BENCH) recordResult(false, G.factions[G.me], G.diff);
+  if (started && !G.over && !menu.tutorial && !BENCH) recordResult(false, G.factions[G.me], G.diff);
 }
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
-  giveUp(); stopWatching(); stopOnline(); // (a leaving Net closes itself once its leave is out)
+  giveUp(); stopOnline(); // (a leaving Net closes itself once its leave is out)
   started = false; closePause(); $('end').hidden = true; $('help').hidden = true; $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
-
-// ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----
-const SPEEDS = [1, 2, 4, 8];
-function clearScene() { setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide(); }
-function watch() {
-  if (!startReplay()) { toast('This game cannot be watched again', true); return; }
-  ui.watching = 4; audio.quiet = true; document.body.classList.add('replay'); $('replayBar').hidden = false; $('end').hidden = true;
-  clearScene(); renderTerrain(); speedLabel();
-  const core = G.bldgs.find(b => b.team === G.me); if (core) centerOn(core.x + 40, core.y);
-}
-function stopWatching() { ui.watching = 0; audio.quiet = false; document.body.classList.remove('replay'); $('replayBar').hidden = true; }
-/** The replay ran out (or DONE): back to the end card, which still says how the game went. */
-function doneWatching() { stopWatching(); clearScene(); updateHud(); $('end').hidden = false; $('btnWatch').focus(); }
-function speedLabel() { $('btnSpeed').textContent = ui.watching + '×'; }
-$('btnWatch').addEventListener('click', () => { sfx('select'); watch(); });
-$('btnSpeed').addEventListener('click', () => { ui.watching = SPEEDS[(SPEEDS.indexOf(ui.watching) + 1) % SPEEDS.length]; speedLabel(); });
-$('btnReplayDone').addEventListener('click', doneWatching);
 
 /** Turn sim events into client effects. */
 function drainEvents() {
   for (const e of G.events) {
     if (e.t === 'sfx') sfx(e.name);
-    else if (e.t === 'toast') { if (!ui.watching) toast(e.msg, e.bad); } // (a replay shows the game, not its news)
-    else if (e.t === 'ping') { if (!ui.watching) ping(e.x, e.y); } // (something of ours finished, or needs a look)
+    else if (e.t === 'toast') toast(e.msg, e.bad);
+    else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r); if (seen(e)) sfx('boom', e); } // (particles on screen only)
     else if (e.t === 'hit') { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') sfx(e.w, e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
-    else if (e.t === 'attacked') { if (!ui.watching) onAttacked(e); }
+    else if (e.t === 'attacked') onAttacked(e);
   }
   G.events.length = 0;
 }
@@ -177,7 +160,6 @@ function endGame() {
   const fs = foes(); $('endKey').querySelector('.foe').textContent = fs.length > 1 ? 'Enemy armies' : online.playing ? `${Who(fs[0])}'s army` : 'Enemy army';
   $('btnAgain').textContent = online.playing ? 'LEAVE ROOM' : 'NEW GAME'; // (online: this room, and its rematch, are left)
   $('btnAgain').title = online.playing ? 'Back to the menu: out of this room' : 'Back to the menu, for another map or opponent';
-  $('btnWatch').hidden = menu.tutorial || online.playing; // (the guided game's hold is not in the log; an online game is watched later)
   showShare(win && !online.playing && !BENCH ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
@@ -201,7 +183,7 @@ function rematchButton(theyWant, iWant) {
 $('btnAgain').addEventListener('click', () => { const solo = !online.playing && !menu.tutorial; $('end').hidden = true; started = false; if (online.playing) online.net?.leave(); stopOnline(); showMenu(solo ? 'menuSolo' : 'menuHome'); }); // back to the menu: a new map, or the same opponent again (online: the room is left, and the friend told)
 $('btnRematch').addEventListener('click', () => { sfx('select'); if (online.playing) rematchButton(theyWantRematch, wantRematch()); else { enterFullscreen(); newGame(); } }); // (alone: full screen again on a touch screen, as START; online, READY does) the same map, seed, races and difficulty; online, another game in the room
 initLeaveDialog(); initTools(); initShare();
-initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); }, onDone: doneWatching });
+initPause({ onRestart: () => { giveUp(); newGame(); }, onQuit: () => { disarmLeaveGuard(); quitToTitle(); } });
 /** What the menu (menu.js) and the lobby (online.js) call, through src/boot.js, once this module has loaded. */
 export const game = {
   newGame, newOnlineGame, quitToTitle, started: () => started, // (in a game: a new version waits, src/boot.js)
@@ -231,29 +213,22 @@ function loop(now) {
   const el = Math.min(0.1, (now - last) / 1000); last = now;
   if (input.enabled()) camKeys(el);
   if (running()) {
-    const speed = ui.watching || 1; // (a replay plays faster)
-    acc += el * speed; let n = 0;
-    // A replay stops where the game ended (`replayEnd`, the tick it was watched from; the same game is over there):
-    // read from the sim itself, as reading G before every step would mirror the world each time. G.over is looked at
-    // once the frame's steps are run, below.
-    const end = ui.watching ? replayEnd() : 0, done = () => ui.watching && liveGame().tick() > end;
+    acc += el; let n = 0;
     // Online: the relay's turns in, our orders out; behind by more than a few ticks, run faster to catch up.
-    const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5 * speed;
-    while ((acc >= DT || n < waiting - 9) && n++ < max && !done()) {
+    const waiting = online.playing ? online.net.pump() : 0, max = waiting > 9 ? 30 : 5;
+    while ((acc >= DT || n < waiting - 9) && n++ < max) {
       if (!advance()) { acc = Math.min(acc, DT); break; } // (its turn is not in yet; the client's mirror of the world catches up once, after the steps)
       acc = Math.max(0, acc - DT); if (online.playing) online.net.ticked(); // (catch-up steps are not charged to the clock)
     }
-    if (acc > DT * 5 * speed) acc = 0;
+    if (acc > DT * 5) acc = 0;
     mirror(); // (this frame's ticks into G, once)
     if (probe.on) probe.lap('steps');
     drainEvents();
-    if (!ui.watching) noteSightings(); // (a replay shows both sides: not what this side scouted)
+    noteSightings();
   }
-  // Checked every frame, not only while running: the game can end between frames too. A replay ends where the game
-  // did, back on the end card (the result is on record already).
+  // Checked every frame, not only while running: the game can end between frames too.
   if (online.playing && G.over) online.net?.pump(); // (the game is over, the room is not: still here, for a rematch)
-  if (ui.watching) { if (G.over || G.tick > replayEnd()) doneWatching(); }
-  else if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
+  if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
   if (probe.on) probe.lap('events');

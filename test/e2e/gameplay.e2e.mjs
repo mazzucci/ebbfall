@@ -1408,6 +1408,7 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
     assert.equal(await d.page.locator('#result').textContent(), 'VICTORY');
     assert.equal(await d.page.locator('#endChart polyline').count(), 2, 'two lines: ours and theirs');
     assert.equal(await d.page.locator('#endChart text').count(), 0, 'no numbers on the chart');
+    assert.deepEqual(await d.page.$$eval('#end button', bs => bs.filter(b => !b.hidden).map(b => b.textContent)), ['NEW GAME', 'SHARE', 'REMATCH'], 'the end card\'s buttons (no WATCH)');
     await d.page.locator('#btnRematch').click();
     await until(d, async () => !(await d.state()).over, { seconds: 10, step: 0.5, what: 'the rematch' });
     assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');
@@ -1819,7 +1820,7 @@ test('single player: eight fixed spots; + AI fills the lowest empty one on a sid
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => [endfall.G.teams, endfall.engine.MW, endfall.G.me, endfall.engine.foes(), endfall.G.factions]), [[0, 0, 1, 1], 96, 0, [2, 3], ['humans', 'vael', 'vael', 'vael']]);
     // Back to the menu (leaving counts as a defeat): the board remembered. REMOVE empties a spot; + AI fills it again.
-    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
+    await page.evaluate(() => { document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').tap();
     await page.locator('#menuSolo').waitFor({ state: 'visible' });
     assert.deepEqual(await seats.sides(), [['YOU', 'AI 2'], ['AI 1', 'AI 3']], 'the sides remembered');
@@ -1886,7 +1887,7 @@ test('single player: each player plays in its spot\'s colour whatever its side; 
     const diag = Math.max(...[1, 2, 3].map(s => apart(c[0], c[s])));
     assert.ok(apart(c[0], c[1]) < diag - 10 && apart(c[2], c[3]) < diag - 10, `allies on neighbouring starts: ${JSON.stringify(c)}`);
     // One against three on an eight-start map: the three side by side.
-    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); document.getElementById('btnQuit').click(); });
+    await page.evaluate(() => { document.getElementById('btnPause').click(); document.getElementById('btnQuit').click(); });
     await page.locator('#menuSolo').waitFor({ state: 'visible' });
     await board(page).side(2, 1);
     await page.locator('#mapSel').selectOption({ label: 'Sunken Court · up to 8' });
@@ -2032,7 +2033,7 @@ test('single player: the record counts a game at its enemies\' level (a Brutal a
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 3, 0], 'the game\'s level Easy, the ally Brutal');
-    await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
+    await page.evaluate(() => { document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').click(); await page.locator('#btnSoloBack').click();
     assert.equal(await page.locator('#record').textContent(), 'Easy: 0 won · 1 lost', 'counted at Easy');
   } finally { await ctx.close(); }
@@ -2447,64 +2448,6 @@ test('the first page: the name in title case over the shore, whose tide lines ke
   } finally { await d.close(); }
 });
 
-
-test('the end card can WATCH the game again: from the start, faster, both sides in view, no orders, back to the card', async () => {
-  for (const dev of [DESKTOP, PHONE]) {
-    const d = await newGame(dev, 0, 4242);
-    const tap = (sel) => d.touch ? d.page.locator(sel).tap() : d.page.locator(sel).click();
-    try {
-      // A short game with a few orders in it (set-up: the action under test is WATCH).
-      await d.eval(() => { const h = endfall.G.units.filter(u => u.team === endfall.G.me && u.d.worker); endfall.engine.moveTo(h[0], h[0].x + 120, h[0].y + 40); endfall.engine.moveTo(h[1], h[1].x - 80, h[1].y + 60); });
-      await d.skip(20);
-      await d.eval(() => endfall.engine.concede());
-      const played = await d.eval(() => endfall.G.tick); // (after: the game runs on between calls until it is over)
-      await d.page.locator('#end').waitFor({ state: 'visible' });
-      const record = await d.eval(() => localStorage.getItem('endfall.record'));
-      assert.ok(await d.page.locator('#btnWatch').isVisible(), 'WATCH on the end card');
-      await tap('#btnWatch');
-      assert.ok(await d.page.locator('#end').isHidden() && await d.page.locator('#replayBar').isVisible(), 'the replay plays, with its bar');
-      assert.ok(await d.eval(() => endfall.G.tick) < played / 2, 'from the first tick');
-      assert.equal(await d.page.locator('#btnSpeed').textContent(), '4×');
-      assert.ok(await d.page.locator('#cmd').evaluate(e => getComputedStyle(e).visibility === 'hidden'), 'no command card');
-      // Both sides in view: the enemy's base is not fogged.
-      assert.ok(await d.eval(() => endfall.G.bldgs.filter(b => b.team !== endfall.G.me).every(b => endfall.engine.visibleEnt(b))), 'both sides in view');
-      // PAUSE in a replay: the replay waits; BACK TO REPLAY, or DONE (no restarting, nothing given up).
-      await tap('#btnPause');
-      const shown = await d.page.$$eval('#pause .pausegrid button', bs => bs.filter(b => !b.hidden).map(b => b.textContent));
-      assert.deepEqual(shown, ['BACK TO REPLAY', 'DONE'], 'the replay\'s pause card (no HOW TO PLAY, no OPTIONS: on a desktop too)');
-      assert.match(await d.page.locator('#pauseTime').textContent(), /^\d+:\d\d into the replay\.$/);
-      const t0 = await d.eval(() => endfall.G.tick); await d.page.waitForTimeout(500);
-      assert.equal(await d.eval(() => endfall.G.tick), t0, 'the replay waits');
-      await tap('#btnResume');
-      await d.page.waitForFunction((t0) => endfall.G.tick > t0, t0, { timeout: 15000 });
-      await tap('#btnSpeed');
-      assert.equal(await d.page.locator('#btnSpeed').textContent(), '8×', 'faster');
-      // It ends where the game ended, back on the end card, the record unchanged.
-      await d.page.locator('#end').waitFor({ state: 'visible', timeout: 60000 });
-      assert.ok(await d.page.locator('#replayBar').isHidden());
-      const at = await d.eval(() => [endfall.G.tick, endfall.G.over, endfall.engine.replayEnd()]);
-      assert.ok(at[1] && Math.abs(at[0] - played) <= 1, `it ran to where the game ended, and it is over: ${at} vs ${played}`);
-      assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'not counted again');
-      // Watch again and leave early with DONE (the bar's, then the pause card's); then once more to the end: still
-      // counted once.
-      await tap('#btnWatch');
-      await tap('#btnReplayDone');
-      assert.ok(await d.page.locator('#end').isVisible() && await d.page.locator('#replayBar').isHidden(), 'DONE: back to the card');
-      await tap('#btnWatch');
-      await tap('#btnPause'); await tap('#btnPauseDone');
-      assert.ok(await d.page.locator('#end').isVisible() && await d.page.locator('#replayBar').isHidden() && await d.page.locator('#pause').isHidden(), 'the pause card\'s DONE: back to the card');
-      await tap('#btnWatch');
-      await tap('#btnSpeed'); // (8×)
-      await d.page.locator('#end').waitFor({ state: 'visible', timeout: 60000 });
-      await d.page.waitForTimeout(500); // (a few frames after the end: nothing may count the game again)
-      assert.equal(await d.eval(() => localStorage.getItem('endfall.record')), record, 'watched to the end twice, counted once');
-      await tap('#btnRematch');
-      await d.page.waitForFunction(() => endfall.G.time < 2 && !endfall.G.over, null, { timeout: 5000 });
-      assert.ok(!await d.eval(() => document.body.classList.contains('replay')), 'a new game has its card back (empty until something is selected)');
-      assert.deepEqual(d.errors, []);
-    } finally { await d.close(); }
-  }
-});
 
 test('an attack by something unseen says so, even on screen, and names what detects it', async () => {
   for (const [dev, race, finds] of [[DESKTOP, 'humans', /^Unseen attacker: Turrets and Observers detect$/], [PHONE, 'vael', /^Unseen attacker: Wards and Halos detect$/]]) {

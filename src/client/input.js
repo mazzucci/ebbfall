@@ -127,7 +127,7 @@ function releaseWorkers(units) {
 
 /** Right-click / tap-on-ground semantics: context-sensitive order for the selection. */
 function commandAt(wx, wy, hit = pick(wx, wy)) {
-  const sel = playerSel(); if (!sel.length || ui.watching) return; // (a replay takes no orders: no marker, no reply)
+  const sel = playerSel(); if (!sel.length) return;
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const vent = ventOf(hit);
   let job = false; // harvesters were given work
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
@@ -389,7 +389,7 @@ function bindKeys() {
     const grid = wasd();
     if (grid && PAN_CODES.includes(ev.code) && !ev.ctrlKey && !ev.metaKey) return;
     const is = (key) => (grid ? ev.code === 'Key' + key : key.toLowerCase() === k.toLowerCase());
-    const items = ui.watching ? [] : cardItems(); const it = items.find(i => i.key && i.key !== 'Esc' && is(i.key));
+    const items = cardItems(); const it = items.find(i => i.key && i.key !== 'Esc' && is(i.key));
     if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id, ev.shiftKey ? 5 : 1); invalidateCard(); ev.preventDefault(); return; } // (Shift: five of a unit)
     if (!it && is('Q')) selectArmy();
   });

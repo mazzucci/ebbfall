@@ -1,19 +1,18 @@
 // The pause card (the top bar's PAUSE, or P). What it is depends on the game:
 // - alone (or the guided game) it pauses: BACK TO GAME, HOW TO PLAY, OPTIONS (where this device has any: options.js),
 //   RESTART, LEAVE GAME (leaving gives the game up);
-// - in a replay: BACK TO REPLAY, DONE (back to the end card);
 // - online it is a menu and the game goes on under it (only the relay can stop a shared clock): BACK TO GAME, HOW TO
 //   PLAY, OPTIONS, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (docs/MULTIPLAYER.md) shows
 //   the card on every side, with who paused and the time left; only the one who paused can end it early (RESUME: the
 //   others see whose pause it is, greyed), and once it is over the card closes for those who did not open it.
-// Opening it leaves full screen (the player may be off to another app); BACK TO GAME (and a replay's DONE) goes back
-// into it if it was on, unless the player has left it with the full-screen button since (screen.js). A pause someone
-// else called leaves this side's full screen alone.
+// Opening it leaves full screen (the player may be off to another app); BACK TO GAME goes back into it if it was on,
+// unless the player has left it with the full-screen button since (screen.js). A pause someone else called leaves this
+// side's full screen alone.
 // While the card is up the game's sound is paused (audio.js `holdSound`: effects, the wind, the voice), and the corner
-// has no sound button (corner.js); closing it brings the sound back. The sound setting itself is not touched. Online and
-// in a replay too, though the game may go on under the card: the card covers it, so it is not heard either.
+// has no sound button (corner.js); closing it brings the sound back. The sound setting itself is not touched. Online too,
+// though the game goes on under the card: the card covers it, so it is not heard either.
 import { G, fmt } from '../engine/index.js';
-import { $, ui, toast } from './ui.js';
+import { $, toast } from './ui.js';
 import { sfx, holdSound } from './audio.js';
 import { seenLately } from './scout.js';
 import { online, who, Who, ifYouLeave } from './online.js';
@@ -22,14 +21,14 @@ import { anyOptions } from './options.js';
 
 /** mine: the player opened the card (not a room pause); wasFull: full screen was on when they did. */
 const card = { mine: false, wasFull: false, timer: 0 };
-let onRestart = () => {}, onQuit = () => {}, onDone = () => {};
+let onRestart = () => {}, onQuit = () => {};
 
 /** Whether the card is up (input waits; alone, the game too). */
 export const paused = () => !$('pause').hidden;
 const mine = () => online.hold?.seat === online.seat;
 
 export function initPause(h) {
-  ({ onRestart, onQuit, onDone } = h);
+  ({ onRestart, onQuit } = h);
   $('btnResume').addEventListener('click', () => {
     if (!online.hold) { closePause(true); return; }
     if (mine()) { online.net?.resume(); backToFull(); } // (the card closes when the relay says the pause is over)
@@ -37,7 +36,6 @@ export function initPause(h) {
   $('btnPauseAll').addEventListener('click', () => { sfx('select'); online.net?.pause(); });
   $('btnRestart').addEventListener('click', () => { closePause(true); onRestart(); });
   $('btnQuit').addEventListener('click', () => { closePause(false); onQuit(); });
-  $('btnPauseDone').addEventListener('click', () => { closePause(true); onDone(); }); // (back to the end card: full screen again if it was on)
   $('btnPause').addEventListener('click', () => togglePause());
 }
 
@@ -51,7 +49,7 @@ export function togglePause() {
 
 function openCard() {
   $('pause').hidden = false; holdSound(true);
-  const seen = ui.watching ? '' : seenLately(); // (the clock and the scouting report live here, not on screen; a replay shows both sides)
+  const seen = seenLately(); // (the clock and the scouting report live here, not on screen)
   $('pauseSeen').innerHTML = seen; $('pauseSeen').hidden = !seen;
   render();
   clearInterval(card.timer); card.timer = setInterval(render, 500); // (online the clock runs on: so does the card's)
@@ -84,25 +82,22 @@ const remains = (ms) => clock(Math.ceil(Math.max(0, ms) / 1000));
 
 /** Fill the card for the state the game is in. */
 function render() {
-  const watching = !!ui.watching, net = online.playing, hold = net ? online.hold : null;
+  const net = online.playing, hold = net ? online.hold : null;
   const heading = net && !hold ? 'Menu' : 'Paused';
   $('pause').querySelector('h2').textContent = heading; $('pause').querySelector('.card').setAttribute('aria-label', heading);
   $('pauseTime').textContent = hold ? `${mine() ? 'You paused' : `Paused by ${Who(hold.seat)}`} · ${remains(hold.until - performance.now())} left`
-    : watching ? `${clock(G.time)} into the replay.` : net ? `${clock(G.time)} in. The game goes on while this is open.`
+    : net ? `${clock(G.time)} in. The game goes on while this is open.`
       : `${clock(G.time)} into the game. Leaving or restarting gives it up.`;
   const resume = $('btnResume');
-  resume.textContent = !hold ? (watching ? 'BACK TO REPLAY' : 'BACK TO GAME') : mine() ? 'RESUME' : `${who(hold.seat).toUpperCase()}'S PAUSE`;
+  resume.textContent = !hold ? 'BACK TO GAME' : mine() ? 'RESUME' : `${who(hold.seat).toUpperCase()}'S PAUSE`;
   resume.disabled = !!hold && !mine(); // (theirs to end: no RESUME that does nothing)
   resume.title = !hold ? '' : mine() ? 'End your pause: the game goes on for everyone' : `${Who(hold.seat)} ends the pause, or it runs out`;
   const all = $('btnPauseAll');
   all.hidden = !net || !!hold || left() <= 0;
   all.innerHTML = `PAUSE FOR EVERYONE<small>${left()} left</small>`; all.setAttribute('aria-label', `Pause for everyone, ${left()} left`);
-  $('btnPauseHelp').hidden = watching;
-  $('btnPauseOptions').hidden = watching || !anyOptions();
-  $('btnRestart').hidden = net || watching; // (a shared game cannot be restarted by one side)
-  $('btnQuit').hidden = watching;
+  $('btnPauseOptions').hidden = !anyOptions();
+  $('btnRestart').hidden = net; // (a shared game cannot be restarted by one side)
   $('btnQuit').title = net ? `Back to the menu: ${ifYouLeave()}` : 'Back to the menu: the game counts as lost';
-  $('btnPauseDone').hidden = !watching;
   // Three buttons: the first across the card, two below (no hole); two or four: a row or two of two.
   const shown = [...$('pause').querySelectorAll('.pausegrid button')].filter(b => !b.hidden).length;
   $('pause').querySelector('.pausegrid').classList.toggle('odd', shown % 2 === 1);

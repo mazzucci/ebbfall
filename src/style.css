@@ -196,6 +196,18 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .sheet .opt .ib,.sheet .ft .ib,.sheet .hd b,.sheet .info,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .opt .ib{letter-spacing:.04em}
   .sheet .opt .lbl{width:64px}
 }
+/* The room's QR code (online.js `showQr`): as big as the screen lets it be, dark modules on white with its quiet zone, for
+   a phone's camera; the link under it as text to select. A landscape phone: the code beside the link. */
+.sheet.qr .qrbody{display:flex;flex-direction:column;align-items:center;gap:10px}
+.sheet.qr .qrimg{display:block;flex:none;height:auto;aspect-ratio:1;border-radius:6px;background:#fff;
+  width:min(300px,76vw,calc(100vh - 200px));width:min(300px,76vw,calc(100dvh - 200px))}
+.sheet.qr .qrside{align-self:stretch;display:flex;flex-direction:column;gap:4px;min-width:0}
+.sheet.qr .url{margin:0;font:12px var(--mono);color:var(--muted);text-align:center;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+@media (orientation:landscape) and (max-height:500px){
+  .sheet.qr .qrbody{flex-direction:row;gap:16px} .sheet.qr .qrside{align-self:center;flex:1} .sheet.qr .url{text-align:left}
+  .sheet.qr .qrimg{width:min(260px,calc(100vh - 84px));width:min(260px,calc(100dvh - 84px))}
+}
+@media (min-width:900px) and (min-height:500px){.sheet.qr .qrimg{width:min(320px,calc(100vh - 200px));width:min(320px,calc(100dvh - 200px))}}
 .note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
 /* The map: a list of every map (its name and the players it seats; those with too few starts there, greyed), drawn as
    the game's tappable controls (a border, a caret; 16 px on a phone: no zoom on focus in iOS), its thumbnail beside it. */
@@ -376,11 +388,6 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* A refused button (not enough to pay, supply blocked) shakes, and its cost flashes: the button is the message. */
 @keyframes refuse{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
 .cb.refused{animation:refuse .35s} .cb.refused .c{color:var(--bad)}
-/* A replay: a small bar under the top bar (speed, done); no command card (the log is the game) */
-#replayBar{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:6px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 6px}
-#replayBar[hidden]{display:none} #replayBar .t{font:600 11px var(--display);letter-spacing:.14em;color:var(--muted);padding:0 4px} #replayBar .ib{min-width:44px;min-height:32px}
-@media (max-height:500px){#replayBar{top:40px}}
-body.replay #cmd{visibility:hidden}
 /* An online game waiting for someone, or over for a reason the end card does not tell: one line under the top bar */
 #netWait{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:8px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font:600 12px var(--display);letter-spacing:.08em;color:var(--fg);max-width:calc(100vw - 32px)}
 #netWait[hidden]{display:none} #netWait .ib{min-width:44px;min-height:32px}
@@ -395,7 +402,7 @@ body.replay #cmd{visibility:hidden}
    the left: the top-right corner (sound, full screen) stays clear. */
 #online .title{display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap;min-height:44px;padding-right:80px} /* (from the top of the page: clear of the corner) */
 #online .title .room{font:11px var(--mono);letter-spacing:.14em;color:var(--muted)} #online .title h2{margin:0;font:600 22px var(--mono);letter-spacing:.22em;color:var(--ally2)}
-#online .title .ib{margin-left:6px}
+#online .title .share{display:flex;gap:8px;flex:none;margin-left:6px} /* (SHARE LINK and QR: on one line, together) */
 @media (max-height:420px){#online .title{margin-bottom:2px;min-height:46px} #online .title h2{font-size:19px}}
 /* The map a guest sees: the host's pick, one line, no chips to grey out. */
 .mapline{display:flex;align-items:center;gap:10px;font:600 13px var(--display);letter-spacing:.08em} .mapline .pick{font:12px var(--mono);color:var(--muted);letter-spacing:0} .mapline .pick::before{content:'· '}

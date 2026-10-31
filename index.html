@@ -59,7 +59,6 @@
     <button class="ib icon" id="btnPause" aria-label="Pause" title="Pause (P)"></button>
   </header>
   <div id="netWait" hidden><span></span><button class="ib" id="btnNetMenu" hidden>MENU</button></div>
-  <div id="replayBar" hidden><span class="t">REPLAY</span><button class="ib" id="btnSpeed" title="Replay speed (tap for the next)">4×</button><button class="ib" id="btnReplayDone">DONE</button></div>
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="msg" aria-live="polite"></div>
@@ -131,9 +130,10 @@
         <div class="row"><button class="ib big" id="btnNewRoom">NEW ROOM</button><span class="spacer"></span><input id="roomCode" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off" aria-label="Room code"><button class="ib" id="btnJoinRoom">JOIN</button></div>
       </div>
       <div id="onlineRoom" hidden>
-        <div class="title"><span class="room">ROOM</span><h2 id="roomShow"></h2><button class="ib" id="btnShare" title="The link that opens this room">SHARE LINK</button></div>
+        <div class="title"><span class="room">ROOM</span><h2 id="roomShow"></h2><span class="share"><button class="ib" id="btnShare" title="The link that opens this room">SHARE LINK</button><button class="ib" id="btnQr" title="The link as a QR code, for a phone's camera" aria-label="Show the QR code of the room link" aria-haspopup="dialog">QR</button></span></div>
         <div id="onlineBoard" class="board" role="group" aria-label="Players"></div>
         <dialog id="onlineSheet" class="scrim" aria-labelledby="sheetTitle"></dialog>
+        <dialog id="qrSheet" class="scrim" aria-labelledby="qrTitle"></dialog>
         <div class="opt maprow"><label class="lbl" id="onlineMapLbl" for="onlineMapSel">MAP</label><span class="sel" id="onlineMaps"><select id="onlineMapSel"></select></span><div class="mapline" id="onlineMapLine" hidden><span id="onlineMapName"></span><span class="pick" id="onlineMapNote"></span></div><canvas id="onlinePreview" aria-hidden="true"></canvas></div>
       </div>
       <div class="row foot"><button class="ib" id="btnOnlineBack">BACK</button><span class="spacer"></span><span class="note" id="onlineStatus" role="status" aria-live="polite"></span><button class="ib big" id="btnOnlineReload" hidden>UPDATE</button><button class="ib big" id="btnOnlineReady" hidden aria-pressed="false">READY</button></div>
@@ -160,7 +160,7 @@
       <h2>Paused</h2>
       <div class="tag" id="pauseTime">Take your time.</div>
       <div class="tag" id="pauseSeen"></div>
-      <div class="pausegrid"><button class="ib" id="btnResume">BACK TO GAME</button><button class="ib" id="btnPauseHelp">HOW TO PLAY</button><button class="ib" id="btnPauseOptions" hidden>OPTIONS</button><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnPauseAll" hidden>PAUSE FOR EVERYONE</button><button class="ib" id="btnQuit" title="Back to the menu: the game counts as lost">LEAVE GAME</button><button class="ib" id="btnPauseDone" hidden title="Back to the end card">DONE</button><button class="ib install" id="btnPauseInstall" title="Install Ebbfall as an app: its own icon, full screen, plays offline" hidden>INSTALL</button></div>
+      <div class="pausegrid"><button class="ib" id="btnResume">BACK TO GAME</button><button class="ib" id="btnPauseHelp">HOW TO PLAY</button><button class="ib" id="btnPauseOptions" hidden>OPTIONS</button><button class="ib" id="btnRestart">RESTART</button><button class="ib" id="btnPauseAll" hidden>PAUSE FOR EVERYONE</button><button class="ib" id="btnQuit" title="Back to the menu: the game counts as lost">LEAVE GAME</button><button class="ib install" id="btnPauseInstall" title="Install Ebbfall as an app: its own icon, full screen, plays offline" hidden>INSTALL</button></div>
     </div>
   </div>
   <div class="screen" id="options" hidden>
@@ -187,7 +187,7 @@
       <p id="endSeen" hidden></p>
       <div id="endChart"></div>
       <div id="endKey" class="row"><span class="me">Your army</span><span class="foe">Enemy army</span></div>
-      <div class="row"><button class="ib" id="btnAgain">NEW GAME</button><button class="ib" id="btnWatch" title="Watch the game again, both sides in view">WATCH</button><span class="spacer"></span><button class="ib" id="btnShareWin" title="A link to this game: can they beat it?" aria-live="polite" hidden>SHARE</button><button class="ib big" id="btnRematch">REMATCH</button></div>
+      <div class="row"><button class="ib" id="btnAgain">NEW GAME</button><span class="spacer"></span><button class="ib" id="btnShareWin" title="A link to this game: can they beat it?" aria-live="polite" hidden>SHARE</button><button class="ib big" id="btnRematch">REMATCH</button></div>
     </div>
   </div>
   <div class="screen" id="homeTip" hidden>

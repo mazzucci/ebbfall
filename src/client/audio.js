@@ -14,7 +14,6 @@ export const audio = {
   // 'device': the device's own voice (speech.js), each race's synth style A where the device has none; 'synth': each
   // race's synth style A (voice.js STYLES[race]); null: silent. voice-lab.html plays them all.
   announcer: null,
-  quiet: false, // the announcer holds its tongue (a replay shows the game, not its news)
   /** Set by main.js: the camera's view in world px ({ x, y, w, h }), for panning and distance. */
   view: () => null,
   /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
@@ -176,7 +175,7 @@ let voiceBus = null, busyUntil = 0;
  *  at a time: a new one while another plays is dropped. Not while the audio is suspended (an iOS interruption), or
  *  the phrases would all come at once later. */
 export function say(key, after = 0) {
-  if (!audio.announcer || audio.muted || audio.quiet) return;
+  if (!audio.announcer || audio.muted) return;
   const now = audio.now();
   if (said[key] !== undefined && now - said[key] < (SAY_GAP[key] ?? 3000)) return;
   if (!live()) return;
@@ -196,7 +195,7 @@ export function say(key, after = 0) {
 function deviceSay(key, after) {
   const style = `${audio.voice}Device`;
   if (!canSpeak(style)) return false;
-  const go = () => { if (!audio.muted && !audio.quiet && !held) speakLine(key, style, { urgent: key === 'attack' }); };
+  const go = () => { if (!audio.muted && !held) speakLine(key, style, { urgent: key === 'attack' }); };
   if (after > 0) setTimeout(go, after * 1000); else go();
   return true;
 }

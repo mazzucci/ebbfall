@@ -42,6 +42,7 @@ pub const HUMANS: Faction = Faction {
         raider: UnitKind::Wasp,
         wave_scale: 1.0,
         tech_from: 300.0,
+        air_lead: 0.0,
     },
 };
 
@@ -149,7 +150,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
     bio: true,
     weapon: Some(Weapon {
         range: 6.0,
-        dmg: 5.0,
+        dmg: 9.0,
         dmg_air: 30.0,
         cd: 1.2,
         proj: Some(ProjKind::Missile),
@@ -174,7 +175,7 @@ pub(super) const MEDIC: UnitDef = UnitDef {
 pub(super) const BASTION: UnitDef = UnitDef {
     key: "bastion",
     name: "Bastion",
-    cost: [300, 200],
+    cost: [300, 250],
     supply: 6,
     hp: 450.0,
     armor: 2.0,

@@ -176,7 +176,10 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     // AI puts one up by them anyway. (This Wasp cannot die and shoots whoever comes near, builders included, so the
     // decision is what is checked, not the finished tower.)
     let mut w = World::new(31, 1);
-    run(&mut w, 140);
+    // (after its Foundry and its second vent's Rig stand, as it raises two sites at a time; and a Turret's price in
+    // the bank, which that vent's new crew has just spent)
+    run(&mut w, 175);
+    w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let h = harvesters(&w, ENEMY)[0];
     let (hx, hy) = (U(&w, h).x, U(&w, h).y);
     let wasp = w.make_unit(UnitKind::Wasp, PLAYER, hx + 40.0, hy);
@@ -191,7 +194,7 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     };
     assert_eq!(turrets(&w), 0, "no Turret yet");
     let mut raised = false;
-    for _ in 0..90 {
+    for _ in 0..60 {
         // (it re-cloaks whenever it can, and keeps shooting at a harvester near where it started)
         let _ = w.cast(wasp, AbilityKind::Cloak);
         // (a miner: its workers now run from what hits them, and the one building the tower is not the target)
@@ -293,4 +296,30 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
     w.cast(wasp, AbilityKind::Cloak).unwrap();
     let (unseen, _) = alerts(&mut w, 10);
     assert_eq!(unseen, 0, "detected: nothing unseen");
+}
+
+#[test]
+fn a_halo_detects_cloaked_units_near_it() {
+    // The Vael's detector in the field (2026-10-31): a Halo reveals what is cloaked within 5 tiles of it, as an
+    // Observer does within 7; farther off, though in its sight, the cloak holds.
+    let mut w = flat_arena(14);
+    w.factions = vec![&VAEL, &HUMANS];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let halo = w.make_unit(UnitKind::Halo, PLAYER, x, y);
+    let near = w.make_unit(UnitKind::Observer, ENEMY, x + 3.0 * TILE, y);
+    let far = w.make_unit(UnitKind::Observer, ENEMY, x - 8.0 * TILE, y);
+    for u in [halo, near, far] {
+        w.hold_unit(u);
+    }
+    w.step();
+    let (ftx, fty) = w.map.tile_of(U(&w, far).x, U(&w, far).y);
+    assert!(
+        w.vis[PLAYER as usize][w.map.idx(ftx, fty)] != 0,
+        "the far one is in sight"
+    );
+    assert!(w.seen_by(PLAYER, near), "detected within 5 tiles");
+    assert!(!w.seen_by(PLAYER, far), "not 8 tiles off");
+    // And it is a detector like the others to the rest of the game: what the client's unseen-attacker toast names.
+    assert_eq!(VAEL.field_detector(), Some(UnitKind::Halo));
+    assert_eq!(HUMANS.field_detector(), Some(UnitKind::Observer));
 }

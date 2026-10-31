@@ -11,6 +11,12 @@ const GUARDS: usize = 3;
 /// The longest the guided first game holds the opponent's waves back (s).
 pub const HOLD_WAVES_MAX: f64 = 360.0;
 
+/// A flying detector that escorts the waves (an unarmed flyer that detects: the Observer).
+fn escorts(k: UnitKind) -> bool {
+    let d = k.def();
+    d.air && d.detect > 0.0 && !d.armed()
+}
+
 impl World {
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
     /// knows (a lone forward Depot or Spire no longer draws the whole wave away), else the sweep. The foe's first
@@ -242,6 +248,9 @@ impl World {
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
             self.ai_steer_wave(&army, &attackers, t, rally, goal);
+            if self.ai().attacking {
+                self.escort_wave(&army, &attackers);
+            }
         } else {
             // At home: stragglers back to the rally point.
             for &a in &army {
@@ -251,6 +260,28 @@ impl World {
                     let oy = (self.rnd() - 0.5) * 120.0;
                     self.move_to(a, rally.x + ox, rally.y + oy);
                 }
+            }
+        }
+    }
+
+    /// A flying detector (an Observer) keeps over its wave rather than racing ahead of it: to the middle of the
+    /// wave's main prong (a walking one, the Halo, keeps with it as a healer does).
+    fn escort_wave(&mut self, army: &[Id], attackers: &[Id]) {
+        let escort = |w: &World, id: Id| w.unit(id).is_some_and(|u| escorts(u.kind));
+        let prong = self.ai().prong.clone();
+        let (mut sx, mut sy, mut n) = (0.0, 0.0, 0.0);
+        for &a in attackers.iter().filter(|a| !prong.contains(a)) {
+            if let Some(u) = self.unit(a).filter(|_| !escort(self, a)) {
+                (sx, sy, n) = (sx + u.x, sy + u.y, n + 1.0);
+            }
+        }
+        if n == 0.0 {
+            return;
+        }
+        let (cx, cy) = (sx / n, sy / n);
+        for &a in army {
+            if escort(self, a) && dist(self.u(a).x, self.u(a).y, cx, cy) > 2.0 * TILE {
+                self.move_to(a, cx, cy);
             }
         }
     }
@@ -335,6 +366,8 @@ impl World {
             let (sp, sq) = (self.u(p).kind.def().speed, self.u(q).kind.def().speed);
             sq.partial_cmp(&sp).unwrap().then(p.cmp(&q))
         });
+        // (a flying detector goes with the main prong, whatever its speed: last in the order)
+        order.sort_by_key(|&a| escorts(self.u(a).kind));
         let split = if second.is_some() && army.len() >= 6 {
             army.len() / 3
         } else {
@@ -346,7 +379,9 @@ impl World {
             let oy = (self.rnd() - 0.5) * 80.0;
             self.attack_move(a, tx + ox, ty + oy);
         }
-        self.ai_mut().attackers = Some(army.to_vec());
+        let ai = self.ai_mut();
+        ai.attackers = Some(army.to_vec());
+        ai.prong = order[..split].to_vec();
     }
 
     /// Up to GUARDS units kept at its own expansion (out of the waves): the nearest ones not out attacking, back
@@ -685,6 +720,56 @@ mod tests {
                 "a third to the expansion (none on Medium): diff {diff}"
             );
         }
+    }
+
+    #[test]
+    fn an_observer_keeps_over_the_main_prong_of_a_split_wave() {
+        // Hard: a big wave sends its fastest third at a known expansion. The Observer, the fastest of all, goes with
+        // the rest to the goal, and keeps over them (not between the prongs).
+        let mut w = World::new(17, 2);
+        w.ai_turn = ENEMY;
+        let core = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap()
+            .clone();
+        let exp = w.make_building(BldgKind::Core, PLAYER, 30, 30, true);
+        let e = w.bldg(exp).unwrap().clone();
+        w.ai_mut().known = vec![(core.id, core.x, core.y, true, 0), (exp, e.x, e.y, true, 0)];
+        w.ai_mut().wave = 3;
+        let b = w.map.bases[ENEMY as usize];
+        let (x0, y0) = ((b.0 as f64 + 6.0) * 32.0, (b.1 as f64 + 6.0) * 32.0);
+        let mut army: Vec<Id> = (0..9)
+            .map(|i| w.make_unit(UnitKind::Trooper, ENEMY, x0 + i as f64 * 20.0, y0))
+            .collect();
+        let obs = w.make_unit(UnitKind::Observer, ENEMY, x0, y0 + 40.0);
+        army.push(obs);
+        w.ai_launch_wave(&army, 1000.0, (core.x, core.y));
+        let prong = w.ai().prong.clone();
+        assert_eq!(prong.len(), army.len() / 3, "a third split off");
+        assert!(!prong.contains(&obs), "not the Observer");
+        // Move the second prong far off: the escort follows the main prong's middle.
+        for &p in &prong {
+            let u = w.units.iter_mut().find(|u| u.id == p).unwrap();
+            (u.x, u.y) = (e.x, e.y);
+        }
+        w.escort_wave(&army, &army);
+        let main: Vec<(f64, f64)> = army
+            .iter()
+            .filter(|a| !prong.contains(a) && **a != obs)
+            .map(|&a| (w.u(a).x, w.u(a).y))
+            .collect();
+        let n = main.len() as f64;
+        let (cx, cy) = (
+            main.iter().map(|p| p.0).sum::<f64>() / n,
+            main.iter().map(|p| p.1).sum::<f64>() / n,
+        );
+        assert!(
+            matches!(w.u(obs).task, Task::Move { x, y } if (x - cx).abs() < 1.0 && (y - cy).abs() < 1.0),
+            "to the main prong's middle: {:?}",
+            w.u(obs).task
+        );
     }
 
     #[test]

@@ -2489,7 +2489,7 @@ test('the end card can WATCH the game again: from the start, faster, both sides 
 });
 
 test('an attack by something unseen says so, even on screen, and names what detects it', async () => {
-  for (const [dev, race, finds] of [[DESKTOP, 'humans', /^Unseen attacker: Turrets and Observers detect$/], [PHONE, 'vael', /^Unseen attacker: Wards detect$/]]) {
+  for (const [dev, race, finds] of [[DESKTOP, 'humans', /^Unseen attacker: Turrets and Observers detect$/], [PHONE, 'vael', /^Unseen attacker: Wards and Halos detect$/]]) {
     const d = await newGame(dev, 1, 4242, { ai: false, race });
     try {
       await d.page.waitForTimeout(3600); // (the opening hint fades)

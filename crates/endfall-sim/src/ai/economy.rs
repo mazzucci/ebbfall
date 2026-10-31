@@ -2,6 +2,15 @@
 
 use super::*;
 
+/// Harvesters a flowing vent keeps busy (one mines at a time, `MINE_SLOTS`; a load takes `ETHER_MINE_TIME`): the AI
+/// crews each of its refineries with this many, and trains this many more workers for every one past the first.
+pub(crate) const ETHER_CREW: usize = 3;
+/// Banked ether, over what it is saving up for (`ether_saved_for`), above which the AI keeps one harvester on ether in
+/// all (it is piling up), and below which it crews its refineries again. (Lowered from 400 and 250 with a second vent in
+/// every main: its bank of ether doubled; then from 300 and 150 in the balance pass: both AIs still floated about 200
+/// ether at 8:00 while short of shards, which cost the Human AI most, its builders mining nothing.)
+const ETHER_LEAN: [i32; 2] = [75, 150];
+
 impl World {
     /// The point our nearest finished Core stands on (where harvesters should mine), else the given point.
     pub(crate) fn home_of(&self, x: f64, y: f64) -> (f64, f64) {
@@ -23,10 +32,56 @@ impl World {
             _ => None,
         }
     }
+    /// Our finished refineries on vents that still flow.
+    pub(crate) fn flowing_rigs(&self, e: u8) -> usize {
+        self.map
+            .nodes
+            .iter()
+            .filter(|n| {
+                n.ether
+                    && n.amount > 0
+                    && n.extractor
+                        .is_some_and(|x| self.bldg(x).is_some_and(|b| b.team == e && b.done))
+            })
+            .count()
+    }
+
+    /// The vent of ours a harvester from (x, y) should mine, within `range` px: the nearest flowing one short of its
+    /// crew (the main's two lie too far apart for a worker to hop from a busy one to the other by itself), else the
+    /// nearest flowing one, else the nearest dry one (a trickle).
+    fn ai_vent_for(&self, x: f64, y: f64, range: f64) -> Option<Id> {
+        let e = self.seat();
+        self.map
+            .nodes
+            .iter()
+            .filter(|n| n.ether && n.amount > 0 && self.extractor_ready(n.id, Some(e)))
+            .map(|n| {
+                let on = self
+                    .units
+                    .iter()
+                    .filter(|u| {
+                        u.team == e && matches!(u.task, Task::Gather { node, .. } if node == n.id)
+                    })
+                    .count();
+                (on >= ETHER_CREW, dist(n.x, n.y, x, y), n.id)
+            })
+            .filter(|&(_, d, _)| d < range)
+            .min_by(|a, b| {
+                (a.0, a.1)
+                    .partial_cmp(&(b.0, b.1))
+                    .unwrap()
+                    .then(a.2.cmp(&b.2))
+            })
+            .map(|(_, _, id)| id)
+            .or_else(|| self.nearest_node(x, y, e, true, range))
+    }
+
     /// Workers: idle ones mine; ether workers follow the cap; nobody stays on a dry vent while one flows.
     pub(crate) fn ai_workers(&mut self, brain: &mut Brain) {
-        let Brain { e, harv, my_b, .. } = brain.clone();
-        // Keep up to three on ether once an extractor stands, one while ether piles up.
+        let Brain {
+            e, t, harv, my_b, ..
+        } = brain.clone();
+        // Keep a crew of three on each flowing refinery once one stands, one in all while ether piles up.
         let ext = my_b.iter().copied().find(|&id| {
             let b = self.bldg(id).unwrap();
             b.kind == self.factions[self.seat() as usize].ether && b.done
@@ -35,25 +90,21 @@ impl World {
             .iter()
             .filter(|&&h| self.gathering_ether(h) == Some(true))
             .count();
-        let stock = self.res[e as usize][1];
+        // (over what it saves up for: its capital unit when due, its next weapons/armour/shields level)
+        let stock = self.res[e as usize][1] - self.ether_saved_for(e, &my_b, t);
         let ai = self.ai_mut();
-        if stock > 400 {
+        if stock > ETHER_LEAN[1] {
             ai.ether_lean = true;
-        } else if stock < 250 {
+        } else if stock < ETHER_LEAN[0] {
             ai.ether_lean = false;
         }
         // A dry vent only trickles: one harvester is plenty there.
-        let flowing = ext.is_some()
-            && self.map.nodes.iter().any(|n| {
-                n.ether
-                    && n.amount > 0
-                    && n.extractor
-                        .is_some_and(|x| self.bldg(x).is_some_and(|b| b.team == e && b.done))
-            });
+        let rigs = self.flowing_rigs(e);
+        let flowing = ext.is_some() && rigs > 0;
         let ether_cap = if self.ai().ether_lean || !flowing {
             1
         } else {
-            3
+            ETHER_CREW * rigs
         };
         let ether = self.ai_idle_to_work(&harv, ext.is_some(), flowing, ether, ether_cap);
         if flowing {
@@ -68,10 +119,37 @@ impl World {
         brain.flowing = flowing;
     }
 
-    /// Send worker `h` to the nearest field of ours (a vent if `ether`) within `range` px of it, if there is one.
+    /// The ether `e` is saving up for: its capital unit when one is due, and the next level of a weapons, armour or
+    /// shields upgrade its finished buildings research, once its level researches levels (the cheapest next one).
+    fn ether_saved_for(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
+        let capital = self.capital_due(e, my_b, t).map_or(0, |k| k.def().cost[1]);
+        let levels = self.upgrades[e as usize];
+        let level = (t > self.level().research_from)
+            .then(|| {
+                my_b.iter()
+                    .filter_map(|&id| self.bldg(id))
+                    .filter(|b| b.done)
+                    .flat_map(|b| b.kind.def().researches.iter().copied())
+                    .filter(|u| u.levels() > 1 && levels[u.index()] < u.levels())
+                    .map(|u| u.cost(levels[u.index()] + 1)[1])
+                    .min()
+            })
+            .flatten()
+            .unwrap_or(0);
+        capital + level
+    }
+
+    /// Send worker `h` to the nearest field of ours within `range` px of it, if there is one (a vent if `ether`:
+    /// `ai_vent_for`, from its base).
     fn ai_regather(&mut self, h: Id, ether: bool, range: f64) {
         let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
-        if let Some(n) = self.nearest_node(hx, hy, self.seat(), ether, range) {
+        let n = if ether {
+            let (bx, by) = self.home_of(hx, hy);
+            self.ai_vent_for(bx, by, range)
+        } else {
+            self.nearest_node(hx, hy, self.seat(), false, range)
+        };
+        if let Some(n) = n {
             self.start_gather(h, n);
         }
     }
@@ -92,15 +170,12 @@ impl World {
                 let want_ether = has_ext && ether < cap;
                 let u = self.unit(h).unwrap();
                 let (hx, hy) = self.home_of(u.x, u.y); // never the enemy's fields
-                let n = self
-                    .nearest_node(
-                        hx,
-                        hy,
-                        e,
-                        want_ether,
-                        if flowing && want_ether { 3000.0 } else { 800.0 },
-                    )
-                    .or_else(|| self.nearest_node(hx, hy, e, false, 1200.0));
+                let n = if want_ether {
+                    self.ai_vent_for(hx, hy, if flowing { 3000.0 } else { 800.0 })
+                } else {
+                    self.nearest_node(hx, hy, e, false, 800.0)
+                }
+                .or_else(|| self.nearest_node(hx, hy, e, false, 1200.0));
                 if let Some(n) = n {
                     self.start_gather(h, n);
                     if want_ether {
@@ -136,7 +211,8 @@ impl World {
             )
     }
 
-    /// One worker off a dry vent, onto a vent of ours that still flows (anywhere: the expansion's may be far).
+    /// One worker off a dry vent, onto a vent of ours that still flows and is short of its crew if one is (anywhere:
+    /// the expansion's may be far).
     fn ai_off_dry_vent(&mut self, harv: &[Id]) {
         let h = harv
             .iter()
@@ -145,7 +221,7 @@ impl World {
         if let Some(h) = h {
             let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
             if let Some(n) = self
-                .nearest_node(hx, hy, self.seat(), true, 3000.0)
+                .ai_vent_for(hx, hy, 3000.0)
                 .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0))
             {
                 self.start_gather(h, n);
@@ -178,9 +254,18 @@ impl World {
         }
     }
 
-    /// The crew the AI trains workers for, with `cores` finished Cores: the difficulty's, and five more a base.
+    /// The crew the AI trains workers for, with `cores` finished Cores (`harv_target_of` the seat taking its turn).
     pub(crate) fn harv_target(&self, cores: usize) -> usize {
-        self.level().harv + 5 * cores.saturating_sub(1)
+        self.harv_target_of(self.seat(), cores)
+    }
+
+    /// The crew AI seat `e` trains workers for, with `cores` finished Cores: its difficulty's, five more a base, and a
+    /// vent's crew for every flowing refinery past the first (so a second vent's ether costs it no shards; while ether
+    /// piles up they mine shards).
+    pub fn harv_target_of(&self, e: u8, cores: usize) -> usize {
+        DIFF[self.diff_of(e)].harv
+            + 5 * cores.saturating_sub(1)
+            + ETHER_CREW * self.flowing_rigs(e).saturating_sub(1)
     }
 
     /// More harvesters while short of the target; an expansion gets five from the main base.

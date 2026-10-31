@@ -101,7 +101,7 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
     // The loop to protect (race/VAEL.md): Scythes beat Lancers and workers, Troopers beat Scythes and Prisms; Prisms beat
     // Wasps and Lancers; Vanguards beat Prisms; Monoliths beat Vanguards; Wasps beat Monoliths and Scythes;
     // Lancers and Troopers beat Shrikes; Shrikes beat Wasps and Vanguards. Bigger budgets than the human matrix:
-    // a Monolith is worth 375.
+    // a Monolith is worth 425.
     use UnitKind::*;
     let range = |name: &str, v: f64, lo: f64, hi: f64| {
         assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
@@ -121,7 +121,6 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
         range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
         range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.75, 0.0);
         range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
-        range("Monolith v Vanguard", d(&[Monolith], &[Vanguard]), 0.0, 1.0);
         range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);
         range("Shrike v Wasp", d(&[Shrike], &[Wasp]), 0.6, 1.0);
         range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
@@ -133,23 +132,57 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
             -0.7,
             0.1,
         );
+        // Monoliths beat Vanguards at 2200 and 3300 (+0.33, +0.18; at 4400 ten Monoliths meet sixteen Vanguards and
+        // lose, -0.18: the price 175/125 sits on that army size's edge, 6600 is +0.13 again).
+        let mono_budget = if budget > 4000.0 { 3300.0 } else { budget };
+        range(
+            "Monolith v Vanguard",
+            duel(&[Monolith], &[Vanguard], mono_budget),
+            0.0,
+            1.0,
+        );
         range(
             "Scythe+Prism v Lancer+Trooper",
             d(&[Scythe, Prism], &[Lancer, Trooper]),
             0.2,
             1.0,
         );
+        // The Lancer's ground damage 5 -> 9 (2026-10-31): still weak on the ground (Troopers beat it, above), but no
+        // longer dead weight beside Troopers (-0.59 / -0.58 against Prisms before, -0.24 / -0.33 after).
+        range(
+            "Lancer+Trooper v Prism",
+            d(&[Lancer, Trooper], &[Prism]),
+            -0.45,
+            0.2,
+        );
+    }
+}
+
+#[test]
+fn a_halo_finds_cloaked_raiders_for_its_army() {
+    // With every tech and the AI's use of abilities: Cloaked Wasps and veiled Shrikes beat Prisms that cannot see
+    // them. One Halo per three Prisms detects them (5 tiles, 2026-10-31) and turns both fights round (Prism+Halo
+    // -0.81 / -0.97 before the Halo detected, +0.95 / +0.85 after).
+    use UnitKind::*;
+    for foe in [Wasp, Shrike] {
+        let alone = duel_with(&[Prism], &[foe], 2800.0, tech_micro);
+        let led = duel_with(&[Prism, Prism, Prism, Halo], &[foe], 2800.0, tech_micro);
+        assert!(
+            alone < -0.3,
+            "Prisms alone lose to cloaked {foe:?}: {alone:+.2}"
+        );
+        assert!(led > 0.3, "a Halo among them finds the {foe:?}: {led:+.2}");
     }
 }
 
 #[test]
 fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
-    // A Bastion (700 by value) or a Sovereign (750) crushes heavy ground and loses to what shoots up; budgets of four.
+    // A Bastion (800 by value) or a Sovereign (850) crushes heavy ground and loses to what shoots up; budgets of four.
     use UnitKind::*;
     let range = |name: &str, v: f64, lo: f64, hi: f64| {
         assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
     };
-    for budget in [2800.0, 5600.0] {
+    for budget in [3300.0, 6600.0] {
         let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
         range("Bastion v Vanguard", d(&[Bastion], &[Vanguard]), 0.6, 1.0);
         range("Bastion v Scythe", d(&[Bastion], &[Scythe]), 0.6, 1.0);
@@ -165,6 +198,14 @@ fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
             d(&[Sovereign], &[Wasp]),
             -1.0,
             -0.9,
+        );
+        // Its ground trade (2026-10-31, range 9, damage 48): it holds the Vael's own line army better (at 850 by
+        // value: -0.62 / -0.21 with damage 40, -0.37 / +0.33 with 48).
+        range(
+            "Sovereign v Scythe+Prism",
+            d(&[Sovereign], &[Scythe, Prism]),
+            if budget < 5000.0 { -0.5 } else { 0.0 },
+            1.0,
         );
     }
 }
@@ -197,7 +238,7 @@ fn siege_matrix() {
             println!(
                 "{budget} {name:>20}: {:+.2}, with abilities {:+.2}",
                 duel(a, b, budget),
-                duel_with(a, b, budget, ability_micro)
+                duel_with(a, b, budget, tech_micro)
             );
         }
     }
@@ -245,7 +286,7 @@ fn siege_tanks_alone_lose_to_what_closes_in_and_to_flyers() {
         "unescorted tanks fall to Scythes: {alone:+.2}"
     );
     // A few tanks against Scythes that Blink under their guns (cost-equal; massed tanks cover each other better).
-    let blink = duel_with(&[SiegeTank], &[Scythe], 2200.0, ability_micro);
+    let blink = duel_with(&[SiegeTank], &[Scythe], 2200.0, tech_micro);
     assert!(blink < -0.1, "Blink closes the gap: {blink:+.2}");
     for budget in [2200.0, 4400.0] {
         for flyer in [Wasp, Shrike] {

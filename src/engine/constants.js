@@ -42,7 +42,7 @@ const UNIT_TEXT = {
   monolith: { hot: 'M', desc: 'Slow siege slab. Outranges walkers; its shots splash onto nearby ground units. Cannot hit flyers.', strong: ['vanguard', 'siegeTank'], weak: ['wasp'] },
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['wasp', 'vanguard', 'siegeTank'], weak: ['lancer', 'trooper'] },
   sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
-  halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far.' },
+  halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
@@ -85,8 +85,8 @@ const ABILITY_TEXT = {
   entrench: { hot: 'E', desc: 'Dig in: +3 range, but cannot move (2 s to dig in or pack up). Tap again, or order a move, to pack up.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
-  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Ward, Observer).' },
-  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Ward, Observer).' },
+  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
+  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable unless detected (Turret, Observer, Ward, Halo).' },
   deploy: { hot: 'D', desc: 'Deployed, it fires (3 s to deploy or pack up, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. Tap again, or order a move, to pack up.' },
 };
 /** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions. */

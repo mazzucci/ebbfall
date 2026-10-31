@@ -202,18 +202,23 @@ impl World {
         {
             self.alert_attacked(target, self.hidden_from(t, b));
         }
-        // Hit by something it cannot see, at home (by one of its buildings): an AI side remembers where, for a
-        // detector. (Not out in the field: no tower in the enemy's base.)
+        // Hit by something it cannot see: an AI side takes a detector along with its army from now on (anywhere), and
+        // at home (by one of its buildings) remembers where, for a tower. (No tower out in the field, in the enemy's
+        // base.)
         if let (Some(b), Some(t)) = (by, self.team_of(target))
             && self.hidden_from(t, b)
-            && let Some(at) = self.geo(target).map(|g| g.center())
-            && self
-                .bldgs
-                .iter()
-                .any(|o| o.team == t && dist(o.x, o.y, at.0, at.1) < 12.0 * TILE)
-            && let Some(ai) = self.ai[t as usize].as_mut()
+            && self.ai[t as usize].is_some()
         {
-            ai.cloak_hit = Some(at);
+            let home = self.geo(target).map(|g| g.center()).filter(|at| {
+                self.bldgs
+                    .iter()
+                    .any(|o| o.team == t && dist(o.x, o.y, at.0, at.1) < 12.0 * TILE)
+            });
+            let ai = self.ai[t as usize].as_mut().unwrap();
+            ai.unseen_hit = true;
+            if home.is_some() {
+                ai.cloak_hit = home;
+            }
         }
         if let Some(i) = self.ui(target) {
             let team = self.units[i].team;

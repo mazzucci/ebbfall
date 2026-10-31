@@ -38,7 +38,7 @@ test('one side, the lowest empty spot, a new AI on a side of its own', () => {
   const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 3 }, null, { race: 'random', team: 1, diff: 1 }, ...Array(4).fill(null)];
   assert.deepEqual(newAi(b), { race: 'random', team: 2, diff: 1 }, 'like the last AI, a side of its own');
   assert.deepEqual(newAi(board(0)), { race: 'humans', team: 1, diff: 0 }, 'no AI yet: Humans on Easy');
-  assert.deepEqual([0, 1, 3].map(seatName), ['YOU', 'AI 1', 'AI 3'], 'an AI is named by its spot');
+  assert.deepEqual([0, 1, 3].map(seatName), ['YOU', 'Computer 1', 'Computer 3'], 'an AI is named by its spot');
 });
 
 test('a saved board: a good one as it is, one saved before the spots in the first spots, anything else not at all', () => {

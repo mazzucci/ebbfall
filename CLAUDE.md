@@ -128,7 +128,7 @@ src/client/           everything that touches the browser
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
-                      + AI in the lowest empty spot; the map list, any map that seats them, with a preview, FIRST GAME),
+                      + COMPUTER in the lowest empty spot; the map list, any map that seats them, with a preview, FIRST GAME),
                       the About page (the source, the device check, the version); the map list and preview the lobby
                       shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
@@ -140,7 +140,7 @@ src/client/           everything that touches the browser
                       `spots`, each seat's spot), pure (test/seats.test.js: `arrange`, `startSetup`, `enemyLevel`,
                       `newAi`, `canRemove`, `sideChoices`, ...); and the board's DOM pieces, the lobby's too, built from
                       a seat's view: `tokenEl` (colour band, name, race, level pips, its side's tag; a host's crown, a
-                      ready check, AWAY, an open seat's SIT HERE), `emptySpot` (+ AI, + SEAT, or a faint outline),
+                      ready check, AWAY, an open seat's SIT HERE), `emptySpot` (+ COMPUTER; the lobby's + CPU, + SEAT; or a faint outline),
                       `chipRow` (a radio group), `seatSheet` (RACE, LEVEL, SIDE; footer buttons), `sheetDialog` (a
                       modal <dialog>)
   maps.js             the maps the menus offer, every one whatever the players (a map seats as many as its starts: 2
@@ -185,7 +185,7 @@ src/client/           everything that touches the browser
   online.js           Multiplayer: the lobby (open/join a room by code or link, a line on how; the room is single
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
-                      share or fill or remove an open seat; + AI / + SEAT in the lowest empty spot; the map list; a
+                      share or fill or remove an open seat; + CPU / + SEAT in the lowest empty spot; the map list; a
                       guest's board read-only, SIT HERE; a name first, NEW ROOM and JOIN dimmed
                       without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build

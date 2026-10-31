@@ -5,8 +5,8 @@
 // an AI the single-player AI token (its race, its level as pips), an open seat a dashed OPEN SEAT for the next friend to
 // join. Your own token opens a sheet with your race (RANDOM: drawn when the game starts, alike on every client,
 // src/engine/util.js seatRaces). The room's host (spot 0) opens any token: puts anyone on any side, sets an AI's race
-// and level, shares, fills (GIVE TO AI) or removes an open seat, frees an AWAY one; fills the lowest empty spot with an
-// AI or an open seat (+ AI, + SEAT), eight seats at most; and picks the map (any that seats the room). A guest sees the
+// and level, shares, fills (GIVE TO COMPUTER) or removes an open seat, frees an AWAY one; fills the lowest empty spot with an
+// AI or an open seat (+ CPU, + SEAT), eight seats at most; and picks the map (any that seats the room). A guest sees the
 // same board, read-only but their own token, SIT HERE on an open seat, and the map as one line. A seat keeps its spot
 // (and its colour, in the game too) whatever its side; the relay seats the sides together only when the game starts.
 // READY is a lit toggle; the room's code is the title, SHARE LINK beside it (the big button while the host has a seat
@@ -172,7 +172,7 @@ function connect(room) {
       start: (setup, seat, m) => {
         online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup;
         online.seat = seat; owedSeat = null; // (the game's seat: the relay seats the sides together at the start)
-        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
+        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? COMPUTER : n)); // (an AI seat is "the computer" in every line that names a seat)
         online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
         editing = -1; sheet?.close(); // (the lobby stays up while the game loads, its sheet closed)
         const net = online.net;
@@ -214,6 +214,8 @@ function connect(room) {
 }
 
 /** A seat's name as typed in the lobby (or "your friend"); `Who` at the start of a line. */
+/** What every line calls a seat the computer plays (online.names). */
+export const COMPUTER = 'the computer';
 export const who = (s) => online.names[s] || 'your friend';
 export const Who = (s) => who(s).replace(/^./, c => c.toUpperCase());
 /** Seats named for a line: "Bo", "Bo and Cy", or "3 players"; `many`: say "want", not "wants". */
@@ -281,8 +283,8 @@ function showLobby(m) {
 }
 /** A seat nobody has taken (no name, not here, not the AI's): open for a friend. */
 const isOpen = (s) => !!s && !s.ai && !s.here && !s.name;
-/** An AI seat's name: AI and its spot's number (as single player's). */
-const aiName = (i) => `AI ${i}`;
+/** An AI seat's name: Computer and its spot's number (as single player's). */
+const aiName = (i) => `Computer ${i}`;
 /** The lobby as seats.js reads a board: a `{ team, race, diff }` per spot, null when empty. */
 const boardOf = (m) => m.seats.map((s, i) => (s ? { team: m.teams[i], race: s.race, diff: s.diff, ai: s.ai } : null));
 /** The seats in the room. */
@@ -292,12 +294,12 @@ function aiFor(m) {
   const b = boardOf(m), like = filled(b).map(i => b[i]).filter(r => r.ai).at(-1) || { race: 'random', diff: 1 };
   return { race: like.race, diff: like.diff ?? 1, team: freeTeam(b) };
 }
-/** A seat as its token shows it (seats.js `tokenEl`'s view): YOU, a person's name, AI n or an open seat; its side; the
+/** A seat as its token shows it (seats.js `tokenEl`'s view): YOU, a person's name, Computer n or an open seat; its side; the
  *  host's crown; ready, AWAY; who may open it (`ro`: nobody here); what a tap says. */
 function viewOf(m, i) {
   const s = m.seats[i], me = online.seat, host = me === 0, open = isOpen(s), side = m.teams[i], sideCol = sideColor(boardOf(m), side);
   if (s.ai) return { name: aiName(i), race: s.race, diff: s.diff ?? 1, side, sideColor: sideCol, ro: !host, tip: 'Race, level, side' };
-  if (open) return { name: '', open: true, host: i === 0, side, sideColor: sideCol, act: host ? '' : 'SIT HERE', tip: host ? 'Share the link, give it to the AI, or move it' : 'Take this seat' };
+  if (open) return { name: '', open: true, host: i === 0, side, sideColor: sideCol, act: host ? '' : 'SIT HERE', tip: host ? 'Share the link, give it to the computer, or move it' : 'Take this seat' };
   const mine = i === me;
   return { name: mine ? 'YOU' : s.name || '…', race: s.race, diff: null, side, sideColor: sideCol, me: mine, host: i === 0, ready: s.ready && s.here, away: !s.here, ro: !mine && !host, tip: mine ? 'Race, side' : 'Side' };
 }
@@ -308,7 +310,7 @@ function renderLobby(m) {
   if (!mine || !Array.isArray(m.teams) || m.teams.length !== m.seats.length) return; // (a lobby of another shape: nothing to draw)
   const n = seated(m).length;
   online.ready = !!mine.ready; readyButton();
-  // The board: eight spots; the host's + AI / + SEAT in the lowest empty one.
+  // The board: eight spots; the host's + CPU / + SEAT in the lowest empty one.
   const box = $('onlineBoard'), short = narrow.matches, free = host && n < MAX_PLAYERS ? firstEmpty(m.seats) : -1;
   const focus = document.activeElement?.closest?.('#onlineBoard') ? document.activeElement.dataset.k : null; // (kept on a redraw)
   const add = (ai) => { const like = aiFor(m); online.net?.add(like.team, ai, like.race, like.diff); };
@@ -325,7 +327,7 @@ function renderLobby(m) {
     return pair;
   };
   box.replaceChildren(...m.seats.map((s, i) => (s ? token(i) : emptySpot(i === free ? [
-    { label: '+ AI', title: 'An AI on a side of its own', k: 'addai', on: () => { sfx('select'); add(true); } },
+    { label: '+ CPU', title: 'A computer player on a side of its own', k: 'addai', on: () => { sfx('select'); add(true); } },
     { label: '+ SEAT', title: 'An open seat for a friend, on a side of its own', k: 'addseat', on: () => { sfx('select'); add(false); } },
   ] : []))));
   if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
@@ -355,7 +357,7 @@ function lobbyLine(m) {
   if (mapNote) return mapNote;
   if (!host && isOpen(m.seats[0])) return 'The host left: SIT HERE on the first seat to pick';
   if (new Set(m.teams.filter((t, i) => m.seats[i])).size < 2) return 'Nobody to fight';
-  if (open && (host || !gone.length)) return host ? `${open > 1 ? `${open} seats are` : 'A seat is'} open: share the link, or give ${open > 1 ? 'them' : 'it'} to the AI` : 'Waiting for players…';
+  if (open && (host || !gone.length)) return host ? `${open > 1 ? `${open} seats are` : 'A seat is'} open: share the link, or give ${open > 1 ? 'them' : 'it'} to the computer` : 'Waiting for players…';
   if (gone.length) return `Waiting for ${gone.join(', ')}…`;
   return all.every(s => s.ai || s.ready) ? 'Starting…' : 'Ready when you are';
 }
@@ -373,7 +375,7 @@ function closeSheet(focusOn = editing) {
 }
 /** The open seat's sheet (none: closed), redrawn with every lobby, the focus where it was. Yours: your race (the host:
  *  your side too). The host's on an AI: its race, level and side, OPEN FOR A FRIEND, REMOVE; on an open seat: SHARE
- *  LINK, GIVE TO AI, its side, REMOVE; on another person: their side, FREE SEAT while they are away. READY is not here. */
+ *  LINK, GIVE TO COMPUTER, its side, REMOVE; on another person: their side, FREE SEAT while they are away. READY is not here. */
 function renderSheet() {
   sheet ||= sheetDialog($('onlineSheet'));
   const m = lobbyState, i = editing, me = online.seat, host = me === 0;
@@ -383,7 +385,7 @@ function renderSheet() {
   const remove = { label: 'REMOVE', title: `Remove ${open ? 'the open seat' : aiName(i)}`, k: 'remove', ghost: true, on: () => { online.net?.drop(i); closeSheet(); } };
   const name = open ? 'OPEN SEAT' : s.ai ? aiName(i) : mine ? 'YOU' : s.name || '…';
   sheet.show(seatSheet({ name, race: s.race, diff: s.diff ?? 1 }, seatColor(i), {
-    sub: open ? 'for a friend' : s.ai ? 'computer player' : mine ? 'your seat' : `${raceTitle(s.race)} · ${s.ready && s.here ? 'ready' : s.here ? 'not ready' : 'away'}`,
+    sub: open ? 'for a friend' : s.ai ? '' : mine ? 'your seat' : `${raceTitle(s.race)} · ${s.ready && s.here ? 'ready' : s.here ? 'not ready' : 'away'}`,
     info: open ? 'The first friend to open the link takes this seat.' : '',
     team, sides: sideChoices(boardOf(m)), onDone: () => closeSheet(),
     onRace: mine ? (r) => online.net?.race(r) : s.ai && host ? (r) => online.net?.ai(i, true, r) : null,
@@ -391,7 +393,7 @@ function renderSheet() {
     onSide: host ? (t) => online.net?.side(i, t) : null,
     buttons: !host ? [] : open ? [
       { label: 'SHARE LINK', title: 'Share the link to this room', k: 'share', big: true, on: share },
-      { label: 'GIVE TO AI', title: 'The AI plays this seat', k: 'giveai', ghost: true, on: () => { const like = aiFor(m); online.net?.ai(i, true, like.race, like.diff); } },
+      { label: 'GIVE TO COMPUTER', title: 'The computer plays this seat', k: 'giveai', ghost: true, on: () => { const like = aiFor(m); online.net?.ai(i, true, like.race, like.diff); } },
       ...(n > 2 && i > 0 ? [remove] : []),
     ] : s.ai ? [
       { label: 'OPEN FOR A FRIEND', title: 'An open seat again, for a friend', k: 'open', ghost: true, on: () => online.net?.ai(i, false) },

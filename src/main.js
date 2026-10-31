@@ -19,7 +19,7 @@ import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { armyChart } from './client/chart.js';
 import { resetSightings, noteSightings, seenLine } from './client/scout.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
-import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
+import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave, Who, COMPUTER } from './client/online.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
@@ -147,7 +147,7 @@ function endLine(win) {
   const after = ' after ' + fmt(G.time) + '.';
   const mine = allies();
   if (mine.length) { // (a team game: the team's result; online, the friends on it by name)
-    const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
+    const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== COMPUTER) : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
   if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)

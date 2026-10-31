@@ -172,7 +172,7 @@ test("a challenge's link: its own card, the setup in words and its link made aga
     for (const q of [`?vs=${VS}`, `?vs=${VS}&relay=wss://x.example/`, `?seed=7&vs=${VS}`]) {
       const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
       assert.equal(res.status, 200, q);
-      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', `${q} ${k}`);
+      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Can you beat this? 1 vs 3 Brutal computers on Iron Compass', `${q} ${k}`);
       for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Humans vs Vael · won in 12:34 · free, in your browser');
       assert.equal(content(html, 'og:url'), `https://ebbfall.com/?vs=${VS}`, 'the code, nothing else of the query');
       assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');

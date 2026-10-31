@@ -65,7 +65,7 @@ function renderMaps() {
 }
 
 // The board: eight fixed spots (seats.js), YOU in the first, an AI in any other, each with its colour (its own in the
-// game), its race, level and side; the lowest empty spot a dashed + AI (a new AI on a side of its own), the rest faint.
+// game), its race, level and side; the lowest empty spot a dashed + COMPUTER (a new AI on a side of its own), the rest faint.
 // A token opens its seat's sheet: race, an AI's level and side, REMOVE (not the last enemy). Nothing on the board moves
 // when a player comes, goes or changes side. Everyone on one side: START GAME waits, and says why. More players than
 // the map has starts: the smallest map that seats them instead, said in the note a moment.
@@ -95,7 +95,7 @@ function renderSeats() {
     if (had) box.querySelector(`[data-k="tok${free}"]`)?.focus();
   };
   box.replaceChildren(...board.map((r, i) => (r ? tokenEl(viewOf(board, i), seatColor(i), { short, on: i === editing, onOpen: () => openSheet(i), k: `tok${i}` })
-    : emptySpot(i === free ? [{ label: '+ AI', title: 'An AI on a side of its own', k: 'add', on: add }] : []))));
+    : emptySpot(i === free ? [{ label: '+ COMPUTER', title: 'A computer player on a side of its own', k: 'add', on: add }] : []))));
   if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
   $('btnStart').disabled = oneTeam(board);
   renderNote(); renderSheet();
@@ -114,7 +114,7 @@ function renderSheet() {
   const host = $('soloSheet'), focus = host.contains(document.activeElement) ? document.activeElement.dataset.k : null;
   const set = (k, v) => setBoard(board.map((r, j) => (j === i ? { ...r, [k]: v } : r))), r = board[i];
   sheet.show(seatSheet(viewOf(board, i), seatColor(i), {
-    sub: i ? 'computer player' : 'your seat', team: r.team, sides: sideChoices(board), onDone: () => closeSheet(),
+    sub: i ? '' : 'your seat', team: r.team, sides: sideChoices(board), onDone: () => closeSheet(),
     onRace: (v) => set('race', v), onSide: (v) => set('team', v), ...(i ? { onDiff: (v) => set('diff', v) } : {}),
     buttons: canRemove(board, i) ? [{ label: 'REMOVE', title: `Remove ${seatName(i)}`, k: 'remove', ghost: true, on: () => { editing = -1; setBoard(board.map((q, j) => (j === i ? null : q))); ($('soloBoard').querySelector('[data-k="add"]') || $('btnStart')).focus(); } }] : [],
   }), () => closeSheet());

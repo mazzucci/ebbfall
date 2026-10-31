@@ -68,7 +68,7 @@ export const baseUrl = () => base;
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
-/** Single player's board through its UI (eight spots): + AI (the lowest empty spot, a side of its own), and a seat's
+/** Single player's board through its UI (eight spots): + COMPUTER (the lowest empty spot, a side of its own), and a seat's
  *  sheet (its token, chips, DONE): a race, a level, a side (its number from 0: SIDE 1 is 0), REMOVE. `scope`: the
  *  board's and the sheet's ids (the lobby's: board(page, 'online')). */
 export function board(page, scope = 'solo') {

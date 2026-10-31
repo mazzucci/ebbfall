@@ -18,7 +18,7 @@ const W = 1200, H = 630, BUDGET = 300 * 1024, DITHER = 0.8;
 
 /** What the card says: the wordmark, and one line under it (index.html's og:title says the same). */
 const TAG = 'A free browser RTS in the 1998 mold';
-const SUB = 'TWO RACES · VS THE AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
+const SUB = 'TWO RACES · VS THE COMPUTER OR FRIENDS ONLINE · PHONE OR DESKTOP';
 
 /**
  * The battle, in the art's pixels (scale 2: 64 a tile), drawn at `ZOOM` on a band of ground at the bottom of the card:

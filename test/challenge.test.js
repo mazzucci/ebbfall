@@ -118,19 +118,22 @@ test("a game's challenge: the menu's setup as START GAME seated it, a RANDOM rac
 
 test('the words: a card and a share line from the values, plain text', () => {
   const three = decode('1.8.5.ky.h00v13v23v33');
-  assert.deepEqual(card(three), { title: 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', description: 'Humans vs Vael · won in 12:34 · free, in your browser' });
-  assert.equal(shareText(three), 'I beat 3 Brutal AIs on Iron Compass in 12:34 in Ebbfall. Can you?');
+  assert.deepEqual(card(three), { title: 'Can you beat this? 1 vs 3 Brutal computers on Iron Compass', description: 'Humans vs Vael · won in 12:34 · free, in your browser' });
+  assert.equal(shareText(three), 'I beat 3 Brutal computers on Iron Compass in 12:34 in Ebbfall. Can you?');
   assert.equal(line(three), 'CHALLENGE · won in 12:34 · beat it');
   assert.equal(link(three, 'https://ebbfall.com'), `https://ebbfall.com/?${PARAM}=1.8.5.ky.h00v13v23v33`);
   const duel = decode('1.0.1.4z.v00h12');
-  assert.deepEqual(card(duel), { title: 'Can you beat this? 1 vs 1 Hard AI on Ashen Basin', description: 'Vael vs Humans · won in 2:59 · free, in your browser' });
-  assert.equal(shareText(duel), 'I beat a Hard AI on Ashen Basin in 2:59 in Ebbfall. Can you?');
+  assert.deepEqual(card(duel), { title: 'Can you beat this? 1 vs 1 Hard computer on Ashen Basin', description: 'Vael vs Humans · won in 2:59 · free, in your browser' });
+  assert.equal(shareText(duel), 'I beat a Hard computer on Ashen Basin in 2:59 in Ebbfall. Can you?');
   const team = decode('1.4.2.1p.v00xh01v12h11');
-  assert.equal(card(team).title, 'Can you beat this? 2 vs 2 AIs up to Hard on Dust Quarter');
+  assert.equal(card(team).title, 'Can you beat this? 2 vs 2 computers up to Hard on Dust Quarter');
   assert.equal(card(team).description, 'Vael and Humans vs Vael and Humans · won in 1:01 · free, in your browser');
-  assert.equal(shareText(team), 'I beat 2 AIs up to Hard with an AI ally on Dust Quarter in 1:01 in Ebbfall. Can you?');
+  assert.equal(shareText(team), 'I beat 2 computers up to Hard with a computer ally on Dust Quarter in 1:01 in Ebbfall. Can you?');
+  const allies = decode('1.4.2.1p.h00v01v01v13');
+  assert.equal(card(allies).title, 'Can you beat this? 3 vs 1 Brutal computer on Dust Quarter');
+  assert.equal(shareText(allies), 'I beat a Brutal computer with 2 computer allies on Dust Quarter in 1:01 in Ebbfall. Can you?');
   const random = decode('1.3.0.2s0.h00h10.4.21i3v9');
-  assert.equal(card(random).title, `Can you beat this? 1 vs 1 Easy AI on ${mapName(123456789)}`);
+  assert.equal(card(random).title, `Can you beat this? 1 vs 1 Easy computer on ${mapName(123456789)}`);
   assert.deepEqual([clock(5), clock(65), clock(754), clock(4512), clock(MAX_SECS)], ['0:05', '1:05', '12:34', '75:12', '5999:59']);
 });
 

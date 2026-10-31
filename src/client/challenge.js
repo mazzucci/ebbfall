@@ -98,10 +98,10 @@ function levels(foes) {
   const ds = foes.map(r => r.diff), top = DIFF_NAMES[Math.max(...ds)];
   return ds.every(d => d === ds[0]) ? top : `up to ${top}`;
 }
-/** "a Brutal AI" ("1 Brutal AI" when `counted`), "3 Brutal AIs", "3 AIs up to Brutal". */
+/** "a Brutal computer" ("1 Brutal computer" when `counted`), "3 Brutal computers", "3 computers up to Brutal". */
 function ais(foes, counted = false) {
   const l = levels(foes), n = foes.length;
-  return n === 1 ? `${counted ? 1 : 'a'} ${l} AI` : l.startsWith('up to') ? `${n} AIs ${l}` : `${n} ${l} AIs`;
+  return n === 1 ? `${counted ? 1 : 'a'} ${l} computer` : l.startsWith('up to') ? `${n} computers ${l}` : `${n} ${l} computers`;
 }
 /** The races of some players, each once: "Vael", "Humans and Vael". */
 const raceList = (rs) => [...new Set(rs.map(r => r.race))].map(k => RACE_TITLE[k]).join(' and ');
@@ -117,7 +117,7 @@ export function card(c) {
 /** What SHARE says with the link. */
 export function shareText(c) {
   const { mine, foes } = camps(c), allies = mine.length - 1;
-  const help = allies ? ` with ${allies === 1 ? 'an AI ally' : `${allies} AI allies`}` : '';
+  const help = allies ? ` with ${allies === 1 ? 'a computer ally' : `${allies} computer allies`}` : '';
   return `I beat ${ais(foes)}${help} on ${mapOf(c).name} in ${clock(c.secs)} in Ebbfall. Can you?`;
 }
 /** The single-player page's line while a challenge is set. */

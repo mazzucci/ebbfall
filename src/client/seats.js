@@ -63,8 +63,8 @@ export const oneTeam = (spots) => filled(spots).every(i => spots[i].team === spo
 export const freeTeam = (spots) => { let t = 0; while (spots.some(r => r && r.team === t)) t++; return t; };
 /** The lowest empty spot (-1: none; adding fills it). */
 export const firstEmpty = (spots) => spots.findIndex(r => !r);
-/** A seat's name: YOU, or AI and its spot's number (it keeps it while others come and go). */
-export const seatName = (i) => (i ? `AI ${i}` : 'YOU');
+/** A seat's name: YOU, or Computer and its spot's number (it keeps it while others come and go). */
+export const seatName = (i) => (i ? `Computer ${i}` : 'YOU');
 /** A new AI: on a side of its own, as the last AI (race, level), else Humans on Easy. */
 export function newAi(spots) {
   const like = filled(spots).slice(1).map(i => spots[i]).at(-1) || { race: 'humans', diff: 0 };
@@ -135,7 +135,7 @@ export function tokenEl(view, color, { short = false, on = false, onOpen = null,
   if (ro) b.disabled = true; else b.addEventListener('click', onOpen);
   return b;
 }
-/** An empty spot: with `adds` (`{ label, title, k, on }`: + AI, + SEAT) a dashed cell to fill it (two: halves of
+/** An empty spot: with `adds` (`{ label, title, k, on }`: + COMPUTER; the lobby's + CPU, + SEAT) a dashed cell to fill it (two: halves of
  *  one); without, a faint outline (the board's eight places, nothing to tap). */
 export function emptySpot(adds = []) {
   const button = (a) => { const b = el('button', 'ib ghost add', a.label); b.title = a.title; b.setAttribute('aria-label', `${a.label}: ${a.title}`); b.dataset.k = a.k; b.addEventListener('click', a.on); return b; };

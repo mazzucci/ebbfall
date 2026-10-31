@@ -2234,7 +2234,7 @@ test('the pause card reports what of theirs was seen lately; nothing in the fog 
   }
 });
 
-test('the end card says what killed most of your units, and what beats it', async () => {
+test('the end card says what killed most of your units, not what beats it', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state()), at = { x: core.x + 220, y: core.y + 60 };
@@ -2246,8 +2246,8 @@ test('the end card says what killed most of your units, and what beats it', asyn
     assert.match(why, /Most of your losses: to Monoliths \(2\)/, why);
     assert.match(await d.page.locator('#endSeen').textContent(), /^You saw: 1$/, 'what was scouted of their army, the whole game');
     assert.equal(await d.page.locator('#endSeen .seen').getAttribute('title'), '1 Monolith');
-    assert.match(why, /beat Monoliths/, 'and what beats them');
-    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one or two lines, portraits inline');
+    assert.doesNotMatch(why, /beat/, 'not what beats them: players work the counters out');
+    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one line, portraits inline');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

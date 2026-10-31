@@ -23,26 +23,25 @@ export const TECH_SPEED = D.consts.tech_speed;
 export const TECH_BUILD = D.consts.tech_build;
 
 /** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does,
- *  never which enemy units it beats or loses to: players find the counters themselves. A fighter's `weak`: the kinds
- *  that beat it in a cost-equal fight (measured with the duels of tests/gameplay/balance.rs), read only by the end
- *  card's line on what beat you (main.js `whatBeatYou`). */
+ *  never which enemy units it beats or loses to: players find the counters themselves (the duels of
+ *  tests/gameplay/balance.rs keep the design's counter loops). */
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
-  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.', weak: ['vanguard', 'sovereign'] },
-  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.', weak: ['monolith', 'shrike', 'bastion'] },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.', weak: ['trooper', 'scythe', 'prism', 'sovereign', 'siegeTank'] },
+  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
+  vanguard: { hot: 'V', desc: 'Heavy walker. Long range, thick plate; shells splash onto nearby ground units. Cannot hit flyers.' },
+  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).', weak: ['trooper', 'lancer', 'prism', 'shrike'] },
+  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
-  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.', weak: ['vanguard', 'monolith', 'wasp', 'shrike'] },
-  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.', weak: ['lancer', 'prism', 'shrike'] },
+  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.' },
+  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.', weak: ['trooper', 'wasp', 'bastion'] },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.', weak: ['trooper', 'vanguard', 'sovereign', 'siegeTank'] },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.', weak: ['wasp'] },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).', weak: ['lancer', 'trooper'] },
-  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', weak: ['wasp', 'bastion', 'shrike'] },
+  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.' },
+  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
+  monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.' },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).' },
+  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
 };
 const BLDG_TEXT = {

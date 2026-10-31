@@ -1575,3 +1575,62 @@ fn the_ai_takes_both_vents_of_its_main_and_crews_them() {
         assert_eq!(rigs, 1, "Easy seat {seat}: one refinery at 5:00");
     }
 }
+
+#[test]
+fn the_ai_takes_an_expansions_vent_only_once_its_core_stands_there() {
+    // On these maps a natural's vent lies within 16 tiles of a main's Core, where the AI looks for its main's vents:
+    // it must wait for its Core at the natural, not raise a third refinery out there before.
+    let core_at = |w: &World, seat: u8, (x, y): (f64, f64), r: f64| {
+        w.bldgs.iter().any(|b| {
+            b.team == seat
+                && b.done
+                && b.kind.def().hq
+                && ((b.tx as f64 + 1.5 - x).powi(2) + (b.ty as f64 + 1.5 - y).powi(2)).sqrt() < r
+        })
+    };
+    for (seed, kind) in [(92, MapKind::Standard), (32, MapKind::OpenPlains)] {
+        for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
+            let mut w = World::with_setup(seed, 1, kind, false, races);
+            w.set_ai_seats([true, true]);
+            w.hold_waves = true;
+            let ctx = format!("seed {seed} {kind:?} {}", races[0].name);
+            // (the case: an expansion's vent within 16 tiles of a main's Core)
+            let near_main = w.map.nodes.iter().any(|n| {
+                n.ether
+                    && w.map.expansions.iter().any(|&(ex, ey)| {
+                        ((n.tx as f64 + 0.5 - ex).powi(2) + (n.ty as f64 + 0.5 - ey).powi(2)).sqrt()
+                            <= 7.5
+                    })
+                    && w.map
+                        .bases
+                        .iter()
+                        .any(|b| ((n.tx - b.0 - 2) as f64).hypot((n.ty - b.1 - 2) as f64) < 16.0)
+            });
+            assert!(near_main, "{ctx}: a natural's vent within the main's reach");
+            for _ in 0..30 * 600 / 15 {
+                for _ in 0..15 {
+                    w.step();
+                    w.events.clear();
+                }
+                for b in w.bldgs.iter().filter(|b| b.kind.def().on_vent) {
+                    let Some(v) = b.vent.and_then(|v| w.map.node(v)) else {
+                        continue;
+                    };
+                    let (vx, vy) = (v.tx as f64 + 0.5, v.ty as f64 + 0.5);
+                    for &(ex, ey) in &w.map.expansions {
+                        if ((vx - ex).powi(2) + (vy - ey).powi(2)).sqrt() <= 7.5 {
+                            assert!(
+                                core_at(&w, b.team, (ex, ey), 16.0),
+                                "{ctx}: seat {} raised a refinery on the expansion vent at {},{} at {:.0}s with no Core there",
+                                b.team,
+                                v.tx,
+                                v.ty,
+                                w.time
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

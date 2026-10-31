@@ -530,6 +530,13 @@ impl Map {
             MapKind::Barren => (0.4, 0.6),
             _ => (1.0, 1.0),
         };
+        // Two vents by every base, and the centre's (a vent that found no room would be a silent hole: a change to
+        // the generator must fail its tests loudly instead).
+        debug_assert_eq!(
+            m.nodes.iter().filter(|n| n.ether).count(),
+            2 * k * (1 + sites.len()) + (middle || kind == MapKind::EtherStorm) as usize,
+            "seed {seed} {kind:?} {mw}x{mh}: every base has its two vents"
+        );
         m.expansions = sites
             .iter()
             .flat_map(|&p| (0..k).map(move |g| sym.point(g, p)))
@@ -600,15 +607,24 @@ impl Map {
             // A vent to either side of the site's middle, where its Core goes: square to the field if it fits,
             // else turned towards the main (never into the field), nearer in if need be.
             for hand in [1.0, -1.0] {
+                // (then, where none of those fits, anywhere on its own side of the site, nearest square first)
+                let sweep = (0..=12).flat_map(|i| {
+                    [3.5, 4.5, 5.5, 6.5, 7.5]
+                        .map(|r| (90.0 + 7.5 * (i as f64) * [1.0, -1.0][i % 2], r))
+                });
                 let fit = [VENT_GAP, VENT_GAP - 1].iter().find_map(|&gap| {
-                    EXP_VENT_AT.iter().find_map(|&(turn, r)| {
-                        let a = out + hand * turn * PI / 180.0;
-                        let v = (
-                            jsmath::round(p.0 + jsmath::cos(a) * r) as i32 - 1,
-                            jsmath::round(p.1 + jsmath::sin(a) * r) as i32 - 1,
-                        );
-                        self.vent_fits(sym, v, gap).then_some(v)
-                    })
+                    EXP_VENT_AT
+                        .iter()
+                        .copied()
+                        .chain(sweep.clone())
+                        .find_map(|(turn, r)| {
+                            let a = out + hand * turn * PI / 180.0;
+                            let v = (
+                                jsmath::round(p.0 + jsmath::cos(a) * r) as i32 - 1,
+                                jsmath::round(p.1 + jsmath::sin(a) * r) as i32 - 1,
+                            );
+                            self.vent_fits(sym, v, gap).then_some(v)
+                        })
                 });
                 if let Some(v) = fit {
                     for g in 0..sym.k {

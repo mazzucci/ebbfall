@@ -186,7 +186,8 @@ impl World {
             )
     }
 
-    /// One worker off a dry vent, onto a vent of ours that still flows (anywhere: the expansion's may be far).
+    /// One worker off a dry vent, onto a vent of ours that still flows and is short of its crew if one is (anywhere:
+    /// the expansion's may be far).
     fn ai_off_dry_vent(&mut self, harv: &[Id]) {
         let h = harv
             .iter()
@@ -195,7 +196,7 @@ impl World {
         if let Some(h) = h {
             let (hx, hy) = (self.unit(h).unwrap().x, self.unit(h).unwrap().y);
             if let Some(n) = self
-                .nearest_node(hx, hy, self.seat(), true, 3000.0)
+                .ai_vent_for(hx, hy, 3000.0)
                 .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0))
             {
                 self.start_gather(h, n);

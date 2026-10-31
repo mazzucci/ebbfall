@@ -82,7 +82,7 @@ fn two_ais_play_each_other_to_the_end() {
 fn the_ai_keeps_training_troopers_when_short_of_ether() {
     let mut w = World::new(31, 1);
     run(&mut w, 150);
-    let id = w.make_unit(UnitKind::Wasp, PLAYER, 60.0, 60.0); // a flyer far away makes it want Lancers
+    let id = w.make_unit(UnitKind::Raider, PLAYER, 60.0, 60.0); // a flyer far away makes it want Lancers
     w.hold_unit(id);
     let before = count(&w, ENEMY, UnitKind::Trooper);
     for _ in 0..90 * TPS {
@@ -103,7 +103,7 @@ fn the_ai_answers_flyers_with_lancers() {
     for k in 0..3 {
         // parked in sight of the AI's base but out of reach of its buildings (watching, not raiding)
         let id = w.make_unit(
-            UnitKind::Wasp,
+            UnitKind::Raider,
             PLAYER,
             (cx as f64 - 7.0) * TILE - k as f64 * 30.0,
             (cy as f64 + 9.0) * TILE,
@@ -125,9 +125,9 @@ fn the_ai_answers_flyers_with_lancers() {
 fn the_ai_only_reacts_to_flyers_it_has_seen() {
     let mut w = World::new(31, 0);
     run(&mut w, 150);
-    // A wasp hiding in the top-left corner, far from anything the AI has looked at.
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 40.0, 40.0);
-    w.hold_unit(wasp);
+    // A raider hiding in the top-left corner, far from anything the AI has looked at.
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, 40.0, 40.0);
+    w.hold_unit(raider);
     run(&mut w, 40);
     assert_eq!(
         count(&w, ENEMY, UnitKind::Lancer),
@@ -141,7 +141,7 @@ fn the_ai_only_reacts_to_flyers_it_has_seen() {
     );
     // Now fly it into view.
     let (cx, cy) = core(&w, ENEMY);
-    w.move_to(wasp, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
+    w.move_to(raider, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
     run(&mut w, 40);
     assert!(
         count(&w, ENEMY, UnitKind::Lancer) > 0
@@ -179,7 +179,7 @@ fn the_ai_scouts_the_player_base_early() {
 }
 
 #[test]
-fn ai_wasps_raid_the_players_harvesters() {
+fn ai_raiders_raid_the_players_harvesters() {
     let mut w = World::new(43, 1);
     run(&mut w, 120); // scouting done
     // A soldier stands among the player's harvesters: the raiders go for the harvesters anyway.
@@ -198,7 +198,7 @@ fn ai_wasps_raid_the_players_harvesters() {
     let (cx, cy) = core(&w, ENEMY);
     for k in 0..3 {
         w.make_unit(
-            UnitKind::Wasp,
+            UnitKind::Raider,
             ENEMY,
             (cx as f64 + 2.0) * TILE + k as f64 * 30.0,
             (cy as f64 + 6.0) * TILE,
@@ -233,7 +233,7 @@ fn ai_wasps_raid_the_players_harvesters() {
 }
 
 #[test]
-fn hurt_wasps_stay_home_and_healthy_ones_raid() {
+fn hurt_raiders_stay_home_and_healthy_ones_raid() {
     let mut w = World::new(43, 1);
     run(&mut w, 120);
     let (cx, cy) = core(&w, ENEMY);
@@ -243,11 +243,11 @@ fn hurt_wasps_stay_home_and_healthy_ones_raid() {
             (cy as f64 + 6.0) * TILE,
         )
     };
-    // Four hurt wasps first (lower ids), then two healthy ones.
+    // Four hurt raiders first (lower ids), then two healthy ones.
     let hurt: Vec<Id> = (0..4)
         .map(|k| {
             let (x, y) = at(k);
-            let id = w.make_unit(UnitKind::Wasp, ENEMY, x, y);
+            let id = w.make_unit(UnitKind::Raider, ENEMY, x, y);
             w.units.iter_mut().find(|u| u.id == id).unwrap().hp = 25.0;
             id
         })
@@ -255,7 +255,7 @@ fn hurt_wasps_stay_home_and_healthy_ones_raid() {
     let fit: Vec<Id> = (4..6)
         .map(|k| {
             let (x, y) = at(k);
-            w.make_unit(UnitKind::Wasp, ENEMY, x, y)
+            w.make_unit(UnitKind::Raider, ENEMY, x, y)
         })
         .collect();
     let home = ((cx as f64 + 2.0) * TILE, (cy as f64 + 2.0) * TILE);
@@ -266,11 +266,11 @@ fn hurt_wasps_stay_home_and_healthy_ones_raid() {
     };
     run(&mut w, 30);
     for &h in &hurt {
-        assert!(away(&w, h) < 500.0, "hurt wasp {h} stays home");
+        assert!(away(&w, h) < 500.0, "hurt raider {h} stays home");
     }
     assert!(
         fit.iter().any(|&f| away(&w, f) > 900.0),
-        "the healthy wasps went raiding"
+        "the healthy raiders went raiding"
     );
 }
 
@@ -613,7 +613,7 @@ fn the_ai_finishes_games_on_every_map_kind() {
 #[test]
 #[ignore]
 fn raid_matrix() {
-    for (wasps, turrets, troopers) in [
+    for (raiders, turrets, troopers) in [
         (2, 0, 0),
         (2, 1, 0),
         (2, 0, 4),
@@ -622,9 +622,9 @@ fn raid_matrix() {
         (4, 0, 6),
         (4, 1, 4),
     ] {
-        let (h, lost) = raid(wasps, turrets, troopers);
+        let (h, lost) = raid(raiders, turrets, troopers);
         println!(
-            "RAID {wasps} wasps vs {turrets} turret(s) + {troopers} troopers: {h}/8 harvesters lost, {lost}/{wasps} wasps lost"
+            "RAID {raiders} raiders vs {turrets} turret(s) + {troopers} troopers: {h}/8 harvesters lost, {lost}/{raiders} raiders lost"
         );
     }
 }
@@ -650,9 +650,9 @@ fn the_ai_fields_vanguards_from_its_barracks() {
 
 #[test]
 fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
-    // An unarmed Observer, seen (a Turret of the AI's beside it detects it), is no air threat: no Lancers. A Wasp in
+    // An unarmed Observer, seen (a Turret of the AI's beside it detects it), is no air threat: no Lancers. A Raider in
     // the same spot is.
-    for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Wasp, true)] {
+    for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Raider, true)] {
         let mut w = World::new(31, 0);
         run(&mut w, 150);
         let (cx, cy) = core(&w, ENEMY);
@@ -1648,7 +1648,7 @@ fn the_ai_takes_an_expansions_vent_only_once_its_core_stands_there() {
 #[test]
 fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_field() {
     // The Human AI with money to spare and its Airfield up trains no Observer while nothing unseen has hit it. A
-    // cloaked Wasp then shoots one of its Troopers out by the player's base (far from its own buildings, where no
+    // cloaked Raider then shoots one of its Troopers out by the player's base (far from its own buildings, where no
     // tower goes): it trains one Observer, and keeps it over its next wave rather than at home or racing ahead.
     let mut w = World::new(9, 1);
     for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
@@ -1679,21 +1679,21 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
     let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.hold_unit(trooper);
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, x + 40.0, y);
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, x + 40.0, y);
     w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.cast(raider, AbilityKind::Cloak).unwrap();
     for _ in 0..3 * TPS {
-        if w.unit(trooper).is_some() && w.unit(wasp).is_some() {
-            w.attack_ent(wasp, trooper);
+        if w.unit(trooper).is_some() && w.unit(raider).is_some() {
+            w.attack_ent(raider, trooper);
         }
         step(&mut w);
     }
     assert!(
         w.unit(trooper).is_none_or(|t| t.hp < t.maxhp),
-        "the cloaked Wasp hit it"
+        "the cloaked Raider hit it"
     );
-    if w.unit(wasp).is_some() {
-        w.damage(wasp, 1e6, None); // (the hit is the news; the Wasp itself is not the test)
+    if w.unit(raider).is_some() {
+        w.damage(raider, 1e6, None); // (the hit is the news; the Raider itself is not the test)
     }
     let mut trained = None;
     while w.time < 540.0 && trained.is_none() {

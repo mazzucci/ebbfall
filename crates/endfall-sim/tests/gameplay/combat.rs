@@ -37,20 +37,20 @@ fn flyers_cross_cliffs_in_a_straight_line() {
         y as f64 * TILE + 16.0,
         (x + 13) as f64 * TILE + 16.0,
     );
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, sx, sy);
-    w.move_to(wasp, tx, sy);
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, sx, sy);
+    w.move_to(raider, tx, sy);
     let mut over_rock = false;
-    let secs = (tx - sx) / UnitKind::Wasp.def().speed + 1.0;
+    let secs = (tx - sx) / UnitKind::Raider.def().speed + 1.0;
     for _ in 0..(secs * TPS as f64) as u32 {
         w.step();
-        let u = w.unit(wasp).unwrap();
+        let u = w.unit(raider).unwrap();
         let (cx, cy) = w.map.tile_of(u.x, u.y);
         over_rock |= w.map.rock[w.map.idx(cx, cy)] != 0;
         assert!((u.y - sy).abs() < 1.0, "flies straight");
     }
     assert!(over_rock, "it flew over rock");
     assert!(
-        (w.unit(wasp).unwrap().x - tx).abs() < 40.0,
+        (w.unit(raider).unwrap().x - tx).abs() < 40.0,
         "arrived in straight-line time"
     );
 }
@@ -59,22 +59,22 @@ fn flyers_cross_cliffs_in_a_straight_line() {
 fn ground_only_weapons_cannot_touch_flyers() {
     let mut w = arena(7);
     let van = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
-    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 680.0, 900.0);
-    w.attack_ent(van, wasp);
+    let raider = w.make_unit(UnitKind::Raider, ENEMY, 680.0, 900.0);
+    w.attack_ent(van, raider);
     assert_eq!(
         w.unit(van).unwrap().task,
         Task::Idle,
         "an order to shoot a flyer is refused"
     );
-    w.hold_unit(wasp); // the wasp just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
+    w.hold_unit(raider); // the raider just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
     run(&mut w, 8);
     let v = w.unit(van).unwrap();
     assert!(
         !matches!(v.task, Task::Attack { .. }),
-        "the vanguard neither auto-targets nor retaliates against the wasp"
+        "the vanguard neither auto-targets nor retaliates against the raider"
     );
     assert!(
-        w.unit(wasp).is_some_and(|u| u.hp == u.maxhp),
+        w.unit(raider).is_some_and(|u| u.hp == u.maxhp),
         "and never hurts it"
     );
 }
@@ -96,26 +96,26 @@ fn lancers_troopers_and_turrets_shoot_flyers_down() {
                 );
             }
         }
-        // The wasp hovers just outside its own reach; anything that can hit the air should bring it down.
-        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 21.0 * TILE + 170.0, 31.0 * TILE);
-        w.hold_unit(wasp);
+        // The raider hovers just outside its own reach; anything that can hit the air should bring it down.
+        let raider = w.make_unit(UnitKind::Raider, ENEMY, 21.0 * TILE + 170.0, 31.0 * TILE);
+        w.hold_unit(raider);
         run(&mut w, 40);
-        assert!(w.unit(wasp).is_none(), "{shooter} shot the wasp down");
+        assert!(w.unit(raider).is_none(), "{shooter} shot the raider down");
     }
 }
 
 #[test]
-fn two_lancers_beat_a_wasp_up_close() {
-    // (two Lancers cost about what one Wasp does)
+fn two_lancers_beat_a_raider_up_close() {
+    // (two Lancers cost about what one Raider does)
     let mut w = arena(10);
     let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 900.0);
     let other = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 930.0);
-    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 660.0, 900.0);
-    w.attack_ent(wasp, lancer);
-    w.attack_ent(other, wasp);
+    let raider = w.make_unit(UnitKind::Raider, ENEMY, 660.0, 900.0);
+    w.attack_ent(raider, lancer);
+    w.attack_ent(other, raider);
     run(&mut w, 20);
     assert!(
-        w.unit(wasp).is_none() && (w.unit(lancer).is_some() || w.unit(other).is_some()),
+        w.unit(raider).is_none() && (w.unit(lancer).is_some() || w.unit(other).is_some()),
         "anti-air wins its duel"
     );
 }
@@ -156,13 +156,13 @@ fn medics_walk_to_hurt_infantry_they_can_see() {
 #[test]
 fn walkers_and_flyers_pass_under_and_over_each_other() {
     let mut w = flat_arena(14);
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 700.0, 900.0);
-    w.hold_unit(wasp);
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, 700.0, 900.0);
+    w.hold_unit(raider);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
     w.move_to(trooper, 800.0, 900.0);
     run(&mut w, 4);
-    let (tx, wx) = (w.unit(trooper).unwrap().x, w.unit(wasp).unwrap().x);
-    assert!(tx > 760.0, "the trooper walked under the wasp: {tx}");
+    let (tx, wx) = (w.unit(trooper).unwrap().x, w.unit(raider).unwrap().x);
+    assert!(tx > 760.0, "the trooper walked under the raider: {tx}");
     assert_eq!(wx, 700.0, "and did not push it");
 }
 
@@ -301,7 +301,7 @@ fn every_weapon_reports_its_shots_for_the_sound() {
     for (shooter, target, weapon) in [
         (UnitKind::Trooper, UnitKind::Trooper, "bolt"),
         (UnitKind::Vanguard, UnitKind::Trooper, "shell"),
-        (UnitKind::Lancer, UnitKind::Wasp, "missile"),
+        (UnitKind::Lancer, UnitKind::Raider, "missile"),
         (UnitKind::Harvester, UnitKind::Trooper, "melee"),
         // The Vael sound like glass and ceramic.
         (UnitKind::Prism, UnitKind::Trooper, "lance"),
@@ -373,7 +373,7 @@ fn a_shell_splashes_walking_neighbours_only() {
     let mut w = arena(16);
     let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
-    let flyer = w.make_unit(UnitKind::Wasp, ENEMY, 752.0, 905.0);
+    let flyer = w.make_unit(UnitKind::Raider, ENEMY, 752.0, 905.0);
     w.hold_unit(target);
     w.hold_unit(flyer);
     w.attack_ent(v, target);
@@ -503,19 +503,19 @@ fn a_unit_busy_with_a_building_turns_on_a_newcomer_that_shoots_it() {
 
 #[test]
 fn flyers_do_not_fear_what_cannot_reach_them() {
-    // A Vanguard cannot shoot up, a Trooper can: a Wasp on attack-move goes for the Trooper even when farther.
+    // A Vanguard cannot shoot up, a Trooper can: a Raider on attack-move goes for the Trooper even when farther.
     let mut w = flat_arena(16);
     let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 30.0 * TILE, 32.0 * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, ENEMY, 25.0 * TILE, 32.0 * TILE);
     w.hold_unit(vanguard);
     w.hold_unit(trooper);
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, 31.0 * TILE, 32.0 * TILE);
-    w.attack_move(wasp, 40.0 * TILE, 32.0 * TILE);
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, 31.0 * TILE, 32.0 * TILE);
+    w.attack_move(raider, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
-    assert_eq!(target_of(&w, wasp), Some(trooper));
-    // And the Vanguard, which shoots ground, treats the Wasp as a plain unit but the Trooper as a threat.
+    assert_eq!(target_of(&w, raider), Some(trooper));
+    // And the Vanguard, which shoots ground, treats the Raider as a plain unit but the Trooper as a threat.
     assert_eq!(w.threat_tier(trooper, false), 0);
-    assert_eq!(w.threat_tier(wasp, false), 0, "a Wasp shoots ground");
+    assert_eq!(w.threat_tier(raider, false), 0, "a Raider shoots ground");
     assert_eq!(
         w.threat_tier(vanguard, true),
         1,
@@ -554,7 +554,7 @@ fn harvesters_are_not_threats_and_unarmed_units_do_not_pull_units_off_buildings(
 fn a_chased_target_out_of_sight_is_let_go_and_the_attack_move_resumes() {
     let mut w = flat_arena(16);
     let me = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 32.0 * TILE);
-    let obs = w.make_unit(UnitKind::Wasp, ENEMY, 25.0 * TILE, 32.0 * TILE); // (a flyer that will not chase)
+    let obs = w.make_unit(UnitKind::Raider, ENEMY, 25.0 * TILE, 32.0 * TILE); // (a flyer that will not chase)
     w.hold_unit(obs);
     w.attack_move(me, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
@@ -608,22 +608,22 @@ fn units_answer_a_shooter_and_then_carry_on_with_their_attack_move() {
 }
 
 #[test]
-fn idle_defenders_shot_by_a_passing_wasp_give_up_and_walk_home() {
+fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
     let mut w = flat_arena(16);
     let me = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 32.0 * TILE);
     let mate = w.make_unit(UnitKind::Trooper, PLAYER, 31.0 * TILE, 32.0 * TILE);
-    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 38.0 * TILE);
-    w.hold_unit(wasp);
+    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 38.0 * TILE);
+    w.hold_unit(raider);
     run(&mut w, 1);
-    w.damage(me, 1.0, Some(wasp));
-    assert_eq!(target_of(&w, me), Some(wasp));
+    w.damage(me, 1.0, Some(raider));
+    assert_eq!(target_of(&w, me), Some(raider));
     assert_eq!(
         target_of(&w, mate),
-        Some(wasp),
+        Some(raider),
         "the idle neighbour joins in"
     );
-    // The Wasp leaves for good: both let it go and walk back to where they stood.
-    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    // The Raider leaves for good: both let it go and walk back to where they stood.
+    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     o.hp = 1e6;
     o.maxhp = 1e6;
     o.y = 4.0 * TILE;

@@ -108,51 +108,51 @@ fn a_ward_detects_only_while_powered() {
 }
 
 #[test]
-fn a_researched_wasp_cloaks_for_a_while_and_a_detector_still_finds_it() {
+fn a_researched_raider_cloaks_for_a_while_and_a_detector_still_finds_it() {
     let mut w = flat_arena(14);
-    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 30.0 * TILE);
-    w.hold_unit(wasp);
-    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(raider);
+    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     (o.hp, o.maxhp) = (1e6, 1e6); // (it outlives being seen again)
     let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 26.0 * TILE, 30.0 * TILE);
     w.hold_unit(lancer);
     assert_eq!(
-        w.cast(wasp, AbilityKind::Cloak),
+        w.cast(raider, AbilityKind::Cloak),
         Err("Research Cloaking Field first".into())
     );
     w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.cast(raider, AbilityKind::Cloak).unwrap();
     w.step();
-    assert!(!w.seen_by(PLAYER, wasp), "cloaked");
-    let hp = U(&w, wasp).hp;
+    assert!(!w.seen_by(PLAYER, raider), "cloaked");
+    let hp = U(&w, raider).hp;
     run(&mut w, 5);
     assert_eq!(
-        U(&w, wasp).hp,
+        U(&w, raider).hp,
         hp,
         "the Lancer cannot shoot what it cannot see"
     );
     run(&mut w, 8);
-    assert!(w.seen_by(PLAYER, wasp), "visible again after 12 s");
+    assert!(w.seen_by(PLAYER, raider), "visible again after 12 s");
     run(&mut w, 2);
-    assert!(U(&w, wasp).hp < hp, "and shot once visible");
+    assert!(U(&w, raider).hp < hp, "and shot once visible");
     // Cloaked again later (after its cooldown), but a Turret beside it detects it.
     run(&mut w, 30);
-    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.cast(raider, AbilityKind::Cloak).unwrap();
     w.make_building(BldgKind::Turret, PLAYER, 27, 32, true);
     w.step();
-    assert!(w.seen_by(PLAYER, wasp), "detected");
+    assert!(w.seen_by(PLAYER, raider), "detected");
 }
 
 #[test]
-fn the_ai_cloaks_a_wasp_only_against_anti_air_and_not_where_it_is_detected() {
-    // An AI Wasp attacking a building: it cloaks with a Lancer near, not with only a Vanguard near (it cannot hit
+fn the_ai_cloaks_a_raider_only_against_anti_air_and_not_where_it_is_detected() {
+    // An AI Raider attacking a building: it cloaks with a Lancer near, not with only a Vanguard near (it cannot hit
     // air), and not beside a detecting Turret (no point).
     let scene = |foe: UnitKind, turret: bool| {
         let mut w = flat_arena(15);
         w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
         let depot = w.make_building(BldgKind::Depot, PLAYER, 30, 30, true);
-        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 33.0 * TILE, 31.0 * TILE);
-        w.attack_ent(wasp, depot);
+        let raider = w.make_unit(UnitKind::Raider, ENEMY, 33.0 * TILE, 31.0 * TILE);
+        w.attack_ent(raider, depot);
         let f = w.make_unit(foe, PLAYER, 26.0 * TILE, 31.0 * TILE);
         w.hold_unit(f);
         if turret {
@@ -160,7 +160,7 @@ fn the_ai_cloaks_a_wasp_only_against_anti_air_and_not_where_it_is_detected() {
         }
         w.step();
         w.auto_cast(ENEMY);
-        U(&w, wasp).boost.is_some()
+        U(&w, raider).boost.is_some()
     };
     assert!(scene(UnitKind::Lancer, false), "cloaks against a Lancer");
     assert!(
@@ -172,8 +172,8 @@ fn the_ai_cloaks_a_wasp_only_against_anti_air_and_not_where_it_is_detected() {
 
 #[test]
 fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
-    // A cloaked Wasp of the player's shoots at the AI's harvesters before the AI's first scheduled Turret (4:00): the
-    // AI puts one up by them anyway. (This Wasp cannot die and shoots whoever comes near, builders included, so the
+    // A cloaked Raider of the player's shoots at the AI's harvesters before the AI's first scheduled Turret (4:00): the
+    // AI puts one up by them anyway. (This Raider cannot die and shoots whoever comes near, builders included, so the
     // decision is what is checked, not the finished tower.)
     let mut w = World::new(31, 1);
     // (after its Foundry and its second vent's Rig stand, as it raises two sites at a time; and a Turret's price in
@@ -182,8 +182,8 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let h = harvesters(&w, ENEMY)[0];
     let (hx, hy) = (U(&w, h).x, U(&w, h).y);
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, hx + 40.0, hy);
-    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, hx + 40.0, hy);
+    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     (o.hp, o.maxhp) = (1e9, 1e9);
     w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
     let turrets = |w: &World| {
@@ -196,14 +196,14 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     let mut raised = false;
     for _ in 0..60 {
         // (it re-cloaks whenever it can, and keeps shooting at a harvester near where it started)
-        let _ = w.cast(wasp, AbilityKind::Cloak);
+        let _ = w.cast(raider, AbilityKind::Cloak);
         // (a miner: its workers now run from what hits them, and the one building the tower is not the target)
         if let Some(t) = harvesters(&w, ENEMY).into_iter().find(|&t| {
             let u = U(&w, t);
             matches!(u.task, Task::Gather { .. })
                 && ((u.x - hx).powi(2) + (u.y - hy).powi(2)).sqrt() < 6.0 * TILE
         }) {
-            w.attack_ent(wasp, t);
+            w.attack_ent(raider, t);
         }
         run(&mut w, 1);
         raised |= turrets(&w) >= 1;
@@ -214,22 +214,22 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
 
 #[test]
 fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on() {
-    // An AI Trooper shot by a cloaked Wasp out by the player's base: no tower out there, and the AI keeps building.
+    // An AI Trooper shot by a cloaked Raider out by the player's base: no tower out there, and the AI keeps building.
     let mut w = World::new(31, 1);
     run(&mut w, 140);
     let (px, py) = core(&w, PLAYER);
     let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
     let t = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.hold_unit(t);
-    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, x + 40.0, y);
-    let o = w.units.iter_mut().find(|u| u.id == wasp).unwrap();
+    let raider = w.make_unit(UnitKind::Raider, PLAYER, x + 40.0, y);
+    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     (o.hp, o.maxhp) = (1e9, 1e9);
     w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
     let built = w.bldgs.iter().filter(|b| b.team == ENEMY).count();
     for _ in 0..60 {
-        let _ = w.cast(wasp, AbilityKind::Cloak);
+        let _ = w.cast(raider, AbilityKind::Cloak);
         if w.unit(t).is_some() {
-            w.attack_ent(wasp, t);
+            w.attack_ent(raider, t);
         }
         run(&mut w, 1);
     }
@@ -246,18 +246,18 @@ fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on
 
 #[test]
 fn an_attack_by_something_unseen_is_told_once_in_a_while() {
-    // A cloaked Wasp shooting a Trooper: the player's alert says the attacker is unseen, once (not every hit); once it
+    // A cloaked Raider shooting a Trooper: the player's alert says the attacker is unseen, once (not every hit); once it
     // shows (or a detector finds it), the alerts are ordinary ones.
     let mut w = flat_arena(14);
-    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 30.0 * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 32.0 * TILE, 30.0 * TILE);
-    for id in [wasp, trooper] {
+    for id in [raider, trooper] {
         let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
         (u.hp, u.maxhp) = (1e6, 1e6); // (both outlive the test)
     }
     w.hold_unit(trooper);
     w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.cast(raider, AbilityKind::Cloak).unwrap();
     let alerts = |w: &mut World, secs: u32| {
         let (mut unseen, mut seen) = (0, 0);
         for _ in 0..secs * TPS {
@@ -276,7 +276,7 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
         (unseen, seen)
     };
     let (unseen, seen) = alerts(&mut w, 11);
-    assert!(U(&w, trooper).hp < 1e6, "the cloaked Wasp shoots");
+    assert!(U(&w, trooper).hp < 1e6, "the cloaked Raider shoots");
     assert_eq!(
         (unseen, seen),
         (1, 0),
@@ -286,14 +286,14 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
     assert_eq!(unseen, 0, "visible again: no unseen alert");
     // Cloaked again past the 30 s gap, still with nothing to detect it: told again.
     alerts(&mut w, 12); // (its 40 s cooldown)
-    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.cast(raider, AbilityKind::Cloak).unwrap();
     let (unseen, _) = alerts(&mut w, 10);
     assert_eq!(unseen, 1, "a new cloak past the gap is told again");
     // Cloaked again, but a Turret beside the Trooper detects it: an ordinary fight.
     alerts(&mut w, 32);
     w.make_building(BldgKind::Turret, PLAYER, 31, 32, true);
     alerts(&mut w, 1); // (its sight and detection from the next tick)
-    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    w.cast(raider, AbilityKind::Cloak).unwrap();
     let (unseen, _) = alerts(&mut w, 10);
     assert_eq!(unseen, 0, "detected: nothing unseen");
 }

@@ -48,7 +48,7 @@ test('every finished production building offers its unit, and pressing it trains
     await buildAndFinish(d, 't', 'turret', 2);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
     const factory = await buildAndFinish(d, 'r', 'factory', 0);
-    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [factory, 'Vanguard', 'vanguard'], [factory, 'Siege Tank', 'siegeTank'], [airfield, 'Wasp', 'wasp'], [airfield, 'Observer', 'observer']]) {
+    for (const [b, label, unit] of [[coreOf(await d.state()), 'Harvester', 'harvester'], [rax, 'Trooper', 'trooper'], [rax, 'Lancer', 'lancer'], [rax, 'Medic', 'medic'], [factory, 'Vanguard', 'vanguard'], [factory, 'Siege Tank', 'siegeTank'], [airfield, 'Raider', 'raider'], [airfield, 'Observer', 'observer']]) {
       await d.clickEntity(b.id);
       const card = await d.card();
       const why = async () => JSON.stringify({ card, sel: await d.selection(), ui: await d.eval(() => [endfall.ui.mode, endfall.ui.place]), at: b, near: (await d.state()).units.filter(u => Math.hypot(u.x - b.x, u.y - b.y) < 70).map(u => [u.type, Math.round(u.x - b.x), Math.round(u.y - b.y)]) });
@@ -62,7 +62,7 @@ test('every finished production building offers its unit, and pressing it trains
   } finally { await d.close(); }
 });
 
-test('medics wait for a forge, and a wasp flies straight across the map', async () => {
+test('medics wait for a forge, and a raider flies straight across the map', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
@@ -77,18 +77,18 @@ test('medics wait for a forge, and a wasp flies straight across the map', async 
     await buildAndFinish(d, 'f', 'forge', 1);
     const airfield = await buildAndFinish(d, 'a', 'airfield', 2);
     await d.clickEntity(airfield.id);
-    await d.pressCard('Wasp');
-    const wasp = await until(d, async () => mine(await d.state(), 'wasp')[0], { seconds: 40, what: 'a wasp' });
+    await d.pressCard('Raider');
+    const raider = await until(d, async () => mine(await d.state(), 'raider')[0], { seconds: 40, what: 'a raider' });
     // Fly it to the far side of the map: a flyer goes straight, so it covers ~1300 px in under 12 s.
-    await d.clickEntity(wasp.id);
+    await d.clickEntity(raider.id);
     // Straight across the map (through the centre, wherever the bases are), over whatever rock lies between.
     const W = await d.eval(() => endfall.engine.WW), H = await d.eval(() => endfall.engine.WH);
-    const dx = W / 2 - wasp.x, dy = H / 2 - wasp.y, len = Math.hypot(dx, dy) || 1; // 1300 px towards (and past) the centre
-    const target = { x: Math.round(wasp.x + dx / len * 1300), y: Math.round(wasp.y + dy / len * 1300) };
+    const dx = W / 2 - raider.x, dy = H / 2 - raider.y, len = Math.hypot(dx, dy) || 1; // 1300 px towards (and past) the centre
+    const target = { x: Math.round(raider.x + dx / len * 1300), y: Math.round(raider.y + dy / len * 1300) };
     await d.rightClickWorld(target.x, target.y);
     await d.skip(10);
-    const now = (await d.state()).units.find(u => u.id === wasp.id);
-    assert.ok(Math.hypot(now.x - target.x, now.y - target.y) < 60, `wasp at ${Math.round(now.x)},${Math.round(now.y)}, target ${target.x},${target.y}`);
+    const now = (await d.state()).units.find(u => u.id === raider.id);
+    assert.ok(Math.hypot(now.x - target.x, now.y - target.y) < 60, `raider at ${Math.round(now.x)},${Math.round(now.y)}, target ${target.x},${target.y}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -927,7 +927,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
 // console moves when the research starts or ends; a queued unit is still cancelled with a tap. Two devices per race:
 // all four screens.
 const SMALL_PHONE = { ...PHONE, viewport: { width: 667, height: 375 } }, UPRIGHT = { ...PHONE, viewport: { width: 412, height: 915 } };
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['g', 'barracks'], ['a', 'airfield']], unit: 'Wasp', tech: 'Afterburn', name: 'Afterburners', devices: [DESKTOP, SMALL_PHONE] }],
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['g', 'barracks'], ['a', 'airfield']], unit: 'Raider', tech: 'Afterburn', name: 'Afterburners', devices: [DESKTOP, SMALL_PHONE] }],
   ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream', name: 'Slipstream', devices: [PHONE, UPRIGHT] }]]) {
   test(`a factory's research shows beside its queue, and nothing in the console moves as it starts and ends (${race})`, async () => {
     for (const device of R.devices) {
@@ -991,7 +991,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
 // capital unit's (the most figures): whole, on one line or two, inside the console.
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Wasp', tech: 'Afterburn', capital: 'bastion' }],
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Raider', tech: 'Afterburn', capital: 'bastion' }],
   ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream', capital: 'sovereign' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
@@ -1512,7 +1512,7 @@ test('phone: a long-press on a unit to train shows what it beats and what beats 
     await d.page.waitForTimeout(700);
     const info = d.page.locator('#cmdInfo');
     assert.match(await info.textContent(), /Strong against.*Weak against/);
-    assert.equal(await info.locator('.vs img').count(), 4, 'portraits: Scythe and Wasp; Vanguard and Sovereign');
+    assert.equal(await info.locator('.vs img').count(), 4, 'portraits: Scythe and Raider; Vanguard and Sovereign');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -1672,7 +1672,7 @@ test('the HUD tells the first enemy flyer seen, and an army wiped out', async ()
     const x = core.x > 1000 ? core.x - 220 : core.x + 220;
     await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [x, core.y]);
     await d.page.waitForTimeout(400); // (the HUD counts it)
-    await d.eval(([x, y]) => { endfall.engine.debugSpawn(1, 'wasp', x + 60, y - 40); endfall.engine.debugSpawn(1, 'vanguard', x + 40, y); }, [x, core.y]);
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(1, 'raider', x + 60, y - 40); endfall.engine.debugSpawn(1, 'vanguard', x + 40, y); }, [x, core.y]);
     await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Enemy flyers spotted/.test(t.textContent)), null, { timeout: 5000 });
     await until(d, async () => (await d.state()).units.every(u => u.team !== 0 || u.type !== 'trooper'), { seconds: 20, step: 1, what: 'the Trooper to fall' });
     await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /No army left/.test(t.textContent)), null, { timeout: 5000 });
@@ -2172,17 +2172,17 @@ test('an enemy Observer is invisible and cannot be picked until something of our
   } finally { await d.close(); }
 });
 
-test('phone: a Wasp cloaks from its card once Cloaking Field is researched', async () => {
+test('phone: a Raider cloaks from its card once Cloaking Field is researched', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
-    const wasp = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'wasp', x, y), [core.x + 160, core.y + 60]);
-    await d.clickEntity(wasp);
+    const raider = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'raider', x, y), [core.x + 160, core.y + 60]);
+    await d.clickEntity(raider);
     assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'locked before the tech');
     await d.eval(() => endfall.engine.debugResearch(0, 'cloakingField')); // (set-up: researched)
     await d.readyCard('Cloak'); // (the card is drawn again on a later frame: not the locked button it showed)
     await d.pressCard('Cloak');
-    assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).boost, wasp), 'cloak', 'cloaked');
+    assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).boost, raider), 'cloak', 'cloaked');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

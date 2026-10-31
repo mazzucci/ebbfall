@@ -199,15 +199,15 @@ export function medic(M, f) {
   return g;
 }
 
-/** Wasp: a light jet raider flying 16 units up. A slim steel fuselage, a bubble canopy, swept wings whose outer panels
+/** Raider: a light attack jet flying 16 units up. A slim steel fuselage, a bubble canopy, swept wings whose outer panels
  *  carry the team paint, a team tail fin over swept tailplanes, rocket pods under the wings; frames flicker the jet's
  *  exhaust (short and hot, long and bright). No rotors: the plane reads by its silhouette, not by dark moving parts. */
 const EXHAUST_GLOW = new THREE.MeshBasicMaterial({ color: 0xff9a3a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
-/** The Wasp's skin: the hull steel (`trim`) lighter and less mirror-like, so a small curved fuselage stays pale over dark
+/** The Raider's skin: the hull steel (`trim`) lighter and less mirror-like, so a small curved fuselage stays pale over dark
  *  ground instead of reflecting the dim sky. */
 const SKIN = new WeakMap();
 const skin = (M) => { if (!SKIN.has(M)) { const m = M.trim.clone(); m.color.set(0x98a0ab); m.metalness = 0.55; m.roughness = 0.4; m.bumpScale = 0.5; SKIN.set(M, m); } return SKIN.get(M); };
-export function wasp(M, f) {
+export function raider(M, f) {
   const g = grp(), body = grp(), H = skin(M);
   body.position.y = 16;
   const burn = f % 2;
@@ -384,7 +384,7 @@ export const UNIT_MODELS = {
   vanguard: { build: vanguard, frames: 4, r: 26, h: 24 },
   lancer: { build: lancer, frames: 4, r: 18, h: 18 },
   medic: { build: medic, frames: 4, r: 18, h: 16 },
-  wasp: { build: wasp, frames: 2, r: 24, h: 26 }, // (r: the exhaust glow reaches 23.5 behind)
+  raider: { build: raider, frames: 2, r: 24, h: 26 }, // (r: the exhaust glow reaches 23.5 behind)
   observer: { build: observer, frames: 2, r: 13, h: 26 },
   bastion: { build: bastion, frames: 2, r: 36, h: 38 },
   siegeTank: { build: siegeTank, frames: 4, r: 35, h: 30 },

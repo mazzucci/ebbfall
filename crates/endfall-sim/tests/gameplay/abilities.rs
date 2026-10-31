@@ -333,7 +333,7 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
         let us: Vec<Id> = (0..n)
             .map(|i| {
                 w.make_unit(
-                    UnitKind::Wasp,
+                    UnitKind::Raider,
                     PLAYER,
                     20.0 * TILE,
                     (28.0 + 2.0 * i as f64) * TILE,
@@ -348,7 +348,7 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
         let (slow, fast) = (travel(false, n), travel(true, n));
         assert!(
             fast > slow * 1.25,
-            "Afterburners, {n} Wasps: {fast} vs {slow}"
+            "Afterburners, {n} Raiders: {fast} vs {slow}"
         );
     }
 }

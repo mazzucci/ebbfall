@@ -165,9 +165,9 @@ pub fn duel_with(a: &[UnitKind], b: &[UnitKind], budget: f64, micro: Micro) -> f
     r[1]
 }
 
-/// `wasps` raid a mineral line of 8 mining harvesters (hunting harvesters like the AI's raiders), guarded by
-/// `turrets` and `troopers`; returns (harvesters lost, wasps lost) after 40 s.
-pub fn raid(wasps: usize, turrets: usize, troopers: usize) -> (usize, usize) {
+/// `raiders` raid a mineral line of 8 mining harvesters (hunting harvesters like the AI's raiders), guarded by
+/// `turrets` and `troopers`; returns (harvesters lost, raiders lost) after 40 s.
+pub fn raid(raiders: usize, turrets: usize, troopers: usize) -> (usize, usize) {
     let mut w = World::new(7, 1);
     w.disable_ai();
     let (cx, cy) = core(&w, PLAYER);
@@ -212,10 +212,10 @@ pub fn raid(wasps: usize, turrets: usize, troopers: usize) -> (usize, usize) {
         w.hold_unit(t);
     }
     run(&mut w, 8);
-    let ws: Vec<Id> = (0..wasps)
+    let ws: Vec<Id> = (0..raiders)
         .map(|k| {
             w.make_unit(
-                UnitKind::Wasp,
+                UnitKind::Raider,
                 ENEMY,
                 nx + 500.0,
                 ny - 300.0 + k as f64 * 25.0,

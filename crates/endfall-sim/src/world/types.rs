@@ -259,6 +259,9 @@ pub enum Event {
         ty: f64,
         /// A Halo mending shields (a Medic healing otherwise).
         mend: bool,
+        /// The seats that see both the healer and its patient, bit `t` for seat `t` (as `Fire::seen`): a cloaked
+        /// patient's mend is not shown where it is not detected.
+        seen: u8,
     },
     Sfx {
         team: u8,

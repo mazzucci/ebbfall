@@ -7,6 +7,8 @@ use super::*;
 /// expansion.
 const SECOND_PRONG_GAP: f64 = 15.0 * TILE;
 const GUARDS: usize = 3;
+/// An enemy detector within this many px of an enemy fighter goes with the enemy's army.
+const DETECTOR_WITH_ARMY: f64 = 8.0 * TILE;
 
 /// The longest the guided first game holds the opponent's waves back (s).
 pub const HOLD_WAVES_MAX: f64 = 360.0;
@@ -207,6 +209,22 @@ impl World {
             .filter(|u| u.team == e && u.kind == self.factions[e as usize].ai.anti_air)
             .count();
 
+        // An enemy field detector (a unit that detects, not a tower at home) seen beside enemy fighters: its army
+        // carries detection, so its cloaked fighters would be found (`cloak_ratio`).
+        if !self.ai().detector_seen
+            && self.units.iter().any(|d| {
+                self.hostile(d.team)
+                    && d.kind.def().detect > 0.0
+                    && self.ai_sees_unit(d)
+                    && self.units.iter().any(|f| {
+                        self.hostile(f.team)
+                            && f.kind.def().threat()
+                            && dist(f.x, f.y, d.x, d.y) < DETECTOR_WITH_ARMY
+                    })
+            })
+        {
+            self.ai_mut().detector_seen = true;
+        }
         brain.intruder = intruder;
         brain.raid = raid;
         brain.enemy_air = enemy_air;

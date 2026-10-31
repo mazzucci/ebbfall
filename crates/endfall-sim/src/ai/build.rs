@@ -424,6 +424,11 @@ impl World {
         if detector_at.is_none() {
             self.ai_mut().cloak_hit = None;
         }
+        // Hit by something unseen while its field detector comes from its air factory (the Humans' Observer): that
+        // factory is due now, on a level that raises one at all.
+        let detector_air = self.ai().unseen_hit
+            && f.field_detector()
+                .is_some_and(|k| s.air.def().trains.contains(&k));
         let want = if relight.is_some()
             || (cap - used <= supply_margin && cap < 200 && supply_rising < d.supply_at_once)
         {
@@ -468,7 +473,8 @@ impl World {
         // (the rules let air follow the first factory; this AI chooses ground tech first)
         } else if self.ai_count(&my_b, true, s.tech) >= 1
             && self.ai_count(&my_b, false, s.air) == 0
-            && t > d.air_at - s.air_lead
+            && d.air_at < NEVER
+            && (t > d.air_at - s.air_lead || detector_air)
         {
             Some(s.air)
         } else {

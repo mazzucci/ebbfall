@@ -323,3 +323,99 @@ fn a_halo_detects_cloaked_units_near_it() {
     assert_eq!(VAEL.field_detector(), Some(UnitKind::Halo));
     assert_eq!(HUMANS.field_detector(), Some(UnitKind::Observer));
 }
+
+#[test]
+fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
+    // The Vael's shadow blade carries the Observer's permanent cloak on a fighter: Troopers can neither see nor shoot
+    // it while it cuts them down, and the hit is told as an unseen one. An Observer over them reveals it: it is shot.
+    let mut w = flat_arena(14);
+    w.factions = vec![&HUMANS, &VAEL];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x, y);
+    w.hold_unit(trooper);
+    let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x + 3.0 * TILE, y);
+    w.step();
+    assert!(World::is_cloaked(U(&w, umbra)), "cloaked with no ability");
+    assert!(!w.seen_by(PLAYER, umbra), "unseen in plain sight");
+    w.attack_ent(trooper, umbra);
+    assert!(
+        !matches!(U(&w, trooper).task, Task::Attack { .. }),
+        "an order to attack it is refused"
+    );
+    w.attack_ent(umbra, trooper);
+    let mut unseen = 0;
+    for _ in 0..8 * TPS {
+        w.step();
+        for e in w.events.drain(..) {
+            if let endfall_sim::world::Event::Attacked {
+                team: PLAYER,
+                unseen: true,
+                ..
+            } = e
+            {
+                unseen += 1;
+            }
+        }
+    }
+    assert!(w.unit(trooper).is_none(), "the Trooper fell");
+    assert_eq!(unseen, 1, "told once that something unseen attacks");
+    let u = U(&w, umbra);
+    assert_eq!((u.hp, u.sh), (u.maxhp, u.maxsh), "untouched");
+    // Four Troopers with an Observer over them: detected, and shot as it closes in.
+    let troopers: Vec<Id> = (0..4)
+        .map(|k| w.make_unit(UnitKind::Trooper, PLAYER, x, y + (k as f64 - 1.5) * 20.0))
+        .collect();
+    let obs = w.make_unit(UnitKind::Observer, PLAYER, x, y);
+    w.hold_unit(obs);
+    w.step();
+    assert!(w.seen_by(PLAYER, umbra), "an Observer detects it");
+    w.attack_ent(umbra, troopers[0]);
+    run(&mut w, 6);
+    assert!(
+        w.unit(umbra).is_none_or(|u| u.sh < u.maxsh),
+        "detected, it is shot"
+    );
+}
+
+#[test]
+fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
+    // A Halo mends an Umbra's shields in the player's sight: the Halo is seen, the Umbra is not, so the mend's
+    // light (which runs from one to the other) is not shown to the player; once an Observer detects the Umbra, it is.
+    let mut w = flat_arena(14);
+    w.factions = vec![&HUMANS, &VAEL];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x - 6.5 * TILE, y);
+    let halo = w.make_unit(UnitKind::Halo, ENEMY, x, y + TILE);
+    let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x, y);
+    for u in [trooper, halo, umbra] {
+        w.hold_unit(u);
+    }
+    let mends = |w: &mut World, secs: u32| -> Vec<u8> {
+        w.units.iter_mut().find(|u| u.id == umbra).unwrap().sh = 0.0;
+        let mut seen = Vec::new();
+        for _ in 0..secs * TPS {
+            w.step();
+            for e in w.events.drain(..) {
+                if let endfall_sim::world::Event::Heal { seen: s, .. } = e {
+                    seen.push(s);
+                }
+            }
+        }
+        seen
+    };
+    let seen = mends(&mut w, 2);
+    assert!(w.seen_by(PLAYER, halo) && !w.seen_by(PLAYER, umbra));
+    assert!(!seen.is_empty(), "the Halo mends the Umbra");
+    assert!(
+        seen.iter()
+            .all(|s| s & 1 << PLAYER == 0 && s & 1 << ENEMY != 0),
+        "its own side sees the mend, the player does not: {seen:?}"
+    );
+    let obs = w.make_unit(UnitKind::Observer, PLAYER, x - 2.0 * TILE, y);
+    w.hold_unit(obs);
+    let seen = mends(&mut w, 2);
+    assert!(
+        seen.iter().any(|s| s & 1 << PLAYER != 0),
+        "detected: the mend shows ({seen:?})"
+    );
+}

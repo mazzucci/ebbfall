@@ -72,7 +72,7 @@ impl World {
         }
     }
 
-    /// Whether unit `u` is cloaked: always (an Observer), or for now (a Cloak or Veil running).
+    /// Whether unit `u` is cloaked: always (an Observer, an Umbra), or for now (a Cloak or Veil running).
     pub fn is_cloaked(u: &Unit) -> bool {
         u.kind.def().cloaked
             || u.boost

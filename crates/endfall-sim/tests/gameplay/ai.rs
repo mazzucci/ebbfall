@@ -1772,3 +1772,86 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
     }
     const { assert!(VAEL.ai.air_lead > HUMANS.ai.air_lead) };
 }
+
+#[test]
+fn the_vael_ai_mixes_in_umbras_once_its_loom_stands_but_not_on_easy() {
+    // Money to spare against an idle Human player: from 5:00, with its Loom up, the Vael AI's Kilns mix in Umbras
+    // (one per six Scythes until it sees detection with the enemy army). Easy, which does not adapt, never fields an
+    // unseen killer.
+    for (diff, want) in [(1, true), (2, true), (0, false)] {
+        let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let mut first = None;
+        while w.time < 480.0 && first.is_none() {
+            w.res[ENEMY as usize] = [2000, 1000];
+            w.step();
+            w.events.clear();
+            first = (count(&w, ENEMY, UnitKind::Umbra) > 0).then_some(w.time);
+        }
+        assert_eq!(
+            first.is_some(),
+            want,
+            "level {diff}: Umbras by 8:00 ({first:?})"
+        );
+        if let Some(t) = first {
+            assert!(t > 300.0, "level {diff}: not before 5:00 ({t:.0} s)");
+        }
+    }
+}
+
+#[test]
+fn the_human_ai_raises_its_airfield_and_an_observer_once_an_umbra_hits_it() {
+    // An Umbra cuts at the Human AI's army in the field at 4:00, before its Airfield is due (5:30 on Medium): the hit
+    // brings the Airfield forward and an Observer goes out with its army, so Umbras do not farm it all game.
+    let mut w = World::new(9, 1);
+    for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        (b.hp, b.maxhp) = (1e9, 1e9);
+    }
+    let step = |w: &mut World| {
+        w.res[ENEMY as usize] = [2000, 1000];
+        w.step();
+        w.events.clear();
+    };
+    while w.time < 240.0 {
+        step(&mut w);
+    }
+    let airfield = |w: &World| {
+        w.bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.kind == BldgKind::Airfield)
+    };
+    assert!(!airfield(&w), "no Airfield yet at 4:00");
+    let (px, py) = core(&w, PLAYER);
+    let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
+    w.hold_unit(trooper);
+    let umbra = w.make_unit(UnitKind::Umbra, PLAYER, x + 40.0, y);
+    for _ in 0..3 * TPS {
+        if w.unit(trooper).is_some() {
+            w.attack_ent(umbra, trooper);
+        }
+        step(&mut w);
+    }
+    assert!(
+        w.unit(trooper).is_none_or(|t| t.hp < t.maxhp),
+        "the Umbra hit it"
+    );
+    w.damage(umbra, 1e6, None);
+    let mut placed = None;
+    let mut observer = None;
+    while w.time < 480.0 && observer.is_none() {
+        step(&mut w);
+        if placed.is_none() && airfield(&w) {
+            placed = Some(w.time);
+        }
+        observer = (count(&w, ENEMY, UnitKind::Observer) >= 1).then_some(w.time);
+    }
+    let placed = placed.expect("an Airfield");
+    assert!(
+        placed < DIFF[1].air_at,
+        "the Airfield before its schedule ({placed:.0} s)"
+    );
+    assert!(observer.is_some(), "an Observer by 8:00");
+}

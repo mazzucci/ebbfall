@@ -72,7 +72,8 @@ impl World {
             };
             // The main factory answers enemy flyers, then each factory mixes in the specialists it trains by ratio
             // (each once its requirement stands: a Vanguard per two Troopers once the Forge stands beats massed
-            // infantry). Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
+            // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges). Ether piling up (the
+            // line unit costs none) halves the ratios: spend it on specialists.
             let floating = self.res[e as usize][1] >= ETHER_FLOAT;
             let heavy = s.heavy == Some(b.kind);
             let mixed = s.mix.iter().find(|&&(k, per, from)| {
@@ -114,8 +115,13 @@ impl World {
                 k
             } else if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
                 s.anti_air
-            } else if (b.kind == s.rax || heavy)
-                && let Some(&(k, _, _)) = mixed
+            } else if let Some(&(k, _, _)) = mixed
+                && (b.kind == s.rax
+                    || heavy
+                    // (the air factory takes turns: a mixed-in unit (the Vael's Umbra), then a raider, until its
+                    // raiders are all out: neither starves the other)
+                    || (b.kind == s.air
+                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)))
             {
                 k
             } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {

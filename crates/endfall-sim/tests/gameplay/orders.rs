@@ -221,6 +221,75 @@ fn medics_and_vehicles_need_a_forge_and_an_airfield_or_a_factory_a_garrison() {
 }
 
 #[test]
+fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_shrike_techs() {
+    // The Vael tech tree: Kiln, then the Loom (Weapons, Shields, Overcharge Core) and the Zenith (the advanced hover
+    // units: Shrike, Umbra, Sovereign; it researches nothing), then the Eclipse after the Loom (Veil Weave and
+    // Slipstream, moved there, and the Umbra's requirement). The Umbra stays a ground unit: only flyers are `air`.
+    let mut w = rich_vael(11);
+    flatten(&mut w, 12..52, 12..52);
+    for tx in [20, 26, 32] {
+        w.make_building(BldgKind::Spire, PLAYER, tx, 26, true);
+    }
+    let kiln = w.make_building(BldgKind::Kiln, PLAYER, 20, 30, true);
+    let zenith = w.make_building(BldgKind::Zenith, PLAYER, 24, 30, true);
+    w.step(); // (powered)
+    assert!(w.bldg(zenith).unwrap().powered);
+    assert_eq!(
+        BldgKind::Kiln.def().trains,
+        &[
+            UnitKind::Scythe,
+            UnitKind::Prism,
+            UnitKind::Monolith,
+            UnitKind::Halo
+        ]
+    );
+    assert_eq!(
+        BldgKind::Zenith.def().trains,
+        &[UnitKind::Shrike, UnitKind::Umbra, UnitKind::Sovereign]
+    );
+    assert!(BldgKind::Zenith.def().researches.is_empty());
+    assert_eq!(BldgKind::Eclipse.def().req, Some(BldgKind::Loom));
+    assert_eq!(UnitKind::Umbra.def().req, Some(BldgKind::Eclipse));
+    assert!(!UnitKind::Umbra.def().air, "a ground unit");
+    assert!(VAEL.builds(BldgKind::Eclipse) && !HUMANS.builds(BldgKind::Eclipse));
+    assert_eq!(
+        w.queue_unit(kiln, UnitKind::Umbra),
+        Err("Kiln cannot train that".into())
+    );
+    assert_eq!(
+        w.queue_unit(zenith, UnitKind::Umbra),
+        Err("Requires Eclipse".into())
+    );
+    let (tx, ty) = (32, 30);
+    assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "the Eclipse waits for the Loom");
+    let loom = w.make_building(BldgKind::Loom, PLAYER, 28, 30, true);
+    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
+    assert_eq!(
+        w.queue_unit(zenith, UnitKind::Umbra),
+        Err("Requires Eclipse".into()),
+        "the Loom alone unlocks no Umbra"
+    );
+    let eclipse = w.make_building(BldgKind::Eclipse, PLAYER, tx, ty, true);
+    w.step();
+    assert!(w.bldg(eclipse).unwrap().powered);
+    // The research moved: refused at the Loom and the Zenith, taken at the Eclipse.
+    for (at, up) in [(loom, Upgrade::VeilWeave), (zenith, Upgrade::Slipstream)] {
+        assert_eq!(
+            w.start_research(at, up),
+            Err("Research happens at a finished Eclipse".into()),
+            "{up:?}"
+        );
+    }
+    assert!(w.start_research(loom, Upgrade::OverchargeCore).is_ok());
+    assert!(w.start_research(eclipse, Upgrade::VeilWeave).is_ok());
+    assert!(w.start_research(eclipse, Upgrade::Slipstream).is_err(), "one at a time");
+    assert!(w.queue_unit(zenith, UnitKind::Umbra).is_ok());
+    let before = count(&w, PLAYER, UnitKind::Umbra);
+    run(&mut w, 40);
+    assert_eq!(count(&w, PLAYER, UnitKind::Umbra), before + 1, "trained");
+}
+
+#[test]
 fn units_sent_onto_a_building_stop_beside_it() {
     let mut w = arena(15);
     let core = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().clone(); // our own: nothing to attack

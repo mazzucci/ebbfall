@@ -14,7 +14,12 @@ pub const VAEL: Faction = Faction {
         BldgKind::Siphon,
         BldgKind::Ward,
     ],
-    build_advanced: &[BldgKind::Loom, BldgKind::Zenith, BldgKind::Conflux],
+    build_advanced: &[
+        BldgKind::Loom,
+        BldgKind::Zenith,
+        BldgKind::Conflux,
+        BldgKind::Eclipse,
+    ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
     power: Some(BldgKind::Spire),
@@ -24,6 +29,7 @@ pub const VAEL: Faction = Faction {
     ai: AiScript {
         rax: BldgKind::Kiln,
         tech: BldgKind::Loom,
+        tech2: Some(BldgKind::Eclipse),
         tower: BldgKind::Ward,
         air: BldgKind::Zenith,
         heavy: None,
@@ -33,7 +39,7 @@ pub const VAEL: Faction = Faction {
             (UnitKind::Prism, 1, 0.0),
             (UnitKind::Monolith, 3, 0.0),
             (UnitKind::Halo, 6, 0.0),
-            // (an Umbra per six Scythes from 5:00, after the Halos (the army's detector), until it has seen an enemy
+            // (an Umbra per six Scythes from 5:00, from its Zenith once its Eclipse stands, until it has seen an enemy
             // detector with the enemy army: `World::cloak_ratio`)
             (UnitKind::Umbra, 6, 300.0),
         ],
@@ -128,6 +134,8 @@ pub(super) const HALO: UnitDef = UnitDef {
 };
 /// The Umbra: a blade of folded shadow, always cloaked (as the Observer is): seen and struck only where the other side
 /// detects. It walks under a siege line's blind ring and through its screen unseen; detected, it is a costly Scythe.
+/// Trained at the Zenith (an advanced hover unit, as the Sovereign is) once an Eclipse stands; a ground unit all the
+/// same.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Umbra",
@@ -140,7 +148,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     sight: 8.0,
     r: 10.0,
     build: 30.0,
-    req: Some(BldgKind::Loom),
+    req: Some(BldgKind::Eclipse),
     cloaked: true,
     weapon: Some(Weapon {
         range: 0.9,
@@ -284,7 +292,6 @@ pub(super) const KILN: BldgDef = BldgDef {
         UnitKind::Prism,
         UnitKind::Monolith,
         UnitKind::Halo,
-        UnitKind::Umbra,
     ],
     needs_power: true,
     ..BLDG
@@ -302,7 +309,6 @@ pub(super) const LOOM: BldgDef = BldgDef {
         Upgrade::Weapons,
         Upgrade::Shields,
         Upgrade::OverchargeCore,
-        Upgrade::VeilWeave,
     ],
     needs_power: true,
     ..BLDG
@@ -339,9 +345,24 @@ pub(super) const ZENITH: BldgDef = BldgDef {
     shields: 300.0,
     build: 55.0,
     sight: 8.0,
-    trains: &[UnitKind::Shrike, UnitKind::Sovereign],
+    // (the advanced hover units: the flyer, the cloaked blade (once an Eclipse stands) and the capital barge)
+    trains: &[UnitKind::Shrike, UnitKind::Umbra, UnitKind::Sovereign],
     req: Some(BldgKind::Kiln), // (air is a branch of its own, beside the ground tech)
-    researches: &[Upgrade::Slipstream],
+    needs_power: true,
+    ..BLDG
+};
+/// The Eclipse (shadow tech, after the Loom): where light is hidden. The Lumen is the Vael's light, the Umbra its
+/// shadow; the Eclipse unlocks the Umbra (trained at the Zenith) and weaves the flyers' shadow techs.
+pub(super) const ECLIPSE: BldgDef = BldgDef {
+    key: "eclipse",
+    name: "Eclipse",
+    cost: [150, 150],
+    hp: 500.0,
+    shields: 300.0,
+    build: 50.0,
+    sight: 7.0,
+    req: Some(BldgKind::Loom),
+    researches: &[Upgrade::VeilWeave, Upgrade::Slipstream],
     needs_power: true,
     ..BLDG
 };

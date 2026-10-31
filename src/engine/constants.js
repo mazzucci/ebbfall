@@ -58,10 +58,12 @@ const BLDG_TEXT = {
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
-  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths, Halos and Umbras (all but Scythes and Prisms need a Loom). With its rally point in a power field, they warp in there.' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths, Halos and Umbras.' },
+  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths and Halos (Monoliths and Halos need a Loom). With its rally point in a power field, they warp in there.' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades and Overcharge Core; unlocks Monoliths and Halos.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
+  zenith: { hot: 'Z', desc: 'Launches Shrikes, sends out cloaked Umbras and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
+  // (its name is the sim's, vael.rs: the words here never repeat it)
+  eclipse: { hot: 'I', desc: 'Where the Vael hide their light. Unlocks the Umbra (sent out from the Zenith) and weaves the Shrikes\' Veil Weave and Slipstream.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
   afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };

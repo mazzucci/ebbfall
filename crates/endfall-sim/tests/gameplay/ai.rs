@@ -1774,29 +1774,73 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
 }
 
 #[test]
-fn the_vael_ai_mixes_in_umbras_once_its_loom_stands_but_not_on_easy() {
-    // Money to spare against an idle Human player: from 5:00, with its Loom up, the Vael AI's Kilns mix in Umbras
-    // (one per six Scythes until it sees detection with the enemy army). Easy, which does not adapt, never fields an
-    // unseen killer.
+fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_but_not_on_easy() {
+    // Money to spare against an idle Human player: once its Zenith is going up and Umbras are near (5:00), the Vael
+    // AI raises an Eclipse (after its Loom; its Zenith comes from 4:30 to 6:15 here, so its Umbras by 10:00), and its Zenith mixes in Umbras (one per six Scythes until it sees
+    // detection with the enemy army) between its Shrikes and its Sovereign: the one building shares its time, so
+    // each still comes, and the Eclipse weaves the Shrikes' techs. Easy, which neither adapts nor researches techs,
+    // raises no Eclipse and never fields an unseen killer.
     for (diff, want) in [(1, true), (2, true), (0, false)] {
         let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
-        let mut first = None;
-        while w.time < 480.0 && first.is_none() {
+        let (mut first, mut eclipse) = (None, None);
+        let end = if want { 660.0 } else { 600.0 };
+        let made = |w: &World, k: UnitKind| {
+            count(w, ENEMY, k)
+                + w.bldgs
+                    .iter()
+                    .filter(|b| b.team == ENEMY)
+                    .flat_map(|b| b.queue.iter())
+                    .filter(|&&q| q == k)
+                    .count()
+        };
+        let stands = |w: &World, k: BldgKind| {
+            w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == k && b.done)
+        };
+        while w.time < end {
             w.res[ENEMY as usize] = [2000, 1000];
             w.step();
             w.events.clear();
-            first = (count(&w, ENEMY, UnitKind::Umbra) > 0).then_some(w.time);
+            if eclipse.is_none() && stands(&w, BldgKind::Eclipse) {
+                eclipse = Some(w.time);
+                assert!(stands(&w, BldgKind::Loom), "level {diff}: after its Loom");
+            }
+            if first.is_none() && count(&w, ENEMY, UnitKind::Umbra) > 0 {
+                first = Some(w.time);
+            }
         }
         assert_eq!(
-            first.is_some(),
+            eclipse.is_some(),
             want,
-            "level {diff}: Umbras by 8:00 ({first:?})"
+            "level {diff}: an Eclipse ({eclipse:?})"
+        );
+        assert_eq!(
+            first.is_some_and(|t| t < 600.0),
+            want,
+            "level {diff}: Umbras by 10:00 ({first:?}, the Eclipse at {eclipse:?})"
         );
         if let Some(t) = first {
             assert!(t > 300.0, "level {diff}: not before 5:00 ({t:.0} s)");
+        }
+        if want {
+            for k in [UnitKind::Shrike, UnitKind::Sovereign] {
+                assert!(
+                    made(&w, k) >= 1,
+                    "level {diff}: the Zenith still makes its {k:?} by 11:00"
+                );
+            }
+            let techs = w.upgrades[ENEMY as usize];
+            assert!(
+                techs[Upgrade::VeilWeave.index()] + techs[Upgrade::Slipstream.index()] >= 1
+                    || w.bldgs.iter().any(|b| b.team == ENEMY
+                        && b.kind == BldgKind::Eclipse
+                        && b.research.is_some()),
+                "level {diff}: the Eclipse weaves a Shrike tech by 11:00"
+            );
         }
     }
 }

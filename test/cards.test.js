@@ -94,6 +94,13 @@ for (const race of ['humans', 'vael']) {
       }
       assert.equal(new Set(shown.map(i => i.key)).size, shown.length, `${what}: no key twice (${shown.map(i => i.label + ' ' + i.key).join(', ')})`);
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
+      // A building's card and a Build page keep two rows (the Kiln's four units, Rally and Cancel; the Zenith's three),
+      // and their letters (CLASSIC) are each one button's.
+      if (/, techs \d+, |, Build(: Advanced)?$/.test(what)) {
+        assert.ok(Math.max(...shown.map(i => i.slot)) <= 5, `${what}: two rows at most (${shown.map(i => i.label + ' ' + i.slot).join(', ')})`);
+        const letters = items.map(i => i.key).filter(k => k && k !== 'Esc');
+        assert.equal(new Set(letters).size, letters.length, `${what}: no CLASSIC key twice (${items.map(i => i.label + ' ' + i.key).join(', ')})`);
+      }
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
       // A toggle's button names its action, never lit (a timed ability is, while it runs); the retired Entrench is gone.

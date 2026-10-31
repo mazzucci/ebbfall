@@ -77,6 +77,9 @@ impl World {
             let heavy = s.heavy == Some(b.kind);
             let mixed = s.mix.iter().find(|&&(k, per, from)| {
                 let per = self.answer_ratio(k, if floating { per.div_ceil(2) } else { per });
+                let Some(per) = self.cloak_ratio(k, per) else {
+                    return false;
+                };
                 b.kind.def().trains.contains(&k)
                     && t >= from
                     && k.def()
@@ -183,6 +186,29 @@ impl World {
         (have < CAPITAL_AT.iter().filter(|&&at| t > at).count()).then_some(k)
     }
 
+    /// A mix ratio (one `k` per `per` line units) for an always-cloaked fighter (the Umbra), by how the last ones
+    /// fared (`Ai::cloak_paid`): as scripted while they have paid for themselves (what they killed is worth at least
+    /// what was lost: the enemy has not brought detection to them), half as many while they are behind by less than
+    /// two of them, then none (they keep dying where the enemy detects). None on a level that does not adapt (Easy:
+    /// an unseen killer is no lesson for a beginner). Any other unit: `per` as it is.
+    pub(crate) fn cloak_ratio(&self, k: UnitKind, per: usize) -> Option<usize> {
+        if !k.cloaked_fighter() {
+            return Some(per);
+        }
+        if !self.level().answers {
+            return None;
+        }
+        let (paid, cost) = (self.ai().cloak_paid, k.def().cost);
+        let worth = (cost[0] + cost[1]) as f64;
+        if paid >= 0.0 {
+            Some(per)
+        } else if paid > -2.0 * worth {
+            Some(per * 2)
+        } else {
+            None
+        }
+    }
+
     /// A mix ratio (one `k` per `per` line units) answered to what the enemy fields: a splashing specialist comes
     /// twice as often against massed infantry (8+ seen), half as often against heavies (4+) with little infantry.
     pub(crate) fn answer_ratio(&self, k: UnitKind, per: usize) -> usize {
@@ -228,5 +254,57 @@ mod tests {
             4,
             "fewer heavies against heavies"
         );
+    }
+
+    #[test]
+    fn umbras_come_while_they_pay_and_stop_once_they_keep_dying() {
+        // The ledger: an Umbra's kill earns what it killed is worth; an Umbra lost costs its price (225). The ratio:
+        // as scripted while the ledger is even or ahead, halved behind by less than two Umbras, none further behind,
+        // and none at all on Easy. Other units keep theirs.
+        let mut w = World::with_setup(
+            17,
+            1,
+            crate::map::MapKind::Standard,
+            false,
+            [&HUMANS, &VAEL],
+        );
+        w.ai_turn = ENEMY;
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4));
+        assert_eq!(w.cloak_ratio(UnitKind::Monolith, 3), Some(3));
+        let (x, y) = (30.0 * TILE, 30.0 * TILE);
+        let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x, y);
+        let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x + 20.0, y);
+        w.damage(trooper, 1e6, Some(umbra));
+        let trooper_worth =
+            (UnitKind::Trooper.def().cost[0] + UnitKind::Trooper.def().cost[1]) as f64;
+        assert_eq!(w.ai().cloak_paid, trooper_worth, "a kill earns");
+        let depot = w.make_building(BldgKind::Depot, PLAYER, 20, 20, true);
+        w.damage(depot, 1e6, Some(umbra));
+        assert_eq!(
+            w.ai().cloak_paid,
+            trooper_worth + 100.0,
+            "a building razed too"
+        );
+        w.ai_mut().cloak_paid = trooper_worth;
+        let shooter = w.make_unit(UnitKind::Trooper, PLAYER, x + 20.0, y);
+        w.damage(umbra, 1e6, Some(shooter));
+        assert_eq!(w.ai().cloak_paid, trooper_worth - 225.0, "a loss costs");
+        assert_eq!(
+            w.cloak_ratio(UnitKind::Umbra, 4),
+            Some(8),
+            "behind: half as many"
+        );
+        w.ai_mut().cloak_paid = -450.0;
+        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), None, "two behind: none");
+        assert_eq!(w.cloak_ratio(UnitKind::Monolith, 3), Some(3));
+        let mut easy = World::with_setup(
+            17,
+            0,
+            crate::map::MapKind::Standard,
+            false,
+            [&HUMANS, &VAEL],
+        );
+        easy.ai_turn = ENEMY;
+        assert_eq!(easy.cloak_ratio(UnitKind::Umbra, 4), None, "never on Easy");
     }
 }

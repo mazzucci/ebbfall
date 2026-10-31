@@ -33,6 +33,9 @@ pub const VAEL: Faction = Faction {
             (UnitKind::Prism, 1, 0.0),
             (UnitKind::Monolith, 3, 0.0),
             (UnitKind::Halo, 6, 0.0),
+            // (an Umbra per four Scythes from 5:00, after the Halos (the army's detector), fewer and then none once
+            // they keep dying where the enemy detects: `World::cloak_ratio`)
+            (UnitKind::Umbra, 4, 300.0),
         ],
         raider: UnitKind::Shrike,
         wave_scale: 0.6,
@@ -121,6 +124,32 @@ pub(super) const HALO: UnitDef = UnitDef {
     mend: true,
     req: Some(BldgKind::Loom),
     detect: 5.0, // (the Vael's detector in the field: its army's eyes)
+    ..UNIT
+};
+/// The Umbra: a blade of folded shadow, always cloaked (as the Observer is): seen and struck only where the other side
+/// detects. It walks under a siege line's blind ring and through its screen unseen; detected, it is a costly Scythe.
+pub(super) const UMBRA: UnitDef = UnitDef {
+    key: "umbra",
+    name: "Umbra",
+    cost: [125, 100],
+    supply: 2,
+    hp: 60.0,
+    shields: 60.0,
+    armor: 1.0,
+    speed: 95.0,
+    sight: 8.0,
+    r: 10.0,
+    build: 30.0,
+    req: Some(BldgKind::Loom),
+    cloaked: true,
+    weapon: Some(Weapon {
+        range: 0.9,
+        dmg: 32.0,
+        cd: 1.2,
+        melee: true,
+        up_dmg: 3.0,
+        ..W
+    }),
     ..UNIT
 };
 /// The Vael capital barge: a great shell gliding low, whose beam splashes the ground from far off; it cannot hit flyers.
@@ -255,6 +284,7 @@ pub(super) const KILN: BldgDef = BldgDef {
         UnitKind::Prism,
         UnitKind::Monolith,
         UnitKind::Halo,
+        UnitKind::Umbra,
     ],
     needs_power: true,
     ..BLDG

@@ -57,26 +57,30 @@ fn flyers_cross_cliffs_in_a_straight_line() {
 
 #[test]
 fn ground_only_weapons_cannot_touch_flyers() {
-    let mut w = arena(7);
-    let van = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
-    let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 680.0, 900.0);
-    w.attack_ent(van, wasp);
-    assert_eq!(
-        w.unit(van).unwrap().task,
-        Task::Idle,
-        "an order to shoot a flyer is refused"
-    );
-    w.hold_unit(wasp); // the wasp just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
-    run(&mut w, 8);
-    let v = w.unit(van).unwrap();
-    assert!(
-        !matches!(v.task, Task::Attack { .. }),
-        "the vanguard neither auto-targets nor retaliates against the wasp"
-    );
-    assert!(
-        w.unit(wasp).is_some_and(|u| u.hp == u.maxhp),
-        "and never hurts it"
-    );
+    // A Vanguard's shells and an Umbra's blade (melee: the Vael's cloaked blade is useless against air).
+    for kind in [UnitKind::Vanguard, UnitKind::Umbra] {
+        let mut w = arena(7);
+        let van = w.make_unit(kind, PLAYER, 600.0, 900.0);
+        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, 680.0, 900.0);
+        assert!(!w.can_hit(van, wasp), "{kind:?} cannot hit a flyer");
+        w.attack_ent(van, wasp);
+        assert_eq!(
+            w.unit(van).unwrap().task,
+            Task::Idle,
+            "{kind:?}: an order to hit a flyer is refused"
+        );
+        w.hold_unit(wasp); // the wasp just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
+        run(&mut w, 8);
+        let v = w.unit(van).unwrap();
+        assert!(
+            !matches!(v.task, Task::Attack { .. }),
+            "{kind:?} neither auto-targets nor retaliates against the wasp"
+        );
+        assert!(
+            w.unit(wasp).is_some_and(|u| u.hp == u.maxhp),
+            "{kind:?} never hurts it"
+        );
+    }
 }
 
 #[test]

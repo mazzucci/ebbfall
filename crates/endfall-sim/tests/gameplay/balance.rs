@@ -399,3 +399,56 @@ fn siege_line_once(
     }
     alive(&w, &line) / spent_a - alive(&w, &foes) / spent_b
 }
+
+#[test]
+fn the_umbra_wins_where_it_is_not_detected_and_loses_the_money_where_it_is() {
+    // The Vael's cloaked blade is binary by design (the 2026-10-30 balance study): it cuts down any ground army that
+    // brings no detector, the siege line included, and is a costly melee unit once an Observer or a Halo finds it; it
+    // cannot touch flyers (nor they it, unseen). Measured: +1.00 undetected; -0.81 / -0.85 against Troopers with an
+    // Observer, -0.60 / -0.83 with a tank too, -0.75 against Prisms with a Halo; 0.00 against Wasps.
+    use UnitKind::*;
+    let range = |name: &str, v: f64, lo: f64, hi: f64| {
+        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
+    };
+    let tank_line: &[UnitKind] = &[Trooper, Trooper, Trooper, Trooper, SiegeTank];
+    let seen_line: &[UnitKind] = &[Trooper, Trooper, Trooper, Trooper, SiegeTank, Observer];
+    for budget in [2200.0, 4400.0] {
+        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
+        range("Umbra v Trooper", d(&[Umbra], &[Trooper]), 0.9, 1.0);
+        range("Umbra v Trooper+Tank", d(&[Umbra], tank_line), 0.9, 1.0);
+        range(
+            "Umbra v Trooper+Vanguard+Medic",
+            d(&[Umbra], &[Trooper, Trooper, Trooper, Vanguard, Medic]),
+            0.9,
+            1.0,
+        );
+        range(
+            "Umbra v Trooper+Observer",
+            d(&[Umbra], &[Trooper, Trooper, Trooper, Trooper, Observer]),
+            -1.0,
+            -0.5,
+        );
+        range(
+            "Umbra v Trooper+Tank+Observer",
+            d(&[Umbra], seen_line),
+            -1.0,
+            -0.4,
+        );
+        range(
+            "Umbra v Prism+Halo (the mirror)",
+            d(&[Umbra], &[Prism, Prism, Prism, Halo]),
+            -1.0,
+            -0.5,
+        );
+        range("Umbra v Wasp (air)", d(&[Umbra], &[Wasp]), -0.1, 0.1);
+        range(
+            "Scythe+Umbra v Trooper",
+            d(&[Scythe, Scythe, Umbra], &[Trooper]),
+            0.3,
+            1.0,
+        );
+    }
+    // A deployed tank behind a line of Troopers: the Umbras walk through the screen and under the blind ring.
+    let line = siege_line(1, (Trooper, 8), &[Umbra]);
+    assert!(line < -0.5, "an undetected siege line falls: {line:+.2}");
+}

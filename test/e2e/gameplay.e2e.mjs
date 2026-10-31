@@ -2683,6 +2683,50 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
+test('desktop, as the Vael: the Kiln trains an Umbra once a Loom stands (U, or its slot\'s key in WASD); its owner sees it shimmer, the enemy only where it detects', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
+  const { GRID } = await import('../../src/client/controls.js');
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(3000, 2000);
+    await buildAndFinish(d, 's', 'spire', 0, V);
+    const kiln = await buildAndFinish(d, 'k', 'kiln', 1, V);
+    await d.clickEntity(kiln.id);
+    const slot = (await cardKeys(d)).find(([, , l]) => l === 'Umbra');
+    assert.ok(slot, 'the Kiln offers the Umbra');
+    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'locked until a Loom stands');
+    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Scythe', 'Prism', 'Monolith', 'Halo', 'Umbra', 'Cancel', 'Rally'], 'five units, the queue\'s Cancel in its place, Rally below');
+    await buildAndFinish(d, 'l', 'loom', 2, V);
+    await d.clickEntity(kiln.id);
+    await d.readyCard('Umbra');
+    const queue = async () => (await d.state()).bldgs.find(b => b.id === kiln.id).queue;
+    await d.key('u');
+    assert.deepEqual(await queue(), ['umbra'], `U trains an Umbra (toasts: ${(await d.toasts()).join(' | ')})`);
+    // In WASD its key is its slot's.
+    await pickControls(d, 'wasd');
+    await d.clickEntity(kiln.id);
+    const [at, key] = (await cardKeys(d)).find(([, , l]) => l === 'Umbra');
+    assert.equal(key, GRID[at], 'its grid key shown');
+    await d.key(key.toLowerCase());
+    assert.deepEqual(await queue(), ['umbra', 'umbra'], `${key} trains another`);
+    // Its owner sees it as a shimmer of itself.
+    await until(d, async () => mine(await d.state(), 'umbra').length > 0, { seconds: 60, step: 0.5, what: 'the Umbra' });
+    const u = mine(await d.state(), 'umbra')[0];
+    await d.centerOn(u.x, u.y);
+    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown), u.id, { timeout: 10000 });
+    const own = await d.eval((id) => endfall.teamLayers().find(l => l.id === id), u.id);
+    assert.ok(own.alpha > 0.2 && own.alpha < 0.6, `drawn translucent for its owner (${own.alpha})`);
+    // An enemy Umbra beside it: not drawn at all, until a Halo of ours detects it.
+    const foe = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [u.x + 200, u.y]);
+    await d.skip(1);
+    assert.ok(!(await d.eval((id) => endfall.teamLayers().some(l => l.id === id && l.shown), foe)), 'an enemy Umbra is unseen');
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'halo', x, y), [u.x + 180, u.y]);
+    await d.skip(1);
+    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown && l.alpha < 0.6), foe, { timeout: 10000 });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('desktop, WASD controls: a held key is let go when the page loses the keyboard or its keyup has another letter; Esc closes OPTIONS, then the pause card; Shift+key trains five; Ctrl+number keeps a group; a middle drag let go off the map, or under a card, ends; Tab skips what is under OPTIONS', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, init: () => localStorage.setItem('endfall.controls', 'wasd') });
   try {

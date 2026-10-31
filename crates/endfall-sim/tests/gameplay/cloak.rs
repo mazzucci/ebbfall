@@ -323,3 +323,56 @@ fn a_halo_detects_cloaked_units_near_it() {
     assert_eq!(VAEL.field_detector(), Some(UnitKind::Halo));
     assert_eq!(HUMANS.field_detector(), Some(UnitKind::Observer));
 }
+
+#[test]
+fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
+    // The Vael's shadow blade carries the Observer's permanent cloak on a fighter: Troopers can neither see nor shoot
+    // it while it cuts them down, and the hit is told as an unseen one. An Observer over them reveals it: it is shot.
+    let mut w = flat_arena(14);
+    w.factions = vec![&HUMANS, &VAEL];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x, y);
+    w.hold_unit(trooper);
+    let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x + 3.0 * TILE, y);
+    w.step();
+    assert!(World::is_cloaked(U(&w, umbra)), "cloaked with no ability");
+    assert!(!w.seen_by(PLAYER, umbra), "unseen in plain sight");
+    w.attack_ent(trooper, umbra);
+    assert!(
+        !matches!(U(&w, trooper).task, Task::Attack { .. }),
+        "an order to attack it is refused"
+    );
+    w.attack_ent(umbra, trooper);
+    let mut unseen = 0;
+    for _ in 0..8 * TPS {
+        w.step();
+        for e in w.events.drain(..) {
+            if let endfall_sim::world::Event::Attacked {
+                team: PLAYER,
+                unseen: true,
+                ..
+            } = e
+            {
+                unseen += 1;
+            }
+        }
+    }
+    assert!(w.unit(trooper).is_none(), "the Trooper fell");
+    assert_eq!(unseen, 1, "told once that something unseen attacks");
+    let u = U(&w, umbra);
+    assert_eq!((u.hp, u.sh), (u.maxhp, u.maxsh), "untouched");
+    // Four Troopers with an Observer over them: detected, and shot as it closes in.
+    let troopers: Vec<Id> = (0..4)
+        .map(|k| w.make_unit(UnitKind::Trooper, PLAYER, x, y + (k as f64 - 1.5) * 20.0))
+        .collect();
+    let obs = w.make_unit(UnitKind::Observer, PLAYER, x, y);
+    w.hold_unit(obs);
+    w.step();
+    assert!(w.seen_by(PLAYER, umbra), "an Observer detects it");
+    w.attack_ent(umbra, troopers[0]);
+    run(&mut w, 6);
+    assert!(
+        w.unit(umbra).is_none_or(|u| u.sh < u.maxsh),
+        "detected, it is shot"
+    );
+}

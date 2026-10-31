@@ -43,6 +43,7 @@ const UNIT_TEXT = {
   shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts gunships. Can veil itself (Veil Weave).', strong: ['wasp', 'vanguard', 'siegeTank'], weak: ['lancer', 'trooper'] },
   sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.', strong: ['trooper', 'prism', 'lancer'], weak: ['wasp', 'bastion', 'shrike'] },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
+  umbra: { hot: 'U', desc: 'The Lumen is the Vael\'s light; the Umbra is its shadow. Always cloaked: unseen and untargetable except near a detector. Cuts down any ground army that brings none, siege lines too; found, it is a costly blade. Cannot hit flyers.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
@@ -57,8 +58,8 @@ const BLDG_TEXT = {
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
   siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
-  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Halos and Monoliths (Halos and Monoliths need a Loom). With its rally point in a power field, they warp in there.' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths.' },
+  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths, Halos and Umbras (all but Scythes and Prisms need a Loom). With its rally point in a power field, they warp in there.' },
+  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths, Halos and Umbras.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
   zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
 };

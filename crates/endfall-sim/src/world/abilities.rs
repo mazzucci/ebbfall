@@ -254,7 +254,7 @@ impl World {
         let c = self.live(uid);
         let reach = c.siege.unwrap_or(0.0);
         if self
-            .find_target(ux, uy, team, reach, c.min, false, c.hits, air)
+            .find_target(ux, uy, team, reach, c.blind(), false, c.hits, air)
             .is_none()
         {
             let _ = self.cast(uid, k);

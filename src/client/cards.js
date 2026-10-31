@@ -64,9 +64,11 @@ export function cardItems() {
     if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
     else {
       orders.forEach((it, i) => at(i, it));
-      // Workers in an army: their row, unless the army's abilities need the room (the card keeps its three rows; the
-      // workers' keys still work, in CLASSIC).
-      if (workers) work.forEach((it, i) => orders.length + abilities.length + work.length < COLS * 3 ? at(COLS + i, it) : hidden(it));
+      // Workers in an army: their row. Where the army's abilities need the room (the card keeps its three rows), Build
+      // stays and Gather and Repair give way (their keys still work in CLASSIC; a tap on a field or a damaged
+      // building still gathers or repairs).
+      const room = COLS * 3 - 1 - orders.length - abilities.length; // (the last slot: Deselect)
+      if (workers) work.forEach((it, i) => i < Math.max(1, room) ? at(COLS + i, it) : hidden(it));
     }
     abilities.forEach((it, i) => at(orders.length + i, it)); // after the orders, on their row
     // Let go of units (a tap on the ground would move them): the last slot of the card.

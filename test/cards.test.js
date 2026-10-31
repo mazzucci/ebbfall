@@ -1,7 +1,8 @@
 // The command card's keys in both controls schemes (src/client/controls.js), read from the real card (src/client/cards.js
 // `cardItems`) on the WASM sim: every selection of each race's units (with and without their techs, each order armed,
 // the Build pages, a building being placed) and every building of each race (finished, rising, training, researching,
-// dark, several of a kind). In WASD every button has its slot's grid key: none of W A S D, no key twice on a card.
+// dark, several of a kind). In WASD every button has its slot's grid key: none of W A S D, no key twice on a card;
+// a selection with workers keeps Build.
 // Skipped when src/engine/pkg/ has not been built (run `npm run build:wasm`); CI sets ENDFALL_REQUIRE_WASM=1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -93,6 +94,8 @@ for (const race of ['humans', 'vael']) {
       }
       assert.equal(new Set(shown.map(i => i.key)).size, shown.length, `${what}: no key twice (${shown.map(i => i.label + ' ' + i.key).join(', ')})`);
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
+      // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
+      if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
       if (attack) { assert.equal(attack.key, 'A', `${what}: classic Attack`); assert.equal(wasd.find(i => i.id === 'attack').key, GRID[attack.slot]); }

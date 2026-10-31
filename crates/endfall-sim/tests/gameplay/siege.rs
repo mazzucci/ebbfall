@@ -233,3 +233,24 @@ fn the_ai_builds_a_factory_and_fields_siege_tanks_later_on() {
     assert!(count(&w, ENEMY, UnitKind::Vanguard) >= 1, "Vanguards");
     assert!(count(&w, ENEMY, UnitKind::SiegeTank) >= 1, "Siege Tanks");
 }
+
+#[test]
+fn sent_at_a_target_inside_its_blind_ring_a_deployed_tank_holds() {
+    // Packing up would be for nothing (it would give the target up once packed): it stays set up and holds.
+    let (mut w, tank, _) = tank_scene(8.0);
+    w.cast(tank, AbilityKind::Deploy).unwrap();
+    run(&mut w, 4);
+    let near = w.make_unit(UnitKind::Medic, ENEMY, 31.5 * TILE, 30.0 * TILE);
+    w.update_fog();
+    w.attack_ent(tank, near);
+    let u = w.unit(tank).unwrap();
+    assert_eq!(
+        (u.mode, u.swap, u.task),
+        (Some(AbilityKind::Deploy), 0.0, Task::Hold),
+        "still deployed, holding"
+    );
+    assert!(
+        shells(&mut w, tank, 6) >= 1,
+        "and shelling what it can reach"
+    );
+}

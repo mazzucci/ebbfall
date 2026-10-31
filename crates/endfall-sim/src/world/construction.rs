@@ -131,7 +131,7 @@ impl World {
                 by,
                 team,
                 w.range * TILE,
-                w.min_range * TILE,
+                None, // (no tower is a siege gun)
                 false,
                 w.hits(),
                 false, // (buildings stand on the ground)

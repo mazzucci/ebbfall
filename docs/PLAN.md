@@ -228,8 +228,9 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   60 damage (+5 a level), 75% splash within 64 px, every 3 s, ground only, and a blind ring (`Weapon::min_range`, 2.5
   tiles) it cannot hit inside. It deploys by itself on reaching what it was sent at (an attack, an attack-move, an idle
   tank's own pick), stays set up while targets remain in its reach, then goes back to its march; a move order packs it
-  up. Every shooter now fires only at what its side sees (`find_target`; no golden game changed by it), so a tank's
-  reach past its sight needs a spotter. The AI raises a Factory once its Foundry stands (Easy not before 3:35:
+  up; sent at a target inside its blind ring while deployed, it holds. A siege gun fires only at what its side sees
+  (`find_target`), so a tank's reach past its sight needs a spotter; other shooters, whose reach is within their
+  sight, fire as before (a check there failed at the edge of sight: an entrenched Vanguard, a Sovereign). The AI raises a Factory once its Foundry stands (Easy not before 3:35:
   `Diff::heavy_at`), counts it against its factory schedule (an extra one only with ether piling up), mixes in a tank
   per six Troopers from 5:30 and packs a deployed tank up when nothing is left in its reach (every level). AI against
   AI, on two vents and after the balance pass, Humans against Vael (240 games a level): Medium 50.4% Humans (main 51.7%),

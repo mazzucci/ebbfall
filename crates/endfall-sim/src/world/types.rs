@@ -36,6 +36,13 @@ pub(crate) struct Live {
     pub hits: (bool, bool),
 }
 
+impl Live {
+    /// For `find_target`: a siege gun's blind ring (it also takes only what its side sees), None for other shooters.
+    pub fn blind(&self) -> Option<f64> {
+        self.siege.map(|_| self.min)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Task {
     Idle,

@@ -444,7 +444,7 @@ impl World {
         // (the rules let air follow the first factory; this AI chooses ground tech first)
         } else if self.ai_count(&my_b, true, s.tech) >= 1
             && self.ai_count(&my_b, false, s.air) == 0
-            && t > d.air_at
+            && t > d.air_at - s.air_lead
         {
             Some(s.air)
         } else {

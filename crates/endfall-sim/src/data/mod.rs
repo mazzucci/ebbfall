@@ -292,12 +292,24 @@ pub struct AiScript {
     /// Seconds before it starts its techs (sooner only on a level that researches sooner; none does today). A
     /// knob per side: both wait until 5:00, when the opening's factories and power fields are up.
     pub tech_from: f64,
+    /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).
+    pub air_lead: f64,
 }
 
 impl Faction {
     /// Whether this side can build `kind` (everything on its Build list, the headquarters included).
     pub fn builds(&self, kind: BldgKind) -> bool {
         self.build_basic.contains(&kind) || self.build_advanced.contains(&kind)
+    }
+    /// The unit its buildings train that detects cloaked units (the Humans' Observer, the Vael's Halo), if any: the
+    /// detector its AI takes along with its army once something unseen has hit it.
+    pub fn field_detector(&self) -> Option<UnitKind> {
+        self.build_basic
+            .iter()
+            .chain(self.build_advanced)
+            .flat_map(|b| b.def().trains)
+            .copied()
+            .find(|k| k.def().detect > 0.0)
     }
     /// Index in FACTIONS (what the client is sent).
     pub fn index(&self) -> usize {

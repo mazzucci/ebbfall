@@ -36,6 +36,9 @@ pub const VAEL: Faction = Faction {
         raider: UnitKind::Shrike,
         wave_scale: 0.6,
         tech_from: 300.0,
+        // (its Zenith half a minute sooner: from 7:30 it saves for the Sovereign, so Shrikes came only where it stood
+        // well before that, in 6-28% of AI games)
+        air_lead: 30.0,
     },
 };
 
@@ -113,16 +116,17 @@ pub(super) const HALO: UnitDef = UnitDef {
     speed: 110.0,
     sight: 10.0,
     build: 20.0,
-    heal: 10.0,
+    heal: 20.0,
     mend: true,
     req: Some(BldgKind::Loom),
+    detect: 5.0, // (the Vael's detector in the field: its army's eyes)
     ..UNIT
 };
 /// The Vael capital barge: a great shell gliding low, whose beam splashes the ground from far off; it cannot hit flyers.
 pub(super) const SOVEREIGN: UnitDef = UnitDef {
     key: "sovereign",
     name: "Sovereign",
-    cost: [350, 200],
+    cost: [350, 250],
     supply: 6,
     hp: 300.0,
     shields: 250.0,
@@ -133,8 +137,8 @@ pub(super) const SOVEREIGN: UnitDef = UnitDef {
     build: 60.0,
     capital: true,
     weapon: Some(Weapon {
-        range: 7.5,
-        dmg: 40.0,
+        range: 9.0,
+        dmg: 48.0,
         cd: 1.6,
         proj: Some(ProjKind::Bolt),
         up_dmg: 4.0,
@@ -147,7 +151,7 @@ pub(super) const SOVEREIGN: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Monolith",
-    cost: [175, 100],
+    cost: [175, 125],
     supply: 4,
     hp: 160.0,
     shields: 140.0,

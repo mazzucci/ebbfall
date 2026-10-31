@@ -698,11 +698,14 @@ fn a_halo_mends_shields_in_combat_and_never_the_hull() {
     }
     let hull = w.unit(a).unwrap().hp;
     run(&mut w, 2);
-    // No regeneration yet (SHIELD_DELAY), so whatever came back was mended: about 10/s on one patient at a time.
+    // No regeneration yet (SHIELD_DELAY), so whatever came back was mended: about its rate (20/s since the
+    // 2026-10-31 balance pass) on one patient at a time.
     let (sa, sb) = (w.unit(a).unwrap().sh, w.unit(b).unwrap().sh);
+    let mend = UnitKind::Halo.def().heal;
+    assert!(mend >= 20.0, "a Halo mends 20 shields/s: {mend}");
     assert!(
-        sa + sb > 15.0 && sa + sb < 25.0,
-        "one Halo mends about 10 shields/s: {sa} + {sb}"
+        sa + sb > 1.5 * mend && sa + sb < 2.5 * mend,
+        "one Halo mends about {mend} shields/s: {sa} + {sb}"
     );
     assert_eq!(
         w.unit(far).unwrap().sh,

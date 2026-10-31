@@ -46,12 +46,30 @@ impl World {
             [r[0] + k[0], r[1] + k[1]]
         };
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
+        // Hit by something unseen (anywhere): one detector of its own goes with the army (its side's field detector:
+        // an Observer, a Halo), first from the factory that trains it, and nothing is held back from it.
+        let mut wanted_detector = self.factions[e as usize]
+            .field_detector()
+            .filter(|&k| self.ai().unseen_hit && mine(self, k) == 0);
         for &bid in &my_b {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
                 continue;
             }
             let s = &self.factions[e as usize].ai;
+            let detector = wanted_detector.filter(|k| {
+                b.kind.def().trains.contains(k)
+                    && k.def()
+                        .req
+                        .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+            });
+            let need = |k: UnitKind| {
+                if Some(k) == detector {
+                    k.def().cost
+                } else {
+                    need(k.def().cost)
+                }
+            };
             // The main factory answers enemy flyers, then mixes its specialists in by ratio (each once its
             // requirement stands: a Vanguard per two Troopers once the Forge stands beats massed infantry).
             // Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
@@ -73,6 +91,7 @@ impl World {
             });
             let allowance = CAPITAL_AT.iter().filter(|&&at| t > at).count();
             if b.kind == s.air
+                && detector.is_none()
                 && let Some(c) = capital
                 && mine(self, c) < allowance
             {
@@ -85,7 +104,9 @@ impl World {
                 }
                 continue;
             }
-            let u = if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
+            let u = if let Some(k) = detector {
+                k
+            } else if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
                 s.anti_air
             } else if b.kind == s.rax
                 && let Some(&(k, _)) = mixed
@@ -98,7 +119,7 @@ impl World {
             };
             // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks. Short of
             // shards it waits for them instead, as a Trooper would only delay the specialist.
-            let u = if self.res[e as usize][1] >= need(u.def().cost)[1] {
+            let u = if self.res[e as usize][1] >= need(u)[1] {
                 u
             } else {
                 b.kind.def().trains[0]
@@ -113,10 +134,14 @@ impl World {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup[e as usize];
-                let room =
-                    capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
-                if room && self.can_afford(e, need(u.def().cost)) {
-                    let _ = self.queue_unit(bid, u);
+                let room = Some(u) == detector
+                    || capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
+                if room
+                    && self.can_afford(e, need(u))
+                    && self.queue_unit(bid, u).is_ok()
+                    && Some(u) == detector
+                {
+                    wanted_detector = None; // (one: not one from every factory that trains it this turn)
                 }
             }
         }

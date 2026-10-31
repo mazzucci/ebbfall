@@ -377,6 +377,64 @@ export function siegeTank(M, f) {
   return g;
 }
 
+/** Interceptor: a fast ground anti-air vehicle. A short, high-riding six-wheeled hull with a sloped nose and a
+ *  windscreen, and on its back a turntable carrying a box launcher of six missiles angled up at the sky, team-painted.
+ *  Wheels, not tracks, and no long gun: it reads apart from the Siege Tank and the Vanguard at a glance. Two frames:
+ *  the wheel hubs and treads turn a little, as the tank's treads shift. */
+export function interceptor(M, f) {
+  const g = grp(), body = grp();
+  // Six big off-road wheels standing out past the hull; their hub bolts turn between the two frames.
+  M.rubber.map.offset.x = f * 0.07;
+  for (const side of [-1, 1]) {
+    for (const x of [-8.8, -0.8, 7.2]) {
+      add(g, cyl(3.9, 3.9, 3.4, 20), M.rubber, x, 3.9, side * 9.2, Math.PI / 2);
+      for (let k = 0; k < 10; k++) {                                                         // tread lugs
+        const a = k * Math.PI / 5 + f * Math.PI / 10;
+        add(g, rbox(1.1, 0.7, 3.6, 0.2), M.dark, x + Math.cos(a) * 3.9, 3.9 + Math.sin(a) * 3.9, side * 9.2, 0, 0, a + Math.PI / 2);
+      }
+      add(g, cyl(2.1, 2.1, 3.6, 12), M.steel, x, 3.9, side * 9.3, Math.PI / 2);              // hub
+      add(g, cyl(0.8, 0.8, 3.8, 8), M.dark, x, 3.9, side * 9.35, Math.PI / 2);
+      for (let k = 0; k < 4; k++) {
+        const a = k * Math.PI / 2 + f * Math.PI / 4;
+        add(g, cyl(0.35, 0.35, 3.8, 6), M.gunmetal, x + Math.cos(a) * 1.4, 3.9 + Math.sin(a) * 1.4, side * 9.4, Math.PI / 2);
+      }
+    }
+    add(g, rbox(23, 1, 2.6, 0.4), M.trim, -0.8, 8.4, side * 8.6);                           // fender
+    add(g, rbox(5, 1.1, 2.8, 0.4), M.paint, 9.6, 8.5, side * 8.6);                          // front mudguard (team)
+    add(g, rbox(22, 2, 1.2, 0.4), M.dark, -0.8, 5.8, side * 6.6);                           // axle skirt
+  }
+  // The hull: a short, angular wedge riding high on its wheels, a sloped team nose, a cab with a lit windscreen.
+  add(body, plate([[-13, -6.6], [6, -6.6], [13.5, -4], [13.5, 4], [6, 6.6], [-13, 6.6]], 5, 1.1), M.trim, 0, 5, 0);
+  add(body, plate([[5.4, -6.2], [13.2, -3.8], [13.2, 3.8], [5.4, 6.2]], 1.2, 0.45), M.trim, 0, 9.6, 0); // nose plate
+  add(body, rbox(1.6, 0.5, 7, 0.2), M.paint, 10.6, 10.9, 0, 0, 0, -0.12);                        // team nose band
+  add(body, rbox(5.4, 3.2, 10, 1.1), M.gunmetal, 3, 11.4, 0);                                   // cab
+  add(body, rbox(1, 2.2, 8.8, 0.4), M.glass, 5.8, 11.6, 0, 0, 0, -0.5);                         // windscreen
+  for (const side of [-1, 1]) {
+    add(body, sph(0.8, 10, 8), M.white, 13.4, 8.6, side * 3.4);                                 // headlights
+    add(body, sph(0.6, 8, 6), M.lamp, -13.4, 9.2, side * 5.2);                                  // tail lights
+  }
+  add(body, rbox(1.2, 0.5, 11, 0.2), M.hazard, -13, 10.2, 0);
+  // The launcher: a turntable, a yoke and a box pod of six missiles (two rows of three) raised to the sky.
+  add(body, cyl(4.8, 5.2, 1.4, 22), M.gunmetal, -6, 10.6, 0);
+  for (const side of [-1, 1]) add(body, rbox(3.6, 4.6, 1.2, 0.4), M.dark, -6.4, 13, side * 5.2); // yoke arms
+  const pod = grp(); pod.position.set(-6.4, 14.6, 0); pod.rotation.z = 0.68;
+  add(pod, rbox(14, 6.6, 9.4, 1.2), M.trim, 0, 0, 0);                                          // pod
+  for (const side of [-1, 1]) add(pod, rbox(11.4, 5, 0.8, 0.3), M.paint, -0.6, 0, side * 4.75); // team side panels
+  add(pod, rbox(8.6, 0.6, 2.2, 0.25), M.paint, -1, 3.4, 0);                                     // team roof stripe
+  add(pod, rbox(1.2, 7, 9.8, 0.4), M.dark, 6.7, 0, 0);                                          // front frame
+  for (const dy of [-1.6, 1.6]) for (const dz of [-3, 0, 3]) {
+    add(pod, cyl(1.25, 1.25, 0.8, 12), M.gunmetal, 7.1, dy, dz, 0, 0, Math.PI / 2);            // tube mouth
+    add(pod, cyl(0, 1.0, 2.8, 12), M.white, 8.3, dy, dz, 0, 0, -Math.PI / 2);                  // missile nose
+  }
+  body.add(pod);
+  add(body, rbox(2.2, 1.6, 2.2, 0.5), M.dark, -11.4, 11.2, 4.4);                               // radar box
+  add(body, cyl(1.7, 1.7, 0.3, 14), M.steel, -11.4, 12.4, 4.4);                                // radar dish
+  add(body, cyl(0.2, 0.2, 7, 6), M.steel, -11.6, 13.6, -4.8); add(body, sph(0.55, 8, 6), M.lamp, -11.6, 17.2, -4.8); // mast
+  g.add(body);
+  g.scale.setScalar(1.08);
+  return g;
+}
+
 export const UNIT_MODELS = {
   // r: the farthest any part reaches from the centre (any facing must fit), h: height
   harvester: { build: harvester, frames: 2, r: 23, h: 15 },
@@ -388,4 +446,5 @@ export const UNIT_MODELS = {
   observer: { build: observer, frames: 2, r: 13, h: 26 },
   bastion: { build: bastion, frames: 2, r: 36, h: 38 },
   siegeTank: { build: siegeTank, frames: 4, r: 35, h: 30 },
+  interceptor: { build: interceptor, frames: 2, r: 20, h: 26 },
 };

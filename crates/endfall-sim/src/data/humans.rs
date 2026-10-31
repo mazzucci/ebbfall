@@ -1,5 +1,5 @@
-//! The Humans: the Core, harvesters that build and repair, infantry, vehicles (Vanguards and Siege Tanks from the
-//! Factory), Turrets and Raiders.
+//! The Humans: the Core, harvesters that build and repair, infantry, vehicles (Vanguards, Siege Tanks and
+//! Interceptors from the Factory), Turrets and Raiders.
 
 use super::*;
 
@@ -34,6 +34,7 @@ pub const HUMANS: Faction = Faction {
         heavy: Some(BldgKind::Factory),
         basic: UnitKind::Trooper,
         anti_air: UnitKind::Lancer,
+        heavy_anti_air: Some(UnitKind::Interceptor),
         mix: &[
             (UnitKind::Medic, 6, 0.0),
             (UnitKind::SiegeTank, 6, 330.0),
@@ -147,10 +148,11 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     abilities: &[AbilityKind::Deploy],
     ..UNIT
 };
+/// The cheap, early anti-air (the Garrison's, before a Foundry stands); the Interceptor is the faster, tougher answer.
 pub(super) const LANCER: UnitDef = UnitDef {
     key: "lancer",
     name: "Lancer",
-    cost: [75, 25],
+    cost: [60, 25],
     hp: 60.0,
     speed: 88.0,
     sight: 9.0,
@@ -163,6 +165,30 @@ pub(super) const LANCER: UnitDef = UnitDef {
         cd: 1.2,
         proj: Some(ProjKind::Missile),
         up_dmg: 2.0,
+        ..W
+    }),
+    ..UNIT
+};
+/// Ground anti-air: a fast missile vehicle that escorts the line against flyers. It cannot hit the ground at all (and
+/// detects nothing: that stays the Observer's job).
+pub(super) const INTERCEPTOR: UnitDef = UnitDef {
+    key: "interceptor",
+    name: "Interceptor",
+    cost: [100, 50],
+    supply: 2,
+    hp: 110.0,
+    armor: 1.0,
+    speed: 115.0,
+    sight: 9.0,
+    r: 12.0,
+    build: 24.0,
+    req: Some(BldgKind::Forge),
+    weapon: Some(Weapon {
+        range: 6.5,
+        dmg_air: 28.0,
+        cd: 1.0,
+        proj: Some(ProjKind::Missile),
+        up_dmg: 3.0,
         ..W
     }),
     ..UNIT
@@ -308,7 +334,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
     req: Some(BldgKind::Barracks),
     ..BLDG
 };
-/// The vehicle bay: Vanguards and Siege Tanks (both need the Foundry too).
+/// The vehicle bay: Vanguards, Siege Tanks and Interceptors (all need the Foundry too).
 pub(super) const FACTORY: BldgDef = BldgDef {
     key: "factory",
     name: "Factory",
@@ -318,7 +344,11 @@ pub(super) const FACTORY: BldgDef = BldgDef {
     hp: 800.0,
     build: 35.0,
     sight: 7.0,
-    trains: &[UnitKind::Vanguard, UnitKind::SiegeTank],
+    trains: &[
+        UnitKind::Vanguard,
+        UnitKind::SiegeTank,
+        UnitKind::Interceptor,
+    ],
     req: Some(BldgKind::Barracks),
     ..BLDG
 };

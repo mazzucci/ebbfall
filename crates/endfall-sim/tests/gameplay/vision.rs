@@ -474,13 +474,14 @@ fn left(w: &World, u: Id) -> f64 {
 fn shooters_whose_reach_meets_their_sight_still_fire_there() {
     // Only a siege gun (it outranges its own sight) needs its side to see its target: a gun whose reach is at the
     // edge of its sight fires as far as it reaches, wherever the target's tile centre falls.
-    // An entrenched Vanguard (reach 9, sight 9) answers a Sovereign holding at its reach, 9.76 tiles centre to centre.
+    // A holding Sovereign (reach 9, sight 10) answers a Vanguard holding at its reach, 9.76 tiles centre to centre.
+    // (The case found was an entrenched Vanguard's, reach 9 and sight 9: Entrench is retired.)
     let (mut w, van, sov) = reach_scene((30.0, 30.5), (39.76, 30.5), PLAYER);
-    w.cast(van, AbilityKind::Entrench).unwrap();
+    w.hold_unit(van);
     w.hold_unit(sov);
-    let full = left(&w, sov);
+    let full = left(&w, van);
     run(&mut w, 12);
-    assert!(left(&w, sov) < full, "the entrenched Vanguard fires back");
+    assert!(left(&w, van) < full, "the Sovereign fires at its reach");
     // A Sovereign (reach 9, sight 10) sent at a holding Vanguard 12 tiles off closes to its reach and fires.
     let (mut w, van, sov) = reach_scene((30.05, 30.5), (18.0, 30.5), ENEMY);
     w.hold_unit(van);

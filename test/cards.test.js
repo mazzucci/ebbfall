@@ -2,7 +2,7 @@
 // `cardItems`) on the WASM sim: every selection of each race's units (with and without their techs, each order armed,
 // the Build pages, a building being placed) and every building of each race (finished, rising, training, researching,
 // dark, several of a kind). In WASD every button has its slot's grid key: none of W A S D, no key twice on a card;
-// a selection with workers keeps Build.
+// a selection with workers keeps Build. A toggle's button names its action: Deploy, then Undeploy.
 // Skipped when src/engine/pkg/ has not been built (run `npm run build:wasm`); CI sets ENDFALL_REQUIRE_WASM=1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -96,6 +96,9 @@ for (const race of ['humans', 'vael']) {
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
+      // A toggle's button names its action, never lit (a timed ability is, while it runs); the retired Entrench is gone.
+      assert.ok(!items.some(i => i.active && i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].toggle), `${what}: no lit toggle`);
+      assert.ok(!items.some(i => i.id === 'a_entrench' || i.id === 'r_entrenching'), `${what}: no Entrench`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
       if (attack) { assert.equal(attack.key, 'A', `${what}: classic Attack`); assert.equal(wasd.find(i => i.id === 'attack').key, GRID[attack.slot]); }
@@ -103,3 +106,37 @@ for (const race of ['humans', 'vael']) {
     assert.ok(most >= 5 && most < GRID.length, `the cards fill slots 0 to ${most}: within the grid`);
   });
 }
+
+test('a toggle names what a tap does: Deploy while any tank is on its tracks (for those), then Undeploy (for all)', { skip }, () => {
+  E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
+  const hq = E.G.bldgs.find(b => b.team === E.G.me);
+  const ids = [0, 1].map(i => E.debugSpawn(E.G.me, 'siegeTank', hq.x + 90 + i * 40, hq.y + 90));
+  const van = E.debugSpawn(E.G.me, 'vanguard', hq.x + 90, hq.y + 140);
+  const unit = (id) => E.G.units.find(u => u.id === id);
+  const run = (secs) => { for (let i = 0; i < secs * 30; i++) E.step(); };
+  const button = () => { ui.sel = [...ids, van].map(unit); ui.mode = null; ui.place = null; return C.cardItems().find(i => i.id === 'a_deploy'); };
+  const targets = () => C.abilityTargets([...ids, van].map(unit), 'deploy').units.map(u => u.id).sort();
+  assert.ok(!C.cardItems().some(i => i.id === 'a_entrench'), 'the Vanguard has no toggle (Entrench is retired)');
+  let b = button();
+  assert.deepEqual([b.label, b.icon, b.key, !!b.dis, !!b.active], ['Deploy', 'deploy', 'D', false, false], 'all on their tracks');
+  assert.deepEqual(targets(), ids.slice().sort(), 'for both tanks (not the Vanguard)');
+  // One deployed: still Deploy, for the other one only (the sim flips each tank it is sent).
+  assert.equal(E.castAbility([unit(ids[0])], 'deploy'), null); run(3.5);
+  b = button();
+  assert.deepEqual([b.label, b.icon, !!b.dis, !!b.active], ['Deploy', 'deploy', false, false], 'one deployed, one on its tracks');
+  assert.deepEqual(targets(), [ids[1]], 'for the one on its tracks');
+  assert.equal(E.castAbility(targets().map(unit), 'deploy'), null);
+  // All deployed or settling in: Undeploy (the deployed one can pack up already; the other is refused while it settles).
+  b = button();
+  assert.deepEqual([b.label, b.icon, b.key, !!b.dis, !!b.active], ['Undeploy', 'undeploy', 'D', false, false], 'one still settling in');
+  run(3.5);
+  b = button();
+  assert.deepEqual([b.label, b.icon, !!b.dis, !!b.active], ['Undeploy', 'undeploy', false, false], 'both deployed');
+  assert.match(b.tip, /Pack up/);
+  assert.deepEqual(targets(), ids.slice().sort(), 'for both');
+  assert.equal(E.castAbility(targets().map(unit), 'deploy'), null);
+  assert.ok(ids.every(id => unit(id).mode === null && unit(id).swap > 0), 'both packing up');
+  b = button();
+  assert.deepEqual([b.label, !!b.dis], ['Deploy', true], 'packing up: Deploy, greyed until it can');
+  ui.sel = []; ui.mode = null;
+});

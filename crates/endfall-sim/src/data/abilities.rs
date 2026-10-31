@@ -13,9 +13,9 @@ pub enum AbilityEffect {
         speed: f64,
         hp: f64,
     },
-    /// A toggle: entrenched (or deployed), +`range` tiles of reach and no moving; `swap` seconds to settle in or pack
-    /// up, without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
-    Entrench { range: f64, swap: f64 },
+    /// A toggle: settled in (deployed), +`range` tiles of reach and no moving; `swap` seconds to settle in or pack up,
+    /// without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
+    Settle { range: f64, swap: f64 },
     /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
     Blink { dist: f64 },
     /// Cloaked for `secs` (as an Observer is: seen and targeted only where the other side detects).
@@ -26,7 +26,7 @@ def_struct! {
     pub struct AbilityDef {
         key: &'static str,
         name: &'static str = "name",
-        /// On/off (Entrench) rather than a one-off cast.
+        /// On/off (Deploy) rather than a one-off cast.
         toggle: bool = "toggle",
         /// Seconds before it can be used again.
         cooldown: f64 = "cooldown",
@@ -49,25 +49,28 @@ const STIM: AbilityDef = AbilityDef {
         hp: 10.0,
     },
 };
+/// Retired (2026-10-31): the Vanguard's dig-in, too close to the Siege Tank's Deploy. No unit lists it and no
+/// building researches its tech (`Upgrade::Entrenching`); it keeps its place in the kinds (snapshot indices).
 const ENTRENCH: AbilityDef = AbilityDef {
     key: "entrench",
     name: "Entrench",
     toggle: true,
     cooldown: 0.0,
-    effect: AbilityEffect::Entrench {
+    effect: AbilityEffect::Settle {
         range: 3.0,
         swap: 2.0,
     },
 };
-/// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slower to set up.
+/// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up.
 const DEPLOY: AbilityDef = AbilityDef {
     key: "deploy",
     name: "Deploy",
-    effect: AbilityEffect::Entrench {
+    toggle: true,
+    cooldown: 0.0,
+    effect: AbilityEffect::Settle {
         range: 0.0,
         swap: 3.0,
     },
-    ..ENTRENCH
 };
 const BLINK: AbilityDef = AbilityDef {
     key: "blink",
@@ -107,7 +110,7 @@ kinds! {
     /// Abilities. The order is the index the snapshot sends: append only.
     AbilityKind: AbilityDef, ABILITIES {
         Stim => STIM,
-        Entrench => ENTRENCH,
+        Entrench => ENTRENCH, // (retired)
         Blink => BLINK,
         Overcharge => OVERCHARGE,
         Cloak => CLOAK,

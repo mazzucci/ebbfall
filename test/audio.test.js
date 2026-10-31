@@ -326,9 +326,9 @@ test('every sound the sim asks for has a recipe', () => {
   // Each faction's shot sounds (Faction::sounds in crates/endfall-sim/src/data/).
   const weapons = new Set([...sim.matchAll(/sounds: \[([^\]]+)\]/g)].flatMap(m => [...m[1].matchAll(/"([a-z]+)"/g)].map(n => n[1])));
   assert.ok(weapons.has('bolt') && weapons.has('lance'), `every race's shot sounds were found: ${[...weapons]}`);
-  // Each ability's key is the sound its cast event plays (data/abilities.rs).
-  const abilities = new Set([...sim.matchAll(/key: "([a-z]+)",\n    name: "[^"]+",\n    toggle:/g)].map(m => m[1]));
-  assert.ok(abilities.has('stim'), `the abilities were found: ${[...abilities]}`);
+  // Each ability's key is the sound its cast event plays (data/abilities.rs), but a retired one's (no unit has it).
+  const abilities = new Set([...sim.matchAll(/(\/\/\/ Retired[^\n]*\n(?:\/\/\/[^\n]*\n)*)?const [A-Z_]+: AbilityDef = AbilityDef \{\n    key: "([a-z]+)"/g)].filter(m => !m[1]).map(m => m[2]));
+  assert.ok(abilities.has('stim') && abilities.has('deploy') && !abilities.has('entrench'), `the abilities were found: ${[...abilities]}`);
   for (const n of [...named, ...weapons, ...abilities]) assert.ok(recipes.includes(n), `the sim emits "${n}", the client has no recipe for it`);
 });
 

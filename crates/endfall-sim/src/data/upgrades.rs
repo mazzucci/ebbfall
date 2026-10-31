@@ -11,7 +11,7 @@ pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching,
+    Entrenching, // (retired: nothing researches it)
     Afterburners,
     OverchargeCore,
     Slipstream,
@@ -93,6 +93,7 @@ const TECH: UpgradeDef = UpgradeDef {
     time: [60.0; 3],
     levels: 1,
 };
+/// Retired with the Entrench it unlocked (2026-10-31): no building researches it; it keeps its index.
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
     name: "Entrenching",

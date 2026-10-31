@@ -347,7 +347,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the Forge card: research and its cancel, the techs below');
+    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Cloak Field', 'Rapid Build'], 'the Forge card: research and its cancel, the techs below');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -360,21 +360,21 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'trooper damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 3, 'a few figures: ground, air, armor');
-    // A Trooper's Stim is there from the start; a Vanguard's Entrench waits for Entrenching, researched at the Foundry.
+    // A Trooper's Stim is there from the start; a Wasp's Cloak waits for Cloaking Field, researched at the Foundry.
     assert.ok((await d.card()).some(c => c.label === 'Stim' && c.enabled), 'Stim from the start');
-    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'vanguard', x, y), [forge.x + 60, forge.y + 90]);
+    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'wasp', x, y), [forge.x + 60, forge.y + 90]);
     await d.clickEntity(v);
-    assert.ok((await d.card()).some(c => c.label === 'Entrench' && !c.enabled), 'Entrench locked');
-    await d.pressCard('Entrench');
-    assert.ok((await d.toasts()).some(t => /Research Entrenching first/.test(t)), 'it says which tech');
+    assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'Cloak locked');
+    await d.pressCard('Cloak');
+    assert.ok((await d.toasts()).some(t => /Research Cloaking Field first/.test(t)), 'it says which tech');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
-    await d.pressCard('Entrench'); // (the tech's short label on the Foundry)
-    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 90, what: 'Entrenching' });
+    await d.pressCard('Cloak Field'); // (the tech's short label on the Foundry)
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].cloakingField)) === 1, { seconds: 120, what: 'Cloaking Field' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Entrench'), 'a finished tech leaves the card');
+    assert.ok(!(await d.card()).some(c => c.label === 'Cloak Field'), 'a finished tech leaves the card');
     await d.clickEntity(v);
-    assert.ok((await d.card()).some(c => c.label === 'Entrench' && c.enabled), 'Entrench unlocked');
+    assert.ok((await d.card()).some(c => c.label === 'Cloak' && c.enabled), 'Cloak unlocked');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -388,9 +388,9 @@ test('phone: Rapid Construction researched at the Foundry, then buildings go up 
     const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
     const pct = Math.round((rate - 1) * 100);
     await d.clickEntity(forge.id);
-    // The Foundry's card keeps its fixed slots on a phone: two levels, Cancel's place, then its three techs.
+    // The Foundry's card keeps its fixed slots on a phone: two levels, Cancel's place, then its two techs.
     const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the Foundry card');
+    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Cloak Field', 'Rapid Build'], 'the Foundry card');
     const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Rapid Build' }).boundingBox();
     assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, 'it fits on the screen');
     // A long-press says what it does and costs, without researching it.
@@ -413,7 +413,7 @@ test('phone: Rapid Construction researched at the Foundry, then buildings go up 
     await d.skip(4);
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     const busy = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Entrench', 'Cloak Field', 'Rapid Build'], 'the card keeps its shape');
+    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Cloak Field', 'Rapid Build'], 'the card keeps its shape');
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].rapidConstruction)) === 1, { seconds: 70, what: 'Rapid Construction' });
     await d.clickEntity(forge.id);
@@ -1318,29 +1318,40 @@ test('a Vael unit\'s health figure counts hull and shields together', async () =
   } finally { await d.close(); }
 });
 
-test('phone: one tap on the card uses an ability for the selection (Stim, then Entrench as a toggle)', async () => {
+test('phone: one tap on the card uses an ability for the selection (Stim); a toggle names its action (Deploy, Undeploy)', async () => {
   const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 26, y)), [core.x + 180, core.y + 120]);
-    const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'vanguard', x, y), [core.x + 180, core.y + 200]);
+    const tanks = await d.eval(([x, y]) => [0, 1].map(i => endfall.engine.debugSpawn(0, 'siegeTank', x + i * 40, y)), [core.x + 180, core.y + 210]);
     await d.boxSelect(core.x + 150, core.y + 90, core.x + 260, core.y + 150); // (the troopers only)
-    const units = () => d.eval((ids) => endfall.G.units.filter(u => ids.includes(u.id)).map(u => ({ hp: u.hp, boost: u.boost, mode: u.mode })), [...ids, v]);
+    const units = () => d.eval((ids) => endfall.G.units.filter(u => ids.includes(u.id)).map(u => ({ hp: u.hp, boost: u.boost, mode: u.mode, swap: u.swap })), [...ids, ...tanks]);
     assert.deepEqual((await d.selection()).map(e => e.id).sort(), ids.slice().sort());
     await d.pressCard('Stim');
     const after = await units();
     assert.ok(after.slice(0, 3).every(u => u.boost === 'stim' && u.hp === 38), `all three stimmed for 10 health: ${JSON.stringify(after)}`);
-    // The Vanguard: Entrench (set up: Entrenching researched) is a toggle, lit while on; a second tap packs it up.
-    await d.eval(() => endfall.engine.debugResearch(0, 'entrenching'));
-    await d.clickEntity(v);
-    await d.readyCard('Entrench');
-    await d.pressCard('Entrench');
-    assert.equal((await units())[3].mode, 'entrench');
-    await d.skip(3);
-    assert.ok((await d.card()).some(c => c.label === 'Entrench'), 'the button stays');
-    assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Entrench' }).count(), 'lit while entrenched');
-    await d.pressCard('Entrench');
-    assert.equal((await units())[3].mode, null, 'packed up');
+    // Two Siege Tanks, one deployed (alone, from its card): with both, the card offers Deploy, for the one on its tracks.
+    await d.clickEntity(tanks[0]);
+    await d.pressCard('Deploy');
+    await d.skip(3.5);
+    await d.boxSelect(core.x + 150, core.y + 180, core.x + 260, core.y + 240);
+    assert.deepEqual((await d.selection()).map(e => e.id).sort(), tanks.slice().sort());
+    const labels = async () => (await d.card()).map(c => c.label);
+    assert.ok((await labels()).includes('Deploy') && !(await labels()).includes('Undeploy'), `one on its tracks: Deploy (${await labels()})`);
+    await d.pressCard('Deploy');
+    let [a, b] = (await units()).slice(3);
+    assert.ok(a.mode === 'deploy' && a.swap === 0, `the deployed one stays deployed: ${JSON.stringify(a)}`);
+    assert.equal(b.mode, 'deploy', 'the other deploys');
+    // All deployed (or settling in): the button reads Undeploy, plain (not lit), and packs them all up.
+    await d.skip(3.5);
+    await d.page.locator('#cmd button .l', { hasText: /^Undeploy$/ }).waitFor({ timeout: 5000 });
+    assert.ok(!(await labels()).includes('Deploy'), 'no Deploy while all are deployed');
+    assert.equal(await d.page.locator('#cmd button.active').count(), 0, 'a toggle is never lit: its button names the action');
+    await d.pressCard('Undeploy');
+    [a, b] = (await units()).slice(3);
+    assert.ok(a.mode === null && b.mode === null && a.swap > 0 && b.swap > 0, `both packing up: ${JSON.stringify([a, b])}`);
+    await d.skip(3.5);
+    await d.page.locator('#cmd button .l', { hasText: /^Deploy$/ }).waitFor({ timeout: 5000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1353,13 +1364,17 @@ test('a Siege Tank deploys from its card (D), shells what is in reach but not in
     const me = () => d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return u && { x: u.x, y: u.y, mode: u.mode, swap: u.swap, task: u.task.t }; }, tank);
     await d.clickEntity(tank);
     assert.ok((await d.card()).some(c => c.label === 'Deploy' && c.enabled), `Deploy on the card: ${JSON.stringify(await d.card())}`);
-    assert.equal(await d.page.locator('#cmd button', { hasText: 'Deploy' }).locator('.k').textContent(), 'D', 'its key');
+    assert.equal(await d.page.locator('#cmd button').filter({ has: d.page.locator('.l', { hasText: /^Deploy$/ }) }).locator('.k').textContent(), 'D', 'its key');
     await d.page.keyboard.press('d');
     assert.equal((await me()).mode, 'deploy');
     assert.match(await d.hudText('#selSub', /Deploying/), /Deploying/, 'the console says it is deploying');
     await d.skip(3.5);
     assert.match(await d.hudText('#selSub', /Deployed/), /Deployed/);
-    assert.ok(await d.page.locator('#cmd button.active', { hasText: 'Deploy' }).count(), 'lit while deployed');
+    // Deployed: its button names what a tap does now, Undeploy, on the same key; not lit.
+    await d.page.locator('#cmd button .l', { hasText: /^Undeploy$/ }).waitFor({ timeout: 5000 });
+    const undeploy = d.page.locator('#cmd button').filter({ has: d.page.locator('.l', { hasText: /^Undeploy$/ }) });
+    assert.equal(await undeploy.locator('.k').textContent(), 'D', 'the same key');
+    assert.ok(!(await undeploy.getAttribute('class')).includes('active'), 'not lit');
     // An enemy 7 tiles off is shelled; one inside the blind ring (1.5 tiles) is not.
     const at = await me();
     const [far, near] = await d.eval(([x, y, T]) => [endfall.engine.debugSpawn(1, 'medic', x + 7 * T, y), endfall.engine.debugSpawn(1, 'medic', x - 1.5 * T, y)], [at.x, at.y, T]);

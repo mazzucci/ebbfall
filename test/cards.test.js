@@ -126,9 +126,9 @@ test('a toggle names what a tap does: Deploy while any tank is on its tracks (fo
   assert.deepEqual([b.label, b.icon, !!b.dis, !!b.active], ['Deploy', 'deploy', false, false], 'one deployed, one on its tracks');
   assert.deepEqual(targets(), [ids[1]], 'for the one on its tracks');
   assert.equal(E.castAbility(targets().map(unit), 'deploy'), null);
-  // All deployed or settling in: Undeploy (the deployed one can pack up already; the other is refused while it settles).
+  // All deployed or settling in: Undeploy, greyed while one still settles in (a tap would pack up only the other).
   b = button();
-  assert.deepEqual([b.label, b.icon, b.key, !!b.dis, !!b.active], ['Undeploy', 'undeploy', 'D', false, false], 'one still settling in');
+  assert.deepEqual([b.label, b.icon, b.key, !!b.dis, !!b.active], ['Undeploy', 'undeploy', 'D', true, false], 'one still settling in');
   run(3.5);
   b = button();
   assert.deepEqual([b.label, b.icon, !!b.dis, !!b.active], ['Undeploy', 'undeploy', false, false], 'both deployed');
@@ -138,5 +138,13 @@ test('a toggle names what a tap does: Deploy while any tank is on its tracks (fo
   assert.ok(ids.every(id => unit(id).mode === null && unit(id).swap > 0), 'both packing up');
   b = button();
   assert.deepEqual([b.label, !!b.dis], ['Deploy', true], 'packing up: Deploy, greyed until it can');
+  // One packed up, one still packing up (a fresh tank on its tracks beside one that packs up later): greyed too.
+  run(3.5);
+  assert.equal(E.castAbility([unit(ids[0])], 'deploy'), null); run(3.5);
+  assert.equal(E.castAbility([unit(ids[0])], 'deploy'), null);
+  b = button();
+  assert.deepEqual([b.label, !!b.dis], ['Deploy', true], 'one packing up: Deploy waits for it');
+  run(3.5);
+  assert.deepEqual([button().label, !!button().dis], ['Deploy', false], 'both on their tracks');
   ui.sel = []; ui.mode = null;
 });

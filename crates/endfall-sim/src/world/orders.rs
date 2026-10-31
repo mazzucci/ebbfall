@@ -152,10 +152,12 @@ impl World {
                 .filter(|k| k.def().researches.contains(&up))
                 .map(|k| k.def().name)
                 .collect();
-            return Err(format!(
-                "Research happens at a finished {}",
-                at.join(" or ")
-            ));
+            // (a retired tech, Entrenching, is offered nowhere)
+            return Err(if at.is_empty() {
+                format!("Cannot research {}", up.def().name)
+            } else {
+                format!("Research happens at a finished {}", at.join(" or "))
+            });
         }
         if b.research.is_some() {
             return Err("Already researching here".into());

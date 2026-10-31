@@ -317,6 +317,30 @@ fn the_vanguards_entrench_is_retired() {
     );
     assert_eq!(UnitKind::Vanguard.toggle(), None);
     assert_eq!(UnitKind::SiegeTank.toggle(), Some(AbilityKind::Deploy));
+    // A cast of it (from an old client, a replay, the wire) is refused; so is its research at a Foundry.
+    let (mut w, forge) = forge_arena(13);
+    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 640.0, 1280.0);
+    let cast = Command::Cast {
+        units: vec![v],
+        ability: AbilityKind::Entrench,
+    };
+    assert_eq!(
+        w.apply(PLAYER, &cast),
+        Err("Cannot use Entrench".to_string())
+    );
+    assert!(w.unit(v).unwrap().mode.is_none());
+    let research = Command::Research {
+        bldg: forge,
+        up: Upgrade::Entrenching,
+    };
+    assert_eq!(
+        w.apply(PLAYER, &research),
+        Err("Cannot research Entrenching".to_string())
+    );
+    assert_eq!(w.upgrades[PLAYER as usize][Upgrade::Entrenching.index()], 0);
+    // On the wire the cast still decodes (its index kept its place), to the same command.
+    let words = cast.encode();
+    assert_eq!(Command::decode(&words), Some((cast, words.len())));
 }
 
 #[test]

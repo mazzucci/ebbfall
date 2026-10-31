@@ -18,7 +18,7 @@ export const ROMAN = ['', 'I', 'II', 'III'];
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;
-/** Whether unit `u` could use ability `k` now (it has it, it is ready, it is not digging in or packing up). */
+/** Whether unit `u` could use ability `k` now (it has it, it is ready, it is not settling in or packing up). */
 function canUse(u, k) {
   const slot = (UNITS[u.type].abilities || []).indexOf(k);
   return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0 && !(u.warp > 0); // (a cost it cannot pay is refused by the sim, with a toast)
@@ -32,7 +32,8 @@ export function abilityTargets(units, k) {
   const have = units.filter(u => (UNITS[u.type].abilities || []).includes(k)), off = have.filter(u => u.mode !== k);
   return off.length ? { on: true, units: off } : { on: false, units: have };
 }
-/** The selection's abilities, one button each (in table order): greyed while none of the units it is for can use it.
+/** The selection's abilities, one button each (in table order): greyed while none of the units it is for can use it
+ *  (a toggle, while any of them is still settling in or packing up).
  *  A toggle reads as the action a tap takes (`abilityTargets`); a timed one (Stim, Cloak) is lit while any of them is
  *  under it. No countdowns: a button comes back when it is ready. */
 function abilityItems(units) {
@@ -43,7 +44,9 @@ function abilityItems(units) {
       return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, locked: true, tip: `${a.desc} Research ${UPGRADES[tech].name} at the ${at?.name ?? 'tech building'} first.` };
     }
     const { on, units: to } = abilityTargets(have, k), off = !on && a.off; // (a toggle's other side: its name, icon and words)
-    return { id: 'a_' + k, label: off ? off.name : a.name, key: a.hot, icon: off ? off.icon : k, dis: !to.some(u => canUse(u, k)), active: have.some(u => u.boost === k), tip: off ? off.desc : a.desc };
+    // A toggle waits while any unit it is for is still settling in or packing up: one tap never splits the selection.
+    const busy = a.toggle && to.some(u => u.swap > 0);
+    return { id: 'a_' + k, label: off ? off.name : a.name, key: a.hot, icon: off ? off.icon : k, dis: busy || !to.some(u => canUse(u, k)), active: have.some(u => u.boost === k), tip: off ? off.desc : a.desc };
   });
 }
 

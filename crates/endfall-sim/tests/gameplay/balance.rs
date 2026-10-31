@@ -139,6 +139,31 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
             0.2,
             1.0,
         );
+        // The Lancer's ground damage 5 -> 9 (2026-10-31): still weak on the ground (Troopers beat it, above), but no
+        // longer dead weight beside Troopers (-0.59 / -0.58 against Prisms before, -0.24 / -0.33 after).
+        range(
+            "Lancer+Trooper v Prism",
+            d(&[Lancer, Trooper], &[Prism]),
+            -0.45,
+            0.2,
+        );
+    }
+}
+
+#[test]
+fn a_halo_finds_cloaked_raiders_for_its_army() {
+    // With every tech and the AI's use of abilities: Cloaked Wasps and veiled Shrikes beat Prisms that cannot see
+    // them. One Halo per three Prisms detects them (5 tiles, 2026-10-31) and turns both fights round (Prism+Halo
+    // -0.81 / -0.97 before the Halo detected, +0.95 / +0.85 after).
+    use UnitKind::*;
+    for foe in [Wasp, Shrike] {
+        let alone = duel_with(&[Prism], &[foe], 2800.0, tech_micro);
+        let led = duel_with(&[Prism, Prism, Prism, Halo], &[foe], 2800.0, tech_micro);
+        assert!(
+            alone < -0.3,
+            "Prisms alone lose to cloaked {foe:?}: {alone:+.2}"
+        );
+        assert!(led > 0.3, "a Halo among them finds the {foe:?}: {led:+.2}");
     }
 }
 
@@ -165,6 +190,14 @@ fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
             d(&[Sovereign], &[Wasp]),
             -1.0,
             -0.9,
+        );
+        // Its ground trade (2026-10-31, range 9, damage 48): it no longer loses to the Vael's own line army (-0.46 /
+        // -0.40 before, +0.11 / +0.23 after).
+        range(
+            "Sovereign v Scythe+Prism",
+            d(&[Sovereign], &[Scythe, Prism]),
+            -0.2,
+            1.0,
         );
     }
 }

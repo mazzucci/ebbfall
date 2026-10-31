@@ -60,6 +60,14 @@ pub fn flatten(w: &mut World, xs: std::ops::Range<i32>, ys: std::ops::Range<i32>
 pub type Micro = fn(&mut World, &[Id], &[Id]);
 /// No micro: the armies just fight.
 pub fn no_micro(_: &mut World, _: &[Id], _: &[Id]) {}
+/// Every one-level tech on both sides, and each side uses its abilities as the AI does (`World::auto_cast`): a
+/// cloaking raider cloaks once engaged with something that can hit it.
+pub fn tech_micro(w: &mut World, mine: &[Id], _: &[Id]) {
+    all_techs(w);
+    if let Some(team) = mine.iter().find_map(|&id| w.unit(id)).map(|u| u.team) {
+        w.auto_cast(team);
+    }
+}
 
 pub fn duel_once(
     a: &[UnitKind],

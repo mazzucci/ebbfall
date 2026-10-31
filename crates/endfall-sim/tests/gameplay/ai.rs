@@ -1482,3 +1482,131 @@ fn brutal_trains_its_workers_before_its_buildings() {
     // The other levels build as before.
     assert!(DIFF[..3].iter().all(|d| !d.workers_first));
 }
+
+#[test]
+fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_field() {
+    // The Human AI with money to spare and its Airfield up trains no Observer while nothing unseen has hit it. A
+    // cloaked Wasp then shoots one of its Troopers out by the player's base (far from its own buildings, where no
+    // tower goes): it trains one Observer, and keeps it over its next wave rather than at home or racing ahead.
+    let mut w = World::new(9, 1);
+    for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        (b.hp, b.maxhp) = (1e9, 1e9);
+    }
+    let observers = |w: &World| count(w, ENEMY, UnitKind::Observer);
+    let step = |w: &mut World| {
+        w.res[ENEMY as usize] = [2000, 1000];
+        w.step();
+        w.events.clear();
+    };
+    while w.time < 420.0 {
+        step(&mut w);
+    }
+    assert!(
+        w.bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.kind == BldgKind::Airfield && b.done),
+        "its Airfield stands by 7:00"
+    );
+    assert_eq!(
+        observers(&w),
+        0,
+        "no Observer while nothing unseen has hit it"
+    );
+    // The unseen hit, out in the field.
+    let (px, py) = core(&w, PLAYER);
+    let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
+    let trooper = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
+    w.hold_unit(trooper);
+    let wasp = w.make_unit(UnitKind::Wasp, PLAYER, x + 40.0, y);
+    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
+    w.cast(wasp, AbilityKind::Cloak).unwrap();
+    for _ in 0..3 * TPS {
+        if w.unit(trooper).is_some() && w.unit(wasp).is_some() {
+            w.attack_ent(wasp, trooper);
+        }
+        step(&mut w);
+    }
+    assert!(
+        w.unit(trooper).is_none_or(|t| t.hp < t.maxhp),
+        "the cloaked Wasp hit it"
+    );
+    if w.unit(wasp).is_some() {
+        w.damage(wasp, 1e6, None); // (the hit is the news; the Wasp itself is not the test)
+    }
+    let mut trained = None;
+    while w.time < 540.0 && trained.is_none() {
+        step(&mut w);
+        trained = (observers(&w) >= 1).then_some(w.time);
+    }
+    assert!(trained.is_some(), "an Observer within two minutes");
+    // Over its next wave: near the middle of the wave's other units.
+    let (mut over, mut samples) = (0, 0);
+    while w.time < 900.0 && samples < 60 {
+        step(&mut w);
+        let Some(wave) = w.ai_wave() else { continue };
+        let Some(obs) = w
+            .units
+            .iter()
+            .find(|u| u.team == ENEMY && u.kind == UnitKind::Observer)
+        else {
+            continue;
+        };
+        let rest: Vec<(f64, f64)> = wave
+            .iter()
+            .filter_map(|&id| w.unit(id))
+            .filter(|u| u.kind != UnitKind::Observer)
+            .map(|u| (u.x, u.y))
+            .collect();
+        if rest.is_empty() || !w.tick.is_multiple_of(TPS) {
+            continue;
+        }
+        let n = rest.len() as f64;
+        let (cx, cy) = (
+            rest.iter().map(|p| p.0).sum::<f64>() / n,
+            rest.iter().map(|p| p.1).sum::<f64>() / n,
+        );
+        samples += 1;
+        over += (((obs.x - cx).powi(2) + (obs.y - cy).powi(2)).sqrt() < 6.0 * TILE) as usize;
+    }
+    assert_eq!(observers(&w), 1, "one Observer, not a stream of them");
+    assert!(samples >= 20, "a wave went out ({samples} samples)");
+    assert!(
+        over * 4 >= samples * 3,
+        "the Observer kept over its wave: {over} of {samples} seconds"
+    );
+}
+
+#[test]
+fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
+    // Each side's air factory waits for its level's `air_at`, less its script's `air_lead`: the Vael's Zenith half a
+    // minute sooner (its Shrikes came only where the Zenith stood well before the 7:30 capital, in 6-28% of AI
+    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium.
+    let air_at = DIFF[1].air_at;
+    for f in [&VAEL, &HUMANS] {
+        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let mut placed = None;
+        while w.time < air_at + 30.0 && placed.is_none() {
+            w.res[ENEMY as usize] = [2000, 1000];
+            w.step();
+            w.events.clear();
+            placed = w
+                .bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == f.ai.air)
+                .then_some(w.time);
+        }
+        let at = placed.unwrap_or(f64::MAX);
+        let due = air_at - f.ai.air_lead;
+        let early = f.ai.air_lead > 0.0;
+        assert!(
+            at > due && at < if early { air_at } else { air_at + 30.0 },
+            "{}: its {:?} at {at:.0} s, due after {due:.0} s",
+            f.name,
+            f.ai.air
+        );
+    }
+    const { assert!(VAEL.ai.air_lead > HUMANS.ai.air_lead) };
+}

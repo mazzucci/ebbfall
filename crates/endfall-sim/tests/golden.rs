@@ -221,7 +221,7 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "73/74/47/0 lost_to 74 | 101/47/74/18 lost_to 47 | over true winner 1 conceded -1 at 19142",
+    "78/82/45/0 lost_to 82 | 104/45/82/22 lost_to 45 | over true winner 1 conceded -1 at 19508",
     "101/24/67/24 lost_to 24 | 63/67/24/0 lost_to 67 | over true winner 0 conceded -1 at 12890",
     "15/19/3/0 lost_to 19 | 39/3/19/3 lost_to 3 | over true winner 1 conceded -1 at 9954",
 ];
@@ -256,7 +256,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [1818282753, 1412659752, 1023427200];
+const EXPECTED_TEAMS_AI: [u32; 3] = [1818282753, 1412659752, 3023455502];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

@@ -31,6 +31,7 @@ pub const HUMANS: Faction = Faction {
         raider: UnitKind::Wasp,
         wave_scale: 1.0,
         tech_from: 300.0,
+        air_lead: 0.0,
     },
 };
 
@@ -108,7 +109,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
     bio: true,
     weapon: Some(Weapon {
         range: 6.0,
-        dmg: 5.0,
+        dmg: 9.0,
         dmg_air: 30.0,
         cd: 1.2,
         proj: Some(ProjKind::Missile),

@@ -294,3 +294,29 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
     let (unseen, _) = alerts(&mut w, 10);
     assert_eq!(unseen, 0, "detected: nothing unseen");
 }
+
+#[test]
+fn a_halo_detects_cloaked_units_near_it() {
+    // The Vael's detector in the field (2026-10-31): a Halo reveals what is cloaked within 5 tiles of it, as an
+    // Observer does within 7; farther off, though in its sight, the cloak holds.
+    let mut w = flat_arena(14);
+    w.factions = vec![&VAEL, &HUMANS];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let halo = w.make_unit(UnitKind::Halo, PLAYER, x, y);
+    let near = w.make_unit(UnitKind::Observer, ENEMY, x + 3.0 * TILE, y);
+    let far = w.make_unit(UnitKind::Observer, ENEMY, x - 8.0 * TILE, y);
+    for u in [halo, near, far] {
+        w.hold_unit(u);
+    }
+    w.step();
+    let (ftx, fty) = w.map.tile_of(U(&w, far).x, U(&w, far).y);
+    assert!(
+        w.vis[PLAYER as usize][w.map.idx(ftx, fty)] != 0,
+        "the far one is in sight"
+    );
+    assert!(w.seen_by(PLAYER, near), "detected within 5 tiles");
+    assert!(!w.seen_by(PLAYER, far), "not 8 tiles off");
+    // And it is a detector like the others to the rest of the game: what the client's unseen-attacker toast names.
+    assert_eq!(VAEL.field_detector(), Some(UnitKind::Halo));
+    assert_eq!(HUMANS.field_detector(), Some(UnitKind::Observer));
+}

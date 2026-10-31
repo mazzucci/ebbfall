@@ -242,6 +242,7 @@ impl World {
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
             self.ai_steer_wave(&army, &attackers, t, rally, goal);
+            self.escort_wave(&army, &attackers);
         } else {
             // At home: stragglers back to the rally point.
             for &a in &army {
@@ -251,6 +252,32 @@ impl World {
                     let oy = (self.rnd() - 0.5) * 120.0;
                     self.move_to(a, rally.x + ox, rally.y + oy);
                 }
+            }
+        }
+    }
+
+    /// A flying detector (an Observer) keeps over its wave rather than racing ahead of it: to the middle of the
+    /// wave's other units (a walking one, the Halo, keeps with it as a healer does).
+    fn escort_wave(&mut self, army: &[Id], attackers: &[Id]) {
+        let escort = |w: &World, id: Id| {
+            w.unit(id).is_some_and(|u| {
+                let d = u.kind.def();
+                d.air && d.detect > 0.0 && !d.armed()
+            })
+        };
+        let (mut sx, mut sy, mut n) = (0.0, 0.0, 0.0);
+        for &a in attackers {
+            if let Some(u) = self.unit(a).filter(|_| !escort(self, a)) {
+                (sx, sy, n) = (sx + u.x, sy + u.y, n + 1.0);
+            }
+        }
+        if n == 0.0 {
+            return;
+        }
+        let (cx, cy) = (sx / n, sy / n);
+        for &a in army {
+            if escort(self, a) && dist(self.u(a).x, self.u(a).y, cx, cy) > 2.0 * TILE {
+                self.move_to(a, cx, cy);
             }
         }
     }

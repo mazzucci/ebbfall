@@ -66,6 +66,9 @@ pub(crate) struct Ai {
     pub guards: Vec<Id>,
     /// Where something it could not see last hit it (a cloaked raider): a detector goes there.
     pub cloak_hit: Option<(f64, f64)>,
+    /// Something it could not see has hit it (anywhere): from then on one detector of its own (its side's
+    /// `Faction::field_detector`) goes with its army.
+    pub unseen_hit: bool,
 }
 
 impl World {
@@ -144,6 +147,7 @@ impl World {
             heavy_seen: (0, 0.0),
             guards: Vec::new(),
             cloak_hit: None,
+            unseen_hit: false,
             sweep: 0,
             sweep_since: 0.0,
             ether_lean: false,

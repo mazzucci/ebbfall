@@ -84,8 +84,35 @@ fn ground_only_weapons_cannot_touch_flyers() {
 }
 
 #[test]
-fn lancers_troopers_and_turrets_shoot_flyers_down() {
-    for shooter in ["lancer", "trooper", "turret"] {
+fn an_interceptor_cannot_touch_the_ground() {
+    // Missiles at flyers only: no ground unit nor building can be hit, ordered or not, and none ever is.
+    let mut w = arena(7);
+    let icp = w.make_unit(UnitKind::Interceptor, PLAYER, 600.0, 900.0);
+    let trooper = w.make_unit(UnitKind::Trooper, ENEMY, 680.0, 900.0);
+    let depot = w.make_building(BldgKind::Depot, ENEMY, 21, 26, true);
+    for target in [trooper, depot] {
+        assert!(!w.can_hit(icp, target), "it cannot hit the ground");
+        w.attack_ent(icp, target);
+        assert_eq!(
+            w.unit(icp).unwrap().task,
+            Task::Idle,
+            "an order to hit the ground is refused"
+        );
+    }
+    w.hold_unit(trooper); // (the Trooper does not shoot back: its hp is what is watched)
+    w.attack_move(icp, 21.0 * TILE, 27.0 * TILE); // (and an attack-move past both finds nothing to shoot)
+    run(&mut w, 10);
+    assert!(
+        !matches!(w.unit(icp).unwrap().task, Task::Attack { .. }),
+        "it never picks a ground target"
+    );
+    assert!(w.unit(trooper).is_some_and(|u| u.hp == u.maxhp));
+    assert!(w.bldg(depot).is_some_and(|b| b.hp == b.maxhp));
+}
+
+#[test]
+fn anti_air_troopers_and_turrets_shoot_flyers_down() {
+    for shooter in ["lancer", "interceptor", "trooper", "turret"] {
         let mut w = arena(9);
         match shooter {
             "turret" => {

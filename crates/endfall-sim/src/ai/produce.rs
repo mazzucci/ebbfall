@@ -23,7 +23,8 @@ impl World {
             ..
         } = brain.clone();
         // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers and bring a Medic per six
-        // Troopers; the Factory, once the Forge stands, a Vanguard per two and, from 5:30, a Siege Tank per six.
+        // Troopers; the Factory, once the Forge stands, answers flyers with Interceptors (then the Barracks bring only
+        // half the answer in Lancers), and mixes in a Vanguard per two Troopers and, from 5:30, a Siege Tank per six.
         let mine = |w: &World, k: UnitKind| {
             w.units
                 .iter()
@@ -51,6 +52,30 @@ impl World {
         let mut wanted_detector = self.factions[e as usize]
             .field_detector()
             .filter(|&k| self.ai().unseen_hit && mine(self, k) == 0);
+        // Enemy flyers: two answers per flyer seen, counted with those queued (`AiScript::answer_weight`). The heavier
+        // answer once a finished building of ours with room in its queue can train it (its requirement standing); then
+        // the cheap one only to half the answer (a vehicle bay full of tanks leaves it all to the cheap one).
+        let script = &self.factions[e as usize].ai;
+        let heavy_aa = script.heavy_anti_air.filter(|&k| {
+            k.def()
+                .req
+                .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+                && my_b
+                    .iter()
+                    .filter_map(|&id| self.bldg(id))
+                    .any(|b| b.done && b.queue.len() < 2 && b.kind.def().trains.contains(&k))
+        });
+        let answers = |w: &World| {
+            let s = &w.factions[e as usize].ai;
+            mine(w, s.anti_air)
+                + s.heavy_anti_air
+                    .map_or(0, |k| s.answer_weight(k) * mine(w, k))
+        };
+        let cheap_cap = if heavy_aa.is_some() {
+            enemy_air
+        } else {
+            enemy_air * 2
+        };
         for &bid in &my_b {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
@@ -110,16 +135,21 @@ impl World {
                 }
                 continue;
             }
+            let short_of_aa = enemy_air > 0 && answers(self) < enemy_air * 2;
             let u = if let Some(k) = detector {
                 k
-            } else if b.kind == s.rax && enemy_air > 0 && mine(self, s.anti_air) < enemy_air * 2 {
+            } else if b.kind == s.rax && short_of_aa && mine(self, s.anti_air) < cheap_cap {
                 s.anti_air
+            } else if let Some(k) =
+                heavy_aa.filter(|k| short_of_aa && b.kind.def().trains.contains(k))
+            {
+                k
             } else if (b.kind == s.rax || heavy)
                 && let Some(&(k, _, _)) = mixed
             {
                 k
             } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {
-                continue; // (the vehicle bay trains only what the mix calls for)
+                continue; // (the vehicle bay trains only its anti-air and what the mix calls for)
             } else {
                 b.kind.def().trains[0]
             };

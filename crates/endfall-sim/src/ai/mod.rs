@@ -372,7 +372,8 @@ pub(crate) struct Brain {
     /// Armed enemies at our buildings, counted only with more than one enemy still in (0 otherwise).
     raid: usize,
     enemy_air: usize,
-    lancers: usize,
+    /// Its answer to enemy flyers so far (`AiScript::answer_weight`: Lancers, Interceptors worth two).
+    anti_air: usize,
     saving: bool,
 }
 

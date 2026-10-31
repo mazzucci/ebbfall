@@ -77,6 +77,107 @@ fn the_counters_hold_in_cost_equal_fights() {
 }
 
 #[test]
+#[ignore]
+fn anti_air_matrix() {
+    // The Interceptor and the Lancer against flyers and the ground (cost-equal), for tuning.
+    use UnitKind::*;
+    let rows: [(&str, &[UnitKind], &[UnitKind]); 18] = [
+        ("icp v raider", &[Interceptor], &[Raider]),
+        ("icp v shrike", &[Interceptor], &[Shrike]),
+        ("icp v bastion", &[Interceptor], &[Bastion]),
+        ("icp v trooper", &[Interceptor], &[Trooper]),
+        ("icp v scythe", &[Interceptor], &[Scythe]),
+        ("icp v lancer", &[Interceptor], &[Lancer]),
+        ("trp+icp v shrike", &[Trooper, Interceptor], &[Shrike]),
+        ("trp+icp v raider", &[Trooper, Interceptor], &[Raider]),
+        ("trp+icp v bastion", &[Trooper, Interceptor], &[Bastion]),
+        ("trp+icp v trooper", &[Trooper, Interceptor], &[Trooper]),
+        ("lancer v raider", &[Lancer], &[Raider]),
+        ("lancer v shrike", &[Lancer], &[Shrike]),
+        ("lancer v bastion", &[Lancer], &[Bastion]),
+        ("lancer v trooper", &[Lancer], &[Trooper]),
+        ("lancer v scythe", &[Lancer], &[Scythe]),
+        ("lancer v prism", &[Lancer], &[Prism]),
+        ("lancer+trp v prism", &[Lancer, Trooper], &[Prism]),
+        ("lancer+trp v raider", &[Lancer, Trooper], &[Raider]),
+    ];
+    for budget in [2200.0, 4400.0] {
+        for (name, a, b) in rows {
+            println!("{budget} {name:>20}: {:+.2}", duel(a, b, budget));
+        }
+    }
+}
+
+#[test]
+fn the_interceptor_answers_flyers_and_is_dead_weight_on_the_ground() {
+    // The Factory's anti-air vehicle (the 2026-10-30 balance study's "Skyguard"): it beats every flyer at equal cost,
+    // the capital gunship too, and cannot fight the ground at all. Measured at 2200 / 4400: +0.81 / +0.80 against
+    // Raiders, +0.70 / +0.71 against Shrikes, +0.52 / +0.38 against Bastions; -1.00 against any ground army, and beside
+    // Troopers it is dead weight against Troopers (-0.92 / -0.91) while the pair still beats Shrikes (+0.76 / +0.73).
+    // The Lancer (60/25 since 2026-10-31, from 75/25) stays the cheap early answer: as good per cost against the light
+    // flyers (+0.83 / +0.81 against Raiders), but its infantry falls to the Bastion's splash (+0.31 / +0.25 there,
+    // where the Interceptor's hull holds).
+    use UnitKind::*;
+    let range = |name: &str, v: f64, lo: f64, hi: f64| {
+        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
+    };
+    for budget in [2200.0, 4400.0] {
+        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
+        range(
+            "Interceptor v Raider",
+            d(&[Interceptor], &[Raider]),
+            0.6,
+            1.0,
+        );
+        range(
+            "Interceptor v Shrike",
+            d(&[Interceptor], &[Shrike]),
+            0.5,
+            1.0,
+        );
+        let bastion = d(&[Interceptor], &[Bastion]);
+        range("Interceptor v Bastion", bastion, 0.2, 1.0);
+        for foe in [Trooper, Scythe, Lancer] {
+            range(
+                &format!("Interceptor v {foe:?} (cannot hit the ground)"),
+                d(&[Interceptor], &[foe]),
+                -1.0,
+                -0.95,
+            );
+        }
+        range(
+            "Trooper+Interceptor v Trooper",
+            d(&[Trooper, Interceptor], &[Trooper]),
+            -1.0,
+            -0.6,
+        );
+        range(
+            "Trooper+Interceptor v Shrike",
+            d(&[Trooper, Interceptor], &[Shrike]),
+            0.5,
+            1.0,
+        );
+        range("Lancer v Raider", d(&[Lancer], &[Raider]), 0.6, 1.0);
+        range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
+        let lancer_bastion = d(&[Lancer], &[Bastion]);
+        assert!(
+            bastion > lancer_bastion,
+            "{budget}: the tougher answer to the gunship ({bastion:+.2} against the Lancer's {lancer_bastion:+.2})"
+        );
+    }
+    // The cheap early answer: cheaper than the Interceptor, and trained before a Foundry stands.
+    assert!(unit_value(Lancer) < unit_value(Interceptor) * 0.6);
+    assert_eq!(Lancer.def().req, None);
+    assert_eq!(Interceptor.def().req, Some(BldgKind::Forge));
+    assert!(Interceptor.def().speed > Lancer.def().speed && Interceptor.def().hp > Lancer.def().hp);
+    assert_eq!(
+        Interceptor.def().detect,
+        0.0,
+        "detection stays the Observer's job"
+    );
+}
+
+#[test]
 fn a_turret_or_a_few_troopers_answer_an_early_raider_raid() {
     let (lost, raiders) = raid(2, 0, 0);
     assert_eq!(
@@ -148,12 +249,13 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
             1.0,
         );
         // The Lancer's ground damage 5 -> 9 (2026-10-31): still weak on the ground (Troopers beat it, above), but no
-        // longer dead weight beside Troopers (-0.59 / -0.58 against Prisms before, -0.24 / -0.33 after).
+        // longer dead weight beside Troopers (-0.59 / -0.58 against Prisms before, -0.24 / -0.33 after; at 60/25
+        // instead of 75/25, -0.19 / +0.27: more of them for the money).
         range(
             "Lancer+Trooper v Prism",
             d(&[Lancer, Trooper], &[Prism]),
             -0.45,
-            0.2,
+            0.4,
         );
     }
 }

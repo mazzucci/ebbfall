@@ -280,7 +280,7 @@ fn the_ai_does_not_restim_while_a_stim_runs() {
 #[test]
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
     let (mut w, forge) = forge_arena(11);
-    let v = w.make_unit(UnitKind::Wasp, PLAYER, 640.0, 1280.0);
+    let v = w.make_unit(UnitKind::Raider, PLAYER, 640.0, 1280.0);
     assert_eq!(
         w.cast(v, AbilityKind::Cloak),
         Err("Research Cloaking Field first".into()),
@@ -296,8 +296,8 @@ fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
         Err("Cloaking Field is fully upgraded".into()),
         "one level"
     );
-    // The other side's Wasps are still locked: a tech is a team's.
-    let foe = w.make_unit(UnitKind::Wasp, ENEMY, 900.0, 1280.0);
+    // The other side's Raiders are still locked: a tech is a team's.
+    let foe = w.make_unit(UnitKind::Raider, ENEMY, 900.0, 1280.0);
     assert!(w.cast(foe, AbilityKind::Cloak).is_err());
 }
 
@@ -353,7 +353,7 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
         let us: Vec<Id> = (0..n)
             .map(|i| {
                 w.make_unit(
-                    UnitKind::Wasp,
+                    UnitKind::Raider,
                     PLAYER,
                     20.0 * TILE,
                     (28.0 + 2.0 * i as f64) * TILE,
@@ -368,7 +368,7 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
         let (slow, fast) = (travel(false, n), travel(true, n));
         assert!(
             fast > slow * 1.25,
-            "Afterburners, {n} Wasps: {fast} vs {slow}"
+            "Afterburners, {n} Raiders: {fast} vs {slow}"
         );
     }
 }

@@ -24,7 +24,7 @@ that reward attention (Stim, Siege Mode, Burrow, cloak and detection, spells), (
 natural to defend, chokes, 128x128 travel time), (4) branching tech that makes scouting and timing attacks matter, and
 (5) an AI that is a sparring partner rather than a wave timer. Endfall has none of (1): no unit has a button beyond
 Attack/Hold; there is no cloak, no detection, no spellcaster, no transport. Its two rosters are a mirror (Scythe/Prism/
-Monolith/Halo/Shrike = Trooper/Lancer/Vanguard/Medic/Wasp with shields), so the second race is felt in the economy
+Monolith/Halo/Shrike = Trooper/Lancer/Vanguard/Medic/Raider with shields), so the second race is felt in the economy
 but not in the army. Tech is a single corridor (Garrison -> Foundry -> Airfield) and games end at 30-50 of 200 supply in
 6-12 minutes: there is no mid-game decision and no late game. The maps are generated noise with no ramp, cliff, or
 designed choke, and the 64x64 size makes an attack a 35-second walk, so expansions are rarely worth the risk. The AI is
@@ -93,7 +93,7 @@ Spire rally), `src/client/gl/render.js` (warp-in effect), `hud.js`, `tests/gamep
 **4. Cloak and detection: a cloaked Observer, detecting Turrets/Wards, one cloaked raider per race.** Why: the
 scout/detector tension is half of StarCraft's mid game and it is wholly missing; the Observer is just a fast kite.
 Make the Observer cloaked (visible only inside a Turret/Ward/Observer-detector radius), the Turret and Ward detectors,
-and give each race one cloak-capable unit later (Wasp cloak toggle that drains a small energy bar; a Vael "Veil" Scythe
+and give each race one cloak-capable unit later (Raider cloak toggle that drains a small energy bar; a Vael "Veil" Scythe
 variant from the Loom). The AI answers with a Turret at the mineral line once it has seen a cloaked unit (it already
 has `seen_air_until` as a template). StarCraft: Observer, Wraith, Ghost, Dark Templar, Missile Turret. Size L. Owner.
 Files: `data/*.rs`, `world/fog.rs` (per-seat detection grid), `world/combat.rs` (targeting filter), `render.js`
@@ -120,7 +120,7 @@ multi-prong (item 7), early research, Observer scouting; "Brutal" = Hard at x1.3
 (income), `ai/build.rs`, `ai/army.rs`, `index.html` (titles), `tests/gameplay/ai.rs`, `scripts/headless.js`.
 
 **7. AI that reads the player and attacks in two places.** Why: today the only reaction is Lancers for flyers; waves
-walk one line to `known.first`, the expansion is left empty, raids are 2-4 Wasps. Add: (a) composition answer
+walk one line to `known.first`, the expansion is left empty, raids are 2-4 Raiders. Add: (a) composition answer
 (Vanguards/Monoliths when it has seen 8+ infantry, Troopers/Scythes when it sees Prisms/Vanguards, a Turret/Ward at
 the mineral line after a raid); (b) a second group of a third of the wave sent at the player's expansion or mineral line
 while the main wave engages; (c) three units and a tower kept at its own expansion; (d) drop the "decoy" exploit where
@@ -143,7 +143,7 @@ Files: `ai/army.rs` (`ai_research`, `ai_steer_wave`, `ai_launch_wave`), `ai/buil
 **9. Branching tech and a key upgrade per unit.** Why: Garrison -> Foundry -> Airfield is one corridor; StarCraft's
 timing windows exist because U-238 shells, Stim, Leg Enhancements and Singularity Charge are researched choices the
 other side must scout. Add per-race choices at the Foundry/Loom: Trooper range +1, Vanguard Entrench (from item 1),
-Wasp speed, Scythe Blink, Prism range, Shrike speed; two at a time researchable, 60-90 s each, visible as a pip in the
+Raider speed, Scythe Blink, Prism range, Shrike speed; two at a time researchable, 60-90 s each, visible as a pip in the
 long-press detail. Split the Airfield/Zenith off the Foundry/Loom so Air and Ground are a real branch. Size M. Owner
 (light: confirm the list). Files: `data/upgrades.rs` (Effect variants), `data/humans.rs`, `data/vael.rs` (`req`),
 `world/combat.rs`, `ai/army.rs` (research order), `hud.js`, `tests/gameplay/economy.rs`.

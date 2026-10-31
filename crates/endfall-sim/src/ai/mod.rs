@@ -1,5 +1,5 @@
 //! The scripted opponent. Runs twice a second (every `AI_TURN` ticks, each brain on a tick of its own): assigns
-//! workers, follows a build order, keeps supply ahead, expands, defends its base, raids with Wasps and attacks in
+//! workers, follows a build order, keeps supply ahead, expands, defends its base, raids with Raiders and attacks in
 //! growing waves. It plays under fog of war: it scouts, remembers the player buildings it has seen and sweeps the map
 //! when it knows of none. Draws only from the world RNG.
 
@@ -48,7 +48,7 @@ pub(crate) struct Ai {
     /// The early scout (a harvester), and whether it has been sent.
     pub scout: Option<Id>,
     pub scouted: bool,
-    /// Wasps raiding the player's harvesters.
+    /// The raiders (the race's raider kind: Raiders, Shrikes) out raiding the player's harvesters.
     pub raiders: Vec<Id>,
     /// With no player building known: which point of the sweep (the player's start, then the shard fields
     /// nearest it) the army heads for next.

@@ -68,7 +68,7 @@ kinds! {
         Vanguard => humans::VANGUARD,
         Lancer => humans::LANCER,
         Medic => humans::MEDIC,
-        Wasp => humans::WASP,
+        Raider => humans::RAIDER,
         Observer => humans::OBSERVER,
         Lumen => vael::LUMEN,
         Scythe => vael::SCYTHE,

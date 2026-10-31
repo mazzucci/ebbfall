@@ -107,7 +107,7 @@ const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
     name: "Afterburners",
     short: "Afterburn",
-    effect: Effect::Speed(UnitKind::Wasp),
+    effect: Effect::Speed(UnitKind::Raider),
     ..TECH
 };
 const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {

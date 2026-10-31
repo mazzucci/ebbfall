@@ -31,7 +31,7 @@ const UNIT_TEXT = {
   vanguard: { hot: 'V', desc: 'Heavy walker for the front line: it fights on the move, with long range and thick plate, and its shells splash onto nearby ground units. Cannot hit flyers.' },
   lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  wasp: { hot: 'W', desc: 'Fast gunship. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
+  raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
   siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.' },
   bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
@@ -53,7 +53,7 @@ const BLDG_TEXT = {
   forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics at the Garrison and vehicles at the Factory.' },
   factory: { hot: 'R', desc: 'Builds vehicles: Vanguards and Siege Tanks (both need a Foundry).' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
-  airfield: { hot: 'A', desc: 'Trains Wasps, Observers and the Bastion capital gunship.' },
+  airfield: { hot: 'A', desc: 'Trains Raiders, Observers and the Bastion capital gunship.' },
   // the Vael
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },

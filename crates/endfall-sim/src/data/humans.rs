@@ -1,5 +1,5 @@
 //! The Humans: the Core, harvesters that build and repair, infantry, vehicles (Vanguards and Siege Tanks from the
-//! Factory), Turrets and Wasps.
+//! Factory), Turrets and Raiders.
 
 use super::*;
 
@@ -39,7 +39,7 @@ pub const HUMANS: Faction = Faction {
             (UnitKind::SiegeTank, 6, 330.0),
             (UnitKind::Vanguard, 2, 0.0),
         ],
-        raider: UnitKind::Wasp,
+        raider: UnitKind::Raider,
         wave_scale: 1.0,
         tech_from: 300.0,
         air_lead: 0.0,
@@ -206,9 +206,9 @@ pub(super) const BASTION: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-pub(super) const WASP: UnitDef = UnitDef {
-    key: "wasp",
-    name: "Wasp",
+pub(super) const RAIDER: UnitDef = UnitDef {
+    key: "raider",
+    name: "Raider",
     cost: [100, 60],
     supply: 2,
     hp: 100.0,
@@ -351,7 +351,7 @@ pub(super) const AIRFIELD: BldgDef = BldgDef {
     hp: 760.0,
     build: 50.0,
     sight: 8.0,
-    trains: &[UnitKind::Wasp, UnitKind::Observer, UnitKind::Bastion],
+    trains: &[UnitKind::Raider, UnitKind::Observer, UnitKind::Bastion],
     req: Some(BldgKind::Barracks), // (air is a branch of its own, beside the ground tech)
     researches: &[Upgrade::Afterburners],
     ..BLDG

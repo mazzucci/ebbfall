@@ -54,8 +54,9 @@ impl World {
         self.sweep_point()
     }
 
-    /// Wasps (two or more) raid the player's harvesters; badly hurt ones fly home.
-    pub(crate) fn tend_raiders(&mut self, wasps: &[Id], rally: Pt) {
+    /// Raiders (two or more of the race's raider kind: Raiders, Shrikes) raid the player's harvesters; badly hurt ones
+    /// fly home.
+    pub(crate) fn tend_raiders(&mut self, candidates: &[Id], rally: Pt) {
         let mut raiders: Vec<Id> = self
             .ai()
             .raiders
@@ -65,7 +66,7 @@ impl World {
             .collect();
         let healthy = |w: &World, id: Id| w.unit(id).is_some_and(|u| u.hp >= u.maxhp * 0.4);
         if raiders.is_empty() {
-            let fit: Vec<Id> = wasps
+            let fit: Vec<Id> = candidates
                 .iter()
                 .copied()
                 .filter(|&id| healthy(self, id))
@@ -231,7 +232,7 @@ impl World {
         brain.lancers = lancers;
     }
 
-    /// The army: jump intruders, Wasp raids, waves to where the player is believed to be, retreat, regroup.
+    /// The army: jump intruders, Raider raids, waves to where the player is believed to be, retreat, regroup.
     pub(crate) fn ai_army(&mut self, brain: &mut Brain) {
         let Brain {
             t,
@@ -247,13 +248,13 @@ impl World {
         self.recall_wave(&army, raid, intruder, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
-        let wasps: Vec<Id> = army
+        let candidates: Vec<Id> = army
             .iter()
             .copied()
             .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
             .collect();
         if self.level().raids {
-            self.tend_raiders(&wasps, rally);
+            self.tend_raiders(&candidates, rally);
         }
         let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
@@ -811,19 +812,19 @@ mod tests {
                 )
             })
             .collect();
-        // A Wasp right by the expansion is still not a guard (it raids).
+        // A Raider right by the expansion is still not a guard (it raids).
         let (exx, exy) = (
             (ex as f64 + 2.0) * 32.0,
             (ey.clamp(4, 56) as f64 + 2.0) * 32.0,
         );
-        let wasp = w.make_unit(UnitKind::Wasp, ENEMY, exx + 40.0, exy);
-        army.push(wasp);
+        let raider = w.make_unit(UnitKind::Raider, ENEMY, exx + 40.0, exy);
+        army.push(raider);
         let rest = w.tend_guards(army.clone());
         assert_eq!(rest.len(), 4);
         assert_eq!(w.ai().guards.len(), 3);
         assert!(
-            !w.ai().guards.contains(&wasp) && rest.contains(&wasp),
-            "not the Wasp"
+            !w.ai().guards.contains(&raider) && rest.contains(&raider),
+            "not the Raider"
         );
         // Kept, not re-picked, on the next turn.
         let again = w.tend_guards(army.clone());

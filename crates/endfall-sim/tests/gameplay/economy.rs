@@ -690,3 +690,49 @@ fn an_idle_worker_away_from_its_field_stays_where_it_was_put() {
     run(&mut w, 1);
     assert_eq!(w.unit(h).map(|u| u.task), Some(Task::Idle), "it stays put");
 }
+
+#[test]
+fn each_of_a_mains_two_refineries_gets_its_own_worker() {
+    // Two vents by every main: a person's second refinery gets a worker of its own (a shard worker), and the first
+    // keeps its.
+    let on_vent = |w: &World, v: Id| {
+        w.units
+            .iter()
+            .filter(|u| {
+                u.team == PLAYER && matches!(u.task, Task::Gather { node, .. } if node == v)
+            })
+            .count()
+    };
+    for (mut w, kind) in [
+        (rich(5), BldgKind::Extractor),
+        (rich_vael(5), BldgKind::Siphon),
+    ] {
+        run(&mut w, 3);
+        let (cx, cy) = core(&w, PLAYER);
+        let mut vents: Vec<(i32, i32, Id)> = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether && (n.tx - cx - 1).abs().max((n.ty - cy - 1).abs()) <= 10)
+            .map(|n| (n.tx, n.ty, n.id))
+            .collect();
+        vents.sort();
+        assert_eq!(vents.len(), 2, "{kind:?}: two vents by the main");
+        let mut rigs = vec![];
+        for (i, &(tx, ty, _)) in vents.iter().enumerate() {
+            let worker = harvesters(&w, PLAYER)[i];
+            rigs.push(
+                w.place_building(PLAYER, kind, tx, ty, Some(worker))
+                    .unwrap(),
+            );
+        }
+        run(&mut w, 120);
+        assert!(
+            rigs.iter().all(|&b| w.bldg(b).unwrap().done),
+            "{kind:?}: both stand"
+        );
+        for &(_, _, v) in &vents {
+            assert_eq!(on_vent(&w, v), 1, "{kind:?}: one worker on vent {v}");
+        }
+    }
+}

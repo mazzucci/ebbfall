@@ -69,16 +69,16 @@ impl World {
                 u.hp -= hp;
                 u.boost = Some((ability, now + secs));
             }
-            AbilityEffect::Entrench { .. } => {
-                let entrenching = self.u(uid).mode.is_none();
-                if entrenching {
-                    // Settles in where it stands and holds: it fires at what comes into its (longer) reach.
+            AbilityEffect::Settle { .. } => {
+                let settling = self.u(uid).mode.is_none();
+                if settling {
+                    // Settles in where it stands and holds: it fires at what comes into its reach.
                     self.release_mine(uid);
                     self.set_task(uid, Task::Hold);
                 } else {
                     self.set_task(uid, Task::Idle);
                 }
-                self.set_toggle(uid, ability, entrenching);
+                self.set_toggle(uid, ability, settling);
             }
             AbilityEffect::Blink { dist } => self.blink(uid, dist * TILE),
             // (the boost timer carries it: a cloaking unit has no other timed ability)
@@ -101,7 +101,7 @@ impl World {
     /// Turns `uid`'s toggle `ability` on or off, whatever it is doing (its task stays): `swap` seconds of settling in
     /// or packing up start.
     pub(crate) fn set_toggle(&mut self, uid: Id, ability: AbilityKind, on: bool) {
-        if let AbilityEffect::Entrench { swap, .. } = ability.def().effect {
+        if let AbilityEffect::Settle { swap, .. } = ability.def().effect {
             let u = self.um(uid);
             u.mode = on.then_some(ability);
             u.swap = swap;
@@ -199,11 +199,11 @@ impl World {
         }
     }
 
-    /// A move order on an entrenched unit packs it up first (it walks once the packing is done).
-    pub(crate) fn unentrench_to_move(&mut self, uid: Id) {
+    /// A move order on a deployed unit packs it up first (it drives once the packing is done).
+    pub(crate) fn pack_up_to_move(&mut self, uid: Id) {
         let u = self.um(uid);
         if let Some(k) = u.mode {
-            if let AbilityEffect::Entrench { swap, .. } = k.def().effect {
+            if let AbilityEffect::Settle { swap, .. } = k.def().effect {
                 u.swap = swap;
             }
             u.mode = None;
@@ -220,7 +220,7 @@ impl World {
             None => 1.0,
         }
     }
-    /// Walking speed multiplier: 0 while entrenched or settling, the boost's while boosted.
+    /// Walking speed multiplier: 0 while deployed or settling, the boost's while boosted.
     pub(crate) fn speed_mul(&self, uid: Id) -> f64 {
         let u = self.u(uid);
         if u.mode.is_some() || u.swap > 0.0 {
@@ -269,7 +269,7 @@ impl World {
     pub(crate) fn fire_mul(&self, uid: Id) -> f64 {
         self.boost_mul(uid, |f, _| f)
     }
-    /// Extra reach in tiles (entrenched), or None while settling in or packing up (no firing then), and for a siege
+    /// Extra reach in tiles (its toggle's, while on), or None while settling in or packing up (no firing then), and for a siege
     /// gun on its tracks with no light gun.
     pub(crate) fn reach_add(&self, uid: Id) -> Option<f64> {
         let u = self.u(uid);
@@ -277,14 +277,14 @@ impl World {
             return None;
         }
         Some(match u.mode.map(|k| k.def().effect) {
-            Some(AbilityEffect::Entrench { range, .. }) => range,
+            Some(AbilityEffect::Settle { range, .. }) => range,
             _ => 0.0,
         })
     }
 
     /// The scripted opponent's (and the duels') use of abilities for `team`'s units, in unit order: Stim and
-    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, Entrench when enemies are in
-    /// entrenched reach but none is close, and packing up when nothing is left in reach. Sees only what `team` sees.
+    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, a cloak once engaged, and a siege
+    /// gun packed up when nothing is left in its reach. Sees only what `team` sees.
     pub fn auto_cast(&mut self, team: u8) {
         self.auto_cast_for(team, true);
     }
@@ -306,18 +306,17 @@ impl World {
                 self.siege_pack_up(uid);
                 continue;
             }
-            let (ux, uy, task, hp, maxhp, mode, boost) =
-                (u.x, u.y, u.task, u.hp, u.maxhp, u.mode, u.boost);
+            let (ux, uy, task, hp, maxhp, boost) = (u.x, u.y, u.task, u.hp, u.maxhp, u.boost);
             let d = u.kind.def();
             let reach = d.weapon.map_or(0.0, |w| w.range) * TILE;
             let target_d = match task {
                 Task::Attack { target, .. } => self.geo(target).map(|g| g.edge_dist(ux, uy)),
                 _ => None,
             };
-            // What this side sees around it: the nearest enemy (edge distance) and how many armed enemy units are
-            // within 8 tiles (a real fight, not a worker or a building).
+            // What this side sees around it: how many armed enemy units are within 8 tiles (edge distance; a real
+            // fight, not a worker or a building).
             // Also how many of those (and of its turrets) can hit this unit's layer: what a cloak would hide it from.
-            let (mut nearest, mut armed, mut can_hit_me) = (f64::INFINITY, 0, 0);
+            let (mut armed, mut can_hit_me) = (0, 0);
             for o in self.nearby(ux, uy, 12.0 * TILE) {
                 if !self.team_of(o).is_some_and(|t| self.enemies(team, t)) || !self.seen_by(team, o)
                 {
@@ -325,7 +324,6 @@ impl World {
                 }
                 let Some(g) = self.geo(o) else { continue };
                 let e = g.edge_dist(ux, uy);
-                nearest = nearest.min(e);
                 if e < 8.0 * TILE && self.unit(o).is_some_and(|u| u.kind.def().threat()) {
                     armed += 1;
                 }
@@ -364,16 +362,8 @@ impl World {
                     AbilityEffect::Cloak { .. } => {
                         can_hit_me >= 1 && !detected && boost.is_none() && target_d.is_some()
                     }
-                    // Only a defender digs in (idle or holding): a wave on the move never leaves one behind.
-                    AbilityEffect::Entrench { range, .. } => match mode {
-                        None => {
-                            matches!(task, Task::Idle | Task::Hold)
-                                && nearest <= reach + range * TILE
-                                && nearest > 3.0 * TILE
-                        }
-                        // Packs up once nothing is left within its entrenched reach (and walks on with its wave).
-                        Some(_) => nearest > reach + range * TILE,
-                    },
+                    // (a toggle is a siege gun's: it deploys on reaching its target and packs up above)
+                    AbilityEffect::Settle { .. } => false,
                 };
                 if go {
                     let _ = self.cast(uid, ab);

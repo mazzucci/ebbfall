@@ -233,7 +233,7 @@ impl World {
         *tries += 1;
     }
 
-    /// Back to idle (an entrenched unit holds instead: idle, it would chase what it cannot reach).
+    /// Back to idle (a deployed unit holds instead: idle, it would chase what it cannot reach).
     pub(crate) fn set_idle(&mut self, uid: Id) {
         let t = if self.u(uid).mode.is_some() {
             Task::Hold
@@ -256,8 +256,8 @@ impl World {
         }
     }
 
-    /// Push overlapping units apart and out of blocked tiles. A unit holding position, warping in or dug in
-    /// (entrenched, deployed: a siege gun in a fight is so without holding) stands firm: others flow around it.
+    /// Push overlapping units apart and out of blocked tiles. A unit holding position, warping in or deployed (a
+    /// siege gun in a fight is so without holding) stands firm: others flow around it.
     pub(crate) fn separate(&mut self) {
         let firm = |u: &Unit| u.task == Task::Hold || u.warp > 0.0 || u.mode.is_some();
         for i in 0..self.units.len() {

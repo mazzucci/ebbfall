@@ -152,10 +152,12 @@ impl World {
                 .filter(|k| k.def().researches.contains(&up))
                 .map(|k| k.def().name)
                 .collect();
-            return Err(format!(
-                "Research happens at a finished {}",
-                at.join(" or ")
-            ));
+            // (a retired tech, Entrenching, is offered nowhere)
+            return Err(if at.is_empty() {
+                format!("Cannot research {}", up.def().name)
+            } else {
+                format!("Research happens at a finished {}", at.join(" or "))
+            });
         }
         if b.research.is_some() {
             return Err("Already researching here".into());
@@ -225,13 +227,13 @@ impl World {
 
     pub fn move_to(&mut self, uid: Id, x: f64, y: f64) {
         self.release_mine(uid);
-        self.unentrench_to_move(uid);
+        self.pack_up_to_move(uid);
         self.set_task(uid, Task::Move { x, y });
         self.path_to(uid, x, y);
     }
     pub fn attack_move(&mut self, uid: Id, x: f64, y: f64) {
         self.release_mine(uid);
-        self.unentrench_to_move(uid);
+        self.pack_up_to_move(uid);
         self.set_task(uid, Task::AMove { x, y });
         self.path_to(uid, x, y);
     }
@@ -252,7 +254,7 @@ impl World {
                 return;
             }
             Some(Ordering::Equal) => {}
-            _ => self.unentrench_to_move(uid),
+            _ => self.pack_up_to_move(uid),
         }
         self.set_task(uid, Task::Attack { target, back: None });
     }
@@ -276,7 +278,7 @@ impl World {
     }
     pub fn stop_unit(&mut self, uid: Id) {
         self.release_mine(uid);
-        // An entrenched unit stays entrenched: it holds (idle, it would chase what it cannot reach).
+        // A deployed unit stays deployed: it holds (idle, it would chase what it cannot reach).
         let t = if self.u(uid).mode.is_some() {
             Task::Hold
         } else {

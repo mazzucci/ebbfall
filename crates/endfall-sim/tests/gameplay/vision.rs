@@ -474,13 +474,38 @@ fn left(w: &World, u: Id) -> f64 {
 fn shooters_whose_reach_meets_their_sight_still_fire_there() {
     // Only a siege gun (it outranges its own sight) needs its side to see its target: a gun whose reach is at the
     // edge of its sight fires as far as it reaches, wherever the target's tile centre falls.
-    // An entrenched Vanguard (reach 9, sight 9) answers a Sovereign holding at its reach, 9.76 tiles centre to centre.
-    let (mut w, van, sov) = reach_scene((30.0, 30.5), (39.76, 30.5), PLAYER);
-    w.cast(van, AbilityKind::Entrench).unwrap();
+    // A holding Sovereign (reach 9, sight 10) and a Vanguard 9.95 tiles off: 8.95 tiles edge to edge, in its reach,
+    // but on a tile whose centre is 10.4 tiles away, which its side does not see.
+    let (mut w, van, sov) = reach_scene((40.05, 30.5), (30.1, 30.5), PLAYER);
+    w.hold_unit(van);
     w.hold_unit(sov);
-    let full = left(&w, sov);
+    assert!(!w.seen_by(ENEMY, van), "its side does not see the target");
+    let full = left(&w, van);
     run(&mut w, 12);
-    assert!(left(&w, sov) < full, "the entrenched Vanguard fires back");
+    assert!(!w.seen_by(ENEMY, van), "still unseen");
+    assert!(left(&w, van) < full, "the Sovereign fires all the same");
+    // A deployed Siege Tank (reach 11, sight 10) and a Vanguard 10.95 tiles off, in its reach, on a tile it does not
+    // see: it holds its fire until a spotter of its side sees the target.
+    let mut w = tech_arena(8);
+    let tank = w.make_unit(UnitKind::SiegeTank, PLAYER, 30.1 * TILE, 30.5 * TILE);
+    let van = w.make_unit(UnitKind::Vanguard, ENEMY, 41.05 * TILE, 30.5 * TILE);
+    set_hp(&mut w, van, 1e6);
+    w.hold_unit(van);
+    w.cast(tank, AbilityKind::Deploy).unwrap();
+    run(&mut w, 4);
+    assert!(!w.seen_by(PLAYER, van), "its side does not see the target");
+    let full = left(&w, van);
+    run(&mut w, 10);
+    assert_eq!(
+        left(&w, van),
+        full,
+        "no spotter: the siege gun holds its fire"
+    );
+    w.make_unit(UnitKind::Observer, PLAYER, 38.0 * TILE, 30.5 * TILE);
+    w.update_fog();
+    assert!(w.seen_by(PLAYER, van), "a spotter sees it");
+    run(&mut w, 10);
+    assert!(left(&w, van) < full, "then the siege gun shells it");
     // A Sovereign (reach 9, sight 10) sent at a holding Vanguard 12 tiles off closes to its reach and fires.
     let (mut w, van, sov) = reach_scene((30.05, 30.5), (18.0, 30.5), ENEMY);
     w.hold_unit(van);

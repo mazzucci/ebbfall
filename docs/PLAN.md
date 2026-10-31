@@ -238,7 +238,24 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   AI, on two vents and after the balance pass, Humans against Vael (240 games a level): Medium 50.4% Humans (main 51.7%),
   Hard 51.2% (main 41.7%); tanks in 175 and 154 of the games, Bastions and Sovereigns about as often as before (fewer
   Sovereigns: 74 and 70 against 87). Tests: gameplay/siege.rs, the siege
-  line and counters in balance.rs; the client shows the selected tank's reach and blind ring.
+  line and counters in balance.rs; the client showed the selected tank's reach and blind ring (dropped the same day:
+  no other unit shows its range).
+- [x] Deploy is the one toggle (2026-10-31, the owner's asks after playing the Siege Tank): a selected tank no longer
+  shows range rings (no unit does); a toggle's button names the action a tap takes, not the state: **Deploy** while
+  any selected tank is on its tracks (for those only: the sim flips each unit it is sent), **Undeploy** with its own
+  icon (the tank on its tracks, outriggers folded up) once all of them are deployed or settling in, on the same key,
+  never lit (`abilityTargets` in src/client/cards.js; a timed ability is still lit while it runs). The Vanguard's
+  **Entrench** is retired, too close to Deploy: the Vanguard is the front line that fights on the move, the tank the
+  artillery that sets up. `AbilityKind::Entrench` and `Upgrade::Entrenching` keep their places (snapshot indices), but
+  no unit has it and the Foundry no longer researches it; the toggle effect is `AbilityEffect::Settle`; the AI's dig-in
+  rule is gone (the tank's deploy and pack-up stay). Balance, before and after (no stat change made): cost-equal duels, means
+  against a 13-army roster at 2400 / 3400, unchanged in the open (Vanguards +0.01 / -0.03, with techs -0.07 / -0.10;
+  Trooper+Vanguard +0.11 / +0.19): an army on the move never dug in; holding a line against attackers, with the AI's
+  micro, -0.46 / -0.50 before and -0.36 / -0.33 after (2 s dug in without firing cost more than +3 range gave, but
+  against Monoliths -0.72 / -0.65 to -1.00 / -0.79). Monoliths still beat Vanguards (+0.33 at 2200, +0.18 at 3300).
+  AI vs AI, Humans against the Vael over two seed sets (240 games a level, six map kinds, both starts): Medium 117 to
+  111 (49% to 46%), Hard 109 to 109 (45%). Golden games that moved: vael-ai-vs-human-ai at 5:00 and the first two
+  results games (the Human AI's Foundry no longer researches Entrenching).
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

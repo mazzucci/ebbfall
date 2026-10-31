@@ -3,7 +3,7 @@
 import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud } from './hud.js';
-import { cardItems, myFaction, leastBusy, researching, mostBusy } from './cards.js';
+import { cardItems, myFaction, leastBusy, researching, mostBusy, abilityTargets } from './cards.js';
 import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
 import { icon } from './icons.js';
@@ -94,7 +94,7 @@ export function doCommand(id, times = 1) {
     if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
-  if (id.startsWith('a_')) { const err = castAbility(units, id.slice(2)); if (err) refuse(id, err); return; } // (the cast event plays its sound)
+  if (id.startsWith('a_')) { const k = id.slice(2), err = castAbility(abilityTargets(units, k).units, k); if (err) refuse(id, err); return; } // (the cast event plays its sound; a toggle: the units its button names)
   if (id.startsWith('t_')) { // (`times`: Shift queues five, spread over the selected factories as it goes)
     let queued = 0;
     for (let i = 0; i < times; i++) {

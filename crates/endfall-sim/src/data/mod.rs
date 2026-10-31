@@ -80,6 +80,7 @@ kinds! {
         Sovereign => vael::SOVEREIGN,
         SiegeTank => humans::SIEGE_TANK,
         Umbra => vael::UMBRA,
+        Interceptor => humans::INTERCEPTOR,
     }
 }
 
@@ -309,13 +310,17 @@ pub struct AiScript {
     pub tech: BldgKind,
     pub tower: BldgKind,
     pub air: BldgKind,
-    /// Its vehicle bay, if it has one: it trains only the mixed-in units it can make, by the mix's ratios (beside
-    /// the main factory, which then keeps to its own).
+    /// Its vehicle bay, if it has one: it trains only its answer to flyers (`heavy_anti_air`) and the mixed-in units
+    /// it can make, by the mix's ratios (beside the main factory, which then keeps to its own).
     pub heavy: Option<BldgKind>,
     /// The cheap line unit the main factory trains by default.
     pub basic: UnitKind,
     /// The answer to enemy flyers (two per flyer seen).
     pub anti_air: UnitKind,
+    /// The vehicle bay's answer to enemy flyers, if any (the Interceptor), worth two of `anti_air`: once it can train
+    /// one, the bay fills the answer and the main factory brings only half of it (cheap early anti-air, then the
+    /// faster, tougher mid-game answer in place of some of it).
+    pub heavy_anti_air: Option<UnitKind>,
     /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands, and not before
     /// `.2` seconds of game time: a late specialist).
     pub mix: &'static [(UnitKind, usize, f64)],
@@ -328,6 +333,19 @@ pub struct AiScript {
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).
     pub air_lead: f64,
+}
+
+impl AiScript {
+    /// What an answer to enemy flyers is worth, in `anti_air` units: two for the heavier one, one for the cheap one.
+    pub fn answer_weight(&self, k: UnitKind) -> usize {
+        if Some(k) == self.heavy_anti_air {
+            2
+        } else if k == self.anti_air {
+            1
+        } else {
+            0
+        }
+    }
 }
 
 impl Faction {

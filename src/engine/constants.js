@@ -29,11 +29,12 @@ const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
   trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
   vanguard: { hot: 'V', desc: 'Heavy walker for the front line: fights on the move, with long range and thick plate. Its shells splash.' },
-  lancer: { hot: 'L', desc: 'Anti-air infantry. Missiles shred flyers, weak against the ground.' },
+  lancer: { hot: 'L', desc: 'Cheap anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
   siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, it shells from afar with heavy splash, not up close; on the move, a light gun.' },
+  interceptor: { hot: 'I', desc: 'Fast, armoured missile vehicle: intercepts flyers and keeps the sky clear over your line. Cannot hit the ground.' },
   bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
   // the Vael
   lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
@@ -51,7 +52,7 @@ const BLDG_TEXT = {
   extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers and Medics (Medics need a Foundry).' },
   forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics and vehicles.' },
-  factory: { hot: 'R', desc: 'Builds vehicles: Vanguards and Siege Tanks (both need a Foundry).' },
+  factory: { hot: 'R', desc: 'Builds vehicles: Vanguards, Siege Tanks and Interceptors (all need a Foundry).' },
   turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
   airfield: { hot: 'A', desc: 'Trains Raiders, Observers and the Bastion capital gunship.' },
   // the Vael

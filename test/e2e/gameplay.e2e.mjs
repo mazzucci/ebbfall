@@ -2768,6 +2768,41 @@ test('desktop, as the Vael: the Kiln trains an Umbra once a Loom stands (U, or i
   } finally { await d.close(); }
 });
 
+test('desktop: the Factory trains an Interceptor once a Foundry stands (I, or its slot\'s key in WASD); it shoots flyers down and never the ground', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  const { GRID } = await import('../../src/client/controls.js');
+  try {
+    await d.grant(3000, 2000);
+    await buildAndFinish(d, 'd', 'depot', 0);
+    await buildAndFinish(d, 'g', 'barracks', 1);
+    const factory = await buildAndFinish(d, 'r', 'factory', 2);
+    await d.clickEntity(factory.id);
+    assert.ok((await cardKeys(d)).some(([, , l]) => l === 'Interceptor'), 'the Factory offers the Interceptor');
+    assert.ok(await d.page.locator('#cmd [data-id="t_interceptor"].locked').count(), 'locked until a Foundry stands');
+    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Vanguard', 'Siege Tank', 'Interceptor', 'Rally', 'Cancel'], 'three vehicles, Rally after them, the queue\'s Cancel in its place');
+    await buildAndFinish(d, 'f', 'forge', 3);
+    await d.clickEntity(factory.id);
+    await d.readyCard('Interceptor');
+    const queue = async () => (await d.state()).bldgs.find(b => b.id === factory.id).queue;
+    await d.key('i');
+    assert.deepEqual(await queue(), ['interceptor'], `I trains an Interceptor (toasts: ${(await d.toasts()).join(' | ')})`);
+    await pickControls(d, 'wasd');
+    await d.clickEntity(factory.id);
+    const [at, key] = (await cardKeys(d)).find(([, , l]) => l === 'Interceptor');
+    assert.equal(key, GRID[at], 'its grid key shown');
+    await d.key(key.toLowerCase());
+    assert.deepEqual(await queue(), ['interceptor', 'interceptor'], `${key} trains another`);
+    await until(d, async () => mine(await d.state(), 'interceptor').length > 0, { seconds: 60, step: 0.5, what: 'the Interceptor' });
+    // An enemy Raider and an enemy Trooper beside it: the flyer comes down, the Trooper is never hit.
+    const u = mine(await d.state(), 'interceptor')[0];
+    const [raider, trooper] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(1, 'raider', x + 120, y), endfall.engine.debugSpawn(1, 'trooper', x, y + 90)], [u.x, u.y]);
+    await until(d, async () => !(await d.state()).units.some(o => o.id === raider), { seconds: 20, step: 0.5, what: 'the Raider shot down' });
+    const t = await d.eval((id) => { const o = endfall.G.units.find(u => u.id === id); return o && [o.hp, o.maxhp]; }, trooper);
+    assert.ok(t && t[0] === t[1], `the Trooper untouched (${t})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('desktop, WASD controls: a held key is let go when the page loses the keyboard or its keyup has another letter; Esc closes OPTIONS, then the pause card; Shift+key trains five; Ctrl+number keeps a group; a middle drag let go off the map, or under a card, ends; Tab skips what is under OPTIONS', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, init: () => localStorage.setItem('endfall.controls', 'wasd') });
   try {

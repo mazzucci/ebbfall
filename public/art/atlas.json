@@ -5,7 +5,8 @@
   "atlas-2.json",
   "atlas-3.json",
   "atlas-4.json",
-  "atlas-5.json"
+  "atlas-5.json",
+  "atlas-6.json"
  ],
  "animations": {
   "boom_big": [
@@ -795,6 +796,70 @@
    "siegeTank_15_1",
    "siegeTank_15_2",
    "siegeTank_15_3"
+  ],
+  "interceptor_0": [
+   "interceptor_0_0",
+   "interceptor_0_1"
+  ],
+  "interceptor_1": [
+   "interceptor_1_0",
+   "interceptor_1_1"
+  ],
+  "interceptor_2": [
+   "interceptor_2_0",
+   "interceptor_2_1"
+  ],
+  "interceptor_3": [
+   "interceptor_3_0",
+   "interceptor_3_1"
+  ],
+  "interceptor_4": [
+   "interceptor_4_0",
+   "interceptor_4_1"
+  ],
+  "interceptor_5": [
+   "interceptor_5_0",
+   "interceptor_5_1"
+  ],
+  "interceptor_6": [
+   "interceptor_6_0",
+   "interceptor_6_1"
+  ],
+  "interceptor_7": [
+   "interceptor_7_0",
+   "interceptor_7_1"
+  ],
+  "interceptor_8": [
+   "interceptor_8_0",
+   "interceptor_8_1"
+  ],
+  "interceptor_9": [
+   "interceptor_9_0",
+   "interceptor_9_1"
+  ],
+  "interceptor_10": [
+   "interceptor_10_0",
+   "interceptor_10_1"
+  ],
+  "interceptor_11": [
+   "interceptor_11_0",
+   "interceptor_11_1"
+  ],
+  "interceptor_12": [
+   "interceptor_12_0",
+   "interceptor_12_1"
+  ],
+  "interceptor_13": [
+   "interceptor_13_0",
+   "interceptor_13_1"
+  ],
+  "interceptor_14": [
+   "interceptor_14_0",
+   "interceptor_14_1"
+  ],
+  "interceptor_15": [
+   "interceptor_15_0",
+   "interceptor_15_1"
   ],
   "lumen_0": [
    "lumen_0_0",

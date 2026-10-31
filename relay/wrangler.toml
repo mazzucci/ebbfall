@@ -3,7 +3,8 @@
 # A deploy restarts every room: games in progress end (CI deploys only when the live relay's GET /version says another
 # build than this commit's: .github/workflows/ci.yml passes it as `--var RELAY_BUILD:<hash>`).
 # The game finds it through the build's VITE_RELAY_URL (wss://relay.ebbfall.com/; the device test POSTs its report to
-# https://relay.ebbfall.com/bench, kept a week by the object named 'bench', the same class: no migration).
+# https://relay.ebbfall.com/bench, kept a week by the object named 'bench', the same class: no migration; the rooms'
+# limits an hour's and everyone's, by the object named 'limits', in memory, the same class too).
 name = "ebbfall-relay"
 main = "worker.js"
 compatibility_date = "2026-10-01"
@@ -11,6 +12,19 @@ routes = [{ pattern = "relay.ebbfall.com", custom_domain = true }]
 
 [vars]
 ORIGINS = "https://ebbfall.com,https://www.ebbfall.com,http://localhost:5173,http://localhost:4173"
+
+# The rooms' limits per address, a minute's (relay/limits.js and relay/edge.js; docs/MULTIPLAYER.md, Security): Workers
+# Rate Limiting, counted where the request lands, approximate, no storage. The numbers are relay/limits.js's
+# (test/relay-worker.test.js keeps them equal); each namespace_id is this account's own (any positive integer, unique).
+[[ratelimits]]
+name = "CREATE_LIMIT" # rooms opened: OPEN_PER_MIN a minute
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "JOIN_LIMIT" # joins by code: JOIN_POINTS points a minute (a join 1, one that finds no room MISS_COST)
+namespace_id = "1002"
+simple = { limit = 40, period = 60 }
 
 [[durable_objects.bindings]]
 name = "ROOMS"

@@ -186,13 +186,17 @@ src/client/           everything that touches the browser
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
                       share or fill or remove an open seat; + AI / + SEAT in the lowest empty spot; the map list; a
-                      guest's board read-only, SIT HERE; a name first, NEW ROOM and JOIN dimmed
+                      guest's board read-only, SIT HERE; the host's REMOVE in a person's sheet (a stranger who guessed
+                      the code: the relay bars their address from the room); a name first, NEW ROOM and JOIN dimmed
                       without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
                       with VITE_RELAY_URL shows MULTIPLAYER in the HTML itself, vite.config.js)
 src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages (seats by spot), its game seat
                       from `start`, sends this side's orders,
                       feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
+src/net/roomcode.js   room codes, one module for the relay, the lobby and the link's card: six letters of a vowel-free
+                      alphabet (64 million), made from crypto random numbers, shown BCD-FGH, read in any case with or
+                      without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat
@@ -203,7 +207,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
                       guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their
-                      spots' colours, eight seats on phones),
+                      spots' colours, eight seats on phones; a code typed as shown or not, the share line, an
+                      out-of-date link, the host's REMOVE, the limits' line),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
@@ -228,13 +233,18 @@ test/cards.test.js    every card of both races (units, buildings, Build pages, a
 test/seats.test.js    the board's rules: spots to seats, team ids and each seat's spot, a new AI's spot and side, the
                       sides a sheet offers, a saved board checked (and one from before the spots)
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
-                      the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js
+                      the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js,
+                      with the rooms' limits (opening per address a minute and an hour, everyone's, joins with a miss
+                      costing more, on a fake clock; wrangler.toml's bindings equal relay/limits.js's numbers), the
+                      first format's codes told to update, the host's REMOVE barring an address, PROTO
+test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
                       every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
                       headers, what is not a file, www and http, the beacon only with a token, _headers, wrangler.toml;
                       with dist/ built, every file the service worker stores, robots.txt, the sitemap and og.png
-test/site-preview.test.js the link cards (site/preview.js): a room's code checked against the relay's alphabet (hostile,
-                      overlong, lower case), a challenge's card and its link made again from the code (hostile and other
+test/site-preview.test.js the link cards (site/preview.js): a room's code read as the relay's (src/net/roomcode.js: hostile,
+                      overlong, four letters, lower case, a hyphen),
+                      a challenge's card and its link made again from the code (hostile and other
                       codes: the site's card), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
                       robots.txt and the sitemap, and that the build's service worker leaves those out
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
@@ -250,10 +260,14 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       the board's fixed spots (a seat keeps its spot in the lobby), AI seats and their levels, the
                       game's seats arranged by side only at the start (`setup.spots`), the room's map checked against
                       its seats (it imports src/client/maps.js), lobby, the turn clock, the log, away and back,
-                      desync checks); server.mjs, a Node WebSocket server
+                      desync checks, the host's remove); server.mjs, a Node WebSocket server
                       for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
-                      this commit's build); bench.js, the device test's reports over HTTP (POST /bench, GET
+                      this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
+                      limits.js, the limits per address and in all (docs/MULTIPLAYER.md, Security: Workers Rate
+                      Limiting bindings for an address's minute, an object named `limits` for its hour and everyone's
+                      rooms, all in memory in the Node relay but for this machine) and the counter bench.js shares;
+                      bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting): dist/ as a Worker's static assets
                       (wrangler.toml: ebbfall.com/* and www as zone routes, exact paths as on GitHub Pages, the Worker
@@ -261,7 +275,7 @@ site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosti
                       a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
                       bytes sent; www and http to https://ebbfall.com/; a page load that is not a file goes to /, a
                       missing file is a 404), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
-                      with CODE checked against the relay's alphabet; a challenge's, `?vs=CODE`, through
+                      with CODE read as the relay's (src/net/roomcode.js); a challenge's, `?vs=CODE`, through
                       src/client/challenge.js, its words from the code's values alone),
                       cache.js (assets/ immutable; the pages, sw.js and the manifest
                       no-cache), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two

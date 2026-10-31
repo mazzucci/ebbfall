@@ -147,14 +147,14 @@ const content = (html, key) => html.match(new RegExp(`<meta (?:property|name)="$
 
 test("a room's link: its own card in the og: and twitter: tags, with or without the beacon; the rest of the page as it is", async () => {
   for (const env of [{}, { CF_ANALYTICS_TOKEN: 'abc' }]) {
-    for (const q of ['?room=WGNJ', '?room=wgnj', '?join=WGNJ', '?room=WGNJ&relay=wss://x.example/']) {
+    for (const q of ['?room=WGNJKL', '?room=wgnjkl', '?join=WGNJKL', '?room=WGNJKL&relay=wss://x.example/']) {
       const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
       assert.equal(res.status, 200, q);
       assert.match(res.headers.get('Content-Type'), /^text\/html/);
       assert.equal(res.headers.get('Cache-Control'), 'no-cache');
-      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Join my Ebbfall game: room WGNJ', `${q} ${k}`);
+      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Join my Ebbfall game: room WGN-JKL', `${q} ${k}`);
       for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Tap to join the room and play with me in your browser: free, nothing to install.');
-      assert.equal(content(html, 'og:url'), 'https://ebbfall.com/?room=WGNJ');
+      assert.equal(content(html, 'og:url'), 'https://ebbfall.com/?room=WGNJKL');
       assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');
       assert.match(html, /<link rel="canonical" href="https:\/\/ebbfall\.com\/">/, 'the canonical page stays the game');
       assert.match(html, /<title>Ebbfall: a free browser RTS in the 1998 mold<\/title>/, 'the tab\'s title as it was');
@@ -186,7 +186,7 @@ test("a challenge's link: its own card, the setup in words and its link made aga
 });
 
 test("hostile or unknown links get the site's card, and nothing of their query in the page", async () => {
-  for (const q of ['?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=<script>', '?room=WGNJX', '?room=ABCD', '?join="onload="x', '?seed=7',
+  for (const q of ['?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=<script>', '?room=WGNJKLX', '?room=WGNJ', '?room=ABCD', '?join="onload="x', '?seed=7',
     '?vs=%3Cscript%3E', '?vs=1.8.5.ky.h00v13v23v33%22', '?vs=2.8.5.ky.h00v13v23v33', '?vs=1.8.5.ky.h00v13v23v33x', '?vs="onload="x', '?vs=' + 'a'.repeat(3000)]) {
     const res = await get('/' + q, NAVIGATE, 'GET', {}, PAGE), html = await res.text();
     assert.equal(html, PAGE['/index.html'], `${q}: the file as it is`);
@@ -195,35 +195,35 @@ test("hostile or unknown links get the site's card, and nothing of their query i
 });
 
 test("a room's page has its own ETag: a 304 only for that card's bytes, never a stale card", async () => {
-  const res = await get('/?room=WGNJ', NAVIGATE, 'GET', {}, PAGE), tag = res.headers.get('ETag');
+  const res = await get('/?room=WGNJKL', NAVIGATE, 'GET', {}, PAGE), tag = res.headers.get('ETag');
   assert.match(tag, /^"p-[0-9a-f]{16}"$/);
   assert.notEqual(tag, '"e"', "not the file's: the file's tag does not say which card");
-  const again = await get('/?room=WGNJ', { ...NAVIGATE, 'If-None-Match': tag }, 'GET', {}, PAGE);
+  const again = await get('/?room=WGNJKL', { ...NAVIGATE, 'If-None-Match': tag }, 'GET', {}, PAGE);
   assert.equal(again.status, 304);
   assert.equal(again.headers.get('ETag'), tag);
   assert.equal(await again.text(), '');
-  assert.equal((await get('/?room=WGNJ', { 'If-None-Match': `W/${tag}` }, 'GET', {}, PAGE)).status, 304, 'weakened by the edge: still the same bytes');
-  assert.equal((await get('/?room=WGNJ', { 'If-None-Match': `"x", ${tag}` }, 'GET', {}, PAGE)).status, 304, 'one of a list');
-  assert.equal((await get('/?room=WGNJ', { 'If-None-Match': '"e"' }, 'GET', {}, PAGE)).status, 200, 'a copy of the plain page');
-  const other = await get('/?room=BCDF', { 'If-None-Match': tag }, 'GET', {}, PAGE);
+  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': `W/${tag}` }, 'GET', {}, PAGE)).status, 304, 'weakened by the edge: still the same bytes');
+  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': `"x", ${tag}` }, 'GET', {}, PAGE)).status, 304, 'one of a list');
+  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': '"e"' }, 'GET', {}, PAGE)).status, 200, 'a copy of the plain page');
+  const other = await get('/?room=BCDFGH', { 'If-None-Match': tag }, 'GET', {}, PAGE);
   assert.equal(other.status, 200, 'another room, another card');
   assert.notEqual(other.headers.get('ETag'), tag);
-  assert.equal((await get('/?room=WGNJ', { 'If-None-Match': tag }, 'GET', { CF_ANALYTICS_TOKEN: 'abc' }, PAGE)).status, 200, 'the beacon since: another page');
+  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': tag }, 'GET', { CF_ANALYTICS_TOKEN: 'abc' }, PAGE)).status, 200, 'the beacon since: another page');
   // The page changed (a deploy): another tag for the same link.
   const changed = { ...PAGE, '/index.html': PAGE['/index.html'].replace('<canvas id="game">', '<canvas id="game" data-x>') };
-  assert.notEqual((await get('/?room=WGNJ', {}, 'GET', {}, changed)).headers.get('ETag'), tag);
+  assert.notEqual((await get('/?room=WGNJKL', {}, 'GET', {}, changed)).headers.get('ETag'), tag);
   // HEAD: the headers alone.
-  const h = await get('/?room=WGNJ', {}, 'HEAD', {}, PAGE);
+  const h = await get('/?room=WGNJKL', {}, 'HEAD', {}, PAGE);
   assert.equal(h.status, 200);
   assert.equal(h.headers.get('ETag'), tag);
   assert.equal(await h.text(), '');
 });
 
 test("a room's page is always built from the whole file, and only for GET and HEAD", async () => {
-  const ranged = await get('/?room=WGNJ', { Range: 'bytes=0-9', 'If-Range': '"e"' }, 'GET', {}, PAGE);
+  const ranged = await get('/?room=WGNJKL', { Range: 'bytes=0-9', 'If-Range': '"e"' }, 'GET', {}, PAGE);
   assert.equal(ranged.status, 200, 'never a rewritten fragment');
-  assert.match(await ranged.text(), /room WGNJ/);
-  const post = await get('/?room=WGNJ', {}, 'POST', {}, PAGE);
+  assert.match(await ranged.text(), /room WGN-JKL/);
+  const post = await get('/?room=WGNJKL', {}, 'POST', {}, PAGE);
   assert.doesNotMatch(post.headers.get('ETag') || '', /^"p-/, "another method: the assets' answer, not a card");
 });
 

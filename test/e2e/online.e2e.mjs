@@ -16,6 +16,10 @@ let relay;
 before(async () => { await start(); relay = startRelay({ port: 0, latency: 40, jitter: 60 }); await relay.ready; });
 after(async () => { await relay.close(); await stop(); });
 
+/** A room's code as the lobby shows it (BCD-FGH: src/net/roomcode.js showCode). */
+const shown = (code) => `${code.slice(0, 3)}-${code.slice(3)}`;
+/** The room's code page `x` shows in its title (as the relay and the links have it: six capitals, no hyphen). */
+const roomOf = async (x) => (await x.p.locator('#roomShow').textContent()).replace('-', '');
 /** The friend opens the shared link: the join form, the code filled in; a name, then JOIN. */
 async function joinByLink(device, query, name) {
   const x = await page(device, query);
@@ -138,8 +142,8 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     await a.tap('#btnOnline');
     await a.p.locator('#onlineName').fill('Ann');
     await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     // Alone in the room: the other seat is open (not someone away), and the line says what to do.
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 1);
     await eventually(() => sides(a), [['YOU'], ['OPEN']], 'an open seat on the other side');
@@ -150,8 +154,8 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     // The friend opens the shared link on a phone: the join form, the code filled in, the invitation said; a name,
     // then JOIN.
     const b = await page(PHONE, `${relayQ}&room=${code}`);
-    assert.equal(await b.p.locator('#roomCode').inputValue(), code);
-    assert.equal(await b.p.locator('#onlineStatus').textContent(), `You're invited to room ${code}: type your name, then JOIN`);
+    assert.equal(await b.p.locator('#roomCode').inputValue(), shown(code));
+    assert.equal(await b.p.locator('#onlineStatus').textContent(), `You're invited to room ${shown(code)}: type your name, then JOIN`);
     assert.equal(await b.p.locator('#onlineName').getAttribute('placeholder'), 'Your name');
     assert.ok(await b.p.locator('#start').isHidden(), 'no menu (or anything) in front of the form');
     assert.equal(relay.rooms.get(code).seats.filter(s => s.conn).length, 1, 'nobody joined before JOIN');
@@ -202,8 +206,8 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
       // close the new room.
       await b.p.evaluate(() => { for (const id of ['btnAgain', 'btnOnline', 'btnNewRoom']) document.getElementById(id).click(); });
       assert.deepEqual(card, ['VICTORY', true, true], 'the friend wins; no watch online, and no rematch with a friend who left');
-      await b.p.waitForFunction((old) => { const c = document.getElementById('roomShow').textContent; return /^[A-Z]{4}$/.test(c) && c !== old; }, code);
-      const code2 = await b.p.locator('#roomShow').textContent();
+      await b.p.waitForFunction((old) => { const c = document.getElementById('roomShow').textContent; return /^[A-Z]{3}-[A-Z]{3}$/.test(c) && c !== old; }, shown(code));
+      const code2 = await roomOf(b);
       assert.notEqual(code2, code);
       await b.p.waitForTimeout(2500);
       assert.ok(await b.p.evaluate(() => !!endfall.online.net && !endfall.online.net.closed), 'the new room is still open');
@@ -239,8 +243,8 @@ test('a name first (NEW ROOM and JOIN dimmed without one, Enter asks for it, a l
     assert.deepEqual((await nudge(a))[0], false, 'the word gone');
     await a.p.locator('#roomCode').fill('');
     await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     await eventually(() => roomIn(a), code, 'the room\'s code in the address bar');
     assert.ok(new URL(a.p.url()).searchParams.get('relay'), 'the other parameters kept');
     const tokenOf = () => relay.rooms.get(code).seats[0].token;
@@ -248,7 +252,7 @@ test('a name first (NEW ROOM and JOIN dimmed without one, Enter asks for it, a l
     // A reload: straight back into the same seat (this tab's token), the name remembered, no seat more.
     const navs = await a.p.evaluate(() => history.length);
     await a.p.reload({ waitUntil: 'domcontentloaded' });
-    await a.p.waitForFunction((c) => window.endfall && endfall.online.seat === 0 && document.getElementById('roomShow').textContent === c, code, { timeout: RUN_MS });
+    await a.p.waitForFunction((c) => window.endfall && endfall.online.seat === 0 && document.getElementById('roomShow').textContent === c, shown(code), { timeout: RUN_MS });
     assert.equal(await a.p.locator('#onlineName').inputValue(), 'Ann', 'the name remembered and filled in');
     assert.equal(tokenOf(), token, 'the same seat');
     await eventually(() => relay.rooms.get(code).seats.filter(s => s.token).length, 1, 'no seat more');
@@ -258,8 +262,8 @@ test('a name first (NEW ROOM and JOIN dimmed without one, Enter asks for it, a l
     const b = await page(PHONE, `${relayQ}&room=${code}`);
     try {
       await b.p.locator('#onlineJoin').waitFor({ state: 'visible' });
-      assert.equal(await b.p.locator('#roomCode').inputValue(), code);
-      assert.equal(await b.p.locator('#onlineStatus').textContent(), `You're invited to room ${code}: type your name, then JOIN`);
+      assert.equal(await b.p.locator('#roomCode').inputValue(), shown(code));
+      assert.equal(await b.p.locator('#onlineStatus').textContent(), `You're invited to room ${shown(code)}: type your name, then JOIN`);
       assert.deepEqual(await dimmed(b), [true, true]);
       await b.p.locator('#btnJoinRoom').tap({ force: true }); // (Playwright waits for an aria-disabled button: a finger does not)
       assert.deepEqual(await nudge(b), [true, 'onlineName'], 'a tap on the dimmed JOIN asks for the name');
@@ -282,8 +286,8 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
   const a = await page(PHONE, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
     await eventually(() => sides(a), [['YOU'], ['OPEN']], 'the host alone: an open seat on the other side');
     const b = await joinByLink(DESKTOP, `${relayQ}&room=${code}`, 'Bo');
@@ -370,7 +374,7 @@ test('nothing on the lobby\'s board moves (upright and on its side) when the hos
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
-    const code = await a.p.locator('#roomShow').textContent(), A = board(a.p, 'online');
+    const code = await roomOf(a), A = board(a.p, 'online');
     const first = await A.boxes();
     assert.equal(first.length, 8, 'eight spots');
     assert.equal(new Set(first.map(r => `${r[2]}x${r[3]}`)).size, 1, 'all one size');
@@ -414,7 +418,7 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
     await a.p.evaluate(() => { window.shared = []; navigator.share = async (d) => { window.shared.push(d.url); }; });
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
-    const code = await a.p.locator('#roomShow').textContent();
+    const code = await roomOf(a);
     await eventually(() => a.p.locator('#onlineStatus').textContent(), 'A seat is open: share the link, or give it to the AI');
     await eventually(() => a.p.evaluate(() => ['btnShare', 'btnOnlineReady'].map(id => document.getElementById(id).classList.contains('big'))), [true, false], 'SHARE LINK the big button while a seat is open; READY plain');
     await sheet(a, 1, [], false);
@@ -483,7 +487,7 @@ test('eight seats fit a small phone (667x375), a landscape phone (844x390) and a
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Annabelle'); await a.tap('#btnNewRoom');
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
-    const code = await a.p.locator('#roomShow').textContent();
+    const code = await roomOf(a);
     // Eight seats: the host and three AIs against three AIs and an open seat, the sides across the spots.
     for (let k = 0; k < 6; k++) { const n = await a.p.locator('#onlineBoard .tok').count(); await a.tap('#onlineBoard [data-k="addai"]'); await a.p.waitForFunction((n) => document.querySelectorAll('#onlineBoard .tok').length === n + 1, n); }
     assert.equal(await a.p.locator('#onlineBoard .add').count(), 0, 'eight: nothing more to add');
@@ -542,7 +546,7 @@ test('a room of another version: the friend is told to update, and UPDATE brings
     await Promise.all([b.p.waitForNavigation(), b.tap('#btnOnlineReload')]);
     await b.p.waitForFunction(() => !!window.endfall);
     assert.equal(await b.p.locator('#onlineName').inputValue(), 'Bo', 'the name remembered');
-    assert.equal(await b.p.locator('#roomCode').inputValue(), code, 'back to the same room\'s link');
+    assert.equal(await b.p.locator('#roomCode').inputValue(), shown(code), 'back to the same room\'s link');
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 }); // (straight into the same room, a name remembered: still another version)
     assert.deepEqual(b.errors, []);
   } finally { host.close(); await b.ctx.close(); }
@@ -553,8 +557,8 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
   const a = await page(DESKTOP, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     const b = await joinByLink(PHONE, `${relayQ}&room=${code}`, 'Bo');
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
@@ -579,7 +583,7 @@ test('a rematch: both ask from the end card, both are back in the room, ready, a
       for (const x of [a, b]) {
         await x.p.locator('#onlineRoom').waitFor({ state: 'visible', timeout: 10000 });
         assert.ok(await x.p.locator('#end').isHidden(), 'from the end card to the room');
-        assert.equal(await x.p.locator('#roomShow').textContent(), code, 'the same room');
+        assert.equal(await x.p.locator('#roomShow').textContent(), shown(code), 'the same room');
       }
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       assert.deepEqual(await asked(), [0, 2], 'REMATCH, then READY: full screen again on the phone, still none on the desktop');
@@ -596,8 +600,8 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
   const a = await page(DESKTOP, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     const b = await joinByLink({ ...PHONE, viewport: { width: 667, height: 375 } }, `${relayQ}&room=${code}`, 'Bo');
     try {
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && !/AWAY|OPEN SEAT/.test(document.getElementById('onlineBoard').textContent));
@@ -697,8 +701,8 @@ test('the host switches apps to send the code: the room holds its seat, the frie
   const a = await page(PHONE, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     const b = await page(DESKTOP, `${relayQ}&room=${code}`);
     try {
       // Ann's phone kills the page's socket, and every try to reconnect fails for a while (past the lobby's few tries).
@@ -722,7 +726,7 @@ test('the host switches apps to send the code: the room holds its seat, the frie
       // Ann's page reconnects by itself (no wake): her seat, the same room; both see each other.
       await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 15000 });
       assert.ok(await a.p.evaluate(() => window.tries) >= 4, 'it kept trying past the lobby\'s few tries (four: a Net with no seat gives up there)');
-      assert.deepEqual(await a.p.evaluate(() => [endfall.online.seat, document.getElementById('roomShow').textContent, document.getElementById('onlineMapNote').textContent, endfall.online.net.closed]), [0, code, '', false], 'Ann: seat 0, the same code, the host');
+      assert.deepEqual(await a.p.evaluate(() => [endfall.online.seat, document.getElementById('roomShow').textContent, document.getElementById('onlineMapNote').textContent, endfall.online.net.closed]), [0, shown(code), '', false], 'Ann: seat 0, the same code, the host');
       await b.p.waitForFunction(() => !/AWAY/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 5000 });
       assert.deepEqual(await seatsB(), ['Ann HUMANS, host, Side 1', 'YOU HUMANS, Side 2: edit']);
       for (const x of [a, b]) assert.equal(await x.p.locator('#onlineStatus').textContent(), 'Ready when you are');
@@ -742,8 +746,8 @@ test('a friend back on another browser: the host frees the AWAY seat with ×, an
   const a = await page(DESKTOP, relayQ);
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     const b = await joinByLink(PHONE, `${relayQ}&room=${code}`, 'Bo');
     try {
       await a.p.waitForFunction(() => /Bo/.test(document.getElementById('onlineBoard').textContent));
@@ -767,11 +771,74 @@ test('a friend back on another browser: the host frees the AWAY seat with ×, an
   } finally { await a.ctx.close(); }
 });
 
+test('a room code typed as shown or not (any case, a hyphen, spaces), the share line BCD-FGH, a wrong or out-of-date code said; the host REMOVEs a stranger, who cannot come back', { engines: true }, async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  try {
+    await a.p.evaluate(() => { window.shared = []; navigator.share = async (d) => { window.shared.push(d); }; });
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
+    assert.match(code, /^[BCDFGHJKLMNPQRSTVWXZ]{6}$/, 'six letters of the alphabet, shown in two threes');
+    await a.tap('#btnShare');
+    await a.p.waitForFunction(() => window.shared.length === 1);
+    assert.deepEqual(await a.p.evaluate(() => window.shared[0]), { title: 'Ebbfall', text: `Play me in Ebbfall: room ${shown(code)}`, url: `${baseUrl()}?room=${code}&${relayQ}` }, 'the line says BCD-FGH; the link carries the code alone');
+    const x = await page(PHONE, relayQ);
+    try {
+      await x.tap('#btnOnline'); await x.p.locator('#onlineName').fill('Eve');
+      for (const typed of ['BCDF', 'BCDFGHJ', 'ABCDFG']) {
+        await x.p.locator('#roomCode').fill(typed); await x.tap('#btnJoinRoom');
+        assert.equal(await x.p.locator('#onlineStatus').textContent(), 'Type the 6-letter code', typed);
+      }
+      await x.p.locator('#roomCode').fill(`${code.slice(0, 3).toLowerCase()} - ${code.slice(3).toLowerCase()}`); // (as said aloud: "bcd - fgh")
+      await x.tap('#btnJoinRoom');
+      await a.p.waitForFunction(() => /Eve/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 5000 });
+      await eventually(() => new URL(x.p.url()).searchParams.get('room'), code, 'the address bar has the code as the links do');
+      // The host's REMOVE in Eve's sheet: Eve is told, the seat is open, and her address cannot join this room again.
+      await sheet(a, 1, [], false);
+      await eventually(() => a.p.$$eval('#onlineSheet .ft button', bs => bs.map(b => b.textContent)), ['REMOVE', 'DONE'], 'a person here: REMOVE');
+      await a.tap('#onlineSheet [data-k="kick"]');
+      await x.p.waitForFunction(() => document.getElementById('onlineStatus').textContent === 'The host removed you from this room', null, { timeout: 5000 });
+      assert.ok(await x.p.locator('#onlineJoin').isVisible(), 'back on the join form');
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 1, null, { timeout: 5000 });
+      await x.p.locator('#roomCode').fill(shown(code)); await x.tap('#btnJoinRoom');
+      await x.p.waitForFunction(() => document.getElementById('onlineStatus').textContent === 'The host removed you from this room', null, { timeout: 5000 });
+      assert.equal(await a.p.locator('#onlineBoard .tok.open').count(), 1, 'the seat stays open for a friend');
+      assert.deepEqual(a.errors, []); assert.deepEqual(x.errors, []);
+    } finally { await x.ctx.close(); }
+    // A link of the first format (four letters: sent before the update) or a bad one: said, nothing joined.
+    for (const q of ['room=BCDF', 'room=WGN1KL']) {
+      const y = await page(PHONE, `${relayQ}&${q}`);
+      try {
+        await eventually(() => y.p.locator('#onlineStatus').textContent(), 'That room link is out of date: ask your friend for a new one', q);
+        assert.ok(await y.p.locator('#onlineJoin').isVisible());
+        assert.equal(new URL(y.p.url()).searchParams.get('room'), null, 'its code off the address bar');
+      } finally { await y.ctx.close(); }
+    }
+  } finally { await a.ctx.close(); }
+});
+
+test('too many rooms from one address: the lobby says to wait, calmly', async () => {
+  const strict = startRelay({ port: 0, free: () => false }); await strict.ready; // (this machine counted too)
+  const { OPEN_PER_MIN } = await import('../../relay/limits.js');
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${strict.port}/`)}`;
+  const a = await page(DESKTOP, relayQ);
+  try {
+    for (const key of ['127.0.0.1', '0:0:0:0']) for (let i = 0; i < OPEN_PER_MIN; i++) assert.equal(strict.limits.open(key), '', `${key}: its minute used up (localhost, either way)`);
+    await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+    await eventually(() => a.p.locator('#onlineStatus').textContent(), 'Too many tries: wait a minute and try again');
+    assert.ok(await a.p.locator('#onlineJoin').isVisible() && await a.p.locator('#btnOnlineReload').isHidden(), 'the join form, no UPDATE');
+    assert.equal(await a.p.evaluate(() => endfall.online.net?.closed ?? true), true, 'no retries meanwhile');
+    assert.equal(strict.rooms.size, 0);
+    assert.deepEqual(a.errors, []);
+  } finally { await a.ctx.close(); await strict.close(); }
+});
+
 test('a relay of a newer protocol: UPDATE is offered (not a dead end)', async () => {
   const { WebSocketServer } = await import('ws');
   const wss = new WebSocketServer({ port: 0 }); await new Promise(r => wss.on('listening', r));
   wss.on('connection', (ws) => ws.on('message', () => ws.send(JSON.stringify({ t: 'error', code: 'update', msg: 'Ebbfall has an update. Tap UPDATE to get it' }))));
-  const b = await joinByLink(PHONE, `relay=${encodeURIComponent(`ws://localhost:${wss.address().port}/`)}&join=ABCD`, 'Bo');
+  const b = await joinByLink(PHONE, `relay=${encodeURIComponent(`ws://localhost:${wss.address().port}/`)}&join=BCDFGH`, 'Bo');
   try {
     await b.p.locator('#btnOnlineReload').waitFor({ state: 'visible', timeout: 10000 });
     await eventually(() => b.p.locator('#onlineStatus').textContent(), 'Ebbfall has an update. Tap UPDATE to get it');
@@ -799,8 +866,8 @@ test('READY waits for the game to load; a seat that never loads holds the room u
   let release = () => {}, c = null;
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     await a.tap('#onlineBoard [data-k="addseat"]'); // (+ SEAT: an open seat more, a side of its own)
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
     // The friend's game still loading (its WASM and art held back): READY says so and takes no tap.
@@ -843,8 +910,8 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
   let c = null, release = () => {};
   try {
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     await a.tap('#onlineBoard [data-k="addseat"]'); // (+ SEAT: an open seat more, a side of its own)
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
     const b = await joinByLink({ ...DESKTOP, serviceWorkers: 'block' }, `${relayQ}&room=${code}`, 'Bo'); // (a service worker would serve the game past the routes below)
@@ -897,7 +964,7 @@ test('a small phone: the room fits without scrolling, its code the title, its so
     assert.equal(await a.p.locator('#onlineJoin h2').textContent(), 'MULTIPLAYER', 'one name: the button\'s and the page\'s');
     assert.equal(await a.p.locator('#online .card').getAttribute('aria-label'), 'Multiplayer');
     await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
     assert.ok(await a.p.locator('#onlineJoin h2').isHidden(), 'in the room, its code is the title');
     assert.deepEqual(await fits(a), []);
     assert.ok((await a.p.locator('#roomShow').boundingBox()).y >= 0, 'its title in view');
@@ -920,8 +987,8 @@ test('online full screen: READY goes in on a touch screen, not with a mouse (the
   try {
     await fake(a);
     await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
-    await a.p.waitForFunction(() => /^[A-Z]{4}$/.test(document.getElementById('roomShow').textContent));
-    const code = await a.p.locator('#roomShow').textContent();
+    await a.p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent));
+    const code = await roomOf(a);
     const b = await joinByLink(PHONE, `${relayQ}&room=${code}`, 'Bo');
     try {
       await fake(b);

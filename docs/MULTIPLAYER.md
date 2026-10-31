@@ -159,19 +159,103 @@ Node `ws` server (local play, LAN or Tailscale, the CI tests) and a Cloudflare D
   relay/room.js's: test/relay-worker.test.js), and fails with an error otherwise: the site never outruns the relay.
 - Plain WebSockets in a game (hibernation saves nothing while a game runs and loses in-memory state); the log stays
   in memory, and a relay restart rebuilds the room from a client's log.
-- Rooms: a 4-letter code claimed when free (retry when taken), expiring when empty; caps on message size, orders
-  per turn and list lengths. No per-address limits on creating or joining rooms yet (a Worker has no shared memory:
-  it would take an object of its own on every connection). On the free plan a flood can only use up the day's quota
-  (multiplayer down until midnight UTC): acceptable for a game among friends.
+- Rooms: a 6-letter code (shown BCD-FGH) claimed when free (retry when taken), expiring when empty; caps on message
+  size, orders per turn and list lengths; limits per address on opening and joining rooms, and on everyone's rooms
+  (Security, below).
 - The relay also keeps the device test's reports (`?bench`, src/client/bench.js; relay/bench.js): `POST /bench` from
   the game's pages (ORIGINS, CORS with a preflight; a JSON report of a known kind and version, 64 KB at most; per
-  address (an IPv6 /64) 2 a minute and 10 a day, then 10 a minute and 500 a day in all; Origin can be faked, the
-  addresses cannot) answers with a code, `PERF-XXXXXX` in the room codes' letters (64 million: not guessed), and `GET
+  address (an IPv6 /64) 2 a minute and 10 in 24 hours, then 10 a minute and 500 a UTC day in all (the counter is
+  relay/limits.js's, the rooms' too); Origin can be faked, the
+  addresses cannot) answers with a code, `PERF-XXXXXX` in the room codes' letters and length (64 million: not guessed), and `GET
   /bench/<CODE>` (from anywhere: `curl`) returns `{code, received, report}` for a week (30 reads a minute per
   address). One more object of the room class, named `bench`, keeps every report (so its limits count everyone's and
   the week's sweep is one list; no new class, no migration); the Node relay keeps them in memory on the same port.
 - Cost: the free plan's duration limit (13,000 GB-s a day) allows about 85 two-player games of 20 minutes a day;
   Workers Paid ($5 a month) removes the concern. Needs from the owner, when the relay is ready: a Cloudflare API token.
+
+### Security: room codes and limits (2026-10-31)
+
+The project is open source: anyone can read every rule below, so nothing here relies on a secret. What it protects
+against, in plain words:
+
+1. **Guessing a code**: a script tries codes to find live lobbies and join strangers' games (griefing), or to learn
+   which codes are live.
+2. **Flooding rooms**: opening rooms by the thousand costs Durable Object requests and storage (the account's quota,
+   or money), and could fill the code space ("No free room code").
+3. **Flooding connections**: many sockets, each waking a room's object.
+
+**Codes.** Six letters of `BCDFGHJKLMNPQRSTVWXZ` (no vowels, so no words; no look-alikes): 20^6 = 64,000,000 codes,
+400 times the four letters' 160,000, made with `crypto.getRandomValues`. One module makes, reads and shows them
+(src/net/roomcode.js: the relay, the lobby and the link's card): shown and said in two threes, **BCD-FGH** (the lobby's
+title, the field, the invitation line, the share line, the link's card), carried without the hyphen in links
+(`?room=BCDFGH`), and read in any case, with or without the hyphen or spaces ("bcd fgh"). With a few dozen live rooms at
+a time, a guess finds one about once in two million tries.
+
+**Limits, per address** (`CF-Connecting-IP`; an IPv6 address by its /64, which one line gets), all of them before any
+room's object is woken (relay/edge.js, numbers in relay/limits.js):
+
+| What | Limit | Where it is counted |
+|---|---|---|
+| Opening a room | 5 a minute | the `CREATE_LIMIT` Workers Rate Limiting binding |
+| Opening a room | 30 an hour | the `limits` Durable Object (in memory) |
+| Everyone's rooms | 30 a minute, 600 an hour | the `limits` Durable Object |
+| Joining by code | 40 points a minute: a join 1, one that finds no room 4 in all (10 misses a minute) | the `JOIN_LIMIT` binding |
+
+- The bindings (wrangler.toml `[[ratelimits]]`, 10 or 60 s windows only) need no storage and no Durable Object, but
+  count per Cloudflare location and approximately, cannot look without counting, and cannot take a count back. So a
+  join is charged a point before its room is asked, and three more when the code finds no room: once an address is
+  past its points every join is refused, a live room's too, so a guesser past the limit cannot tell a hit from a miss
+  (and nobody learns more than ten codes a minute). A real friend's join, or a reconnect, costs one point: forty a
+  minute fit a group on one Wi-Fi (schools, offices and phone carriers share addresses too). Joins have no hour's
+  limit: that would take a Durable Object on every join and reconnect; at ten misses a minute an address would need
+  months to find one lobby among a few dozen.
+- What the bindings cannot count (an address's hour, everyone's rooms: no one location sees them all) one more object
+  of the room class counts, named `limits` (like `bench`; room codes are six capitals, never these names), in memory
+  (a restart forgets it: a brake, not a ledger). It is asked once per room opened, never on a join. Everyone's cap is
+  the cost backstop: a crowd of addresses can then stop new rooms for a while (never a game, a lobby or a reconnect),
+  and cost no more than 600 rooms an hour.
+- A refused player sees a socket that says `error {code: 'limit'}` ("Too many tries: wait a minute and try again";
+  "Too many new rooms from here: try again in an hour"; "Lots of rooms are opening right now: wait a minute and try
+  again") and closes, not an HTTP 429: a page cannot read the status a WebSocket was refused with (it sees a failed
+  connection, and would retry); the Net closes on `limit` and the lobby shows the line. Nothing is woken for it.
+- A binding or the limits object that fails lets the request go on: the limits must never be what takes multiplayer
+  down.
+- An Origin check (`ORIGINS`) keeps other websites' pages out; a script can forge Origin, so the limits count addresses.
+- **The Node relay** (relay/server.mjs: local play, a LAN or Tailscale game, the tests) counts the same limits in memory
+  (relay/limits.js `RoomLimits`), for every address but this machine's own (the developer's many rooms, the tests);
+  a LAN or Tailscale friend counts as any address.
+
+**What a join learns.** No room: `noroom`. A room: what the room says to anyone who joins it: a seat and the lobby
+(the players' names and races), or `full`, `started`, `version`; a newcomer must give a name. Seat tokens (128 random
+bits) take a seat back; they are never shown to others. Probing gains nothing past the limits above.
+
+**The host's REMOVE** (in the lobby only): a person's sheet has REMOVE (`remove {seat}`, PROTO 6): they are told "The
+host removed you from this room" and closed, their seat is open again (on its spot and side), and the room lets
+nobody new in from their address (its /64) again: a stranger who guessed the code can be put out. (FREE SEAT on an
+AWAY seat stays: it frees the seat without barring anyone.) The bar lives in the room's memory: a lobby evicted from
+memory with nobody in it comes back without it.
+
+**Compatibility.** The relay's PROTO is 6. A cached client of PROTO 5 (the service worker) opening a room is seated
+and told "Ebbfall has an update" with UPDATE; one joining a four-letter code (it reads four letters only) is told the
+same by the Worker at once, rather than "no room". CI deploys the relay first and publishes the site only once the live
+relay says PROTO 6, so a new client never meets an old relay. Rooms opened before the deploy keep four-letter codes:
+the deploy ends their games (a game is never kept across a relay deploy), a stored lobby can no longer be reached (the
+Worker sends four letters to UPDATE, not to a room) and its alarm deletes it once it has been empty ROOM_IDLE_MS (10
+minutes). A new client given an old link (`?room=BCDF`) says "That room link is out of date: ask your friend for a
+new one".
+
+**Not protected.** A botnet of many addresses can still guess at ten codes a minute each, or keep new rooms closed for
+everyone a while (everyone's cap); a griefer who found a lobby is seen on the board and can be removed. Players' names
+are shown to anyone in their room. Games are not encrypted beyond TLS, and every client sees every order (lockstep).
+
+**A zone backstop for the owner (dashboard, not code).** The Free plan has one WAF rate limiting rule (counting by IP
+over 10 s, matching on the path only), which covers the whole zone: the site and relay.ebbfall.com. A cold first visit
+makes about 110 requests in a few seconds: the page, about 25 scripts and styles, the 15 atlas files, the WASM and the
+icons, then the service worker storing the 62 files it keeps for offline play; a WebSocket is one request however long
+it lives. Suggested rule (Security, WAF, Rate limiting rules): **if the URI path starts with `/`, more than 400
+requests in 10 s from one IP: block for 10 s**. That is over three cold loads at once from one address (a household
+behind one router), and stops a single address's flood of more than 40 requests a second. It is a flood backstop, not the
+main defence (the limits above are); CI's token is not given WAF permissions, so it is set by hand.
 
 ### The site: a Cloudflare Worker
 
@@ -203,7 +287,8 @@ replay's link can then show its own preview (Open Graph tags per URL, which a st
   site/preview.js `preview(url)` maps the URL to the fields it changes (a room's link, `?room=CODE` or the older
   `?join=CODE`: "Join my Ebbfall game: room CODE", its own description, og:url the page with that room alone), and
   `page` writes them into the og: and twitter: tags with HTMLRewriter, with or without the beacon (below). The code is
-  echoed only when it is one the relay could have made (four of its letters, upper-cased as the client reads it);
+  echoed only when it is one the relay could have made (six of its letters, read as the client reads it: any case, a
+  hyphen or spaces ignored, src/net/roomcode.js; the card says it as shown, BCD-FGH);
   anything else gets the site's card, so no text of a link's query ever reaches the page. The `<title>`, the
   description and the canonical stay the site's (a room is not a page to index). A challenge's link (SHARE after a
   victory against the AI, `?vs=CODE`: src/client/challenge.js, which the Worker bundles; it imports only maps.js and

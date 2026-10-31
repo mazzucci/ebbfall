@@ -2,31 +2,34 @@
 // endpoint. The rules are relay/room.js's; this file only moves bytes and keeps time. Usage: node relay/server.mjs
 // [port] (default 8788). A client connects to ws://host:port/?room=CODE (or ?new=1 to open a room) and says hello.
 // Over plain HTTP on the same port, the device test's reports (relay/bench.js, kept in memory here) and GET /version
-// (relay/version.js; the build is RELAY_BUILD from the environment, or none).
+// (relay/version.js; the build is RELAY_BUILD from the environment, or none). The rooms' limits are the Worker's
+// (relay/limits.js, counted here in memory: `RoomLimits`), for every address but this machine's own (the developer, the
+// tests); a LAN or Tailscale friend counts as any address.
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import { WebSocketServer } from 'ws';
 import { Room, TURN_MS } from './room.js';
 import { benchRequest, BenchStore, memoryStorage } from './bench.js';
 import { versionRequest } from './version.js';
+import { RoomLimits, addressKey, SAY } from './limits.js';
+import { newCode, parseCode, oldCode } from '../src/net/roomcode.js';
 
-const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
 const MAX_MSG = 64 * 1024;
 const ROOM_IDLE_MS = 10 * 60 * 1000; // a room with nobody in it this long is closed
 const HELLO_MS = 10000; // a connection that has not said hello by then is closed
 
+/** This machine's own address (the limits leave it be). */
+const loopback = (a) => a === '::1' || /^(::ffff:)?127\./.test(a);
+
 /** Start a relay on `port` (0: any free one). `latency`/`jitter` (ms): test knobs, a delay on everything the relay
- *  sends (in order per connection). `build`: what GET /version says it is (null: none). Returns { port, ready, close,
- *  rooms }. */
-export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null } = {}) {
-  const rooms = new Map();
+ *  sends (in order per connection). `build`: what GET /version says it is (null: none). `free(address)`: an address
+ *  (as the socket has it) the limits leave be (this machine's by default; the tests' `() => false` counts it too),
+ *  `now` their clock. Returns { port, ready, close, rooms, limits }. */
+export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null, free = loopback, now } = {}) {
+  const rooms = new Map(), limits = new RoomLimits(now);
   let seed = Date.now() >>> 0;
-  const code = () => {
-    for (;;) {
-      let c = ''; for (let i = 0; i < 4; i++) c += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
-      if (!rooms.has(c)) return c;
-    }
-  };
+  const random = () => Math.floor(Math.random() * 2 ** 32);
+  const code = () => { for (;;) { const c = newCode(random); if (!rooms.has(c)) return c; } };
   // Every connection's messages go out in order, after the test delay if any (one queue, one timer at a time).
   const flush = (ws) => {
     ws.timer = null;
@@ -64,10 +67,20 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null 
     ws.queue = []; ws.timer = null;
     ws.on('error', () => {}); // (an oversize or broken frame: `close` follows; it must not take the server down)
     const q = new URL(req.url, 'http://x').searchParams;
+    const from = addressKey(req.socket.remoteAddress), limited = !free(req.socket.remoteAddress || '');
+    const refuse = (code, msg) => { send(ws, { t: 'error', code, msg }); kick(ws); };
     let room = null;
-    if (q.get('new')) { const c = code(); room = new Room({ code: c, send, kick, seed: seed++ }); room.lastUsed = Date.now(); rooms.set(c, room); }
-    else room = rooms.get((q.get('room') || '').toUpperCase());
-    if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; }
+    if (q.get('new')) {
+      const no = limited ? limits.open(from) : '';
+      if (no) { refuse('limit', no); return; }
+      const c = code(); room = new Room({ code: c, send, kick, seed: seed++ }); room.lastUsed = Date.now(); rooms.set(c, room);
+    } else {
+      const typed = q.get('room') || '';
+      if (oldCode(typed)) { refuse('update', 'Ebbfall has an update. Tap UPDATE to get it'); return; } // (a client from before PROTO 6)
+      if (limited && !limits.join(from)) { refuse('limit', SAY.minute); return; }
+      room = rooms.get(parseCode(typed));
+      if (!room) { if (limited) limits.miss(from); refuse('noroom', 'No room with that code'); return; }
+    }
     let seated = false;
     const silent = setTimeout(() => { if (!seated) ws.terminate(); }, HELLO_MS);
     ws.on('message', (data) => {
@@ -75,7 +88,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null 
       room.lastUsed = Date.now();
       if (!seated) {
         if (rooms.get(room.code) !== room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; } // (closed meanwhile)
-        seated = room.connect(ws, msg) >= 0;
+        seated = room.connect(ws, msg, from) >= 0;
         if (!seated) kick(ws);
         return;
       }
@@ -93,7 +106,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null 
   const ready = new Promise((res, rej) => { http.once('listening', res); http.once('error', rej); });
   http.listen(port);
   return {
-    rooms, ready, bench,
+    rooms, ready, bench, limits,
     get port() { return http.address().port; },
     close: () => new Promise(res => { clearInterval(timer); for (const c of wss.clients) c.terminate(); wss.close(() => { http.close(() => res()); http.closeAllConnections(); }); }),
   };

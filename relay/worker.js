@@ -2,51 +2,23 @@
 // one object per room code, which runs relay/room.js's rules (the same as relay/server.mjs's, which is the Node
 // adapter). A client connects to wss://host/?room=CODE (or ?new=1 to open a room) and says hello. Config and deploy:
 // relay/wrangler.toml. Also the device test's reports over HTTP (relay/bench.js): POST /bench, GET /bench/<CODE>, kept
-// by one more object of the same class, named 'bench' (room codes are four capitals: never that name). And GET /version
-// (relay/version.js): its protocol and the build CI deployed (the RELAY_BUILD var), which CI reads before deploying.
+// by one more object of the same class, named 'bench'; and the rooms' limits (relay/limits.js), one more, 'limits'
+// (room codes are six capitals: never those names). And GET /version (relay/version.js): its protocol and the build CI
+// deployed (the RELAY_BUILD var), which CI reads before deploying.
+//
+// The Worker's front door (the codes, the limits, which object a request goes to) is relay/edge.js; this file is the
+// entry module, which may export only handlers and classes.
 import { Room, TURN_MS, MAX_SEATS } from './room.js';
-import { benchRequest, BenchStore } from './bench.js';
-import { versionRequest } from './version.js';
+import { BenchStore } from './bench.js';
+import { OpenBudget, addressKey } from './limits.js';
+import { relay, CLOUDFLARE, send, ROOM_IDLE_MS } from './edge.js';
 
-const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (no vowels: no words; no look-alikes)
-const MAX_MSG = 64 * 1024;
+export default relay();
+
 const HELLO_MS = 10000; // a connection that has not said hello by then is closed
-const ROOM_IDLE_MS = 10 * 60 * 1000; // a room nobody has been in this long is free for a new one with its code
-const TRIES = 8; // codes tried for a new room
+const MAX_MSG = 64 * 1024;
 const SAVE_MS = 1000; // storage writes of a room's record at most this often (the last change is always written)
-
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
-const newCode = () => Array.from({ length: 4 }, () => ALPHABET[random() % ALPHABET.length]).join('');
-const allowed = (req, env) => !env.ORIGINS || env.ORIGINS.split(',').includes(req.headers.get('Origin'));
-
-export default {
-  async fetch(req, env) {
-    const version = versionRequest(req, env.RELAY_BUILD);
-    if (version) return version;
-    const bench = await benchRequest(req, { origins: env.ORIGINS, ip: req.headers.get('CF-Connecting-IP') || '', store: (r) => env.ROOMS.get(env.ROOMS.idFromName('bench')).fetch(r) });
-    if (bench) return bench;
-    if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Ebbfall relay: WebSocket only', { status: 426 });
-    if (!allowed(req, env)) return new Response('Not from here', { status: 403 });
-    const q = new URL(req.url).searchParams;
-    const room = (code, isNew) => env.ROOMS.get(env.ROOMS.idFromName(code))
-      .fetch(new Request(`https://room/?code=${code}${isNew ? '&new=1' : ''}`, { headers: req.headers }));
-    if (q.get('new')) {
-      for (let i = 0; i < TRIES; i++) {
-        const res = await room(newCode(), true);
-        if (res.status !== 409) return res; // (409: that code is in use, another one)
-      }
-      return new Response('No free room code', { status: 503 });
-    }
-    const code = (q.get('room') || '').toUpperCase();
-    return room(/^[A-Z]{4}$/.test(code) ? code : 'NONE', false); // (no such room: told so over the socket)
-  },
-};
-
-/** The platform's WebSocket pair and upgrade response (replaced by fakes in the tests). */
-const CLOUDFLARE = {
-  pair: () => Object.values(new WebSocketPair()),
-  respond: (client) => new Response(null, { status: 101, webSocket: client }),
-};
 
 /** A room's Durable Object: its Room, its connections, and the clock while anyone is connected. The Room lives in
  *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a record in storage (the code,
@@ -56,7 +28,9 @@ const CLOUDFLARE = {
  *  who joins late. The record is written when it changes (a ready toggle does not change it), at most once a SAVE_MS
  *  (the last change always, and at once when the last socket closes), and deleted by an alarm once the room has been
  *  empty ROOM_IDLE_MS. A game is not kept: an evicted or redeployed one is over (its players are told the room is
- *  gone). The object named 'bench' is no room: it keeps the device test's reports (relay/bench.js BenchStore). */
+ *  gone). A join to a code with no room is answered 404, with no socket: the Worker tells the player and counts the miss
+ *  (relay/edge.js). The objects named 'bench' and 'limits' are no rooms: one keeps the device test's reports
+ *  (relay/bench.js BenchStore), the other counts rooms opened (relay/limits.js OpenBudget, in memory). */
 export class RoomObject {
   constructor(state, env, platform = CLOUDFLARE) {
     this.platform = platform; this.storage = state?.storage; this.room = null; this.conns = new Set(); this.timer = null;
@@ -65,7 +39,9 @@ export class RoomObject {
   }
 
   async fetch(req) {
-    if (new URL(req.url).hostname === 'bench') return (this.bench ||= new BenchStore(this.storage)).fetch(req); // (the reports' object)
+    const host = new URL(req.url).hostname;
+    if (host === 'bench') return (this.bench ||= new BenchStore(this.storage)).fetch(req); // (the reports' object)
+    if (host === 'limits') return (this.limits ||= new OpenBudget()).fetch(req); // (the rooms' limits' object: in memory)
     const q = new URL(req.url).searchParams, code = q.get('code');
     const saved = this.room ? null : await this.storage?.get('room');
     const recent = saved && Date.now() - saved.used < ROOM_IDLE_MS;
@@ -74,9 +50,10 @@ export class RoomObject {
       if (inUse) return new Response('Taken', { status: 409 });
       this.open(code);
     } else if (!this.room && recent && !saved.started) this.open(code, saved.lobby); // (an evicted lobby: back, its seats held)
+    if (!this.room) return new Response('No room', { status: 404 }); // (the Worker says so, and counts the miss)
     const [client, ws] = this.platform.pair();
     ws.accept();
-    this.attach(ws);
+    this.attach(ws, addressKey(req.headers.get('CF-Connecting-IP') || ''));
     return this.platform.respond(client);
   }
 
@@ -115,9 +92,9 @@ export class RoomObject {
     await this.storage?.deleteAll?.();
   }
 
-  attach(ws) {
+  /** A connection from address `from` (its key: a host's REMOVE bars it from the room, relay/room.js). */
+  attach(ws, from = '') {
     const room = this.room;
-    if (!room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; }
     this.conns.add(ws); this.lastUsed = Date.now();
     if (!this.timer) { room.tick(Date.now()); this.timer = setInterval(() => room.tick(Date.now()), TURN_MS / 4); } // (at once: a hold that ran out while nobody was here is over before anyone is seated)
     let seated = false;
@@ -126,7 +103,7 @@ export class RoomObject {
       if (typeof e.data !== 'string' || e.data.length > MAX_MSG) { kick(ws); return; }
       let msg; try { msg = JSON.parse(e.data); } catch { return; }
       this.lastUsed = Date.now();
-      if (!seated) { seated = room.connect(ws, msg) >= 0; if (!seated) kick(ws); return; }
+      if (!seated) { seated = room.connect(ws, msg, from) >= 0; if (!seated) kick(ws); return; }
       room.receive(ws, msg);
       if (this.started !== (room.phase !== 'lobby')) { this.started = room.phase !== 'lobby'; this.save(); } // (a game: no lobby to bring back; a rematch's lobby: one again)
     });
@@ -145,6 +122,5 @@ export class RoomObject {
   }
 }
 
-function send(ws, msg) { try { ws.send(JSON.stringify(msg)); } catch { /* closed meanwhile */ } }
 // (the clean-up after the room's own call has finished: Room.connect kicks a replaced socket mid-way)
 function kick(ws) { try { ws.close(1000); } catch { /* closed already */ } queueMicrotask(() => ws.gone?.()); }

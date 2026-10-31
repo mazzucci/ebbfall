@@ -4,7 +4,7 @@
 // longer than the away limit (the other side must not be blamed, the game goes on), the page coming back while a
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
 // of three, four and eight with AI seats (M4): every client runs the AI alike; and one whose sides the start arranges
-// (a person's game seat not its lobby spot).
+// (a person's game seat not its lobby spot). And a limit refusal: a lobby stops, a game keeps reconnecting.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -311,4 +311,23 @@ test('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, every 
     for (let s = 2; s < 8; s++) assert.ok(busy(b, s), `the AI of seat ${s} plays`);
     assert.deepEqual(m.events.filter(e => /desync|away/.test(e)), [], 'no desync, nobody away');
   } finally { await m.done(); }
+});
+
+test('a limit refusal (too many tries from this address): a lobby Net stops and says it; a game\'s keeps reconnecting', () => {
+  class FakeWS { constructor(url) { this.url = url; this.readyState = 0; } send() {} close() { this.readyState = 3; } }
+  const told = [];
+  const lobby = new Net({ url: 'ws://x/', name: 'Ann', game: () => null, WebSocket: FakeWS, on: { error: (m) => told.push(m.code) } });
+  assert.match(lobby.ws.url, /\?new=1$/);
+  lobby.message({ t: 'error', code: 'limit', msg: 'Too many tries: wait a minute and try again' });
+  assert.ok(lobby.closed); assert.deepEqual(told, ['limit']);
+  const removed = new Net({ url: 'ws://x/', room: 'BCDFGH', name: 'Eve', game: () => null, WebSocket: FakeWS, on: { error: (m) => told.push(m.code) } });
+  assert.match(removed.ws.url, /\?room=BCDFGH$/);
+  removed.message({ t: 'error', code: 'removed', msg: 'The host removed you from this room' });
+  assert.ok(removed.closed, 'removed: no reconnecting');
+  const game = new Net({ url: 'ws://x/', room: 'BCDFGH', name: 'Ann', game: () => null, WebSocket: FakeWS, on: { error: (m) => told.push(m.code) } });
+  game.setup = { seed: 1 };
+  game.message({ t: 'error', code: 'limit', msg: 'x' });
+  assert.ok(!game.closed, 'a game reconnects (its backoff), the seat waits for it');
+  assert.deepEqual(told, ['limit', 'removed']);
+  game.close();
 });

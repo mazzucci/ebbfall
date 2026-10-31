@@ -9,7 +9,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 5; // (relay/room.js: 5, the board's fixed spots; the game's seats arranged at the start)
+export const PROTO = 6; // (relay/room.js: 6, six-letter codes, the limits, the host's remove)
 export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns
@@ -25,7 +25,7 @@ export class Net {
   /**
    * @param {object} o
    * @param {string} o.url the relay (ws://host:port/)
-   * @param {string} [o.room] a room code to join; none opens a new room
+   * @param {string} [o.room] a room code to join (six capitals: src/net/roomcode.js parseCode); none opens a new room
    * @param {string} o.name the player's name
    * @param {() => object|null} o.game the current lockstep Game (takeOrders, receiveTurn, nextTurn, tick, stateHash)
    * @param {object} [o.on] callbacks: seat, lobby, start, clock (the relay's clock runs: every seat has loaded), away,
@@ -135,6 +135,7 @@ export class Net {
   drop(seat) { this.say({ t: 'drop', seat }); }
   sit(seat, team) { this.say({ t: 'sit', seat, team }); } // (team: the side the seat was seen on: a seat the host has moved to another side since is not taken)
   free(seat) { this.say({ t: 'free', seat }); } // (the host's: a held seat whose player is away, open again)
+  remove(seat) { this.say({ t: 'remove', seat }); } // (the host's: a person out of the room, their address not let in again)
   ready(ready = true) { this.say({ t: 'ready', ready }); }
   /** Stop the clock for everyone (a few times a game, a few minutes at most), or end this side's own pause. */
   pause() { this.sayOrKeep({ t: 'pause' }); }
@@ -167,7 +168,9 @@ export class Net {
         break;
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat, m); break; // (away: m.loading, its game not set up yet)
       case 'desync': this.on.desync?.(m.turn); break;
-      case 'error': this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced', 'name'].includes(m.code)) this.close(); break;
+      case 'error': // (`limit` in a game: a reconnect refused a moment (too many from this address): tried again, with the backoff)
+        if (m.code === 'limit' && this.setup) break;
+        this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced', 'name', 'limit', 'removed'].includes(m.code)) this.close(); break;
       case 'notice': this.on.notice?.(m); break;
       case 'pause': if (Number.isInteger(m.seat) && Array.isArray(m.left)) this.on.pause?.(m); break;
       case 'resume': this.on.resume?.(m.seat); break;

@@ -12,7 +12,9 @@
 // 0 to MAX_SEATS-1: a number no seat has is a side of its own), add {team, ai, race?, diff?} (a seat more at the lowest
 // empty spot, on `team`, MAX_SEATS at most: open for a friend, or the AI's), drop {seat} (an open or AI seat goes, its
 // spot empty: never spot 0, never a person's, never below two), free {seat} (a held seat whose player is away is open
-// again: they came back on another browser or device, without its token); sit {seat, team?} (a person other than the
+// again: they came back on another browser or device, without its token), remove {seat} (a person goes, here or away:
+// told `error {code: 'removed'}`, the seat open again, and their address may not join the room again: a stranger who
+// guessed the code); sit {seat, team?} (a person other than the
 // host moves to an open seat, taking its spot and side; team: the side it saw the seat on, refused if it is on another);
 // loaded {} (the game is set up: the clock may start), orders
 // {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
@@ -26,7 +28,8 @@
 // spots, the spot each sat in), delay, from, left: [pauses left per seat]},
 // turn {n, o: [[seat, words], ...]} (its orders run on tick n * 3), away {seat, loading} (loading: before the clock, its
 // game not set up yet), back/left {seat}, desync {turn}, error
-// {code, msg}, pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
+// {code, msg} (from the adapter before any hello: noroom, limit (too many tries: wait), update (a code of the first
+// format)), pause {seat, ms, left: [pauses left per seat]} / resume {seat} (-1: its time ran out), rematch {seats: [wants]} (who wants another game; once all do, a lobby follows), notice {code: 'version'} (to the seated: someone on another build was turned away), pong {id}.
 //
 // The board's spots (PROTO 5): in the lobby every seat keeps its spot (0 to MAX_SEATS-1, the host's 0; `this.seats` in
 // spot order, holes where a spot is empty) and its team as the host set it, so nobody's token moves while the sides
@@ -50,7 +53,7 @@
 
 import { MAPS, fits, fitMap } from '../src/client/maps.js';
 
-export const PROTO = 5; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start) // the protocol's version: a client of another version is told to update
+export const PROTO = 6; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start; 6: six-letter codes (src/net/roomcode.js), the limits' error `limit`, the host's remove) // the protocol's version: a client of another version is told to update
 export const TURN_MS = 100;
 export const TICKS_PER_TURN = 3;
 export const DELAY = 2; // turns between an order arriving and the turn it runs on
@@ -79,10 +82,12 @@ export class Room {
     this.map = fitMap(0, seats); this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
     this.running = false; this.loadFrom = 0; // (the clock: once every seat has loaded, from loadFrom on)
     this.hold = null; // a pause a seat called: { seat, until }
+    this.barred = new Set(); // addresses the host removed someone from (their key, relay/limits.js addressKey): not let in again
   }
 
-  /** A connection says hello. Returns its seat (in the lobby its spot), or -1 (it was told why). */
-  connect(conn, hello) {
+  /** A connection says hello, from address `addr` (its key; '' unknown). Returns its seat (in the lobby its spot), or
+   *  -1 (it was told why). */
+  connect(conn, hello, addr = '') {
     if (hello?.proto !== PROTO) { this.send(conn, { t: 'error', code: 'update', msg: 'Ebbfall has an update. Tap UPDATE to get it' }); return -1; }
     if (this.seats.some(s => s.conn === conn)) return -1; // (a second hello on one connection)
     // One sim build per room: that of the seats holding a place (a seat given up frees the room for another build).
@@ -103,6 +108,7 @@ export class Room {
     // Back with its token: the same seat (after a dropped connection or a reload).
     let seat = typeof hello.token === 'string' ? this.seats.findIndex(s => s.token && s.token === hello.token) : -1;
     const newcomer = seat < 0;
+    if (newcomer && addr && this.barred.has(addr)) { this.send(conn, { t: 'error', code: 'removed', msg: 'The host removed you from this room' }); return -1; }
     if (seat < 0) {
       if (this.phase !== 'lobby') { this.send(conn, { t: 'error', code: 'started', msg: 'That game has started' }); return -1; }
       seat = this.seats.findIndex(s => !s.token && !s.ai); // (a held seat, away, is not open)
@@ -114,7 +120,7 @@ export class Room {
       this.seats[seat].token = token(); // (the lowest open spot: the seats are in spot order)
     }
     const s = this.seats[seat];
-    s.build = build;
+    s.build = build; s.from = addr;
     if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'This room is open on another screen' }); this.kick(s.conn); }
     s.conn = conn; s.lastAck = this.now;
     if (this.phase === 'lobby') { s.goneSince = 0; s.name = name || s.name; } // (a held seat: back)
@@ -149,6 +155,7 @@ export class Room {
       else if (msg.t === 'drop' && host) this.drop(msg.seat);
       else if (msg.t === 'sit' && !host) this.sit(s, msg.seat, msg.team);
       else if (msg.t === 'free' && host) this.free(msg.seat);
+      else if (msg.t === 'remove' && host) this.remove(msg.seat);
       else if (msg.t === 'leave') { this.open(s); this.lobby(); } // (given up on purpose: open at once, no hold, on its spot and side)
       else if (msg.t === 'ready') { s.ready = !!msg.ready; this.lobby(); if (this.seats.every(x => x.ai || (x.conn && x.ready)) && new Set(this.seats.map(x => x.team)).size > 1) this.start(); } // (everyone on one side: nobody to fight, no start)
       return;
@@ -231,7 +238,7 @@ export class Room {
   /** An open seat at spot `spot`, on team `team` (the lobby's number for its side, as the host set it). */
   empty(team, spot) {
     // away: ms of its budget used up; awaySince: when it went away (0: here); diff: an AI seat's level (0 Easy to 3 Brutal)
-    return { spot, team, diff: 1, ai: false, conn: null, token: null, build: '', rematch: false, over: false, goneSince: 0, pauses: 0, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
+    return { spot, team, diff: 1, ai: false, conn: null, from: '', token: null, build: '', rematch: false, over: false, goneSince: 0, pauses: 0, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
   }
   rand() { let t = (this.rng += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return (t ^ (t >>> 14)) >>> 0; } // (Mulberry32: the setup's seed and side)
   each(msg) { for (const s of this.seats) if (s.conn) this.send(s.conn, msg); }
@@ -335,6 +342,16 @@ export class Room {
     const s = seat !== 0 ? this.bySpot(seat) : null;
     if (!s || !s.token || s.conn) return;
     this.open(s); this.lobby();
+  }
+  /** The host removes the person at spot `seat` (here or away; never spot 0, never an AI or open seat): they are told
+   *  so and closed, the seat is open again (its spot and side), and their address may not join this room again (a
+   *  stranger who guessed the code; their token went with the seat). */
+  remove(seat) {
+    const s = seat !== 0 ? this.bySpot(seat) : null;
+    if (!s || !s.token) return;
+    if (s.from) this.barred.add(s.from);
+    if (s.conn) { this.send(s.conn, { t: 'error', code: 'removed', msg: 'The host removed you from this room' }); this.kick(s.conn); }
+    this.open(s); this.unready();
   }
   /** A person (`s`, not the host) moves to the open seat at spot `to`, taking its spot and side, its race and name
    *  along (to spot 0 only if the host has left: it is the host then); the spot it left is an open seat, on its side,

@@ -4,11 +4,19 @@
 // seats too; an evicted game not), oversize messages, and what is not a WebSocket or not from the game's pages; GET
 // /version (the protocol, and the build CI deployed, which it reads before deploying the relay or the site). Then the
 // device test's reports (relay/bench.js): stored and read back by code, only from the game's pages, size, JSON, a known
-// kind, limits per address and in all (by the minute, by the UTC day), expiry and the sweep of a backlog.
+// kind, limits per address and in all (by the minute, by the day), expiry and the sweep of a backlog. And the rooms'
+// codes and limits (src/net/roomcode.js, relay/limits.js, relay/edge.js): six letters, read as typed or shown, a code of
+// the first format told to update; opening rooms per address (a minute's, an hour's) and in all, joins per address (a
+// miss costs more: a guesser is stopped, and learns nothing once stopped), on a fake clock; the bindings as wrangler.toml
+// declares them; a limit that cannot be asked lets the request go on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { RoomObject } from '../relay/worker.js';
+import entry, { RoomObject } from '../relay/worker.js';
+import { relay } from '../relay/edge.js';
 import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
+import { readFileSync } from 'node:fs';
+import { rateLimit, OpenBudget, Limiter, addressKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, MISS_COST, MINUTE, HOUR } from '../relay/limits.js';
+import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
 import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
 
@@ -27,6 +35,7 @@ function pair() {
   return [a, b];
 }
 const platform = { pair, respond: (client) => ({ status: 101, webSocket: client }) };
+const worker = relay(platform); // (relay/worker.js's default export is relay() on Cloudflare's own sockets)
 /** A fake object's storage (a Durable Object's API over a Map), counting its writes and keeping its alarm. */
 const storage = () => {
   const m = memoryStorage(), s = Object.assign(m, { puts: 0, alarm: 0 }), put = m.put;
@@ -42,7 +51,7 @@ function env(extra = {}) {
   };
   return { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
 }
-const upgrade = (query, origin = 'https://ebbfall.com') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin } });
+const upgrade = (query, origin = 'https://ebbfall.com', ip = '') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) } });
 const say = (ws, msg) => ws.send(JSON.stringify(msg));
 const got = (ws, t) => ws.got.filter(m => m.t === t);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -59,8 +68,8 @@ test('a room through the Worker: open, join by code, start, turns tick, leaving 
   const a = (await worker.fetch(upgrade('new=1'), e)).webSocket;
   say(a, hello('Ann'));
   const code = got(a, 'seat')[0]?.room;
-  assert.match(code, /^[A-Z]{4}$/);
-  const b = (await worker.fetch(upgrade(`room=${code.toLowerCase()}`), e)).webSocket;
+  assert.match(code, new RegExp(`^[${ALPHABET}]{6}$`));
+  const b = (await worker.fetch(upgrade(`room=${showCode(code).toLowerCase()}`), e)).webSocket; // (as shown, in lower case: BCD-fgh)
   try {
     say(b, hello('Bo'));
     assert.equal(got(b, 'seat')[0].seat, 1, 'the second seat, in the same room');
@@ -78,11 +87,18 @@ test('a room through the Worker: open, join by code, start, turns tick, leaving 
   assert.equal(obj.conns.size, 0); assert.equal(obj.timer, null, 'nobody connected: no clock');
 });
 
-test('no such room: told so, and closed', async () => {
-  for (const q of ['room=QQQQ', 'room=', 'room=AB1']) {
-    const c = (await worker.fetch(upgrade(q), env())).webSocket;
-    assert.equal(got(c, 'error')[0]?.code, 'noroom', q);
+test('no such room: told so, and closed; a code of the first format (four letters): told to update, no object woken', async () => {
+  for (const q of ['room=QQQQQQ', 'room=', 'room=AB1', 'room=BCDFGHJ', 'x=1']) {
+    const e = env(), c = (await worker.fetch(upgrade(q), e)).webSocket;
+    assert.deepEqual(got(c, 'error').map(m => [m.code, m.msg]), [['noroom', 'No room with that code']], q);
     assert.ok(c.closed);
+    assert.equal(e.objects.size, q === 'room=QQQQQQ' ? 1 : 0, `${q}: a room's object only for a code it could be`);
+    assert.equal([...e.stores.values()].reduce((n, st) => n + st.puts + st.map.size, 0), 0, `${q}: nothing stored`);
+  }
+  for (const q of ['room=BCDF', 'room=bcdf']) {
+    const e = env(), c = (await worker.fetch(upgrade(q), e)).webSocket;
+    assert.deepEqual(got(c, 'error').map(m => m.code), ['update'], `${q}: an old client, told to update (its hello would be)`);
+    assert.ok(c.closed); assert.equal(e.objects.size, 0);
   }
 });
 
@@ -272,6 +288,8 @@ test('only WebSockets, only from the game\'s pages when ORIGINS is set', async (
 test('GET /version: the protocol and the build CI deployed, from anywhere, never cached; the client speaks that protocol', async () => {
   assert.equal(CLIENT_PROTO, PROTO, 'src/net/net.js and relay/room.js agree (CI publishes the site only when the live relay says this PROTO)');
   const e = env({ ORIGINS: 'https://ebbfall.com', RELAY_BUILD: '0123456789abcdef' });
+  assert.equal(PROTO, 6, 'PROTO 6: six-letter codes, the limits, the host\'s remove (a client of 5 is told to update)');
+  assert.equal(typeof entry.fetch, 'function', 'the entry module\'s Worker');
   const res = await worker.fetch(new Request('https://relay.ebbfall.com/version'), e); // (no Origin: curl in CI)
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('Content-Type'), 'application/json');
@@ -345,7 +363,7 @@ test('a report: 64 KB at most, JSON, an object of a known kind and version', asy
   }
 });
 
-test('reports: two a minute and ten a day from an address (an IPv6 /64), whatever its Origin says', async () => {
+test('reports: two a minute and ten in 24 hours from an address (an IPv6 /64), whatever its Origin says', async () => {
   const e = env({ ORIGINS }), body = JSON.stringify(REPORT), ip = '203.0.113.7';
   for (let i = 0; i < BENCH_IP_PER_MIN; i++) assert.equal((await worker.fetch(post(body, undefined, ip), e)).status, 201);
   assert.equal((await worker.fetch(post(body, undefined, ip), e)).status, 429, 'a third in the minute');
@@ -355,14 +373,17 @@ test('reports: two a minute and ten a day from an address (an IPv6 /64), whateve
   assert.equal((await worker.fetch(post(body, undefined, v6(2)), e)).status, 201);
   assert.equal((await worker.fetch(post(body, undefined, v6(3)), e)).status, 429, 'the same /64');
   assert.equal((await worker.fetch(post(body, undefined, '2001:db8:1:3::1'), e)).status, 201, 'another /64');
-  // The day, on a clock: ten, then none until the next UTC day.
-  const { at, store } = clocked();
+  // The day, on a clock (relay/limits.js Limiter: 24 hours from the first): ten, then none until a day after the first.
+  const { at, store } = clocked(), first = at.now;
   for (let i = 0; i < BENCH_IP_PER_DAY; i++) { assert.equal((await store.post(body, ip)).status, 201, `report ${i + 1}`); at.now += 31000; }
   at.now += 60000;
-  assert.equal((await store.post(body, ip)).status, 429, 'an eleventh today');
+  const no = await store.post(body, ip);
+  assert.deepEqual([no.status, (await no.json()).error], [429, 'Too many reports from here today'], 'an eleventh');
   assert.equal((await store.post(body, 'other')).status, 201, 'others still may');
-  at.now = Math.ceil(at.now / DAY) * DAY; // (midnight UTC)
-  assert.equal((await store.post(body, ip)).status, 201, 'the next day');
+  at.now = first + DAY - 1;
+  assert.equal((await store.post(body, ip)).status, 429, 'not yet a day');
+  at.now = first + DAY;
+  assert.equal((await store.post(body, ip)).status, 201, 'a day after the first');
 });
 
 test('reads: thirty a minute from an address', async () => {
@@ -406,4 +427,138 @@ test('reports are gone after a week, and a backlog is swept 40 at a time', async
   await store.post('{}', 'w2'); await store.post('{}', 'w3');
   assert.equal(reports(), 3, 'three posts: the backlog is gone, the new ones stay');
   assert.ok(codes.every(c => !st.map.has('r:' + c)) && ![...st.map.keys()].some(k => k.startsWith('t:') && k.split(':')[2] === codes[99]));
+});
+
+// ---- the rooms' limits ----
+/** An environment with the rate limiting bindings and the limits object on one fake clock (`at.now`). */
+function limited(now = Date.UTC(2026, 9, 31, 12)) {
+  const at = { now }, clock = () => at.now;
+  const e = env({ CREATE_LIMIT: rateLimit(OPEN_PER_MIN, 60, clock), JOIN_LIMIT: rateLimit(JOIN_POINTS, 60, clock) });
+  e.ROOMS.get('limits').limits = new OpenBudget(clock);
+  return { at, e };
+}
+const errorOf = (ws) => got(ws, 'error')[0];
+/** Open a room from `ip`: its code, or the error it was refused with. */
+async function openFrom(e, ip) {
+  const ws = (await worker.fetch(upgrade('new=1', undefined, ip), e)).webSocket;
+  if (ws.closed) return errorOf(ws);
+  say(ws, hello('Ann'));
+  const seat = got(ws, 'seat')[0]; ws.close();
+  return seat ? seat.room : errorOf(ws);
+}
+
+test('the bindings are wrangler.toml\'s, with relay/limits.js\'s numbers', () => {
+  const toml = readFileSync(new URL('../relay/wrangler.toml', import.meta.url), 'utf8');
+  const binding = (name) => toml.match(new RegExp(`name = "${name}"[^\\n]*\\nnamespace_id = "(\\d+)"\\nsimple = \\{ limit = (\\d+), period = (\\d+) \\}`));
+  const create = binding('CREATE_LIMIT'), join = binding('JOIN_LIMIT');
+  assert.ok(create && join, 'both declared');
+  assert.deepEqual([Number(create[2]), Number(create[3])], [OPEN_PER_MIN, 60]);
+  assert.deepEqual([Number(join[2]), Number(join[3])], [JOIN_POINTS, 60]);
+  assert.notEqual(create[1], join[1], 'a namespace each');
+});
+
+test('opening rooms: five a minute from an address (an IPv6 /64), whatever its Origin says; others may; a minute later again', async () => {
+  const { at, e } = limited();
+  for (let i = 0; i < OPEN_PER_MIN; i++) assert.match(await openFrom(e, '198.51.100.1'), /^[A-Z]{6}$/, `room ${i + 1}`);
+  const objects = e.objects.size;
+  const no = await openFrom(e, '198.51.100.1');
+  assert.deepEqual([no.code, no.msg], ['limit', 'Too many tries: wait a minute and try again'], 'a sixth: told to wait, over the socket (a page cannot read an HTTP status)');
+  assert.equal(e.objects.size, objects, 'no room\'s object woken');
+  assert.match(await openFrom(e, '198.51.100.2'), /^[A-Z]{6}$/, 'another address');
+  for (let i = 0; i < OPEN_PER_MIN; i++) assert.match(await openFrom(e, `2001:db8:5:6:${i}::1`), /^[A-Z]{6}$/);
+  assert.equal((await openFrom(e, '2001:db8:5:6:ffff::9')).code, 'limit', 'the same /64');
+  at.now += 60000;
+  assert.match(await openFrom(e, '198.51.100.1'), /^[A-Z]{6}$/, 'a minute later');
+});
+
+test('opening rooms: thirty an hour from an address, and everyone\'s thirty a minute and 600 an hour (the limits object)', async () => {
+  const at = { now: 0 }, b = new OpenBudget(() => at.now);
+  for (let i = 0; i < OPEN_PER_HOUR; i++) { assert.equal(b.open('a'), '', `room ${i + 1}`); at.now += 61000; }
+  assert.equal(b.open('a'), SAY.hour, 'the 31st in the hour');
+  assert.equal(b.open('b'), '', 'another address');
+  at.now = HOUR + 1; // (the first room an hour old)
+  assert.equal(b.open('a'), '', 'an hour after its first');
+  const all = new OpenBudget(() => at.now); at.now = 10 * HOUR;
+  for (let i = 0; i < ROOMS_PER_MIN; i++) assert.equal(all.open(`x${i}`), '');
+  assert.equal(all.open('fresh'), SAY.busy, 'everyone\'s minute is full: a new address too');
+  assert.equal(all.ips.check('fresh'), null, 'nothing counted for the refused');
+  at.now += MINUTE;
+  let n = ROOMS_PER_MIN;
+  while (n < ROOMS_PER_HOUR) { for (let i = 0; i < ROOMS_PER_MIN && n < ROOMS_PER_HOUR; i++, n++) assert.equal(all.open(`y${n}`), '', `room ${n + 1}`); at.now += MINUTE; }
+  assert.equal(all.open('late'), SAY.busy, 'everyone\'s hour is full');
+  at.now = 11 * HOUR;
+  assert.equal(all.open('late'), '', 'an hour later');
+  // Through the Worker: the limits object's word, told over the socket.
+  const { at: t, e } = limited();
+  const l = e.ROOMS.get('limits').limits;
+  for (let i = 0; i < ROOMS_PER_MIN; i++) assert.match(await openFrom(e, `192.0.2.${i}`), /^[A-Z]{6}$/);
+  assert.deepEqual(await openFrom(e, '192.0.2.200'), { t: 'error', code: 'limit', msg: SAY.busy });
+  t.now += MINUTE;
+  assert.match(await openFrom(e, '192.0.2.200'), /^[A-Z]{6}$/);
+  assert.equal(l.all.keys.get('').length, ROOMS_PER_MIN + 1, 'one object counts everyone');
+});
+
+test('joining: a join costs a point, one that finds no room four: ten misses a minute, then nothing more is learned (a live room refused too)', async () => {
+  const { at, e } = limited();
+  const code = await openFrom(e, '198.51.100.7');
+  const join = async (c, ip) => { const ws = (await worker.fetch(upgrade(`room=${c}`, undefined, ip), e)).webSocket; const err = errorOf(ws); ws.close(); return err?.code || 'live'; };
+  const guesser = '203.0.113.66', misses = JOIN_POINTS / MISS_COST;
+  assert.equal(misses, 10);
+  for (let i = 0; i < misses; i++) assert.equal(await join(newCode(() => i * 7 + 3), guesser), 'noroom', `guess ${i + 1}`);
+  const objects = e.objects.size;
+  assert.equal(await join('QQQQQQ', guesser), 'limit', 'an eleventh guess');
+  assert.equal(await join(code, guesser), 'limit', 'the live room too: a guesser past the limit cannot tell a hit from a miss');
+  assert.equal(e.objects.size, objects, 'no room\'s object woken');
+  for (let i = 0; i < JOIN_POINTS; i++) assert.equal(await join(code, '198.51.100.8'), 'live', `a friend\'s join ${i + 1} (a reconnect is one)`);
+  assert.equal(await join(code, '198.51.100.8'), 'limit', 'forty a minute');
+  at.now += 60000;
+  assert.equal(await join(code, guesser), 'live', 'a minute later');
+  assert.equal(await join('BCDF', guesser), 'update', 'a code of the first format: told to update, never counted');
+});
+
+test('a limit that cannot be asked (a binding or the limits object failing) lets the request go on', async () => {
+  const broken = { limit: async () => { throw new Error('down'); } };
+  const e = env({ CREATE_LIMIT: broken, JOIN_LIMIT: broken });
+  const limits = e.ROOMS.get('limits'); limits.fetch = async () => { throw new Error('overloaded'); };
+  const code = await openFrom(e, '198.51.100.9');
+  assert.match(code, /^[A-Z]{6}$/);
+  const ws = (await worker.fetch(upgrade(`room=${code}`, undefined, '198.51.100.9'), e)).webSocket;
+  say(ws, hello('Bo'));
+  assert.equal(got(ws, 'seat')[0]?.seat, 1);
+  ws.close();
+});
+
+test('the host\'s REMOVE through the Worker: the address the stranger came from (CF-Connecting-IP, its /64) is not let in again', async () => {
+  const e = env();
+  const a = (await worker.fetch(upgrade('new=1', undefined, '198.51.100.20'), e)).webSocket;
+  say(a, hello('Ann'));
+  const code = got(a, 'seat')[0].room;
+  const x = (await worker.fetch(upgrade(`room=${code}`, undefined, '2001:db8:9:9::1'), e)).webSocket;
+  say(x, hello('Eve'));
+  assert.equal(got(x, 'seat')[0].seat, 1);
+  say(a, { t: 'remove', seat: 1 });
+  assert.equal(errorOf(x)?.code, 'removed'); assert.ok(x.closed);
+  const x2 = (await worker.fetch(upgrade(`room=${code}`, undefined, '2001:db8:9:9:abcd::2'), e)).webSocket;
+  say(x2, hello('Eve'));
+  assert.equal(errorOf(x2)?.code, 'removed', 'the same /64');
+  const b = (await worker.fetch(upgrade(`room=${code}`, undefined, '198.51.100.21'), e)).webSocket;
+  say(b, hello('Bo'));
+  assert.equal(got(b, 'seat')[0]?.seat, 1, 'a friend takes the seat');
+  for (const c of [a, b]) c.close();
+});
+
+test('addresses: an IPv6 address counts by its /64 however written, an IPv4 one (or IPv4-mapped) as is; the counter forgets idle keys', () => {
+  assert.equal(addressKey('203.0.113.5'), '203.0.113.5');
+  assert.equal(addressKey('::ffff:203.0.113.5'), '203.0.113.5');
+  for (const a of ['2001:db8:1:2::1', '2001:0db8:0001:0002:ffff::', '2001:DB8:1:2:3:4:5:6']) assert.equal(addressKey(a), '2001:db8:1:2', a);
+  assert.equal(addressKey('2001:db8::1'), '2001:db8:0:0');
+  assert.equal(addressKey('::1'), '0:0:0:0');
+  assert.equal(addressKey(''), ''); assert.equal(addressKey(undefined), '');
+  const at = { now: 0 }, l = new Limiter([{ ms: MINUTE, max: 2 }, { ms: HOUR, max: 3 }], () => at.now);
+  assert.ok(l.take('k') && l.take('k')); assert.equal(l.check('k').ms, MINUTE);
+  at.now += MINUTE; assert.ok(l.take('k')); assert.equal(l.check('k').ms, HOUR);
+  assert.equal(l.check('k', 0), null, 'nothing more asked: nothing broken');
+  for (let i = 0; i < 5100; i++) l.take(`a${i}`);
+  at.now += 2 * HOUR; l.take('new');
+  assert.ok(l.keys.size < 10, `idle keys forgotten (${l.keys.size})`);
 });

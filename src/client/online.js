@@ -1,11 +1,13 @@
 // Multiplayer (docs/MULTIPLAYER.md): the lobby page and the glue between the network layer (src/net/net.js) and the
-// game. Mobile-first and few words: open a room (a 4-letter code to share, or a link) or join one; then the room is the
+// game. Mobile-first and few words: open a room (a code to share, six letters shown BCD-FGH (src/net/roomcode.js), or a
+// link) or join one; then the room is the
 // single-player page's board (seats.js): eight fixed spots, a token per seat, each with its side as a tag. A person is a
 // token with their name (a crown on the host's, a green check once ready, AWAY while the relay holds the seat for them),
 // an AI the single-player AI token (its race, its level as pips), an open seat a dashed OPEN SEAT for the next friend to
 // join. Your own token opens a sheet with your race (RANDOM: drawn when the game starts, alike on every client,
 // src/engine/util.js seatRaces). The room's host (spot 0) opens any token: puts anyone on any side, sets an AI's race
-// and level, shares, fills (GIVE TO AI) or removes an open seat, frees an AWAY one; fills the lowest empty spot with an
+// and level, shares, fills (GIVE TO AI) or removes an open seat, frees an AWAY one, removes a person (a stranger who
+// guessed the code: REMOVE in their sheet; the relay lets their address in no more); fills the lowest empty spot with an
 // AI or an open seat (+ AI, + SEAT), eight seats at most; and picks the map (any that seats the room). A guest sees the
 // same board, read-only but their own token, SIT HERE on an open seat, and the map as one line. A seat keeps its spot
 // (and its colour, in the game too) whatever its side; the relay seats the sides together only when the game starts.
@@ -13,6 +15,7 @@
 // open). The menu's MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's VITE_RELAY_URL, or
 // the dev machine's own (port 8788) when the page comes from it.
 import { Net, PAUSES } from '../net/net.js';
+import { parseCode, showCode, LETTERS } from '../net/roomcode.js';
 import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/index.js';
 import { $, toast, LOAD_FAILED } from './ui.js';
 import { sfx } from './audio.js';
@@ -74,7 +77,7 @@ export function initOnline({ game: g }) {
   // READY's tap goes full screen on a touch screen, so the game starts in it, as the menu's START GAME does)
   // (both need a name: dimmed (aria-disabled, still focusable) until one is typed; a tap or Enter meanwhile asks for it)
   $('btnNewRoom').addEventListener('click', () => { if (needName()) return; sfx('select'); connect(''); });
-  $('btnJoinRoom').addEventListener('click', () => { if (needName()) return; const c = $('roomCode').value.trim().toUpperCase(); if (/^[A-Z]{4}$/.test(c)) { sfx('select'); connect(c); } else status('Type the 4-letter code'); });
+  $('btnJoinRoom').addEventListener('click', () => { if (needName()) return; const c = parseCode($('roomCode').value); if (c) { sfx('select'); connect(c); } else status(`Type the ${LETTERS}-letter code`); });
   $('roomCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoinRoom').click(); });
   $('onlineName').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !needName() && $('roomCode').value.trim()) $('btnJoinRoom').click(); });
   $('onlineName').addEventListener('input', nameGate);
@@ -101,16 +104,16 @@ export function initOnline({ game: g }) {
   if (params.get('online') !== null) { const q = new URLSearchParams(location.search); q.delete('online'); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`); if (relayUrl()) openLobby(); }
   // A room's link (?room=CODE, or an older ?join=CODE), or a reload in the room: straight into it with the name this
   // device remembers (this tab's seat token takes its seat back); no name yet: the join form asks for one first.
-  const link = (params.get('room') || params.get('join') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-  if (!link || !relayUrl()) { roomInUrl(''); return; } // (no room to go to here)
+  const linked = params.get('room') || params.get('join'), link = parseCode(linked);
+  if (!link || !relayUrl()) { roomInUrl(''); if (linked && relayUrl()) { openLobby(); status('That room link is out of date: ask your friend for a new one'); } return; } // (no room to go to here; a link of the first format, four letters, or a bad one: said)
   roomInUrl(link);
-  if (typedName()) { openLobby(); $('roomCode').value = link; connect(link); } else invited(link);
+  if (typedName()) { openLobby(); $('roomCode').value = showCode(link); connect(link); } else invited(link);
 }
 
 function invited(code) {
   openLobby();
-  $('roomCode').value = code; $('btnJoinRoom').classList.add('big');
-  status(`You're invited to room ${code}: type your name, then JOIN`);
+  $('roomCode').value = showCode(code); $('btnJoinRoom').classList.add('big');
+  status(`You're invited to room ${showCode(code)}: type your name, then JOIN`);
   if (!touchDevice) $('onlineName').focus();
 }
 /** The name typed (trimmed, 16 at most; the relay checks it too); NEW ROOM and JOIN dimmed while there is none, the
@@ -141,7 +144,7 @@ function takeSeat(m) {
   const first = online.seat < 0;
   if (editing >= 0 && editing === online.seat) editing = m.seat;
   online.seat = m.seat; seatToken.set(m.room, m.token); roomInUrl(m.room); // (the room's link in the address bar)
-  $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; readyButton(); $('roomShow').textContent = m.room;
+  $('onlineJoin').hidden = true; $('onlineRoom').hidden = false; $('btnOnlineReady').hidden = false; readyButton(); $('roomShow').textContent = showCode(m.room);
   if (first || failed) status(failed ? LOAD_FAILED : '');
 }
 function status(s) { $('onlineStatus').textContent = s; }
@@ -149,7 +152,7 @@ const name = () => { const n = typedName(); if (n) playerName.set(n); return n; 
 
 function connect(room) {
   stopOnline();
-  status(room ? `Joining ${room}…` : 'Opening a room…');
+  status(room ? `Joining ${showCode(room)}…` : 'Opening a room…');
   online.ready = false; $('roomShow').textContent = ''; $('onlineBoard').replaceChildren(); leaveRoom(); $('btnOnlineReload').hidden = true; // (no last room's code or seats)
   joining = room;
   online.net = new Net({
@@ -373,7 +376,8 @@ function closeSheet(focusOn = editing) {
 }
 /** The open seat's sheet (none: closed), redrawn with every lobby, the focus where it was. Yours: your race (the host:
  *  your side too). The host's on an AI: its race, level and side, OPEN FOR A FRIEND, REMOVE; on an open seat: SHARE
- *  LINK, GIVE TO AI, its side, REMOVE; on another person: their side, FREE SEAT while they are away. READY is not here. */
+ *  LINK, GIVE TO AI, its side, REMOVE; on another person: their side, FREE SEAT while they are away, REMOVE (out of the
+ *  room, not let in again: a stranger who guessed the code). READY is not here. */
 function renderSheet() {
   sheet ||= sheetDialog($('onlineSheet'));
   const m = lobbyState, i = editing, me = online.seat, host = me === 0;
@@ -396,7 +400,10 @@ function renderSheet() {
     ] : s.ai ? [
       { label: 'OPEN FOR A FRIEND', title: 'An open seat again, for a friend', k: 'open', ghost: true, on: () => online.net?.ai(i, false) },
       ...(n > 2 ? [remove] : []),
-    ] : !mine && !s.here ? [{ label: 'FREE SEAT', title: `${s.name || 'They'} stepped away: open the seat now`, k: 'free', ghost: true, on: () => online.net?.free(i) }] : [],
+    ] : !mine ? [
+      ...(!s.here ? [{ label: 'FREE SEAT', title: `${s.name || 'They'} stepped away: open the seat now`, k: 'free', ghost: true, on: () => online.net?.free(i) }] : []),
+      { label: 'REMOVE', title: `Remove ${s.name || 'them'} from the room: they can't join it again`, k: 'kick', ghost: true, on: () => { online.net?.remove(i); closeSheet(); } },
+    ] : [],
   }), () => closeSheet());
   if (focus) (dlg.querySelector(`[data-k="${focus}"]`) || dlg.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || dlg.querySelector('[data-k="done"]'))?.focus();
 }
@@ -436,9 +443,10 @@ const seatToken = {
 };
 
 async function share() {
-  const code = $('roomShow').textContent, url = joinLink(code);
+  const code = online.net?.room; if (!code) return;
+  const url = joinLink(code);
   try {
-    if (navigator.share) await navigator.share({ title: 'Ebbfall', text: `Play me in Ebbfall: room ${code}`, url });
+    if (navigator.share) await navigator.share({ title: 'Ebbfall', text: `Play me in Ebbfall: room ${showCode(code)}`, url });
     else { await navigator.clipboard.writeText(url); toast('Link copied'); }
   } catch { /* cancelled */ }
 }

@@ -17,6 +17,8 @@ const P = {
   dmg: 'M19 5v4L9.5 18.5l-4-4L15 5zM7.5 16.5 4 20M6 13l5 5',
   air: 'M12 3c1 1 1.5 2.5 1.5 4.5v3l7 4v2l-7-2v3.5l2.5 2V21L12 20l-4 1v-1l2.5-2v-3.5l-7 2v-2l7-4v-3C10.5 5.5 11 4 12 3z',
   heal: 'M12 5v14M5 12h14',
+  health: 'M12 20s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z',
+  ground: 'M2 20h20M4 20l5-8 3.5 4.5L15 13l5 7', // (hills on a horizon: what walks, rolls or stands)
   armor: 'M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6zM12 9v6M9 12h6',
   stim: 'M13 2 5 14h6l-2 8 8-12h-6z',
   speed: 'M5 6l6 6-6 6M12 6l6 6-6 6',

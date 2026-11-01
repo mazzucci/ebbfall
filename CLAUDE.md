@@ -161,6 +161,8 @@ src/client/           everything that touches the browser
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
+  stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
+                      Shields for a shielded race, Armour; damage, ground/air, tags), base stats only (test/stats.test.js)
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, in a replay BACK TO REPLAY / DONE, online a menu over a game that
@@ -223,6 +225,7 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
                       seat 2 (the start arranges the sides)
+test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P
 test/seats.test.js    the board's rules: spots to seats, team ids and each seat's spot, a new AI's spot and side, the

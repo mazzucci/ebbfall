@@ -1513,7 +1513,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it is and costs, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -1523,17 +1523,40 @@ test('phone: a long-press on a unit to train shows what it is and costs, not wha
     const rax = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'barracks'));
     await until(d, async () => (await rax())?.done, { seconds: 90, what: 'the Garrison' });
     await d.clickEntity((await rax()).id);
-    const b = await d.page.locator('#cmd button', { hasText: 'Trooper' }).boundingBox();
     const cdp = await d.page.context().newCDPSession(d.page);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
-    await d.page.waitForTimeout(700);
     const info = d.page.locator('#cmdInfo');
-    const text = await info.textContent();
-    assert.match(text, /^Trooper\s*50\s*Rifle infantry\./, 'its name, cost and what it does');
-    assert.doesNotMatch(text, /against|Scythe|Raider|Vanguard|Sovereign/i, 'no counters: players find them themselves');
+    // Held on a unit's button: its card, and its stat chips by row (each chip's label and its offset in the card).
+    const hold = async (label) => {
+      const b = await d.page.locator('#cmd button', { hasText: label }).boundingBox();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
+      await d.page.waitForTimeout(700);
+      const card = await info.evaluate(box => {
+        const r = box.getBoundingClientRect();
+        return { box: [r.left, r.top, r.right, r.bottom], vw: innerWidth, vh: innerHeight, rows: [...box.querySelectorAll('.sr')].map(row => ({
+          one: row.getBoundingClientRect().height < 26, chips: [...row.children].map(c => ({ label: c.getAttribute('aria-label'), text: c.textContent, x: Math.round(c.getBoundingClientRect().left - r.left) })) })) };
+      });
+      return { text: await info.textContent(), ...card };
+    };
+    const release = async () => { await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await info.waitFor({ state: 'hidden', timeout: 5000 }); };
+    const T = await d.eval(() => endfall.engine.UNITS.trooper), M = await d.eval(() => endfall.engine.UNITS.medic);
+    const trooper = await hold('Trooper');
+    assert.match(trooper.text, /^Trooper\s*50/, 'its name and cost first');
+    assert.match(trooper.text, /Rifle infantry\./, 'and what it does');
+    assert.doesNotMatch(trooper.text, /against|Scythe|Raider|Vanguard|Sovereign/i, 'no counters: players find them themselves');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
-    assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Trooper' }).getAttribute('title'), /against/i, 'nor in the tooltip');
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Trooper' }).getAttribute('title'), /against|Health|Damage/i, 'nor counters or stats in the tooltip');
+    // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
+    assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armour ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground and air']]);
+    assert.ok(trooper.rows.every(r => r.one), 'each row on one line');
+    assert.ok(trooper.box[0] >= 0 && trooper.box[1] >= 0 && trooper.box[2] <= trooper.vw && trooper.box[3] <= trooper.vh, `the card fits the screen: ${trooper.box}`);
+    await release();
+    // An unarmed unit (the Medic, locked until a Foundry stands: a long-press still shows it): a dash, then its tags,
+    // every slot where the Trooper's is.
+    const medic = await hold('Medic');
+    assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.text)), [[String(M.hp), String(M.armor)], ['—', 'Heals']]);
+    assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.x)), trooper.rows.map(r => r.chips.map(c => c.x)), 'the same positions as the Trooper\'s');
+    await release();
+    assert.equal(await d.eval(() => endfall.G.bldgs.find(b => b.team === 0 && b.type === 'barracks').queue.length), 0, 'the long-presses trained nothing');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

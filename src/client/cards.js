@@ -97,9 +97,8 @@ export function cardItems() {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
       at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc });
     });
-    // Rally after the units; a factory of five (the Kiln, the most any trains) puts it below them, so the queue's
-    // Cancel keeps its slot 5
-    if (trains.length) at(trains.length < 5 ? trains.length : 6, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
+    // Rally after the units (a factory trains four at most, so its card keeps two rows with the queue's Cancel in slot 5)
+    if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
       // Fixed slots: a research building's own row holds two researches and Cancel, the techs go below. A factory's one
       // tech sits after its units and Rally, and while it researches its button becomes the Cancel (the card keeps its

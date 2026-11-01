@@ -349,6 +349,37 @@ impl World {
         .then_some(kind)
     }
 
+    /// The side's second tech building (`AiScript::tech2`, the Vael's Eclipse) when the build order wants it: not
+    /// raised yet, its own requirement standing, and either a mixed-in unit it unlocks due by the time it stands
+    /// (the Umbra, on a level that fields one: `cloak_ratio`), once a factory that trains it is going up, or one of its techs of use and not yet researched (the
+    /// flyers' Veil Weave and Slipstream once a Zenith stands), from the side's tech time on a level that uses them.
+    pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
+        let s = &self.factions[e as usize].ai;
+        let k = s.tech2?;
+        if self.ai_count(my_b, false, k) > 0 || !self.has_req(e, k) {
+            return None;
+        }
+        // (a factory of its own that trains the unit placed first: the Eclipse before the Zenith would unlock nothing)
+        let trained = |u: UnitKind| {
+            my_b.iter()
+                .filter_map(|&id| self.bldg(id))
+                .any(|b| b.kind.def().trains.contains(&u))
+        };
+        let unlocks = s.mix.iter().any(|&(u, per, from)| {
+            u.def().req == Some(k)
+                && self.cloak_ratio(u, per).is_some()
+                && t > from - k.def().build
+                && trained(u)
+        });
+        let d = self.level();
+        let techs = d.abilities
+            && t > d.research_from.min(s.tech_from)
+            && k.def().researches.iter().any(|&up| {
+                self.upgrades[e as usize][up.index()] < up.levels() && self.tech_of_use(e, my_b, up)
+            });
+        (unlocks || techs).then_some(k)
+    }
+
     /// The build order: one wanted building at a time, placed by a free harvester.
     pub(crate) fn ai_build(&mut self, brain: &mut Brain) {
         let Brain {
@@ -478,7 +509,7 @@ impl World {
         {
             Some(s.air)
         } else {
-            None
+            self.tech2_due(e, &my_b, t) // (its second tech: the Eclipse)
         };
         // The natural is due (its Core is being saved for): building far out must not spend that bank.
         let hq_cost = f.hq.def().cost;

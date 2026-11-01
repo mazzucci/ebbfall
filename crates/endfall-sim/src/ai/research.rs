@@ -105,20 +105,17 @@ impl World {
     }
 
     /// Whether a tech would serve this side now: an ability's only once a building of its own that trains a unit
-    /// with that ability stands (no Cloaking Field before an Airfield); anything else always.
-    fn tech_of_use(&self, e: u8, my_b: &[Id], up: Upgrade) -> bool {
-        let Effect::Unlock(ab) = up.def().effect else {
-            return true;
+    /// with that ability stands (no Cloaking Field before an Airfield), a unit's speed only once one that trains
+    /// that unit stands (no Slipstream at an Eclipse before a Zenith); anything else always.
+    pub(crate) fn tech_of_use(&self, e: u8, my_b: &[Id], up: Upgrade) -> bool {
+        let serves: &dyn Fn(UnitKind) -> bool = match up.def().effect {
+            Effect::Unlock(ab) => &move |k: UnitKind| k.def().abilities.contains(&ab),
+            Effect::Speed(unit) => &move |k: UnitKind| k == unit,
+            _ => return true,
         };
-        my_b.iter().filter_map(|&id| self.bldg(id)).any(|b| {
-            b.team == e
-                && b.done
-                && b.kind
-                    .def()
-                    .trains
-                    .iter()
-                    .any(|k| k.def().abilities.contains(&ab))
-        })
+        my_b.iter()
+            .filter_map(|&id| self.bldg(id))
+            .any(|b| b.team == e && b.done && b.kind.def().trains.iter().any(|&k| serves(k)))
     }
 }
 

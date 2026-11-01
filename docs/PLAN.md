@@ -10,7 +10,7 @@ loop feels right.
   a scripted opponent for either race with four difficulties (Easy, Medium, Hard, Brutal: by how well it plays; only Brutal gathers faster), random start side.
 - Humans: Core, Depot, Ether Rig, Garrison, Foundry, Factory, Turret, Airfield; Harvester, Trooper, Lancer, Medic,
   Vanguard, Siege Tank, Interceptor, Raider, Observer. Workers build and repair; upgrades at the Foundry.
-- Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith; Lumen, Scythe, Prism, Monolith, Halo, Umbra, Shrike, Sovereign. Warp-in
+- Vael: Conflux, Spire, Siphon, Kiln, Loom, Ward, Zenith, Eclipse; Lumen, Scythe, Prism, Monolith, Halo, Umbra, Shrike, Sovereign. Warp-in
   construction, power fields, shields that regenerate; no repair.
 - Economy: shards (finite fields) and ether (vents that need a refinery); supply from headquarters and supply
   buildings. Fog of war, control groups, rally points, attack-move, hold.
@@ -309,6 +309,38 @@ Design and milestones: `docs/MULTIPLAYER.md` (2026-10-26). The list below is the
   reprice), combat.rs (no ground target, ordered or not; it shoots a Raider down), ai.rs (Interceptors from the
   Factory, Lancers to half), army.rs (a wave of Interceptors alone comes home), the e2e (the Factory's card, I and its
   WASD key, a Raider shot down beside an untouched Trooper).
+- [x] The Eclipse and the Umbra at the Zenith (2026-10-31, the owner's ask: the Kiln back to two rows, the Umbra an
+  advanced unit, a Dark Shrine of their own). **Eclipse** (key `eclipse`, `BldgKind::Eclipse` appended; the name is
+  the sim's alone, vael.rs, a placeholder the owner may rename: the client's words never repeat it but How to play's):
+  the Vael's shadow tech, where light is hidden (the Lumen is light, the Umbra shadow); 150/100, 45 s, 500 hull + 300
+  shields, 2x2, needs power, requires the Loom; hotkey I (E, C and L are taken on the Build pages), on the Advanced
+  page after the Conflux. It researches **Veil Weave** (from the Loom) and **Slipstream** (from the Zenith): the Loom
+  keeps Weapons, Shields and Overcharge Core, the Zenith only trains. The **Zenith** is the advanced hover units'
+  building: Shrike, Umbra, Sovereign (the Umbra stays a ground unit: it hovers as every Vael does, melee, cannot hit
+  flyers, and anti-air cannot target it; no stat changed). The **Umbra** requires the Eclipse. Tech paths: Kiln ->
+  Zenith; Kiln -> Loom -> Eclipse; an Umbra needs both. The **Kiln** card is back to four units, Rally and Cancel (the
+  special case for a fifth unit is gone: a factory trains four at most); test/cards.test.js now checks that every
+  building card and Build page keeps two rows and no CLASSIC key twice. The **Vael AI**: `AiScript::tech2` (None for
+  the Humans) names its second tech building, raised (`World::tech2_due`, data-driven) once its own requirement
+  stands and either a mixed-in unit it unlocks is due by the time it stands and a factory of its own that trains that
+  unit is placed (no Eclipse before a Zenith), or one of its techs would serve (`tech_of_use` now also wants a
+  building that trains a Speed tech's unit: no Slipstream before a Zenith), from the side's tech time on a level that
+  uses techs (never on Easy). The air factory trains the mix's Umbra by the same ratio (one per six Scythes from 5:00
+  until it sees an enemy field detector), taking turns with its raiders until six Shrikes are out, after its capital
+  barge (which still comes first when due): with money to spare all three come by 11:00 (ai.rs). Balance, AI against
+  AI, Humans against Vael, 240 games a level (six maps, twenty seeds, both sides), against main with the Interceptor:
+  Medium 50.0% Humans (main 46.9%), Hard 50.0% (main 48.3%); at 150/150 and 50 s the Eclipse cost the Vael more
+  (52.3% / 50.2%), and raised before the Zenith more still (54% / 52.5%, 120 games). Umbras in 43 and 71 games (main
+  47 and 92), the first at a median 10:02 and 9:22 (main 9:27 and 8:54); the Eclipse stands at a median 7:00 / 7:11
+  in 151 / 172 games; Shrikes in 88 / 122 games (main 108 / 130), Sovereigns in 70 / 78 (72 / 84); Veil Weave
+  researched in 45 / 58 games (main 42 / 53), Slipstream in 101 / 116 (122 / 152: it now waits for the Eclipse). Art:
+  three pearl crescent arms on a dark drum with a team ring cup a floating disc of shadow tilted to the sky, a matte deep
+  violet face in a violet corona (vael.js `eclipse`, the new `eclipsed` material). Tests: orders.rs (the tech tree, the
+  research moved and refused at the Loom and the Zenith), ai.rs (the AI's Eclipse, its Umbras, Shrikes, Sovereign
+  and a Shrike tech; none on Easy), cards.test.js (two rows), the e2e (the Kiln's and the Zenith's cards, the
+  Eclipse's two researches, U and its WASD key; a factory's research beside its queue is the Airfield's alone now, on
+  all four screens, and the Zenith's console is checked with a full queue and no research). Goldens unchanged: the
+  Vael golden game is checked up to 5:00, before any Eclipse or Zenith goes up.
 - [ ] Settings: key bindings, scroll speed, sound volume
 
 ## Next steps (this week)

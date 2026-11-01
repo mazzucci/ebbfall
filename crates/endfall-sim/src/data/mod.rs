@@ -102,6 +102,7 @@ kinds! {
         Ward => vael::WARD,
         Zenith => vael::ZENITH,
         Factory => humans::FACTORY,
+        Eclipse => vael::ECLIPSE,
     }
 }
 
@@ -308,6 +309,9 @@ pub struct Faction {
 pub struct AiScript {
     pub rax: BldgKind,
     pub tech: BldgKind,
+    /// A second tech building after `tech`, if the side has one (the Vael's Eclipse): raised when a mixed-in unit
+    /// it unlocks is due (on a level that fields it) or one of its techs would serve (`World::tech2_due`).
+    pub tech2: Option<BldgKind>,
     pub tower: BldgKind,
     pub air: BldgKind,
     /// Its vehicle bay, if it has one: it trains only its answer to flyers (`heavy_anti_air`) and the mixed-in units

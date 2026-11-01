@@ -29,6 +29,7 @@ pub const HUMANS: Faction = Faction {
     ai: AiScript {
         rax: BldgKind::Barracks,
         tech: BldgKind::Forge,
+        tech2: None,
         tower: BldgKind::Turret,
         air: BldgKind::Airfield,
         heavy: Some(BldgKind::Factory),

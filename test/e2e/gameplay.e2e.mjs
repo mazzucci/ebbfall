@@ -922,13 +922,12 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
   });
 }
 
-// A factory that also researches (the Humans' Airfield, the Vael's Zenith) shows its research beside its queue (over
-// it on small phones): the queued units stay in their slots, the research shows with its own bar, and nothing in the
-// console moves when the research starts or ends; a queued unit is still cancelled with a tap. Two devices per race:
-// all four screens.
+// A factory that also researches (the Humans' Airfield; no Vael factory does since the Eclipse took the Zenith's
+// Slipstream) shows its research beside its queue (over it on small phones): the queued units stay in their slots, the
+// research shows with its own bar, and nothing in the console moves when the research starts or ends; a queued unit is
+// still cancelled with a tap. All four screens.
 const SMALL_PHONE = { ...PHONE, viewport: { width: 667, height: 375 } }, UPRIGHT = { ...PHONE, viewport: { width: 412, height: 915 } };
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['g', 'barracks'], ['a', 'airfield']], unit: 'Raider', tech: 'Afterburn', name: 'Afterburners', devices: [DESKTOP, SMALL_PHONE] }],
-  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream', name: 'Slipstream', devices: [PHONE, UPRIGHT] }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['g', 'barracks'], ['a', 'airfield']], unit: 'Raider', tech: 'Afterburn', name: 'Afterburners', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
   test(`a factory's research shows beside its queue, and nothing in the console moves as it starts and ends (${race})`, async () => {
     for (const device of R.devices) {
       const d = await newGame(device, 1, 4242, { ai: false, race });
@@ -986,13 +985,14 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
   });
 }
 
-// The console fits every phone, fluidly: an Airfield and a Zenith with a full queue and a research, at every landscape
+// The console fits every phone, fluidly: an Airfield with a full queue and a research (a Zenith: its queue alone, as it
+// researches nothing), at every landscape
 // width from 640 to 900 (360 and 390 high) and upright from 360 to 430 wide: the name and the health figure whole,
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
 // capital unit's (the most figures): whole, on one line or two, inside the console.
 for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Raider', tech: 'Afterburn', capital: 'bastion' }],
-  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: 'Slipstream', capital: 'sovereign' }]]) {
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Shrike', tech: null, capital: 'sovereign' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -1002,8 +1002,10 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
       const queued = async () => (await d.state()).bldgs.find(b => b.id === f.id).queue.length;
       for (let i = 0; i < 5; i++) await d.pressCard(R.unit);
       assert.equal(await queued(), 5, `a full queue (toasts: ${(await d.toasts()).join(' | ')})`);
-      await d.pressCard(R.tech);
-      await d.page.waitForFunction(() => document.querySelector('#qres:not(.idle)'), null, { timeout: 5000 });
+      if (R.tech) {
+        await d.pressCard(R.tech);
+        await d.page.waitForFunction(() => document.querySelector('#qres:not(.idle)'), null, { timeout: 5000 });
+      }
       await d.page.evaluate(() => document.fullscreenElement && document.exitFullscreen()); // (a page in full screen keeps its size)
       await d.page.waitForFunction(() => !document.fullscreenElement);
       /** Each name of both races in the console as it stands (set in one go, measured and put back before a frame
@@ -1042,7 +1044,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
         const inside = (a, o) => a.x >= o.x - 0.5 && a.y >= o.y - 0.5 && a.r <= o.r + 0.5 && a.b <= o.b + 0.5;
         const apart = (a, o) => a.r <= o.x + 0.5 || o.r <= a.x + 0.5 || a.b <= o.y + 0.5 || o.b <= a.y + 0.5;
         assert.equal(m.units, 5, `${where}: the full queue shows`);
-        assert.ok(m.researching, `${where}: the research shows`);
+        assert.equal(m.researching, !!R.tech, `${where}: the research shows (if any)`);
         assert.ok(!m.nameCut, `${where}: the name whole`);
         assert.ok(!m.numCut && m.num.r <= m.life.r + 0.5, `${where}: the health figure whole (${m.num.r} vs ${m.life.r})`);
         for (const p of m.parts) assert.ok(inside(p, m.info), `${where}: ${p.c} inside the console ${JSON.stringify([p, m.info])}`);
@@ -2701,28 +2703,37 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
-test('desktop, as the Vael: the Kiln trains an Umbra once a Loom stands (U, or its slot\'s key in WASD); its owner sees it shimmer, the enemy only where it detects', async () => {
+test('desktop, as the Vael: the Zenith trains an Umbra once an Eclipse stands (U, or its slot\'s key in WASD), the Kiln keeps two rows; its owner sees it shimmer, the enemy only where it detects', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
-    await d.grant(3000, 2000);
+    await d.grant(4000, 3000);
     await buildAndFinish(d, 's', 'spire', 0, V);
     const kiln = await buildAndFinish(d, 'k', 'kiln', 1, V);
     await d.clickEntity(kiln.id);
-    const slot = (await cardKeys(d)).find(([, , l]) => l === 'Umbra');
-    assert.ok(slot, 'the Kiln offers the Umbra');
-    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'locked until a Loom stands');
-    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Scythe', 'Prism', 'Monolith', 'Halo', 'Umbra', 'Cancel', 'Rally'], 'five units, the queue\'s Cancel in its place, Rally below');
-    await buildAndFinish(d, 'l', 'loom', 2, V);
-    await d.clickEntity(kiln.id);
+    await d.readyCard('Scythe');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Monolith 2', 'Halo 3', 'Rally 4', 'Cancel 5'], 'the Kiln: four units, Rally, Cancel; two rows');
+    const zenith = await buildAndFinish(d, 'z', 'zenith', 2, V);
+    await d.clickEntity(zenith.id);
+    await d.readyCard('Shrike');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Shrike 0', 'Umbra 1', 'Sovereign 2', 'Rally 3', 'Cancel 5'], 'the Zenith: its three units, Rally, Cancel; two rows');
+    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'locked until an Eclipse stands');
+    await buildAndFinish(d, 'l', 'loom', 3, V);
+    await d.clickEntity(zenith.id);
+    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'a Loom alone unlocks nothing');
+    const eclipse = await buildAndFinish(d, 'i', 'eclipse', 0, V); // (B then I: the Advanced page's key)
+    await d.clickEntity(eclipse.id);
+    await d.readyCard('Veil Weave');
+    assert.deepEqual((await cardKeys(d)).map(([at, k, l]) => `${l} ${k} ${at}`), ['Veil Weave V 0', 'Slipstream F 1'], 'the Eclipse: its two researches');
+    await d.clickEntity(zenith.id);
     await d.readyCard('Umbra');
-    const queue = async () => (await d.state()).bldgs.find(b => b.id === kiln.id).queue;
+    const queue = async () => (await d.state()).bldgs.find(b => b.id === zenith.id).queue;
     await d.key('u');
     assert.deepEqual(await queue(), ['umbra'], `U trains an Umbra (toasts: ${(await d.toasts()).join(' | ')})`);
     // In WASD its key is its slot's.
     await pickControls(d, 'wasd');
-    await d.clickEntity(kiln.id);
+    await d.clickEntity(zenith.id);
     const [at, key] = (await cardKeys(d)).find(([, , l]) => l === 'Umbra');
     assert.equal(key, GRID[at], 'its grid key shown');
     await d.key(key.toLowerCase());

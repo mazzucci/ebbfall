@@ -261,7 +261,10 @@ fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_s
         Err("Requires Eclipse".into())
     );
     let (tx, ty) = (32, 30);
-    assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "the Eclipse waits for the Loom");
+    assert!(
+        !w.has_req(PLAYER, BldgKind::Eclipse),
+        "the Eclipse waits for the Loom"
+    );
     let loom = w.make_building(BldgKind::Loom, PLAYER, 28, 30, true);
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     assert_eq!(
@@ -282,7 +285,10 @@ fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_s
     }
     assert!(w.start_research(loom, Upgrade::OverchargeCore).is_ok());
     assert!(w.start_research(eclipse, Upgrade::VeilWeave).is_ok());
-    assert!(w.start_research(eclipse, Upgrade::Slipstream).is_err(), "one at a time");
+    assert!(
+        w.start_research(eclipse, Upgrade::Slipstream).is_err(),
+        "one at a time"
+    );
     assert!(w.queue_unit(zenith, UnitKind::Umbra).is_ok());
     let before = count(&w, PLAYER, UnitKind::Umbra);
     run(&mut w, 40);

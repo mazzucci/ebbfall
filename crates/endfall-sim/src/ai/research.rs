@@ -113,9 +113,9 @@ impl World {
             Effect::Speed(unit) => &move |k: UnitKind| k == unit,
             _ => return true,
         };
-        my_b.iter().filter_map(|&id| self.bldg(id)).any(|b| {
-            b.team == e && b.done && b.kind.def().trains.iter().any(|&k| serves(k))
-        })
+        my_b.iter()
+            .filter_map(|&id| self.bldg(id))
+            .any(|b| b.team == e && b.done && b.kind.def().trains.iter().any(|&k| serves(k)))
     }
 }
 

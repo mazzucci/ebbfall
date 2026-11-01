@@ -306,11 +306,7 @@ pub(super) const LOOM: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Kiln),
-    researches: &[
-        Upgrade::Weapons,
-        Upgrade::Shields,
-        Upgrade::OverchargeCore,
-    ],
+    researches: &[Upgrade::Weapons, Upgrade::Shields, Upgrade::OverchargeCore],
     needs_power: true,
     ..BLDG
 };
@@ -357,10 +353,10 @@ pub(super) const ZENITH: BldgDef = BldgDef {
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Eclipse",
-    cost: [150, 150],
+    cost: [150, 100],
     hp: 500.0,
     shields: 300.0,
-    build: 50.0,
+    build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Loom),
     researches: &[Upgrade::VeilWeave, Upgrade::Slipstream],

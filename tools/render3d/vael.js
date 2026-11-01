@@ -75,8 +75,9 @@ export function makeVaelMats(tc = NEUTRAL) {
     // its highlights and lit edges rather than by its surface
     umbral: phys({ color: 0x2a2334, bumpMap: pearlBump, bumpScale: 0.5, metalness: 0.35, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.5, sheenColor: 0x9a80f0, sheenRoughness: 0.4 }),
     umbralDeep: phys({ color: 0x15111b, metalness: 0.4, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
-    // the Eclipse's hidden light: a matte black that takes no highlight, so the disc reads dark at any angle
-    eclipsed: std({ color: 0x07050b, metalness: 0, roughness: 1 }),
+    // the Eclipse's hidden light: a matte deep violet that takes no highlight, a shadow at any angle, more saturated
+    // than the Umbra's near-black so the two never merge
+    eclipsed: std({ color: 0x1a0a2a, emissive: 0x2e0f48, emissiveIntensity: 0.32, metalness: 0, roughness: 1 }),
     padHalo: halo(0x7a62e0, 0.1),
   };
 }
@@ -615,8 +616,8 @@ export function zenith(M) {
 }
 
 /** Eclipse (shadow tech, 2x2): where light is hidden. Three pearl crescent arms on a dark drum cup a floating disc of
- *  shadow ceramic tilted to the sky, its rim lit violet like a corona: from above, a black disc in a bright ring (the
- *  Umbra's palette), apart from the Loom's needles and the Conflux's crystal. */
+ *  shadow ceramic tilted to the sky, its rim lit violet like a corona: from above, a deep violet disc in a bright ring,
+ *  apart from the Loom's needles and the Conflux's crystal. */
 export function eclipse(M) {
   const g = grp();
   plinth(g, M, 30, { pad: 15, lobes: 0.35 });

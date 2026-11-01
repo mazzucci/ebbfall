@@ -508,10 +508,8 @@ impl World {
             && (t > d.air_at - s.air_lead || detector_air)
         {
             Some(s.air)
-        } else if let Some(k) = self.tech2_due(e, &my_b, t) {
-            Some(k)
         } else {
-            None
+            self.tech2_due(e, &my_b, t) // (its second tech: the Eclipse)
         };
         // The natural is due (its Core is being saved for): building far out must not spend that bank.
         let hq_cost = f.hq.def().cost;

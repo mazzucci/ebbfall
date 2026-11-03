@@ -31,7 +31,7 @@ const UNIT_TEXT = {
   vanguard: { hot: 'V', desc: 'Heavy walker for the front line: fights on the move, with long range and thick plate. Its shells splash.' },
   lancer: { hot: 'L', desc: 'Cheap anti-air infantry. Missiles shred flyers, weak against the ground.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
+  raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Always cloaked once Cloaking Field is researched.' },
   observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
   siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, it shells from afar with heavy splash, not up close; on the move, a light gun.' },
   interceptor: { hot: 'I', desc: 'Fast, armoured missile vehicle: intercepts flyers and keeps the sky clear over your line. Cannot hit the ground.' },
@@ -41,7 +41,7 @@ const UNIT_TEXT = {
   scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.' },
   prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
   monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.' },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).' },
+  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Always veiled once Veil Weave is researched.' },
   sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
   umbra: { hot: 'U', desc: 'The Lumen\'s shadow: always cloaked, unseen and untargetable except near a detector. Cuts down ground armies.' },
@@ -92,16 +92,17 @@ const ABILITY_TEXT = {
   stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
-  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
-  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
-  deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, no moving or firing meanwhile); it deploys by itself on reaching its target.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, no moving or firing meanwhile). A move order packs it up too.' } },
+  cloak: { desc: 'Always cloaked once Cloaking Field is researched: unseen and untouchable except near a detector.' },
+  veil: { desc: 'Always veiled once Veil Weave is researched: unseen and untouchable except near a detector.' },
+  deploy: { desc: 'Sets up whenever it stops (3 s, no moving or firing meanwhile), and packs up when it has to move: only deployed does its siege gun fire.' },
 };
-/** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions; a toggle's `off`: its button's
- *  name, icon and words while it is on (the button names the action, src/client/cards.js `abilityTargets`). */
+/** Unit abilities, with their hotkeys and descriptions: one tap each on the card, but for an automatic one (`auto`:
+ *  the Siege Tank's Deploy), which the unit uses by itself and which has no button or key. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 // A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
 for (const u of Object.values(UPGRADES)) {
-  if (u.effect === 'unlock') u.desc = `Unlocks ${ABILITIES[u.of].name} for ${Object.values(UNITS).filter(d => (d.abilities || []).includes(u.of)).map(d => d.name + 's').join(' and ')}.`;
+  const who = (k) => Object.values(UNITS).filter(d => (d.abilities || []).includes(k)).map(d => d.name + 's').join(' and ');
+  if (u.effect === 'unlock') u.desc = ABILITIES[u.of].auto ? `${who(u.of)} are always cloaked: unseen except near a detector.` : `Unlocks ${ABILITIES[u.of].name} for ${who(u.of)}.`;
   if (u.effect === 'speed') u.desc = `${UNITS[u.of].name}s fly ${Math.round((TECH_SPEED - 1) * 100)}% faster.`;
   if (u.effect === 'build') u.desc = `Buildings go up ${Math.round((TECH_BUILD - 1) * 100)}% faster, those already rising too.`;
 }

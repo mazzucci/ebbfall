@@ -18,8 +18,9 @@ pub enum AbilityEffect {
     Settle { range: f64, swap: f64 },
     /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
     Blink { dist: f64 },
-    /// Cloaked for `secs` (as an Observer is: seen and targeted only where the other side detects).
-    Cloak { secs: f64 },
+    /// Always cloaked once researched (as an Observer is: seen and targeted only where the other side detects); never
+    /// cast.
+    Cloak,
 }
 
 def_struct! {
@@ -28,6 +29,9 @@ def_struct! {
         name: &'static str = "name",
         /// On/off (Deploy) rather than a one-off cast.
         toggle: bool = "toggle",
+        /// Used by the unit itself, never by an order: no button on the card, and a player's order to use it is
+        /// refused (the Siege Tank deploys and packs up by itself).
+        auto: bool = "auto",
         /// Seconds before it can be used again.
         cooldown: f64 = "cooldown",
         effect: AbilityEffect,
@@ -41,6 +45,7 @@ const STIM: AbilityDef = AbilityDef {
     key: "stim",
     name: "Stim",
     toggle: false,
+    auto: false,
     cooldown: 1.0,
     effect: AbilityEffect::Boost {
         secs: 10.0,
@@ -55,17 +60,21 @@ const ENTRENCH: AbilityDef = AbilityDef {
     key: "entrench",
     name: "Entrench",
     toggle: true,
+    auto: false,
     cooldown: 0.0,
     effect: AbilityEffect::Settle {
         range: 3.0,
         swap: 2.0,
     },
 };
-/// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up.
+/// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up. The
+/// tank does it by itself (on reaching its target, an idle tank for what comes into its reach; packing up when
+/// nothing is left in reach or it is sent to move), never on an order.
 const DEPLOY: AbilityDef = AbilityDef {
     key: "deploy",
     name: "Deploy",
     toggle: true,
+    auto: true,
     cooldown: 0.0,
     effect: AbilityEffect::Settle {
         range: 0.0,
@@ -76,6 +85,7 @@ const BLINK: AbilityDef = AbilityDef {
     key: "blink",
     name: "Blink",
     toggle: false,
+    auto: false,
     cooldown: 20.0,
     effect: AbilityEffect::Blink { dist: 4.0 },
 };
@@ -83,6 +93,7 @@ const OVERCHARGE: AbilityDef = AbilityDef {
     key: "overcharge",
     name: "Overcharge",
     toggle: false,
+    auto: false,
     cooldown: 30.0,
     effect: AbilityEffect::Boost {
         secs: 6.0,
@@ -92,12 +103,15 @@ const OVERCHARGE: AbilityDef = AbilityDef {
     },
 };
 
+/// The Raider's (and, as the Veil, the Shrike's): once researched the unit is always cloaked (`World::is_cloaked`),
+/// with no button: an automatic ability that is never cast.
 const CLOAK: AbilityDef = AbilityDef {
     key: "cloak",
     name: "Cloak",
     toggle: false,
-    cooldown: 40.0,
-    effect: AbilityEffect::Cloak { secs: 12.0 },
+    auto: true,
+    cooldown: 0.0,
+    effect: AbilityEffect::Cloak,
 };
 const VEIL: AbilityDef = AbilityDef {
     key: "veil",

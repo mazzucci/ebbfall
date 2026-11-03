@@ -1749,7 +1749,6 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
     w.hold_unit(trooper);
     let raider = w.make_unit(UnitKind::Raider, PLAYER, x + 40.0, y);
     w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(raider, AbilityKind::Cloak).unwrap();
     for _ in 0..3 * TPS {
         if w.unit(trooper).is_some() && w.unit(raider).is_some() {
             w.attack_ent(raider, trooper);

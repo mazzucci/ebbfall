@@ -108,66 +108,46 @@ fn a_ward_detects_only_while_powered() {
 }
 
 #[test]
-fn a_researched_raider_cloaks_for_a_while_and_a_detector_still_finds_it() {
-    let mut w = flat_arena(14);
-    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 30.0 * TILE);
-    w.hold_unit(raider);
-    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
-    (o.hp, o.maxhp) = (1e6, 1e6); // (it outlives being seen again)
-    let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 26.0 * TILE, 30.0 * TILE);
-    w.hold_unit(lancer);
-    assert_eq!(
-        w.cast(raider, AbilityKind::Cloak),
-        Err("Research Cloaking Field first".into())
-    );
-    w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(raider, AbilityKind::Cloak).unwrap();
-    w.step();
-    assert!(!w.seen_by(PLAYER, raider), "cloaked");
-    let hp = U(&w, raider).hp;
-    run(&mut w, 5);
-    assert_eq!(
-        U(&w, raider).hp,
-        hp,
-        "the Lancer cannot shoot what it cannot see"
-    );
-    run(&mut w, 8);
-    assert!(w.seen_by(PLAYER, raider), "visible again after 12 s");
-    run(&mut w, 2);
-    assert!(U(&w, raider).hp < hp, "and shot once visible");
-    // Cloaked again later (after its cooldown), but a Turret beside it detects it.
-    run(&mut w, 30);
-    w.cast(raider, AbilityKind::Cloak).unwrap();
-    w.make_building(BldgKind::Turret, PLAYER, 27, 32, true);
-    w.step();
-    assert!(w.seen_by(PLAYER, raider), "detected");
-}
-
-#[test]
-fn the_ai_cloaks_a_raider_only_against_anti_air_and_not_where_it_is_detected() {
-    // An AI Raider attacking a building: it cloaks with a Lancer near, not with only a Vanguard near (it cannot hit
-    // air), and not beside a detecting Turret (no point).
-    let scene = |foe: UnitKind, turret: bool| {
-        let mut w = flat_arena(15);
-        w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-        let depot = w.make_building(BldgKind::Depot, PLAYER, 30, 30, true);
-        let raider = w.make_unit(UnitKind::Raider, ENEMY, 33.0 * TILE, 31.0 * TILE);
-        w.attack_ent(raider, depot);
-        let f = w.make_unit(foe, PLAYER, 26.0 * TILE, 31.0 * TILE);
-        w.hold_unit(f);
-        if turret {
-            w.make_building(BldgKind::Turret, PLAYER, 34, 28, true);
-        }
+fn a_researched_cloak_is_permanent_and_only_a_detector_finds_it() {
+    // The Raider's Cloak (Cloaking Field) and the Shrike's Veil (Veil Weave): no button and no timer (owner,
+    // 2026-11-03): once its side has the tech the unit is always cloaked; a detector beside it still finds it.
+    for (kind, tech, side) in [
+        (UnitKind::Raider, Upgrade::CloakingField, "Raider"),
+        (UnitKind::Shrike, Upgrade::VeilWeave, "Shrike"),
+    ] {
+        let mut w = flat_arena(14);
+        let flyer = w.make_unit(kind, ENEMY, 30.0 * TILE, 30.0 * TILE);
+        w.hold_unit(flyer);
+        let o = w.units.iter_mut().find(|u| u.id == flyer).unwrap();
+        (o.hp, o.maxhp) = (1e6, 1e6);
+        let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 26.0 * TILE, 30.0 * TILE);
+        w.hold_unit(lancer);
         w.step();
-        w.auto_cast(ENEMY);
-        U(&w, raider).boost.is_some()
-    };
-    assert!(scene(UnitKind::Lancer, false), "cloaks against a Lancer");
-    assert!(
-        !scene(UnitKind::Vanguard, false),
-        "not against what cannot hit air"
-    );
-    assert!(!scene(UnitKind::Lancer, true), "not beside a detector");
+        assert!(w.seen_by(PLAYER, flyer), "{side}: seen before its tech");
+        let ab = kind.def().abilities[0];
+        assert!(w.cast(flyer, ab).is_err(), "{side}: never cast");
+        w.upgrades[ENEMY as usize][tech.index()] = 1;
+        w.step();
+        assert!(!w.seen_by(PLAYER, flyer), "{side}: cloaked once researched");
+        run(&mut w, 1); // (a missile already on its way still lands)
+        let hp = U(&w, flyer).hp;
+        run(&mut w, 20);
+        assert!(
+            !w.seen_by(PLAYER, flyer),
+            "{side}: still cloaked 20 s on (no timer)"
+        );
+        assert_eq!(
+            U(&w, flyer).hp,
+            hp,
+            "{side}: the Lancer cannot shoot what it cannot see"
+        );
+        w.make_building(BldgKind::Turret, PLAYER, 27, 32, true);
+        w.step();
+        assert!(
+            w.seen_by(PLAYER, flyer),
+            "{side}: a detector beside it finds it"
+        );
+    }
 }
 
 #[test]
@@ -195,8 +175,7 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     assert_eq!(turrets(&w), 0, "no Turret yet");
     let mut raised = false;
     for _ in 0..60 {
-        // (it re-cloaks whenever it can, and keeps shooting at a harvester near where it started)
-        let _ = w.cast(raider, AbilityKind::Cloak);
+        // (cloaked for good, it keeps shooting at a harvester near where it started)
         // (a miner: its workers now run from what hits them, and the one building the tower is not the target)
         if let Some(t) = harvesters(&w, ENEMY).into_iter().find(|&t| {
             let u = U(&w, t);
@@ -227,7 +206,6 @@ fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on
     w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
     let built = w.bldgs.iter().filter(|b| b.team == ENEMY).count();
     for _ in 0..60 {
-        let _ = w.cast(raider, AbilityKind::Cloak);
         if w.unit(t).is_some() {
             w.attack_ent(raider, t);
         }
@@ -257,7 +235,6 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
     }
     w.hold_unit(trooper);
     w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(raider, AbilityKind::Cloak).unwrap();
     let alerts = |w: &mut World, secs: u32| {
         let (mut unseen, mut seen) = (0, 0);
         for _ in 0..secs * TPS {
@@ -277,24 +254,15 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
     };
     let (unseen, seen) = alerts(&mut w, 11);
     assert!(U(&w, trooper).hp < 1e6, "the cloaked Raider shoots");
-    assert_eq!(
-        (unseen, seen),
-        (1, 0),
-        "one unseen alert for the whole cloak"
-    );
-    let (unseen, _) = alerts(&mut w, 18);
-    assert_eq!(unseen, 0, "visible again: no unseen alert");
-    // Cloaked again past the 30 s gap, still with nothing to detect it: told again.
-    alerts(&mut w, 12); // (its 40 s cooldown)
-    w.cast(raider, AbilityKind::Cloak).unwrap();
+    assert_eq!((unseen, seen), (1, 0), "one unseen alert, not one a hit");
+    let (unseen, _) = alerts(&mut w, 15);
+    assert_eq!(unseen, 0, "not again within the gap");
     let (unseen, _) = alerts(&mut w, 10);
-    assert_eq!(unseen, 1, "a new cloak past the gap is told again");
-    // Cloaked again, but a Turret beside the Trooper detects it: an ordinary fight.
-    alerts(&mut w, 32);
+    assert_eq!(unseen, 1, "told again once the gap is past");
+    // A Turret beside the Trooper detects it: an ordinary fight.
     w.make_building(BldgKind::Turret, PLAYER, 31, 32, true);
     alerts(&mut w, 1); // (its sight and detection from the next tick)
-    w.cast(raider, AbilityKind::Cloak).unwrap();
-    let (unseen, _) = alerts(&mut w, 10);
+    let (unseen, _) = alerts(&mut w, 40);
     assert_eq!(unseen, 0, "detected: nothing unseen");
 }
 
@@ -335,7 +303,7 @@ fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
     w.hold_unit(trooper);
     let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x + 3.0 * TILE, y);
     w.step();
-    assert!(World::is_cloaked(U(&w, umbra)), "cloaked with no ability");
+    assert!(w.is_cloaked(U(&w, umbra)), "cloaked with no ability");
     assert!(!w.seen_by(PLAYER, umbra), "unseen in plain sight");
     w.attack_ent(trooper, umbra);
     assert!(
@@ -418,4 +386,41 @@ fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
         seen.iter().any(|s| s & 1 << PLAYER != 0),
         "detected: the mend shows ({seen:?})"
     );
+}
+
+/// Permanent cloaks and balance: Humans against Vael, AI on both sides (Medium and Hard, ten seeds, both starts):
+/// the games each race wins by 25:00, and how many games a cloak tech was researched in.
+#[test]
+#[ignore]
+fn permanent_cloak_balance_probe() {
+    // `cargo test --release --test gameplay permanent_cloak_balance_probe -- --ignored --nocapture`
+    for diff in [1usize, 2] {
+        let (mut wins, mut games, mut cloaks) = ([0u32; 2], 0, [0u32; 2]);
+        for seed in 1..=10u32 {
+            for flip in [false, true] {
+                let races: [&Faction; 2] = if flip {
+                    [&VAEL, &HUMANS]
+                } else {
+                    [&HUMANS, &VAEL]
+                };
+                let vael = if flip { 0 } else { 1 };
+                let mut w = World::with_setup(seed, diff, MapKind::Standard, false, races);
+                w.set_ai_seats([true, true]);
+                while w.time < 25.0 * 60.0 && w.winner < 0 {
+                    w.step();
+                    w.events.clear();
+                }
+                games += 1;
+                if w.winner >= 0 {
+                    wins[(w.winner as usize == vael) as usize] += 1;
+                }
+                cloaks[0] += (w.upgrades[1 - vael][Upgrade::CloakingField.index()] > 0) as u32;
+                cloaks[1] += (w.upgrades[vael][Upgrade::VeilWeave.index()] > 0) as u32;
+            }
+        }
+        println!(
+            "level {diff}: wins Humans {} Vael {} of {games}; Cloaking Field in {} games, Veil Weave in {}",
+            wins[0], wins[1], cloaks[0], cloaks[1]
+        );
+    }
 }

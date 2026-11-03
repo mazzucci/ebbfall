@@ -24,6 +24,9 @@ impl World {
             let up = Upgrade::unlocking(ability).unwrap();
             return Err(format!("Research {} first", up.def().name));
         }
+        if matches!(ability.def().effect, AbilityEffect::Cloak) {
+            return Err(format!("{}: always on once researched", ability.def().name));
+        }
         if u.ab_cd[slot] > 0.0 {
             return Err(format!("{} is not ready", ability.def().name));
         }
@@ -40,7 +43,7 @@ impl World {
         // Not again while more than half of it is left (a thumb that taps twice must not pay twice). (With today's
         // numbers only Stim reaches this: the others' cooldowns outlast them.)
         let secs = match ability.def().effect {
-            AbilityEffect::Boost { secs, .. } | AbilityEffect::Cloak { secs } => secs,
+            AbilityEffect::Boost { secs, .. } => secs,
             _ => 0.0,
         };
         if u.boost
@@ -81,8 +84,7 @@ impl World {
                 self.set_toggle(uid, ability, settling);
             }
             AbilityEffect::Blink { dist } => self.blink(uid, dist * TILE),
-            // (the boost timer carries it: a cloaking unit has no other timed ability)
-            AbilityEffect::Cloak { secs } => self.um(uid).boost = Some((ability, now + secs)),
+            AbilityEffect::Cloak => {} // (never cast: can_cast refuses it)
         }
         let (x, y, team) = {
             let u = self.u(uid);
@@ -125,6 +127,12 @@ impl World {
     /// Every unit of `units` that can use `ability` does (a selection taps once); Err only if none could, with the
     /// first reason of a unit that has the ability (else the first reason).
     pub fn cast_group(&mut self, units: &[Id], ability: AbilityKind) -> Result<(), String> {
+        if ability.def().auto {
+            return Err(format!(
+                "{}: by itself, not on an order",
+                ability.def().name
+            ));
+        }
         let (mut own_err, mut other_err, mut any) = (None, None, false);
         for &u in units {
             let has = self.ability_slot(u, ability).is_some();
@@ -241,26 +249,6 @@ impl World {
         u.kind.def().speed * tech
     }
 
-    /// A deployed siege gun at rest (idle or holding) with nothing to shell packs up (`auto_cast_for`).
-    fn siege_pack_up(&mut self, uid: Id) {
-        let u = self.u(uid);
-        let (Some(k), true) = (u.kind.toggle(), u.mode.is_some()) else {
-            return;
-        };
-        if !matches!(u.task, Task::Idle | Task::Hold) || self.can_cast(uid, k).is_err() {
-            return;
-        }
-        let (ux, uy, team, air) = (u.x, u.y, u.team, u.kind.def().air);
-        let c = self.live(uid);
-        let reach = c.siege.unwrap_or(0.0);
-        if self
-            .find_target(ux, uy, team, reach, c.ring, false, c.hits, air)
-            .is_none()
-        {
-            let _ = self.cast(uid, k);
-        }
-    }
-
     /// Whether `team` may use `ability`: no tech unlocks it, or that tech is researched.
     pub fn ability_unlocked(&self, team: u8, ability: AbilityKind) -> bool {
         Upgrade::unlocking(ability).is_none_or(|up| self.upgrades[team as usize][up.index()] > 0)
@@ -283,29 +271,23 @@ impl World {
     }
 
     /// The scripted opponent's (and the duels') use of abilities for `team`'s units, in unit order: Stim and
-    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, a cloak once engaged, and a siege
-    /// gun packed up when nothing is left in its reach. Sees only what `team` sees.
+    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, a cloak once engaged (a siege gun
+    /// sets up and packs up by itself, `update_idle`). Sees only what `team` sees.
     pub fn auto_cast(&mut self, team: u8) {
         self.auto_cast_for(team, true);
     }
 
-    /// `auto_cast`, with the abilities other than a siege gun's toggle only if `skills` (a level that uses them).
-    /// A siege gun deploys by itself on reaching a target (its attack), so here it only packs up: once deployed, idle
-    /// or holding with nothing its side sees between its blind ring and its reach, so it can follow its army.
+    /// `auto_cast`, only if `skills` (a level that uses abilities).
     pub(crate) fn auto_cast_for(&mut self, team: u8, skills: bool) {
         let ids: Vec<Id> = self
             .units
             .iter()
-            .filter(|u| u.team == team && !u.kind.def().abilities.is_empty())
-            .filter(|u| skills || u.kind.siege())
+            .filter(|u| skills && u.team == team && !u.kind.def().abilities.is_empty())
+            .filter(|u| !u.kind.siege())
             .map(|u| u.id)
             .collect();
         for uid in ids {
             let Some(u) = self.unit(uid) else { continue };
-            if u.kind.siege() {
-                self.siege_pack_up(uid);
-                continue;
-            }
             let (ux, uy, task, hp, maxhp, boost) = (u.x, u.y, u.task, u.hp, u.maxhp, u.boost);
             let d = u.kind.def();
             let reach = d.weapon.map_or(0.0, |w| w.range) * TILE;
@@ -315,30 +297,19 @@ impl World {
             };
             // What this side sees around it: how many armed enemy units are within 8 tiles (edge distance; a real
             // fight, not a worker or a building).
-            // Also how many of those (and of its turrets) can hit this unit's layer: what a cloak would hide it from.
-            let (mut armed, mut can_hit_me) = (0, 0);
+            let mut armed = 0;
             for o in self.nearby(ux, uy, 12.0 * TILE) {
                 if !self.team_of(o).is_some_and(|t| self.enemies(team, t)) || !self.seen_by(team, o)
                 {
                     continue;
                 }
                 let Some(g) = self.geo(o) else { continue };
-                let e = g.edge_dist(ux, uy);
-                if e < 8.0 * TILE && self.unit(o).is_some_and(|u| u.kind.def().threat()) {
+                if g.edge_dist(ux, uy) < 8.0 * TILE
+                    && self.unit(o).is_some_and(|u| u.kind.def().threat())
+                {
                     armed += 1;
                 }
-                let hurts = self
-                    .unit(o)
-                    .is_some_and(|u| u.kind.def().damage_vs(d.air) > 0.0)
-                    || self
-                        .bldg(o)
-                        .is_some_and(|b| b.done && b.kind.def().damage_vs(d.air) > 0.0);
-                if e < 8.0 * TILE && hurts {
-                    can_hit_me += 1;
-                }
             }
-            let detected =
-                (0..self.seats() as u8).any(|t| self.enemies(team, t) && self.detects(t, ux, uy));
             let fight = armed >= 3;
             for &ab in d.abilities {
                 if self.can_cast(uid, ab).is_err() {
@@ -357,11 +328,8 @@ impl World {
                             && target_d
                                 .is_some_and(|t| t > reach + 2.0 * TILE && t < (dist + 4.0) * TILE)
                     }
-                    // Cloak once engaged with something armed close by (it cannot be shot back unless detected).
-                    // (not where it is detected anyway, nor against what cannot hit it)
-                    AbilityEffect::Cloak { .. } => {
-                        can_hit_me >= 1 && !detected && boost.is_none() && target_d.is_some()
-                    }
+                    // (a cloak is permanent once researched: nothing to cast)
+                    AbilityEffect::Cloak => false,
                     // (a toggle is a siege gun's: it deploys on reaching its target and packs up above)
                     AbilityEffect::Settle { .. } => false,
                 };

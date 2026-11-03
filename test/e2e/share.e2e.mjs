@@ -113,7 +113,7 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
     assert.equal(await page2.evaluate(() => location.search), '', 'the address cleaned');
     assert.equal(await page2.locator('#mapSel').inputValue(), String(random96));
     const sb2 = board(page2);
-    assert.deepEqual(await sb2.spots(), ['YOU', 'AI 1', 'AI 2', '+', '', '', '', '']);
+    assert.deepEqual(await sb2.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', '']);
     const tokens = (p) => p.$$eval('#soloBoard .tok', ts => ts.map(t => t.getAttribute('aria-label').split(':')[0])); // (name, race, level, side)
     assert.deepEqual(await tokens(page2), await tokens(page), 'the same board as the winner\'s');
     const own = [null, '0']; // (what a first visit saves: no board, the first map)
@@ -135,8 +135,8 @@ test('a challenge link opens its setup; a change makes it the player\'s; a bad l
     assert.ok(await page.locator('#menuSolo').isVisible());
     assert.equal(await page.locator('#soloNote').textContent(), 'CHALLENGE · won in 12:34 · beat it');
     assert.equal(await page.evaluate(() => location.search), '?seed=7', 'only the challenge leaves the address');
-    assert.deepEqual(await board(page).spots(), ['YOU', '+', 'AI 2', 'AI 3', '', '', '', '']);
-    assert.deepEqual(await board(page).sides(), [['YOU'], ['AI 2', 'AI 3']]);
+    assert.deepEqual(await board(page).spots(), ['YOU', '+', 'COMPUTER 2', 'COMPUTER 3', '', '', '', '']);
+    assert.deepEqual(await board(page).sides(), [['YOU'], ['COMPUTER 2', 'COMPUTER 3']]);
     assert.equal(await page.locator('#mapSel').inputValue(), String(MAPS.findIndex(m => m.name === 'Dust Quarter')));
     // A change: the challenge is over (no line), the setup the player's (saved, its map too).
     await board(page).diff(3, 2);
@@ -153,7 +153,7 @@ test('a challenge link opens its setup; a change makes it the player\'s; a bad l
       assert.equal(await b.page.evaluate(() => location.search), '', `${bad}: the address cleaned`);
       await b.page.locator('#btnSolo').click();
       assert.equal(await b.page.locator('#soloNote').textContent(), '', `${bad}: no challenge`);
-      assert.deepEqual(await board(b.page).spots(), ['YOU', 'AI 1', '+', '', '', '', '', ''], `${bad}: the plain board`);
+      assert.deepEqual(await board(b.page).spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], `${bad}: the plain board`);
       assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   }

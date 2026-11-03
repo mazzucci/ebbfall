@@ -276,10 +276,19 @@ impl World {
         );
         // The seats onto the starts, then the starts nobody took.
         let ring = std::mem::take(&mut self.map.bases);
-        self.map.bases = crate::map::team_starts(starts, &self.teams, self.side)
-            .into_iter()
-            .map(|i| ring[i])
-            .collect();
+        let order = crate::map::team_starts(starts, &self.teams, self.side);
+        self.map.bases = order.iter().map(|&i| ring[i]).collect();
+        // Starts by people (the Shore map): a seat whose builders are amphibious (the Vael) starts in its start's reef
+        // basin, the others in its cove; the start a seat does not use stays open ground with its field.
+        let basins = std::mem::take(&mut self.map.basins);
+        if !basins.is_empty() {
+            self.map.basins = order.iter().map(|&i| basins[i]).collect();
+            for seat in 0..self.seats() {
+                if self.factions[seat].worker.def().mv == Move::Amph {
+                    self.map.bases[seat] = self.map.basins[seat];
+                }
+            }
+        }
         for team in 0..self.seats() as u8 {
             self.deal_start(team);
         }

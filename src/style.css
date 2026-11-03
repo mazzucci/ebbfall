@@ -222,7 +222,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #start .card.menu{background:transparent}
 #menuHome .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
 #menuHome .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
-@media (max-height:420px){#menuHome .shore svg{bottom:-26px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
+@media (max-height:420px){#menuHome .shore svg{bottom:-38px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
 #menuHome .tide{animation:ebb 18s ease-in-out infinite alternate} #menuHome .tide.t2{animation-duration:23s;animation-delay:-7s} #menuHome .tide.t3{animation-duration:29s;animation-delay:-13s}
 @keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
 @media (prefers-reduced-motion:reduce){#menuHome .tide{animation:none}}
@@ -418,6 +418,7 @@ body.replay #cmd{visibility:hidden}
 .screen .row>.ib:not([hidden]){min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 16px}
 .screen .row>.ib.big{font-size:14px}
 .screen .row>.ib:not(.big){min-width:120px}
-#menuHome .row>.ib:not([hidden]){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
+#menuHome .row{gap:10px} #menuHome .row>.ib:not([hidden]){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
+@media (orientation:portrait){#menuHome .row>.ib:not([hidden]){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centred) */
 #start .card.menu:has(#menuAbout:not([hidden])),#online .card.menu{justify-content:flex-start}
 #menuAbout h2,#onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}

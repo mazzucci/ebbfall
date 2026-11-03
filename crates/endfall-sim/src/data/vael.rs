@@ -8,16 +8,18 @@ pub const VAEL: Faction = Faction {
     name: "Vael",
     hq: BldgKind::Conflux,
     worker: UnitKind::Lumen,
+    // The basic page holds what can be built from the start (the Conflux too); the advanced page what needs the Kiln
+    // (the Ward too), so it appears once the Kiln stands (owner, 2026-11-03).
     build_basic: &[
         BldgKind::Spire,
         BldgKind::Kiln,
         BldgKind::Siphon,
-        BldgKind::Ward,
+        BldgKind::Conflux,
     ],
     build_advanced: &[
         BldgKind::Loom,
         BldgKind::Zenith,
-        BldgKind::Conflux,
+        BldgKind::Ward,
         BldgKind::Eclipse,
     ],
     supply: BldgKind::Spire,

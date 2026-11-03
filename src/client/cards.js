@@ -23,18 +23,17 @@ function canUse(u, k) {
   const slot = (UNITS[u.type].abilities || []).indexOf(k);
   return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0 && !(u.warp > 0); // (a cost it cannot pay is refused by the sim, with a toast)
 }
-/** The selection's abilities, one button each (in table order): greyed while none of its units can use it. A timed
- *  one (Stim, Cloak) is lit while any of them is under it. No countdowns: a button comes back when it is ready. An
- *  automatic ability (the Siege Tank's Deploy: it sets up whenever it stops) has no button. */
+/** The selection's abilities, one button each (in table order), each in the place it has with all of them unlocked
+ *  (`pos`): one still waiting for its tech is left out (its slot stays empty, its key does nothing), so players find
+ *  it once researched. Greyed while none of its units can use it; a timed one (Stim) is lit while any of them is
+ *  under it. No countdowns: a button comes back when it is ready. An automatic ability (Deploy, a researched cloak)
+ *  has no button. */
 function abilityItems(units) {
-  return Object.keys(ABILITIES).filter(k => !ABILITIES[k].auto && units.some(u => (UNITS[u.type].abilities || []).includes(k))).map(k => {
+  return Object.keys(ABILITIES).filter(k => !ABILITIES[k].auto && units.some(u => (UNITS[u.type].abilities || []).includes(k))).map((k, pos) => {
     const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k)), tech = unlockOf(k);
-    if (tech && !G.upgrades[G.me][tech]) { // not researched yet: locked, and where to research it
-      const at = Object.values(BUILDINGS).find(d => (d.researches || []).includes(tech));
-      return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, locked: true, tip: `${a.desc} Research ${UPGRADES[tech].name} at the ${at?.name ?? 'tech building'} first.` };
-    }
-    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), active: have.some(u => u.boost === k), tip: a.desc };
-  });
+    if (tech && !G.upgrades[G.me][tech]) return null; // (waiting for its tech: hidden)
+    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, pos, dis: !have.some(u => canUse(u, k)), active: have.some(u => u.boost === k), tip: a.desc };
+  }).filter(Boolean);
 }
 
 export function cardItems() {
@@ -45,14 +44,18 @@ export function cardItems() {
   const hidden = (it) => items.push({ ...it, hidden: true, slot: -1 });
   const bldgItem = (k) => {
     const d = BUILDINGS[k];
-    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, locked: !hasReq(G.me, k), por: ['bldg', k], tip: d.desc };
+    return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, por: ['bldg', k], tip: d.desc };
   };
+  // What its requirement does not allow yet is left out: its slot stays empty and its key does nothing (owner,
+  // 2026-11-03: players find the tech tree out as it opens).
+  const open = (k) => hasReq(G.me, k);
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
     const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic;
-    page.forEach((k, i) => at(i, bldgItem(k)));
-    (adv ? f.buildBasic : f.buildAdvanced).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
-    if (!adv) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.map(k => BUILDINGS[k].name).join(', ') });
+    page.forEach((k, i) => { if (open(k)) at(i, bldgItem(k)); });
+    (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
+    // Advanced only once something on it can be built (the Garrison or Kiln stands).
+    if (!adv && f.buildAdvanced.some(open)) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
     at(5, adv ? { ...back, id: 'build1' } : back);
   } else if (units.length) {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
@@ -66,10 +69,10 @@ export function cardItems() {
       // Workers in an army: their row. Where the army's abilities need the room (the card keeps its three rows), Build
       // stays and Gather and Repair give way (their keys still work in CLASSIC; a tap on a field or a damaged
       // building still gathers or repairs).
-      const room = COLS * 3 - 1 - orders.length - abilities.length; // (the last slot: Deselect)
+      const room = COLS * 3 - 1 - orders.length - (abilities.length ? Math.max(...abilities.map(a => a.pos)) + 1 : 0); // (the last slot: Deselect)
       if (workers) work.forEach((it, i) => i < Math.max(1, room) ? at(COLS + i, it) : hidden(it));
     }
-    abilities.forEach((it, i) => at(orders.length + i, it)); // after the orders, on their row
+    abilities.forEach((it) => at(orders.length + it.pos, it)); // after the orders, on their row (each in its own place)
     // Let go of units (a tap on the ground would move them): the last slot of the card.
     at(Math.ceil((Math.max(...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
@@ -82,7 +85,7 @@ export function cardItems() {
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, locked: !!missing, por: ['unit', t], tip: d.desc });
+      if (!missing) at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc }); // (not yet: its slot stays empty)
     });
     // Rally after the units (a factory trains four at most, so its card keeps two rows with the queue's Cancel in slot 5)
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });

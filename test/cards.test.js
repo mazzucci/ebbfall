@@ -148,5 +148,15 @@ test('what is not open yet is hidden in place: its slot stays empty, nothing els
   ui.sel = [unit(scythe), unit(mono)];
   const after = slots();
   assert.ok(after.includes('a_blink@2') && after.includes('a_overcharge@3'), `researched, Overcharge in its own place: ${after}`);
+  // A Monolith alone: its card keeps its shape whether Overcharge is researched or not (Deselect stays put).
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  const m2 = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  ui.sel = [unit(m2)];
+  const plain = slots();
+  assert.ok(!plain.some(s => s.startsWith('a_overcharge')) && plain.includes('deselect@5'), `before: Overcharge hidden, Deselect in its place: ${plain}`);
+  E.debugResearch(E.G.me, 'overchargeCore', 1);
+  ui.sel = [unit(m2)];
+  const lit = slots();
+  assert.ok(lit.includes('a_overcharge@2') && lit.includes('deselect@5'), `after: Overcharge in its slot, Deselect where it was: ${lit}`);
   ui.sel = []; ui.mode = null;
 });

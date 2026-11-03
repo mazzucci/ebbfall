@@ -2564,9 +2564,12 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     assert.ok(hint, 'placing a building shows the hint');
     assert.ok(hint.y + hint.height <= mm.y + 1, 'the hint is above the minimap');
     await d.key('Escape');
-    await d.pressCard('Build'); await d.pressCard('Turret'); // (it needs a Garrison first: a "Requires" refusal is a toast; a cost one only shakes the button)
-    await d.page.locator('#msg .toast', { hasText: /^Requires/ }).waitFor({ timeout: 5000 });
-    const toast = await d.page.locator('#msg .toast', { hasText: /^Requires/ }).boundingBox();
+    await d.pressCard('Build'); await d.pressCard('Depot'); // (a Depot on the Core: a refused spot is a toast)
+    const core = coreOf(await d.state());
+    await d.clickWorld(core.x, core.y);
+    await d.page.locator('#msg .toast', { hasText: /Cannot build there/ }).waitFor({ timeout: 5000 });
+    await d.key('Escape');
+    const toast = await d.page.locator('#msg .toast', { hasText: /Cannot build there/ }).boundingBox();
     assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

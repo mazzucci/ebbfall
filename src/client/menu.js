@@ -152,7 +152,7 @@ export function initMenu({ onStart }) {
   const last = store.get('map') === null ? -1 : +store.get('map');
   choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
   takeChallenge(); renderMaps(); renderSeats(); showRecord();
-  for (const b of [$('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
+  $('btnFirstHome').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
     sfx('select'); enterFullscreen(); menu.tutorial = false; if (!menu.challenge) choose(menu.map); // (a challenge: its own seed and starts)

@@ -136,7 +136,7 @@ src/client/           everything that touches the browser
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
                       until a first game is over), the single-player page (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
-                      + AI in the lowest empty spot; the map list, any map that seats them, with a preview, FIRST GAME),
+                      + AI in the lowest empty spot; the map list, any map that seats them, with a preview; no FIRST GAME there),
                       the About page (the source, the device check, the version); the map list and preview the lobby
                       shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the

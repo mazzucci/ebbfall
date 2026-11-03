@@ -415,10 +415,10 @@ body.replay #cmd{visibility:hidden}
 /* Menu pass (owner, 2026-11-03): every button on a menu page or card is a finger high (44 px) with one type size, the
    secondary ones one width, BACK the same everywhere (bottom left, under the page's content); the first page's
    secondary row in equal widths; the pages under the first top-aligned, their titles in one place (as Single player's). */
-.screen .row>.ib:not([hidden]){min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 16px}
-.screen .row>.ib.big{font-size:14px}
-.screen .row>.ib:not(.big){min-width:120px}
-#menuHome .row{gap:10px} #menuHome .row>.ib:not([hidden]){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
-@media (orientation:portrait){#menuHome .row>.ib:not([hidden]){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centred) */
+:is(#start,#online,#help,#options) .row>.ib{min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 16px}
+:is(#start,#online,#help,#options) .row>.ib.big{font-size:14px}
+:is(#start,#online,#help,#options) .row>.ib:not(.big){min-width:120px}
+#menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
+@media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centred) */
 #start .card.menu:has(#menuAbout:not([hidden])),#online .card.menu{justify-content:flex-start}
 #menuAbout h2,#onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}

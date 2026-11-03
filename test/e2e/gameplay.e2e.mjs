@@ -769,7 +769,7 @@ test('a game that never finishes loading: START GAME waits, BACK calls it off, a
   } finally { release(); await ctx.close(); }
 });
 
-test('a game that could not load says so on the menu: START GAME and FIRST GAME read RELOAD, and reload', async () => {
+test('a game that could not load says so on the menu: START GAME reads RELOAD, and reloads', async () => {
   const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(); // (the service worker, registered all the same, would fetch the game past the route)
   try {
     let tries = 0;

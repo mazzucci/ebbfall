@@ -494,3 +494,157 @@ fn path_cost_per_tick() {
         );
     }
 }
+
+/// True when a point travelling the straight segment a→b stays off rock and buildings: a unit's centre, which
+/// `separate` pushes back out of a blocked tile.
+fn centre_line_clear(w: &World, a: Pt, b: Pt) -> bool {
+    let steps = (((b.x - a.x).powi(2) + (b.y - a.y).powi(2)).sqrt() / 2.0).ceil() as i32 + 1;
+    (0..=steps).all(|i| {
+        let t = i as f64 / steps as f64;
+        let (x, y) = (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        !w.map
+            .blocked((x / TILE).floor() as i32, (y / TILE).floor() as i32)
+    })
+}
+
+#[test]
+fn a_walker_beside_a_rock_corner_does_not_step_into_it() {
+    // A route is smoothed from the centre of the unit's tile, but the unit walks its first leg from where it stands.
+    // Off-centre beside a corner, that line went through the rock the route went round: pushed back out, a worker on
+    // its round planned the same route again at once, and stepped into the corner and back every tick (a Lumen at
+    // seed 8's Labyrinth sat so for two minutes). Walkers off-centre on every side of an L of rock, sent every way:
+    // the line from where each stands to its next waypoint never crosses rock, and each gets there.
+    let (mut runs, mut bad) = (0, Vec::new());
+    for (dx, dy) in [
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ] {
+        for (ox, oy) in [
+            (1.0, 1.0),
+            (16.0, 1.0),
+            (31.0, 1.0),
+            (1.0, 16.0),
+            (31.0, 16.0),
+            (1.0, 31.0),
+            (16.0, 31.0),
+            (31.0, 31.0),
+        ] {
+            for (gx, gy) in [
+                (-6, 0),
+                (6, 0),
+                (0, -6),
+                (0, 6),
+                (-5, -5),
+                (5, -5),
+                (-5, 5),
+                (5, 5),
+                (-6, 2),
+                (2, -6),
+                (6, -2),
+                (-2, 6),
+                (-4, 7),
+                (7, 4),
+            ] {
+                let mut w = flat_arena(1);
+                let (rx, ry) = (32, 32);
+                for (x, y) in [(rx, ry), (rx - 1, ry), (rx, ry - 1)] {
+                    let i = w.map.idx(x, y);
+                    w.map.rock[i] = 1;
+                }
+                let (tx, ty) = (rx + dx, ry + dy);
+                if w.map.blocked(tx, ty) {
+                    continue;
+                }
+                let u = w.make_unit(
+                    UnitKind::Harvester,
+                    PLAYER,
+                    tx as f64 * TILE + ox,
+                    ty as f64 * TILE + oy,
+                );
+                let goal = (
+                    (rx + gx) as f64 * TILE + 16.0,
+                    (ry + gy) as f64 * TILE + 16.0,
+                );
+                w.move_to(u, goal.0, goal.1);
+                runs += 1;
+                let mut arrived = false;
+                for _ in 0..(12 * TPS) {
+                    let un = w.unit(u).unwrap();
+                    if let Some(&p) = un.path.as_ref().and_then(|p| p.first())
+                        && !centre_line_clear(&w, Pt { x: un.x, y: un.y }, p)
+                    {
+                        bad.push(format!(
+                            "from tile {dx},{dy} +({ox},{oy}) to {gx},{gy}: at ({:.1}, {:.1}) bound for ({:.1}, {:.1})",
+                            un.x, un.y, p.x, p.y
+                        ));
+                        break;
+                    }
+                    w.step();
+                    let un = w.unit(u).unwrap();
+                    if (un.x - goal.0).abs() < 2.0 && (un.y - goal.1).abs() < 2.0 {
+                        arrived = true;
+                        break;
+                    }
+                }
+                if !arrived && bad.len() < 50 {
+                    bad.push(format!(
+                        "from tile {dx},{dy} +({ox},{oy}) to {gx},{gy}: not there in 12 s"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(runs > 600, "{runs} runs");
+    assert!(
+        bad.is_empty(),
+        "{} of {runs}: {:?}",
+        bad.len(),
+        &bad[..bad.len().min(6)]
+    );
+}
+
+#[test]
+fn no_worker_stands_at_a_rock_corner_on_its_round() {
+    // A real game where it happened: seed 4's Labyrinth, two Hard Vael AIs; from 1:34 a Lumen stood at tile (48, 13)
+    // beside a rock, stepping into it and back on its way to a field. Every worker on its round (gathering, with a
+    // route) leaves its tile within 8 seconds.
+    let mut w = World::with_size(4, 3, MapKind::Labyrinth, MapSize::DUEL, 0, &[&VAEL, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    let mut since: std::collections::BTreeMap<Id, ((i32, i32), u32)> = Default::default();
+    for t in 0..(3 * 60 * TPS) {
+        w.step();
+        if t % 15 != 0 {
+            continue;
+        }
+        for u in &w.units {
+            let tile = w.map.tile_of(u.x, u.y);
+            let on_round = matches!(u.task, Task::Gather { .. })
+                && u.path.as_ref().is_some_and(|p| !p.is_empty());
+            if !on_round {
+                since.remove(&u.id);
+                continue;
+            }
+            let e = since.entry(u.id).or_insert((tile, t));
+            if e.0 != tile {
+                *e = (tile, t);
+            }
+            assert!(
+                t - e.1 < 8 * TPS,
+                "{:.1}s: {:?} {} has stood at tile {tile:?} since {:.1}s, at ({:.1}, {:.1}) bound for {:?}",
+                t as f64 / TPS as f64,
+                u.kind,
+                u.id,
+                e.1 as f64 / TPS as f64,
+                u.x,
+                u.y,
+                u.path.as_ref().and_then(|p| p.first()).map(|p| (p.x, p.y))
+            );
+        }
+    }
+}

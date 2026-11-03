@@ -186,7 +186,7 @@ impl World {
         let long = far(a, b, LONG_SEARCH - 1);
         if long && let Some(p) = self.join_shared(team, Pt { x: ux, y: uy }, a, Bound::Tile(b)) {
             self.plans.work.shared += 1;
-            return Plan::Route(Some(p));
+            return Plan::Route(self.first_leg_from((ux, uy), a, Some(p)));
         }
         if !self.may_search(team, a, b, refresh) {
             return Plan::Wait;
@@ -195,7 +195,7 @@ impl World {
         if long {
             self.keep(team, a, Some(b), None, &path);
         }
-        Plan::Route(path)
+        Plan::Route(self.first_leg_from((ux, uy), a, path))
     }
 
     /// A walker's way from (`ux`, `uy`) to the side of a building (`rect`, aiming at `aim`): as `plan_walk`, shared by
@@ -214,7 +214,7 @@ impl World {
         let long = far(a, g, LONG_SEARCH - 1);
         if long && let Some(p) = self.join_shared(team, Pt { x: ux, y: uy }, a, Bound::Rect(rect)) {
             self.plans.work.shared += 1;
-            return Plan::Route(Some(p));
+            return Plan::Route(self.first_leg_from((ux, uy), a, Some(p)));
         }
         if !self.may_search(team, a, g, refresh) {
             return Plan::Wait;
@@ -223,7 +223,29 @@ impl World {
         if long {
             self.keep(team, a, None, Some(rect), &path);
         }
-        Plan::Route(path)
+        Plan::Route(self.first_leg_from((ux, uy), a, path))
+    }
+
+    /// A route is smoothed from the centre of the unit's tile `a`, but the unit walks its first leg from where it
+    /// stands. Off-centre beside a rock corner, that straight line can take it into the rock the route went round:
+    /// pushed back out (`separate`), it plans again, the same route, and a worker on its round (which replans at once
+    /// when pushed) stepped into the corner and back every tick for minutes. Such a unit steps to its tile's centre
+    /// first. (Its centre's line only: one merely walking close to a wall goes straight on.)
+    fn first_leg_from(
+        &self,
+        (ux, uy): (f64, f64),
+        a: (i32, i32),
+        path: Option<Vec<Pt>>,
+    ) -> Option<Vec<Pt>> {
+        let mut p = path?;
+        let pos = Pt { x: ux, y: uy };
+        if let Some(&first) = p.first()
+            && !self.map.blocked(a.0, a.1)
+            && !centre_clear(&self.map, pos, first)
+        {
+            p.insert(0, centre(a));
+        }
+        Some(p)
     }
 
     /// The first route planned this tick by `team` that a unit at `pos` (tile `a`) bound for tile `b` (or a
@@ -291,4 +313,20 @@ impl World {
         }
         Some(out)
     }
+}
+
+/// True when a point travelling the straight segment a→b stays off blocked tiles (a unit's centre: what `separate`
+/// pushes out of rock).
+fn centre_clear(map: &Map, a: Pt, b: Pt) -> bool {
+    let steps = (jsmath::dist(a.x, a.y, b.x, b.y) / 4.0).ceil() + 1.0;
+    let mut i = 0.0;
+    while i <= steps {
+        let t = i / steps;
+        let (x, y) = (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        if map.blocked((x / TILE).floor() as i32, (y / TILE).floor() as i32) {
+            return false;
+        }
+        i += 1.0;
+    }
+    true
 }

@@ -1685,12 +1685,18 @@ fn the_ai_takes_an_expansions_vent_only_once_its_core_stands_there() {
                         .any(|b| ((n.tx - b.0 - 2) as f64).hypot((n.ty - b.1 - 2) as f64) < 16.0)
             });
             assert!(near_main, "{ctx}: a natural's vent within the main's reach");
+            // Each refinery when it is first seen, a quarter-second after it is placed: one may outlive its Core (seed
+            // 92's Standard: a Siphon raised at 512 s once the natural's Conflux stood, the Conflux razed at 555 s).
+            let mut seen = std::collections::BTreeSet::new();
             for _ in 0..30 * 600 / 15 {
                 for _ in 0..15 {
                     w.step();
                     w.events.clear();
                 }
                 for b in w.bldgs.iter().filter(|b| b.kind.def().on_vent) {
+                    if !seen.insert(b.id) {
+                        continue;
+                    }
                     let Some(v) = b.vent.and_then(|v| w.map.node(v)) else {
                         continue;
                     };

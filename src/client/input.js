@@ -350,7 +350,7 @@ function bindMinimap() {
 function bindSelectButton() {
   const bx = $('btnBox');
   if (bx) {
-    const show = () => { bx.hidden = false; $('btnHome').hidden = false; }; // (Home goes with SELECT: touch screens)
+    const show = () => { bx.hidden = false; $('btnHome').hidden = false; $('btnArmy').hidden = false; }; // (Home and Army go with SELECT: touch screens; a keyboard has Home and Q)
     if (matchMedia('(any-pointer: coarse)').matches) show();
     cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') show(); });
     let downAt = 0, viaPointer = false;

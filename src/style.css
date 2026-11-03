@@ -41,10 +41,6 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 @media (max-width:1099px){.ib.icon .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}
-/* Shortcut chips in the top bar (army, an idle factory): a portrait, shown only while it has something to offer. */
-.chip{display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:4px;padding:2px 4px;cursor:pointer}
-.chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%}
-@media (any-pointer:coarse){.chip{min-width:44px}} /* a finger's width, though the portrait is small */
 @keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
@@ -261,19 +257,27 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
   #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
-  #btnArmy,#btnProd{display:none} /* a narrow top bar: resources, supply and the buttons only */
 }
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
 .tb{background:rgba(18,26,37,.86);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.06em;padding:5px 8px;cursor:pointer;display:flex;gap:6px;align-items:center}
 .tb b{font:12px var(--mono);color:var(--ally2)} .tb:hover{border-color:var(--ally)}
 .tb.warn{border-color:var(--warn)} .tb.warn b{color:var(--warn)} .tb.alert{border-color:var(--bad);color:#ffb3b3;animation:pulse 1s infinite alternate}
-#btnBox{position:absolute;left:8px;bottom:166px;z-index:3;min-height:44px}
-#btnHome{position:absolute;left:128px;bottom:166px;z-index:3;min-height:44px;min-width:44px;justify-content:center} #btnHome .t{display:none}
-@media (max-width:620px){#btnBox,#btnHome{bottom:8px}} /* (a narrow window: the panels are in a band below, the corner is free) */
+/* SELECT, HOME and ARMY (touch screens): one set of three, the same size, an icon over a small word, in a row above
+   the minimap and as wide as it (--bx: the minimap's left in the stage, 16 px less the stage's 9; --bw: a third of
+   its 150 px less two 4 px gaps). */
+:is(#btnBox,#btnHome,#btnArmy){--bx:7px;--bw:calc((150px - 8px) / 3);position:absolute;bottom:166px;z-index:3;width:var(--bw);height:48px;min-width:0;
+  padding:3px 0 2px;box-sizing:border-box;flex-direction:column;gap:2px;justify-content:center;touch-action:manipulation}
+:is(#btnBox,#btnHome,#btnArmy) .ico{width:20px;height:20px} :is(#btnBox,#btnHome,#btnArmy) span{font-size:9px;letter-spacing:.04em;line-height:1}
+#btnBox{left:var(--bx);touch-action:none;user-select:none;-webkit-user-select:none} #btnHome{left:calc(var(--bx) + var(--bw) + 4px)}
+#btnArmy{left:calc(var(--bx) + 2 * (var(--bw) + 4px))}
+#btnBox.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
+/* A narrow window (the panels in a band below, the corner free): the three in the map's corner, over the minimap
+   and as wide as it (156 px; the stage clips its 1 px border, so the row starts inside it, 1 px short). */
+@media (max-width:620px){:is(#btnBox,#btnHome,#btnArmy){--bx:0px;--bw:calc((155px - 8px) / 3);bottom:8px}} /* (inside the stage's border, which clips) */
 @media (max-width:440px){#top{gap:5px;padding:0 6px} #top .ib.icon{padding:3px 6px}} /* (an upright phone: the top bar keeps to the screen) */
 @media (max-width:400px){#resSup .lbl{display:none}}
-@media (any-pointer:coarse){#hint{left:180px}} /* clear of SELECT and Home on tablets */
+@media (any-pointer:coarse){#hint{left:180px}} /* clear of SELECT, HOME and ARMY on tablets */
 .tb.grp{min-width:34px;justify-content:center} .tb.grp span{color:var(--muted)} .tb.grp.empty{opacity:.5}
 @keyframes pulse{from{box-shadow:0 0 0 rgba(255,90,90,0)}to{box-shadow:0 0 12px rgba(255,90,90,.7)}}
 /* Landscape phones: every pixel of height counts, so shrink the bars and the HUD. */
@@ -281,33 +285,39 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #app{gap:4px;padding-top:max(4px,env(safe-area-inset-top,0px));padding-bottom:max(4px,env(safe-area-inset-bottom,0px))}
   #top{height:30px;gap:10px;padding:0 8px} .res{font-size:14px}
   .ib:not(.big){padding:4px 7px;font-size:10px} .ib.icon{padding:3px 7px}
-  .chip{font-size:13px} .chip .pic{width:20px;height:20px}
+
   /* The HUD floats over the battlefield: minimap bottom-left, command card bottom-right (thumb zones). */
   #hud{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));
     bottom:max(10px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;pointer-events:none}
   #hud>*{pointer-events:auto}
   #info{display:none}
-  #minimap{width:104px;height:104px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #minimap{width:128px;height:128px;box-shadow:0 2px 10px rgba(0,0,0,.5)} /* (as wide as SELECT, HOME and ARMY above it) */
   #cmd{grid-template-columns:repeat(3,64px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
   /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */
   /* Always there, one width (the room between the minimap and a full command card): nothing pops in or resizes. */
-  #info{display:flex;flex:none;width:min(480px,calc(100% - 340px));flex-wrap:nowrap;align-self:flex-end;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;
+  #info{display:flex;flex:none;width:min(480px,calc(100% - 364px));flex-wrap:nowrap;align-self:flex-end;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;
     background:rgba(18,26,37,.88);box-shadow:0 2px 10px rgba(0,0,0,.5)}
-  #hint{left:126px;bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 72px);z-index:4}
-  /* SELECT and Home sit above the minimap, under the left thumb (so the right hand can drag the box), together no
-     wider than the minimap: SELECT 64 px (its word, no icon), a 4 px gap, Home 36 px. */
-  #btnBox{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);
-    width:64px;min-width:0;min-height:40px;padding:0;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none}
-  #btnBox .ico{display:none} #btnBox span{font-size:11px;letter-spacing:.06em}
-  #btnBox.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
-  #btnHome{position:fixed;z-index:5;left:calc(max(10px,env(safe-area-inset-left,0px)) + 68px);bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px);
-    width:36px;min-width:0;min-height:40px;padding:0;touch-action:manipulation}
-  /* Toasts: above SELECT and Home, under the left thumb's corner, two at most. */
-  #msg{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 160px);max-width:45%}
+  #hint{left:150px;bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 72px);z-index:4}
+  /* SELECT, HOME and ARMY in a row above the minimap and as wide as it, under the left thumb (so the right hand can
+     drag the box): 40 px each, 4 px apart, 128 px in all. */
+  :is(#btnBox,#btnHome,#btnArmy){--bx:max(10px,env(safe-area-inset-left,0px));--bw:40px;position:fixed;z-index:5;
+    bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 136px);height:44px}
+  :is(#btnBox,#btnHome,#btnArmy) .ico{width:18px;height:18px} :is(#btnBox,#btnHome,#btnArmy) span{font-size:8px}
+  /* Toasts: above the three, under the left thumb's corner, two at most. */
+  #msg{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 188px);max-width:45%}
+  /* A narrow landscape phone (under 700 px: an iPhone SE, small Androids): the selection console needs the room, so
+     the minimap stays 104 px and the three over it are icons only, 32 px each, as wide as it together. */
+  @media (max-width:699px){
+    #minimap{width:104px;height:104px} #info{width:min(480px,calc(100% - 340px))} #hint{left:126px}
+    :is(#btnBox,#btnHome,#btnArmy){--bw:32px;bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px)}
+    :is(#btnBox,#btnHome,#btnArmy) span{display:none} :is(#btnBox,#btnHome,#btnArmy) .ico{width:20px;height:20px}
+    #msg{bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 164px)}
+  }
   /* Grows at once (so a nudge has one finger-to-map ratio from the first move), shrinks back smoothly. */
   #minimap{transition:transform .12s ease-out;transform-origin:0 100%} #minimap.big{transform:scale(2);transition:none;position:relative;z-index:6} /* above the selection console while enlarged */
+  @media (max-height:340px){#minimap.big{transform:scale(1.625)}} /* (a very short screen: enlarged to 208 px, clear of the top bar) */
   .tb{padding:7px 10px;font-size:12px} .tb.grp{min-width:42px;min-height:34px}
   .card{padding:14px 16px} .card h1{font-size:22px} .card p,.card li{font-size:12.5px;line-height:1.4}
   .opt{margin:6px 0} .card.menu .tag{margin-bottom:6px}

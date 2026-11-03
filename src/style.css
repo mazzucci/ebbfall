@@ -41,10 +41,6 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 @media (max-width:1099px){.ib.icon .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}
-/* Shortcut chips in the top bar (army, an idle factory): a portrait, shown only while it has something to offer. */
-.chip{display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:4px;padding:2px 4px;cursor:pointer}
-.chip:hover{border-color:var(--line2)} .chip .pic{width:24px;height:24px} .chip .pic img{width:100%;height:100%}
-@media (any-pointer:coarse){.chip{min-width:44px}} /* a finger's width, though the portrait is small */
 @keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
@@ -280,7 +276,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #app{gap:4px;padding-top:max(4px,env(safe-area-inset-top,0px));padding-bottom:max(4px,env(safe-area-inset-bottom,0px))}
   #top{height:30px;gap:10px;padding:0 8px} .res{font-size:14px}
   .ib:not(.big){padding:4px 7px;font-size:10px} .ib.icon{padding:3px 7px}
-  .chip{font-size:13px} .chip .pic{width:20px;height:20px}
+
   /* The HUD floats over the battlefield: minimap bottom-left, command card bottom-right (thumb zones). */
   #hud{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));
     bottom:max(10px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;pointer-events:none}

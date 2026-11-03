@@ -1,5 +1,5 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
-// ⚠ chip), the whole-army and idle-factory chips in the top bar (each only while it has something to offer), the idle-harvester key, double-click "all of this type on screen", control-group tabs
+// ⚠ chip), the whole-army (Q) and idle-factory (,) keys, the idle-harvester key, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save). The pause card is pause.js.
 import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies } from '../engine/index.js';
 import { updateHud, myFaction } from './hud.js';

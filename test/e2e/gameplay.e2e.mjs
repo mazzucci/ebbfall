@@ -1145,7 +1145,7 @@ test('phone: a site that loses its builder says so once; no keyboard letters; gr
     assert.equal(await d.page.locator('#cmd .cb .k').first().isVisible().catch(() => false), false, 'no keyboard letters on touch');
     // A mixed army: one tile per type with its count, inside the console.
     await d.eval(([x, y]) => { for (let i = 0; i < 10; i++) endfall.engine.debugSpawn(0, 'trooper', x + (i % 5) * 22, y + Math.floor(i / 5) * 22); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', x + i * 22, y + 50); }, [core.x + 160, core.y + 150]);
-    await d.boxSelect(core.x + 140, core.y + 130, core.x + 270, core.y + 215); // (SELECT, then a box over them)
+    await d.boxSelect(core.x + 140, core.y + 130, core.x + 270, core.y + 215); // (a box over them)
     await d.page.waitForTimeout(400);
     assert.deepEqual(await d.page.$$eval('#group .gt b', bs => bs.map(b => b.textContent)), ['10', '2'], 'Troopers x10, Lancers x2');
     await insideConsole(d, '#group .gt');

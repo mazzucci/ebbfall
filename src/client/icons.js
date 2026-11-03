@@ -32,6 +32,7 @@ const P = {
   mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6',
   pause: 'M8 5v14M16 5v14',
   home: 'M3 11 12 4l9 7M5 9.5V20h5v-6h4v6h5V9.5',
+  army: 'M9 5a3 3 0 1 0 .01 0M3 20v-1a6 6 0 0 1 12 0v1M16 6a2.5 2.5 0 1 0 .01 0M17 13.2a5 5 0 0 1 4 4.8v2', // (a group: two figures, one behind; crossed swords read as Deselect's X)
   frames: 'M4 20V9l8-5 8 5v11M3 20h18M4 9h16M4 9l16 11M20 9 4 20',
   help: 'M12 3a9 9 0 1 0 .01 0M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01',
 };

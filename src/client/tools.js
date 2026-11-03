@@ -179,7 +179,8 @@ export function updateTools() {
 export function initTools() {
   setIconButton($('btnPause'), 'pause', 'PAUSE');
   setIconButton($('btnHome'), 'home', 'HOME');
-  for (const [id, fn] of [['btnAlert', jumpToAlert], ['btnHome', goHome]]) {
+  setIconButton($('btnArmy'), 'army', 'ARMY');
+  for (const [id, fn] of [['btnAlert', jumpToAlert], ['btnHome', goHome], ['btnArmy', selectArmy]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());
     $(id).addEventListener('click', fn);
   }

@@ -1551,17 +1551,30 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
   } finally { await d.close(); }
 });
 
-test('phone: Home looks at the base (beside SELECT, no wider than the minimap together)', { chromium: CDP_TOUCH }, async () => {
+test('phone: SELECT, HOME and ARMY one row of three alike above the minimap; Home looks at the base, Army selects the whole army and a second tap looks at it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
     const view = () => d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x + v.w / c.zoom / 2, y: c.y + v.h / c.zoom / 2 }; });
-    const span = await d.eval(() => { const r = (id) => document.getElementById(id).getBoundingClientRect(); return [r('btnBox').left, r('btnHome').right, r('minimap').left, r('minimap').right]; });
-    assert.ok(span[0] >= span[2] - 1 && span[1] <= span[3] + 1, `SELECT and Home within the minimap's width: ${span}`);
+    const box = await d.eval(() => Object.fromEntries(['btnBox', 'btnHome', 'btnArmy', 'minimap', 'msg'].map(id => { const b = document.getElementById(id).getBoundingClientRect(); return [id, { l: b.left, r: b.right, t: b.top, b: b.bottom }]; })));
+    const [s, h, a] = [box.btnBox, box.btnHome, box.btnArmy], size = (b) => [Math.round(b.r - b.l), Math.round(b.b - b.t)];
+    assert.ok(size(s)[0] >= 40 && size(s)[1] >= 44 && [h, a].every(b => size(b).join() === size(s).join() && Math.abs(b.t - s.t) < 1), `three alike, a finger each, in one row: ${JSON.stringify(box)}`);
+    assert.ok(s.r < h.l && h.r < a.l && s.b <= box.minimap.t && box.msg.b <= s.t + 0.5, `SELECT, HOME, ARMY left to right above the minimap, the toasts above them: ${JSON.stringify(box)}`);
+    assert.ok(Math.abs(s.l - box.minimap.l) <= 1.5 && Math.abs(a.r - box.minimap.r) <= 1.5, `the row as wide as the minimap: ${JSON.stringify(box)}`);
+    assert.deepEqual(await d.eval(() => ['btnBox', 'btnHome', 'btnArmy'].map(id => document.getElementById(id).innerText.trim())), ['SELECT', 'HOME', 'ARMY'], 'an icon and its word each');
     await d.centerOn(core.x > 1000 ? 300 : 1700, core.y > 1000 ? 300 : 1700);
     await d.page.locator('#btnHome').tap();
     const v = await view();
     assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centres on the Core: ${JSON.stringify(v)}`);
+    // Army: every combat unit, wherever it is (not the harvesters); a second tap looks at them.
+    const far = { x: core.x > 1000 ? 700 : 1350, y: core.y > 1000 ? 700 : 1350 }; // (clear of the map's edge: the view can centre there)
+    const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [far.x, far.y]);
+    await d.page.locator('#btnArmy').tap();
+    assert.deepEqual(await d.eval(() => endfall.ui.sel.map(e => e.id).sort((a, b) => a - b)), [...ids].sort((a, b) => a - b), 'Army: the three Troopers, no harvester');
+    assert.ok(Math.hypot((await view()).x - core.x, (await view()).y - core.y) < 64, 'one tap: the view stays home');
+    await d.eval(() => { const b = document.getElementById('btnArmy'); b.click(); b.click(); }); // (two presses within the second: a busy machine's taps may not be)
+    const w = await view();
+    assert.ok(Math.hypot(w.x - far.x - 24, w.y - far.y) < 64, `a second tap looks at the army: ${JSON.stringify(w)}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

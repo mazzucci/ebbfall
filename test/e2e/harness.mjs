@@ -21,6 +21,7 @@ export const ENGINE_NAME = ENGINES[ENGINE];
  */
 export function test(name, opts = {}, fn) {
   if (typeof opts === 'function') [opts, fn] = [{}, opts];
+  if (!inShard()) return; // (another shard's: not registered at all)
   const { engines, chromium, ...rest } = opts;
   if (ENGINE !== 'chromium' && !rest.skip) {
     if (chromium) rest.skip = `Chromium only: ${chromium}`;
@@ -28,6 +29,13 @@ export function test(name, opts = {}, fn) {
   }
   return nodeTest(name, rest, fn);
 }
+// ENDFALL_SHARD=i/n (1 <= i <= n): run only every n-th test of each file, starting at the i-th, so CI can split the
+// suite over n jobs by test rather than by file (one file holds most of the time). Each file registers its tests in a
+// fixed order, so the split is the same every run and every test lands in exactly one shard.
+const SHARD = (process.env.ENDFALL_SHARD || '').match(/^(\d+)\/(\d+)$/)?.slice(1).map(Number);
+if (process.env.ENDFALL_SHARD && !(SHARD && SHARD[0] >= 1 && SHARD[0] <= SHARD[1])) throw new Error(`ENDFALL_SHARD must be i/n, not ${process.env.ENDFALL_SHARD}`);
+let registered = 0;
+const inShard = () => !SHARD || registered++ % SHARD[1] === SHARD[0] - 1;
 /** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
 export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
 /** A test's `skip` in these engines, with the reason (`{ skip: notIn(['webkit'], IPHONE) }`); false elsewhere. */
@@ -152,6 +160,18 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     // Skip game time, then let the frame loop run twice (or 250 ms at most): what the skipped ticks raised (toasts,
     // alerts, effects) reaches the page as a player would see it, not on whichever frame comes next.
     skip: (s) => ev((s) => { endfall.skip(s); return new Promise(r => { const t = setTimeout(r, 250); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(t); r(); })); }); }, s),
+    /** Fast-forward until `cond(arg)` holds in the page (checked every `step` s of game time, up to `seconds`), in one
+     *  call into the page, then let two frames run as `skip` does. Returns whether it held. `cond` runs in the page:
+     *  it may read only `endfall` and its argument. Faster than `until` for a plain wait (no round trip a step). */
+    skipUntil: async (cond, arg, { seconds = 120, step = 0.5 } = {}) => {
+      const ok = await ev(([src, arg, seconds, step]) => {
+        const f = (0, eval)(`(${src})`);
+        for (let t = 0; t < seconds; t += step) { if (f(arg)) return true; endfall.skip(step); }
+        return !!f(arg);
+      }, [cond.toString(), arg, seconds, step]);
+      await d.skip(0);
+      return ok;
+    },
     grant: (shards, ether) => ev(([a, b]) => endfall.setResources(0, a, b), [shards, ether]),
     centerOn: (x, y) => ev(([x, y]) => endfall.centerOn(x, y), [x, y]),
     /** World point → page pixel (after centring the camera there, so it is on screen). */

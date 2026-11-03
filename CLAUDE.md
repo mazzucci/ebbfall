@@ -37,7 +37,9 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
                    # cross-engine subset there (`engines: true`; WebKit skips the
                    # menu's focus test); ENDFALL_ALL=1 runs all but the Chromium-only ones. Firefox has WebGL on Linux
                    # only with a display: it runs headed whenever DISPLAY is set (so on a desktop it takes your screen,
-                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does
+                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does. ENDFALL_SHARD=i/n runs every
+                   # n-th test of each file from the i-th (CI splits Chromium over four jobs); `d.skipUntil` fast-forwards
+                   # in the page until a condition holds (prefer it to `until` for a plain wait)
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
                              # Android emulator or BrowserStack's real devices
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
@@ -47,8 +49,9 @@ node tools/og.mjs            # regenerate public/og.png (the link preview's imag
                              # wording (a Chromium too; output is committed, kept under 300 KB)
 ```
 
-CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
-browser tests (all in Chromium, the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
+CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
+and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
+over four `e2e` jobs; the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
 Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled

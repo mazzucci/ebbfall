@@ -125,6 +125,12 @@ impl World {
     /// Every unit of `units` that can use `ability` does (a selection taps once); Err only if none could, with the
     /// first reason of a unit that has the ability (else the first reason).
     pub fn cast_group(&mut self, units: &[Id], ability: AbilityKind) -> Result<(), String> {
+        if ability.def().auto {
+            return Err(format!(
+                "{}: by itself, not on an order",
+                ability.def().name
+            ));
+        }
         let (mut own_err, mut other_err, mut any) = (None, None, false);
         for &u in units {
             let has = self.ability_slot(u, ability).is_some();
@@ -241,26 +247,6 @@ impl World {
         u.kind.def().speed * tech
     }
 
-    /// A deployed siege gun at rest (idle or holding) with nothing to shell packs up (`auto_cast_for`).
-    fn siege_pack_up(&mut self, uid: Id) {
-        let u = self.u(uid);
-        let (Some(k), true) = (u.kind.toggle(), u.mode.is_some()) else {
-            return;
-        };
-        if !matches!(u.task, Task::Idle | Task::Hold) || self.can_cast(uid, k).is_err() {
-            return;
-        }
-        let (ux, uy, team, air) = (u.x, u.y, u.team, u.kind.def().air);
-        let c = self.live(uid);
-        let reach = c.siege.unwrap_or(0.0);
-        if self
-            .find_target(ux, uy, team, reach, c.ring, false, c.hits, air)
-            .is_none()
-        {
-            let _ = self.cast(uid, k);
-        }
-    }
-
     /// Whether `team` may use `ability`: no tech unlocks it, or that tech is researched.
     pub fn ability_unlocked(&self, team: u8, ability: AbilityKind) -> bool {
         Upgrade::unlocking(ability).is_none_or(|up| self.upgrades[team as usize][up.index()] > 0)
@@ -283,29 +269,23 @@ impl World {
     }
 
     /// The scripted opponent's (and the duels') use of abilities for `team`'s units, in unit order: Stim and
-    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, a cloak once engaged, and a siege
-    /// gun packed up when nothing is left in its reach. Sees only what `team` sees.
+    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, a cloak once engaged (a siege gun
+    /// sets up and packs up by itself, `update_idle`). Sees only what `team` sees.
     pub fn auto_cast(&mut self, team: u8) {
         self.auto_cast_for(team, true);
     }
 
-    /// `auto_cast`, with the abilities other than a siege gun's toggle only if `skills` (a level that uses them).
-    /// A siege gun deploys by itself on reaching a target (its attack), so here it only packs up: once deployed, idle
-    /// or holding with nothing its side sees between its blind ring and its reach, so it can follow its army.
+    /// `auto_cast`, only if `skills` (a level that uses abilities).
     pub(crate) fn auto_cast_for(&mut self, team: u8, skills: bool) {
         let ids: Vec<Id> = self
             .units
             .iter()
-            .filter(|u| u.team == team && !u.kind.def().abilities.is_empty())
-            .filter(|u| skills || u.kind.siege())
+            .filter(|u| skills && u.team == team && !u.kind.def().abilities.is_empty())
+            .filter(|u| !u.kind.siege())
             .map(|u| u.id)
             .collect();
         for uid in ids {
             let Some(u) = self.unit(uid) else { continue };
-            if u.kind.siege() {
-                self.siege_pack_up(uid);
-                continue;
-            }
             let (ux, uy, task, hp, maxhp, boost) = (u.x, u.y, u.task, u.hp, u.maxhp, u.boost);
             let d = u.kind.def();
             let reach = d.weapon.map_or(0.0, |w| w.range) * TILE;

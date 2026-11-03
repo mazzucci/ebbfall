@@ -609,8 +609,13 @@ impl World {
             }
         }
     }
-    /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move.
+    /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
+    /// that stops deploys (no order does it): it packs up again only when it has to move.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
+        if c.siege.is_some() && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 {
+            self.deploy(uid);
+            return;
+        }
         let u = self.um(uid);
         u.aggro_cd -= dt;
         if c.combat && u.aggro_cd <= 0.0 {

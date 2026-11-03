@@ -94,10 +94,10 @@ const ABILITY_TEXT = {
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
   cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
   veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
-  deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, no moving or firing meanwhile); it deploys by itself on reaching its target.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, no moving or firing meanwhile). A move order packs it up too.' } },
+  deploy: { desc: 'Sets up whenever it stops (3 s, no moving or firing meanwhile), and packs up when it has to move: only deployed does its siege gun fire.' },
 };
-/** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions; a toggle's `off`: its button's
- *  name, icon and words while it is on (the button names the action, src/client/cards.js `abilityTargets`). */
+/** Unit abilities, with their hotkeys and descriptions: one tap each on the card, but for an automatic one (`auto`:
+ *  the Siege Tank's Deploy), which the unit uses by itself and which has no button or key. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 // A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
 for (const u of Object.values(UPGRADES)) {

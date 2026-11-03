@@ -1320,7 +1320,7 @@ test('a Vael unit\'s health figure counts hull and shields together', async () =
   } finally { await d.close(); }
 });
 
-test('phone: one tap on the card uses an ability for the selection (Stim); a toggle names its action (Deploy, Undeploy)', async () => {
+test('phone: one tap on the card uses an ability for the selection (Stim); Siege Tanks deploy by themselves (no button)', async () => {
   const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
@@ -1332,51 +1332,32 @@ test('phone: one tap on the card uses an ability for the selection (Stim); a tog
     await d.pressCard('Stim');
     const after = await units();
     assert.ok(after.slice(0, 3).every(u => u.boost === 'stim' && u.hp === 38), `all three stimmed for 10 health: ${JSON.stringify(after)}`);
-    // Two Siege Tanks, one deployed (alone, from its card): with both, the card offers Deploy, for the one on its tracks.
-    await d.clickEntity(tanks[0]);
-    await d.pressCard('Deploy');
+    // Two Siege Tanks standing: they set up by themselves, and their card has no Deploy or Undeploy.
     await d.skip(3.5);
     await d.boxSelect(core.x + 150, core.y + 180, core.x + 260, core.y + 240);
     assert.deepEqual((await d.selection()).map(e => e.id).sort(), tanks.slice().sort());
-    const labels = async () => (await d.card()).map(c => c.label);
-    assert.ok((await labels()).includes('Deploy') && !(await labels()).includes('Undeploy'), `one on its tracks: Deploy (${await labels()})`);
-    await d.pressCard('Deploy');
-    let [a, b] = (await units()).slice(3);
-    assert.ok(a.mode === 'deploy' && a.swap === 0, `the deployed one stays deployed: ${JSON.stringify(a)}`);
-    assert.equal(b.mode, 'deploy', 'the other deploys');
-    // All deployed (or settling in): the button reads Undeploy, plain (not lit), and packs them all up.
-    await d.skip(3.5);
-    await d.page.locator('#cmd button .l', { hasText: /^Undeploy$/ }).waitFor({ timeout: 5000 });
-    assert.ok(!(await labels()).includes('Deploy'), 'no Deploy while all are deployed');
-    assert.equal(await d.page.locator('#cmd button.active').count(), 0, 'a toggle is never lit: its button names the action');
-    await d.pressCard('Undeploy');
-    [a, b] = (await units()).slice(3);
-    assert.ok(a.mode === null && b.mode === null && a.swap > 0 && b.swap > 0, `both packing up: ${JSON.stringify([a, b])}`);
-    await d.skip(3.5);
-    await d.page.locator('#cmd button .l', { hasText: /^Deploy$/ }).waitFor({ timeout: 5000 });
+    const labels = (await d.card()).map(c => c.label);
+    assert.ok(!labels.includes('Deploy') && !labels.includes('Undeploy'), `no Deploy button: ${labels}`);
+    const [a, b] = (await units()).slice(3);
+    assert.ok(a.mode === 'deploy' && b.mode === 'deploy', `both set up by themselves: ${JSON.stringify([a, b])}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 
-test('a Siege Tank deploys from its card (D), shells what is in reach but not inside its blind ring, and a move packs it up', async () => {
+test('a Siege Tank deploys by itself where it stands (no button, D does nothing), shells what is in reach but not inside its blind ring, and a move packs it up', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false });
   try {
     const core = coreOf(await d.state()), T = 32; // (a tile, px)
     const tank = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'siegeTank', x, y), [core.x + 180, core.y + 200]);
     const me = () => d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return u && { x: u.x, y: u.y, mode: u.mode, swap: u.swap, task: u.task.t }; }, tank);
     await d.clickEntity(tank);
-    assert.ok((await d.card()).some(c => c.label === 'Deploy' && c.enabled), `Deploy on the card: ${JSON.stringify(await d.card())}`);
-    assert.equal(await d.page.locator('#cmd button').filter({ has: d.page.locator('.l', { hasText: /^Deploy$/ }) }).locator('.k').textContent(), 'D', 'its key');
-    await d.page.keyboard.press('d');
-    assert.equal((await me()).mode, 'deploy');
+    assert.ok(!(await d.card()).some(c => c.label === 'Deploy' || c.label === 'Undeploy'), `no Deploy on the card: ${JSON.stringify(await d.card())}`);
+    assert.equal((await me()).mode, 'deploy', 'standing, it sets up by itself');
     assert.match(await d.hudText('#selSub', /Deploying/), /Deploying/, 'the console says it is deploying');
     await d.skip(3.5);
     assert.match(await d.hudText('#selSub', /Deployed/), /Deployed/);
-    // Deployed: its button names what a tap does now, Undeploy, on the same key; not lit.
-    await d.page.locator('#cmd button .l', { hasText: /^Undeploy$/ }).waitFor({ timeout: 5000 });
-    const undeploy = d.page.locator('#cmd button').filter({ has: d.page.locator('.l', { hasText: /^Undeploy$/ }) });
-    assert.equal(await undeploy.locator('.k').textContent(), 'D', 'the same key');
-    assert.ok(!(await undeploy.getAttribute('class')).includes('active'), 'not lit');
+    await d.page.keyboard.press('d');
+    assert.equal((await me()).mode, 'deploy', 'D does nothing: it stays deployed');
     // An enemy 7 tiles off is shelled; one inside the blind ring (1.5 tiles) is not.
     const at = await me();
     const [far, near] = await d.eval(([x, y, T]) => [endfall.engine.debugSpawn(1, 'medic', x + 7 * T, y), endfall.engine.debugSpawn(1, 'medic', x - 1.5 * T, y)], [at.x, at.y, T]);
@@ -1391,6 +1372,7 @@ test('a Siege Tank deploys from its card (D), shells what is in reach but not in
     await d.skip(5);
     const moved = await me();
     assert.ok(at.y - moved.y > T, `on its way once packed up: ${JSON.stringify(moved)}`);
+    await until(d, async () => (await me()).mode === 'deploy', { seconds: 20, what: 'the tank to set up again where it stopped' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -58,24 +58,17 @@ fn deployed(w: &World, u: Id) -> bool {
 }
 
 #[test]
-fn a_siege_tank_fires_only_once_deployed_and_takes_its_time_to_set_up() {
-    // An enemy at 8 tiles: past every other ground weapon's reach, well inside the tank's (11).
+fn a_tank_that_stops_deploys_by_itself_and_a_move_packs_it_up() {
+    // Deploying is the tank's own doing (owner, 2026-11-03: no button): stopped, it sets up (3 s, not firing
+    // meanwhile), then shells an enemy at 8 tiles (past every other ground weapon's reach, inside its 11). An order
+    // to move packs it up first (3 s), then it drives; where it stops, it sets up again.
     let (mut w, tank, _) = tank_scene(8.0);
     w.hold_unit(tank);
-    assert_eq!(shells(&mut w, tank, 4), 0, "on its tracks it cannot fire");
-    assert!(!deployed(&w, tank), "and holding, it does not set up");
-    w.cast(tank, AbilityKind::Deploy).unwrap();
-    assert_eq!(
-        w.unit(tank).unwrap().task,
-        Task::Hold,
-        "deployed by hand: it holds"
-    );
     assert_eq!(shells(&mut w, tank, 2), 0, "settling in (3 s)");
     assert!(shells(&mut w, tank, 6) >= 2, "then it shells (every 2.8 s)");
     assert!(deployed(&w, tank));
-    // Deployed, it cannot move: an order to walk packs it up first (3 s), then it goes.
     let x0 = w.unit(tank).unwrap().x;
-    w.move_to(tank, 10.0 * TILE, 30.0 * TILE);
+    w.move_to(tank, 20.0 * TILE, 30.0 * TILE);
     let u = w.unit(tank).unwrap();
     assert!(
         u.mode.is_none() && u.swap > 0.0,
@@ -86,10 +79,50 @@ fn a_siege_tank_fires_only_once_deployed_and_takes_its_time_to_set_up() {
     run(&mut w, 2);
     assert_eq!(w.unit(tank).unwrap().x, x0, "not while packing up");
     run(&mut w, 3);
+    assert!(w.unit(tank).unwrap().x < x0 - TILE, "then on its way");
+    run(&mut w, 10);
+    let u = w.unit(tank).unwrap();
     assert!(
-        w.unit(tank).unwrap().x < x0 - TILE,
-        "then on its way: a player's tank never stays deployed when told to move"
+        (u.x - 20.0 * TILE).abs() < TILE && deployed(&w, tank),
+        "arrived and set up again: at {:.1}, {:?}",
+        u.x / TILE,
+        u.mode
     );
+}
+
+#[test]
+fn deploying_is_never_an_order() {
+    // A player's (or anyone's) order to deploy is refused: the tank does it by itself.
+    let (mut w, tank, _) = tank_scene(8.0);
+    w.move_to(tank, 20.0 * TILE, 30.0 * TILE);
+    assert!(w.cast_group(&[tank], AbilityKind::Deploy).is_err());
+    assert!(w.unit(tank).unwrap().mode.is_none(), "still on its tracks");
+}
+
+#[test]
+fn every_tank_that_stops_deploys_the_computers_too() {
+    // On every level the AI's tanks follow the same rule: one left standing sets up by itself.
+    for diff in 0..4 {
+        let mut w = World::new(9, diff);
+        let b = w.map.bases[ENEMY as usize];
+        let tank = w.make_unit(
+            UnitKind::SiegeTank,
+            ENEMY,
+            (b.0 as f64 + 8.0) * TILE,
+            (b.1 as f64 + 8.0) * TILE,
+        );
+        for _ in 0..5 * TPS {
+            w.step();
+            w.events.clear();
+        }
+        let u = w.unit(tank).unwrap();
+        assert!(
+            u.mode == Some(AbilityKind::Deploy) || !matches!(u.task, Task::Idle | Task::Hold),
+            "diff {diff}: a standing tank sets up ({:?}, {:?})",
+            u.task,
+            u.mode
+        );
+    }
 }
 
 #[test]
@@ -160,7 +193,7 @@ fn sent_at_a_target_it_drives_into_reach_deploys_and_shells_it() {
 }
 
 #[test]
-fn on_an_attack_move_it_sets_up_for_what_it_meets_then_packs_up_and_goes_on() {
+fn on_an_attack_move_it_sets_up_for_what_it_meets_then_goes_on_and_sets_up_where_it_stops() {
     let mut w = tech_arena(7);
     let tank = w.make_unit(UnitKind::SiegeTank, PLAYER, 16.0 * TILE, 30.0 * TILE);
     let foe = w.make_unit(UnitKind::Medic, ENEMY, 30.0 * TILE, 30.0 * TILE);
@@ -175,8 +208,12 @@ fn on_an_attack_move_it_sets_up_for_what_it_meets_then_packs_up_and_goes_on() {
     assert!(set_up, "it deployed for the Medic");
     assert!(w.unit(foe).is_none(), "and shelled it");
     let u = w.unit(tank).unwrap();
-    assert!(u.mode.is_none(), "then packed up");
-    assert!(u.x > 40.0 * TILE, "and went on: at {:.1}", u.x / TILE);
+    assert!(
+        u.x > 40.0 * TILE,
+        "then packed up and went on: at {:.1}",
+        u.x / TILE
+    );
+    assert!(deployed(&w, tank), "and set up again where it stopped");
 }
 
 #[test]
@@ -203,28 +240,6 @@ fn a_deployed_tank_stands_firm_and_takes_the_next_target_in_reach() {
     let u = w.unit(tank).unwrap();
     assert_eq!((u.x, u.y), (x0, y0), "it never moved");
     assert!(deployed(&w, tank), "an order to attack: it stays set up");
-}
-
-#[test]
-fn the_ai_packs_up_a_tank_with_nothing_left_in_reach() {
-    // (every level: it is how its tanks follow the army)
-    for diff in 0..4 {
-        let mut w = World::new(9, diff);
-        let b = w.map.bases[ENEMY as usize];
-        let tank = w.make_unit(
-            UnitKind::SiegeTank,
-            ENEMY,
-            (b.0 as f64 + 8.0) * TILE,
-            (b.1 as f64 + 8.0) * TILE,
-        );
-        w.cast(tank, AbilityKind::Deploy).unwrap();
-        for _ in 0..8 * TPS {
-            w.step();
-            w.events.clear();
-        }
-        let u = w.unit(tank).unwrap();
-        assert!(u.mode.is_none(), "diff {diff}: packed up ({:?})", u.task);
-    }
 }
 
 #[test]
@@ -278,10 +293,11 @@ fn sent_at_a_target_inside_its_blind_ring_a_deployed_tank_holds() {
 
 #[test]
 fn on_its_tracks_it_has_only_a_light_gun_and_deployed_only_the_siege_gun() {
-    // An enemy 5 tiles off: in the light gun's reach (6) and the siege gun's (11, past its 2.5-tile ring).
-    let (mut w, tank, foe) = tank_scene(5.0);
+    // On its tracks (sent at an enemy inside its blind ring, it fights it there rather than set up for nothing):
+    // the light gun. Then an enemy 5 tiles off, past its 2.5-tile ring: deployed, the siege gun only.
+    let (mut w, tank, foe) = tank_scene(1.5);
     set_hp(&mut w, tank, 1e6); // (the Vanguard reaches it too)
-    w.hold_unit(tank);
+    w.attack_ent(tank, foe);
     let (light, siege) = guns(&mut w, tank, 6);
     assert!(
         light >= 4 && siege == 0,
@@ -290,6 +306,8 @@ fn on_its_tracks_it_has_only_a_light_gun_and_deployed_only_the_siege_gun() {
     let hit = 1e6 - w.unit(foe).unwrap().hp;
     let per_shot = hit / light as f64;
     assert!(per_shot < 15.0, "light: {per_shot:.1} a shot");
+    let (mut w, tank, _) = tank_scene(5.0);
+    set_hp(&mut w, tank, 1e6);
     w.cast(tank, AbilityKind::Deploy).unwrap();
     let (light, siege) = guns(&mut w, tank, 10);
     assert!(

@@ -188,7 +188,7 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
-  scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
+  scout.js            what this side has seen of the enemy's army (the end card's scouting line)
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
                       first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
                       installs, and About) asks the service worker and says so until everything is saved

@@ -15,7 +15,6 @@
 import { G, fmt } from '../engine/index.js';
 import { $, ui, toast } from './ui.js';
 import { sfx, holdSound } from './audio.js';
-import { seenLately } from './scout.js';
 import { online, who, Who, ifYouLeave } from './online.js';
 import { isFull, enterFullscreen, exitFullscreen } from './screen.js';
 import { anyOptions } from './options.js';
@@ -51,8 +50,6 @@ export function togglePause() {
 
 function openCard() {
   $('pause').hidden = false; holdSound(true);
-  const seen = ui.watching ? '' : seenLately(); // (the clock and the scouting report live here, not on screen; a replay shows both sides)
-  $('pauseSeen').innerHTML = seen; $('pauseSeen').hidden = !seen;
   render();
   clearInterval(card.timer); card.timer = setInterval(render, 500); // (online the clock runs on: so does the card's)
   $('btnResume').focus();

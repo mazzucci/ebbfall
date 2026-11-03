@@ -261,7 +261,6 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
   #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
-  #btnArmy,#btnProd{display:none} /* a narrow top bar: resources, supply and the buttons only */
 }
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}

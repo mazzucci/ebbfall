@@ -322,6 +322,16 @@ pub struct Stats {
     pub razed: u32,
 }
 
+/// A seat's resources since the game began, `[shards, ether]`: mined (delivered to a drop-off) and spent (paid out,
+/// less refunds); and its construction sites cancelled, by building kind (`BLDG_KINDS`). For the balance lab
+/// (crates/endfall-lab); not world state (derived, not hashed, read by no rule).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Ledger {
+    pub mined: [i64; 2],
+    pub spent: [i64; 2],
+    pub cancelled: [u32; BLDG_KINDS.len()],
+}
+
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.
 #[derive(Clone, Copy, Debug)]
 pub enum Geo {

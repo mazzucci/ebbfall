@@ -74,6 +74,9 @@ impl World {
     pub(crate) fn pay(&mut self, team: u8, cost: [i32; 2], sign: i32) {
         self.res[team as usize][0] += sign * cost[0];
         self.res[team as usize][1] += sign * cost[1];
+        let spent = &mut self.ledger[team as usize].spent;
+        spent[0] -= (sign * cost[0]) as i64;
+        spent[1] -= (sign * cost[1]) as i64;
     }
     pub(crate) fn short_of(&self, team: u8, cost: [i32; 2]) -> String {
         format!(
@@ -378,6 +381,7 @@ impl World {
         };
         let b = self.bldgs.remove(i);
         self.clear_footprint(&b);
+        self.ledger[b.team as usize].cancelled[b.kind.index()] += 1;
         let cost = b.kind.def().cost;
         self.pay(b.team, [cost[0] * 3 / 4, cost[1] * 3 / 4], 1);
         let crew: Vec<Id> = self

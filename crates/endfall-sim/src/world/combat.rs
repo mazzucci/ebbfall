@@ -5,7 +5,14 @@ use super::*;
 /// Shields take a hit first (armor protects only the hull; shield upgrades, `sh_armor`, soak that much of a hit that
 /// lands on shields, at least 1 still landing); returns what is left for the hull. Being hit restarts the wait
 /// before shields regenerate.
-fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_armor: f64) -> f64 {
+pub fn absorb(
+    sh: &mut f64,
+    maxsh: f64,
+    hit_at: &mut f64,
+    now: f64,
+    amt: f64,
+    sh_armor: f64,
+) -> f64 {
     if maxsh <= 0.0 {
         return amt; // no shields at all (a race without them): nothing changes
     }
@@ -21,6 +28,11 @@ fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_arm
     let took = sh.min(on);
     *sh -= took;
     on - took
+}
+
+/// What a hit's `rest` (past the shields: `absorb`) takes off a hull with `armor`: the armour off, at least 1.
+pub fn hull_loss(rest: f64, armor: f64) -> f64 {
+    (rest - armor).max(1.0)
 }
 
 /// How far (px, to the patient's edge) a healer reaches: a Medic 2.5 tiles, a Halo (`mend`) 3.
@@ -240,7 +252,7 @@ impl World {
             u.struck = now;
             let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt, sh_up);
             if rest > 0.0 {
-                u.hp -= (rest - u.kind.def().armor - armor_up).max(1.0);
+                u.hp -= hull_loss(rest, u.kind.def().armor + armor_up);
             }
             u.flash = 0.12;
             if let Some(by) = by {
@@ -258,7 +270,7 @@ impl World {
             let b = &mut self.bldgs[i];
             let rest = absorb(&mut b.sh, b.maxsh, &mut b.hit_at, now, amt, sh_up);
             if rest > 0.0 {
-                b.hp -= (rest - b.kind.def().armor).max(1.0);
+                b.hp -= hull_loss(rest, b.kind.def().armor);
             }
             b.flash = 0.12;
             if b.hp <= 0.0 {

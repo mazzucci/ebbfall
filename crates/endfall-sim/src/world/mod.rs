@@ -26,6 +26,7 @@ use crate::jsmath::{self, PI, clamp, dist};
 use crate::map::{Id, Map, MapKind, MapSize, Node};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
+pub use combat::{absorb, hull_loss};
 pub use command::{Command, Logged};
 pub use economy::FIELD_LOW;
 pub use paths::{LONG_SEARCH, LONG_SEARCHES, PathWork};
@@ -86,6 +87,8 @@ pub struct World {
     /// Each seat's units lost, counted by what killed them: a unit kind's index, or `UNIT_KINDS.len()` plus a
     /// building kind's (a turret). The end screen's "what beat you". Not hashed, like `army_log`.
     pub lost_to: Vec<Vec<u32>>,
+    /// Each seat's resources mined and spent so far (`Ledger`). Not hashed, like `army_log`.
+    pub ledger: Vec<Ledger>,
     /// While a projectile lands: its shooter's `lost_to` slot and seat (the shooter may be gone by then).
     hit_by: Option<(usize, u8)>,
     /// Upgrade levels per seat, in `UPGRADES` order.
@@ -207,6 +210,7 @@ impl World {
             stats: Vec::new(),
             army_log: Vec::new(),
             lost_to: Vec::new(),
+            ledger: Vec::new(),
             hit_by: None,
             upgrades: Vec::new(),
             alerts: Vec::new(),

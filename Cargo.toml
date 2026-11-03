@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/endfall-sim"]
+members = ["crates/endfall-sim", "crates/endfall-lab"]
 resolver = "2"
 
 [profile.release]

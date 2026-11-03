@@ -1,0 +1,10 @@
+[package]
+name = "endfall-lab"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Ebbfall's balance lab: AI-vs-AI batches, before/after comparisons and a formula sheet, natively."
+publish = false
+
+[dependencies]
+endfall-sim = { path = "../endfall-sim" }

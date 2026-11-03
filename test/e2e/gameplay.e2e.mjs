@@ -62,7 +62,7 @@ test('every finished production building offers its unit, and pressing it trains
   } finally { await d.close(); }
 });
 
-test('medics wait for a forge, and a raider flies straight across the map', async () => {
+test('medics appear once a forge stands, and a raider flies straight across the map', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
@@ -70,11 +70,12 @@ test('medics wait for a forge, and a raider flies straight across the map', asyn
     await d.clickEntity(rax.id);
     const card = await d.card();
     assert.ok(card.some(c => c.label === 'Lancer' && c.enabled), 'Lancer available');
-    assert.ok(card.some(c => c.label === 'Medic' && !c.enabled), `Medic needs a Forge: ${JSON.stringify(card)}`);
-    await d.pressCard('Medic'); // locked, but a tap says why
-    assert.match((await d.toasts()).join(' '), /Requires Foundry/);
+    assert.ok(!card.some(c => c.label === 'Medic'), `no Medic before a Foundry stands: ${JSON.stringify(card)}`);
+    await d.key('m'); // (its key does nothing while it is hidden)
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0, 'nothing queued');
     await buildAndFinish(d, 'f', 'forge', 1);
+    await d.clickEntity(rax.id);
+    await d.readyCard('Medic'); // (there once the Foundry stands)
     const airfield = await buildAndFinish(d, 'a', 'airfield', 2);
     await d.clickEntity(airfield.id);
     await d.pressCard('Raider');
@@ -813,9 +814,11 @@ test('a queued unit is cancelled with a click or tap on it, for a full refund', 
 test('phone: a long-press on a command button shows what it is and costs, without pressing it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
+    await d.grant(2000, 0);
+    await buildAndFinish(d, 'g', 'barracks', 1); // (the advanced page opens with a Garrison)
     const h = mine(await d.state(), 'harvester')[0];
-    await d.clickEntity(h.id);
-    await d.pressCard('Build'); await d.pressCard('Advanced'); // the Foundry is on the advanced page
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
+    await d.pressCard('Build'); await d.readyCard('Advanced'); await d.pressCard('Advanced'); // the Foundry is on the advanced page
     const forge = d.page.locator('#cmd button', { hasText: 'Foundry' });
     const b = await forge.boundingBox();
     const cdp = await d.page.context().newCDPSession(d.page);
@@ -1096,14 +1099,17 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Depot', 'Garrison', 'Ether Rig', 'Turret', 'Advanced', 'Back'], 'the basic page');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Depot', 'Garrison', 'Ether Rig', 'Core', 'Back'], 'the basic page: all it holds is there from the start; no Advanced before a Garrison');
     await d.pressCard('Depot');
     assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.place), null, 'and it stops the placing');
+    await buildAndFinish(d, 'g', 'barracks', 1);
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.pressCard('Build');
+    await d.readyCard('Advanced'); // (once the Garrison stands)
     await d.pressCard('Advanced');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Foundry', 'Airfield', 'Core', 'Factory', 'Back'], 'the advanced page');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Foundry', 'Airfield', 'Turret', 'Factory', 'Back'], 'the advanced page');
     await d.pressCard('Back');
     assert.ok((await d.card()).some(c => c.label === 'Depot'), 'back to the basic page');
     await d.pressCard('Back');
@@ -1192,7 +1198,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
     await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Spire'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.deepEqual(labels, ['Spire', 'Kiln', 'Siphon', 'Ward', 'Advanced', 'Back'], 'the Vael Build list');
+    assert.deepEqual(labels, ['Spire', 'Kiln', 'Siphon', 'Conflux', 'Back'], 'the Vael Build list (Advanced once a Kiln stands)');
     await page.evaluate(() => { endfall.ui.mode = null; });
     await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Spire'), null, { timeout: 10000 });
     assert.ok(await page.locator('#shBar').isVisible(), 'a Lumen shows its shields over its hull');
@@ -1504,7 +1510,10 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     await d.buildWithUI('g', 'barracks', spot.tx, spot.ty, h.id);
     const rax = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'barracks'));
     await until(d, async () => (await rax())?.done, { seconds: 90, what: 'the Garrison' });
+    await d.grant(1000, 500);
+    await buildAndFinish(d, 'f', 'forge', 1); // (the Medic is on the card once a Foundry stands)
     await d.clickEntity((await rax()).id);
+    await d.readyCard('Medic');
     const cdp = await d.page.context().newCDPSession(d.page);
     const info = d.page.locator('#cmdInfo');
     // Held on a unit's button: its card, and its stat chips by row (each chip's label and its offset in the card).
@@ -1532,7 +1541,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     assert.ok(trooper.rows.every(r => r.one), 'each row on one line');
     assert.ok(trooper.box[0] >= 0 && trooper.box[1] >= 0 && trooper.box[2] <= trooper.vw && trooper.box[3] <= trooper.vh, `the card fits the screen: ${trooper.box}`);
     await release();
-    // An unarmed unit (the Medic, locked until a Foundry stands: a long-press still shows it): a dash, then its tags,
+    // An unarmed unit (the Medic): a dash, then its tags,
     // every slot where the Trooper's is.
     const medic = await hold('Medic');
     assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.text)), [[String(M.hp), String(M.armor)], ['—', 'Heals']]);
@@ -2555,9 +2564,12 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     assert.ok(hint, 'placing a building shows the hint');
     assert.ok(hint.y + hint.height <= mm.y + 1, 'the hint is above the minimap');
     await d.key('Escape');
-    await d.pressCard('Build'); await d.pressCard('Turret'); // (it needs a Garrison first: a "Requires" refusal is a toast; a cost one only shakes the button)
-    await d.page.locator('#msg .toast', { hasText: /^Requires/ }).waitFor({ timeout: 5000 });
-    const toast = await d.page.locator('#msg .toast', { hasText: /^Requires/ }).boundingBox();
+    await d.pressCard('Build'); await d.pressCard('Depot'); // (a Depot on the Core: a refused spot is a toast)
+    const core = coreOf(await d.state());
+    await d.clickWorld(core.x, core.y);
+    await d.page.locator('#msg .toast', { hasText: /Cannot build there/ }).waitFor({ timeout: 5000 });
+    await d.key('Escape');
+    const toast = await d.page.locator('#msg .toast', { hasText: /Cannot build there/ }).boundingBox();
     assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -2641,6 +2653,8 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   const { GRID } = await import('../../src/client/controls.js');
   try {
     const { page } = d;
+    await d.grant(2000, 0);
+    await buildAndFinish(d, 'g', 'barracks', 1); // (the Build list's Advanced page opens with a Garrison; built while CLASSIC)
     await d.key('p');
     assert.ok(await page.locator('#btnPauseOptions').isVisible(), 'OPTIONS on the pause card');
     assert.ok(await page.$eval('#pause .card', c => c.scrollHeight <= c.clientHeight + 1), 'the pause card fits with OPTIONS');
@@ -2718,15 +2732,17 @@ test('desktop, as the Vael: the Zenith trains an Umbra once an Eclipse stands (U
     const kiln = await buildAndFinish(d, 'k', 'kiln', 1, V);
     await d.clickEntity(kiln.id);
     await d.readyCard('Scythe');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Monolith 2', 'Halo 3', 'Rally 4', 'Cancel 5'], 'the Kiln: four units, Rally, Cancel; two rows');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Rally 4', 'Cancel 5'], 'the Kiln before a Loom: the Monolith\'s and the Halo\'s slots empty, Rally and Cancel in place; two rows');
     const zenith = await buildAndFinish(d, 'z', 'zenith', 2, V);
     await d.clickEntity(zenith.id);
     await d.readyCard('Shrike');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Shrike 0', 'Umbra 1', 'Sovereign 2', 'Rally 3', 'Cancel 5'], 'the Zenith: its three units, Rally, Cancel; two rows');
-    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'locked until an Eclipse stands');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Shrike 0', 'Sovereign 2', 'Rally 3', 'Cancel 5'], 'the Zenith: the Umbra\'s slot empty until an Eclipse stands; two rows');
     await buildAndFinish(d, 'l', 'loom', 3, V);
+    await d.clickEntity(kiln.id);
+    await d.readyCard('Halo');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Monolith 2', 'Halo 3', 'Rally 4', 'Cancel 5'], 'the Kiln with a Loom: four units, Rally, Cancel; two rows');
     await d.clickEntity(zenith.id);
-    assert.ok(await d.page.locator('#cmd [data-id="t_umbra"].locked').count(), 'a Loom alone unlocks nothing');
+    assert.equal(await d.page.locator('#cmd [data-id="t_umbra"]').count(), 0, 'a Loom alone unlocks nothing');
     const eclipse = await buildAndFinish(d, 'i', 'eclipse', 0, V); // (B then I: the Advanced page's key)
     await d.clickEntity(eclipse.id);
     await d.readyCard('Veil Weave');
@@ -2770,12 +2786,11 @@ test('desktop: the Factory trains an Interceptor once a Foundry stands (I, or it
     await buildAndFinish(d, 'g', 'barracks', 1);
     const factory = await buildAndFinish(d, 'r', 'factory', 2);
     await d.clickEntity(factory.id);
-    assert.ok((await cardKeys(d)).some(([, , l]) => l === 'Interceptor'), 'the Factory offers the Interceptor');
-    assert.ok(await d.page.locator('#cmd [data-id="t_interceptor"].locked').count(), 'locked until a Foundry stands');
-    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Vanguard', 'Siege Tank', 'Interceptor', 'Rally', 'Cancel'], 'three vehicles, Rally after them, the queue\'s Cancel in its place');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Rally 3', 'Cancel 5'], 'no vehicle before a Foundry stands: their slots empty, Rally and Cancel in place');
     await buildAndFinish(d, 'f', 'forge', 3);
     await d.clickEntity(factory.id);
     await d.readyCard('Interceptor');
+    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Vanguard', 'Siege Tank', 'Interceptor', 'Rally', 'Cancel'], 'three vehicles, Rally after them, the queue\'s Cancel in its place');
     const queue = async () => (await d.state()).bldgs.find(b => b.id === factory.id).queue;
     await d.key('i');
     assert.deepEqual(await queue(), ['interceptor'], `I trains an Interceptor (toasts: ${(await d.toasts()).join(' | ')})`);

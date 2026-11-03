@@ -128,3 +128,35 @@ test('the Siege Tank deploys by itself: no Deploy on its card, an order to deplo
   assert.ok(ids.every(id => unit(id).mode === 'deploy'), 'standing, both set up by themselves');
   ui.sel = []; ui.mode = null;
 });
+
+test('what is not open yet is hidden in place: its slot stays empty, nothing else moves, its key does nothing', { skip }, () => {
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  const hq = E.G.bldgs.find(b => b.team === E.G.me);
+  const lumen = E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
+  const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
+  // The Build list: the basic page is all there from the start; no Advanced before a Kiln stands.
+  ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
+  assert.deepEqual(slots(), ['b_spire@0', 'b_kiln@1', 'b_siphon@2', 'b_conflux@3', 'esc@5'], 'no Advanced yet');
+  assert.ok(!C.cardItems().some(i => i.id === 'b_loom'), 'nor the advanced page\'s keys');
+  // A unit's abilities: one waiting for its tech is left out, the others keep their places.
+  const scythe = E.debugSpawn(E.G.me, 'scythe', hq.x + 90, hq.y + 90), mono = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  const unit = (id) => E.G.units.find(u => u.id === id);
+  ui.sel = [unit(scythe), unit(mono)]; ui.mode = null;
+  const before = slots();
+  assert.ok(before.includes('a_blink@2') && !before.some(s => s.startsWith('a_overcharge')), `Blink in place, Overcharge hidden: ${before}`);
+  E.debugResearch(E.G.me, 'overchargeCore', 1);
+  ui.sel = [unit(scythe), unit(mono)];
+  const after = slots();
+  assert.ok(after.includes('a_blink@2') && after.includes('a_overcharge@3'), `researched, Overcharge in its own place: ${after}`);
+  // A Monolith alone: its card keeps its shape whether Overcharge is researched or not (Deselect stays put).
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  const m2 = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  ui.sel = [unit(m2)];
+  const plain = slots();
+  assert.ok(!plain.some(s => s.startsWith('a_overcharge')) && plain.includes('deselect@5'), `before: Overcharge hidden, Deselect in its place: ${plain}`);
+  E.debugResearch(E.G.me, 'overchargeCore', 1);
+  ui.sel = [unit(m2)];
+  const lit = slots();
+  assert.ok(lit.includes('a_overcharge@2') && lit.includes('deselect@5'), `after: Overcharge in its slot, Deselect where it was: ${lit}`);
+  ui.sel = []; ui.mode = null;
+});

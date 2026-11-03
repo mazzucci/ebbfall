@@ -8,16 +8,18 @@ pub const HUMANS: Faction = Faction {
     name: "Humans",
     hq: BldgKind::Core,
     worker: UnitKind::Harvester,
+    // The basic page holds what can be built from the start (the Core too); the advanced page what needs the
+    // Garrison (the Turret too), so it appears once the Garrison stands (owner, 2026-11-03).
     build_basic: &[
         BldgKind::Depot,
         BldgKind::Barracks,
         BldgKind::Extractor,
-        BldgKind::Turret,
+        BldgKind::Core,
     ],
     build_advanced: &[
         BldgKind::Forge,
         BldgKind::Airfield,
-        BldgKind::Core,
+        BldgKind::Turret,
         BldgKind::Factory,
     ],
     supply: BldgKind::Depot,

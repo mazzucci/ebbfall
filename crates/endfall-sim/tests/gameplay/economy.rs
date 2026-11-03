@@ -736,3 +736,34 @@ fn each_of_a_mains_two_refineries_gets_its_own_worker() {
         }
     }
 }
+
+#[test]
+fn the_ledger_accounts_for_every_shard_and_ether() {
+    // The balance lab's ledger (`World::ledger`, read by no rule): in a game with no resources granted, what a seat
+    // has is always what it started with, plus what it mined, less what it spent (refunds taken back off), every tick.
+    // Two Hard AIs, Humans against Vael, ten minutes: they mine, build, train, research and cancel stalled sites.
+    let mut w = World::with_size(5, 2, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    let start: Vec<[i32; 2]> = w.res.clone();
+    for tick in 0..(10 * 60 * TPS) {
+        w.step();
+        w.events.clear();
+        for (s, have) in start.iter().enumerate() {
+            let l = w.ledger[s];
+            let want = [0, 1].map(|i| have[i] as i64 + l.mined[i] - l.spent[i]);
+            assert_eq!(
+                [w.res[s][0] as i64, w.res[s][1] as i64],
+                want,
+                "seat {s} at tick {tick}: {l:?}"
+            );
+        }
+        if w.winner >= 0 {
+            break;
+        }
+    }
+    assert!(
+        (0..2).all(|s| w.ledger[s].mined[0] > 0 && w.ledger[s].spent[0] > 0),
+        "both mined and spent: {:?}",
+        w.ledger
+    );
+}

@@ -381,6 +381,7 @@ impl World {
         };
         let b = self.bldgs.remove(i);
         self.clear_footprint(&b);
+        self.ledger[b.team as usize].cancelled[b.kind.index()] += 1;
         let cost = b.kind.def().cost;
         self.pay(b.team, [cost[0] * 3 / 4, cost[1] * 3 / 4], 1);
         let crew: Vec<Id> = self

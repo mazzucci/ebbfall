@@ -185,12 +185,19 @@ impl Report {
         l.dedup();
         l
     }
+    /// The median length of the finished 64x64 games of each level against itself (the ladder's games, between
+    /// unequal sides, left out; timeouts left out too: `timeouts_64` says how many).
     fn length_64(&self) -> Option<f64> {
         let all: Vec<f64> = self
-            .level_cells(|c| c.size == 64)
+            .level_cells(|c| c.size == 64 && c.kind == Kind::Level)
             .flat_map(|(_, g)| lengths(g))
             .collect();
         median(&all)
+    }
+    fn timeouts_64(&self) -> usize {
+        self.level_cells(|c| c.size == 64 && c.kind == Kind::Level)
+            .map(|(_, g)| g.iter().filter(|g| g.winner.is_none()).count())
+            .sum()
     }
     /// (seat-games' mined, spent) for `race` on (size, map), or everywhere.
     fn ledgers(
@@ -257,7 +264,11 @@ impl Report {
             out.push(Check {
                 name: "game length on 64x64".into(),
                 pass: (lo * 60.0..=hi * 60.0).contains(&m),
-                detail: format!("median {} ({lo}–{hi} min wanted)", mmss(m)),
+                detail: format!(
+                    "median {} of the finished games, each level against itself ({lo}–{hi} min wanted; {} timeouts left out)",
+                    mmss(m),
+                    self.timeouts_64()
+                ),
             });
         }
         let mut over: Vec<String> = Vec::new();
@@ -289,7 +300,8 @@ impl Report {
             .filter(|r| r.n > 0)
             .map(|r| (r.p() - 0.5).abs() * 100.0)
             .fold(f64::NAN, f64::max);
-        let ladder = self.ladder_levels().iter().all(|&l| {
+        let steps = self.ladder_levels();
+        let ladder = steps.iter().all(|&l| {
             let r = self.ladder(l);
             r.n == 0 || r.p() >= 0.7
         });
@@ -304,7 +316,17 @@ impl Report {
                 num((hv.n > 0).then(|| hv.p() * 100.0), 1),
             ),
             ("Mirror max deviation %", num(Some(dev), 1)),
-            ("Ladder holds", (if ladder { "yes" } else { "no" }).into()),
+            (
+                "Ladder holds",
+                (if steps.is_empty() {
+                    "—"
+                } else if ladder {
+                    "yes"
+                } else {
+                    "no"
+                })
+                .into(),
+            ),
             (
                 "Median length 64x64 (min)",
                 num(self.length_64().map(|s| s / 60.0), 1),
@@ -609,6 +631,10 @@ fn game_json(g: &GameRec) -> Json {
             .with(
                 "bldgs_lost",
                 kinds_json(&s.bldgs_lost, |i| BLDG_KINDS[i].def().key),
+            )
+            .with(
+                "bldgs_cancelled",
+                kinds_json(&s.bldgs_cancelled, |i| BLDG_KINDS[i].def().key),
             )
             .with("mined", vec![s.mined[0], s.mined[1]])
             .with("spent", vec![s.spent[0], s.spent[1]])

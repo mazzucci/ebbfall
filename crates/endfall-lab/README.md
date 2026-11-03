@@ -53,7 +53,8 @@ The target checks print PASS or WARN. They are signals for a person, not gates (
   45–55% *and* its interval leaves out 50%: a real lean, not noise.
 - **A mirror** WARNs when its interval leaves out 50%: the seat or start position matters.
 - **The ladder** WARNs when a level beats the one below it less than 70% of the time (races, seats, maps pooled).
-- **Game length on 64x64** WARNs when the median of every finished 64x64 game is outside the band (10–20 min).
+- **Game length on 64x64** WARNs when the median of the finished 64x64 games of each level against itself is
+  outside the band (10–20 min). Timeouts are left out (the check says how many), so many timeouts pull it short.
 - **Timeouts** WARN when more than 5% of any cell's games hit the cap.
 
 With 5 seeds a cell, a single cell's interval is about ±35 points: per-cell figures rarely mean much alone. The
@@ -66,7 +67,7 @@ observed exchange rate is the median over games of shards mined over ether mined
 how many shards a point of ether is worth in practice, the evidence for the sheet's ether weight.
 
 What a game records: units trained (not the starting workers) and lost, and buildings finished (not the starting
-headquarters) and destroyed, both by kind; shards and ether mined and spent (the sim's `ledger`); peak supply; the
+headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
 
 ### `compare`

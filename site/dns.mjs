@@ -1,4 +1,4 @@
-// The site's hostnames' DNS records (ebbfall.com, www.ebbfall.com) and the Worker in front of them (docs/MULTIPLAYER.md,
+// The site's hostnames' DNS records (ebbfall.com, www.ebbfall.com) and the Worker in front of them (Notion: Multiplayer design,
 // Hosting), through Cloudflare's API with CLOUDFLARE_API_TOKEN (DNS edit; Workers Scripts edit for `drop-domains`).
 // The Worker answers the hostnames through zone routes (wrangler.toml), which see only proxied traffic: switching the
 // site over is turning the proxy on for GitHub Pages' own records, an edit in place (never a delete: the hostnames
@@ -79,7 +79,7 @@ const line = (r) => `${r.type} ${r.name} ${r.content}${r.proxied ? ' (proxied)' 
 /** The job summary's section: every record, GitHub's marked, and GitHub's as JSON for `restore`. */
 export function summary({ all, pages }) {
   return '### DNS records of ebbfall.com and www.ebbfall.com, before this deploy\n\n'
-    + 'For a rollback (docs/MULTIPLAYER.md, Hosting): `node site/dns.mjs unproxy`; should records be missing, '
+    + 'For a rollback (Notion: Multiplayer design, Hosting): `node site/dns.mjs unproxy`; should records be missing, '
     + '`node site/dns.mjs restore records.json` with the JSON below as records.json, or by hand in the dashboard.\n\n| type | name | content | proxied | ttl | GitHub Pages |\n|---|---|---|---|---|---|\n'
     + all.map(r => `| ${r.type} | ${r.name} | ${r.content} | ${r.proxied} | ${r.ttl} | ${isPagesRecord(r) ? 'yes' : ''} |`).join('\n')
     + '\n\n```json\n' + JSON.stringify(pages, null, 2) + '\n```\n';

@@ -1,6 +1,6 @@
 // The relay's room: a pure state machine (no sockets, no timers: the adapter calls `connect`, `receive`, `close` and
 // `tick(now)`), so the Node server and the Cloudflare Durable Object run the same rules and the tests drive it with a
-// fake clock. Design: docs/MULTIPLAYER.md. The relay keeps the clock: once every seat has loaded the game it closes a
+// fake clock. Design: Notion, Multiplayer design. The relay keeps the clock: once every seat has loaded the game it closes a
 // turn (3 ticks, 100 ms) on its own timer, puts the orders it has into the turn `DELAY` ahead, and sends that turn's
 // bundle to everyone. It never looks inside an order (the clients decode them); it only checks that every seat has the
 // same sim build (an opaque string from the client), and the clients compare hashes.

@@ -196,7 +196,7 @@ jobs:
           exit 1
 
   # The site: https://ebbfall.com/ (and www) as a Cloudflare Worker with static assets (site/: worker.js, wrangler.toml;
-  # docs/MULTIPLAYER.md, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
+  # Notion: Multiplayer design, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
   # tested there). First the relay check: the site never outruns the relay. The Worker answers through zone routes,
   # which see proxied traffic only: the deploy attaches them first (nothing changes yet), then site/dns.mjs proxy turns
   # the proxy on for GitHub Pages' own DNS records, an edit in place (the hostnames resolve throughout: to GitHub until

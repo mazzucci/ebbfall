@@ -43,7 +43,7 @@ for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)
 }
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
- *  (atlas.json `tints`, from look.js SEAT_COLORS; docs/ART.md). */
+ *  (atlas.json `tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
 export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
 /** A seat's paint in this game: its spot's (look.js `colorOf`: a player keeps its board spot's colour). */
 export const seatTint = (team) => spotTint(colorOf(team));

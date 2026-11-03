@@ -1,4 +1,4 @@
-// Multiplayer (docs/MULTIPLAYER.md): the lobby page and the glue between the network layer (src/net/net.js) and the
+// Multiplayer (Notion: Multiplayer design): the lobby page and the glue between the network layer (src/net/net.js) and the
 // game. Mobile-first and few words: open a room (a 4-letter code to share, or a link) or join one; then the room is the
 // single-player page's board (seats.js): eight fixed spots, a token per seat, each with its side as a tag. A person is a
 // token with their name (a crown on the host's, a green check once ready, AWAY while the relay holds the seat for them),

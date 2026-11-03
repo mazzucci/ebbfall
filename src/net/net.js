@@ -1,4 +1,4 @@
-// The network side of a multiplayer game (docs/MULTIPLAYER.md): one WebSocket to the relay. It joins or opens a room,
+// The network side of a multiplayer game (Notion: Multiplayer design): one WebSocket to the relay. It joins or opens a room,
 // follows the lobby, and once the game starts it carries the game's orders out and the relay's turns in. The turns
 // go to the game strictly in order (a turn that arrives early waits for the gap before it); the game runs a tick only
 // once its turn is in (the `Game`'s lockstep: crates/endfall-sim/src/lockstep.rs). Every few turns it acks the last

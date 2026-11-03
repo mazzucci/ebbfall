@@ -1,4 +1,4 @@
-//! Lockstep (docs/MULTIPLAYER.md): two clients, one per seat, and a relay, in one process. The relay closes a turn
+//! Lockstep (Notion: Multiplayer design): two clients, one per seat, and a relay, in one process. The relay closes a turn
 //! (3 ticks) on its own clock, puts the orders it has into the turn `DELAY` ahead (seats in a different order in the
 //! bundle every other turn), and sends the bundle to both clients, each after its own random delay (so bundles may
 //! arrive out of order: a client takes them in turn order, as the network layer will). Both play with armies and

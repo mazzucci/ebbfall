@@ -139,7 +139,7 @@ function fresh(g) {
   M.rock.set(game.rock()); M.shade.set(game.shade());
   dirty = true; sync();
 }
-/** An online game (docs/MULTIPLAYER.md): the room's setup, seen from seat `me`, in lockstep (orders go out to the
+/** An online game (Notion: Multiplayer design): the room's setup, seen from seat `me`, in lockstep (orders go out to the
  *  relay; the network layer feeds the turns back). `seed` is the map's; `races` the seats' (RANDOM drawn: seatRaces);
  *  `teams` a team per seat (empty: each its own), `ai` the seats the AI plays (at `diff`, or each at its own: `diffs`, a
  *  level per seat; every client runs them alike), on a `size` x `size` map. Two people and no AI: the game a two-seat

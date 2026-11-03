@@ -2,7 +2,7 @@
 // The renderer and the sound engine read this table instead of naming kinds, so a new race adds rows here.
 
 /** Seat colours, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
- *  white with a team mask the renderer tints, docs/ART.md), and the minimap's dots with more than two seats. Seats 0
+ *  white with a team mask the renderer tints, Notion: Ebbfall art), and the minimap's dots with more than two seats. Seats 0
  *  and 1 keep the two-player gold and magenta; then teal, lilac, green, blue, white, red: apart from each other (also
  *  with red-green colour blindness, as far as eight allow: there lightness parts gold from green and red), from the
  *  dark ground, the selection marks and the resources' teal and violet. Shared with the art tools (tools/render3d). */
@@ -40,5 +40,5 @@ export const UNIT_FPS = { shrike: 0, sovereign: 4 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Siege Tank: two tread
- *  frames, half deployed, deployed (tools/render3d/models.js, docs/ART.md). */
+ *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };

@@ -3,9 +3,10 @@
 A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. The simulation is
 Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite and PixiJS 8 (WebGL)
 over code-generated sprite sheets (pre-rendered 3D units and buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer can be added without
-rewriting it. The roadmap and open questions live in
-Notion (Ebbfall: planning), not in the repo: `docs/` describes how the game works and will become the public site
-for players; keep plans out of it. See `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
+rewriting it. Two Notion pages hold what is not code: Ebbfall: planning (the
+roadmap, reviews, open questions) and Ebbfall: developer docs ("Multiplayer design": lockstep, the relay, hosting,
+deploy and rollback; "Ebbfall art": the art pipeline, frame names, seat colours). `docs/` is kept for the public site
+that explains the game to players: no plans and no developer notes there. See `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
 says Ebbfall and the repo is github.com/mazzucci/ebbfall; internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`,
 storage keys, the local folder) keep the old word.
 
@@ -37,7 +38,7 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
                              # Android emulator or BrowserStack's real devices
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
-                             # the 3D part needs a Chromium, see docs/ART.md)
+                             # the 3D part needs a Chromium, see Notion: Ebbfall art)
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
 node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
                              # wording (a Chromium too; output is committed, kept under 300 KB)
@@ -46,7 +47,7 @@ node tools/og.mjs            # regenerate public/og.png (the link preview's imag
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
 browser tests (all in Chromium, the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
-docs/MULTIPLAYER.md, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
+Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
 run must not leave a relay change undeployed): the job hashes the bundle wrangler would upload (`deploy --dry-run`,
 wrangler pinned) with wrangler.toml, reads the live build from `GET https://relay.ebbfall.com/version`
@@ -54,7 +55,7 @@ wrangler pinned) with wrangler.toml, reads the live build from `GET https://rela
 /version, or on a run started by hand; then waits for /version to say the new build. The `deploy` job (the site)
 publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/net.js's, which a test keeps equal), so
 the site never outruns the relay. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
-iPad, an iPhone and a Pixel (docs/MULTIPLAYER.md, "Browsers and devices").
+iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
 A change to the simulation must keep `cargo test` and `npm test` green, in particular the determinism tests (same seed
 and commands produce the same `stateHash()`), and every rule change needs a scenario in the gameplay tests.
@@ -102,7 +103,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
-  src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (docs/MULTIPLAYER.md)
+  src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap; the
@@ -193,7 +194,7 @@ src/client/           everything that touches the browser
                       without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
                       with VITE_RELAY_URL shows MULTIPLAYER in the HTML itself, vite.config.js)
-src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages (seats by spot), its game seat
+src/net/net.js        the network client (Notion: Multiplayer design): hello/rejoin, lobby messages (seats by spot), its game seat
                       from `start`, sends this side's orders,
                       feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
@@ -250,7 +251,7 @@ test/challenge.test.js a challenge's code (src/client/challenge.js): setups roun
                       fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
                       does when they outgrow one), labels, an online setup's map at its own size, the team splits
-relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats on
+relay/                the multiplayer relay (Notion: Multiplayer design): room.js, the rules as a pure state machine (seats on
                       the board's fixed spots (a seat keeps its spot in the lobby), AI seats and their levels, the
                       game's seats arranged by side only at the start (`setup.spots`), the room's map checked against
                       its seats (it imports src/client/maps.js), lobby, the turn clock, the log, away and back,
@@ -259,7 +260,7 @@ relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the 
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
                       this commit's build); bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
-site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting): dist/ as a Worker's static assets
+site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design, Hosting): dist/ as a Worker's static assets
                       (wrangler.toml: ebbfall.com/* and www as zone routes, exact paths as on GitHub Pages, the Worker
                       first only for / and /index.html); worker.js (the game's page, rewritten with HTMLRewriter only for
                       a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
@@ -287,9 +288,8 @@ scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the
                       sprite finish, run in headless Chromium (three.js)
-tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see docs/ART.md
+tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
-docs/ART.md           art style guide, palette, frame names
 ```
 
 ## Rules that keep the sim multiplayer-ready

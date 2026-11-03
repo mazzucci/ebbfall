@@ -1,4 +1,4 @@
-// The relay on Cloudflare (docs/MULTIPLAYER.md, Hosting): a Worker that sends each WebSocket to its room's Durable Object,
+// The relay on Cloudflare (Notion: Multiplayer design, Hosting): a Worker that sends each WebSocket to its room's Durable Object,
 // one object per room code, which runs relay/room.js's rules (the same as relay/server.mjs's, which is the Node
 // adapter). A client connects to wss://host/?room=CODE (or ?new=1 to open a room) and says hello. Config and deploy:
 // relay/wrangler.toml. Also the device test's reports over HTTP (relay/bench.js): POST /bench, GET /bench/<CODE>, kept

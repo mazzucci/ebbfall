@@ -1,4 +1,4 @@
-//! Lockstep (docs/MULTIPLAYER.md): in a networked game a `Game` does not apply its player's orders at once. It
+//! Lockstep (Notion: Multiplayer design): in a networked game a `Game` does not apply its player's orders at once. It
 //! encodes them into an outbox for the network to send; every seat's orders come back in the relay's turn bundles
 //! (its own included), taken strictly in turn order (`receiveTurn`: a duplicate or a gap is refused), each turn's
 //! orders running on its first tick, and a tick runs only once its turn has arrived. Every client applies the same

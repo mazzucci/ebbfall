@@ -48,7 +48,7 @@ both sides in view, at up to 8x.
 Two fingers pan. Drag on the minimap to scroll.
 
 The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of
-it (`docs/MULTIPLAYER.md`). See `CLAUDE.md` for how the code is organised.
+it, through a relay. See `CLAUDE.md` for how the code is organised.
 
 ## License
 

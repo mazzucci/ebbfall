@@ -52,7 +52,7 @@ const hazardTex = canvasTex(64, (g, n) => {
 const treadTex = canvasTex(64, (g, n) => { g.fillStyle = '#2a2a2a'; g.fillRect(0, 0, n, n); g.fillStyle = '#111'; for (let k = 0; k < n; k += 8) g.fillRect(k, 0, 4, n); g.fillStyle = 'rgba(255,255,255,0.08)'; for (let k = 2; k < n; k += 8) g.fillRect(k, 0, 1, n); });
 
 /** Team paint: per-seat frames are rendered once in NEUTRAL (white paint, white lamps) with a team mask the client
- *  tints with the seat's colour (docs/ART.md); scaffolds and rubble keep seat 0's gold (GOLD). */
+ *  tints with the seat's colour (Notion: Ebbfall art); scaffolds and rubble keep seat 0's gold (GOLD). */
 export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: SEAT_COLORS[0], light: 0xffc65a };
 /** Mark a material as team-coloured: its share of the team mask (1 paint; lamps less, so they read as a pale tint). */
 export const team = (m, w = 1) => { m.userData.team = w; return m; };
@@ -82,7 +82,7 @@ export function makeMats(tc = NEUTRAL) {
     medRed: std({ color: 0xc8242c, metalness: 0.1, roughness: 0.5 }),
     healGlow: std({ color: 0x103018, emissive: 0x6dff9a, emissiveIntensity: 2.4 }),
     rotor: std({ color: 0x15181d, metalness: 0.5, roughness: 0.5 }),
-    // Building families (see docs/ART.md): command/civil = trim (grey steel), military = khaki, industry = iron.
+    // Building families (see Notion: Ebbfall art): command/civil = trim (grey steel), military = khaki, industry = iron.
     khaki: std({ color: 0x8e8664, map: panel, bumpMap: bump, bumpScale: 0.9, metalness: 0.55, roughness: 0.5 }),
     iron: std({ color: 0x3d3835, map: panel, bumpMap: bump, bumpScale: 1.0, metalness: 0.75, roughness: 0.55 }),
     ember: std({ color: 0x4a1200, emissive: 0xffb23a, emissiveIntensity: 3.2 }),

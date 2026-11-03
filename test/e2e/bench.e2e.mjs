@@ -4,12 +4,12 @@
 // while it measures. And a relay that does not answer: TRY AGAIN, then RUN AGAIN once the send has settled.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, PHONE, anyHere } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
 
 let relay;
-before(async () => { await start(); relay = startRelay({ port: 0 }); await relay.ready; });
-after(async () => { await relay.close(); await stop(); });
+before(async () => { await start(); if (!(await anyHere())) return; relay = startRelay({ port: 0 }); await relay.ready; }); // (none of its tests in this shard: no relay)
+after(async () => { await relay?.close(); await stop(); });
 
 test('?bench plays its game, measures it, and sends the report for a code', { timeout: 240000 }, async () => {
   const ctx = await browserContext(PHONE);

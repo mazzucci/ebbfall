@@ -16,14 +16,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  # The sim's own checks, beside the build: formatting, lints, the Rust tests (unit, gameplay, golden games) and the
+  # gameplay suite again in release mode with more random-play seeds.
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
       - uses: actions/cache@v6
         with:
           path: |
@@ -39,6 +37,27 @@ jobs:
       - run: cargo test --locked -- --skip random_play
       - name: Gameplay tests including randomized play (release mode, more seeds)
         run: cargo test --release --locked --test gameplay
+
+  # The WASM build, the Node tests and the production build (dist/, which the browser tests and the site use).
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/cache@v6 # (its own: the WASM target and the wasm-bindgen CLI in .tools/, which the rust job never builds)
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+            .tools
+          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            wasm-${{ runner.os }}-
+            rust-${{ runner.os }}-
+      - run: rustup toolchain install
       - run: npm ci
       - run: npm run build:wasm
       - run: npm test
@@ -48,15 +67,45 @@ jobs:
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
       - run: node --test test/site-worker.test.js # (again, with dist/ built: its checks of the built page and service worker)
-      - name: Gameplay tests in a real browser (Chromium; WebKit and Firefox in the engines job)
-        run: |
-          npx playwright-core install --with-deps chromium
-          npm run test:e2e
+      - name: The build, for the browser tests
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+  # The browser tests in Chromium, on the build job's dist/, split by test over four jobs (ENDFALL_SHARD, the e2e
+  # harness: every fourth test of each file), as one file holds most of the time. WebKit and Firefox: the engines job.
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 4
+        run: |
+          npx playwright-core install --with-deps chromium
+          npm run test:e2e
+        env:
+          ENDFALL_SHARD: ${{ matrix.shard }}/4
 
   # The browser tests' cross-engine subset (the scenarios marked `engines: true`: the menu, sound and full screen, a short
   # game through the UI, taps on a phone, joining a room through a local relay, offline, the golden games) in WebKit
@@ -74,14 +123,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/cache/restore@v6 # (the build job's cache, read only)
+      - uses: actions/cache/restore@v6 # (the build job's WASM cache, read only)
         with:
           path: |
             ~/.cargo/registry
             target
             .tools
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
-          restore-keys: rust-${{ runner.os }}-
+          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            wasm-${{ runner.os }}-
+            rust-${{ runner.os }}-
       - run: rustup toolchain install
       - run: npm ci
       - run: npm run build
@@ -140,7 +191,7 @@ jobs:
     # The relay and the site go out together: the relay waits for every check the site waits for, and the site for the
     # relay, so a failing check never leaves a new relay talking to the old site (a new protocol would tell every player
     # to UPDATE to a version that is not there yet).
-    needs: [build, engines, arm]
+    needs: [rust, build, e2e, engines, arm]
     runs-on: ubuntu-latest
     concurrency:
       group: relay
@@ -205,7 +256,7 @@ jobs:
   # edit on the zone) and CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
+    needs: [rust, build, e2e, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
     runs-on: ubuntu-latest
     permissions:
       contents: read

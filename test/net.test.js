@@ -5,7 +5,7 @@
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
 // of three, four and eight with AI seats (M4): every client runs the AI alike; and one whose sides the start arranges
 // (a person's game seat not its lobby spot).
-import { test } from 'node:test';
+import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { startRelay } from '../relay/server.mjs';
@@ -19,13 +19,15 @@ if (!built && process.env.ENDFALL_REQUIRE_WASM) throw new Error('src/engine/pkg/
 const skip = !built && 'WASM not built';
 
 let sim, FACTIONS, UNIT, BLDG;
-async function load() {
-  if (sim) return;
-  sim = await import(new URL('endfall_sim.js', pkg));
-  sim.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
+// One load shared by every caller (the matches start at once: none may see the sim half loaded).
+let loading;
+const load = () => loading ??= (async () => {
+  const mod = await import(new URL('endfall_sim.js', pkg));
+  mod.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
   const data = (await import(new URL('data.js', pkg))).default;
   FACTIONS = data.factions; UNIT = data.schema.unit; BLDG = data.schema.bldg;
-}
+  sim = mod;
+})();
 /** The ids of a client's own units, or seat `seat`'s (the room's seed is random: so are the ids). */
 function own(c, seat = c.seat) {
   const U = c.g.units(), n = UNIT.length, id = UNIT.indexOf('id'), team = UNIT.indexOf('team'), out = [];
@@ -40,6 +42,11 @@ function busy(c, seat) {
 }
 const fi = (k) => Math.max(0, Object.keys(FACTIONS).indexOf(k));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+// The matches through a real relay mostly wait on its turn clock (each its own relay on port 0, its own Games): they
+// run at once, in one group registered last. The lobby tests with mocked timers patch the global setTimeout, so they
+// stay outside it and run one by one first.
+const live = [];
+const liveTest = (name, opts, fn) => live.push([name, opts, fn]);
 /** The room's game for a seat, as main.js and src/engine/core.js's resetGameForSeat build it (its map and size, a RANDOM
  *  seat drawn from the seed, the teams, the AI seats each at its own level). */
 const game = (setup, seat) => {
@@ -93,7 +100,7 @@ async function match(relayOpts = {}, host = () => {}) {
   return { relay, a, b, run, same, idle, events, done };
 }
 
-test('two clients play through the relay, one drops and comes back, and their worlds stay the same', { skip, timeout: 60000 }, async () => {
+liveTest('two clients play through the relay, one drops and comes back, and their worlds stay the same', { skip, timeout: 60000 }, async () => {
   const m = await match({ latency: 30, jitter: 40 });
   const { a, b } = m;
   try {
@@ -117,7 +124,7 @@ test('two clients play through the relay, one drops and comes back, and their wo
   } finally { await m.done(); }
 });
 
-test('a page suspended longer than the away limit: the waiting side is not blamed, and the game goes on', { skip, timeout: 60000 }, async () => {
+liveTest('a page suspended longer than the away limit: the waiting side is not blamed, and the game goes on', { skip, timeout: 60000 }, async () => {
   const m = await match();
   const { a, b } = m;
   try {
@@ -133,7 +140,7 @@ test('a page suspended longer than the away limit: the waiting side is not blame
   } finally { await m.done(); }
 });
 
-test('the page comes back while a reconnect is pending: one socket, the game goes on', { skip, timeout: 60000 }, async () => {
+liveTest('the page comes back while a reconnect is pending: one socket, the game goes on', { skip, timeout: 60000 }, async () => {
   const m = await match();
   const { a, b } = m;
   try {
@@ -149,7 +156,7 @@ test('the page comes back while a reconnect is pending: one socket, the game goe
   } finally { await m.done(); }
 });
 
-test('orders given while the socket is down are sent when it is back, not lost', { skip, timeout: 60000 }, async () => {
+liveTest('orders given while the socket is down are sent when it is back, not lost', { skip, timeout: 60000 }, async () => {
   const m = await match();
   const { b } = m;
   try {
@@ -256,7 +263,7 @@ test('a lobby leave is confirmed by a pong; on a half-open socket it is said aga
   assert.ok(net.closed);
 });
 
-test('three seats, one the AI\'s: both clients run its game alike, and the AI plays', { skip, timeout: 60000 }, async () => {
+liveTest('three seats, one the AI\'s: both clients run its game alike, and the AI plays', { skip, timeout: 60000 }, async () => {
   const m = await match({ latency: 20, jitter: 30 }, (net) => { net.add(2, true, 'vael'); net.map(4); });
   const { a, b } = m;
   try {
@@ -270,7 +277,7 @@ test('three seats, one the AI\'s: both clients run its game alike, and the AI pl
   } finally { await m.done(); }
 });
 
-test('two people against two AIs at different levels (Easy and Brutal): one side, every client the same game', { skip, timeout: 60000 }, async () => {
+liveTest('two people against two AIs at different levels (Easy and Brutal): one side, every client the same game', { skip, timeout: 60000 }, async () => {
   // (the host moves the friend to its side, then adds the two AIs on the other, each at its own level)
   const m = await match({}, (net) => { net.side(1, 0); net.add(1, true, 'humans', 0); net.add(1, true, 'vael', 3); net.map(5); });
   const { a, b } = m;
@@ -284,7 +291,7 @@ test('two people against two AIs at different levels (Easy and Brutal): one side
   } finally { await m.done(); }
 });
 
-test('a side arranged at the start: Bo at spot 1 plays game seat 2, beside his partner at spot 2 (setup.spots), in both games', { skip, timeout: 60000 }, async () => {
+liveTest('a side arranged at the start: Bo at spot 1 plays game seat 2, beside his partner at spot 2 (setup.spots), in both games', { skip, timeout: 60000 }, async () => {
   // (spots: Ann 0 and an AI at 3 on one side, Bo 1 and an AI at 2 on the other: the game's seats Ann, AI 3 | Bo, AI 2)
   const m = await match({}, (net) => { net.add(1, true, 'humans', 1); net.add(0, true, 'vael', 2); net.map(4); });
   const { a, b } = m;
@@ -301,7 +308,7 @@ test('a side arranged at the start: Bo at spot 1 plays game seat 2, beside his p
   } finally { await m.done(); }
 });
 
-test('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, every client the same game, every AI at work', { skip, timeout: 60000 }, async () => {
+liveTest('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, every client the same game, every AI at work', { skip, timeout: 60000 }, async () => {
   const m = await match({}, (net) => { net.side(1, 0); for (let s = 2; s < 8; s++) net.add(s >> 1, true, s % 3 === 0 ? 'vael' : 'random', s % 4); net.map(8); });
   const { a, b } = m;
   try {
@@ -311,4 +318,8 @@ test('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, every 
     for (let s = 2; s < 8; s++) assert.ok(busy(b, s), `the AI of seat ${s} plays`);
     assert.deepEqual(m.events.filter(e => /desync|away/.test(e)), [], 'no desync, nobody away');
   } finally { await m.done(); }
+});
+
+describe('matches through a relay', { concurrency: true }, () => {
+  for (const [name, opts, fn] of live) it(name, opts, fn);
 });

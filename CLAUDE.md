@@ -3,8 +3,9 @@
 A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. The simulation is
 Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite and PixiJS 8 (WebGL)
 over code-generated sprite sheets (pre-rendered 3D units and buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer can be added without
-rewriting it. See `docs/PLAN.md` for the roadmap and open questions
-and `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
+rewriting it. The roadmap and open questions live in
+Notion (Ebbfall: planning), not in the repo: `docs/` describes how the game works and will become the public site
+for players; keep plans out of it. See `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
 says Ebbfall and the repo is github.com/mazzucci/ebbfall; internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`,
 storage keys, the local folder) keep the old word.
 
@@ -289,7 +290,6 @@ tools/render3d/       3D models (models.js, buildings.js, vael.js for the second
 tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see docs/ART.md
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 docs/ART.md           art style guide, palette, frame names
-docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored in Notion)
 ```
 
 ## Rules that keep the sim multiplayer-ready

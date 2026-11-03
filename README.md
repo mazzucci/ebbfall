@@ -47,8 +47,8 @@ both sides in view, at up to 8x.
 **Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather.
 Two fingers pan. Drag on the minimap to scroll.
 
-The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; the plan is lockstep multiplayer on top of
-it. See `docs/PLAN.md` for the roadmap and `CLAUDE.md` for how the code is organised.
+The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of
+it (`docs/MULTIPLAYER.md`). See `CLAUDE.md` for how the code is organised.
 
 ## License
 

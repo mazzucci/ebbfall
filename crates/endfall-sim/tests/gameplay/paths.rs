@@ -1,4 +1,4 @@
-//! Group paths (M4 step 2d): units of a seat given one order share one route, long searches are budgeted per seat per
+//! Group paths: units of a seat given one order share one route, long searches are budgeted per seat per
 //! tick (the rest wait their turn), every route a unit takes is walkable, and everyone still arrives.
 
 use crate::common::*;
@@ -447,7 +447,7 @@ fn a_unit_bound_beside_the_groups_goal_but_behind_a_wall_still_gets_there() {
 /// The path work per tick of 12-minute games of Hard AIs (two on 64x64, 96x96 and 128x128, four on 96x96, eight on
 /// 128x128; seeds by PATH_SEEDS, "3,17,29,41,53" by default): the step's time (average, 99th and 99.9th percentile,
 /// worst) and searches per tick (average, worst). A measure, not a test: `cargo test --release --test gameplay
-/// path_cost -- --ignored --nocapture` (docs/MULTIPLAYER.md, M4 steps 2d and 2e).
+/// path_cost -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn path_cost_per_tick() {

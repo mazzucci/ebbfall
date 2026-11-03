@@ -817,7 +817,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     await d.grant(2000, 0);
     await buildAndFinish(d, 'g', 'barracks', 1); // (the advanced page opens with a Garrison)
     const h = mine(await d.state(), 'harvester')[0];
-    await d.clickEntity(h.id);
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.pressCard('Build'); await d.readyCard('Advanced'); await d.pressCard('Advanced'); // the Foundry is on the advanced page
     const forge = d.page.locator('#cmd button', { hasText: 'Foundry' });
     const b = await forge.boundingBox();
@@ -1105,7 +1105,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.place), null, 'and it stops the placing');
     await buildAndFinish(d, 'g', 'barracks', 1);
-    await d.clickEntity(h.id);
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.pressCard('Build');
     await d.readyCard('Advanced'); // (once the Garrison stands)
     await d.pressCard('Advanced');

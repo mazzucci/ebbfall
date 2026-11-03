@@ -281,24 +281,23 @@ fn the_ai_does_not_restim_while_a_stim_runs() {
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
     let (mut w, forge) = forge_arena(11);
     let v = w.make_unit(UnitKind::Raider, PLAYER, 640.0, 1280.0);
-    assert_eq!(
-        w.cast(v, AbilityKind::Cloak),
-        Err("Research Cloaking Field first".into()),
-        "locked until researched"
+    assert!(
+        !w.is_cloaked(w.unit(v).unwrap()),
+        "no cloak until researched"
     );
     // A line unit's ability needs no tech.
     let t = w.make_unit(UnitKind::Trooper, PLAYER, 700.0, 1280.0);
     assert!(w.cast(t, AbilityKind::Stim).is_ok(), "Stim from the start");
     research_level(&mut w, forge, Upgrade::CloakingField);
-    assert!(w.cast(v, AbilityKind::Cloak).is_ok(), "unlocked");
+    assert!(w.is_cloaked(w.unit(v).unwrap()), "cloaked once researched");
     assert_eq!(
         w.start_research(forge, Upgrade::CloakingField),
         Err("Cloaking Field is fully upgraded".into()),
         "one level"
     );
-    // The other side's Raiders are still locked: a tech is a team's.
+    // The other side's Raiders are not: a tech is a team's.
     let foe = w.make_unit(UnitKind::Raider, ENEMY, 900.0, 1280.0);
-    assert!(w.cast(foe, AbilityKind::Cloak).is_err());
+    assert!(!w.is_cloaked(w.unit(foe).unwrap()));
 }
 
 #[test]

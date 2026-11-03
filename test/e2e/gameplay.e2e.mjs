@@ -360,21 +360,21 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'trooper damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 3, 'a few figures: ground, air, armor');
-    // A Trooper's Stim is there from the start; a Raider's Cloak waits for Cloaking Field, researched at the Foundry.
+    // A Trooper's Stim is there from the start; a Raider has no Cloak button: Cloaking Field, researched at the Foundry,
+    // cloaks it for good.
     assert.ok((await d.card()).some(c => c.label === 'Stim' && c.enabled), 'Stim from the start');
     const v = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'raider', x, y), [forge.x + 60, forge.y + 90]);
     await d.clickEntity(v);
-    assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'Cloak locked');
-    await d.pressCard('Cloak');
-    assert.ok((await d.toasts()).some(t => /Research Cloaking Field first/.test(t)), 'it says which tech');
+    assert.ok(!(await d.card()).some(c => c.label === 'Cloak'), 'no Cloak button');
+    const cloaked = () => d.eval((id) => endfall.G.units.find(u => u.id === id).cloaked, v);
+    assert.equal(await cloaked(), false, 'not cloaked before the tech');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
     await d.pressCard('Cloak Field'); // (the tech's short label on the Foundry)
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].cloakingField)) === 1, { seconds: 120, what: 'Cloaking Field' });
     await d.clickEntity(forge.id);
     assert.ok(!(await d.card()).some(c => c.label === 'Cloak Field'), 'a finished tech leaves the card');
-    await d.clickEntity(v);
-    assert.ok((await d.card()).some(c => c.label === 'Cloak' && c.enabled), 'Cloak unlocked');
+    assert.equal(await cloaked(), true, 'cloaked for good once researched');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2197,17 +2197,17 @@ test('an enemy Observer is invisible and cannot be picked until something of our
   } finally { await d.close(); }
 });
 
-test('phone: a Raider cloaks from its card once Cloaking Field is researched', async () => {
+test('phone: a Raider is always cloaked once Cloaking Field is researched, with no button', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
     const raider = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'raider', x, y), [core.x + 160, core.y + 60]);
     await d.clickEntity(raider);
-    assert.ok((await d.card()).some(c => c.label === 'Cloak' && !c.enabled), 'locked before the tech');
+    assert.ok(!(await d.card()).some(c => c.label === 'Cloak'), 'no Cloak button, before or after');
     await d.eval(() => endfall.engine.debugResearch(0, 'cloakingField')); // (set-up: researched)
-    await d.readyCard('Cloak'); // (the card is drawn again on a later frame: not the locked button it showed)
-    await d.pressCard('Cloak');
-    assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).boost, raider), 'cloak', 'cloaked');
+    await d.skip(0.1);
+    assert.equal(await d.eval((id) => endfall.G.units.find(u => u.id === id).cloaked, raider), true, 'cloaked');
+    assert.ok(!(await d.card()).some(c => c.label === 'Cloak'), 'still no button');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

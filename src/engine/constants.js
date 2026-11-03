@@ -92,8 +92,8 @@ const ABILITY_TEXT = {
   stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
   blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
-  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
-  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
+  cloak: { desc: 'Always cloaked once Cloaking Field is researched: unseen and untouchable except near a detector.' },
+  veil: { desc: 'Always veiled once Veil Weave is researched: unseen and untouchable except near a detector.' },
   deploy: { desc: 'Sets up whenever it stops (3 s, no moving or firing meanwhile), and packs up when it has to move: only deployed does its siege gun fire.' },
 };
 /** Unit abilities, with their hotkeys and descriptions: one tap each on the card, but for an automatic one (`auto`:
@@ -101,7 +101,8 @@ const ABILITY_TEXT = {
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 // A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
 for (const u of Object.values(UPGRADES)) {
-  if (u.effect === 'unlock') u.desc = `Unlocks ${ABILITIES[u.of].name} for ${Object.values(UNITS).filter(d => (d.abilities || []).includes(u.of)).map(d => d.name + 's').join(' and ')}.`;
+  const who = (k) => Object.values(UNITS).filter(d => (d.abilities || []).includes(k)).map(d => d.name + 's').join(' and ');
+  if (u.effect === 'unlock') u.desc = ABILITIES[u.of].auto ? `${who(u.of)} are always cloaked: unseen except near a detector.` : `Unlocks ${ABILITIES[u.of].name} for ${who(u.of)}.`;
   if (u.effect === 'speed') u.desc = `${UNITS[u.of].name}s fly ${Math.round((TECH_SPEED - 1) * 100)}% faster.`;
   if (u.effect === 'build') u.desc = `Buildings go up ${Math.round((TECH_BUILD - 1) * 100)}% faster, those already rising too.`;
 }

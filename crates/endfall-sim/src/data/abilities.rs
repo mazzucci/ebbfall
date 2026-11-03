@@ -18,8 +18,9 @@ pub enum AbilityEffect {
     Settle { range: f64, swap: f64 },
     /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
     Blink { dist: f64 },
-    /// Cloaked for `secs` (as an Observer is: seen and targeted only where the other side detects).
-    Cloak { secs: f64 },
+    /// Always cloaked once researched (as an Observer is: seen and targeted only where the other side detects); never
+    /// cast.
+    Cloak,
 }
 
 def_struct! {
@@ -102,13 +103,15 @@ const OVERCHARGE: AbilityDef = AbilityDef {
     },
 };
 
+/// The Raider's (and, as the Veil, the Shrike's): once researched the unit is always cloaked (`World::is_cloaked`),
+/// with no button: an automatic ability that is never cast.
 const CLOAK: AbilityDef = AbilityDef {
     key: "cloak",
     name: "Cloak",
     toggle: false,
-    auto: false,
+    auto: true,
     cooldown: 40.0,
-    effect: AbilityEffect::Cloak { secs: 12.0 },
+    effect: AbilityEffect::Cloak,
 };
 const VEIL: AbilityDef = AbilityDef {
     key: "veil",

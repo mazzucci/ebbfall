@@ -164,7 +164,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .ib.ghost{border-style:dashed;color:var(--muted)} .ib.ghost:hover{color:var(--fg)}
 /* A seat's token: one button, its colour as a band down its left edge; its name and a faint pen ("tap to change") on
    top, its race, an AI's level as pips and its side's tag (SIDE 2; S2 where the token is narrow) below. */
-.board .ib.tok{display:grid;grid-template-columns:4px auto auto 1fr auto;grid-template-rows:1fr 1fr;grid-template-areas:"band name name . pen" "band race mark . tag";column-gap:7px;align-items:center;padding:3px 7px 3px 0;text-align:left;overflow:hidden;container-type:inline-size}
+.board .ib.tok{display:grid;grid-template-columns:4px auto auto 1fr auto;grid-template-rows:1fr 1fr;grid-template-areas:"band name name name pen" "band race mark . tag";column-gap:7px;align-items:center;padding:3px 7px 3px 0;text-align:left;overflow:hidden;container-type:inline-size}
 .tok .band{grid-area:band;align-self:stretch;margin:-3px 0;border-radius:3px 0 0 3px}
 .tok b{grid-area:name;font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .tok.me b{color:var(--ally2)}
 .tok .race{grid-area:race;font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap}
@@ -220,12 +220,12 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #menuHome{text-align:center} #menuHome .row{justify-content:center;gap:16px} #start #menuHome h1{font:700 clamp(30px,9vh,58px)/1.15 var(--display);letter-spacing:.04em} /* (the name in title case: tighter than the caps of the buttons, a size up to keep its weight) */ #menuHome .tag{max-width:560px;margin-left:auto;margin-right:auto} #menuHome .tip{text-align:left}
 /* The first page's floor (the .shore in #menuHome): a dark shore under the whole screen, the water drawn back to the bottom edge, a faint glow behind the title. Under the page's content (z-index -1 in #start's stacking context; the card's own background goes, the screen's is the same colour), no pointer events; the tide lines keep to the bottom 40% of the screen, below the tagline on every phone, and the buttons over them are opaque. Each line drifts a few pixels over 18-29 s, a transform on its own <svg> (composited), none under prefers-reduced-motion; display:none with the page ends the animations, so a game pays nothing for them. */
 #start .card.menu{background:transparent}
-#menuHome .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
-#menuHome .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
-@media (max-height:420px){#menuHome .shore svg{bottom:-26px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
-#menuHome .tide{animation:ebb 18s ease-in-out infinite alternate} #menuHome .tide.t2{animation-duration:23s;animation-delay:-7s} #menuHome .tide.t3{animation-duration:29s;animation-delay:-13s}
+#start .shore,#online .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
+#start .shore svg,#online .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
+@media (max-height:420px){:is(#start,#online) .shore svg{bottom:-38px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
+#start .tide,#online .tide{animation:ebb 18s ease-in-out infinite alternate} :is(#start,#online) .tide.t2{animation-duration:23s;animation-delay:-7s} :is(#start,#online) .tide.t3{animation-duration:29s;animation-delay:-13s}
 @keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
-@media (prefers-reduced-motion:reduce){#menuHome .tide{animation:none}}
+@media (prefers-reduced-motion:reduce){:is(#start,#online) .tide{animation:none}}
 #menuHome .rec{margin-top:8px;min-height:1em} #menuHome .rec:empty{display:none}
 /* About: a few lines, two links, the fine print. */
 #menuAbout{max-width:640px} #menuAbout p{margin:6px 0} #menuAbout a{color:var(--ally2)} #menuAbout .fine{font:11px var(--mono);color:var(--muted)}
@@ -412,3 +412,19 @@ body.replay #cmd{visibility:hidden}
 #btnOnlineReady.lit{background:#2a2415;color:var(--ally2);border-color:var(--ally)}
 #online .foot .note{text-align:right} @media (max-width:480px){#online .foot .note{flex-basis:100%;order:-1;text-align:left}}
 #online .row{gap:8px;align-items:center}
+/* Menu pass (owner, 2026-11-03): every button on a menu page or card is a finger high (44 px) with one type size, the
+   secondary ones one width, BACK the same everywhere (bottom left, under the page's content); the first page's
+   secondary row in equal widths; the pages under the first top-aligned, their titles in one place (as Single player's). */
+:is(#start,#online,#help,#options) :is(.row,.joincode)>.ib{min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 16px}
+:is(#start,#online,#help,#options) .row>.ib.big{font-size:14px}
+:is(#start,#online,#help,#options) :is(.row,.joincode)>.ib:not(.big){min-width:120px}
+#online .joincode{display:flex;gap:8px;align-items:center} /* (the code and its JOIN keep together: one line beside NEW ROOM, or the next on a narrow phone) */
+#menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
+@media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centred) */
+#start .card.menu:has(#menuAbout:not([hidden])),#online .card.menu{justify-content:flex-start}
+#menuAbout h2,#onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
+/* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's shore behind them,
+   dimmer (their content is taller and reaches down over it). */
+.page .brand,#online .brand{font:700 22px/1.1 var(--display);letter-spacing:.04em;color:var(--ally2);margin:0 0 2px}
+#online .card.menu{background:transparent}
+:is(#menuSolo,#menuAbout,#onlineJoin,#onlineRoom) .shore svg{opacity:.45}

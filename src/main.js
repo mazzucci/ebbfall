@@ -11,7 +11,7 @@ import { sfx, audio, audioState } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
-import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge } from './client/menu.js';
+import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { setSpots } from './client/look.js';
@@ -222,7 +222,7 @@ setInterval(() => {
   for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
-$('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
+$('btnPauseHelp').addEventListener('click', openHelp); // How to play, over the pause menu (at its top)
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;

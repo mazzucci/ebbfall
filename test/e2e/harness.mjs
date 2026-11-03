@@ -95,7 +95,7 @@ export const baseUrl = () => base;
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
-/** Single player's board through its UI (eight spots): + AI (the lowest empty spot, a side of its own), and a seat's
+/** Single player's board through its UI (eight spots): + SEAT (the lowest empty spot, a side of its own), and a seat's
  *  sheet (its token, chips, DONE): a race, a level, a side (its number from 0: SIDE 1 is 0), REMOVE. `scope`: the
  *  board's and the sheet's ids (the lobby's: board(page, 'online')). */
 export function board(page, scope = 'solo') {
@@ -149,9 +149,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  await (touch ? page.locator('#btnSolo').tap() : page.locator('#btnSolo').click()); // the menu's first page: SINGLE PLAYER
-  if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
-  else if (race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
+  // The menu's first page: FIRST GAME (the guided game, offered there to a newcomer) or SINGLE PLAYER.
+  await (touch ? page.locator(first ? '#btnFirstHome' : '#btnSolo').tap() : page.locator(first ? '#btnFirstHome' : '#btnSolo').click());
+  if (!first && race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
   if (!first && diff !== 0) await board(page).diff(1, diff);
   if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);

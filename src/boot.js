@@ -19,7 +19,7 @@ if (BENCH) $('start').hidden = true;
 let game = null, failed = false;
 const loading = import('./main.js').then(m => (game = m.game));
 
-const STARTS = ['btnStart', 'btnFirst', 'btnFirstHome'], labels = new Map();
+const STARTS = ['btnStart', 'btnFirstHome'], labels = new Map();
 /** The start buttons read `text`, disabled if `off`; no text: their own labels, and state, again (START GAME is the
  *  menu's to disable too: everyone on one side). */
 function startButtons(text, off) {

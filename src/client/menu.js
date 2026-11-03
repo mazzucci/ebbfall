@@ -95,7 +95,7 @@ function renderSeats() {
     if (had) box.querySelector(`[data-k="tok${free}"]`)?.focus();
   };
   box.replaceChildren(...board.map((r, i) => (r ? tokenEl(viewOf(board, i), seatColor(i), { short, on: i === editing, onOpen: () => openSheet(i), k: `tok${i}` })
-    : emptySpot(i === free ? [{ label: '+ AI', title: 'An AI on a side of its own', k: 'add', on: add }] : []))));
+    : emptySpot(i === free ? [{ label: '+ SEAT', title: 'A computer player on a side of its own', k: 'add', on: add }] : []))));
   if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
   $('btnStart').disabled = oneTeam(board);
   renderNote(); renderSheet();
@@ -145,6 +145,15 @@ export function drawPreview(cv, i, seed, kind) {
 }
 
 export function initMenu({ onStart }) {
+  // The first page's shore under the other menu pages too (owner, 2026-11-03), each copy with ids of its own.
+  for (const id of ['menuSolo', 'menuAbout', 'onlineJoin', 'onlineRoom']) {
+    const shore = $('menuHome').querySelector('.shore').cloneNode(true);
+    for (const el of shore.querySelectorAll('[id]')) {
+      const was = el.id; el.id = `${was}-${id}`;
+      for (const r of shore.querySelectorAll(`[fill="url(#${was})"],[stroke="url(#${was})"]`)) for (const a of ['fill', 'stroke']) if (r.getAttribute(a) === `url(#${was})`) r.setAttribute(a, `url(#${el.id})`);
+    }
+    $(id).appendChild(shore);
+  }
   // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
   // chosen, if it seats them; else the smallest that does; ?seed=: a random one).
   let saved = null; try { saved = JSON.parse(store.get('seats')); } catch { /* none, or not ours */ }
@@ -152,7 +161,7 @@ export function initMenu({ onStart }) {
   const last = store.get('map') === null ? -1 : +store.get('map');
   choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
   takeChallenge(); renderMaps(); renderSeats(); showRecord();
-  for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
+  $('btnFirstHome').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
     sfx('select'); enterFullscreen(); menu.tutorial = false; if (!menu.challenge) choose(menu.map); // (a challenge: its own seed and starts)
@@ -167,7 +176,7 @@ export function initMenu({ onStart }) {
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
-  $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
+  $('btnHowTo').addEventListener('click', openHelp);
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
@@ -227,4 +236,12 @@ function showRecord() {
   const level = DIFF[diff]?.name || '';
   $('record').textContent = w + l ? `${level}: ${w} won · ${l} lost` : '';
   $('record').title = w + l ? `Your record ${you === 'random' ? 'with either race' : `as the ${raceTitle(you)}`} on ${level}` : '';
+}
+
+/** How to play, from the menu or the pause card: at its top (focusing BACK, at the bottom of a scrolling card, used to
+ *  open it scrolled to the end). */
+export function openHelp() {
+  $('help').hidden = false;
+  $('btnHelpClose').focus({ preventScroll: true });
+  $('help').querySelector('.card').scrollTop = 0;
 }

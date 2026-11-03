@@ -76,7 +76,25 @@ impl World {
         } else {
             enemy_air * 2
         };
-        for &bid in &my_b {
+        // Supply tight: the specialists' factories (the air factory, the vehicle bay) take the free places before the
+        // barracks, else several barracks fill them every round and a specialist that is due never fits. With room to
+        // spare, every factory in building order as ever.
+        let order: Vec<Id> = {
+            let [used, cap] = self.sup[e as usize];
+            let s = &self.factions[e as usize].ai;
+            let first = |id: &Id| {
+                self.bldg(*id)
+                    .is_some_and(|b| b.kind == s.air || s.heavy == Some(b.kind))
+            };
+            if cap - used < SUPPLY_TIGHT {
+                let (mut a, b): (Vec<Id>, Vec<Id>) = my_b.iter().copied().partition(first);
+                a.extend(b);
+                a
+            } else {
+                my_b.clone()
+            }
+        };
+        for &bid in &order {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
                 continue;

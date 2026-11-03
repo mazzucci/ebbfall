@@ -198,7 +198,13 @@ impl World {
                 r: n.r,
             }
         };
-        if !self.approach(uid, tgt, if n.ether { r + 6.0 } else { r + 13.0 }, dt) {
+        if !self.approach_settled(
+            uid,
+            tgt,
+            if n.ether { r + 6.0 } else { r + 13.0 },
+            SETTLE,
+            dt,
+        ) {
             return;
         }
         let nm = self.map.node_mut(node).unwrap();
@@ -321,7 +327,7 @@ impl World {
             self.set_idle(uid);
             return;
         };
-        if self.approach(uid, drop, r + 6.0, dt) {
+        if self.approach_settled(uid, drop, r + 6.0, SETTLE, dt) {
             let u = self.um(uid);
             let gain = jsmath::round(u.carry as f64 * income) as i32;
             let slot = if u.carry_ether == Some(true) { 1 } else { 0 };

@@ -109,13 +109,13 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 7] = [
 ];
 
 const EXPECTED: [[u32; 3]; 7] = [
-    [225769678, 459449819, 3847688793],
-    [1738558066, 628952134, 1841401294],
-    [742342052, 3274588528, 4247120358],
-    [3509870422, 1683228023, 427954801],
-    [3143509957, 786269075, 1798770573],
-    [360035449, 2521857241, 1704220241],
-    [1762498007, 3662336395, 282838627],
+    [1320759503, 132100981, 1123018216],
+    [3006901954, 451919989, 2863765703],
+    [581264440, 1424219601, 1770629948],
+    [3509870422, 775842301, 1312931107],
+    [3926161303, 3915523519, 550061423],
+    [3747609600, 3829522135, 3702185590],
+    [1762498007, 3694531817, 1192526948],
 ];
 
 #[test]
@@ -144,7 +144,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
 }
 
 /// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
-const EXPECTED_VAEL: [u32; 3] = [2926029440, 3232739583, 1885364549];
+const EXPECTED_VAEL: [u32; 3] = [644599688, 3548926040, 1203278554];
 
 #[test]
 fn golden_hashes_pin_a_vael_game() {
@@ -166,7 +166,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [4134931756, 2318313087, 1490290840];
+const EXPECTED_VAEL_AI: [u32; 3] = [4134931756, 1099683614, 1722216669];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -221,9 +221,9 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "174/86/119/19 lost_to 86 | 115/119/86/0 lost_to 119 | over true winner 0 conceded -1 at 25886",
-    "289/200/239/45 lost_to 200 | 235/239/200/2 lost_to 239 | over true winner 0 conceded -1 at 25110",
-    "18/22/9/0 lost_to 22 | 56/9/22/2 lost_to 9 | over true winner 1 conceded -1 at 11226",
+    "152/73/122/22 lost_to 73 | 118/122/73/0 lost_to 122 | over true winner 0 conceded -1 at 22314",
+    "144/50/105/24 lost_to 50 | 101/105/50/2 lost_to 105 | over true winner 0 conceded -1 at 14107",
+    "16/20/6/0 lost_to 20 | 54/6/20/2 lost_to 6 | over true winner 1 conceded -1 at 10535",
 ];
 
 #[test]
@@ -256,7 +256,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [2856260489, 2988045713, 2033635499];
+const EXPECTED_TEAMS_AI: [u32; 3] = [216988431, 3157375429, 3632806311];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

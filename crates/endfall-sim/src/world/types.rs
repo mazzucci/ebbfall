@@ -158,6 +158,10 @@ pub struct Unit {
 /// second; jittering against a corner or being walled in does not.
 pub const BUILDER_PATIENCE: f64 = 6.0;
 pub const STUCK_RADIUS: f64 = 12.0;
+/// How far (px) a worker that has stopped at its work (a field, a drop-off, a site) may be nudged out of reach and
+/// still count as there: it stays put instead of stepping back in and turning to and fro (movement.rs
+/// `approach_settled`).
+pub const SETTLE: f64 = 6.0;
 /// Repairing a building from nothing to full costs this share of its price, paid as the hp come back. A harvester
 /// repairs at construction speed (the building's build time for its whole hp).
 pub const REPAIR_COST: f64 = 0.25;

@@ -36,7 +36,7 @@ impl World {
             self.resume_after(uid);
             return;
         };
-        if !self.approach(uid, g, r + 8.0, dt) {
+        if !self.approach_settled(uid, g, r + 8.0, SETTLE, dt) {
             self.gave_up(uid, team, dt, "the building to repair it");
             return;
         }
@@ -181,7 +181,7 @@ impl World {
             self.resume_after(uid);
             return;
         };
-        let reached = self.approach(uid, g, r + 8.0, dt);
+        let reached = self.approach_settled(uid, g, r + 8.0, SETTLE, dt);
         if !reached && self.gave_up(uid, team, dt, "its building site") {
             return;
         }

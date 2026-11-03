@@ -343,13 +343,13 @@ fn two_against_two_allies_never_fight_and_one_team_stands() {
     // M4: a 2v2 of AIs on 96x96, allies on starts side by side (seats 0 and 1, 2 and 3: seats sit round the map in
     // order). Allies never target each other; the game ends with one team's seats all out and the other's winning.
     // (Without debug assertions, three games to the end, at most forty minutes; with them, one, invariants every
-    // tenth tick.)
+    // tenth tick, within twenty minutes: seed 13 ends at 15:38 since gathering workers stopped jostling.)
     let full = !cfg!(debug_assertions);
     let seeds: &[u32] = if full { &[11, 12, 13] } else { &[13] };
     for &seed in seeds {
         let mut w = ais(seed, 96, 4, Some(&[0, 0, 1, 1]));
         let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
-        let cap = 30 * 60 * if full { 40 } else { 15 };
+        let cap = 30 * 60 * if full { 40 } else { 20 };
         for tick in 0..cap {
             w.step();
             if full || tick % 10 == 0 {

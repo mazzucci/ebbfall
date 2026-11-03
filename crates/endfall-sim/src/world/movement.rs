@@ -116,10 +116,24 @@ impl World {
 
     /// Move toward a target until within reach. Returns true once in reach.
     pub(crate) fn approach(&mut self, uid: Id, target: Geo, reach: f64, dt: f64) -> bool {
+        self.approach_settled(uid, target, reach, 0.0, dt)
+    }
+
+    /// `approach` for work done in place (mining, a drop-off, a site): a unit that has stopped there (no route) stays
+    /// put while nudged up to `slack` px out of reach, instead of stepping back in every tick and turning to and fro.
+    pub(crate) fn approach_settled(
+        &mut self,
+        uid: Id,
+        target: Geo,
+        reach: f64,
+        slack: f64,
+        dt: f64,
+    ) -> bool {
         let (ux, uy) = (self.u(uid).x, self.u(uid).y);
         let p = target.aim_point(ux, uy);
         let d = target.edge_dist(ux, uy);
-        if d <= reach {
+        let settled = self.u(uid).path.is_none() && d <= reach + slack;
+        if d <= reach || settled {
             let u = self.um(uid);
             u.path = None;
             u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
@@ -257,9 +271,11 @@ impl World {
     }
 
     /// Push overlapping units apart and out of blocked tiles. A unit holding position, warping in or deployed (a
-    /// siege gun in a fight is so without holding) stands firm: others flow around it.
+    /// siege gun in a fight is so without holding) stands firm: others flow around it. Two workers of a side on their
+    /// gathering round pass through each other, as in 1998: a crowded field never jams or jostles.
     pub(crate) fn separate(&mut self) {
         let firm = |u: &Unit| u.task == Task::Hold || u.warp > 0.0 || u.mode.is_some();
+        let gathering = |u: &Unit| matches!(u.task, Task::Gather { .. });
         for i in 0..self.units.len() {
             if firm(&self.units[i]) {
                 continue;
@@ -270,15 +286,18 @@ impl World {
                 if o == id {
                     continue;
                 }
-                let (ox, oy, or, ohold, oair, unseen) = {
+                let (ox, oy, or, ohold, oair, unseen, miners) = {
                     let o = self.hashed(o).unwrap();
                     let me = &self.units[i];
                     let unseen = o.team != me.team
                         && (self.cloaked_from(me.team, o) || self.cloaked_from(o.team, me));
-                    (o.x, o.y, o.r, firm(o), o.kind.def().air, unseen)
+                    let miners = o.team == me.team && gathering(o) && gathering(me);
+                    (o.x, o.y, o.r, firm(o), o.kind.def().air, unseen, miners)
                 };
-                if air != oair || unseen {
-                    continue; // flyers and walkers do not bump into each other, nor anything into what it cannot see
+                if air != oair || unseen || miners {
+                    // flyers and walkers do not bump into each other, nor anything into what it cannot see, nor two
+                    // workers of a side on their round
+                    continue;
                 }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);

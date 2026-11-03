@@ -6,7 +6,10 @@ over code-generated sprite sheets (pre-rendered 3D units and buildings, painted 
 rewriting it. Two Notion pages hold what is not code: Ebbfall: planning (the
 roadmap, reviews, open questions) and Ebbfall: developer docs ("Multiplayer design": lockstep, the relay, hosting,
 deploy and rollback; "Ebbfall art": the art pipeline, frame names, seat colours). `docs/` is kept for the public site
-that explains the game to players: no plans and no developer notes there. See `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
+that explains the game to players: no plans and no developer notes there. Agendas, handoff notes for paused work,
+the owner's decisions and anything to remember for later go to Notion too (subpages of Ebbfall: planning, one per work
+item, the branch named), never to local files such as ~/endfall-handoff: every session, on any machine, must be able to
+read them. See `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
 says Ebbfall and the repo is github.com/mazzucci/ebbfall; internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`,
 storage keys, the local folder) keep the old word.
 

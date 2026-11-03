@@ -19,6 +19,13 @@ impl World {
         if !self.map.in_map(tx, ty) || !self.map.in_map(tx + d.w - 1, ty + d.h - 1) {
             return false;
         }
+        for y in ty..ty + d.h {
+            for x in tx..tx + d.w {
+                if !self.builds_on(team, x, y) {
+                    return false; // not this people's ground (a vent included)
+                }
+            }
+        }
         if d.on_vent {
             let nd = self
                 .map
@@ -57,6 +64,16 @@ impl World {
             }
         }
         true
+    }
+
+    /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
+    /// on land only, an Amph builder (the Vael's) on land and shallows; nobody in deep water.
+    pub fn builds_on(&self, team: u8, x: i32, y: i32) -> bool {
+        match self.map.ground(x, y, self.water) {
+            Ground::Land => true,
+            Ground::Shallow => self.factions[team as usize].worker.def().mv == Move::Amph,
+            Ground::Deep => false,
+        }
     }
 
     pub fn has_req(&self, team: u8, kind: BldgKind) -> bool {

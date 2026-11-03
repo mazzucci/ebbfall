@@ -23,7 +23,7 @@ mod wire;
 use crate::ai::Ai;
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
-use crate::map::{Id, Map, MapKind, MapSize, Node};
+use crate::map::{Foot, Ground, Id, Map, MapKind, MapSize, Node};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 pub use combat::{absorb, hull_loss};
@@ -79,6 +79,9 @@ pub struct World {
     pub conceded: i32,
     /// The guided first game: the scripted opponent sends no wave while this is set (at most `HOLD_WAVES_MAX` s).
     pub hold_waves: bool,
+    /// The water level, in tile units: against each tile's height (`Map::height`) it makes land, shallows and deep
+    /// water (`Map::ground`). Fixed at 0 (stage 1a: no tide yet), so not hashed: the map and the constant decide it.
+    pub water: i8,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
     pub stats: Vec<Stats>,
     /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
@@ -207,6 +210,7 @@ impl World {
             winner: -1,
             conceded: -1,
             hold_waves: false,
+            water: 0,
             stats: Vec::new(),
             army_log: Vec::new(),
             lost_to: Vec::new(),
@@ -425,10 +429,31 @@ impl World {
             hits: Self::hits_of(u.kind),
         }
     }
+    /// What a unit of `kind` may stand on now: its movement class at the current water level.
+    pub fn foot(&self, kind: UnitKind) -> Foot {
+        Foot {
+            class: kind.def().mv,
+            water: self.water,
+        }
+    }
+    /// The ground under (x, y) (world px) at the current water level.
+    pub fn ground_at(&self, x: f64, y: f64) -> Ground {
+        let (tx, ty) = self.map.tile_of(x, y);
+        self.map.ground(tx, ty, self.water)
+    }
+    /// A unit standing in deep water: it cannot fire from there (it is a road, not a battlefield).
+    pub(crate) fn in_deep(&self, uid: Id) -> bool {
+        let u = self.u(uid);
+        !u.kind.def().air && self.ground_at(u.x, u.y) == Ground::Deep
+    }
+
     /// A unit's walking speed right now (px/s).
     pub(crate) fn live_speed(&self, uid: Id) -> f64 {
         let u = self.u(uid);
-        let own = self.base_speed(uid) * self.speed_mul(uid);
+        let mut own = self.base_speed(uid) * self.speed_mul(uid);
+        if u.kind.def().mv == Move::Walk && self.ground_at(u.x, u.y) == Ground::Shallow {
+            own *= WADE_SPEED; // (a walker wades through the shallows)
+        }
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
             _ => own,

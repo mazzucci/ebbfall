@@ -57,15 +57,16 @@ impl World {
             return true;
         }
         let (ux, uy, team) = (self.u(uid).x, self.u(uid).y, self.u(uid).team);
+        let foot = self.foot(self.u(uid).kind);
         let (a, b) = (self.map.tile_of(ux, uy), self.map.tile_of(x, y));
         let refresh = self.u(uid).path.is_some();
-        let paths::Plan::Route(mut path) = self.plan_walk(team, (ux, uy), a, b, refresh) else {
+        let paths::Plan::Route(mut path) = self.plan_walk(team, foot, (ux, uy), a, b, refresh)
+        else {
             // A unit with a route keeps it until its next replan; one without asks again next tick.
             self.um(uid).repath = if refresh { 0.6 } else { 0.0 };
             return false;
         };
-        let bi = self.map.idx(b.0, b.1);
-        let blocked_tile = self.map.rock[bi] != 0 || self.map.occ[bi] != 0;
+        let blocked_tile = !self.map.passable(foot, b.0, b.1);
         // The exact point only if the route reaches its tile: a route that stops short (the goal is free but walled
         // off) ends where it can, or the unit would walk on into the wall from its end.
         let centre = Pt {
@@ -157,7 +158,8 @@ impl World {
                 // (a long way to a building is shared and waits its turn as any long search: an old route stands
                 // until the next replan meanwhile)
                 let (team, refresh) = (self.u(uid).team, self.u(uid).path.is_some());
-                let plan = self.plan_to_rect(team, (ux, uy), (tx, ty, w, h), p, refresh);
+                let foot = self.foot(self.u(uid).kind);
+                let plan = self.plan_to_rect(team, foot, (ux, uy), (tx, ty, w, h), p, refresh);
                 let u = self.um(uid);
                 match plan {
                     paths::Plan::Route(path) => {
@@ -177,10 +179,11 @@ impl World {
             let mv = self.live_speed(uid) * dt;
             let u = self.u(uid);
             let (nx, ny) = (u.x + (p.0 - u.x) / d * mv, u.y + (p.1 - u.y) / d * mv);
-            if !self
-                .map
-                .blocked(jsmath::to_i32(nx / TILE), jsmath::to_i32(ny / TILE))
-            {
+            if self.map.passable(
+                self.foot(u.kind),
+                jsmath::to_i32(nx / TILE),
+                jsmath::to_i32(ny / TILE),
+            ) {
                 let u = self.um(uid);
                 u.x = nx;
                 u.y = ny;
@@ -194,6 +197,7 @@ impl World {
     /// `charge`: a long way, for that seat: every try after the first counts against its budget of long searches.
     pub(crate) fn path_to_rect(
         &mut self,
+        foot: Foot,
         ux: f64,
         uy: f64,
         (tx, ty, w, h): (i32, i32, i32, i32),
@@ -204,7 +208,9 @@ impl World {
         let mut ring: Vec<(f64, i32, i32)> = Vec::new();
         for y in ty - 1..=ty + h {
             for x in tx - 1..=tx + w {
-                if (x >= tx && x < tx + w && y >= ty && y < ty + h) || self.map.blocked(x, y) {
+                if (x >= tx && x < tx + w && y >= ty && y < ty + h)
+                    || !self.map.passable(foot, x, y)
+                {
                     continue;
                 }
                 let (cx, cy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
@@ -222,7 +228,7 @@ impl World {
                 return Some(Vec::new());
             }
             self.charge_try(charge, &mut tries);
-            if let Some(path) = astar(&self.map, &mut self.scratch, start.0, start.1, x, y) {
+            if let Some(path) = astar(&self.map, foot, &mut self.scratch, start.0, start.1, x, y) {
                 let goal = Pt {
                     x: x as f64 * TILE + 16.0,
                     y: y as f64 * TILE + 16.0,
@@ -234,7 +240,15 @@ impl World {
         }
         let g = self.map.tile_of(aim.0, aim.1);
         self.charge_try(charge, &mut tries);
-        astar(&self.map, &mut self.scratch, start.0, start.1, g.0, g.1)
+        astar(
+            &self.map,
+            foot,
+            &mut self.scratch,
+            start.0,
+            start.1,
+            g.0,
+            g.1,
+        )
     }
 
     /// One more try of `path_to_rect`'s: on a long way, each after the first counts against the seat's budget.
@@ -314,10 +328,20 @@ impl World {
             let u = &mut self.units[i];
             u.x = clamp(u.x, 16.0, self.map.ww() - 16.0);
             u.y = clamp(u.y, 16.0, self.map.wh() - 16.0);
-            let t = self.map.tile_of(u.x, u.y);
+            // A crowd never shoves a walker into deep water: that push is undone (rock and buildings ease it out,
+            // below; deep water is no place to stand even for a tick).
+            let walker = self.units[i].kind.def().mv == Move::Walk;
+            if walker && self.ground_at(self.units[i].x, self.units[i].y) == Ground::Deep {
+                let u = &mut self.units[i];
+                u.x = ux;
+                u.y = uy;
+            }
+            let t = self.map.tile_of(self.units[i].x, self.units[i].y);
+            // (pushed onto rock, a building or, for a walker, into deep water: eased out to the nearest tile it may stand on)
+            let foot = self.foot(self.units[i].kind);
             if !air
-                && self.map.blocked(t.0, t.1)
-                && let Some(f) = self.map.nearest_free(t.0, t.1, 4)
+                && !self.map.passable(foot, t.0, t.1)
+                && let Some(f) = self.map.nearest_passable(foot, t.0, t.1, 4)
             {
                 let u = &mut self.units[i];
                 let (cx, cy) = (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0);

@@ -82,8 +82,9 @@ fn routes_walkable(w: &World, ids: &[Id], fresh: bool, ctx: &str) {
         *last = centre_of(w, *last);
         let (first, at) = (p[0], Pt { x: u.x, y: u.y });
         let centre = centre_of(w, at);
+        let foot = w.foot(u.kind);
         assert!(
-            !fresh || los(&w.map, at, first) || los(&w.map, centre, first),
+            !fresh || los(&w.map, foot, at, first) || los(&w.map, foot, centre, first),
             "{ctx}: unit {id} at ({:.2}, {:.2}) cannot walk to its first waypoint ({:.2}, {:.2}): {:?}",
             u.x / TILE,
             u.y / TILE,
@@ -95,7 +96,7 @@ fn routes_walkable(w: &World, ids: &[Id], fresh: bool, ctx: &str) {
         );
         for s in p.windows(2) {
             assert!(
-                los(&w.map, s[0], s[1]),
+                los(&w.map, foot, s[0], s[1]),
                 "{ctx}: unit {id}'s route crosses rock from ({:.0}, {:.0}) to ({:.0}, {:.0}); {:?} at {:?}",
                 s[0].x / TILE,
                 s[0].y / TILE,

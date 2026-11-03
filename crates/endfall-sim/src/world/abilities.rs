@@ -178,7 +178,8 @@ impl World {
         };
         let (gx, gy) = (self.map.clamp_x(ux + dx), self.map.clamp_y(uy + dy));
         let tile = self.map.tile_of(gx, gy);
-        let Some((fx, fy)) = self.map.nearest_free(tile.0, tile.1, 3) else {
+        let foot = self.foot(self.u(uid).kind);
+        let Some((fx, fy)) = self.map.nearest_passable(foot, tile.0, tile.1, 3) else {
             return; // nowhere to land: stays put (the cooldown is spent)
         };
         let (nx, ny) = if (fx, fy) == tile {

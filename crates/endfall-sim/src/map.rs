@@ -1,6 +1,6 @@
 //! Terrain, resource nodes and the occupancy grid (port of src/sim/map.js).
 
-use crate::data::TILE;
+use crate::data::{Move, TILE};
 use crate::jsmath::{self, PI};
 use crate::rng::Mulberry32;
 
@@ -86,12 +86,35 @@ impl MapSize {
     }
 }
 
+/// What a tile is at a water level (`Map::ground`): dry land, shallows (Walk units wade), or deep water (only Amph
+/// units go there, and nothing fires from it).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Ground {
+    Land,
+    Shallow,
+    Deep,
+}
+
+/// Height of every tile of the map kinds that have no water: land, above any water level the game uses.
+pub const DRY: i8 = 1;
+
+/// What a unit may stand on: its movement class and the water level (World::water). Rock, buildings and the map's
+/// edge block every walker; deep water blocks Walk units too (`Map::passable`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Foot {
+    pub class: Move,
+    pub water: i8,
+}
+
 pub struct Map {
     /// Width and height in tiles; every grid below is `w * h`, row by row.
     pub w: i32,
     pub h: i32,
     /// 1 = impassable rock.
     pub rock: Vec<u8>,
+    /// Each tile's height, in tile units: against the water level it is land, shallows or deep water (`ground`).
+    /// From the map's kind and seed like `rock`; `DRY` everywhere on the kinds without water. Not hashed.
+    pub height: Vec<i8>,
     /// 0 free, >0 building id, <0 negative resource-node id.
     pub occ: Vec<i32>,
     /// Noise value per tile, kept for the renderer.
@@ -280,6 +303,7 @@ impl Map {
             w: size.w,
             h: size.h,
             rock: vec![0; n],
+            height: vec![DRY; n],
             occ: vec![0; n],
             shade: vec![0.0; n],
             nodes: Vec::new(),
@@ -325,6 +349,32 @@ impl Map {
 
     pub fn blocked(&self, x: i32, y: i32) -> bool {
         !self.in_map(x, y) || self.rock[self.idx(x, y)] != 0 || self.occ[self.idx(x, y)] != 0
+    }
+
+    /// The tile (x, y) at water level `water`: land above it, shallows within two of it, deep water below. (Rock is
+    /// still rock, whatever its height; off the map counts as land.)
+    pub fn ground(&self, x: i32, y: i32, water: i8) -> Ground {
+        if !self.in_map(x, y) {
+            return Ground::Land;
+        }
+        let h = self.height[self.idx(x, y)];
+        if h > water {
+            Ground::Land
+        } else if h > water - 2 {
+            Ground::Shallow
+        } else {
+            Ground::Deep
+        }
+    }
+
+    /// Whether a unit with `foot` may stand on (x, y): never off the map, on rock or a building, and a Walk unit never
+    /// in deep water. (Flyers only need the map.)
+    pub fn passable(&self, foot: Foot, x: i32, y: i32) -> bool {
+        match foot.class {
+            Move::Fly => self.in_map(x, y),
+            Move::Amph => !self.blocked(x, y),
+            Move::Walk => !self.blocked(x, y) && self.ground(x, y, foot.water) != Ground::Deep,
+        }
     }
 
     pub fn node(&self, id: Id) -> Option<&Node> {
@@ -807,9 +857,23 @@ impl Map {
         false
     }
 
-    /// Nearest unblocked tile to (tx,ty) within a square radius, searching ring by ring.
+    /// Nearest unblocked tile to (tx,ty) within a square radius, searching ring by ring. (Ground of any depth: for
+    /// a unit, `nearest_passable`.)
     pub fn nearest_free(&self, tx: i32, ty: i32, max_r: i32) -> Option<(i32, i32)> {
-        if !self.blocked(tx, ty) {
+        self.nearest_where(tx, ty, max_r, |x, y| !self.blocked(x, y))
+    }
+    /// Nearest tile to (tx,ty) a unit with `foot` may stand on, within a square radius, ring by ring.
+    pub fn nearest_passable(&self, foot: Foot, tx: i32, ty: i32, max_r: i32) -> Option<(i32, i32)> {
+        self.nearest_where(tx, ty, max_r, |x, y| self.passable(foot, x, y))
+    }
+    fn nearest_where(
+        &self,
+        tx: i32,
+        ty: i32,
+        max_r: i32,
+        ok: impl Fn(i32, i32) -> bool,
+    ) -> Option<(i32, i32)> {
+        if ok(tx, ty) {
             return Some((tx, ty));
         }
         for r in 1..=max_r {
@@ -819,7 +883,7 @@ impl Map {
                         continue;
                     }
                     let (x, y) = (tx + dx, ty + dy);
-                    if !self.blocked(x, y) {
+                    if ok(x, y) {
                         return Some((x, y));
                     }
                 }

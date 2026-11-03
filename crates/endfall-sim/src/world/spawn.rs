@@ -134,7 +134,9 @@ impl World {
                 && tx2 < tx + d.w
                 && ty2 >= ty
                 && ty2 < ty + d.h
-                && let Some(f) = self.map.nearest_free(tx2, ty2, 4)
+                && let Some(f) =
+                    self.map
+                        .nearest_passable(self.foot(self.units[k].kind), tx2, ty2, 4)
             {
                 // (several land on one point; separate() parts them, see the zero-distance case there)
                 self.units[k].x = f.0 as f64 * TILE + 16.0;
@@ -200,7 +202,7 @@ impl World {
         let mut best: Option<(bool, f64, i32, i32)> = None;
         for y in t.1 - 2..=t.1 + 2 {
             for x in t.0 - 2..=t.0 + 2 {
-                if !self.map.in_map(x, y) || (!d.air && self.map.blocked(x, y)) {
+                if !self.map.in_map(x, y) || (!d.air && !self.map.passable(self.foot(kind), x, y)) {
                     continue;
                 }
                 let (cx, cy) = centre((x, y));
@@ -254,8 +256,14 @@ impl World {
                 for x in (b.tx - r - 1)..=(b.tx + b.w + r) {
                     let inner =
                         x >= b.tx - r && x < b.tx + b.w + r && y >= b.ty - r && y < b.ty + b.h + r;
-                    if inner || self.map.blocked(x, y) {
-                        continue; // only the ring r tiles out
+                    // (only the ring r tiles out, and ground the new unit may stand on: a flyer any open tile)
+                    let open = if air {
+                        !self.map.blocked(x, y)
+                    } else {
+                        self.map.passable(self.foot(kind), x, y)
+                    };
+                    if inner || !open {
+                        continue;
                     }
                     let key = (
                         self.crowded(x, y, air),

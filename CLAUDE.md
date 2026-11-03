@@ -107,8 +107,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       upgrades.rs, diff.rs (AI tuning per difficulty), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
-                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free
-  src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks, a look-ahead window)
+                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free;
+                      heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
+                      `nearest_passable`: where a unit of a movement class may stand)
+  src/path.rs         A* + line-of-sight smoothing for a walker's `Foot` (f32 cost grid, fixed heap tie-breaks, a
+                      look-ahead window)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
                       starts, who is out, the last team standing), orders, spawn, economy, construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
@@ -349,6 +352,18 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
   wave called home to a raid by another) apply only with more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
+- Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`
+  everywhere on the kinds without water) and the world one water level (`World::water`, fixed at 0 for now: not
+  hashed). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
+  its kind's class (`UnitDef::mv`, `Move`): Walk (the Humans' ground units: land and shallows), Amph (the Vael's:
+  anywhere), Fly (flyers, exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
+  level: `World::foot(kind)`, `Map::passable`, `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay
+  class-free (map generation, buildings, flyers). The contact rules: a Walk unit in the shallows moves at `WADE_SPEED`
+  (0.7, in `live_speed`); nothing fires from deep water (`fire` refuses, an attacker in deep water closes in until it
+  stands on shallows or land, an idle or attack-moving one picks no fight there, and one there drops a flyer or a target itself in deep water;
+  a crowd's push never shoves a walker into it); buildings go by the builder's class (`builds_on`: a
+  Walk builder on land, an Amph builder on land and shallows, nobody in deep water), the AI's placement through the same
+  `can_place`. On a map without water all of it is inert (the goldens pin that).
 - The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
   with four and 128x128 with eight, each size with maps of its own, any of them for as many players as its starts
   (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index
@@ -367,14 +382,15 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
   every 16 ticks on a tick of its own), maps of 2, 4 and 8 starts
   that are walkable and alike for every start, group paths (one search for a group's order, long searches budgeted,
-  no shared route through rock), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
-  `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,
+  no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
+  amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command
   card buttons) on desktop and a landscape phone. The debug handle may only be used to read state, fast-forward

@@ -110,7 +110,9 @@ impl World {
     /// out can fall in a sealed pocket), clear of the natural's site (the Core it saves for goes there), of every
     /// expansion (a neighbour's natural may lie that far out) and of every other start.
     fn find_far_spot(&mut self, kind: BldgKind, cx: f64, cy: f64, from: f64) -> Option<(i32, i32)> {
-        let start = self.map.nearest_free(cx as i32, cy as i32, 6)?;
+        let start = self
+            .map
+            .nearest_passable(self.worker_foot(), cx as i32, cy as i32, 6)?;
         let reach = self.walkable_from(start);
         let natural = self.expansion_spot(cx, cy);
         let me = self.seat() as usize;
@@ -131,8 +133,14 @@ impl World {
         self.find_spot_within(kind, cx, cy, from, ROOM_FAR, &ok)
     }
 
-    /// Tiles a walker can reach from `start` (4-neighbour steps over free ground).
+    /// What this seat's workers may stand on (its builders' class at the water level).
+    pub(crate) fn worker_foot(&self) -> crate::map::Foot {
+        self.foot(self.factions[self.seat() as usize].worker)
+    }
+
+    /// Tiles this seat's workers can reach from `start` (4-neighbour steps over ground they may stand on).
     fn walkable_from(&self, start: (i32, i32)) -> Vec<bool> {
+        let foot = self.worker_foot();
         let mut seen = vec![false; self.map.rock.len()];
         let mut todo = vec![start];
         seen[self.map.idx(start.0, start.1)] = true;
@@ -140,7 +148,7 @@ impl World {
             for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
                 if self.map.in_map(nx, ny)
                     && !seen[self.map.idx(nx, ny)]
-                    && !self.map.blocked(nx, ny)
+                    && self.map.passable(foot, nx, ny)
                 {
                     seen[self.map.idx(nx, ny)] = true;
                     todo.push((nx, ny));
@@ -162,15 +170,17 @@ impl World {
         self.level().expands_when_dry && home < HOME_LOW
     }
 
-    /// The AI keeps a free one-tile walkway around everything it builds, so it never walls its own units in.
+    /// The AI keeps a free one-tile walkway around everything it builds, so it never walls its own units in (ground
+    /// its workers may stand on).
     pub(crate) fn walkway_around(&self, tx: i32, ty: i32, w: i32, h: i32) -> bool {
+        let foot = self.worker_foot();
         for y in -1..=h {
             for x in -1..=w {
                 if x >= 0 && y >= 0 && x < w && y < h {
                     continue;
                 }
                 let (xx, yy) = (tx + x, ty + y);
-                if !self.map.in_map(xx, yy) || self.map.blocked(xx, yy) {
+                if !self.map.passable(foot, xx, yy) {
                     return false;
                 }
             }

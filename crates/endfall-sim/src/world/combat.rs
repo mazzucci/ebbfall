@@ -437,6 +437,9 @@ impl World {
     }
 
     pub(crate) fn fire(&mut self, shooter: Id, target: Id) {
+        if self.unit(shooter).is_some() && self.in_deep(shooter) {
+            return; // deep water is a road: nothing fires from it (nor spends its cooldown)
+        }
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
         let Some((w, x, y, team)) = self.weapon_of(shooter) else {
             return; // unarmed (or gone)
@@ -628,9 +631,10 @@ impl World {
             self.deploy(uid);
             return;
         }
+        let deep = self.in_deep(uid); // (an idle unit in deep water picks no fight: it cannot fire from there)
         let u = self.um(uid);
         u.aggro_cd -= dt;
-        if c.combat && u.aggro_cd <= 0.0 {
+        if c.combat && !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
             // (an idle siege gun looks as far as it shoots: it sets up where it stands)
@@ -665,9 +669,10 @@ impl World {
 
     /// Attack-move: walk to (x, y), turning on any enemy met on the way.
     pub(crate) fn update_amove(&mut self, uid: Id, x: f64, y: f64, c: Live, dt: f64) {
+        let deep = self.in_deep(uid); // (crossing deep water, it picks no fight: it could not fire from there)
         let u = self.um(uid);
         u.aggro_cd -= dt;
-        if u.aggro_cd <= 0.0 {
+        if !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
             let t = self.find_target(
@@ -750,6 +755,19 @@ impl World {
             }
             return;
         };
+        // In deep water nothing fires, and closing in does not get it out against a flyer or a target itself in deep
+        // water: it gives the chase up, as for a target gone (two crossing armies do not circle each other mid-sea).
+        if self.in_deep(uid)
+            && self
+                .unit(target)
+                .is_some_and(|v| v.kind.def().air || self.ground_at(v.x, v.y) == Ground::Deep)
+        {
+            match back {
+                Some(b) => self.resume_back(uid, b),
+                None => self.resume_after(uid),
+            }
+            return;
+        }
         // A target picked up on the way gives way to something that matters more: anything in sight that can
         // shoot us, or a unit in weapon range instead of a plain building. An explicit attack order stands.
         if let Some(b) = back
@@ -795,8 +813,14 @@ impl World {
             self.siege_attack(uid, target, t, back, c, reach, dt);
             return;
         }
-        // Like the JS, this tick still closes on and fires at the original target.
-        if self.approach(uid, t, c.range + c.r * 0.5, dt) && self.u(uid).cd <= 0.0 {
+        // Like the JS, this tick still closes on and fires at the original target. In deep water (where nothing
+        // fires) it closes on until it stands on shallows or land.
+        let reach = if self.in_deep(uid) {
+            0.0
+        } else {
+            c.range + c.r * 0.5
+        };
+        if self.approach(uid, t, reach, dt) && self.u(uid).cd <= 0.0 {
             self.fire(uid, target);
         }
     }

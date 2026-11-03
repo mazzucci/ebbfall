@@ -72,6 +72,7 @@ pub(super) const LUMEN: UnitDef = UnitDef {
         melee: true,
         ..W
     }),
+    mv: Move::Amph,
     ..UNIT
 };
 pub(super) const SCYTHE: UnitDef = UnitDef {
@@ -95,6 +96,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
         ..W
     }),
     abilities: &[AbilityKind::Blink],
+    mv: Move::Amph,
     ..UNIT
 };
 pub(super) const PRISM: UnitDef = UnitDef {
@@ -118,6 +120,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
         up_dmg: 1.0,
         ..W
     }),
+    mv: Move::Amph,
     ..UNIT
 };
 pub(super) const HALO: UnitDef = UnitDef {
@@ -133,6 +136,7 @@ pub(super) const HALO: UnitDef = UnitDef {
     mend: true,
     req: Some(BldgKind::Loom),
     detect: 5.0, // (the Vael's detector in the field: its army's eyes)
+    mv: Move::Amph,
     ..UNIT
 };
 /// The Umbra: a blade of folded shadow, always cloaked (as the Observer is): seen and struck only where the other side
@@ -161,6 +165,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
         up_dmg: 3.0,
         ..W
     }),
+    mv: Move::Amph,
     ..UNIT
 };
 /// The Vael capital barge: a great shell gliding low, whose beam splashes the ground from far off; it cannot hit flyers.
@@ -187,6 +192,7 @@ pub(super) const SOVEREIGN: UnitDef = UnitDef {
         splash_r: 48.0,
         ..W
     }),
+    mv: Move::Amph,
     ..UNIT
 };
 pub(super) const MONOLITH: UnitDef = UnitDef {
@@ -213,6 +219,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
         ..W
     }),
     abilities: &[AbilityKind::Overcharge],
+    mv: Move::Amph,
     ..UNIT
 };
 pub(super) const SHRIKE: UnitDef = UnitDef {
@@ -227,6 +234,7 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     r: 11.0,
     build: 28.0,
     air: true,
+    mv: Move::Fly,
     weapon: Some(Weapon {
         range: 3.5,
         dmg: 12.0,

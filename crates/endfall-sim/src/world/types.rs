@@ -322,6 +322,14 @@ pub struct Stats {
     pub razed: u32,
 }
 
+/// A seat's resources since the game began, `[shards, ether]`: mined (delivered to a drop-off) and spent (paid out,
+/// less refunds). For the balance lab (crates/endfall-lab); not world state (derived, not hashed, read by no rule).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Ledger {
+    pub mined: [i64; 2],
+    pub spent: [i64; 2],
+}
+
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.
 #[derive(Clone, Copy, Debug)]
 pub enum Geo {

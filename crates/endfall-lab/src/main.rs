@@ -1,0 +1,225 @@
+//! `npm run lab -- report | compare A.json B.json | sheet`: see README.md.
+
+use endfall_lab::batch::{Batch, LEVELS};
+use endfall_lab::json::Json;
+use endfall_lab::{compare, run_report, sheet};
+use endfall_sim::map::MapKind;
+use std::path::PathBuf;
+use std::time::Instant;
+
+/// target/lab at the workspace's root (gitignored, as all of target/).
+fn out_dir() -> PathBuf {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    root.canonicalize().unwrap_or(root).join("target/lab")
+}
+
+/// The commit this is built from, short, with "+dirty" when tracked files have changes.
+fn commit() -> String {
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+    let head = git(&["rev-parse", "--short", "HEAD"]).unwrap_or_else(|| "unknown".into());
+    let dirty =
+        git(&["status", "--porcelain", "--untracked-files=no"]).is_some_and(|s| !s.is_empty());
+    if dirty { format!("{head}+dirty") } else { head }
+}
+
+/// Today's date (UTC), from the clock: for the header only.
+fn today() -> String {
+    let days = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() / 86_400) as i64;
+    // (civil from days, Howard Hinnant's algorithm)
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + (m <= 2) as i64;
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+fn die(msg: &str) -> ! {
+    eprintln!(
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]"
+    );
+    std::process::exit(2)
+}
+
+fn parse_map(s: &str) -> MapKind {
+    MapKind::ALL
+        .into_iter()
+        .find(|m| format!("{m:?}").eq_ignore_ascii_case(s))
+        .unwrap_or_else(|| die(&format!("no map '{s}'")))
+}
+fn parse_level(s: &str) -> usize {
+    LEVELS
+        .iter()
+        .position(|l| l.eq_ignore_ascii_case(s))
+        .or_else(|| s.parse().ok().filter(|&l: &usize| l < LEVELS.len()))
+        .unwrap_or_else(|| die(&format!("no level '{s}'")))
+}
+
+fn report(args: &[String]) {
+    let mut batch = Batch::default_batch();
+    let (mut threads, mut band, mut out) = (
+        std::thread::available_parallelism().map_or(1, |n| n.get()),
+        (10.0, 20.0),
+        None,
+    );
+    let mut extra_maps = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let mut val = || {
+            it.next()
+                .cloned()
+                .unwrap_or_else(|| die(&format!("{a} needs a value")))
+        };
+        match a.as_str() {
+            "--quick" => {
+                let seeds_set = batch.seeds != Batch::default_batch().seeds;
+                let keep = batch.seeds;
+                batch = Batch::quick();
+                if seeds_set {
+                    batch.seeds = keep;
+                }
+            }
+            "--seeds" => batch.seeds = val().parse().unwrap_or_else(|_| die("--seeds N")),
+            "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--sizes" => {
+                batch.sizes = val()
+                    .split(',')
+                    .map(|s| s.parse().unwrap_or_else(|_| die("--sizes 64,96")))
+                    .collect()
+            }
+            "--maps" => extra_maps = val().split(',').map(parse_map).collect(),
+            "--levels" => batch.levels = val().split(',').map(parse_level).collect(),
+            "--no-ladder" => batch.ladder = false,
+            "--threads" => threads = val().parse().unwrap_or_else(|_| die("--threads N")),
+            "--length-band" => {
+                let v = val();
+                let (lo, hi) = v
+                    .split_once('-')
+                    .unwrap_or_else(|| die("--length-band LO-HI (minutes)"));
+                band = (
+                    lo.parse().unwrap_or_else(|_| die("--length-band")),
+                    hi.parse().unwrap_or_else(|_| die("--length-band")),
+                );
+            }
+            "--out" => out = Some(PathBuf::from(val())),
+            _ => die(&format!("unknown flag {a}")),
+        }
+    }
+    for m in extra_maps {
+        if !batch.maps.contains(&m) {
+            batch.maps.push(m);
+        }
+    }
+    for &s in &batch.sizes {
+        if ![64, 96, 128].contains(&s) {
+            die("sizes are 64, 96 or 128");
+        }
+    }
+    let commit = commit();
+    let total = batch.cells().len() * batch.seeds as usize;
+    eprintln!("lab: {total} games on {threads} threads…");
+    let t0 = Instant::now();
+    let step = (total / 20).max(1);
+    let progress = |done: usize, total: usize| {
+        if done.is_multiple_of(step) || done == total {
+            eprintln!(
+                "lab: {done}/{total} games, {:.0} s",
+                t0.elapsed().as_secs_f64()
+            );
+        }
+    };
+    let r = run_report(batch.clone(), band, &commit, threads, &progress);
+    let secs = t0.elapsed().as_secs_f64();
+    let path = out.unwrap_or_else(|| out_dir().join(format!("report-{commit}.json")));
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(&path, r.json().write())
+        .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
+    let header = format!(
+        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}, {} seeds a cell, {} min cap: {total} games in {:.0} s on {threads} threads. JSON: {}",
+        today(),
+        batch.sizes,
+        batch.maps,
+        batch
+            .levels
+            .iter()
+            .map(|&l| LEVELS[l])
+            .collect::<Vec<_>>()
+            .join(", "),
+        if batch.ladder { "yes" } else { "no" },
+        batch.seeds,
+        batch.cap_min,
+        secs,
+        path.display()
+    );
+    print!("{}", r.markdown(&header));
+}
+
+fn read(path: &str) -> Json {
+    let text =
+        std::fs::read_to_string(path).unwrap_or_else(|e| die(&format!("cannot read {path}: {e}")));
+    Json::parse(&text).unwrap_or_else(|e| die(&format!("{path}: {e}")))
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str) {
+        Some("report") => report(&args[1..]),
+        Some("compare") => {
+            let [a, b] = &args[1..] else {
+                die("compare A.json B.json")
+            };
+            print!("{}", compare::compare(&read(a), &read(b), a, b).0);
+        }
+        Some("sheet") => {
+            let (mut w, mut source, mut observed) = (1.5, "assumed".to_string(), None);
+            let mut it = args[1..].iter();
+            while let Some(a) = it.next() {
+                let v = it
+                    .next()
+                    .unwrap_or_else(|| die(&format!("{a} needs a value")));
+                match a.as_str() {
+                    "--ether-weight" => {
+                        w = v.parse().unwrap_or_else(|_| die("--ether-weight W"));
+                        source = "set by --ether-weight".into();
+                    }
+                    "--ether-weight-from" => {
+                        let r = read(v);
+                        let o = r
+                            .get("key")
+                            .and_then(|k| k.get("Observed shards per ether"))
+                            .and_then(Json::str)
+                            .and_then(|s| s.parse::<f64>().ok())
+                            .unwrap_or_else(|| {
+                                die(&format!("{v} has no observed shards per ether"))
+                            });
+                        (w, observed, source) = (o, Some(o), format!("observed in {v}"));
+                    }
+                    _ => die(&format!("unknown flag {a}")),
+                }
+            }
+            let (md, csv) = sheet::sheet(w, observed, &source);
+            let path = out_dir().join(format!("sheet-{}.csv", commit()));
+            let _ = std::fs::create_dir_all(out_dir());
+            std::fs::write(&path, csv)
+                .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
+            print!("{md}\nCSV: {}\n", path.display());
+        }
+        _ => die("a command: report, compare or sheet"),
+    }
+}

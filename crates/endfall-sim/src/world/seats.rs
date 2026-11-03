@@ -54,6 +54,7 @@ impl World {
         self.stats.clear();
         self.army_log.clear();
         self.lost_to.clear();
+        self.ledger.clear();
         self.upgrades.clear();
         self.unseen_alert.clear();
         for _ in 0..self.seats() {
@@ -72,6 +73,7 @@ impl World {
         self.stats.push(Stats::default());
         self.army_log.push(Vec::new());
         self.lost_to.push(Vec::new());
+        self.ledger.push(Ledger::default());
         self.upgrades.push([0; UPGRADES.len()]);
         self.unseen_alert.push(f64::MIN);
     }

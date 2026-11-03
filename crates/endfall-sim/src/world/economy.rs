@@ -338,6 +338,7 @@ impl World {
                 timer,
             };
             self.res[team as usize][slot] += gain;
+            self.ledger[team as usize].mined[slot] += gain as i64;
             self.sfx(team, "coin");
         }
     }

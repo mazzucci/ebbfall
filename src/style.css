@@ -307,6 +307,14 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   :is(#btnBox,#btnHome,#btnArmy) .ico{width:18px;height:18px} :is(#btnBox,#btnHome,#btnArmy) span{font-size:8px}
   /* Toasts: above the three, under the left thumb's corner, two at most. */
   #msg{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 188px);max-width:45%}
+  /* A narrow landscape phone (under 700 px: an iPhone SE, small Androids): the selection console needs the room, so
+     the minimap stays 104 px and the three over it are icons only, 32 px each, as wide as it together. */
+  @media (max-width:699px){
+    #minimap{width:104px;height:104px} #info{width:min(480px,calc(100% - 340px))} #hint{left:126px}
+    :is(#btnBox,#btnHome,#btnArmy){--bw:32px;bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 112px)}
+    :is(#btnBox,#btnHome,#btnArmy) span{display:none} :is(#btnBox,#btnHome,#btnArmy) .ico{width:20px;height:20px}
+    #msg{bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 164px)}
+  }
   /* Grows at once (so a nudge has one finger-to-map ratio from the first move), shrinks back smoothly. */
   #minimap{transition:transform .12s ease-out;transform-origin:0 100%} #minimap.big{transform:scale(2);transition:none;position:relative;z-index:6} /* above the selection console while enlarged */
   @media (max-height:340px){#minimap.big{transform:scale(1.625)}} /* (a very short screen: enlarged to 208 px, clear of the top bar) */

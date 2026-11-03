@@ -3,7 +3,7 @@
 
 use crate::data::TILE;
 use crate::jsmath;
-use crate::map::Map;
+use crate::map::{Foot, Map};
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Pt {
@@ -111,23 +111,35 @@ pub const SEARCH_CAP: usize = 5000;
 /// per waypoint rather than the route's whole length (it was about half a cross-map path's time).
 pub const SMOOTH_LOOK: usize = 24;
 
-/// World-space waypoints (excluding the start), or None if unreachable. Expands at most `SEARCH_CAP` nodes per 4096
-/// tiles of map.
+/// World-space waypoints (excluding the start), or None if unreachable, for a walker with `foot` (only tiles it may
+/// stand on: `Map::passable`). Expands at most `SEARCH_CAP` nodes per 4096 tiles of map.
 pub fn astar(
     map: &Map,
+    foot: Foot,
     s: &mut PathScratch,
     sx: i32,
     sy: i32,
     gx: i32,
     gy: i32,
 ) -> Option<Vec<Pt>> {
-    astar_capped(map, s, sx, sy, gx, gy, SEARCH_CAP * map.rock.len() / 4096)
+    astar_capped(
+        map,
+        foot,
+        s,
+        sx,
+        sy,
+        gx,
+        gy,
+        SEARCH_CAP * map.rock.len() / 4096,
+    )
 }
 
 /// `astar` expanding at most `cap` nodes (a short search: a unit joining a group's route, or from its end to its own
 /// spot), ending at the nearest point it found if the goal is farther.
+#[allow(clippy::too_many_arguments)]
 pub fn astar_capped(
     map: &Map,
+    foot: Foot,
     s: &mut PathScratch,
     sx: i32,
     sy: i32,
@@ -135,9 +147,9 @@ pub fn astar_capped(
     gy: i32,
     cap: usize,
 ) -> Option<Vec<Pt>> {
-    let (gx, gy) = map.nearest_free(gx, gy, 8)?;
-    let (sx, sy) = if map.blocked(sx, sy) {
-        map.nearest_free(sx, sy, 3)?
+    let (gx, gy) = map.nearest_passable(foot, gx, gy, 8)?;
+    let (sx, sy) = if !map.passable(foot, sx, sy) {
+        map.nearest_passable(foot, sx, sy, 3)?
     } else {
         (sx, sy)
     };
@@ -185,10 +197,12 @@ pub fn astar_capped(
                     continue;
                 }
                 let (nx, ny) = (c.x + dx, c.y + dy);
-                if map.blocked(nx, ny) {
+                if !map.passable(foot, nx, ny) {
                     continue;
                 }
-                if dx != 0 && dy != 0 && (map.blocked(c.x + dx, c.y) || map.blocked(c.x, c.y + dy))
+                if dx != 0
+                    && dy != 0
+                    && (!map.passable(foot, c.x + dx, c.y) || !map.passable(foot, c.x, c.y + dy))
                 {
                     continue;
                 }
@@ -234,7 +248,7 @@ pub fn astar_capped(
     let mut k = 0;
     while k < path.len() {
         let mut j = (path.len() - 1).min(k + SMOOTH_LOOK);
-        while j > k && !los(map, cur, path[j]) {
+        while j > k && !los(map, foot, cur, path[j]) {
             j -= 1;
         }
         out.push(path[j]);
@@ -244,8 +258,8 @@ pub fn astar_capped(
     Some(out)
 }
 
-/// True when a unit-sized body can travel the straight segment a→b without touching a blocked tile.
-pub fn los(map: &Map, a: Pt, b: Pt) -> bool {
+/// True when a unit-sized body with `foot` can travel the straight segment a→b touching only tiles it may stand on.
+pub fn los(map: &Map, foot: Foot, a: Pt, b: Pt) -> bool {
     let steps = (jsmath::dist(a.x, a.y, b.x, b.y) / 10.0).ceil() + 1.0;
     let mut i = 0.0;
     while i <= steps {
@@ -259,7 +273,8 @@ pub fn los(map: &Map, a: Pt, b: Pt) -> bool {
             (8.0, -8.0),
             (-8.0, -8.0),
         ] {
-            if map.blocked(
+            if !map.passable(
+                foot,
                 ((x + ox) / TILE).floor() as i32,
                 ((y + oy) / TILE).floor() as i32,
             ) {

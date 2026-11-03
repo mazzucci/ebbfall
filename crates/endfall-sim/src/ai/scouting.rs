@@ -119,9 +119,7 @@ impl World {
             for gx in grid(self.map.w) {
                 let open = (-2..=2).flat_map(|dy| (-2..=2).map(move |dx| (gx + dx, gy + dy)));
                 if let Some((tx, ty)) = open
-                    .filter(|&(x, y)| {
-                        self.map.in_map(x, y) && self.map.rock[self.map.idx(x, y)] == 0
-                    })
+                    .filter(|&(x, y)| self.map.passable(self.worker_foot(), x, y))
                     .min_by_key(|&(x, y)| (x - gx).abs() + (y - gy).abs())
                 {
                     pts.push(((tx as f64 + 0.5) * TILE, (ty as f64 + 0.5) * TILE));

@@ -107,7 +107,10 @@ impl World {
                 jsmath::to_i32(cx + (nx as f64 + 0.5 - cx) * k),
                 jsmath::to_i32(cy + (ny as f64 + 0.5 - cy) * k),
             );
-            let f = self.map.nearest_free(at.0, at.1, 4).unwrap_or((bx, by + 5));
+            let f = self
+                .map
+                .nearest_passable(self.foot(faction.worker), at.0, at.1, 4)
+                .unwrap_or((bx, by + 5));
             let u = self.make_unit(
                 faction.worker,
                 team,

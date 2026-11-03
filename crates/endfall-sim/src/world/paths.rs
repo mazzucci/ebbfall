@@ -29,6 +29,8 @@ const SHORT_CAP: usize = 300;
 /// a way to a building: `World::path_to_rect`), and its points from the start's centre on.
 struct Shared {
     team: u8,
+    /// Who can walk it: the route's walkers' class (and the water level).
+    foot: Foot,
     start: (i32, i32),
     goal: (i32, i32),
     rect: Option<Rect>,
@@ -153,6 +155,7 @@ impl World {
     fn keep(
         &mut self,
         team: u8,
+        foot: Foot,
         a: (i32, i32),
         goal: Option<(i32, i32)>,
         rect: Option<Rect>,
@@ -166,6 +169,7 @@ impl World {
         pts.extend_from_slice(p);
         self.plans.shared.push(Shared {
             team,
+            foot,
             start: a,
             goal: goal.unwrap_or_else(|| self.map.tile_of(end.x, end.y)),
             rect,
@@ -178,24 +182,27 @@ impl World {
     pub(crate) fn plan_walk(
         &mut self,
         team: u8,
+        foot: Foot,
         (ux, uy): (f64, f64),
         a: (i32, i32),
         b: (i32, i32),
         refresh: bool,
     ) -> Plan {
         let long = far(a, b, LONG_SEARCH - 1);
-        if long && let Some(p) = self.join_shared(team, Pt { x: ux, y: uy }, a, Bound::Tile(b)) {
+        if long
+            && let Some(p) = self.join_shared(team, foot, Pt { x: ux, y: uy }, a, Bound::Tile(b))
+        {
             self.plans.work.shared += 1;
-            return Plan::Route(self.first_leg_from((ux, uy), a, Some(p)));
+            return Plan::Route(self.first_leg_from(foot, (ux, uy), a, Some(p)));
         }
         if !self.may_search(team, a, b, refresh) {
             return Plan::Wait;
         }
-        let path = astar(&self.map, &mut self.scratch, a.0, a.1, b.0, b.1);
+        let path = astar(&self.map, foot, &mut self.scratch, a.0, a.1, b.0, b.1);
         if long {
-            self.keep(team, a, Some(b), None, &path);
+            self.keep(team, foot, a, Some(b), None, &path);
         }
-        Plan::Route(self.first_leg_from((ux, uy), a, path))
+        Plan::Route(self.first_leg_from(foot, (ux, uy), a, path))
     }
 
     /// A walker's way from (`ux`, `uy`) to the side of a building (`rect`, aiming at `aim`): as `plan_walk`, shared by
@@ -204,6 +211,7 @@ impl World {
     pub(crate) fn plan_to_rect(
         &mut self,
         team: u8,
+        foot: Foot,
         (ux, uy): (f64, f64),
         rect: Rect,
         aim: (f64, f64),
@@ -212,18 +220,20 @@ impl World {
         let a = self.map.tile_of(ux, uy);
         let g = self.map.tile_of(aim.0, aim.1);
         let long = far(a, g, LONG_SEARCH - 1);
-        if long && let Some(p) = self.join_shared(team, Pt { x: ux, y: uy }, a, Bound::Rect(rect)) {
+        if long
+            && let Some(p) = self.join_shared(team, foot, Pt { x: ux, y: uy }, a, Bound::Rect(rect))
+        {
             self.plans.work.shared += 1;
-            return Plan::Route(self.first_leg_from((ux, uy), a, Some(p)));
+            return Plan::Route(self.first_leg_from(foot, (ux, uy), a, Some(p)));
         }
         if !self.may_search(team, a, g, refresh) {
             return Plan::Wait;
         }
-        let path = self.path_to_rect(ux, uy, rect, aim, long.then_some(team));
+        let path = self.path_to_rect(foot, ux, uy, rect, aim, long.then_some(team));
         if long {
-            self.keep(team, a, None, Some(rect), &path);
+            self.keep(team, foot, a, None, Some(rect), &path);
         }
-        Plan::Route(self.first_leg_from((ux, uy), a, path))
+        Plan::Route(self.first_leg_from(foot, (ux, uy), a, path))
     }
 
     /// A route is smoothed from the centre of the unit's tile `a`, but the unit walks its first leg from where it
@@ -233,6 +243,7 @@ impl World {
     /// first. (Its centre's line only: one merely walking close to a wall goes straight on.)
     fn first_leg_from(
         &self,
+        foot: Foot,
         (ux, uy): (f64, f64),
         a: (i32, i32),
         path: Option<Vec<Pt>>,
@@ -240,8 +251,8 @@ impl World {
         let mut p = path?;
         let pos = Pt { x: ux, y: uy };
         if let Some(&first) = p.first()
-            && !self.map.blocked(a.0, a.1)
-            && !centre_clear(&self.map, pos, first)
+            && self.map.passable(foot, a.0, a.1)
+            && !centre_clear(&self.map, foot, pos, first)
         {
             p.insert(0, centre(a));
         }
@@ -252,9 +263,17 @@ impl World {
     /// building) can take: it walks straight to the farthest of the route's first waypoints it can (or finds a short
     /// way onto its start), follows it, and at its end goes on to its own tile (straight, or by a short search that
     /// gets there). None: no such route.
-    fn join_shared(&mut self, team: u8, pos: Pt, a: (i32, i32), to: Bound) -> Option<Vec<Pt>> {
+    fn join_shared(
+        &mut self,
+        team: u8,
+        foot: Foot,
+        pos: Pt,
+        a: (i32, i32),
+        to: Bound,
+    ) -> Option<Vec<Pt>> {
         let k = self.plans.shared.iter().position(|e| {
             e.team == team
+                && e.foot == foot
                 && !far(e.start, a, JOIN_START)
                 && match to {
                     Bound::Tile(b) => e.rect.is_none() && !far(e.goal, b, JOIN_GOAL),
@@ -267,12 +286,16 @@ impl World {
         };
         let e = &self.plans.shared[k];
         let look = e.pts.len().min(JOIN_LOOK);
-        let mut out = match (0..look).rev().find(|&j| los(&self.map, pos, e.pts[j])) {
+        let mut out = match (0..look)
+            .rev()
+            .find(|&j| los(&self.map, foot, pos, e.pts[j]))
+        {
             Some(j) => e.pts[j..].to_vec(),
             None => {
                 let (start, rest) = (e.start, e.pts[1..].to_vec());
                 let mut p = astar_capped(
                     &self.map,
+                    foot,
                     &mut self.scratch,
                     a.0,
                     a.1,
@@ -293,18 +316,26 @@ impl World {
             // short search.
             let g = centre(b);
             let n = out.len();
-            let free = !self.map.blocked(b.0, b.1);
-            if free && n >= 2 && los(&self.map, out[n - 2], g) {
+            let free = self.map.passable(foot, b.0, b.1);
+            if free && n >= 2 && los(&self.map, foot, out[n - 2], g) {
                 out[n - 1] = g;
-            } else if free && los(&self.map, out.last().copied().unwrap_or(pos), g) {
+            } else if free && los(&self.map, foot, out.last().copied().unwrap_or(pos), g) {
                 out.push(g);
             } else {
                 let end = out.last().copied().unwrap_or(pos);
                 let t = self.map.tile_of(end.x, end.y);
-                let tail =
-                    astar_capped(&self.map, &mut self.scratch, t.0, t.1, b.0, b.1, SHORT_CAP)?;
+                let tail = astar_capped(
+                    &self.map,
+                    foot,
+                    &mut self.scratch,
+                    t.0,
+                    t.1,
+                    b.0,
+                    b.1,
+                    SHORT_CAP,
+                )?;
                 // (it must get there: a spot behind a wall from the route's end needs a search of its own)
-                let there = self.map.nearest_free(b.0, b.1, 8).map(centre);
+                let there = self.map.nearest_passable(foot, b.0, b.1, 8).map(centre);
                 if tail.last().copied().or(Some(end)) != there {
                     return None;
                 }
@@ -317,13 +348,13 @@ impl World {
 
 /// True when a point travelling the straight segment a→b stays off blocked tiles (a unit's centre: what `separate`
 /// pushes out of rock).
-fn centre_clear(map: &Map, a: Pt, b: Pt) -> bool {
+fn centre_clear(map: &Map, foot: Foot, a: Pt, b: Pt) -> bool {
     let steps = (jsmath::dist(a.x, a.y, b.x, b.y) / 4.0).ceil() + 1.0;
     let mut i = 0.0;
     while i <= steps {
         let t = i / steps;
         let (x, y) = (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-        if map.blocked((x / TILE).floor() as i32, (y / TILE).floor() as i32) {
+        if !map.passable(foot, (x / TILE).floor() as i32, (y / TILE).floor() as i32) {
             return false;
         }
         i += 1.0;

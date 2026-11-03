@@ -221,6 +221,7 @@ pub(super) const BASTION: UnitDef = UnitDef {
     r: 18.0,
     build: 60.0,
     air: true,
+    mv: Move::Fly,
     capital: true,
     weapon: Some(Weapon {
         range: 6.5,
@@ -246,6 +247,7 @@ pub(super) const RAIDER: UnitDef = UnitDef {
     r: 10.0,
     build: 24.0,
     air: true,
+    mv: Move::Fly,
     weapon: Some(Weapon {
         range: 3.0,
         dmg: 9.0,
@@ -269,6 +271,7 @@ pub(super) const OBSERVER: UnitDef = UnitDef {
     r: 8.0,
     build: 14.0,
     air: true,
+    mv: Move::Fly,
     cloaked: true,
     detect: 7.0,
     ..UNIT

@@ -26,6 +26,18 @@ pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
 
+/// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
+pub const WADE_SPEED: f64 = 0.7;
+
+/// How a unit gets about: on foot over land and shallows (Walk), anywhere water or land (Amph), or in the air (Fly).
+/// Rock and buildings block Walk and Amph alike (src/map.rs `passable`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Move {
+    Walk,
+    Amph,
+    Fly,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProjKind {
     Bolt,
@@ -218,6 +230,9 @@ def_struct! {
         build: f64 = "build",
         /// Flies: moves in straight lines over terrain and buildings, only collides with other flyers.
         air: bool = "air",
+        /// How it gets about (`Move`): Walk for the Humans' ground units, Amph for the Vael's, Fly for flyers (exactly
+        /// the `air` ones).
+        mv: Move = "move",
         /// Living infantry (Medics heal these).
         bio: bool = "bio",
         /// Hit points per second healed into nearby damaged infantry (Medic), or with `mend`, shield points into nearby
@@ -388,6 +403,7 @@ const UNIT: UnitDef = UnitDef {
     r: 9.0,
     build: 15.0,
     air: false,
+    mv: Move::Walk,
     bio: false,
     heal: 0.0,
     mend: false,

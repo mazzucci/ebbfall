@@ -100,6 +100,15 @@ impl ToJson for Option<ProjKind> {
         .to_string()
     }
 }
+impl ToJson for Move {
+    fn to_json(&self) -> String {
+        quote(match self {
+            Move::Walk => "walk",
+            Move::Amph => "amph",
+            Move::Fly => "fly",
+        })
+    }
+}
 impl ToJson for Option<BldgKind> {
     fn to_json(&self) -> String {
         self.map_or("null".to_string(), |b| quote(b.def().key))

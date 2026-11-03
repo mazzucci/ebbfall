@@ -631,7 +631,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.ok(await page.locator('#soloSheet').isHidden());
       assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'tok0', 'Escape: the focus back on the token');
       assert.equal(await page.locator('#lblSound').count(), 0, 'no SOUND row');
-      assert.ok(await shown('#btnFirst') && await shown('#btnStart') && await shown('#cornerSound'), 'FIRST GAME, START GAME, the sound icon');
+      assert.ok(await shown('#btnStart') && await shown('#cornerSound') && !(await page.locator('#btnFirst').count()), 'START GAME and the sound icon (no FIRST GAME here: it is on the first page)');
       await press('#btnSoloBack');
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'BACK: the first page');
       // MULTIPLAYER: the lobby's join form, the same sound icon in the corner; BACK.
@@ -667,7 +667,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
       assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 2 lost$/, 'RANDOM\'s record: both races\' games');
       assert.ok(await page.locator('#btnFirstHome').isHidden(), 'games on the record: FIRST GAME off the first page');
-      await press('#btnSolo'); assert.ok(await shown('#btnFirst'), 'still in single player');
+      await press('#btnSolo');
       await board(page).race(0, 'vael'); await press('#btnSoloBack');
       assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 1 lost$/, 'the Vael\'s alone');
       assert.deepEqual(errors, []);
@@ -675,7 +675,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
   }
 });
 
-test('a newcomer\'s FIRST GAME on the first page; once the guided game is over, only in single player', async () => {
+test('a newcomer\'s FIRST GAME on the first page, and only there; once the guided game is over, not offered any more', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
     await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
@@ -689,7 +689,7 @@ test('a newcomer\'s FIRST GAME on the first page; once the guided game is over, 
     assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#btnFirstHome').isHidden(), 'no FIRST GAME on the first page any more');
     assert.equal(await page.locator('#record').textContent(), '', 'a guided game is not on the record');
     await page.locator('#btnSolo').click();
-    assert.ok(await page.locator('#btnFirst').isVisible(), 'FIRST GAME in single player');
+    assert.equal(await page.locator('#btnFirst').count(), 0, 'nor in single player');
     await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
     assert.ok(await page.locator('#btnFirstHome').isHidden(), 'remembered on this device');
   } finally { await ctx.close(); }
@@ -780,7 +780,7 @@ test('a game that could not load says so on the menu: START GAME and FIRST GAME 
     const top = await page.evaluate(() => { const b = document.getElementById('loadFailed').getBoundingClientRect(); return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2)?.closest('#loadFailed') !== null; });
     assert.ok(top, 'the line is on the menu, not under it');
     await page.locator('#btnSolo').click();
-    assert.equal(await page.locator('#btnStart').textContent(), 'RELOAD'); assert.equal(await page.locator('#btnFirst').textContent(), 'RELOAD');
+    assert.equal(await page.locator('#btnStart').textContent(), 'RELOAD');
     const before = tries;
     await Promise.all([page.waitForEvent('load'), page.locator('#btnStart').click()]);
     await page.waitForFunction(() => !!document.getElementById('loadFailed'), null, { timeout: 10000 });
@@ -3067,6 +3067,42 @@ test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PL
       const lines = [...new Set(got.bs.map(b => b.top))];
       assert.equal(lines.length, w > h ? 1 : 2, `${w}x${h}: ${w > h ? 'one line' : 'two lines'}: ${lines}`);
       for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centred: ${l} | ${w - r}`); }
+    } finally { await ctx.close(); }
+  }
+});
+
+test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place, How to play from its top', async () => {
+  for (const device of [PHONE, DESKTOP]) {
+    const ctx = await browserContext(device), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      const click = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+      // Every visible button of the menu's pages and cards (not the game's top bar or card), measured.
+      const buttons = () => page.evaluate(() => [...document.querySelectorAll('.screen:not([hidden]) button')].filter(b => {
+        const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !b.closest('.board, dialog, .chips');
+      }).map(b => { const r = b.getBoundingClientRect(); return { id: b.id, text: b.textContent.trim(), x: Math.round(r.x), w: Math.round(r.width), h: Math.round(r.height) }; }));
+      const title = (sel) => page.evaluate((sel) => Math.round(document.querySelector(sel).getBoundingClientRect().y), sel);
+      const pages = [];
+      for (const [open, close, h2] of [['#btnSolo', '#btnSoloBack', '#menuSolo h2'], ['#btnOnline', '#btnOnlineBack', '#onlineJoin h2'], ['#btnAbout', '#btnAboutBack', '#menuAbout h2']]) {
+        await click(open);
+        await page.locator(close).waitFor();
+        pages.push({ open, back: (await buttons()).find(b => b.id === close.slice(1)), title: await title(h2), all: await buttons() });
+        await click(close);
+        await page.locator('#menuHome').waitFor();
+      }
+      const home = await buttons();
+      for (const b of [...home, ...pages.flatMap(p => p.all)]) assert.ok(b.h >= 44, `${device.hasTouch ? 'phone' : 'desktop'}: ${b.id || b.text} is ${b.h} px high`);
+      const backs = pages.map(p => p.back);
+      assert.ok(backs.every(b => b.w === backs[0].w && b.h === backs[0].h && b.x === backs[0].x), `BACK the same size, at the same place: ${JSON.stringify(backs)}`);
+      assert.ok(pages.every(p => p.title === pages[0].title), `the titles at one height: ${pages.map(p => p.title)}`);
+      assert.equal(await page.locator('#btnFirst').count(), 0, 'no FIRST GAME in single player');
+      // How to play opens at its top, its BACK as every other BACK.
+      await click('#btnHowTo');
+      await page.locator('#help').waitFor();
+      assert.equal(await page.evaluate(() => document.querySelector('#help .card').scrollTop), 0, 'How to play from its top');
+      const help = (await buttons()).find(b => b.id === 'btnHelpClose');
+      assert.ok(help.w === backs[0].w && help.h === backs[0].h, `its BACK the same size: ${JSON.stringify(help)}`);
     } finally { await ctx.close(); }
   }
 });

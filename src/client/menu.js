@@ -152,7 +152,7 @@ export function initMenu({ onStart }) {
   const last = store.get('map') === null ? -1 : +store.get('map');
   choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
   takeChallenge(); renderMaps(); renderSeats(); showRecord();
-  for (const b of [$('btnFirst'), $('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
+  for (const b of [$('btnFirstHome')]) b.addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
     sfx('select'); enterFullscreen(); menu.tutorial = false; if (!menu.challenge) choose(menu.map); // (a challenge: its own seed and starts)
@@ -167,7 +167,7 @@ export function initMenu({ onStart }) {
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
-  $('btnHowTo').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); });
+  $('btnHowTo').addEventListener('click', openHelp);
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
@@ -227,4 +227,12 @@ function showRecord() {
   const level = DIFF[diff]?.name || '';
   $('record').textContent = w + l ? `${level}: ${w} won · ${l} lost` : '';
   $('record').title = w + l ? `Your record ${you === 'random' ? 'with either race' : `as the ${raceTitle(you)}`} on ${level}` : '';
+}
+
+/** How to play, from the menu or the pause card: at its top (focusing BACK, at the bottom of a scrolling card, used to
+ *  open it scrolled to the end). */
+export function openHelp() {
+  $('help').hidden = false;
+  $('btnHelpClose').focus({ preventScroll: true });
+  $('help').querySelector('.card').scrollTop = 0;
 }

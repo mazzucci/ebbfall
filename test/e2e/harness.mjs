@@ -149,9 +149,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  await (touch ? page.locator('#btnSolo').tap() : page.locator('#btnSolo').click()); // the menu's first page: SINGLE PLAYER
-  if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
-  else if (race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
+  // The menu's first page: FIRST GAME (the guided game, offered there to a newcomer) or SINGLE PLAYER.
+  await (touch ? page.locator(first ? '#btnFirstHome' : '#btnSolo').tap() : page.locator(first ? '#btnFirstHome' : '#btnSolo').click());
+  if (!first && race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
   if (!first && diff !== 0) await board(page).diff(1, diff);
   if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);

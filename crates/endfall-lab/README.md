@@ -22,8 +22,10 @@ The default batch, on 64x64 and 96x96 Standard maps:
 
 That is 56 cells, 5 seeds each (seeds 1 to 5), with a 30 game-minute cap. A game still running at the cap is a
 timeout: it is reported, not counted as a win. The default batch is 280 games: 432 s on 4 cores (about 3 s a
-64x64 game, 8 s a 96x96 one), less with more cores. `--seeds 30` is a full run (about 40 minutes on 4 cores): use
-it for a baseline you mean to keep.
+64x64 game, 8 s a 96x96 one), less with more cores.
+
+**Baselines and before/after pairs use `--seeds 30`** (1,680 games, about 45 minutes on 4 cores); the default's 5
+seeds are for a quick look.
 
 | Flag | What it does |
 | --- | --- |

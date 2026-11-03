@@ -2729,12 +2729,15 @@ test('desktop, as the Vael: the Zenith trains an Umbra once an Eclipse stands (U
     const kiln = await buildAndFinish(d, 'k', 'kiln', 1, V);
     await d.clickEntity(kiln.id);
     await d.readyCard('Scythe');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Monolith 2', 'Halo 3', 'Rally 4', 'Cancel 5'], 'the Kiln: four units, Rally, Cancel; two rows');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Rally 4', 'Cancel 5'], 'the Kiln before a Loom: the Monolith\'s and the Halo\'s slots empty, Rally and Cancel in place; two rows');
     const zenith = await buildAndFinish(d, 'z', 'zenith', 2, V);
     await d.clickEntity(zenith.id);
     await d.readyCard('Shrike');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Shrike 0', 'Sovereign 2', 'Rally 3', 'Cancel 5'], 'the Zenith: the Umbra\'s slot empty until an Eclipse stands; two rows');
     await buildAndFinish(d, 'l', 'loom', 3, V);
+    await d.clickEntity(kiln.id);
+    await d.readyCard('Halo');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Scythe 0', 'Prism 1', 'Monolith 2', 'Halo 3', 'Rally 4', 'Cancel 5'], 'the Kiln with a Loom: four units, Rally, Cancel; two rows');
     await d.clickEntity(zenith.id);
     assert.equal(await d.page.locator('#cmd [data-id="t_umbra"]').count(), 0, 'a Loom alone unlocks nothing');
     const eclipse = await buildAndFinish(d, 'i', 'eclipse', 0, V); // (B then I: the Advanced page's key)

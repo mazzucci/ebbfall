@@ -249,8 +249,9 @@ fn jitter_probe() {
     }
 }
 
-/// Two-second windows of AI against AI on generated maps (four games, twelve minutes at most) in which a unit
-/// turned and stepped back 8 times or more in all: (turns, reversals, its kind, whether it is a worker, a line on it).
+/// Two-second windows of four games on generated maps, a Hard Vael AI against an idle Human player (whose four
+/// starting workers mine; each game ends when the Vael raze it, in four to five minutes), in which a unit turned and
+/// stepped back 8 times or more in all: (turns, reversals, its kind, whether it is a worker, a line on it).
 fn trembling_in_real_games() -> Vec<(usize, usize, bool, String)> {
     let mut worst = Vec::new();
     for (seed, kind) in [
@@ -318,9 +319,10 @@ fn trembling_in_real_games() -> Vec<(usize, usize, bool, String)> {
 
 #[test]
 fn workers_in_real_games_do_not_tremble() {
-    // Four AI-against-AI games: two-second windows in which a worker turned and stepped back 8 times or more. Before
-    // gathering workers passed through each other and settled at their work: 288 (275 of them Lumens queueing,
-    // mining or setting off at a field); after: a handful (a worker setting off between crystals, one fleeing).
+    // Four games of a Vael AI against an idle Human player: two-second windows in which a worker turned and stepped
+    // back 8 times or more. Before gathering workers passed through each other and settled at their work: 288 (275 of
+    // them Lumens queueing, mining or setting off at a field); after: a handful. (With both seats played by the AI,
+    // a slower measure: 2869 before, 364 after.)
     let workers: Vec<_> = trembling_in_real_games()
         .into_iter()
         .filter(|w| w.2)

@@ -1844,7 +1844,7 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
 #[test]
 fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_but_not_on_easy() {
     // Money to spare against an idle Human player: once its Zenith is going up and Umbras are near (5:00), the Vael
-    // AI raises an Eclipse (after its Loom; its Zenith comes from 4:30 to 6:30 here, so its Umbras by 11:00: with money refilled every tick it is supply-capped much of the time, and an Umbra waits for free supply like anything else), and its Zenith mixes in Umbras (one per six Scythes until it sees
+    // AI raises an Eclipse (after its Loom; its Zenith comes from 4:30 to 6:30 here, so its Umbras by 10:00; by 11:00 on Hard, whose larger army keeps it at its supply cap with money refilled every tick: traced at 9:00-9:30, its Zenith due an Umbra and idle at 132/132 and 140/140, the Umbra waiting for free supply like anything else), and its Zenith mixes in Umbras (one per six Scythes until it sees
     // detection with the enemy army) between its Shrikes and its Sovereign: the one building shares its time, so
     // each still comes, and the Eclipse weaves the Shrikes' techs. Easy, which neither adapts nor researches techs,
     // raises no Eclipse and never fields an unseen killer.
@@ -1887,9 +1887,9 @@ fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_but_not_on_ea
             "level {diff}: an Eclipse ({eclipse:?})"
         );
         assert_eq!(
-            first.is_some_and(|t| t < 660.0),
+            first.is_some_and(|t| t < if diff == 2 { 660.0 } else { 600.0 }),
             want,
-            "level {diff}: Umbras by 11:00 ({first:?}, the Eclipse at {eclipse:?})"
+            "level {diff}: Umbras by 10:00 (Hard 11:00) ({first:?}, the Eclipse at {eclipse:?})"
         );
         if let Some(t) = first {
             assert!(t > 300.0, "level {diff}: not before 5:00 ({t:.0} s)");

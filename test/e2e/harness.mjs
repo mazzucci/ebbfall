@@ -42,8 +42,14 @@ const fileOffset = (() => {
   for (const c of file) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return h;
 })();
-let registered = 0;
-const inShard = () => !SHARD || (fileOffset + registered++) % SHARD[1] === SHARD[0] - 1;
+let registered = 0, kept = 0;
+const inShard = () => { const mine = !SHARD || (fileOffset + registered++) % SHARD[1] === SHARD[0] - 1; kept += mine ? 1 : 0; return mine; };
+/** Whether this shard runs any of this file's tests (all, unsharded): for a `before` hook that starts something that
+ *  would keep the file running (a relay). Asked once the file has registered its tests (a hook may run before). */
+export async function anyHere() {
+  await new Promise(r => setImmediate(r));
+  return !SHARD || kept > 0;
+}
 /** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
 export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
 /** A test's `skip` in these engines, with the reason (`{ skip: notIn(['webkit'], IPHONE) }`); false elsewhere. */
@@ -66,13 +72,18 @@ export async function start() {
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;
-  browser = await launchEngine(ENGINE);
+  // Sharded, the browser starts with the first test that asks for a page (`context`): a file none of whose tests are in
+  // this shard launches none, and ends (a browser with no test to close it would keep it running for good: node:test
+  // runs `after` only when a test ran). The server alone keeps nothing alive.
+  if (SHARD) server.unref();
+  else browser = await launchEngine(ENGINE);
 }
 export async function stop() { await browser?.close(); server?.close(); }
 // ENDFALL_CPU_THROTTLE=n (n > 1): every page's CPU slowed n times (CDP, so Chromium only), to shake out tests that
 // time what they should wait for (a busy machine gives a page few frames).
 const THROTTLE = Number(process.env.ENDFALL_CPU_THROTTLE) || 0;
 async function context(device) {
+  browser ??= await launchEngine(ENGINE);
   const ctx = await browser.newContext(deviceFor(ENGINE, device));
   if (THROTTLE > 1 && ENGINE === 'chromium') ctx.on('page', (p) => ctx.newCDPSession(p).then(s => s.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })).catch(() => {}));
   return ctx;

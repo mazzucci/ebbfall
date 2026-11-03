@@ -8,13 +8,13 @@
 // run the AI alike, each player in its spot's colour.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE, anyHere } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
 import { PROTO } from '../../relay/room.js';
 
 let relay;
-before(async () => { await start(); relay = startRelay({ port: 0, latency: 40, jitter: 60 }); await relay.ready; });
-after(async () => { await relay.close(); await stop(); });
+before(async () => { await start(); if (!(await anyHere())) return; relay = startRelay({ port: 0, latency: 40, jitter: 60 }); await relay.ready; }); // (none of its tests in this shard: no relay)
+after(async () => { await relay?.close(); await stop(); });
 
 /** The friend opens the shared link: the join form, the code filled in; a name, then JOIN. */
 async function joinByLink(device, query, name) {

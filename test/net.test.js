@@ -19,13 +19,15 @@ if (!built && process.env.ENDFALL_REQUIRE_WASM) throw new Error('src/engine/pkg/
 const skip = !built && 'WASM not built';
 
 let sim, FACTIONS, UNIT, BLDG;
-async function load() {
-  if (sim) return;
-  sim = await import(new URL('endfall_sim.js', pkg));
-  sim.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
+// One load shared by every caller (the matches start at once: none may see the sim half loaded).
+let loading;
+const load = () => loading ??= (async () => {
+  const mod = await import(new URL('endfall_sim.js', pkg));
+  mod.initSync({ module: readFileSync(new URL('endfall_sim_bg.wasm', pkg)) });
   const data = (await import(new URL('data.js', pkg))).default;
   FACTIONS = data.factions; UNIT = data.schema.unit; BLDG = data.schema.bldg;
-}
+  sim = mod;
+})();
 /** The ids of a client's own units, or seat `seat`'s (the room's seed is random: so are the ids). */
 function own(c, seat = c.seat) {
   const U = c.g.units(), n = UNIT.length, id = UNIT.indexOf('id'), team = UNIT.indexOf('team'), out = [];

@@ -22,7 +22,7 @@ async function buildAndFinish(d, hotkey, type, harvesterIndex = 0, { hq = 'core'
   s = await d.state();
   const b = s.bldgs.find(b => b.team === 0 && b.type === type && b.tx === spot.tx && b.ty === spot.ty);
   assert.ok(b, `${type} placed (toasts: ${(await d.toasts()).join(' | ')})`);
-  assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(x => x.id === id)?.done, b.id, { seconds: 120 }), `${type} to finish within 120 s of game time`);
+  assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(x => x.id === id)?.done, b.id, { seconds: 120 }), `${type} to finish within 120 s of game time (toasts: ${(await d.toasts()).join(' | ')})`);
   return b;
 }
 

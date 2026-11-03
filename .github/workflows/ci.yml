@@ -47,14 +47,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/cache/restore@v6 # (the rust job's cache, read only)
+      - uses: actions/cache@v6 # (its own: the WASM target and the wasm-bindgen CLI in .tools/, which the rust job never builds)
         with:
           path: |
             ~/.cargo/registry
             target
             .tools
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
-          restore-keys: rust-${{ runner.os }}-
+          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            wasm-${{ runner.os }}-
+            rust-${{ runner.os }}-
       - run: rustup toolchain install
       - run: npm ci
       - run: npm run build:wasm
@@ -121,14 +123,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/cache/restore@v6 # (the rust job's cache, read only)
+      - uses: actions/cache/restore@v6 # (the build job's WASM cache, read only)
         with:
           path: |
             ~/.cargo/registry
             target
             .tools
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
-          restore-keys: rust-${{ runner.os }}-
+          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            wasm-${{ runner.os }}-
+            rust-${{ runner.os }}-
       - run: rustup toolchain install
       - run: npm ci
       - run: npm run build

@@ -34,8 +34,16 @@ export function test(name, opts = {}, fn) {
 // fixed order, so the split is the same every run and every test lands in exactly one shard.
 const SHARD = (process.env.ENDFALL_SHARD || '').match(/^(\d+)\/(\d+)$/)?.slice(1).map(Number);
 if (process.env.ENDFALL_SHARD && !(SHARD && SHARD[0] >= 1 && SHARD[0] <= SHARD[1])) throw new Error(`ENDFALL_SHARD must be i/n, not ${process.env.ENDFALL_SHARD}`);
+// Each file starts its rotation at an offset of its own (from its name), so the small files do not all put their
+// first tests in shard 1: still every test in exactly one shard, the same one every run.
+const fileOffset = (() => {
+  const file = (process.argv[1] || '').split('/').pop();
+  let h = 0;
+  for (const c of file) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h;
+})();
 let registered = 0;
-const inShard = () => !SHARD || registered++ % SHARD[1] === SHARD[0] - 1;
+const inShard = () => !SHARD || (fileOffset + registered++) % SHARD[1] === SHARD[0] - 1;
 /** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
 export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
 /** A test's `skip` in these engines, with the reason (`{ skip: notIn(['webkit'], IPHONE) }`); false elsewhere. */

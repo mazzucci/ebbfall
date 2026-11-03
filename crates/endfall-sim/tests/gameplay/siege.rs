@@ -322,3 +322,23 @@ fn on_its_tracks_it_has_only_a_light_gun_and_deployed_only_the_siege_gun() {
     );
     assert!(l.dmg_air == 0.0, "ground only");
 }
+
+#[test]
+fn an_idle_tank_deploys_where_it_stands_and_is_free_again_once_its_target_is_gone() {
+    // A player's tank left standing (idle, not holding) sets up by itself. Sent at a target, it deploys, shells it and,
+    // with it gone, is idle again (deployed): free for the next order, an AI's regroup or sweep among them (they take only
+    // idle units), not left holding.
+    let (mut w, tank, foe) = tank_scene(8.0);
+    run(&mut w, 4);
+    assert!(deployed(&w, tank), "idle, it set up by itself");
+    set_hp(&mut w, foe, 1.0);
+    w.attack_ent(tank, foe);
+    run(&mut w, 6);
+    assert!(w.unit(foe).is_none(), "shelled");
+    let u = w.unit(tank).unwrap();
+    assert_eq!(
+        (u.task, u.mode),
+        (Task::Idle, Some(AbilityKind::Deploy)),
+        "idle and still deployed"
+    );
+}

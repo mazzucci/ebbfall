@@ -247,14 +247,10 @@ impl World {
         *tries += 1;
     }
 
-    /// Back to idle (a deployed unit holds instead: idle, it would chase what it cannot reach).
+    /// Back to idle. (A deployed siege gun too: idle, it shells only what is in its reach, and stays free for its
+    /// side's next order, an AI's regroup or sweep among them, which take only idle units.)
     pub(crate) fn set_idle(&mut self, uid: Id) {
-        let t = if self.u(uid).mode.is_some() {
-            Task::Hold
-        } else {
-            Task::Idle
-        };
-        self.set_task(uid, t);
+        self.set_task(uid, Task::Idle);
     }
 
     pub(crate) fn update_move(&mut self, uid: Id, x: f64, y: f64, dt: f64) {

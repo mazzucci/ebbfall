@@ -110,7 +110,7 @@ const CLOAK: AbilityDef = AbilityDef {
     name: "Cloak",
     toggle: false,
     auto: true,
-    cooldown: 40.0,
+    cooldown: 0.0,
     effect: AbilityEffect::Cloak,
 };
 const VEIL: AbilityDef = AbilityDef {

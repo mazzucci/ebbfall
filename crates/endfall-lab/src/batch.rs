@@ -157,7 +157,7 @@ pub struct SeatRec {
     /// The AI's attack waves: launched, and those that reached the enemy (a unit of it within `WAVE_REACH` tiles of
     /// an enemy building).
     pub waves: [u32; 2],
-    /// Ground unit-samples (every `SAMPLE` ticks) in all, and in deep water.
+    /// The army's ground unit-samples (every `SAMPLE` ticks; workers left out) in all, and in deep water.
     pub ground_samples: [u32; 2],
     /// Which half of the map the seat started in: its headquarters south of the middle row.
     pub south: bool,
@@ -165,7 +165,7 @@ pub struct SeatRec {
 
 /// A unit within this many tiles of an enemy building: its wave reached the other side.
 pub const WAVE_REACH: f64 = 8.0;
-/// Ticks between the samples that need no tick's precision (waves, deep water).
+/// Ticks between the samples of where units stand (deep water).
 pub const SAMPLE: u32 = 15;
 
 /// One game's record.
@@ -258,7 +258,8 @@ impl Tracker {
             .map(|n| n.id)
             .collect();
         for (s, rec) in seats.iter_mut().enumerate() {
-            rec.south = w.map.bases.get(s).is_some_and(|b| b.1 * 2 > w.map.h);
+            // (by the headquarters' middle: its 4x4 block's top-left tile plus two)
+            rec.south = w.map.bases.get(s).is_some_and(|b| (b.1 + 2) * 2 > w.map.h);
         }
         Tracker {
             known: standing(w),
@@ -288,8 +289,9 @@ impl Tracker {
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.sup[s][0]);
         }
+        self.waves(w);
         if tick.is_multiple_of(SAMPLE) {
-            self.sample(w);
+            self.ground(w);
         }
         let now = standing(w);
         // (both lists by id: a merge finds what is new, what is gone and what was finished this tick)
@@ -329,9 +331,9 @@ impl Tracker {
         self.known = now;
     }
 
-    /// Waves (launched when a seat's AI sends one out; reached when one of its units comes within `WAVE_REACH` tiles
-    /// of an enemy building) and where the ground units stand.
-    fn sample(&mut self, w: &World) {
+    /// Waves, every tick (cheap): launched when a seat's AI sends one out, reached when one of its units comes within
+    /// `WAVE_REACH` tiles of an enemy building's edge.
+    fn waves(&mut self, w: &World) {
         for s in 0..2u8 {
             let si = s as usize;
             let Some(ids) = w.ai_wave_of(s) else {
@@ -345,10 +347,10 @@ impl Tracker {
             let reach = WAVE_REACH * 32.0;
             let there = ids.iter().filter_map(|&id| w.unit(id)).any(|u| {
                 w.bldgs.iter().any(|b| {
-                    // (to the building's edge: its middle less half its side)
-                    b.team != s
-                        && ((u.x - b.x).powi(2) + (u.y - b.y).powi(2)).sqrt()
-                            < reach + b.w as f64 * 16.0
+                    // (to the footprint's edge)
+                    let dx = ((u.x - b.x).abs() - b.w as f64 * 16.0).max(0.0);
+                    let dy = ((u.y - b.y).abs() - b.h as f64 * 16.0).max(0.0);
+                    b.team != s && (dx * dx + dy * dy).sqrt() < reach
                 })
             });
             if there && self.wave_out[si] == Some(false) {
@@ -356,7 +358,15 @@ impl Tracker {
                 self.wave_out[si] = Some(true);
             }
         }
-        for u in w.units.iter().filter(|u| !u.kind.def().air) {
+    }
+
+    /// Where the armies' ground units stand (workers left out), every `SAMPLE` ticks.
+    fn ground(&mut self, w: &World) {
+        for u in w
+            .units
+            .iter()
+            .filter(|u| !u.kind.def().air && !u.kind.def().worker)
+        {
             let r = &mut self.seats[u.team as usize].ground_samples;
             r[0] += 1;
             r[1] += (w.ground_at(u.x, u.y) == Ground::Deep) as u32;

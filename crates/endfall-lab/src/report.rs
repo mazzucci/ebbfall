@@ -114,6 +114,14 @@ impl Check {
     }
 }
 
+/// A row of the Shore map's gate: its check, its target, what the report measured, and whether it met it.
+pub struct GateRow {
+    pub name: &'static str,
+    pub target: String,
+    pub measured: String,
+    pub pass: bool,
+}
+
 /// The ratio of shards to ether in `pairs`, the median over games (a seat-game with no ether left out).
 fn ratio_median(pairs: &[[i64; 2]]) -> Option<f64> {
     let r: Vec<f64> = pairs
@@ -130,6 +138,11 @@ pub struct Report {
     pub band: (f64, f64),
     pub cells: Vec<Cell>,
     pub games: Vec<Vec<GameRec>>,
+}
+
+/// A cell of the maps the classic checks are about: every kind but the Shore (whose checks are its gate's, apart).
+fn classic(c: &Cell) -> bool {
+    c.map != endfall_sim::map::MapKind::Shore
 }
 
 impl Report {
@@ -150,7 +163,10 @@ impl Report {
             n: 0,
         };
         for (c, g) in self.level_cells(|c| {
-            c.kind == Kind::Level && !c.mirror() && level.is_none_or(|l| c.levels[0] == l)
+            classic(c)
+                && c.kind == Kind::Level
+                && !c.mirror()
+                && level.is_none_or(|l| c.levels[0] == l)
         }) {
             let x = cell_rate(c, g);
             r.k += x.k;
@@ -165,9 +181,9 @@ impl Report {
             k: 0,
             n: 0,
         };
-        for (c, g) in
-            self.level_cells(|c| c.kind == Kind::Ladder && c.levels[0].max(c.levels[1]) == level)
-        {
+        for (c, g) in self.level_cells(|c| {
+            classic(c) && c.kind == Kind::Ladder && c.levels[0].max(c.levels[1]) == level
+        }) {
             let x = cell_rate(c, g);
             r.k += x.k;
             r.n += x.n;
@@ -178,7 +194,7 @@ impl Report {
         let mut l: Vec<usize> = self
             .cells
             .iter()
-            .filter(|c| c.kind == Kind::Ladder)
+            .filter(|c| classic(c) && c.kind == Kind::Ladder)
             .map(|c| c.levels[0].max(c.levels[1]))
             .collect();
         l.sort_unstable();
@@ -189,13 +205,13 @@ impl Report {
     /// unequal sides, left out; timeouts left out too: `timeouts_64` says how many).
     fn length_64(&self) -> Option<f64> {
         let all: Vec<f64> = self
-            .level_cells(|c| c.size == 64 && c.kind == Kind::Level)
+            .level_cells(|c| classic(c) && c.size == 64 && c.kind == Kind::Level)
             .flat_map(|(_, g)| lengths(g))
             .collect();
         median(&all)
     }
     fn timeouts_64(&self) -> usize {
-        self.level_cells(|c| c.size == 64 && c.kind == Kind::Level)
+        self.level_cells(|c| classic(c) && c.size == 64 && c.kind == Kind::Level)
             .map(|(_, g)| g.iter().filter(|g| g.winner.is_none()).count())
             .sum()
     }
@@ -219,14 +235,18 @@ impl Report {
         (mined, spent)
     }
     pub fn shards_per_ether(&self) -> Option<f64> {
-        ratio_median(&self.ledgers(None, None).0)
+        let mined: Vec<[i64; 2]> = self
+            .level_cells(classic)
+            .flat_map(|(_, games)| games.iter().flat_map(|g| g.seats.iter().map(|s| s.mined)))
+            .collect();
+        ratio_median(&mined)
     }
     fn timeouts(&self) -> (usize, usize) {
-        let all = self.games.iter().flatten();
-        (
-            all.clone().filter(|g| g.winner.is_none()).count(),
-            all.count(),
-        )
+        let all: Vec<&GameRec> = self
+            .level_cells(classic)
+            .flat_map(|(_, g)| g.iter())
+            .collect();
+        (all.iter().filter(|g| g.winner.is_none()).count(), all.len())
     }
 
     pub fn checks(&self) -> Vec<Check> {
@@ -243,7 +263,7 @@ impl Report {
                 detail: format!("Humans {} of {}: {}", r.k, r.n, r.show()),
             });
         }
-        for (c, g) in self.level_cells(|c| c.kind == Kind::Level && c.mirror()) {
+        for (c, g) in self.level_cells(|c| classic(c) && c.kind == Kind::Level && c.mirror()) {
             let r = cell_rate(c, g);
             out.push(Check {
                 name: format!("mirror {}", c.id()),
@@ -288,6 +308,14 @@ impl Report {
                 format!("{t} of {n} games; over 5%: {}", over.join("; "))
             },
         });
+        // The Shore map's gate (when the report played it), so `compare` follows it too.
+        for g in self.shore_gate() {
+            out.push(Check {
+                name: format!("Shore gate: {}", g.name),
+                pass: g.pass,
+                detail: format!("{} ({} wanted)", g.measured, g.target),
+            });
+        }
         out
     }
 
@@ -295,7 +323,7 @@ impl Report {
     pub fn key_figures(&self, checks: &[Check]) -> Vec<(&'static str, String)> {
         let hv = self.humans_vs_vael(None);
         let dev = self
-            .level_cells(|c| c.kind == Kind::Level && c.mirror())
+            .level_cells(|c| classic(c) && c.kind == Kind::Level && c.mirror())
             .map(|(c, g)| cell_rate(c, g))
             .filter(|r| r.n > 0)
             .map(|r| (r.p() - 0.5).abs() * 100.0)
@@ -747,34 +775,22 @@ impl Report {
         // Waves.
         let _ = writeln!(
             s,
-            "\nThe AI's attack waves (a wave reached when one of its units came within 8 tiles of an enemy building):\n"
+            "\nThe AI's attack waves, each level against itself (a wave reached when one of its units came within 8 tiles of an enemy building):\n"
         );
         let _ = writeln!(
             s,
             "| Level | Humans' waves | reached | Vael waves | reached |"
         );
         let _ = writeln!(s, "| --- | --- | --- | --- | --- |");
-        for &l in &self.batch.levels {
-            let mut w = [[0u32; 2]; 2];
-            for (c, games) in self
-                .shore_cells()
-                .filter(|(c, _)| c.kind == Kind::Level && c.levels[0] == l)
-            {
-                for g in games {
-                    for seat in 0..2 {
-                        for (k, n) in g.seats[seat].waves.iter().enumerate() {
-                            w[c.races[seat]][k] += n;
-                        }
-                    }
-                }
+        let pct = |a: u32, b: u32| {
+            if b == 0 {
+                "—".to_string()
+            } else {
+                format!("{:.0}%", 100.0 * a as f64 / b as f64)
             }
-            let pct = |a: u32, b: u32| {
-                if b == 0 {
-                    "—".to_string()
-                } else {
-                    format!("{:.0}%", 100.0 * a as f64 / b as f64)
-                }
-            };
+        };
+        for &l in &self.batch.levels {
+            let w = self.shore_waves(l);
             let _ = writeln!(
                 s,
                 "| {} | {} | {} | {} | {} |",
@@ -785,9 +801,75 @@ impl Report {
                 pct(w[1][1], w[1][0])
             );
         }
-        // Deep water.
+        if let Some(d) = self.shore_deep() {
+            let _ = writeln!(
+                s,
+                "\nThe Vael army (workers left out) spent {:.1}% of its time in deep water.",
+                d * 100.0
+            );
+        }
+        // Routes per seed (Humans against Vael: a Human cove and a Vael basin; the map is point-symmetric, so the
+        // other seat order's routes are the same).
+        let _ = writeln!(
+            s,
+            "\nRoutes between the Human cove and the Vael basin, per seed (tiles; walkers cannot cross deep water):\n"
+        );
+        let _ = writeln!(s, "| Seed | Humans (Walk) | Vael (Amph) |");
+        let _ = writeln!(s, "| --- | --- | --- |");
+        if let Some((_, games)) = self.shore_level_cells().find(|(c, _)| c.races == [0, 1]) {
+            for g in games {
+                let r = g.routes.unwrap_or([None, None]);
+                let f = |v: Option<f64>| v.map_or("no way".into(), |v| format!("{v:.0}"));
+                let _ = writeln!(s, "| {} | {} | {} |", g.seed, f(r[0]), f(r[1]));
+            }
+        }
+        // The gate.
+        let _ = writeln!(
+            s,
+            "\n### The gate (PRD, the Shore map, section 5; each level against itself)\n"
+        );
+        let _ = writeln!(s, "| Check | Target | Measured | |");
+        let _ = writeln!(s, "| --- | --- | --- | --- |");
+        for g in self.shore_gate() {
+            let _ = writeln!(
+                s,
+                "| {} | {} | {} | {} |",
+                g.name,
+                g.target,
+                g.measured,
+                if g.pass { "PASS" } else { "WARN" }
+            );
+        }
+        s
+    }
+
+    /// The Shore's cells of each level against itself (the gate's games: the ladder's are unequal sides).
+    fn shore_level_cells(&self) -> impl Iterator<Item = (&Cell, &Vec<GameRec>)> {
+        self.shore_cells().filter(|(c, _)| c.kind == Kind::Level)
+    }
+
+    /// Waves at `level` by people: [[launched, reached]; races].
+    fn shore_waves(&self, level: usize) -> [[u32; 2]; 2] {
+        let mut w = [[0u32; 2]; 2];
+        for (c, games) in self
+            .shore_level_cells()
+            .filter(|(c, _)| c.levels[0] == level)
+        {
+            for g in games {
+                for seat in 0..2 {
+                    for (k, n) in g.seats[seat].waves.iter().enumerate() {
+                        w[c.races[seat]][k] += n;
+                    }
+                }
+            }
+        }
+        w
+    }
+
+    /// The Vael army's share of its ground samples in deep water.
+    fn shore_deep(&self) -> Option<f64> {
         let mut deep = [0u64; 2];
-        for (c, games) in self.shore_cells() {
+        for (c, games) in self.shore_level_cells() {
             for g in games {
                 for seat in 0..2 {
                     if c.races[seat] == 1 {
@@ -797,119 +879,140 @@ impl Report {
                 }
             }
         }
-        if deep[0] > 0 {
-            let _ = writeln!(
-                s,
-                "\nThe Vael's ground units spent {:.1}% of their time in deep water.",
-                100.0 * deep[1] as f64 / deep[0] as f64
-            );
+        (deep[0] > 0).then(|| deep[1] as f64 / deep[0] as f64)
+    }
+
+    /// The gate's rows (none without Shore cells): each with its target, what was measured, and PASS or WARN.
+    pub fn shore_gate(&self) -> Vec<GateRow> {
+        let mut out = Vec::new();
+        if self.shore_level_cells().next().is_none() {
+            return out;
         }
-        // Routes per seed (Humans against Vael: a Human cove and a Vael basin).
-        let _ = writeln!(
-            s,
-            "\nRoutes between the Human cove and the Vael basin, per seed (tiles; walkers cannot cross deep water):\n"
-        );
-        let _ = writeln!(s, "| Seed | Humans (Walk) | Vael (Amph) |");
-        let _ = writeln!(s, "| --- | --- | --- |");
-        if let Some((_, games)) = self
-            .shore_cells()
-            .find(|(c, _)| c.kind == Kind::Level && c.races == [0, 1])
-        {
-            for g in games {
-                let r = g.routes.unwrap_or([None, None]);
-                let f = |v: Option<f64>| v.map_or("no way".into(), |v| format!("{v:.0}"));
-                let _ = writeln!(s, "| {} | {} | {} |", g.seed, f(r[0]), f(r[1]));
-            }
-        }
-        // The gate.
-        let all: Vec<&GameRec> = self.shore_cells().flat_map(|(_, g)| g.iter()).collect();
+        let all: Vec<&GameRec> = self
+            .shore_level_cells()
+            .flat_map(|(_, g)| g.iter())
+            .collect();
         let decided = all.iter().filter(|g| g.winner.is_some()).count();
+        // (a game with no attack at all counts its first fight at its end)
         let fa: Vec<f64> = all
             .iter()
-            .filter_map(|g| g.first_attack)
-            .map(secs)
+            .map(|g| secs(g.first_attack.unwrap_or(g.end_tick)))
             .collect();
-        let len: Vec<f64> = self
-            .shore_cells()
-            .filter(|(c, _)| c.kind == Kind::Level)
-            .flat_map(|(_, g)| lengths(g))
-            .collect();
-        let worst_timeouts = self
-            .shore_cells()
-            .map(|(_, g)| {
-                g.iter().filter(|g| g.winner.is_none()).count() as f64 / g.len().max(1) as f64
+        let first = median(&fa).unwrap_or(f64::NAN);
+        out.push(GateRow {
+            name: "Median time to the first fight",
+            target: "under 4 minutes".into(),
+            measured: mmss(first),
+            pass: first < 240.0,
+        });
+        let worst = self
+            .shore_level_cells()
+            .map(|(c, g)| {
+                (
+                    g.iter().filter(|g| g.winner.is_none()).count() as f64 / g.len().max(1) as f64,
+                    c.id(),
+                )
             })
-            .fold(0.0, f64::max);
-        let medium = self
-            .batch
-            .levels
-            .contains(&1)
-            .then(|| self.shore_halves(Some(1)));
-        let (mut wl, mut wr) = (0u32, 0u32);
-        for (_, games) in self.shore_cells() {
-            for g in games {
-                for seat in &g.seats {
-                    wl += seat.waves[0];
-                    wr += seat.waves[1];
+            .fold((0.0, String::new()), |a, b| if b.0 > a.0 { b } else { a });
+        let share = decided as f64 / all.len().max(1) as f64;
+        out.push(GateRow {
+            name: "Games that reach a result",
+            target: "at least 90%; under 5% timeouts in every cell".into(),
+            measured: format!(
+                "{:.0}% of {}; the worst cell {:.0}% timeouts{}",
+                share * 100.0,
+                all.len(),
+                worst.0 * 100.0,
+                if worst.0 > 0.0 {
+                    format!(" ({})", worst.1)
+                } else {
+                    String::new()
                 }
-            }
-        }
-        let mirrors: Vec<Rate> = self
-            .shore_cells()
-            .filter(|(c, _)| c.kind == Kind::Level && c.mirror())
-            .map(|(c, g)| cell_rate(c, g))
-            .collect();
-        let _ = writeln!(s, "\n### The gate (PRD, the Shore map, section 5)\n");
-        let _ = writeln!(s, "| Check | Target | Measured |");
-        let _ = writeln!(s, "| --- | --- | --- |");
-        let _ = writeln!(
-            s,
-            "| Median time to the first fight | under 4 minutes | {} |",
-            mmss(median(&fa).unwrap_or(f64::NAN))
-        );
-        let _ = writeln!(
-            s,
-            "| Games that reach a result | at least 90%; under 5% timeouts a cell | {:.0}% of {}; the worst cell {:.0}% timeouts |",
-            100.0 * decided as f64 / all.len().max(1) as f64,
-            all.len(),
-            100.0 * worst_timeouts
-        );
-        let _ = writeln!(
-            s,
-            "| Median AI game length (each level against itself) | 10–20 minutes | {} |",
-            mmss(median(&len).unwrap_or(f64::NAN))
-        );
-        if let Some(h) = medium {
+            ),
+            pass: share >= 0.9 && worst.0 < 0.05,
+        });
+        let len = median(
+            &self
+                .shore_level_cells()
+                .flat_map(|(_, g)| lengths(g))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap_or(f64::NAN);
+        out.push(GateRow {
+            name: "Median AI game length",
+            target: "10–20 minutes".into(),
+            measured: mmss(len),
+            pass: (600.0..=1200.0).contains(&len),
+        });
+        if self.batch.levels.contains(&1) {
+            let h = self.shore_halves(Some(1));
             let low = h
                 .iter()
-                .map(|(_, _, r)| r.p())
-                .filter(|p| p.is_finite())
-                .fold(f64::NAN, f64::min);
+                .filter(|(_, _, r)| r.n > 0)
+                .min_by(|a, b| a.2.p().total_cmp(&b.2.p()));
             let pooled = self.humans_vs_vael_on(Some(1), endfall_sim::map::MapKind::Shore);
-            let _ = writeln!(
-                s,
-                "| Each people from either half, Medium | at least 40%; pooled 45–55% | the lowest {:.0}%; Humans pooled {} |",
-                low * 100.0,
-                pooled.show()
-            );
+            out.push(GateRow {
+                name: "Each people from either half, Medium",
+                target: "at least 40%; Humans pooled 45–55%".into(),
+                measured: format!(
+                    "the lowest: {}; Humans pooled {}",
+                    low.map_or("—".into(), |(_, _, r)| format!("{} {}", r.of, r.show())),
+                    pooled.show()
+                ),
+                pass: low.is_none_or(|(_, _, r)| r.p() >= 0.4)
+                    && !(!(0.45..=0.55).contains(&pooled.p()) && pooled.excludes_half()),
+            });
         }
-        let _ = writeln!(
-            s,
-            "| AI waves that reach the other side | most, at every level | {} of {} ({:.0}%) |",
-            wr,
-            wl,
-            100.0 * wr as f64 / wl.max(1) as f64
-        );
-        let _ = writeln!(
-            s,
-            "| Mirrors on the Shore | within 45–55% | {} |",
-            mirrors
-                .iter()
-                .map(Rate::show)
-                .collect::<Vec<_>>()
-                .join("; ")
-        );
-        s
+        // "Most, at every level": the lowest share of any people at any level.
+        let worst_wave = self
+            .batch
+            .levels
+            .iter()
+            .flat_map(|&l| {
+                let w = self.shore_waves(l);
+                (0..2)
+                    .filter(move |&r| w[r][0] > 0)
+                    .map(move |r| (w[r][1] as f64 / w[r][0] as f64, r, l, w[r]))
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0));
+        out.push(GateRow {
+            name: "AI waves that reach the other side",
+            target: "most, at every level".into(),
+            measured: worst_wave.map_or("no waves".into(), |(p, r, l, w)| {
+                format!(
+                    "the lowest: {} at {}, {} of {} ({:.0}%)",
+                    FACTIONS[r].name,
+                    LEVELS[l],
+                    w[1],
+                    w[0],
+                    p * 100.0
+                )
+            }),
+            pass: worst_wave.is_some_and(|w| w.0 > 0.5),
+        });
+        let mirrors: Vec<(String, Rate)> = self
+            .shore_level_cells()
+            .filter(|(c, _)| c.mirror())
+            .map(|(c, g)| (c.id(), cell_rate(c, g)))
+            .collect();
+        let off: Vec<&(String, Rate)> = mirrors
+            .iter()
+            .filter(|(_, r)| r.n > 0 && !(0.45..=0.55).contains(&r.p()) && r.excludes_half())
+            .collect();
+        out.push(GateRow {
+            name: "Mirrors on the Shore",
+            target: "within 45–55% (or the interval holding 50%)".into(),
+            measured: if off.is_empty() {
+                format!("{} mirrors, none off 50%", mirrors.len())
+            } else {
+                off.iter()
+                    .map(|(id, r)| format!("{id}: {}", r.show()))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            },
+            pass: off.is_empty(),
+        });
+        out
     }
 
     /// Humans vs Vael on one map kind at `level` (None: every level), both seat orders pooled.

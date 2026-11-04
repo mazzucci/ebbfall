@@ -437,6 +437,13 @@ impl Report {
             .with("checks", checks.iter().map(Check::json).collect::<Vec<_>>())
             .with("exchange", exchange)
             .with("shore_income", self.shore_income_json())
+            .with(
+                "waves",
+                self.wave_rows()
+                    .iter()
+                    .map(|(l, w)| w.json().with("row", l.as_str()))
+                    .collect::<Vec<_>>(),
+            )
             .with("cells", cells)
     }
 
@@ -537,6 +544,7 @@ impl Report {
                 }
             }
         }
+        s += &self.waves_markdown();
         s += &self.shore_markdown();
         s
     }
@@ -703,6 +711,13 @@ fn game_json(g: &GameRec) -> Json {
         .with(
             "routes",
             g.routes.map(|r| vec![Json::from(r[0]), Json::from(r[1])]),
+        )
+        .with(
+            "waves",
+            g.waves
+                .iter()
+                .map(crate::waves::Wave::json)
+                .collect::<Vec<_>>(),
         )
 }
 
@@ -1137,6 +1152,49 @@ impl Report {
             r.n += x.n;
         }
         r
+    }
+}
+
+impl Report {
+    /// Each level's waves against itself (the level cells), by map and the attacker's people: a row each.
+    fn wave_rows(&self) -> Vec<(String, crate::waves::Summary)> {
+        let mut rows = vec![];
+        for &map in &self.batch.maps {
+            for &level in &self.batch.levels {
+                for (r, f) in FACTIONS.iter().enumerate() {
+                    let mut v = vec![];
+                    for (c, gs) in self.level_cells(|c| {
+                        c.map == map && c.kind == Kind::Level && c.levels[0] == level
+                    }) {
+                        for g in gs {
+                            v.extend(g.waves.iter().filter(|w| c.races[w.seat as usize] == r));
+                        }
+                    }
+                    let s = crate::waves::summary(v);
+                    if s.launched > 0 {
+                        rows.push((format!("{map:?}, {}: {}", LEVELS[level], f.name), s));
+                    }
+                }
+            }
+        }
+        rows
+    }
+
+    fn waves_markdown(&self) -> String {
+        let rows = self.wave_rows();
+        if rows.is_empty() {
+            return String::new();
+        }
+        let mut s = format!(
+            "\n## The waves\n\nEach level against itself, every size, by map and the attacking people: when a wave arrived (a unit within {} tiles of an enemy building), its value then over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (what it destroyed over what it lost while out), and where it lost its units.\n\n{}",
+            crate::waves::REACH,
+            crate::waves::REACH,
+            crate::waves::TABLE_HEAD
+        );
+        for (l, w) in rows {
+            s += &w.row(&l);
+        }
+        s
     }
 }
 

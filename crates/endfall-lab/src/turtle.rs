@@ -5,8 +5,9 @@
 //! Medium's weakness, before any tide: the tide's "a turtling bot loses over 70%" row is read against this baseline.
 
 use crate::json::Json;
-use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_seats};
+use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_watched};
 use crate::stats::{median, mmss, wilson};
+use crate::waves::{self, TABLE_HEAD, Wave};
 use endfall_sim::data::{DIFF, Diff, NEVER};
 use endfall_sim::map::MapKind;
 
@@ -93,6 +94,8 @@ pub struct TurtleRun {
     pub commit: String,
     pub cells: Vec<Cell>,
     pub games: Vec<Played>,
+    /// Each game's attack waves (`waves::Watch`), both seats'.
+    pub waves: Vec<Vec<Wave>>,
 }
 
 pub fn run(
@@ -103,17 +106,20 @@ pub fn run(
 ) -> TurtleRun {
     let cells = cells(&batch);
     let (cap, raids) = (batch.cap_min, batch.raids);
-    let games = play_jobs(
+    let (games, waves) = play_jobs(
         &cells,
-        |c| play_seats(c.map, c.pairing, c.map_seed, c.plans(raids), cap),
+        |c| play_watched(c.map, c.pairing, c.map_seed, c.plans(raids), cap),
         threads,
         progress,
-    );
+    )
+    .into_iter()
+    .unzip();
     TurtleRun {
         batch,
         commit: commit.to_string(),
         cells,
         games,
+        waves,
     }
 }
 
@@ -211,6 +217,30 @@ impl TurtleRun {
         rows
     }
 
+    /// The attacker's waves (the plain Medium seat's, against the turtle), by map and its people, then in all.
+    fn wave_rows(&self) -> Vec<(String, waves::Summary)> {
+        let mut rows = vec![];
+        let attacks = |keep: &dyn Fn(&Cell) -> bool| {
+            let mut v: Vec<&Wave> = vec![];
+            for (c, ws) in self.cells.iter().zip(&self.waves) {
+                if keep(c) {
+                    v.extend(ws.iter().filter(|w| w.seat as usize != c.turtle));
+                }
+            }
+            waves::summary(v)
+        };
+        for &map in &self.batch.maps {
+            for (p, people) in PEOPLE.iter().enumerate() {
+                rows.push((
+                    format!("{map:?}: {people} Medium's waves"),
+                    attacks(&|c| c.map == map && c.peoples().1 == p),
+                ));
+            }
+        }
+        rows.push(("**All**".into(), attacks(&|_| true)));
+        rows
+    }
+
     pub fn json(&self) -> Json {
         let rows: Vec<Json> = self
             .rows()
@@ -221,7 +251,8 @@ impl TurtleRun {
             .cells
             .iter()
             .zip(&self.games)
-            .map(|(c, p)| {
+            .zip(&self.waves)
+            .map(|((c, p), ws)| {
                 Json::obj()
                     .with("map", format!("{:?}", c.map))
                     .with("turtle", PEOPLE[c.peoples().0])
@@ -230,6 +261,7 @@ impl TurtleRun {
                     .with("map_seed", c.map_seed)
                     .with("winner", p.winner.map(|w| w as u32))
                     .with("end_tick", p.end_tick)
+                    .with("waves", ws.iter().map(Wave::json).collect::<Vec<_>>())
             })
             .collect();
         Json::obj()
@@ -251,6 +283,13 @@ impl TurtleRun {
                     .with("raids", self.batch.raids),
             )
             .with("rows", rows)
+            .with(
+                "waves",
+                self.wave_rows()
+                    .iter()
+                    .map(|(l, w)| w.json().with("row", l.replace("**", "")))
+                    .collect::<Vec<_>>(),
+            )
             .with("games", games)
     }
 
@@ -267,6 +306,14 @@ impl TurtleRun {
         );
         for (label, t) in self.rows() {
             s += &t.row(&label);
+        }
+        s += &format!(
+            "\n## The attacker's waves\n\nEach wave of the plain Medium seat against the turtle: when it arrived (a unit within {} tiles of a turtle's building), its value then over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (what it destroyed over what it lost while out), and where it lost its units.\n\n{TABLE_HEAD}",
+            waves::REACH,
+            waves::REACH
+        );
+        for (label, w) in self.wave_rows() {
+            s += &w.row(&label);
         }
         s
     }
@@ -334,6 +381,7 @@ mod tests {
             batch: b,
             commit: "test".into(),
             cells,
+            waves: vec![vec![]; games.len()],
             games,
         };
         let rows = r.rows();

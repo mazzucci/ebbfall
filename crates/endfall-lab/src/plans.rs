@@ -158,6 +158,17 @@ pub fn play_seats(
     plans: [Option<Diff>; 2],
     cap_min: u32,
 ) -> Played {
+    play_watched(map, pairing, map_seed, plans, cap_min).0
+}
+
+/// `play_seats`, and every wave of the game (`waves::Watch`).
+pub fn play_watched(
+    map: MapKind,
+    pairing: usize,
+    map_seed: u32,
+    plans: [Option<Diff>; 2],
+    cap_min: u32,
+) -> (Played, Vec<crate::waves::Wave>) {
     let pair = PAIRINGS[pairing];
     let mut w = World::with_size(
         map_seed,
@@ -171,24 +182,27 @@ pub fn play_seats(
     assert!(w.set_ai_plans(&plans), "per-seat plans");
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     let cap = cap_min * 60 * TPS;
+    let mut watch = crate::waves::Watch::default();
     while w.winner < 0 && w.tick < cap {
         w.step();
         w.events.clear();
+        watch.observe(&w);
     }
-    Played {
+    let played = Played {
         winner: (w.winner >= 0).then_some(w.winner as u8),
         end_tick: w.tick,
-    }
+    };
+    (played, watch.finish(&w))
 }
 
 /// Play `jobs` on `threads` threads, the results in the jobs' order whatever the threads.
-pub(crate) fn play_jobs<J: Sync>(
+pub(crate) fn play_jobs<J: Sync, R: Send>(
     jobs: &[J],
-    play: impl Fn(&J) -> Played + Sync,
+    play: impl Fn(&J) -> R + Sync,
     threads: usize,
     progress: &(dyn Fn(usize, usize) + Sync),
-) -> Vec<Played> {
-    let slots: Vec<Mutex<Option<Played>>> = jobs.iter().map(|_| Mutex::new(None)).collect();
+) -> Vec<R> {
+    let slots: Vec<Mutex<Option<R>>> = jobs.iter().map(|_| Mutex::new(None)).collect();
     let (next, done) = (AtomicUsize::new(0), AtomicUsize::new(0));
     std::thread::scope(|scope| {
         for _ in 0..threads.max(1) {

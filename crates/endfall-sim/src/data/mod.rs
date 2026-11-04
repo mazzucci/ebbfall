@@ -9,6 +9,7 @@
 mod diff;
 mod export;
 mod humans;
+mod tide;
 mod upgrades;
 mod vael;
 
@@ -16,6 +17,7 @@ pub use diff::*;
 pub use export::data_json;
 pub(crate) use export::{Obj, ToJson, array, quote};
 pub use humans::HUMANS;
+pub use tide::*;
 pub use upgrades::*;
 pub use vael::VAEL;
 

@@ -108,7 +108,7 @@ pub fn run(
     let (cap, raids) = (batch.cap_min, batch.raids);
     let (games, waves) = play_jobs(
         &cells,
-        |c| play_watched(c.map, c.pairing, c.map_seed, c.plans(raids), cap),
+        |c| play_watched(c.map, c.pairing, c.map_seed, c.plans(raids), cap, false),
         threads,
         progress,
     )
@@ -366,14 +366,17 @@ mod tests {
                 1 => Played {
                     winner: Some(0),
                     end_tick: 18_000,
+                    first_wave: [None, None],
                 },
                 2 => Played {
                     winner: Some(1),
                     end_tick: 36_000,
+                    first_wave: [None, None],
                 },
                 _ => Played {
                     winner: None,
                     end_tick: 54_000,
+                    first_wave: [None, None],
                 },
             })
             .collect();

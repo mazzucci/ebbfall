@@ -4,6 +4,7 @@
 //! everything else, a setting's effect on winning is a cause, not a correlation: the batch fits a logistic model of
 //! the first seat's win on the seats' differences, and bins each setting's win rate.
 
+use crate::first_wave::{FirstWave, Watcher};
 use crate::json::Json;
 use crate::model::{self, Fit};
 use crate::stats::{median, mmss, wilson};
@@ -49,6 +50,8 @@ pub struct PlanBatch {
     pub cap_min: u32,
     /// The latest first wave a plan draws (seconds; the earliest is 2:00): 7:00 by default, `--first-max`.
     pub first_max: f64,
+    /// The tide on (`--tide`; the Shore's).
+    pub tide: bool,
 }
 
 impl PlanBatch {
@@ -61,6 +64,7 @@ impl PlanBatch {
             check: 200,
             cap_min: 30,
             first_max: FIRST_MAX,
+            tide: false,
         }
     }
 }
@@ -137,17 +141,18 @@ pub fn setups(b: &PlanBatch) -> Vec<Setup> {
         .collect()
 }
 
-/// A played game: the winner's seat (None: a timeout) and its length.
+/// A played game: the winner's seat (None: a timeout), its length, and each seat's first wave (None: it sent none).
 #[derive(Clone, Copy, Debug)]
 pub struct Played {
     pub winner: Option<u8>,
     pub end_tick: u32,
+    pub first_wave: [Option<FirstWave>; 2],
 }
 
 /// Play one setup to its end or the cap.
-pub fn play(s: &Setup, plant: bool, cap_min: u32) -> Played {
+pub fn play(s: &Setup, plant: bool, cap_min: u32, tide: bool) -> Played {
     let plans = [Some(s.plans[0].diff(plant)), Some(s.plans[1].diff(plant))];
-    play_seats(s.map, s.pairing, s.map_seed, plans, cap_min)
+    play_seats(s.map, s.pairing, s.map_seed, plans, cap_min, tide)
 }
 
 /// Play a 64x64 game of two Medium AI seats, each with its plan (None: Medium's own tuning), to its end or the cap.
@@ -157,8 +162,9 @@ pub fn play_seats(
     map_seed: u32,
     plans: [Option<Diff>; 2],
     cap_min: u32,
+    tide: bool,
 ) -> Played {
-    play_watched(map, pairing, map_seed, plans, cap_min).0
+    play_watched(map, pairing, map_seed, plans, cap_min, tide).0
 }
 
 /// `play_seats`, and every wave of the game (`waves::Watch`).
@@ -168,6 +174,7 @@ pub fn play_watched(
     map_seed: u32,
     plans: [Option<Diff>; 2],
     cap_min: u32,
+    tide: bool,
 ) -> (Played, Vec<crate::waves::Wave>) {
     let pair = PAIRINGS[pairing];
     let mut w = World::with_size(
@@ -178,19 +185,24 @@ pub fn play_watched(
         0,
         &[FACTIONS[pair[0]], FACTIONS[pair[1]]],
     );
+    if tide {
+        w.set_tide(true);
+    }
     assert!(w.set_diffs(&[BASE as u8, BASE as u8]), "per-seat levels");
     assert!(w.set_ai_plans(&plans), "per-seat plans");
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     let cap = cap_min * 60 * TPS;
-    let mut watch = crate::waves::Watch::default();
+    let (mut watch, mut first) = (crate::waves::Watch::default(), Watcher::default());
     while w.winner < 0 && w.tick < cap {
         w.step();
         w.events.clear();
         watch.observe(&w);
+        first.observe(&w);
     }
     let played = Played {
         winner: (w.winner >= 0).then_some(w.winner as u8),
         end_tick: w.tick,
+        first_wave: first.finish(&w),
     };
     (played, watch.finish(&w))
 }
@@ -260,8 +272,13 @@ pub fn run(
         jobs.push((c, true));
         jobs.push((c, false));
     }
-    let cap = batch.cap_min;
-    let played = play_jobs(&jobs, |(s, plant)| play(s, *plant, cap), threads, progress);
+    let (cap, tide) = (batch.cap_min, batch.tide);
+    let played = play_jobs(
+        &jobs,
+        |(s, plant)| play(s, *plant, cap, tide),
+        threads,
+        progress,
+    );
     let n = setups.len();
     let check = checks
         .iter()
@@ -586,6 +603,61 @@ fn direct(run: &PlanRun) -> Option<(f64, f64, f64, f64, usize)> {
 }
 
 impl PlanRun {
+    /// Each first-wave bin's waves (a seat's own plan's bin, every game): how many launched of the seats, the median
+    /// launch and value at launch, and the pooled result (value destroyed over value lost while out).
+    fn first_wave_rows(&self) -> Vec<(String, usize, usize, f64, f64, f64, f64)> {
+        let fm = self.batch.first_max;
+        Setting::FirstWave
+            .labels(fm)
+            .into_iter()
+            .enumerate()
+            .map(|(k, label)| {
+                let (mut seats, mut at, mut value, mut destroyed, mut lost) =
+                    (0, vec![], vec![], 0.0, 0.0);
+                for (s, p) in self.setups.iter().zip(&self.games) {
+                    for seat in 0..2 {
+                        if Setting::FirstWave.bin(&s.plans[seat], fm) != k {
+                            continue;
+                        }
+                        seats += 1;
+                        if let Some(f) = p.first_wave[seat] {
+                            at.push(f.at as f64 / TPS as f64);
+                            value.push(f.value);
+                            destroyed += f.destroyed;
+                            lost += f.lost;
+                        }
+                    }
+                }
+                let med = |v: &[f64]| median(v).unwrap_or(f64::NAN);
+                (
+                    label,
+                    seats,
+                    at.len(),
+                    med(&at),
+                    med(&value),
+                    destroyed,
+                    lost,
+                )
+            })
+            .collect()
+    }
+
+    fn first_wave_markdown(&self) -> String {
+        let mut s = "\n## The first wave\n\nEach seat's first wave by its plan's bin: how many seats launched one, when (median), its army value as it launched (median; shards plus ether at 1.5), and its result while out (the value it destroyed over the value it lost, pooled).\n\n| Bin | Launched | Median launch | Median value | Destroyed / lost |\n| --- | --- | --- | --- | --- |\n".to_string();
+        for (label, seats, n, at, value, d, l) in self.first_wave_rows() {
+            let ratio = if l > 0.0 {
+                format!("{:.2} ({d:.0} / {l:.0})", d / l)
+            } else {
+                format!("— ({d:.0} / 0)")
+            };
+            s += &format!(
+                "| {label} | {n} of {seats} | {} | {value:.0} | {ratio} |\n",
+                mmss(at)
+            );
+        }
+        s
+    }
+
     pub fn json(&self) -> Json {
         let f = findings(self);
         let (bins, split) = bins(self);
@@ -612,6 +684,21 @@ impl PlanRun {
                     )
                     .with("winner", p.winner.map(|w| w as u32))
                     .with("end_tick", p.end_tick)
+                    .with(
+                        "first_wave",
+                        p.first_wave
+                            .iter()
+                            .map(|f| {
+                                f.map(|f| {
+                                    Json::obj()
+                                        .with("tick", f.at)
+                                        .with("value", f.value)
+                                        .with("destroyed", f.destroyed)
+                                        .with("lost", f.lost)
+                                })
+                            })
+                            .collect::<Vec<_>>(),
+                    )
             })
             .collect();
         let mut j = Json::obj()
@@ -640,7 +727,8 @@ impl PlanRun {
                         },
                     )
                     .with("cap_min", self.batch.cap_min)
-                    .with("first_max", self.batch.first_max),
+                    .with("first_max", self.batch.first_max)
+                    .with("tide", self.batch.tide),
             )
             .with("short_long_split_s", split);
         if let Some(f) = &f {
@@ -719,7 +807,12 @@ impl PlanRun {
             }
         );
         s += &format!(
-            "Each AI seat plays Medium with its own plan: workers 8 to 20, the first wave 2:00 to {}, expanding 3:00 to 12:00 or (one in five) never, a placebo coin",
+            "Each AI seat plays Medium with its own plan{}: workers 8 to 20, the first wave 2:00 to {}, expanding 3:00 to 12:00 or (one in five) never, a placebo coin",
+            if self.batch.tide {
+                ", with the tide"
+            } else {
+                ""
+            },
             mmss(self.batch.first_max)
         );
         s += if self.batch.plant {
@@ -798,6 +891,7 @@ impl PlanRun {
                 );
             }
         }
+        s += &self.first_wave_markdown();
         s += "\n## The controls\n\n";
         let (plo, phi) = f.fit.interval(5);
         s += &format!(
@@ -874,6 +968,7 @@ mod tests {
             check: 2,
             cap_min: 2,
             first_max: FIRST_MAX,
+            tide: false,
         };
         let (a, c) = (setups(&b), setups(&b));
         assert_eq!(
@@ -920,6 +1015,7 @@ mod tests {
                     Some((u() > 0.5 + edge) as u8)
                 },
                 end_tick: 9000 + (u() * 18000.0) as u32,
+                first_wave: [None, None],
             }
         };
         let games: Vec<Played> = setups.iter().map(&mut result).collect();

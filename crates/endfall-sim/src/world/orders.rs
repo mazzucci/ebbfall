@@ -67,9 +67,17 @@ impl World {
     }
 
     /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
-    /// on land only, an Amph builder (the Vael's) on land and shallows; nobody in deep water.
+    /// on land only, an Amph builder (the Vael's) on land and shallows; nobody in deep water. With the tide, against
+    /// the level that matters: a Walk builder on what is land at high water (it stays dry), an Amph builder on what
+    /// is at most shallow at low water (every Vael building can be reached on foot at some low tide).
     pub fn builds_on(&self, team: u8, x: i32, y: i32) -> bool {
-        match self.map.ground(x, y, self.water) {
+        let amph = self.factions[team as usize].worker.def().mv == Move::Amph;
+        let water = match (&self.tide, amph) {
+            (None, _) => self.water,
+            (Some(_), false) => WATER_HIGH,
+            (Some(_), true) => WATER_LOW,
+        };
+        match self.map.ground(x, y, water) {
             Ground::Land => true,
             Ground::Shallow => self.factions[team as usize].worker.def().mv == Move::Amph,
             Ground::Deep => false,

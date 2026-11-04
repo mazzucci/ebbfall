@@ -38,7 +38,8 @@ npm run lab -- report --sizes 64 --maps Shore --shore-field channel   # the Shor
 npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-weighted efficiency, time to kill
 npm run lab -- plans    # games with random AI plans (workers, first wave, expansion; a placebo and a planted coin):
                         # a logistic model of what wins, win rates by setting; --plant runs the planted control;
-                        # --first-max 12:00 draws first waves up to 12:00
+                        # --first-max 12:00 draws first waves up to 12:00; each first wave's value and result by bin;
+                        # --tide (report too): the same batch with the tide on
                         # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
 npm run lab -- turtle   # a Medium seat that never attacks (no waves, no raids; --raids keeps its raids) against
                         # Medium (the tide's turtle row, its baseline)
@@ -110,12 +111,14 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
                       compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
-                      turtle.rs (a never-attacking Medium against Medium),
+                      turtle.rs (a never-attacking Medium against Medium), waves.rs (every AI wave: its value against
+                      the defence on arrival, its result, where its units fell; in report and turtle),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction),
-                      upgrades.rs, diff.rs (AI tuning per difficulty), export.rs (the tables as JSON, one small writer)
+                      upgrades.rs, diff.rs (AI tuning per difficulty), tide.rs (the tide's cycle, levels, warning and
+                      sweep), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free;
@@ -129,7 +132,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       starts, who is out, the last team standing), orders, spawn, economy, construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, paths.rs (a group's one route shared by the units of one order, long
-                      searches budgeted per seat per tick), fog
+                      searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
+                      retreat, the sweep)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
@@ -375,8 +379,8 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   wave called home to a raid by another) apply only with more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
 - Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`
-  everywhere on the kinds without water) and the world one water level (`World::water`, fixed at 0 for now: not
-  hashed). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
+  everywhere on the kinds without water) and the world one water level (`World::water`: 0, not hashed, unless the
+  tide is on). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
   its kind's class (`UnitDef::mv`, `Move`): Walk (the Humans' ground units: land and shallows), Amph (the Vael's:
   anywhere), Fly (flyers, exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
   level: `World::foot(kind)`, `Map::passable`, `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay
@@ -386,6 +390,21 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   a crowd's push never shoves a walker into it); buildings go by the builder's class (`builds_on`: a
   Walk builder on land, an Amph builder on land and shallows, nobody in deep water), the AI's placement through the same
   `can_place`. On a map without water all of it is inert (the goldens pin that).
+- The tide (PRD: the tide on the Shore map; `World::set_tide`, a world switch, off by default: the menus play without
+  it until the tide's clock and water are drawn; Rust callers, the lab and the tests turn it on): the water level
+  moves through a cycle (`world/tide.rs`, its numbers in `data/tide.rs`): high water, the ebb, low water, the flood
+  (3:00 by default, each cycle up to 15% longer or shorter, drawn from the world's RNG as it starts; a game starts at
+  high water), a step at a time between `WATER_LOW` and `WATER_HIGH`; `tide_phase`, `tide_level`. It runs first in
+  `step`. When the level moves, routes it cuts are dropped (`terrain_changed` and each walker's own) and, on the way
+  up, a walker on ground now deep is swept to the nearest ground it may stand on, losing 30% of its maximum health
+  and stunned 2 s (`Unit::stun`, like `warp`), or destroyed with `set_flood_kills` (the lab's comparison).
+  `TIDE_WARN_S` before the flood each seat with walkers on ground it will cover is warned (a toast, the alert sound, a
+  ping) and, its switch on (`SetRetreat`, a command; `World::no_retreat`, a bit per seat; on by default), its idle
+  walkers and its idle or mining workers there walk to ground that stays dry; units under any other order keep it.
+  Amphibians are never swept. With the tide, building goes by the level that matters (`builds_on`: a Walk builder on
+  land at high water, an Amph builder on what is at most shallow at low water), and no building fires from deep water
+  either. The tide enters the hash only when on (level, cycle, switches; a stunned unit's stun), so every game
+  without it hashes as before; `golden_hashes_pin_the_shore_with_the_tide` pins one with it.
 - The Shore map (`MapKind::Shore`, appended; 64x64, two starts): each start's share holds a cove on land (a pocket in
   a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
   across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
@@ -415,7 +434,7 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
@@ -425,7 +444,10 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
   ground and fields, a walker reaching both coves, both basins and every field, short ways between a cove and the basin
   it faces, starts by people, a walker sent out to sea stopping on the shore, both AIs finishing from either start at
-  every level, random play on it), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
+  only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
+  switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
+  under high water: a hand-built map), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command

@@ -66,6 +66,8 @@ pub struct Batch {
     /// Where the Shore's reef basins hold their main field (`--shore-field`; the exposed-income variants): `BACK`,
     /// every game's, by default.
     pub shore_field: ShoreField,
+    /// The tide on (`--tide`; it moves the water on maps with water, the Shore).
+    pub tide: bool,
 }
 
 impl Batch {
@@ -79,6 +81,7 @@ impl Batch {
             seeds: 5,
             cap_min: 30,
             shore_field: ShoreField::BACK,
+            tide: false,
         }
     }
     /// `--quick`: 64x64 only, Medium and Hard and the ladder between them, three seeds (about 30 s on a laptop).
@@ -91,6 +94,7 @@ impl Batch {
             seeds: 3,
             cap_min: 30,
             shore_field: ShoreField::BACK,
+            tide: false,
         }
     }
 
@@ -422,7 +426,7 @@ impl Tracker {
 
 /// Play one game of `cell` from `seed` to its end, or to `cap_min` game minutes, recording as it goes. The world
 /// is only read between ticks: the record cannot change the game.
-pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField) -> GameRec {
+pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool) -> GameRec {
     let size = MapSize::square(cell.size);
     let mut w = World::with_size(
         seed,
@@ -434,6 +438,9 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField) -> GameRec 
     );
     if field != ShoreField::BACK {
         w.set_shore_field(field);
+    }
+    if tide {
+        w.set_tide(true);
     }
     assert!(
         w.set_diffs(&[cell.levels[0] as u8, cell.levels[1] as u8]),
@@ -485,6 +492,7 @@ pub fn play_all(
     seeds: u32,
     cap_min: u32,
     field: ShoreField,
+    tide: bool,
     threads: usize,
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> Vec<Vec<GameRec>> {
@@ -499,7 +507,7 @@ pub fn play_all(
                 loop {
                     let k = next.fetch_add(1, Ordering::SeqCst);
                     let Some(&(c, seed)) = jobs.get(k) else { break };
-                    let rec = play(&cells[c], seed, cap_min, field);
+                    let rec = play(&cells[c], seed, cap_min, field, tide);
                     *slots[k].lock().unwrap() = Some(rec);
                     progress(done.fetch_add(1, Ordering::SeqCst) + 1, jobs.len());
                 }
@@ -626,6 +634,7 @@ mod shore_tests {
             seeds: 1,
             cap_min: 9,
             shore_field: ShoreField::BACK,
+            tide: false,
         };
         let cells = b.cells();
         assert!(
@@ -640,7 +649,7 @@ mod shore_tests {
             .iter()
             .find(|c| c.map == MapKind::Shore && c.races == [0, 1])
             .unwrap();
-        let g = play(shore, 1, 9, ShoreField::BACK);
+        let g = play(shore, 1, 9, ShoreField::BACK, false);
         let r = g.routes.expect("a map with water: its routes");
         assert!(
             r[0].is_some() && r[1].is_some(),
@@ -662,6 +671,6 @@ mod shore_tests {
         );
         // (a map without water: no routes)
         let standard = cells.iter().find(|c| c.map == MapKind::Standard).unwrap();
-        assert_eq!(play(standard, 1, 1, ShoreField::BACK).routes, None);
+        assert_eq!(play(standard, 1, 1, ShoreField::BACK, false).routes, None);
     }
 }

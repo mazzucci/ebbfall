@@ -325,7 +325,7 @@ mod tests {
             first: 120.0,
             ..DIFF[1]
         });
-        let (p, waves) = play_watched(MapKind::Standard, 0, 3, [early, early], 12);
+        let (p, waves) = play_watched(MapKind::Standard, 0, 3, [early, early], 12, false);
         assert!(p.end_tick > 0);
         assert!(waves.len() >= 2, "{} waves", waves.len());
         assert!(waves.iter().any(|w| w.arrived.is_some()), "a wave arrived");

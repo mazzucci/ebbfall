@@ -437,7 +437,14 @@ impl World {
     }
 
     pub(crate) fn fire(&mut self, shooter: Id, target: Id) {
-        if self.unit(shooter).is_some() && self.in_deep(shooter) {
+        let deep = if self.unit(shooter).is_some() {
+            self.in_deep(shooter)
+        } else {
+            // (a building under the tide's high water: never without the tide, where nothing is built in deep water)
+            self.bldg(shooter)
+                .is_some_and(|b| self.ground_at(b.x, b.y) == Ground::Deep)
+        };
+        if deep {
             return; // deep water is a road: nothing fires from it (nor spends its cooldown)
         }
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);

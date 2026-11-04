@@ -23,7 +23,7 @@ mod wire;
 use crate::ai::Ai;
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
-use crate::map::{Foot, Ground, Id, Map, MapKind, MapSize, Node};
+use crate::map::{Foot, Ground, Id, Map, MapKind, MapSize, Node, ShoreField};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 pub use combat::{absorb, hull_loss};
@@ -61,6 +61,9 @@ pub struct World {
     /// Rust, never by the menus, JS or the network, so not hashed. Empty (always, outside the lab): every AI plays its
     /// level. Read through `tuning`.
     pub ai_plans: Vec<Option<Diff>>,
+    /// Where a Shore reef basin's main field lies (`set_shore_field`): the balance lab's exposed-income variants, set
+    /// only from Rust, never by the menus, JS or the network, so not hashed (the map it makes is). `BACK` outside the lab.
+    pub shore_field: ShoreField,
     pub time: f64,
     pub tick: u32,
     pub units: Vec<Unit>,
@@ -194,6 +197,7 @@ impl World {
             diff,
             diffs: Vec::new(),
             ai_plans: Vec::new(),
+            shore_field: ShoreField::BACK,
             map_kind,
             map_size,
             side,
@@ -265,12 +269,13 @@ impl World {
         self.alerts.clear();
         self.events.clear();
         let starts = crate::map::max_starts(self.map_size);
-        self.map = Map::generate(
+        self.map = Map::generate_with(
             seed,
             self.map_kind,
             self.map_size,
             starts,
             &mut self.next_id,
+            self.shore_field,
         );
         self.size_grids();
         assert!(
@@ -358,6 +363,13 @@ impl World {
     /// Give each seat's AI a plan of its own before play, a whole `Diff` in place of its level's (None: its level's;
     /// empty: none), with fresh brains. The balance lab's only: never from the menus, JS or the network. False
     /// (nothing changes) for a list of another length.
+    /// Move a Shore reef basin's main field (the balance lab's exposed-income variants) and start the game again on the
+    /// map that makes: call it first, before the seats' levels, plans and AI seats. Nothing else changes; on a map
+    /// without basins nothing at all. The balance lab's only: never from the menus, JS or the network.
+    pub fn set_shore_field(&mut self, field: ShoreField) {
+        self.shore_field = field;
+        self.reset(self.seed, self.diff);
+    }
     pub fn set_ai_plans(&mut self, plans: &[Option<Diff>]) -> bool {
         if !plans.is_empty() && plans.len() != self.seats() {
             return false;

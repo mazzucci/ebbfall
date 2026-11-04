@@ -3,7 +3,7 @@
 
 use endfall_sim::data::Move;
 use endfall_sim::data::{BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
-use endfall_sim::map::{Foot, Ground, MapKind, MapSize};
+use endfall_sim::map::{Foot, Ground, MapKind, MapSize, ShoreField};
 use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
 use std::sync::Mutex;
@@ -63,6 +63,9 @@ pub struct Batch {
     pub seeds: u32,
     /// Game minutes before a game still running is a timeout.
     pub cap_min: u32,
+    /// Where the Shore's reef basins hold their main field (`--shore-field`; the exposed-income variants): `BACK`,
+    /// every game's, by default.
+    pub shore_field: ShoreField,
 }
 
 impl Batch {
@@ -75,6 +78,7 @@ impl Batch {
             ladder: true,
             seeds: 5,
             cap_min: 30,
+            shore_field: ShoreField::BACK,
         }
     }
     /// `--quick`: 64x64 only, Medium and Hard and the ladder between them, three seeds (about 30 s on a laptop).
@@ -86,6 +90,7 @@ impl Batch {
             ladder: true,
             seeds: 3,
             cap_min: 30,
+            shore_field: ShoreField::BACK,
         }
     }
 
@@ -159,6 +164,9 @@ pub struct SeatRec {
     pub waves: [u32; 2],
     /// The army's ground unit-samples (every `SAMPLE` ticks; workers left out) in all, and in deep water.
     pub ground_samples: [u32; 2],
+    /// Units lost within `FIELD_NEAR` tiles of a crystal or vent (where they stood the tick before), workers and the
+    /// rest: [workers, others].
+    pub lost_near_field: [u32; 2],
     /// Which half of the map the seat started in: its headquarters south of the middle row.
     pub south: bool,
 }
@@ -167,6 +175,11 @@ pub struct SeatRec {
 pub const WAVE_REACH: f64 = 8.0;
 /// Ticks between the samples of where units stand (deep water).
 pub const SAMPLE: u32 = 15;
+/// A unit lost within this many tiles of a crystal's or a vent's middle was lost at a field.
+pub const FIELD_NEAR: f64 = 8.0;
+
+/// What stands, by id: (id, seat, kind index, a building, finished, x, y).
+type Seen = (u32, u8, u16, bool, bool, f64, f64);
 
 /// One game's record.
 #[derive(Clone, Debug, PartialEq)]
@@ -215,7 +228,7 @@ fn route(w: &World, foot: Foot, a: (i32, i32), b: (i32, i32)) -> Option<f64> {
 /// What a game's record watches between ticks, read-only: what stands (by id) and the ether vents.
 pub struct Tracker {
     /// What there was after the last tick, by id: (id, seat, kind index, a building, finished).
-    known: Vec<(u32, u8, u16, bool, bool)>,
+    known: Vec<Seen>,
     /// The ether vents that held ether at the start, by node id (a vent stays on the map when it runs dry).
     vents: Vec<u32>,
     pub first_attack: Option<u32>,
@@ -225,15 +238,15 @@ pub struct Tracker {
     wave_out: [Option<bool>; 2],
 }
 
-fn standing(w: &World) -> Vec<(u32, u8, u16, bool, bool)> {
-    let mut now: Vec<(u32, u8, u16, bool, bool)> = w
+fn standing(w: &World) -> Vec<Seen> {
+    let mut now: Vec<Seen> = w
         .units
         .iter()
-        .map(|u| (u.id, u.team, u.kind.index() as u16, false, true))
+        .map(|u| (u.id, u.team, u.kind.index() as u16, false, true, u.x, u.y))
         .chain(
             w.bldgs
                 .iter()
-                .map(|b| (b.id, b.team, b.kind.index() as u16, true, b.done)),
+                .map(|b| (b.id, b.team, b.kind.index() as u16, true, b.done, b.x, b.y)),
         )
         .collect();
     now.sort_unstable_by_key(|e| e.0);
@@ -312,7 +325,15 @@ impl Tracker {
                     if a.3 {
                         r.bldgs_lost[a.2 as usize] += 1
                     } else {
-                        r.units_lost[a.2 as usize] += 1
+                        r.units_lost[a.2 as usize] += 1;
+                        let near = FIELD_NEAR * 32.0;
+                        if w.map
+                            .nodes
+                            .iter()
+                            .any(|n| (n.x - a.5).hypot(n.y - a.6) < near)
+                        {
+                            r.lost_near_field[!UNIT_KINDS[a.2 as usize].def().worker as usize] += 1;
+                        }
                     }
                     i += 1;
                 }
@@ -392,7 +413,7 @@ impl Tracker {
 
 /// Play one game of `cell` from `seed` to its end, or to `cap_min` game minutes, recording as it goes. The world
 /// is only read between ticks: the record cannot change the game.
-pub fn play(cell: &Cell, seed: u32, cap_min: u32) -> GameRec {
+pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField) -> GameRec {
     let size = MapSize::square(cell.size);
     let mut w = World::with_size(
         seed,
@@ -402,6 +423,9 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32) -> GameRec {
         0,
         &[cell.faction(0), cell.faction(1)],
     );
+    if field != ShoreField::BACK {
+        w.set_shore_field(field);
+    }
     assert!(
         w.set_diffs(&[cell.levels[0] as u8, cell.levels[1] as u8]),
         "per-seat levels"
@@ -448,6 +472,7 @@ pub fn play_all(
     cells: &[Cell],
     seeds: u32,
     cap_min: u32,
+    field: ShoreField,
     threads: usize,
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> Vec<Vec<GameRec>> {
@@ -462,7 +487,7 @@ pub fn play_all(
                 loop {
                     let k = next.fetch_add(1, Ordering::SeqCst);
                     let Some(&(c, seed)) = jobs.get(k) else { break };
-                    let rec = play(&cells[c], seed, cap_min);
+                    let rec = play(&cells[c], seed, cap_min, field);
                     *slots[k].lock().unwrap() = Some(rec);
                     progress(done.fetch_add(1, Ordering::SeqCst) + 1, jobs.len());
                 }
@@ -480,6 +505,53 @@ pub fn play_all(
 mod tests {
     use super::*;
     use endfall_sim::data::{BldgKind, UnitKind};
+
+    #[test]
+    fn a_unit_lost_beside_a_crystal_or_a_vent_counts_at_a_field_and_one_lost_far_off_does_not() {
+        let mut w = World::new(1, 1);
+        w.disable_ai();
+        let n = &w.map.nodes[0];
+        let (nx, ny) = (n.x, n.y);
+        // the farthest point of the map from every node
+        let far = (0..w.map.h)
+            .flat_map(|y| {
+                (0..w.map.w).map(move |x| (x as f64 * 32.0 + 16.0, y as f64 * 32.0 + 16.0))
+            })
+            .max_by(|a, b| {
+                let d = |p: &(f64, f64)| {
+                    w.map
+                        .nodes
+                        .iter()
+                        .map(|n| (n.x - p.0).hypot(n.y - p.1))
+                        .fold(f64::MAX, f64::min)
+                };
+                d(a).total_cmp(&d(b))
+            })
+            .unwrap();
+        let worker = w.make_unit(UnitKind::Harvester, 0, nx + 64.0, ny);
+        let trooper = w.make_unit(UnitKind::Trooper, 0, nx, ny + 7.5 * 32.0);
+        let away = w.make_unit(UnitKind::Trooper, 1, far.0, far.1);
+        let mut t = Tracker::new(&w);
+        t.observe(&w, 1);
+        w.units.retain(|u| ![worker, trooper, away].contains(&u.id));
+        t.observe(&w, 2);
+        let seats = t.finish(&w);
+        assert_eq!(
+            seats[0].lost_near_field,
+            [1, 1],
+            "a worker and a trooper, each within 8 tiles"
+        );
+        assert_eq!(
+            seats[1].lost_near_field,
+            [0, 0],
+            "lost far from every field"
+        );
+        assert_eq!(
+            seats[1].units_lost[UnitKind::Trooper.index()],
+            1,
+            "but lost"
+        );
+    }
 
     #[test]
     fn the_tracker_counts_what_is_trained_finished_lost_and_cancelled() {
@@ -541,6 +613,7 @@ mod shore_tests {
             ladder: false,
             seeds: 1,
             cap_min: 9,
+            shore_field: ShoreField::BACK,
         };
         let cells = b.cells();
         assert!(
@@ -555,7 +628,7 @@ mod shore_tests {
             .iter()
             .find(|c| c.map == MapKind::Shore && c.races == [0, 1])
             .unwrap();
-        let g = play(shore, 1, 9);
+        let g = play(shore, 1, 9, ShoreField::BACK);
         let r = g.routes.expect("a map with water: its routes");
         assert!(
             r[0].is_some() && r[1].is_some(),
@@ -577,6 +650,6 @@ mod shore_tests {
         );
         // (a map without water: no routes)
         let standard = cells.iter().find(|c| c.map == MapKind::Standard).unwrap();
-        assert_eq!(play(standard, 1, 1).routes, None);
+        assert_eq!(play(standard, 1, 1, ShoreField::BACK).routes, None);
     }
 }

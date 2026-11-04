@@ -395,6 +395,12 @@ impl Report {
             .with("ladder", b.ladder)
             .with("seeds", b.seeds)
             .with("cap_min", b.cap_min);
+        // (only when moved: a report of every game's map keeps its batch as it was)
+        let batch = if b.shore_field == endfall_sim::map::ShoreField::BACK {
+            batch
+        } else {
+            batch.with("shore_field", shore_field_name(b.shore_field))
+        };
         let cells: Vec<Json> = self
             .cells
             .iter()
@@ -431,6 +437,7 @@ impl Report {
             .with("key", key)
             .with("checks", checks.iter().map(Check::json).collect::<Vec<_>>())
             .with("exchange", exchange)
+            .with("shore_income", self.shore_income_json())
             .with("cells", cells)
     }
 
@@ -681,6 +688,10 @@ fn game_json(g: &GameRec) -> Json {
                 "ground_samples",
                 vec![s.ground_samples[0], s.ground_samples[1]],
             )
+            .with(
+                "lost_near_field",
+                vec![s.lost_near_field[0], s.lost_near_field[1]],
+            )
             .with("south", s.south)
     };
     Json::obj()
@@ -702,6 +713,74 @@ fn game_json(g: &GameRec) -> Json {
 impl Report {
     fn shore_cells(&self) -> impl Iterator<Item = (&Cell, &Vec<GameRec>)> {
         self.level_cells(|c| c.map == endfall_sim::map::MapKind::Shore)
+    }
+
+    /// Each people's income and losses at fields in the Humans-vs-Vael Shore games at `level` (None: every level),
+    /// per minute of play (timeouts too): [shards a minute, ether a minute, workers lost a minute, workers lost at a
+    /// field a game, other units lost at a field a game], and the games. Indexed by race.
+    fn shore_income(&self, level: Option<usize>) -> [([f64; 5], usize); 2] {
+        let mut sum = [[0f64; 5]; 2];
+        let (mut minutes, mut games) = (0.0, 0usize);
+        for (c, gs) in self.shore_cells().filter(|(c, _)| {
+            c.kind == Kind::Level && !c.mirror() && level.is_none_or(|l| c.levels[0] == l)
+        }) {
+            for g in gs {
+                minutes += g.end_tick as f64 / (60.0 * TPS as f64);
+                games += 1;
+                for seat in 0..2 {
+                    let (r, s) = (c.races[seat], &g.seats[seat]);
+                    let workers: u32 = s
+                        .units_lost
+                        .iter()
+                        .enumerate()
+                        .filter(|(k, _)| UNIT_KINDS[*k].def().worker)
+                        .map(|(_, n)| n)
+                        .sum();
+                    sum[r][0] += s.mined[0] as f64;
+                    sum[r][1] += s.mined[1] as f64;
+                    sum[r][2] += workers as f64;
+                    sum[r][3] += s.lost_near_field[0] as f64;
+                    sum[r][4] += s.lost_near_field[1] as f64;
+                }
+            }
+        }
+        let per = |v: [f64; 5]| {
+            let m = minutes.max(f64::MIN_POSITIVE);
+            let n = games.max(1) as f64;
+            [v[0] / m, v[1] / m, v[2] / m, v[3] / n, v[4] / n]
+        };
+        [(per(sum[0]), games), (per(sum[1]), games)]
+    }
+
+    fn shore_income_json(&self) -> Option<Json> {
+        self.shore_cells().next()?;
+        let levels: Vec<Option<usize>> = self
+            .batch
+            .levels
+            .iter()
+            .map(|&l| Some(l))
+            .chain([None])
+            .collect();
+        let rows: Vec<Json> = levels
+            .iter()
+            .flat_map(|&l| {
+                self.shore_income(l)
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(r, (v, n))| {
+                        Json::obj()
+                            .with("level", l.map_or("all", |l| LEVELS[l]))
+                            .with("race", FACTIONS[r].name)
+                            .with("games", n)
+                            .with("shards_per_min", v[0])
+                            .with("ether_per_min", v[1])
+                            .with("workers_lost_per_min", v[2])
+                            .with("workers_lost_at_fields_per_game", v[3])
+                            .with("others_lost_at_fields_per_game", v[4])
+                    })
+            })
+            .collect();
+        Some(Json::from(rows))
     }
 
     /// Humans-vs-Vael Shore games at `level` (None: every level): (race, south) -> wins of decided.
@@ -771,6 +850,32 @@ impl Report {
                     .collect::<Vec<_>>()
                     .join(" | ")
             );
+        }
+        // Income and losses at fields.
+        let _ = writeln!(
+            s,
+            "\nEach people's income and its losses at fields (Humans against Vael, both seat orders; per minute of play, timeouts too; at a field: within {} tiles of a crystal or a vent):\n",
+            crate::batch::FIELD_NEAR
+        );
+        let _ = writeln!(
+            s,
+            "| Level | People | Shards a minute | Ether a minute | Workers lost a minute | Workers lost at a field, a game | Others lost at a field, a game |"
+        );
+        let _ = writeln!(s, "| --- | --- | --- | --- | --- | --- | --- |");
+        for l in self.batch.levels.iter().map(|&l| Some(l)).chain([None]) {
+            for (r, (v, _)) in self.shore_income(l).into_iter().enumerate() {
+                let _ = writeln!(
+                    s,
+                    "| {} | {} | {:.0} | {:.1} | {:.2} | {:.1} | {:.1} |",
+                    l.map_or("all", |l| LEVELS[l]),
+                    FACTIONS[r].name,
+                    v[0],
+                    v[1],
+                    v[2],
+                    v[3],
+                    v[4]
+                );
+            }
         }
         // Waves.
         let _ = writeln!(
@@ -1033,5 +1138,19 @@ impl Report {
             r.n += x.n;
         }
         r
+    }
+}
+
+/// `--shore-field`'s names for the basins' field: back (every game's), channel, channel-far.
+pub fn shore_field_name(f: endfall_sim::map::ShoreField) -> &'static str {
+    use endfall_sim::map::ShoreField;
+    if f == ShoreField::CHANNEL {
+        "channel"
+    } else if f == ShoreField::CHANNEL_FAR {
+        "channel-far"
+    } else if f == ShoreField::BACK {
+        "back"
+    } else {
+        "other"
     }
 }

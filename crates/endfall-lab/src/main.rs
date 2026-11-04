@@ -50,7 +50,7 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--cap MIN] [--threads N] [--out FILE]"
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -104,6 +104,15 @@ fn report(args: &[String]) {
             "--maps" => extra_maps = val().split(',').map(parse_map).collect(),
             "--levels" => batch.levels = val().split(',').map(parse_level).collect(),
             "--no-ladder" => batch.ladder = false,
+            "--shore-field" => {
+                use endfall_sim::map::ShoreField;
+                batch.shore_field = match val().as_str() {
+                    "back" => ShoreField::BACK,
+                    "channel" => ShoreField::CHANNEL,
+                    "channel-far" => ShoreField::CHANNEL_FAR,
+                    _ => die("--shore-field back, channel or channel-far"),
+                }
+            }
             "--threads" => threads = val().parse().unwrap_or_else(|_| die("--threads N")),
             "--length-band" => {
                 let v = val();
@@ -151,7 +160,7 @@ fn report(args: &[String]) {
     std::fs::write(&path, r.json().write())
         .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
     let header = format!(
-        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}, {} seeds a cell, {} min cap: {total} games in {:.0} s on {threads} threads. JSON: {}",
+        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}, {} seeds a cell, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
         today(),
         batch.sizes,
         batch.maps,
@@ -164,6 +173,14 @@ fn report(args: &[String]) {
         if batch.ladder { "yes" } else { "no" },
         batch.seeds,
         batch.cap_min,
+        if batch.shore_field == endfall_sim::map::ShoreField::BACK {
+            String::new()
+        } else {
+            format!(
+                ", the Shore basins' field {}",
+                endfall_lab::report::shore_field_name(batch.shore_field)
+            )
+        },
         secs,
         path.display()
     );

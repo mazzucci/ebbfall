@@ -24,7 +24,14 @@ pub fn run_report(
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> Report {
     let cells = batch.cells();
-    let games = batch::play_all(&cells, batch.seeds, batch.cap_min, threads, progress);
+    let games = batch::play_all(
+        &cells,
+        batch.seeds,
+        batch.cap_min,
+        batch.shore_field,
+        threads,
+        progress,
+    );
     Report {
         commit: commit.to_string(),
         batch,
@@ -49,6 +56,7 @@ mod tests {
             ladder: false,
             seeds: 2,
             cap_min: 3,
+            shore_field: endfall_sim::map::ShoreField::BACK,
         };
         let quiet = |_: usize, _: usize| {};
         let one = run_report(batch.clone(), (10.0, 20.0), "test", 1, &quiet)

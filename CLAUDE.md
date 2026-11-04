@@ -33,6 +33,8 @@ npm run sim        # scripted 10-minute game per difficulty on the Rust sim, pri
 npm run lab -- report   # the balance lab (crates/endfall-lab/README.md): a fixed batch of AI-vs-AI games natively,
                         # win rates with 95% intervals, target checks (PASS/WARN), key figures; JSON in target/lab/
 npm run lab -- compare A.json B.json   # two reports cell by cell: what moved, and whether more than the noise
+npm run lab -- report --sizes 64 --maps Shore --shore-field channel   # the Shore with the basins' field exposed
+                        # (channel-far: farther out; each people's income and losses at fields in the Shore section)
 npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-weighted efficiency, time to kill
 npm run lab -- plans    # games with random AI plans (workers, first wave, expansion; a placebo and a planted coin):
                         # a logistic model of what wins, win rates by setting; --plant runs the planted control
@@ -387,7 +389,10 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   (`Map::basins`), the others in its cove; the start a seat does not use stays open ground with its field. A Shore
   with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
   Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
-  tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`).
+  tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
+  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, behind the Core; `CHANNEL` and
+  `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
+  the network and not hashed, `Map::generate_with`).
 - The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
   with four and 128x128 with eight, each size with maps of its own, any of them for as many players as its starts
   (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index

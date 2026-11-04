@@ -84,9 +84,11 @@ fn lost_to_bldgs(w: &World, s: usize) -> u32 {
         .map_or(0, |row| row.iter().skip(UNIT_KINDS.len()).sum())
 }
 
-/// What of the enemy of seat `s` stands now, with values and places.
+/// What of the enemy of seat `s` stands now, with values and places, by id (units and buildings share one id
+/// sequence: `observe` looks them up by binary search).
 fn enemies(w: &World, s: usize) -> Vec<Seen> {
-    w.units
+    let mut v: Vec<Seen> = w
+        .units
         .iter()
         .filter(|u| u.team as usize != s)
         .map(|u| (u.id, worth(u.kind.def().cost), u.x, u.y))
@@ -96,7 +98,9 @@ fn enemies(w: &World, s: usize) -> Vec<Seen> {
                 .filter(|b| b.team as usize != s)
                 .map(|b| (b.id, worth(b.kind.def().cost), b.x, b.y)),
         )
-        .collect()
+        .collect();
+    v.sort_unstable_by_key(|e| e.0);
+    v
 }
 
 impl Watch {
@@ -172,8 +176,7 @@ fn launch(w: &World, s: usize, ids: &[u32]) -> Out {
         .iter()
         .filter_map(|&id| w.unit(id).map(|u| (id, worth(u.kind.def().cost), u.x, u.y)))
         .collect();
-    let mut theirs = enemies(w, s);
-    theirs.sort_unstable_by_key(|e| e.0);
+    let theirs = enemies(w, s);
     Out {
         rec: Wave {
             seat: s as u8,
@@ -485,6 +488,8 @@ mod tests {
             assert!((w.lost - parts).abs() < 1e-9, "the losses add up: {w:?}");
             assert!(w.lost <= w.value + 1e-9, "no more lost than it had: {w:?}");
             assert!(w.destroyed >= 0.0);
+            // (each thing counted once, when it falls: no wave destroys more than a whole base's worth and an army)
+            assert!(w.destroyed < 20_000.0, "destroyed counted once: {w:?}");
             if let Some(a) = w.arrived {
                 assert!(a.tick >= w.launched && a.value <= w.value + 1e-9 && a.defence >= 0.0);
                 assert!(

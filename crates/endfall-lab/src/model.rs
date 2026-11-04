@@ -228,6 +228,73 @@ mod tests {
         );
     }
 
+    /// The intervals are calibrated: on datasets shaped like the plans batch's design (an intercept, six setting
+    /// differences, three seating dummies, a map dummy) where a column has no effect, its 95% interval excludes zero
+    /// in about 5% of the datasets. Returns that share, and how many datasets could not be fitted.
+    fn null_coverage(rows: usize, datasets: usize, seed: u32) -> (f64, usize) {
+        let mut r = Mulberry32::new(seed);
+        let mut u = || r.next_u32() as f64 / 4_294_967_296.0;
+        let (mut out, mut unfit) = (0, 0);
+        for _ in 0..datasets {
+            let (mut x, mut y) = (Vec::new(), Vec::new());
+            for _ in 0..rows {
+                let mut n = || ((0..4).map(|_| u()).sum::<f64>() - 2.0) * 1.7;
+                let cont = [n(), n(), n()];
+                let mut coin = || (u() < 0.5) as u8 as f64 - (u() < 0.5) as u8 as f64;
+                let coins = [coin(), coin(), coin()];
+                let seating = (u() * 4.0) as usize;
+                let shore = (u() < 0.5) as u8 as f64;
+                let mut row = vec![1.0];
+                row.extend(cont);
+                row.extend(coins);
+                row.extend((1..4).map(|k| (seating == k) as u8 as f64));
+                row.push(shore);
+                // (real effects on two columns; the placebo, column 5, has none)
+                let p = predict(
+                    &[0.1, 0.5, -0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    &row,
+                );
+                y.push(u() < p);
+                x.push(row);
+            }
+            match fit(&x, &y) {
+                Some(f) if f.converged => {
+                    let (lo, hi) = f.interval(5);
+                    out += (lo > 0.0 || hi < 0.0) as usize;
+                }
+                _ => unfit += 1,
+            }
+        }
+        (out as f64 / (datasets - unfit).max(1) as f64, unfit)
+    }
+
+    #[test]
+    fn a_null_column_s_interval_excludes_zero_about_one_time_in_twenty() {
+        for (rows, lo, hi) in [(2000, 0.02, 0.09), (400, 0.02, 0.09)] {
+            let (share, unfit) = null_coverage(rows, 500, 11);
+            println!(
+                "{rows} rows: {:.1}% beyond zero, {unfit} not fitted",
+                100.0 * share
+            );
+            assert!(
+                (lo..=hi).contains(&share) && unfit == 0,
+                "{rows} rows: the null column beyond zero in {:.1}% of 500 datasets ({unfit} not fitted)",
+                100.0 * share
+            );
+        }
+    }
+
+    /// The same at 40 rows, measured rather than asserted (a smoke run's size: 11 columns on 40 games).
+    #[test]
+    #[ignore]
+    fn null_coverage_at_forty_rows() {
+        let (share, unfit) = null_coverage(40, 500, 11);
+        println!(
+            "40 rows: the null column beyond zero in {:.1}% of the fitted datasets; {unfit} of 500 not fitted",
+            100.0 * share
+        );
+    }
+
     #[test]
     fn a_constant_column_beside_the_intercept_is_singular() {
         let x = vec![vec![1.0, 2.0]; 10];

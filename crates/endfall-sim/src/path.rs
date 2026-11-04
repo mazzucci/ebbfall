@@ -199,13 +199,20 @@ pub fn astar_capped(
             (oct(x, y) - 1.414 * r as f64).max(0.0)
         }
     };
-    // Ties (equal ways to two tiles of the ring, or two nearest points to a goal it cannot reach): the tile on the
-    // clockwise side of the line from the goal to the map's middle, then the nearer the goal. The map's turns (the
-    // starts' symmetry) leave its middle where it is, so they turn the choice with them, and it does not depend on
-    // where the search starts (a unit's replans on its way agree).
-    let (mx, my) = ((map.w - 1) as f64 / 2.0, (map.h - 1) as f64 / 2.0);
-    let side =
-        |x: i32, y: i32| (mx - gx as f64) * (y - gy) as f64 - (my - gy as f64) * (x - gx) as f64;
+    // Ties (equal ways to two tiles of the ring, or two nearest points to a goal it cannot reach): by the tile's place
+    // seen from the goal against the way to the map's middle, the clockwise side of that line first, then the side
+    // towards the middle (the two together tell any two tiles apart, the map's diagonals included). The map's turns
+    // (the starts' symmetry) leave its middle where it is, so they turn the choice with them (a mirror, as among the
+    // eight starts of 128x128, mirrors the first key), and it does not depend on where the search starts: a unit's
+    // replans on its way agree.
+    let (vx, vy) = (
+        (map.w - 1) as f64 / 2.0 - gx as f64,
+        (map.h - 1) as f64 / 2.0 - gy as f64,
+    );
+    let side = |x: i32, y: i32| {
+        let (ux, uy) = ((x - gx) as f64, (y - gy) as f64);
+        (vx * uy - vy * ux, vx * ux + vy * uy)
+    };
     s.stamp = s.stamp.wrapping_add(1);
     let stamp = s.stamp;
     let mut open = Heap { a: Vec::new() };
@@ -221,9 +228,9 @@ pub fn astar_capped(
         f: h(sx, sy),
     });
     // (the nearest point to the goal found so far, for a goal it cannot reach: nearest its middle, then the side rule)
-    let (mut best, mut best_h, mut best_side, mut n) = (None::<usize>, 1e9, 0.0, 0);
+    let (mut best, mut best_h, mut best_side, mut n) = (None::<usize>, 1e9, (0.0, 0.0), 0);
     // (the ring's first tile reached, its cost and its tie-break keys; the search goes on through the ways as short)
-    let mut found: Option<(usize, f32, f64, f64)> = None;
+    let mut found: Option<(usize, f32, (f64, f64), f64)> = None;
     while !open.a.is_empty() && {
         let ok = n < cap;
         n += 1;
@@ -233,15 +240,18 @@ pub fn astar_capped(
         if s.closed[c.i] != 0 && s.stamp_arr[c.i] == stamp {
             continue;
         }
-        if found.is_some_and(|f| c.f > f.1 as f64 + 1e-6) {
+        // (in the costs' own precision: an exact tie must reach the tie-break, not be cut by a rounding)
+        if found.is_some_and(|f| (c.f as f32) > f.1) {
             break;
         }
         s.closed[c.i] = 1;
         let (hh, sd) = (oct(c.x, c.y), side(c.x, c.y));
+        let later = |a: (f64, f64), b: (f64, f64)| a.0 > b.0 || (a.0 == b.0 && a.1 > b.1);
         if found.is_none()
             && (hh < best_h
                 || (hh == best_h
-                    && (sd > best_side || (sd == best_side && best.is_some_and(|b| c.i < b)))))
+                    && (later(sd, best_side)
+                        || (sd == best_side && best.is_some_and(|b| c.i < b)))))
         {
             (best_h, best_side) = (hh, sd);
             best = Some(c.i);
@@ -251,7 +261,8 @@ pub fn astar_capped(
             let better = found.is_none_or(|f| {
                 gc < f.1
                     || (gc == f.1
-                        && (sd > f.2 || (sd == f.2 && (near < f.3 || (near == f.3 && c.i < f.0)))))
+                        && (later(sd, f.2)
+                            || (sd == f.2 && (near < f.3 || (near == f.3 && c.i < f.0)))))
             });
             if better {
                 found = Some((c.i, gc, sd, near));

@@ -723,4 +723,66 @@ fn a_blocked_goal_ends_on_the_side_reached_first_from_every_direction() {
     let mid = w.map.tile_of(p[p.len() / 2].x, p[p.len() / 2].y);
     assert_eq!(end(&w, mid, g), far, "the same end from half way there");
     assert_eq!(end(&w, turn((20, 40)), turn(g)), turn(far), "and turned");
+    // Goals on the map's diagonals (the line to its middle cannot tell the tiles beside them apart on its own: 184 of
+    // these searches came out unturned before its second key), each with one of its eight neighbours taken in turn,
+    // from eight directions at 2 to 59 tiles: turned alike, and the same end from half way.
+    let (mut searched, mut unturned, mut swung) = (0, Vec::new(), Vec::new());
+    for g in [(8, 8), (20, 20), (31, 31), (40, 40), (12, 51), (44, 19)] {
+        for n in [
+            (1, 0),
+            (1, 1),
+            (0, 1),
+            (-1, 1),
+            (-1, 0),
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+        ] {
+            let mut w = arena(3);
+            flatten(&mut w, 1..mw - 1, 1..mh - 1);
+            rock(&mut w, g);
+            rock(&mut w, (g.0 + n.0, g.1 + n.1));
+            for k in 2..60 {
+                for (dx, dy) in [
+                    (1, 0),
+                    (1, 1),
+                    (0, 1),
+                    (-1, 1),
+                    (-1, 0),
+                    (-1, -1),
+                    (0, -1),
+                    (1, -1),
+                ] {
+                    let s = (g.0 + dx * k, g.1 + dy * k);
+                    if !(1..mw - 1).contains(&s.0)
+                        || !(1..mh - 1).contains(&s.1)
+                        || !w.map.passable(foot, s.0, s.1)
+                    {
+                        continue;
+                    }
+                    searched += 1;
+                    let e = end(&w, s, g);
+                    if end(&w, turn(s), turn(g)) != turn(e) {
+                        unturned.push((g, n, s));
+                    }
+                    let p = astar(&w.map, foot, &mut scratch, s.0, s.1, g.0, g.1).unwrap();
+                    let mid = w.map.tile_of(p[p.len() / 2].x, p[p.len() / 2].y);
+                    if end(&w, mid, g) != e {
+                        swung.push((g, n, s));
+                    }
+                }
+            }
+        }
+    }
+    assert!(searched > 9000, "enough searches ({searched})");
+    assert_eq!(
+        unturned,
+        vec![],
+        "diagonal goals: the turned search ends on the turned tile (goal, taken, start)"
+    );
+    assert_eq!(
+        swung,
+        vec![],
+        "diagonal goals: the same end from half way (goal, taken, start)"
+    );
 }

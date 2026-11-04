@@ -649,3 +649,78 @@ fn no_worker_stands_at_a_rock_corner_on_its_round() {
         }
     }
 }
+
+/// A blocked goal (a crystal, a building) ends a search on the free tile beside it that the search reaches first, the
+/// same side from every direction: the problem turned half round (the two starts' symmetry) ends on the turned tile,
+/// ties included. Before, the first free tile of a fixed scan (the ring's top row first) won. And a goal nobody can
+/// reach ends at the same nearest point from anywhere along the way there (a unit's replans must not swing it to and
+/// fro: an army walked back and forth for half an hour beside a Barracks wedged against rock).
+#[test]
+fn a_blocked_goal_ends_on_the_side_reached_first_from_every_direction() {
+    use endfall_sim::map::Foot;
+    use endfall_sim::path::{PathScratch, astar};
+    let mut w = arena(3);
+    let (mw, mh) = (w.map.w, w.map.h);
+    flatten(&mut w, 1..mw - 1, 1..mh - 1);
+    let turn = |t: (i32, i32)| (mw - 1 - t.0, mh - 1 - t.1);
+    let rock = |w: &mut World, t: (i32, i32)| {
+        for p in [t, turn(t)] {
+            let i = w.map.idx(p.0, p.1);
+            w.map.rock[i] = 1;
+        }
+    };
+    // A crystal with two of its neighbours taken (a field's arc), and its image.
+    let g = (24, 26);
+    for t in [g, (g.0 + 1, g.1), (g.0, g.1 + 1)] {
+        rock(&mut w, t);
+    }
+    let foot = Foot {
+        class: Move::Walk,
+        water: w.water,
+    };
+    let end = |w: &World, s: (i32, i32), g: (i32, i32)| {
+        let mut scratch = PathScratch::new(w.map.rock.len());
+        let p = astar(&w.map, foot, &mut scratch, s.0, s.1, g.0, g.1).unwrap();
+        p.last().map_or(s, |q| w.map.tile_of(q.x, q.y))
+    };
+    let mut sides = std::collections::BTreeSet::new();
+    for dy in -6..=6i32 {
+        for dx in -6..=6i32 {
+            if dx.abs().max(dy.abs()) != 6 {
+                continue;
+            }
+            let s = (g.0 + dx, g.1 + dy);
+            let e = end(&w, s, g);
+            assert_eq!(
+                end(&w, turn(s), turn(g)),
+                turn(e),
+                "from {s:?}: the turned search ends on the turned tile"
+            );
+            assert_eq!(
+                (e.0 - g.0).abs().max((e.1 - g.1).abs()),
+                1,
+                "from {s:?}: beside the goal"
+            );
+            sides.insert(e);
+        }
+    }
+    assert!(
+        sides.len() >= 5,
+        "every side used, not one fixed tile: {sides:?}"
+    );
+    // A goal walled in on three sides of a pocket nobody can enter: from far away, and from half way along the route,
+    // the search ends on the same nearest tile.
+    let g = (40, 20);
+    for t in (37..=43)
+        .flat_map(|x| [(x, 17), (x, 23)])
+        .chain((18..=22).flat_map(|y| [(37, y), (43, y)]))
+    {
+        rock(&mut w, t);
+    }
+    let far = end(&w, (20, 40), g);
+    let mut scratch = PathScratch::new(w.map.rock.len());
+    let p = astar(&w.map, foot, &mut scratch, 20, 40, g.0, g.1).unwrap();
+    let mid = w.map.tile_of(p[p.len() / 2].x, p[p.len() / 2].y);
+    assert_eq!(end(&w, mid, g), far, "the same end from half way there");
+    assert_eq!(end(&w, turn((20, 40)), turn(g)), turn(far), "and turned");
+}

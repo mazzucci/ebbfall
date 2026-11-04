@@ -1165,6 +1165,57 @@ impl Map {
     pub fn nearest_passable(&self, foot: Foot, tx: i32, ty: i32, max_r: i32) -> Option<(i32, i32)> {
         self.nearest_where(tx, ty, max_r, |x, y| self.passable(foot, x, y))
     }
+    /// Nearest tile to (tx,ty) a unit with `foot` may stand on, within a square radius, ring by ring; of a ring's
+    /// tiles the one nearest `from` (a point in pixels: where the unit is, or aims). Ties go by the side of the line
+    /// from (tx,ty) to `from` (the tile clockwise of it), then nearer (tx,ty), then by (y, x). For a unit put somewhere
+    /// once (eased out of rock, out of a new building's footprint, landing a jump, a start's harvesters): the same
+    /// choice from every direction, where `nearest_passable` takes a ring's top row first, and a half turn of the map
+    /// (the starts' symmetry) turns the choice with it. (A search's blocked goal is `path::goal_radius`'s.)
+    pub fn nearest_passable_to(
+        &self,
+        foot: Foot,
+        tx: i32,
+        ty: i32,
+        max_r: i32,
+        from: (f64, f64),
+    ) -> Option<(i32, i32)> {
+        if self.passable(foot, tx, ty) {
+            return Some((tx, ty));
+        }
+        let (gx, gy) = (tx as f64 * TILE + 16.0, ty as f64 * TILE + 16.0);
+        let (fx, fy) = (from.0 - gx, from.1 - gy);
+        for r in 1..=max_r {
+            // (squared distance to `from`, clockwise of the line (higher first), squared distance to (tx,ty), y, x)
+            let mut best: Option<(f64, f64, i32, i32, i32)> = None;
+            for dy in -r..=r {
+                for dx in -r..=r {
+                    if dx.abs().max(dy.abs()) != r || !self.passable(foot, tx + dx, ty + dy) {
+                        continue;
+                    }
+                    let (cx, cy) = (dx as f64 * TILE, dy as f64 * TILE);
+                    let d = (cx - fx) * (cx - fx) + (cy - fy) * (cy - fy);
+                    let side = fx * cy - fy * cx;
+                    let key = (d, side, dx * dx + dy * dy, ty + dy, tx + dx);
+                    let better = |b: &(f64, f64, i32, i32, i32)| {
+                        if d != b.0 {
+                            return d < b.0;
+                        }
+                        if side != b.1 {
+                            return side > b.1;
+                        }
+                        (key.2, key.3, key.4) < (b.2, b.3, b.4)
+                    };
+                    if best.is_none_or(|b| better(&b)) {
+                        best = Some(key);
+                    }
+                }
+            }
+            if let Some((_, _, _, y, x)) = best {
+                return Some((x, y));
+            }
+        }
+        None
+    }
     fn nearest_where(
         &self,
         tx: i32,

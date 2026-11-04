@@ -341,7 +341,13 @@ impl World {
             let foot = self.foot(self.units[i].kind);
             if !air
                 && !self.map.passable(foot, t.0, t.1)
-                && let Some(f) = self.map.nearest_passable(foot, t.0, t.1, 4)
+                && let Some(f) = self.map.nearest_passable_to(
+                    foot,
+                    t.0,
+                    t.1,
+                    4,
+                    (self.units[i].x, self.units[i].y),
+                )
             {
                 let u = &mut self.units[i];
                 let (cx, cy) = (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0);

@@ -1815,8 +1815,11 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
 fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
     // Each side's air factory waits for its level's `air_at`, less its script's `air_lead`: the Vael's Zenith half a
     // minute sooner (its Shrikes came only where the Zenith stood well before the 7:30 capital, in 6-28% of AI
-    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium.
+    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium. A Vael main full by
+    // then raises a Spire out past it first and puts its Zenith in that field (half a minute more): it is still due no
+    // sooner than its lead allows, and it still comes before the Humans' Airfield.
     let air_at = DIFF[1].air_at;
+    let mut times = Vec::new();
     for f in [&VAEL, &HUMANS] {
         let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
@@ -1835,14 +1838,20 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
         }
         let at = placed.unwrap_or(f64::MAX);
         let due = air_at - f.ai.air_lead;
-        let early = f.ai.air_lead > 0.0;
         assert!(
-            at > due && at < if early { air_at } else { air_at + 30.0 },
+            at > due && at < air_at + 30.0,
             "{}: its {:?} at {at:.0} s, due after {due:.0} s",
             f.name,
             f.ai.air
         );
+        times.push(at);
     }
+    assert!(
+        times[0] < times[1],
+        "the Vael's Zenith ({:.0} s) before the Humans' Airfield ({:.0} s)",
+        times[0],
+        times[1]
+    );
     const { assert!(VAEL.ai.air_lead > HUMANS.ai.air_lead) };
 }
 

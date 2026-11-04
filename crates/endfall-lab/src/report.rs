@@ -503,6 +503,7 @@ impl Report {
                 }
             }
         }
+        s += &self.shore_markdown();
         s
     }
 }
@@ -647,6 +648,12 @@ fn game_json(g: &GameRec) -> Json {
                     .with("killed", s.stats[2])
                     .with("razed", s.stats[3]),
             )
+            .with("waves", vec![s.waves[0], s.waves[1]])
+            .with(
+                "ground_samples",
+                vec![s.ground_samples[0], s.ground_samples[1]],
+            )
+            .with("south", s.south)
     };
     Json::obj()
         .with("seed", g.seed)
@@ -655,4 +662,273 @@ fn game_json(g: &GameRec) -> Json {
         .with("first_attack_tick", g.first_attack)
         .with("first_vent_dry_tick", g.first_dry)
         .with("seats", vec![seat(&g.seats[0]), seat(&g.seats[1])])
+        .with(
+            "routes",
+            g.routes.map(|r| vec![Json::from(r[0]), Json::from(r[1])]),
+        )
+}
+
+/// The Shore map's part of the report (the gate of the PRD "Stage 1a, the Shore map"): each people's win rate from
+/// each half of the map, the AI's waves (launched, and reaching the other side), the Vael's ground units' time in deep
+/// water, the routes between the starts, and the gate's rows.
+impl Report {
+    fn shore_cells(&self) -> impl Iterator<Item = (&Cell, &Vec<GameRec>)> {
+        self.level_cells(|c| c.map == endfall_sim::map::MapKind::Shore)
+    }
+
+    /// Humans-vs-Vael Shore games at `level` (None: every level): (race, south) -> wins of decided.
+    fn shore_halves(&self, level: Option<usize>) -> Vec<(usize, bool, Rate)> {
+        let mut out = Vec::new();
+        for race in 0..FACTIONS.len() {
+            for south in [true, false] {
+                let mut r = Rate {
+                    of: format!(
+                        "{} from the {}",
+                        FACTIONS[race].name,
+                        if south { "south" } else { "north" }
+                    ),
+                    k: 0,
+                    n: 0,
+                };
+                for (c, games) in self.shore_cells().filter(|(c, _)| {
+                    c.kind == Kind::Level && !c.mirror() && level.is_none_or(|l| c.levels[0] == l)
+                }) {
+                    for g in games {
+                        let Some(win) = g.winner else { continue };
+                        for seat in 0..2 {
+                            if c.races[seat] == race && g.seats[seat].south == south {
+                                r.n += 1;
+                                r.k += (win == seat) as usize;
+                            }
+                        }
+                    }
+                }
+                out.push((race, south, r));
+            }
+        }
+        out
+    }
+
+    fn shore_markdown(&self) -> String {
+        let mut s = String::new();
+        if self.shore_cells().next().is_none() {
+            return s;
+        }
+        let _ = writeln!(s, "\n## The Shore map\n");
+        // Each people from each half, at each level and pooled.
+        let _ = writeln!(
+            s,
+            "Each people's win rate from each half of the map (Humans against Vael, both seat orders):\n"
+        );
+        let _ = writeln!(
+            s,
+            "| Level | Humans from the south | Humans from the north | Vael from the south | Vael from the north |"
+        );
+        let _ = writeln!(s, "| --- | --- | --- | --- | --- |");
+        let levels: Vec<Option<usize>> = self
+            .batch
+            .levels
+            .iter()
+            .map(|&l| Some(l))
+            .chain([None])
+            .collect();
+        for l in levels {
+            let h = self.shore_halves(l);
+            let _ = writeln!(
+                s,
+                "| {} | {} |",
+                l.map_or("all", |l| LEVELS[l]),
+                h.iter()
+                    .map(|(_, _, r)| r.show())
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            );
+        }
+        // Waves.
+        let _ = writeln!(
+            s,
+            "\nThe AI's attack waves (a wave reached when one of its units came within 8 tiles of an enemy building):\n"
+        );
+        let _ = writeln!(
+            s,
+            "| Level | Humans' waves | reached | Vael waves | reached |"
+        );
+        let _ = writeln!(s, "| --- | --- | --- | --- | --- |");
+        for &l in &self.batch.levels {
+            let mut w = [[0u32; 2]; 2];
+            for (c, games) in self
+                .shore_cells()
+                .filter(|(c, _)| c.kind == Kind::Level && c.levels[0] == l)
+            {
+                for g in games {
+                    for seat in 0..2 {
+                        for k in 0..2 {
+                            w[c.races[seat]][k] += g.seats[seat].waves[k];
+                        }
+                    }
+                }
+            }
+            let pct = |a: u32, b: u32| {
+                if b == 0 {
+                    "—".to_string()
+                } else {
+                    format!("{:.0}%", 100.0 * a as f64 / b as f64)
+                }
+            };
+            let _ = writeln!(
+                s,
+                "| {} | {} | {} | {} | {} |",
+                LEVELS[l],
+                w[0][0],
+                pct(w[0][1], w[0][0]),
+                w[1][0],
+                pct(w[1][1], w[1][0])
+            );
+        }
+        // Deep water.
+        let mut deep = [0u64; 2];
+        for (c, games) in self.shore_cells() {
+            for g in games {
+                for seat in 0..2 {
+                    if c.races[seat] == 1 {
+                        deep[0] += g.seats[seat].ground_samples[0] as u64;
+                        deep[1] += g.seats[seat].ground_samples[1] as u64;
+                    }
+                }
+            }
+        }
+        if deep[0] > 0 {
+            let _ = writeln!(
+                s,
+                "\nThe Vael's ground units spent {:.1}% of their time in deep water.",
+                100.0 * deep[1] as f64 / deep[0] as f64
+            );
+        }
+        // Routes per seed (Humans against Vael: a Human cove and a Vael basin).
+        let _ = writeln!(
+            s,
+            "\nRoutes between the Human cove and the Vael basin, per seed (tiles; walkers cannot cross deep water):\n"
+        );
+        let _ = writeln!(s, "| Seed | Humans (Walk) | Vael (Amph) |");
+        let _ = writeln!(s, "| --- | --- | --- |");
+        if let Some((_, games)) = self
+            .shore_cells()
+            .find(|(c, _)| c.kind == Kind::Level && c.races == [0, 1])
+        {
+            for g in games {
+                let r = g.routes.unwrap_or([None, None]);
+                let f = |v: Option<f64>| v.map_or("no way".into(), |v| format!("{v:.0}"));
+                let _ = writeln!(s, "| {} | {} | {} |", g.seed, f(r[0]), f(r[1]));
+            }
+        }
+        // The gate.
+        let all: Vec<&GameRec> = self.shore_cells().flat_map(|(_, g)| g.iter()).collect();
+        let decided = all.iter().filter(|g| g.winner.is_some()).count();
+        let fa: Vec<f64> = all
+            .iter()
+            .filter_map(|g| g.first_attack)
+            .map(secs)
+            .collect();
+        let len: Vec<f64> = self
+            .shore_cells()
+            .filter(|(c, _)| c.kind == Kind::Level)
+            .flat_map(|(_, g)| lengths(g))
+            .collect();
+        let worst_timeouts = self
+            .shore_cells()
+            .map(|(_, g)| {
+                g.iter().filter(|g| g.winner.is_none()).count() as f64 / g.len().max(1) as f64
+            })
+            .fold(0.0, f64::max);
+        let medium = self
+            .batch
+            .levels
+            .contains(&1)
+            .then(|| self.shore_halves(Some(1)));
+        let (mut wl, mut wr) = (0u32, 0u32);
+        for (_, games) in self.shore_cells() {
+            for g in games {
+                for seat in &g.seats {
+                    wl += seat.waves[0];
+                    wr += seat.waves[1];
+                }
+            }
+        }
+        let mirrors: Vec<Rate> = self
+            .shore_cells()
+            .filter(|(c, _)| c.kind == Kind::Level && c.mirror())
+            .map(|(c, g)| cell_rate(c, g))
+            .collect();
+        let _ = writeln!(s, "\n### The gate (PRD, the Shore map, section 5)\n");
+        let _ = writeln!(s, "| Check | Target | Measured |");
+        let _ = writeln!(s, "| --- | --- | --- |");
+        let _ = writeln!(
+            s,
+            "| Median time to the first fight | under 4 minutes | {} |",
+            mmss(median(&fa).unwrap_or(f64::NAN))
+        );
+        let _ = writeln!(
+            s,
+            "| Games that reach a result | at least 90%; under 5% timeouts a cell | {:.0}% of {}; the worst cell {:.0}% timeouts |",
+            100.0 * decided as f64 / all.len().max(1) as f64,
+            all.len(),
+            100.0 * worst_timeouts
+        );
+        let _ = writeln!(
+            s,
+            "| Median AI game length (each level against itself) | 10–20 minutes | {} |",
+            mmss(median(&len).unwrap_or(f64::NAN))
+        );
+        if let Some(h) = medium {
+            let low = h
+                .iter()
+                .map(|(_, _, r)| r.p())
+                .filter(|p| p.is_finite())
+                .fold(f64::NAN, f64::min);
+            let pooled = self.humans_vs_vael_on(Some(1), endfall_sim::map::MapKind::Shore);
+            let _ = writeln!(
+                s,
+                "| Each people from either half, Medium | at least 40%; pooled 45–55% | the lowest {:.0}%; Humans pooled {} |",
+                low * 100.0,
+                pooled.show()
+            );
+        }
+        let _ = writeln!(
+            s,
+            "| AI waves that reach the other side | most, at every level | {} of {} ({:.0}%) |",
+            wr,
+            wl,
+            100.0 * wr as f64 / wl.max(1) as f64
+        );
+        let _ = writeln!(
+            s,
+            "| Mirrors on the Shore | within 45–55% | {} |",
+            mirrors
+                .iter()
+                .map(Rate::show)
+                .collect::<Vec<_>>()
+                .join("; ")
+        );
+        s
+    }
+
+    /// Humans vs Vael on one map kind at `level` (None: every level), both seat orders pooled.
+    fn humans_vs_vael_on(&self, level: Option<usize>, map: endfall_sim::map::MapKind) -> Rate {
+        let mut r = Rate {
+            of: "Humans win".into(),
+            k: 0,
+            n: 0,
+        };
+        for (c, g) in self.level_cells(|c| {
+            c.map == map
+                && c.kind == Kind::Level
+                && !c.mirror()
+                && level.is_none_or(|l| c.levels[0] == l)
+        }) {
+            let x = cell_rate(c, g);
+            r.k += x.k;
+            r.n += x.n;
+        }
+        r
+    }
 }

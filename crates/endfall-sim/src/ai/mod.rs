@@ -106,6 +106,16 @@ impl World {
             .and_then(|a| a.attackers.clone())
     }
 
+    /// The units of `seat`'s current attack wave, if its AI has one out (the balance lab counts waves per seat).
+    pub fn ai_wave_of(&self, seat: u8) -> Option<&[Id]> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        if a.attacking {
+            a.attackers.as_deref()
+        } else {
+            None
+        }
+    }
+
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
     pub fn ai_turns(&self) -> Vec<u32> {
         self.ai

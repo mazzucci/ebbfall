@@ -1,8 +1,10 @@
 //! The batch: which games a report plays (cells of matchup x map x levels, a run of seeds each), playing one game
 //! natively with a read-only record of what happened, and playing them all on threads in a fixed order.
 
+use endfall_sim::data::Move;
 use endfall_sim::data::{BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
-use endfall_sim::map::{MapKind, MapSize};
+use endfall_sim::map::{Foot, Ground, MapKind, MapSize};
+use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -93,7 +95,12 @@ impl Batch {
         let (h, v) = (0, 1);
         let mut out = Vec::new();
         for &size in &self.sizes {
-            for &map in &self.maps {
+            // (the Shore is a two-start map: at 96 and 128 it would be the Standard ground under another name)
+            for &map in self
+                .maps
+                .iter()
+                .filter(|&&m| m != MapKind::Shore || size == 64)
+            {
                 for &l in &self.levels {
                     for races in [[h, v], [v, h], [h, h], [v, v]] {
                         out.push(Cell {
@@ -147,7 +154,19 @@ pub struct SeatRec {
     pub peak_supply: i32,
     /// The sim's own summary (`Stats`): built, lost, killed, razed.
     pub stats: [u32; 4],
+    /// The AI's attack waves: launched, and those that reached the enemy (a unit of it within `WAVE_REACH` tiles of
+    /// an enemy building).
+    pub waves: [u32; 2],
+    /// Ground unit-samples (every `SAMPLE` ticks) in all, and in deep water.
+    pub ground_samples: [u32; 2],
+    /// Which half of the map the seat started in: its headquarters south of the middle row.
+    pub south: bool,
 }
+
+/// A unit within this many tiles of an enemy building: its wave reached the other side.
+pub const WAVE_REACH: f64 = 8.0;
+/// Ticks between the samples that need no tick's precision (waves, deep water).
+pub const SAMPLE: u32 = 15;
 
 /// One game's record.
 #[derive(Clone, Debug, PartialEq)]
@@ -161,6 +180,36 @@ pub struct GameRec {
     /// The first tick an ether vent ran dry.
     pub first_dry: Option<u32>,
     pub seats: [SeatRec; 2],
+    /// On a map with water: the route lengths (tiles) between the two starts' headquarters, for a walker and for an
+    /// amphibian (None: no way).
+    pub routes: Option<[Option<f64>; 2]>,
+}
+
+/// The length (tiles) of `foot`'s route from beside block `a` to beside block `b` (4x4 headquarters' tiles).
+fn route(w: &World, foot: Foot, a: (i32, i32), b: (i32, i32)) -> Option<f64> {
+    let m = &w.map;
+    let beside = |t: (i32, i32)| {
+        (-1..=4)
+            .flat_map(|d| {
+                [
+                    (t.0 - 1, t.1 + d),
+                    (t.0 + 4, t.1 + d),
+                    (t.0 + d, t.1 - 1),
+                    (t.0 + d, t.1 + 4),
+                ]
+            })
+            .find(|&(x, y)| m.passable(foot, x, y))
+    };
+    let (from, to) = (beside(a)?, beside(b)?);
+    let mut s = PathScratch::new(m.rock.len());
+    let p = astar(m, foot, &mut s, from.0, from.1, to.0, to.1)?;
+    let mut at = (from.0 as f64 * 32.0 + 16.0, from.1 as f64 * 32.0 + 16.0);
+    let mut len = 0.0;
+    for q in &p {
+        len += ((q.x - at.0).powi(2) + (q.y - at.1).powi(2)).sqrt();
+        at = (q.x, q.y);
+    }
+    (p.last().map(|q| m.tile_of(q.x, q.y)) == Some(to)).then_some(len / 32.0)
 }
 
 /// What a game's record watches between ticks, read-only: what stands (by id) and the ether vents.
@@ -172,6 +221,8 @@ pub struct Tracker {
     pub first_attack: Option<u32>,
     pub first_dry: Option<u32>,
     pub seats: [SeatRec; 2],
+    /// Each seat's wave out (and whether it has reached yet).
+    wave_out: [Option<bool>; 2],
 }
 
 fn standing(w: &World) -> Vec<(u32, u8, u16, bool, bool)> {
@@ -206,12 +257,16 @@ impl Tracker {
             .filter(|n| n.ether && n.amount > 0)
             .map(|n| n.id)
             .collect();
+        for (s, rec) in seats.iter_mut().enumerate() {
+            rec.south = w.map.bases.get(s).is_some_and(|b| b.1 * 2 > w.map.h);
+        }
         Tracker {
             known: standing(w),
             vents,
             first_attack: None,
             first_dry: None,
             seats,
+            wave_out: [None; 2],
         }
     }
 
@@ -232,6 +287,9 @@ impl Tracker {
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.sup[s][0]);
+        }
+        if tick % SAMPLE == 0 {
+            self.sample(w);
         }
         let now = standing(w);
         // (both lists by id: a merge finds what is new, what is gone and what was finished this tick)
@@ -271,6 +329,40 @@ impl Tracker {
         self.known = now;
     }
 
+    /// Waves (launched when a seat's AI sends one out; reached when one of its units comes within `WAVE_REACH` tiles
+    /// of an enemy building) and where the ground units stand.
+    fn sample(&mut self, w: &World) {
+        for s in 0..2u8 {
+            let si = s as usize;
+            let Some(ids) = w.ai_wave_of(s) else {
+                self.wave_out[si] = None;
+                continue;
+            };
+            if self.wave_out[si].is_none() {
+                self.seats[si].waves[0] += 1;
+                self.wave_out[si] = Some(false);
+            }
+            let reach = WAVE_REACH * 32.0;
+            let there = ids.iter().filter_map(|&id| w.unit(id)).any(|u| {
+                w.bldgs.iter().any(|b| {
+                    // (to the building's edge: its middle less half its side)
+                    b.team != s
+                        && ((u.x - b.x).powi(2) + (u.y - b.y).powi(2)).sqrt()
+                            < reach + b.w as f64 * 16.0
+                })
+            });
+            if there && self.wave_out[si] == Some(false) {
+                self.seats[si].waves[1] += 1;
+                self.wave_out[si] = Some(true);
+            }
+        }
+        for u in w.units.iter().filter(|u| !u.kind.def().air) {
+            let r = &mut self.seats[u.team as usize].ground_samples;
+            r[0] += 1;
+            r[1] += (w.ground_at(u.x, u.y) == Ground::Deep) as u32;
+        }
+    }
+
     /// The seats' records at the end: the sim's ledger and stats added, cancelled sites taken out of the lost.
     pub fn finish(mut self, w: &World) -> [SeatRec; 2] {
         for (s, rec) in self.seats.iter_mut().enumerate() {
@@ -306,6 +398,20 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32) -> GameRec {
     );
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     let cap = cap_min * 60 * TPS;
+    let routes = (!w.map.basins.is_empty()).then(|| {
+        let walk = Foot {
+            class: Move::Walk,
+            water: w.water,
+        };
+        let amph = Foot {
+            class: Move::Amph,
+            water: w.water,
+        };
+        [
+            route(&w, walk, w.map.bases[0], w.map.bases[1]),
+            route(&w, amph, w.map.bases[0], w.map.bases[1]),
+        ]
+    });
     let mut track = Tracker::new(&w);
     let mut tick = 0;
     while w.winner < 0 && tick < cap {
@@ -322,6 +428,7 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32) -> GameRec {
         first_attack,
         first_dry,
         seats: track.finish(&w),
+        routes,
     }
 }
 
@@ -408,5 +515,58 @@ mod tests {
             1,
             "the starting workers are not counted"
         );
+    }
+}
+
+#[cfg(test)]
+mod shore_tests {
+    use super::*;
+
+    #[test]
+    fn the_shore_is_played_at_64_only_and_its_games_record_routes_waves_and_deep_water() {
+        let b = Batch {
+            sizes: vec![64, 96],
+            maps: vec![MapKind::Standard, MapKind::Shore],
+            levels: vec![1],
+            ladder: false,
+            seeds: 1,
+            cap_min: 9,
+        };
+        let cells = b.cells();
+        assert!(
+            cells
+                .iter()
+                .filter(|c| c.map == MapKind::Shore)
+                .all(|c| c.size == 64),
+            "the Shore at 64x64 only"
+        );
+        assert_eq!(cells.iter().filter(|c| c.map == MapKind::Shore).count(), 4);
+        let shore = cells
+            .iter()
+            .find(|c| c.map == MapKind::Shore && c.races == [0, 1])
+            .unwrap();
+        let g = play(shore, 1, 9);
+        let r = g.routes.expect("a map with water: its routes");
+        assert!(
+            r[0].is_some() && r[1].is_some(),
+            "both peoples have a way: {r:?}"
+        );
+        assert!(
+            g.seats.iter().any(|s| s.waves[0] >= 1),
+            "an attack wave in nine minutes"
+        );
+        assert!(g.seats.iter().all(|s| s.waves[1] <= s.waves[0]));
+        assert!(
+            g.seats
+                .iter()
+                .all(|s| s.ground_samples[0] > 0 && s.ground_samples[1] <= s.ground_samples[0])
+        );
+        assert_ne!(
+            g.seats[0].south, g.seats[1].south,
+            "the two starts in different halves"
+        );
+        // (a map without water: no routes)
+        let standard = cells.iter().find(|c| c.map == MapKind::Standard).unwrap();
+        assert_eq!(play(standard, 1, 1).routes, None);
     }
 }

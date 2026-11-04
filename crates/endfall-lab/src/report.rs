@@ -400,6 +400,12 @@ impl Report {
             None => batch,
             Some(f) => batch.with("shore_field", shore_field_name(f)),
         };
+        // (only with the tide: a report without it keeps its batch as it was)
+        let batch = if b.tide {
+            batch.with("tide", true)
+        } else {
+            batch
+        };
         let cells: Vec<Json> = self
             .cells
             .iter()

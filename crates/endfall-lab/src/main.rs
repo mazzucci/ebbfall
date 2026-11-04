@@ -50,7 +50,7 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--cap MIN] [--threads N] [--out FILE]
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
@@ -114,6 +114,7 @@ fn report(args: &[String]) {
                     _ => die("--shore-field back, channel or channel-far"),
                 }
             }
+            "--tide" => batch.tide = true,
             "--threads" => threads = val().parse().unwrap_or_else(|_| die("--threads N")),
             "--length-band" => {
                 let v = val();
@@ -211,6 +212,7 @@ fn plans(args: &[String]) {
             "--plant" => batch.plant = true,
             "--check" => batch.check = val().parse().unwrap_or_else(|_| die("--check N")),
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--tide" => batch.tide = true,
             "--first-max" => {
                 batch.first_max = endfall_lab::stats::parse_mmss(&val())
                     .filter(|&s| s > plans::FIRST_MIN && s <= 3600.0)

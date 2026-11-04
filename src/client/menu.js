@@ -12,7 +12,7 @@
 // victory: challenge.js) opens the single-player page on its setup, its seed and starts too, with a line that says so;
 // it is not remembered: the player's own saved setup is back on the next visit, and the first change to the board or
 // the map makes the setup theirs (saved, as every change is) and the challenge an ordinary game.
-import { mapPreview, DIFF, ready } from '../engine/index.js';
+import { mapPreview, ready } from '../engine/index.js';
 import { $ } from './ui.js';
 import { sfx } from './audio.js';
 import { enterFullscreen } from './screen.js';
@@ -21,7 +21,7 @@ import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
 import { MAPS, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
-import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, enemyLevel, raceTitle, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
+import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
 /** `board`: the eight spots, null when empty, you in spot 0, the AIs in others ({ race ('random' too), side number
@@ -86,7 +86,7 @@ function setBoard(board) {
     choose(fitMap(menu.map, menu.players)); renderMaps();
     mapNote = mapNoteOf(menu.map); clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000); // (Map: Dust Quarter (up to 4))
   } else renderMaps(); // (the list: which maps seat them)
-  renderSeats(); showRecord(); sfx('select');
+  renderSeats(); showFirstGame(); sfx('select');
 }
 /** The footer's note: the map just changed, why START GAME waits, or the challenge it plays. */
 function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : menu.challenge ? line(menu.challenge) : ''); }
@@ -165,7 +165,7 @@ export function initMenu({ onStart }) {
   menu.board = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = filled(menu.board).length;
   const last = store.get('map') === null ? -1 : +store.get('map');
   choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
-  takeChallenge(); renderMaps(); renderSeats(); showRecord();
+  takeChallenge(); renderMaps(); renderSeats(); showFirstGame();
   $('btnFirstHome').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
@@ -180,6 +180,7 @@ export function initMenu({ onStart }) {
   $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   $('buildId').textContent = build; // (vite.config.js: the one online play compares)
+  showStamp();
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
   $('btnHowTo').addEventListener('click', openHelp);
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
@@ -219,9 +220,10 @@ export function setup() {
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
-export function showMenu(at = 'menuHome') { renderMaps(); renderSeats(); showRecord(); page(at); $('start').hidden = false; }
+export function showMenu(at = 'menuHome') { renderMaps(); renderSeats(); showFirstGame(); page(at); $('start').hidden = false; }
 
 // The player's record on this device, per race and difficulty: [won, lost] (the race played: a Random one's draw).
+// Kept, not shown (owner, 2026-11-04: the first page shows the game, not a tally): FIRST GAME's rule reads it.
 const records = () => { try { const r = JSON.parse(store.get('record')); return r && typeof r === 'object' ? r : {}; } catch { return {}; } };
 const tally = (r, k) => Array.isArray(r[k]) && r[k].length === 2 ? r[k].map(n => +n || 0) : [0, 0]; // (whatever else is stored)
 /** Count a finished game for the race and difficulty it was played at. */
@@ -231,16 +233,24 @@ export function recordResult(win, race, diff) {
 }
 /** The guided first game was played to its end (FIRST GAME then leaves the first page). */
 export function guidedDone() { store.set('guided', '1'); }
-/** The record for your seat's race (Random: both) at the hardest AI's difficulty, on the first page (nothing before a
- *  first game); FIRST GAME there too for a newcomer: nobody has finished a game on this device yet (none on the record,
- *  no guided one). */
-function showRecord() {
-  const r = records(), you = menu.board[0]?.race || 'humans', diff = menu.board.length ? enemyLevel(menu.board) : 0; // (the level a game is counted at)
+/** FIRST GAME on the first page for a newcomer: nobody has finished a game on this device yet (none on the record, no
+ *  guided one). */
+function showFirstGame() {
+  const r = records();
   $('btnFirstHome').hidden = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
-  const [w, l] = (you === 'random' ? RACES : [you]).map(k => tally(r, `${k}:${diff}`)).reduce((a, b) => [a[0] + b[0], a[1] + b[1]]);
-  const level = DIFF[diff]?.name || '';
-  $('record').textContent = w + l ? `${level}: ${w} won · ${l} lost` : '';
-  $('record').title = w + l ? `Your record ${you === 'random' ? 'with either race' : `as the ${raceTitle(you)}`} on ${level}` : '';
+}
+
+/** The build stamp at the foot of the first page: the last game update (vite.config.js: the newest commit that changed
+ *  what ships, not a docs or CI one) and its date, in the player's own locale and time zone ("Updated Nov 4, 2026 ·
+ *  b8f7b2d"; "dev" without git): an old copy (a cache) tells itself from the latest deployment. About has it beside the
+ *  Version (the sim's build, which online play compares). */
+function showStamp() {
+  const commit = typeof __COMMIT__ === 'string' ? __COMMIT__ : 'dev', short = commit === 'dev' ? 'dev' : commit.slice(0, 7);
+  const at = typeof __COMMIT_DATE__ === 'string' && __COMMIT_DATE__ ? new Date(__COMMIT_DATE__) : null;
+  const date = at && !Number.isNaN(at.getTime()) ? at.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  $('buildStamp').textContent = short === 'dev' || !date ? 'dev' : `Updated ${date} · ${short}`;
+  $('buildStamp').title = short === 'dev' || !date ? '' : `The last game update: ${date}, commit ${short}`;
+  $('buildCommit').textContent = short;
 }
 
 /** How to play, from the menu or the pause card: at its top (focusing BACK, at the bottom of a scrolling card, used to

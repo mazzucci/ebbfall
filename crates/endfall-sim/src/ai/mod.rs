@@ -76,6 +76,13 @@ pub(crate) struct Ai {
     /// It has seen an enemy field detector (a unit that detects: an Observer, a Halo) with an enemy army: its
     /// always-cloaked fighters (the Umbra) would be found there, so its mix brings no more of them.
     pub detector_seen: bool,
+    /// The most enemy army (armed units, workers left out) seen at once lately, by value (`army_worth`), and when:
+    /// what a wave must beat (`Diff::wave_margin`).
+    pub army_seen: (f64, f64),
+    /// When its next wave was first ready by count and time (it may wait for strength), if it is.
+    pub ready_since: Option<f64>,
+    /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
+    pub staging: Option<(f64, f64, f64)>,
 }
 
 impl World {
@@ -167,6 +174,9 @@ impl World {
             unseen_hit: false,
             prong: Vec::new(),
             detector_seen: false,
+            army_seen: (0.0, 0.0),
+            ready_since: None,
+            staging: None,
             sweep: 0,
             sweep_since: 0.0,
             ether_lean: false,

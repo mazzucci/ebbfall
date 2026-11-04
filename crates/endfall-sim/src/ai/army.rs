@@ -12,6 +12,17 @@ const DETECTOR_WITH_ARMY: f64 = 8.0 * TILE;
 
 /// The longest the guided first game holds the opponent's waves back (s).
 pub const HOLD_WAVES_MAX: f64 = 360.0;
+/// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
+const STAGE_SHARE: f64 = 0.75;
+const STAGE_NEAR: f64 = 4.0 * TILE;
+/// Shards per ether in an army's value (`army_worth`), as the balance lab weighs it.
+const ARMY_ETHER_WORTH: f64 = 1.5;
+
+/// A unit's worth in an army: its cost, shards plus ether at `ARMY_ETHER_WORTH`.
+fn army_worth(k: UnitKind) -> f64 {
+    let c = k.def().cost;
+    c[0] as f64 + ARMY_ETHER_WORTH * c[1] as f64
+}
 
 /// A flying detector that escorts the waves (an unarmed flyer that detects: the Observer).
 fn escorts(k: UnitKind) -> bool {
@@ -127,6 +138,20 @@ impl World {
         } = brain.clone();
         // An enemy near our buildings (answered by the army below; also stops saving for research).
         let mut intruder = None;
+        // The enemy army it sees now (armed units, workers left out), by value: the most lately seen is what its next
+        // wave must beat (a sighting smaller than the last one recent enough does not lower it).
+        let seen: f64 = self
+            .units
+            .iter()
+            .filter(|u| self.hostile(u.team) && !u.kind.def().worker && u.kind.def().armed())
+            .filter(|u| self.ai_sees_unit(u))
+            .map(|u| army_worth(u.kind))
+            .sum();
+        let age = self.level().sighting_age;
+        let ai = self.ai_mut();
+        if seen > 0.0 && (seen >= ai.army_seen.0 || t - ai.army_seen.1 > age) {
+            ai.army_seen = (seen, t);
+        }
         'scan: for u in &self.units {
             if !self.hostile(u.team) || !self.ai_sees_unit(u) {
                 continue;
@@ -360,9 +385,22 @@ impl World {
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
         let held = self.hold_waves && t < HOLD_WAVES_MAX; // (the guided first game: until the player is ready)
         if held || ai.attacking || army.len() < need || t - ai.last_wave <= d.gap || t <= d.first {
+            if !ai.attacking && army.len() < need {
+                self.ai_mut().ready_since = None;
+            }
             return;
         }
+        if !self.strong_enough(army, t) {
+            return;
+        }
+        let stage = if d.stage > 0.0 {
+            self.stage_point((gx, gy), d.stage)
+        } else {
+            None
+        };
         let ai = self.ai_mut();
+        ai.ready_since = None;
+        ai.staging = stage.map(|(x, y)| (x, y, t));
         ai.last_wave = t;
         ai.wave = (ai.wave + d.wave_grow).min(d.wave_max);
         ai.attacking = true;
@@ -396,7 +434,12 @@ impl World {
             0
         };
         for (i, &a) in order.iter().enumerate() {
-            let (tx, ty) = if i < split { second.unwrap() } else { (gx, gy) };
+            // (the second prong goes straight at the expansion; the main body gathers first, when it does)
+            let (tx, ty) = if i < split {
+                second.unwrap()
+            } else {
+                stage.unwrap_or((gx, gy))
+            };
             let ox = (self.rnd() - 0.5) * 80.0;
             let oy = (self.rnd() - 0.5) * 80.0;
             self.attack_move(a, tx + ox, ty + oy);
@@ -404,6 +447,60 @@ impl World {
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
         ai.prong = order[..split].to_vec();
+    }
+
+    /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defence): a wave ready by count and time waits until
+    /// its armed units' worth beats the enemy army it last saw by the margin, which fades to even over `margin_fade`
+    /// seconds of waiting. A sighting older than `sighting_age` is none (today's rules: it goes); with full supply,
+    /// or `all_in_after` seconds since its last wave, it goes with everything it has (two such AIs never wait on each
+    /// other for ever).
+    fn strong_enough(&mut self, army: &[Id], t: f64) -> bool {
+        let d = self.level();
+        if d.wave_margin <= 0.0 {
+            return true;
+        }
+        let since = *self.ai_mut().ready_since.get_or_insert(t);
+        let seat = self.seat() as usize;
+        if self.sup[seat][0] >= SUPPLY_LIMIT || t - self.ai().last_wave > d.all_in_after {
+            return true;
+        }
+        let (seen, when) = self.ai().army_seen;
+        if seen <= 0.0 || t - when > d.sighting_age {
+            return true;
+        }
+        let fade = ((t - since) / d.margin_fade).clamp(0.0, 1.0);
+        let margin = d.wave_margin + (1.0 - d.wave_margin) * fade;
+        let mine: f64 = army
+            .iter()
+            .filter_map(|&a| self.unit(a))
+            .filter(|u| u.kind.def().armed())
+            .map(|u| army_worth(u.kind))
+            .sum();
+        mine >= margin * seen
+    }
+
+    /// Where a wave gathers before it goes in (`Diff::stage`): `tiles` short of its goal on the way from its rally
+    /// point, on ground a walker may stand on; None when its rally point is that close to the goal already.
+    fn stage_point(&self, (gx, gy): (f64, f64), tiles: f64) -> Option<(f64, f64)> {
+        let seat = self.seat() as usize;
+        let home = self.map.bases[seat];
+        let (rx, ry) = self.ai().rally.map_or(
+            ((home.0 as f64 + 2.0) * TILE, (home.1 as f64 + 2.0) * TILE),
+            |p| (p.x, p.y),
+        );
+        let d = dist(gx, gy, rx, ry);
+        let back = tiles * TILE;
+        if d <= back + 4.0 * TILE {
+            return None;
+        }
+        let (sx, sy) = (gx + (rx - gx) / d * back, gy + (ry - gy) / d * back);
+        let foot = crate::map::Foot {
+            class: Move::Walk,
+            water: self.water,
+        };
+        let (tx, ty) = self.map.tile_of(sx, sy);
+        let (px, py) = self.map.nearest_passable_to(foot, tx, ty, 6, (rx, ry))?;
+        Some((px as f64 * TILE + 16.0, py as f64 * TILE + 16.0))
     }
 
     /// Up to GUARDS units kept at its own expansion (out of the waves): the nearest ones not out attacking, back
@@ -506,6 +603,35 @@ impl World {
             ai.attacking = false;
             ai.attackers = None;
             ai.last_wave = t;
+        } else if let Some((sx, sy, since)) = self.ai().staging {
+            // Gathering: in together once most of the main body is at the staging point (or it waited long enough);
+            // until then its idle units walk there.
+            let prong = self.ai().prong.clone();
+            let main: Vec<Id> = alive
+                .iter()
+                .copied()
+                .filter(|a| !prong.contains(a))
+                .collect();
+            let near = main
+                .iter()
+                .filter(|&&a| dist(self.u(a).x, self.u(a).y, sx, sy) < STAGE_NEAR)
+                .count();
+            if near as f64 >= main.len() as f64 * STAGE_SHARE || t - since > self.level().stage_wait
+            {
+                self.ai_mut().staging = None;
+                for a in main {
+                    let ox = (self.rnd() - 0.5) * 80.0;
+                    let oy = (self.rnd() - 0.5) * 80.0;
+                    self.attack_move(a, gx + ox, gy + oy);
+                }
+            } else {
+                for a in main {
+                    let u = self.u(a);
+                    if u.task == Task::Idle && dist(u.x, u.y, sx, sy) >= STAGE_NEAR {
+                        self.attack_move(a, sx, sy);
+                    }
+                }
+            }
         } else {
             let known: Vec<(Id, f64, f64)> =
                 self.ai().known.iter().map(|k| (k.0, k.1, k.2)).collect();
@@ -591,6 +717,179 @@ mod tests {
         w.ai_army(&mut b);
         !w.ai().attacking
             && wave.iter().all(|&a| matches!(w.u(a).task, Task::AMove { x, y } if (x - hx).abs() + (y - hy).abs() < 400.0))
+    }
+
+    /// Seat 1's AI at `level` on a 64x64 duel, ten Troopers at home and its wave ready by count and time (t 400, its
+    /// last wave at 300): the world, its army and its brain.
+    fn ready(level: usize) -> (World, Vec<Id>, Brain) {
+        let mut w = World::with_size(
+            5,
+            level,
+            MapKind::Standard,
+            MapSize::DUEL,
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        w.ai_turn = 1;
+        let (bx, by) = w.map.bases[1];
+        let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+        let army: Vec<Id> = (0..10)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    1,
+                    hx + 60.0 + (i % 5) as f64 * 24.0,
+                    hy + 80.0 + (i / 5) as f64 * 24.0,
+                )
+            })
+            .collect();
+        w.update_fog();
+        let ai = w.ai_mut();
+        ai.last_wave = 300.0;
+        ai.rally = Some(Pt { x: hx, y: hy });
+        let my_b = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let b = Brain {
+            e: 1,
+            t: 400.0,
+            my_b,
+            army: army.clone(),
+            rally: Pt { x: hx, y: hy },
+            ..Brain::default()
+        };
+        (w, army, b)
+    }
+    /// A Trooper's worth, the unit of the scenes below.
+    fn trooper() -> f64 {
+        super::army_worth(UnitKind::Trooper)
+    }
+
+    #[test]
+    fn a_wave_waits_for_strength_against_the_army_it_saw_and_goes_once_ahead() {
+        // Ten Troopers against twelve seen: it waits (a margin of 1.3); against seven seen (10 >= 9.1) it goes.
+        let (mut w, _, mut b) = ready(1);
+        w.ai_mut().army_seen = (12.0 * trooper(), 390.0);
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking, "ten against twelve: it waits");
+        assert_eq!(w.ai().ready_since, Some(400.0), "ready since now");
+        w.ai_mut().army_seen = (7.0 * trooper(), 395.0);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "ten against seven: it goes");
+        assert_eq!(w.ai().ready_since, None);
+        // nothing seen lately (older than two minutes): today's rules, it goes
+        let (mut w, _, mut b) = ready(1);
+        w.ai_mut().army_seen = (30.0 * trooper(), 400.0 - 121.0);
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().attacking,
+            "a sighting over two minutes old counts as none"
+        );
+    }
+
+    #[test]
+    fn the_margin_fades_to_even_and_a_long_wait_or_full_supply_goes_with_everything() {
+        // Ten against nine seen: 1.3 times nine is more than ten, so it waits; 150 s later the margin is 1.05 (10 >= 9.45): it goes.
+        let (mut w, _, mut b) = ready(1);
+        // (its last wave at 330: past the gap at 400, and under four minutes at 550)
+        w.ai_mut().last_wave = 330.0;
+        w.ai_mut().army_seen = (9.0 * trooper(), 399.0);
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking);
+        assert_eq!(w.ai().ready_since, Some(400.0));
+        b.t = 550.0;
+        w.ai_mut().army_seen = (9.0 * trooper(), 549.0);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "the margin faded");
+        // Ten against thirty seen: never ahead, but four minutes since its last wave and it goes with everything.
+        let (mut w, army, mut b) = ready(1);
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
+        w.ai_mut().last_wave = 400.0 - 240.0;
+        w.ai_army(&mut b);
+        assert!(
+            !w.ai().attacking,
+            "four minutes to the second: still waiting"
+        );
+        w.ai_mut().last_wave = 400.0 - 241.0;
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "over four minutes: all in");
+        assert_eq!(
+            w.ai().attackers.as_ref().unwrap().len(),
+            army.len(),
+            "with everything"
+        );
+        // and with full supply
+        let (mut w, _, mut b) = ready(1);
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
+        w.sup[1][0] = SUPPLY_LIMIT;
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "full supply: all in");
+    }
+
+    #[test]
+    fn easy_keeps_todays_waves() {
+        let (mut w, _, mut b) = ready(0);
+        w.ai_mut().wave = 4;
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "Easy does not wait for strength");
+        assert!(w.ai().staging.is_none(), "nor gather");
+    }
+
+    #[test]
+    fn a_wave_gathers_short_of_its_goal_and_goes_in_together() {
+        let (mut w, army, mut b) = ready(1);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking);
+        let (sx, sy, _) = w.ai().staging.expect("it gathers first");
+        let (gx, gy) = w.attack_target();
+        let back = crate::jsmath::dist(sx, sy, gx, gy) / TILE;
+        assert!(
+            (9.0..15.0).contains(&back),
+            "about twelve tiles short of its goal: {back:.1}"
+        );
+        for &a in &army {
+            let Task::AMove { x, y } = w.u(a).task else {
+                panic!("attack-moving")
+            };
+            assert!(
+                crate::jsmath::dist(x, y, sx, sy) < 64.0,
+                "to the staging point, not the goal"
+            );
+        }
+        // half of it there: it waits
+        for &a in army.iter().take(5) {
+            let u = w.um(a);
+            (u.x, u.y) = (sx, sy);
+        }
+        b.t = 410.0;
+        w.ai_army(&mut b);
+        assert!(w.ai().staging.is_some(), "half there: it waits");
+        // most of it there: in together, at the goal
+        for &a in army.iter().take(8) {
+            let u = w.um(a);
+            (u.x, u.y) = (sx, sy);
+        }
+        b.t = 415.0;
+        w.ai_army(&mut b);
+        assert!(w.ai().staging.is_none(), "most there: it goes in");
+        for &a in &army {
+            let Task::AMove { x, y } = w.u(a).task else {
+                panic!("attack-moving")
+            };
+            assert!(crate::jsmath::dist(x, y, gx, gy) < 64.0, "to the goal");
+        }
+        // a wave that never gathers goes in after its wait
+        let (mut w, _, mut b) = ready(1);
+        w.ai_army(&mut b);
+        let since = w.ai().staging.unwrap().2;
+        b.t = since + w.tuning(1).stage_wait + 1.0;
+        w.ai_army(&mut b);
+        assert!(w.ai().staging.is_none(), "it waited long enough");
     }
 
     #[test]

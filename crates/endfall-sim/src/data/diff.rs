@@ -46,6 +46,18 @@ pub struct Diff {
     /// Seconds before it mines more than one vent (each base has two): its main's second refinery goes up once the
     /// first flows and its tech is going up, but not before this; then the expansion's.
     pub vents_from: f64,
+    /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
+    /// the AI breaks a defence; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
+    /// waiting; a sighting older than `sighting_age` counts as none; with full supply, or `all_in_after` seconds
+    /// since its last wave, it goes with everything.
+    pub wave_margin: f64,
+    pub margin_fade: f64,
+    pub sighting_age: f64,
+    pub all_in_after: f64,
+    /// A wave first gathers this many tiles short of its goal (0: it goes straight in) and goes in together once most
+    /// of it is there, or after `stage_wait` seconds.
+    pub stage: f64,
+    pub stage_wait: f64,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -78,6 +90,12 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: true,
         workers_first: false,
         vents_from: 540.0,
+        wave_margin: 0.0,
+        margin_fade: 180.0,
+        sighting_age: 120.0,
+        all_in_after: 240.0,
+        stage: 0.0,
+        stage_wait: 30.0,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -105,6 +123,12 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: false,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: 180.0,
+        sighting_age: 120.0,
+        all_in_after: 240.0,
+        stage: 12.0,
+        stage_wait: 30.0,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -131,6 +155,12 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: false,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: 180.0,
+        sighting_age: 120.0,
+        all_in_after: 240.0,
+        stage: 12.0,
+        stage_wait: 30.0,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -161,5 +191,11 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: true,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: 180.0,
+        sighting_age: 120.0,
+        all_in_after: 240.0,
+        stage: 12.0,
+        stage_wait: 30.0,
     },
 ];

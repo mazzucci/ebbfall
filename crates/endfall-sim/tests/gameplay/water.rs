@@ -82,8 +82,8 @@ fn heights_make_land_shallows_and_deep_water() {
         m.height[i] = h;
         assert_eq!(m.ground(5, 5, 0), g, "height {h}");
     }
-    // Every generated map without water is all land.
-    for kind in MapKind::ALL {
+    // Every generated map but the Shore is all land.
+    for kind in MapKind::ALL.into_iter().filter(|&k| k != MapKind::Shore) {
         let w = World::with_map(7, 1, kind);
         assert!(
             w.map.height.iter().all(|&h| h > w.water),

@@ -1,0 +1,345 @@
+//! The Shore map (`MapKind::Shore`): each start a cove on land and a reef basin in the shallows, a deep band between
+//! the reefs; Human seats start in their cove, Vael seats in their basin. Its ground, its starts, its routes (each
+//! reef's channel faces the cove across the sea, its sea gate opens onto deep water), orders at sea, random play and
+//! the AI on it.
+
+use crate::common::*;
+use endfall_sim::data::Move;
+use endfall_sim::map::{Foot, Ground};
+use endfall_sim::path::{PathScratch, Pt, astar};
+
+const SEEDS: [u32; 8] = [1, 2, 3, 7, 42, 99, 1998, 4242];
+
+fn shore(seed: u32, races: [&'static Faction; 2]) -> World {
+    World::with_size(seed, 1, MapKind::Shore, MapSize::DUEL, 0, &races)
+}
+fn walk() -> Foot {
+    Foot {
+        class: Move::Walk,
+        water: 0,
+    }
+}
+fn amph() -> Foot {
+    Foot {
+        class: Move::Amph,
+        water: 0,
+    }
+}
+/// The middle of a 4x4 headquarters' block.
+fn mid(b: (i32, i32)) -> (f64, f64) {
+    (b.0 as f64 + 1.5, b.1 as f64 + 1.5)
+}
+fn route_len(m: &endfall_sim::map::Map, foot: Foot, a: (i32, i32), b: (i32, i32)) -> Option<f64> {
+    let mut s = PathScratch::new(m.rock.len());
+    let p = astar(m, foot, &mut s, a.0, a.1, b.0, b.1)?;
+    let mut at = Pt {
+        x: a.0 as f64 * 32.0 + 16.0,
+        y: a.1 as f64 * 32.0 + 16.0,
+    };
+    let mut len = 0.0;
+    for q in &p {
+        len += ((q.x - at.x).powi(2) + (q.y - at.y).powi(2)).sqrt();
+        at = *q;
+    }
+    (p.last().map(|q| m.tile_of(q.x, q.y)) == Some(b)).then_some(len / 32.0)
+}
+/// A free tile beside a 4x4 block (the first of its ring that a walker may stand on).
+fn beside(m: &endfall_sim::map::Map, foot: Foot, b: (i32, i32)) -> (i32, i32) {
+    (-1..=4)
+        .flat_map(|d| {
+            [
+                (b.0 - 1, b.1 + d),
+                (b.0 + 4, b.1 + d),
+                (b.0 + d, b.1 - 1),
+                (b.0 + d, b.1 + 4),
+            ]
+        })
+        .find(|&(x, y)| m.passable(foot, x, y))
+        .expect("room beside it")
+}
+
+#[test]
+fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
+    for seed in SEEDS {
+        let w = shore(seed, [&HUMANS, &HUMANS]);
+        let m = &w.map;
+        assert_eq!(
+            (m.bases.len(), m.basins.len()),
+            (2, 2),
+            "seed {seed}: two starts, each a cove and a basin"
+        );
+        // Point-symmetric: rock, heights and fields alike for both starts.
+        for y in 0..m.h {
+            for x in 0..m.w {
+                let (i, j) = (m.idx(x, y), m.idx(m.w - 1 - x, m.h - 1 - y));
+                assert_eq!(
+                    (m.rock[i], m.height[i]),
+                    (m.rock[j], m.height[j]),
+                    "seed {seed}: ({x}, {y}) and its image"
+                );
+            }
+        }
+        let image = |t: (i32, i32), s: i32| (m.w - t.0 - s, m.h - t.1 - s);
+        assert_eq!(m.bases[1], image(m.bases[0], 4), "seed {seed}: the coves");
+        assert_eq!(
+            m.basins[1],
+            image(m.basins[0], 4),
+            "seed {seed}: the basins"
+        );
+        for n in &m.nodes {
+            let s = if n.ether { 2 } else { 1 };
+            assert!(
+                m.nodes
+                    .iter()
+                    .any(|o| o.ether == n.ether && (o.tx, o.ty) == image((n.tx, n.ty), s)),
+                "seed {seed}: a field's image"
+            );
+            // Fields on land or shallows, never in deep water.
+            assert!(
+                (0..s).all(|d| m.ground(n.tx + d, n.ty + d, 0) != Ground::Deep),
+                "seed {seed}: a field in deep water"
+            );
+        }
+        // Ground: coves on land, basins in the shallows, deep water in the middle; shallows round the deep.
+        for (b, g) in [(m.bases[0], Ground::Land), (m.basins[0], Ground::Shallow)] {
+            assert!(
+                (0..4).all(|dy| (0..4).all(|dx| m.ground(b.0 + dx, b.1 + dy, 0) == g
+                    && m.rock[m.idx(b.0 + dx, b.1 + dy)] == 0)),
+                "seed {seed}: {g:?} start"
+            );
+        }
+        assert_eq!(
+            m.ground(m.w / 2, m.h / 2, 0),
+            Ground::Deep,
+            "seed {seed}: deep water in the middle"
+        );
+        let deep = (0..m.h)
+            .flat_map(|y| (0..m.w).map(move |x| (x, y)))
+            .filter(|&(x, y)| m.ground(x, y, 0) == Ground::Deep);
+        for (x, y) in deep {
+            let nb = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
+            assert!(
+                nb.iter()
+                    .all(|&(a, b)| m.ground(a, b, 0) != Ground::Land || m.rock[m.idx(a, b)] != 0),
+                "seed {seed}: deep water touching land at ({x}, {y})"
+            );
+        }
+        // No field on a reef: every node clear of the reef rings.
+        for n in &m.nodes {
+            for g in 0..2 {
+                let p = mid(m.basins[g]);
+                let r =
+                    ((n.tx as f64 + 0.5 - p.0).powi(2) + (n.ty as f64 + 0.5 - p.1).powi(2)).sqrt();
+                assert!(
+                    !(7.5..10.5).contains(&r),
+                    "seed {seed}: a field at ({}, {}) on the reef ({r:.1} from a basin's middle)",
+                    n.tx,
+                    n.ty
+                );
+            }
+        }
+        // Each cove and each basin holds two vents and a field within reach of its headquarters.
+        for b in m.bases.iter().chain(&m.basins) {
+            let near = |ether: bool, r: f64| {
+                m.nodes
+                    .iter()
+                    .filter(|n| {
+                        n.ether == ether
+                            && ((n.tx as f64 - mid(*b).0).powi(2)
+                                + (n.ty as f64 - mid(*b).1).powi(2))
+                            .sqrt()
+                                < r
+                    })
+                    .count()
+            };
+            assert!(
+                near(true, 11.0) == 2 && near(false, 9.0) >= 3,
+                "seed {seed}: a start's field and vents at {b:?}"
+            );
+        }
+        // The distances (PRD, the Shore map: cove to the facing basin about 42, cove to cove about 62; the basins
+        // turned from the coves for a passage beside each reef: 39).
+        let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
+        assert!(
+            (37.0..44.0).contains(&d(mid(m.bases[0]), mid(m.basins[1]))),
+            "seed {seed}: cove to facing basin"
+        );
+        assert!(
+            (58.0..66.0).contains(&d(mid(m.bases[0]), mid(m.bases[1]))),
+            "seed {seed}: cove to cove"
+        );
+        assert!((m.expansions.len()) >= 4, "seed {seed}: expansions");
+        assert!(
+            m.expansions
+                .iter()
+                .all(|&(x, y)| m.ground(x as i32, y as i32, 0) == Ground::Land),
+            "seed {seed}: expansions on land"
+        );
+    }
+}
+
+#[test]
+fn on_the_shore_a_walker_reaches_everything_and_the_sea_is_the_vaels_road() {
+    for seed in SEEDS {
+        let w = shore(seed, [&HUMANS, &HUMANS]);
+        let m = &w.map;
+        // Walk: from the first cove to the other cove, both basins and every field.
+        let reach = m.reach_from(beside(m, walk(), m.bases[0]), walk());
+        let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
+        for b in m.bases.iter().chain(&m.basins) {
+            let t = beside(m, walk(), *b);
+            assert!(reached(t.0, t.1), "seed {seed}: a walker reaches {b:?}");
+        }
+        for n in &m.nodes {
+            let s = if n.ether { 2 } else { 1 };
+            assert!(
+                (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy))),
+                "seed {seed}: a walker reaches the field at ({}, {})",
+                n.tx,
+                n.ty
+            );
+        }
+        // Contact: from a cove to the basin it faces and back, each people's way is short (each reef's channel faces
+        // that cove), and a walker's never enters deep water.
+        let (cove, basin) = (
+            beside(m, walk(), m.bases[0]),
+            beside(m, walk(), m.basins[1]),
+        );
+        let straight = (((basin.0 - cove.0).pow(2) + (basin.1 - cove.1).pow(2)) as f64).sqrt();
+        let walk_len = route_len(m, walk(), cove, basin).expect("a walker's way");
+        let amph_len = route_len(m, amph(), basin, cove).expect("an amphibian's way");
+        assert!(
+            walk_len < straight * 1.4 && amph_len < straight * 1.4,
+            "seed {seed}: Humans {walk_len:.0} tiles, Vael {amph_len:.0}, straight {straight:.0}"
+        );
+        let mut s = PathScratch::new(m.rock.len());
+        let p = astar(m, walk(), &mut s, cove.0, cove.1, basin.0, basin.1).unwrap();
+        assert!(
+            p.iter().all(|q| {
+                let (x, y) = m.tile_of(q.x, q.y);
+                m.ground(x, y, 0) != Ground::Deep
+            }),
+            "seed {seed}: a walker's waypoint in deep water"
+        );
+    }
+}
+
+#[test]
+fn each_people_starts_on_its_own_ground() {
+    // Humans in their cove, the Vael in their basin, from either start; Human against Human two coves, Vael against
+    // Vael two basins.
+    for side in [false, true] {
+        for races in [
+            [&HUMANS, &VAEL],
+            [&VAEL, &HUMANS],
+            [&HUMANS, &HUMANS],
+            [&VAEL, &VAEL],
+        ] {
+            let w = World::with_setup(7, 1, MapKind::Shore, side, races);
+            for (seat, f) in races.iter().enumerate() {
+                let hq = w
+                    .bldgs
+                    .iter()
+                    .find(|b| b.team == seat as u8 && b.kind.def().hq)
+                    .unwrap();
+                let want = if f.worker.def().mv == Move::Amph {
+                    Ground::Shallow
+                } else {
+                    Ground::Land
+                };
+                assert_eq!(
+                    w.map.ground(hq.tx + 1, hq.ty + 1, 0),
+                    want,
+                    "{} at seat {seat} (side {side})",
+                    f.name
+                );
+                assert_eq!((hq.tx, hq.ty), w.map.bases[seat]);
+                assert!(w.units.iter().filter(|u| u.team == seat as u8).all(|u| {
+                    let (x, y) = w.map.tile_of(u.x, u.y);
+                    w.map.passable(w.foot(u.kind), x, y)
+                }));
+            }
+        }
+    }
+}
+
+#[test]
+fn a_walker_sent_out_to_sea_stops_on_the_nearest_shore() {
+    // A Trooper ordered to the middle of the deep band walks to its rim and stops there (never into the water).
+    let mut w = shore(1, [&HUMANS, &VAEL]);
+    w.disable_ai();
+    let (cx, cy) = (w.map.w / 2, w.map.h / 2);
+    assert_eq!(w.map.ground(cx, cy, 0), Ground::Deep);
+    let hq = w.map.bases[0];
+    let t = w.make_unit(
+        UnitKind::Trooper,
+        PLAYER,
+        (hq.0 as f64 + 6.0) * 32.0,
+        (hq.1 as f64 - 3.0) * 32.0,
+    );
+    w.move_to(t, cx as f64 * 32.0 + 16.0, cy as f64 * 32.0 + 16.0);
+    for _ in 0..60 * TPS {
+        w.step();
+        w.events.clear();
+    }
+    let u = w.unit(t).unwrap();
+    let (x, y) = w.map.tile_of(u.x, u.y);
+    assert_ne!(w.map.ground(x, y, 0), Ground::Deep);
+    let to_deep =
+        (-2..=2).any(|dy| (-2..=2).any(|dx| w.map.ground(x + dx, y + dy, 0) == Ground::Deep));
+    assert!(
+        to_deep,
+        "it stands on the shore, by the deep water: ({x}, {y})"
+    );
+}
+
+#[test]
+fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
+    // Humans against the Vael at each level, each people from each start: every game ends within 30 minutes.
+    for diff in 0..4 {
+        for (races, seed) in [
+            ([&HUMANS, &VAEL], 1 + diff as u32),
+            ([&VAEL, &HUMANS], 11 + diff as u32),
+        ] {
+            let mut w = World::with_size(seed, diff, MapKind::Shore, MapSize::DUEL, 0, &races);
+            assert!(w.set_ai_seats([true, true]));
+            for _ in 0..30 * 60 * TPS {
+                w.step();
+                w.events.clear();
+                if w.winner >= 0 {
+                    break;
+                }
+            }
+            assert!(
+                w.winner >= 0,
+                "level {diff}, {} first: no result in 30 minutes",
+                races[0].name
+            );
+        }
+    }
+}
+
+#[test]
+fn random_play_never_breaks_the_world_on_the_shore() {
+    // Random orders through the Game API on the Shore map, both peoples on either side: the world invariants (no
+    // walker in deep water among them) hold every tick.
+    let seeds: u32 = if cfg!(debug_assertions) { 2 } else { 6 };
+    for seed in 0..seeds {
+        let (me, foe) = [(0, 1), (1, 0)][(seed % 2) as usize];
+        let mut g = Game::with_setup(seed * 7919 + 11, 1, 6, seed % 2, me, foe);
+        assert_eq!(g.world().map.basins.len(), 2, "the Shore map");
+        let mut r = Mulberry32::new(seed ^ 0x5eed);
+        for tick in 0..30 * 60 * 4 {
+            if tick % 7 == 0 {
+                for _ in 0..1 + r.below(3) {
+                    random_order(&mut g, &mut r);
+                }
+            }
+            g.step();
+            check_invariants(g.world(), &format!("shore seed {seed} tick {tick}"));
+            if g.world().over {
+                break;
+            }
+        }
+    }
+}

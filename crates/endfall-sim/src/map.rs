@@ -272,6 +272,10 @@ const POCKET_R: f64 = 12.0;
 /// band's half-width round the axis between the two basins, and the shallows beyond it; the heights of shallows and of
 /// deep water (at the water level 0: `Map::ground`).
 const SHORE_BASIN: f64 = 14.0;
+/// How far (degrees) a reef basin is turned from straight south (or north) of the centre, away from its own cove.
+const SHORE_TURN: f64 = 20.0;
+/// The Shore map's rock threshold (noise above it is rock; higher is more open), raised until a walker connects.
+const SHORE_ROCK: f64 = 0.74;
 const SHORE_REEF: f64 = 8.0;
 const SHORE_DEEP: f64 = 6.0;
 const SHORE_SHALLOWS: f64 = 4.0;
@@ -438,7 +442,11 @@ impl Map {
             return Map::generate_shore(seed, size, next_id);
         }
         // (a Shore with more than two starts is not made yet: such a game gets the Standard ground, never a panic)
-        let kind = if kind == MapKind::Shore { MapKind::Standard } else { kind };
+        let kind = if kind == MapKind::Shore {
+            MapKind::Standard
+        } else {
+            kind
+        };
         let (mw, mh) = (size.w, size.h);
         let sym = Sym {
             k: starts,
@@ -622,7 +630,8 @@ impl Map {
 
     /// The Shore map (two starts, point-symmetric about the centre): each start's share holds a **cove** on land (a
     /// pocket as on the other kinds, in a corner, its ramp facing the sea) and a **reef basin** in the shallows (a ring
-    /// of reef rock, one channel facing its cove, `SHORE_BASIN` tiles from the centre, due south or north). A deep band
+    /// of reef rock, `SHORE_BASIN` tiles from the centre, south or north, with a channel facing the cove across the sea
+    /// and a sea gate onto the deep band: the Vael's road to the other share, which walkers cannot take). A deep band
     /// runs down the middle between the two reefs, shallows `SHORE_SHALLOWS` wide all round it; the land east and west
     /// of it meets beyond each reef. Cove and basin each hold a field and two vents (either can be a start: a Human
     /// seat takes its cove, a Vael seat its basin), and the expansions lie on land. Rock is raised until a walker (Walk)
@@ -636,11 +645,19 @@ impl Map {
         let mut f = || rnd.next_u32() as f64 / 4_294_967_296.0;
         let centre = ((mw - 1) as f64 / 2.0, (mh - 1) as f64 / 2.0);
         let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
-        // The first cove in the south-west corner (its Core's top-left tile), its basin due south of the centre.
+        // The first cove in the south-west corner (its Core's top-left tile), its basin south of the centre, turned
+        // `SHORE_TURN` away from its cove (so a passage runs between the reef and the cove's wall).
         let b0 = (8, mh - 12);
         let c0 = (b0.0 as f64 + 1.5, b0.1 as f64 + 1.5);
-        let p0 = (centre.0, centre.1 + SHORE_BASIN);
-        let basin0 = (jsmath::round(p0.0 - 1.5) as i32, jsmath::round(p0.1 - 1.5) as i32);
+        let south = PI / 2.0 - SHORE_TURN * PI / 180.0;
+        let p0 = (
+            centre.0 + jsmath::cos(south) * SHORE_BASIN,
+            centre.1 + jsmath::sin(south) * SHORE_BASIN,
+        );
+        let basin0 = (
+            jsmath::round(p0.0 - 1.5) as i32,
+            jsmath::round(p0.1 - 1.5) as i32,
+        );
         let turn = (f() * 2.0) as usize % 2;
         let coves = [b0, sym.block(1, b0, 4)];
         let basins = [basin0, sym.block(1, basin0, 4)];
@@ -655,24 +672,35 @@ impl Map {
             let t = (((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy)).clamp(0.0, 1.0);
             jsmath::hypot(x - (ax + vx * t), y - (ay + vy * t))
         };
-        let pool = |x: f64, y: f64| pools.iter().map(|&p| d((x, y), p)).fold(f64::INFINITY, f64::min);
-        let sea = |x: f64, y: f64| axis(x, y) < SHORE_DEEP + SHORE_SHALLOWS || pool(x, y) < SHORE_REEF + 1.5;
+        let pool = |x: f64, y: f64| {
+            pools
+                .iter()
+                .map(|&p| d((x, y), p))
+                .fold(f64::INFINITY, f64::min)
+        };
+        let sea = |x: f64, y: f64| {
+            axis(x, y) < SHORE_DEEP + SHORE_SHALLOWS || pool(x, y) < SHORE_REEF + 1.5
+        };
         // Expansions: two or three sites on land in the first share (the same rules as the other kinds, and clear of
         // the sea and the basins), each repeated for the other start.
         let want = 2 + (f() < 0.4) as usize;
         let mut sites: Vec<(f64, f64)> = Vec::new();
-        for _ in 0..200 {
+        for _ in 0..800 {
             if sites.len() >= want {
                 break;
             }
-            let p = (10.0 + f() * (mw - 20) as f64, 10.0 + f() * (mh - 20) as f64);
-            let ok = (18.0..=32.0).contains(&d(p, c0))
+            // (nearer the edges than on the other kinds: the land is the strip between the coves and the sea)
+            let p = (5.0 + f() * (mw - 10) as f64, 5.0 + f() * (mh - 10) as f64);
+            let ok = (16.0..=38.0).contains(&d(p, c0))
                 && d(p, cores[1]) > d(p, c0) + 6.0
                 && d(p, centre) > 7.0
                 && d(p, sym.point(1, p)) > 12.0
-                && axis(p.0, p.1) > SHORE_DEEP + SHORE_SHALLOWS + 5.0
-                && pool(p.0, p.1) > SHORE_REEF + 7.0
-                && sites.iter().all(|&q| (0..2).all(|g| d(sym.point(g, p), q) > 11.0));
+                && axis(p.0, p.1) > SHORE_DEEP + SHORE_SHALLOWS + 3.0
+                // (clear of the reefs by more than an expansion's vents reach: 7.5 tiles round its middle)
+                && pool(p.0, p.1) > SHORE_REEF + 1.5 + 7.5 + 1.0
+                && sites
+                    .iter()
+                    .all(|&q| (0..2).all(|g| d(sym.point(g, p), q) > 11.0));
             if ok {
                 sites.push(p);
             }
@@ -680,7 +708,7 @@ impl Map {
         sites.sort_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap());
         let scale = 6.0 + f() * 4.5;
         // The walls: each cove's ring with its ramp towards the centre (the sea), each reef's ring with its channel
-        // towards its own cove.
+        // towards the cove it faces and its sea gate.
         let gap_ring = |x: f64, y: f64, c: (f64, f64), r0: f64, dir: f64| -> bool {
             let r = jsmath::hypot(x - c.0, y - c.1);
             if !(r0..r0 + 2.0).contains(&r) {
@@ -690,14 +718,25 @@ impl Map {
             let off = (a - dir + 3.0 * PI).rem_euclid(2.0 * PI) - PI;
             off.abs() * r > RAMP_W / 2.0
         };
-        let ramp: Vec<f64> = (0..2).map(|g| jsmath::atan2(centre.1 - cores[g].1, centre.0 - cores[g].0)).collect();
-        let channel: Vec<f64> = (0..2).map(|g| jsmath::atan2(cores[g].1 - pools[g].1, cores[g].0 - pools[g].0)).collect();
+        let ramp: Vec<f64> = (0..2)
+            .map(|g| jsmath::atan2(centre.1 - cores[g].1, centre.0 - cores[g].0))
+            .collect();
+        // Each reef's land channel faces the cove across the sea (the one it faces: a Human seat there walks in by it).
+        let channel: Vec<f64> = (0..2)
+            .map(|g| jsmath::atan2(cores[1 - g].1 - pools[g].1, cores[1 - g].0 - pools[g].0))
+            .collect();
+        // Each reef's sea gate, towards the centre: it opens onto the deep band, so only amphibians pass it.
+        let gate: Vec<f64> = (0..2)
+            .map(|g| jsmath::atan2(centre.1 - pools[g].1, centre.0 - pools[g].0))
+            .collect();
         let wall = |x: f64, y: f64| {
             (0..2).any(|g| gap_ring(x, y, cores[g], POCKET_R, ramp[g]))
                 || (0..2).any(|g| {
                     let r = jsmath::hypot(x - pools[g].0, y - pools[g].1);
-                    // (a reef ring 1.5 thick)
-                    r < SHORE_REEF + 1.5 && gap_ring(x, y, pools[g], SHORE_REEF, channel[g])
+                    // (a reef ring 1.5 thick, with its land channel and its sea gate)
+                    r < SHORE_REEF + 1.5
+                        && gap_ring(x, y, pools[g], SHORE_REEF, channel[g])
+                        && gap_ring(x, y, pools[g], SHORE_REEF, gate[g])
                 })
         };
         // Clearings: each Core's room, each site's, outside each ramp and each channel, and the sea (no rock in water
@@ -711,20 +750,33 @@ impl Map {
         }
         for g in 0..2 {
             let r = POCKET_R + 3.0;
-            open.push((cores[g].0 + jsmath::cos(ramp[g]) * r, cores[g].1 + jsmath::sin(ramp[g]) * r, 3.5));
+            open.push((
+                cores[g].0 + jsmath::cos(ramp[g]) * r,
+                cores[g].1 + jsmath::sin(ramp[g]) * r,
+                3.5,
+            ));
             let r = SHORE_REEF + 3.5;
-            open.push((pools[g].0 + jsmath::cos(channel[g]) * r, pools[g].1 + jsmath::sin(channel[g]) * r, 3.5));
+            open.push((
+                pools[g].0 + jsmath::cos(channel[g]) * r,
+                pools[g].1 + jsmath::sin(channel[g]) * r,
+                3.5,
+            ));
         }
         let tiles = (mw * mh) as usize;
-        let (mut nv, mut fixed, mut clear) = (vec![0.0; tiles], vec![false; tiles], vec![false; tiles]);
+        let (mut nv, mut fixed, mut clear) =
+            (vec![0.0; tiles], vec![false; tiles], vec![false; tiles]);
         for y in 0..mh {
             for x in 0..mw {
-                let (sx, sy) = [(x, y), sym.tile(1, (x, y))].into_iter().min_by_key(|&(x, y)| m.idx(x, y)).unwrap();
+                let (sx, sy) = [(x, y), sym.tile(1, (x, y))]
+                    .into_iter()
+                    .min_by_key(|&(x, y)| m.idx(x, y))
+                    .unwrap();
                 let (fx, fy) = (sx as f64, sy as f64);
                 let i = m.idx(x, y);
                 nv[i] = noise.get(fx / scale, fy / scale);
                 fixed[i] = x == 0 || y == 0 || x == mw - 1 || y == mh - 1 || wall(fx, fy);
-                clear[i] = sea(fx, fy) || open.iter().any(|e| jsmath::hypot(fx - e.0, fy - e.1) < e.2);
+                clear[i] =
+                    sea(fx, fy) || open.iter().any(|e| jsmath::hypot(fx - e.0, fy - e.1) < e.2);
                 // Heights: a reef's basin and the band's rim shallows, the band's middle deep (outside the reefs),
                 // the rest land.
                 m.height[i] = if pool(fx, fy) < SHORE_REEF {
@@ -738,32 +790,65 @@ impl Map {
                 };
             }
         }
-        let walk = Foot { class: Move::Walk, water: 0 };
-        let mut thr = 0.6;
+        let walk = Foot {
+            class: Move::Walk,
+            water: 0,
+        };
+        // (little rock on land, as on open plains: the sea is this map's character, and walkers need its passages)
         let id0 = *next_id;
-        for _ in 0..16 {
-            for i in 0..tiles {
-                m.shade[i] = nv[i] as f32;
-                m.rock[i] = (fixed[i] || (nv[i] > thr && !clear[i])) as u8;
+        // Rock raised until it connects; a layout no threshold makes whole (an expansion whose vents find no room
+        // anywhere) loses its farthest expansion and tries again.
+        loop {
+            let mut thr = SHORE_ROCK;
+            let mut ok = false;
+            for _ in 0..16 {
+                for i in 0..tiles {
+                    m.shade[i] = nv[i] as f32;
+                    m.rock[i] = (fixed[i] || (nv[i] > thr && !clear[i])) as u8;
+                }
+                m.nodes.clear();
+                m.occ.fill(0);
+                *next_id = id0;
+                // (the basins' first: every other vent then keeps its distance from theirs)
+                m.place_basin_fields(next_id, sym, p0, channel[0]);
+                m.place_fields(next_id, MapKind::Shore, sym, c0, centre, &sites, false);
+                let reach = m.reach_from(b0, walk);
+                let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
+                let fields_ok = m.nodes.iter().all(|n| {
+                    let s = if n.ether { 2 } else { 1 };
+                    (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
+                });
+                let starts_ok = coves.iter().chain(&basins).all(|b| reached(b.0, b.1));
+                // (and every vent found room: more open ground next time if not)
+                let vents_ok =
+                    m.nodes.iter().filter(|n| n.ether).count() == 8 + 2 * 2 * sites.len();
+                if starts_ok && fields_ok && vents_ok {
+                    ok = true;
+                    break;
+                }
+                thr += 0.03;
             }
-            m.nodes.clear();
-            m.occ.fill(0);
-            *next_id = id0;
-            m.place_fields(next_id, MapKind::Shore, sym, c0, centre, &sites, false);
-            m.place_basin_fields(next_id, sym, p0, channel[0]);
-            let reach = m.reach_from(b0, walk);
-            let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
-            let fields_ok = m.nodes.iter().all(|n| {
-                let s = if n.ether { 2 } else { 1 };
-                (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
-            });
-            let starts_ok = coves.iter().chain(&basins).all(|b| reached(b.0, b.1));
-            if starts_ok && fields_ok {
+            if ok || sites.is_empty() {
+                // (a layout that connects even without expansions always does: the coves and basins never move)
+                debug_assert!(
+                    ok,
+                    "seed {seed}: the Shore map does not connect for a walker"
+                );
                 break;
             }
-            thr += 0.03;
+            sites.pop();
         }
-        m.expansions = sites.iter().flat_map(|&p| (0..2).map(move |g| sym.point(g, p))).collect();
+        m.expansions = sites
+            .iter()
+            .flat_map(|&p| (0..2).map(move |g| sym.point(g, p)))
+            .collect();
+        // Two vents by every cove and every basin, and two by every expansion (a vent that found no room would be a
+        // silent hole: a change to the generator must fail its tests loudly instead).
+        debug_assert_eq!(
+            m.nodes.iter().filter(|n| n.ether).count(),
+            8 + 2 * m.expansions.len(),
+            "seed {seed}: every Shore start and expansion has its two vents"
+        );
         m
     }
 
@@ -777,8 +862,11 @@ impl Map {
         for hand in [1.0, -1.0] {
             let fit = (0..=10).find_map(|i| {
                 let a = back + hand * (80.0 + 6.0 * i as f64) * PI / 180.0;
-                [4.5, 5.0, 5.5].into_iter().find_map(|r| {
-                    let v = (jsmath::round(p0.0 + jsmath::cos(a) * r) as i32 - 1, jsmath::round(p0.1 + jsmath::sin(a) * r) as i32 - 1);
+                [6.0, 5.5, 6.5, 5.0].into_iter().find_map(|r| {
+                    let v = (
+                        jsmath::round(p0.0 + jsmath::cos(a) * r) as i32 - 1,
+                        jsmath::round(p0.1 + jsmath::sin(a) * r) as i32 - 1,
+                    );
                     self.vent_fits(sym, v, VENT_GAP - 1).then_some(v)
                 })
             });

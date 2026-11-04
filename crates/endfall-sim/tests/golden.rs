@@ -193,6 +193,32 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
     );
 }
 
+/// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
+/// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
+const EXPECTED_SHORE_AI: [u32; 3] = [2244073502, 4211055124, 3115583179];
+
+#[test]
+fn golden_hashes_pin_the_shore() {
+    let mut w = World::with_setup(1, 1, MapKind::Shore, false, [&VAEL, &HUMANS]);
+    w.set_ai_seats([true, true]);
+    let mut got = [0u32; 3];
+    let mut c = 0;
+    for tick in 1..=CHECKS[2] {
+        w.step();
+        w.events.clear();
+        if tick == CHECKS[c] {
+            got[c] = w.state_hash();
+            c += 1;
+        }
+    }
+    println!("const EXPECTED_SHORE_AI: [u32; 3] = {got:?};");
+    assert!(!w.map.basins.is_empty(), "the Shore map");
+    assert_eq!(
+        got, EXPECTED_SHORE_AI,
+        "the Shore game changed: update EXPECTED_SHORE_AI only for an intended rule change"
+    );
+}
+
 /// What the state hash does not cover, pinned too: each seat's end-card stats (built, lost, killed, razed), what it
 /// lost to, and the result (over, winner, conceded, the tick it ended) of whole games: two AIs, and the scripted
 /// player against the AI. Kill credit and victory rules change these; refactors must not.

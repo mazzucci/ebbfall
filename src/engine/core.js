@@ -28,7 +28,7 @@ const S = {
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
-const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
+const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), height: new Int8Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
 
 const live = (k) => ({ enumerable: true, get() { sync(); return S[k]; } });
 /** The world as the client sees it. Read-only: change it through the order functions below. */
@@ -40,6 +40,14 @@ function syncOcc() { if (occStale && game) { occStale = false; M.occ.set(game.oc
 export const idx = (x, y) => y * MW + x;
 export const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
 export const blocked = (x, y) => !inMap(x, y) || map.rock[idx(x, y)] || map.occ[idx(x, y)] !== 0;
+/** The water level (the sim's World::water), and what a tile is against it, as the sim's Map::ground: 'land' above
+ *  it, 'shallow' within two below, 'deep' further down (off the map: land). */
+export let WATER = 0;
+export const ground = (x, y) => {
+  if (!inMap(x, y)) return 'land';
+  const h = map.height[idx(x, y)];
+  return h > WATER ? 'land' : h > WATER - 2 ? 'shallow' : 'deep';
+};
 
 /** Entities not in this snapshot (their `gen` is an older one) are gone. */
 function retire(pool) { for (const [id, e] of pool) if (e.gen !== gen) { e.dead = true; pool.delete(id); } }
@@ -133,10 +141,10 @@ function fresh(g) {
   MW = game.mapW(); MH = game.mapH(); WW = MW * TILE; WH = MH * TILE;
   if (M.rock.length !== MW * MH) {
     const n = MW * MH;
-    Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), occ: new Int32Array(n) });
+    Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), height: new Int8Array(n), occ: new Int32Array(n) });
     Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n) });
   }
-  M.rock.set(game.rock()); M.shade.set(game.shade());
+  M.rock.set(game.rock()); M.shade.set(game.shade()); M.height.set(game.height()); WATER = game.water();
   dirty = true; sync();
 }
 /** An online game (Notion: Multiplayer design): the room's setup, seen from seat `me`, in lockstep (orders go out to the

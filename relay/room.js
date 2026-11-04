@@ -50,7 +50,7 @@
 
 import { MAPS, fits, fitMap } from '../src/client/maps.js';
 
-export const PROTO = 5; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start) // the protocol's version: a client of another version is told to update
+export const PROTO = 6; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start; 6: the Shore maps, map indices 12 and 13, which a client of 5 does not know) // the protocol's version: a client of another version is told to update
 export const TURN_MS = 100;
 export const TICKS_PER_TURN = 3;
 export const DELAY = 2; // turns between an order arriving and the turn it runs on

@@ -17,6 +17,7 @@ mod orders;
 mod paths;
 mod seats;
 mod spawn;
+mod tide;
 mod types;
 mod wire;
 
@@ -87,8 +88,17 @@ pub struct World {
     /// The guided first game: the scripted opponent sends no wave while this is set (at most `HOLD_WAVES_MAX` s).
     pub hold_waves: bool,
     /// The water level, in tile units: against each tile's height (`Map::height`) it makes land, shallows and deep
-    /// water (`Map::ground`). Fixed at 0 (stage 1a: no tide yet), so not hashed: the map and the constant decide it.
+    /// water (`Map::ground`). 0 without the tide (the map and the constant decide it, so not hashed); with it, the
+    /// tide's (`tide`), hashed.
     pub water: i8,
+    /// The tide (`set_tide`; None: off, the water level stays 0): the level's cycle, low to high and back.
+    pub tide: Option<Tide>,
+    /// Seats whose walkers do not leave ground the flood will cover when it is announced (a bit per seat; `SetRetreat`;
+    /// none by default).
+    pub no_retreat: u8,
+    /// The flood destroys the walkers it catches instead of sweeping them ashore (`set_flood_kills`: the balance lab's
+    /// comparison; off by default).
+    pub flood_kills: bool,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
     pub stats: Vec<Stats>,
     /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
@@ -220,6 +230,9 @@ impl World {
             conceded: -1,
             hold_waves: false,
             water: 0,
+            tide: None,
+            no_retreat: 0,
+            flood_kills: false,
             stats: Vec::new(),
             army_log: Vec::new(),
             lost_to: Vec::new(),
@@ -298,6 +311,11 @@ impl World {
                     self.map.bases[seat] = self.map.basins[seat];
                 }
             }
+        }
+        // (the tide's first cycle before the starts are dealt: they are placed at its high water)
+        self.water = 0;
+        if self.tide.is_some() {
+            self.start_tide();
         }
         for team in 0..self.seats() as u8 {
             self.deal_start(team);
@@ -523,6 +541,10 @@ impl World {
             u.warp = (u.warp - dt).max(0.0);
             return;
         }
+        if u.stun > 0.0 {
+            u.stun = (u.stun - dt).max(0.0);
+            return;
+        }
         let c = self.live(uid);
         let task = self.u(uid).task;
         if c.kind.def().heal > 0.0 {
@@ -557,6 +579,9 @@ impl World {
         self.time += dt;
         self.tick += 1;
         self.rebuild_hash();
+        if self.tide.is_some() {
+            self.tide_tick();
+        }
         let ids: Vec<Id> = self.units.iter().map(|u| u.id).collect();
         for id in ids {
             if self.unit(id).is_some_and(|u| !self.inert(u.team)) {
@@ -647,6 +672,9 @@ impl World {
             if u.warp > 0.0 {
                 mix(jsmath::to_i32(u.warp * 16.0));
             }
+            if u.stun > 0.0 {
+                mix(jsmath::to_i32(u.stun * 16.0) + 1); // (swept by the flood: only with the tide)
+            }
             if let Some(p) = u.pace {
                 mix(jsmath::to_i32(p * 16.0));
             }
@@ -678,6 +706,17 @@ impl World {
             for &t in &self.teams {
                 mix(t as i32 + 1);
             }
+        }
+        // The tide, when it is on (a game without it hashes as before): the level, the cycle, the seats' switches.
+        if let Some(t) = &self.tide {
+            mix(self.water as i32);
+            mix(t.start as i32);
+            for &p in &t.phases {
+                mix(p as i32);
+            }
+            mix(t.warned as i32);
+            mix(self.no_retreat as i32);
+            mix(self.flood_kills as i32);
         }
         h
     }

@@ -148,9 +148,20 @@ pub struct Unit {
     pub swap: f64,
     /// Seconds left warping in (a Vael unit sent to a power field): it cannot move, fire or heal, but can be hit.
     pub warp: f64,
+    /// Seconds left stunned (a walker swept by the flood): as warping in, it cannot move, fire or heal.
+    pub stun: f64,
     /// A group's marching pace (px/s): set by a group order to its slowest member's speed, so the group arrives
     /// together; it only caps a unit on the move (not in a fight), and any new order clears it.
     pub pace: Option<f64>,
+}
+
+/// The tide's state (`World::set_tide`): the current cycle's first tick, its phases' lengths in ticks (high water,
+/// the ebb, low water, the flood: the cycle's spread drawn as it starts), and whether its warning has gone out.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tide {
+    pub start: u32,
+    pub phases: [u32; 4],
+    pub warned: bool,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its

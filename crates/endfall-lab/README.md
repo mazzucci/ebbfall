@@ -198,6 +198,17 @@ expansion time, so "never expands" carries that difference alone. Reading it:
   estimate should fall within it. A pair counts only when both its games finished, and the model averages over the
   batch's finished games, so the two figures cover slightly different games.
 
+**The first wave** (a table after the bins; `first_wave` per seat in each game's JSON): each seat's first attack
+wave by its plan's first-wave bin: how many seats launched one, when (median), its army value as it launched
+(median; shards plus ether at 1.5, the formula sheet's default), and its result while out, the value it destroyed
+over the value it lost, pooled. A wave is out from the tick its AI sends it (`World::ai_wave_of`) to the tick it has
+none; what it destroyed is the enemy's units and buildings standing at its launch and gone by then (the enemy's
+losses elsewhere in that time count too: early in a game there are few). It answers why later first waves win:
+bigger at launch, better trades, or both.
+
+**`--tide`** (here and on `report`) plays the same batch with the tide on (`World::set_tide`: the water level's cycle on
+maps with water). Run every tide batch beside the same batch without it: the difference is the tide's.
+
 **Predictions first.** Before a run, write down which way each setting should move the win rate, and in short or long
 games (the PRD's section 7). Copy the report's results next to them: matched, missed, or unclear (interval too wide).
 A miss is a finding. Several big misses mean the framework needs checking before its results are believed.

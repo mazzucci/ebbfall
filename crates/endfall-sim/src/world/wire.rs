@@ -53,6 +53,7 @@ impl Command {
                 out.push(ability.index() as f64);
             }
             Command::Concede => {}
+            Command::SetRetreat { on } => out.push(*on as u8 as f64),
         }
         out
     }
@@ -132,6 +133,9 @@ impl Command {
                 y: r.num()?,
             },
             18 => Command::Concede,
+            19 => Command::SetRetreat {
+                on: r.whole(1)? == 1,
+            },
             _ => return None,
         };
         Some((cmd, r.at))
@@ -271,6 +275,8 @@ mod tests {
                 y: 6.5,
             },
             Command::Concede,
+            Command::SetRetreat { on: true },
+            Command::SetRetreat { on: false },
         ]
     }
 

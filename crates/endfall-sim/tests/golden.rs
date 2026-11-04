@@ -219,6 +219,32 @@ fn golden_hashes_pin_the_shore() {
     );
 }
 
+/// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
+/// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
+const EXPECTED_SHORE_TIDE: [u32; 3] = [550943356, 2195541268, 1505107305];
+
+#[test]
+fn golden_hashes_pin_the_shore_with_the_tide() {
+    let mut w = World::with_setup(1, 1, MapKind::Shore, false, [&VAEL, &HUMANS]);
+    w.set_tide(true);
+    w.set_ai_seats([true, true]);
+    let mut got = [0u32; 3];
+    let mut c = 0;
+    for tick in 1..=CHECKS[2] {
+        w.step();
+        w.events.clear();
+        if tick == CHECKS[c] {
+            got[c] = w.state_hash();
+            c += 1;
+        }
+    }
+    println!("const EXPECTED_SHORE_TIDE: [u32; 3] = {got:?};");
+    assert_eq!(
+        got, EXPECTED_SHORE_TIDE,
+        "the Shore game with the tide changed: update EXPECTED_SHORE_TIDE only for an intended rule change"
+    );
+}
+
 /// What the state hash does not cover, pinned too: each seat's end-card stats (built, lost, killed, razed), what it
 /// lost to, and the result (over, winner, conceded, the tick it ended) of whole games: two AIs, and the scripted
 /// player against the AI. Kill credit and victory rules change these; refactors must not.

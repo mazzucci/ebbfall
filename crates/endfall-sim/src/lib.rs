@@ -408,6 +408,12 @@ impl Game {
     pub fn concede(&mut self) {
         self.order(Command::Concede);
     }
+    /// Whether this seat's idle walkers leave ground the flood will cover when it is announced (the tide; on by
+    /// default).
+    #[wasm_bindgen(js_name = setRetreat)]
+    pub fn set_retreat(&mut self, on: bool) {
+        self.order(Command::SetRetreat { on });
+    }
     /// Attack-move for a selection: together, at the pace of its slowest unit.
     #[wasm_bindgen(js_name = attackMoveGroup)]
     pub fn attack_move_group(&mut self, units: &[u32], x: f64, y: f64) {
@@ -728,6 +734,11 @@ impl Game {
     /// The world behind the WASM surface, for Rust-side tests and tools.
     pub fn world(&self) -> &World {
         &self.w
+    }
+    /// Turn the tide on or off and start the game again with it (Rust-side tests and the balance lab; the menus play
+    /// the Shore without it until the tide's clock and water are drawn).
+    pub fn set_tide(&mut self, on: bool) {
+        self.w.set_tide(on);
     }
 }
 

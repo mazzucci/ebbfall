@@ -5,6 +5,7 @@
 
 pub mod batch;
 pub mod compare;
+pub mod first_wave;
 pub mod json;
 pub mod model;
 pub mod plans;
@@ -30,6 +31,7 @@ pub fn run_report(
         batch.seeds,
         batch.cap_min,
         batch.shore_field,
+        batch.tide,
         threads,
         progress,
     );
@@ -58,6 +60,7 @@ mod tests {
             seeds: 2,
             cap_min: 3,
             shore_field: endfall_sim::map::ShoreField::BACK,
+            tide: false,
         };
         let quiet = |_: usize, _: usize| {};
         let one = run_report(batch.clone(), (10.0, 20.0), "test", 1, &quiet)

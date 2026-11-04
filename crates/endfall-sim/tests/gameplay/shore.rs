@@ -325,6 +325,57 @@ fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
 }
 
 #[test]
+fn random_play_never_breaks_the_world_on_the_shore_with_the_tide() {
+    // As below, with the tide on: the ground moves under the orders through two cycles and more.
+    let seeds: u32 = if cfg!(debug_assertions) { 2 } else { 6 };
+    for seed in 0..seeds {
+        let (me, foe) = [(0, 1), (1, 0)][(seed % 2) as usize];
+        let mut g = Game::with_setup(seed * 7919 + 13, 1, 6, seed % 2, me, foe);
+        g.set_tide(true);
+        assert!(g.world().tide.is_some());
+        let mut r = Mulberry32::new(seed ^ 0x71de);
+        for tick in 0..30 * 60 * 7 {
+            if tick % 7 == 0 {
+                for _ in 0..1 + r.below(3) {
+                    random_order(&mut g, &mut r);
+                }
+            }
+            g.step();
+            check_invariants(g.world(), &format!("tide seed {seed} tick {tick}"));
+            if g.world().over {
+                break;
+            }
+        }
+    }
+}
+
+#[test]
+fn both_ais_finish_games_on_the_shore_with_the_tide_at_every_level() {
+    for diff in 0..4 {
+        for (races, seed) in [
+            ([&HUMANS, &VAEL], 21 + diff as u32),
+            ([&VAEL, &HUMANS], 31 + diff as u32),
+        ] {
+            let mut w = World::with_size(seed, diff, MapKind::Shore, MapSize::DUEL, 0, &races);
+            w.set_tide(true);
+            assert!(w.set_ai_seats([true, true]));
+            for _ in 0..30 * 60 * TPS {
+                w.step();
+                w.events.clear();
+                if w.winner >= 0 {
+                    break;
+                }
+            }
+            assert!(
+                w.winner >= 0,
+                "level {diff}, {} first, with the tide: no result in 30 minutes",
+                races[0].name
+            );
+        }
+    }
+}
+
+#[test]
 fn random_play_never_breaks_the_world_on_the_shore() {
     // Random orders through the Game API on the Shore map, both peoples on either side: the world invariants (no
     // walker in deep water among them) hold every tick.

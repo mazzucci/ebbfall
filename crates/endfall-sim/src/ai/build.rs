@@ -7,6 +7,8 @@ use crate::map::Node;
 /// Unspent shards the AI counts as piling up (it then adds a factory).
 const SHARD_FLOAT: i32 = 400;
 
+/// After placing a base, how long (s) before it takes another for a passive foe (`Diff::passive_expand`).
+const PASSIVE_BASE_GAP: f64 = 90.0;
 /// Shards left in the fields by its main below which the AI takes its natural now (`Diff::expands_when_dry`),
 /// whatever the clock says (on barren maps the home field runs dry before the difficulty's time; later it could not
 /// pay for it).
@@ -646,22 +648,31 @@ impl World {
         // even while supply depots go up. Sooner if the home field is running dry.
         let dry = self.home_dry(cx, cy);
         brain.dry = dry;
-        let exp_spot = if (t > d.expand_at || dry)
-            && self.ai_count(&my_b, false, self.factions[e as usize].hq) < 2
-            && harv.len() + 2 >= d.harv
-        {
-            self.expansion_spot(cx, cy)
-        } else {
-            None
-        };
+        let hqs = self.ai_count(&my_b, false, self.factions[e as usize].hq);
+        // Out-expanding a passive foe (`Diff::passive_expand`): its natural taken, nothing of the enemy's armed at its
+        // buildings for a while and its last base not just placed, it takes another, up to `max_bases`.
+        let ai = self.ai();
+        let passive = hqs >= 2
+            && hqs < d.max_bases
+            && t - ai.attacked_at > d.passive_expand
+            && t - ai.last_base_at > PASSIVE_BASE_GAP;
+        let exp_spot =
+            if ((t > d.expand_at || dry) && hqs < 2 || passive) && harv.len() + 2 >= d.harv {
+                self.expansion_spot(cx, cy)
+            } else {
+                None
+            };
         let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
         if let Some(spot) = exp_spot
             && self.can_afford(e, self.factions[e as usize].hq.def().cost)
         {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
-            if let Some(b) = self.free_builder(&harv, sx, sy) {
-                let _ =
-                    self.place_building(e, self.factions[e as usize].hq, spot.0, spot.1, Some(b));
+            if let Some(b) = self.free_builder(&harv, sx, sy)
+                && self
+                    .place_building(e, self.factions[e as usize].hq, spot.0, spot.1, Some(b))
+                    .is_ok()
+            {
+                self.ai_mut().last_base_at = t;
             }
         }
         self.tend_sites(&harv);
@@ -682,6 +693,80 @@ impl World {
 mod tests {
     use crate::data::*;
     use crate::map::{MapKind, MapSize};
+
+    /// Seat 1's Medium AI on a 64x64 duel with its natural taken, fourteen workers and money in hand, at 10:00, its
+    /// last attack at `attacked`: how many bases it has once it has taken its turn at expanding.
+    fn bases_after(attacked: f64) -> usize {
+        use crate::ai::Brain;
+        let mut w = World::with_size(
+            5,
+            1,
+            MapKind::Standard,
+            MapSize::DUEL,
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        w.ai_turn = 1;
+        let core = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == 1 && b.kind == BldgKind::Core)
+            .unwrap();
+        let (cx, cy) = (
+            core.tx as f64 + core.w as f64 / 2.0,
+            core.ty as f64 + core.h as f64 / 2.0,
+        );
+        let spot = w.expansion_spot(cx, cy).expect("a natural");
+        w.make_building(BldgKind::Core, 1, spot.0, spot.1, true);
+        let harv: Vec<_> = (0..14)
+            .map(|i| {
+                w.make_unit(
+                    UnitKind::Harvester,
+                    1,
+                    (cx + 3.0) * TILE + i as f64 * 8.0,
+                    cy * TILE,
+                )
+            })
+            .collect();
+        w.res[1] = [5000, 5000];
+        let ai = w.ai_mut();
+        ai.attacked_at = attacked;
+        ai.last_base_at = 300.0;
+        let my_b: Vec<_> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let mut b = Brain {
+            e: 1,
+            t: 600.0,
+            my_b,
+            harv,
+            cx,
+            cy,
+            ..Brain::default()
+        };
+        w.ai_expand(&mut b);
+        w.bldgs
+            .iter()
+            .filter(|b| b.team == 1 && b.kind == BldgKind::Core)
+            .count()
+    }
+
+    #[test]
+    fn a_foe_that_never_comes_is_out_expanded() {
+        assert_eq!(
+            bases_after(0.0),
+            3,
+            "no enemy at its buildings for ten minutes: a third base"
+        );
+        assert_eq!(
+            bases_after(550.0),
+            2,
+            "attacked a minute ago: its natural is enough"
+        );
+    }
     use crate::world::World;
 
     #[test]

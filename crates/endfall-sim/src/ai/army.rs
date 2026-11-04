@@ -147,10 +147,11 @@ impl World {
             .filter(|u| self.ai_sees_unit(u))
             .map(|u| army_worth(u.kind))
             .sum();
+        let mine = self.own_army_worth(e);
         let age = self.level().sighting_age;
         let ai = self.ai_mut();
         if seen > 0.0 && (seen >= ai.army_seen.0 || t - ai.army_seen.1 > age) {
-            ai.army_seen = (seen, t);
+            ai.army_seen = (seen, t, mine);
         }
         'scan: for u in &self.units {
             if !self.hostile(u.team) || !self.ai_sees_unit(u) {
@@ -163,6 +164,10 @@ impl World {
                     break 'scan;
                 }
             }
+        }
+        // (an armed enemy at its buildings: the foe is not passive; `Diff::passive_expand`)
+        if intruder.is_some_and(|i| self.u(i).kind.def().threat()) {
+            self.ai_mut().attacked_at = t;
         }
         // With more than one enemy still in, how many armed enemies are at our buildings (another may come while our
         // wave is out at the foe's; a duel's waves meet on the way).
@@ -449,25 +454,69 @@ impl World {
         ai.prong = order[..split].to_vec();
     }
 
+    /// The worth of seat `e`'s army (armed units, workers left out).
+    fn own_army_worth(&self, e: u8) -> f64 {
+        self.units
+            .iter()
+            .filter(|u| u.team == e && !u.kind.def().worker && u.kind.def().armed())
+            .map(|u| army_worth(u.kind))
+            .sum()
+    }
+
     /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defence): a wave ready by count and time waits until
-    /// its armed units' worth beats the enemy army it last saw by the margin, which fades to even over `margin_fade`
-    /// seconds of waiting. A sighting older than `sighting_age` is none (today's rules: it goes); with full supply,
-    /// or `all_in_after` seconds since its last wave, it goes with everything it has (two such AIs never wait on each
-    /// other for ever).
+    /// its armed units' worth beats the enemy army it expects by the margin (fading to even over `margin_fade`
+    /// seconds of waiting, if it fades). It expects the army it last saw; a sighting older than `sighting_age` is
+    /// stale: it first sends its cheapest armed unit to look (waiting up to `look_for` seconds), then expects the last
+    /// sighting plus what its own army has grown since (a foe that keeps building is not frozen at its last sighting).
+    /// Never seen at all: it goes (today's rules). With full supply, or `all_in_after` seconds since its last wave,
+    /// it goes with everything it has.
     fn strong_enough(&mut self, army: &[Id], t: f64) -> bool {
         let d = self.level();
         if d.wave_margin <= 0.0 {
             return true;
         }
         let since = *self.ai_mut().ready_since.get_or_insert(t);
-        let seat = self.seat() as usize;
-        if self.sup[seat][0] >= SUPPLY_LIMIT || t - self.ai().last_wave > d.all_in_after {
+        let seat = self.seat();
+        if self.sup[seat as usize][0] >= SUPPLY_LIMIT || t - self.ai().last_wave > d.all_in_after {
             return true;
         }
-        let (seen, when) = self.ai().army_seen;
-        if seen <= 0.0 || t - when > d.sighting_age {
+        let (seen, when, mine_then) = self.ai().army_seen;
+        if seen <= 0.0 {
             return true;
         }
+        let fresh = t - when <= d.sighting_age;
+        if fresh {
+            self.ai_mut().looking = None;
+        } else if d.look_for > 0.0 {
+            // Look first: one unit to the foe's base, unless one is out looking already.
+            match self.ai().looking {
+                Some((id, at)) if t - at < d.look_for && self.unit(id).is_some() => return false,
+                Some((_, at)) if t - at < d.look_for => {}
+                Some(_) => {} // (it looked long enough: go by the estimate)
+                None => {
+                    let cheapest = army
+                        .iter()
+                        .copied()
+                        .filter(|&a| self.u(a).kind.def().armed() && !self.u(a).kind.def().air)
+                        .min_by(|&p, &q| {
+                            army_worth(self.u(p).kind)
+                                .total_cmp(&army_worth(self.u(q).kind))
+                                .then(p.cmp(&q))
+                        });
+                    if let Some(a) = cheapest {
+                        let (gx, gy) = self.attack_target();
+                        self.move_to(a, gx, gy);
+                        self.ai_mut().looking = Some((a, t));
+                        return false;
+                    }
+                }
+            }
+        }
+        let expected = if fresh {
+            seen
+        } else {
+            seen + (self.own_army_worth(seat) - mine_then).max(0.0)
+        };
         let fade = ((t - since) / d.margin_fade).clamp(0.0, 1.0);
         let margin = d.wave_margin + (1.0 - d.wave_margin) * fade;
         let mine: f64 = army
@@ -476,7 +525,7 @@ impl World {
             .filter(|u| u.kind.def().armed())
             .map(|u| army_worth(u.kind))
             .sum();
-        mine >= margin * seen
+        mine >= margin * expected
     }
 
     /// Where a wave gathers before it goes in (`Diff::stage`): `tiles` short of its goal on the way from its rally
@@ -772,69 +821,101 @@ mod tests {
     fn a_wave_waits_for_strength_against_the_army_it_saw_and_goes_once_ahead() {
         // Ten Troopers against twelve seen: it waits (a margin of 1.3); against seven seen (10 >= 9.1) it goes.
         let (mut w, _, mut b) = ready(1);
-        w.ai_mut().army_seen = (12.0 * trooper(), 390.0);
+        w.ai_mut().army_seen = (12.0 * trooper(), 390.0, 0.0);
         w.ai_army(&mut b);
         assert!(!w.ai().attacking, "ten against twelve: it waits");
         assert_eq!(w.ai().ready_since, Some(400.0), "ready since now");
-        w.ai_mut().army_seen = (7.0 * trooper(), 395.0);
+        w.ai_mut().army_seen = (7.0 * trooper(), 395.0, 0.0);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "ten against seven: it goes");
         assert_eq!(w.ai().ready_since, None);
-        // nothing seen lately (older than two minutes): today's rules, it goes
+        // never seen anything: today's rules, it goes
         let (mut w, _, mut b) = ready(1);
-        w.ai_mut().army_seen = (30.0 * trooper(), 400.0 - 121.0);
         w.ai_army(&mut b);
-        assert!(
-            w.ai().attacking,
-            "a sighting over two minutes old counts as none"
-        );
-    }
-
-    #[test]
-    fn the_margin_fades_to_even_and_a_long_wait_or_full_supply_goes_with_everything() {
-        // Ten against nine seen: 1.3 times nine is more than ten, so it waits; 150 s later the margin is 1.05 (10 >= 9.45): it goes.
-        let (mut w, _, mut b) = ready(1);
-        // (its last wave at 330: past the gap at 400, and under four minutes at 550)
-        w.ai_mut().last_wave = 330.0;
-        w.ai_mut().army_seen = (9.0 * trooper(), 399.0);
-        w.ai_army(&mut b);
-        assert!(!w.ai().attacking);
-        assert_eq!(w.ai().ready_since, Some(400.0));
-        b.t = 550.0;
-        w.ai_mut().army_seen = (9.0 * trooper(), 549.0);
-        w.ai_army(&mut b);
-        assert!(w.ai().attacking, "the margin faded");
-        // Ten against thirty seen: never ahead, but four minutes since its last wave and it goes with everything.
+        assert!(w.ai().attacking, "nothing ever seen: it goes");
+        // full supply: all in, whatever it saw
         let (mut w, army, mut b) = ready(1);
-        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
-        w.ai_mut().last_wave = 400.0 - 240.0;
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
+        w.sup[1][0] = SUPPLY_LIMIT;
         w.ai_army(&mut b);
-        assert!(
-            !w.ai().attacking,
-            "four minutes to the second: still waiting"
-        );
-        w.ai_mut().last_wave = 400.0 - 241.0;
-        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
-        w.ai_army(&mut b);
-        assert!(w.ai().attacking, "over four minutes: all in");
+        assert!(w.ai().attacking, "full supply: all in");
         assert_eq!(
             w.ai().attackers.as_ref().unwrap().len(),
             army.len(),
             "with everything"
         );
-        // and with full supply
-        let (mut w, _, mut b) = ready(1);
-        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
-        w.sup[1][0] = SUPPLY_LIMIT;
+    }
+
+    #[test]
+    fn a_stale_sighting_sends_a_unit_to_look_then_counts_the_foes_growth() {
+        // Seven seen three minutes ago (stale): it sends one Trooper to the foe's base and waits.
+        let (mut w, army, mut b) = ready(1);
+        let worth_now: f64 = 10.0 * trooper();
+        w.ai_mut().army_seen = (7.0 * trooper(), 400.0 - 180.0, worth_now - 4.0 * trooper());
         w.ai_army(&mut b);
-        assert!(w.ai().attacking, "full supply: all in");
+        assert!(!w.ai().attacking, "stale: it looks first");
+        let (looker, _) = w.ai().looking.expect("one unit out to look");
+        assert!(army.contains(&looker));
+        let (gx, gy) = w.attack_target();
+        assert!(
+            matches!(w.u(looker).task, Task::Move { x, y } if x == gx && y == gy),
+            "to the foe's base"
+        );
+        // while it looks, no wave
+        b.t = 430.0;
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking, "still looking");
+        // it looked a minute and saw nothing new: it expects seven plus its own army's growth since (four): eleven,
+        // and ten is not 1.3 times that
+        b.t = 461.0;
+        w.ai_army(&mut b);
+        assert!(
+            !w.ai().attacking,
+            "expects the foe grew as it did: it waits"
+        );
+        // a fresh sighting of six: it goes
+        w.ai_mut().army_seen = (6.0 * trooper(), 461.0, worth_now);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "seen fresh, and ahead: it goes");
+        assert!(w.ai().looking.is_none());
+    }
+
+    #[test]
+    fn with_a_fading_margin_or_a_long_wait_it_goes_anyway() {
+        // The mechanisms kept for a plan (the levels use neither): the margin fading over three minutes, and all in
+        // after four minutes without a wave.
+        let plan = |fade: f64, all_in: f64| Diff {
+            margin_fade: fade,
+            all_in_after: all_in,
+            ..DIFF[1]
+        };
+        let (mut w, _, mut b) = ready(1);
+        assert!(w.set_ai_plans(&[None, Some(plan(180.0, NEVER))]));
+        w.ai_turn = 1;
+        w.ai_mut().last_wave = 330.0;
+        w.ai_mut().rally = Some(b.rally);
+        w.ai_mut().army_seen = (9.0 * trooper(), 399.0, 0.0);
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking, "ten against 1.3 times nine: it waits");
+        b.t = 550.0;
+        w.ai_mut().army_seen = (9.0 * trooper(), 549.0, 0.0);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "the margin faded to 1.05");
+        let (mut w, _, mut b) = ready(1);
+        assert!(w.set_ai_plans(&[None, Some(plan(NEVER, 240.0))]));
+        w.ai_turn = 1;
+        w.ai_mut().rally = Some(b.rally);
+        w.ai_mut().last_wave = 400.0 - 241.0;
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "over four minutes without a wave: all in");
     }
 
     #[test]
     fn easy_keeps_todays_waves() {
         let (mut w, _, mut b) = ready(0);
         w.ai_mut().wave = 4;
-        w.ai_mut().army_seen = (30.0 * trooper(), 399.0);
+        w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "Easy does not wait for strength");
         assert!(w.ai().staging.is_none(), "nor gather");

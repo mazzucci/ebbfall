@@ -48,16 +48,22 @@ pub struct Diff {
     pub vents_from: f64,
     /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
     /// the AI breaks a defence; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
-    /// waiting; a sighting older than `sighting_age` counts as none; with full supply, or `all_in_after` seconds
-    /// since its last wave, it goes with everything.
+    /// waiting (NEVER: it does not fade). A sighting older than `sighting_age` is stale: it first sends a unit to
+    /// look (waiting up to `look_for` seconds for it), then counts the foe as the last sighting plus what its own army
+    /// has grown since. With full supply, or `all_in_after` seconds since its last wave, it goes with everything.
     pub wave_margin: f64,
     pub margin_fade: f64,
     pub sighting_age: f64,
+    pub look_for: f64,
     pub all_in_after: f64,
     /// A wave first gathers this many tiles short of its goal (0: it goes straight in) and goes in together once most
     /// of it is there, or after `stage_wait` seconds.
     pub stage: f64,
     pub stage_wait: f64,
+    /// Out-expanding a passive foe: with its natural taken and no enemy at its buildings for `passive_expand`
+    /// seconds (NEVER: never), it takes another base, at most `max_bases` in all.
+    pub passive_expand: f64,
+    pub max_bases: usize,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -91,11 +97,14 @@ pub const DIFF: [Diff; 4] = [
         workers_first: false,
         vents_from: 540.0,
         wave_margin: 0.0,
-        margin_fade: 180.0,
+        margin_fade: NEVER,
         sighting_age: 120.0,
-        all_in_after: 240.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
         stage: 0.0,
         stage_wait: 30.0,
+        passive_expand: NEVER,
+        max_bases: 2,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -124,11 +133,14 @@ pub const DIFF: [Diff; 4] = [
         workers_first: false,
         vents_from: 0.0,
         wave_margin: 1.3,
-        margin_fade: 180.0,
+        margin_fade: NEVER,
         sighting_age: 120.0,
-        all_in_after: 240.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
         stage: 12.0,
         stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -156,11 +168,14 @@ pub const DIFF: [Diff; 4] = [
         workers_first: false,
         vents_from: 0.0,
         wave_margin: 1.3,
-        margin_fade: 180.0,
+        margin_fade: NEVER,
         sighting_age: 120.0,
-        all_in_after: 240.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
         stage: 12.0,
         stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -192,10 +207,13 @@ pub const DIFF: [Diff; 4] = [
         workers_first: true,
         vents_from: 0.0,
         wave_margin: 1.3,
-        margin_fade: 180.0,
+        margin_fade: NEVER,
         sighting_age: 120.0,
-        all_in_after: 240.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
         stage: 12.0,
         stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
     },
 ];

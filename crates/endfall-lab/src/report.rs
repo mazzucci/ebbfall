@@ -1192,7 +1192,7 @@ impl Report {
             return String::new();
         }
         let mut s = format!(
-            "\n## The waves\n\nEach level against itself, every size, by map and the attacking people: when a wave arrived (a unit within {} tiles of an enemy building), its value then over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (what it destroyed over what it lost while out), and where it lost its units.\n\n{}",
+            "\n## The waves\n\nEach level against itself, every size, by map and the attacking people: when a wave arrived (a unit within {} tiles of an enemy building), its value near that unit (within the same tiles) over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (the value of what fell near its units over what it lost while out), and where it lost its units.\n\n{}",
             crate::waves::REACH,
             crate::waves::REACH,
             crate::waves::TABLE_HEAD

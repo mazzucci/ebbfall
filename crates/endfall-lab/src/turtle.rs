@@ -308,7 +308,7 @@ impl TurtleRun {
             s += &t.row(&label);
         }
         s += &format!(
-            "\n## The attacker's waves\n\nEach wave of the plain Medium seat against the turtle: when it arrived (a unit within {} tiles of a turtle's building), its value then over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (what it destroyed over what it lost while out), and where it lost its units.\n\n{TABLE_HEAD}",
+            "\n## The attacker's waves\n\nEach wave of the plain Medium seat against the turtle: when it arrived (a unit within {} tiles of a turtle's building), its value near that unit (within the same tiles) over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (the value of what fell near its units over what it lost while out), and where it lost its units.\n\n{TABLE_HEAD}",
             waves::REACH,
             waves::REACH
         );

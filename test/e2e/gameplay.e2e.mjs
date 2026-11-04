@@ -10,6 +10,8 @@ after(stop);
 const mine = (s, type) => s.units.filter(u => u.team === 0 && u.type === type);
 const myBldg = (s, type) => s.bldgs.filter(b => b.team === 0 && b.type === type);
 const coreOf = (s) => myBldg(s, 'core')[0];
+/** The player's record on this device as stored (menu.js: [won, lost] per race and difficulty), not shown any more. */
+const storedRecord = (page) => page.evaluate(() => { try { return JSON.parse(localStorage.getItem('endfall.record')) || {}; } catch { return {}; } });
 
 /** Build `type` through the UI next to the headquarters and wait until it is finished. Returns the building. (The
  *  Vael: `{ hq: 'conflux', worker: 'lumen' }`.) */
@@ -694,11 +696,9 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (RND, Random|RANDOM),/, 'RANDOM still chosen');
       assert.equal(await startAs(0.1), 'humans', 'and the next game the Humans');
       await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
-      assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 2 lost$/, 'RANDOM\'s record: both races\' games');
+      assert.deepEqual(await storedRecord(page), { 'vael:0': [0, 1], 'humans:0': [0, 1] }, 'RANDOM\'s games on the record of the race each drew');
       assert.ok(await page.locator('#btnFirstHome').isHidden(), 'games on the record: FIRST GAME off the first page');
-      await press('#btnSolo');
-      await board(page).race(0, 'vael'); await press('#btnSoloBack');
-      assert.match(await page.locator('#record').textContent(), /^Easy: 0 won · 1 lost$/, 'the Vael\'s alone');
+      assert.equal(await page.locator('#record').count(), 0, 'no record on the first page');
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   }
@@ -716,7 +716,7 @@ test('a newcomer\'s FIRST GAME on the first page, and only there; once the guide
     await page.locator('#end').waitFor({ state: 'visible' });
     await page.locator('#btnAgain').click();
     assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#btnFirstHome').isHidden(), 'no FIRST GAME on the first page any more');
-    assert.equal(await page.locator('#record').textContent(), '', 'a guided game is not on the record');
+    assert.deepEqual(await storedRecord(page), {}, 'a guided game is not on the record');
     await page.locator('#btnSolo').click();
     assert.equal(await page.locator('#btnFirst').count(), 0, 'nor in single player');
     await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
@@ -1432,10 +1432,10 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
     assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');
     assert.equal(await setup(), before, 'the same map, races and starting base');
     assert.ok(await d.eval(() => endfall.G.time < 5), 'from the start');
-    // Back on the menu: the record for this race and difficulty.
+    // Back on the menu: on the record for this race and difficulty.
     await d.page.locator('#btnPause').click();
     await d.page.locator('#btnQuit').click();
-    assert.match(await d.page.locator('#record').textContent(), /1 won · 1 lost/); // (the win, and the rematch left: leaving gives a game up)
+    assert.deepEqual(Object.values(await storedRecord(d.page)), [[1, 1]]); // (the win, and the rematch left: leaving gives a game up)
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1636,7 +1636,7 @@ test('phone: the pause card has five buttons (BACK TO GAME across, four equal be
     await d.page.locator('#btnPause').tap();
     await d.page.locator('#btnQuit').tap();
     await d.page.locator('#start').waitFor({ state: 'visible' });
-    assert.match(await d.page.locator('#record').textContent(), /1 lost/, 'counted as a defeat');
+    assert.ok(Object.values(await storedRecord(d.page)).some(([, l]) => l === 1), 'counted as a defeat');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2081,7 +2081,9 @@ test('single player: the record counts a game at its enemies\' level (a Brutal a
     assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 3, 0], 'the game\'s level Easy, the ally Brutal');
     await page.evaluate(() => { endfall.ui.watching = 0; document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').click(); await page.locator('#btnSoloBack').click();
-    assert.equal(await page.locator('#record').textContent(), 'Easy: 0 won · 1 lost', 'counted at Easy');
+    const r = await storedRecord(page);
+    assert.deepEqual(Object.values(r), [[0, 1]], 'one game lost');
+    assert.ok(Object.keys(r).every(k => k.endsWith(':0')), `counted at Easy: ${JSON.stringify(r)}`);
   } finally { await ctx.close(); }
 });
 
@@ -2418,12 +2420,12 @@ test('phone: while placing, the ghost appears under the finger and follows it; l
   } finally { await d.close(); }
 });
 
-test('the menu fits a small phone on every page (the first with its record and PLAY OFFLINE\'s answer), each heading in view', async () => {
+test('the menu fits a small phone on every page (the first with its stamp and PLAY OFFLINE\'s answer), each heading in view', async () => {
   const ctx = await browserContext({ ...PHONE, viewport: { width: 667, height: 375 } }), page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall);
-    await page.evaluate(() => { document.getElementById('record').textContent = 'Easy: 3 won · 1 lost'; document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
+    await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
     const fits = async (card, heading, what) => {
       const sc = await page.locator(card).evaluate(e => [e.scrollHeight, e.clientHeight]), top = (await page.locator(heading).boundingBox()).y;
       assert.ok(top >= 0, `${what}: the heading in view: ${top}`);
@@ -2443,13 +2445,13 @@ test('the menu fits a small phone on every page (the first with its record and P
   } finally { await ctx.close(); }
 });
 
-test('the first page: the name in title case over the shore, whose tide lines keep below the content (a record and PLAY OFFLINE\'s answer too), go with the page and stand still under reduced motion', async () => {
+test('the first page: the name in title case over the shore, whose tide lines keep below the content (the stamp and PLAY OFFLINE\'s answer too), go with the page and stand still under reduced motion', async () => {
   for (const [w, h, reducedMotion, tip] of [[844, 390, 'no-preference', false], [667, 375, 'no-preference', false], [412, 915, 'reduce', false], [932, 430, 'no-preference', true], [568, 320, 'no-preference', true]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h }, reducedMotion }), page = await ctx.newPage();
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      if (tip) await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; document.getElementById('record').textContent = 'RECORD 3 WINS - 1 LOSS'; });
+      if (tip) await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
       assert.equal(await page.locator('#menuHome h1').textContent(), 'Ebbfall', 'the title');
       const ebbs = () => page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb').length);
       const shore = page.locator('#menuHome .shore');
@@ -3122,6 +3124,27 @@ test('the menu pages: every button a finger high, BACK the same size in the same
       assert.equal(await page.evaluate(() => document.querySelector('#help .card').scrollTop), 0, 'How to play from its top');
       const help = (await buttons()).find(b => b.id === 'btnHelpClose');
       assert.ok(help.w === backs[0].w && help.h === backs[0].h, `its BACK the same size: ${JSON.stringify(help)}`);
+    } finally { await ctx.close(); }
+  }
+});
+
+test('the first page\'s build stamp: the last game update and its date, small at the foot, one line on a phone; About has it beside the Version', async () => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 667, height: 375 }, { width: 412, height: 915 }]) {
+    const ctx = await browserContext({ ...(viewport.width > 900 ? DESKTOP : PHONE), viewport }), page = await ctx.newPage();
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      const stamp = page.locator('#buildStamp');
+      assert.ok(await stamp.isVisible(), `${viewport.width}x${viewport.height}: the stamp on the first page`);
+      const text = await stamp.textContent();
+      assert.match(text, /^(Updated .+ · [0-9a-f]{7,}|dev)$/, `the stamp: ${text}`);
+      const [h, line] = await stamp.evaluate(e => [e.getBoundingClientRect().height, parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3]);
+      assert.ok(h <= line * 1.5, `one line: ${h} px for a ${line} px line`);
+      await fitsPage(page, `${viewport.width}x${viewport.height}: the first page with its stamp`);
+      const short = text === 'dev' ? 'dev' : text.split(' · ')[1];
+      assert.equal(await page.locator('#buildCommit').textContent(), short, 'About: the same commit beside the Version');
+      assert.match(await page.locator('#menuAbout .fine').textContent(), /Version \S+ \(last game update \S+\)/, 'Version, then the last game update');
+      if (text !== 'dev') assert.match(await stamp.getAttribute('title'), /^The last game update: .+, commit [0-9a-f]{7,}$/, 'its tooltip says what it is');
     } finally { await ctx.close(); }
   }
 });

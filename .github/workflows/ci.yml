@@ -43,6 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # (the history: vite.config.js names the last commit that changed what ships, the build stamp)
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -323,3 +325,17 @@ jobs:
       - name: The hostnames through Cloudflare, so to the Worker (GitHub Pages' records proxied; once)
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: node site/dns.mjs proxy
+      - name: The live site serves the build just deployed (its <meta name="build">; a deploy that did not take turns main red)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          meta() { grep -oE '<meta name="build" content="[^"]*"' | head -1 | sed -E 's/.*content="([^"]*)"/\1/'; }
+          want=$(meta < dist/index.html || true) # (the last game update: a docs- or CI-only commit ships the same build)
+          [ -n "$want" ] || { echo "::error::dist/index.html has no <meta name=\"build\">"; exit 1; }
+          live=''
+          for i in $(seq 1 24); do # (up to 2 minutes, as the relay's /version wait)
+            live=$(curl -fsS --max-time 10 -H 'Cache-Control: no-cache' "https://ebbfall.com/?build-check=${GITHUB_SHA}-$i" | meta || true)
+            if [ "$live" = "$want" ]; then echo "https://ebbfall.com/ serves the build deployed, the last game update $live"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://ebbfall.com/ serves build ${live:-unknown (no meta build)}, not the one deployed ($want): the deploy did not take"
+          exit 1

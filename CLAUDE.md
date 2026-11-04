@@ -151,8 +151,12 @@ src/client/           everything that touches the browser
                       `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
-                      until a first game is over), the single-player page (the board: eight fixed spots, you and one to
+  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About; FIRST GAME until a
+                      first game is over, by the record of games, which is kept but not shown; the build stamp at
+                      its foot, "Updated <date> · <hash>": the last game update, the newest commit under
+                      vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
+                      from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
+                      (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
                       + AI in the lowest empty spot; the map list, any map that seats them, with a preview; no FIRST GAME there),
                       the About page (the source, the device check, the version); the map list and preview the lobby
@@ -269,6 +273,9 @@ test/site-preview.test.js the link cards (site/preview.js): a room's code checke
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
+test/build-stamp.test.js the build stamp: the commit and its date baked in, <meta name="build"> in the page's head
+test/build-inputs.test.js every file the production build reads lies under vite.config.js `SHIPPED` (a path missing
+                      there would ship a game update under an older stamp)
 test/store.test.js    the player's name: `cleanName` (and that the relay names a hello the same), `playerName`'s one key
 test/challenge.test.js a challenge's code (src/client/challenge.js): setups round-trip, the code canonical (sides as they
                       first appear, the side modulo starts x players), hostile, malformed and other versions refused (a

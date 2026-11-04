@@ -173,14 +173,12 @@ fn report(args: &[String]) {
         if batch.ladder { "yes" } else { "no" },
         batch.seeds,
         batch.cap_min,
-        if batch.shore_field == endfall_sim::map::ShoreField::BACK {
-            String::new()
-        } else {
+        batch.moved_shore_field().map_or(String::new(), |f| {
             format!(
                 ", the Shore basins' field {}",
-                endfall_lab::report::shore_field_name(batch.shore_field)
+                endfall_lab::report::shore_field_name(f)
             )
-        },
+        }),
         secs,
         path.display()
     );

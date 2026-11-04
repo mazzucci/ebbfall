@@ -96,6 +96,12 @@ impl Batch {
 
     /// Every cell, in a fixed order: size, map, then each level against itself (Humans vs Vael, Vael vs Humans,
     /// Humans vs Humans, Vael vs Vael), then the ladder (the higher level first and second, each race a mirror).
+    /// The Shore basins' field, when it is moved and the batch plays the Shore at all (else every game is as ever).
+    pub fn moved_shore_field(&self) -> Option<ShoreField> {
+        (self.shore_field != ShoreField::BACK && self.maps.contains(&MapKind::Shore))
+            .then_some(self.shore_field)
+    }
+
     pub fn cells(&self) -> Vec<Cell> {
         let (h, v) = (0, 1);
         let mut out = Vec::new();
@@ -175,8 +181,9 @@ pub struct SeatRec {
 pub const WAVE_REACH: f64 = 8.0;
 /// Ticks between the samples of where units stand (deep water).
 pub const SAMPLE: u32 = 15;
-/// A unit lost within this many tiles of a crystal's or a vent's middle was lost at a field.
-pub const FIELD_NEAR: f64 = 8.0;
+/// A unit lost within this many tiles of a crystal's or a vent's middle was lost at a field (a worker's reach and a
+/// little more: at 8 tiles it was most of the Shore's open ground).
+pub const FIELD_NEAR: f64 = 4.0;
 
 /// What stands, by id: (id, seat, kind index, a building, finished, x, y).
 type Seen = (u32, u8, u16, bool, bool, f64, f64);
@@ -529,7 +536,7 @@ mod tests {
             })
             .unwrap();
         let worker = w.make_unit(UnitKind::Harvester, 0, nx + 64.0, ny);
-        let trooper = w.make_unit(UnitKind::Trooper, 0, nx, ny + 7.5 * 32.0);
+        let trooper = w.make_unit(UnitKind::Trooper, 0, nx, ny + 3.5 * 32.0);
         let away = w.make_unit(UnitKind::Trooper, 1, far.0, far.1);
         let mut t = Tracker::new(&w);
         t.observe(&w, 1);
@@ -539,7 +546,7 @@ mod tests {
         assert_eq!(
             seats[0].lost_near_field,
             [1, 1],
-            "a worker and a trooper, each within 8 tiles"
+            "a worker and a trooper, each within 4 tiles"
         );
         assert_eq!(
             seats[1].lost_near_field,

@@ -356,7 +356,6 @@ fn random_play_never_breaks_the_world_on_the_shore() {
 fn a_basins_field_moves_only_where_the_lab_asks() {
     use endfall_sim::map::ShoreField;
     let races = [&HUMANS, &VAEL];
-    // the field's crystals and vents near each basin (within 16 tiles of its middle), by (tx, ty)
     // a basin's two vents (inside its reef: within 10.5 tiles of its middle), by (tx, ty)
     let vents = |w: &World, b: usize| -> Vec<(i32, i32)> {
         let c = mid(w.map.basins[b]);
@@ -466,7 +465,7 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
                     "seed {seed}: ({x}, {y}) has its image"
                 );
             }
-            // no crystal or vent in deep water, and a walker reaches beside every one
+            // no crystal or vent in deep water (the generator itself checks that a walker reaches each)
             for n in &w.map.nodes {
                 assert_ne!(
                     w.map.ground(n.tx, n.ty, 0),

@@ -360,9 +360,6 @@ impl World {
             .flatten()
             .unwrap_or(DIFF[self.diff_of(team)])
     }
-    /// Give each seat's AI a plan of its own before play, a whole `Diff` in place of its level's (None: its level's;
-    /// empty: none), with fresh brains. The balance lab's only: never from the menus, JS or the network. False
-    /// (nothing changes) for a list of another length.
     /// Move a Shore reef basin's main field (the balance lab's exposed-income variants) and start the game again on the
     /// map that makes: call it first, before the seats' levels, plans and AI seats. Nothing else changes; on a map
     /// without basins nothing at all. The balance lab's only: never from the menus, JS or the network.
@@ -370,6 +367,9 @@ impl World {
         self.shore_field = field;
         self.reset(self.seed, self.diff);
     }
+    /// Give each seat's AI a plan of its own before play, a whole `Diff` in place of its level's (None: its level's;
+    /// empty: none), with fresh brains. The balance lab's only: never from the menus, JS or the network. False
+    /// (nothing changes) for a list of another length.
     pub fn set_ai_plans(&mut self, plans: &[Option<Diff>]) -> bool {
         if !plans.is_empty() && plans.len() != self.seats() {
             return false;

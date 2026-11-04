@@ -295,13 +295,16 @@ pub struct ShoreField {
 impl ShoreField {
     /// Behind the Core, away from the channel (every game's: draw for draw the map it always was).
     pub const BACK: ShoreField = ShoreField { turn: PI, r: 6.5 };
-    /// On the channel's side, facing the Humans' cove, 40 degrees off the channel so it leaves the walkers' way open.
+    /// On the channel's side, facing the Humans' cove, 40 degrees off the channel (its arc reaches across the channel's
+    /// line, inside the reef; the walkers' way in stays as long: a gameplay test measures it). One vent lands on the
+    /// sea gate's line, 8 tiles out, short of the gate.
     pub const CHANNEL: ShoreField = ShoreField {
         turn: 40.0 * PI / 180.0,
         r: 6.5,
     };
-    /// `CHANNEL`'s field carried 7 tiles further out, past the reef ring into the shallows: its vents stay where
-    /// `CHANNEL`'s are, so the two differ only in the crystals' distance (and an expansion's vent that keeps its room).
+    /// `CHANNEL`'s field carried 7 tiles further out, past the reef ring: its vents stay where `CHANNEL`'s are. Not
+    /// distance alone: in about a third of seeds it lies within 6 tiles of the facing cove's farthest expansion (whose
+    /// vents then move), and in a few the generator's rock settles differently.
     pub const CHANNEL_FAR: ShoreField = ShoreField {
         turn: 40.0 * PI / 180.0,
         r: 13.5,

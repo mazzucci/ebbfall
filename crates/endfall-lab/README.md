@@ -89,7 +89,8 @@ report adds a section of its own:
 - **Routes per seed:** the walk and swim lengths between the Human cove and the Vael basin.
 - **Income and losses at fields**, per people and level (Humans against Vael, both seat orders): shards and ether
   mined a minute of play (timeouts too), workers lost a minute, and workers and other units lost at a field a game
-  (within 8 tiles of a crystal's or a vent's middle, where the unit stood the tick before it was gone).
+  (within 4 tiles of a crystal's or a vent's middle, where the unit stood the tick before it was gone; a crystal
+  mined out no longer counts, a dry vent still does).
 - **The gate** of the Shore map's PRD, one row per check: first fight, results and timeouts, game length, each people
   from either half at Medium, waves that reached, mirrors.
 
@@ -99,8 +100,10 @@ report adds a section of its own:
 **Exposed income** (`--shore-field back|channel|channel-far`; PRD: the tide on the Shore map, R8): where the Vael
 basins' main field lies. `back` is every game's map, behind the Core; `channel` turns it to the channel's side,
 facing the Humans' cove (40 degrees off the channel, the same 6.5 tiles out, its vents following); `channel-far`
-carries that field 7 tiles further out, past the reef ring, the vents left where `channel` has them, so the two
-differ in the crystals' distance alone (an expansion's vent may keep its room a few tiles off). A report with the
+carries that field 7 tiles further out, past the reef ring, the vents left where `channel` has them. That is not
+distance alone: in about a third of seeds the far field lies within 6 tiles of the facing cove's farthest expansion
+(whose vents then move), and in a few seeds the generator's rock settles differently. Read `channel` against `back`
+first. A report with the
 field moved names it in its batch (`shore_field`), so `compare` against the plain Shore report says the batches
 differ; the Standard cells are the same games in both.
 

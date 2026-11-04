@@ -396,10 +396,9 @@ impl Report {
             .with("seeds", b.seeds)
             .with("cap_min", b.cap_min);
         // (only when moved: a report of every game's map keeps its batch as it was)
-        let batch = if b.shore_field == endfall_sim::map::ShoreField::BACK {
-            batch
-        } else {
-            batch.with("shore_field", shore_field_name(b.shore_field))
+        let batch = match b.moved_shore_field() {
+            None => batch,
+            Some(f) => batch.with("shore_field", shore_field_name(f)),
         };
         let cells: Vec<Json> = self
             .cells

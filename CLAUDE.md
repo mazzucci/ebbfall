@@ -34,6 +34,7 @@ npm run lab -- report   # the balance lab (crates/endfall-lab/README.md): a fixe
                         # win rates with 95% intervals, target checks (PASS/WARN), key figures; JSON in target/lab/
 npm run lab -- compare A.json B.json   # two reports cell by cell: what moved, and whether more than the noise
 npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-weighted efficiency, time to kill
+                        # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and

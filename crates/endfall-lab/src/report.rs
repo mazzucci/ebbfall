@@ -679,12 +679,12 @@ impl Report {
     /// Humans-vs-Vael Shore games at `level` (None: every level): (race, south) -> wins of decided.
     fn shore_halves(&self, level: Option<usize>) -> Vec<(usize, bool, Rate)> {
         let mut out = Vec::new();
-        for race in 0..FACTIONS.len() {
+        for (race, faction) in FACTIONS.iter().enumerate() {
             for south in [true, false] {
                 let mut r = Rate {
                     of: format!(
                         "{} from the {}",
-                        FACTIONS[race].name,
+                        faction.name,
                         if south { "south" } else { "north" }
                     ),
                     k: 0,
@@ -762,8 +762,8 @@ impl Report {
             {
                 for g in games {
                     for seat in 0..2 {
-                        for k in 0..2 {
-                            w[c.races[seat]][k] += g.seats[seat].waves[k];
+                        for (k, n) in g.seats[seat].waves.iter().enumerate() {
+                            w[c.races[seat]][k] += n;
                         }
                     }
                 }

@@ -72,6 +72,25 @@ What a game records: units trained (not the starting workers) and lost, and buil
 headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
 
+### The Shore map (`--maps Shore`)
+
+The Shore map is a two-start 64x64 map with water, so the lab plays it at 64x64 only. With `--maps Shore` the
+report adds a section of its own:
+
+- **Each people's win rate from each half of the map** (south or north start), Humans against Vael, at each level and
+  pooled, with 95% intervals.
+- **The AI's attack waves**, per people and level: how many it launched and the share that reached the other side.
+  A wave is counted when a seat's AI sends one out, and it reached when one of its units came within 8 tiles of an
+  enemy building (`World::ai_wave_of`, read every 15 ticks).
+- **The Vael's time in deep water:** the share of their ground units' samples there. A rise with timeouts would name
+  a stall at sea.
+- **Routes per seed:** the walk and swim lengths between the Human cove and the Vael basin.
+- **The gate** of the Shore map's PRD, one row per check: first fight, results and timeouts, game length, each people
+  from either half at Medium, waves that reached, mirrors.
+
+`npm run lab -- report --sizes 64 --maps Shore --seeds 30` is the Shore report kept for the gate, with the Standard
+64x64 cells beside it as the control.
+
 ### `compare`
 
 ```sh

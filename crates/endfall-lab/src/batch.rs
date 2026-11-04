@@ -288,7 +288,7 @@ impl Tracker {
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.sup[s][0]);
         }
-        if tick % SAMPLE == 0 {
+        if tick.is_multiple_of(SAMPLE) {
             self.sample(w);
         }
         let now = standing(w);

@@ -35,7 +35,9 @@ npm run lab -- report   # the balance lab (crates/endfall-lab/README.md): a fixe
 npm run lab -- compare A.json B.json   # two reports cell by cell: what moved, and whether more than the noise
 npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-weighted efficiency, time to kill
 npm run lab -- plans    # games with random AI plans (workers, first wave, expansion; a placebo and a planted coin):
-                        # a logistic model of what wins, win rates by setting; --plant runs the planted control
+                        # a logistic model of what wins, win rates by setting; --plant runs the planted control;
+                        # --first-max 12:00 draws first waves up to 12:00
+npm run lab -- turtle   # a Medium seat that never attacks against Medium (the tide's turtle row, its baseline)
                         # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
@@ -105,6 +107,7 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
                       compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
+                      turtle.rs (a never-attacking Medium against Medium),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape

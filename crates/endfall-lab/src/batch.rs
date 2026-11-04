@@ -207,6 +207,8 @@ pub struct GameRec {
     /// On a map with water: the route lengths (tiles) between the two starts' headquarters, for a walker and for an
     /// amphibian (None: no way).
     pub routes: Option<[Option<f64>; 2]>,
+    /// Every attack wave of the game, both seats' (`waves::Watch`).
+    pub waves: Vec<crate::waves::Wave>,
 }
 
 /// The length (tiles) of `foot`'s route from beside block `a` to beside block `b` (4x4 headquarters' tiles).
@@ -461,11 +463,13 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
         ]
     });
     let mut track = Tracker::new(&w);
+    let mut watch = crate::waves::Watch::default();
     let mut tick = 0;
     while w.winner < 0 && tick < cap {
         w.step();
         tick += 1;
         track.observe(&w, tick);
+        watch.observe(&w);
         w.events.clear();
     }
     let (first_attack, first_dry) = (track.first_attack, track.first_dry);
@@ -477,6 +481,7 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
         first_dry,
         seats: track.finish(&w),
         routes,
+        waves: watch.finish(&w),
     }
 }
 

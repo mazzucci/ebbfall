@@ -13,6 +13,7 @@ pub mod report;
 pub mod sheet;
 pub mod stats;
 pub mod turtle;
+pub mod waves;
 
 use batch::Batch;
 use report::Report;

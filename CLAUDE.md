@@ -111,7 +111,8 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
                       compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
-                      turtle.rs (a never-attacking Medium against Medium),
+                      turtle.rs (a never-attacking Medium against Medium), waves.rs (every AI wave: its value against
+                      the defence on arrival, its result, where its units fell; in report and turtle),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape

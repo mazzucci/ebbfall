@@ -9,8 +9,8 @@
 
 use endfall_sim::world::World;
 
-/// Shards per ether in a wave's value (the formula sheet's default weight).
-pub const ETHER_WEIGHT: f64 = 1.5;
+pub use crate::waves::ETHER_WEIGHT;
+use crate::waves::worth;
 
 /// A seat's first wave: the tick it launched, its value then, and what it destroyed and lost while out.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,10 +19,6 @@ pub struct FirstWave {
     pub value: f64,
     pub destroyed: f64,
     pub lost: f64,
-}
-
-fn worth(c: [i32; 2]) -> f64 {
-    c[0] as f64 + ETHER_WEIGHT * c[1] as f64
 }
 
 /// The value of whatever of `ids` still stands in `w`.

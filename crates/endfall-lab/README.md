@@ -216,6 +216,21 @@ numbers before that PR as the tide's effect on an AI that ignores it.
 games (the PRD's section 7). Copy the report's results next to them: matched, missed, or unclear (interval too wide).
 A miss is a finding. Several big misses mean the framework needs checking before its results are believed.
 
+### The waves (in `report` and `turtle`)
+
+Every AI attack wave is recorded (`waves.rs`; PRD: the AI breaks a defence, R1): its value as it launched; when it
+arrived (the first tick one of its units came within 8 tiles of an enemy building's edge), its value then, in all and
+within 8 tiles of that unit, against the defence there (the enemy's armed units, workers left out, and armed buildings
+that work, finished and powered, within 8 tiles of that unit; the table's ratio is the near value over it); its result
+while out (the value of the enemy's units and buildings that fell within 8 tiles of one of its units, whenever made,
+against the value of its own units lost; losses after it, survivors caught going home, are not its); and where its
+units fell: on the way (before it arrived), to towers (the seat's losses to buildings grew that tick,
+`World::lost_to`) or to units (or to anything without a killer, the tide's sweep). With a split wave (Hard and up) the
+arrival is the first prong's. Value: shards plus ether at 1.5. `report` sums them per map,
+level (each against itself) and attacking people in "The waves"; `turtle` sums the plain Medium seat's waves against
+the turtle by map and people. "Arrived (to no defence)" counts arrivals with nothing armed within 8 tiles: the defence
+was elsewhere; the ratio's quartiles are over the defended ones. Each game's JSON lists its waves.
+
 ### `turtle`
 
 A Medium AI seat that never attacks (Medium's tuning with `first` = never, so no wave launches, and no raids, since

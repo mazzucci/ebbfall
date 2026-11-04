@@ -258,7 +258,7 @@ test('Q selects the army, the idle-harvester key, and double-click selects all o
   try {
     const s = await d.state(), core = coreOf(s);
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 140, core.y - 40]);
-    assert.equal(await d.page.locator('#btnArmy').count(), 0, 'no army chip in the top bar');
+    assert.ok(!(await d.page.locator('#btnArmy').isVisible()), 'no ARMY button with a keyboard (the touch screens\' one goes with SELECT): Q');
     await d.key('q');
     assert.deepEqual((await d.selection()).map(u => u.id).sort(), ids.slice().sort(), 'Q selects every combat unit');
     // Make a harvester idle, then find it with the IDLE button.

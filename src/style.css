@@ -159,8 +159,9 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .board .ib.add{font-size:12px;white-space:nowrap;padding:0 6px} .board .spot.split{display:flex;gap:4px} .board .split .ib.add{flex:1 1 0;min-width:0;height:100%}
 .ib.ghost{border-style:dashed;color:var(--muted)} .ib.ghost:hover{color:var(--fg)}
 /* A seat's token: one button, its colour as a band down its left edge; its name and a faint pen ("tap to change") on
-   top, its race, an AI's level as pips and its side's tag (SIDE 2; S2 where the token is narrow) below. */
-.board .ib.tok{display:grid;grid-template-columns:4px auto auto 1fr auto;grid-template-rows:1fr 1fr;grid-template-areas:"band name name name pen" "band race mark . tag";column-gap:7px;align-items:center;padding:3px 7px 3px 0;text-align:left;overflow:hidden;container-type:inline-size}
+   top, its race, an AI's level as pips and its side's tag (SIDE 2; S2 where the token is narrow) below. The pen has a
+   column of its own and the name runs over the tag's: a wide SIDE 2 never takes room from COMPUTER 3. */
+.board .ib.tok{display:grid;grid-template-columns:4px auto auto 1fr auto auto;grid-template-rows:1fr 1fr;grid-template-areas:"band name name name name pen" "band race mark . tag tag";column-gap:7px;align-items:center;padding:3px 7px 3px 0;text-align:left;overflow:hidden;container-type:inline-size}
 .tok .band{grid-area:band;align-self:stretch;margin:-3px 0;border-radius:3px 0 0 3px}
 .tok b{grid-area:name;font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .tok.me b{color:var(--ally2)}
 .tok .race{grid-area:race;font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap}

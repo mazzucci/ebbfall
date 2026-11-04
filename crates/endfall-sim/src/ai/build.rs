@@ -345,7 +345,7 @@ impl World {
             .heavy
             .filter(|&h| busy_all(h) && self.res[e as usize][1] >= ETHER_FLOAT)
             .or(busy_all(s.rax).then_some(s.rax))?;
-        let d = &DIFF[self.diff_of(e)];
+        let d = self.tuning(e);
         let [used, cap] = self.sup[e as usize];
         let hq = self.factions[e as usize].hq;
         let expanded = || {

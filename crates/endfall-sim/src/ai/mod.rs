@@ -146,7 +146,7 @@ impl World {
             team,
             wait,
             turns: 0,
-            wave: DIFF[self.diff_of(team)].wave,
+            wave: self.tuning(team).wave,
             last_wave: -20.0,
             attacking: false,
             attackers: None,
@@ -177,9 +177,10 @@ impl World {
     pub(crate) fn seat(&self) -> u8 {
         self.ai_turn
     }
-    /// The difficulty of the AI taking its turn (each AI seat may have its own: `World::diff_of`).
-    pub(crate) fn level(&self) -> &'static Diff {
-        &DIFF[self.diff_of(self.seat())]
+    /// The tuning of the AI taking its turn (each AI seat may have its own level, `World::diff_of`, or a lab's plan:
+    /// `World::tuning`).
+    pub(crate) fn level(&self) -> Diff {
+        self.tuning(self.seat())
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two

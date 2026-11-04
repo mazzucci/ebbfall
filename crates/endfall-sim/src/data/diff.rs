@@ -10,6 +10,8 @@ pub const NEVER: f64 = f64::MAX;
 /// factory, raises its vehicle bay (NEVER: it does not). `raids`: flyers hunt the player's workers. `prong`: a big wave sends a third at an
 /// expansion. `answers`: it adapts its mix to what it has seen. `abilities`: its units use theirs.
 /// `supply_ahead`: free supply below which it builds more; `supply_at_once`: how many supply buildings at a time.
+/// The AI reads a seat's through `World::tuning`: its level's, or a plan the balance lab set for that seat.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Diff {
     pub income: f64,
     pub wave: usize,

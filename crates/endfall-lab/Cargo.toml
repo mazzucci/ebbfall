@@ -7,4 +7,6 @@ description = "Ebbfall's balance lab: AI-vs-AI batches, before/after comparisons
 publish = false
 
 [dependencies]
+# The model's exp and log: the same bits on every platform (the system's maths library may differ by an ulp).
+libm = "0.2"
 endfall-sim = { path = "../endfall-sim" }

@@ -153,7 +153,8 @@ The plans come from the lab's own seeded RNG (`--seed`), never the world's, and 
 The batch plays 64x64 Standard and Shore (`--maps`), each in four seatings: Humans against Vael both ways, and both
 mirrors. Game *i* takes the map *i* mod the maps, then the seating, then a map seed, and two fresh plans. Flags:
 `--games N` (2,000; 1,000 with `--plant`), `--maps`, `--seed S` (1), `--plant`, `--check N` (200: the direct check's
-setups), `--cap MIN` (30), `--threads N`, `--out FILE`. The JSON is the same bytes for the same commit and flags.
+setups), `--cap MIN` (30), `--threads N`, `--out FILE`. The JSON is the same bytes for the same commit and flags, on
+any platform (the model's `exp` and `log` are libm's).
 
 **The model** is a logistic regression of "the first seat wins" (timeouts left out and counted) on each setting's
 difference between the seats: workers and the two times in standard deviations of a seat's draw, "never expands" and
@@ -170,12 +171,15 @@ expansion time, so "never expands" carries that difference alone. Reading it:
   too few workers and too many can both lose. The bins show the shape the coefficient averages away.
 
 **The controls** show the method works:
-- **The placebo** must hold zero in the main batch. If it doesn't, the method is finding noise.
+- **The placebo** should hold zero in the main batch. A sound method puts it outside zero about one run in twenty (the
+  model's tests check that on null data at 400 and 2,000 rows), so rerun with another `--seed` before doubting the
+  method. Outside zero again would mean the method finds noise.
 - **The planted coin** (`--plant`) must be found: an interval above zero, and more important than the placebo. The
   report gives the model's average effect of the bonus on the first seat's chance, in points.
 - **The direct check** plays the first `--check` setups twice, seat 0 planted and seat 1 not, with the bonus on and
   then off. Seat 0's win-rate difference, with its 95% interval (paired), is the effect measured directly. The model's
-  estimate should fall within it.
+  estimate should fall within it. A pair counts only when both its games finished, and the model averages over the
+  batch's finished games, so the two figures cover slightly different games.
 
 **Predictions first.** Before a run, write down which way each setting should move the win rate, and in short or long
 games (the PRD's section 7). Copy the report's results next to them: matched, missed, or unclear (interval too wide).

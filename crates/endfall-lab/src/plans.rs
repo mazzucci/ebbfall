@@ -751,7 +751,7 @@ impl PlanRun {
             if plo <= 0.0 && 0.0 <= phi {
                 "its interval holds zero, as it must"
             } else {
-                "**its interval excludes zero: the method finds noise**"
+                "**outside zero**: a sound method gives that about one run in twenty; rerun with another `--seed` before doubting the method"
             }
         );
         if self.batch.plant {
@@ -772,7 +772,7 @@ impl PlanRun {
             if let Some((on, off, dlo, dhi, n)) = direct(self) {
                 let within = dlo <= f.planted_effect && f.planted_effect <= dhi;
                 s += &format!(
-                    "- **Direct check:** {n} setups played twice, seat 0 planted, the bonus on then off: seat 0 won {:.1}% against {:.1}%, a difference of {:+.1} points ({:+.1} to {:+.1}). The model's {:+.1} points is {}.\n",
+                    "- **Direct check:** {n} setups played twice, seat 0 planted, the bonus on then off: seat 0 won {:.1}% against {:.1}%, a difference of {:+.1} points ({:+.1} to {:+.1}). The model's {:+.1} points is {}. (A pair counts when both its games finished; the model's figure averages over the batch's finished games, so the two cover slightly different games.)\n",
                     100.0 * on,
                     100.0 * off,
                     100.0 * (on - off),
@@ -794,7 +794,7 @@ impl PlanRun {
                 if lo <= 0.0 && 0.0 <= hi {
                     "holds zero, as an inert coin must"
                 } else {
-                    "**excludes zero**"
+                    "**outside zero**: about one run in twenty for a sound method; rerun with another `--seed`"
                 }
             );
         }
@@ -839,6 +839,58 @@ mod tests {
         let one = run(b.clone(), "test", 1, &quiet).json().write();
         let three = run(b, "test", 3, &quiet).json().write();
         assert_eq!(one, three, "the same bytes on one thread or three");
+    }
+
+    /// The report's bytes, model and direct check included, from a run with synthetic results (no games played): the
+    /// same run, the same bytes, and the model is there.
+    #[test]
+    fn the_report_with_its_model_is_the_same_bytes_twice() {
+        let b = PlanBatch {
+            games: 400,
+            plant: true,
+            check: 40,
+            ..PlanBatch::default_batch()
+        };
+        let setups = setups(&b);
+        let mut r = Mulberry32::new(5);
+        let mut u = || r.next_u32() as f64 / 4_294_967_296.0;
+        // (the first seat wins more often with more workers: something for the model to find)
+        let mut result = |s: &Setup| {
+            let edge = (s.plans[0].harv as f64 - s.plans[1].harv as f64) * 0.05;
+            Played {
+                winner: if u() < 0.03 {
+                    None
+                } else {
+                    Some((u() > 0.5 + edge) as u8)
+                },
+                end_tick: 9000 + (u() * 18000.0) as u32,
+            }
+        };
+        let games: Vec<Played> = setups.iter().map(&mut result).collect();
+        let check: Vec<(Setup, Played, Played)> = setups
+            .iter()
+            .take(b.check)
+            .map(|&s| (s, result(&s), result(&s)))
+            .collect();
+        let make = || PlanRun {
+            batch: b.clone(),
+            commit: "test".into(),
+            setups: setups.clone(),
+            games: games.clone(),
+            check: check.clone(),
+        };
+        let (one, two) = (make().json().write(), make().json().write());
+        assert_eq!(one, two, "the same run, the same bytes");
+        for key in [
+            "\"model\"",
+            "\"coefficients\"",
+            "\"direct_check\"",
+            "\"correlations\"",
+        ] {
+            assert!(one.contains(key), "the report has {key}");
+        }
+        let md = make().markdown("test");
+        assert!(md.contains("## The model") && md.contains("Direct check"));
     }
 
     #[test]

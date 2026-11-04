@@ -19,6 +19,7 @@ name = "endfall-lab"
 version = "0.1.0"
 dependencies = [
  "endfall-sim",
+ "libm",
 ]
 
 [[package]]

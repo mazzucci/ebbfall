@@ -23,9 +23,9 @@ impl Fit {
 
 fn sigmoid(t: f64) -> f64 {
     if t >= 0.0 {
-        1.0 / (1.0 + (-t).exp())
+        1.0 / (1.0 + libm::exp(-t))
     } else {
-        let e = t.exp();
+        let e = libm::exp(t);
         e / (1.0 + e)
     }
 }
@@ -40,7 +40,11 @@ fn loglik(x: &[Vec<f64>], y: &[bool], beta: &[f64]) -> f64 {
         .zip(y)
         .map(|(row, &won)| {
             let p = predict(beta, row).clamp(1e-15, 1.0 - 1e-15);
-            if won { p.ln() } else { (1.0 - p).ln() }
+            if won {
+                libm::log(p)
+            } else {
+                libm::log(1.0 - p)
+            }
         })
         .sum()
 }

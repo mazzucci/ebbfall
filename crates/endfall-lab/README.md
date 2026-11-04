@@ -13,6 +13,8 @@ npm run lab -- compare A.json B.json
 npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<commit>.csv
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
+npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
+npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 ```
 
 ### `report`
@@ -153,7 +155,8 @@ The plans come from the lab's own seeded RNG (`--seed`), never the world's, and 
 The batch plays 64x64 Standard and Shore (`--maps`), each in four seatings: Humans against Vael both ways, and both
 mirrors. Game *i* takes the map *i* mod the maps, then the seating, then a map seed, and two fresh plans. Flags:
 `--games N` (2,000; 1,000 with `--plant`), `--maps`, `--seed S` (1), `--plant`, `--check N` (200: the direct check's
-setups), `--cap MIN` (30), `--threads N`, `--out FILE`. The JSON is the same bytes for the same commit and flags, on
+setups), `--first-max M:SS` (7:00: the latest first wave drawn; the bins stay 1:15 wide, so 12:00 makes eight, and
+the other settings draw the same values as with the default), `--cap MIN` (30), `--threads N`, `--out FILE`. The JSON is the same bytes for the same commit and flags, on
 any platform (the model's `exp` and `log` are libm's).
 
 **The model** is a logistic regression of "the first seat wins" (timeouts left out and counted) on each setting's
@@ -184,3 +187,15 @@ expansion time, so "never expands" carries that difference alone. Reading it:
 **Predictions first.** Before a run, write down which way each setting should move the win rate, and in short or long
 games (the PRD's section 7). Copy the report's results next to them: matched, missed, or unclear (interval too wide).
 A miss is a finding. Several big misses mean the framework needs checking before its results are believed.
+
+### `turtle`
+
+A Medium AI seat that never attacks (Medium's tuning with `first` = never, so no wave launches, and no raids, since
+Medium's flyers otherwise hunt the enemy's workers whatever the waves; it still builds, defends and expands) against
+plain Medium, for the tide's gate (PRD: the tide on the Shore map, R8: a turtling bot must lose
+over 70%). Every pairing of the peoples, the turtle in either seat, map seeds 1 to `--seeds` in every cell: 8 cells a
+map. A timeout counts as not lost. The report gives the turtle's loss rate with its 95% interval per pairing and seat,
+per pairing, per map and in all, with its wins, the timeouts and the median length of a game it lost. Flags:
+`--seeds N` (25), `--maps` (Shore), `--raids` (the turtle keeps Medium's raids: `first` = never alone, the PRD's
+letter), `--cap MIN` (30), `--threads N`, `--out FILE`. A turtle that does not lose
+before the tide is Medium's weakness, not the tide's.

@@ -50,7 +50,8 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--cap MIN] [--threads N] [--out FILE]"
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--cap MIN] [--threads N] [--out FILE]
+       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -195,6 +196,11 @@ fn plans(args: &[String]) {
             "--plant" => batch.plant = true,
             "--check" => batch.check = val().parse().unwrap_or_else(|_| die("--check N")),
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--first-max" => {
+                batch.first_max = endfall_lab::stats::parse_mmss(&val())
+                    .filter(|&s| s > plans::FIRST_MIN && s <= 3600.0)
+                    .unwrap_or_else(|| die("--first-max M:SS, after 2:00 and at most 60:00"))
+            }
             "--threads" => threads = val().parse().unwrap_or_else(|_| die("--threads N")),
             "--out" => out = Some(PathBuf::from(val())),
             _ => die(&format!("unknown flag {a}")),
@@ -251,6 +257,78 @@ fn plans(args: &[String]) {
     print!("{}", r.markdown(&header));
 }
 
+fn turtle(args: &[String]) {
+    use endfall_lab::turtle::{self, TurtleBatch};
+    let mut batch = TurtleBatch::default_batch();
+    let (mut threads, mut out) = (
+        std::thread::available_parallelism().map_or(1, |n| n.get()),
+        None,
+    );
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let mut val = || {
+            it.next()
+                .cloned()
+                .unwrap_or_else(|| die(&format!("{a} needs a value")))
+        };
+        match a.as_str() {
+            "--seeds" => {
+                batch.seeds = val()
+                    .parse()
+                    .ok()
+                    .filter(|&n| n > 0)
+                    .unwrap_or_else(|| die("--seeds N, at least 1"))
+            }
+            "--maps" => batch.maps = val().split(',').map(parse_map).collect(),
+            "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--raids" => batch.raids = true,
+            "--threads" => threads = val().parse().unwrap_or_else(|_| die("--threads N")),
+            "--out" => out = Some(PathBuf::from(val())),
+            _ => die(&format!("unknown flag {a}")),
+        }
+    }
+    let commit = commit();
+    let total = turtle::cells(&batch).len();
+    eprintln!("lab: {total} games on {threads} threads…");
+    let t0 = Instant::now();
+    let step = (total / 20).max(1);
+    let progress = |done: usize, total: usize| {
+        if done.is_multiple_of(step) || done == total {
+            eprintln!(
+                "lab: {done}/{total} games, {:.0} s",
+                t0.elapsed().as_secs_f64()
+            );
+        }
+    };
+    let r = turtle::run(batch.clone(), &commit, threads, &progress);
+    let secs = t0.elapsed().as_secs_f64();
+    let kind = if batch.raids {
+        "turtle-raids"
+    } else {
+        "turtle"
+    };
+    let path = out.unwrap_or_else(|| out_dir().join(format!("{kind}-{commit}.json")));
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(&path, r.json().write())
+        .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
+    let header = format!(
+        "Commit {commit}, {}. Batch: maps {:?}, {} seeds a cell, {} min cap{}: {total} games in {secs:.0} s on {threads} threads. JSON: {}",
+        today(),
+        batch.maps,
+        batch.seeds,
+        batch.cap_min,
+        if batch.raids {
+            ", the turtle raids"
+        } else {
+            ""
+        },
+        path.display()
+    );
+    print!("{}", r.markdown(&header));
+}
+
 fn read(path: &str) -> Json {
     let text =
         std::fs::read_to_string(path).unwrap_or_else(|e| die(&format!("cannot read {path}: {e}")));
@@ -262,6 +340,7 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("report") => report(&args[1..]),
         Some("plans") => plans(&args[1..]),
+        Some("turtle") => turtle(&args[1..]),
         Some("compare") => {
             let [a, b] = &args[1..] else {
                 die("compare A.json B.json")
@@ -302,6 +381,6 @@ fn main() {
                 .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
             print!("{md}\nCSV: {}\n", path.display());
         }
-        _ => die("a command: report, compare, sheet or plans"),
+        _ => die("a command: report, compare, sheet, plans or turtle"),
     }
 }

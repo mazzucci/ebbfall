@@ -16,9 +16,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 const TPS: u32 = 30;
 /// The level a plan starts from.
-const BASE: usize = 1;
+pub const BASE: usize = 1;
 /// The planted effect: income x this with the planted coin, in the control run.
 pub const PLANT: f64 = 1.10;
+
+/// The earliest first wave a plan draws, and the default latest (s).
+pub const FIRST_MIN: f64 = 120.0;
+pub const FIRST_MAX: f64 = 420.0;
+/// The first wave's bins are this wide (s).
+const FIRST_BIN: f64 = 75.0;
 
 /// The four seatings each map is played in: Humans against Vael either way, and both mirrors (factions' indices).
 pub const PAIRINGS: [[usize; 2]; 4] = [[0, 1], [1, 0], [0, 0], [1, 1]];
@@ -41,6 +47,8 @@ pub struct PlanBatch {
     /// In the control run, games played twice for the direct check (seat 0 planted, with the bonus on and off).
     pub check: usize,
     pub cap_min: u32,
+    /// The latest first wave a plan draws (seconds; the earliest is 2:00): 7:00 by default, `--first-max`.
+    pub first_max: f64,
 }
 
 impl PlanBatch {
@@ -52,6 +60,7 @@ impl PlanBatch {
             plant: false,
             check: 200,
             cap_min: 30,
+            first_max: FIRST_MAX,
         }
     }
 }
@@ -68,12 +77,12 @@ pub struct Plan {
 }
 
 impl Plan {
-    /// Draw a plan (the PRD's ranges, uniformly): workers 8 to 20, the first wave 2:00 to 7:00, expanding 3:00 to
-    /// 12:00 or (one draw in five) never, two fair coins.
-    pub fn draw(r: &mut Mulberry32) -> Plan {
+    /// Draw a plan (the PRD's ranges, uniformly): workers 8 to 20, the first wave 2:00 to `first_max` (7:00 by
+    /// default), expanding 3:00 to 12:00 or (one draw in five) never, two fair coins.
+    pub fn draw(r: &mut Mulberry32, first_max: f64) -> Plan {
         let mut u = || r.next_u32() as f64 / 4_294_967_296.0;
         let harv = 8 + (u() * 13.0) as usize;
-        let first = 120.0 + u() * 300.0;
+        let first = FIRST_MIN + u() * (first_max - FIRST_MIN);
         let never = u() < 0.2;
         let at = 180.0 + u() * 540.0;
         let placebo = u() < 0.5;
@@ -120,7 +129,10 @@ pub fn setups(b: &PlanBatch) -> Vec<Setup> {
             map: b.maps[i % m],
             pairing: (i / m) % PAIRINGS.len(),
             map_seed: 1 + (i / (m * PAIRINGS.len())) as u32,
-            plans: [Plan::draw(&mut r), Plan::draw(&mut r)],
+            plans: [
+                Plan::draw(&mut r, b.first_max),
+                Plan::draw(&mut r, b.first_max),
+            ],
         })
         .collect()
 }
@@ -134,20 +146,29 @@ pub struct Played {
 
 /// Play one setup to its end or the cap.
 pub fn play(s: &Setup, plant: bool, cap_min: u32) -> Played {
-    let pair = PAIRINGS[s.pairing];
+    let plans = [Some(s.plans[0].diff(plant)), Some(s.plans[1].diff(plant))];
+    play_seats(s.map, s.pairing, s.map_seed, plans, cap_min)
+}
+
+/// Play a 64x64 game of two Medium AI seats, each with its plan (None: Medium's own tuning), to its end or the cap.
+pub fn play_seats(
+    map: MapKind,
+    pairing: usize,
+    map_seed: u32,
+    plans: [Option<Diff>; 2],
+    cap_min: u32,
+) -> Played {
+    let pair = PAIRINGS[pairing];
     let mut w = World::with_size(
-        s.map_seed,
+        map_seed,
         BASE,
-        s.map,
+        map,
         MapSize::square(64),
         0,
         &[FACTIONS[pair[0]], FACTIONS[pair[1]]],
     );
     assert!(w.set_diffs(&[BASE as u8, BASE as u8]), "per-seat levels");
-    assert!(
-        w.set_ai_plans(&[Some(s.plans[0].diff(plant)), Some(s.plans[1].diff(plant))]),
-        "per-seat plans"
-    );
+    assert!(w.set_ai_plans(&plans), "per-seat plans");
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     let cap = cap_min * 60 * TPS;
     while w.winner < 0 && w.tick < cap {
@@ -161,9 +182,9 @@ pub fn play(s: &Setup, plant: bool, cap_min: u32) -> Played {
 }
 
 /// Play `jobs` on `threads` threads, the results in the jobs' order whatever the threads.
-fn play_jobs(
-    jobs: &[(Setup, bool)],
-    cap_min: u32,
+pub(crate) fn play_jobs<J: Sync>(
+    jobs: &[J],
+    play: impl Fn(&J) -> Played + Sync,
     threads: usize,
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> Vec<Played> {
@@ -174,8 +195,8 @@ fn play_jobs(
             scope.spawn(|| {
                 loop {
                     let k = next.fetch_add(1, Ordering::SeqCst);
-                    let Some((s, plant)) = jobs.get(k) else { break };
-                    *slots[k].lock().unwrap() = Some(play(s, *plant, cap_min));
+                    let Some(j) = jobs.get(k) else { break };
+                    *slots[k].lock().unwrap() = Some(play(j));
                     progress(done.fetch_add(1, Ordering::SeqCst) + 1, jobs.len());
                 }
             });
@@ -225,7 +246,8 @@ pub fn run(
         jobs.push((c, true));
         jobs.push((c, false));
     }
-    let played = play_jobs(&jobs, batch.cap_min, threads, progress);
+    let cap = batch.cap_min;
+    let played = play_jobs(&jobs, |(s, plant)| play(s, *plant, cap), threads, progress);
     let n = setups.len();
     let check = checks
         .iter()
@@ -268,25 +290,40 @@ impl Setting {
             Setting::Planted => "Planted (+10% income)",
         }
     }
-    /// A seat's bin for this setting, and the bins' labels.
-    fn bin(self, p: &Plan) -> usize {
+    /// A seat's bin for this setting (the first wave's bins run to the batch's `first_max`), and the bins' labels.
+    fn bin(self, p: &Plan, first_max: f64) -> usize {
         match self {
             Setting::Workers => ((p.harv - 8) / 3).min(3),
-            Setting::FirstWave => (((p.first - 120.0) / 75.0) as usize).min(3),
+            Setting::FirstWave => {
+                (((p.first - FIRST_MIN) / FIRST_BIN) as usize).min(first_bins(first_max) - 1)
+            }
             Setting::Expand if p.never() => 4,
             Setting::Expand => (((p.expand_at - 180.0) / 135.0) as usize).min(3),
             Setting::Placebo => p.placebo as usize,
             Setting::Planted => p.planted as usize,
         }
     }
-    fn labels(self) -> &'static [&'static str] {
+    fn labels(self, first_max: f64) -> Vec<String> {
+        let fixed = |l: &[&str]| l.iter().map(|s| s.to_string()).collect();
         match self {
-            Setting::Workers => &["8-10", "11-13", "14-16", "17-20"],
-            Setting::FirstWave => &["2:00-3:15", "3:15-4:30", "4:30-5:45", "5:45-7:00"],
-            Setting::Expand => &["3:00-5:15", "5:15-7:30", "7:30-9:45", "9:45-12:00", "never"],
-            Setting::Placebo | Setting::Planted => &["0", "1"],
+            Setting::Workers => fixed(&["8-10", "11-13", "14-16", "17-20"]),
+            Setting::FirstWave => (0..first_bins(first_max))
+                .map(|k| {
+                    let lo = FIRST_MIN + k as f64 * FIRST_BIN;
+                    format!("{}-{}", mmss(lo), mmss((lo + FIRST_BIN).min(first_max)))
+                })
+                .collect(),
+            Setting::Expand => {
+                fixed(&["3:00-5:15", "5:15-7:30", "7:30-9:45", "9:45-12:00", "never"])
+            }
+            Setting::Placebo | Setting::Planted => fixed(&["0", "1"]),
         }
     }
+}
+
+/// How many bins of the first wave's time: 1:15 each from 2:00 to `first_max` (four to 7:00, eight to 12:00).
+fn first_bins(first_max: f64) -> usize {
+    (((first_max - FIRST_MIN) / FIRST_BIN).ceil() as usize).max(1)
 }
 
 /// The model's columns: the intercept, each setting's difference between the seats (the continuous ones standardised
@@ -467,7 +504,7 @@ fn bins(run: &PlanRun) -> (Vec<Bins>, f64) {
     let out = SETTINGS
         .iter()
         .map(|&st| {
-            let k = st.labels().len();
+            let k = st.labels(run.batch.first_max).len();
             let mut b = Bins {
                 setting: st,
                 all: vec![(0, 0); k],
@@ -477,7 +514,7 @@ fn bins(run: &PlanRun) -> (Vec<Bins>, f64) {
             for (s, p) in run.setups.iter().zip(&run.games) {
                 let Some(winner) = p.winner else { continue };
                 for seat in 0..2 {
-                    let i = st.bin(&s.plans[seat]);
+                    let i = st.bin(&s.plans[seat], run.batch.first_max);
                     let w = (winner as usize == seat) as usize;
                     let half = if (p.end_tick as f64) < split {
                         &mut b.short
@@ -588,7 +625,8 @@ impl PlanRun {
                             0
                         },
                     )
-                    .with("cap_min", self.batch.cap_min),
+                    .with("cap_min", self.batch.cap_min)
+                    .with("first_max", self.batch.first_max),
             )
             .with("short_long_split_s", split);
         if let Some(f) = &f {
@@ -631,8 +669,8 @@ impl PlanRun {
             .map(|b| {
                 let side = |v: &[(usize, usize)]| {
                     v.iter()
-                        .zip(b.setting.labels())
-                        .map(|(c, l)| Json::obj().with("bin", *l).with("won", c.0).with("of", c.1))
+                        .zip(b.setting.labels(self.batch.first_max))
+                        .map(|(c, l)| Json::obj().with("bin", l).with("won", c.0).with("of", c.1))
                         .collect::<Vec<_>>()
                 };
                 Json::obj()
@@ -666,7 +704,10 @@ impl PlanRun {
                 "random plans"
             }
         );
-        s += "Each AI seat plays Medium with its own plan: workers 8 to 20, the first wave 2:00 to 7:00, expanding 3:00 to 12:00 or (one in five) never, a placebo coin";
+        s += &format!(
+            "Each AI seat plays Medium with its own plan: workers 8 to 20, the first wave 2:00 to {}, expanding 3:00 to 12:00 or (one in five) never, a placebo coin",
+            mmss(self.batch.first_max)
+        );
         s += if self.batch.plant {
             ", and a planted coin that raises its income 10%.\n\n"
         } else {
@@ -734,7 +775,7 @@ impl PlanRun {
                 "\n**{}**\n\n| Bin | All games | Short games | Long games |\n| --- | --- | --- | --- |\n",
                 b.setting.name()
             );
-            for (i, l) in b.setting.labels().iter().enumerate() {
+            for (i, l) in b.setting.labels(self.batch.first_max).iter().enumerate() {
                 s += &format!(
                     "| {l} | {} | {} | {} |\n",
                     rate(b.all[i]),
@@ -818,6 +859,7 @@ mod tests {
             plant: true,
             check: 2,
             cap_min: 2,
+            first_max: FIRST_MAX,
         };
         let (a, c) = (setups(&b), setups(&b));
         assert_eq!(
@@ -896,7 +938,7 @@ mod tests {
     #[test]
     fn plans_keep_to_their_ranges_and_the_planted_bonus_only_in_the_control_run() {
         let mut r = Mulberry32::new(9);
-        let plans: Vec<Plan> = (0..2000).map(|_| Plan::draw(&mut r)).collect();
+        let plans: Vec<Plan> = (0..2000).map(|_| Plan::draw(&mut r, FIRST_MAX)).collect();
         assert!(plans.iter().all(|p| (8..=20).contains(&p.harv)));
         assert!(plans.iter().all(|p| (120.0..420.0).contains(&p.first)));
         assert!(
@@ -926,5 +968,52 @@ mod tests {
         );
         // everything but the plan's settings is Medium's
         assert_eq!(p.diff(false).gap, DIFF[BASE].gap);
+    }
+
+    #[test]
+    fn a_later_first_max_draws_later_waves_into_more_bins() {
+        // The default range draws the same plans as before the flag (the same draws from the same seed).
+        let (mut a, mut b) = (Mulberry32::new(9), Mulberry32::new(9));
+        let wide: Vec<Plan> = (0..2000).map(|_| Plan::draw(&mut a, 720.0)).collect();
+        let base: Vec<Plan> = (0..2000).map(|_| Plan::draw(&mut b, FIRST_MAX)).collect();
+        assert!(wide.iter().all(|p| (120.0..720.0).contains(&p.first)));
+        assert!(wide.iter().any(|p| p.first > 660.0), "up to 12:00");
+        // only the first wave's time differs, so the other settings match draw for draw
+        assert!(
+            wide.iter()
+                .zip(&base)
+                .all(|(w, b)| w.harv == b.harv && w.expand_at == b.expand_at)
+        );
+        // pinned to the formula before `--first-max` existed: the draws in order, the first wave 120 + u x 300
+        let mut r = Mulberry32::new(1);
+        let u: Vec<f64> = (0..6)
+            .map(|_| r.next_u32() as f64 / 4_294_967_296.0)
+            .collect();
+        let p = Plan::draw(&mut Mulberry32::new(1), FIRST_MAX);
+        assert_eq!(p.harv, 8 + (u[0] * 13.0) as usize);
+        assert_eq!(p.first.to_bits(), (120.0 + u[1] * 300.0).to_bits());
+        assert_eq!((p.placebo, p.planted), (u[4] < 0.5, u[5] < 0.5));
+        assert_eq!(
+            Setting::FirstWave.labels(FIRST_MAX),
+            ["2:00-3:15", "3:15-4:30", "4:30-5:45", "5:45-7:00"]
+        );
+        let l = Setting::FirstWave.labels(720.0);
+        assert_eq!(l.len(), 8);
+        assert_eq!((l[0].as_str(), l[7].as_str()), ("2:00-3:15", "10:45-12:00"));
+        let late = Plan {
+            first: 719.0,
+            ..base[0]
+        };
+        assert_eq!(Setting::FirstWave.bin(&late, 720.0), 7);
+        assert_eq!(
+            Setting::FirstWave.bin(&late, FIRST_MAX),
+            3,
+            "the default's last bin holds anything later"
+        );
+        // a range that does not end on a bin's edge: the last bin ends at the range's end
+        assert_eq!(
+            Setting::FirstWave.labels(400.0).last().unwrap(),
+            "5:45-6:40"
+        );
     }
 }

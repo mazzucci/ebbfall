@@ -13,7 +13,7 @@
 // Parsing is strict: a code is good only if it is exactly what encoding its values gives back (anything else, another
 // version included, opens the plain menu). <kind> is one digit: a tenth map kind needs version 2.
 // Pure: no DOM, no WASM (test/challenge.test.js; the site's Worker imports it).
-import { MAPS, MAP_KINDS, seatsOf, mapName } from './maps.js';
+import { MAPS, MAP_KINDS, RANDOM_KINDS, seatsOf, mapName } from './maps.js';
 import { DIFF_NAMES } from '../engine/util.js';
 
 /** The link's parameter. */
@@ -51,7 +51,9 @@ export function encode(c) {
   if (!Number.isInteger(c.side) || c.side < 0 || !Number.isInteger(c.secs) || c.secs < 1 || c.secs > MAX_SECS) return null;
   const parts = ['1', b36(c.map), b36(c.side % (starts * at.length)), b36(c.secs), board];
   if (m.random) {
-    if (!Number.isInteger(c.kind) || c.kind < 0 || c.kind >= MAP_KINDS.length || !Number.isInteger(c.seed) || c.seed < 0 || c.seed > 0xffffffff) return null;
+    // (a kind the random map draws: one of the first RANDOM_KINDS, or its own, the Random Shore's)
+    const kindOk = m.kind !== undefined ? c.kind === m.kind : Number.isInteger(c.kind) && c.kind >= 0 && c.kind < RANDOM_KINDS;
+    if (!kindOk || c.kind >= MAP_KINDS.length || !Number.isInteger(c.seed) || c.seed < 0 || c.seed > 0xffffffff) return null;
     parts.push(String(c.kind), b36(c.seed));
   }
   return parts.join('.');

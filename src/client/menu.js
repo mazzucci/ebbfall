@@ -19,7 +19,7 @@ import { enterFullscreen } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
-import { MAPS, MAP_KINDS, MAX_PLAYERS, mapName, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
+import { MAPS, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, enemyLevel, raceTitle, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
@@ -44,8 +44,8 @@ function choose(i) {
   // the two bases is ours (as always); more starts, any turn of the ring (the sim takes it modulo).
   menu.side = urlSeed !== null ? 0 : seatsOf(i) === 2 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() * 2 ** 32) >>> 0;
   if (!m.random) Object.assign(menu, { seed: m.seed, kind: m.kind, name: m.name });
-  else if (urlSeed !== null) Object.assign(menu, { seed: (+urlSeed) >>> 0, kind: 0, name: mapName((+urlSeed) >>> 0) });
-  else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: Math.floor(Math.random() * MAP_KINDS.length), name: mapName(seed) }); }
+  else if (urlSeed !== null) Object.assign(menu, { seed: (+urlSeed) >>> 0, kind: m.kind ?? 0, name: mapName((+urlSeed) >>> 0) });
+  else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: m.kind ?? Math.floor(Math.random() * RANDOM_KINDS), name: mapName(seed) }); }
 }
 
 /** The map list into `sel` (a <select>): every map, its name and the players it seats ("Iron Compass · up to 8"), those
@@ -60,7 +60,12 @@ export function mapSelect(sel, players, on, pick) {
   sel.onchange = () => { sfx('select'); pick(+sel.value); };
 }
 function renderMaps() {
-  mapSelect($('mapSel'), menu.players, menu.map, (i) => { choose(i); renderMaps(); });
+  mapSelect($('mapSel'), menu.players, menu.map, (i) => {
+    choose(i); renderMaps();
+    // (a map with a line of its own, the Shore's: said in the footer a moment)
+    mapNote = MAPS[i].line ? mapNoteOf(i) : ''; clearTimeout(noteTimer); renderNote();
+    if (mapNote) noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 6000);
+  });
   drawPreview($('mapPreview'), menu.map, menu.seed, menu.kind);
 }
 
@@ -79,7 +84,7 @@ function setBoard(board) {
   menu.board = board; menu.players = filled(board).length; store.set('seats', JSON.stringify(board));
   if (!fits(menu.map, menu.players)) {
     choose(fitMap(menu.map, menu.players)); renderMaps();
-    mapNote = `Map: ${mapLabel(menu.map).replace(' · ', ' (')})`; clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000); // (Map: Dust Quarter (up to 4))
+    mapNote = mapNoteOf(menu.map); clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000); // (Map: Dust Quarter (up to 4))
   } else renderMaps(); // (the list: which maps seat them)
   renderSeats(); showRecord(); sfx('select');
 }
@@ -125,7 +130,7 @@ narrow.addEventListener?.('change', () => { if (menu.board.length) renderSeats()
 // A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
 // drawn a pixel per tile (64 or 96 across) and shown at one size. The sim draws the map: until its WASM is in (the menu
 // comes first, src/boot.js), a plain ground, the map drawn when it is.
-const PREVIEW = ['#2a3442', '#7d8796', '#4fd1c5', '#a78bfa', '#f5a524'];
+const PREVIEW = ['#2a3442', '#7d8796', '#4fd1c5', '#a78bfa', '#f5a524', '#3f6f7e', '#1f3a63']; // (ground, rock, shards, vents, starts, shallows, deep water)
 let simReady = false;
 ready.then(() => { simReady = true; if (!$('start').hidden) renderMaps(); }, () => {});
 export function drawPreview(cv, i, seed, kind) {

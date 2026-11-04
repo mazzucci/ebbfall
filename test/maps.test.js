@@ -3,19 +3,19 @@
 // setup that always plays a map that seats it, at the map's own size.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAPS, SIZES, MAX_PLAYERS, sizeFor, seatsOf, fits, fitMap, mapLabel, mapName, onlineMap, teamsFor, teamList } from '../src/client/maps.js';
+import { MAPS, MAP_KINDS, RANDOM_KINDS, SIZES, MAX_PLAYERS, sizeFor, seatsOf, fits, fitMap, mapLabel, mapName, mapNoteOf, onlineMap, teamsFor, teamList } from '../src/client/maps.js';
 
 const named = (name) => MAPS.findIndex(m => m.name === name);
 
 test('every map seats as many players as it has starts: two on 64x64, four on 96x96, eight on 128x128; each size its own maps', () => {
   assert.equal(MAX_PLAYERS, 8);
   assert.deepEqual([2, 3, 4, 5, 6, 7, 8].map(sizeFor), [64, 96, 96, 128, 128, 128, 128]);
-  assert.deepEqual(MAPS.map((_, i) => seatsOf(i)), [2, 2, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8]);
+  assert.deepEqual(MAPS.map((_, i) => seatsOf(i)), [2, 2, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8, 2, 2], '(the Shore map last: appended)');
   assert.ok(fits(named('Iron Compass'), 2), 'a duel on an eight-start map');
   assert.ok(fits(named('Dust Quarter'), 4) && !fits(named('Dust Quarter'), 5));
   assert.ok(!fits(-1, 2) && !fits(99, 2) && !fits(1.5, 2), 'no such map');
   assert.equal(mapLabel(named('Iron Compass')), 'Iron Compass · up to 8');
-  assert.deepEqual(MAPS.map((m, i) => m.random && mapLabel(i)).filter(Boolean), ['Random · up to 2', 'Random · up to 4', 'Random · up to 8']);
+  assert.deepEqual(MAPS.map((m, i) => m.random && mapLabel(i)).filter(Boolean), ['Random · up to 2', 'Random · up to 4', 'Random · up to 8', 'Random Shore · up to 2']);
   // Each size its own fixed maps: names of their own (the generator lays a seed out differently at another size).
   const fixed = MAPS.filter(m => !m.random);
   assert.equal(new Set(fixed.map(m => m.name)).size, fixed.length, 'no name twice');
@@ -53,4 +53,18 @@ test('an online setup plays its map at the map\'s size, the room\'s seed for a r
   assert.deepEqual(onlineMap(setup(named('Iron Compass'), 2)), { seed: 5, kind: 0, name: 'Iron Compass', size: 128 }, 'two on an eight-start map');
   assert.equal(onlineMap(setup(4, 8)).size, 128, 'a 96x96 pick with eight seats: a 128x128 map');
   assert.deepEqual(onlineMap(setup(11, 6)), { seed: 1234, kind: 1234 % 6, name: mapName(1234), size: 128 });
+});
+
+test('the Shore map: a named map and a random one at 64x64 with their line; random maps of the other kinds never draw it', () => {
+  const shore = MAPS.map((m, i) => [m, i]).filter(([m]) => m.kind === 6);
+  assert.deepEqual(shore.map(([m]) => [m.name, m.size, !!m.random]), [['Tidewater Reef', 64, false], ['Random Shore', 64, true]]);
+  for (const [m, i] of shore) assert.match(mapNoteOf(i), /^Map: .* \(up to 2\)\. A shore and a reef: the Humans hold the cove, the Vael the shallows\.$/, m.name);
+  assert.equal(mapNoteOf(0), 'Map: Ashen Basin (up to 2)', 'a map without a line');
+  // A random room keeps the old kinds for every seed (Shore is not among them), a random Shore stays a Shore.
+  const random64 = MAPS.findIndex(m => m.random && m.size === 64), randomShore = MAPS.findIndex(m => m.random && m.kind === 6);
+  for (const seed of [0, 5, 6, 12, 99, 123456789]) {
+    assert.equal(onlineMap({ map: random64, races: ['humans', 'vael'], seed }).kind, seed % RANDOM_KINDS);
+    assert.equal(onlineMap({ map: randomShore, races: ['humans', 'vael'], seed }).kind, 6);
+  }
+  assert.equal(RANDOM_KINDS, MAP_KINDS.length - 1);
 });

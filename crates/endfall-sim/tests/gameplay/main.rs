@@ -17,6 +17,7 @@ mod orders;
 mod paths;
 mod random_play;
 mod seats;
+mod shore;
 mod siege;
 mod vision;
 mod water;

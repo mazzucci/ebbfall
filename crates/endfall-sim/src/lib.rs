@@ -605,6 +605,15 @@ impl Game {
     pub fn shade(&self) -> Vec<f32> {
         self.w.map.shade.clone()
     }
+    /// Each tile's height (tile units): against `water` it is land, shallows or deep water (`Map::ground`). Fixed for
+    /// the whole game.
+    pub fn height(&self) -> Vec<i8> {
+        self.w.map.height.clone()
+    }
+    /// The water level (fixed for now).
+    pub fn water(&self) -> i8 {
+        self.w.water
+    }
     /// Occupancy: 0 free, >0 building id, <0 negative node id.
     pub fn occ(&self) -> Vec<i32> {
         self.w.map.occ.clone()
@@ -766,7 +775,17 @@ pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
         starts,
         &mut next_id,
     );
-    let mut g = m.rock.clone();
+    // (0 ground, 1 rock, 5 shallows, 6 deep water; then 2 shards, 3 vents, 4 the starts)
+    let mut g: Vec<u8> = (0..m.rock.len())
+        .map(|i| {
+            let (x, y) = (i as i32 % m.w, i as i32 / m.w);
+            match (m.rock[i], m.ground(x, y, 0)) {
+                (0, map::Ground::Shallow) => 5,
+                (0, map::Ground::Deep) => 6,
+                (r, _) => r,
+            }
+        })
+        .collect();
     let mut mark = |x: i32, y: i32, v: u8| {
         if m.in_map(x, y) {
             g[m.idx(x, y)] = v;

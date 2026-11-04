@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies } from '../../engine/index.js';
+import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, colorOf } from '../look.js';
 import { drag } from '../input.js';
@@ -202,7 +202,12 @@ export function renderTerrain() {
   }
   // Large-scale variation so the tiles never read as a grid.
   const img = shadeCtx.createImageData(MW, MH);
-  for (let i = 0; i < MW * MH; i++) { const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)); img.data.set([Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s), 255], i * 4); }
+  for (let i = 0; i < MW * MH; i++) {
+    const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)), wet = map.rock[i] ? 'land' : ground(i % MW, (i / MW) | 0);
+    // Water over the ground, the same multiply: the shallows a clear sea-green, deep water a dark blue.
+    const c = wet === 'deep' ? [52, 92, 150] : wet === 'shallow' ? [118, 178, 196] : [Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s)];
+    img.data.set([...c, 255], i * 4);
+  }
   shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
   const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
@@ -214,7 +219,8 @@ export function renderTerrain() {
   }
   // Minimap background.
   const th = thumb.getContext('2d');
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
+  const wetCss = { shallow: '#3f6f7e', deep: '#1f3a63' };
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : wetCss[g] || `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;

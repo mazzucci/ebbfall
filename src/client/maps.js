@@ -15,7 +15,12 @@ export const MAP_KINDS = [
   { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
   { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
   { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
+  { story: 'A shore and a reef: the Humans held the cove, the Vael came up out of the shallows.' }, // Shore
 ];
+/** The characters a random map draws from: the first six (Shore has random maps of its own, `kind` fixed). */
+export const RANDOM_KINDS = 6;
+/** The Shore map's line in the menus. */
+const SHORE_LINE = 'A shore and a reef: the Humans hold the cove, the Vael the shallows.';
 
 /** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts). */
 export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];
@@ -44,6 +49,10 @@ export const MAPS = [
   { name: 'Sunken Court', seed: 9, kind: 3, size: 128 },
   { name: 'Grey Warrens', seed: 2, kind: 4, size: 128 },
   { name: 'Random', random: true, size: 128 },
+  // (the Shore map: two starts, 64x64; a Human seat starts in its cove, a Vael seat in its reef basin; a random Shore
+  // keeps its character and draws only its seed)
+  { name: 'Tidewater Reef', seed: 1, kind: 6, size: 64, line: SHORE_LINE },
+  { name: 'Random Shore', random: true, kind: 6, size: 64, line: SHORE_LINE },
 ];
 
 /** Tiles across of the smallest size that seats `players`. */
@@ -60,6 +69,8 @@ export function fitMap(i, players) {
 }
 /** A map's line in the menus' list: its name and the players it seats ("Iron Compass · up to 8"). */
 export const mapLabel = (i) => `${MAPS[i].name} · up to ${seatsOf(i)}`;
+/** What the menus say when map `i` is chosen: its label, and its line if it has one. */
+export const mapNoteOf = (i) => `Map: ${mapLabel(i).replace(' · ', ' (')})${MAPS[i].line ? `. ${MAPS[i].line}` : ''}`;
 
 /** The team splits offered beyond FREE FOR ALL ('ffa'), by the number of players: even splits of allies in consecutive
  *  seats, which sit side by side on the map (the sim's seat_starts). Three, five and seven play free for all. */
@@ -84,5 +95,5 @@ export function mapName(seed) { const r = mulberry(seed ^ 0x5bd1e995); return FI
  *  map's own. Every client derives the same from the setup. */
 export function onlineMap(setup) {
   const i = fitMap(setup.map, setup.races.length), m = MAPS[i];
-  return m.random ? { seed: setup.seed, kind: setup.seed % MAP_KINDS.length, name: mapName(setup.seed), size: m.size } : { seed: m.seed, kind: m.kind, name: m.name, size: m.size };
+  return m.random ? { seed: setup.seed, kind: m.kind ?? setup.seed % RANDOM_KINDS, name: mapName(setup.seed), size: m.size } : { seed: m.seed, kind: m.kind, name: m.name, size: m.size };
 }

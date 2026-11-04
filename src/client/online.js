@@ -17,7 +17,7 @@ import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/inde
 import { $, toast, LOAD_FAILED } from './ui.js';
 import { sfx } from './audio.js';
 import { mapSelect, drawPreview, showMenu } from './menu.js';
-import { MAPS, MAX_PLAYERS, fitMap, mapLabel } from './maps.js';
+import { MAPS, MAX_PLAYERS, fitMap, mapNoteOf } from './maps.js';
 import { filled, freeTeam, firstEmpty, sideChoices, sideColor, seatColor, raceTitle, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 import { touchDevice, enterFullscreen } from './screen.js';
 import { cleanName, playerName } from './store.js';
@@ -336,8 +336,8 @@ function renderLobby(m) {
   // The map: the host's list (any map that seats the room) and its thumbnail; a guest's one line, whose pick it is. A
   // seat more than the map's starts: the relay moved to the smallest map that seats them, said a moment.
   const map = fitMap(m.map, n);
-  if (lastMap && lastMap.map !== map && n > lastMap.n) {
-    mapNote = `Map: ${mapLabel(map).replace(' · ', ' (')})`; clearTimeout(noteTimer); // (Map: Dust Quarter (up to 4))
+  if (lastMap && lastMap.map !== map && (n > lastMap.n || MAPS[map].line)) { // (or a map with a line of its own: said too)
+    mapNote = mapNoteOf(map); clearTimeout(noteTimer); // (Map: Dust Quarter (up to 4))
     noteTimer = setTimeout(() => { mapNote = ''; if (lobbyState) status(lobbyLine(lobbyState)); }, 4000);
   }
   lastMap = { map, n };

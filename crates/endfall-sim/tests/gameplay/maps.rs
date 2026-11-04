@@ -114,6 +114,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                 MapKind::OpenPlains => rock[1] += rock_share(&w),
                 MapKind::Labyrinth => rock[2] += rock_share(&w),
                 MapKind::Standard => assert_eq!(shards, std_shards),
+                MapKind::Shore => {} // (its ground and fields: tests/gameplay/shore.rs)
             }
         }
     }
@@ -929,9 +930,11 @@ fn every_base_has_two_vents_alike_for_every_start_and_in_easy_reach() {
                             v.ty
                         );
                     }
-                    // Alike for every start (the starts are images of each other).
+                    // Alike for every start (the starts are images of each other; on the Shore a Human's cove and a
+                    // Vael's basin are not: shore.rs pins cove against cove and basin against basin).
                     far.sort();
                     match &first {
+                        _ if kind == MapKind::Shore => {}
                         None => first = Some(far),
                         Some(f) => assert_eq!(
                             &far, f,
@@ -953,7 +956,11 @@ fn every_base_has_two_vents_alike_for_every_start_and_in_easy_reach() {
                 let centre_vent = mid < 0 && w.map.node(-mid as Id).unwrap().ether;
                 assert_eq!(
                     vents.len(),
-                    2 * w.map.bases.len() + 2 * w.map.expansions.len() + centre_vent as usize,
+                    // (the Shore: two by every reef basin as well, either start's)
+                    2 * w.map.bases.len()
+                        + 2 * w.map.basins.len()
+                        + 2 * w.map.expansions.len()
+                        + centre_vent as usize,
                     "{ctx}: two vents a base, and the centre's"
                 );
                 assert_eq!(

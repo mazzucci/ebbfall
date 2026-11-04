@@ -22,6 +22,7 @@ export const JITTER = { rock: 6, ground: 2 };
 export function scatterDoodads(seed, map, keepClear, { MW, MH, TILE, mulberry }) {
   const rnd = mulberry(seed * 13 + 5);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[y * MW + x] !== 0;
+  const wet = (x, y) => map.height && map.height[y * MW + x] <= 0; // (shallows or deep water: no props on the sea floor)
   const all = (x, y, r, want) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (rock(x + dx, y + dy) !== want) return false; return true; };
   const near = (list, x, y, d) => list.some(p => (p.tx - x) ** 2 + (p.ty - y) ** 2 < d * d);
   const out = [];
@@ -32,7 +33,7 @@ export function scatterDoodads(seed, map, keepClear, { MW, MH, TILE, mulberry })
       if (r > 0.35 || near(out, x, y, SPACING.rock)) continue;
       ground = false;
     } else if (all(x, y, 1, false)) {
-      if (r > 0.02 || near(out, x, y, SPACING.ground) || near(keepClear, x, y, 11) || near(map.nodes, x, y, 4)) continue;
+      if (r > 0.02 || wet(x, y) || near(out, x, y, SPACING.ground) || near(keepClear, x, y, 11) || near(map.nodes, x, y, 4)) continue;
       ground = true;
     } else continue;
     const list = ground ? DOODADS.ground : DOODADS.rock, j = (ground ? JITTER.ground : JITTER.rock) * 2;

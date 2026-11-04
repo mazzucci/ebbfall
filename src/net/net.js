@@ -9,7 +9,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 5; // (relay/room.js: 5, the board's fixed spots; the game's seats arranged at the start)
+export const PROTO = 6; // (relay/room.js: 6, the Shore maps)
 export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns

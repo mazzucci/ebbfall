@@ -109,7 +109,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
-                      `nearest_passable`: where a unit of a movement class may stand)
+                      `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
+                      (`generate_shore`: two starts, each a cove and a reef basin, `basins`; its own generator, so the
+                      other kinds' maps never change)
   src/path.rs         A* + line-of-sight smoothing for a walker's `Foot` (f32 cost grid, fixed heap tie-breaks, a
                       look-ahead window)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
@@ -364,6 +366,14 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   a crowd's push never shoves a walker into it); buildings go by the builder's class (`builds_on`: a
   Walk builder on land, an Amph builder on land and shallows, nobody in deep water), the AI's placement through the same
   `can_place`. On a map without water all of it is inert (the goldens pin that).
+- The Shore map (`MapKind::Shore`, appended; 64x64, two starts): each start's share holds a cove on land (a pocket in
+  a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
+  across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
+  shallows round it. Starts by people: a seat whose builders are Amph (the Vael) starts in its start's basin
+  (`Map::basins`), the others in its cove; the start a seat does not use stays open ground with its field. A Shore
+  with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
+  Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
+  tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`).
 - The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
   with four and 128x128 with eight, each size with maps of its own, any of them for as many players as its starts
   (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index
@@ -382,14 +392,17 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
   every 16 ticks on a tick of its own), maps of 2, 4 and 8 starts
   that are walkable and alike for every start, group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
-  amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
+  ground and fields, a walker reaching both coves, both basins and every field, short ways between a cove and the basin
+  it faces, starts by people, a walker sent out to sea stopping on the shore, both AIs finishing from either start at
+  every level, random play on it), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command

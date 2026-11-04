@@ -148,7 +148,9 @@ jobs:
           ENDFALL_ENGINE: ${{ matrix.engine }}
 
   # Determinism on another CPU: the golden games natively, in WASM in Node's V8, and in WebKit (JavaScriptCore on
-  # arm64, as on an iPhone) on an ARM Mac.
+  # arm64, as on an iPhone) on an ARM Mac. It runs on every pull request and on main, but neither a merge nor a deploy
+  # waits for it (owner, 2026-11-04: twice GitHub had no macOS runner for hours and held a deploy): its result is read
+  # by hand, a failure on a change to the sim is fixed (or reverted on main), and the post-merge check reports it.
   arm:
     runs-on: macos-15 # (Playwright's WebKit for macOS 14 is frozen)
     steps:
@@ -192,8 +194,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     # The relay and the site go out together: the relay waits for every check the site waits for, and the site for the
     # relay, so a failing check never leaves a new relay talking to the old site (a new protocol would tell every player
-    # to UPDATE to a version that is not there yet).
-    needs: [rust, build, e2e, engines, arm]
+    # to UPDATE to a version that is not there yet). Not `arm` (see it above).
+    needs: [rust, build, e2e, engines]
     runs-on: ubuntu-latest
     concurrency:
       group: relay
@@ -258,7 +260,7 @@ jobs:
   # edit on the zone) and CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [rust, build, e2e, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
+    needs: [rust, build, e2e, engines, relay] # (a determinism break in another engine blocks publishing; the relay first; not `arm`, read by hand)
     runs-on: ubuntu-latest
     permissions:
       contents: read

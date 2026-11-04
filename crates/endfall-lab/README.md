@@ -11,6 +11,8 @@ npm run lab -- report            # the default batch: a Markdown summary, and ta
 npm run lab -- report --quick    # a small batch (64x64, Medium and Hard, 3 seeds): 50 s on 4 cores
 npm run lab -- compare A.json B.json
 npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<commit>.csv
+npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
+npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 ```
 
 ### `report`
@@ -138,3 +140,47 @@ armour off each hit, at least 1). A test checks it against real fights in the si
 
 The sheet is a heuristic. Range, speed, splash, healing, overkill and pathing change real fights, which is what
 the duel matrix (`crates/endfall-sim/tests/gameplay/balance.rs`) and the report measure.
+
+### `plans`
+
+Games where each AI seat follows a plan drawn at random (PRD: the balance lab: plans). A plan is Medium's tuning with
+three settings drawn uniformly: the workers it aims for (`harv`, 8 to 20), its first wave's time (`first`, 2:00 to
+7:00) and when it expands (`expand_at`, 3:00 to 12:00, or never in one draw in five). It also carries two coins: a
+**placebo**, which changes nothing, and a **planted** coin, which raises the seat's income 10% only in the control run.
+The plans come from the lab's own seeded RNG (`--seed`), never the world's, and reach the AI through
+`World::set_ai_plans` (the sim reads every AI number through `World::tuning`). The menus' AI is untouched.
+
+The batch plays 64x64 Standard and Shore (`--maps`), each in four seatings: Humans against Vael both ways, and both
+mirrors. Game *i* takes the map *i* mod the maps, then the seating, then a map seed, and two fresh plans. Flags:
+`--games N` (2,000; 1,000 with `--plant`), `--maps`, `--seed S` (1), `--plant`, `--check N` (200: the direct check's
+setups), `--cap MIN` (30), `--threads N`, `--out FILE`. The JSON is the same bytes for the same commit and flags, on
+any platform (the model's `exp` and `log` are libm's).
+
+**The model** is a logistic regression of "the first seat wins" (timeouts left out and counted) on each setting's
+difference between the seats: workers and the two times in standard deviations of a seat's draw, "never expands" and
+the coins as 0/±1. The seating and the map are controls. A seat that never expands takes the expanders' mean
+expansion time, so "never expands" carries that difference alone. Reading it:
+- **A coefficient** is the change in the log-odds of the first seat winning per unit of the difference. A positive
+  coefficient means more of the setting than the opponent helps. "Beyond zero" means its 95% interval excludes zero.
+- **Importance** is the log-likelihood lost when a setting's columns are dropped and the model refitted. It ranks the
+  settings by how much they explain.
+- **The correlation matrix** of the settings' columns should be near zero: the draws are independent by design. A
+  large value means something is wrong with the drawing.
+- **Win rate by setting** bins a seat's own setting against whether it won (each finished game counts both seats),
+  overall and in short and long games (split at the median finished length). An effect may not be a straight line:
+  too few workers and too many can both lose. The bins show the shape the coefficient averages away.
+
+**The controls** show the method works:
+- **The placebo** should hold zero in the main batch. A sound method puts it outside zero about one run in twenty (the
+  model's tests check that on null data at 400 and 2,000 rows), so rerun with another `--seed` before doubting the
+  method. Outside zero again would mean the method finds noise.
+- **The planted coin** (`--plant`) must be found: an interval above zero, and more important than the placebo. The
+  report gives the model's average effect of the bonus on the first seat's chance, in points.
+- **The direct check** plays the first `--check` setups twice, seat 0 planted and seat 1 not, with the bonus on and
+  then off. Seat 0's win-rate difference, with its 95% interval (paired), is the effect measured directly. The model's
+  estimate should fall within it. A pair counts only when both its games finished, and the model averages over the
+  batch's finished games, so the two figures cover slightly different games.
+
+**Predictions first.** Before a run, write down which way each setting should move the win rate, and in short or long
+games (the PRD's section 7). Copy the report's results next to them: matched, missed, or unclear (interval too wide).
+A miss is a finding. Several big misses mean the framework needs checking before its results are believed.

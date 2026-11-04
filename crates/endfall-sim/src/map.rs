@@ -281,6 +281,44 @@ const SHORE_REEF: f64 = 10.0;
 const SHORE_DEEP: f64 = 6.0;
 const SHORE_SHALLOWS: f64 = 4.0;
 const SHORE_SHALLOW_H: i8 = 0;
+
+/// Where a Shore reef basin's main field lies: `turn` radians from the direction of its channel (the basin's middle the
+/// pivot), `r` tiles out (6.5: a main's arc round the Core; farther, the same arc carried out that much further in the
+/// same direction, its shape unchanged); the two vents keep to either side of `turn` inside the basin, as ever. The
+/// menus always play `BACK`; the others are the balance lab's exposed-income variants (`World::set_shore_field`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ShoreField {
+    pub turn: f64,
+    pub r: f64,
+}
+
+impl ShoreField {
+    /// Behind the Core, away from the channel (every game's: draw for draw the map it always was).
+    pub const BACK: ShoreField = ShoreField { turn: PI, r: 6.5 };
+    /// On the channel's side, facing the Humans' cove, 40 degrees off the channel (its arc reaches across the channel's
+    /// line, inside the reef; the walkers' way in stays as long: a gameplay test measures it). One vent lands on the
+    /// sea gate's line, 8 tiles out, short of the gate.
+    pub const CHANNEL: ShoreField = ShoreField {
+        turn: 40.0 * PI / 180.0,
+        r: 6.5,
+    };
+    /// `CHANNEL`'s field carried 7 tiles further out, past the reef ring: its vents stay where `CHANNEL`'s are. Not
+    /// distance alone: in about a third of seeds it lies within 6 tiles of the facing cove's farthest expansion (whose
+    /// vents then move), and in a few the generator's rock settles differently.
+    pub const CHANNEL_FAR: ShoreField = ShoreField {
+        turn: 40.0 * PI / 180.0,
+        r: 13.5,
+    };
+}
+
+/// How far a main's crystals lie from its Core's middle (the Shore basins' too).
+const MAIN_FIELD_R: f64 = 6.5;
+
+impl Default for ShoreField {
+    fn default() -> Self {
+        ShoreField::BACK
+    }
+}
 const SHORE_DEEP_H: i8 = -3;
 
 /// The pocket's one ramp, in tiles across.
@@ -429,6 +467,18 @@ impl Map {
         starts: usize,
         next_id: &mut Id,
     ) -> Self {
+        Map::generate_with(seed, kind, size, starts, next_id, ShoreField::BACK)
+    }
+
+    /// `generate`, with a Shore basin's main field at `field` (the balance lab's variants; every game's is `BACK`).
+    pub fn generate_with(
+        seed: u32,
+        kind: MapKind,
+        size: MapSize,
+        starts: usize,
+        next_id: &mut Id,
+        field: ShoreField,
+    ) -> Self {
         debug_assert!(
             size.w % 2 == 0 && size.h % 2 == 0,
             "an even size: the centre vent is its own mirror"
@@ -440,7 +490,7 @@ impl Map {
             size.h
         );
         if kind == MapKind::Shore && starts == 2 {
-            return Map::generate_shore(seed, size, next_id);
+            return Map::generate_shore(seed, size, next_id, field);
         }
         // (a Shore with more than two starts is not made yet: such a game gets the Standard ground, never a panic)
         let kind = if kind == MapKind::Shore {
@@ -637,7 +687,7 @@ impl Map {
     /// of it meets beyond each reef. Cove and basin each hold a field and two vents (either can be a start: a Human
     /// seat takes its cove, a Vael seat its basin), and the expansions lie on land. Rock is raised until a walker (Walk)
     /// gets from the first cove to the other cove, to both basins and to every field.
-    fn generate_shore(seed: u32, size: MapSize, next_id: &mut Id) -> Self {
+    fn generate_shore(seed: u32, size: MapSize, next_id: &mut Id, field: ShoreField) -> Self {
         let (mw, mh) = (size.w, size.h);
         let sym = Sym { k: 2, w: mw, h: mh };
         let mut m = Map::empty(size);
@@ -811,7 +861,7 @@ impl Map {
                 m.occ.fill(0);
                 *next_id = id0;
                 // (the basins' first: every other vent then keeps its distance from theirs)
-                m.place_basin_fields(next_id, sym, p0, channel[0]);
+                m.place_basin_fields(next_id, sym, p0, channel[0], field);
                 m.place_fields(next_id, MapKind::Shore, sym, c0, centre, &sites, false);
                 let reach = m.reach_from(b0, walk);
                 let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
@@ -857,9 +907,23 @@ impl Map {
     /// (away from the channel), a vent to either side of it. A main's field (seven crystals 6.5 tiles out, the vents
     /// 8 out, as a cove's), not an expansion's: the smaller, nearer one mined faster and ran low, so a Vael start
     /// expanded two minutes early (the first Shore report).
-    fn place_basin_fields(&mut self, next_id: &mut Id, sym: Sym, p0: (f64, f64), channel: f64) {
-        let back = channel + PI;
-        let field = self.add_shards(next_id, p0.0, p0.1, back, 7, 6.5);
+    /// `field` (lab only) puts the field elsewhere: `ShoreField::BACK` is every game's.
+    fn place_basin_fields(
+        &mut self,
+        next_id: &mut Id,
+        sym: Sym,
+        p0: (f64, f64),
+        channel: f64,
+        at: ShoreField,
+    ) {
+        let back = channel + at.turn;
+        // (a field farther than a main's is the main's arc carried out: the same shape, its pivot moved)
+        let out = at.r - MAIN_FIELD_R;
+        let pivot = (
+            p0.0 + jsmath::cos(back) * out,
+            p0.1 + jsmath::sin(back) * out,
+        );
+        let field = self.add_shards(next_id, pivot.0, pivot.1, back, 7, MAIN_FIELD_R);
         let img: Vec<(i32, i32)> = field.iter().map(|&t| sym.tile(1, t)).collect();
         self.add_shards_at(next_id, &img);
         for hand in [1.0, -1.0] {

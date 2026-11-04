@@ -348,3 +348,157 @@ fn random_play_never_breaks_the_world_on_the_shore() {
         }
     }
 }
+
+/// The balance lab's exposed-income variants (`World::set_shore_field`): `BACK` is every game's map, bit for bit; the
+/// others move only each basin's main field (and its vents with it), alike for both basins, every crystal still within
+/// a walker's reach and none in deep water; `CHANNEL_FAR` differs from `CHANNEL` only in the crystals' distance.
+#[test]
+fn a_basins_field_moves_only_where_the_lab_asks() {
+    use endfall_sim::map::ShoreField;
+    let races = [&HUMANS, &VAEL];
+    // a basin's two vents (inside its reef: within 10.5 tiles of its middle), by (tx, ty)
+    let vents = |w: &World, b: usize| -> Vec<(i32, i32)> {
+        let c = mid(w.map.basins[b]);
+        let mut v: Vec<(i32, i32)> = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .filter(|n| ((n.tx as f64 - c.0).powi(2) + (n.ty as f64 - c.1).powi(2)).sqrt() < 10.5)
+            .map(|n| (n.tx, n.ty))
+            .collect();
+        v.sort_unstable();
+        v
+    };
+    // a basin's field: the basins' fields are the map's first two, and each basin's is the nearer
+    let field = |w: &World, b: usize| -> Vec<(i32, i32)> {
+        let c = mid(w.map.basins[b]);
+        let of = |f: u32| -> Vec<(i32, i32)> {
+            w.map
+                .nodes
+                .iter()
+                .filter(|n| !n.ether && n.field == f)
+                .map(|n| (n.tx, n.ty))
+                .collect()
+        };
+        let d = |v: &[(i32, i32)]| {
+            let n = v.len() as f64;
+            let (x, y) = v
+                .iter()
+                .fold((0.0, 0.0), |a, t| (a.0 + t.0 as f64, a.1 + t.1 as f64));
+            (x / n - c.0).hypot(y / n - c.1)
+        };
+        let (one, two) = (of(1), of(2));
+        if d(&one) < d(&two) { one } else { two }
+    };
+    let direction = |w: &World, b: usize| {
+        let c = mid(w.map.basins[b]);
+        let f = field(w, b);
+        let n = f.len() as f64;
+        let (x, y) = f
+            .iter()
+            .fold((0.0, 0.0), |a, t| (a.0 + t.0 as f64, a.1 + t.1 as f64));
+        let (dx, dy) = (x / n - c.0, y / n - c.1);
+        (dy.atan2(dx), (dx * dx + dy * dy).sqrt())
+    };
+    for seed in SEEDS {
+        let plain = shore(seed, races);
+        let mut back = shore(seed, races);
+        back.set_shore_field(ShoreField::BACK);
+        assert_eq!(
+            back.state_hash(),
+            plain.state_hash(),
+            "seed {seed}: BACK is the map every game plays"
+        );
+        let mut channel = shore(seed, races);
+        channel.set_shore_field(ShoreField::CHANNEL);
+        let mut far = shore(seed, races);
+        far.set_shore_field(ShoreField::CHANNEL_FAR);
+        for b in 0..2 {
+            let (a0, r0) = direction(&plain, b);
+            let (a1, r1) = direction(&channel, b);
+            let (a2, r2) = direction(&far, b);
+            // BACK lies opposite the channel, CHANNEL 40 degrees off it: 140 degrees apart (a tile's rounding aside)
+            let turn = |a: f64, b: f64| {
+                ((a - b).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI).abs()
+            };
+            assert!(
+                (180.0 - turn(a0, a1).to_degrees() - 140.0).abs() < 12.0,
+                "seed {seed}, basin {b}: the field turned {:.0} degrees",
+                180.0 - turn(a0, a1).to_degrees()
+            );
+            assert!(
+                turn(a1, a2).to_degrees() > 180.0 - 12.0,
+                "seed {seed}: the far field in the same direction"
+            );
+            assert!(
+                (r0 - r1).abs() < 1.0,
+                "seed {seed}: the same distance ({r0:.1}, {r1:.1})"
+            );
+            assert!(
+                r2 > r1 + 5.0,
+                "seed {seed}: the far field farther ({r1:.1}, {r2:.1})"
+            );
+            assert_eq!(
+                vents(&channel, b).len(),
+                2,
+                "seed {seed}: the basin's two vents"
+            );
+            assert_eq!(
+                vents(&channel, b),
+                vents(&far, b),
+                "seed {seed}: the same vents"
+            );
+            for w in [&plain, &channel, &far] {
+                assert_eq!(field(w, b).len(), 7, "seed {seed}: seven crystals");
+            }
+        }
+        for w in [&channel, &far] {
+            // point-symmetric, as every Shore field
+            let all: Vec<(i32, i32, bool)> =
+                w.map.nodes.iter().map(|n| (n.tx, n.ty, n.ether)).collect();
+            let (mw, mh) = (w.map.w, w.map.h);
+            for &(x, y, e) in &all {
+                let s = if e { 2 } else { 1 };
+                assert!(
+                    all.contains(&(mw - s - x, mh - s - y, e)),
+                    "seed {seed}: ({x}, {y}) has its image"
+                );
+            }
+            // no crystal or vent in deep water (the generator itself checks that a walker reaches each)
+            for n in &w.map.nodes {
+                assert_ne!(
+                    w.map.ground(n.tx, n.ty, 0),
+                    Ground::Deep,
+                    "seed {seed}: ({}, {}) in deep water",
+                    n.tx,
+                    n.ty
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn both_ais_finish_games_with_the_basin_field_moved() {
+    use endfall_sim::map::ShoreField;
+    for field in [ShoreField::CHANNEL, ShoreField::CHANNEL_FAR] {
+        for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
+            let mut w = shore(3, races);
+            w.set_shore_field(field);
+            assert!(w.set_ai_seats([true, true]));
+            for _ in 0..30 * 60 * TPS {
+                w.step();
+                w.events.clear();
+                if w.winner >= 0 {
+                    break;
+                }
+            }
+            assert!(
+                w.winner >= 0,
+                "{field:?}, {} first: no result in 30 minutes",
+                races[0].name
+            );
+        }
+    }
+}

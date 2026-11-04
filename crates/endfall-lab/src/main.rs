@@ -51,7 +51,7 @@ fn today() -> String {
 fn die(msg: &str) -> ! {
     eprintln!(
         "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--weak] [--attacker-income X] [--attacker-fog X] [--cap MIN] [--threads N] [--out FILE]"
+       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--weak] [--attacker-income X] [--attacker-fog X] [--attacker-retreat X] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -300,6 +300,13 @@ fn turtle(args: &[String]) {
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
             "--raids" => batch.raids = true,
             "--weak" => batch.weak = true,
+            "--attacker-retreat" => {
+                batch.attacker_retreat = Some(
+                    val()
+                        .parse()
+                        .unwrap_or_else(|_| die("--attacker-retreat X")),
+                )
+            }
             "--attacker-fog" => {
                 batch.attacker_fog = Some(val().parse().unwrap_or_else(|_| die("--attacker-fog X")))
             }
@@ -357,6 +364,9 @@ fn turtle(args: &[String]) {
                 .map_or(String::new(), |x| format!(", the attacker's income x{x}"))
             + &batch.attacker_fog.map_or(String::new(), |x| format!(
                 ", the attacker's fog factor {x}"
+            ))
+            + &batch.attacker_retreat.map_or(String::new(), |x| format!(
+                ", the attacker retreats below {x}"
             )),
         path.display()
     );

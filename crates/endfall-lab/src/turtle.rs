@@ -29,6 +29,8 @@ pub struct TurtleBatch {
     pub attacker_income: Option<f64>,
     /// The attacker's `Diff::fog_factor` (None: its level's).
     pub attacker_fog: Option<f64>,
+    /// The attacker's `Diff::retreat_below` (None: its level's).
+    pub attacker_retreat: Option<f64>,
     /// The weak turtle (`weak_turtle`; the gate's newcomers row): Easy's economy, no expansion.
     pub weak: bool,
 }
@@ -42,6 +44,7 @@ impl TurtleBatch {
             raids: false,
             attacker_income: None,
             attacker_fog: None,
+            attacker_retreat: None,
             weak: false,
         }
     }
@@ -96,12 +99,14 @@ impl Cell {
         let (raids, attacker_income) = (b.raids, b.attacker_income);
         let mut plans = [None, None];
         plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
-        plans[1 - self.turtle] =
-            (attacker_income.is_some() || b.attacker_fog.is_some()).then(|| Diff {
-                income: attacker_income.unwrap_or(DIFF[BASE].income),
-                fog_factor: b.attacker_fog.unwrap_or(DIFF[BASE].fog_factor),
-                ..DIFF[BASE]
-            });
+        let changed =
+            attacker_income.is_some() || b.attacker_fog.is_some() || b.attacker_retreat.is_some();
+        plans[1 - self.turtle] = changed.then(|| Diff {
+            income: attacker_income.unwrap_or(DIFF[BASE].income),
+            fog_factor: b.attacker_fog.unwrap_or(DIFF[BASE].fog_factor),
+            retreat_below: b.attacker_retreat.unwrap_or(DIFF[BASE].retreat_below),
+            ..DIFF[BASE]
+        });
         plans
     }
 }
@@ -410,6 +415,7 @@ impl TurtleRun {
                     .with("raids", self.batch.raids)
                     .with("attacker_income", self.batch.attacker_income)
                     .with("attacker_fog", self.batch.attacker_fog)
+                    .with("attacker_retreat", self.batch.attacker_retreat)
                     .with("weak", self.batch.weak),
             )
             .with("rows", rows)
@@ -607,6 +613,7 @@ mod tests {
             raids: false,
             attacker_income: None,
             attacker_fog: None,
+            attacker_retreat: None,
             weak: false,
         };
         let c = cells(&b);

@@ -767,3 +767,38 @@ fn the_ledger_accounts_for_every_shard_and_ether() {
         w.ledger
     );
 }
+
+/// Each start mines its home field as fast as the other, whichever half of the map it is in: the two starts of a
+/// two-start map are each other's image under a half turn, fields and all, so the starting harvesters (no AI) must
+/// mine the same. A free tile beside a crystal used to be the first in a fixed scan (the ring's top row first): every
+/// harvester aimed at the north side of its crystal, the near side for a base south of its field, the far side for one
+/// north of it, and the south half mined more (4% by minute 3, 65% of the Brutal mirrors won).
+#[test]
+fn either_half_mines_its_field_alike() {
+    let mut checked = 0;
+    for seed in 1..=12u32 {
+        for kind in [MapKind::Standard, MapKind::OpenPlains] {
+            let mut w = World::with_setup(seed, 1, kind, false, [&HUMANS, &HUMANS]);
+            w.disable_ai();
+            let (a, b) = (core(&w, 0), core(&w, 1));
+            // (only starts that are each other's half-turn image, in different halves)
+            if (b.0, b.1) != (w.map.w - 4 - a.0, w.map.h - 4 - a.1) || a.1 == b.1 {
+                continue;
+            }
+            run(&mut w, 180);
+            let mined = |t: usize| w.ledger[t].mined[0];
+            let (m0, m1) = (mined(0), mined(1));
+            assert!(
+                m0 > 1000,
+                "seed {seed} {kind:?}: the harvesters mine ({m0})"
+            );
+            // (a delivery or two apart at most: mirrored positions round differently in the last bits)
+            assert!(
+                (m0 - m1).abs() <= 20,
+                "seed {seed} {kind:?}: the two halves mine alike: {m0} and {m1}"
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked >= 6, "enough mirrored starts checked ({checked})");
+}

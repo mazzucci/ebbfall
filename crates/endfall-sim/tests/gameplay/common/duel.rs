@@ -168,7 +168,12 @@ pub fn duel_with(a: &[UnitKind], b: &[UnitKind], budget: f64, micro: Micro) -> f
 /// `raiders` raid a mineral line of 8 mining harvesters (hunting harvesters like the AI's raiders), guarded by
 /// `turrets` and `troopers`; returns (harvesters lost, raiders lost) after 40 s.
 pub fn raid(raiders: usize, turrets: usize, troopers: usize) -> (usize, usize) {
-    let mut w = World::new(7, 1);
+    raid_on(7, raiders, turrets, troopers)
+}
+
+/// `raid` on the map of `seed`.
+pub fn raid_on(seed: u32, raiders: usize, turrets: usize, troopers: usize) -> (usize, usize) {
+    let mut w = World::new(seed, 1);
     w.disable_ai();
     let (cx, cy) = core(&w, PLAYER);
     let node = w

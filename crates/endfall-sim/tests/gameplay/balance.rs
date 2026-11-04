@@ -179,22 +179,34 @@ fn the_interceptor_answers_flyers_and_is_dead_weight_on_the_ground() {
 
 #[test]
 fn a_turret_or_a_few_troopers_answer_an_early_raider_raid() {
-    let (lost, raiders) = raid(2, 0, 0);
-    assert_eq!(
-        (lost, raiders),
-        (8, 0),
-        "an undefended mineral line is easy prey"
-    );
-    let (lost, raiders) = raid(2, 1, 0);
+    // Over a dozen maps (one scene is a knife's edge: where each harvester stands as the raid comes in decides it):
+    // an undefended mineral line loses all eight, a turret or four Troopers shoot the two Raiders down in nearly every
+    // raid, half the harvesters or fewer lost in a typical one.
+    let seeds = 1..=12u32;
+    let raids = |turrets, troopers| -> Vec<(usize, usize)> {
+        seeds
+            .clone()
+            .map(|s| raid_on(s, 2, turrets, troopers))
+            .collect()
+    };
+    let median_lost = |v: &[(usize, usize)]| {
+        let mut l: Vec<usize> = v.iter().map(|r| r.0).collect();
+        l.sort();
+        l[l.len() / 2]
+    };
+    let undefended = raids(0, 0);
     assert!(
-        raiders == 2 && lost <= 4,
-        "a turret shoots down a two-Raider raid ({lost}/8 harvesters lost)"
+        undefended.iter().all(|&r| r == (8, 0)),
+        "an undefended mineral line is easy prey: {undefended:?}"
     );
-    let (lost, raiders) = raid(2, 0, 4);
-    assert!(
-        raiders == 2 && lost <= 4,
-        "so do four Troopers ({lost}/8 lost)"
-    );
+    for (what, v) in [("a turret", raids(1, 0)), ("four Troopers", raids(0, 4))] {
+        let down = v.iter().filter(|r| r.1 == 2).count();
+        assert!(
+            down >= 10 && median_lost(&v) <= 4,
+            "{what} shoots down a two-Raider raid: {down} of 12 raids, {} of 8 harvesters lost in a typical one ({v:?})",
+            median_lost(&v)
+        );
+    }
 }
 
 #[test]

@@ -134,9 +134,13 @@ impl World {
                 && tx2 < tx + d.w
                 && ty2 >= ty
                 && ty2 < ty + d.h
-                && let Some(f) =
-                    self.map
-                        .nearest_passable(self.foot(self.units[k].kind), tx2, ty2, 4)
+                && let Some(f) = self.map.nearest_passable_to(
+                    self.foot(self.units[k].kind),
+                    tx2,
+                    ty2,
+                    4,
+                    (self.units[k].x, self.units[k].y),
+                )
             {
                 // (several land on one point; separate() parts them, see the zero-distance case there)
                 self.units[k].x = f.0 as f64 * TILE + 16.0;
@@ -248,8 +252,11 @@ impl World {
                 b.y + self.map.wh() * if b.team != 0 { -1.0 } else { 1.0 },
             ),
         };
-        // (crowded, ring, distance to the rally side, y, x): smaller is better, compared in that order.
-        type Spot = (bool, i32, f64, i32, i32);
+        // (crowded, ring, distance to the rally side, clockwise of the line from the building to it, along that line,
+        // y, x): compared in that order, smaller better but the side and the along (higher better). From tile centres, so a half turn of the map
+        // (the starts' symmetry) gives the turned choice (`Map::nearest_passable_to`'s rule).
+        let (bx, by) = (b.x, b.y);
+        type Spot = (bool, i32, f64, f64, f64, i32, i32);
         let mut best: Option<Spot> = None;
         for r in 0..4 {
             for y in (b.ty - r - 1)..=(b.ty + b.h + r) {
@@ -265,10 +272,16 @@ impl World {
                     if inner || !open {
                         continue;
                     }
+                    let (tcx, tcy) = (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
+                    let (ux, uy) = (rf.0 - bx, rf.1 - by);
+                    let side = ux * (tcy - by) - uy * (tcx - bx);
+                    let along = ux * (tcx - bx) + uy * (tcy - by);
                     let key = (
                         self.crowded(x, y, air),
                         r,
-                        dist(x as f64 * TILE, y as f64 * TILE, rf.0, rf.1),
+                        dist(tcx, tcy, rf.0, rf.1),
+                        side,
+                        along,
                         y,
                         x,
                     );
@@ -276,7 +289,9 @@ impl World {
                         (key.0, key.1)
                             .cmp(&(k.0, k.1))
                             .then(key.2.partial_cmp(&k.2).unwrap())
-                            .then((key.3, key.4).cmp(&(k.3, k.4)))
+                            .then(k.3.partial_cmp(&key.3).unwrap())
+                            .then(k.4.partial_cmp(&key.4).unwrap())
+                            .then((key.5, key.6).cmp(&(k.5, k.6)))
                             .is_lt()
                     }) {
                         best = Some(key);
@@ -284,6 +299,6 @@ impl World {
                 }
             }
         }
-        best.map_or((b.tx, b.ty + b.h), |k| (k.4, k.3))
+        best.map_or((b.tx, b.ty + b.h), |k| (k.6, k.5))
     }
 }

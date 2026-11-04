@@ -109,7 +109,13 @@ impl World {
             );
             let f = self
                 .map
-                .nearest_passable(self.foot(faction.worker), at.0, at.1, 4)
+                .nearest_passable_to(
+                    self.foot(faction.worker),
+                    at.0,
+                    at.1,
+                    4,
+                    (cx * TILE, cy * TILE),
+                )
                 .unwrap_or((bx, by + 5));
             let u = self.make_unit(
                 faction.worker,

@@ -110,9 +110,13 @@ impl World {
     /// out can fall in a sealed pocket), clear of the natural's site (the Core it saves for goes there), of every
     /// expansion (a neighbour's natural may lie that far out) and of every other start.
     fn find_far_spot(&mut self, kind: BldgKind, cx: f64, cy: f64, from: f64) -> Option<(i32, i32)> {
-        let start = self
-            .map
-            .nearest_passable(self.worker_foot(), cx as i32, cy as i32, 6)?;
+        let start = self.map.nearest_passable_to(
+            self.worker_foot(),
+            cx as i32,
+            cy as i32,
+            6,
+            (cx * TILE, cy * TILE),
+        )?;
         let reach = self.walkable_from(start);
         let natural = self.expansion_spot(cx, cy);
         let me = self.seat() as usize;
@@ -587,12 +591,24 @@ impl World {
             None => None,
         };
         // No powered room left anywhere for a building that needs power (a Vael factory in a full main): a power
-        // source first, out past the main's room, so the next try has a field to build in.
+        // source first, out past the main's room, so the next try has a field to build in. Unless one is going up out
+        // there already: a Spire going up in the main for supply (the Vael nearly always have one) must not hold it
+        // back, or a full main never gets its factory (its Zenith, say) at all.
+        let far_power_rising = |w: &World, p: BldgKind| {
+            my_b.iter().filter_map(|&id| w.bldg(id)).any(|b| {
+                b.kind == p
+                    && !b.done
+                    && jsmath::hypot(
+                        b.tx as f64 + b.w as f64 / 2.0 - cx,
+                        b.ty as f64 + b.h as f64 / 2.0 - cy,
+                    ) >= ROOM - 1.0
+            })
+        };
         let (place, spot) = match (placeable, spot, f.power) {
             (Some(w), None, Some(p))
                 if w.def().needs_power
                     && (w == s.rax || w == s.air) // (a factory: not a tower meant for a mark)
-                    && !building.contains(&p)
+                    && !far_power_rising(self, p)
                     && self.can_afford(
                         e,
                         [0, 1].map(|i| {

@@ -10,7 +10,7 @@
 //! since every client gives the same orders in the same order.
 
 use super::*;
-use crate::path::{astar_capped, los};
+use crate::path::{astar_capped, at_goal, los};
 
 /// A search from a start this many tiles (or more) from its goal, on either axis, is long: shared and budgeted.
 pub const LONG_SEARCH: i32 = 16;
@@ -335,8 +335,8 @@ impl World {
                     SHORT_CAP,
                 )?;
                 // (it must get there: a spot behind a wall from the route's end needs a search of its own)
-                let there = self.map.nearest_passable(foot, b.0, b.1, 8).map(centre);
-                if tail.last().copied().or(Some(end)) != there {
+                let last = tail.last().copied().unwrap_or(end);
+                if !at_goal(&self.map, foot, b, self.map.tile_of(last.x, last.y)) {
                     return None;
                 }
                 out.extend(tail);

@@ -336,7 +336,9 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   96x96, 8 on 128x128, `map::max_starts`, all of them generated whatever the seats; seats sit round the map in order, `map::seat_starts`: allies in consecutive
   seats are neighbours, which is how the menus' teams are made, and with teams `Game::with_seats` turns the seats by
   whole starts only and the free starts go between teams, `map::team_starts`, so any split of consecutive seats starts
-  side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`),
+  side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`; in the
+  balance lab only, a plan: a whole `Diff` per seat, `World::set_ai_plans`, never from JS or the network and not
+  hashed; every AI decision reads its numbers through `World::tuning`, the plan or else its level's),
   and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
   an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
   decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one

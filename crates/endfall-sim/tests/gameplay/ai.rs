@@ -2029,3 +2029,53 @@ fn the_ai_raises_its_first_tower_at_two_and_a_half_minutes() {
         );
     }
 }
+
+#[test]
+fn a_seat_s_plan_replaces_its_level_s_tuning() {
+    // The balance lab's plans (World::set_ai_plans): a whole `Diff` per seat in place of its level's, read by every AI
+    // decision through `World::tuning`. Without one, a seat plays its level (the goldens pin that nothing changed).
+    let mut w = World::with_setup(4, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    for s in 0..2 {
+        assert_eq!(w.tuning(s), DIFF[w.diff_of(s)], "no plan: its level's");
+    }
+    assert!(!w.set_ai_plans(&[None]), "a plan for every seat, or none");
+    // A quick first wave (a small one, so it can leave before its level's own time) against a late one: each leaves
+    // when its plan says, the quick one before Medium's own first wave could, the late one after.
+    let (quick, late) = (120.0, 420.0);
+    assert!(quick + 30.0 < DIFF[1].first && late > DIFF[1].first + 60.0);
+    let plan = |first, wave| {
+        Some(Diff {
+            first,
+            wave,
+            ..DIFF[1]
+        })
+    };
+    assert!(w.set_ai_plans(&[plan(quick, 2), plan(late, DIFF[1].wave)]));
+    assert_eq!(w.tuning(0).first, quick);
+    assert_eq!(w.tuning(1).first, late);
+    let mut launched = [None::<f64>; 2];
+    while w.time < 600.0 && launched.iter().any(|l| l.is_none()) && w.winner < 0 {
+        w.step();
+        w.events.clear();
+        for s in 0..2u8 {
+            if launched[s as usize].is_none() && w.ai_wave_of(s).is_some() {
+                launched[s as usize] = Some(w.time);
+            }
+        }
+    }
+    let [a, b] = launched.map(|l| l.unwrap_or(f64::MAX));
+    assert!(
+        a < 600.0 && b < 600.0,
+        "both waves leave: {a:.0} s and {b:.0} s"
+    );
+    assert!(
+        a >= quick && b >= late,
+        "no wave before its plan's time: {a:.0} s and {b:.0} s"
+    );
+    assert!(
+        a < DIFF[1].first,
+        "the quick plan's wave before its level's own first wave could leave ({a:.0} s, Medium {} s)",
+        DIFF[1].first
+    );
+}

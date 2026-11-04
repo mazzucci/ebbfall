@@ -57,6 +57,10 @@ pub struct World {
     pub diff: usize,
     /// Each AI seat's difficulty, when they differ (`set_diffs`; empty: every AI plays `diff`). Read through `diff_of`.
     pub diffs: Vec<usize>,
+    /// A seat's AI tuning in place of its level's (`set_ai_plans`): the balance lab's random plans, set only from
+    /// Rust, never by the menus, JS or the network, so not hashed. Empty (always, outside the lab): every AI plays its
+    /// level. Read through `tuning`.
+    pub ai_plans: Vec<Option<Diff>>,
     pub time: f64,
     pub tick: u32,
     pub units: Vec<Unit>,
@@ -189,6 +193,7 @@ impl World {
             seed,
             diff,
             diffs: Vec::new(),
+            ai_plans: Vec::new(),
             map_kind,
             map_size,
             side,
@@ -340,6 +345,26 @@ impl World {
     /// The difficulty an AI seat plays at (its own, else the game's).
     pub fn diff_of(&self, team: u8) -> usize {
         self.diffs.get(team as usize).copied().unwrap_or(self.diff)
+    }
+    /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`). Every AI
+    /// decision reads its numbers here.
+    pub fn tuning(&self, team: u8) -> Diff {
+        self.ai_plans
+            .get(team as usize)
+            .copied()
+            .flatten()
+            .unwrap_or(DIFF[self.diff_of(team)])
+    }
+    /// Give each seat's AI a plan of its own before play, a whole `Diff` in place of its level's (None: its level's;
+    /// empty: none), with fresh brains. The balance lab's only: never from the menus, JS or the network. False
+    /// (nothing changes) for a list of another length.
+    pub fn set_ai_plans(&mut self, plans: &[Option<Diff>]) -> bool {
+        if !plans.is_empty() && plans.len() != self.seats() {
+            return false;
+        }
+        self.ai_plans = plans.to_vec();
+        self.init_ai();
+        true
     }
     /// Give each seat's AI a difficulty of its own before play (a person's seat ignores its entry; empty: every AI
     /// plays the game's `diff`), with fresh brains. False (nothing changes) for a list of another length.

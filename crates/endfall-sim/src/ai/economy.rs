@@ -263,7 +263,7 @@ impl World {
     /// vent's crew for every flowing refinery past the first (so a second vent's ether costs it no shards; while ether
     /// piles up they mine shards).
     pub fn harv_target_of(&self, e: u8, cores: usize) -> usize {
-        DIFF[self.diff_of(e)].harv
+        self.tuning(e).harv
             + 5 * cores.saturating_sub(1)
             + ETHER_CREW * self.flowing_rigs(e).saturating_sub(1)
     }

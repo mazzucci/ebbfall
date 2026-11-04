@@ -512,7 +512,7 @@ impl World {
         {
             Some(heavy) // (once its vehicles' tech stands)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && self.ai_count(&my_b, false, s.tower) < (t > 240.0) as usize + (t > 480.0) as usize
+            && self.ai_count(&my_b, false, s.tower) < (t > 150.0) as usize + (t > 480.0) as usize
         {
             Some(s.tower)
         // (the rules let air follow the first factory; this AI chooses ground tech first)

@@ -5,6 +5,7 @@
 //! Medium's weakness, before any tide: the tide's "a turtling bot loses over 70%" row is read against this baseline.
 
 use crate::json::Json;
+use crate::minutes::{self, Sample};
 use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_watched};
 use crate::stats::{median, mmss, wilson};
 use crate::waves::{self, TABLE_HEAD, Wave};
@@ -23,6 +24,9 @@ pub struct TurtleBatch {
     pub cap_min: u32,
     /// The turtle keeps Medium's raids (flyers hunting the enemy's workers).
     pub raids: bool,
+    /// The attacker's income multiplier (`Diff::income`; None: plain Medium's): the ceiling test, whether more income
+    /// alone breaks the turtle.
+    pub attacker_income: Option<f64>,
 }
 
 impl TurtleBatch {
@@ -32,6 +36,7 @@ impl TurtleBatch {
             seeds: 25,
             cap_min: 30,
             raids: false,
+            attacker_income: None,
         }
     }
 }
@@ -61,10 +66,15 @@ impl Cell {
         let p = PAIRINGS[self.pairing];
         (p[self.turtle], p[1 - self.turtle])
     }
-    /// Each seat's plan: the turtle's on its seat, plain Medium (no plan) on the other.
-    fn plans(&self, raids: bool) -> [Option<Diff>; 2] {
+    /// Each seat's plan: the turtle's on its seat, plain Medium (no plan) on the other, or Medium with
+    /// `attacker_income` for its income.
+    fn plans(&self, raids: bool, attacker_income: Option<f64>) -> [Option<Diff>; 2] {
         let mut plans = [None, None];
         plans[self.turtle] = Some(turtle(raids));
+        plans[1 - self.turtle] = attacker_income.map(|income| Diff {
+            income,
+            ..DIFF[BASE]
+        });
         plans
     }
 }
@@ -96,6 +106,8 @@ pub struct TurtleRun {
     pub games: Vec<Played>,
     /// Each game's attack waves (`waves::Watch`), both seats'.
     pub waves: Vec<Vec<Wave>>,
+    /// Each game's seats minute by minute (`minutes::Minutes`).
+    pub minutes: Vec<Vec<[Sample; 2]>>,
 }
 
 pub fn run(
@@ -105,21 +117,35 @@ pub fn run(
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> TurtleRun {
     let cells = cells(&batch);
-    let (cap, raids) = (batch.cap_min, batch.raids);
-    let (games, waves) = play_jobs(
+    let (cap, raids, income) = (batch.cap_min, batch.raids, batch.attacker_income);
+    let (mut games, mut waves, mut mins) = (vec![], vec![], vec![]);
+    let played = play_jobs(
         &cells,
-        |c| play_watched(c.map, c.pairing, c.map_seed, c.plans(raids), cap, false),
+        |c| {
+            play_watched(
+                c.map,
+                c.pairing,
+                c.map_seed,
+                c.plans(raids, income),
+                cap,
+                false,
+            )
+        },
         threads,
         progress,
-    )
-    .into_iter()
-    .unzip();
+    );
+    for (p, w, m) in played {
+        games.push(p);
+        waves.push(w);
+        mins.push(m);
+    }
     TurtleRun {
         batch,
         commit: commit.to_string(),
         cells,
         games,
         waves,
+        minutes: mins,
     }
 }
 
@@ -218,8 +244,7 @@ impl TurtleRun {
     }
 
     /// The attacker's waves (the plain Medium seat's, against the turtle), by map and its people, then in all.
-    fn wave_rows(&self) -> Vec<(String, waves::Summary)> {
-        let mut rows = vec![];
+    fn attack_groups(&self) -> Vec<(String, Vec<&Wave>)> {
         let attacks = |keep: &dyn Fn(&Cell) -> bool| {
             let mut v: Vec<&Wave> = vec![];
             for (c, ws) in self.cells.iter().zip(&self.waves) {
@@ -227,8 +252,9 @@ impl TurtleRun {
                     v.extend(ws.iter().filter(|w| w.seat as usize != c.turtle));
                 }
             }
-            waves::summary(v)
+            v
         };
+        let mut rows = vec![];
         for &map in &self.batch.maps {
             for (p, people) in PEOPLE.iter().enumerate() {
                 rows.push((
@@ -239,6 +265,82 @@ impl TurtleRun {
         }
         rows.push(("**All**".into(), attacks(&|_| true)));
         rows
+    }
+
+    fn wave_rows(&self) -> Vec<(String, waves::Summary)> {
+        self.attack_groups()
+            .into_iter()
+            .map(|(l, v)| (l, waves::summary(v)))
+            .collect()
+    }
+
+    fn check_rows(&self) -> Vec<(String, waves::Checks)> {
+        self.attack_groups()
+            .into_iter()
+            .map(|(l, v)| (l, waves::checks(v)))
+            .collect()
+    }
+
+    /// Minute by minute, by map and pairing (then by map): of the games still on at that minute, the medians of the
+    /// attacker's and the turtle's income a minute (over the five minutes before), workers, bases, army and supply.
+    fn minute_rows(&self) -> Vec<(String, Vec<String>)> {
+        let mut out = vec![];
+        let group = |keep: &dyn Fn(&Cell) -> bool| -> Vec<String> {
+            let mut lines = vec![];
+            for m in [5usize, 10, 15, 20, 25, 30] {
+                let (mut on, mut inc, mut wk, mut bs, mut ar, mut sp) = (
+                    0,
+                    [vec![], vec![]],
+                    [vec![], vec![]],
+                    [vec![], vec![]],
+                    [vec![], vec![]],
+                    [vec![], vec![]],
+                );
+                for (c, at) in self.cells.iter().zip(&self.minutes) {
+                    if !keep(c) || at.len() < m {
+                        continue;
+                    }
+                    on += 1;
+                    let a = 1 - c.turtle; // the attacker's seat
+                    for (k, seat) in [a, c.turtle].into_iter().enumerate() {
+                        let x = at[m - 1][seat];
+                        inc[k].push(minutes::income(at, m, seat).unwrap_or(0.0));
+                        wk[k].push(x.workers as f64);
+                        bs[k].push(x.bases as f64);
+                        ar[k].push(x.army);
+                        sp[k].push(x.supply as f64);
+                    }
+                }
+                if on == 0 {
+                    continue;
+                }
+                let pair = |v: &[Vec<f64>; 2], d: usize| {
+                    let f = |x: &Vec<f64>| median(x).map_or("—".into(), |y| format!("{y:.d$}"));
+                    format!("{} / {}", f(&v[0]), f(&v[1]))
+                };
+                lines.push(format!(
+                    "| {m}:00 | {on} | {} | {} | {} | {} | {} |\n",
+                    pair(&inc, 0),
+                    pair(&wk, 0),
+                    pair(&bs, 1),
+                    pair(&ar, 0),
+                    pair(&sp, 0)
+                ));
+            }
+            lines
+        };
+        for &map in &self.batch.maps {
+            for (tp, turtle) in PEOPLE.iter().enumerate() {
+                for (ap, against) in PEOPLE.iter().enumerate() {
+                    out.push((
+                        format!("{map:?}: {against} Medium against a {turtle} turtle"),
+                        group(&|c| c.map == map && c.peoples() == (tp, ap)),
+                    ));
+                }
+            }
+            out.push((format!("{map:?}, all"), group(&|c| c.map == map)));
+        }
+        out
     }
 
     pub fn json(&self) -> Json {
@@ -252,7 +354,8 @@ impl TurtleRun {
             .iter()
             .zip(&self.games)
             .zip(&self.waves)
-            .map(|((c, p), ws)| {
+            .zip(&self.minutes)
+            .map(|(((c, p), ws), mins)| {
                 Json::obj()
                     .with("map", format!("{:?}", c.map))
                     .with("turtle", PEOPLE[c.peoples().0])
@@ -262,6 +365,12 @@ impl TurtleRun {
                     .with("winner", p.winner.map(|w| w as u32))
                     .with("end_tick", p.end_tick)
                     .with("waves", ws.iter().map(Wave::json).collect::<Vec<_>>())
+                    .with(
+                        "minutes",
+                        mins.iter()
+                            .map(|m| m.iter().map(Sample::json).collect::<Vec<_>>())
+                            .collect::<Vec<_>>(),
+                    )
             })
             .collect();
         Json::obj()
@@ -280,7 +389,8 @@ impl TurtleRun {
                     )
                     .with("seeds", self.batch.seeds)
                     .with("cap_min", self.batch.cap_min)
-                    .with("raids", self.batch.raids),
+                    .with("raids", self.batch.raids)
+                    .with("attacker_income", self.batch.attacker_income),
             )
             .with("rows", rows)
             .with(
@@ -288,6 +398,13 @@ impl TurtleRun {
                 self.wave_rows()
                     .iter()
                     .map(|(l, w)| w.json().with("row", l.replace("**", "")))
+                    .collect::<Vec<_>>(),
+            )
+            .with(
+                "checks",
+                self.check_rows()
+                    .iter()
+                    .map(|(l, c)| c.json().with("row", l.replace("**", "")))
                     .collect::<Vec<_>>(),
             )
             .with("games", games)
@@ -314,6 +431,23 @@ impl TurtleRun {
         );
         for (label, w) in self.wave_rows() {
             s += &w.row(&label);
+        }
+        s += &format!(
+            "\n## Why the waves went\n\nThe attacker's own check as each wave went (`LaunchWhy`), the foe army it expected over the turtle's true army then (armed units, workers left out; the waves that went against an expectation), the wave's worth over that true army, and the share of the wave's value within {} tiles of its first unit to arrive.\n\n{}",
+            waves::REACH,
+            waves::CHECKS_HEAD
+        );
+        for (label, c) in self.check_rows() {
+            s += &c.row(&label);
+        }
+        s += "\n## Minute by minute\n\nOf the games still on at each minute, the medians, attacker / turtle: income a minute (shards plus ether at 1.5, mined over the five minutes before), workers, finished bases, army worth (armed units) and supply used.\n";
+        for (label, lines) in self.minute_rows() {
+            s += &format!(
+                "\n**{label}**\n\n| Minute | Games on | Income a minute | Workers | Bases | Army | Supply |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+            );
+            for l in lines {
+                s += &l;
+            }
         }
         s
     }
@@ -345,9 +479,21 @@ mod tests {
     fn the_turtle_plays_its_own_seat_against_plain_medium() {
         let b = TurtleBatch::default_batch();
         for c in cells(&b) {
-            let p = c.plans(false);
+            let p = c.plans(false, None);
             assert_eq!(p[c.turtle], Some(turtle(false)));
             assert_eq!(p[1 - c.turtle], None, "the other seat plays its level");
+            let rich = c.plans(false, Some(1.3))[1 - c.turtle].expect("the attacker's plan");
+            assert_eq!(
+                rich.income, 1.3,
+                "the ceiling test: Medium with more income"
+            );
+            assert_eq!(
+                Diff {
+                    income: DIFF[BASE].income,
+                    ..rich
+                },
+                DIFF[BASE]
+            );
         }
     }
 
@@ -385,6 +531,7 @@ mod tests {
             commit: "test".into(),
             cells,
             waves: vec![vec![]; games.len()],
+            minutes: vec![vec![]; games.len()],
             games,
         };
         let rows = r.rows();
@@ -413,6 +560,7 @@ mod tests {
             seeds: 1,
             cap_min: 2,
             raids: false,
+            attacker_income: None,
         };
         let c = cells(&b);
         assert_eq!(c.len(), 8, "four seatings, the turtle in either seat");

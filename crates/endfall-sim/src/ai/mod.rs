@@ -89,6 +89,8 @@ pub(crate) struct Ai {
     pub ready_since: Option<f64>,
     /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
     pub staging: Option<(f64, f64, f64)>,
+    /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
+    pub check: Option<crate::world::LaunchCheck>,
 }
 
 impl World {
@@ -127,6 +129,11 @@ impl World {
         } else {
             None
         }
+    }
+
+    /// Seat `seat`'s AI's check as its last wave went (the balance lab: `LaunchCheck`), if it has sent one.
+    pub fn ai_launch_check(&self, seat: u8) -> Option<crate::world::LaunchCheck> {
+        self.ai.get(seat as usize)?.as_ref()?.check
     }
 
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
@@ -186,6 +193,7 @@ impl World {
             last_base_at: 0.0,
             ready_since: None,
             staging: None,
+            check: None,
             sweep: 0,
             sweep_since: 0.0,
             ether_lean: false,

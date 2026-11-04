@@ -471,18 +471,34 @@ impl World {
     /// Never seen at all: it goes (today's rules). With full supply, or `all_in_after` seconds since its last wave,
     /// it goes with everything it has.
     fn strong_enough(&mut self, army: &[Id], t: f64) -> bool {
+        use crate::world::{LaunchCheck, LaunchWhy};
         let d = self.level();
+        let mine: f64 = army
+            .iter()
+            .filter_map(|&a| self.unit(a))
+            .filter(|u| u.kind.def().armed())
+            .map(|u| army_worth(u.kind))
+            .sum();
+        let go = |w: &mut World, why, expected| {
+            w.ai_mut().check = Some(LaunchCheck {
+                why,
+                mine,
+                expected,
+            });
+            true
+        };
         if d.wave_margin <= 0.0 {
-            return true;
+            return go(self, LaunchWhy::NoMargin, 0.0);
         }
         let since = *self.ai_mut().ready_since.get_or_insert(t);
         let seat = self.seat();
         if self.sup[seat as usize][0] >= SUPPLY_LIMIT || t - self.ai().last_wave > d.all_in_after {
-            return true;
+            let expected = self.ai().army_seen.0;
+            return go(self, LaunchWhy::AllIn, expected);
         }
         let (seen, when, mine_then) = self.ai().army_seen;
         if seen <= 0.0 {
-            return true;
+            return go(self, LaunchWhy::NeverSeen, 0.0);
         }
         let fresh = t - when <= d.sighting_age;
         if fresh {
@@ -519,13 +535,12 @@ impl World {
         };
         let fade = ((t - since) / d.margin_fade).clamp(0.0, 1.0);
         let margin = d.wave_margin + (1.0 - d.wave_margin) * fade;
-        let mine: f64 = army
-            .iter()
-            .filter_map(|&a| self.unit(a))
-            .filter(|u| u.kind.def().armed())
-            .map(|u| army_worth(u.kind))
-            .sum();
-        mine >= margin * expected
+        let why = if fresh {
+            LaunchWhy::Fresh
+        } else {
+            LaunchWhy::Stale
+        };
+        mine >= margin * expected && go(self, why, expected)
     }
 
     /// Where a wave gathers before it goes in (`Diff::stage`): `tiles` short of its goal on the way from its rally

@@ -152,9 +152,10 @@ fn a_researched_cloak_is_permanent_and_only_a_detector_finds_it() {
 
 #[test]
 fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
-    // A cloaked Raider of the player's shoots at the AI's harvesters before the AI's first scheduled Turret (4:00): the
-    // AI puts one up by them anyway. (This Raider cannot die and shoots whoever comes near, builders included, so the
-    // decision is what is checked, not the finished tower.)
+    // A cloaked Raider of the player's shoots at the AI's harvesters: the AI puts a Turret up by them, nearer the hit
+    // than its own schedule (the first from 2:30) puts one. Checked against the same minute played without the Raider
+    // (8.2 tiles from the hit against 10.9 for the scheduled one). (This Raider cannot die and shoots whoever comes
+    // near, builders included, so the decision is what is checked, not the finished tower.)
     let mut w = World::new(31, 1);
     // (after its Foundry and its second vent's Rig stand, as it raises two sites at a time; and a Turret's price in
     // the bank, which that vent's new crew has just spent)
@@ -162,18 +163,23 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let h = harvesters(&w, ENEMY)[0];
     let (hx, hy) = (U(&w, h).x, U(&w, h).y);
+    // (the same world, played the same way: the sim is deterministic)
+    let mut quiet = World::new(31, 1);
+    run(&mut quiet, 175);
+    quiet.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let raider = w.make_unit(UnitKind::Raider, PLAYER, hx + 40.0, hy);
     let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     (o.hp, o.maxhp) = (1e9, 1e9);
     w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
-    let turrets = |w: &World| {
+    // (the nearest Turret to the hit, in tiles; none: infinitely far)
+    let nearest = |w: &World| {
         w.bldgs
             .iter()
             .filter(|b| b.team == ENEMY && b.kind == BldgKind::Turret)
-            .count()
+            .map(|b| ((b.x - hx).powi(2) + (b.y - hy).powi(2)).sqrt() / TILE)
+            .fold(f64::INFINITY, f64::min)
     };
-    assert_eq!(turrets(&w), 0, "no Turret yet");
-    let mut raised = false;
+    assert_eq!(nearest(&w), f64::INFINITY, "no Turret yet");
     for _ in 0..60 {
         // (cloaked for good, it keeps shooting at a harvester near where it started)
         // (a miner: its workers now run from what hits them, and the one building the tower is not the target)
@@ -185,10 +191,15 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
             w.attack_ent(raider, t);
         }
         run(&mut w, 1);
-        raised |= turrets(&w) >= 1;
     }
-    assert!(w.time < 240.0, "still before the scheduled Turret");
-    assert!(raised, "the AI put up a Turret");
+    for _ in 0..60 {
+        run(&mut quiet, 1);
+    }
+    let (hit, unhit) = (nearest(&w), nearest(&quiet));
+    assert!(
+        hit < 10.0 && hit < unhit,
+        "a Turret by the hit ({hit:.1} tiles), nearer than the schedule's ({unhit:.1})"
+    );
 }
 
 #[test]

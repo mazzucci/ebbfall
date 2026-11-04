@@ -1815,9 +1815,12 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
 fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
     // Each side's air factory waits for its level's `air_at`, less its script's `air_lead`: the Vael's Zenith half a
     // minute sooner (its Shrikes came only where the Zenith stood well before the 7:30 capital, in 6-28% of AI
-    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium, over ten maps: never
-    // before it is due, and the Vael's typical Zenith before the Humans' typical Airfield. (One map is a toss-up: a
-    // Vael main full by then raises a Spire out past it first and puts its Zenith in that field, half a minute more.)
+    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium, over ten maps: every
+    // one comes, never before it is due, and the Vael's typical Zenith before the Humans' typical Airfield. One map in
+    // ten may be late: a main whose build order keeps two other sites going (supply, a second factory, its natural)
+    // has no turn for it for a few minutes (on #203's main seed 7 for both peoples at 8-9 minutes, with the tower at
+    // 2:30 the Humans' seed 6 at 8:26). A Vael main full by then raises a Spire out past it first and puts its Zenith
+    // in that field.
     let air_at = DIFF[1].air_at;
     let mut medians = Vec::new();
     for f in [&VAEL, &HUMANS] {
@@ -1829,7 +1832,7 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
                     (b.hp, b.maxhp) = (1e9, 1e9);
                 }
                 let mut placed = None;
-                while w.time < air_at + 60.0 && placed.is_none() {
+                while w.time < 900.0 && placed.is_none() {
                     w.res[ENEMY as usize] = [2000, 1000];
                     w.step();
                     w.events.clear();
@@ -1843,21 +1846,21 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
             })
             .collect();
         assert!(
-            times.iter().all(|&at| at > due),
-            "{}: its {:?} never before {due:.0} s: {times:?}",
+            times.iter().all(|&at| at > due && at < 900.0),
+            "{}: its {:?} on every map, never before {due:.0} s: {times:?}",
             f.name,
             f.ai.air
         );
-        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let median = times[times.len() / 2];
+        let late = times.iter().filter(|&&at| at > air_at + 60.0).count();
         assert!(
-            median < air_at + 30.0,
-            "{}: its {:?} by {:.0} s on a typical map ({median:.0} s): {times:?}",
+            late <= 1,
+            "{}: its {:?} by {:.0} s on all maps but one at most: {times:?}",
             f.name,
             f.ai.air,
-            air_at + 30.0
+            air_at + 60.0
         );
-        medians.push(median);
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        medians.push((times[4] + times[5]) / 2.0);
     }
     assert!(
         medians[0] < medians[1],

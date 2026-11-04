@@ -1815,42 +1815,55 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
 fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
     // Each side's air factory waits for its level's `air_at`, less its script's `air_lead`: the Vael's Zenith half a
     // minute sooner (its Shrikes came only where the Zenith stood well before the 7:30 capital, in 6-28% of AI
-    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium. A Vael main full by
-    // then raises a Spire out past it first and puts its Zenith in that field (half a minute more): it is still due no
-    // sooner than its lead allows, and it still comes before the Humans' Airfield.
+    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium, over ten maps: never
+    // before it is due, and the Vael's typical Zenith before the Humans' typical Airfield. (One map is a toss-up: a
+    // Vael main full by then raises a Spire out past it first and puts its Zenith in that field, half a minute more.)
     let air_at = DIFF[1].air_at;
-    let mut times = Vec::new();
+    let mut medians = Vec::new();
     for f in [&VAEL, &HUMANS] {
-        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);
-        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
-            (b.hp, b.maxhp) = (1e9, 1e9);
-        }
-        let mut placed = None;
-        while w.time < air_at + 30.0 && placed.is_none() {
-            w.res[ENEMY as usize] = [2000, 1000];
-            w.step();
-            w.events.clear();
-            placed = w
-                .bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.kind == f.ai.air)
-                .then_some(w.time);
-        }
-        let at = placed.unwrap_or(f64::MAX);
         let due = air_at - f.ai.air_lead;
+        let mut times: Vec<f64> = (1..=10u32)
+            .map(|seed| {
+                let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, f]);
+                for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+                    (b.hp, b.maxhp) = (1e9, 1e9);
+                }
+                let mut placed = None;
+                while w.time < air_at + 60.0 && placed.is_none() {
+                    w.res[ENEMY as usize] = [2000, 1000];
+                    w.step();
+                    w.events.clear();
+                    placed = w
+                        .bldgs
+                        .iter()
+                        .any(|b| b.team == ENEMY && b.kind == f.ai.air)
+                        .then_some(w.time);
+                }
+                placed.unwrap_or(f64::MAX)
+            })
+            .collect();
         assert!(
-            at > due && at < air_at + 30.0,
-            "{}: its {:?} at {at:.0} s, due after {due:.0} s",
+            times.iter().all(|&at| at > due),
+            "{}: its {:?} never before {due:.0} s: {times:?}",
             f.name,
             f.ai.air
         );
-        times.push(at);
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median = times[times.len() / 2];
+        assert!(
+            median < air_at + 30.0,
+            "{}: its {:?} by {:.0} s on a typical map ({median:.0} s): {times:?}",
+            f.name,
+            f.ai.air,
+            air_at + 30.0
+        );
+        medians.push(median);
     }
     assert!(
-        times[0] < times[1],
-        "the Vael's Zenith ({:.0} s) before the Humans' Airfield ({:.0} s)",
-        times[0],
-        times[1]
+        medians[0] < medians[1],
+        "the Vael's Zenith ({:.0} s) before the Humans' Airfield ({:.0} s) on a typical map",
+        medians[0],
+        medians[1]
     );
     const { assert!(VAEL.ai.air_lead > HUMANS.ai.air_lead) };
 }
@@ -1980,4 +1993,36 @@ fn the_human_ai_raises_its_airfield_and_an_observer_once_an_umbra_hits_it() {
         "the Airfield before its schedule ({placed:.0} s)"
     );
     assert!(observer.is_some(), "an Observer by 8:00");
+}
+
+#[test]
+fn the_ai_raises_its_first_tower_at_two_and_a_half_minutes() {
+    // Its first defence tower (a Turret, a Ward) once its first factory stands and from 2:30 (it was 4:00): an early
+    // wave found nothing at home but a few units (on the Shore map, where the routes are shorter, the Humans lost about
+    // three harvesters by 5:00 and won 14 of 40 at Medium; with the tower at 2:30, 1.6 and 17). Money to spare,
+    // against an idle player, on Medium.
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let mut placed = None;
+        while w.time < 300.0 && placed.is_none() {
+            w.res[ENEMY as usize] = [2000, 1000];
+            w.step();
+            w.events.clear();
+            placed = w
+                .bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == f.ai.tower)
+                .then_some(w.time);
+        }
+        let at = placed.unwrap_or(f64::MAX);
+        assert!(
+            at > 150.0 && at < 240.0,
+            "{}: its first {:?} at {at:.0} s (from 150 s, before the old 240 s)",
+            f.name,
+            f.ai.tower
+        );
+    }
 }

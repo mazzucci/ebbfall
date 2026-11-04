@@ -27,6 +27,8 @@ pub struct TurtleBatch {
     /// The attacker's income multiplier (`Diff::income`; None: plain Medium's): the ceiling test, whether more income
     /// alone breaks the turtle.
     pub attacker_income: Option<f64>,
+    /// The attacker's `Diff::fog_factor` (None: its level's).
+    pub attacker_fog: Option<f64>,
     /// The weak turtle (`weak_turtle`; the gate's newcomers row): Easy's economy, no expansion.
     pub weak: bool,
 }
@@ -39,6 +41,7 @@ impl TurtleBatch {
             cap_min: 30,
             raids: false,
             attacker_income: None,
+            attacker_fog: None,
             weak: false,
         }
     }
@@ -93,10 +96,12 @@ impl Cell {
         let (raids, attacker_income) = (b.raids, b.attacker_income);
         let mut plans = [None, None];
         plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
-        plans[1 - self.turtle] = attacker_income.map(|income| Diff {
-            income,
-            ..DIFF[BASE]
-        });
+        plans[1 - self.turtle] =
+            (attacker_income.is_some() || b.attacker_fog.is_some()).then(|| Diff {
+                income: attacker_income.unwrap_or(DIFF[BASE].income),
+                fog_factor: b.attacker_fog.unwrap_or(DIFF[BASE].fog_factor),
+                ..DIFF[BASE]
+            });
         plans
     }
 }
@@ -404,6 +409,7 @@ impl TurtleRun {
                     .with("cap_min", self.batch.cap_min)
                     .with("raids", self.batch.raids)
                     .with("attacker_income", self.batch.attacker_income)
+                    .with("attacker_fog", self.batch.attacker_fog)
                     .with("weak", self.batch.weak),
             )
             .with("rows", rows)
@@ -600,6 +606,7 @@ mod tests {
             cap_min: 2,
             raids: false,
             attacker_income: None,
+            attacker_fog: None,
             weak: false,
         };
         let c = cells(&b);

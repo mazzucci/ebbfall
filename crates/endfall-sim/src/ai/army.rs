@@ -532,6 +532,7 @@ impl World {
                 }
             }
         }
+        let seen = seen * d.fog_factor;
         let expected = if fresh {
             seen
         } else {
@@ -972,6 +973,23 @@ mod tests {
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "ten against seven: it goes");
         assert_eq!(w.ai().ready_since, None);
+        // with a fog factor of 1.5 it expects seven seen to be ten and a half: ten is not 1.3 times that
+        let foggy = Diff {
+            fog_factor: 1.5,
+            reserve: 0.0,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        };
+        let (mut w, _, mut b) = ready_with(1, foggy);
+        w.ai_mut().army_seen = (7.0 * trooper(), 395.0, 0.0);
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking, "seven seen in the fog: it waits");
+        w.ai_mut().army_seen = (5.0 * trooper(), 399.0, 0.0);
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().attacking,
+            "five seen, seven and a half expected: it goes"
+        );
         // never seen anything: today's rules, it goes
         let (mut w, _, mut b) = ready(1);
         w.ai_army(&mut b);

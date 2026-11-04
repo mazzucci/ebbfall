@@ -70,6 +70,8 @@ pub struct Diff {
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
+    /// What it sees of an army is a part of it (fog hides the rest): it expects this many times its sighting.
+    pub fog_factor: f64,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -113,6 +115,7 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 2,
         reserve: 0.0,
         retreat_below: 0.0,
+        fog_factor: 1.0,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -151,6 +154,7 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        fog_factor: 1.0,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -188,6 +192,7 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        fog_factor: 1.0,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -229,5 +234,6 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        fog_factor: 1.0,
     },
 ];

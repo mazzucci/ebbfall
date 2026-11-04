@@ -27,6 +27,8 @@ pub struct TurtleBatch {
     /// The attacker's income multiplier (`Diff::income`; None: plain Medium's): the ceiling test, whether more income
     /// alone breaks the turtle.
     pub attacker_income: Option<f64>,
+    /// The weak turtle (`weak_turtle`; the gate's newcomers row): Easy's economy, no expansion.
+    pub weak: bool,
 }
 
 impl TurtleBatch {
@@ -37,6 +39,7 @@ impl TurtleBatch {
             cap_min: 30,
             raids: false,
             attacker_income: None,
+            weak: false,
         }
     }
 }
@@ -48,6 +51,24 @@ pub fn turtle(raids: bool) -> Diff {
         first: NEVER,
         raids: raids && DIFF[BASE].raids,
         ..DIFF[BASE]
+    }
+}
+
+/// The weak turtle (PRD: the AI breaks a defence, the gate's newcomers row): the turtle on Easy's economy (its
+/// workers, factories and income) that never takes a second base; it still builds its towers and defends.
+pub fn weak_turtle() -> Diff {
+    let easy = DIFF[0];
+    Diff {
+        income: easy.income,
+        harv: easy.harv,
+        rax: easy.rax,
+        extra_rax: easy.extra_rax,
+        vents_from: easy.vents_from,
+        expand_at: NEVER,
+        expands_when_dry: false,
+        passive_expand: NEVER,
+        max_bases: 1,
+        ..turtle(false)
     }
 }
 
@@ -68,9 +89,10 @@ impl Cell {
     }
     /// Each seat's plan: the turtle's on its seat, plain Medium (no plan) on the other, or Medium with
     /// `attacker_income` for its income.
-    fn plans(&self, raids: bool, attacker_income: Option<f64>) -> [Option<Diff>; 2] {
+    fn plans(&self, b: &TurtleBatch) -> [Option<Diff>; 2] {
+        let (raids, attacker_income) = (b.raids, b.attacker_income);
         let mut plans = [None, None];
-        plans[self.turtle] = Some(turtle(raids));
+        plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
         plans[1 - self.turtle] = attacker_income.map(|income| Diff {
             income,
             ..DIFF[BASE]
@@ -117,20 +139,11 @@ pub fn run(
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> TurtleRun {
     let cells = cells(&batch);
-    let (cap, raids, income) = (batch.cap_min, batch.raids, batch.attacker_income);
+    let cap = batch.cap_min;
     let (mut games, mut waves, mut mins) = (vec![], vec![], vec![]);
     let played = play_jobs(
         &cells,
-        |c| {
-            play_watched(
-                c.map,
-                c.pairing,
-                c.map_seed,
-                c.plans(raids, income),
-                cap,
-                false,
-            )
-        },
+        |c| play_watched(c.map, c.pairing, c.map_seed, c.plans(&batch), cap, false),
         threads,
         progress,
     );
@@ -390,7 +403,8 @@ impl TurtleRun {
                     .with("seeds", self.batch.seeds)
                     .with("cap_min", self.batch.cap_min)
                     .with("raids", self.batch.raids)
-                    .with("attacker_income", self.batch.attacker_income),
+                    .with("attacker_income", self.batch.attacker_income)
+                    .with("weak", self.batch.weak),
             )
             .with("rows", rows)
             .with(
@@ -413,7 +427,13 @@ impl TurtleRun {
     pub fn markdown(&self, header: &str) -> String {
         let mut s = format!(
             "# The turtle{}\n\n{header}\n\nA Medium AI seat that never launches a wave (Medium's tuning, `first` = never{}; it still builds, defends and expands) against plain Medium, each pairing of the peoples with the turtle in either seat, map seeds 1 to {}. A timeout counts as not lost. The tide's gate wants a turtle to lose over 70%; this is the baseline before the tide.\n\n| Turtle | Games | Turtle lost (95%) | Turtle won | Timeouts | Median length of a loss |\n| --- | --- | --- | --- | --- | --- |\n",
-            if self.batch.raids { " that raids" } else { "" },
+            if self.batch.raids {
+                " that raids"
+            } else if self.batch.weak {
+                ": the weak one (Easy's economy, one base)"
+            } else {
+                ""
+            },
             if self.batch.raids {
                 ", keeping Medium's raids: its flyers hunt the enemy's workers"
             } else {
@@ -476,13 +496,32 @@ mod tests {
     }
 
     #[test]
+    fn the_weak_turtle_has_easys_economy_on_one_base_and_never_attacks() {
+        let w = weak_turtle();
+        assert_eq!(
+            (w.harv, w.rax, w.income),
+            (DIFF[0].harv, DIFF[0].rax, DIFF[0].income)
+        );
+        assert_eq!(
+            (w.expand_at, w.passive_expand, w.max_bases),
+            (NEVER, NEVER, 1)
+        );
+        assert!(!w.expands_when_dry && !w.raids);
+        assert_eq!(w.first, NEVER, "it never attacks");
+    }
+
+    #[test]
     fn the_turtle_plays_its_own_seat_against_plain_medium() {
         let b = TurtleBatch::default_batch();
         for c in cells(&b) {
-            let p = c.plans(false, None);
+            let p = c.plans(&b);
             assert_eq!(p[c.turtle], Some(turtle(false)));
             assert_eq!(p[1 - c.turtle], None, "the other seat plays its level");
-            let rich = c.plans(false, Some(1.3))[1 - c.turtle].expect("the attacker's plan");
+            let rich = TurtleBatch {
+                attacker_income: Some(1.3),
+                ..b.clone()
+            };
+            let rich = c.plans(&rich)[1 - c.turtle].expect("the attacker's plan");
             assert_eq!(
                 rich.income, 1.3,
                 "the ceiling test: Medium with more income"
@@ -561,6 +600,7 @@ mod tests {
             cap_min: 2,
             raids: false,
             attacker_income: None,
+            weak: false,
         };
         let c = cells(&b);
         assert_eq!(c.len(), 8, "four seatings, the turtle in either seat");

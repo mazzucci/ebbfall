@@ -51,7 +51,7 @@ fn today() -> String {
 fn die(msg: &str) -> ! {
     eprintln!(
         "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--attacker-income X] [--cap MIN] [--threads N] [--out FILE]"
+       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--weak] [--attacker-income X] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -299,6 +299,7 @@ fn turtle(args: &[String]) {
             "--maps" => batch.maps = val().split(',').map(parse_map).collect(),
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
             "--raids" => batch.raids = true,
+            "--weak" => batch.weak = true,
             "--attacker-income" => {
                 batch.attacker_income =
                     Some(val().parse().unwrap_or_else(|_| die("--attacker-income X")))
@@ -325,6 +326,8 @@ fn turtle(args: &[String]) {
     let secs = t0.elapsed().as_secs_f64();
     let kind = if batch.raids {
         "turtle-raids"
+    } else if batch.weak {
+        "turtle-weak"
     } else {
         "turtle"
     };

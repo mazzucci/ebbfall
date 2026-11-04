@@ -7,6 +7,8 @@ use super::*;
 /// expansion.
 const SECOND_PRONG_GAP: f64 = 15.0 * TILE;
 const GUARDS: usize = 3;
+/// A wave sizes up what it meets within this many px of its units (`Diff::retreat_below`).
+const CONTACT_NEAR: f64 = 8.0 * TILE;
 /// An enemy detector within this many px of an enemy fighter goes with the enemy's army.
 const DETECTOR_WITH_ARMY: f64 = 8.0 * TILE;
 
@@ -293,6 +295,8 @@ impl World {
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
         let army = self.tend_guards(army);
+        // The home reserve stays out of them as well.
+        let army = self.tend_reserve(army, rally);
 
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
@@ -543,6 +547,108 @@ impl World {
         mine >= margin * expected && go(self, why, expected)
     }
 
+    /// The home reserve (`Diff::reserve`): fighters at home worth that share of its whole army (those already in it
+    /// first, then the cheapest; walking fighters that hit the ground, none out with a wave), back at the rally when
+    /// idle away from it. None at full supply: then everything goes. Returns the rest of the army.
+    fn tend_reserve(&mut self, army: Vec<Id>, rally: Pt) -> Vec<Id> {
+        let seat = self.seat();
+        let share = self.level().reserve;
+        if share <= 0.0 || self.sup[seat as usize][0] >= SUPPLY_LIMIT {
+            self.ai_mut().reserve.clear();
+            return army;
+        }
+        let target = share * self.own_army_worth(seat);
+        let out = self.ai().attackers.clone().unwrap_or_default();
+        let fits = |w: &World, a: Id| {
+            let d = w.u(a).kind.def();
+            !out.contains(&a) && d.armed() && Self::hits_of(w.u(a).kind).0 && !d.air && !d.capital
+        };
+        let kept: Vec<Id> = self
+            .ai()
+            .reserve
+            .iter()
+            .copied()
+            .filter(|a| army.contains(a) && fits(self, *a))
+            .collect();
+        let mut free: Vec<Id> = army
+            .iter()
+            .copied()
+            .filter(|a| !kept.contains(a) && fits(self, *a))
+            .collect();
+        free.sort_by(|&p, &q| {
+            army_worth(self.u(p).kind)
+                .total_cmp(&army_worth(self.u(q).kind))
+                .then(p.cmp(&q))
+        });
+        let mut reserve = vec![];
+        let mut held = 0.0;
+        for a in kept.into_iter().chain(free) {
+            if held >= target {
+                break;
+            }
+            held += army_worth(self.u(a).kind);
+            reserve.push(a);
+        }
+        for &a in &reserve {
+            let u = self.u(a);
+            if u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
+            }
+        }
+        self.ai_mut().reserve = reserve.clone();
+        army.into_iter().filter(|a| !reserve.contains(a)).collect()
+    }
+
+    /// Whether a wave out is outmatched (`Diff::retreat_below`): its armed units' worth under that many times the
+    /// worth of the enemy's armed units (workers left out) and working armed buildings it sees within `CONTACT_NEAR`
+    /// of one of them.
+    fn outmatched(&self, alive: &[Id]) -> bool {
+        let below = self.level().retreat_below;
+        if below <= 0.0 {
+            return false;
+        }
+        let ours: Vec<(f64, f64)> = alive.iter().map(|&a| (self.u(a).x, self.u(a).y)).collect();
+        let near = |x: f64, y: f64| {
+            ours.iter()
+                .any(|&(ux, uy)| dist(ux, uy, x, y) < CONTACT_NEAR)
+        };
+        let theirs: f64 = self
+            .units
+            .iter()
+            .filter(|u| self.hostile(u.team) && !u.kind.def().worker && u.kind.def().armed())
+            .filter(|u| self.ai_sees_unit(u) && near(u.x, u.y))
+            .map(|u| army_worth(u.kind))
+            .sum::<f64>()
+            + self
+                .bldgs
+                .iter()
+                .filter(|b| {
+                    let d = b.kind.def();
+                    self.hostile(b.team)
+                        && b.done
+                        && d.weapon.is_some()
+                        && (b.powered || !d.needs_power)
+                        && self.ai_sees(b.x, b.y)
+                        && near(b.x, b.y)
+                })
+                .map(|b| {
+                    let c = b.kind.def().cost;
+                    c[0] as f64 + ARMY_ETHER_WORTH * c[1] as f64
+                })
+                .sum::<f64>();
+        if theirs <= 0.0 {
+            return false;
+        }
+        let mine: f64 = alive
+            .iter()
+            .filter(|&&a| self.u(a).kind.def().armed())
+            .map(|&a| army_worth(self.u(a).kind))
+            .sum();
+        mine < below * theirs
+    }
+
     /// Where a wave gathers before it goes in (`Diff::stage`): `tiles` short of its goal on the way from its rally
     /// point, on ground a walker may stand on; None when its rally point is that close to the goal already.
     fn stage_point(&self, (gx, gy): (f64, f64), tiles: f64) -> Option<(f64, f64)> {
@@ -667,6 +773,18 @@ impl World {
             ai.attacking = false;
             ai.attackers = None;
             ai.last_wave = t;
+        } else if self.outmatched(&alive) {
+            // Outmatched on contact: back to its rally, where its reserve and towers meet whoever chases it.
+            for a in alive {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
+            }
+            let ai = self.ai_mut();
+            ai.attacking = false;
+            ai.attackers = None;
+            ai.staging = None;
+            ai.last_wave = t;
         } else if let Some((sx, sy, since)) = self.ai().staging {
             // Gathering: in together once most of the main body is at the staging point (or it waited long enough);
             // until then its idle units walk there.
@@ -784,8 +902,17 @@ mod tests {
     }
 
     /// Seat 1's AI at `level` on a 64x64 duel, ten Troopers at home and its wave ready by count and time (t 400, its
-    /// last wave at 300): the world, its army and its brain.
+    /// last wave at 300): the world, its army and its brain. Its tuning is its level's without a home reserve or a
+    /// retreat on contact (the scenes of those set their own: `ready_with`).
     fn ready(level: usize) -> (World, Vec<Id>, Brain) {
+        let plan = Diff {
+            reserve: 0.0,
+            retreat_below: 0.0,
+            ..DIFF[level]
+        };
+        ready_with(level, plan)
+    }
+    fn ready_with(level: usize, plan: Diff) -> (World, Vec<Id>, Brain) {
         let mut w = World::with_size(
             5,
             level,
@@ -794,6 +921,7 @@ mod tests {
             0,
             &[&HUMANS, &HUMANS],
         );
+        assert!(w.set_ai_plans(&[None, Some(plan)]));
         w.ai_turn = 1;
         let (bx, by) = w.map.bases[1];
         let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
@@ -902,6 +1030,8 @@ mod tests {
         let plan = |fade: f64, all_in: f64| Diff {
             margin_fade: fade,
             all_in_after: all_in,
+            reserve: 0.0,
+            retreat_below: 0.0,
             ..DIFF[1]
         };
         let (mut w, _, mut b) = ready(1);
@@ -934,6 +1064,120 @@ mod tests {
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "Easy does not wait for strength");
         assert!(w.ai().staging.is_none(), "nor gather");
+    }
+
+    #[test]
+    fn a_home_reserve_of_its_cheapest_fighters_stays_at_the_rally() {
+        // Medium's reserve, a quarter of its army's worth: of ten Troopers (and a Vanguard, pricier), three Troopers
+        // stay home as the wave goes; the Vanguard goes with the wave.
+        let (mut w, army, mut b) = ready_with(1, DIFF[1]);
+        let (hx, hy) = (b.rally.x, b.rally.y);
+        let tank = w.make_unit(UnitKind::Vanguard, 1, hx + 60.0, hy + 140.0);
+        b.army.push(tank);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "the wave goes");
+        let reserve = w.ai().reserve.clone();
+        let total = 10.0 * trooper() + super::army_worth(UnitKind::Vanguard);
+        let held: f64 = reserve
+            .iter()
+            .map(|&a| super::army_worth(w.u(a).kind))
+            .sum();
+        assert!(
+            held >= 0.25 * total && held - trooper() < 0.25 * total,
+            "a quarter of its worth, no more than one unit over: {held} of {total}"
+        );
+        assert!(
+            reserve.iter().all(|a| army.contains(a)),
+            "Troopers, the cheapest"
+        );
+        let wave = w.ai().attackers.clone().unwrap();
+        assert!(wave.contains(&tank), "the Vanguard goes");
+        assert!(
+            reserve.iter().all(|a| !wave.contains(a)),
+            "the reserve stays out of it"
+        );
+        assert!(
+            reserve
+                .iter()
+                .all(|&a| !matches!(w.u(a).task, Task::AMove { .. }))
+        );
+        // a reserve unit that wandered off walks back to the rally
+        let r = reserve[0];
+        (w.um(r).x, w.um(r).y) = (hx + 400.0, hy);
+        b.t = 410.0;
+        w.ai_army(&mut b);
+        assert_eq!(w.ai().reserve[0], r, "the same units stay in it");
+        assert!(
+            matches!(w.u(r).task, Task::Move { x, .. } if (x - hx).abs() < 100.0),
+            "back to the rally"
+        );
+        // at full supply everything goes: the next wave takes the reserve too
+        let (mut w, army, mut b) = ready_with(1, DIFF[1]);
+        w.sup[1][0] = SUPPLY_LIMIT;
+        w.ai_army(&mut b);
+        assert!(w.ai().reserve.is_empty());
+        assert_eq!(
+            w.ai().attackers.as_ref().unwrap().len(),
+            army.len(),
+            "all in"
+        );
+        // Easy keeps none
+        let (mut w, _, mut b) = ready_with(0, DIFF[0]);
+        w.ai_mut().wave = 4;
+        w.ai_army(&mut b);
+        assert!(w.ai().reserve.is_empty(), "Easy keeps no reserve");
+    }
+
+    #[test]
+    fn an_outmatched_wave_pulls_back_to_its_rally_on_contact() {
+        // A wave of ten Troopers out, with no reserve (to count only the wave): it meets what it sees near it.
+        let scene = |enemies: usize| {
+            let (mut w, army, mut b) = ready_with(
+                1,
+                Diff {
+                    reserve: 0.0,
+                    ..DIFF[1]
+                },
+            );
+            w.ai_army(&mut b);
+            assert!(w.ai().attacking);
+            w.ai_mut().staging = None;
+            // the wave halfway across, the foe's Troopers in front of it
+            let (gx, gy) = w.attack_target();
+            let (mx, my) = ((b.rally.x + gx) / 2.0, (b.rally.y + gy) / 2.0);
+            for (i, &a) in army.iter().enumerate() {
+                let u = w.um(a);
+                (u.x, u.y) = (mx + (i % 5) as f64 * 20.0, my + (i / 5) as f64 * 20.0);
+                u.task = Task::Idle;
+            }
+            for i in 0..enemies {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    0,
+                    mx + 120.0 + (i % 5) as f64 * 20.0,
+                    my + (i / 5) as f64 * 20.0,
+                );
+            }
+            w.update_fog();
+            b.t = 420.0;
+            w.ai_army(&mut b);
+            (w, army, b)
+        };
+        // ten against seven: it fights on
+        let (w, _, _) = scene(7);
+        assert!(w.ai().attacking, "ahead: it fights on");
+        // ten against fourteen: back to its rally, the wave over (the next waits its gap)
+        let (w, army, b) = scene(14);
+        assert!(!w.ai().attacking, "outmatched: it pulls back");
+        assert_eq!(w.ai().last_wave, 420.0);
+        for &a in &army {
+            assert!(
+                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, b.rally.x, b.rally.y) < 100.0),
+                "to its rally"
+            );
+        }
+        // Easy never retreats
+        assert_eq!(DIFF[0].retreat_below, 0.0);
     }
 
     #[test]

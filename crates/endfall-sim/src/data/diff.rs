@@ -64,6 +64,12 @@ pub struct Diff {
     /// seconds (NEVER: never), it takes another base, at most `max_bases` in all.
     pub passive_expand: f64,
     pub max_bases: usize,
+    /// A home reserve: this share of its army's worth (its cheapest fighters) never goes out with a wave; it stays
+    /// at the rally and defends (0: none). At full supply the reserve goes all in too.
+    pub reserve: f64,
+    /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
+    /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
+    pub retreat_below: f64,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -105,6 +111,8 @@ pub const DIFF: [Diff; 4] = [
         stage_wait: 30.0,
         passive_expand: NEVER,
         max_bases: 2,
+        reserve: 0.0,
+        retreat_below: 0.0,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -141,6 +149,8 @@ pub const DIFF: [Diff; 4] = [
         stage_wait: 30.0,
         passive_expand: 180.0,
         max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -176,6 +186,8 @@ pub const DIFF: [Diff; 4] = [
         stage_wait: 30.0,
         passive_expand: 180.0,
         max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -215,5 +227,7 @@ pub const DIFF: [Diff; 4] = [
         stage_wait: 30.0,
         passive_expand: 180.0,
         max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
     },
 ];

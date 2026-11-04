@@ -131,7 +131,7 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
                 let r =
                     ((n.tx as f64 + 0.5 - p.0).powi(2) + (n.ty as f64 + 0.5 - p.1).powi(2)).sqrt();
                 assert!(
-                    !(7.5..10.5).contains(&r),
+                    !(9.5..12.5).contains(&r),
                     "seed {seed}: a field at ({}, {}) on the reef ({r:.1} from a basin's middle)",
                     n.tx,
                     n.ty
@@ -157,12 +157,17 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
                 "seed {seed}: a start's field and vents at {b:?}"
             );
         }
-        // The distances (PRD, the Shore map: cove to the facing basin about 42, cove to cove about 62; the basins
-        // turned from the coves for a passage beside each reef: 39).
+        // The distances in a straight line (PRD, the Shore map: cove to cove about 62; the basins 20 tiles from the
+        // centre since the first Shore report, 2026-11-04, so a basin's first wave does not decide the game: cove to
+        // the facing basin 43.7, about 46 to walk or swim, basin to basin 40.5, 38 at least, the PM's bar).
         let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
         assert!(
-            (37.0..44.0).contains(&d(mid(m.bases[0]), mid(m.basins[1]))),
+            (42.0..46.0).contains(&d(mid(m.bases[0]), mid(m.basins[1]))),
             "seed {seed}: cove to facing basin"
+        );
+        assert!(
+            d(mid(m.basins[0]), mid(m.basins[1])) >= 38.0,
+            "seed {seed}: basin to basin"
         );
         assert!(
             (58.0..66.0).contains(&d(mid(m.bases[0]), mid(m.bases[1]))),

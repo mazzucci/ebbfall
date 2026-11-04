@@ -195,7 +195,7 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
 
 /// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
 /// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
-const EXPECTED_SHORE_AI: [u32; 3] = [1772104038, 518564729, 2586963653];
+const EXPECTED_SHORE_AI: [u32; 3] = [2934490836, 1022996604, 839880214];
 
 #[test]
 fn golden_hashes_pin_the_shore() {

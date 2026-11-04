@@ -268,15 +268,16 @@ impl Sym {
 
 /// A main base's pocket: the ring of rock around it starts this many tiles from the Core's centre (2 thick).
 const POCKET_R: f64 = 12.0;
-/// The Shore map: a reef basin's middle lies this many tiles from the centre; its reef ring's inner radius; the deep
-/// band's half-width round the axis between the two basins, and the shallows beyond it; the heights of shallows and of
-/// deep water (at the water level 0: `Map::ground`).
-const SHORE_BASIN: f64 = 14.0;
+/// The Shore map: a reef basin's middle lies this many tiles from the centre (20, not 14, since the first Shore report:
+/// basins 28 apart and 40 from a cove made the first wave decide every game); its reef ring's inner radius (10: room
+/// for a main's field and vents); the deep band's half-width round the axis between the two basins, and the shallows
+/// beyond it; the heights of shallows and of deep water (at the water level 0: `Map::ground`).
+const SHORE_BASIN: f64 = 20.0;
 /// How far (degrees) a reef basin is turned from straight south (or north) of the centre, away from its own cove.
 const SHORE_TURN: f64 = 20.0;
 /// The Shore map's rock threshold (noise above it is rock; higher is more open), raised until a walker connects.
 const SHORE_ROCK: f64 = 0.74;
-const SHORE_REEF: f64 = 8.0;
+const SHORE_REEF: f64 = 10.0;
 const SHORE_DEEP: f64 = 6.0;
 const SHORE_SHALLOWS: f64 = 4.0;
 const SHORE_SHALLOW_H: i8 = 0;
@@ -697,7 +698,7 @@ impl Map {
                 && d(p, sym.point(1, p)) > 12.0
                 && axis(p.0, p.1) > SHORE_DEEP + SHORE_SHALLOWS + 3.0
                 // (clear of the reefs by more than an expansion's vents reach: 7.5 tiles round its middle)
-                && pool(p.0, p.1) > SHORE_REEF + 1.5 + 7.5 + 1.0
+                && pool(p.0, p.1) > SHORE_REEF + 1.5 + 7.5
                 && sites
                     .iter()
                     .all(|&q| (0..2).all(|g| d(sym.point(g, p), q) > 11.0));
@@ -853,16 +854,18 @@ impl Map {
     }
 
     /// A reef basin's field and two vents, and their images in the other share: an arc of crystals behind the Core
-    /// (away from the channel), a vent to either side of it.
+    /// (away from the channel), a vent to either side of it. A main's field (seven crystals 6.5 tiles out, the vents
+    /// 8 out, as a cove's), not an expansion's: the smaller, nearer one mined faster and ran low, so a Vael start
+    /// expanded two minutes early (the first Shore report).
     fn place_basin_fields(&mut self, next_id: &mut Id, sym: Sym, p0: (f64, f64), channel: f64) {
         let back = channel + PI;
-        let field = self.add_shards(next_id, p0.0, p0.1, back, 5, 4.5);
+        let field = self.add_shards(next_id, p0.0, p0.1, back, 7, 6.5);
         let img: Vec<(i32, i32)> = field.iter().map(|&t| sym.tile(1, t)).collect();
         self.add_shards_at(next_id, &img);
         for hand in [1.0, -1.0] {
             let fit = (0..=10).find_map(|i| {
                 let a = back + hand * (80.0 + 6.0 * i as f64) * PI / 180.0;
-                [6.0, 5.5, 6.5, 5.0].into_iter().find_map(|r| {
+                [8.0, 7.5, 8.5, 7.0].into_iter().find_map(|r| {
                     let v = (
                         jsmath::round(p0.0 + jsmath::cos(a) * r) as i32 - 1,
                         jsmath::round(p0.1 + jsmath::sin(a) * r) as i32 - 1,

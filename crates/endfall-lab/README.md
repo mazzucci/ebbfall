@@ -14,7 +14,7 @@ npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<comm
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
-npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~6 min)
+npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 ```
 
 ### `report`
@@ -190,10 +190,12 @@ A miss is a finding. Several big misses mean the framework needs checking before
 
 ### `turtle`
 
-A Medium AI seat that never launches a wave (Medium's tuning with `first` = never: it still builds, defends and
-expands) against plain Medium, for the tide's gate (PRD: the tide on the Shore map, R8: a turtling bot must lose
+A Medium AI seat that never attacks (Medium's tuning with `first` = never, so no wave launches, and no raids, since
+Medium's flyers otherwise hunt the enemy's workers whatever the waves; it still builds, defends and expands) against
+plain Medium, for the tide's gate (PRD: the tide on the Shore map, R8: a turtling bot must lose
 over 70%). Every pairing of the peoples, the turtle in either seat, map seeds 1 to `--seeds` in every cell: 8 cells a
 map. A timeout counts as not lost. The report gives the turtle's loss rate with its 95% interval per pairing and seat,
 per pairing, per map and in all, with its wins, the timeouts and the median length of a game it lost. Flags:
-`--seeds N` (25), `--maps` (Shore), `--cap MIN` (30), `--threads N`, `--out FILE`. A turtle that does not lose
+`--seeds N` (25), `--maps` (Shore), `--raids` (the turtle keeps Medium's raids: `first` = never alone, the PRD's
+letter), `--cap MIN` (30), `--threads N`, `--out FILE`. A turtle that does not lose
 before the tide is Medium's weakness, not the tide's.

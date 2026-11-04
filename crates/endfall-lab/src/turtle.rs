@@ -1,7 +1,8 @@
-//! `turtle`: a Medium AI seat that never launches a wave (its plan: Medium's tuning with `first` = never) against
-//! plain Medium (PRD: the tide on the Shore map, R8). Every pairing of the peoples, the turtle in either seat, the
-//! same map seeds in every cell. A turtle that does not lose is Medium's weakness, before any tide: the tide's
-//! "a turtling bot loses over 70%" row is read against this baseline.
+//! `turtle`: a Medium AI seat that never attacks against plain Medium (PRD: the tide on the Shore map, R8). Its plan
+//! is Medium's tuning with `first` = never (no wave ever launches) and no raids (Medium's flyers otherwise hunt the
+//! enemy's workers whatever the waves); `--raids` keeps the raids, the PRD's letter (`first` = never alone). Every
+//! pairing of the peoples, the turtle in either seat, the same map seeds in every cell. A turtle that does not lose is
+//! Medium's weakness, before any tide: the tide's "a turtling bot loses over 70%" row is read against this baseline.
 
 use crate::json::Json;
 use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_seats};
@@ -19,6 +20,8 @@ pub struct TurtleBatch {
     /// Map seeds 1 to this, in every cell.
     pub seeds: u32,
     pub cap_min: u32,
+    /// The turtle keeps Medium's raids (flyers hunting the enemy's workers).
+    pub raids: bool,
 }
 
 impl TurtleBatch {
@@ -27,14 +30,17 @@ impl TurtleBatch {
             maps: vec![MapKind::Shore],
             seeds: 25,
             cap_min: 30,
+            raids: false,
         }
     }
 }
 
-/// The turtle's tuning: Medium's, never launching a wave (it still builds, defends and expands as Medium does).
-pub fn turtle() -> Diff {
+/// The turtle's tuning: Medium's, never launching a wave and (unless `raids`) never raiding; it still builds, defends
+/// and expands as Medium does.
+pub fn turtle(raids: bool) -> Diff {
     Diff {
         first: NEVER,
+        raids: raids && DIFF[BASE].raids,
         ..DIFF[BASE]
     }
 }
@@ -53,6 +59,12 @@ impl Cell {
     fn peoples(&self) -> (usize, usize) {
         let p = PAIRINGS[self.pairing];
         (p[self.turtle], p[1 - self.turtle])
+    }
+    /// Each seat's plan: the turtle's on its seat, plain Medium (no plan) on the other.
+    fn plans(&self, raids: bool) -> [Option<Diff>; 2] {
+        let mut plans = [None, None];
+        plans[self.turtle] = Some(turtle(raids));
+        plans
     }
 }
 
@@ -90,14 +102,10 @@ pub fn run(
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> TurtleRun {
     let cells = cells(&batch);
-    let cap = batch.cap_min;
+    let (cap, raids) = (batch.cap_min, batch.raids);
     let games = play_jobs(
         &cells,
-        |c| {
-            let mut plans = [None, None];
-            plans[c.turtle] = Some(turtle());
-            play_seats(c.map, c.pairing, c.map_seed, plans, cap)
-        },
+        |c| play_seats(c.map, c.pairing, c.map_seed, c.plans(raids), cap),
         threads,
         progress,
     );
@@ -239,7 +247,8 @@ impl TurtleRun {
                             .collect::<Vec<_>>(),
                     )
                     .with("seeds", self.batch.seeds)
-                    .with("cap_min", self.batch.cap_min),
+                    .with("cap_min", self.batch.cap_min)
+                    .with("raids", self.batch.raids),
             )
             .with("rows", rows)
             .with("games", games)
@@ -247,7 +256,13 @@ impl TurtleRun {
 
     pub fn markdown(&self, header: &str) -> String {
         let mut s = format!(
-            "# The turtle\n\n{header}\n\nA Medium AI seat that never launches a wave (Medium's tuning, `first` = never: it still builds, defends and expands) against plain Medium, each pairing of the peoples with the turtle in either seat, map seeds 1 to {}. A timeout counts as not lost. The tide's gate wants a turtle to lose over 70%; this is the baseline before the tide.\n\n| Games | Played | Turtle lost (95%) | Turtle won | Timeouts | Median length of a loss |\n| --- | --- | --- | --- | --- | --- |\n",
+            "# The turtle{}\n\n{header}\n\nA Medium AI seat that never launches a wave (Medium's tuning, `first` = never{}; it still builds, defends and expands) against plain Medium, each pairing of the peoples with the turtle in either seat, map seeds 1 to {}. A timeout counts as not lost. The tide's gate wants a turtle to lose over 70%; this is the baseline before the tide.\n\n| Turtle | Games | Turtle lost (95%) | Turtle won | Timeouts | Median length of a loss |\n| --- | --- | --- | --- | --- | --- |\n",
+            if self.batch.raids { " that raids" } else { "" },
+            if self.batch.raids {
+                ", keeping Medium's raids: its flyers hunt the enemy's workers"
+            } else {
+                ", and no raids: it never attacks"
+            },
             self.batch.seeds
         );
         for (label, t) in self.rows() {
@@ -262,16 +277,82 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_turtle_is_medium_that_never_attacks() {
-        let t = turtle();
-        assert_eq!(t.first, NEVER);
+    fn the_turtle_is_medium_that_never_attacks_and_raids_only_when_asked() {
+        let t = turtle(false);
+        assert_eq!((t.first, t.raids), (NEVER, false));
+        assert!(DIFF[BASE].raids, "Medium raids: the switch matters");
+        assert!(turtle(true).raids);
+        // everything else is Medium's
+        let medium = DIFF[BASE];
         assert_eq!(
             Diff {
-                first: DIFF[BASE].first,
+                first: medium.first,
+                raids: medium.raids,
                 ..t
             },
-            DIFF[BASE]
+            medium
         );
+    }
+
+    #[test]
+    fn the_turtle_plays_its_own_seat_against_plain_medium() {
+        let b = TurtleBatch::default_batch();
+        for c in cells(&b) {
+            let p = c.plans(false);
+            assert_eq!(p[c.turtle], Some(turtle(false)));
+            assert_eq!(p[1 - c.turtle], None, "the other seat plays its level");
+        }
+    }
+
+    /// The tallies on made-up results: a win is the turtle's seat winning, a timeout is not lost, each row its games.
+    #[test]
+    fn the_rows_count_from_the_turtles_side() {
+        let b = TurtleBatch {
+            seeds: 3,
+            ..TurtleBatch::default_batch()
+        };
+        let cells = cells(&b);
+        // seed 1: seat 0 wins at 10:00; seed 2: seat 1 wins at 20:00; seed 3: a timeout
+        let games: Vec<Played> = cells
+            .iter()
+            .map(|c| match c.map_seed {
+                1 => Played {
+                    winner: Some(0),
+                    end_tick: 18_000,
+                },
+                2 => Played {
+                    winner: Some(1),
+                    end_tick: 36_000,
+                },
+                _ => Played {
+                    winner: None,
+                    end_tick: 54_000,
+                },
+            })
+            .collect();
+        let r = TurtleRun {
+            batch: b,
+            commit: "test".into(),
+            cells,
+            games,
+        };
+        let rows = r.rows();
+        let row = |l: &str| &rows.iter().find(|(k, _)| k == l).expect(l).1;
+        // the turtle in seat 1 won seed 1 and lost seed 2; in seat 2 the other way round
+        let first = row("Shore: a Humans turtle against Vael Medium, the turtle in seat 1");
+        assert_eq!((first.won, first.lost, first.timeouts), (1, 1, 1));
+        assert_eq!(first.lost_at, vec![1200.0], "lost at 20:00");
+        let second = row("Shore: a Humans turtle against Vael Medium, the turtle in seat 2");
+        assert_eq!((second.won, second.lost, second.timeouts), (1, 1, 1));
+        assert_eq!(second.lost_at, vec![600.0], "lost at 10:00");
+        let all = row("**Shore, all**");
+        assert_eq!(
+            (all.won, all.lost, all.timeouts, all.games()),
+            (8, 8, 8, 24)
+        );
+        let (rate, lo, hi) = all.loss_rate();
+        assert!((rate - 1.0 / 3.0).abs() < 1e-12 && lo < rate && rate < hi);
+        assert!(r.markdown("test").contains("| **Shore, all** | 24 | 33% "));
     }
 
     #[test]
@@ -280,6 +361,7 @@ mod tests {
             maps: vec![MapKind::Shore],
             seeds: 1,
             cap_min: 2,
+            raids: false,
         };
         let c = cells(&b);
         assert_eq!(c.len(), 8, "four seatings, the turtle in either seat");
@@ -296,6 +378,6 @@ mod tests {
         assert_eq!(one, three, "the same bytes on one thread or three");
         let md = run(b, "test", 2, &quiet).markdown("test");
         assert!(md.contains("a Vael turtle against Humans Medium, the turtle in seat 2"));
-        assert!(md.contains("**Shore, all**"));
+        assert!(md.contains("no raids: it never attacks"));
     }
 }

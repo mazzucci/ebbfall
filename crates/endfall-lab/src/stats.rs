@@ -30,16 +30,20 @@ pub fn median(xs: &[f64]) -> Option<f64> {
     quantile(xs, 0.5)
 }
 
-/// m:ss (or plain seconds) as seconds; None for anything else.
+/// m:ss, or whole seconds, as seconds; None for anything else (digits only: no sign, fraction or exponent).
 pub fn parse_mmss(t: &str) -> Option<f64> {
-    let secs = match t.split_once(':') {
-        Some((m, s)) if s.len() == 2 => {
-            m.parse::<u32>().ok()? as f64 * 60.0 + s.parse::<u32>().ok().filter(|&s| s < 60)? as f64
-        }
-        Some(_) => return None,
-        None => t.parse::<f64>().ok()?,
+    let num = |d: &str| {
+        (!d.is_empty() && d.len() <= 6 && d.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| d.parse::<u32>().ok())
+            .flatten()
     };
-    secs.is_finite().then_some(secs)
+    match t.split_once(':') {
+        Some((m, s)) if s.len() == 2 => {
+            Some(num(m)? as f64 * 60.0 + num(s).filter(|&s| s < 60)? as f64)
+        }
+        Some(_) => None,
+        None => num(t).map(f64::from),
+    }
 }
 
 /// Seconds as m:ss.
@@ -90,7 +94,10 @@ mod tests {
         assert_eq!(parse_mmss("12:00"), Some(720.0));
         assert_eq!(parse_mmss("7:05"), Some(425.0));
         assert_eq!(parse_mmss("300"), Some(300.0));
-        for bad in ["7:5", "7:60", "x:00", "", "inf", "1:2:3"] {
+        for bad in [
+            "7:5", "7:60", "x:00", "", "inf", "1:2:3", "+7:00", "7:+5", "420.5", "1e3", ":00",
+            "-0:30",
+        ] {
             assert_eq!(parse_mmss(bad), None, "{bad}");
         }
     }

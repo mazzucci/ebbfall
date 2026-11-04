@@ -51,7 +51,7 @@ fn today() -> String {
 fn die(msg: &str) -> ! {
     eprintln!(
         "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- turtle [--seeds N] [--maps Shore] [--cap MIN] [--threads N] [--out FILE]"
+       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -272,9 +272,16 @@ fn turtle(args: &[String]) {
                 .unwrap_or_else(|| die(&format!("{a} needs a value")))
         };
         match a.as_str() {
-            "--seeds" => batch.seeds = val().parse().unwrap_or_else(|_| die("--seeds N")),
+            "--seeds" => {
+                batch.seeds = val()
+                    .parse()
+                    .ok()
+                    .filter(|&n| n > 0)
+                    .unwrap_or_else(|| die("--seeds N, at least 1"))
+            }
             "--maps" => batch.maps = val().split(',').map(parse_map).collect(),
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--raids" => batch.raids = true,
             "--threads" => threads = val().parse().unwrap_or_else(|_| die("--threads N")),
             "--out" => out = Some(PathBuf::from(val())),
             _ => die(&format!("unknown flag {a}")),
@@ -295,18 +302,28 @@ fn turtle(args: &[String]) {
     };
     let r = turtle::run(batch.clone(), &commit, threads, &progress);
     let secs = t0.elapsed().as_secs_f64();
-    let path = out.unwrap_or_else(|| out_dir().join(format!("turtle-{commit}.json")));
+    let kind = if batch.raids {
+        "turtle-raids"
+    } else {
+        "turtle"
+    };
+    let path = out.unwrap_or_else(|| out_dir().join(format!("{kind}-{commit}.json")));
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
     std::fs::write(&path, r.json().write())
         .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
     let header = format!(
-        "Commit {commit}, {}. Batch: maps {:?}, {} seeds a cell, {} min cap: {total} games in {secs:.0} s on {threads} threads. JSON: {}",
+        "Commit {commit}, {}. Batch: maps {:?}, {} seeds a cell, {} min cap{}: {total} games in {secs:.0} s on {threads} threads. JSON: {}",
         today(),
         batch.maps,
         batch.seeds,
         batch.cap_min,
+        if batch.raids {
+            ", the turtle raids"
+        } else {
+            ""
+        },
         path.display()
     );
     print!("{}", r.markdown(&header));

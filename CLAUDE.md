@@ -37,8 +37,9 @@ npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-wei
 npm run lab -- plans    # games with random AI plans (workers, first wave, expansion; a placebo and a planted coin):
                         # a logistic model of what wins, win rates by setting; --plant runs the planted control;
                         # --first-max 12:00 draws first waves up to 12:00
-npm run lab -- turtle   # a Medium seat that never attacks against Medium (the tide's turtle row, its baseline)
                         # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
+npm run lab -- turtle   # a Medium seat that never attacks (no waves, no raids; --raids keeps its raids) against
+                        # Medium (the tide's turtle row, its baseline)
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and

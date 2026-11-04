@@ -984,6 +984,15 @@ mod tests {
                 .zip(&base)
                 .all(|(w, b)| w.harv == b.harv && w.expand_at == b.expand_at)
         );
+        // pinned to the formula before `--first-max` existed: the draws in order, the first wave 120 + u x 300
+        let mut r = Mulberry32::new(1);
+        let u: Vec<f64> = (0..6)
+            .map(|_| r.next_u32() as f64 / 4_294_967_296.0)
+            .collect();
+        let p = Plan::draw(&mut Mulberry32::new(1), FIRST_MAX);
+        assert_eq!(p.harv, 8 + (u[0] * 13.0) as usize);
+        assert_eq!(p.first.to_bits(), (120.0 + u[1] * 300.0).to_bits());
+        assert_eq!((p.placebo, p.planted), (u[4] < 0.5, u[5] < 0.5));
         assert_eq!(
             Setting::FirstWave.labels(FIRST_MAX),
             ["2:00-3:15", "3:15-4:30", "4:30-5:45", "5:45-7:00"]

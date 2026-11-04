@@ -353,7 +353,7 @@ fn random_play_never_breaks_the_world_on_the_shore_with_the_tide() {
 fn with_the_tide_both_peoples_build_their_bases_on_the_shore() {
     // Land stays land at every level of the tide (on every map), so both peoples build as without it: four minutes
     // in, each AI has its Core and more.
-    assert!(endfall_sim::map::DRY > endfall_sim::data::WATER_HIGH);
+    const { assert!(endfall_sim::map::DRY > endfall_sim::data::WATER_HIGH) };
     for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
         let mut w = World::with_size(21, 1, MapKind::Shore, MapSize::DUEL, 0, &races);
         w.set_tide(true);

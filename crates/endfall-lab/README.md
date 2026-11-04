@@ -207,7 +207,10 @@ losses elsewhere in that time count too: early in a game there are few). It answ
 bigger at launch, better trades, or both.
 
 **`--tide`** (here and on `report`) plays the same batch with the tide on (`World::set_tide`: the water level's cycle on
-maps with water). Run every tide batch beside the same batch without it: the difference is the tide's.
+maps with water). Run every tide batch beside the same batch without it: the difference is the tide's. Until the AI knows the
+tide (the tide's third PR), it plays as if the water stood still: a worker sent ashore at the warning is left idle, and
+the AI's economy sends idle workers back to a field, flats or not, so they can be swept every cycle. Read `--tide`
+numbers before that PR as the tide's effect on an AI that ignores it.
 
 **Predictions first.** Before a run, write down which way each setting should move the win rate, and in short or long
 games (the PRD's section 7). Copy the report's results next to them: matched, missed, or unclear (interval too wide).

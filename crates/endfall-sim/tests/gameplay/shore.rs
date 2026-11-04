@@ -350,6 +350,35 @@ fn random_play_never_breaks_the_world_on_the_shore_with_the_tide() {
 }
 
 #[test]
+fn with_the_tide_both_peoples_build_their_bases_on_the_shore() {
+    // Land stays land at every level of the tide (on every map), so both peoples build as without it: four minutes
+    // in, each AI has its Core and more.
+    assert!(endfall_sim::map::DRY > endfall_sim::data::WATER_HIGH);
+    for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
+        let mut w = World::with_size(21, 1, MapKind::Shore, MapSize::DUEL, 0, &races);
+        w.set_tide(true);
+        assert!(w.set_ai_seats([true, true]));
+        for _ in 0..4 * 60 * TPS {
+            w.step();
+            w.events.clear();
+        }
+        for (seat, f) in races.iter().enumerate() {
+            let built = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team as usize == seat && b.done)
+                .count();
+            assert!(
+                built >= 4,
+                "{} with the tide: {built} buildings at 4:00",
+                f.name
+            );
+        }
+        assert!(w.winner < 0, "no game over at 4:00");
+    }
+}
+
+#[test]
 fn both_ais_finish_games_on_the_shore_with_the_tide_at_every_level() {
     for diff in 0..4 {
         for (races, seed) in [

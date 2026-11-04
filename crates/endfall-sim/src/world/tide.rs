@@ -146,11 +146,7 @@ impl World {
             let Some(&(_, px, py, _)) = caught.first() else {
                 continue;
             };
-            self.toast(
-                seat,
-                "The tide is coming in: the flats flood in 20 seconds",
-                true,
-            );
+            self.toast(seat, "The tide is turning: the flats will flood", true);
             self.sfx(seat, "alert");
             self.ping(seat, px, py);
             if !self.retreats(seat) {
@@ -172,8 +168,9 @@ impl World {
         }
     }
 
-    /// The level moved: routes it cuts are dropped (the groups' shared ones and each walker's own, which it plans
-    /// again), and on the way up every walker on ground now deep is swept ashore or, with `flood_kills`, destroyed.
+    /// The level moved: routes it cuts are dropped (the groups' shared ones and each walker's own, whose every leg is
+    /// checked: a smoothed route crosses the flats in one straight leg), and the walker plans again; on the way up
+    /// every walker on ground now deep is swept ashore or, with `flood_kills`, destroyed.
     fn water_changed(&mut self, rising: bool) {
         self.terrain_changed();
         let water = self.water;
@@ -181,15 +178,23 @@ impl World {
             let (tx, ty) = m.tile_of(x, y);
             m.ground(tx, ty, water) == Ground::Deep
         };
+        let foot = Foot {
+            class: Move::Walk,
+            water,
+        };
         for i in 0..self.units.len() {
             let u = &self.units[i];
             if u.kind.def().mv != Move::Walk {
                 continue;
             }
-            let cut = u
-                .path
-                .as_ref()
-                .is_some_and(|p| p.iter().any(|q| deep(&self.map, q.x, q.y)));
+            let cut = u.path.as_ref().is_some_and(|p| {
+                let mut at = Pt { x: u.x, y: u.y };
+                p.iter().any(|&q| {
+                    let open = crate::path::los(&self.map, foot, at, q);
+                    at = q;
+                    !open
+                })
+            });
             if cut {
                 let u = &mut self.units[i];
                 u.path = None;

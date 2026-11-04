@@ -312,8 +312,9 @@ impl World {
                 }
             }
         }
-        // (the tide's first cycle before the starts are dealt: they are placed at its high water)
+        // (the tide's first cycle before the starts are dealt: they are placed at its high water; each seat retreats)
         self.water = 0;
+        self.no_retreat = 0;
         if self.tide.is_some() {
             self.start_tide();
         }
@@ -578,10 +579,11 @@ impl World {
         let dt = DT;
         self.time += dt;
         self.tick += 1;
-        self.rebuild_hash();
+        // (the tide first: the walkers it sweeps are where they land when the spatial hash is built)
         if self.tide.is_some() {
             self.tide_tick();
         }
+        self.rebuild_hash();
         let ids: Vec<Id> = self.units.iter().map(|u| u.id).collect();
         for id in ids {
             if self.unit(id).is_some_and(|u| !self.inert(u.team)) {

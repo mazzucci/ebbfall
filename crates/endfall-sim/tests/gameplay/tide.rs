@@ -4,11 +4,12 @@
 //! nothing firing from under high water. Scenes are a flat arena with a band of flats drawn in by hand.
 
 use crate::common::*;
-use endfall_sim::data::{Move, SWEEP_HP, TIDE_SPREAD, WATER_HIGH, WATER_LOW};
-use endfall_sim::map::Ground;
+use endfall_sim::data::{Move, SWEEP_HP, TIDE_SPREAD, TIDE_WARN_S, WATER_HIGH, WATER_LOW};
+use endfall_sim::map::{Foot, Ground};
+use endfall_sim::path::{Pt, los};
 use endfall_sim::world::{Command, Event};
 
-/// Flats: height 0, land at low water and deep at high.
+/// Flats: height -2, land at low water and deep at high.
 const FLATS: std::ops::Range<i32> = 30..34;
 
 /// A flat arena with the tide on (Humans in seat 0, the Vael in seat 1), nobody's AI and no units, everything explored,
@@ -22,7 +23,7 @@ fn tidal(seed: u32) -> World {
     for y in 0..w.map.h {
         for x in FLATS {
             let i = w.map.idx(x, y);
-            w.map.height[i] = 0;
+            w.map.height[i] = -2;
         }
     }
     for e in &mut w.explored {
@@ -146,14 +147,19 @@ fn as_the_tide_moves_no_walker_stands_or_plans_through_deep_water() {
                 w.tick
             );
             if let Some(p) = &u.path {
-                for q in p {
-                    let (tx, ty) = w.map.tile_of(q.x, q.y);
-                    assert_ne!(
-                        w.map.ground(tx, ty, w.water),
-                        Ground::Deep,
+                // every leg, not only its ends: a smoothed route crosses the flats in one straight leg
+                let foot = Foot {
+                    class: Move::Walk,
+                    water: w.water,
+                };
+                let mut at = Pt { x: u.x, y: u.y };
+                for &q in p {
+                    assert!(
+                        los(&w.map, foot, at, q),
                         "tick {}: a walker's route through deep water",
                         w.tick
                     );
+                    at = q;
                 }
             }
         }
@@ -253,6 +259,44 @@ fn the_warning_sends_idle_walkers_and_workers_ashore_and_leaves_the_rest() {
 }
 
 #[test]
+fn at_the_warning_a_mining_worker_goes_ashore_and_an_attack_move_keeps_its_order() {
+    let mut w = tidal(9);
+    let mut ev = vec![];
+    // a few ticks before the warning
+    let warn = (TIDE_WARN_S * 30.0) as u32;
+    step_until(&mut w, 30 * 200, &mut ev, |w| {
+        let (p, _, left) = w.tide_phase().unwrap();
+        p == 2 && left <= warn + 3
+    });
+    assert!(!w.tide.as_ref().unwrap().warned);
+    let node = w.map.nodes.iter().find(|n| !n.ether).unwrap().id;
+    let miner = w.make_unit(HUMANS.worker, 0, px(31.0), px(20.0));
+    let _ = w.apply(0, &Command::Gather { unit: miner, node });
+    let raider = w.make_unit(UnitKind::Trooper, 0, px(32.0), px(24.0));
+    // (along the flats: it stays on them)
+    let _ = w.apply(
+        0,
+        &Command::AttackMove {
+            unit: raider,
+            x: px(32.0),
+            y: px(50.0),
+        },
+    );
+    assert!(matches!(w.unit(miner).unwrap().task, Task::Gather { .. }));
+    step_until(&mut w, 30 * 5, &mut ev, |w| w.tide.as_ref().unwrap().warned);
+    assert!(
+        matches!(w.unit(miner).unwrap().task, Task::Move { .. }),
+        "the miner on the flats sent ashore: {:?}",
+        w.unit(miner).unwrap().task
+    );
+    assert!(
+        matches!(w.unit(raider).unwrap().task, Task::AMove { .. }),
+        "the attack-move keeps its order: {:?}",
+        w.unit(raider).unwrap().task
+    );
+}
+
+#[test]
 fn a_swept_walker_is_stunned_and_with_its_switch_off_an_idle_one_stays_out() {
     let mut w = tidal(5);
     let _ = w.apply(0, &Command::SetRetreat { on: false });
@@ -322,13 +366,13 @@ fn with_the_tide_each_people_builds_where_its_tide_allows() {
             w.map.height[i] = h;
         }
     };
-    // a tile at each height: dry at high water (3), dry only below high water (1), shallow at low water (-3), deep at
-    // low water (-5)
-    set(14, 3);
-    set(15, 1);
-    set(16, -3);
+    // a tile at each height: dry at high water (1, land everywhere), dry only below high water (0), shallow at low
+    // water (-4), deep even then (-5)
+    set(14, 1);
+    set(15, 0);
+    set(16, -4);
     set(17, -5);
-    for water in [WATER_LOW, 0, WATER_HIGH] {
+    for water in [WATER_LOW, -1, WATER_HIGH] {
         w.water = water; // (whatever the level now: the tide's extremes decide)
         assert!(w.builds_on(0, 14, 41), "Humans on land that stays dry");
         assert!(!w.builds_on(0, 15, 41), "not on what high water covers");

@@ -221,7 +221,7 @@ fn golden_hashes_pin_the_shore() {
 
 /// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [550943356, 2195541268, 1505107305];
+const EXPECTED_SHORE_TIDE: [u32; 3] = [3758284284, 1120291819, 2153014195];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {

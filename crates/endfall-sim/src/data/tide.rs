@@ -10,9 +10,12 @@ pub const TIDE_RISE_S: f64 = 30.0;
 /// Each cycle is longer or shorter than that by up to this share, drawn from the world's RNG as it starts.
 pub const TIDE_SPREAD: f64 = 0.15;
 /// The water level at low and at high water (tile height units: `Map::ground`). It moves one step at a time over the
-/// ebb and the flood. Provisional: the Shore's flats (the tide's second PR) set the final pair with their height.
-pub const WATER_LOW: i8 = -2;
-pub const WATER_HIGH: i8 = 2;
+/// ebb and the flood. High water is the level without the tide (0: the static Shore as it always was), so land
+/// (`DRY`, 1) stays land at every level on every map; at low water the basins (0) dry out and the deep band (-3)
+/// becomes shallows a walker crosses. Ground at -2 (the flats, the tide's second PR) is land at low water and deep at
+/// high.
+pub const WATER_LOW: i8 = -3;
+pub const WATER_HIGH: i8 = 0;
 /// Seconds before the flood starts that each seat with walkers on ground it will cover is warned (and its idle ones
 /// sent to dry ground, `World::retreat`).
 pub const TIDE_WARN_S: f64 = 20.0;

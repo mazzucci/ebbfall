@@ -1,10 +1,13 @@
 //! Ebbfall's balance lab (crates/endfall-lab/README.md): AI-vs-AI batches played natively on the sim, a report of
-//! what they show, a comparison of two reports, and a formula sheet from the sim's tables. All I/O, clocks and
+//! what they show, a comparison of two reports, a formula sheet from the sim's tables, and games with random plans
+//! (`plans`: which settings of a plan win). All I/O, clocks and
 //! threads live here; the sim is only stepped and read.
 
 pub mod batch;
 pub mod compare;
 pub mod json;
+pub mod model;
+pub mod plans;
 pub mod report;
 pub mod sheet;
 pub mod stats;

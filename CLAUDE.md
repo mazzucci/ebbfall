@@ -34,6 +34,8 @@ npm run lab -- report   # the balance lab (crates/endfall-lab/README.md): a fixe
                         # win rates with 95% intervals, target checks (PASS/WARN), key figures; JSON in target/lab/
 npm run lab -- compare A.json B.json   # two reports cell by cell: what moved, and whether more than the noise
 npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-weighted efficiency, time to kill
+npm run lab -- plans    # games with random AI plans (workers, first wave, expansion; a placebo and a planted coin):
+                        # a logistic model of what wins, win rates by setting; --plant runs the planted control
                         # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
@@ -101,7 +103,9 @@ src/engine/           the client's view of the Rust sim: index.js starts instant
 crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a library, all I/O, clocks and threads
                       here; batch.rs (the cells and seeds, one game played and recorded, threads in a fixed order),
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
-                      compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs
+                      compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
+                      plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
+                      model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction),

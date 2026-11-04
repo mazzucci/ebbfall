@@ -31,6 +31,8 @@ pub struct TurtleBatch {
     pub attacker_fog: Option<f64>,
     /// The attacker's `Diff::retreat_below` (None: its level's).
     pub attacker_retreat: Option<f64>,
+    /// The attacker's level (`DIFF`'s index; `BASE`, Medium, by default): its whole tuning, as a plan.
+    pub attacker_level: usize,
     /// The weak turtle (`weak_turtle`; the gate's newcomers row): Easy's economy, no expansion.
     pub weak: bool,
 }
@@ -45,6 +47,7 @@ impl TurtleBatch {
             attacker_income: None,
             attacker_fog: None,
             attacker_retreat: None,
+            attacker_level: BASE,
             weak: false,
         }
     }
@@ -99,13 +102,16 @@ impl Cell {
         let (raids, attacker_income) = (b.raids, b.attacker_income);
         let mut plans = [None, None];
         plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
-        let changed =
-            attacker_income.is_some() || b.attacker_fog.is_some() || b.attacker_retreat.is_some();
+        let level = DIFF[b.attacker_level];
+        let changed = attacker_income.is_some()
+            || b.attacker_fog.is_some()
+            || b.attacker_retreat.is_some()
+            || b.attacker_level != BASE;
         plans[1 - self.turtle] = changed.then(|| Diff {
-            income: attacker_income.unwrap_or(DIFF[BASE].income),
-            fog_factor: b.attacker_fog.unwrap_or(DIFF[BASE].fog_factor),
-            retreat_below: b.attacker_retreat.unwrap_or(DIFF[BASE].retreat_below),
-            ..DIFF[BASE]
+            income: attacker_income.unwrap_or(level.income),
+            fog_factor: b.attacker_fog.unwrap_or(level.fog_factor),
+            retreat_below: b.attacker_retreat.unwrap_or(level.retreat_below),
+            ..level
         });
         plans
     }
@@ -416,6 +422,10 @@ impl TurtleRun {
                     .with("attacker_income", self.batch.attacker_income)
                     .with("attacker_fog", self.batch.attacker_fog)
                     .with("attacker_retreat", self.batch.attacker_retreat)
+                    .with(
+                        "attacker_level",
+                        crate::batch::LEVELS[self.batch.attacker_level],
+                    )
                     .with("weak", self.batch.weak),
             )
             .with("rows", rows)
@@ -545,6 +555,20 @@ mod tests {
                 },
                 DIFF[BASE]
             );
+            let weak = TurtleBatch {
+                weak: true,
+                ..b.clone()
+            };
+            assert_eq!(
+                c.plans(&weak)[c.turtle],
+                Some(weak_turtle()),
+                "the weak turtle"
+            );
+            let hard = TurtleBatch {
+                attacker_level: 2,
+                ..b.clone()
+            };
+            assert_eq!(c.plans(&hard)[1 - c.turtle], Some(DIFF[2]), "against Hard");
         }
     }
 
@@ -614,6 +638,7 @@ mod tests {
             attacker_income: None,
             attacker_fog: None,
             attacker_retreat: None,
+            attacker_level: BASE,
             weak: false,
         };
         let c = cells(&b);

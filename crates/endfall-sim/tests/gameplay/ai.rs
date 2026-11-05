@@ -353,7 +353,8 @@ fn the_ai_expands_to_a_second_base() {
         .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
         .map(|b| (b.x, b.y))
         .collect();
-    assert_eq!(cores.len(), 2, "AI has a second core by 12 min");
+    // (a passive foe: it may have taken a third by then, `Diff::passive_expand`)
+    assert!(cores.len() >= 2, "AI has a second core by 12 min");
     let exp = cores[1];
     let working = w
         .units
@@ -381,7 +382,7 @@ fn the_ai_finds_room_for_its_natural_on_cramped_labyrinths() {
             .iter()
             .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core)
             .count();
-        assert_eq!(cores, 2, "seed {seed}: the AI expanded");
+        assert!(cores >= 2, "seed {seed}: the AI expanded");
     }
 }
 
@@ -2044,10 +2045,13 @@ fn a_seat_s_plan_replaces_its_level_s_tuning() {
     // when its plan says, the quick one before Medium's own first wave could, the late one after.
     let (quick, late) = (120.0, 420.0);
     assert!(quick + 30.0 < DIFF[1].first && late > DIFF[1].first + 60.0);
+    // (no siege rules, no home reserve and no pull-back: the waves' times are the plans' alone, whatever the foe does)
     let plan = |first, wave| {
         Some(Diff {
             first,
             wave,
+            reserve: 0.0,
+            retreat_below: 0.0,
             ..DIFF[1]
         })
     };

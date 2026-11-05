@@ -27,6 +27,8 @@ pub const PLAYER: u8 = 0;
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
+/// The most supply a seat can have.
+pub const SUPPLY_LIMIT: i32 = 200;
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;

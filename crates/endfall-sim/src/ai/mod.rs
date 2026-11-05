@@ -66,6 +66,8 @@ pub(crate) struct Ai {
     pub heavy_seen: (usize, f64),
     /// Units kept home at its own expansion (out of the waves).
     pub guards: Vec<Id>,
+    /// Its home reserve (`Diff::reserve`): fighters kept out of the waves.
+    pub reserve: Vec<Id>,
     /// Where something it could not see last hit it (a cloaked raider): a detector goes there.
     pub cloak_hit: Option<(f64, f64)>,
     /// Something it could not see has hit it (anywhere): from then on one detector of its own (its side's
@@ -76,6 +78,23 @@ pub(crate) struct Ai {
     /// It has seen an enemy field detector (a unit that detects: an Observer, a Halo) with an enemy army: its
     /// always-cloaked fighters (the Umbra) would be found there, so its mix brings no more of them.
     pub detector_seen: bool,
+    /// The most enemy army (armed units, workers left out) seen at once lately, by value (`army_worth`), when, and
+    /// its own army's value then (a stale sighting grows by what its own army has grown since): what a wave must
+    /// beat (`Diff::wave_margin`).
+    pub army_seen: (f64, f64, f64),
+    /// The unit it sent to look at the foe's army (a stale sighting), and since when.
+    pub looking: Option<(Id, f64)>,
+    /// When an armed enemy last came at its buildings, and when it last placed a base (`Diff::passive_expand`).
+    pub attacked_at: f64,
+    pub last_base_at: f64,
+    /// When the foe last came at its buildings other than chasing its wave home (`World::passive_foe`).
+    pub came_at: f64,
+    /// When its next wave was first ready by count and time (it may wait for strength), if it is.
+    pub ready_since: Option<f64>,
+    /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
+    pub staging: Option<(f64, f64, f64)>,
+    /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
+    pub check: Option<crate::world::LaunchCheck>,
 }
 
 impl World {
@@ -114,6 +133,11 @@ impl World {
         } else {
             None
         }
+    }
+
+    /// Seat `seat`'s AI's check as its last wave went (the balance lab: `LaunchCheck`), if it has sent one.
+    pub fn ai_launch_check(&self, seat: u8) -> Option<crate::world::LaunchCheck> {
+        self.ai.get(seat as usize)?.as_ref()?.check
     }
 
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
@@ -163,10 +187,19 @@ impl World {
             infantry_seen: (0, 0.0),
             heavy_seen: (0, 0.0),
             guards: Vec::new(),
+            reserve: Vec::new(),
             cloak_hit: None,
             unseen_hit: false,
             prong: Vec::new(),
             detector_seen: false,
+            army_seen: (0.0, 0.0, 0.0),
+            looking: None,
+            attacked_at: 0.0,
+            came_at: 0.0,
+            last_base_at: 0.0,
+            ready_since: None,
+            staging: None,
+            check: None,
             sweep: 0,
             sweep_since: 0.0,
             ether_lean: false,

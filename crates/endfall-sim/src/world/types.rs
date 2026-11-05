@@ -343,6 +343,31 @@ pub struct Ledger {
     pub cancelled: [u32; BLDG_KINDS.len()],
 }
 
+/// Why an AI's last wave went (`World::ai_launch_check`; PRD: the AI breaks a defence). For the balance lab; not world
+/// state (not hashed, read by no rule).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LaunchWhy {
+    /// Its level waits for no strength (`Diff::wave_margin` 0).
+    NoMargin,
+    /// Full supply, or `Diff::all_in_after` since its last wave.
+    AllIn,
+    /// It has never seen the foe's army.
+    NeverSeen,
+    /// Against a fresh sighting.
+    Fresh,
+    /// Against a stale sighting grown by its own army's growth since (after a look, if it looked).
+    Stale,
+}
+
+/// An AI's check as its last wave went: why, its wave's armed worth and the foe's army it expected (0 when it expected
+/// none). Lab only, like `Ledger`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LaunchCheck {
+    pub why: LaunchWhy,
+    pub mine: f64,
+    pub expected: f64,
+}
+
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.
 #[derive(Clone, Copy, Debug)]
 pub enum Geo {

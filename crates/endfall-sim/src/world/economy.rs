@@ -29,7 +29,7 @@ impl World {
                 used += q.def().supply;
             }
         }
-        self.sup[team as usize] = [used, cap.min(200)];
+        self.sup[team as usize] = [used, cap.min(SUPPLY_LIMIT)];
     }
 
     pub fn nearest_node(&self, x: f64, y: f64, team: u8, ether: bool, max_d: f64) -> Option<Id> {

@@ -110,12 +110,12 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 7] = [
 
 const EXPECTED: [[u32; 3]; 7] = [
     [2069315627, 1871118281, 2046814886],
-    [1095840729, 2314403609, 3580468723],
-    [308085394, 2909521054, 1995716822],
-    [1398393618, 3073445076, 3739070899],
-    [1256643042, 4117780369, 618862436],
+    [1095840729, 2314403609, 493752935],
+    [308085394, 2909521054, 3600210493],
+    [1398393618, 3073445076, 2701741966],
+    [1256643042, 4117780369, 1398631149],
     [3186563809, 3776853477, 3905735626],
-    [2009087198, 303990124, 2557916853],
+    [2009087198, 303990124, 4187144543],
 ];
 
 #[test]
@@ -144,7 +144,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
 }
 
 /// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
-const EXPECTED_VAEL: [u32; 3] = [1313971553, 35439343, 2926089096];
+const EXPECTED_VAEL: [u32; 3] = [1313971553, 35439343, 2570314508];
 
 #[test]
 fn golden_hashes_pin_a_vael_game() {
@@ -166,7 +166,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [3493467078, 3400216091, 4065332907];
+const EXPECTED_VAEL_AI: [u32; 3] = [3493467078, 3400216091, 4150429397];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -195,7 +195,7 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
 
 /// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
 /// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
-const EXPECTED_SHORE_AI: [u32; 3] = [2934490836, 1022996604, 3124975358];
+const EXPECTED_SHORE_AI: [u32; 3] = [2934490836, 1022996604, 630153940];
 
 #[test]
 fn golden_hashes_pin_the_shore() {
@@ -221,7 +221,7 @@ fn golden_hashes_pin_the_shore() {
 
 /// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [3758284284, 1120291819, 2153014195];
+const EXPECTED_SHORE_TIDE: [u32; 3] = [3758284284, 1120291819, 3158759936];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {
@@ -273,9 +273,9 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "108/111/69/0 lost_to 111 | 127/69/111/18 lost_to 69 | over true winner 1 conceded -1 at 20098",
-    "150/53/112/25 lost_to 53 | 108/112/53/0 lost_to 112 | over true winner 0 conceded -1 at 14764",
-    "12/16/5/0 lost_to 16 | 41/5/16/2 lost_to 5 | over true winner 1 conceded -1 at 8500",
+    "150/83/128/13 lost_to 83 | 124/128/83/0 lost_to 128 | over true winner 0 conceded -1 at 22521",
+    "99/37/89/26 lost_to 37 | 85/89/37/0 lost_to 89 | over true winner 0 conceded -1 at 11813",
+    "11/15/3/0 lost_to 15 | 38/3/15/2 lost_to 3 | over true winner 1 conceded -1 at 8052",
 ];
 
 #[test]
@@ -308,7 +308,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [3660628553, 2689015019, 831658860];
+const EXPECTED_TEAMS_AI: [u32; 3] = [3660628553, 2689015019, 2351753375];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

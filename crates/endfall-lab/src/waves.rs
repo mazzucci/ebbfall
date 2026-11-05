@@ -13,7 +13,7 @@
 //! at `ETHER_WEIGHT`, the formula sheet's default.
 
 use endfall_sim::data::UNIT_KINDS;
-use endfall_sim::world::World;
+use endfall_sim::world::{LaunchCheck, LaunchWhy, World};
 
 /// Shards per ether in a wave's value (the formula sheet's default weight).
 pub const ETHER_WEIGHT: f64 = 1.5;
@@ -28,6 +28,11 @@ pub struct Wave {
     pub launched: u32,
     /// Its value as it launched.
     pub value: f64,
+    /// The AI's own check as it went (`World::ai_launch_check`): why, and the foe's army it expected.
+    pub check: Option<LaunchCheck>,
+    /// The foe's true army then (armed units, workers left out) and its armed, working buildings, by value.
+    pub foe_army: f64,
+    pub foe_towers: f64,
     /// When it arrived: the tick, its value then (in all, and within `REACH` tiles of the unit that arrived), and the
     /// defence's there (None: it never arrived).
     pub arrived: Option<Arrival>,
@@ -177,11 +182,33 @@ fn launch(w: &World, s: usize, ids: &[u32]) -> Out {
             seat: s as u8,
             launched: w.tick,
             value: mine.iter().map(|m| m.1).sum(),
+            check: w.ai_launch_check(s as u8),
+            foe_army: army_of(w, |t| t != s),
+            foe_towers: w
+                .bldgs
+                .iter()
+                .filter(|b| b.team as usize != s && working_tower(b))
+                .map(|b| worth(b.kind.def().cost))
+                .sum(),
             ..Wave::default()
         },
         mine,
         theirs,
     }
+}
+
+/// The worth of the armed units (workers left out) of the seats `keep` keeps.
+pub fn army_of(w: &World, keep: impl Fn(usize) -> bool) -> f64 {
+    w.units
+        .iter()
+        .filter(|u| keep(u.team as usize) && !u.kind.def().worker && u.kind.def().armed())
+        .map(|u| worth(u.kind.def().cost))
+        .sum()
+}
+
+/// An armed building that works: finished, and powered if it needs power.
+fn working_tower(b: &endfall_sim::world::Bldg) -> bool {
+    b.done && b.kind.def().weapon.is_some() && (b.powered || !b.kind.def().needs_power)
 }
 
 /// Whether one of the wave's units stands within `REACH` tiles of an enemy building: the tick, the wave's value (in
@@ -210,12 +237,7 @@ fn arrival(w: &World, s: usize, mine: &[Seen]) -> Option<Arrival> {
     let towers: f64 = w
         .bldgs
         .iter()
-        .filter(|b| {
-            b.team as usize != s
-                && b.done
-                && b.kind.def().weapon.is_some()
-                && (b.powered || !b.kind.def().needs_power)
-        })
+        .filter(|b| b.team as usize != s && working_tower(b))
         .filter(|b| edge(b, x, y) < reach)
         .map(|b| worth(b.kind.def().cost))
         .sum();
@@ -327,6 +349,85 @@ impl Summary {
     }
 }
 
+/// Why waves went and how the AI's expectation met the truth (PRD: the AI breaks a defence): how many went for each
+/// reason (`LaunchWhy`), the quartiles of the foe army it expected over the foe's true army as it went (the waves that
+/// went against an expectation, against a foe with an army), of the wave's worth over that true army, and of the share
+/// of its value at the front on arrival (within `REACH` tiles of the unit that arrived).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Checks {
+    /// No margin, all in, never seen, fresh, stale; and no check at all.
+    pub why: [usize; 6],
+    pub expected_over_true: Option<(f64, f64, f64)>,
+    pub wave_over_true: Option<(f64, f64, f64)>,
+    pub front_share: Option<(f64, f64, f64)>,
+}
+
+fn quartiles(xs: &[f64]) -> Option<(f64, f64, f64)> {
+    use crate::stats::quantile;
+    Some((quantile(xs, 0.25)?, quantile(xs, 0.5)?, quantile(xs, 0.75)?))
+}
+
+pub fn checks<'a>(waves: impl IntoIterator<Item = &'a Wave>) -> Checks {
+    let mut c = Checks::default();
+    let (mut est, mut own, mut front) = (vec![], vec![], vec![]);
+    for w in waves {
+        let i = match w.check.map(|k| k.why) {
+            Some(LaunchWhy::NoMargin) => 0,
+            Some(LaunchWhy::AllIn) => 1,
+            Some(LaunchWhy::NeverSeen) => 2,
+            Some(LaunchWhy::Fresh) => 3,
+            Some(LaunchWhy::Stale) => 4,
+            None => 5,
+        };
+        c.why[i] += 1;
+        if w.foe_army > 0.0 {
+            own.push(w.value / w.foe_army);
+            if let Some(k) = w.check.filter(|k| k.expected > 0.0) {
+                est.push(k.expected / w.foe_army);
+            }
+        }
+        if let Some(a) = w.arrived.filter(|a| a.value > 0.0) {
+            front.push(a.near / a.value);
+        }
+    }
+    c.expected_over_true = quartiles(&est);
+    c.wave_over_true = quartiles(&own);
+    c.front_share = quartiles(&front);
+    c
+}
+
+/// The Markdown table's head for `Checks::row`.
+pub const CHECKS_HEAD: &str = "| Waves | Went: no margin / all in / never seen / fresh / stale / unknown | Expected foe army / its true army at launch (25%, median, 75%) | Wave / foe's true army at launch | Share of the wave at the front on arrival |\n| --- | --- | --- | --- | --- |\n";
+
+impl Checks {
+    pub fn row(&self, label: &str) -> String {
+        let q = |x: Option<(f64, f64, f64)>| {
+            x.map_or("—".into(), |(a, b, c)| format!("{a:.2}, {b:.2}, {c:.2}"))
+        };
+        let w = self.why;
+        format!(
+            "| {label} | {} / {} / {} / {} / {} / {} | {} | {} | {} |\n",
+            w[0],
+            w[1],
+            w[2],
+            w[3],
+            w[4],
+            w[5],
+            q(self.expected_over_true),
+            q(self.wave_over_true),
+            q(self.front_share)
+        )
+    }
+    pub fn json(&self) -> crate::json::Json {
+        let q = |x: Option<(f64, f64, f64)>| x.map(|(a, b, c)| vec![a, b, c]);
+        crate::json::Json::obj()
+            .with("why", self.why.to_vec())
+            .with("expected_over_true", q(self.expected_over_true))
+            .with("wave_over_true", q(self.wave_over_true))
+            .with("front_share", q(self.front_share))
+    }
+}
+
 impl Wave {
     /// One wave as JSON.
     pub fn json(&self) -> crate::json::Json {
@@ -334,6 +435,17 @@ impl Wave {
             .with("seat", self.seat as u32)
             .with("launched", self.launched)
             .with("value", self.value)
+            .with(
+                "check",
+                self.check.map(|k| {
+                    crate::json::Json::obj()
+                        .with("why", format!("{:?}", k.why))
+                        .with("mine", k.mine)
+                        .with("expected", k.expected)
+                }),
+            )
+            .with("foe_army", self.foe_army)
+            .with("foe_towers", self.foe_towers)
             .with(
                 "arrived",
                 self.arrived.map(|a| {
@@ -366,7 +478,7 @@ mod tests {
             first: 120.0,
             ..DIFF[1]
         });
-        let (p, waves) = play_watched(MapKind::Standard, 0, 3, [early, early], 12, false);
+        let (p, waves, _) = play_watched(MapKind::Standard, 0, 3, [early, early], 12, false);
         assert!(p.end_tick > 0);
         assert!(waves.len() >= 2, "{} waves", waves.len());
         assert!(waves.iter().any(|w| w.arrived.is_some()), "a wave arrived");

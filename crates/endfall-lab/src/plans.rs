@@ -175,7 +175,11 @@ pub fn play_watched(
     plans: [Option<Diff>; 2],
     cap_min: u32,
     tide: bool,
-) -> (Played, Vec<crate::waves::Wave>) {
+) -> (
+    Played,
+    Vec<crate::waves::Wave>,
+    Vec<[crate::minutes::Sample; 2]>,
+) {
     let pair = PAIRINGS[pairing];
     let mut w = World::with_size(
         map_seed,
@@ -193,18 +197,20 @@ pub fn play_watched(
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     let cap = cap_min * 60 * TPS;
     let (mut watch, mut first) = (crate::waves::Watch::default(), Watcher::default());
+    let mut minutes = crate::minutes::Minutes::default();
     while w.winner < 0 && w.tick < cap {
         w.step();
         w.events.clear();
         watch.observe(&w);
         first.observe(&w);
+        minutes.observe(&w);
     }
     let played = Played {
         winner: (w.winner >= 0).then_some(w.winner as u8),
         end_tick: w.tick,
         first_wave: first.finish(&w),
     };
-    (played, watch.finish(&w))
+    (played, watch.finish(&w), minutes.at)
 }
 
 /// Play `jobs` on `threads` threads, the results in the jobs' order whatever the threads.

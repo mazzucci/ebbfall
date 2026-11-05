@@ -7,6 +7,7 @@ pub mod batch;
 pub mod compare;
 pub mod first_wave;
 pub mod json;
+pub mod minutes;
 pub mod model;
 pub mod plans;
 pub mod report;

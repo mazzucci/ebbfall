@@ -46,6 +46,31 @@ pub struct Diff {
     /// Seconds before it mines more than one vent (each base has two): its main's second refinery goes up once the
     /// first flows and its tech is going up, but not before this; then the expansion's.
     pub vents_from: f64,
+    /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
+    /// the AI breaks a defence; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
+    /// waiting (NEVER: it does not fade). A sighting older than `sighting_age` is stale: it first sends a unit to
+    /// look (waiting up to `look_for` seconds for it), then counts the foe as the last sighting plus what its own army
+    /// has grown since. With full supply, or `all_in_after` seconds since its last wave, it goes with everything.
+    pub wave_margin: f64,
+    pub margin_fade: f64,
+    pub sighting_age: f64,
+    pub look_for: f64,
+    pub all_in_after: f64,
+    /// A wave first gathers this many tiles short of its goal (0: it goes straight in) and goes in together once most
+    /// of it is there, or after `stage_wait` seconds.
+    pub stage: f64,
+    pub stage_wait: f64,
+    /// Out-expanding a passive foe: with its natural taken and no enemy at its buildings for `passive_expand`
+    /// seconds (NEVER: never), it takes another base, at most `max_bases` in all.
+    pub passive_expand: f64,
+    pub max_bases: usize,
+    /// A home reserve: this share of its army's worth (its cheapest fighters) never goes out with a wave; it stays
+    /// at the rally and defends (0: none). At full supply the reserve goes all in too. Like `retreat_below`, only
+    /// against a passive foe (none of its armed units at our buildings for `passive_expand` seconds).
+    pub reserve: f64,
+    /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
+    /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
+    pub retreat_below: f64,
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -78,6 +103,17 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: true,
         workers_first: false,
         vents_from: 540.0,
+        wave_margin: 0.0,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 0.0,
+        stage_wait: 30.0,
+        passive_expand: NEVER,
+        max_bases: 2,
+        reserve: 0.0,
+        retreat_below: 0.0,
     },
     // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
     // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
@@ -105,6 +141,17 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: false,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 12.0,
+        stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -131,6 +178,17 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: false,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 12.0,
+        stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -161,5 +219,16 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: true,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 12.0,
+        stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
     },
 ];

@@ -30,7 +30,7 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
     // runs: there the tap must open it, not necessarily run it)
     if (ENGINE === 'chromium') await p.waitForFunction(() => window.voiceLab.state() === 'running', null, { timeout: 5000 });
     else await p.waitForFunction(() => window.voiceLab.state() !== 'none', null, { timeout: 5000 });
-    await p.locator('#vaelDevice [data-p="ether"]').tap(); // (the device's voice, or the synth where it has none)
+    await p.locator('#vaelDevice [data-p="salt"]').tap(); // (the device's voice, or the synth where it has none)
     await p.locator('#humansRadio [data-p="research"]').tap();
     await p.locator('#stop').tap();
     assert.deepEqual(errors, []);
@@ -38,7 +38,7 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
 });
 
 const SYNTH = ['humansRadio', 'humansClear', 'humansOriginal', 'vaelClear', 'vaelWarm', 'vaelAiry'];
-const OUT = process.env.ENDFALL_VOICE_OUT, SAVE = ['attack', 'research', 'ether'];
+const OUT = process.env.ENDFALL_VOICE_OUT, SAVE = ['attack', 'research', 'salt'];
 
 test('every phrase in every synth style: no clipping, as loud and as long as the original, no rumble', { timeout: 120000, chromium: 'offline renders measured in one engine' }, async () => {
   const ctx = await browserContext({ viewport: { width: 800, height: 600 } });

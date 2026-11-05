@@ -1,29 +1,154 @@
-//! Economy: mining shards and ether, fields and vents running dry, supply.
+//! Economy: mining salt, fields running dry, Pumps on seeps, supply.
 
 use super::common::*;
 
 #[test]
-fn harvesters_mine_ether_from_a_finished_extractor() {
+fn a_finished_pump_pays_salt_with_no_workers() {
+    // PRD: the conversion, rule 1. A Pump on a seep pays its owner half a salt a second, a whole salt every 2 s,
+    // with nobody on it; it counts as mined. Both peoples' Pumps.
+    for (mut w, kind) in [
+        (rich(9), BldgKind::Extractor),
+        (rich_vael(9), BldgKind::Siphon),
+    ] {
+        for h in harvesters(&w, PLAYER) {
+            w.stop_unit(h); // (nobody mines: what comes in is the Pump's)
+        }
+        let (vx, vy) = player_vent(&w);
+        let pump = w.make_building(kind, PLAYER, vx, vy, true);
+        assert!(
+            w.bldg(pump).unwrap().vent.is_some(),
+            "{kind:?} stands on the seep"
+        );
+        w.res[PLAYER as usize] = [0, 0];
+        let mined = w.ledger[PLAYER as usize].mined[0];
+        run(&mut w, 1);
+        assert_eq!(
+            w.res[PLAYER as usize][0], 0,
+            "{kind:?}: nothing in the first second"
+        );
+        run(&mut w, 1);
+        assert_eq!(w.res[PLAYER as usize][0], 1, "{kind:?}: one salt after 2 s");
+        run(&mut w, 58);
+        assert_eq!(
+            w.res[PLAYER as usize],
+            [30, 0],
+            "{kind:?}: 30 salt a minute, no ether"
+        );
+        assert_eq!(
+            w.ledger[PLAYER as usize].mined[0] - mined,
+            30,
+            "{kind:?}: counted as mined"
+        );
+        assert!(
+            w.units.iter().all(|u| u.team != PLAYER || u.carry == 0),
+            "{kind:?}: nobody carried any of it"
+        );
+        // Gone, it pays nothing.
+        w.damage(pump, 1e6, None);
+        assert!(w.bldg(pump).is_none(), "{kind:?}: destroyed");
+        let have = w.res[PLAYER as usize][0];
+        run(&mut w, 10);
+        assert_eq!(
+            w.res[PLAYER as usize][0], have,
+            "{kind:?}: no Pump, no salt"
+        );
+    }
+}
+
+#[test]
+fn an_unfinished_pump_pays_nothing_and_a_seep_is_never_mined() {
     let mut w = rich(9);
-    w.res[PLAYER as usize][1] = 0;
     let h = harvesters(&w, PLAYER);
-    build(&mut w, BldgKind::Extractor, h[0], 90);
-    let vent = w
+    for &u in &h {
+        w.stop_unit(u);
+    }
+    let (vx, vy) = player_vent(&w);
+    let site = w.make_building(BldgKind::Extractor, PLAYER, vx, vy, false);
+    let vent = w.bldg(site).unwrap().vent.expect("on the seep");
+    w.res[PLAYER as usize] = [0, 0];
+    run(&mut w, 10);
+    assert_eq!(w.res[PLAYER as usize][0], 0, "a site pays nothing");
+    // A worker sent to the seep is refused, with or without its Pump, and tells why.
+    w.events.clear();
+    assert!(!w.start_gather(h[0], vent), "a seep is not mined");
+    assert!(
+        w.events.iter().any(
+            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Pump"))
+        ),
+        "the player is told the Pump pays by itself"
+    );
+    w.damage(site, 1e6, None);
+    w.make_building(BldgKind::Extractor, PLAYER, vx, vy, true);
+    assert!(!w.start_gather(h[0], vent), "nor with its Pump finished");
+    // A full game's workers never carry from a seep: two Medium AIs for five minutes.
+    let mut w = World::with_size(3, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    for _ in 0..5 * 60 * TPS {
+        w.step();
+        for u in &w.units {
+            if let Task::Gather { node, .. } = u.task {
+                assert!(
+                    w.map.node(node).is_none_or(|n| !n.ether),
+                    "unit {} of seat {} works a seep",
+                    u.id,
+                    u.team
+                );
+            }
+        }
+    }
+    assert!(
+        (0..2).all(|s| w.pumps(s) >= 1),
+        "both AIs planted Pumps: {} and {}",
+        w.pumps(0),
+        w.pumps(1)
+    );
+    assert_eq!(w.res[0][1] + w.res[1][1], 0, "no ether anywhere");
+}
+
+#[test]
+fn a_rally_on_a_seep_is_a_plain_point() {
+    // New workers mine where their building's rally names a salt field; a seep is never mined, so a rally on one is
+    // a point to walk to (from the Game API or the network: the client never sends one).
+    let mut w = rich(9);
+    let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
+    let seep = w.map.nodes.iter().find(|n| n.ether).unwrap().id;
+    let field = w.map.nodes.iter().find(|n| !n.ether).unwrap().id;
+    w.set_rally(hq, 100.0, 200.0, Some(seep));
+    assert_eq!(
+        w.bldg(hq).unwrap().rally.unwrap().node,
+        None,
+        "a seep: a plain point"
+    );
+    w.set_rally(hq, 100.0, 200.0, Some(field));
+    assert_eq!(
+        w.bldg(hq).unwrap().rally.unwrap().node,
+        Some(field),
+        "a salt field: mined"
+    );
+}
+
+#[test]
+fn an_ai_pump_pays_at_its_levels_income() {
+    // Brutal gathers 1.3 times as fast; its Pumps pay 1.3 times as much too (39 salt a minute, not 30).
+    let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
+    assert!(w.set_ai_seats([false, true]));
+    w.disable_ai();
+    for h in harvesters(&w, ENEMY) {
+        w.stop_unit(h);
+    }
+    let (cx, cy) = core(&w, ENEMY);
+    let n = w
         .map
         .nodes
         .iter()
-        .find(|n| n.ether && n.extractor.is_some())
-        .unwrap()
-        .id;
-    for &u in &h[..3] {
-        assert!(w.start_gather(u, vent));
-    }
-    run(&mut w, 40);
-    assert!(
-        w.res[PLAYER as usize][1] > 0,
-        "ether: {}",
-        w.res[PLAYER as usize][1]
-    );
+        .filter(|n| n.ether)
+        .min_by_key(|n| (n.tx - cx).abs() + (n.ty - cy).abs())
+        .unwrap();
+    let (vx, vy) = (n.tx, n.ty);
+    w.make_building(BldgKind::Extractor, ENEMY, vx, vy, true);
+    w.res[ENEMY as usize] = [0, 0];
+    run(&mut w, 60);
+    assert_eq!(w.res[ENEMY as usize][0], 39);
 }
 
 #[test]
@@ -74,22 +199,19 @@ fn a_full_core_reports_supply_blocked() {
 }
 
 #[test]
-fn the_builder_of_an_extractor_starts_mining_its_ether() {
+fn builders_go_back_to_the_salt() {
+    // The builder of a Pump, as of anything else, goes back to the salt it was mining (nobody works a seep).
     let mut w = rich(5);
+    run(&mut w, 3);
     let h = harvesters(&w, PLAYER);
-    let ext = build(&mut w, BldgKind::Extractor, h[0], 90);
-    let vent = w.bldg(ext).unwrap().vent.expect("on a vent");
+    build(&mut w, BldgKind::Extractor, h[0], 90);
     run(&mut w, 1);
     assert!(
-        matches!(w.unit(h[0]).unwrap().task, Task::Gather { node, .. } if node == vent),
-        "the builder mines the new Extractor: {:?}",
+        matches!(w.unit(h[0]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+        "a Pump's builder goes back to the salt: {:?}",
         w.unit(h[0]).unwrap().task
     );
-    // ... and a builder of anything else goes back to what it was doing.
-    let h1 = *h
-        .iter()
-        .find(|&&u| !matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent))
-        .unwrap();
+    let h1 = h[1];
     let depot = build(&mut w, BldgKind::Depot, h1, 90);
     run(&mut w, 1);
     assert!(w.bldg(depot).is_some());
@@ -97,103 +219,6 @@ fn the_builder_of_an_extractor_starts_mining_its_ether() {
         matches!(w.unit(h1).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
         "a Depot's builder goes back to the shards: {:?}",
         w.unit(h1).unwrap().task
-    );
-}
-
-#[test]
-fn ether_vents_run_dry_and_then_give_a_trickle() {
-    use endfall_sim::world::Event;
-    let mut w = rich(9);
-    w.res[PLAYER as usize][1] = 0;
-    let h = harvesters(&w, PLAYER);
-    build(&mut w, BldgKind::Extractor, h[0], 90);
-    let vent = w
-        .map
-        .nodes
-        .iter()
-        .find(|n| n.ether && n.extractor.is_some())
-        .unwrap()
-        .id;
-    // The builder already mines it; mining takes from the vent like from a shard field.
-    run(&mut w, 30);
-    let mined = w.res[PLAYER as usize][1];
-    let left = w.map.node(vent).unwrap().amount;
-    let carried: i32 = w
-        .units
-        .iter()
-        .filter(|u| u.team == PLAYER && u.carry_ether == Some(true))
-        .map(|u| u.carry)
-        .sum();
-    assert!(mined > 0, "the builder mined ether");
-    assert_eq!(
-        left + mined + carried,
-        5000,
-        "every ether banked or carried came out of the vent"
-    );
-    // Nearly dry: two harvesters empty it, then keep bringing a trickle; the player hears about it once.
-    w.map.node_mut(vent).unwrap().amount = 10;
-    w.events.clear();
-    assert!(w.start_gather(h[1], vent));
-    let before = w.res[PLAYER as usize][1];
-    let mut toasts = 0;
-    for _ in 0..90 * TPS {
-        w.step();
-        toasts += w
-            .events
-            .drain(..)
-            .filter(|e| matches!(e, Event::Toast { msg, .. } if msg.contains("depleted")))
-            .count();
-    }
-    let n = w.map.node(vent).expect("a dry vent stays on the map");
-    assert_eq!(n.amount, 0, "the vent is empty and never negative");
-    assert_eq!(toasts, 1, "one notice when it runs dry");
-    let after = w.res[PLAYER as usize][1] - before;
-    assert!(
-        after > 10 + 4 * VENT_TRICKLE,
-        "the trickle keeps coming: {after}"
-    );
-    assert!(
-        after < 10 + 20 * 6,
-        "but far slower than a full vent: {after}"
-    );
-    for &u in &h[..2] {
-        assert!(
-            matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent),
-            "harvesters stay on the dry vent"
-        );
-    }
-}
-
-#[test]
-fn harvesters_pick_a_flowing_vent_over_a_dry_one() {
-    let mut w = rich(9);
-    let (cx, cy) = core(&w, PLAYER);
-    let mut vents: Vec<(i32, Id, i32, i32)> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| n.ether)
-        .map(|n| ((n.tx - cx).abs() + (n.ty - cy).abs(), n.id, n.tx, n.ty))
-        .collect();
-    vents.sort();
-    let (near, far) = (vents[0], vents[1]);
-    for v in [near, far] {
-        w.make_building(BldgKind::Extractor, PLAYER, v.2, v.3, true);
-    }
-    let n = w.map.node(near.1).unwrap();
-    let (x, y) = (n.x, n.y);
-    assert_eq!(w.nearest_node(x, y, PLAYER, true, 1e9), Some(near.1));
-    w.map.node_mut(near.1).unwrap().amount = 0;
-    assert_eq!(
-        w.nearest_node(x, y, PLAYER, true, 1e9),
-        Some(far.1),
-        "the flowing one"
-    );
-    w.map.node_mut(far.1).unwrap().amount = 0;
-    assert_eq!(
-        w.nearest_node(x, y, PLAYER, true, 1e9),
-        Some(near.1),
-        "all dry: the nearest trickle"
     );
 }
 
@@ -371,103 +396,6 @@ fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
 }
 
 #[test]
-fn busy_harvesters_only_hop_to_vents_with_their_own_extractor() {
-    let mut w = rich(9);
-    let h = harvesters(&w, PLAYER);
-    build(&mut w, BldgKind::Extractor, h[0], 90);
-    let mine = w
-        .map
-        .nodes
-        .iter()
-        .find(|n| n.ether && n.extractor.is_some())
-        .unwrap()
-        .id;
-    let (mx, my) = (w.map.node(mine).unwrap().tx, w.map.node(mine).unwrap().ty);
-    // Two more vents right beside ours: one with an enemy Extractor, one with none.
-    let others: Vec<Id> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| n.ether && n.id != mine)
-        .map(|n| n.id)
-        .take(2)
-        .collect();
-    let mut placed = vec![];
-    for (&id, (dx, dy)) in others.iter().zip([(3, 0), (-3, 0), (0, 3), (0, -3)]) {
-        let (tx, ty) = (mx + dx, my + dy);
-        let free = (0..2).all(|y| {
-            (0..2).all(|x| {
-                let i = w.map.idx(tx + x, ty + y);
-                w.map.occ[i] == 0 && w.map.rock[i] == 0
-            })
-        });
-        if free {
-            move_node(&mut w, id, tx, ty);
-            placed.push((id, tx, ty));
-        }
-    }
-    assert!(!placed.is_empty(), "room beside the vent");
-    let (eid, etx, ety) = placed[0];
-    w.make_building(BldgKind::Extractor, ENEMY, etx, ety, true);
-    for &u in &h {
-        w.start_gather(u, mine);
-    }
-    run(&mut w, 30);
-    for &(id, _, _) in &placed {
-        let on = w
-            .units
-            .iter()
-            .filter(|u| {
-                u.team == PLAYER && matches!(u.task, Task::Gather { node, .. } if node == id)
-            })
-            .count();
-        assert_eq!(
-            on,
-            0,
-            "nobody hops to vent {id} (enemy Extractor: {})",
-            id == eid
-        );
-    }
-}
-
-#[test]
-fn a_new_refinery_gets_one_worker() {
-    let on_vent = |w: &World, v: Id| {
-        w.units
-            .iter()
-            .filter(|u| {
-                u.team == PLAYER && matches!(u.task, Task::Gather { node, .. } if node == v)
-            })
-            .count()
-    };
-    // Humans: its builder only; the Vael (whose Lumen plants and leaves): the nearest one. Early on a player may want
-    // every other worker on shards.
-    for (mut w, kind) in [
-        (rich(5), BldgKind::Extractor),
-        (rich_vael(5), BldgKind::Siphon),
-    ] {
-        run(&mut w, 3); // everyone mining shards
-        let worker = harvesters(&w, PLAYER)[0];
-        let b = build(&mut w, kind, worker, 120);
-        let vent = w.bldg(b).unwrap().vent.unwrap();
-        assert_eq!(
-            on_vent(&w, vent),
-            1,
-            "{kind:?}: one worker on the new refinery"
-        );
-    }
-    // An AI seat balances its own ether workers: nothing is sent for it.
-    let mut w = rich(5);
-    w.set_ai_seats([true, true]);
-    w.disable_ai();
-    run(&mut w, 3);
-    let worker = harvesters(&w, PLAYER)[0];
-    let b = build(&mut w, BldgKind::Extractor, worker, 120);
-    let vent = w.bldg(b).unwrap().vent.unwrap();
-    assert_eq!(on_vent(&w, vent), 1, "only the AI's builder");
-}
-
-#[test]
 fn a_shard_field_running_low_is_announced_once_with_a_ping() {
     use endfall_sim::world::{Event, FIELD_LOW};
     let mut w = rich(5);
@@ -514,41 +442,6 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
     assert!(left < FIELD_LOW, "mined through the mark: {left}");
     assert_eq!(toasts, 1, "announced once for the field");
     assert!(pings >= 1, "with a ping");
-}
-
-#[test]
-fn two_builders_of_a_refinery_leave_one_on_it() {
-    // Two harvesters build the Extractor together: when it is done, one mines ether and the other goes back to shards.
-    let mut w = rich(5);
-    run(&mut w, 3);
-    let hs = harvesters(&w, PLAYER);
-    let (a, b) = (hs[0], hs[1]);
-    let (vx, vy) = player_vent(&w);
-    let ext = w
-        .place_building(PLAYER, BldgKind::Extractor, vx, vy, Some(a))
-        .expect("placed");
-    assert!(w.start_build(b, ext), "the second harvester joins");
-    for _ in 0..30 * 90 {
-        w.step();
-        if w.bldg(ext).is_some_and(|e| e.done) {
-            break;
-        }
-    }
-    run(&mut w, 1);
-    let vent = w.bldg(ext).unwrap().vent.unwrap();
-    let on = [a, b]
-        .iter()
-        .filter(|&&u| matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent))
-        .count();
-    assert_eq!(on, 1, "one of the two builders mines the new Extractor");
-    let mines_vent =
-        |u: Id| matches!(w.unit(u).unwrap().task, Task::Gather { node, .. } if node == vent);
-    let other = if mines_vent(a) { b } else { a };
-    assert!(
-        matches!(w.unit(other).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-        "the other goes back to the shards: {:?}",
-        w.unit(other).unwrap().task
-    );
 }
 
 #[test]
@@ -689,52 +582,6 @@ fn an_idle_worker_away_from_its_field_stays_where_it_was_put() {
     w.hold_unit(raider);
     run(&mut w, 1);
     assert_eq!(w.unit(h).map(|u| u.task), Some(Task::Idle), "it stays put");
-}
-
-#[test]
-fn each_of_a_mains_two_refineries_gets_its_own_worker() {
-    // Two vents by every main: a person's second refinery gets a worker of its own (a shard worker), and the first
-    // keeps its.
-    let on_vent = |w: &World, v: Id| {
-        w.units
-            .iter()
-            .filter(|u| {
-                u.team == PLAYER && matches!(u.task, Task::Gather { node, .. } if node == v)
-            })
-            .count()
-    };
-    for (mut w, kind) in [
-        (rich(5), BldgKind::Extractor),
-        (rich_vael(5), BldgKind::Siphon),
-    ] {
-        run(&mut w, 3);
-        let (cx, cy) = core(&w, PLAYER);
-        let mut vents: Vec<(i32, i32, Id)> = w
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether && (n.tx - cx - 1).abs().max((n.ty - cy - 1).abs()) <= 10)
-            .map(|n| (n.tx, n.ty, n.id))
-            .collect();
-        vents.sort();
-        assert_eq!(vents.len(), 2, "{kind:?}: two vents by the main");
-        let mut rigs = vec![];
-        for (i, &(tx, ty, _)) in vents.iter().enumerate() {
-            let worker = harvesters(&w, PLAYER)[i];
-            rigs.push(
-                w.place_building(PLAYER, kind, tx, ty, Some(worker))
-                    .unwrap(),
-            );
-        }
-        run(&mut w, 120);
-        assert!(
-            rigs.iter().all(|&b| w.bldg(b).unwrap().done),
-            "{kind:?}: both stand"
-        );
-        for &(_, _, v) in &vents {
-            assert_eq!(on_vent(&w, v), 1, "{kind:?}: one worker on vent {v}");
-        }
-    }
 }
 
 #[test]

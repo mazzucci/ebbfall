@@ -326,7 +326,7 @@ fn research_rules_and_refunds() {
     );
     let f2 = w.make_building(BldgKind::Forge, PLAYER, 20, 46, true);
     w.start_research(f, Upgrade::Weapons).unwrap();
-    assert_eq!(w.res[PLAYER as usize], [4900, 4900]);
+    assert_eq!(w.res[PLAYER as usize], [4900, 5000], "no ether paid");
     assert!(
         w.start_research(f, Upgrade::Armor).is_err(),
         "one research per forge"
@@ -339,7 +339,7 @@ fn research_rules_and_refunds() {
     w.cancel_research(f2);
     assert_eq!(
         w.res[PLAYER as usize],
-        [4900, 4900],
+        [4900, 5000],
         "cancel refunds in full"
     );
     // Losing the forge mid-research refunds too.
@@ -536,19 +536,19 @@ fn messages_name_each_races_own_buildings() {
     for (w, rig, hall) in [
         (
             &mut rich(5),
-            "Build an Ether Rig on the vent first",
+            "A seep is not mined: a Pump on it pays salt by itself",
             "Foundry",
         ),
         (
             &mut rich_vael(5),
-            "Build a Siphon on the vent first",
+            "A seep is not mined: a Pump on it pays salt by itself",
             "Loom",
         ),
     ] {
         w.events.clear();
         let worker = harvesters(w, PLAYER)[0];
         let vent = w.map.nodes.iter().find(|n| n.ether).unwrap().id;
-        assert!(!w.start_gather(worker, vent), "no refinery on the vent yet");
+        assert!(!w.start_gather(worker, vent), "a seep is not mined");
         assert_eq!(toasts(w), vec![rig.to_string()]);
         let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
         let err = w.start_research(hq, Upgrade::Weapons).unwrap_err();

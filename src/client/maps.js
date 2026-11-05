@@ -10,8 +10,8 @@ import { mulberry } from '../engine/util.js';
 /** Map characters, in the sim's MapKind order, with the story the end screen tells. */
 export const MAP_KINDS = [
   { story: 'Old mining country: balanced fields and winding passes.' }, // Standard
-  { story: 'The crystal here ran ten times deeper than anywhere else.' }, // DeepFields
-  { story: 'An ether storm: every vent three times as rich, and one more in the middle of it all.' }, // EtherStorm
+  { story: 'The salt here ran ten times deeper than anywhere else.' }, // DeepFields
+  { story: 'A brine storm: one more seep in the middle of it all, for whoever can hold it.' }, // EtherStorm
   { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
   { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
   { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
@@ -38,7 +38,7 @@ export const MAPS = [
   // turns of the seats: every game ends, in 7 to 21 minutes, won from different starts, the worst tick under 40 ms
   // natively; two maps with the starts in the corners, one in the middles of the sides)
   { name: 'Dust Quarter', seed: 1291, kind: 0, size: 96 },
-  { name: 'Shard Crown', seed: 2940, kind: 1, size: 96 },
+  { name: 'Salt Crown', seed: 2940, kind: 1, size: 96 },
   { name: 'Long Steppe', seed: 1582, kind: 3, size: 96 },
   { name: 'Random', random: true, size: 96 },
   // (128x128, eight starts, two by each side. Picked from ten seeds per character by eight Medium AIs free for all, then

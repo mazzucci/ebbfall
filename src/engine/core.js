@@ -103,8 +103,7 @@ function sync() {
     let u = units.get(id);
     if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: { t: null, phase: null, node: null, b: null, target: null }, abCd: [0, 0], dead: false, gen }); }
     u.gen = gen; u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
-    const ct = U[o + fu.carry_type];
-    u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
+    u.carry = U[o + fu.carry]; u.cd = U[o + fu.cd];
     // Abilities: seconds of cooldown left per slot (the kind's `abilities` order), the boost and the toggle that are on.
     // (no ability is 0: never read a key at index -1, which is a slow property lookup)
     u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const boost = U[o + fu.boost], mode = U[o + fu.mode];

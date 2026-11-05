@@ -187,7 +187,11 @@ pub fn check_invariants(w: &World, ctx: &str) {
             .filter(|b| b.team as usize == t && b.done)
             .map(|b| b.kind.def().supply)
             .sum();
-        assert_eq!(w.sup[t][1], cap.min(200), "{ctx}: team {t} supply cap");
+        assert_eq!(
+            w.sup[t][1],
+            cap.min(SUPPLY_LIMIT),
+            "{ctx}: team {t} supply cap"
+        );
     }
     for u in &w.units {
         assert!(

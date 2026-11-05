@@ -692,6 +692,9 @@ impl World {
             }
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);
+            if b.pumped > 0.0 {
+                mix(jsmath::to_i32(b.pumped * 1024.0) + 1);
+            }
             if let Some((up, p)) = b.research {
                 mix(up.index() as i32 + 1);
                 mix(jsmath::to_i32(p * 1024.0));
@@ -721,14 +724,5 @@ impl World {
             mix(self.flood_kills as i32);
         }
         h
-    }
-}
-
-/// "n" when a name takes "an" ("an Ether Rig"), else "" ("a Siphon").
-pub(crate) fn an(name: &str) -> &'static str {
-    if name.starts_with(['A', 'E', 'I', 'O', 'U']) {
-        "n"
-    } else {
-        ""
     }
 }

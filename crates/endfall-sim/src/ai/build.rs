@@ -1,6 +1,5 @@
 //! The AI's build order and expansion: what to build next, where, and by whom; tending its sites.
 
-use super::produce::ETHER_FLOAT;
 use super::*;
 use crate::map::Node;
 
@@ -20,6 +19,9 @@ const ROOM: f64 = 15.0;
 const ROOM_FAR: f64 = 26.0;
 /// How far (tiles) from the middle of another start the AI keeps its far buildings: past that start's pocket.
 const POCKET_ROOM: f64 = 16.0;
+
+/// The AI's towers a finished base, two at least (`ai_build`).
+const TOWERS_PER_BASE: usize = 1;
 
 impl World {
     /// Whether vent `n` is one for the base at (cx, cy) (tiles) to take: within 16 tiles of it, and an expansion's vent
@@ -325,8 +327,7 @@ impl World {
     }
 
     /// The factory to add when shards pile up for want of one: a bank of `SHARD_FLOAT` with every one of a kind busy
-    /// (its vehicle bays first, which work only when the mix calls for their units, and only with ether in the bank,
-    /// then its main factories), while
+    /// (its main factories), while
     /// not supply-blocked (busy queues that cannot finish are not a factory problem) and not saving up (for an
     /// expansion or research: the bank is spoken for), and while under the difficulty's allowance of extra factories
     /// over the `schedule`. None: no extra factory.
@@ -342,11 +343,8 @@ impl World {
                 });
             all > 0 && busy == all
         };
-        // (a second vehicle bay only with ether piling up too: its units spend it)
-        let kind = s
-            .heavy
-            .filter(|&h| busy_all(h) && self.res[e as usize][1] >= ETHER_FLOAT)
-            .or(busy_all(s.rax).then_some(s.rax))?;
+        // (a main factory: a vehicle bay works only when the mix calls for its units)
+        let kind = busy_all(s.rax).then_some(s.rax)?;
         let d = self.tuning(e);
         let [used, cap] = self.sup[e as usize];
         let hq = self.factions[e as usize].hq;
@@ -406,20 +404,19 @@ impl World {
             cx,
             cy,
             building,
-            ext,
-            flowing,
+            pumps,
             cores,
             ..
         } = brain.clone();
         let d = self.level();
-        // A free vent near a point (where find_spot looks): wanting an Extractor without one would stall the build.
+        // A free seep near a point (where find_spot looks): wanting a Pump without one would stall the build.
         let free_vent = |w: &World, (fx, fy): (f64, f64)| {
             w.map
                 .nodes
                 .iter()
                 .any(|n| n.ether && n.extractor.is_none() && w.vent_of_base(n, fx, fy))
         };
-        // Where a refinery goes once the main's vents are taken (or have run dry): a free vent by the expansion.
+        // Where a Pump goes once the main's seeps are taken: a free seep by the expansion.
         let exp_vent = cores.get(1).map(|&exp| {
             let b = self.bldg(exp).unwrap();
             (b.tx as f64 + 2.0, b.ty as f64 + 2.0)
@@ -440,25 +437,20 @@ impl World {
                 )
             });
         let relight = dark.filter(|_| f.supply.def().power > 0.0 && !building.contains(&f.supply));
-        // Ether only once there is something to spend it on: at once if a mixed-in unit needs ether and no tech
-        // (the Vael Prism), else after the first factory (the Foundry, the Humans' first ether buy, needs it).
-        let ether_early = s
-            .mix
-            .iter()
-            .any(|&(k, _, _)| k.def().cost[1] > 0 && k.def().req.is_none());
-        // Another refinery once one flows and the tech that spends ether is going up (from the level's
-        // `vents_from`), unless ether is piling up; one site at a time (a vent's crew is trained when it stands).
-        let more_ether = ext.is_some()
-            && flowing
-            && t > d.vents_from
-            && self.ai_count(&my_b, false, s.tech) >= 1
-            && !self.ai().ether_lean
-            && !building.contains(&f.ether);
+        // A Pump on every seep it can (PRD: the conversion, rule 1), one site at a time: its main's first once it has
+        // seven workers, the rest from the level's `vents_from`, then the expansion's.
+        let pump_due =
+            !building.contains(&f.ether) && harv.len() >= 7 && (pumps == 0 || t > d.vents_from);
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
             d.supply_ahead + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
+        // Its towers, at most `TOWERS_PER_BASE` a finished base and two at least (sites counted): under the cap of 40 a
+        // bank it cannot spend went into towers, up to 13 a seat, and multi-seat games stalled (a 2v2 on 96x96 ran to
+        // 104 minutes; 30 with this cap).
+        let tower_room =
+            self.ai_count(&my_b, false, s.tower) < (TOWERS_PER_BASE * cores.len()).max(2);
         // Hit by something unseen: a detector (its tower) by the spot, unless one stands near it already.
         let detector_at = self.ai().cloak_hit.filter(|&(x, y)| {
             !self.bldgs.iter().any(|b| {
@@ -468,7 +460,8 @@ impl World {
                     && dist(b.x, b.y, x, y) < 6.0 * TILE
             })
         });
-        if detector_at.is_none() {
+        // (no room for another tower: the mark is let go, or a later tower would go to a stale one far from its bases)
+        if detector_at.is_none() || !tower_room {
             self.ai_mut().cloak_hit = None;
         }
         // Hit by something unseen while its field detector comes from its air factory (the Humans' Observer): that
@@ -477,33 +470,27 @@ impl World {
             && f.field_detector()
                 .is_some_and(|k| s.air.def().trains.contains(&k));
         let want = if relight.is_some()
-            || (cap - used <= supply_margin && cap < 200 && supply_rising < d.supply_at_once)
+            || (cap - used <= supply_margin
+                && cap < SUPPLY_LIMIT
+                && supply_rising < d.supply_at_once)
         {
             Some(f.supply)
-        } else if detector_at.is_some() && self.has_req(e, s.tower) && !building.contains(&s.tower)
+        } else if detector_at.is_some()
+            && tower_room
+            && self.has_req(e, s.tower)
+            && !building.contains(&s.tower)
         {
             Some(s.tower) // (before the build order: something it cannot see is hurting it)
-        } else if (harv.len() >= 7
-            && self.ai_count(&my_b, false, f.ether) == 0
-            && (ether_early || self.ai_count(&my_b, false, s.rax) >= 1)
-            && free_vent(self, (cx, cy)))
-            || (more_ether && free_vent(self, (cx, cy)))
-            || (exp_vent.is_some()
-                && !building.contains(&f.ether)
-                && (!flowing || (more_ether && !free_vent(self, (cx, cy)))))
-        {
-            // (the first in the main; its second once the first flows and its tech is going up; then the
-            // expansion's, or at once if the main's have run dry)
+        } else if pump_due && (free_vent(self, (cx, cy)) || exp_vent.is_some()) {
             Some(f.ether)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
             Some(k)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && ext.is_some()
+            && pumps > 0
             && self.ai_count(&my_b, false, s.tech) == 0
-            // (sooner once its ether is in the bank: until the tech stands there may be nothing to spend it on)
-            && (t > 150.0 || self.res[e as usize][1] >= s.tech.def().cost[1])
+            && t > 150.0
         {
             Some(s.tech)
         } else if let Some(heavy) = s.heavy
@@ -515,6 +502,7 @@ impl World {
             Some(heavy) // (once its vehicles' tech stands)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && self.ai_count(&my_b, false, s.tower) < (t > 150.0) as usize + (t > 480.0) as usize
+            && tower_room
         {
             Some(s.tower)
         // (the rules let air follow the first factory; this AI chooses ground tech first)
@@ -769,6 +757,98 @@ mod tests {
     }
     use crate::world::World;
 
+    /// Seat 1's Medium AI at 10:00 with its Garrison, `towers` Turrets by its Core, money in hand and an unseen hit
+    /// out by its fields: whether its build order puts a Turret up by the hit, and whether it keeps the hit's mark.
+    fn tower_for_a_hit(towers: usize) -> (bool, bool) {
+        use crate::ai::Brain;
+        let mut w = World::with_size(
+            5,
+            1,
+            MapKind::Standard,
+            MapSize::DUEL,
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        w.set_ai_seats([false, true]);
+        w.ai_turn = 1;
+        let (core, cx, cy) = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == 1 && b.kind == BldgKind::Core)
+            .map(|b| (b.id, b.tx as f64 + 2.0, b.ty as f64 + 2.0))
+            .unwrap();
+        let mut placed = 0;
+        'rings: for r in 4..14 {
+            for a in 0..24 {
+                let ang = a as f64 / 24.0 * std::f64::consts::TAU;
+                let (tx, ty) = (
+                    (cx + ang.cos() * r as f64) as i32,
+                    (cy + ang.sin() * r as f64) as i32,
+                );
+                let k = if placed == 0 {
+                    BldgKind::Barracks
+                } else {
+                    BldgKind::Turret
+                };
+                if placed <= towers && w.can_place(k, tx, ty, 1) {
+                    w.make_building(k, 1, tx, ty, true);
+                    placed += 1;
+                }
+                if placed > towers {
+                    break 'rings;
+                }
+            }
+        }
+        assert_eq!(placed, towers + 1, "room for the Garrison and the Turrets");
+        // Supply to spare (no Depot due) and money in hand.
+        w.sup[1] = [10, 40];
+        w.res[1] = [5000, 5000];
+        // The hit: well away from its Turrets, by the map's middle.
+        let (mx, my) = (w.map.w as f64 * TILE / 2.0, w.map.h as f64 * TILE / 2.0);
+        w.ai_mut().cloak_hit = Some((mx, my));
+        let my_b: Vec<_> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let harv: Vec<_> = w
+            .units
+            .iter()
+            .filter(|u| u.team == 1 && u.kind.def().worker)
+            .map(|u| u.id)
+            .collect();
+        let mut b = Brain {
+            e: 1,
+            t: 600.0,
+            my_b,
+            harv,
+            cx,
+            cy,
+            cores: vec![core],
+            pumps: 2,
+            ..Brain::default()
+        };
+        w.ai_build(&mut b);
+        let built = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1 && b.kind == BldgKind::Turret)
+            .count()
+            > towers;
+        (built, w.ai().cloak_hit.is_some())
+    }
+
+    #[test]
+    fn the_ais_towers_are_capped_by_its_bases() {
+        // Under the cap of 40 a bank it could not spend went into towers, a detector by every unseen hit, up to 13 a
+        // seat, and multi-seat games stalled: one base, two Turrets at most.
+        assert!(tower_for_a_hit(1).0, "one Turret: a second by the hit");
+        let (built, kept) = tower_for_a_hit(2);
+        assert!(!built, "two Turrets on one base: no third");
+        assert!(!kept, "and the mark let go (no later tower sent out to it)");
+    }
+
     #[test]
     fn on_a_map_of_many_starts_each_ai_expands_on_its_own_side() {
         // Eight starts round a 128x128 map, neighbours 44 tiles apart: a neighbour's natural can lie nearer than our
@@ -863,19 +943,14 @@ mod tests {
             w.extra_rax(ENEMY, &my_b, 1).is_some(),
             "and then adds factories"
         );
-        // A vehicle bay counts as one; busy too (its units are behind the mix), another of those first.
+        // A vehicle bay counts as one; busy or not, the factory added is a main one (a bay works only when the mix
+        // calls for its units).
         w.diff = 1;
         let bay = w.make_building(BldgKind::Factory, ENEMY, 40, 20, true);
         my_b.push(bay);
         assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Barracks));
         w.bm(bay).unwrap().queue.push(UnitKind::Vanguard);
-        assert_eq!(
-            w.extra_rax(ENEMY, &my_b, 1),
-            Some(BldgKind::Barracks),
-            "no ether piling up for its vehicles"
-        );
-        w.res[ENEMY as usize] = [500, 300];
-        assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Factory));
+        assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Barracks));
         w.make_building(BldgKind::Barracks, ENEMY, 44, 20, true);
         let full = w
             .bldgs

@@ -158,7 +158,7 @@ test('training shows progress and the queue in the panel', async () => {
   } finally { await d.close(); }
 });
 
-test('harvesters mine ether once an extractor stands on the vent', async () => {
+test('a Pump placed on a seep pays salt by itself; workers sent to it stay off it', async () => {
   const d = await newGame(DESKTOP);
   try {
     await d.grant(1000, 0);
@@ -166,15 +166,19 @@ test('harvesters mine ether once an extractor stands on the vent', async () => {
     const core = coreOf(s);
     const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
     const h = mine(s, 'harvester');
-    // Click a little off the vent: placement snaps onto it.
+    // Click a little off the seep: placement snaps onto it.
     await d.clickEntity(h[0].id); await d.key('b'); await d.key('e');
     const [x, y] = await d.screen(vent.x + 14, vent.y + 10); await d.page.mouse.move(x, y); await d.page.mouse.click(x, y);
     s = await d.state();
     const ext = myBldg(s, 'extractor')[0];
-    assert.ok(ext, `extractor placed (${(await d.toasts()).join(' | ')})`);
-    await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the extractor' });
+    assert.ok(ext, `Pump placed (${(await d.toasts()).join(' | ')})`);
+    await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the Pump' });
+    await d.clickEntity(ext.id);
+    assert.match(await d.hudText('#selSub', /Pumping/), /Pumping salt/, 'the panel says it pays');
+    // A right-click on it with workers selected: they are not sent to work it (a seep is not mined).
     for (const u of h.slice(1, 4)) { await d.clickEntity(u.id); await d.rightClickWorld(ext.x, ext.y); }
-    await until(d, async () => (await d.state()).res[1] > 0, { seconds: 60, what: 'ether income' });
+    assert.equal(await d.eval(() => endfall.G.units.filter(u => u.task.t === 'gather' && u.task.node?.type === 'ether').length), 0, 'nobody works the seep');
+    assert.equal((await d.state()).res[1], 0, 'no ether');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -410,7 +414,7 @@ test('phone: Rapid Construction researched at the Foundry, then buildings go up 
     const res = (await d.state()).res;
     await d.pressCard('Rapid Build');
     const paid = (await d.state()).res;
-    assert.ok(paid[1] === res[1] - 100 && paid[0] <= res[0] - 100 + 40, `it costs 100 shards and 100 ether (${res} -> ${paid}; shards still come in)`);
+    assert.ok(paid[1] === res[1] && paid[0] <= res[0] - 100 + 40, `it costs 100 salt (${res} -> ${paid}; salt still comes in)`);
     assert.match(await d.hudText('#mod', /Rapid Construction/), /Rapid Construction/);
     assert.ok(await d.page.locator('#mod .rs').isVisible(), 'the console shows the research with its bar');
     const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
@@ -499,14 +503,15 @@ test('a resource field can be selected to see what is left (desktop click, phone
       const sel = await d.selection();
       assert.deepEqual(sel.map(e => e.kind), ['node'], `${d.touch ? 'phone' : 'desktop'}: the field is selected`);
       const left = await d.eval((id) => endfall.map.nodes.find(n => n.id === id).amount, node.id);
-      assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (shards )?left`), 'shows what is left');
+      assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (salt )?left`), 'shows what is left');
       assert.equal((await d.card()).length, 0, 'nothing to command on a field');
-      assert.match(await d.hudText('#selName', /Shard field/), /Shard field/);
-      // Ether vents too (the player's own: in sight).
+      assert.match(await d.hudText('#selName', /Salt field/), /Salt field/);
+      // Seeps too (the player's own: in sight).
       const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
       await d.clickWorld(vent.x, vent.y);
-      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the vent is selected');
-      assert.match(await d.hudText('#selName', /Ether vent/), /Ether vent/);
+      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the seep is selected');
+      assert.match(await d.hudText('#selName', /Brine seep/), /Brine seep/);
+      assert.match(await d.hudText('#selSub', /salt/), /pays salt by itself/);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -1128,7 +1133,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Depot', 'Garrison', 'Ether Rig', 'Core', 'Back'], 'the basic page: all it holds is there from the start; no Advanced before a Garrison');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Depot', 'Garrison', 'Pump', 'Core', 'Back'], 'the basic page: all it holds is there from the start; no Advanced before a Garrison');
     await d.pressCard('Depot');
     assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
     await d.pressCard('Cancel');
@@ -1227,7 +1232,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
     await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Spire'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.deepEqual(labels, ['Spire', 'Kiln', 'Siphon', 'Conflux', 'Back'], 'the Vael Build list (Advanced once a Kiln stands)');
+    assert.deepEqual(labels, ['Spire', 'Kiln', 'Pump', 'Conflux', 'Back'], 'the Vael Build list (Advanced once a Kiln stands)');
     await page.evaluate(() => { endfall.ui.mode = null; });
     await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Spire'), null, { timeout: 10000 });
     assert.ok(await page.locator('#shBar').isVisible(), 'a Lumen shows its shields over its hull');
@@ -1750,7 +1755,7 @@ test('the screen is lean: resources, supply, full screen, sound and pause on top
     const d = await newGame(dev, 1, 4242, { ai: false });
     try {
       const shown = await d.eval(() => [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && getComputedStyle(e).display !== 'none' && !e.classList.contains('spacer')).map(e => e.id || e.className));
-      const want = ['resShard', 'resEther', 'resSup', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
+      const want = ['resShard', 'resSup', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
       assert.deepEqual(shown, want, 'the top bar at the start: ' + shown.join(' '));
       assert.ok(await d.page.locator('#info').isHidden(), 'nothing selected: no panel');
       await d.skip(30);

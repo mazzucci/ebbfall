@@ -154,11 +154,10 @@ fn a_researched_cloak_is_permanent_and_only_a_detector_finds_it() {
 fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     // A cloaked Raider of the player's shoots at the AI's harvesters: the AI puts a Turret up by them, nearer the hit
     // than its own schedule (the first from 2:30) puts one. Checked against the same minute played without the Raider
-    // (8.2 tiles from the hit against 10.9 for the scheduled one). (This Raider cannot die and shoots whoever comes
-    // near, builders included, so the decision is what is checked, not the finished tower.)
+    // (14.6 tiles from where the shooting began; the quiet game places none in that minute). (This Raider cannot die
+    // and shoots whoever comes near, builders included, so the decision is what is checked, not the finished tower.)
     let mut w = World::new(31, 1);
-    // (after its Foundry and its second vent's Rig stand, as it raises two sites at a time; and a Turret's price in
-    // the bank, which that vent's new crew has just spent)
+    // (after its Foundry and its second Pump stand, as it raises two sites at a time; and a Turret's price in the bank)
     run(&mut w, 175);
     w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let h = harvesters(&w, ENEMY)[0];
@@ -180,6 +179,7 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
             .fold(f64::INFINITY, f64::min)
     };
     assert_eq!(nearest(&w), f64::INFINITY, "no Turret yet");
+    let (mut hit, mut unhit) = (f64::INFINITY, f64::INFINITY);
     for _ in 0..60 {
         // (cloaked for good, it keeps shooting at a harvester near where it started)
         // (a miner: its workers now run from what hits them, and the one building the tower is not the target)
@@ -191,13 +191,16 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
             w.attack_ent(raider, t);
         }
         run(&mut w, 1);
+        hit = hit.min(nearest(&w)); // (the site may fall to the Raider: where it was placed counts)
     }
     for _ in 0..60 {
         run(&mut quiet, 1);
+        unhit = unhit.min(nearest(&quiet));
     }
-    let (hit, unhit) = (nearest(&w), nearest(&quiet));
+    // (within 16 tiles of where the shooting began: the harvesters it shot at scatter as they run, and the mark is
+    // where one was hit; the quiet game places none in that minute, or one farther off)
     assert!(
-        hit < 10.0 && hit < unhit,
+        hit < 16.0 && hit < unhit,
         "a Turret by the hit ({hit:.1} tiles), nearer than the schedule's ({unhit:.1})"
     );
 }

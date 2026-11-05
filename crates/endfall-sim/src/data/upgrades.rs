@@ -65,7 +65,7 @@ const WEAPONS: UpgradeDef = UpgradeDef {
     name: "Weapons",
     short: "",
     effect: Effect::Weapons,
-    cost: [[100, 100], [175, 175], [250, 250]],
+    cost: [[100, 0], [175, 0], [250, 0]],
     time: [60.0, 75.0, 90.0],
     levels: 3,
 };
@@ -89,7 +89,7 @@ const TECH: UpgradeDef = UpgradeDef {
     name: "",
     short: "",
     effect: Effect::Weapons,
-    cost: [[100, 100]; 3],
+    cost: [[100, 0]; 3],
     time: [60.0; 3],
     levels: 1,
 };
@@ -99,7 +99,7 @@ const ENTRENCHING: UpgradeDef = UpgradeDef {
     name: "Entrenching",
     short: "Entrench",
     effect: Effect::Unlock(AbilityKind::Entrench),
-    cost: [[125, 125]; 3],
+    cost: [[125, 0]; 3],
     time: [70.0; 3],
     ..TECH
 };
@@ -115,7 +115,7 @@ const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {
     name: "Overcharge Core",
     short: "Overcharge",
     effect: Effect::Unlock(AbilityKind::Overcharge),
-    cost: [[150, 150]; 3],
+    cost: [[150, 0]; 3],
     time: [80.0; 3],
     ..TECH
 };
@@ -131,7 +131,7 @@ const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
     name: "Cloaking Field",
     short: "Cloak Field",
     effect: Effect::Unlock(AbilityKind::Cloak),
-    cost: [[150, 150]; 3],
+    cost: [[150, 0]; 3],
     time: [80.0; 3],
     ..TECH
 };

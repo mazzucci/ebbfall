@@ -926,11 +926,7 @@ fn the_army_log_samples_both_sides_every_ten_seconds() {
     assert_eq!(w.army_log[1], vec![0, 0]);
     w.make_unit(UnitKind::Vanguard, ENEMY, 1600.0, 300.0);
     run(&mut w, 10);
-    assert_eq!(
-        w.army_log[1].last(),
-        Some(&200),
-        "a Vanguard: 125 shards + 75 ether"
-    );
+    assert_eq!(w.army_log[1].last(), Some(&125), "a Vanguard: 125 salt");
 }
 
 #[test]

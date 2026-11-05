@@ -20,13 +20,12 @@ pub const HOLD_WAVES_MAX: f64 = 360.0;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
-/// Shards per ether in an army's value (`army_worth`), as the balance lab weighs it.
-const ARMY_ETHER_WORTH: f64 = 1.5;
+/// Supply short of the cap that counts as at the cap: a seat 1 or 2 short trains little more than one more unit.
+const CAP_SLACK: i32 = 2;
 
-/// A unit's worth in an army: its cost, shards plus ether at `ARMY_ETHER_WORTH`.
+/// A unit's worth in an army: its cost in salt.
 fn army_worth(k: UnitKind) -> f64 {
-    let c = k.def().cost;
-    c[0] as f64 + ARMY_ETHER_WORTH * c[1] as f64
+    k.def().cost[0] as f64
 }
 
 /// A flying detector that escorts the waves (an unarmed flyer that detects: the Observer).
@@ -411,8 +410,10 @@ impl World {
         let need =
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
         let held = self.hold_waves && t < HOLD_WAVES_MAX; // (the guided first game: until the player is ready)
-        if held || ai.attacking || army.len() < need || t - ai.last_wave <= d.gap || t <= d.first {
-            if !ai.attacking && army.len() < need {
+        // (at the cap a wave is as big as it gets: it goes whatever its count)
+        let short = army.len() < need && !self.at_cap(self.seat());
+        if held || ai.attacking || short || t - ai.last_wave <= d.gap || t <= d.first {
+            if !ai.attacking && short {
                 self.ai_mut().ready_since = None;
             }
             return;
@@ -514,7 +515,7 @@ impl World {
         }
         let since = *self.ai_mut().ready_since.get_or_insert(t);
         let seat = self.seat();
-        if self.sup[seat as usize][0] >= SUPPLY_LIMIT || t - self.ai().last_wave > d.all_in_after {
+        if self.at_cap(seat) || t - self.ai().last_wave > d.all_in_after {
             let expected = self.ai().army_seen.0;
             return go(self, LaunchWhy::AllIn, expected);
         }
@@ -572,7 +573,7 @@ impl World {
     fn tend_reserve(&mut self, army: Vec<Id>, rally: Pt, t: f64) -> Vec<Id> {
         let seat = self.seat();
         let share = self.level().reserve;
-        if share <= 0.0 || self.sup[seat as usize][0] >= SUPPLY_LIMIT || !self.passive_foe(t) {
+        if share <= 0.0 || self.at_cap(self.seat()) || !self.passive_foe(t) {
             self.ai_mut().reserve.clear();
             return army;
         }
@@ -620,6 +621,11 @@ impl World {
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
     }
 
+    /// Whether `seat` stands at the supply cap, within `CAP_SLACK` (a wave then goes with everything, the reserve too).
+    pub(crate) fn at_cap(&self, seat: u8) -> bool {
+        self.sup[seat as usize][0] + CAP_SLACK >= SUPPLY_LIMIT
+    }
+
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
     /// came within `CHASE_S` of our last wave's end left out (chasers of our wave home, not the foe coming). The
     /// siege rules, the home reserve and the pull-back on contact, are for such a foe only (one that sits behind its
@@ -660,10 +666,7 @@ impl World {
                         && self.ai_sees(b.x, b.y)
                         && near(b.x, b.y)
                 })
-                .map(|b| {
-                    let c = b.kind.def().cost;
-                    c[0] as f64 + ARMY_ETHER_WORTH * c[1] as f64
-                })
+                .map(|b| b.kind.def().cost[0] as f64)
                 .sum::<f64>();
         if theirs <= 0.0 {
             return false;

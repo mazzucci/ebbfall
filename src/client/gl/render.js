@@ -295,7 +295,7 @@ class UnitObj {
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
-    if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
+    if (u.carry) { this.cargo.tint = 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; } }
   destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); } // (a Graphics frees its context only when destroyed without options)
@@ -565,30 +565,30 @@ const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag);
 function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
-const SHARD = 0x4fd1c5, ETHER = 0xa78bfa;
-/** Colour of a target: shard field teal, ether (vent or extractor being mined) violet, a building to work on amber. */
-const targetColor = (e, mining) => e.kind === 'node' ? (e.type === 'ether' ? ETHER : SHARD) : mining ? ETHER : 0xf5a524;
+const SALT = 0x4fd1c5;
+/** Colour of a target: a salt field teal, a building to work on amber. */
+const targetColor = (e) => e.kind === 'node' ? SALT : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
-export function flashTarget(e, mining = false) { if (e) flashes.push({ e, mining, t: performance.now() / 1000 }); }
+export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
 function outline(e, width, color, alpha) {
   if (e.kind === 'node') { const r = e.r + 7; lines.ellipse(e.x, e.y, r, r * 0.72).stroke({ width, color, alpha }); return; }
   lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {
   for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected resource field
-  // Faint, steady: the shard field, extractor or building each selected harvester is working on.
+  // Faint, steady: the salt field or building each selected harvester is working on.
   const done = new Set();
   for (const u of selList) {
     if (u.kind !== 'unit' || u.team !== G.me || u.dead) continue;
-    const T = u.task, e = T.t === 'gather' ? (T.node?.extractor || T.node) : (T.t === 'build' || T.t === 'repair') ? T.b : null;
+    const T = u.task, e = T.t === 'gather' ? T.node : (T.t === 'build' || T.t === 'repair') ? T.b : null;
     if (!e || e.dead || done.has(e)) continue;
-    done.add(e); outline(e, 1.5, targetColor(e, T.t === 'gather'), 0.5);
+    done.add(e); outline(e, 1.5, targetColor(e), 0.5);
   }
   // Bright, blinking for 0.9 s after an order.
   for (let i = flashes.length - 1; i >= 0; i--) {
     const f = flashes[i], age = now - f.t;
     if (age > 0.9 || f.e.dead) { flashes.splice(i, 1); continue; }
-    if (Math.floor(age / 0.15) % 2 === 0) outline(f.e, 3, targetColor(f.e, f.mining), 1);
+    if (Math.floor(age / 0.15) % 2 === 0) outline(f.e, 3, targetColor(f.e), 1);
   }
 }
 

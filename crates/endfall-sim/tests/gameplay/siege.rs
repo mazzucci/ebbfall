@@ -251,11 +251,16 @@ fn the_ai_builds_a_factory_and_fields_siege_tanks_later_on() {
     w.make_building(BldgKind::Barracks, ENEMY, b.0 - 4, b.1 + 6, true);
     let home = w.bldgs.iter_mut().find(|b| b.team == PLAYER).unwrap();
     (home.hp, home.maxhp) = (1e9, 1e9); // (the player's base stands: the game goes on)
-    let mut factory_at = None;
+    let (mut factory_at, mut vanguards, mut tanks) = (None, false, false);
     while w.time < 450.0 {
         w.res[ENEMY as usize] = [3000, 1000];
+        if w.tick.is_multiple_of(30 * TPS) {
+            make_room(&mut w, ENEMY, 6); // (its army loses some, as in a game)
+        }
         w.step();
         w.events.clear();
+        vanguards |= count(&w, ENEMY, UnitKind::Vanguard) > 0;
+        tanks |= count(&w, ENEMY, UnitKind::SiegeTank) > 0;
         if factory_at.is_none()
             && w.bldgs
                 .iter()
@@ -265,9 +270,10 @@ fn the_ai_builds_a_factory_and_fields_siege_tanks_later_on() {
         }
     }
     let at = factory_at.expect("a Factory");
-    assert!(at < 120.0, "soon after its tech stands: {at:.0} s");
-    assert!(count(&w, ENEMY, UnitKind::Vanguard) >= 1, "Vanguards");
-    assert!(count(&w, ENEMY, UnitKind::SiegeTank) >= 1, "Siege Tanks");
+    // (after its two Pumps, which come first)
+    assert!(at < 180.0, "soon after its tech stands: {at:.0} s");
+    assert!(vanguards, "Vanguards");
+    assert!(tanks, "Siege Tanks");
 }
 
 #[test]

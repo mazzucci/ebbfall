@@ -56,8 +56,6 @@ pub(crate) struct Ai {
     /// nearest it) the army heads for next.
     pub sweep: usize,
     pub sweep_since: f64,
-    /// Ether is piling up: keep a single harvester on it (with hysteresis).
-    pub ether_lean: bool,
     /// How many units the current attack wave started with (it retreats below 40%).
     pub wave_size: usize,
     /// The most enemy infantry (walking, bio) and heavy walkers (armour 2+) seen at once lately: (count, when).
@@ -202,7 +200,6 @@ impl World {
             check: None,
             sweep: 0,
             sweep_since: 0.0,
-            ether_lean: false,
         }
     }
 
@@ -407,8 +404,8 @@ pub(crate) struct Brain {
     cy: f64,
     rally: Pt,
     building: Vec<BldgKind>,
-    ext: Option<Id>,
-    flowing: bool,
+    /// Its finished Pumps.
+    pumps: usize,
     cores: Vec<Id>,
     want: Option<BldgKind>,
     expand: bool,

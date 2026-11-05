@@ -162,7 +162,12 @@ impl World {
                 && dist(u.x, u.y, gx, gy) < LOOK_NEAR
         });
         let ai = self.ai_mut();
-        let grown = ai.army_seen.0 + (mine - ai.army_seen.2).max(0.0);
+        // (never seen yet: any sighting is the first)
+        let grown = if ai.army_seen.0 > 0.0 {
+            ai.army_seen.0 + (mine - ai.army_seen.2).max(0.0)
+        } else {
+            0.0
+        };
         if seen > 0.0 && (seen >= grown || at_base) {
             ai.army_seen = (seen, t, mine);
         }
@@ -1054,15 +1059,20 @@ mod tests {
 
     #[test]
     fn a_glimpse_does_not_replace_the_army_it_saw_but_a_look_at_the_foes_base_does() {
-        // Ten Troopers seen at 200 (its own army then worth ten): at 400 two of the foe's Troopers come in view by its
-        // rally, far from its goal. A glimpse: it keeps the ten.
+        // Two of the foe's Troopers in view by its rally, far from its goal: the first sighting. Then ten seen at 200
+        // (its own army then worth ten): at 400 those two again. A glimpse: it keeps the ten.
         let (mut w, army, mut b) = ready(1);
-        w.ai_mut().army_seen = (10.0 * trooper(), 200.0, 10.0 * trooper());
         let (hx, hy) = (b.rally.x, b.rally.y);
         let foe: Vec<Id> = (0..2)
             .map(|i| w.make_unit(UnitKind::Trooper, 0, hx + 100.0 + i as f64 * 20.0, hy))
             .collect();
         w.update_fog();
+        // Never seen yet: the first sighting counts, however small against its own army.
+        b.t = 100.0;
+        w.ai_watch(&mut b);
+        assert_eq!(w.ai().army_seen.0, 2.0 * trooper(), "the first sighting");
+        w.ai_mut().army_seen = (10.0 * trooper(), 200.0, 10.0 * trooper());
+        b.t = 400.0;
         w.ai_watch(&mut b);
         assert_eq!(w.ai().army_seen.1, 200.0, "a glimpse of two: the ten stay");
         // Twelve of its own now: the ten seen are expected grown by two, and a sighting of eleven is still less.

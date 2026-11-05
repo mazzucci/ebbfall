@@ -9,6 +9,9 @@ const SECOND_PRONG_GAP: f64 = 15.0 * TILE;
 const GUARDS: usize = 3;
 /// A wave sizes up what it meets within this many px of its units (`Diff::retreat_below`).
 const CONTACT_NEAR: f64 = 8.0 * TILE;
+/// For this long (s) after its wave ends, the foe's units at its buildings are chasers, not the foe coming
+/// (`passive_foe`).
+const CHASE_S: f64 = 90.0;
 /// An enemy detector within this many px of an enemy fighter goes with the enemy's army.
 const DETECTOR_WITH_ARMY: f64 = 8.0 * TILE;
 
@@ -169,7 +172,12 @@ impl World {
         }
         // (an armed enemy at its buildings: the foe is not passive; `Diff::passive_expand`)
         if intruder.is_some_and(|i| self.u(i).kind.def().threat()) {
-            self.ai_mut().attacked_at = t;
+            let ai = self.ai_mut();
+            ai.attacked_at = t;
+            // (the foe's units come after its wave that just ended: a chase, not the foe coming; `passive_foe`)
+            if ai.attacking || t - ai.last_wave > CHASE_S {
+                ai.came_at = t;
+            }
         }
         // With more than one enemy still in, how many armed enemies are at our buildings (another may come while our
         // wave is out at the foe's; a duel's waves meet on the way).
@@ -602,11 +610,12 @@ impl World {
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
     }
 
-    /// A passive foe (`Diff::passive_expand`): no armed enemy at its buildings for that long. The siege rules, the
-    /// home reserve and the pull-back on contact, are for such a foe only (one that sits behind its defence); against
-    /// a foe that comes at it, its waves go as before.
+    /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
+    /// came within `CHASE_S` of our last wave's end left out (chasers of our wave home, not the foe coming). The
+    /// siege rules, the home reserve and the pull-back on contact, are for such a foe only (one that sits behind its
+    /// defence); against a foe that comes at it, its waves go as before.
     fn passive_foe(&self, t: f64) -> bool {
-        t - self.ai().attacked_at > self.level().passive_expand
+        t - self.ai().came_at > self.level().passive_expand
     }
 
     /// Whether a wave out is outmatched (`Diff::retreat_below`): its armed units' worth under that many times the
@@ -1131,7 +1140,7 @@ mod tests {
         );
         // a foe that came at its buildings lately is not passive: no reserve, everything goes
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
-        w.ai_mut().attacked_at = b.t - 10.0;
+        w.ai_mut().came_at = b.t - 10.0;
         w.ai_army(&mut b);
         assert!(
             w.ai().reserve.is_empty(),
@@ -1179,7 +1188,7 @@ mod tests {
             w.update_fog();
             b.t = 420.0;
             if came {
-                w.ai_mut().attacked_at = 410.0;
+                w.ai_mut().came_at = 410.0;
             }
             w.ai_army(&mut b);
             (w, army, b)
@@ -1202,6 +1211,33 @@ mod tests {
         assert!(w.ai().attacking, "not a passive foe: it fights on");
         // Easy never retreats
         assert_eq!(DIFF[0].retreat_below, 0.0);
+    }
+
+    #[test]
+    fn chasers_of_its_wave_home_do_not_make_the_foe_active() {
+        // Its wave ended at 400; at 450 a foe's Trooper is at its buildings: a chaser (attacked, but the foe still
+        // passive). At 600 another comes: the foe came.
+        let (mut w, _, mut b) = ready(1);
+        w.ai_mut().last_wave = 400.0;
+        w.ai_mut().attacking = false;
+        let (hx, hy) = (b.rally.x, b.rally.y);
+        let chaser = w.make_unit(UnitKind::Trooper, 0, hx + 40.0, hy);
+        w.update_fog();
+        b.t = 450.0;
+        w.ai_watch(&mut b);
+        assert_eq!(w.ai().attacked_at, 450.0);
+        assert_eq!(w.ai().came_at, 0.0, "a chaser");
+        assert!(w.passive_foe(450.0));
+        b.t = 600.0;
+        w.ai_watch(&mut b);
+        assert_eq!(w.ai().came_at, 600.0, "long after its wave: the foe came");
+        assert!(!w.passive_foe(610.0));
+        // while its wave is out (just launched), the foe at its buildings came too
+        (w.ai_mut().attacking, w.ai_mut().last_wave) = (true, 610.0);
+        b.t = 620.0;
+        w.ai_watch(&mut b);
+        assert_eq!(w.ai().came_at, 620.0, "its wave out: the foe came");
+        assert!(w.unit(chaser).is_some());
     }
 
     #[test]

@@ -87,6 +87,8 @@ pub(crate) struct Ai {
     /// When an armed enemy last came at its buildings, and when it last placed a base (`Diff::passive_expand`).
     pub attacked_at: f64,
     pub last_base_at: f64,
+    /// When the foe last came at its buildings other than chasing its wave home (`World::passive_foe`).
+    pub came_at: f64,
     /// When its next wave was first ready by count and time (it may wait for strength), if it is.
     pub ready_since: Option<f64>,
     /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
@@ -193,6 +195,7 @@ impl World {
             army_seen: (0.0, 0.0, 0.0),
             looking: None,
             attacked_at: 0.0,
+            came_at: 0.0,
             last_base_at: 0.0,
             ready_since: None,
             staging: None,

@@ -132,7 +132,7 @@ test('orders report errors and a rally point shows up on the building', { skip }
   const core = E.G.bldgs.find(b => b.team === E.PLAYER);
   assert.match(E.placeBuilding(E.PLAYER, 'forge', core.tx, core.ty, null), /Cannot build there/);
   E.setResources(E.PLAYER, 0, 0);
-  assert.match(E.queueUnit(core, 'harvester'), /Not enough shards/);
+  assert.match(E.queueUnit(core, 'harvester'), /Not enough salt/);
   E.setRally(core, 100, 200, E.map.nodes[0]);
   assert.deepEqual(core.rally, { x: 100, y: 200, node: E.map.nodes[0] });
 });
@@ -153,14 +153,14 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(E.G.units.every(u => !u.dead));
 });
 
-test('a harvester whose last node is a vent without an extractor goes idle instead of getting stuck', { skip }, () => {
-  // Reproduces the review finding: resume after building, with last_node = an ether vent and no extractor.
+test('a harvester whose last node is a seep goes idle instead of getting stuck', { skip }, () => {
+  // Reproduces the review finding: resume after building, with last_node = a seep (never mined).
   for (const S of [E]) {
     S.resetGame(7, 1);
     S.setResources(E.PLAYER, 1000, 0);
     const G = S.G, core = G.bldgs.find(b => b.team === S.PLAYER), vent = S.map.nodes.find(n => n.type === 'ether');
     const h = G.units.find(u => u.team === S.PLAYER);
-    S.startGather(h, vent); // refused (no extractor), last node unchanged
+    S.startGather(h, vent); // refused (a seep is not mined), last node unchanged
     let placed = false;
     for (let r = 3; r < 9 && !placed; r++) for (let a = 0; a < 12 && !placed; a++) {
       const tx = Math.round(core.tx + 2 + Math.cos(a / 12 * 6.28) * r - 1), ty = Math.round(core.ty + 2 + Math.sin(a / 12 * 6.28) * r - 1);
@@ -168,8 +168,8 @@ test('a harvester whose last node is a vent without an extractor goes idle inste
     }
     assert.ok(placed);
     let toasts = 0;
-    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Ether Rig/.test(e.msg)) toasts++; G.events.length = 0; }
-    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} extractor toasts`);
+    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Pump/.test(e.msg)) toasts++; G.events.length = 0; }
+    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} Pump toasts`);
     assert.notEqual(G.units.find(u => u.id === h.id).task.t, 'build');
   }
 });
@@ -203,7 +203,7 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
-test('an extractor knows its vent, and harvesters ordered to the vent mine ether', { skip }, () => {
+test('a Pump knows its seep and pays salt by itself; harvesters ordered to the seep are refused', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
@@ -213,10 +213,14 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
   assert.equal(ext.vent, vent);
   runSeconds(60); // walk over, then 25 s of construction
-  assert.ok(ext.done, 'extractor built');
+  assert.ok(ext.done, 'Pump built');
+  for (const h of hs) E.stopUnit(h);
+  E.setResources(E.PLAYER, 0, 0);
+  runSeconds(20);
+  assert.equal(E.G.res[E.PLAYER][0], 10, 'ten salt in 20 s, nobody mining');
   for (const h of hs) E.startGather(h, ext.vent);
-  runSeconds(40);
-  assert.ok(E.G.res[E.PLAYER][1] > 0, 'ether mined: ' + E.G.res[E.PLAYER][1]);
+  assert.ok(hs.every(h => h.task.t !== 'gather'), 'nobody works the seep');
+  assert.equal(E.G.res[E.PLAYER][1], 0, 'no ether');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
@@ -337,7 +341,7 @@ function view() {
   return JSON.stringify({
     tick: G.tick, time: G.time, over: G.over, winner: G.winner, out: G.out, res: G.res, sup: G.sup, stats: G.stats, upgrades: G.upgrades,
     vis: Array.from(G.vis), explored: Array.from(G.explored), occ: Array.from(map.occ),
-    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, carryType: u.carryType, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, warp: u.warp, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
+    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, warp: u.warp, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
     bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, planted: b.planted, powered: b.powered, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, vent: id(b.vent), dead: b.dead })),
     nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners, extractor: id(n.extractor) })),
     projs: G.projs,

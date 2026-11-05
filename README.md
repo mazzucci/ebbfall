@@ -1,6 +1,6 @@
 # Ebbfall
 
-A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
+A browser real-time strategy game in the 1998 mold: mine salt, plant Pumps on the brine seeps, build supply, raise an army, and level
 the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
@@ -44,7 +44,7 @@ both sides in view, at up to 8x.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
-**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather.
+**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a salt field to gather.
 Two fingers pan. Drag on the minimap to scroll.
 
 The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of

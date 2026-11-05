@@ -28,10 +28,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #top{display:flex;align-items:center;gap:14px;height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;flex:none;min-width:0}
 .res{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
-/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 shards, 200/200 supply). */
-#rShard,#rEther{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
+/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 salt, 40/40 supply). */
+#rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
 .dot{width:10px;height:10px;border-radius:2px;transform:rotate(45deg);display:inline-block}
-.dot.shard{background:var(--shard)} .dot.ether{background:var(--ether);border-radius:50%}
+.dot.shard{background:var(--shard)}
 .res.low b{color:var(--bad)} #resSup.low{animation:pulse-warn 1s infinite alternate;border-radius:4px}
 .spacer{flex:1}
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
@@ -124,10 +124,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb:disabled{opacity:.38;cursor:default}
 .cb .k{position:absolute;top:2px;right:3px;font:9px var(--mono);color:var(--ally2)}
 .cb .c{font:10px var(--mono);color:var(--muted)}
-.cb .c .s{color:var(--shard)} .cb .c .e{color:var(--ether)}
+.cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
-.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* shards always in the left column */
+.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* salt in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:5px;height:5px;flex:none}
 .cb.cancel{color:var(--foe2)}
 .screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;box-sizing:border-box;

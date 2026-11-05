@@ -28,7 +28,7 @@ pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
 /// The most supply a seat can have.
-pub const SUPPLY_LIMIT: i32 = 200;
+pub const SUPPLY_LIMIT: i32 = 40;
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
@@ -425,18 +425,19 @@ const UNIT: UnitDef = UnitDef {
 pub const QUEUE_MAX: usize = 5;
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;
-/// Seconds to mine a load: 8 shards, or 6 ether (faster, so one vent still feeds about three harvesters).
+/// Seconds to mine a load of 8 salt.
 pub const SHARD_MINE_TIME: f64 = 2.0;
-pub const ETHER_MINE_TIME: f64 = 1.6;
+/// Salt a second a finished Pump on a seep pays its owner, with no workers (PRD: the conversion, rule 1): about one
+/// worker's income, so it pays back its 75 in two and a half minutes.
+pub const PUMP_RATE: f64 = 0.5;
+/// What a refusal for want of salt says (the client's announcer keys on it).
+pub const NOT_ENOUGH: &str = "Not enough salt";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
 /// Shields regenerate after this long without being hit (s), at these rates per second (units, buildings).
 pub const SHIELD_DELAY: f64 = 6.0;
 pub const SHIELD_REGEN_UNIT: f64 = 3.0;
 pub const SHIELD_REGEN_BLDG: f64 = 2.0;
-
-/// Ether per trip from an Ether Rig on a vent that has run dry (a full one gives 6).
-pub const VENT_TRICKLE: i32 = 2;
 
 /// A Vanguard shell also hits walking units of the target's side within this many px, for this share of its damage.
 pub const SHELL_SPLASH_R: f64 = 40.0;

@@ -181,6 +181,9 @@ pub struct SeatRec {
     pub south: bool,
 }
 
+/// The tick of the Pumps' count: 5:00.
+pub const PUMPS_AT: u32 = 5 * 60 * TPS;
+
 /// A unit within this many tiles of an enemy building: its wave reached the other side.
 pub const WAVE_REACH: f64 = 8.0;
 /// Ticks between the samples of where units stand (deep water).
@@ -201,8 +204,8 @@ pub struct GameRec {
     pub end_tick: u32,
     /// The first tick something of one seat was hit by the other.
     pub first_attack: Option<u32>,
-    /// The first tick an ether vent ran dry.
-    pub first_dry: Option<u32>,
+    /// The finished Pumps each seat held at 5:00 (None: the game ended before; PRD: the conversion, the snowball check).
+    pub pumps_at_5: Option<[u32; 2]>,
     pub seats: [SeatRec; 2],
     /// On a map with water: the route lengths (tiles) between the two starts' headquarters, for a walker and for an
     /// amphibian (None: no way).
@@ -238,14 +241,12 @@ fn route(w: &World, foot: Foot, a: (i32, i32), b: (i32, i32)) -> Option<f64> {
     (p.last().map(|q| m.tile_of(q.x, q.y)) == Some(to)).then_some(len / 32.0)
 }
 
-/// What a game's record watches between ticks, read-only: what stands (by id) and the ether vents.
+/// What a game's record watches between ticks, read-only: what stands (by id), and the Pumps at 5:00.
 pub struct Tracker {
     /// What there was after the last tick, by id: (id, seat, kind index, a building, finished).
     known: Vec<Seen>,
-    /// The ether vents that held ether at the start, by node id (a vent stays on the map when it runs dry).
-    vents: Vec<u32>,
     pub first_attack: Option<u32>,
-    pub first_dry: Option<u32>,
+    pub pumps_at_5: Option<[u32; 2]>,
     pub seats: [SeatRec; 2],
     /// Each seat's wave out (and whether it has reached yet).
     wave_out: [Option<bool>; 2],
@@ -276,22 +277,14 @@ impl Tracker {
             s.bldgs_built = vec![0; BLDG_KINDS.len()];
             s.bldgs_lost = vec![0; BLDG_KINDS.len()];
         }
-        let vents = w
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether && n.amount > 0)
-            .map(|n| n.id)
-            .collect();
         for (s, rec) in seats.iter_mut().enumerate() {
             // (by the headquarters' middle: its 4x4 block's top-left tile plus two)
             rec.south = w.map.bases.get(s).is_some_and(|b| (b.1 + 2) * 2 > w.map.h);
         }
         Tracker {
             known: standing(w),
-            vents,
             first_attack: None,
-            first_dry: None,
+            pumps_at_5: None,
             seats,
             wave_out: [None; 2],
         }
@@ -304,13 +297,8 @@ impl Tracker {
         {
             self.first_attack = Some(tick);
         }
-        if self.first_dry.is_none()
-            && self
-                .vents
-                .iter()
-                .any(|&id| w.map.node(id).is_none_or(|n| n.amount <= 0))
-        {
-            self.first_dry = Some(tick);
+        if tick == PUMPS_AT {
+            self.pumps_at_5 = Some([0, 1].map(|s| w.pumps(s) as u32));
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.sup[s][0]);
@@ -472,13 +460,13 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
         watch.observe(&w);
         w.events.clear();
     }
-    let (first_attack, first_dry) = (track.first_attack, track.first_dry);
+    let (first_attack, pumps_at_5) = (track.first_attack, track.pumps_at_5);
     GameRec {
         seed,
         winner: (w.winner >= 0).then_some(w.winner as usize),
         end_tick: tick,
         first_attack,
-        first_dry,
+        pumps_at_5,
         seats: track.finish(&w),
         routes,
         waves: watch.finish(&w),

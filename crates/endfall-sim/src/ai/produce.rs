@@ -6,9 +6,6 @@ use super::*;
 /// Game times (s) after which the AI wants its first and second capital unit.
 const CAPITAL_AT: [f64; 2] = [450.0, 660.0];
 
-/// Unspent ether the AI counts as piling up (it then leans on its ether-hungry specialists).
-pub(crate) const ETHER_FLOAT: i32 = 200;
-
 impl World {
     /// Production: the right unit from each building, rally points, nothing while saving.
     pub(crate) fn ai_produce(&mut self, brain: &mut Brain) {
@@ -115,12 +112,10 @@ impl World {
             };
             // The main factory answers enemy flyers, then each factory mixes in the specialists it trains by ratio
             // (each once its requirement stands: a Vanguard per two Troopers once the Forge stands beats massed
-            // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges). Ether piling up (the
-            // line unit costs none) halves the ratios: spend it on specialists.
-            let floating = self.res[e as usize][1] >= ETHER_FLOAT;
+            // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges).
             let heavy = s.heavy == Some(b.kind);
             let mixed = s.mix.iter().find(|&&(k, per, from)| {
-                let per = self.answer_ratio(k, if floating { per.div_ceil(2) } else { per });
+                let per = self.answer_ratio(k, per);
                 let Some(per) = self.cloak_ratio(k, per) else {
                     return false;
                 };
@@ -174,15 +169,6 @@ impl World {
                 k
             } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {
                 continue; // (the vehicle bay trains only its anti-air and what the mix calls for)
-            } else {
-                b.kind.def().trains[0]
-            };
-            // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks. Short of
-            // shards it waits for them instead, as a Trooper would only delay the specialist.
-            let u = if self.res[e as usize][1] >= need(u)[1] {
-                u
-            } else if heavy {
-                continue;
             } else {
                 b.kind.def().trains[0]
             };

@@ -234,6 +234,26 @@ impl Report {
         }
         (mined, spent)
     }
+    /// Of the decided games (level cells, classic maps) whose seats held different numbers of Pumps at 5:00, those
+    /// the seat with more won (PRD: the conversion, the snowball check: +10% income won about 75% of such games).
+    pub fn pumps_rate(&self) -> Rate {
+        let (mut k, mut n) = (0, 0);
+        for (_, games) in self.level_cells(classic) {
+            for g in games {
+                if let (Some(w), Some(p)) = (g.winner, g.pumps_at_5)
+                    && p[0] != p[1]
+                {
+                    n += 1;
+                    k += (p[w] > p[1 - w]) as usize;
+                }
+            }
+        }
+        Rate {
+            of: "more Pumps at 5:00".into(),
+            k,
+            n,
+        }
+    }
     pub fn shards_per_ether(&self) -> Option<f64> {
         let mined: Vec<[i64; 2]> = self
             .level_cells(classic)
@@ -360,6 +380,7 @@ impl Report {
                 num(self.length_64().map(|s| s / 60.0), 1),
             ),
             ("Observed shards per ether", num(self.shards_per_ether(), 2)),
+            ("More Pumps at 5:00 won", self.pumps_rate().show()),
             (
                 "Timeouts %",
                 num((n > 0).then(|| t as f64 * 100.0 / n as f64), 1),
@@ -443,6 +464,7 @@ impl Report {
             .with("checks", checks.iter().map(Check::json).collect::<Vec<_>>())
             .with("exchange", exchange)
             .with("shore_income", self.shore_income_json())
+            .with("pumps_at_5", self.pumps_rate().json())
             .with(
                 "waves",
                 self.wave_rows()
@@ -474,7 +496,7 @@ impl Report {
                 let _ = writeln!(s, "\n## {size}x{size} {map:?}\n");
                 let _ = writeln!(
                     s,
-                    "| Cell | Games | Win rate (95%) | Timeouts | Length, median (IQR) | First attack | First vent dry |"
+                    "| Cell | Games | Win rate (95%) | Timeouts | Length, median (IQR) | First attack | Pumps at 5:00, mean (seat 1 / 2) |"
                 );
                 let _ = writeln!(s, "| --- | --- | --- | --- | --- | --- | --- |");
                 for (c, g) in self.level_cells(|c| c.size == size && c.map == map) {
@@ -482,7 +504,6 @@ impl Report {
                     let len = lengths(g);
                     let (q1, q3) = (quantile(&len, 0.25), quantile(&len, 0.75));
                     let fa: Vec<f64> = g.iter().filter_map(|g| g.first_attack).map(secs).collect();
-                    let fd: Vec<f64> = g.iter().filter_map(|g| g.first_dry).map(secs).collect();
                     let id = c.id();
                     let name = id.split_once(": ").map_or(id.as_str(), |x| x.1);
                     let _ = writeln!(
@@ -496,16 +517,8 @@ impl Report {
                         mmss(q1.unwrap_or(f64::NAN)),
                         mmss(q3.unwrap_or(f64::NAN)),
                         mmss(median(&fa).unwrap_or(f64::NAN)),
-                        if fd.is_empty() {
-                            "—".into()
-                        } else {
-                            format!(
-                                "{} ({} of {})",
-                                mmss(median(&fd).unwrap()),
-                                fd.len(),
-                                g.len()
-                            )
-                        },
+                        pumps_mean(g)
+                            .map_or("—".into(), |m| format!("{:.1} / {:.1}", m[0], m[1])),
                     );
                 }
                 let _ = writeln!(
@@ -592,6 +605,13 @@ fn mix<'a>(
         .collect()
 }
 
+/// The mean finished Pumps each seat held at 5:00, over the games that reached it.
+fn pumps_mean(games: &[GameRec]) -> Option<[f64; 2]> {
+    let at: Vec<[u32; 2]> = games.iter().filter_map(|g| g.pumps_at_5).collect();
+    (!at.is_empty())
+        .then(|| [0, 1].map(|s| at.iter().map(|p| p[s] as f64).sum::<f64>() / at.len() as f64))
+}
+
 fn cell_json(c: &Cell, games: &[GameRec]) -> Json {
     let len = lengths(games);
     let fa: Vec<f64> = games
@@ -599,7 +619,6 @@ fn cell_json(c: &Cell, games: &[GameRec]) -> Json {
         .filter_map(|g| g.first_attack)
         .map(secs)
         .collect();
-    let fd: Vec<f64> = games.iter().filter_map(|g| g.first_dry).map(secs).collect();
     let mix_json = |race: usize| -> Json {
         Json::Arr(
             mix(std::iter::once((c, &games.to_vec())), race)
@@ -644,7 +663,10 @@ fn cell_json(c: &Cell, games: &[GameRec]) -> Json {
                 .with("q3", quantile(&len, 0.75)),
         )
         .with("first_attack_s", median(&fa))
-        .with("first_vent_dry_s", median(&fd))
+        .with(
+            "pumps_at_5_mean",
+            pumps_mean(games).map(|m| vec![m[0], m[1]]),
+        )
         .with(
             "mix",
             races
@@ -712,7 +734,7 @@ fn game_json(g: &GameRec) -> Json {
         .with("winner", g.winner)
         .with("end_tick", g.end_tick)
         .with("first_attack_tick", g.first_attack)
-        .with("first_vent_dry_tick", g.first_dry)
+        .with("pumps_at_5", g.pumps_at_5.map(|p| vec![p[0], p[1]]))
         .with("seats", vec![seat(&g.seats[0]), seat(&g.seats[1])])
         .with(
             "routes",

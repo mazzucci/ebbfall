@@ -21,7 +21,7 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
     const styles = await p.evaluate(() => [...document.querySelectorAll('.style')].map(s => [s.id, s.querySelector('h3').textContent, s.querySelectorAll('button[data-p]').length]));
     assert.deepEqual(styles.map(s => s[0]), ['humansRadio', 'humansClear', 'humansOriginal', 'humansDevice', 'vaelClear', 'vaelWarm', 'vaelAiry', 'vaelDevice']);
     assert.deepEqual(styles.map(s => s[1][0]), ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'], 'labelled A to D in each race');
-    assert.ok(styles.every(s => s[2] === 4), 'four phrases in each');
+    assert.ok(styles.every(s => s[2] === 3), 'three phrases in each');
     const small = await p.evaluate(() => [...document.querySelectorAll('button[data-p]')].filter(b => b.getBoundingClientRect().height < 48).length);
     assert.equal(small, 0, 'big enough to tap');
     assert.equal(await p.evaluate(() => window.voiceLab.state()), 'none', 'no sound before a tap');
@@ -30,7 +30,7 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
     // runs: there the tap must open it, not necessarily run it)
     if (ENGINE === 'chromium') await p.waitForFunction(() => window.voiceLab.state() === 'running', null, { timeout: 5000 });
     else await p.waitForFunction(() => window.voiceLab.state() !== 'none', null, { timeout: 5000 });
-    await p.locator('#vaelDevice [data-p="ether"]').tap(); // (the device's voice, or the synth where it has none)
+    await p.locator('#vaelDevice [data-p="salt"]').tap(); // (the device's voice, or the synth where it has none)
     await p.locator('#humansRadio [data-p="research"]').tap();
     await p.locator('#stop').tap();
     assert.deepEqual(errors, []);
@@ -38,7 +38,7 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
 });
 
 const SYNTH = ['humansRadio', 'humansClear', 'humansOriginal', 'vaelClear', 'vaelWarm', 'vaelAiry'];
-const OUT = process.env.ENDFALL_VOICE_OUT, SAVE = ['attack', 'research', 'ether'];
+const OUT = process.env.ENDFALL_VOICE_OUT, SAVE = ['attack', 'research', 'salt'];
 
 test('every phrase in every synth style: no clipping, as loud and as long as the original, no rumble', { timeout: 120000, chromium: 'offline renders measured in one engine' }, async () => {
   const ctx = await browserContext({ viewport: { width: 800, height: 600 } });

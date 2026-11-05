@@ -179,7 +179,7 @@ impl World {
         if done {
             if !gathering {
                 let (x, y) = self.home_of(u.x, u.y);
-                if let Some(n) = self.nearest_node(x, y, self.seat(), false, 1200.0) {
+                if let Some(n) = self.nearest_node(x, y, 1200.0) {
                     self.start_gather(s, n);
                 }
             }

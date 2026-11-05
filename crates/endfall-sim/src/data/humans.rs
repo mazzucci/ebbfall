@@ -91,7 +91,7 @@ pub(super) const TROOPER: UnitDef = UnitDef {
 pub(super) const VANGUARD: UnitDef = UnitDef {
     key: "vanguard",
     name: "Vanguard",
-    cost: [125, 75],
+    cost: [125, 0],
     supply: 3,
     hp: 170.0,
     armor: 2.0,
@@ -118,7 +118,7 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Siege Tank",
-    cost: [150, 125],
+    cost: [150, 0],
     supply: 3,
     hp: 160.0,
     armor: 1.0,
@@ -155,7 +155,7 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
 pub(super) const LANCER: UnitDef = UnitDef {
     key: "lancer",
     name: "Lancer",
-    cost: [60, 25],
+    cost: [60, 0],
     hp: 60.0,
     speed: 88.0,
     sight: 9.0,
@@ -177,7 +177,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
 pub(super) const INTERCEPTOR: UnitDef = UnitDef {
     key: "interceptor",
     name: "Interceptor",
-    cost: [100, 50],
+    cost: [100, 0],
     supply: 2,
     hp: 110.0,
     armor: 1.0,
@@ -199,7 +199,7 @@ pub(super) const INTERCEPTOR: UnitDef = UnitDef {
 pub(super) const MEDIC: UnitDef = UnitDef {
     key: "medic",
     name: "Medic",
-    cost: [40, 20],
+    cost: [40, 0],
     hp: 45.0,
     speed: 90.0,
     build: 20.0,
@@ -212,7 +212,7 @@ pub(super) const MEDIC: UnitDef = UnitDef {
 pub(super) const BASTION: UnitDef = UnitDef {
     key: "bastion",
     name: "Bastion",
-    cost: [300, 250],
+    cost: [300, 0],
     supply: 6,
     hp: 450.0,
     armor: 2.0,
@@ -239,7 +239,7 @@ pub(super) const BASTION: UnitDef = UnitDef {
 pub(super) const RAIDER: UnitDef = UnitDef {
     key: "raider",
     name: "Raider",
-    cost: [100, 60],
+    cost: [100, 0],
     supply: 2,
     hp: 100.0,
     speed: 150.0,
@@ -264,7 +264,7 @@ pub(super) const RAIDER: UnitDef = UnitDef {
 pub(super) const OBSERVER: UnitDef = UnitDef {
     key: "observer",
     name: "Observer",
-    cost: [25, 25],
+    cost: [25, 0],
     hp: 40.0,
     speed: 175.0,
     sight: 10.0,
@@ -303,10 +303,11 @@ pub(super) const DEPOT: BldgDef = BldgDef {
 };
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
-    name: "Ether Rig",
-    short: "Ether Rig",
+    name: "Pump",
+    short: "Pump",
     cost: [75, 0],
-    hp: 420.0,
+    // (PRD: the conversion: 200 HP, no weapon; two Striders kill one in ten seconds)
+    hp: 200.0,
     build: 25.0,
     on_vent: true,
     ..BLDG
@@ -332,7 +333,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
         Upgrade::RapidConstruction,
     ],
     name: "Foundry",
-    cost: [150, 100],
+    cost: [150, 0],
     hp: 820.0,
     build: 45.0,
     sight: 7.0,
@@ -344,7 +345,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
 pub(super) const FACTORY: BldgDef = BldgDef {
     key: "factory",
     name: "Factory",
-    cost: [125, 50],
+    cost: [125, 0],
     w: 3,
     h: 3,
     hp: 800.0,
@@ -381,7 +382,7 @@ pub(super) const TURRET: BldgDef = BldgDef {
 pub(super) const AIRFIELD: BldgDef = BldgDef {
     key: "airfield",
     name: "Airfield",
-    cost: [150, 100],
+    cost: [150, 0],
     w: 3,
     h: 3,
     hp: 760.0,

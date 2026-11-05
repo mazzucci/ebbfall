@@ -66,9 +66,9 @@ fn cancelling_construction_refunds_three_quarters() {
     let forge = w
         .place_building(PLAYER, BldgKind::Forge, tx, ty, Some(h[1]))
         .unwrap();
-    assert_eq!(w.res[PLAYER as usize], [850, 900]);
+    assert_eq!(w.res[PLAYER as usize], [850, 1000], "no ether paid");
     assert!(w.cancel_construction(forge));
-    assert_eq!(w.res[PLAYER as usize], [850 + 112, 900 + 75]);
+    assert_eq!(w.res[PLAYER as usize], [850 + 112, 1000]);
     assert!(
         w.bldg(forge).is_none() && w.can_place(BldgKind::Forge, tx, ty, PLAYER),
         "the site is free again"

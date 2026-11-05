@@ -33,7 +33,7 @@ export function buildCard() {
     b.disabled = !!it.dis;
     b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
-    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} shards"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span><span class="e"${it.cost[1] ? ` title="${it.cost[1]} ether"><i class="dot ether"></i>${it.cost[1]}` : '>'}</span></span>` : '');
+    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} salt"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
       if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
@@ -52,7 +52,7 @@ export function buildCard() {
 const press = { timer: 0, held: '', hide: 0 };
 function showDetail(it) {
   const box = $('cmdInfo'), r = $('cmd').getBoundingClientRect(); // (the card survives rebuilds; its buttons may not)
-  const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''} ${it.cost[1] ? `<i class="dot ether"></i>${it.cost[1]}` : ''}</span>` : '';
+  const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''}</span>` : '';
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
   box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px';
@@ -72,7 +72,7 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
   if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
 }, true);
 
-/** A refused button press. Short of shards or ether, or an ability that is already on or not ready: the button
+/** A refused button press. Short of salt, or an ability that is already on or not ready: the button
  *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is
  *  short; a lit ability button says it is on). Anything else (supply blocked, "Requires …": a decision to make) is
  *  a toast; so is a refusal for a button not on the card (a hotkey). The shake rides through card rebuilds
@@ -81,7 +81,7 @@ let shaking = { id: '', until: 0 };
 function refuse(id, err) {
   if (!/^Not enough| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
-  const short = /^Not enough (shards|ether)/.exec(err); if (short) say(short[1]); // (the announcer says what is short)
+  if (/^Not enough salt/.test(err)) say('salt'); // (the announcer says what is short)
   shaking = { id, until: performance.now() + 400 };
   cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }
@@ -99,7 +99,7 @@ export function doCommand(id, times = 1) {
   if (id.startsWith('b_')) {
     const k = id.slice(2);
     if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
-    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough ' + (G.res[G.me][0] < BUILDINGS[k].cost[0] ? 'shards' : 'ether')); return; }
+    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough salt'); return; }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
   if (id.startsWith('a_')) { const k = id.slice(2), err = castAbility(units, k); if (err) refuse(id, err); return; } // (the cast event plays its sound; a toggle: the units its button names)

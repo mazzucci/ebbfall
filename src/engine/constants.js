@@ -1,6 +1,6 @@
 // Game data as the client sees it. Every number comes from the Rust sim (crates/endfall-sim/src/data/, exported
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
-// Costs are [shards, ether]. Distances are in tiles unless named otherwise; speeds in px/s.
+// Costs are [salt, 0] (the second slot was ether, gone with the conversion). Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
 import { DIFF_NAMES } from './util.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
@@ -26,7 +26,7 @@ export const TECH_BUILD = D.consts.tech_build;
  *  never which enemy units it beats or loses to: players find the counters themselves (the duels of
  *  tests/gameplay/balance.rs keep the design's counter loops). */
 const UNIT_TEXT = {
-  harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
+  harvester: { hot: 'H', desc: 'Mines salt. Builds structures.' },
   trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
   vanguard: { hot: 'V', desc: 'Heavy walker for the front line: fights on the move, with long range and thick plate. Its shells splash.' },
   lancer: { hot: 'L', desc: 'Cheap anti-air infantry. Missiles shred flyers, weak against the ground.' },
@@ -37,7 +37,7 @@ const UNIT_TEXT = {
   interceptor: { hot: 'I', desc: 'Fast, armoured missile vehicle: intercepts flyers and keeps the sky clear over your line. Cannot hit the ground.' },
   bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
   // the Vael
-  lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
+  lumen: { hot: 'L', desc: 'Mines salt. Plants Vael structures.' },
   scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.' },
   prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
   monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.' },
@@ -49,7 +49,7 @@ const UNIT_TEXT = {
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
   depot: { hot: 'D', desc: '+8 supply.' },
-  extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
+  extractor: { hot: 'E', desc: 'Built on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
   barracks: { hot: 'G', desc: 'Trains Troopers, Lancers and Medics (Medics need a Foundry).' },
   forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics and vehicles.' },
   factory: { hot: 'R', desc: 'Builds vehicles: Vanguards, Siege Tanks and Interceptors (all need a Foundry).' },
@@ -58,7 +58,7 @@ const BLDG_TEXT = {
   // the Vael
   conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
   spire: { hot: 'S', desc: '+8 supply.' },
-  siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
+  siphon: { hot: 'E', desc: 'Grown on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
   kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths and Halos (the last two need a Loom). Rally in a power field to warp in.' },
   loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades and Overcharge Core; unlocks Monoliths and Halos.' },
   ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
@@ -77,7 +77,7 @@ export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) d.desc += ` Requires ${D.buildings[d.req].name}.`;
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
-/** Team-wide upgrades; per level: cost [shards, ether], seconds. */
+/** Team-wide upgrades; per level: cost [salt, 0], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);

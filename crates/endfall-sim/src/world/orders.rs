@@ -103,16 +103,6 @@ impl World {
         spent[0] -= (sign * cost[0]) as i64;
         spent[1] -= (sign * cost[1]) as i64;
     }
-    pub(crate) fn short_of(&self, team: u8, cost: [i32; 2]) -> String {
-        format!(
-            "Not enough {}",
-            if self.res[team as usize][0] < cost[0] {
-                "shards"
-            } else {
-                "ether"
-            }
-        )
-    }
 
     /// Queue a unit at a building; Err carries the message to show.
     pub fn queue_unit(&mut self, bid: Id, kind: UnitKind) -> Result<(), String> {
@@ -136,7 +126,7 @@ impl World {
             return Err("Queue is full".into());
         }
         if !self.can_afford(team, d.cost) {
-            return Err(self.short_of(team, d.cost));
+            return Err(NOT_ENOUGH.into());
         }
         let s = self.sup[team as usize];
         if s[0] + d.supply > s[1] {
@@ -203,7 +193,7 @@ impl World {
         }
         let cost = up.cost(level);
         if !self.can_afford(team, cost) {
-            return Err(self.short_of(team, cost));
+            return Err(NOT_ENOUGH.into());
         }
         self.pay(team, cost, -1);
         self.bm(bid).unwrap().research = Some((up, 0.0));
@@ -221,7 +211,10 @@ impl World {
         self.pay(team, up.cost(level), 1);
     }
 
+    /// A building's rally point; on a salt field, its new workers mine there (a seep is never mined: a rally on one is
+    /// a plain point).
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
+        let node = node.filter(|&n| self.map.node(n).is_some_and(|n| !n.ether));
         if let Some(b) = self.bm(bid)
             && !b.kind.def().trains.is_empty()
         {
@@ -319,19 +312,18 @@ impl World {
         self.set_task(uid, Task::Hold);
     }
 
-    /// Returns whether the order took effect (refused for non-harvesters and vents without our extractor).
+    /// Returns whether the order took effect (refused for non-harvesters, and on a seep: its Pump pays by itself).
     pub fn start_gather(&mut self, uid: Id, node: Id) -> bool {
         let u = self.u(uid);
         if !u.kind.def().worker {
             return false;
         }
         let team = u.team;
-        // A node that is gone was a depleted shard field; the gather update retargets from there.
-        if self.map.node(node).is_some_and(|n| n.ether) && !self.extractor_ready(node, Some(team)) {
-            let rig = self.factions[team as usize].ether.def().name;
+        // A node that is gone was a depleted field; the gather update retargets from there.
+        if self.map.node(node).is_some_and(|n| n.ether) {
             self.toast(
                 team,
-                format!("Build a{} {rig} on the vent first", an(rig)),
+                "A seep is not mined: a Pump on it pays salt by itself",
                 true,
             );
             return false;
@@ -454,7 +446,7 @@ impl World {
             return Err(format!("Requires {}", d.req.unwrap().def().name));
         }
         if !self.can_afford(team, d.cost) {
-            return Err(self.short_of(team, d.cost));
+            return Err(NOT_ENOUGH.into());
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);

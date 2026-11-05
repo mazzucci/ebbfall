@@ -395,7 +395,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         .events
         .iter()
         .filter_map(|e| match e {
-            Event::Toast { team, msg, .. } if msg == "A shard field ran dry" => Some(*team),
+            Event::Toast { team, msg, .. } if msg == "A salt field ran dry" => Some(*team),
             _ => None,
         })
         .collect();
@@ -404,7 +404,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
 }
 
 #[test]
-fn a_shard_field_running_dry_is_told_to_its_miner_and_enemies_who_see_it_not_to_allies() {
+fn a_salt_field_running_dry_is_told_to_its_miner_and_enemies_who_see_it_not_to_allies() {
     assert_eq!(
         told_dry(None),
         vec![0],

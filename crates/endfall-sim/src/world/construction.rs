@@ -53,7 +53,7 @@ impl World {
         let owed = [0, 1].map(|k| debt[k] + cost[k] as f64 * REPAIR_COST * heal / maxhp);
         let charge = owed.map(|o| o.floor() as i32);
         if !self.can_afford(team, charge) {
-            let msg = format!("{} to repair", self.short_of(team, charge));
+            let msg = format!("{NOT_ENOUGH} to repair");
             self.toast(team, msg, true);
             let time = self.time;
             self.um(uid).no_build_until = time + 30.0; // the AI does not send it straight back
@@ -120,6 +120,9 @@ impl World {
             if !on {
                 return; // dark: no training, research or firing
             }
+        }
+        if d.on_vent && self.bldg(bid).is_some_and(|b| b.vent.is_some()) {
+            self.pump(bid, dt);
         }
         let b = self.bm(bid).unwrap();
         if let Some(w) = d.weapon
@@ -234,7 +237,7 @@ impl World {
     /// A building just finished: supply, the news, and its crew back to work (`builder`: the one who finished it).
     pub(crate) fn finish_construction(&mut self, b: Id, builder: Option<Id>) {
         let bd = self.bldg(b).unwrap();
-        let (bteam, vent, bx, by) = (bd.team, bd.vent, bd.x, bd.y);
+        let (bteam, bx, by) = (bd.team, bd.x, bd.y);
         self.recalc_supply(bteam);
         // (no toast: the minimap ping and the chime say it; nothing pops up over a fight)
         self.ping(bteam, bx, by);
@@ -245,53 +248,8 @@ impl World {
             .filter(|o| Some(o.id) != builder && o.task == (Task::Build { b }))
             .map(|o| o.id)
             .collect();
-        // A new Extractor is mined by one worker, the one that finished it (early on a player may want everyone
-        // else on shards); any other builders go back to their work.
-        let miner = builder.or(others.first().copied());
         for o in others.into_iter().chain(builder) {
-            if Some(o) != miner || !vent.is_some_and(|v| self.start_gather(o, v)) {
-                self.resume_after(o);
-            }
-        }
-        if let Some(v) = vent
-            && !self.is_ai(bteam)
-        {
-            self.crew_refinery(bteam, v, b);
-        }
-    }
-
-    /// A person's new refinery gets one worker if none mines it yet (the Vael's planter has already left): the nearest
-    /// shard worker (empty-handed first, within 15 tiles). More are the player's choice. The AI balances its own.
-    fn crew_refinery(&mut self, team: u8, vent: Id, b: Id) {
-        const CREW: usize = 1;
-        let (bx, by) = self.bldg(b).map(|r| (r.x, r.y)).unwrap();
-        let mining_here = self
-            .units
-            .iter()
-            .filter(|u| {
-                u.team == team && matches!(u.task, Task::Gather { node, .. } if node == vent)
-            })
-            .count();
-        let mut cands: Vec<(bool, f64, Id)> = self
-            .units
-            .iter()
-            .filter(|u| {
-                u.team == team
-                    && u.kind.def().worker
-                    && matches!(u.task, Task::Gather { node, .. }
-                        if self.map.node(node).is_some_and(|n| !n.ether))
-            })
-            .map(|u| (u.carry > 0, dist(u.x, u.y, bx, by), u.id))
-            .filter(|&(_, d, _)| d <= 15.0 * TILE)
-            .collect();
-        cands.sort_by(|p, q| {
-            (p.0, p.1)
-                .partial_cmp(&(q.0, q.1))
-                .unwrap()
-                .then(p.2.cmp(&q.2))
-        });
-        for &(_, _, id) in cands.iter().take(CREW.saturating_sub(mining_here)) {
-            self.start_gather(id, vent);
+            self.resume_after(o);
         }
     }
 

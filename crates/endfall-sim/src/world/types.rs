@@ -124,8 +124,6 @@ pub struct Unit {
     pub cd: f64,
     pub face: f64,
     pub carry: i32,
-    /// Some(true) = ether, Some(false) = shards, None = never carried anything.
-    pub carry_ether: Option<bool>,
     pub last_node: Option<Id>,
     pub repath: f64,
     pub flash: f64,
@@ -218,6 +216,8 @@ pub struct Bldg {
     pub research: Option<(Upgrade, f64)>,
     /// Fractions of shards and ether owed for repairs, charged a whole unit at a time.
     pub repair_debt: [f64; 2],
+    /// A Pump's salt earned and not yet banked (below 1: `World::pump` banks whole salt).
+    pub pumped: f64,
 }
 
 impl Bldg {

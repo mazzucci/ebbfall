@@ -102,7 +102,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Prism",
-    cost: [100, 35],
+    cost: [100, 0],
     supply: 2,
     hp: 70.0,
     shields: 60.0,
@@ -126,7 +126,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
 pub(super) const HALO: UnitDef = UnitDef {
     key: "halo",
     name: "Halo",
-    cost: [75, 50],
+    cost: [75, 0],
     hp: 40.0,
     shields: 40.0,
     speed: 110.0,
@@ -146,7 +146,7 @@ pub(super) const HALO: UnitDef = UnitDef {
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Umbra",
-    cost: [125, 100],
+    cost: [125, 0],
     supply: 2,
     hp: 60.0,
     shields: 60.0,
@@ -172,7 +172,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 pub(super) const SOVEREIGN: UnitDef = UnitDef {
     key: "sovereign",
     name: "Sovereign",
-    cost: [350, 250],
+    cost: [350, 0],
     supply: 6,
     hp: 300.0,
     shields: 250.0,
@@ -198,7 +198,7 @@ pub(super) const SOVEREIGN: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Monolith",
-    cost: [175, 125],
+    cost: [175, 0],
     supply: 4,
     hp: 160.0,
     shields: 140.0,
@@ -225,7 +225,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
     name: "Shrike",
-    cost: [125, 75],
+    cost: [125, 0],
     supply: 2,
     hp: 90.0,
     shields: 60.0,
@@ -280,10 +280,9 @@ pub(super) const SPIRE: BldgDef = BldgDef {
 };
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
-    name: "Siphon",
+    name: "Pump",
     cost: [75, 0],
-    hp: 300.0,
-    shields: 150.0,
+    hp: 200.0, // (as the Humans' Pump: no shields)
     build: 25.0,
     on_vent: true,
     ..BLDG
@@ -310,7 +309,7 @@ pub(super) const KILN: BldgDef = BldgDef {
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
     name: "Loom",
-    cost: [150, 100],
+    cost: [150, 0],
     hp: 500.0,
     shields: 300.0,
     build: 45.0,
@@ -345,7 +344,7 @@ pub(super) const WARD: BldgDef = BldgDef {
 pub(super) const ZENITH: BldgDef = BldgDef {
     key: "zenith",
     name: "Zenith",
-    cost: [175, 125],
+    cost: [175, 0],
     w: 3,
     h: 3,
     hp: 500.0,
@@ -363,7 +362,7 @@ pub(super) const ZENITH: BldgDef = BldgDef {
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Eclipse",
-    cost: [150, 100],
+    cost: [150, 0],
     hp: 500.0,
     shields: 300.0,
     build: 45.0,

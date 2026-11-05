@@ -123,9 +123,8 @@ export function cardItems() {
     for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }
   for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
-    const [sh, et] = G.res[G.me];
     it.poor = true;
-    it.tip = (it.tip ? it.tip + ' ' : '') + (sh < it.cost[0] ? `Not enough shards (needs ${it.cost[0]}).` : `Not enough ether (needs ${it.cost[1]}).`);
+    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough salt (needs ${it.cost[0]}).`;
   }
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }

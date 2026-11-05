@@ -23,7 +23,7 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
-  if (b.d.onVent && b.vent) return b.vent.amount > 0 ? `${b.vent.amount} ether left` : 'Vent depleted: a trickle of ether';
+  if (b.d.onVent && b.vent && b.done) return 'Pumping salt: 1 every 2 s';
   return '';
 }
 
@@ -32,8 +32,8 @@ let selKey = '';
 export function updateHud() {
   // Placing with no worker of ours selected (it died): nothing would build it, and a touch card would have no Cancel.
   if (ui.place && !playerSel().some(e => e.kind === 'unit' && e.d.worker)) clearMode();
-  const [s, e] = G.res[G.me], [su, sc] = G.sup[G.me];
-  $('rShard').textContent = s; $('rEther').textContent = e; $('rSupply').textContent = su + '/' + sc;
+  const [s] = G.res[G.me], [su, sc] = G.sup[G.me];
+  $('rShard').textContent = s; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc);
   watchSites();
   ui.sel = ui.sel.filter(x => !x.dead && (x.team === G.me || x.kind !== 'unit' || visibleEnt(x))); // (an enemy that slips out of sight or detection is let go)
@@ -89,12 +89,12 @@ function renderSelection() {
     named('Nothing selected'); sub.textContent = touchUi ? 'Tap a unit or a building' : 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
     module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
   } else if (sel.length === 1 && sel[0].kind === 'node') {
-    // A resource field: what is left and who works it.
-    const n = sel[0], ether = n.type === 'ether';
-    named(ether ? 'Ether vent' : 'Shard field');
+    // A salt field (what is left and who works it), or a seep (a Pump on it pays by itself).
+    const n = sel[0], seep = n.type === 'ether';
+    named(seep ? 'Brine seep' : 'Salt field');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = ether && !n.extractor ? `Build ${aName(BUILDINGS[myFaction().ether].name)} on it to mine` : ether && n.amount <= 0 ? 'Depleted: only a trickle of ether' : `${n.amount} ${ether ? 'ether' : 'shards'} left`;
-    life(n.max ? n.amount / n.max : 0, n.amount, 0, `var(--${ether ? 'ether' : 'shard'})`);
+    sub.textContent = seep ? (n.extractor ? 'Its Pump pays salt by itself' : `Build ${aName(BUILDINGS[myFaction().ether].name)} on it: it pays salt by itself`) : `${n.amount} salt left`;
+    if (seep) $('life').hidden = true; else life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
     const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
     module('node' + working, `<span class="st" title="${UNITS[myFaction().worker].name}s working it" aria-label="${UNITS[myFaction().worker].name}s working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {

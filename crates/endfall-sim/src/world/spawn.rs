@@ -55,7 +55,6 @@ impl World {
             cd: 0.0,
             face: self.home_face(team),
             carry: 0,
-            carry_ether: None,
             last_node: None,
             repath: 0.0,
             flash: 0.0,
@@ -109,6 +108,7 @@ impl World {
             aim: 0.0,
             research: None,
             repair_debt: [0.0, 0.0],
+            pumped: 0.0,
         };
         for y in 0..d.h {
             for x in 0..d.w {
@@ -178,7 +178,7 @@ impl World {
             }
         } else if kind.def().worker && b.kind.def().dropoff {
             let (ux, uy) = (self.u(u).x, self.u(u).y);
-            if let Some(nd) = self.nearest_node(ux, uy, b.team, false, 900.0) {
+            if let Some(nd) = self.nearest_node(ux, uy, 900.0) {
                 self.start_gather(u, nd);
             }
         }

@@ -170,8 +170,18 @@ impl World {
                 }
             }
         }
-        // (an armed enemy at its buildings: the foe is not passive; `Diff::passive_expand`)
-        if intruder.is_some_and(|i| self.u(i).kind.def().threat()) {
+        // (an armed enemy at its buildings: the foe is not passive; `Diff::passive_expand`. Any of them, not only the
+        // intruder answered above: a worker or a spotter nearer in id order must not hide an attack.)
+        let threat = self.units.iter().any(|u| {
+            self.hostile(u.team)
+                && u.kind.def().threat()
+                && self.ai_sees_unit(u)
+                && my_b
+                    .iter()
+                    .filter_map(|&id| self.bldg(id))
+                    .any(|b| dist(u.x, u.y, b.x, b.y) < 420.0 + b.r)
+        });
+        if threat {
             let ai = self.ai_mut();
             ai.attacked_at = t;
             // (the foe's units come after its wave that just ended: a chase, not the foe coming; `passive_foe`)
@@ -1221,6 +1231,8 @@ mod tests {
         w.ai_mut().last_wave = 400.0;
         w.ai_mut().attacking = false;
         let (hx, hy) = (b.rally.x, b.rally.y);
+        // (a foe's worker there first, lower in id order: it does not hide the Troopers)
+        w.make_unit(UnitKind::Harvester, 0, hx - 40.0, hy);
         let chaser = w.make_unit(UnitKind::Trooper, 0, hx + 40.0, hy);
         w.update_fog();
         b.t = 450.0;

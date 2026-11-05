@@ -21,7 +21,7 @@ test('the voice lab loads, has every option for both races and plays on a tap', 
     const styles = await p.evaluate(() => [...document.querySelectorAll('.style')].map(s => [s.id, s.querySelector('h3').textContent, s.querySelectorAll('button[data-p]').length]));
     assert.deepEqual(styles.map(s => s[0]), ['humansRadio', 'humansClear', 'humansOriginal', 'humansDevice', 'vaelClear', 'vaelWarm', 'vaelAiry', 'vaelDevice']);
     assert.deepEqual(styles.map(s => s[1][0]), ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'], 'labelled A to D in each race');
-    assert.ok(styles.every(s => s[2] === 4), 'four phrases in each');
+    assert.ok(styles.every(s => s[2] === 3), 'three phrases in each');
     const small = await p.evaluate(() => [...document.querySelectorAll('button[data-p]')].filter(b => b.getBoundingClientRect().height < 48).length);
     assert.equal(small, 0, 'big enough to tap');
     assert.equal(await p.evaluate(() => window.voiceLab.state()), 'none', 'no sound before a tap');

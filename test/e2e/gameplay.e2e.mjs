@@ -359,7 +359,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
     const after = (await d.state()).res;
-    assert.ok(after[0] - before[0] >= 100 && after[1] - before[1] === 100, 'cancel refunds in full');
+    assert.ok(after[0] - before[0] >= 100 && after[1] === before[1], 'cancel refunds in full (salt; no ether)');
     await d.pressCard('Weapons I');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].weapons)) === 1, { seconds: 70, what: 'Weapons I' });
     await d.clickEntity(forge.id);

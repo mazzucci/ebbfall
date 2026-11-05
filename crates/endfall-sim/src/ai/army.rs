@@ -7,8 +7,6 @@ use super::*;
 /// expansion.
 const SECOND_PRONG_GAP: f64 = 15.0 * TILE;
 const GUARDS: usize = 3;
-/// A sighting from within this many px of its goal is a look at the foe's base (`ai_watch`).
-const LOOK_NEAR: f64 = 10.0 * TILE;
 /// A wave sizes up what it meets within this many px of its units (`Diff::retreat_below`).
 const CONTACT_NEAR: f64 = 8.0 * TILE;
 /// An enemy detector within this many px of an enemy fighter goes with the enemy's army.
@@ -142,10 +140,8 @@ impl World {
         } = brain.clone();
         // An enemy near our buildings (answered by the army below; also stops saving for research).
         let mut intruder = None;
-        // The enemy army it sees now (armed units, workers left out), by value: what its next wave must beat. A
-        // glimpse is not the army: a sighting replaces the one it keeps only when it is at least that one grown (by
-        // what its own army has grown since), or when it is a look at the foe's base (one of its armed units within
-        // `LOOK_NEAR` of its goal: a looker, a wave there). Otherwise a stale sighting stays, and is looked at.
+        // The enemy army it sees now (armed units, workers left out), by value: the most lately seen is what its next
+        // wave must beat (a sighting smaller than the last one recent enough does not lower it).
         let seen: f64 = self
             .units
             .iter()
@@ -154,21 +150,9 @@ impl World {
             .map(|u| army_worth(u.kind))
             .sum();
         let mine = self.own_army_worth(e);
-        let (gx, gy) = self.attack_target();
-        let at_base = self.units.iter().any(|u| {
-            u.team == e
-                && !u.kind.def().worker
-                && u.kind.def().armed()
-                && dist(u.x, u.y, gx, gy) < LOOK_NEAR
-        });
+        let age = self.level().sighting_age;
         let ai = self.ai_mut();
-        // (never seen yet: any sighting is the first)
-        let grown = if ai.army_seen.0 > 0.0 {
-            ai.army_seen.0 + (mine - ai.army_seen.2).max(0.0)
-        } else {
-            0.0
-        };
-        if seen > 0.0 && (seen >= grown || at_base) {
+        if seen > 0.0 && (seen >= ai.army_seen.0 || t - ai.army_seen.1 > age) {
             ai.army_seen = (seen, t, mine);
         }
         'scan: for u in &self.units {
@@ -548,7 +532,6 @@ impl World {
                 }
             }
         }
-        let seen = seen * d.fog_factor;
         let expected = if fresh {
             seen
         } else {
@@ -989,23 +972,6 @@ mod tests {
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "ten against seven: it goes");
         assert_eq!(w.ai().ready_since, None);
-        // with a fog factor of 1.5 it expects seven seen to be ten and a half: ten is not 1.3 times that
-        let foggy = Diff {
-            fog_factor: 1.5,
-            reserve: 0.0,
-            retreat_below: 0.0,
-            ..DIFF[1]
-        };
-        let (mut w, _, mut b) = ready_with(1, foggy);
-        w.ai_mut().army_seen = (7.0 * trooper(), 395.0, 0.0);
-        w.ai_army(&mut b);
-        assert!(!w.ai().attacking, "seven seen in the fog: it waits");
-        w.ai_mut().army_seen = (5.0 * trooper(), 399.0, 0.0);
-        w.ai_army(&mut b);
-        assert!(
-            w.ai().attacking,
-            "five seen, seven and a half expected: it goes"
-        );
         // never seen anything: today's rules, it goes
         let (mut w, _, mut b) = ready(1);
         w.ai_army(&mut b);
@@ -1055,61 +1021,6 @@ mod tests {
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "seen fresh, and ahead: it goes");
         assert!(w.ai().looking.is_none());
-    }
-
-    #[test]
-    fn a_glimpse_does_not_replace_the_army_it_saw_but_a_look_at_the_foes_base_does() {
-        // Two of the foe's Troopers in view by its rally, far from its goal: the first sighting. Then ten seen at 200
-        // (its own army then worth ten): at 400 those two again. A glimpse: it keeps the ten.
-        let (mut w, army, mut b) = ready(1);
-        let (hx, hy) = (b.rally.x, b.rally.y);
-        let foe: Vec<Id> = (0..2)
-            .map(|i| w.make_unit(UnitKind::Trooper, 0, hx + 100.0 + i as f64 * 20.0, hy))
-            .collect();
-        w.update_fog();
-        // Never seen yet: the first sighting counts, however small against its own army.
-        b.t = 100.0;
-        w.ai_watch(&mut b);
-        assert_eq!(w.ai().army_seen.0, 2.0 * trooper(), "the first sighting");
-        w.ai_mut().army_seen = (10.0 * trooper(), 200.0, 10.0 * trooper());
-        b.t = 400.0;
-        w.ai_watch(&mut b);
-        assert_eq!(w.ai().army_seen.1, 200.0, "a glimpse of two: the ten stay");
-        // Twelve of its own now: the ten seen are expected grown by two, and a sighting of eleven is still less.
-        // Its Trooper at its goal (a look at the foe's base), seeing those two there: that replaces it.
-        let (gx, gy) = w.attack_target();
-        let looker = army[0];
-        (w.um(looker).x, w.um(looker).y) = (gx, gy);
-        for (i, &f) in foe.iter().enumerate() {
-            (w.um(f).x, w.um(f).y) = (gx + 60.0 + i as f64 * 20.0, gy);
-        }
-        w.update_fog();
-        b.t = 410.0;
-        w.ai_watch(&mut b);
-        assert_eq!(
-            w.ai().army_seen.0,
-            2.0 * trooper(),
-            "a look at the base: two it is"
-        );
-        assert_eq!(w.ai().army_seen.1, 410.0);
-        // a bigger army seen anywhere replaces it at once
-        for i in 0..6 {
-            w.make_unit(
-                UnitKind::Trooper,
-                0,
-                hx + 100.0 + i as f64 * 20.0,
-                hy + 30.0,
-            );
-        }
-        (w.um(looker).x, w.um(looker).y) = (hx, hy);
-        w.update_fog();
-        b.t = 420.0;
-        w.ai_watch(&mut b);
-        assert_eq!(
-            w.ai().army_seen.0,
-            6.0 * trooper(),
-            "six by its rally: more than two grown"
-        );
     }
 
     #[test]

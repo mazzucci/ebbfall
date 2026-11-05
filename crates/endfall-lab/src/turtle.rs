@@ -27,8 +27,6 @@ pub struct TurtleBatch {
     /// The attacker's income multiplier (`Diff::income`; None: plain Medium's): the ceiling test, whether more income
     /// alone breaks the turtle.
     pub attacker_income: Option<f64>,
-    /// The attacker's `Diff::fog_factor` (None: its level's).
-    pub attacker_fog: Option<f64>,
     /// The attacker's `Diff::retreat_below` (None: its level's).
     pub attacker_retreat: Option<f64>,
     /// The attacker's level (`DIFF`'s index; `BASE`, Medium, by default): its whole tuning, as a plan.
@@ -45,7 +43,6 @@ impl TurtleBatch {
             cap_min: 30,
             raids: false,
             attacker_income: None,
-            attacker_fog: None,
             attacker_retreat: None,
             attacker_level: BASE,
             weak: false,
@@ -103,13 +100,10 @@ impl Cell {
         let mut plans = [None, None];
         plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
         let level = DIFF[b.attacker_level];
-        let changed = attacker_income.is_some()
-            || b.attacker_fog.is_some()
-            || b.attacker_retreat.is_some()
-            || b.attacker_level != BASE;
+        let changed =
+            attacker_income.is_some() || b.attacker_retreat.is_some() || b.attacker_level != BASE;
         plans[1 - self.turtle] = changed.then(|| Diff {
             income: attacker_income.unwrap_or(level.income),
-            fog_factor: b.attacker_fog.unwrap_or(level.fog_factor),
             retreat_below: b.attacker_retreat.unwrap_or(level.retreat_below),
             ..level
         });
@@ -420,7 +414,6 @@ impl TurtleRun {
                     .with("cap_min", self.batch.cap_min)
                     .with("raids", self.batch.raids)
                     .with("attacker_income", self.batch.attacker_income)
-                    .with("attacker_fog", self.batch.attacker_fog)
                     .with("attacker_retreat", self.batch.attacker_retreat)
                     .with(
                         "attacker_level",
@@ -636,7 +629,6 @@ mod tests {
             cap_min: 2,
             raids: false,
             attacker_income: None,
-            attacker_fog: None,
             attacker_retreat: None,
             attacker_level: BASE,
             weak: false,

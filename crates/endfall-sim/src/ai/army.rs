@@ -296,7 +296,7 @@ impl World {
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
         let army = self.tend_guards(army);
         // The home reserve stays out of them as well.
-        let army = self.tend_reserve(army, rally);
+        let army = self.tend_reserve(army, rally, t);
 
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
@@ -549,11 +549,12 @@ impl World {
 
     /// The home reserve (`Diff::reserve`): fighters at home worth that share of its whole army (those already in it
     /// first, then the cheapest; walking fighters that hit the ground, none out with a wave), back at the rally when
-    /// idle away from it. None at full supply: then everything goes. Returns the rest of the army.
-    fn tend_reserve(&mut self, army: Vec<Id>, rally: Pt) -> Vec<Id> {
+    /// idle away from it. None at full supply (then everything goes), and none but against a passive foe
+    /// (`passive_foe`). Returns the rest of the army.
+    fn tend_reserve(&mut self, army: Vec<Id>, rally: Pt, t: f64) -> Vec<Id> {
         let seat = self.seat();
         let share = self.level().reserve;
-        if share <= 0.0 || self.sup[seat as usize][0] >= SUPPLY_LIMIT {
+        if share <= 0.0 || self.sup[seat as usize][0] >= SUPPLY_LIMIT || !self.passive_foe(t) {
             self.ai_mut().reserve.clear();
             return army;
         }
@@ -599,6 +600,13 @@ impl World {
         }
         self.ai_mut().reserve = reserve.clone();
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
+    }
+
+    /// A passive foe (`Diff::passive_expand`): no armed enemy at its buildings for that long. The siege rules, the
+    /// home reserve and the pull-back on contact, are for such a foe only (one that sits behind its defence); against
+    /// a foe that comes at it, its waves go as before.
+    fn passive_foe(&self, t: f64) -> bool {
+        t - self.ai().attacked_at > self.level().passive_expand
     }
 
     /// Whether a wave out is outmatched (`Diff::retreat_below`): its armed units' worth under that many times the
@@ -773,8 +781,8 @@ impl World {
             ai.attacking = false;
             ai.attackers = None;
             ai.last_wave = t;
-        } else if self.outmatched(&alive) {
-            // Outmatched on contact: back to its rally, where its reserve and towers meet whoever chases it.
+        } else if self.passive_foe(t) && self.outmatched(&alive) {
+            // Outmatched on contact with a passive foe: back to its rally, where its reserve and towers meet whoever chases it.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
@@ -1067,9 +1075,9 @@ mod tests {
     }
 
     #[test]
-    fn a_home_reserve_of_its_cheapest_fighters_stays_at_the_rally() {
-        // Medium's reserve, a quarter of its army's worth: of ten Troopers (and a Vanguard, pricier), three Troopers
-        // stay home as the wave goes; the Vanguard goes with the wave.
+    fn against_a_passive_foe_a_home_reserve_of_its_cheapest_fighters_stays_at_the_rally() {
+        // Medium's reserve, a quarter of its army's worth, against a foe that has not come at it: of ten Troopers
+        // (and a Vanguard, pricier), three Troopers stay home as the wave goes; the Vanguard goes with the wave.
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
         let (hx, hy) = (b.rally.x, b.rally.y);
         let tank = w.make_unit(UnitKind::Vanguard, 1, hx + 60.0, hy + 140.0);
@@ -1121,6 +1129,15 @@ mod tests {
             army.len(),
             "all in"
         );
+        // a foe that came at its buildings lately is not passive: no reserve, everything goes
+        let (mut w, army, mut b) = ready_with(1, DIFF[1]);
+        w.ai_mut().attacked_at = b.t - 10.0;
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().reserve.is_empty(),
+            "no reserve against a foe that comes"
+        );
+        assert_eq!(w.ai().attackers.as_ref().unwrap().len(), army.len());
         // Easy keeps none
         let (mut w, _, mut b) = ready_with(0, DIFF[0]);
         w.ai_mut().wave = 4;
@@ -1129,9 +1146,10 @@ mod tests {
     }
 
     #[test]
-    fn an_outmatched_wave_pulls_back_to_its_rally_on_contact() {
-        // A wave of ten Troopers out, with no reserve (to count only the wave): it meets what it sees near it.
-        let scene = |enemies: usize| {
+    fn an_outmatched_wave_pulls_back_to_its_rally_on_contact_with_a_passive_foe() {
+        // A wave of ten Troopers out, with no reserve (to count only the wave): it meets what it sees near it. `came`:
+        // the foe's armed units were at its buildings just before.
+        let scene = |enemies: usize, came: bool| {
             let (mut w, army, mut b) = ready_with(
                 1,
                 Diff {
@@ -1160,14 +1178,17 @@ mod tests {
             }
             w.update_fog();
             b.t = 420.0;
+            if came {
+                w.ai_mut().attacked_at = 410.0;
+            }
             w.ai_army(&mut b);
             (w, army, b)
         };
         // ten against seven: it fights on
-        let (w, _, _) = scene(7);
+        let (w, _, _) = scene(7, false);
         assert!(w.ai().attacking, "ahead: it fights on");
         // ten against fourteen: back to its rally, the wave over (the next waits its gap)
-        let (w, army, b) = scene(14);
+        let (w, army, b) = scene(14, false);
         assert!(!w.ai().attacking, "outmatched: it pulls back");
         assert_eq!(w.ai().last_wave, 420.0);
         for &a in &army {
@@ -1176,6 +1197,9 @@ mod tests {
                 "to its rally"
             );
         }
+        // the same against a foe that has just come at its buildings: it fights on, as today
+        let (w, _, _) = scene(14, true);
+        assert!(w.ai().attacking, "not a passive foe: it fights on");
         // Easy never retreats
         assert_eq!(DIFF[0].retreat_below, 0.0);
     }

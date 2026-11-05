@@ -65,7 +65,8 @@ pub struct Diff {
     pub passive_expand: f64,
     pub max_bases: usize,
     /// A home reserve: this share of its army's worth (its cheapest fighters) never goes out with a wave; it stays
-    /// at the rally and defends (0: none). At full supply the reserve goes all in too.
+    /// at the rally and defends (0: none). At full supply the reserve goes all in too. Like `retreat_below`, only
+    /// against a passive foe (none of its armed units at our buildings for `passive_expand` seconds).
     pub reserve: f64,
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).

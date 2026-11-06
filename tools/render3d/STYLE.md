@@ -50,7 +50,7 @@ body with a pale top: in greyscale it parts from the Vael (pale body, dark core)
 | `timberPale`  | timber pale enough to read at 18 px (unused since step 1: a pale part of a Harbour unit is canvas, which keeps its value in the gold seat) | Standard 0xb09468, map `grainTex`, rough 0.75   |
 | `rope`        | coils, lines, lashings        | Standard 0xc8b48a, bump `ropeBump` 1.2, rough 0.95                                         |
 | `brass`       | small tips only: a pick's points, a muzzle bead, the lamp's cage and finial | Standard 0xc49a3c, metal 0.95, rough 0.28 |
-| `sandbag`     | the dug-in state: wet grey-brown, mid value (dark bags vanish on the ground, tan ones merge with gold) | Standard 0x7a7264, map `burlapTex`, rough 1 |
+| `sandbag`     | (the round-2 parapet; round 3's ring uses `sandbagPale`/`sandbagShade`, see Harbour infantry): wet grey-brown, mid value (dark bags vanish on the ground, tan ones merge with gold) | Standard 0x7a7264, map `burlapTex`, rough 1 |
 | `slate`       | kerbs, plinths, the salt field's bed | Standard 0x3e4247, rough 0.9, flat shaded                                           |
 | `flagstone`   | a quay's paving               | Standard 0x565b60, map `flagTex` (courses of stones, damp), bump 1.2, rough 0.88           |
 | `inkLine`     | the black ring either side of every team band | Standard 0x08080a, rough 0.8                                              |
@@ -114,10 +114,9 @@ Nothing emissive on the Harbour is team-tinted.
 
 ### States
 
-Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling behind a
-crescent parapet of wet sandbags laid ahead (r 7.6, 200 degrees, two courses), the rifle resting on them, a team
-groundsheet behind; frame 2 while going to ground (one course), frame 3 dug in. Cover is a wall in front, open behind:
-a full ring read as a machine's body in the round-1 blind test. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
+Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling in a ring of
+pale sandbags open at the back (step 2, round 3: see "Harbour infantry"; the round-1 crescent parapet read as a
+machine's body, and the round-2 brown one vanished at phone size); frame 2 while going to ground, frame 3 dug in. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
 frame with a visible fixture on the ground (the hull down and spades out; a dropped anchor and a taut line), never a tint.
 
 ## The Vael (sim race `vael`)

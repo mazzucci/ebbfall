@@ -21,7 +21,7 @@ function fam(M) {
     aqua: std({ color: 0x0a5a4c, emissive: 0x12b898, emissiveIntensity: 1.0, roughness: 0.25 }),                     // the Tender's light: aqua through and through (round 3: x 1.25 of 0x18d8b4 clipped to white at 1x, a white star)
     aquaGlass: new THREE.MeshPhysicalMaterial({ color: 0x1f8c7a, emissive: 0x0a4a40, emissiveIntensity: 1, roughness: 0.3, clearcoat: 0.8 }), // the Tender's inner petals: aqua glass round the light, so its heart is a broad aqua eye
     aquaCore: std({ color: 0x9cf4e4, emissive: 0xa8fff0, emissiveIntensity: 0.9 }),                                   // its pale heart, aqua-white, small
-    aquaHalo1: halo(0x30e0c0, 0.26), aquaHalo2: halo(0x28c4ac, 0.12), aquaHalo3: halo(0x20ac98, 0.06),
+    aquaHalo2: halo(0x28c4ac, 0.12), aquaHalo3: halo(0x20ac98, 0.06),
     inkMatte: std({ color: 0x0e0c14, metalness: 0.2, roughness: 0.62 }),                                              // the Undertow's black glass: matte, so a canted face takes no sheen from the rim light
   };
   FAM.set(M, A); return A;
@@ -79,7 +79,6 @@ const roundPetal = (l, w, root = 0.3, n = 18) => {
 };
 /** A round petal's tip (top view): the part of its end circle (centre `cx` on the x axis, radius `r`) beyond a chord
  *  `cut` behind the centre. */
-const tipCap = (cx, r, cut, n = 18) => { const f = Math.acos(-cut / r), p = []; for (let i = 0; i <= n; i++) { const a = -f + 2 * f * i / n; p.push([cx + Math.cos(a) * r, Math.sin(a) * r]); } return p; };
 /** Tender (support, a detector): a flower of pearl round a big aqua heart, 23 across (about 2.6x the Glint's
  *  footprint): six broad round petals cupped up round the heart, notched between their lobes (round 3: six narrow
  *  pointed petals read as a star, a sparkle, the Glint), each petal's tip team glaze behind an ink seam, an ink calyx

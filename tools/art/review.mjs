@@ -1,6 +1,6 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// eight units; `hinf`, the Harbour infantry) and writes into <outdir>:
+// eight units; `hinf`, the Harbour infantry; `vbld`, the Vael's eight buildings) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
@@ -65,6 +65,27 @@ const FAMILIES = {
       ['medic_0_1', cx - 230, cy + 10, 0], ['medic_2_0', cx - 180, cy + 100, 0], ['lancer_8_0', cx + 60, cy - 110, 1], ['medic_9_0', cx + 100, cy - 60, 1],
     ],
   },
+};
+// Vael buildings (vael-buildings.js): the eight buildings in the contact sheet, on the phone sheets with a few Glints
+// and Lenses for scale (`phoneBldgs` places them instead of the default Lighthouse and Tidewell), alone in the blind
+// set (`blindSize`: a bigger patch than a unit's) and, in the battle, a whole Vael base against the Lighthouse
+const VBLD = [['conflux', 'Tidewell'], ['spire', 'Sunpetal'], ['siphon', 'Siphon'], ['kiln', 'Cradle'], ['loom', 'Glasshouse'], ['ward', 'Anemone'], ['zenith', 'Gyre'], ['eclipse', 'Darkwater']];
+FAMILIES.vbld = {
+  filter: '^harvester_(0|1|2|14)_[01]$|^trooper_(0_[03]|1_1)$|^(lumen|prism)_(0|4|8|12)_[01]$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|zenith|eclipse)$|^shard_[0-3]$',
+  units: {}, rows: VBLD.map(([k]) => `bldg_${k}`),
+  shares: VBLD.map(([k]) => `bldg_${k}`),
+  phone: ['lumen_0_0', 'prism_0_0', 'lumen_4_0', 'prism_8_0'], turned: ['lumen_8_0', 'prism_12_0'],
+  phoneBldgs: [['bldg_conflux', 330, 210, 0], ['bldg_spire', 600, 210, 0], ['bldg_siphon', 810, 210, 0], ['bldg_kiln', 1040, 210, 0], ['bldg_loom', 1270, 210, 0], ['bldg_eclipse', 1470, 210, 0],
+    ['bldg_zenith', 300, 630, 0], ['bldg_ward', 1120, 630, 0], ['bldg_spire', 1300, 630, 1], ['bldg_ward', 1470, 630, 6], ['bldg_eclipse', 1620, 630, 6]],
+  blindSize: 480,
+  blind: VBLD.map(([k, n]) => [`bldg_${k}`, `${k} (${n})`]),
+  vael: (cx, cy) => [
+    ['bldg_conflux', cx + 560, cy - 60, 1], ['bldg_spire', cx + 330, cy - 250, 1], ['bldg_siphon', cx + 160, cy - 180, 1],
+    ['bldg_kiln', cx + 420, cy + 150, 1], ['bldg_loom', cx + 220, cy + 10, 1], ['bldg_ward', cx + 60, cy - 10, 1],
+    ['bldg_zenith', cx + 700, cy + 180, 1], ['bldg_eclipse', cx + 180, cy + 200, 1],
+    ...[0, 1, 2].map(k => [`lumen_${[8, 8, 4][k]}_0`, cx + 340 + k * 36, cy - 120 + k * 26, 1]),
+    ...[0, 1, 2, 3].map(k => [`prism_8_${k % 2}`, cx + 40 + (k % 2) * 46, cy + 80 + Math.floor(k / 2) * 60 + (k % 2) * 10, 1]),
+  ],
 };
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
@@ -172,8 +193,8 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 {
   const c = canvas(1688, 780); seabed(c); // a 2x phone (844x390 CSS px)
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
-  if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]);
-  list.push(['bldg_conflux', 1330, 330, 1]);
+  if (FAM.phoneBldgs) list.push(...FAM.phoneBldgs);
+  else { if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]); list.push(['bldg_conflux', 1330, 330, 1]); }
   const gap = Math.min(80, Math.floor(1000 / FAM.phone.length));
   for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
   FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, 760, k % 2]));
@@ -186,10 +207,10 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 
 // ---- 4. blind: each unit alone at phone size, named by a random letter ----
 {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {};
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {}, B = FAM.blindSize ?? 192;
   let n = 0;
   for (const [name, what] of FAM.blind) for (const seat of [0, 6]) {
-    const c = canvas(192, 192); seabed(c, 11 + n++ * 7, true); draw(c, get(name), 96, 110, seat);
+    const c = canvas(B, B); seabed(c, 11 + n++ * 7, true); draw(c, get(name), B / 2, B / 2 + B * 0.07, seat);
     const L = letters.splice(Math.floor(Math.random() * letters.length), 1)[0];
     key[L] = `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
   }

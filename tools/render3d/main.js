@@ -11,6 +11,7 @@ import { lighthouse } from './harbour.js';
 import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
+import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, gyre, darkwater } from './vael-buildings.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
@@ -26,6 +27,12 @@ Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
   shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre) sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+});
+// Vael buildings (step 1, vael-buildings.js): the Sunpetal, the Siphon, the Cradle, the Glasshouse, the Anemone (one
+// sprite, no turning head), the Gyre and the Darkwater; the Tidewell above. Footprints and cell heights as before.
+Object.assign(VAEL_BUILDINGS, {
+  spire: [2, sunpetal, 82], siphon: [2, vSiphon, 50], kiln: [3, cradle, 42], loom: [2, glasshouse, 42],
+  ward: [2, anemone, 50], zenith: [3, gyre, 72], eclipse: [2, darkwater, 58],
 });
 
 // The Vael units in the game; each race renders with its own materials.

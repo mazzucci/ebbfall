@@ -248,11 +248,12 @@ impl World {
             let armor_up = self.effect_level(team, Effect::Armor) as f64;
             let sh_up = self.effect_level(team, Effect::Shields) as f64;
             let now = self.time;
+            let settled = settled_armor(&self.units[i]);
             let u = &mut self.units[i];
             u.struck = now;
             let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt, sh_up);
             if rest > 0.0 {
-                u.hp -= hull_loss(rest, u.kind.def().armor + armor_up);
+                u.hp -= hull_loss(rest, u.kind.def().armor + armor_up + settled);
             }
             u.flash = 0.12;
             if let Some(by) = by {
@@ -481,6 +482,7 @@ impl World {
                     team,
                     splash: splash.0,
                     splash_r: splash.1,
+                    slow: w.slow,
                 });
                 let sounds = self.factions[team as usize].sounds;
                 let weapon = match kind {
@@ -493,8 +495,14 @@ impl World {
             None => {
                 let melee = self.factions[team as usize].sounds[3];
                 self.fired(shooter, team, x, y, melee);
-                self.damage(target, dmg, Some(shooter))
+                self.damage(target, dmg, Some(shooter));
+                self.harpoon(target, w.slow);
             }
+        }
+        // A lurker that strikes shows itself, once the blow has landed: its first strike comes out of hiding (an
+        // unseen hit, as the alert and the AI's detector call have it), the next ones are seen.
+        if let Some(i) = self.ui(shooter) {
+            self.units[i].still = 0.0;
         }
     }
 
@@ -581,6 +589,18 @@ impl World {
         }
     }
 
+    /// A harpoon's hit (`Weapon::slow`, s): the unit hit, if it still stands, is slowed for that long (not longer:
+    /// a second harpoon renews it, it does not add up).
+    fn harpoon(&mut self, target: Id, slow: f64) {
+        if slow <= 0.0 {
+            return;
+        }
+        if let Some(i) = self.ui(target) {
+            let u = &mut self.units[i];
+            u.slowed = u.slowed.max(slow);
+        }
+    }
+
     pub(crate) fn update_projs(&mut self, dt: f64) {
         let mut i = self.projs.len();
         while i > 0 {
@@ -615,6 +635,7 @@ impl World {
                 };
                 self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
+                self.harpoon(p.target, p.slow); // (the target only: a harpoon has no splash)
                 for s in splash {
                     if self.unit(s).is_some() {
                         self.damage(s, p.dmg * p.splash, Some(p.by));
@@ -635,10 +656,13 @@ impl World {
         }
     }
     /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
-    /// that stops deploys (no order does it): it packs up again only when it has to move.
+    /// with nothing to fight on its tracks (the Anchor Gun: no light gun) deploys where it stops (no order does it): it
+    /// packs up again only when it has to move. One with a light gun (the Breakwater) settles only where it fights, or
+    /// where it is told to hold.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
-        if c.siege.is_some() && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 {
-            self.deploy(uid);
+        let sets_up_idle = c.siege.is_some() && (c.range <= 0.0 || hold);
+        if sets_up_idle && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 && self.deploy(uid)
+        {
             return;
         }
         let deep = self.in_deep(uid); // (an idle unit in deep water picks no fight: it cannot fire from there)
@@ -647,11 +671,13 @@ impl World {
         if c.combat && !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
-            // (an idle siege gun looks as far as it shoots: it sets up where it stands)
+            // (an idle siege gun that sets up where it stops looks as far as it shoots: it fights from where it stands)
             let rng = if hold {
                 c.range + c.r
-            } else {
+            } else if sets_up_idle || self.u(uid).mode.is_some() {
                 c.siege.unwrap_or(c.sight * TILE * 0.85)
+            } else {
+                c.sight * TILE * 0.85
             };
             let flier = c.kind.def().air;
             let ring = if hold { c.ring } else { c.setup_ring() };
@@ -860,8 +886,13 @@ impl World {
         let seen = self.seen_by(c.team, target);
         let in_band = d >= c.min && d < reach && seen;
         if !deployed {
-            if in_band {
-                self.deploy(uid);
+            if in_band && self.deploy(uid) {
+                return;
+            }
+            // In its band but it may not set up (harpooned): with a light gun it fights on its tracks, closing to that
+            // gun's reach; without one it waits where it is.
+            let held_off = in_band;
+            if held_off && c.range <= 0.0 {
                 return;
             }
             if d < c.min && c.range <= 0.0 {
@@ -875,7 +906,7 @@ impl World {
             // On its tracks it closes in (in reach but out of its side's sight: on until its own eyes see it), and its
             // light gun fires at the target once in its reach: on the way, or at one too close to set up for.
             let light = c.range + c.r * 0.5;
-            let close = if d < c.min {
+            let close = if d < c.min || held_off {
                 light
             } else if d < reach {
                 c.sight * TILE * 0.8
@@ -927,5 +958,13 @@ impl World {
                 b.sh = (b.sh + SHIELD_REGEN_BLDG * dt).min(b.maxsh);
             }
         }
+    }
+}
+
+/// The armour a unit's toggle adds while it is settled in (the Breakwater beached); none while settling or packing up.
+pub(crate) fn settled_armor(u: &Unit) -> f64 {
+    match u.mode.filter(|_| u.swap <= 0.0).map(|k| k.def().effect) {
+        Some(AbilityEffect::Settle { armor, .. }) => armor,
+        _ => 0.0,
     }
 }

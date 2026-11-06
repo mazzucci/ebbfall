@@ -137,8 +137,9 @@ pub(super) const HALO: UnitDef = UnitDef {
     mv: Move::Amph,
     ..UNIT
 };
-/// The Umbra: a blade of folded shadow, always cloaked (as the Observer is): seen and struck only where the other side
-/// detects. It walks under a siege line's blind ring and through its screen unseen; detected, it is a costly Scythe.
+/// The Umbra (the Undertow): a blade that lurks (Roster v2): once it has neither walked nor struck for `LURK_S` it is
+/// hidden, seen and struck only where the other side detects; it shows the moment it moves or strikes. It lies in wait
+/// by a Pump or on a path; detected, it is a costly blade.
 /// Trained at the Zenith (an advanced hover unit, as the Sovereign is) once an Eclipse stands; a ground unit all the
 /// same.
 pub(super) const UMBRA: UnitDef = UnitDef {
@@ -153,7 +154,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     r: 10.0,
     build: 30.0,
     req: Some(BldgKind::Eclipse),
-    cloaked: true,
+    lurk: true,
     weapon: Some(Weapon {
         range: 0.9,
         dmg: 32.0,

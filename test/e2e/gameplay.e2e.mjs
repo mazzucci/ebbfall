@@ -711,7 +711,7 @@ test('a newcomer\'s FIRST GAME on the first page, and only there; once the guide
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnFirstHome').click();
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-    assert.match(await page.locator('#tut').textContent(), /1\/6/, 'the guided game');
+    assert.match(await page.locator('#tut').textContent(), /1\/7/, 'the guided game');
     await page.evaluate(() => endfall.engine.concede()); // (set-up: the game's end is what matters)
     await page.locator('#end').waitFor({ state: 'visible' });
     await page.locator('#btnAgain').click();
@@ -1500,7 +1500,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and what it fights best beside and what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -1532,7 +1532,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     const trooper = await hold('Picket');
     assert.match(trooper.text, /^Picket\s*50/, 'its name and cost first');
     assert.match(trooper.text, /Line infantry, cheap and steady\./, 'and what it does');
-    assert.doesNotMatch(trooper.text, /against|Needle|Kite|Breakwater|Argonaut/i, 'no counters: players find them themselves');
+    assert.match(trooper.text, /Best with Harpooners\. Beaten by Conchs\./, 'its partner and its killer, one line (Roster v2)');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Picket' }).getAttribute('title'), /against|Health|Damage/i, 'nor counters or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
@@ -1670,7 +1670,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
-    await d.hudText('#tut', /1\/6/);
+    await d.hudText('#tut', /1\/7/);
     assert.match(await d.page.locator('#tut').textContent(), /train two Riggers/);
     // Step 1: the Core, then Rigger twice (the button pulses).
     await d.grant(1000, 0);
@@ -1680,7 +1680,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Rigger button pulses');
     await d.pressCard('Rigger'); await d.pressCard('Rigger');
     await d.skip(30);
-    await d.hudText('#tut', /2\/6/);
+    await d.hudText('#tut', /2\/7/);
     // Step 2: a Rigger, Build: the Build button pulses; a Windmast finishes the step.
     // A Rigger standing at its field (one on the move can slip from under the tap).
     for (let i = 0; i < 8 && !(await d.selection()).some(e => e.type === 'harvester'); i++) {
@@ -1694,7 +1694,8 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     const spot = await d.findSpot('depot', { tx: core.tx + 5, ty: core.ty });
     await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Windmast' });
-    await d.hudText('#tut', /3\/6/);
+    await d.hudText('#tut', /3\/7/);
+    assert.match(await d.page.locator('#tut').textContent(), /Build a Pump on a brine seep/, 'then a Pump');
     // The opponent waits: by 5:30, with the army not ready, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
     assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');
@@ -2193,18 +2194,27 @@ test('phone: picking a building shows no ghost until the finger is down; lifted 
   } finally { await d.close(); }
 });
 
-test('an enemy Undertow is invisible and cannot be picked until something of ours detects it', async () => {
+test('an enemy Undertow lurks: seen as it stands, hidden once still for 2 s, not picked until something of ours detects it', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
-    const core = coreOf(await d.state()), at = { x: core.x + 200, y: core.y + 40 };
-    const obs = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]); // (the Undertow: hidden)
-    await d.page.waitForTimeout(300);
-    assert.equal(await d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), obs), false, 'not seen');
+    // (set-up: an enemy Undertow out on the field, away from anything of ours on the ground it would go for, and our
+    // Spyglass watching it from just outside its detection: the Undertow cannot hit a flyer, so it stays put)
+    const at = await d.eval(() => { const b = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq); const dx = b.x < 1000 ? 1 : -1; return { x: b.x + dx * 640, y: b.y, dx }; });
+    const obs = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]);
+    const spy = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [at.x - at.dx * 245, at.y]);
+    await d.eval((id) => endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id)), spy);
+    const seen = () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), obs);
+    await d.skip(1);
+    assert.equal(await seen(), true, 'seen as it stands there: it has not lain still yet');
+    await d.skip(2);
+    assert.equal(await seen(), false, 'lying still for 2 s: hidden');
+    const u = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return { x: u.x, y: u.y }; }, obs);
+    await d.centerOn(u.x, u.y);
     await d.clickEntity(obs);
     assert.ok(!(await d.selection()).some(e => e.id === obs), 'a click there picks nothing of it');
-    // Our own Spyglass beside it detects it: seen, and it can be picked.
-    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [at.x - 60, at.y]);
-    await until(d, () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), obs), { seconds: 3, step: 0.5, what: 'detected' });
+    // A Spyglass of ours right beside it detects it: seen, and it can be picked.
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [u.x - at.dx * 60, u.y]);
+    await until(d, seen, { seconds: 3, step: 0.5, what: 'detected' });
     await d.clickEntity(obs);
     assert.ok((await d.selection()).some(e => e.id === obs), 'picked once detected');
     assert.deepEqual(d.errors, []);
@@ -2702,7 +2712,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
-test('desktop, as the Vael: the Gyre trains an Undertow once a Darkwater stands (U, or its slot\'s key in WASD), the Cradle keeps two rows; its owner sees it shimmer, the enemy only where it detects', async () => {
+test('desktop, as the Vael: the Gyre trains an Undertow once a Darkwater stands (U, or its slot\'s key in WASD), the Cradle keeps two rows; its owner sees it shimmer while it lurks', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
@@ -2739,20 +2749,15 @@ test('desktop, as the Vael: the Gyre trains an Undertow once a Darkwater stands 
     assert.equal(key, GRID[at], 'its grid key shown');
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(), ['umbra', 'umbra'], `${key} trains another`);
-    // Its owner sees it as a shimmer of itself.
+    // Its owner sees it as a shimmer of itself, once it lies still at its rally (it lurks).
     await until(d, async () => mine(await d.state(), 'umbra').length > 0, { seconds: 60, step: 0.5, what: 'the Undertow' });
-    const u = mine(await d.state(), 'umbra')[0];
+    await d.eval(() => { for (const u of endfall.G.units.filter(u => u.team === 0 && u.type === 'umbra')) endfall.engine.holdUnit(u); }); // (held where it stands: it lies still)
+    await until(d, () => d.eval(() => endfall.G.units.some(u => u.team === 0 && u.type === 'umbra' && u.cloaked)), { seconds: 30, step: 0.5, what: 'the Undertow lying still' });
+    const u = await d.eval(() => { const x = endfall.G.units.find(u => u.team === 0 && u.type === 'umbra' && u.cloaked); return { id: x.id, x: x.x, y: x.y }; });
     await d.centerOn(u.x, u.y);
     await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown), u.id, { timeout: 10000 });
-    const own = await d.eval((id) => endfall.teamLayers().find(l => l.id === id), u.id);
-    assert.ok(own.alpha > 0.2 && own.alpha < 0.6, `drawn translucent for its owner (${own.alpha})`);
-    // An enemy Undertow beside it: not drawn at all, until a Tender of ours detects it.
-    const foe = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [u.x + 200, u.y]);
-    await d.skip(1);
-    assert.ok(!(await d.eval((id) => endfall.teamLayers().some(l => l.id === id && l.shown), foe)), 'an enemy Undertow is unseen');
-    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'halo', x, y), [u.x + 180, u.y]);
-    await d.skip(1);
-    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown && l.alpha < 0.6), foe, { timeout: 10000 });
+    // (lying still, held: a shimmer of itself; an enemy lurker unseen until detected is the test above)
+    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown && l.alpha > 0.2 && l.alpha < 0.6), u.id, { timeout: 10000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

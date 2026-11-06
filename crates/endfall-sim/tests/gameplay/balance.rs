@@ -278,19 +278,19 @@ fn the_vael_counters_hold_in_cost_equal_fights() {
 
 #[test]
 fn a_halo_finds_cloaked_raiders_for_its_army() {
-    // With every tech and the AI's use of abilities: veiled Shrikes and Umbras beat Prisms that cannot see them (the
-    // Raider's cloak went with Roster v2). One Halo per three Prisms detects them (5 tiles, 2026-10-31) and turns both
-    // fights round.
+    // With every tech and the AI's use of abilities: veiled Shrikes (Petrels with Seaglass) beat Prisms (Lenses) that
+    // cannot see them (the Raider's cloak went with Roster v2). One Halo per three Prisms detects them (5 tiles,
+    // 2026-10-31) and turns the fight round. (Not the Undertow since Lurk: in an open fight it shows after its first
+    // blow; its ambush is in tests/gameplay/cloak.rs.)
     use UnitKind::*;
-    for foe in [Shrike, Umbra] {
-        let alone = duel_with(&[Prism], &[foe], 2800.0, tech_micro);
-        let led = duel_with(&[Prism, Prism, Prism, Halo], &[foe], 2800.0, tech_micro);
-        assert!(
-            alone < -0.3,
-            "Prisms alone lose to cloaked {foe:?}: {alone:+.2}"
-        );
-        assert!(led > 0.3, "a Halo among them finds the {foe:?}: {led:+.2}");
-    }
+    let foe = Shrike;
+    let alone = duel_with(&[Prism], &[foe], 2800.0, tech_micro);
+    let led = duel_with(&[Prism, Prism, Prism, Halo], &[foe], 2800.0, tech_micro);
+    assert!(
+        alone < -0.3,
+        "Prisms alone lose to cloaked {foe:?}: {alone:+.2}"
+    );
+    assert!(led > 0.3, "a Halo among them finds the {foe:?}: {led:+.2}");
 }
 
 #[test]

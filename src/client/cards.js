@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, pairLine } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -88,7 +88,7 @@ export function cardItems() {
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
       const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      if (!missing) at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc }); // (not yet: its slot stays empty)
+      if (!missing) at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: [d.desc, pairLine(t)].filter(Boolean).join(' ') }); // (its partner and killer too: the hover title and the long-press) // (not yet: its slot stays empty)
     });
     // Rally after the units (a factory trains four at most, so its card keeps two rows with the queue's Cancel in slot 5)
     if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });

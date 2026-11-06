@@ -22,9 +22,8 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 
-/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does,
- *  never which enemy units it beats or loses to: players find the counters themselves (the duels of
- *  tests/gameplay/balance.rs keep the design's counter loops). */
+/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does;
+ *  its partner and its killer are a line of their own (`PAIRS`), the counters made visible (Roster v2). */
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines salt. Builds structures and repairs them.' },
   trooper: { hot: 'T', desc: 'Line infantry, cheap and steady. Shoots the ground only. Digs in for more reach once Sandbags is researched.' },
@@ -47,8 +46,8 @@ const UNIT_TEXT = {
   umbra: { hot: 'U', desc: 'Melee assassin. Hidden while still; its first strike comes from hiding, and it shows when it moves or strikes. Something that spots hidden units sees it anyway.' },
 };
 const BLDG_TEXT = {
-  core: { hot: 'C', desc: 'Trains Riggers. Salt drop-off. +10 supply.' },
-  depot: { hot: 'D', desc: '+8 supply.' },
+  core: { hot: 'C', desc: 'Trains Riggers. Salt drop-off. +10 energy.' },
+  depot: { hot: 'D', desc: '+8 energy.' },
   extractor: { hot: 'E', desc: 'Built on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
   barracks: { hot: 'G', desc: 'Trains Pickets, Harpooners and Menders (Menders need a Workshop).' },
   forge: { hot: 'F', desc: 'Researches Weapons, Plating, Sandbags and All Hands; unlocks Menders and the Slipway\'s machines.' },
@@ -56,8 +55,8 @@ const BLDG_TEXT = {
   turret: { hot: 'T', desc: 'Static defence against ground and air. Spots hidden units.' },
   airfield: { hot: 'A', desc: 'Trains Kites, Spyglasses and the Windjammer capital ship. Researches Tailwind.' },
   // the Vael
-  conflux: { hot: 'C', desc: 'The Vael heart, a pool of deeplight. Trains Glints. Salt drop-off. +10 supply.' },
-  spire: { hot: 'S', desc: '+8 supply.' },
+  conflux: { hot: 'C', desc: 'The Vael heart, a pool of deeplight. Trains Glints. Salt drop-off. +10 energy.' },
+  spire: { hot: 'S', desc: '+8 energy.' },
   siphon: { hot: 'E', desc: 'Grown on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
   kiln: { hot: 'K', desc: 'Grows Needles, Lenses, Conches and Tenders (the last two need a Glasshouse).' },
   loom: { hot: 'L', desc: 'Researches Weapons, Hardshell and Surge Chamber; unlocks Conches and Tenders.' },
@@ -71,6 +70,16 @@ const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
+/** Each fighting unit's partner (what it fights best beside) and killer (what beats it), from Roster v2's
+ *  compositions: the long-press details' one line (card.js). Workers have none. */
+export const PAIRS = {
+  trooper: ['lancer', 'monolith'], lancer: ['trooper', 'scythe'], medic: ['trooper', 'scythe'],
+  vanguard: ['siegeTank', 'monolith'], siegeTank: ['vanguard', 'shrike'], interceptor: ['bastion', 'scythe'],
+  raider: ['interceptor', 'prism'], observer: ['siegeTank', 'shrike'], bastion: ['interceptor', 'prism'],
+  scythe: ['halo', 'lancer'], prism: ['monolith', 'vanguard'], halo: ['scythe', 'trooper'],
+  monolith: ['prism', 'siegeTank'], umbra: ['shrike', 'observer'], shrike: ['umbra', 'interceptor'],
+  sovereign: ['prism', 'siegeTank'],
+};
 export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Requires X." comes from the tables, so it can never name the wrong building.

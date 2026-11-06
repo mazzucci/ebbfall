@@ -131,7 +131,7 @@ impl World {
         let s = self.sup[team as usize];
         if s[0] + d.supply > s[1] {
             return Err(format!(
-                "Supply blocked. Build a {}.",
+                "Out of energy. Build a {}.",
                 self.factions[team as usize].supply.def().label()
             ));
         }

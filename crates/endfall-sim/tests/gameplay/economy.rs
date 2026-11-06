@@ -205,7 +205,7 @@ fn the_supply_cap_grows_with_the_map() {
             .id;
         assert_eq!(
             w.queue_unit(hq_id, f.worker),
-            Err(format!("Supply blocked. Build a {}.", f.supply.def().name)),
+            Err(format!("Out of energy. Build a {}.", f.supply.def().name)),
             "{n}x{n}"
         );
     }
@@ -233,7 +233,7 @@ fn a_full_core_reports_supply_blocked() {
         .expect("the tenth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Supply blocked. Build a Windmast.".to_string())
+        Err("Out of energy. Build a Windmast.".to_string())
     );
 }
 

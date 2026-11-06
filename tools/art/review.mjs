@@ -1,6 +1,6 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// eight units) and writes into <outdir>:
+// eight units; `hinf`, the Harbour infantry) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
@@ -9,7 +9,7 @@
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
 //                    maps the letters to the kinds
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the family beside the
-//                    slice as a small scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell
+//                    slice as a small scene: a Lighthouse with Riggers and Pickets (and the family's Harbour units) at a salt field against a Tidewell
 //                    with the Vael
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,8 @@ import { render3d } from './render3d.mjs';
 const VAEL = [['lumen', 'Glint'], ['prism', 'Lens'], ['scythe', 'Needle'], ['halo', 'Tender'], ['monolith', 'Conch'], ['umbra', 'Undertow'], ['shrike', 'Petrel'], ['sovereign', 'Argonaut']];
 /** A family: what to render (`filter`), the contact sheet's unit rows (`units`: kind -> frames) and extra rows, the
  *  sprites whose team share is printed, the phone sheet's row of units (names at facing 0), the blind set's kinds
- *  (sprite name -> what it is) and the Vael side of the battle stand-in (a list of [name, dx, dy] about its centre). */
+ *  (sprite name -> what it is) and the family's extra placements in the battle stand-in (`vael`: [name, x, y, seat], the
+ *  Vael side and any Harbour units the family adds; x, y about its centre). */
 const FAMILIES = {
   slice: {
     filter: '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
@@ -47,6 +48,21 @@ const FAMILIES = {
       ...[0, 1, 2].map(k => [`umbra_${[8, 7, 8][k]}_${[0, 0, 2][k]}`, cx + 30 + k * 30, cy + 70 + k * 40, 1]),
       ...[0, 1].map(k => [`shrike_${[9, 8][k]}_0`, cx + 120 + k * 70, cy - 220 + k * 30, 1]),
       ['monolith_8_0', cx + 300, cy + 110, 1], ['sovereign_8_0', cx + 420, cy + 30, 1],
+    ],
+  },
+  // Harbour infantry (harbour-infantry.js): the Rigger and the Picket beside the Harpooner and the Mender, the slice's
+  // Glint and Lens with them for the peoples; the battle adds Harpooners and Menders on both sides
+  hinf: {
+    filter: '^(harvester|trooper|lancer|medic|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+    units: { harvester: [0], trooper: [0, 2, 3], lancer: [0], medic: [0], lumen: [0], prism: [0] }, rows: ['bldg_core', 'bldg_conflux', 'shard_0'],
+    shares: ['harvester_0_0', 'trooper_0_0', 'trooper_0_3', 'lancer_0_0', 'medic_0_0', 'lumen_0_0', 'prism_0_0'],
+    phone: ['harvester_0_0', 'trooper_0_0', 'trooper_4_3', 'lancer_0_0', 'medic_0_0', 'lumen_0_0', 'prism_0_0'],
+    turned: ['harvester_12_0', 'trooper_8_0', 'lancer_12_0', 'medic_8_0'],
+    blind: [['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)'], ['lancer_0_0', 'lancer (Harpooner)'], ['medic_0_0', 'medic (Mender)'], ['lumen_0_0', 'lumen (Glint)'], ['prism_0_0', 'prism (Lens)']],
+    vael: (cx, cy) => [
+      ...sliceVael(cx, cy),
+      ['lancer_0_0', cx - 190, cy + 40, 0], ['lancer_1_1', cx - 140, cy + 70, 0], ['lancer_0_0', cx - 110, cy + 20, 0],
+      ['medic_0_1', cx - 230, cy + 10, 0], ['medic_2_0', cx - 180, cy + 100, 0], ['lancer_8_0', cx + 60, cy - 110, 1], ['medic_9_0', cx + 100, cy - 60, 1],
     ],
   },
 };

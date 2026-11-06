@@ -155,7 +155,7 @@ test('two players: open a room, join by its link, ready, play in lockstep, and l
     // Alone in the room: the other seat is open (not someone away), and the line says what to do.
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 1);
     await eventually(() => sides(a), [['YOU'], ['OPEN']], 'an open seat on the other side');
-    assert.doesNotMatch(await a.p.locator('#onlineBoard').textContent(), /AWAY|HUMANS.*HUMANS/, 'an open seat: no race, no AWAY');
+    assert.doesNotMatch(await a.p.locator('#onlineBoard').textContent(), /AWAY|HARBOUR.*HARBOUR/, 'an open seat: no race, no AWAY');
     await eventually(() => a.p.locator('#onlineStatus').textContent(), 'A seat is open: share the link, or give it to the computer');
     assert.equal(await a.p.locator('#onlineMapLbl').textContent(), 'MAP', 'the host picks the map');
     assert.match(relay.rooms.get(code).seats[0].build, /^[0-9a-f]{12}$/, "the opener's seat holds its sim build (a friend's must match)");
@@ -463,11 +463,11 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
       // A lobby that arrives under a finger waits until the tap is over (a board redrawn mid-tap would lose the tap);
       // a cancelled touch (a scroll) ends the hold too; a finger that never lifts holds it 1.5 s at most.
       const race = (r) => a.p.waitForFunction((r) => document.querySelector('#onlineBoard [data-k="tok1"]').getAttribute('aria-label').startsWith(`Bo ${r}`), r, { timeout: RUN_MS });
-      await race('HUM'); // (the host's board has Bo too, before a finger goes down on it)
+      await race('HARB'); // (the host's board has Bo too, before a finger goes down on it)
       await underFinger(a, () => b.p.evaluate(() => endfall.online.net.race('vael')));
       await race('VAEL');
       await underFinger(a, () => b.p.evaluate(() => endfall.online.net.race('humans')), 'pointercancel');
-      await race('HUM');
+      await race('HARB');
       const t0 = Date.now();
       await a.p.evaluate(() => document.getElementById('onlineBoard').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
       await b.p.evaluate(() => endfall.online.net.race('random'));
@@ -728,7 +728,7 @@ test('the host switches apps to send the code: the room holds its seat, the frie
       await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2 && /YOU/.test(document.getElementById('onlineBoard').textContent));
       assert.equal(await b.p.evaluate(() => endfall.online.seat), 1, 'the friend sits in the second seat');
       const seatsB = () => b.p.$$eval('#onlineBoard .tok', ts => ts.map(t => t.getAttribute('aria-label')));
-      assert.deepEqual(await seatsB(), ['Ann AWAY, host, Side 1', 'YOU HUMANS, Side 2: edit'], 'Ann away, not an open seat');
+      assert.deepEqual(await seatsB(), ['Ann AWAY, host, Side 1', 'YOU HARBOUR, Side 2: edit'], 'Ann away, not an open seat');
       await eventually(() => b.p.locator('#onlineStatus').textContent(), 'Waiting for Ann…');
       assert.equal(await b.p.locator('#onlineMapNote').textContent(), "Ann's pick", 'Ann still picks');
       // Ann's page reconnects by itself (no wake): her seat, the same room; both see each other.
@@ -736,7 +736,7 @@ test('the host switches apps to send the code: the room holds its seat, the frie
       assert.ok(await a.p.evaluate(() => window.tries) >= 4, 'it kept trying past the lobby\'s few tries (four: a Net with no seat gives up there)');
       assert.deepEqual(await a.p.evaluate(() => [endfall.online.seat, document.getElementById('roomShow').textContent, document.getElementById('onlineMapNote').textContent, endfall.online.net.closed]), [0, shown(code), '', false], 'Ann: seat 0, the same code, the host');
       await b.p.waitForFunction(() => !/AWAY/.test(document.getElementById('onlineBoard').textContent), null, { timeout: 5000 });
-      assert.deepEqual(await seatsB(), ['Ann HUMANS, host, Side 1', 'YOU HUMANS, Side 2: edit']);
+      assert.deepEqual(await seatsB(), ['Ann HARBOUR, host, Side 1', 'YOU HARBOUR, Side 2: edit']);
       for (const x of [a, b]) assert.equal(await x.p.locator('#onlineStatus').textContent(), 'Ready when you are');
       // And the room plays: both ready, the game starts, Ann the first seat.
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');

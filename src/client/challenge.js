@@ -22,7 +22,7 @@ export const PARAM = 'vs';
  *  names raceTitle gives, a test keeps equal). */
 const RACE_OF = { h: 'humans', v: 'vael' };
 const LETTER = { humans: 'h', vael: 'v' };
-const RACE_TITLE = { humans: 'Humans', vael: 'Vael' };
+const RACE_TITLE = { humans: 'Harbour', vael: 'Vael' }; // (the key stays `humans`, the code's letter `h`: old links still read)
 /** The board's spots (seats.js SPOTS). */
 const SPOTS = 8;
 /** The longest game a challenge names: just under 100 hours. */

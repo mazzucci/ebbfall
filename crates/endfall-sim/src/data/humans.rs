@@ -5,7 +5,7 @@ use super::*;
 
 pub const HUMANS: Faction = Faction {
     key: "humans",
-    name: "Humans",
+    name: "Harbour",
     hq: BldgKind::Core,
     worker: UnitKind::Harvester,
     // The basic page holds what can be built from the start (the Core too); the advanced page what needs the

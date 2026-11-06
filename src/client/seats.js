@@ -15,9 +15,9 @@ import { DIFF_NAMES } from '../engine/constants.js';
  *  where room is short. */
 export const RACES = ['humans', 'vael'];
 export const RACE_KEYS = [...RACES, 'random'];
-export const RACE_NAMES = { humans: 'HUMANS', vael: 'VAEL', random: 'RANDOM' };
-export const RACE_SHORT = { humans: 'HUM', vael: 'VAEL', random: 'RND' };
-/** A race's name in a sentence ('Humans'). */
+export const RACE_NAMES = { humans: 'HARBOUR', vael: 'VAEL', random: 'RANDOM' }; // (the people's name; its key stays `humans`)
+export const RACE_SHORT = { humans: 'HARB', vael: 'VAEL', random: 'RND' };
+/** A race's name in a sentence ('Harbour'). */
 export const raceTitle = (k) => { const n = RACE_NAMES[k] || ''; return n.slice(0, 1) + n.slice(1).toLowerCase(); }; // ('' for a key that is not a race)
 export { DIFF_NAMES };
 /** The spots on the board: the most seats a game has (maps.js MAX_PLAYERS, the relay's MAX_SEATS). */
@@ -115,7 +115,7 @@ function levelPips(d) {
 /** A seat's token from its view `{ name, race, diff (an AI's level, else null), side (its side's number from 0, null:
  *  none shown), sideColor, me, host, ready, away, open (an open seat), act (what tapping an open seat does), ro (shown,
  *  not changed), tip }`: a button the size of every spot, the seat's colour as a band down its left edge; its name (a
- *  crown on the host's) and a faint pen (an open seat's `act`, SIT HERE, instead) on top; its race (`short`: HUM, VAEL,
+ *  crown on the host's) and a faint pen (an open seat's `act`, SIT HERE, instead) on top; its race (`short`: HARB, VAEL,
  *  RND; AWAY, OPEN SEAT), the level as pips (or a READY check) and its side's tag (SIDE 2, or S2 where the token is
  *  narrow) below; `onOpen` when tapped; `k` its `data-k`. Its name for a screen reader starts with what it shows. */
 export function tokenEl(view, color, { short = false, on = false, onOpen = null, k = '' } = {}) {

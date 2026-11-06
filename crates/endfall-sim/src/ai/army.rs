@@ -20,6 +20,9 @@ pub const HOLD_WAVES_MAX: f64 = 360.0;
 /// The most fighters (counted with those queued) the opponent of the guided first game has while its waves are held:
 /// half the guide's army of six line units and two anti-air, and its first wave's size on Easy (`Diff::wave`).
 pub const GUIDED_ARMY: usize = 4;
+/// The most it has once they are released, for the rest of the game: fewer than its first wave, so it sends no other
+/// (Easy's next wave is six) and the guide's last step, an attack with ten, wins (with six it rarely did).
+pub const GUIDED_ARMY_AFTER: usize = 3;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
@@ -40,7 +43,9 @@ fn escorts(k: UnitKind) -> bool {
 impl World {
     /// The guided first game: its hold on the opponent's waves, set by `guided_hold` (the client's `holdWaves`): no
     /// wave while on (until `HOLD_WAVES_MAX` s at most), and meanwhile the opponent's army stops growing at
-    /// `GUIDED_ARMY` (`guided_army_full`). Released, both end: the first wave goes, and production resumes.
+    /// `GUIDED_ARMY`; released, the first wave goes, and its army grows to `GUIDED_ARMY_AFTER` at most for the rest of
+    /// the game (`guided_army_full`). It raises no towers by the clock either (`ai_build`): a Lookout under repair
+    /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level.
     pub fn guided_hold(&mut self, on: bool) {
         self.hold_waves = on;
         self.guided |= on;
@@ -51,12 +56,17 @@ impl World {
         self.hold_waves && t < HOLD_WAVES_MAX
     }
 
-    /// Whether seat `e`, an AI of the guided first game, trains no more fighters for now: its waves held and
-    /// `GUIDED_ARMY` fighters (armed, not workers; queued ones counted) already its.
+    /// Whether seat `e`, an AI of the guided first game, trains no more fighters for now: `GUIDED_ARMY` fighters
+    /// (armed, not workers; queued ones counted) already its while its waves are held, `GUIDED_ARMY_AFTER` after.
     pub(crate) fn guided_army_full(&self, e: u8, t: f64) -> bool {
-        if !self.guided || !self.waves_held(t) {
+        if !self.guided {
             return false;
         }
+        let cap = if self.waves_held(t) {
+            GUIDED_ARMY
+        } else {
+            GUIDED_ARMY_AFTER
+        };
         let fighter = |k: UnitKind| !k.def().worker && k.def().armed();
         let have = self
             .units
@@ -70,7 +80,7 @@ impl World {
                 .flat_map(|b| b.queue.iter())
                 .filter(|&&k| fighter(k))
                 .count();
-        have >= GUIDED_ARMY
+        have >= cap
     }
 
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it

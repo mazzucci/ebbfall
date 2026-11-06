@@ -1,6 +1,6 @@
 //! The guided first game (the menu's FIRST GAME, src/client/tutorial.js): Easy, Ashen Basin (seed 4242, the Standard
 //! map), Humans against Humans. A newcomer who follows the checklist, at a newcomer's pace, holds the first wave with
-//! the army the guide asks for.
+//! the army the guide asks for, then wins with the army its last step asks for.
 
 use crate::common::*;
 use endfall_sim::world::Command;
@@ -8,6 +8,9 @@ use endfall_sim::world::Command;
 /// The guide's army: six Pickets (a 1-energy line unit: six fit under the first cap) and two Harpooners.
 const SOLDIERS: usize = 6;
 const ANTI_AIR: usize = 2;
+/// The army the guide's last step asks for before the attack (tutorial.js: the line units and their anti-air, and two
+/// more: ten, room to spare under the first cap with six workers).
+const ARMY_GOAL: usize = SOLDIERS + ANTI_AIR + 2;
 /// An enemy this close to the player's Lighthouse (px) is at the base.
 const AT_BASE: f64 = 14.0 * 32.0;
 
@@ -66,7 +69,7 @@ fn army(w: &World) -> Vec<Id> {
 
 /// Play the guide on `seed` at `pace` (seconds the newcomer takes to read each step before acting) and `react`
 /// (seconds before the army is sent at the wave once it reaches the base).
-fn play_guided(seed: u32, pace: f64, react: f64) -> Guided {
+fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
     let mut w = World::new(seed, 0);
     w.guided_hold(true); // (the client's holdWaves(true) as the guided game starts)
     let lighthouse = w
@@ -218,7 +221,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> Guided {
         }
     }
     let wave = wave.expect("a first wave");
-    Guided {
+    let g = Guided {
         released,
         wave: wave.len(),
         arrived: arrived.expect("the wave reached the base"),
@@ -226,15 +229,95 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> Guided {
         army_left: army(&w).len(),
         core: w.bldg(lighthouse).is_some(),
         depot: done(&w, BldgKind::Depot).is_some(),
+    };
+    (g, w)
+}
+
+/// The guide's last step, after the wave: train with the bank until the army is `ARMY_GOAL` strong (after `pace` s of
+/// reading), then attack-move it at the enemy Lighthouse, and at the nearest enemy building whenever it stands idle
+/// (what a newcomer does once the Lighthouse is down). The game time it is won at, if within 8 minutes.
+fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
+    w.guided_hold(false); // (released already, unless the hold ran out first)
+    let from = w.time;
+    let mut attacking = false;
+    for tick in 0..30 * 480u32 {
+        w.step();
+        w.events.clear();
+        if w.over {
+            return (w.winner == PLAYER as i32).then_some(w.time);
+        }
+        if tick % 15 != 0 || w.time - from < pace {
+            continue;
+        }
+        for h in idle_workers(w) {
+            if let Some(n) = nearest_field(w, h) {
+                let _ = w.apply(PLAYER, &Command::Gather { unit: h, node: n });
+            }
+        }
+        let a = army(w);
+        if !attacking {
+            let Some(rax) = done(w, BldgKind::Barracks) else {
+                continue;
+            };
+            let q = w.bldg(rax).unwrap().queue.len();
+            if a.len() >= ARMY_GOAL {
+                attacking = true;
+            } else if a.len() + q < ARMY_GOAL && q < 2 {
+                let _ = w.apply(
+                    PLAYER,
+                    &Command::Queue {
+                        bldg: rax,
+                        kind: UnitKind::Trooper,
+                    },
+                );
+                continue;
+            } else {
+                continue;
+            }
+        }
+        // (the enemy Lighthouse first, then whatever stands nearest the army)
+        let (cx, cy) = {
+            let n = a.len().max(1) as f64;
+            let (sx, sy) = a
+                .iter()
+                .filter_map(|&id| w.unit(id))
+                .fold((0.0, 0.0), |s, u| (s.0 + u.x, s.1 + u.y));
+            (sx / n, sy / n)
+        };
+        let goal = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY)
+            .min_by(|p, q| {
+                let key = |b: &&endfall_sim::world::Bldg| {
+                    (b.kind != BldgKind::Core, (b.x - cx).hypot(b.y - cy))
+                };
+                key(p).partial_cmp(&key(q)).unwrap().then(p.id.cmp(&q.id))
+            })
+            .map(|b| (b.x, b.y));
+        let idle: Vec<Id> = a
+            .iter()
+            .copied()
+            .filter(|&id| w.unit(id).is_some_and(|u| matches!(u.task, Task::Idle)))
+            .collect();
+        if let Some((x, y)) = goal
+            && !idle.is_empty()
+        {
+            let _ = w.apply(PLAYER, &Command::GroupAttackMove { units: idle, x, y });
+        }
     }
+    None
 }
 
 #[test]
-fn the_guided_first_game_s_army_holds_the_first_wave() {
+fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide() {
     // The guide's map at three paces (a quick reader; a slow one; one so slow that the hold runs out at 6:00 before
     // the army is trained), and other Standard seeds; the army, standing where it was trained, is sent at the wave
     // 20 s after it reaches the base. Held, the opponent's army stops at four (the sim's GUIDED_ARMY), so its first
-    // wave is half the guide's eight (it was 10 to 15 before: the eight fell, and the Lighthouse with them).
+    // wave is half the guide's eight (it was 10 to 15 before: the eight fell, and the Lighthouse with them). Then the
+    // last step: ten strong with the bank, and the attack. Released, the opponent's army stays at three at most (the
+    // sim's GUIDED_ARMY_AFTER) and it raises no towers: the guide's way wins (it never did with them: a Lookout under
+    // repair and a refilled army stopped even twenty Pickets).
     for (seed, pace) in [
         (4242, 5.0),
         (4242, 20.0),
@@ -243,7 +326,7 @@ fn the_guided_first_game_s_army_holds_the_first_wave() {
         (7, 15.0),
         (99, 15.0),
     ] {
-        let g = play_guided(seed, pace, 20.0);
+        let (g, mut w) = play_guided(seed, pace, 20.0);
         let ctx = format!("seed {seed} pace {pace}: {g:?}");
         let held_until = g.released.map_or(360.0, |r| r.min(360.0));
         assert!(g.arrived > held_until, "{ctx}: no wave while held");
@@ -262,6 +345,16 @@ fn the_guided_first_game_s_army_holds_the_first_wave() {
         assert!(
             g.army_left >= SOLDIERS + ANTI_AIR - 2,
             "{ctx}: most of the guide's army lives"
+        );
+        let from = w.time;
+        let won = win_guided(&mut w, pace);
+        eprintln!(
+            "seed {seed} pace {pace}: wave {} held at {:.0} s; step 7 from {from:.0} s, won at {won:?}",
+            g.wave, g.arrived
+        );
+        assert!(
+            won.is_some_and(|t| t - from < 360.0),
+            "{ctx}: the guide's last step wins the game within 6 minutes (from {from:.0} s): {won:?}"
         );
     }
 }

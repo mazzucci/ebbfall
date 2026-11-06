@@ -1703,7 +1703,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
   } finally { await d.close(); }
 });
 
-test('the first game\'s "hold your base" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone', async () => {
+test('the first game\'s "hold your base" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone; then train more and attack', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { first: true, ai: false });
   // (the checklist moves on in the HUD's tick, in real time: a slow software-WebGL frame may hold it a while)
   const step = (n) => d.page.locator('#tut').filter({ hasText: new RegExp(`${n}/7`) }).waitFor({ timeout: 30000 });
@@ -1758,7 +1758,10 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     assert.ok(await d.skipUntil((src) => (0, eval)(`(${src})`)() === 0, foesAtBase.toString(), { seconds: 60 }), 'the enemy at the base destroyed');
     await d.skip(1);
     await step(7);
-    assert.match(await d.page.locator('#tut').textContent(), /Attack the enemy base/);
+    assert.match(await d.page.locator('#tut').textContent(), /Train more Pickets with your salt \(an army of 10\), then select it \(the ARMY button, or Q\) and Attack the enemy base/);
+    // Ten strong already (the guide's eight and the strike force): with the army selected, Attack pulses.
+    await d.key('q');
+    await d.page.locator('#cmd button.pulse[data-id="attack"]').waitFor({ timeout: 10000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

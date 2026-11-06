@@ -87,9 +87,9 @@ pub struct World {
     pub conceded: i32,
     /// The guided first game: the scripted opponent sends no wave while this is set (at most `HOLD_WAVES_MAX` s).
     pub hold_waves: bool,
-    /// The guided first game (`guided_hold`): while its waves are held, the opponent's army stops growing at
-    /// `GUIDED_ARMY` units, so its first wave is about half the army the guide asks for. Not hashed (a knob outside the
-    /// log, like `hold_waves`).
+    /// The guided first game (`guided_hold`): the opponent's army stops growing at `GUIDED_ARMY` units while its waves
+    /// are held (its first wave about half the army the guide asks for), at `GUIDED_ARMY_AFTER` once released, and it
+    /// raises no towers. Not hashed (a knob outside the log, like `hold_waves`).
     pub guided: bool,
     /// The water level, in tile units: against each tile's height (`Map::height`) it makes land, shallows and deep
     /// water (`Map::ground`). 0 without the tide (the map and the constant decide it, so not hashed); with it, the

@@ -25,13 +25,15 @@ const enemyAtBase = () => {
 /** The step after which the opponent may come (the army is trained): its index in `steps()`. */
 const ARMY = 5;
 
-/** The steps for the player's race: [line, portrait, the buttons to pulse, done?]. Mine, energy, a Pump, the
- *  barracks, a line and its anti-air (as many line units as fit under the first cap: six of a 1-energy kind, three of a
- *  2-energy one), hold, attack. */
+/** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?]. Mine,
+ *  energy, a Pump, the barracks, a line and its anti-air (as many line units as fit under the first cap: six of a
+ *  1-energy kind, three of a 2-energy one), hold, then spend the bank on more of the line up to an army of `goal` and
+ *  attack (the sim keeps the guided game's opponent small: World::guided_hold). */
 function steps() {
   const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker], pump = BUILDINGS[f.ether];
   const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker));
   const [soldier, aa] = BUILDINGS[rax].trains, n = Math.max(3, Math.floor(6 / (UNITS[soldier].supply || 1)));
+  const goal = n + 4, army = () => G.units.filter(u => u.team === G.me && !u.d.worker).length;
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
     { text: `Select your ${hq.name}, then train two ${plural(worker.name)}`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
@@ -42,7 +44,7 @@ function steps() {
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
     // that never comes; never while one is still there)
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
-    { text: `Select your army (the ARMY button, or Q), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `Train more ${plural(UNITS[soldier].name)} with your salt (an army of ${goal}), then select it (the ARMY button, or Q) and Attack the enemy base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 
@@ -77,7 +79,8 @@ export function updateTutorial() {
     show();
   }
   clearPulse();
-  for (const w of all[tut.step].want) {
+  const want = all[tut.step].want;
+  for (const w of typeof want === 'function' ? want() : want) {
     const el = document.querySelector(`#cmd button[data-id="${w}"]`);
     if (el && !(w === 'build' && ui.mode)) el.classList.add('pulse');
   }

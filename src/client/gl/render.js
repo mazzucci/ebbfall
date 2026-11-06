@@ -8,7 +8,7 @@ import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
-import { groundTile, rockTile, shadeLayers, saltPans, PAN_RES } from './ground.js';
+import { groundTile, rockTile, shadeLayers } from './ground.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -185,7 +185,7 @@ function hideCoveredDoodads() {
 function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1; }
 
 export function renderTerrain() {
-  L.terrain.removeChildren().forEach(c => c.destroy({ children: true, texture: !!c.pan, textureSource: !!c.pan })); // (a pan's texture is its own; a chunk's tiles are the atlas's)
+  L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
   sizeGrids(); fogTick = -1; mmAt = -Infinity; // (a new map, or a replay from its first tick: fog and minimap at once)
   const rnd = mulberry(G.seed * 7 + 3);
@@ -201,13 +201,6 @@ export function renderTerrain() {
     const ci = (j + 1) >> 3, cj = (i + 1) >> 3, key = ci * 64 + cj;
     let c = chunks[key]; if (!c) { c = chunks[key] = new Container(); c.cx = cj * 8 * TILE; c.cy = ci * 8 * TILE; L.terrain.addChild(c); }
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
-  }
-  // The salt pans (gl/ground.js saltPans): one cracked crust under each field's nodes, over the tiles, under the shade.
-  for (const p of saltPans(map.nodes, TILE)) {
-    const cv = document.createElement('canvas'); cv.width = p.w; cv.height = p.h;
-    cv.getContext('2d').putImageData(new ImageData(p.data, p.w, p.h), 0, 0);
-    const t = Texture.from(cv); t.source.scaleMode = 'linear';
-    const ps = new Sprite(t); ps.pan = true; ps.position.set(p.x, p.y); ps.scale.set(PAN_RES); L.terrain.addChild(ps);
   }
   // Large-scale variation so the tiles never read as a grid, and the water (gl/ground.js): a multiply (the land's shade,
   // a wet line along the shore, the water's tints) and on a map with water an add (the water's light), over the scenery too.

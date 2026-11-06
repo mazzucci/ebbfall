@@ -30,10 +30,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
 /* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 salt, 40/40 supply). */
 #rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
-/* The salt (a cost, the top bar's figure): a heap of salt on its grey crust pan, as on the field (tools/render3d/ground.js):
-   a smooth cone, white in the light, grey in its own shade. Drawn in a 12x10 box, so it keeps its shape at any size. */
+/* The salt (a cost, the top bar's figure): a cluster of three salt crystals, as on the field (tools/render3d/ground.js),
+   each white on its lit face and pale grey on its shaded one. Drawn in a 12x10 box, so it keeps its shape at any size. */
 .dot{display:inline-block;width:12px;height:10px}
-.dot.shard{background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M0 9.4h12' stroke='%23858179' stroke-width='1.2'/%3E%3Cpath d='M5.2 1.1Q6 .3 6.8 1.1L11.2 8.8H.8z' fill='%23f3efe6'/%3E%3Cpath d='M6 .7Q6.4 .6 6.8 1.1L11.2 8.8H6z' fill='%23b7b2a7'/%3E%3C/svg%3E")}
+.dot.shard{background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M0.9 9.6L0.35 6L1.45 4.4L2.25 9.6z' fill='%23f4f0e8'/%3E%3Cpath d='M2.25 9.6L1.45 4.4L3.05 6L3.6 9.6z' fill='%23b9b4aa'/%3E%3Cpath d='M8 9.6L8.56 5L10.35 3L9.55 9.6z' fill='%23f4f0e8'/%3E%3Cpath d='M9.55 9.6L10.35 3L11.66 5L11.1 9.6z' fill='%23b9b4aa'/%3E%3Cpath d='M3.6 9.6L3.6 2.4L5.8 0.2L5.8 9.6z' fill='%23f4f0e8'/%3E%3Cpath d='M5.8 9.6L5.8 0.2L8 2.4L8 9.6z' fill='%23b9b4aa'/%3E%3C/svg%3E")}
 .res.low b{color:var(--bad)} #resSup.low{animation:pulse-warn 1s infinite alternate;border-radius:4px}
 .spacer{flex:1}
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}

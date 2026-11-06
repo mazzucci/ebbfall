@@ -1,6 +1,6 @@
 # Ebbfall
 
-A classic real-time strategy game on a drained seabed, free in the browser: mine salt, plant Pumps on the brine seeps, raise energy, raise an army, and level
+A classic real-time strategy game on a drained seabed, free in the browser: mine salt, build Excavators on the mine shafts, raise energy, raise an army, and level
 the enemy Lighthouse before their waves level yours. Two peoples (the Harbour and the alien Vael, fighting over a drained seabed's salt), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).

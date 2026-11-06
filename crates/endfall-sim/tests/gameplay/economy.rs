@@ -73,9 +73,9 @@ fn an_unfinished_pump_pays_nothing_and_a_seep_is_never_mined() {
     assert!(!w.start_gather(h[0], vent), "a seep is not mined");
     assert!(
         w.events.iter().any(
-            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Pump"))
+            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Excavator"))
         ),
-        "the player is told the Pump pays by itself"
+        "the player is told the Excavator digs by itself"
     );
     w.damage(site, 1e6, None);
     w.make_building(BldgKind::Extractor, PLAYER, vx, vy, true);

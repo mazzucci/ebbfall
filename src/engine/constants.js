@@ -48,7 +48,8 @@ const UNIT_TEXT = {
 const BLDG_TEXT = {
   core: { hot: 'L', desc: 'Trains Riggers. Salt drop-off. +10 energy.' },
   depot: { hot: 'W', desc: '+8 energy.' },
-  extractor: { hot: 'U', desc: 'Built on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
+  // (on a mine shaft: each race's own verb, `verb` and `doing`, for the panel and the guide)
+  extractor: { hot: 'X', verb: 'digs', doing: 'Digging', desc: 'Built on a mine shaft: digs salt by itself, half a salt a second, with no workers.' },
   barracks: { hot: 'C', desc: 'Trains Pickets, Harpooners and Menders (Menders need a Workshop).' },
   forge: { hot: 'K', desc: 'Researches Weapons, Plating, Sandbags and All Hands; unlocks Menders and the Slipway\'s machines.' },
   factory: { hot: 'S', desc: 'Builds the machines: Breakwaters, Anchor Guns and Netters (all need a Workshop).' },
@@ -57,7 +58,7 @@ const BLDG_TEXT = {
   // the Vael
   conflux: { hot: 'T', desc: 'The Vael heart, a pool of deeplight. Trains Glints. Salt drop-off. +10 energy.' },
   spire: { hot: 'S', desc: '+8 energy.' },
-  siphon: { hot: 'I', desc: 'Grown on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
+  siphon: { hot: 'I', verb: 'draws', doing: 'Drawing', desc: 'Grown on a mine shaft: draws salt by itself, half a salt a second, with no workers.' },
   kiln: { hot: 'C', desc: 'Grows Needles, Lenses, Conchs and Tenders (the last two need a Glasshouse).' },
   loom: { hot: 'G', desc: 'Researches Weapons, Hardshell and Surge Chamber; unlocks Conchs and Tenders.' },
   ward: { hot: 'A', desc: 'Sentinel against ground and air. Spots hidden units.' },

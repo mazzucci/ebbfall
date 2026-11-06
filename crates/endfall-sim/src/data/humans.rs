@@ -308,8 +308,8 @@ pub(super) const DEPOT: BldgDef = BldgDef {
 };
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
-    name: "Pump",
-    short: "Pump",
+    name: "Excavator",
+    short: "Excavator",
     cost: [75, 0],
     // (PRD: the conversion: 200 HP, no weapon; two Striders kill one in ten seconds)
     hp: 200.0,

@@ -92,7 +92,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
 const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
-/** A salt field (a seep is never mined: its Pump pays by itself). */
+/** A salt field (a mine shaft is never mined by hand: its Excavator digs by itself). */
 const field = (e) => e && e.kind === 'node' && e.type !== 'ether' ? e : null;
 
 /** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
@@ -103,7 +103,7 @@ function ghostAt(ev) {
   const p = canvasPos(ev), w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); return true;
 }
 
-/** Top-left tile for placing `type` with the cursor at (wx, wy); a Pump snaps onto a nearby free seep. */
+/** Top-left tile for placing `type` with the cursor at (wx, wy); an Excavator snaps onto a nearby free shaft. */
 function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
   if (d.onVent) {
@@ -200,7 +200,7 @@ function touchTap(wx, wy, at) {
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
   if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
-  // (Not a seep: the worker there is likely building its Pump, and a tap should still pick it.)
+  // (Not a shaft: the worker there is likely building its Excavator, and a tap should still pick it.)
   const node = field(hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy));
   if (node) { commandAt(wx, wy, node); return; }
   if (hit && hit.kind !== 'node' && hit.team === G.me) {

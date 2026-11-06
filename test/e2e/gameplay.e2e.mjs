@@ -159,7 +159,7 @@ test('training shows progress and the queue in the panel', async () => {
   } finally { await d.close(); }
 });
 
-test('a Pump placed on a seep pays salt by itself; workers sent to it stay off it', async () => {
+test('an Excavator placed on a mine shaft digs salt by itself; workers sent to it stay off it', async () => {
   const d = await newGame(DESKTOP);
   try {
     await d.grant(1000, 0);
@@ -167,18 +167,18 @@ test('a Pump placed on a seep pays salt by itself; workers sent to it stay off i
     const core = coreOf(s);
     const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
     const h = mine(s, 'harvester');
-    // Click a little off the seep: placement snaps onto it.
-    await d.clickEntity(h[0].id); await d.key('b'); await d.key('u');
+    // Click a little off the shaft: placement snaps onto it.
+    await d.clickEntity(h[0].id); await d.key('b'); await d.key('x');
     const [x, y] = await d.screen(vent.x + 14, vent.y + 10); await d.page.mouse.move(x, y); await d.page.mouse.click(x, y);
     s = await d.state();
     const ext = myBldg(s, 'extractor')[0];
-    assert.ok(ext, `Pump placed (${(await d.toasts()).join(' | ')})`);
-    await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the Pump' });
+    assert.ok(ext, `Excavator placed (${(await d.toasts()).join(' | ')})`);
+    await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the Excavator' });
     await d.clickEntity(ext.id);
-    assert.match(await d.hudText('#selSub', /Pumping/), /Pumping salt/, 'the panel says it pays');
-    // A right-click on it with workers selected: they are not sent to work it (a seep is not mined).
+    assert.match(await d.hudText('#selSub', /Digging/), /Digging salt/, 'the panel says it digs');
+    // A right-click on it with workers selected: they are not sent to work it (a shaft is not mined).
     for (const u of h.slice(1, 4)) { await d.clickEntity(u.id); await d.rightClickWorld(ext.x, ext.y); }
-    assert.equal(await d.eval(() => endfall.G.units.filter(u => u.task.t === 'gather' && u.task.node?.type === 'ether').length), 0, 'nobody works the seep');
+    assert.equal(await d.eval(() => endfall.G.units.filter(u => u.task.t === 'gather' && u.task.node?.type === 'ether').length), 0, 'nobody works the shaft');
     assert.equal((await d.state()).res[1], 0, 'no ether');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -504,12 +504,12 @@ test('a resource field can be selected to see what is left (desktop click, phone
       assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (salt )?left`), 'shows what is left');
       assert.equal((await d.card()).length, 0, 'nothing to command on a field');
       assert.match(await d.hudText('#selName', /Salt field/), /Salt field/);
-      // Seeps too (the player's own: in sight).
+      // Mine shafts too (the player's own: in sight).
       const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
       await d.clickWorld(vent.x, vent.y);
-      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the seep is selected');
-      assert.match(await d.hudText('#selName', /Brine seep/), /Brine seep/);
-      assert.match(await d.hudText('#selSub', /salt/), /pays salt by itself/);
+      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the shaft is selected');
+      assert.match(await d.hudText('#selName', /Mine shaft/), /Mine shaft/);
+      assert.match(await d.hudText('#selSub', /salt/), /digs salt by itself/);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -1131,7 +1131,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Windmast', 'Crew Hall', 'Pump', 'Lighthouse', 'Back'], 'the basic page: all it holds is there from the start; no Advanced before a Crew Hall');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Windmast', 'Crew Hall', 'Excavator', 'Lighthouse', 'Back'], 'the basic page: all it holds is there from the start; no Advanced before a Crew Hall');
     await d.pressCard('Windmast');
     assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
     await d.pressCard('Cancel');
@@ -1698,7 +1698,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Windmast' });
     await d.hudText('#tut', /3\/7/);
-    assert.match(await d.page.locator('#tut').textContent(), /Build a Pump on a brine seep/, 'then a Pump');
+    assert.match(await d.page.locator('#tut').textContent(), /Build an Excavator on a mine shaft: it digs salt by itself/, 'then an Excavator');
     // The opponent waits: by 5:30, with the army not ready, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
     assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');
@@ -1715,7 +1715,7 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     await d.grant(3000, 0);
     let s = await d.state();
     const core = coreOf(s);
-    // The scene up to the step: two workers spawned, the Windmast, the Pump and the Crew Hall through the UI.
+    // The scene up to the step: two workers spawned, the Windmast, the Excavator and the Crew Hall through the UI.
     await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'harvester', x, y); endfall.engine.debugSpawn(0, 'harvester', x, y); }, [core.x, core.y + 80]);
     await d.skip(1);
     await step(2);
@@ -1723,9 +1723,9 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     await step(3);
     s = await d.state();
     const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-    await d.clickEntity(mine(s, 'harvester')[1].id); await d.key('b'); await d.key('u');
+    await d.clickEntity(mine(s, 'harvester')[1].id); await d.key('b'); await d.key('x');
     const [vx, vy] = await d.screen(vent.x, vent.y); await d.page.mouse.move(vx, vy); await d.page.mouse.click(vx, vy);
-    assert.ok(await d.skipUntil(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'extractor' && b.done), null, { seconds: 120 }), 'the Pump');
+    assert.ok(await d.skipUntil(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'extractor' && b.done), null, { seconds: 120 }), 'the Excavator');
     await step(4);
     await buildAndFinish(d, 'c', 'barracks', 2);
     await step(5);

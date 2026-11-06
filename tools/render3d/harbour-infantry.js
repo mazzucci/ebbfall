@@ -1,9 +1,10 @@
 // Harbour infantry (STYLE.md, "Harbour infantry"): sailors in tar oilskin coats under round canvas hats, team canvas on
 // the sleeves and a band round the crown. The Rigger (harvester) and the Picket (trooper, with its dug-in state) from
-// step 0; the Harpooner (lancer) and the Mender (medic) from step 1. Each kind owns an outline from above at 18 px:
-// the Rigger a figure ahead of a barrow, the Picket a pale disc with a slim rifle angled up, the Harpooner a thick
-// level harpoon gun as long as the body with a rope coil behind the hat, the Mender a cream satchel at the hip, a lamp
-// held up ahead and no gun at all. Same conventions as models.js: game units, units face +x, y up, +z south.
+// step 0; the Harpooner (lancer) and the Mender (medic) from step 1. Each kind owns an outline from above at 18 px,
+// every figure upright: the Rigger the smallest, a pale salt sack on its back and a short pick; the Picket a pale disc
+// with a thin rifle angled up; the Harpooner a pale harpoon shaft rising ahead with a float and a barbed head, a rope
+// coil at the hip; the Mender an ash coat, a dark satchel with a team cross high on its back, a lamp held low and no
+// gun at all. Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { lathe, torus } from './harbour.js';
@@ -15,7 +16,7 @@ function infantryMats(M) {
   const std = (o) => new THREE.MeshStandardMaterial(o);
   M.ash = std({ color: 0xaaa696, map: M.canvas.map, roughness: 0.92, metalness: 0 });                   // the Mender's coat: ash sailcloth, a band below the hat's pale canvas, far above tar
   M.sailDark = std({ color: 0x6e6a60, map: M.canvas.map, roughness: 0.95, metalness: 0 });              // the Mender's satchel: dark old sailcloth, so the team cross and its ink stand off it in every seat
-  M.lampSmall = std({ color: 0xfff6dc, emissive: 0xffe9b0, emissiveIntensity: 3.2 });                  // the Mender's hand lamp (r 0.9): warm, dimmer than the Lighthouse's, not team
+  M.lampSmall = std({ color: 0xfff6dc, emissive: 0xffe9b0, emissiveIntensity: 3.2 });                  // the Mender's hand lamp (r 1): warm, dimmer than the Lighthouse's, not team
   M.lampSmallHalo = new THREE.MeshBasicMaterial({ color: 0xffc870, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
   M.sandbagDark = std({ color: 0x5a5448, map: M.sandbag.map, roughness: 1, metalness: 0 });                  // one wetter bag in the dug-in ring, so the bags part
   return M;

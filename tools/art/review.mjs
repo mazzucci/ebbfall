@@ -9,7 +9,7 @@
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
 //                    maps the letters to the kinds
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the family beside the
-//                    slice as a small scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell
+//                    slice as a small scene: a Lighthouse with Riggers and Pickets (and the family's Harbour units) at a salt field against a Tidewell
 //                    with the Vael
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,8 @@ import { render3d } from './render3d.mjs';
 const VAEL = [['lumen', 'Glint'], ['prism', 'Lens'], ['scythe', 'Needle'], ['halo', 'Tender'], ['monolith', 'Conch'], ['umbra', 'Undertow'], ['shrike', 'Petrel'], ['sovereign', 'Argonaut']];
 /** A family: what to render (`filter`), the contact sheet's unit rows (`units`: kind -> frames) and extra rows, the
  *  sprites whose team share is printed, the phone sheet's row of units (names at facing 0), the blind set's kinds
- *  (sprite name -> what it is) and the Vael side of the battle stand-in (a list of [name, dx, dy] about its centre). */
+ *  (sprite name -> what it is) and the family's extra placements in the battle stand-in (`vael`: [name, x, y, seat], the
+ *  Vael side and any Harbour units the family adds; x, y about its centre). */
 const FAMILIES = {
   slice: {
     filter: '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',

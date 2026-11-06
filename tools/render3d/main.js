@@ -16,7 +16,7 @@ import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
 Object.assign(UNIT_MODELS, {
   harvester: { build: rigger, frames: 2, r: 12, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 },
-  lancer: { build: harpooner, frames: 2, r: 19, h: 26 }, medic: { build: mender, frames: 2, r: 15, h: 21 },
+  lancer: { build: harpooner, frames: 2, r: 21, h: 26 }, medic: { build: mender, frames: 2, r: 15, h: 21 },
 });
 Object.assign(VAEL_UNITS, { lumen: { build: glint, frames: 2, r: 12, h: 13 }, prism: { build: lens, frames: 2, r: 12, h: 14 } });
 Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });

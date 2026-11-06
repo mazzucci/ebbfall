@@ -43,7 +43,7 @@ body with a pale top: in greyscale it parts from the Vael (pale body, dark core)
 | `canvas`      | pale canvas: hats, awnings, sails, cones | Standard 0xd4ccb6, map `canvasWeave` (weave, stains, stitched seams), rough 0.92 |
 | `canvasDark`  | a hat's underside, old sailcloth | Standard 0x8f8872, map `canvasWeave`, rough 0.95                                        |
 | `timber`      | handles, masts, jetties, keels | Standard 0x7a5b3a, map `grainTex`, rough 0.8                                              |
-| `timberPale`  | a rifle's stock, a barrow's shafts: timber pale enough to read at 18 px | Standard 0xb09468, map `grainTex`, rough 0.75   |
+| `timberPale`  | timber pale enough to read at 18 px (unused since step 1: a pale part of a Harbour unit is canvas, which keeps its value in the gold seat) | Standard 0xb09468, map `grainTex`, rough 0.75   |
 | `rope`        | coils, lines, lashings        | Standard 0xc8b48a, bump `ropeBump` 1.2, rough 0.95                                         |
 | `brass`       | small tips only: a pick's points, a muzzle bead, the lamp's cage and finial | Standard 0xc49a3c, metal 0.95, rough 0.28 |
 | `sandbag`     | the dug-in state: wet grey-brown, mid value (dark bags vanish on the ground, tan ones merge with gold) | Standard 0x7a7264, map `burlapTex`, rough 1 |
@@ -80,7 +80,7 @@ a flat shape on a building's ground (a painted ring on the quay read as a decal;
 half disc of cloth behind its parapet between ink hems, is the one flat team shape, and it is the unit's). The family trait: **team canvas sleeves** on
 every Harbour figure, plus a team band round the Picket's hat crown (the brim and crown top stay pale) and a narrow
 pack on the back (nothing wide across the shoulders: a bedroll made the Picket read as a broader Harpooner); the
-Rigger's yoke and the painted box of the barrow under its tarpaulin. The Lighthouse: the 18-unit band under the
+Rigger's yoke, apron and sack ties (see "Harbour infantry" below). The Lighthouse: the 18-unit band under the
 gallery and the gallery's deck, canvas panels on the hull roof alternating pale and team at equal width, the house's
 south end wall and porch, one of the awning's two stripes, a thin band on a raised stone kerb, crate tarps, mooring
 posts' tops, a pennant. Every team band sits between two `inkLine` rings or hems (0.5 units, pure black: the finish
@@ -88,13 +88,10 @@ keeps them), so seat 6's white parts from pale canvas.
 
 ### Shape language
 
-- Infantry: a round hat. The Picket's canvas hat (brim r 4.4, crown r 3.1, a dark line under the brim) is the pale
-  disc from above; the long rifle (15 units, a pale timber stock and a thick barrel) is held close and angled up ahead
-  (standing) or level on the parapet (dug in): a level barrel held out to the side reads as a Harpooner. Slim: nothing
-  wide across the shoulders. The Rigger wears a small pale canvas cap (its head shows above the load) and hauls a
-  two-wheeled hand-barrow behind, hands on the handles: a figure ahead of a team box with a pale coil of rope and the
-  pick on it, at scale 0.95 so the worker is smaller than the Picket: a long shape, never a disc. Each kind must own an
-  outline at 18 px, not only a colour (the round-1 blind test swapped a hatted Rigger with the Picket).
+- Infantry: a round hat, and every figure upright (a level gun or a low load read as a figure lying prone). The
+  Picket's canvas hat (brim r 4.4, crown r 3.1, a dark line under the brim) is the pale disc from above, with a thin
+  rifle angled up ahead. Slim: nothing wide across the shoulders. Each kind must own an outline at 18 px, not only a
+  colour: the Rigger, Picket, Harpooner and Mender as built are in "Harbour infantry" below.
 - Vehicles: boxes and hulls (an upturned hull is a roof, a box is a cab or a crate).
 - Flyers: triangles and sails.
 - Buildings: the same hulls and boxes on a slate quay; a Lighthouse tower is a tarred cylinder with iron bands.
@@ -108,7 +105,7 @@ capital 18. A figure is ~6 wide at the shoulders; a hat may reach r 5.
 ### Lights
 
 Few and small: the Lighthouse has one lamp (`lampHot`, r 4.8, its core `lampCore`) in a brass cage; the Mender's hand
-lamp (r 0.9, `lampSmall` in harbour-infantry.js) is the one light on a unit.
+lamp (r 1, `lampSmall` in harbour-infantry.js) is the one light on a unit.
 Nothing emissive on the Harbour is team-tinted.
 
 ### States
@@ -256,6 +253,6 @@ the one low shape left, read the same):
   right hand at the hip. From above: a pale disc on an ash figure, a dark crossed square behind the hat, one warm
   dot low at its side. Never a sack on a dark body (that is the Rigger).
 
-Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 19 h 26, Mender r 15 h 21. Team shares at facing
+Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 21 h 26 (the raised harpoon's tip), Mender r 15 h 21. Team shares at facing
 0 (round 4): Rigger 0.173, Picket 0.173 / 0.214 dug in, Harpooner 0.216, Mender 0.238. The pack:
-`node tools/art/review.mjs <dir> hinf`.
+`node tools/art/review.mjs <dir> --family=hinf`.

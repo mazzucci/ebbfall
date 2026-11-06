@@ -15,12 +15,12 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 /** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
-/** Buildings: `glow` [colour, size, strength, height above the centre, flicker, px east of the centre], `head` (a turret head sprite that
+/** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a turret head sprite that
  * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). */
 export const BLDG_LOOK = {
   core: { glow: [0xffd27a, 1.2, 0.35, 46, false, 20] }, // (on the Lighthouse's lamp)
-  extractor: { glow: [0xa78bfa, 1.1, 0.5, 12, false] },
-  forge: { glow: [0xff8a2a, 1.2, 0.4, 12, true], smoke: [[17, 4], [47, 4]] },
+  // (the Pump: no light; salt carries none)
+  forge: { glow: [0xff5a1e, 0.9, 0.4, -20, true, -3], smoke: [[23, -13]] }, // (the glow on the Workshop's hearth, out in the yard south of the smithy: 3 px west of the centre, 20 below it, as measured on the sprite; the smoke from its one stack, at the north-west corner)
   turret: { head: 'turret_head' },
   // the Vael: violet light from their crystals
   conflux: { glow: [0xb48cff, 1.6, 0.4, 12, false] }, // (on the Tidewell's pool)
@@ -31,6 +31,10 @@ export const BLDG_LOOK = {
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
 export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, siegeTank: 230, interceptor: 380, raider: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 180, sovereign: 160 };
+
+/** A shooter whose shot has its own sprite (tools/art/effects2.js; pointing +x, its head at the anchor), not its
+ *  projectile kind's: the Harpooner's harpoon, the Lens's beam. */
+export const SHOT_LOOK = { lancer: 'harpoon', prism: 'beam' };
 
 /** Animation frames per second by unit type (default: 14 for flyers with frames to cycle; 8 for walkers while they
  *  move). 0 holds the first frame: the Shrike glides on its swept wing (its two poses

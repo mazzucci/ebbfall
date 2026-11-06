@@ -5,7 +5,7 @@
 use crate::common::*;
 use endfall_sim::world::Command;
 
-/// The guide's army: six Pickets (a 1-energy line unit: six fit under the first cap) and two Harpooners.
+/// The guide's army: six Pickets (a 1-population line unit: six fit under the first cap) and two Harpooners.
 const SOLDIERS: usize = 6;
 const ANTI_AIR: usize = 2;
 /// The army the guide's last step asks for before the attack (tutorial.js: the line units and their anti-air, and two

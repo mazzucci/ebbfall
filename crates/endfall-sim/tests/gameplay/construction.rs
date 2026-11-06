@@ -424,7 +424,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Out of energy. Build a Sunpetal.".to_string())
+        Err("Out of population. Build a Sunpetal.".to_string())
     );
 }
 

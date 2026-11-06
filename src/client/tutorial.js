@@ -27,9 +27,9 @@ const enemyAtBase = () => {
 const ARMY = 5;
 
 /** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?]. Mine,
- *  energy, an Excavator (the Vael: a Siphon), the barracks, a line and its anti-air (as many line units as fit under
- *  the first cap: six of a 1-energy kind, three of a 2-energy one), hold, then spend the bank on more of the line up
- *  to an army of `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
+ *  population, an Excavator (the Vael: a Siphon), the barracks, a line and its anti-air (as many line units as fit
+ *  under the first cap: six of a 1-population kind, three of a 2-population one), hold, then spend the bank on more of
+ *  the line up to an army of `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
 function steps() {
   const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker], pump = BUILDINGS[f.ether];
   const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker));
@@ -38,7 +38,7 @@ function steps() {
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} salt again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (energy: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
+    { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (population: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
     { text: `Build ${aName(pump.name)} on a mine shaft: it ${pump.verb} salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },

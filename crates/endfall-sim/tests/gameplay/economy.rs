@@ -195,7 +195,7 @@ fn the_supply_cap_grows_with_the_map() {
         }
         w.recalc_supply(PLAYER);
         assert_eq!(w.sup[PLAYER as usize][1], cap, "{n}x{n}: capped at {cap}");
-        // Filled to the cap: blocked, and told the limit (another energy building would not help).
+        // Filled to the cap: blocked, and told the limit (another population building would not help).
         w.sup[PLAYER as usize][0] = cap;
         let hq_id = w
             .bldgs
@@ -206,7 +206,7 @@ fn the_supply_cap_grows_with_the_map() {
         assert_eq!(
             w.queue_unit(hq_id, f.worker),
             Err(format!(
-                "Energy at its limit ({cap}): no more until some fall"
+                "Population at its limit ({cap}): no more until some fall"
             )),
             "{n}x{n}"
         );
@@ -235,7 +235,7 @@ fn a_full_core_reports_supply_blocked() {
         .expect("the tenth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Out of energy. Build a Windmast.".to_string())
+        Err("Out of population. Build a Windmast.".to_string())
     );
 }
 

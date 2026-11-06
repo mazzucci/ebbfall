@@ -1,6 +1,7 @@
 // The guided first game: a short checklist over the map, one step at a time, driven by what is on the field (no
 // timers, no numbers beyond a count). Each step pulses the button it wants. Race-neutral: kinds come from the faction.
 import { G, UNITS, BUILDINGS, holdWaves } from '../engine/index.js';
+import { plural } from '../engine/util.js';
 
 /** The longest the opponent waits for the guided player (s): the sim's HOLD_WAVES_MAX. */
 const HOLD_WAVES = 360;
@@ -20,12 +21,12 @@ function steps() {
   const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker)), soldier = BUILDINGS[rax].trains[0];
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
-    { text: `Select your ${hq.name}, then train two ${worker.name}s`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
+    { text: `Select your ${hq.name}, then train two ${plural(worker.name)}`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name}`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
-    { text: `Train 6 ${UNITS[soldier].name}s at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= 6 },
+    { text: `Train 6 ${plural(UNITS[soldier].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= 6 },
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => calm() || G.time - tut.stepAt > 150 },
-    { text: `Select your ${UNITS[soldier].name}s (double-tap or double-click one for all of them), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `Select your ${plural(UNITS[soldier].name)} (double-tap or double-click one for all of them), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 

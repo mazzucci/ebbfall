@@ -471,7 +471,7 @@ impl World {
                 .is_some_and(|k| s.air.def().trains.contains(&k));
         let want = if relight.is_some()
             || (cap - used <= supply_margin
-                && cap < SUPPLY_LIMIT
+                && cap < self.supply_limit()
                 && supply_rising < d.supply_at_once)
         {
             Some(f.supply)
@@ -510,6 +510,9 @@ impl World {
             && self.ai_count(&my_b, false, s.air) == 0
             && d.air_at < NEVER
             && (t > d.air_at - s.air_lead || detector_air)
+            // (its raiders must be in its level's mix, or it is raised only for a detector: a Medium Humans' Loft
+            // would otherwise stand there training nothing)
+            && (self.level_allows(s.raider) || detector_air)
         {
             Some(s.air)
         } else {

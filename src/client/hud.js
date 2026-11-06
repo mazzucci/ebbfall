@@ -1,5 +1,6 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
 import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
+import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
@@ -53,7 +54,7 @@ function fightStats(x) {
     for (const [g, b, t] of x.mode ? guns : guns.reverse()) h += stat('dmg', g.dmg, b, t);
   } else if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
   if (wp?.dmgAir) h += stat('air', wp.dmgAir, bonus, 'Damage against flyers');
-  if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends shields (per second)' : 'Heals infantry (per second)');
+  if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends nacre, then hull (per second)' : 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');
   return h;
 }
@@ -96,7 +97,7 @@ function renderSelection() {
     sub.textContent = seep ? (n.extractor ? 'Its Pump pays salt by itself' : `Build ${aName(BUILDINGS[myFaction().ether].name)} on it: it pays salt by itself`) : `${n.amount} salt left`;
     if (seep) $('life').hidden = true; else life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
     const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
-    module('node' + working, `<span class="st" title="${UNITS[myFaction().worker].name}s working it" aria-label="${UNITS[myFaction().worker].name}s working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
+    module('node' + working, `<span class="st" title="${plural(UNITS[myFaction().worker].name)} working it" aria-label="${plural(UNITS[myFaction().worker].name)} working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === G.me;
     named(x.d.name);

@@ -1,10 +1,12 @@
-//! The Siege Tank: it fires only deployed (its toggle, `Deploy`), from past its own sight on what its side sees, never
-//! at what is inside its blind ring; it deploys by itself on reaching a target and packs up to move.
+//! The Siege Tank (the Anchor Gun since Roster v2): it fires only deployed (its toggle, `Deploy`, named Drop Anchor),
+//! from past its own sight on what its side sees, never at what is inside its blind ring; it deploys by itself on
+//! reaching a target and packs up to move. On its tracks it has no gun at all (its light gun went with Roster v2).
 
 use super::common::*;
 use endfall_sim::world::Event;
 
-/// Shots fired from where `shooter` stands over `secs`, by gun: (light gun, siege gun), told apart by their sound.
+/// Shots fired from where `shooter` stands over `secs`, by gun: (a bolt, as the light gun was; the siege gun's shell),
+/// told apart by their sound.
 fn guns(w: &mut World, shooter: Id, secs: u32) -> (usize, usize) {
     let (mut light, mut siege) = (0, 0);
     for _ in 0..secs * TPS {
@@ -136,18 +138,19 @@ fn nothing_inside_its_blind_ring_can_be_hit() {
     let (mut w, tank, _) = tank_scene(4.0 + (14.0 + 14.0) / TILE);
     w.cast(tank, AbilityKind::Deploy).unwrap();
     assert!(shells(&mut w, tank, 10) >= 2, "outside it");
-    // On its tracks, sent at a target inside the ring, it does not set up for nothing: its light gun fights it.
+    // On its tracks, sent at a target inside the ring, it does not set up for nothing, and with no gun on its tracks
+    // it gives the target up at once.
     let (mut w, tank, foe) = tank_scene(1.5);
+    set_hp(&mut w, tank, 1e6); // (the Breakwater reaches it)
     w.attack_ent(tank, foe);
-    let fired = guns(&mut w, tank, 4);
-    let u = w.unit(tank).unwrap();
+    w.step();
     assert!(
-        u.mode.is_none() && matches!(u.task, Task::Attack { .. }),
-        "{:?} {:?}",
-        u.mode,
-        u.task
+        !matches!(w.unit(tank).unwrap().task, Task::Attack { .. }),
+        "given up: {:?}",
+        w.unit(tank).unwrap().task
     );
-    assert!(fired.0 >= 2 && fired.1 == 0, "the light gun: {fired:?}");
+    assert_eq!(guns(&mut w, tank, 4), (0, 0), "nothing fired");
+    assert_eq!(w.unit(foe).unwrap().hp, 1e6, "untouched");
 }
 
 #[test]
@@ -298,35 +301,24 @@ fn sent_at_a_target_inside_its_blind_ring_a_deployed_tank_holds() {
 }
 
 #[test]
-fn on_its_tracks_it_has_only_a_light_gun_and_deployed_only_the_siege_gun() {
-    // On its tracks (sent at an enemy inside its blind ring, it fights it there rather than set up for nothing):
-    // the light gun. Then an enemy 5 tiles off, past its 2.5-tile ring: deployed, the siege gun only.
+fn on_its_tracks_it_has_no_gun_and_deployed_only_the_siege_gun() {
+    // Roster v2 took the light gun: on its tracks it fires nothing, even at an enemy beside it (inside its blind ring,
+    // where it will not set up). An enemy 5 tiles off, past its 2.5-tile ring: deployed, the siege gun.
+    assert!(UnitKind::SiegeTank.def().light.is_none(), "no light gun");
     let (mut w, tank, foe) = tank_scene(1.5);
-    set_hp(&mut w, tank, 1e6); // (the Vanguard reaches it too)
-    w.attack_ent(tank, foe);
-    let (light, siege) = guns(&mut w, tank, 6);
-    assert!(
-        light >= 4 && siege == 0,
-        "on its tracks, the light gun ({light}, {siege})"
-    );
-    let hit = 1e6 - w.unit(foe).unwrap().hp;
-    let per_shot = hit / light as f64;
-    assert!(per_shot < 15.0, "light: {per_shot:.1} a shot");
+    set_hp(&mut w, tank, 1e6); // (the Breakwater reaches it)
+    w.move_to(tank, 31.0 * TILE, 31.0 * TILE); // (a move: on its tracks, beside the enemy)
+    let (bolts, shells) = guns(&mut w, tank, 6);
+    assert_eq!((bolts, shells), (0, 0), "on its tracks, nothing");
+    assert_eq!(w.unit(foe).unwrap().hp, 1e6);
     let (mut w, tank, _) = tank_scene(5.0);
     set_hp(&mut w, tank, 1e6);
     w.cast(tank, AbilityKind::Deploy).unwrap();
-    let (light, siege) = guns(&mut w, tank, 10);
+    let (bolts, shells) = guns(&mut w, tank, 10);
     assert!(
-        light == 0 && siege >= 2,
-        "deployed, the siege gun only ({light}, {siege})"
+        bolts == 0 && shells >= 2,
+        "deployed, the siege gun only ({bolts}, {shells})"
     );
-    // Light and clearly second: less than two thirds of a Vanguard's damage a second, and no splash.
-    let l = UnitKind::SiegeTank.def().light.unwrap();
-    let v = UnitKind::Vanguard.def().weapon.unwrap();
-    assert!(
-        l.dmg / l.cd < v.dmg / v.cd * 0.67 && l.splash == 0.0 && !l.siege && l.min_range == 0.0
-    );
-    assert!(l.dmg_air == 0.0, "ground only");
 }
 
 #[test]

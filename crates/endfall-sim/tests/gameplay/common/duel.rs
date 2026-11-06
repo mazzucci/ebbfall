@@ -166,13 +166,14 @@ pub fn duel_with(a: &[UnitKind], b: &[UnitKind], budget: f64, micro: Micro) -> f
 }
 
 /// `raiders` raid a mineral line of 8 mining harvesters (hunting harvesters like the AI's raiders), guarded by
-/// `turrets` and `troopers`; returns (harvesters lost, raiders lost) after 40 s.
-pub fn raid(raiders: usize, turrets: usize, troopers: usize) -> (usize, usize) {
-    raid_on(7, raiders, turrets, troopers)
+/// `turrets` and `lancers` (the Crew Hall's anti-air since Roster v2: the Picket cannot shoot up); returns (harvesters
+/// lost, raiders lost) after 40 s.
+pub fn raid(raiders: usize, turrets: usize, lancers: usize) -> (usize, usize) {
+    raid_on(7, raiders, turrets, lancers)
 }
 
 /// `raid` on the map of `seed`.
-pub fn raid_on(seed: u32, raiders: usize, turrets: usize, troopers: usize) -> (usize, usize) {
+pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (usize, usize) {
     let mut w = World::new(seed, 1);
     w.disable_ai();
     let (cx, cy) = core(&w, PLAYER);
@@ -207,9 +208,9 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, troopers: usize) -> (u
             .unwrap();
         w.make_building(BldgKind::Turret, PLAYER, f.0, f.1, true);
     }
-    for k in 0..troopers {
+    for k in 0..lancers {
         let t = w.make_unit(
-            UnitKind::Trooper,
+            UnitKind::Lancer,
             PLAYER,
             nx + 40.0 + (k % 3) as f64 * 20.0,
             ny - 40.0 + (k / 3) as f64 * 20.0,

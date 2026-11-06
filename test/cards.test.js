@@ -103,9 +103,9 @@ for (const race of ['humans', 'vael']) {
       }
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
-      // No automatic ability (the Siege Tank's Deploy) has a button; the retired Entrench is gone.
+      // No automatic ability (the Anchor Gun's Drop Anchor) has a button; the retired Stim is gone.
       assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);
-      assert.ok(!items.some(i => i.id === 'a_entrench' || i.id === 'r_entrenching'), `${what}: no Entrench`);
+      assert.ok(!items.some(i => i.id === 'a_stim' || i.id === 'r_cloakingField'), `${what}: no Stim, no Cloaking Field`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
       if (attack) { assert.equal(attack.key, 'A', `${what}: classic Attack`); assert.equal(wasd.find(i => i.id === 'attack').key, GRID[attack.slot]); }
@@ -139,7 +139,8 @@ test('what is not open yet is hidden in place: its slot stays empty, nothing els
   assert.deepEqual(slots(), ['b_spire@0', 'b_kiln@1', 'b_siphon@2', 'b_conflux@3', 'esc@5'], 'no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom'), 'nor the advanced page\'s keys');
   // A unit's abilities: one waiting for its tech is left out, the others keep their places.
-  const scythe = E.debugSpawn(E.G.me, 'scythe', hq.x + 90, hq.y + 90), mono = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  // (Roster v2: Surface is the Conch's (`monolith`), Surge the Lens's (`prism`), researched)
+  const scythe = E.debugSpawn(E.G.me, 'prism', hq.x + 90, hq.y + 90), mono = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
   const unit = (id) => E.G.units.find(u => u.id === id);
   ui.sel = [unit(scythe), unit(mono)]; ui.mode = null;
   const before = slots();
@@ -148,9 +149,9 @@ test('what is not open yet is hidden in place: its slot stays empty, nothing els
   ui.sel = [unit(scythe), unit(mono)];
   const after = slots();
   assert.ok(after.includes('a_blink@2') && after.includes('a_overcharge@3'), `researched, Overcharge in its own place: ${after}`);
-  // A Monolith alone: its card keeps its shape whether Overcharge is researched or not (Deselect stays put).
+  // A Lens alone: its card keeps its shape whether Surge is researched or not (Deselect stays put).
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
-  const m2 = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  const m2 = E.debugSpawn(E.G.me, 'prism', hq.x + 120, hq.y + 90);
   ui.sel = [unit(m2)];
   const plain = slots();
   assert.ok(!plain.some(s => s.startsWith('a_overcharge')) && plain.includes('deselect@5'), `before: Overcharge hidden, Deselect in its place: ${plain}`);

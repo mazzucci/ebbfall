@@ -623,7 +623,7 @@ impl World {
 
     /// Whether `seat` stands at the supply cap, within `CAP_SLACK` (a wave then goes with everything, the reserve too).
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
-        self.sup[seat as usize][0] + CAP_SLACK >= SUPPLY_LIMIT
+        self.sup[seat as usize][0] + CAP_SLACK >= self.supply_limit()
     }
 
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
@@ -1009,7 +1009,7 @@ mod tests {
         // full supply: all in, whatever it saw
         let (mut w, army, mut b) = ready(1);
         w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
-        w.sup[1][0] = SUPPLY_LIMIT;
+        w.sup[1][0] = w.supply_limit();
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "full supply: all in");
         assert_eq!(
@@ -1143,7 +1143,7 @@ mod tests {
         );
         // at full supply everything goes: the next wave takes the reserve too
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
-        w.sup[1][0] = SUPPLY_LIMIT;
+        w.sup[1][0] = w.supply_limit();
         w.ai_army(&mut b);
         assert!(w.ai().reserve.is_empty());
         assert_eq!(

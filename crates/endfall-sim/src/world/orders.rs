@@ -321,9 +321,10 @@ impl World {
         let team = u.team;
         // A node that is gone was a depleted field; the gather update retargets from there.
         if self.map.node(node).is_some_and(|n| n.ether) {
+            let pump = self.factions[team as usize].ether.def().name;
             self.toast(
                 team,
-                "A seep is not mined: a Pump on it pays salt by itself",
+                format!("A seep is not mined: a {pump} on it pays salt by itself"),
                 true,
             );
             return false;

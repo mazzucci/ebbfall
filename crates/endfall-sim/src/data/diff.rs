@@ -71,6 +71,22 @@ pub struct Diff {
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
+    /// The most advanced units it trains (`UnitKind::ai_tier`; Roster v2): 0 its line units and their anti-air
+    /// (Easy), 1 its heavies, healers, anti-air vehicles and the Petrel too (Medium), 2 everything (Hard and up).
+    pub mix_tier: u8,
+}
+
+impl super::UnitKind {
+    /// How advanced a unit is for the AI's per-level mix (`Diff::mix_tier`): 0 the workers, line units, their
+    /// anti-air and the scout; 2 the Undertow, the Kite and the capitals; 1 the rest.
+    pub fn ai_tier(self) -> u8 {
+        use super::UnitKind::*;
+        match self {
+            Harvester | Lumen | Trooper | Lancer | Scythe | Prism | Observer => 0,
+            Umbra | Raider | Bastion | Sovereign => 2,
+            _ => 1,
+        }
+    }
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -91,7 +107,7 @@ pub const DIFF: [Diff; 4] = [
         research_from: NEVER,
         expand_at: 540.0,
         air_at: NEVER,
-        heavy_at: 215.0,
+        heavy_at: NEVER, // (Roster v2: Easy trains nothing of its vehicle bay's)
         raids: false,
         prong: false,
         answers: false,
@@ -114,6 +130,7 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 2,
         reserve: 0.0,
         retreat_below: 0.0,
+        mix_tier: 0,
     },
     // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
@@ -153,6 +170,7 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        mix_tier: 1,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -190,6 +208,7 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        mix_tier: 2,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -231,5 +250,6 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        mix_tier: 2,
     },
 ];

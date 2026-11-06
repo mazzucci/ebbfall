@@ -142,6 +142,7 @@ const SFX = {
   melee: (b, t) => noise(b, t, { dur: 0.05, vol: 0.04, filter: 'bandpass', f: 1800, q: 3 }),
   // Abilities (the cast event names them).
   stim: (b, t) => { tone(b, t, { f: 300, to: 900, dur: 0.18, type: 'sawtooth', vol: 0.03 }); noise(b, t, { dur: 0.12, vol: 0.02, filter: 'highpass', f: 2500 }); },
+  entrench: (b, t) => { noise(b, t, { dur: 0.18, vol: 0.04, filter: 'lowpass', f: 600 }); tone(b, t + 0.05, { f: 140, to: 90, dur: 0.15, type: 'square', vol: 0.025 }); }, // (Dig In: sandbags down)
   deploy: (b, t) => { // (heavy: legs down, barrel up)
     noise(b, t, { dur: 0.16, vol: 0.06, filter: 'lowpass', f: 600, to: 200 }); tone(b, t + 0.05, { f: 140, to: 90, dur: 0.18, type: 'square', vol: 0.03 });
     tone(b, t + 0.15, { f: 75, to: 45, dur: 0.35, type: 'sine', vol: 0.08 });

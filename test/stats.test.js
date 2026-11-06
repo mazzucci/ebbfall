@@ -60,11 +60,11 @@ test('what a unit hits, and damage that differs on the ground and in the air', (
   assert.equal(statRows(same)[1][0].text, String(UNITS[same].weapon.dmg), `${same}: one figure for both`);
 });
 
-test('the Siege Tank shows both guns: on its tracks, then deployed', () => {
+test('the Anchor Gun shows its one gun, which fires only anchored', () => {
   const d = UNITS.siegeTank;
-  assert.ok(d.weapon.siege && d.light, 'a siege gun and a light gun');
+  assert.ok(d.weapon.siege && !d.light, 'a siege gun and no light gun (Roster v2)');
   const [dmg, targets, ...tags] = statRows('siegeTank')[1];
-  assert.equal(dmg.text, `${d.light.dmg} · ${d.weapon.dmg} deployed`);
+  assert.equal(dmg.text, `${d.weapon.dmg} deployed`);
   assert.equal(targets.ico, 'ground');
   assert.deepEqual(tags.map(t => t.text), ['Splash']);
 });

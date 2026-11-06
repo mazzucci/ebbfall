@@ -1,5 +1,5 @@
-//! Unit abilities: Stim, Blink, Overcharge, Cloak and Deploy's toggle rules; casting for a selection, refusals, the AI
-//! using them.
+//! Unit abilities: Surface (the Conch's hop), Surge (the Lens's), Dig In and Drop Anchor's toggle rules, the cloaks;
+//! casting for a selection, refusals, the AI using them, and what Roster v2 retired (Stim, the Kite's Cloak).
 
 use super::common::*;
 use endfall_sim::world::{Command, Event};
@@ -24,7 +24,7 @@ fn shots(w: &mut World, shooter: Id, secs: u32) -> usize {
 /// A shooter of `kind` facing a target that will not die soon, 4 tiles apart, on open ground.
 fn range_scene(kind: UnitKind, seed: u32) -> (World, Id, Id) {
     let mut w = tech_arena(seed);
-    if kind.def().shields > 0.0 {
+    if kind.def().mv == Move::Amph {
         w.factions = vec![&VAEL, &HUMANS];
     }
     let me = w.make_unit(kind, PLAYER, 30.0 * TILE, 30.0 * TILE);
@@ -36,44 +36,11 @@ fn range_scene(kind: UnitKind, seed: u32) -> (World, Id, Id) {
 }
 
 #[test]
-fn stim_costs_hull_and_fires_and_runs_faster_for_a_while() {
-    let (mut w, t, _) = range_scene(UnitKind::Trooper, 1);
-    let base = shots(&mut w, t, 6);
-    let (mut w, t, _) = range_scene(UnitKind::Trooper, 1);
-    let hp = w.unit(t).unwrap().hp;
-    w.cast(t, AbilityKind::Stim).unwrap();
-    assert_eq!(w.unit(t).unwrap().hp, hp - 10.0, "Stim costs 10 hull");
-    let stimmed = shots(&mut w, t, 6);
-    assert!(
-        stimmed * 10 >= base * 14,
-        "about 1.5x the shots: {stimmed} vs {base}"
-    );
-    // Faster on its feet too.
-    let mut a = tech_arena(2);
-    let p = a.make_unit(UnitKind::Trooper, PLAYER, 10.0 * TILE, 30.0 * TILE);
-    let q = a.make_unit(UnitKind::Trooper, PLAYER, 10.0 * TILE, 34.0 * TILE);
-    a.cast(q, AbilityKind::Stim).unwrap();
-    a.move_to(p, 50.0 * TILE, 30.0 * TILE);
-    a.move_to(q, 50.0 * TILE, 34.0 * TILE);
-    run(&mut a, 3);
-    let (px, qx) = (a.unit(p).unwrap().x, a.unit(q).unwrap().x);
-    assert!(
-        qx - 10.0 * TILE > (px - 10.0 * TILE) * 1.2,
-        "stimmed walks farther: {qx} vs {px}"
-    );
-    // It wears off.
-    run(&mut a, 10);
-    assert!(a.unit(q).unwrap().boost.is_none(), "over after 10 s");
-    // Not when too hurt to pay for it.
-    set_hp(&mut a, p, 9.0);
-    assert_eq!(a.cast(p, AbilityKind::Stim), Err("Too hurt".to_string()));
-}
-
-#[test]
-fn blink_hops_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
+fn surface_hops_a_conch_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
+    // (Blink, named Surface: the Conch's since Roster v2, on a 30 s cooldown)
     let mut w = tech_arena(4);
     w.factions = vec![&VAEL, &HUMANS];
-    let s = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 30.0 * TILE);
+    let s = w.make_unit(UnitKind::Monolith, PLAYER, 20.0 * TILE, 30.0 * TILE);
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 28.0 * TILE, 30.0 * TILE);
     w.hold_unit(foe);
     w.attack_ent(s, foe);
@@ -86,36 +53,60 @@ fn blink_hops_towards_the_target_onto_open_ground_and_waits_its_cooldown() {
     );
     assert_eq!(
         w.cast(s, AbilityKind::Blink),
-        Err("Blink is not ready".to_string())
+        Err("Surface is not ready".to_string())
     );
-    run(&mut w, 21);
+    run(&mut w, 25);
+    assert!(
+        w.can_cast(s, AbilityKind::Blink).is_err(),
+        "not ready after 25 s"
+    );
+    run(&mut w, 6);
     assert!(
         w.can_cast(s, AbilityKind::Blink).is_ok(),
-        "ready after 20 s"
+        "ready after 30 s"
     );
     // Facing a building with no target: it lands on the nearest open tile, never inside.
     let mut w = tech_arena(5);
     w.factions = vec![&VAEL, &HUMANS];
-    let s = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 30.5 * TILE);
+    let s = w.make_unit(UnitKind::Monolith, PLAYER, 20.0 * TILE, 30.5 * TILE);
     w.make_building(BldgKind::Depot, ENEMY, 23, 29, true);
     w.cast(s, AbilityKind::Blink).unwrap(); // faces east (team 0), straight at the Depot
     let u = w.unit(s).unwrap();
     let (tx, ty) = ((u.x / TILE) as i32, (u.y / TILE) as i32);
     assert!(!w.map.blocked(tx, ty), "landed on open ground at {tx},{ty}");
+    // The Needle (once the Scythe) hops no more.
+    let n = w.make_unit(UnitKind::Scythe, PLAYER, 20.0 * TILE, 40.0 * TILE);
+    assert_eq!(
+        w.cast(n, AbilityKind::Blink),
+        Err("Cannot use Surface".to_string())
+    );
 }
 
 #[test]
-fn overcharge_doubles_a_monoliths_fire_for_a_while() {
-    let (mut w, m, _) = range_scene(UnitKind::Monolith, 6);
+fn surge_doubles_a_lens_fire_for_a_while_once_its_chamber_is_researched() {
+    // (Overcharge, named Surge: the Lens's since Roster v2, unlocked by the Surge Chamber)
+    let (mut w, m, _) = range_scene(UnitKind::Prism, 6);
     let base = shots(&mut w, m, 6);
-    let (mut w, m, _) = range_scene(UnitKind::Monolith, 6);
+    let (mut w, m, _) = range_scene(UnitKind::Prism, 6);
     w.cast(m, AbilityKind::Overcharge).unwrap();
     let over = shots(&mut w, m, 6);
     assert!(
         over >= base * 2 - 1,
-        "about twice the shells: {over} vs {base}"
+        "about twice the shots: {over} vs {base}"
     );
     assert!(w.cast(m, AbilityKind::Overcharge).is_err(), "30 s cooldown");
+    // Not before the Surge Chamber; and the Conch surges no more.
+    let (mut w, m, _) = range_scene(UnitKind::Prism, 6);
+    w.upgrades[PLAYER as usize][Upgrade::OverchargeCore.index()] = 0;
+    assert_eq!(
+        w.cast(m, AbilityKind::Overcharge),
+        Err("Research Surge Chamber first".to_string())
+    );
+    let c = w.make_unit(UnitKind::Monolith, PLAYER, 20.0 * TILE, 40.0 * TILE);
+    assert_eq!(
+        w.cast(c, AbilityKind::Overcharge),
+        Err("Cannot use Surge".to_string())
+    );
 }
 
 #[test]
@@ -133,41 +124,51 @@ fn a_selection_casts_together_and_only_its_own_units() {
         .collect();
     let theirs = w.make_unit(UnitKind::Trooper, ENEMY, 40.0 * TILE, 20.0 * TILE);
     let medic = w.make_unit(UnitKind::Medic, PLAYER, 22.0 * TILE, 20.0 * TILE);
-    set_hp(&mut w, mine[2], 5.0); // too hurt
+    w.cast(mine[2], AbilityKind::Entrench).unwrap(); // (busy settling in: it sits the group's tap out)
     let units = [mine[0], mine[1], mine[2], theirs, medic];
     assert_eq!(
         w.apply(
             PLAYER,
             &Command::Cast {
                 units: units.to_vec(),
-                ability: AbilityKind::Stim
+                ability: AbilityKind::Entrench
             }
         ),
         Ok(())
     );
-    let boosted = |w: &World, u: Id| w.unit(u).unwrap().boost.is_some();
-    assert!(boosted(&w, mine[0]) && boosted(&w, mine[1]));
-    assert!(!boosted(&w, mine[2]), "the hurt one sits it out");
+    let dug = |w: &World, u: Id| w.unit(u).unwrap().mode.is_some();
+    assert!(dug(&w, mine[0]) && dug(&w, mine[1]));
     assert!(
-        !boosted(&w, theirs),
-        "another seat's unit is never cast for"
+        dug(&w, mine[2]),
+        "the busy one stays as it was (digging in)"
     );
+    assert!(!dug(&w, theirs), "another seat's unit is never cast for");
     // Nobody able: the first reason comes back for the player.
     let only_medic = Command::Cast {
         units: vec![medic],
-        ability: AbilityKind::Stim,
+        ability: AbilityKind::Entrench,
     };
     assert_eq!(
         w.apply(PLAYER, &only_medic),
-        Err("Cannot use Stim".to_string())
+        Err("Cannot use Dig In".to_string())
+    );
+    let only_busy = Command::Cast {
+        units: vec![mine[2], medic],
+        ability: AbilityKind::Entrench,
+    };
+    assert_eq!(
+        w.apply(PLAYER, &only_busy),
+        Err("Busy settling in".to_string()),
+        "the reason of a unit that has it"
     );
 }
 
 #[test]
 fn the_ai_uses_abilities_in_its_fights() {
-    // Two AIs, Humans against the Vael: in their fights both sides cast, a researched ability too (Overcharge: the AI
-    // researches its techs and uses them).
-    // (over a few games: whether a researched ability gets its moment depends on how a game goes)
+    // Two AIs, Humans against the Vael: in their fights both sides use abilities (the Anchor Gun drops anchor by
+    // itself), a researched one too (the Lens's Surge: the AI researches its Surge Chamber and uses it), and the Conch Surfaces at a
+    // target a little out of its reach.
+    // (over a few games: whether an ability gets its moment depends on how a game goes)
     let mut cast: Vec<&str> = Vec::new();
     let mut techs = String::new();
     for seed in [6u32, 7, 8, 9] {
@@ -187,18 +188,19 @@ fn the_ai_uses_abilities_in_its_fights() {
             }
         }
         techs += &format!(" {:?}", w.upgrades);
-        if cast.contains(&"overcharge") {
+        if cast.contains(&"deploy") && cast.contains(&"overcharge") && cast.contains(&"blink") {
             break;
         }
     }
     assert!(
-        cast.contains(&"stim") && cast.contains(&"blink"),
+        cast.contains(&"deploy"),
         "both sides used abilities: {cast:?}"
     );
     assert!(
         cast.contains(&"overcharge"),
         "a researched ability was used: {cast:?} (techs{techs})"
     );
+    assert!(cast.contains(&"blink"), "a Conch Surfaced: {cast:?}");
 }
 
 #[test]
@@ -243,100 +245,133 @@ fn an_attack_order_packs_a_deployed_unit_up_and_a_lost_target_or_stop_leaves_it_
 }
 
 #[test]
-fn the_ai_does_not_restim_while_a_stim_runs() {
-    let mut w = tech_arena(9);
-    let t = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 30.0 * TILE);
-    w.make_unit(UnitKind::Medic, PLAYER, 19.0 * TILE, 30.0 * TILE);
-    for i in 0..3 {
-        let foe = w.make_unit(
-            UnitKind::Vanguard,
-            ENEMY,
-            24.0 * TILE,
-            (29 + i) as f64 * TILE,
-        );
-        set_hp(&mut w, foe, 1e6);
-        w.hold_unit(foe);
-    }
-    let foe = w.units.iter().find(|u| u.team == ENEMY).unwrap().id;
-    w.attack_ent(t, foe);
-    let mut casts = 0;
-    for tick in 0..10 * TPS {
-        w.step();
-        w.events.clear();
-        if tick % 15 == 0 {
-            let before = w.unit(t).map(|u| u.boost);
-            w.auto_cast(PLAYER);
-            if w.unit(t).map(|u| u.boost) != before {
-                casts += 1;
-            }
-        }
-    }
-    assert!(
-        casts <= 1,
-        "one Stim for the 10 s, not one a second: {casts}"
-    );
-}
-
-#[test]
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
+    // The Picket's Dig In waits for Sandbags, researched at the Workshop (`Upgrade::Entrenching`, one level).
     let (mut w, forge) = forge_arena(11);
-    let v = w.make_unit(UnitKind::Raider, PLAYER, 640.0, 1280.0);
-    assert!(
-        !w.is_cloaked(w.unit(v).unwrap()),
-        "no cloak until researched"
-    );
-    // A line unit's ability needs no tech.
-    let t = w.make_unit(UnitKind::Trooper, PLAYER, 700.0, 1280.0);
-    assert!(w.cast(t, AbilityKind::Stim).is_ok(), "Stim from the start");
-    research_level(&mut w, forge, Upgrade::CloakingField);
-    assert!(w.is_cloaked(w.unit(v).unwrap()), "cloaked once researched");
+    let p = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
     assert_eq!(
-        w.start_research(forge, Upgrade::CloakingField),
-        Err("Cloaking Field is fully upgraded".into()),
+        w.cast(p, AbilityKind::Entrench),
+        Err("Research Sandbags first".to_string())
+    );
+    assert!(w.unit(p).unwrap().mode.is_none());
+    research_level(&mut w, forge, Upgrade::Entrenching);
+    assert!(
+        w.cast(p, AbilityKind::Entrench).is_ok(),
+        "on once researched"
+    );
+    assert_eq!(
+        w.start_research(forge, Upgrade::Entrenching),
+        Err("Sandbags is fully upgraded".into()),
         "one level"
     );
-    // The other side's Raiders are not: a tech is a team's.
-    let foe = w.make_unit(UnitKind::Raider, ENEMY, 900.0, 1280.0);
+    // The other side's Pickets are not: a tech is a team's.
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 900.0, 1280.0);
+    assert_eq!(
+        w.cast(foe, AbilityKind::Entrench),
+        Err("Research Sandbags first".to_string())
+    );
+    // The Petrel's Seaglass is the cloak a tech still gives: hidden once researched, the other side's not.
+    let mut w = arena(11);
+    let s = w.make_unit(UnitKind::Shrike, PLAYER, 640.0, 1280.0);
+    let foe = w.make_unit(UnitKind::Shrike, ENEMY, 900.0, 1280.0);
+    assert!(
+        !w.is_cloaked(w.unit(s).unwrap()),
+        "no cloak until researched"
+    );
+    w.upgrades[PLAYER as usize][Upgrade::VeilWeave.index()] = 1;
+    assert!(w.is_cloaked(w.unit(s).unwrap()), "cloaked once researched");
     assert!(!w.is_cloaked(w.unit(foe).unwrap()));
 }
 
 #[test]
-fn the_vanguards_entrench_is_retired() {
-    // Too close to the Siege Tank's Deploy (2026-10-31): no unit has it, nothing researches its tech; the kinds keep
-    // their places (the snapshot sends indices).
-    assert!(
-        UNIT_KINDS
-            .iter()
-            .all(|k| !k.def().abilities.contains(&AbilityKind::Entrench))
-    );
+fn dig_in_gives_a_picket_two_more_tiles_and_holds_it_until_it_packs_up() {
+    // A held Picket and a sturdy target 6 tiles off: past its 4.5 tiles of reach, inside 6.5 dug in.
+    let scene = |dig: bool| {
+        let mut w = tech_arena(14);
+        let p = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 30.0 * TILE);
+        let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 36.0 * TILE, 30.0 * TILE);
+        set_hp(&mut w, foe, 1e6);
+        w.hold_unit(foe);
+        w.hold_unit(p);
+        if dig {
+            w.cast(p, AbilityKind::Entrench).unwrap();
+        }
+        w.update_fog();
+        (w, p)
+    };
+    let (mut w, p) = scene(false);
+    assert_eq!(shots(&mut w, p, 6), 0, "out of its reach on its feet");
+    let (mut w, p) = scene(true);
+    assert_eq!(w.unit(p).unwrap().task, Task::Hold, "dug in, it holds");
+    assert_eq!(shots(&mut w, p, 1), 0, "no shots while digging in (2 s)");
+    let n = shots(&mut w, p, 6);
+    assert!(n >= 4, "dug in, it reaches 2 tiles farther: {n} shots");
+    // It does not move while dug in: a move order packs it up first (2 s), then it walks.
+    let x0 = w.unit(p).unwrap().x;
+    w.move_to(p, 20.0 * TILE, 30.0 * TILE);
+    assert!(w.unit(p).unwrap().mode.is_none(), "packing up");
+    run(&mut w, 1);
+    assert_eq!(w.unit(p).unwrap().x, x0, "still while it packs up");
+    run(&mut w, 3);
+    assert!(w.unit(p).unwrap().x < x0 - TILE, "then it walks off");
+    // Off again by its button, too: back to its own reach.
+    let (mut w, p) = scene(true);
+    run(&mut w, 3);
+    w.cast(p, AbilityKind::Entrench).unwrap();
+    assert!(w.unit(p).unwrap().mode.is_none(), "off again");
+    w.hold_unit(p);
+    w.events.clear(); // (the shots fired while it was dug in)
+    assert_eq!(shots(&mut w, p, 8), 0, "back to 4.5 tiles");
+}
+
+#[test]
+fn what_roster_v2_retired_stays_retired() {
+    // Stim (the Trooper's, now the Picket's Dig In) and the Raider's Cloak (the Kite is never hidden; nothing researches
+    // Cloaking Field): no unit lists them and nothing researches their techs; the kinds keep their places (the
+    // snapshot sends indices). Dig In is the Picket's toggle, Drop Anchor the Anchor Gun's.
+    for gone in [AbilityKind::Stim, AbilityKind::Cloak] {
+        assert!(
+            UNIT_KINDS
+                .iter()
+                .all(|k| !k.def().abilities.contains(&gone)),
+            "{gone:?}"
+        );
+    }
     assert!(
         BLDG_KINDS
             .iter()
-            .all(|b| !b.def().researches.contains(&Upgrade::Entrenching))
+            .all(|b| !b.def().researches.contains(&Upgrade::CloakingField))
     );
+    assert_eq!(UnitKind::Trooper.toggle(), Some(AbilityKind::Entrench));
     assert_eq!(UnitKind::Vanguard.toggle(), None);
     assert_eq!(UnitKind::SiegeTank.toggle(), Some(AbilityKind::Deploy));
-    // A cast of it (from an old client, a replay, the wire) is refused; so is its research at a Foundry.
+    // A cast of Stim (from an old client, a replay, the wire) is refused; so is Cloaking Field's research.
     let (mut w, forge) = forge_arena(13);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 640.0, 1280.0);
+    let p = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
+    let hp = w.unit(p).unwrap().hp;
     let cast = Command::Cast {
-        units: vec![v],
-        ability: AbilityKind::Entrench,
+        units: vec![p],
+        ability: AbilityKind::Stim,
     };
-    assert_eq!(
-        w.apply(PLAYER, &cast),
-        Err("Cannot use Entrench".to_string())
-    );
-    assert!(w.unit(v).unwrap().mode.is_none());
+    assert_eq!(w.apply(PLAYER, &cast), Err("Cannot use Stim".to_string()));
+    let u = w.unit(p).unwrap();
+    assert!(u.boost.is_none() && u.hp == hp, "nothing paid, nothing on");
     let research = Command::Research {
         bldg: forge,
-        up: Upgrade::Entrenching,
+        up: Upgrade::CloakingField,
     };
     assert_eq!(
         w.apply(PLAYER, &research),
-        Err("Cannot research Entrenching".to_string())
+        Err("Cannot research Cloaking Field".to_string())
     );
-    assert_eq!(w.upgrades[PLAYER as usize][Upgrade::Entrenching.index()], 0);
+    assert_eq!(
+        w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()],
+        0
+    );
+    // Even with Cloaking Field set (an old save's numbers), a Kite is not hidden.
+    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
+    let k = w.make_unit(UnitKind::Raider, PLAYER, 700.0, 1280.0);
+    assert!(!w.is_cloaked(w.unit(k).unwrap()));
     // On the wire the cast still decodes (its index kept its place), to the same command.
     let words = cast.encode();
     assert_eq!(Command::decode(&words), Some((cast, words.len())));
@@ -370,20 +405,4 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
             "Afterburners, {n} Raiders: {fast} vs {slow}"
         );
     }
-}
-
-#[test]
-fn a_second_stim_while_the_first_runs_is_refused_and_costs_nothing() {
-    let mut w = flat_arena(3);
-    let t = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 30.0 * TILE);
-    let hp = w.unit(t).unwrap().hp;
-    w.cast(t, AbilityKind::Stim).unwrap();
-    run(&mut w, 2); // (past its 1 s cooldown, most of its 10 s left)
-    assert_eq!(
-        w.cast(t, AbilityKind::Stim),
-        Err("Stim is already on".into())
-    );
-    assert_eq!(w.unit(t).unwrap().hp, hp - 10.0, "paid once");
-    run(&mut w, 4); // (less than half left: a top-up is allowed)
-    assert!(w.cast(t, AbilityKind::Stim).is_ok());
 }

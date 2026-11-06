@@ -178,6 +178,45 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
 }
 
 #[test]
+fn the_supply_cap_grows_with_the_map() {
+    // Roster v2: 60 on 64x64, 70 on 96x96, 80 on 128x128 (`World::supply_limit`). Supply buildings past the cap add
+    // nothing, and a seat at the cap is supply blocked.
+    for (n, cap, f) in [(64, 60, &HUMANS), (96, 70, &VAEL), (128, 80, &HUMANS)] {
+        let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
+        w.disable_ai();
+        assert_eq!(w.supply_limit(), cap, "{n}x{n}");
+        // Supply buildings round the headquarters (Windmasts or Sunpetals), one past what reaches the cap.
+        let each = f.supply.def().supply;
+        let hq = f.hq.def().supply;
+        let need = ((cap - hq) as f64 / each as f64).ceil() as i32;
+        for _ in 0..need + 1 {
+            let (tx, ty) = spot(&w, f.supply);
+            w.make_building(f.supply, PLAYER, tx, ty, true);
+        }
+        w.recalc_supply(PLAYER);
+        assert_eq!(w.sup[PLAYER as usize][1], cap, "{n}x{n}: capped at {cap}");
+        // Filled to the cap: blocked, with the race's own building named.
+        w.sup[PLAYER as usize][0] = cap;
+        let hq_id = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap()
+            .id;
+        assert_eq!(
+            w.queue_unit(hq_id, f.worker),
+            Err(format!("Supply blocked. Build a {}.", f.supply.def().name)),
+            "{n}x{n}"
+        );
+    }
+    assert_eq!(
+        [64, 96, 128].map(supply_limit),
+        [60, 70, 80],
+        "the table by map width"
+    );
+}
+
+#[test]
 fn a_full_core_reports_supply_blocked() {
     let mut w = rich(12);
     let core_id = w
@@ -194,7 +233,7 @@ fn a_full_core_reports_supply_blocked() {
         .expect("the tenth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Supply blocked. Build a Depot.".to_string())
+        Err("Supply blocked. Build a Windmast.".to_string())
     );
 }
 

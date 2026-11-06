@@ -500,7 +500,8 @@ impl World {
 
     /// A Medic heals the most hurt friendly infantry within 2.5 tiles that no other healer tended this tick (so two
     /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
-    /// allies it can see. A Halo (`mend`) does the same for shields, on any shielded ally, within 3 tiles.
+    /// allies it can see. A Tender (`mend`) does the same for any ally, within 3 tiles: its nacre (shields) first,
+    /// then its hull (Roster v2: the Lens and the Undertow have no nacre).
     pub(crate) fn medic(&mut self, uid: Id, dt: f64) {
         let (mx, my, team, heal, mend, sight, idle) = {
             let u = self.u(uid);
@@ -519,7 +520,7 @@ impl World {
         // What this healer restores on a patient: (now, full), or None if it cannot tend it.
         let need = |o: &Unit| {
             if mend {
-                (o.maxsh > 0.0).then_some((o.sh, o.maxsh))
+                Some((o.sh + o.hp, o.maxsh + o.maxhp))
             } else {
                 o.kind.def().bio.then_some((o.hp, o.maxhp))
             }
@@ -551,7 +552,9 @@ impl World {
             let tick = self.tick;
             let p = &mut self.units[i];
             if mend {
-                p.sh = (p.sh + heal * dt).min(p.maxsh);
+                let to_sh = (heal * dt).min(p.maxsh - p.sh);
+                p.sh += to_sh;
+                p.hp = (p.hp + heal * dt - to_sh).min(p.maxhp);
             } else {
                 p.hp = (p.hp + heal * dt).min(p.maxhp);
             }

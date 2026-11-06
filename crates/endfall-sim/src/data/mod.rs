@@ -27,8 +27,17 @@ pub const PLAYER: u8 = 0;
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
-/// The most supply a seat can have.
-pub const SUPPLY_LIMIT: i32 = 40;
+/// The most supply (energy) a seat can have, by the map's width in tiles (Roster v2): 60 on 64x64, 70 on 96x96, 80 on
+/// 128x128. Bigger maps run longer, hold more fields, and room for an AI's home reserve beside its wave.
+pub fn supply_limit(map_w: i32) -> i32 {
+    if map_w <= 64 {
+        60
+    } else if map_w <= 96 {
+        70
+    } else {
+        80
+    }
+}
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
@@ -239,10 +248,9 @@ def_struct! {
         mv: Move = "move",
         /// Living infantry (Medics heal these).
         bio: bool = "bio",
-        /// Hit points per second healed into nearby damaged infantry (Medic), or with `mend`, shield points into nearby
-        /// shielded allies (Halo).
+        /// Hit points per second healed into nearby damaged infantry (the Mender), or with `mend` into any nearby ally.
         heal: f64 = "heal",
-        /// The heal goes to shields, not hulls: the Halo mends any shielded ally, in combat too.
+        /// The heal goes to any ally, nacre (shields) first, then hull: the Tender mends in combat too.
         mend: bool = "mend",
         /// A finished building of this kind is needed to train the unit.
         req: Option<BldgKind> = "req",

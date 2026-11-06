@@ -41,6 +41,7 @@ def_struct! {
 /// How many abilities a unit kind may list (the size of its per-unit cooldowns).
 pub const ABILITY_SLOTS: usize = 2;
 
+/// Retired with Roster v2 (the Marine's): no unit lists it; it keeps its place in the kinds (snapshot indices).
 const STIM: AbilityDef = AbilityDef {
     key: "stim",
     name: "Stim",
@@ -54,16 +55,16 @@ const STIM: AbilityDef = AbilityDef {
         hp: 10.0,
     },
 };
-/// Retired (2026-10-31): the Vanguard's dig-in, too close to the Siege Tank's Deploy. No unit lists it and no
-/// building researches its tech (`Upgrade::Entrenching`); it keeps its place in the kinds (snapshot indices).
+/// Dig In, the Picket's (Roster v2; retired from the Vanguard on 2026-10-31): Red Alert's sandbags, +2 range and no
+/// moving, a button on and off, researched with Sandbags (`Upgrade::Entrenching`).
 const ENTRENCH: AbilityDef = AbilityDef {
     key: "entrench",
-    name: "Entrench",
+    name: "Dig In",
     toggle: true,
     auto: false,
     cooldown: 0.0,
     effect: AbilityEffect::Settle {
-        range: 3.0,
+        range: 2.0,
         swap: 2.0,
     },
 };
@@ -72,7 +73,7 @@ const ENTRENCH: AbilityDef = AbilityDef {
 /// nothing is left in reach or it is sent to move), never on an order.
 const DEPLOY: AbilityDef = AbilityDef {
     key: "deploy",
-    name: "Deploy",
+    name: "Drop Anchor",
     toggle: true,
     auto: true,
     cooldown: 0.0,
@@ -83,15 +84,15 @@ const DEPLOY: AbilityDef = AbilityDef {
 };
 const BLINK: AbilityDef = AbilityDef {
     key: "blink",
-    name: "Blink",
+    name: "Surface",
     toggle: false,
     auto: false,
-    cooldown: 20.0,
+    cooldown: 30.0,
     effect: AbilityEffect::Blink { dist: 4.0 },
 };
 const OVERCHARGE: AbilityDef = AbilityDef {
     key: "overcharge",
-    name: "Overcharge",
+    name: "Surge",
     toggle: false,
     auto: false,
     cooldown: 30.0,
@@ -103,8 +104,9 @@ const OVERCHARGE: AbilityDef = AbilityDef {
     },
 };
 
-/// The Raider's (and, as the Veil, the Shrike's): once researched the unit is always cloaked (`World::is_cloaked`),
-/// with no button: an automatic ability that is never cast.
+/// Once researched the unit is always cloaked (`World::is_cloaked`), with no button: an automatic ability that is
+/// never cast. As Cloak it was the Raider's, retired with Roster v2 (the Kite is never hidden); as Seaglass (`VEIL`),
+/// the Petrel's.
 const CLOAK: AbilityDef = AbilityDef {
     key: "cloak",
     name: "Cloak",
@@ -115,7 +117,7 @@ const CLOAK: AbilityDef = AbilityDef {
 };
 const VEIL: AbilityDef = AbilityDef {
     key: "veil",
-    name: "Veil",
+    name: "Seaglass",
     toggle: false,
     ..CLOAK
 };

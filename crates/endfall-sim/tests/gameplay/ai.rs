@@ -123,8 +123,9 @@ fn the_ai_answers_flyers_with_lancers() {
 
 #[test]
 fn the_ai_answers_flyers_with_interceptors_once_its_factory_can() {
-    // Three Raiders watching its base. Without a Factory: two Lancers per flyer. With a Factory and a Foundry: its
-    // Factory trains Interceptors (worth two Lancers each) and its Garrison brings only half the answer in Lancers.
+    // Three Raiders watching its base. Without a Factory: two Lancers per flyer (the mix's Harpooners, one per two
+    // Pickets, count towards the answer since the balance pass). With a Factory and a Foundry: its Factory trains
+    // Interceptors (worth two Lancers each) and its Garrison brings only half the answer in Lancers.
     let trained = |w: &World, k: UnitKind| {
         count(w, ENEMY, k)
             + w.bldgs
@@ -183,48 +184,58 @@ fn the_ai_answers_flyers_with_interceptors_once_its_factory_can() {
     }
 }
 
+/// The Harpooners `e` has and has queued (the anti-air answer adds them; the mix trains one per two Pickets anyway).
+fn harpooners(w: &World, e: u8) -> usize {
+    count(w, e, UnitKind::Lancer)
+        + w.bldgs
+            .iter()
+            .filter(|b| b.team == e)
+            .flat_map(|b| b.queue.iter())
+            .filter(|&&q| q == UnitKind::Lancer)
+            .count()
+}
+
 #[test]
 fn the_ai_only_reacts_to_flyers_it_has_seen() {
+    // Against a control game (the same seed, no flyer): a raider the AI has not seen adds no Harpooners; once seen, it
+    // does (the anti-air answer, on top of the mix's one per two Pickets).
+    let mut control = World::new(31, 0);
     let mut w = World::new(31, 0);
+    run(&mut control, 150);
     run(&mut w, 150);
-    // A raider hiding in the top-left corner, far from anything the AI has looked at.
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, 40.0, 40.0);
-    w.hold_unit(raider);
+    // Three raiders hiding in the top-left corner, far from anything the AI has looked at (three: its answer is two
+    // anti-air per flyer seen, more than the mix's Harpooners cover).
+    let raiders: Vec<Id> = (0..3)
+        .map(|k| w.make_unit(UnitKind::Raider, PLAYER, 40.0 + k as f64 * 24.0, 40.0))
+        .collect();
+    for &r in &raiders {
+        w.hold_unit(r);
+        let u = w.units.iter_mut().find(|u| u.id == r).unwrap();
+        (u.hp, u.maxhp) = (1e9, 1e9); // (they stay to be answered: the mix's Harpooners would shoot them down)
+    }
+    run(&mut control, 40);
     run(&mut w, 40);
-    // (Harpooners come in its mix anyway, one per two Pickets since the balance pass: an answer is more than that)
-    let (lancers, troopers) = (
-        count(&w, ENEMY, UnitKind::Lancer),
-        count(&w, ENEMY, UnitKind::Trooper),
-    );
-    let queued = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY)
-        .flat_map(|b| b.queue.iter())
-        .filter(|&&q| q == UnitKind::Lancer)
-        .count();
+    let (had, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
     assert!(
-        lancers + queued <= troopers / 2 + 1,
-        "no Harpooners beyond its mix against a flyer it cannot see: {lancers} (+{queued} queued) for {troopers} Pickets"
+        had <= base + 1,
+        "none for a flyer it cannot see: {had} against {base} without it"
     );
-    // Now fly it into view.
+    // Now into view: where its base sees them, held, out of reach of its units (as in the gunship test below).
     let (cx, cy) = core(&w, ENEMY);
-    w.move_to(raider, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
+    for (k, &r) in raiders.iter().enumerate() {
+        let u = w.units.iter_mut().find(|u| u.id == r).unwrap();
+        (u.x, u.y) = (
+            (cx as f64 - 7.0 + k as f64) * TILE,
+            (cy as f64 + 9.0) * TILE,
+        );
+        w.hold_unit(r);
+    }
+    run(&mut control, 40);
     run(&mut w, 40);
-    let queued = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY)
-        .flat_map(|b| b.queue.iter())
-        .filter(|&&q| q == UnitKind::Lancer)
-        .count();
-    let (lancers, troopers) = (
-        count(&w, ENEMY, UnitKind::Lancer),
-        count(&w, ENEMY, UnitKind::Trooper),
-    );
+    let (has, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
     assert!(
-        lancers + queued > troopers / 2,
-        "Harpooners beyond its mix once it has seen the flyer: {lancers} (+{queued} queued) for {troopers} Pickets"
+        has > base + 1,
+        "Harpooners once it has seen the flyer: {has} against {base} without it"
     );
 }
 
@@ -742,43 +753,50 @@ fn the_ai_fields_vanguards_from_its_barracks() {
 
 #[test]
 fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
-    // An unarmed Observer, seen (a Turret of the AI's beside it detects it), is no air threat: no Lancers. A Raider in
-    // the same spot is.
+    // Unarmed Observers, seen (a Turret of the AI's beside them), are no air threat: no Harpooners beyond its mix.
+    // Raiders in the same spot are (three of each: its answer is two anti-air per flyer, more than the mix covers).
     for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Raider, true)] {
         let mut w = World::new(31, 0);
         run(&mut w, 150);
         let (cx, cy) = core(&w, ENEMY);
-        let id = w.make_unit(
-            kind,
-            PLAYER,
-            (cx as f64 - 7.0) * TILE,
-            (cy as f64 + 9.0) * TILE,
-        );
-        w.hold_unit(id);
+        let ids: Vec<Id> = (0..3)
+            .map(|k| {
+                let id = w.make_unit(
+                    kind,
+                    PLAYER,
+                    (cx as f64 - 7.0 + k as f64) * TILE,
+                    (cy as f64 + 9.0) * TILE,
+                );
+                w.hold_unit(id);
+                id
+            })
+            .collect();
+        for &id in &ids {
+            let o = w.units.iter_mut().find(|u| u.id == id).unwrap();
+            (o.hp, o.maxhp) = (1e9, 1e9); // (they stay to be seen and answered)
+        }
         if kind == UnitKind::Observer {
             w.make_building(BldgKind::Turret, ENEMY, cx - 5, cy + 7, true);
-            let o = w.units.iter_mut().find(|u| u.id == id).unwrap();
-            (o.hp, o.maxhp) = (1e9, 1e9); // (the Turret shoots it; it must stay to be seen)
             w.step();
-            assert!(w.seen_by(ENEMY, id), "the AI sees the scout");
+            assert!(
+                ids.iter().all(|&id| w.seen_by(ENEMY, id)),
+                "the AI sees the scouts"
+            );
         }
         run(&mut w, 80);
-        // (Harpooners come in its mix anyway, one per two Pickets since the balance pass: an answer is more than that)
-        let queued = w
-            .bldgs
-            .iter()
-            .filter(|b| b.team == ENEMY)
-            .flat_map(|b| b.queue.iter())
-            .filter(|&&q| q == UnitKind::Lancer)
-            .count();
-        let (have, troopers) = (
-            count(&w, ENEMY, UnitKind::Lancer) + queued,
-            count(&w, ENEMY, UnitKind::Trooper),
-        );
-        let trained = have > troopers / 2;
+        // (against a control game: the same seed and set-up, no flyer; the mix trains Harpooners anyway)
+        let mut control = World::new(31, 0);
+        run(&mut control, 150);
+        if kind == UnitKind::Observer {
+            control.make_building(BldgKind::Turret, ENEMY, cx - 5, cy + 7, true);
+            control.step();
+        }
+        run(&mut control, 80);
+        let (have, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
+        let trained = have > base + 1;
         assert_eq!(
             trained, lancers,
-            "{kind:?}: an anti-air answer = {trained} ({have} Harpooners, {troopers} Pickets)"
+            "{kind:?}: an anti-air answer = {trained} ({have} Harpooners, {base} without it)"
         );
     }
 }

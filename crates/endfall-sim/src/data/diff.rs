@@ -1,5 +1,5 @@
-//! The scripted opponent's tuning per difficulty: a level is how well it plays, not what it is given (only Brutal
-//! gathers faster than the player).
+//! The scripted opponent's tuning per difficulty: a level is mostly how well it plays, not what it is given (Hard
+//! gathers 10% faster than the player, so it beats Medium; Brutal 30%).
 
 /// A time for a step it never takes.
 pub const NEVER: f64 = f64::MAX;
@@ -210,7 +210,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 1.0,
         mix_tier: 2,
     },
-    // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
+    // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
     // factories to start, like Hard: with four, the Human AI's builders spent so long off the line (a Human builder
     // stays until its building stands) that it gathered far less than the Vael AI. It trains its workers before its

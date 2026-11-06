@@ -370,7 +370,7 @@ pub struct AiScript {
     /// Wave sizes scale by this (fewer, stronger units: 0.6).
     pub wave_scale: f64,
     /// Seconds before it starts its techs (sooner only on a level that researches sooner; none does today). A
-    /// knob per side: both wait until 5:00, when the opening's factories and power fields are up.
+    /// knob per side: the Humans at 3:30 (their Workshop brings the Mender and the Slipway's Breakwaters), the Vael at 5:00.
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).
     pub air_lead: f64,

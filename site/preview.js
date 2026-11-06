@@ -4,22 +4,21 @@
 // HTMLRewriter. Pure, no Workers runtime: the worker imports it, test/site-preview.test.js tests it. A module of its
 // own: a Worker's entry module may export only handlers.
 import * as challenge from '../src/client/challenge.js';
+import { ALPHABET, LETTERS, parseCode, showCode } from '../src/net/roomcode.js';
 
 /** The game's one address (worker.js sends www and http here). */
 export const ORIGIN = 'https://ebbfall.com';
 
-/** The relay's room codes: four letters of this alphabet (relay/worker.js and relay/server.mjs make them; a test keeps
- *  the three equal). No vowels, so a valid code never spells a word, and anything else is not a room. */
-export const ROOM_ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ';
-export const ROOM_LETTERS = 4;
-const ROOM = new RegExp(`^[${ROOM_ALPHABET}]{${ROOM_LETTERS}}$`);
+/** The relay's room codes: six letters of this alphabet (src/net/roomcode.js, which the relay and the lobby use too).
+ *  No vowels, so a valid code never spells a word, and anything else is not a room. */
+export const ROOM_ALPHABET = ALPHABET;
+export const ROOM_LETTERS = LETTERS;
 
 /** The room a link opens: `?room=CODE` (or `?join=CODE`, the links before 2026-10-30), as the client reads it (the
- *  first of the two, upper-cased), and only if it is a code the relay could have made: else null. Nothing of the query
- *  reaches the page but these four letters. */
+ *  first of the two; any case, a hyphen or spaces ignored: roomcode.js parseCode), and only if it is a code the relay
+ *  could have made: else null. Nothing of the query reaches the page but these six letters. */
 export function roomCode(params) {
-  const code = (params.get('room') || params.get('join') || '').toUpperCase();
-  return ROOM.test(code) ? code : null;
+  return parseCode(params.get('room') || params.get('join')) || null;
 }
 
 /**
@@ -31,7 +30,7 @@ const LINKS = [
   function room(url) {
     const code = roomCode(url.searchParams);
     return code && {
-      title: `Join my Ebbfall game: room ${code}`,
+      title: `Join my Ebbfall game: room ${showCode(code)}`,
       description: 'Tap to join the room and play with me in your browser: free, nothing to install.',
       url: `${ORIGIN}/?room=${code}`,
     };

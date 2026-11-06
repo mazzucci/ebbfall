@@ -23,27 +23,30 @@ function meta(key) {
   return tags[0].match(/content="([^"]*)"/)[1];
 }
 
-test("a room's code: the relay's four letters only, upper-cased as the client reads it", () => {
+test("a room's code: the relay's six letters only, read as the client reads them (any case, a hyphen or spaces)", () => {
   const code = (q) => roomCode(new URLSearchParams(q));
-  assert.equal(code('room=WGNJ'), 'WGNJ');
-  assert.equal(code('room=wgnj'), 'WGNJ', 'lower case, as the client takes it');
-  assert.equal(code('join=WGNJ'), 'WGNJ', 'the links before ?room=');
-  assert.equal(code('room=WGNJ&join=BCDF'), 'WGNJ', '?room= first, as the client');
-  for (const bad of ['', 'room=', 'room=WGN', 'room=WGNJX', 'room=WGNJWGNJ', 'room=ABCD', 'room=WGN1', 'room=WG-J', 'room=%20WGNJ',
-    'room=%3Cscript%3E', 'room=<script>alert(1)</script>', 'room=WGNJ%22', 'room=W%22NJ', 'room=%C3%9FGNJ', 'room=' + 'B'.repeat(5000), 'seed=7', 'bench']) {
+  assert.equal(code('room=WGNJKL'), 'WGNJKL');
+  assert.equal(code('room=wgnjkl'), 'WGNJKL', 'lower case, as the client takes it');
+  assert.equal(code('room=WGN-JKL'), 'WGNJKL', 'as it is shown');
+  assert.equal(code('room=wgn%20jkl'), 'WGNJKL', 'with a space');
+  assert.equal(code('join=WGNJKL'), 'WGNJKL', 'the links before ?room=');
+  assert.equal(code('room=WGNJKL&join=BCDFGH'), 'WGNJKL', '?room= first, as the client');
+  for (const bad of ['', 'room=', 'room=WGN', 'room=WGNJ', 'room=BCDF', 'room=WGNJK', 'room=WGNJKLX', 'room=WGNJKLWGNJKL', 'room=ABCDFG', 'room=WGNJK1',
+    'room=WG.NJKL', 'room=WGN_JKL', 'room=%3Cscript%3E', 'room=<script>alert(1)</script>', 'room=WGNJKL%22', 'room=W%22NJKL', 'room=%C3%9FGNJKL',
+    'room=' + 'B'.repeat(5000), 'room=' + '-'.repeat(40) + 'WGNJKL', 'seed=7', 'bench']) {
     assert.equal(code(bad), null, bad);
   }
 });
 
 test("a room's link has a card of its own: which room, the canonical page with the room as its url", () => {
-  assert.deepEqual(preview(at('?room=WGNJ')), {
-    title: 'Join my Ebbfall game: room WGNJ',
+  assert.deepEqual(preview(at('?room=WGNJKL')), {
+    title: 'Join my Ebbfall game: room WGN-JKL',
     description: 'Tap to join the room and play with me in your browser: free, nothing to install.',
-    url: 'https://ebbfall.com/?room=WGNJ',
+    url: 'https://ebbfall.com/?room=WGNJKL',
   });
-  assert.equal(preview(at('?room=wgnj&relay=wss://x.example/')).url, 'https://ebbfall.com/?room=WGNJ', 'only the room: no other parameter');
-  assert.equal(preview(at('?join=WGNJ')).title, 'Join my Ebbfall game: room WGNJ');
-  assert.equal(preview(at('index.html?room=WGNJ')).url, 'https://ebbfall.com/?room=WGNJ');
+  assert.equal(preview(at('?room=wgnjkl&relay=wss://x.example/')).url, 'https://ebbfall.com/?room=WGNJKL', 'only the room: no other parameter');
+  assert.equal(preview(at('?join=WGNJKL')).title, 'Join my Ebbfall game: room WGN-JKL');
+  assert.equal(preview(at('index.html?room=WGNJKL')).url, 'https://ebbfall.com/?room=WGNJKL');
 });
 
 const VS = '1.8.5.ky.h00v13v23v33'; // (Iron Compass, you against three Brutal Vael AIs, won in 12:34: test/challenge.test.js)
@@ -58,12 +61,12 @@ test("a challenge's link has a card of its own: the setup in words, its link mad
   assert.equal(preview(at(`index.html?vs=${VS}`)).url, `https://ebbfall.com/?vs=${VS}`);
   assert.equal(preview(at(`?vs=${VS}&vs=1.0.1.4z.v00h12`)).url, `https://ebbfall.com/?vs=${VS}`, 'the first, as the client reads it');
   assert.equal(preview(at('?vs=1.3.0.2s0.h00h10.4.21i3v9')).url, 'https://ebbfall.com/?vs=1.3.0.2s0.h00h10.4.21i3v9', "a random map's seed and character");
-  assert.equal(preview(at(`?room=WGNJ&vs=${VS}`)).title, 'Join my Ebbfall game: room WGNJ', "a room's link first (the client opens the room)");
-  assert.equal(preview(at(`?room=WGNA&vs=${VS}`)).title, 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', 'not a room: the challenge');
+  assert.equal(preview(at(`?room=WGNJKL&vs=${VS}`)).title, 'Join my Ebbfall game: room WGN-JKL', "a room's link first (the client opens the room)");
+  assert.equal(preview(at(`?room=WGNJKLKA&vs=${VS}`)).title, 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', 'not a room: the challenge');
 });
 
 test("anything else keeps the site's card: hostile, overlong and unknown links reflect nothing", () => {
-  for (const q of ['', '?seed=7', '?bench', '?room=<script>', '?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=WGNJX', '?room=ABCD',
+  for (const q of ['', '?seed=7', '?bench', '?room=<script>', '?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=WGNJKLX', '?room=ABCDFG', '?room=WGNJ', '?room=BCDF',
     '?room="onload="x', '?join=WGN%00', '?room=' + 'Z'.repeat(1000),
     '?vs=', '?vs=2.8.5.ky.h00v13v23v33', '?vs=1.8.5.ky.h00v13v23v33.', '?vs=1.8.5.KY.h00v13v23v33', '?vs=1.8.11.ky.h00v13v23v33', '?vs=1.0.0.ky.h00v13v23',
     '?vs=%3Cscript%3E', '?vs=1.8.5.ky.h00v13v23v33%22', '?vs=1.8.5.ky.h00v13v23v33<b>', '?vs="onload="x', '?vs=1.8.5.ky.h00v13v23v33%00', '?vs=' + '1'.repeat(5000),
@@ -71,21 +74,20 @@ test("anything else keeps the site's card: hostile, overlong and unknown links r
     assert.equal(preview(at(q)), null, q);
   }
   // Whatever the link, a card's text is plain: no markup, quotes or entities to escape.
-  for (const code of ['BCDF', 'ZZZZ', 'WGNJ']) for (const v of Object.values(preview(at(`?room=${code}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
+  for (const code of ['BCDFGH', 'ZZZZZZ', 'WGNJKL', 'wgn-jkl']) for (const v of Object.values(preview(at(`?room=${code}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
   for (const vs of [VS, '1.3.0.2s0.h00h10.4.21i3v9', '1.4.2.1p.v00xh01v12h11']) for (const v of Object.values(preview(at(`?vs=${vs}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
 });
 
-test("the room alphabet is the relay's (every place that makes a code)", () => {
-  assert.equal(ROOM_LETTERS, 4);
-  for (const f of ['relay/worker.js', 'relay/server.mjs', 'relay/bench.js']) {
-    assert.equal(read(f).match(/const ALPHABET = '([A-Z]+)'/)[1], ROOM_ALPHABET, f);
+test("the room codes: one module makes, reads and shows them for the relay, the lobby and the cards", () => {
+  assert.equal(ROOM_LETTERS, 6); assert.equal(ROOM_ALPHABET, 'BCDFGHJKLMNPQRSTVWXZ');
+  for (const f of ['relay/edge.js', 'relay/server.mjs', 'relay/bench.js', 'src/client/online.js']) {
+    assert.match(read(f), /from '\.\.\/(?:src\/)?net\/roomcode\.js'/, `${f} uses src/net/roomcode.js`);
+    assert.doesNotMatch(read(f), /const ALPHABET = /, `${f} has no alphabet of its own`);
   }
-  assert.match(read('relay/worker.js'), /Array\.from\(\{ length: 4 \}/, 'four letters a room');
-  assert.match(read('src/client/online.js'), /\.slice\(0, 4\)/, 'the client reads four');
 });
 
 test("a card's fields go to tags index.html has, one each", () => {
-  const card = preview(at('?room=WGNJ'));
+  const card = preview(at('?room=WGNJKL'));
   const e = edits(card);
   assert.equal(e.length, Object.values(TAGS).flat().length);
   for (const [sel, content] of e) {

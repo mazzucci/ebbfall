@@ -93,7 +93,7 @@ test('a seat given up in the lobby is a fresh seat; an old client is told to upd
   r.receive(b, { t: 'leave' }); r.close(b);
   const b2 = conn('b2'); r.connect(b2, hello());
   assert.equal(got(b2, 'lobby').at(-1).seats[1].race, 'humans');
-  for (const proto of [0, 3]) { const old = conn('old'); assert.equal(r.connect(old, { proto, name: 'Old' }), -1); assert.equal(got(old, 'error')[0].code, 'update', `PROTO ${proto}: told to update`); }
+  for (const proto of [0, 3, 5]) { const old = conn('old'); assert.equal(r.connect(old, { proto, name: 'Old' }), -1); assert.equal(got(old, 'error')[0].code, 'update', `PROTO ${proto}: told to update`); }
 });
 
 test('the clock waits until everyone has loaded, then closes a turn every 100 ms', () => {
@@ -956,8 +956,8 @@ test('keep() is a v5 record (a spot and a team per seat, holes kept); restore ch
   const { r, conn } = room(3); const a = conn('a');
   r.connect(a, hello());
   r.receive(a, { t: 'add', team: 5, ai: true, race: 'vael', diff: 2 }); r.receive(a, { t: 'drop', seat: 1 });
-  const k = JSON.parse(JSON.stringify(r.keep())), seat = { name: '', race: 'humans', token: null, ai: false, diff: 1, goneSince: 0 };
-  assert.deepEqual(k, { v: 5, map: 4, seats: [{ ...seat, spot: 0, team: 0, name: 'Ann', token: r.seats[0].token }, { ...seat, spot: 2, team: 2 }, { ...seat, spot: 3, team: 5, race: 'vael', ai: true, diff: 2 }] });
+  const k = JSON.parse(JSON.stringify(r.keep())), seat = { name: '', race: 'humans', token: null, ai: false, diff: 1, goneSince: 0, from: '' };
+  assert.deepEqual(k, { v: 5, map: 4, seats: [{ ...seat, spot: 0, team: 0, name: 'Ann', token: r.seats[0].token }, { ...seat, spot: 2, team: 2 }, { ...seat, spot: 3, team: 5, race: 'vael', ai: true, diff: 2 }], barred: [] });
   const y = room(); assert.ok(y.r.restore(k, 100));
   const a2 = y.conn('a2'); y.r.connect(a2, hello({ token: k.seats[0].token }));
   const l = y.got(a2, 'lobby').at(-1);
@@ -1028,6 +1028,66 @@ test('the host frees a held seat whose player is away (back on another browser, 
   assert.equal(got(d, 'error')[0].msg, 'That room is full', 'nobody held away: the plain line');
 });
 
+test('the host removes a person from the lobby (a stranger who guessed the code): told, closed, the seat open, their address not let in again', () => {
+  const { r, conn, got } = room(3); const a = conn('a'), b = conn('b'), c = conn('c');
+  r.connect(a, hello(), 'home'); r.connect(b, hello({ name: 'Bo' }), 'bo'); r.connect(c, hello({ name: 'Eve' }), '203.0.113.9');
+  r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
+  r.receive(b, { t: 'remove', seat: 2 }); // (not the host's call)
+  r.receive(a, { t: 'remove', seat: 0 }); r.receive(a, { t: 'remove', seat: 9 }); r.receive(a, { t: 'remove', seat: '2' });
+  assert.ok(r.seats[2].conn === c && !c.kicked, 'nothing else removes anyone');
+  r.receive(a, { t: 'remove', seat: 2 });
+  assert.deepEqual(got(c, 'error').map(m => [m.code, m.msg]), [['removed', 'The host removed you from this room']]);
+  assert.ok(c.kicked, 'closed');
+  assert.deepEqual(got(a, 'lobby').at(-1).seats[2], { name: '', race: 'humans', ready: false, here: false, ai: false, diff: 1 }, 'the seat open, on its spot');
+  assert.equal(got(a, 'lobby').at(-1).seats[1].ready, false, 'a new line-up: ready again');
+  r.close(c); // (its socket's close, after the kick: nothing)
+  const c2 = conn('c2'), d = conn('d');
+  assert.equal(r.connect(c2, hello({ name: 'Eve2' }), '203.0.113.9'), -1, 'back from the same address: refused');
+  assert.equal(got(c2, 'error')[0].code, 'removed');
+  assert.equal(r.connect(d, hello({ name: 'Di' }), 'di'), 2, 'a friend from elsewhere takes the seat');
+  r.receive(a, { t: 'add', team: 3, ai: true }); r.receive(a, { t: 'ai', seat: 3, on: false });
+  r.receive(a, { t: 'remove', seat: 3 }); // (an open seat: no one to remove; REMOVE on an open seat is `drop`)
+  assert.ok(r.seats.find(s => s.spot === 3) && !r.seats.find(s => s.spot === 3).token);
+  r.close(b); r.receive(a, { t: 'remove', seat: 1 });
+  assert.ok(!r.seats[1].token, 'an away person too: removed, the seat open');
+  const b2 = conn('b2'), old = got(b, 'seat')[0].token;
+  assert.equal(r.connect(b2, hello({ name: 'Bo', token: old }), 'bo-mobile'), 1, 'from another address (no bar there): in, as a newcomer');
+  assert.notEqual(got(b2, 'seat')[0].token, old, 'their token took nothing back: a new one, the lowest open seat');
+  r.receive(b2, { t: 'leave' });
+  r.receive(a, { t: 'ai', seat: 1, on: true }); r.receive(a, { t: 'drop', seat: 3 });
+  r.receive(a, { t: 'ready', ready: true }); r.receive(d, { t: 'ready', ready: true });
+  assert.equal(r.phase, 'game');
+  const n = r.seats.findIndex(s => s.conn === d);
+  r.receive(a, { t: 'remove', seat: n });
+  assert.ok(!d.kicked && r.seats[n].token, 'not in a game');
+});
+
+test('a removed address stays barred as long as the room: through a kept lobby (the Worker\'s eviction), not into a new room', () => {
+  const { r, conn } = room(3); const a = conn('a'), c = conn('c');
+  r.connect(a, hello(), 'home'); r.connect(c, hello({ name: 'Eve' }), '203.0.113.9');
+  r.receive(a, { t: 'remove', seat: 1 });
+  const kept = JSON.parse(JSON.stringify(r.keep()));
+  assert.deepEqual(kept.barred, ['203.0.113.9'], 'in the room\'s record (deleted with it)');
+  const back = room(3); assert.ok(back.r.restore(kept, 1000));
+  assert.equal(back.r.connect(back.conn('c2'), hello({ name: 'Eve' }), '203.0.113.9'), -1, 'still barred after the restore');
+  assert.ok(back.r.connect(back.conn('d'), hello({ name: 'Di' }), 'di') >= 0, 'another address: in');
+  const bad = room(3); assert.ok(bad.r.restore({ ...kept, barred: [7, '', 'x'.repeat(65), ...Array(100).fill('a')] }, 1000));
+  assert.deepEqual([...bad.r.barred], ['a'], 'a record\'s list checked');
+  const away = room(3), h = away.conn('h'), f = away.conn('f');
+  away.r.connect(h, hello(), 'home'); away.r.connect(f, hello({ name: 'Eve' }), '198.51.100.7'); away.r.close(f); // (Eve away, her seat held)
+  const held = JSON.parse(JSON.stringify(away.r.keep()));
+  assert.equal(held.seats[1].from, '198.51.100.7', 'a held seat\'s address in the record');
+  const again = room(3); assert.ok(again.r.restore(held, 1000));
+  again.r.connect(again.conn('h2'), hello({ token: held.seats[0].token }), 'home');
+  again.r.receive(again.r.seats[0].conn, { t: 'remove', seat: 1 });
+  assert.ok(!again.r.seats[1].token, 'the restored away seat removed');
+  assert.equal(again.r.connect(again.conn('f2'), hello({ name: 'Eve' }), '198.51.100.7'), -1, 'and its address barred');
+  const odd = room(3); assert.ok(odd.r.restore({ ...held, seats: held.seats.map(x => ({ ...x, from: x.token ? 7 : 'x' })) }, 1000));
+  assert.deepEqual(odd.r.seats.map(x => x.from), ['', '', ''], 'a record\'s addresses checked; none for an open seat');
+  const fresh = room(3); fresh.r.connect(fresh.conn('h'), hello(), 'home');
+  assert.ok(fresh.r.connect(fresh.conn('e'), hello({ name: 'Eve' }), '203.0.113.9') >= 0, 'another room: no list outlives its room');
+});
+
 test('a lobby leave is confirmed: a ping right after it is answered, the seat open', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.connect(a, hello()); r.connect(b, hello({ name: 'Bo' }));
@@ -1057,6 +1117,7 @@ test('the Node relay: open a room, join it by code, play turns over real sockets
   try {
     const a = await open('new=1'); a.say({ proto: PROTO, name: 'Ann' });
     const seat = await a.until(m => m.t === 'seat');
+    assert.match(seat.room, /^[BCDFGHJKLMNPQRSTVWXZ]{6}$/, 'six letters of the alphabet');
     const b = await open(`room=${seat.room.toLowerCase()}`); b.say({ proto: PROTO, name: 'Bo' });
     assert.equal((await b.until(m => m.t === 'seat')).seat, 1);
     a.say({ t: 'ready', ready: true }); b.say({ t: 'ready', ready: true });
@@ -1074,7 +1135,49 @@ test('the Node relay: open a room, join it by code, play turns over real sockets
     await closed;
     const later = await a.until(m => m.t === 'turn' && m.n > withOrders.n + 3);
     assert.ok(later, 'the relay is still up');
-    const nope = await open('room=ZZZZ'); assert.equal((await nope.until(m => m.t === 'error')).code, 'noroom');
+    const nope = await open('room=ZZZZZZ'); assert.equal((await nope.until(m => m.t === 'error')).code, 'noroom');
+    const old = await open('room=ZZZZ'); assert.equal((await old.until(m => m.t === 'error')).code, 'update', 'a code of the first format: a client to update');
+    const shown = await open(`room=${seat.room.slice(0, 3)}-${seat.room.slice(3).toLowerCase()}`); shown.say({ proto: PROTO, name: 'Cy' });
+    assert.equal((await shown.until(m => m.t === 'error')).code, 'started', 'the code as shown (BCD-fgh) is the room\'s');
     for (const x of [a, b]) x.ws.close();
+    // This machine's own tabs have no address: a REMOVE bars none of the others.
+    const h = await open('new=1'); h.say({ proto: PROTO, name: 'Ann' });
+    const room = (await h.until(m => m.t === 'seat')).room;
+    const e = await open(`room=${room}`); e.say({ proto: PROTO, name: 'Eve' });
+    await e.until(m => m.t === 'seat');
+    h.say({ t: 'remove', seat: 1 });
+    assert.equal((await e.until(m => m.t === 'error')).code, 'removed');
+    const f = await open(`room=${room}`); f.say({ proto: PROTO, name: 'Fay' });
+    assert.equal((await f.until(m => m.t === 'seat' || m.t === 'error')).seat, 1, 'another local tab: in');
+    assert.equal(relay.rooms.get(room).barred.size, 0, 'no address barred');
+    for (const x of [h, f]) x.ws.close();
   } finally { await relay.close(); }
+});
+
+test('the Node relay counts the Worker\'s limits (relay/limits.js) for every address but this machine\'s own', async () => {
+  const { startRelay } = await import('../relay/server.mjs');
+  const { OPEN_PER_MIN, JOIN_POINTS, MISS_COST } = await import('../relay/limits.js');
+  const at = { now: Date.UTC(2026, 9, 31, 12) };
+  const relays = [startRelay({ port: 0, free: () => false, now: () => at.now }), startRelay({ port: 0 })];
+  await Promise.all(relays.map(r => r.ready));
+  /** The first thing the relay says on `query`, after a hello. */
+  const first = (relay, query) => new Promise((res, rej) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${relay.port}/?${query}`);
+    ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.t === 'seat' || m.t === 'error') { ws.close(); res(m); } };
+    ws.onopen = () => ws.send(JSON.stringify({ proto: PROTO, name: 'Ann' }));
+    ws.onerror = rej;
+  });
+  try {
+    const [counted, mine] = relays;
+    const codes = [];
+    for (let i = 0; i < OPEN_PER_MIN; i++) codes.push((await first(counted, 'new=1')).room);
+    assert.ok(codes.every(c => /^[A-Z]{6}$/.test(c)));
+    assert.deepEqual(await first(counted, 'new=1'), { t: 'error', code: 'limit', msg: 'Too many tries: wait a minute and try again' });
+    for (let i = 0; i < JOIN_POINTS / MISS_COST; i++) assert.equal((await first(counted, 'room=QQQQQQ')).code, 'noroom');
+    assert.equal((await first(counted, `room=${codes[0]}`)).code, 'limit', 'ten misses: a live room refused too');
+    at.now += 60000;
+    assert.equal((await first(counted, `room=${codes[0]}`)).t, 'seat', 'a minute later');
+    assert.equal((await first(counted, 'new=1')).t, 'seat');
+    for (let i = 0; i < OPEN_PER_MIN + 3; i++) assert.equal((await first(mine, 'new=1')).t, 'seat', 'this machine (the developer, the tests): no limit');
+  } finally { await Promise.all(relays.map(r => r.close())); }
 });

@@ -1,13 +1,16 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// eight units; `hinf`, the Harbour infantry; `hmach`, the Harbour machines) and writes into <outdir>:
+// eight units; `hinf`, the Harbour infantry; `hmach`, the Harbour machines; `hair`, the Harbour air; `vbld`, the Vael's eight
+// buildings; `hbld`, the Harbour buildings) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
-//   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
+//   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px);
+//                    a building family lays its own scene out (`phoneScene`: each building once, in seat 0 or 6, a few again in
+//                    seat 1, units for scale)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
 //   phone-grey.png, phone-protan.png, phone-deutan.png   phone.png in greyscale and under Machado et al. 2009 protanopia
 //                    and deuteranopia at full severity
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
-//                    maps the letters to the kinds
+//                    maps the letters to the kinds (a building family's images are wider, `blindSize`)
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the family beside the
 //                    slice as a small scene: a Lighthouse with Riggers and Pickets (and the family's Harbour units) at a salt field against a Tidewell
 //                    with the Vael
@@ -66,6 +69,59 @@ const FAMILIES = {
     ],
   },
 };
+// Harbour buildings (harbour-buildings.js): the eight buildings (the Lookout's gun its own sprite) with the slice's
+// Rigger and Picket for scale; a family of buildings, so the phone sheet is a scene of its own (`phoneScene`: the
+// Lighthouse, Windmast, Pump, Crew Hall and Workshop in seat 0, the Slipway, Lookout and Loft in seat 6, a Windmast, a
+// Lookout and a Pump on a seep in seat 1, a salt field, the Tidewell, Pickets, Riggers, a Glint and a Lens), the blind
+// images are wider (`blindSize`) and the battle stand-in (`vael`) adds a Harbour base of every building but the
+// Lighthouse, already in the battle, to the slice's Vael side
+const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Pump'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
+FAMILIES.hbld = {
+  filter: '^(harvester|trooper|lumen|prism)_\\d+_\\d+$|^bldg_(core|depot|extractor|barracks|forge|factory|turret|airfield|conflux)$|^turret_head_\\d+$|^shard_\\d$|^vent_0$',
+  units: {}, rows: [...HBLD.map(([k]) => `bldg_${k}`), 'turret_head_0', 'turret_head_4', 'turret_head_8', 'turret_head_12'],
+  shares: [...HBLD.map(([k]) => `bldg_${k}`), 'turret_head_0'],
+  phone: [], turned: [],
+  phoneScene: () => [
+    ['bldg_core', 190, 250, 0], ['bldg_depot', 420, 230, 0], ['bldg_extractor', 580, 230, 0], ['bldg_barracks', 800, 240, 0], ['bldg_forge', 1030, 230, 0],
+    ['bldg_factory', 290, 620, 6], ['bldg_turret', 520, 600, 6], ['turret_head_3', 520, 600, 6], ['bldg_airfield', 760, 620, 6],
+    ['bldg_depot', 1060, 620, 1], ['bldg_turret', 1200, 600, 1], ['turret_head_13', 1200, 600, 1], ['vent_0', 1320, 570], ['bldg_extractor', 1320, 570, 1],
+    ['shard_0', 1240, 140], ['shard_1', 1330, 220], ['bldg_conflux', 1520, 300, 1],
+    ...[0, 1, 2].map(k => [`trooper_${[0, 1, 0][k]}_${k % 2}`, 300 + k * 34, 380 + k * 10, 0]), ...[0, 1].map(k => [`harvester_${[2, 14][k]}_0`, 640 + k * 36, 330 + k * 14, 0]),
+    ...[0, 1].map(k => [`trooper_0_${k}`, 940 + k * 36, 330 + k * 12, 0]), ...[0, 1, 2].map(k => [`trooper_${[8, 9, 8][k]}_${k % 2}`, 410 + k * 34, 720 + k * 8, 6]),
+    ...[0, 1].map(k => [`harvester_${[1, 0][k]}_${k}`, 900 + k * 36, 720 + k * 10, 6]), ['trooper_0_0', 1130, 720, 1], ['trooper_0_3', 1230, 740, 1], ['harvester_0_0', 1290, 700, 1],
+    ['lumen_8_0', 1450, 420, 1], ['prism_8_0', 1400, 480, 1],
+  ],
+  blindSize: 400,
+  blind: [...HBLD.map(([k, n]) => [`bldg_${k}`, `${k} (${n})`])],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ['bldg_barracks', cx - 840, cy - 80, 0], ['bldg_factory', cx - 1060, cy + 230, 0], ['bldg_airfield', cx - 620, cy - 330, 0], ['bldg_forge', cx - 800, cy + 300, 0],
+    ['bldg_depot', cx - 1080, cy - 250, 0], ['bldg_depot', cx - 1180, cy - 80, 0], ['vent_0', cx - 1000, cy + 30], ['bldg_extractor', cx - 1000, cy + 30, 0],
+    ['bldg_turret', cx - 240, cy + 150, 0], ['turret_head_2', cx - 240, cy + 150, 0], ['bldg_turret', cx - 420, cy - 300, 0], ['turret_head_1', cx - 420, cy - 300, 0],
+    ...[0, 1, 2].map(k => [`trooper_${[0, 1, 0][k]}_${k % 2}`, cx - 700 + k * 40, cy - 10 + k * 20, 0]), ...[0, 1].map(k => [`harvester_${[3, 2][k]}_${k}`, cx - 960 + k * 40, cy + 150 + k * 20, 0]),
+  ],
+};
+// Vael buildings (vael-buildings.js): the eight buildings in the contact sheet, on the phone sheets with a few Glints
+// and Lenses for scale (`phoneBldgs` places them instead of the default Lighthouse and Tidewell), alone in the blind
+// set (`blindSize`: a bigger patch than a unit's) and, in the battle, a whole Vael base against the Lighthouse
+const VBLD = [['conflux', 'Tidewell'], ['spire', 'Sunpetal'], ['siphon', 'Siphon'], ['kiln', 'Cradle'], ['loom', 'Glasshouse'], ['ward', 'Anemone'], ['zenith', 'Gyre'], ['eclipse', 'Darkwater']];
+FAMILIES.vbld = {
+  filter: '^harvester_(0|1|2|14)_[01]$|^trooper_(0_[03]|1_1)$|^(lumen|prism)_(0|4|8|12)_[01]$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|zenith|eclipse)$|^shard_[0-3]$',
+  units: {}, rows: VBLD.map(([k]) => `bldg_${k}`),
+  shares: VBLD.map(([k]) => `bldg_${k}`),
+  phone: ['lumen_0_0', 'prism_0_0', 'lumen_4_0', 'prism_8_0'], turned: ['lumen_8_0', 'prism_12_0'],
+  phoneBldgs: [['bldg_conflux', 330, 210, 0], ['bldg_spire', 600, 210, 0], ['bldg_siphon', 810, 210, 0], ['bldg_kiln', 1040, 210, 0], ['bldg_loom', 1270, 210, 0], ['bldg_eclipse', 1470, 210, 0],
+    ['bldg_zenith', 300, 630, 0], ['bldg_ward', 1120, 630, 0], ['bldg_spire', 1300, 630, 1], ['bldg_ward', 1470, 630, 6], ['bldg_eclipse', 1620, 630, 6]],
+  blindSize: 480,
+  blind: VBLD.map(([k, n]) => [`bldg_${k}`, `${k} (${n})`]),
+  vael: (cx, cy) => [
+    ['bldg_conflux', cx + 560, cy - 60, 1], ['bldg_spire', cx + 330, cy - 250, 1], ['bldg_siphon', cx + 160, cy - 180, 1],
+    ['bldg_kiln', cx + 420, cy + 150, 1], ['bldg_loom', cx + 220, cy + 10, 1], ['bldg_ward', cx + 60, cy - 10, 1],
+    ['bldg_zenith', cx + 700, cy + 180, 1], ['bldg_eclipse', cx + 180, cy + 200, 1],
+    ...[0, 1, 2].map(k => [`lumen_${[8, 8, 4][k]}_0`, cx + 340 + k * 36, cy - 120 + k * 26, 1]),
+    ...[0, 1, 2, 3].map(k => [`prism_8_${k % 2}`, cx + 40 + (k % 2) * 46, cy + 80 + Math.floor(k / 2) * 60 + (k % 2) * 10, 1]),
+  ],
+};
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
   for (let k = 0; k < 3; k++) list.push([`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]);
@@ -88,6 +144,23 @@ FAMILIES.hmach = {
     ['siegeTank_0_3', cx - 260, cy + 40, 0], ['siegeTank_2_0', cx - 310, cy + 160, 0],
     ['vanguard_1_0', cx - 30, cy - 130, 0], ['vanguard_0_3', cx - 10, cy + 30, 0],
     ['interceptor_0_0', cx - 210, cy - 130, 0], ['interceptor_15_1', cx - 130, cy + 180, 0],
+  ],
+};
+// Harbour air (harbour-air.js): the Kite, the Spyglass and the Windjammer, the Vael's Petrel beside them for contrast
+// and the slice's Rigger and Picket for the people; the battle puts the flyers over the slice, Petrels over the Vael.
+FAMILIES.hair = {
+  filter: '^(raider|observer|bastion|shrike|harvester|trooper|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+  units: { raider: [0], observer: [0], bastion: [0], shrike: [0] }, rows: ['bldg_core', 'shard_0'],
+  shares: ['raider_0_0', 'observer_0_0', 'bastion_0_0', 'shrike_0_0'],
+  phone: ['harvester_0_0', 'trooper_0_0', 'raider_0_0', 'observer_0_0', 'shrike_0_0', 'lumen_0_0', 'prism_0_0', 'bastion_0_0'],
+  turned: ['raider_12_0', 'observer_8_0', 'shrike_12_0', 'raider_4_0', 'bastion_12_0'], turnedY: 690,
+  blind: [['raider_0_0', 'raider (Kite)'], ['observer_0_0', 'observer (Spyglass)'], ['bastion_0_0', 'bastion (Windjammer)'], ['shrike_0_0', 'shrike (Petrel)'],
+    ['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)']],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ...[0, 1, 2, 3].map(k => [`raider_${[1, 0, 2, 1][k]}_0`, cx - 120 + k * 44, cy - 150 + (k % 2) * 40, 0]),
+    ['observer_2_0', cx - 250, cy - 170, 0], ['bastion_1_0', cx - 420, cy + 200, 0],
+    ['shrike_9_0', cx + 260, cy - 230, 1], ['shrike_8_0', cx + 330, cy - 190, 1],
   ],
 };
 
@@ -189,13 +262,15 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 {
   const c = canvas(1688, 780); seabed(c); // a 2x phone (844x390 CSS px)
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
-  if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]);
-  list.push(['bldg_conflux', 1330, 330, 1]);
-  const gap = Math.min(FAM.gap ?? 80, Math.floor(1000 / FAM.phone.length));
-  for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
-  FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, 760, k % 2]));
+  if (FAM.phoneScene) { list.length = 0; list.push(...FAM.phoneScene()); } else {
+    if (FAM.phoneBldgs) list.push(...FAM.phoneBldgs);
+    else { if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]); list.push(['bldg_conflux', 1330, 330, 1]); }
+    const gap = Math.min(FAM.gap ?? 80, Math.floor(1000 / FAM.phone.length));
+    for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
+    FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, FAM.turnedY ?? 760, k % 2])); // (`turnedY`: a family with a long flyer lifts the row clear of the edge)
+  }
   place(c, list);
-  ring(c, 630, 503, 24, 14); // the game's selection ring under the second unit (seat 0)
+  if (!FAM.phoneScene) ring(c, 630, 503, 24, 14); // the game's selection ring under the second unit (seat 0)
   save('phone@2x.png', c);
   const p = half(c); save('phone.png', p);
   for (const mode of ['grey', 'protan', 'deutan']) save(`phone-${mode}.png`, simulate(p, mode));
@@ -203,10 +278,11 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 
 // ---- 4. blind: each unit alone at phone size, named by a random letter ----
 {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {};
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {}, B = FAM.blindSize ?? 192;
   let n = 0;
   for (const [name, what] of FAM.blind) for (const seat of [0, 6]) {
-    const c = canvas(192, 192); seabed(c, 11 + n++ * 7, true); draw(c, get(name), 96, 110, seat);
+    const c = canvas(B, B); seabed(c, 11 + n++ * 7, true); draw(c, get(name), B / 2, B / 2 + B * 0.07, seat);
+    if (name === 'bldg_turret' && byName.has('turret_head_0')) draw(c, get('turret_head_0'), B / 2, B / 2 + B * 0.07, seat); // (its gun: a head sprite the game draws at the building's own point)
     const L = letters.splice(Math.floor(Math.random() * letters.length), 1)[0];
     key[L] = `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
   }

@@ -10,6 +10,9 @@ import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
 import { breakwater, anchorGun, netter } from './harbour-machines.js';
+import { kite, spyglass, windjammer } from './harbour-air.js';
+import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, gyre, darkwater } from './vael-buildings.js';
+import * as HB from './harbour-buildings.js';
 import * as Gd from './ground.js';
 import { SCENERY } from './scenery2.js';
 
@@ -36,6 +39,19 @@ Object.assign(UNIT_MODELS, {
   siegeTank: { build: anchorGun, frames: 4, r: 31, h: 24 },   // (r 31: the muzzle reaches 24.4 ahead, the dropped anchor about 29 astern; h 24: raised)
   interceptor: { build: netter, frames: 2, r: 14, h: 21 },    // (r 14: the reel is 15.8 across; h 21: the tubes raised)
 });
+// Harbour air (step 1, harbour-air.js): the Kite (flies at 17, its tail reaching 17.5 aft), the Spyglass (at 26) and
+// the Windjammer (at 24, 44 long); one frame each, gliders (look.js UNIT_FPS 0). The cells hold the flyer and its
+// shadow, which lands 0.4 of the height east and 0.3 south of it.
+Object.assign(UNIT_MODELS, {
+  raider: { build: kite, frames: 1, r: 19, h: 18 }, observer: { build: spyglass, frames: 1, r: 11, h: 30 },
+  bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
+});
+// Vael buildings (step 1, vael-buildings.js): the Sunpetal, the Siphon, the Cradle, the Glasshouse, the Anemone (one
+// sprite, no turning head), the Gyre and the Darkwater; the Tidewell above. Footprints and cell heights as before.
+Object.assign(VAEL_BUILDINGS, {
+  spire: [2, sunpetal, 82], siphon: [2, vSiphon, 50], kiln: [3, cradle, 42], loom: [2, glasshouse, 42],
+  ward: [2, anemone, 50], zenith: [3, gyre, 72], eclipse: [2, darkwater, 58],
+});
 
 // The Vael units in the game; each race renders with its own materials.
 const VAEL_IN_GAME = VAEL_UNITS;
@@ -56,6 +72,12 @@ function bldgCell(n, h) {
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
+// Harbour buildings (step 1, harbour-buildings.js): the seven after the Lighthouse; the Lookout's gun is the turret head
+// (drawn over the base, turning). Cells taller than the old models' where the new ones rise higher (the Windmast's mast
+// 32 -> 42, the Lookout's nest and pennant 14 -> 36, its gun 30 -> 62: a north-facing muzzle stands about 74 above the
+// anchor), so nothing touches a cell's top; the anchor stays the footprint's centre, so the head still seats on the base.
+Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.pump, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
+const TURRET_HEAD = HB.lookoutGun, TURRET_HEAD_H = 62;
 /**
  * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
  * colour (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
@@ -104,8 +126,8 @@ window.render = async function (filter = '') {
   for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
   for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
   for (let dir = 0; dir < FACINGS; dir++) {
-    const head = B.turretHead(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
-    pushTeam(`turret_head_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
+    const head = TURRET_HEAD(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
+    pushTeam(`turret_head_${dir}`, head, bldgCell(2, TURRET_HEAD_H), { shadow: false }); // drawn above the base, which has its own shadow
   }
   // The ground and the scenery (ground.js, scenery2.js; STYLE.md "The ground and the scenery"): construction and
   // wrecks for both peoples (the Harbour's timber foundation, scaffold and rubble in seat 0's gold; the Vael's bud and

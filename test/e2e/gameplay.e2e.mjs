@@ -1672,7 +1672,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
     await d.hudText('#tut', /1\/7/);
-    assert.match(await d.page.locator('#tut').textContent(), /train two Riggers/);
+    assert.match(await d.page.locator('#tut').textContent(), /train a Rigger, and another once you have 50 salt again/);
     // Step 1: the Core, then Rigger twice (the button pulses).
     await d.grant(1000, 0);
     const s = await d.state(), core = coreOf(s);

@@ -256,3 +256,75 @@ the one low shape left, read the same):
 Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 21 h 26 (the raised harpoon's tip), Mender r 15 h 21. Team shares at facing
 0 (round 4): Rigger 0.173, Picket 0.173 / 0.214 dug in, Harpooner 0.216, Mender 0.238. The pack:
 `node tools/art/review.mjs <dir> --family=hinf`.
+
+## Harbour buildings (`harbour-buildings.js`)
+
+The seven after the Lighthouse (`harbour.js`, kept as it is), on its rules: a flagstone quay a little inside the
+footprint (`oct` 27-30 on 2x2, 43 on 3x3, 20 under the Lookout), tarred sheds with iron plinth bands, timber on masts,
+spars, ramps and props (pale timber, `timberPale`, only on the Workshop's derrick, so the boom reads at 18 px), canvas
+pale on top, team canvas between ink hems on at least a sixth of what the camera sees and never on the ground (every
+team sheet is a roof slope, an awning, a sail, a vane, a wrap or a tarp over crates with a shadow), mooring posts with
+team tops along the quay's edge, crates under lashed tarps, casks, coils and salt sacks at human scale so a Picket
+beside a building reads as a person. Each building owns a roof silhouette from above, and the team canvas takes a
+different form on each (the PM's note at gate A: no two roofs alike). Round 1's blind test (75%) swapped the Pump and
+the Lookout (a dark beam on a four-legged frame read as a dome with a barrel; a nest at 36 on thin legs as a squat
+tank), the Windmast and the Loft (a round pale lid read as a landing pad; a lattice tower as a derrick), the Loft and the
+Crew Hall (pale roof hatches as lit windows); the Workshop was named only by elimination (a team roof over a crane that
+did not read). Round 2's blind test (56%) swapped the Windmast and the Loft both ways for all four testers (the
+Windmast's radial rotor read as propellers, so flyers; the Loft's mast with sails as "the mast" of the Windmast's
+name), the Pump and the Lookout for two (the Pump's pale level beam as a gun barrel or a telescope, its round well as a
+turret ring; the Lookout's nest as a ball on a tripod, its gun missing from the blind images), the Workshop and the
+Slipway for one ("a derrick over a ramp"). Round 3 passed the blind test (16/16 for all four), but the Workshop,
+the Loft and the Pump were named by elimination (the Pump and the Workshop "small, dark and cluttered" at 1x), and the
+judge found the big roofs (the Loft's tent, the Slipway's hipped roof, the Crew Hall's slope) near-flat fills, the
+brightest planes on screen in seat 6, and the Windmast's sails hiding the mast (a pagoda roof). Round 4 fixed those
+(the judge passed it) but all four testers swapped the Pump and the Workshop: the Workshop's new long pale jib with its
+hanging bale read as a pump jack or a well-sweep with a bucket, the Pump's big pale horse-head as a dial or a wheel.
+Round 5, the table below, keeps round 4's other six and takes round 3's Pump and Workshop back, cleared at 1x.
+
+| kind (key)              | signature from above                                                                                              | the team canvas                                                                     |
+|-------------------------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| Windmast (`depot`)      | a square tarred store (30 x 28) with a timber deck on top; out of it a tarred ship's mast (to 75, iron bands two over each sail) carrying three square sails one over another, narrowing upward (course 28-31 x 10.5, topsail 22-25 x 9.5, topgallant 16-19 x 8, heads at 35, 51.5, 67), hung on the mast's far side so the dark mast runs down their faces: each team canvas bellied away (`sailGeo`, a bent grid), leaning foot-south 0.12, framed all round in tar (the yard, tarred bolt-ropes down the leeches and along the foot) so it never shares the kites' wedge; the yards (r 1.2) reach 5.5 past the cloth each side with iron bands at their ends; braced 0.18; a small top over the course, a pennant. Nothing radial | the three sails, two canvas doors on the store's south face in ink frames, a lean-to over the casks south, the crate tarps, the pennant |
+| Pump (`extractor`)      | round 3's pump jack along x on an iron skid: a tarred A-frame (the samson post, two A's astride, its saddle at 31), the walking beam (30, timber, a mid value, iron straps) nodding at 0.42, east end down; at that end a small horse-head (r 8, timber cheeks inside an iron face, `profile`: small and darkish, never a pale disc), the bridle straight down from its foremost point to a carrier bar and the rod into the stuffing box; at the west end an equaliser, pitman arms down to two cranks on a gearbox; the well: an iron casing with flanges standing in a spreading pool of brine (`blob`, 28 points; `brine`, wet, no light) on a pale salt crust, a ripple of salt round it, a flow line north to a salt pan; an engine house north-west with a drive shaft. No sacks, crates or casks (clutter at 1x) | the two counterweights on the cranks (quadrants r 12 behind an ink rim, the near one facing the camera), the engine house's tarp, a windbreak (27 x 14) on posts behind the salt pan |
+| Crew Hall (`barracks`)  | a long tarred shed along x (80 x 26) under a gable: the near (south) slope weathered team canvas (`paintWorn`) sagging 1.5 between seven bays of timber battens that cast their shadows, worn ink hems all round, the far slope dark tar, a tarred ridge beam (2.6) raised over it, a stove pipe on the far slope; under its eave a shallow shade along the south wall (old sailcloth, `canvasDark`, 8 deep, falling 2.4, on posts with a rail) so the wall is not a black band; doors and shuttered windows along the wall, benches; a tall flagstaff at the west end; a yard with a bell, a rifle rack, crates and casks | the near roof slope (84 x 17), the flag, a crate tarp: a long two-tone pitched bar |
+| Workshop (`forge`)      | round 3's smithy (34 x 28) under a dark corrugated iron roof on timber posts, one slope down to the south, a louvred vent along the roof (three pale timber louvres, a pale timber gable cap with an iron strap: a pale ridge in grey), a square iron stack at its north-west corner; the forge out in the yard south of it: a slate hearth glowing orange-red (`hearth`, r 3.4; gold must not meet the forge glow) under a short flue, the anvil, five orange sparks over it, a quench tub; a short pale timber derrick west of the smithy (mast 50, boom r 2 with iron bands up to the south-east), the bale hung over the quay, never past the footprint (round 4's long jib read as a pump jack); no bench, bars or chain coil (clutter at 1x) | an awning along the open south side (39 x 13) on posts under the eave, the bale (team canvas, roped, between ink hems), a wrap round the stack, a crate tarp |
+| Slipway (`factory`)     | a planked timber ramp (42 x 72) sloping down to the south off a stone head, a tarred hull on keel blocks and shores upon it, open: its dark inside (`tarIn`), thwarts, open ribs at the stern, a pale tarp over the bow; two sheer legs over the ramp's head; a low shed east under a hipped roof (rise 10) of weathered team canvas over tarred boards, sagging between three battens on each long slope, worn ink hems at the eaves and down the hips, a tarred ridge (2.4) raised over it | the tarp amidships, the sail lashed between the sheer legs (a triangle, vertical), the shed's hipped roof (the family's one hipped roof) |
+| Lookout (`turret`)      | a tall tripod of tarred poles (r 2.2) on a stone footing, lashed, braced three times, a ladder up the south leg; the crow's nest at y 48, a shallow tarred tub (r 10.2, 6 tall, open hoops: the camera sees into it) floored dark (`oilskin`, tarred seams: the gun shows on it, not a pale face), a canvas skirt hung beneath it, a pennant staff; a long shadow: a tower, not a drum | a screen lashed round the tripod's waist outside the legs (a cone, 0.38 to 0.54 of the way up, between ink hems), the skirt under the nest, the dodger over the tub's whole wall (an open tube, ink hems top and foot), crates under a tarp at the foot |
+| its gun (`turret_head`) | a heavy iron swivel gun (36, r 2.7 to 2, angled up 0.2) on a pivot post and yoke in the nest, two pale canvas servings along the barrel so it reads far past the rim, a muzzle swell and a brass bead, a cascabel; no dome or hood (round 2's hood read as a ball); drawn over the base, no shadow | the breech wrapped between ink rings, a powder chest behind the gunner's place |
+| Loft (`airfield`)       | where the Kites are kept and launched: a broad raised launch deck (44 x 40 at y 20) on tarred trestles with cross braces, planked, a rail on its west and north edges, a stair up from the quay; two Kites (`parkedKite`: a delta wider than long, 27 x 17 at k 1, cream nose (`kiteCloth`), a team band along the trailing edge behind an ink seam, timber leading edges, spine and cross spar, a keel pod, on chocks) parked on it nose east, turned apart, tethered to cleats; a small windsock (striped tubes) on a short staff at its north-east corner; east the hangar, a tent along z (28 x 40, ridge 24) with no walls: a tarred sod-cloth (`tar2`) at its foot, weathered canvas sagging 1.6 between rafter lines (ropes over it casting shadows), worn hems, a tarred ridge pole (r 1.4) raised on forked poles, a tarred back cloth, a dark floor, open south where a third Kite's nose shows; guy lines; a winch with a line up to the deck. No mast (round 2's mast read as the Windmast) | the tent's two slopes, the Kites' trailing bands, the windsock's stripes, crate tarps |
+
+Roofs against each other: the Lighthouse a cone on a round tower and a striped hull; the Windmast a dark mast through a stack of
+three framed trapezoids, yard ends out to the sides, over a dark store; the Pump an A-frame and a nodding beam with a
+small dark head over a spreading pool of brine, team counterweights; the Crew Hall a long two-tone gable over a shade; the Workshop a dark ribbed slope with a pale vent along it, a
+team strip at its foot and a short pale boom; the Slipway an open hull on a ramp and a hipped roof; the Lookout a small open
+tub on a tall tripod with a long gun; the Loft a planked deck carrying two pale deltas beside a tent. A 3x3 quay needs about 1250 square units of team to reach the sixth, so the
+Crew Hall's slope, the Slipway's hipped roof and the Loft's tent are large; their forms differ and none is its
+building's signature.
+
+What the blind tests taught: a radial star of vanes reads as propellers (flyers), a tall mast as "the Windmast"
+whatever it carries; a pale level beam reads as a gun barrel or a telescope, and a round kerb as a turret ring; a pale
+nest on a tripod reads as a ball; a triangle longer than wide reads as a pennant, one wider than long as a wing; sails hung in front of their mast hide
+it and stack into a pagoda roof; small dark buildings with many props are named by elimination, but one big pale shape
+added to each can become the other's signature (round 4: a long pale jib with a hanging load reads as a pump jack, a
+big pale horse-head as a dial); patches in a row on a roof read as windows.
+
+Gotchas: `cyl` is capped, so a "ring" of it over an open thing is a lid (a hoop over the nest hid its deck for two
+rounds): rings and dodgers are `tube` (open-ended, two-sided materials). A flag is a `plate` turned rotation.x -pi/2
+(outline x along the fly, z up), so it faces the camera; the Lighthouse's pennant (rotation.z) stands edge-on.
+
+Lights: none but the Workshop's hearth and sparks. Materials of the family (`bldgMats`): `brine` 0x3a4a50 rough 0.12
+metal 0.35, `saltPan` 0xd8d4c6 flat, `tarIn` (tar's map on the back faces, a hull's inside), `kiteCloth` 0xc6bc9e,
+`canvas2` / `canvasDark2` / `paintCanvas2` / `inkLine2` (two-sided, for sails, vanes and dodgers seen from both
+faces), `spark` (0xffb890, emissive 0xff6a28 x 3.2, not tone-mapped), `hearth` (0x3a0500, emissive 0xff2a08 x 1.5: orange-red, as
+yellow merged with the gold seat), `paintWorn` (team canvas two-sided at 0.8 of the paint: the big roofs, so a white
+seat's roof is a band below white and never the brightest plane on screen), `tar2` (tar two-sided: a tent's
+sod-cloth). Cloth helpers: `sagQuad` (a patch over four corners sagging between supports, lifted off what it covers:
+its sag must stay above the tarred roof under it, or the tar shows through as dark spots that read as portholes) and
+`wornHem` (a dark hem of uneven thickness along an edge).
+
+Cells stay the old ones (`main.js BUILDINGS`: depot 32, extractor 58, barracks 44, forge 72, turret 14 and its head
+30, airfield 58, factory 48; the footprint's own room above and below holds what rises higher). Team shares at
+facing 0 (round 5): Windmast 0.240, Pump 0.175, Crew Hall 0.242, Workshop 0.171, Slipway 0.234, Lookout 0.191 (its gun
+0.182), Loft 0.174. The pack: `node tools/art/review.mjs <dir> --family=hbld` (the phone sheet is a scene of every
+building in three seats with Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a
+Harbour base of all eight against the Tidewell).

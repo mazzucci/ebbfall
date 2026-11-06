@@ -11,6 +11,7 @@ import { lighthouse } from './harbour.js';
 import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
+import * as HB from './harbour-buildings.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
@@ -47,6 +48,10 @@ function bldgCell(n, h) {
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
+// Harbour buildings (step 1, harbour-buildings.js): the seven after the Lighthouse, in its cells; the Lookout's gun is
+// the turret head (drawn over the base, turning).
+Object.assign(BUILDINGS, { depot: [2, HB.windmast, 32], extractor: [2, HB.pump, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 14], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
+const TURRET_HEAD = HB.lookoutGun;
 const RES = {
   pit: new THREE.MeshStandardMaterial({ color: 0x120c1e, roughness: 1 }),
   glow: new THREE.MeshStandardMaterial({ color: 0x3d2a80, emissive: 0xa98bff, emissiveIntensity: 2.2 }),
@@ -105,7 +110,7 @@ window.render = async function (filter = '') {
   for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
   for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
   for (let dir = 0; dir < FACINGS; dir++) {
-    const head = B.turretHead(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
+    const head = TURRET_HEAD(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
     pushTeam(`turret_head_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
   }
   const neutral = makeMats(GOLD); // construction and ruins: seat 0's gold

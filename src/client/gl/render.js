@@ -18,6 +18,7 @@ export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ?
 export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const ALLY = '#f5a524', ALLY2 = '#ffd27a', FOE = '#e2457a', FOE2 = '#ff8bb0';
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
+const MM_SALT = '#e6e0d3', MM_BRINE = '#a24a2c'; // (the minimap: a salt field, a brine seep)
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
 /** Flyers are drawn this many world px above the ground point they occupy (their art hovers). */
@@ -583,8 +584,8 @@ const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag);
 function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
-const SALT = 0x4fd1c5;
-/** Colour of a target: a salt field teal, a building to work on amber. */
+const SALT = 0xe6e0d3;
+/** Colour of a target: a salt field pale salt (style.css --shard), a building to work on amber. */
 const targetColor = (e) => e.kind === 'node' ? SALT : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
@@ -649,7 +650,12 @@ function renderMinimap() {
 }
 function minimapBase(c, S, T) {
   c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
-  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = n.type === 'shard' ? '#4fd1c5' : '#a78bfa'; c.fillRect(n.x * S - 1.5, n.y * T - 1.5, 3, 3); }
+  // Salt fields pale salt; a brine seep red-brown in a rim of white terraces (as on the field): neither is any seat's colour.
+  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) {
+    const x = n.x * S, y = n.y * T;
+    if (n.type === 'shard') { c.fillStyle = MM_SALT; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
+    else { c.fillStyle = MM_SALT; c.fillRect(x - 2.5, y - 2.5, 5, 5); c.fillStyle = MM_BRINE; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
+  }
   // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field;
   // an ally's buildings framed in white (a team game: whose colour is on our side, its base and army in our sight).
   const many = G.factions.length > 2, col = many ? seatCss() : null;

@@ -125,7 +125,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                     );
                 }
             }
-            // A Windmast, a Pump on a brine seep, a Crew Hall.
+            // A Cottage, an Excavator on a mine shaft, a Crew Hall.
             1..=3 => {
                 let kind = [BldgKind::Depot, BldgKind::Extractor, BldgKind::Barracks][step - 1];
                 if done(&w, kind).is_some() {
@@ -359,7 +359,7 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
         );
         assert!(
             g.core && g.depot,
-            "{ctx}: the Lighthouse and the Windmast stand"
+            "{ctx}: the Lighthouse and the Cottage stand"
         );
         assert!(
             g.army_left >= SOLDIERS + ANTI_AIR - 2,

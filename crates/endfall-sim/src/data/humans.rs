@@ -299,7 +299,7 @@ pub(super) const CORE: BldgDef = BldgDef {
 };
 pub(super) const DEPOT: BldgDef = BldgDef {
     key: "depot",
-    name: "Windmast",
+    name: "Cottage",
     cost: [100, 0],
     hp: 360.0,
     supply: 8,

@@ -185,7 +185,7 @@ fn the_supply_cap_grows_with_the_map() {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();
         assert_eq!(w.supply_limit(), cap, "{n}x{n}");
-        // Supply buildings round the headquarters (Windmasts or Sunpetals), one past what reaches the cap.
+        // Supply buildings round the headquarters (Cottages or Sunpetals), one past what reaches the cap.
         let each = f.supply.def().supply;
         let hq = f.hq.def().supply;
         let need = ((cap - hq) as f64 / each as f64).ceil() as i32;
@@ -235,7 +235,7 @@ fn a_full_core_reports_supply_blocked() {
         .expect("the tenth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Out of population. Build a Windmast.".to_string())
+        Err("Out of population. Build a Cottage.".to_string())
     );
 }
 

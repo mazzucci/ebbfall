@@ -12,10 +12,12 @@
 //                    the whole and its rubble; the Vael's bud, the bud over the Tidewell's warp ghost, the whole and its
 //                    rubble; the three sizes' foundations, scaffolds, buds and rubble below
 //   projectiles.png  bolt, shell, missile, harpoon and beam at 1:1 and at 4x, beside a Harpooner and a Lens
+//   base@2x.png, base.png, base-grey.png   a real main (the sim's 64x64 map, seed 4242) at a phone's size: the Lighthouse,
+//                    its arc of salt heaps on their pan, its two seeps, the scatter, a few workers and troopers
 //   shore@2x.png, shore.png     a Shore-like patch: a cove, shallows, a deep channel and a reef basin, with the shade
 //                    layer's water tints as render.js multiplies them, and the minimap's colours for the same tiles (x4)
 // Nothing here renders the whole atlas: render3d takes a filter.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { encodePNG } from './png.js';
 import { tile } from './terrain2.js';
@@ -24,7 +26,7 @@ import { render3d } from './render3d.mjs';
 import { hash2, vnoise } from './raster.js';
 import { scatterDoodads, DOODADS } from '../../src/client/scenery.js';
 import { mulberry } from '../../src/engine/util.js';
-import { groundTile, rockTile, shadeLayers } from '../../src/client/gl/ground.js';
+import { groundTile, rockTile, shadeLayers, saltPans, PAN_RES } from '../../src/client/gl/ground.js';
 
 const outDir = process.argv[2] ?? '/tmp/review-ground';
 mkdirSync(outDir, { recursive: true });
@@ -59,7 +61,7 @@ function draw(c, s, x, y, seat = null, { alpha = 1, tint = null, fromRow = 0 } =
  *  the multiply (the map's large-scale noise on land, the wet line, the water tints) and the add (the water's light). */
 const tiles = {}; const getTile = (m, v) => tiles[m + '_' + v] ??= tile(m, v);
 const MINI = { rock: '#6b665a', shallow: '#467c80', deep: '#1d3658' }; // the minimap's colours (render.js: the land hsl(36,10%,14-23%))
-function patch(c, { tw, th, rock = () => 0, height = () => 1, seed = 1, shade = true, kelp = null }) {
+function patch(c, { tw, th, rock = () => 0, height = () => 1, seed = 1, shade = true, kelp = null, nodes = [], shadeAt = null }) {
   const R = (x, y) => x < 0 || y < 0 || x >= tw || y >= th ? 1 : rock(x, y);
   const rnd = mulberry(seed * 7 + 3);
   for (let j = -1; j < th; j++) for (let i = -1; i < tw; i++) {
@@ -72,9 +74,19 @@ function patch(c, { tw, th, rock = () => 0, height = () => 1, seed = 1, shade = 
       for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) { const o = (y * T + x) * 4, px = i * T + T / 2 + x, py = j * T + T / 2 + y; if (px >= 0 && py >= 0 && px < c.w && py < c.h && L(o) < Lb(o) * 0.7) kelp.push([px, py]); }
     }
   }
+  for (const p of saltPans(nodes)) {                                                                  // the salt pans, over the tiles, under the shade (render.js)
+    for (let y = 0; y < p.h * PAN_RES * 2; y++) for (let x = 0; x < p.w * PAN_RES * 2; x++) {
+      const cx = p.x * 2 + x, cy = p.y * 2 + y; if (cx < 0 || cy < 0 || cx >= c.w || cy >= c.h) continue;
+      const fx = Math.max(0, Math.min(p.w - 1.001, x / (2 * PAN_RES) - 0.5)), fy = Math.max(0, Math.min(p.h - 1.001, y / (2 * PAN_RES) - 0.5)), x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
+      const q = [(y0 * p.w + x0) * 4, (y0 * p.w + x0 + 1) * 4, ((y0 + 1) * p.w + x0) * 4, ((y0 + 1) * p.w + x0 + 1) * 4], wt = [(1 - u) * (1 - v), u * (1 - v), (1 - u) * v, u * v];
+      const a = q.reduce((sum, o, n) => sum + p.data[o + 3] * wt[n], 0) / 255; if (!a) continue;
+      const i = (cy * c.w + cx) * 4;
+      for (let k = 0; k < 3; k++) { const col = q.reduce((sum, o, n) => sum + p.data[o + k] * p.data[o + 3] * wt[n], 0) / 255 / a; c.data[i + k] = c.data[i + k] * (1 - a) + col * a; }
+    }
+  }
   if (!shade) return;
   const gd = (x, y) => height(x, y) > 0 ? 'land' : height(x, y) > -2 ? 'shallow' : 'deep';
-  const sh = shadeLayers(tw, th, { rock: (x, y) => !!rock(x, y), ground: gd, shade: (x, y) => 0.1 + vnoise(x, y, 5, 3 + seed, 0) * 0.5 });
+  const sh = shadeLayers(tw, th, { rock: (x, y) => !!rock(x, y), ground: gd, shade: shadeAt ?? ((x, y) => 0.1 + vnoise(x, y, 5, 3 + seed, 0) * 0.5) });
   const texel = (a, x, y) => { x = Math.max(0, Math.min(sh.w - 1, x)); y = Math.max(0, Math.min(sh.h - 1, y)); return (y * sh.w + x) * 4; };
   for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) {                                       // linear filtering between texel centres
     const fx = x * sh.k / T - 0.5, fy = y * sh.k / T - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
@@ -125,7 +137,7 @@ for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) groundMap.rock[y * TW 
 const scatter = scatterDoodads(4242, groundMap, [], { MW: TW, MH: TH, TILE: 32, mulberry });
 const greyCheck = { kelp: [], list: null };
 function groundSheet(withUnits) {
-  const c = canvas(TW * T, TH * T); patch(c, { tw: TW, th: TH, rock: reef, seed: 4242, kelp: withUnits ? greyCheck.kelp : null });
+  const c = canvas(TW * T, TH * T); patch(c, { tw: TW, th: TH, rock: reef, seed: 4242, kelp: withUnits ? greyCheck.kelp : null, nodes: groundMap.nodes.slice(0, 4).map(n => ({ ...n, type: 'shard' })) });
   const list = [];
   for (const d of scatter) list.push([`doodad_${d.name}`, d.x * 2, d.y * 2]);
   groundMap.nodes.slice(0, 4).forEach((n, k) => list.push([`shard_${k}`, (n.tx + 0.5) * T, (n.ty + 0.5) * T]));
@@ -194,7 +206,7 @@ for (const [name, units] of [['ground', false], ['units', true]]) {
     if (d < 7) return 1; if (d < 10) return 0; if (d < 15) return -3; if (d < 19) return -1; if (d < 22) return 0; return 1;
   };
   const rk = (x, y) => (y < 2 && x < 6) || (Math.hypot((x - 23) / 2.6, (y - 6) / 2.6) > 0.8 && Math.hypot((x - 23) / 2.6, (y - 6) / 2.6) < 1.25 && !(x > 21 && x < 25 && y < 4.5)) ? 1 : 0;
-  const c = canvas(SW * T, SH * T); patch(c, { tw: SW, th: SH, rock: rk, height: h, seed: 3 });
+  const c = canvas(SW * T, SH * T); patch(c, { tw: SW, th: SH, rock: rk, height: h, seed: 3, nodes: [{ type: 'shard', tx: 3, ty: 8 }, { type: 'shard', tx: 23, ty: 6 }] });
   const shoreMap = { rock: new Uint8Array(SW * SH), height: new Int8Array(SW * SH), nodes: [{ tx: 3, ty: 8 }, { tx: 23, ty: 6 }] };
   for (let y = 0; y < SH; y++) for (let x = 0; x < SW; x++) { shoreMap.rock[y * SW + x] = rk(x, y); shoreMap.height[y * SW + x] = h(x, y); }
   const list = scatterDoodads(99, shoreMap, [], { MW: SW, MH: SH, TILE: 32, mulberry }).map(d => [`doodad_${d.name}`, d.x * 2, d.y * 2]);
@@ -211,6 +223,36 @@ for (const [name, units] of [['ground', false], ['units', true]]) {
   save('shore@2x.png', out); save('shore.png', half(out));
 }
 
+// ---- 6. the base shot: a real main (the sim's map, seed 4242, 64x64) at a phone's size: the Lighthouse, its arc of salt
+// fields on their pan and its two seeps, the scatter as the game lays it, a few workers and troopers ----
+{
+  const sim = await import('../../src/engine/pkg/endfall_sim.js');
+  sim.initSync({ module: readFileSync(new URL('../../src/engine/pkg/endfall_sim_bg.wasm', import.meta.url)) });
+  const E = await import('../../src/engine/core.js');
+  E.resetGame(4242, 1, 0, 0, 'humans', 'vael');
+  const m = E.map, MW = E.MW, MH = E.MH, core = E.G.bldgs.find(b => b.team === 0 && b.d.hq), at = (x, y) => y * MW + x;
+  const c = canvas(MW * T, MH * T);
+  patch(c, { tw: MW, th: MH, rock: (x, y) => m.rock[at(x, y)] ? 1 : 0, height: (x, y) => m.height[at(x, y)] - E.WATER, seed: 4242, nodes: m.nodes, shadeAt: (x, y) => m.shade[at(x, y)] });
+  const cores = E.G.bldgs.filter(b => b.d.hq).map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
+  const list = scatterDoodads(4242, m, cores, { MW, MH, TILE: 32, mulberry }).map(d => [`doodad_${d.name}`, d.x * 2, d.y * 2]);
+  for (const n of m.nodes) list.push([n.type === 'ether' ? 'vent_0' : 'shard_0', n.x * 2, n.y * 2]);
+  list.push(['bldg_core', (core.tx + core.w / 2) * T, (core.ty + core.h / 2) * T, 0]);
+  const fields = m.nodes.filter(n => n.type !== 'ether' && Math.hypot(n.tx - core.tx, n.ty - core.ty) < 14);
+  fields.slice(0, 4).forEach((n, k) => list.push([['harvester_12_0', 'harvester_8_0', 'harvester_4_0', 'harvester_0_0'][k], (n.tx - 1.2) * T, (n.ty - 0.6) * T, 0]));
+  list.push(['trooper_8_0', (core.tx - 3) * T, (core.ty + 1) * T, 0], ['trooper_4_0', (core.tx - 3.5) * T, (core.ty + 2.4) * T, 0], ['lancer_8_0', (core.tx - 5) * T, (core.ty + 1.6) * T, 0]);
+  const [fa, fb] = [fields[2], fields[3]], wx = (fa.tx + fb.tx + 1) / 2 * T, wy = (fa.ty + fb.ty + 1) / 2 * T;   // the contrast check: a worker in the middle of the pan
+  list.push(['harvester_4_0', wx, wy, 0]);
+  place(c, list);
+  { const g = simulate(c, 'grey'), sp = get('harvester_4_0'), { w, h, data } = sp.img, ox = Math.round(wx - sp.anchor.x * w), oy = Math.round(wy - sp.anchor.y * h), mine = [], round = [];
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (data[(j * w + i) * 4 + 3] === 255) mine.push(g.data[((oy + j) * g.w + ox + i) * 4]);
+    for (let y = Math.round(wy) - 40; y <= wy + 40; y++) for (let x = Math.round(wx) - 40; x <= wx + 40; x++) { const d = Math.hypot(x - wx, y - wy); if (d > 28 && d < 40) round.push(g.data[(y * g.w + x) * 4]); }
+    const q = (v, p) => { v.sort((a, b) => a - b); return v[Math.floor((v.length - 1) * p)]; };
+    greyCheck.worker = `worker on the pan: body median ${q(mine, 0.5)}, p10 ${q(mine.slice(), 0.1)}, p90 ${q(mine.slice(), 0.9)}; the pan round it median ${q(round, 0.5)} (base shot in grey)`; }
+  const X0 = Math.max(0, Math.min(MW - 27, core.tx - 16)) * T, Y0 = Math.max(0, Math.min(MH - 14, core.ty - 4)) * T, out = canvas(1688, 896);
+  for (let y = 0; y < 896; y++) out.data.set(c.data.subarray(((Y0 + y) * c.w + X0) * 4, ((Y0 + y) * c.w + X0 + 1688) * 4), y * 1688 * 4);
+  save('base@2x.png', out); const p = half(out); save('base.png', p); save('base-grey.png', simulate(p, 'grey'));
+}
+
 // ---- the maker's checks: values of the ground family against the units' pale tops ----
 if (!process.env.NO3D) console.log('luminance of the solid pixels (mean / p95, 1 = white; peak in sRGB 0-255):');
 if (!process.env.NO3D) for (const n of ['shard_0', 'shard_1', 'shard_2', 'shard_3', 'vent_0', 'rubble_3', 'rubble_vael_3', 'doodad_boulders_0', 'doodad_spire_0', 'doodad_wreck_0', 'doodad_crater_1', 'scaffold_3', 'bud_3', 'rubble_vael_3', 'trooper_0_0', 'lumen_0_0', 'bldg_core']) { const l = lum(n); console.log(`  ${n.padEnd(20)} ${l.mean} / ${l.p95}  peak ${l.peak}`); }
@@ -223,14 +265,15 @@ if (!process.env.NO3D) {
   for (const [name, x, y] of greyCheck.list) { const k = name.startsWith('doodad_') ? name.replace(/_\d$/, '') : /^(shard|vent)_/.test(name) ? name : /^bldg_/.test(name) ? 'buildings' : 'units'; (groups[k] ??= []).push(...solid(name, x, y)); }
   const ground = []; for (let y = 0; y < g.h; y += 3) for (let x = 0; x < g.w; x += 3) ground.push(at(y * g.w + x));
   console.log('grey check (units sheet in grey, sRGB 0-255: median and 90th percentile of solid pixels):');
-  console.log(`  ${'ground (all px)'.padEnd(22)} ${med(ground)}`); console.log(`  ${'kelp'.padEnd(22)} ${med(greyCheck.kelp.filter(([x, y]) => x < g.w && y < g.h).map(([x, y]) => at(y * g.w + x)))}`);
+  console.log(`  ${'ground (all px)'.padEnd(22)} ${med(ground)}`); console.log(`  ${'kelp'.padEnd(22)} ${med(greyCheck.kelp.filter(([x, y]) => x < g.w && y < g.h && groundMap.nodes.every(n => Math.hypot(x / T - n.tx - 0.5, y / T - n.ty - 0.5) > 3)).map(([x, y]) => at(y * g.w + x)))}`);
   for (const [k, v] of Object.entries(groups).sort()) console.log(`  ${k.padEnd(22)} ${med(v)}`);
   const ring = (cx, cy, r0, r1) => { cx = Math.round(cx); cy = Math.round(cy); const v = []; for (let y = cy - r1; y <= cy + r1; y++) for (let x = cx - r1; x <= cx + r1; x++) { const d = Math.hypot(x - cx, (y - cy) / 0.82); if (d >= r0 && d < r1) v.push(at(y * g.w + x)); } return med(v); };
-  console.log(`  ${'vent_0 brine'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 0, 24)}`); console.log(`  ${'vent_0 rim'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 38, 44)}`);
-  console.log(`  ${'shard_0 apron'.padEnd(22)} ${ring(4.5 * T, 9.5 * T, 26, 30)}`);
+  console.log(`  ${'vent_0 brine'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 0, 16)}`); console.log(`  ${'vent_0 terraces'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 34, 46)}`);
+  console.log(`  ${'salt pan'.padEnd(22)} ${ring(5.5 * T + 32, 9.5 * T, 0, 20)}  (between two heaps)`);
   console.log(`  ${'reef top'.padEnd(22)} ${ring(5 * T, 3.4 * T, 0, 60)}`);
   { const { c, names, cw, ch, cols } = greyCheck.scenery, sg = simulate(c, 'grey'), k = names.indexOf('doodad_crater_1'), cx = Math.round((k % cols) * cw + cw / 2), cy = Math.round(Math.floor(k / cols) * ch + ch * 0.6), v = [];
     for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 12; x <= cx + 12; x++) v.push(sg.data[(y * sg.w + x) * 4]);
     console.log(`  ${'tide pool water'.padEnd(22)} ${med(v)}  (scenery.png in grey, the pool's middle)`); }
 }
+if (greyCheck.worker) console.log('  ' + greyCheck.worker);
 console.log('review pack ->', outDir);

@@ -21,7 +21,7 @@ export const SMATS = {
   shell: std({ color: 0x5a4a3a, roughness: 0.8, metalness: 0.02 }),                            // brown, dull, rounded (round 3: grey-white pieces read as salt)
   shellInner: std({ color: 0x4a3a32, roughness: 0.6, metalness: 0.05 }),
   shellDark: std({ color: 0x3a3028, roughness: 0.8, metalness: 0.05 }),
-  pebble: std({ color: 0x3e352c, roughness: 0.9, metalness: 0 }),
+  pebble: std({ color: 0x35312d, roughness: 0.9, metalness: 0 }),                               // grey-brown, off the seep's rust
   rope: std({ color: 0x6e6048, roughness: 0.95, metalness: 0 }),                                // old rope, wet and dark
   sail: std({ color: 0x5e584c, roughness: 0.95, metalness: 0 }),                                // sailcloth stained by the sea
   cork: std({ color: 0x5c4a36, roughness: 0.95, metalness: 0 }),

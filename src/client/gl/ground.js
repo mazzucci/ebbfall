@@ -94,3 +94,88 @@ export function shadeLayers(w, h, { rock, ground, shade }) {
   }
   return { k, w: W, h: H, mul, add };
 }
+
+// ---- the salt pans ----
+/** Salt nodes within this many tiles of each other lie on one pan (a field's arc spaces them 2 to 3.2 apart). */
+const PAN_LINK = 3.6;
+/** World px a texel of a pan (2: a field's pan costs some 20 ms to make on a desktop, a quarter of one at 1). */
+export const PAN_RES = 2;
+/** The pan's crust: a dull grey-white well under the salt heaps on it, the reef top and a unit's body (about 58 in grey
+ *  on the seabed's 40: the salt works round 1's pale pan was the largest light mass on screen and the workers lost
+ *  contrast where they mine), cracked into flags about half a tile across by faint pale lines that come and go, each
+ *  flag its own shade, damp and darker towards its edge, which breaks up into loose flakes of crust over the seabed. */
+const PAN = [75, 73, 68], PAN_CRACK = [96, 94, 88], PAN_LIP = [104, 101, 94], PAN_SHADOW = [14, 13, 12];
+/**
+ * The salt pans under the salt fields (tools/render3d/STYLE.md "The salt works"): one continuous cracked crust under
+ * each field's nodes (nodes within PAN_LINK tiles join), so a field reads as a salt flat, not as separate rocks. `nodes`:
+ * the map's nodes ({ type, tx, ty }; seeps, type 'ether', are left out). Returns one image a pan, `{ x, y, w, h, data }`:
+ * its top-left in world px and its size in texels of PAN_RES world px each (RGBA, transparent off the pan), drawn under the
+ * shade layers, scaled by PAN_RES and linear-filtered. Deterministic from the nodes.
+ */
+export function saltPans(nodes, TILE = 32) {
+  const salt = nodes.filter(n => n.type !== 'ether').map(n => ({ x: n.tx + 0.5, y: n.ty + 0.5 })), parent = salt.map((_, i) => i);
+  const root = (i) => parent[i] === i ? i : (parent[i] = root(parent[i]));
+  const links = [];
+  for (let i = 0; i < salt.length; i++) for (let j = i + 1; j < salt.length; j++) if (Math.hypot(salt[i].x - salt[j].x, salt[i].y - salt[j].y) <= PAN_LINK) { parent[root(i)] = root(j); links.push([i, j]); }
+  const groups = new Map(); salt.forEach((_, i) => { const r = root(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); });
+  const out = [];
+  for (const members of groups.values()) {
+    const ps = members.map(i => salt[i]), segs = links.filter(([a]) => members.includes(a)).map(([a, b]) => [salt[a], salt[b]]);
+    const x0 = Math.floor(Math.min(...ps.map(p => p.x)) - 2.2), y0 = Math.floor(Math.min(...ps.map(p => p.y)) - 2.2), x1 = Math.ceil(Math.max(...ps.map(p => p.x)) + 2.2), y1 = Math.ceil(Math.max(...ps.map(p => p.y)) + 2.2);
+    const T = TILE / PAN_RES, w = (x1 - x0) * T, h = (y1 - y0) * T, data = new Uint8ClampedArray(w * h * 4), seed = ps[0].x * 7.3 + ps[0].y * 3.1;
+    // The slow parts made once: the crust's crack points (a cell ~0.45 tile, a jittered point in each) and the two low
+    // noises (the pan's uneven shore, its shading) on a grid of 4 px, read bilinearly.
+    const S = 0.55, gx0 = Math.floor(x0 / S) - 1, gy0 = Math.floor(y0 / S) - 1, gw = Math.ceil(x1 / S) + 2 - gx0, gh = Math.ceil(y1 / S) + 2 - gy0, pts = new Float32Array(gw * gh * 2);
+    for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) { pts[(j * gw + i) * 2] = (gx0 + i + 0.15 + hash(gx0 + i, gy0 + j + 7001) * 0.7) * S; pts[(j * gw + i) * 2 + 1] = (gy0 + j + 0.15 + hash(gx0 + i + 3301, gy0 + j) * 0.7) * S; }
+    const F = 0.3, fx0 = Math.floor(x0 / F) - 1, fy0 = Math.floor(y0 / F) - 1, fw = Math.ceil(x1 / F) + 2 - fx0, fh = Math.ceil(y1 / F) + 2 - fy0, fpts = new Float32Array(fw * fh * 2);   // the edge's flakes, ~0.2 tile
+    for (let j = 0; j < fh; j++) for (let i = 0; i < fw; i++) { fpts[(j * fw + i) * 2] = (fx0 + i + 0.1 + hash(fx0 + i, fy0 + j + 5003) * 0.8) * F; fpts[(j * fw + i) * 2 + 1] = (fy0 + j + 0.1 + hash(fx0 + i + 1709, fy0 + j) * 0.8) * F; }
+    const B = 4, bw = Math.ceil(w / B) + 2, bh = Math.ceil(h / B) + 2, wobG = new Float32Array(bw * bh), shG = new Float32Array(bw * bh), fG = new Float32Array(bw * bh), nG = new Float32Array(bw * bh);
+    for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
+      const u = x0 + i * B / T, v = y0 + j * B / T;
+      wobG[j * bw + i] = (noise(u * 1.4 + seed, v * 1.4) - 0.5) * 0.55 + (noise(u * 4.3, v * 4.3 + seed) - 0.5) * 0.2;
+      shG[j * bw + i] = noise(u * 2.2 + 13, v * 2.2);
+      let f = 9;                                                                               // the pan's shape: its distance field, smooth enough to read bilinearly
+      for (let n = 0; n < ps.length; n++) { const dx = u - ps[n].x, dy = v - ps[n].y, d = Math.sqrt(dx * dx + dy * dy) - 1.3; if (d < f) f = d; }
+      nG[j * bw + i] = f;
+      for (let n = 0; n < segs.length; n++) {
+        const a = segs[n][0], b = segs[n][1], dx = b.x - a.x, dy = b.y - a.y, t = clamp01(((u - a.x) * dx + (v - a.y) * dy) / (dx * dx + dy * dy)), ex = u - a.x - dx * t, ey = v - a.y - dy * t, d = Math.sqrt(ex * ex + ey * ey) - 0.95;
+        if (d < f) f = d;
+      }
+      fG[j * bw + i] = f + wobG[j * bw + i];
+    }
+    const grid = (g, px, py) => { const fx = px / B, fy = py / B, i = fx | 0, j = fy | 0, a = fx - i, b = fy - j, o = j * bw + i; return (g[o] * (1 - a) + g[o + 1] * a) * (1 - b) + (g[o + bw] * (1 - a) + g[o + bw + 1] * a) * b; };
+    for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+      const u = x0 + (px + 0.5) / T, v = y0 + (py + 0.5) / T;
+      const f = grid(fG, px, py) + (hash(px >> 1, py >> 1) - 0.5) * 0.02;                     // the pan's shape, its shore uneven, its rim a little ragged
+      if (f > 0.2) continue;
+      const fNode = grid(nG, px, py);                                                          // (the crust is whitest round the heaps)
+      const o = (py * w + px) * 4;
+      // The edge, crisp (round 2's soft, dithered edge read as smoke or fog): the crust ends in a thin pale lip with a
+      // dark line of shadow under it; past it a few flakes broken off it lie on the seabed, each with its own lip.
+      if (f > 0) {
+        const gx = Math.floor(u / F) - fx0, gy = Math.floor(v / F) - fy0; let d1 = 9, d2 = 9, near = 0;
+        for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+          const q = ((gy + j) * fw + gx + i) * 2, ex = u - fpts[q], ey = v - fpts[q + 1], d = ex * ex + ey * ey;
+          if (d < d1) { d2 = d1; d1 = d; near = q; } else if (d < d2) d2 = d;
+        }
+        const gap = (Math.sqrt(d2) - Math.sqrt(d1)) * TILE / 2, flake = hash(near, 4111) < 0.5 * (1 - f / 0.2);
+        if (flake && gap > 2) { const c = gap < 3.5 ? PAN_LIP : PAN, k = 0.9 + hash(near, 4127) * 0.12; data[o] = c[0] * k; data[o + 1] = c[1] * k; data[o + 2] = c[2] * k; data[o + 3] = 255; continue; }
+        if ((flake && gap > 0.6) || f < 0.06) { data[o] = PAN_SHADOW[0]; data[o + 1] = PAN_SHADOW[1]; data[o + 2] = PAN_SHADOW[2]; data[o + 3] = 110; }   // the shadow under the lip, round a flake
+        continue;
+      }
+      if (f > -0.07) { const k = 0.95 + hash(px, py) * 0.08; data[o] = PAN_LIP[0] * k; data[o + 1] = PAN_LIP[1] * k; data[o + 2] = PAN_LIP[2] * k; data[o + 3] = 255; continue; }   // the lip
+      const gx = Math.floor(u / S) - gx0, gy = Math.floor(v / S) - gy0; let d1 = 9, d2 = 9, near = 0;   // the crust's flags: a crack where the nearest two points are near equal
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+        const q = ((gy + j) * gw + gx + i) * 2, ex = u - pts[q], ey = v - pts[q + 1], d = ex * ex + ey * ey;
+        if (d < d1) { d2 = d1; d1 = d; near = q; } else if (d < d2) d2 = d;
+      }
+      const gap = (Math.sqrt(d2) - Math.sqrt(d1)) * TILE / 2;                                                       // ~ world px to the crack
+      const flag = 0.95 + hash(near, 9157) * 0.1, open = grid(wobG, px * 3.7 % (w - 1), py * 3.7 % (h - 1)) > -0.05;   // each flag its own shade; cracks come and go
+      const shade = (0.92 + grid(shG, px, py) * 0.12 - clamp01((f + 0.6) / 0.46) * 0.1 + clamp01(-0.3 - fNode) * 0.06 + (hash(px, py) - 0.5) * 0.06) * flag; // darker towards the damp edge, a little whiter by the heaps, a grain
+      const crack = gap < 0.9 && open, c = crack ? PAN_CRACK : PAN, k = crack ? 1 : shade;     // a faint pale crack, or the flag
+      data[o] = c[0] * k; data[o + 1] = c[1] * k; data[o + 2] = c[2] * k; data[o + 3] = 255;
+    }
+    out.push({ x: x0 * TILE, y: y0 * TILE, w, h, data });
+  }
+  return out;
+}

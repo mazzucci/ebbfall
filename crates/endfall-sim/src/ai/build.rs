@@ -1,7 +1,6 @@
 //! The AI's build order and expansion: what to build next, where, and by whom; tending its sites.
 
 use super::*;
-use crate::map::Node;
 
 /// Unspent shards the AI counts as piling up (it then adds a factory).
 const SHARD_FLOAT: i32 = 400;
@@ -24,31 +23,78 @@ const POCKET_ROOM: f64 = 16.0;
 const TOWERS_PER_BASE: usize = 1;
 
 impl World {
-    /// Whether vent `n` is one for the base at (cx, cy) (tiles) to take: within 16 tiles of it, and an expansion's vent
-    /// (one within 7.5 tiles of its middle) only once a finished Core of ours stands at that expansion. (A main's
-    /// search can reach a natural's vent, which waits for the natural's Core; every main lies 18 tiles or more from
-    /// every expansion.)
-    pub(crate) fn vent_of_base(&self, n: &Node, cx: f64, cy: f64) -> bool {
+    /// The free open shaft (a vent with no extractor) this seat takes next: the nearest by walking distance from its
+    /// main at (cx, cy) (tiles) on its own side of the map (nearer its own start than any enemy start still in), its
+    /// top-left tile. The walk is measured once per main (`Ai::shafts`: the ground does not move) by a flood over the
+    /// ground its workers stand on.
+    pub(crate) fn free_shaft(&mut self, cx: f64, cy: f64) -> Option<(i32, i32)> {
+        let from = (cx as i32, cy as i32);
+        if self.ai().shafts.as_ref().is_none_or(|(at, _)| *at != from) {
+            let order = self.shafts_by_walk(cx, cy);
+            self.ai_mut().shafts = Some((from, order));
+        }
         let e = self.seat();
-        // (the middles of the vent and of a Core, in the tile units of `expansions`: a tile's middle is its index)
-        let (vx, vy) = (n.tx as f64 + 0.5, n.ty as f64 + 0.5);
-        let ours = |ex: f64, ey: f64| {
-            self.bldgs.iter().any(|b| {
-                b.team == e
-                    && b.done
-                    && b.kind.def().hq
-                    && jsmath::hypot(
-                        b.tx as f64 + b.w as f64 / 2.0 - 0.5 - ex,
-                        b.ty as f64 + b.h as f64 / 2.0 - 0.5 - ey,
-                    ) < 16.0
-            })
+        let start = |s: usize| {
+            let (x, y) = self.map.bases[s];
+            (x as f64 + 2.0, y as f64 + 2.0)
         };
-        jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy) < 16.0
-            && self
-                .map
-                .expansions
-                .iter()
-                .all(|&(ex, ey)| jsmath::hypot(vx - ex, vy - ey) > 7.5 || ours(ex, ey))
+        let own = start(e as usize);
+        let foes: Vec<(f64, f64)> = (0..self.seats() as u8)
+            .filter(|&s| self.enemies(e, s) && !self.out[s as usize])
+            .map(|s| start(s as usize))
+            .collect();
+        let (_, order) = self.ai().shafts.as_ref()?;
+        order.iter().find_map(|&(_, id)| {
+            let n = self.map.node(id)?;
+            let (vx, vy) = (n.tx as f64 + 1.0, n.ty as f64 + 1.0);
+            let d = |(x, y): (f64, f64)| jsmath::hypot(vx - x, vy - y);
+            (n.extractor.is_none() && foes.iter().all(|&f| d(own) < d(f))).then_some((n.tx, n.ty))
+        })
+    }
+
+    /// Every vent its workers can walk to from (cx, cy) (tiles), by steps (4-neighbour, over the ground they stand on,
+    /// buildings in the way), nearest first, ties by id.
+    fn shafts_by_walk(&self, cx: f64, cy: f64) -> Vec<(u32, Id)> {
+        let Some(start) = self.map.nearest_passable_to(
+            self.worker_foot(),
+            cx as i32,
+            cy as i32,
+            6,
+            (cx * TILE, cy * TILE),
+        ) else {
+            return Vec::new();
+        };
+        let foot = self.worker_foot();
+        let m = &self.map;
+        let mut steps = vec![u32::MAX; m.rock.len()];
+        let mut todo = std::collections::VecDeque::from([start]);
+        steps[m.idx(start.0, start.1)] = 0;
+        while let Some((x, y)) = todo.pop_front() {
+            let here = steps[m.idx(x, y)];
+            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
+                if m.in_map(nx, ny) && steps[m.idx(nx, ny)] == u32::MAX && m.passable(foot, nx, ny)
+                {
+                    steps[m.idx(nx, ny)] = here + 1;
+                    todo.push_back((nx, ny));
+                }
+            }
+        }
+        let mut order: Vec<(u32, Id)> = m
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .filter_map(|n| {
+                // (the nearest tile round the 2x2 a worker stands on)
+                let near = (-1..=2)
+                    .flat_map(|dy| (-1..=2).map(move |dx| (n.tx + dx, n.ty + dy)))
+                    .filter(|&(x, y)| m.in_map(x, y))
+                    .map(|(x, y)| steps[m.idx(x, y)])
+                    .min()?;
+                (near != u32::MAX).then_some((near, n.id))
+            })
+            .collect();
+        order.sort();
+        order
     }
 
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
@@ -67,17 +113,7 @@ impl World {
     ) -> Option<(i32, i32)> {
         let d = kind.def();
         if d.on_vent {
-            let (mut best, mut bd) = (None, 1e9);
-            for n in &self.map.nodes {
-                if n.ether && n.extractor.is_none() && self.vent_of_base(n, cx, cy) {
-                    let dd = jsmath::hypot(n.tx as f64 - cx, n.ty as f64 - cy);
-                    if dd < bd {
-                        bd = dd;
-                        best = Some((n.tx, n.ty));
-                    }
-                }
-            }
-            return best;
+            return self.free_shaft(cx, cy);
         }
         let a0 = self.rnd() * PI * 2.0;
         let mut r = from;
@@ -414,19 +450,8 @@ impl World {
             ..
         } = brain.clone();
         let d = self.level();
-        // A free seep near a point (where find_spot looks): wanting a Pump without one would stall the build.
-        let free_vent = |w: &World, (fx, fy): (f64, f64)| {
-            w.map
-                .nodes
-                .iter()
-                .any(|n| n.ether && n.extractor.is_none() && w.vent_of_base(n, fx, fy))
-        };
-        // Where a Pump goes once the main's seeps are taken: a free seep by the expansion.
-        let exp_vent = cores.get(1).map(|&exp| {
-            let b = self.bldg(exp).unwrap();
-            (b.tx as f64 + 2.0, b.ty as f64 + 2.0)
-        });
-        let exp_vent = exp_vent.filter(|&at| free_vent(self, at));
+        // A free shaft to take (wanting an extractor without one would stall the build).
+        let shaft = self.free_shaft(cx, cy);
         let [used, cap] = self.sup[e as usize];
         let f = self.factions[e as usize];
         let s = &f.ai;
@@ -442,10 +467,15 @@ impl World {
                 )
             });
         let relight = dark.filter(|_| f.supply.def().power > 0.0 && !building.contains(&f.supply));
-        // A Pump on every seep it can (PRD: the conversion, rule 1), one site at a time: its main's first once it has
-        // seven workers, the rest from the level's `vents_from`, then the expansion's.
-        let pump_due =
-            !building.contains(&f.ether) && harv.len() >= 7 && (pumps == 0 || t > d.vents_from);
+        // An extractor on every shaft it can (PRD: the conversion, rule 1), one site at a time, the nearest free one
+        // on its side first (`free_shaft`): the first once it has seven workers, the rest from the level's
+        // `vents_from`; a lost one is built again on the same terms.
+        // (Not in the guided first game: its opponent's income stays in its base, which the guide's last step
+        // attacks; an extractor out on a shaft kept paying for fighters after the base fell. `guided_hold`)
+        let pump_due = !building.contains(&f.ether)
+            && harv.len() >= 7
+            && (pumps == 0 || t > d.vents_from)
+            && !self.guided;
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
@@ -486,7 +516,7 @@ impl World {
             && !building.contains(&s.tower)
         {
             Some(s.tower) // (before the build order: something it cannot see is hurting it)
-        } else if pump_due && (free_vent(self, (cx, cy)) || exp_vent.is_some()) {
+        } else if pump_due && shaft.is_some() {
             Some(f.ether)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
@@ -547,13 +577,10 @@ impl World {
         });
         let spot = match placeable {
             Some(w) => {
-                let (fx, fy) = match exp_vent {
-                    Some(at) if w == f.ether && !free_vent(self, (cx, cy)) => at, // (the main's taken)
-                    _ => match (relight, detector_at) {
-                        (Some(at), _) if w == f.supply => at, // by the dark building
-                        (_, Some((x, y))) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark
-                        _ => (cx, cy),
-                    },
+                let (fx, fy) = match (relight, detector_at) {
+                    (Some(at), _) if w == f.supply => at, // by the dark building
+                    (_, Some((x, y))) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark
+                    _ => (cx, cy),
                 };
                 // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.
                 let second = cores.get(1).and_then(|&c| self.bldg(c)).map(|b| {
@@ -568,7 +595,7 @@ impl World {
                 if for_mark {
                     self.ai_mut().cloak_hit = None;
                 }
-                // (Not an extractor, which needs its vent, nor a power source meant to relight a dark building, nor
+                // (Not an extractor, which needs its shaft, nor a power source meant to relight a dark building, nor
                 // a detector meant for the spot it was hit at.)
                 match self.find_spot(w, fx, fy) {
                     None if w != f.ether && !(w == f.supply && relight.is_some()) && !for_mark => {

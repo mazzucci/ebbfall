@@ -463,11 +463,12 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
     let home: Vec<usize> = (0..w.map.nodes.len())
         .filter(|&i| w.map.nodes[i].field == near)
         .collect();
-    assert!(home.len() >= 5, "a whole arc: {}", home.len());
+    assert!(home.len() >= 5, "a whole field: {}", home.len());
     for (k, &i) in home.iter().enumerate() {
         w.map.nodes[i].amount =
             (FIELD_LOW + 200) / home.len() as i32 + if k % 2 == 0 { 40 } else { -30 };
     }
+    let ids: Vec<Id> = home.iter().map(|&i| w.map.nodes[i].id).collect();
     let (mut toasts, mut pings) = (0, 0);
     for _ in 0..30 * 120 {
         w.step();
@@ -479,7 +480,12 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
             }
         }
     }
-    let left: i32 = home.iter().map(|&i| w.map.nodes[i].amount).sum();
+    // (by id: a crystal mined out is gone from the list, and the indices after it move)
+    let left: i32 = ids
+        .iter()
+        .filter_map(|&id| w.map.node(id))
+        .map(|n| n.amount)
+        .sum();
     assert!(left < FIELD_LOW, "mined through the mark: {left}");
     assert_eq!(toasts, 1, "announced once for the field");
     assert!(pings >= 1, "with a ping");

@@ -45,10 +45,47 @@ impl World {
     /// wave while on (until `HOLD_WAVES_MAX` s at most), and meanwhile the opponent's army stops growing at
     /// `GUIDED_ARMY`; released, the first wave goes, and its army grows to `GUIDED_ARMY_AFTER` at most for the rest of
     /// the game (`guided_army_full`). It raises no towers by the clock either (`ai_build`): a Lookout under repair
-    /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level.
+    /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level. Each
+    /// person's nearest open shaft (`guided_shaft`) is explored from the start, so the guide's extractor step can be
+    /// built there straight away (the guide pings it and shows it).
     pub fn guided_hold(&mut self, on: bool) {
         self.hold_waves = on;
         self.guided |= on;
+        if on {
+            for s in 0..self.seats() as u8 {
+                if self.is_ai(s) {
+                    continue;
+                }
+                if let Some((tx, ty)) = self.guided_shaft(s) {
+                    for y in ty - 2..=ty + 3 {
+                        for x in tx - 2..=tx + 3 {
+                            if self.map.in_map(x, y) {
+                                let i = self.map.idx(x, y);
+                                self.explored[s as usize][i] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The open shaft (vent) nearest seat `s`'s start in a straight line (ties by id), its top-left tile: the one the
+    /// guided first game's extractor step leads to (src/client/tutorial.js picks the same).
+    pub fn guided_shaft(&self, s: u8) -> Option<(i32, i32)> {
+        let (bx, by) = *self.map.bases.get(s as usize)?;
+        let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
+        self.map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .min_by(|a, b| {
+                let d = |n: &crate::map::Node| {
+                    jsmath::hypot(n.tx as f64 + 1.0 - cx, n.ty as f64 + 1.0 - cy)
+                };
+                d(a).partial_cmp(&d(b)).unwrap().then(a.id.cmp(&b.id))
+            })
+            .map(|n| (n.tx, n.ty))
     }
 
     /// Whether the waves are held at game time `t` (s).
@@ -117,7 +154,8 @@ impl World {
         self.sweep_point()
     }
 
-    /// Raiders (two or more of the race's raider kind: Raiders, Shrikes) raid the player's harvesters; badly hurt ones
+    /// Raiders (two or more of the race's raider kind: Raiders, Shrikes) raid the player's harvesters, and with none in
+    /// sight an enemy extractor it knows of out on an open shaft (away from every enemy headquarters); badly hurt ones
     /// fly home.
     pub(crate) fn tend_raiders(&mut self, candidates: &[Id], rally: Pt) {
         let mut raiders: Vec<Id> = self
@@ -154,6 +192,8 @@ impl World {
             if hunting {
                 continue;
             }
+            let razing = matches!(u.task, Task::Attack { target, .. }
+                if self.bldg(target).is_some_and(|b| b.vent.is_some()));
             let prey = self
                 .units
                 .iter()
@@ -165,13 +205,42 @@ impl World {
                 })
                 .map(|o| o.id);
             // Harvesters come first: a raider drops whatever it auto-targeted on the way once it sees one.
-            match prey {
-                Some(p) => self.attack_ent(r, p),
+            match prey.or_else(|| self.remote_extractor(r, ux, uy)) {
+                Some(p) if !(razing && self.bldg(p).is_some()) => self.attack_ent(r, p),
+                Some(_) => {}
                 None if idle => self.attack_move(r, tx, ty),
                 None => {}
             }
         }
         self.ai_mut().raiders = keep;
+    }
+
+    /// The enemy extractor nearest (ux, uy) that this seat has seen and that raider `r` can hit, standing on a shaft
+    /// out in the open: more than 12 tiles from every enemy headquarters (a raid, not an attack on a base).
+    fn remote_extractor(&self, r: Id, ux: f64, uy: f64) -> Option<Id> {
+        let cores: Vec<(f64, f64)> = self
+            .bldgs
+            .iter()
+            .filter(|b| self.hostile(b.team) && b.kind.def().hq)
+            .map(|b| (b.x, b.y))
+            .collect();
+        self.ai()
+            .known
+            .iter()
+            .filter_map(|k| self.bldg(k.0))
+            .filter(|b| b.vent.is_some() && self.hostile(b.team) && self.can_hit(r, b.id))
+            .filter(|b| {
+                cores
+                    .iter()
+                    .all(|&(x, y)| dist(b.x, b.y, x, y) > 12.0 * TILE)
+            })
+            .min_by(|a, b| {
+                dist(a.x, a.y, ux, uy)
+                    .partial_cmp(&dist(b.x, b.y, ux, uy))
+                    .unwrap()
+                    .then(a.id.cmp(&b.id))
+            })
+            .map(|b| b.id)
     }
 
     /// Attack a target if this unit's weapon can hit it, otherwise attack-move to where it is.
@@ -1536,6 +1605,61 @@ mod tests {
             .clone();
         w.ai_mut().known.push((core.id, core.x, core.y, true, 0));
         assert_eq!(w.attack_target(), (core.x, core.y));
+    }
+
+    #[test]
+    fn raiders_with_no_worker_in_sight_go_for_a_known_extractor_on_an_open_shaft() {
+        // The player's Pump out on its far shaft, known to the AI; its raiders see no worker: they attack the Pump.
+        // A Pump by the player's Core is no raid's target, and a worker in sight comes first.
+        let mut w = World::new(17, 1);
+        let (bx, by) = w.map.bases[PLAYER as usize];
+        let core = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+        let far = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .max_by(|a, b| {
+                let d = |n: &crate::map::Node| (n.x - core.0).hypot(n.y - core.1);
+                // (the player's far shaft: its own, nearer it than the AI's start)
+                let own = |n: &crate::map::Node| {
+                    let (ox, oy) = w.map.bases[ENEMY as usize];
+                    let o = ((ox as f64 + 2.0) * TILE, (oy as f64 + 2.0) * TILE);
+                    d(n) < (n.x - o.0).hypot(n.y - o.1)
+                };
+                (own(a), -d(a)).partial_cmp(&(own(b), -d(b))).unwrap()
+            })
+            .map(|n| (n.tx, n.ty))
+            .unwrap();
+        let pump = w.make_building(BldgKind::Extractor, PLAYER, far.0, far.1, true);
+        let p = w.bldg(pump).unwrap().clone();
+        assert!(
+            (p.x - core.0).hypot(p.y - core.1) > 12.0 * TILE,
+            "the Pump stands out in the open"
+        );
+        w.ai_turn = ENEMY;
+        let raiders: Vec<Id> = (0..2)
+            .map(|i| w.make_unit(UnitKind::Raider, ENEMY, p.x + 200.0, p.y + 30.0 * i as f64))
+            .collect();
+        w.update_fog();
+        w.ai_mut().known = vec![(pump, p.x, p.y, false, PLAYER)];
+        let rally = Pt { x: p.x, y: p.y };
+        w.tend_raiders(&raiders, rally);
+        for &r in &raiders {
+            assert!(
+                matches!(w.unit(r).unwrap().task, Task::Attack { target, .. } if target == pump),
+                "raider {r} goes for the Pump: {:?}",
+                w.unit(r).unwrap().task
+            );
+        }
+        // A worker it sees comes first.
+        let worker = w.make_unit(UnitKind::Harvester, PLAYER, p.x + 150.0, p.y);
+        w.update_fog();
+        w.tend_raiders(&raiders, rally);
+        assert!(
+            matches!(w.unit(raiders[0]).unwrap().task, Task::Attack { target, .. } if target == worker),
+            "the worker first"
+        );
     }
 
     #[test]

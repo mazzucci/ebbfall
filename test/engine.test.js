@@ -218,8 +218,9 @@ test('a Pump knows its seep and pays salt by itself; harvesters ordered to the s
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
-  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the player's own vent
+  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the nearest, out in the open
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
+  E.debugSpawn(E.PLAYER, 'harvester', vent.x, vent.y + 64); E.step(); // (a scout beside it: a person builds on explored ground)
   assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
   assert.equal(ext.vent, vent);

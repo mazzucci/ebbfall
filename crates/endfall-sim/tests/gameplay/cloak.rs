@@ -174,7 +174,11 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     // (after its Foundry and its second Pump stand, as it raises two sites at a time; and a Turret's price in the bank)
     run(&mut w, 175);
     w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
-    let h = harvesters(&w, ENEMY)[0];
+    // (a miner at its home field: not one out building on an open shaft)
+    let h = harvesters(&w, ENEMY)
+        .into_iter()
+        .find(|&t| matches!(U(&w, t).task, Task::Gather { .. }))
+        .unwrap();
     let (hx, hy) = (U(&w, h).x, U(&w, h).y);
     // (the same world, played the same way: the sim is deterministic)
     let mut quiet = World::new(31, 1);

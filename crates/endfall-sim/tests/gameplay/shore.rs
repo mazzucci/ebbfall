@@ -138,7 +138,8 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
                 );
             }
         }
-        // Each cove and each basin holds two vents and a field within reach of its headquarters.
+        // Each cove and each basin holds a field within reach of its headquarters and no vent (the shafts lie out in
+        // the open, on land: maps.rs).
         for b in m.bases.iter().chain(&m.basins) {
             let near = |ether: bool, r: f64| {
                 m.nodes
@@ -153,8 +154,8 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
                     .count()
             };
             assert!(
-                near(true, 11.0) == 2 && near(false, 9.0) >= 3,
-                "seed {seed}: a start's field and vents at {b:?}"
+                near(true, 11.0) == 0 && near(false, 10.0) >= 5,
+                "seed {seed}: a start's field, and no vent, at {b:?}"
             );
         }
         // The distances in a straight line (PRD, the Shore map: cove to cove about 62; the basins 20 tiles from the
@@ -435,13 +436,13 @@ fn random_play_never_breaks_the_world_on_the_shore() {
 }
 
 /// The balance lab's exposed-income variants (`World::set_shore_field`): `BACK` is every game's map, bit for bit; the
-/// others move only each basin's main field (and its vents with it), alike for both basins, every crystal still within
-/// a walker's reach and none in deep water; `CHANNEL_FAR` differs from `CHANNEL` only in the crystals' distance.
+/// others move only each basin's main field, alike for both basins, every crystal still within a walker's reach and
+/// none in deep water, no vent in a basin; `CHANNEL_FAR` differs from `CHANNEL` only in the crystals' distance.
 #[test]
 fn a_basins_field_moves_only_where_the_lab_asks() {
     use endfall_sim::map::ShoreField;
     let races = [&HUMANS, &VAEL];
-    // a basin's two vents (inside its reef: within 10.5 tiles of its middle), by (tx, ty)
+    // a basin's vents (inside its reef: within 10.5 tiles of its middle), by (tx, ty)
     let vents = |w: &World, b: usize| -> Vec<(i32, i32)> {
         let c = mid(w.map.basins[b]);
         let mut v: Vec<(i32, i32)> = w
@@ -503,12 +504,12 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
             let (a0, r0) = direction(&plain, b);
             let (a1, r1) = direction(&channel, b);
             let (a2, r2) = direction(&far, b);
-            // BACK lies opposite the channel, CHANNEL 40 degrees off it: 140 degrees apart (a tile's rounding aside)
+            // BACK lies square to the channel, CHANNEL 40 degrees off it: 50 degrees apart (a tile's rounding aside)
             let turn = |a: f64, b: f64| {
                 ((a - b).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI).abs()
             };
             assert!(
-                (180.0 - turn(a0, a1).to_degrees() - 140.0).abs() < 12.0,
+                (180.0 - turn(a0, a1).to_degrees() - 50.0).abs() < 12.0,
                 "seed {seed}, basin {b}: the field turned {:.0} degrees",
                 180.0 - turn(a0, a1).to_degrees()
             );
@@ -516,24 +517,18 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
                 turn(a1, a2).to_degrees() > 180.0 - 12.0,
                 "seed {seed}: the far field in the same direction"
             );
+            // (a clump's middle the same distance out: its crystals' middle within a tile and a half of it)
             assert!(
-                (r0 - r1).abs() < 1.0,
+                (r0 - r1).abs() < 1.5,
                 "seed {seed}: the same distance ({r0:.1}, {r1:.1})"
             );
             assert!(
                 r2 > r1 + 5.0,
                 "seed {seed}: the far field farther ({r1:.1}, {r2:.1})"
             );
-            assert_eq!(
-                vents(&channel, b).len(),
-                2,
-                "seed {seed}: the basin's two vents"
-            );
-            assert_eq!(
-                vents(&channel, b),
-                vents(&far, b),
-                "seed {seed}: the same vents"
-            );
+            for w in [&plain, &channel, &far] {
+                assert!(vents(w, b).is_empty(), "seed {seed}: no vent in the basin");
+            }
             for w in [&plain, &channel, &far] {
                 assert_eq!(field(w, b).len(), 7, "seed {seed}: seven crystals");
             }

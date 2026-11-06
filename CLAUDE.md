@@ -122,7 +122,10 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       sweep), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
-                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free;
+                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's salt in an
+                      uneven clump to one flank of its Core, `add_clump`; no base has a vent: two open mine shafts per
+                      start out in the open, 16 to 20 and 24 to 36 tiles from its Core, `place_shafts`, and the centre's
+                      vent where a map has one), occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
                       (`generate_shore`: two starts, each a cove and a reef basin, `basins`; its own generator, so the
@@ -424,11 +427,12 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
   across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
   shallows round it. Starts by people: a seat whose builders are Amph (the Vael) starts in its start's basin
-  (`Map::basins`), the others in its cove; the start a seat does not use stays open ground with its field. A Shore
+  (`Map::basins`), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
+  a cove or a basin: each start's two open shafts lie on land, where both peoples build. A Shore
   with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
   Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
   tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
-  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, behind the Core; `CHANNEL` and
+  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, to the Core's flank; `CHANNEL` and
   `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
   the network and not hashed, `Map::generate_with`).
 - The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
@@ -453,8 +457,10 @@ public/art/           generated atlas.json index + atlas-<n>.png/json pages (Pix
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
-  every 16 ticks on a tick of its own), maps of 2, 4 and 8 starts
-  that are walkable and alike for every start, group paths (one search for a group's order, long searches budgeted,
+  every 16 ticks on a tick of its own; the AI taking the open shafts on its side nearest first and rebuilding a lost
+  extractor), maps of 2, 4 and 8 starts that are walkable and alike for every start (no vent by any main or
+  expansion, two open shafts per start alike for every start, reachable and buildable by both peoples, each base's
+  crystals and salt as before in a clump, not an arc), group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
   amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
   ground and fields, a walker reaching both coves, both basins and every field, short ways between a cove and the basin

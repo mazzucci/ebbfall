@@ -1,13 +1,13 @@
 // The guided first game: a short checklist over the map, one step at a time, driven by what is on the field (no
 // timers, no numbers beyond a count). Each step pulses the button it wants. Race-neutral: kinds come from the faction.
-import { G, UNITS, BUILDINGS, TILE, holdWaves, enemies } from '../engine/index.js';
+import { G, map, UNITS, BUILDINGS, TILE, holdWaves, enemies } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 
 /** The longest the opponent waits for the guided player (s): the sim's HOLD_WAVES_MAX. */
 const HOLD_WAVES = 360;
 import { $, ui, toast } from './ui.js';
 import { myFaction } from './hud.js';
-import { portrait } from './gl/render.js';
+import { portrait, ping, centerOn } from './gl/render.js';
 import { sfx } from './audio.js';
 import { alerts } from './tools.js';
 
@@ -25,6 +25,28 @@ const enemyAtBase = () => {
 
 /** The step after which the opponent may come (the army is trained): its index in `steps()`. */
 const ARMY = 5;
+/** The step that builds the race's extractor on a shaft out in the open: its index in `steps()`. */
+const PUMP = 2;
+/** How often (ms) the guide pings its shaft again while that step waits for the extractor to be placed. */
+const REPING = 8000;
+
+/** The open shaft the guide leads to: the one nearest the player's headquarters (ties by id), the sim's
+ *  World::guided_shaft, which the guided game shows the player from the start. */
+function guideShaft() {
+  const hq = G.bldgs.find(b => b.team === G.me && b.type === myFaction().hq);
+  if (!hq) return null;
+  const d = (n) => Math.hypot(n.x - hq.x, n.y - hq.y);
+  return map.nodes.filter(n => n.type === 'ether').sort((a, b) => d(a) - d(b) || a.id - b.id)[0] || null;
+}
+
+/** Point the player at the guide's shaft: a ping on the map and minimap; `look` centres the camera there too (once,
+ *  as the step starts). */
+function leadToShaft(look) {
+  const n = guideShaft();
+  if (!n) return;
+  ping(n.x, n.y); tut.pinged = performance.now();
+  if (look) centerOn(n.x, n.y);
+}
 
 /** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?]. Mine,
  *  energy, a Pump, the barracks, a line and its anti-air (as many line units as fit under the first cap: six of a
@@ -39,7 +61,7 @@ function steps() {
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} salt again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (energy: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
-    { text: `Build a ${pump.name} on a brine seep: it pays salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
+    { text: `Build a ${pump.name} on the brine seep marked on the map: it pays salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
@@ -51,7 +73,7 @@ function steps() {
 
 /** Start the checklist for a new game (or turn it off). Holds the opponent's first wave until the army is ready. */
 export function startTutorial(on) {
-  Object.assign(tut, { on, step: 0, start: 0, since: 0, stepAt: 0, warned: false });
+  Object.assign(tut, { on, step: 0, start: 0, since: 0, stepAt: 0, warned: false, pinged: 0 });
   $('tut').hidden = !on; clearPulse();
   if (!on) return;
   holdWaves(true);
@@ -78,7 +100,11 @@ export function updateTutorial() {
     if (tut.step === ARMY) { holdWaves(false); tut.since = performance.now(); } // the army is ready: let them come
     if (tut.step === all.length) { tut.on = false; $('tut').hidden = true; clearPulse(); return; }
     show();
+    if (tut.step === PUMP) leadToShaft(true);
   }
+  // (the shaft pinged again now and then until the extractor is placed)
+  const f = myFaction();
+  if (tut.step === PUMP && performance.now() - tut.pinged > REPING && !G.bldgs.some(b => b.team === G.me && b.type === f.ether)) leadToShaft(false);
   clearPulse();
   const want = all[tut.step].want;
   for (const w of typeof want === 'function' ? want() : want) {

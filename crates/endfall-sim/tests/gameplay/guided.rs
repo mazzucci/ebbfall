@@ -24,6 +24,8 @@ struct Guided {
     army_left: usize,
     core: bool,
     depot: bool,
+    /// The guide's Pump, on its open shaft, still standing after the wave.
+    extractor: bool,
 }
 
 fn idle_workers(w: &World) -> Vec<Id> {
@@ -132,8 +134,9 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                     step += 1;
                     step_at = t;
                 } else if !reading && !placed(&w, kind) {
+                    // (the shaft the guide pings, explored from the start by the guided game)
                     let (tx, ty) = if kind.def().on_vent {
-                        player_vent(&w)
+                        w.guided_shaft(PLAYER).unwrap()
                     } else {
                         spot(&w, kind)
                     };
@@ -229,6 +232,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
         army_left: army(&w).len(),
         core: w.bldg(lighthouse).is_some(),
         depot: done(&w, BldgKind::Depot).is_some(),
+        extractor: done(&w, BldgKind::Extractor).is_some(),
     };
     (g, w)
 }
@@ -362,6 +366,10 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
             "{ctx}: the Lighthouse and the Windmast stand"
         );
         assert!(
+            g.extractor,
+            "{ctx}: the Pump on its open shaft survives the first wave"
+        );
+        assert!(
             g.army_left >= SOLDIERS + ANTI_AIR - 2,
             "{ctx}: most of the guide's army lives"
         );
@@ -374,6 +382,10 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
         assert!(
             won.is_some_and(|t| t - from < 360.0),
             "{ctx}: the guide's last step wins the game within 6 minutes (from {from:.0} s): {won:?}"
+        );
+        assert!(
+            done(&w, BldgKind::Extractor).is_some(),
+            "{ctx}: the Pump on its open shaft stands at the end"
         );
     }
 }

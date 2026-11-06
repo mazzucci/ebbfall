@@ -166,6 +166,9 @@ test('a Pump placed on a seep pays salt by itself; workers sent to it stay off i
     let s = await d.state();
     const core = coreOf(s);
     const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+    // (the nearest seep lies out in the open, past the Core's sight: a scout of ours beside it first)
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'harvester', x, y), [vent.x, vent.y + 64]);
+    await d.skip(1);
     const h = mine(s, 'harvester');
     // Click a little off the seep: placement snaps onto it.
     await d.clickEntity(h[0].id); await d.key('b'); await d.key('u');
@@ -504,8 +507,10 @@ test('a resource field can be selected to see what is left (desktop click, phone
       assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (salt )?left`), 'shows what is left');
       assert.equal((await d.card()).length, 0, 'nothing to command on a field');
       assert.match(await d.hudText('#selName', /Salt field/), /Salt field/);
-      // Seeps too (the player's own: in sight).
+      // Seeps too (the nearest, out in the open: a scout of ours beside it).
       const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'harvester', x, y), [vent.x, vent.y + 96]);
+      await d.skip(1);
       await d.clickWorld(vent.x, vent.y);
       assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the seep is selected');
       assert.match(await d.hudText('#selName', /Brine seep/), /Brine seep/);
@@ -1698,7 +1703,17 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Windmast' });
     await d.hudText('#tut', /3\/7/);
-    assert.match(await d.page.locator('#tut').textContent(), /Build a Pump on a brine seep/, 'then a Pump');
+    assert.match(await d.page.locator('#tut').textContent(), /Build a Pump on the brine seep marked on the map/, 'then a Pump');
+    // The guide leads to the open seep nearest the Core: shown (explored), and the camera there once.
+    const shaft = await d.eval(() => {
+      const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), d = (n) => Math.hypot(n.x - me.x, n.y - me.y);
+      const n = endfall.map.nodes.filter(n => n.type === 'ether').sort((a, b) => d(a) - d(b) || a.id - b.id)[0];
+      const c = endfall.cam, v = endfall.view;
+      return { far: d(n) / 32, explored: endfall.G.explored[n.ty * endfall.engine.MW + n.tx] === 1, off: Math.hypot(c.x + v.w / c.zoom / 2 - n.x, c.y + v.h / c.zoom / 2 - n.y) / 32 };
+    });
+    assert.ok(shaft.far > 12, `the seep lies out past the base (${shaft.far.toFixed(1)} tiles)`);
+    assert.ok(shaft.explored, 'the guide\'s seep is shown from the start');
+    assert.ok(shaft.off < 3, `the camera went to it (${shaft.off.toFixed(1)} tiles off)`);
     // The opponent waits: by 5:30, with the army not ready, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
     assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');

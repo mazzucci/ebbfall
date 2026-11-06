@@ -801,10 +801,27 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
     }
 }
 
+/// The open shafts on `seat`'s side of a two-start map: nearer its start than the other's.
+fn own_shafts(w: &World, seat: u8) -> Vec<Id> {
+    let start = |s: u8| {
+        let (x, y) = w.map.bases[s as usize];
+        (x as f64 + 2.0, y as f64 + 2.0)
+    };
+    let d = |n: &endfall_sim::map::Node, (x, y): (f64, f64)| {
+        (n.tx as f64 + 1.0 - x).hypot(n.ty as f64 + 1.0 - y)
+    };
+    w.map
+        .nodes
+        .iter()
+        .filter(|n| n.ether && d(n, start(seat)) < d(n, start(1 - seat)))
+        .map(|n| n.id)
+        .collect()
+}
+
 #[test]
-fn the_ai_plants_pumps_at_its_expansion_once_its_mains_are_taken() {
-    // With both seeps of its main taken (here by the player's Pumps, which nothing attacks), the AI plants its next
-    // Pump at its natural once its Core stands there.
+fn the_ai_builds_on_when_the_player_takes_its_shafts_and_never_builds_on_anothers() {
+    // Every shaft on the AI's side gets a player Pump (unkillable): none left for it. Its build order goes on, and
+    // it never puts an extractor on a shaft another seat's building stands on, nor on the player's side.
     let mut w = World::new(33, 1);
     let c = w
         .bldgs
@@ -813,62 +830,17 @@ fn the_ai_plants_pumps_at_its_expansion_once_its_mains_are_taken() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    let (ex, ey) = core(&w, ENEMY);
-    let home: Vec<(Id, i32, i32)> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| n.ether && (n.tx - ex).abs().max((n.ty - ey).abs()) <= 10)
-        .map(|n| (n.id, n.tx, n.ty))
-        .collect();
-    assert_eq!(home.len(), 2, "two seeps by the main");
-    for &(_, tx, ty) in &home {
+    let taken = own_shafts(&w, ENEMY);
+    assert_eq!(taken.len(), 2, "two shafts on its side");
+    for &v in &taken {
+        let (tx, ty) = {
+            let n = w.map.node(v).unwrap();
+            (n.tx, n.ty)
+        };
         let b = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
         let b = w.bldgs.iter_mut().find(|x| x.id == b).unwrap();
         b.hp = 1e9;
         b.maxhp = 1e9;
-    }
-    run(&mut w, 840);
-    let tapped = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY && b.done && b.vent.is_some())
-        .count();
-    assert!(tapped >= 1, "a Pump on another seep");
-    assert!(
-        w.bldgs
-            .iter()
-            .filter(|b| b.team == ENEMY && b.done && b.kind.def().hq)
-            .count()
-            >= 2,
-        "its natural taken"
-    );
-}
-
-#[test]
-fn the_ai_keeps_building_when_the_player_takes_its_home_vent() {
-    let mut w = World::new(33, 1);
-    let c = w
-        .bldgs
-        .iter_mut()
-        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
-        .unwrap();
-    c.hp = 1e9;
-    c.maxhp = 1e9;
-    // Every vent within 16 tiles of the AI's core gets a player Extractor: none left at home.
-    let (ex, ey) = core(&w, ENEMY);
-    let taken: Vec<(i32, i32)> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| {
-            n.ether && (((n.tx - ex - 2).pow(2) + (n.ty - ey - 2).pow(2)) as f64).sqrt() < 18.0
-        })
-        .map(|n| (n.tx, n.ty))
-        .collect();
-    assert!(!taken.is_empty());
-    for (tx, ty) in taken {
-        w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
     }
     run(&mut w, 720);
     let rax = w
@@ -877,6 +849,12 @@ fn the_ai_keeps_building_when_the_player_takes_its_home_vent() {
         .filter(|b| b.team == ENEMY && b.kind == BldgKind::Barracks)
         .count();
     assert!(rax >= 2, "the build order goes on: {rax} Barracks");
+    assert!(
+        !w.bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.kind.def().on_vent),
+        "no extractor of its own: its side's shafts are the player's, the player's side is not its"
+    );
 }
 
 #[test]
@@ -1275,9 +1253,12 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
         [0, 1].map(|t| w.res[t][0] - start[t][0])
     };
     let (medium, brutal) = (gathered(1), gathered(3));
-    assert_eq!(
-        medium[PLAYER as usize], brutal[PLAYER as usize],
-        "the player gathers alike"
+    // (alike but for a trip or two: the world's one RNG times every unit's route refresh, and the AI's faster miners
+    // draw from it at other moments)
+    let (pm, pb) = (medium[PLAYER as usize], brutal[PLAYER as usize]);
+    assert!(
+        (pm - pb).abs() <= pm / 30,
+        "the player gathers alike: {pm} and {pb}"
     );
     let (me, mp) = (
         medium[ENEMY as usize] as f64,
@@ -1659,29 +1640,40 @@ fn brutal_trains_its_workers_before_its_buildings() {
 }
 
 #[test]
-fn the_ai_plants_a_pump_on_both_seeps_of_its_main() {
-    // Every main has two seeps. The AI plants a Pump on each by 4:00 (Medium), and nobody works them (a Pump pays by
-    // itself). Easy keeps to one until its natural is due (`Diff::vents_from`).
-    let home_vents = |w: &World, seat: u8| -> Vec<Id> {
-        let c = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == seat && b.kind.def().hq)
-            .map(|b| (b.tx, b.ty))
-            .unwrap();
-        w.map
-            .nodes
-            .iter()
-            .filter(|n| n.ether && (n.tx - c.0 - 1).abs().max((n.ty - c.1 - 1).abs()) <= 10)
-            .map(|n| n.id)
-            .collect()
-    };
+fn the_ai_takes_the_two_open_shafts_on_its_side_nearest_first() {
+    // No base has a vent of its own: two open shafts lie out past every main. The AI plants an extractor on each by
+    // 4:30 (Medium), the nearer one (by its workers' walk) first, and nobody works them (it pays by itself). Easy
+    // keeps to one until its natural is due (`Diff::vents_from`).
     let rig_of = |w: &World, seat: u8, v: Id| {
         w.map
             .node(v)
             .and_then(|n| n.extractor)
             .and_then(|x| w.bldg(x))
             .is_some_and(|b| b.team == seat && b.done)
+    };
+    // Steps from beside its Core to beside a shaft, over free ground.
+    let walk = |w: &World, seat: u8, v: Id| -> u32 {
+        let (bx, by) = w.map.bases[seat as usize];
+        let from = w.map.nearest_free(bx + 1, by + 4, 6).unwrap();
+        let mut d = vec![u32::MAX; w.map.rock.len()];
+        let mut todo = std::collections::VecDeque::from([from]);
+        d[w.map.idx(from.0, from.1)] = 0;
+        while let Some((x, y)) = todo.pop_front() {
+            let here = d[w.map.idx(x, y)];
+            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
+                if !w.map.blocked(nx, ny) && d[w.map.idx(nx, ny)] == u32::MAX {
+                    d[w.map.idx(nx, ny)] = here + 1;
+                    todo.push_back((nx, ny));
+                }
+            }
+        }
+        let n = w.map.node(v).unwrap();
+        (-1..=2)
+            .flat_map(|dy| (-1..=2).map(move |dx| (n.tx + dx, n.ty + dy)))
+            .filter(|&(x, y)| w.map.in_map(x, y))
+            .map(|(x, y)| d[w.map.idx(x, y)])
+            .min()
+            .unwrap()
     };
     for (seed, kind, races) in [
         (3, MapKind::Standard, [&HUMANS, &VAEL]),
@@ -1692,99 +1684,97 @@ fn the_ai_plants_a_pump_on_both_seeps_of_its_main() {
         let mut w = World::with_setup(seed, 1, kind, false, races);
         w.set_ai_seats([true, true]);
         w.hold_waves = true; // (its economy, not a fight)
-        let homes = [home_vents(&w, 0), home_vents(&w, 1)];
-        for _ in 0..30 * 240 {
+        let mut own = [own_shafts(&w, 0), own_shafts(&w, 1)];
+        for seat in 0..2u8 {
+            own[seat as usize].sort_by_key(|&v| (walk(&w, seat, v), v));
+        }
+        let mut first: [Option<Id>; 2] = [None, None];
+        for _ in 0..30 * 270 {
             w.step();
             w.events.clear();
+            for seat in 0..2u8 {
+                if first[seat as usize].is_none() {
+                    first[seat as usize] = w
+                        .bldgs
+                        .iter()
+                        .find(|b| b.team == seat && b.kind.def().on_vent)
+                        .and_then(|b| b.vent);
+                }
+            }
         }
         for seat in 0..2u8 {
             let ctx = format!("seed {seed} {kind:?} seat {seat}");
+            let own = &own[seat as usize];
+            assert_eq!(own.len(), 2, "{ctx}: two shafts on its side");
             assert_eq!(
-                homes[seat as usize].len(),
-                2,
-                "{ctx}: two vents by the main"
+                first[seat as usize],
+                Some(own[0]),
+                "{ctx}: the nearer shaft first"
             );
-            for &v in &homes[seat as usize] {
-                assert!(rig_of(&w, seat, v), "{ctx}: a Pump on seep {v} by 4:00");
+            for &v in own {
+                assert!(
+                    rig_of(&w, seat, v),
+                    "{ctx}: an extractor on shaft {v} by 4:30"
+                );
             }
+            assert!(
+                w.units.iter().all(|u| u.team != seat
+                    || !matches!(u.task, Task::Gather { node, .. } if own.contains(&node))),
+                "{ctx}: nobody works them"
+            );
         }
     }
-    // Easy: one Pump until its natural is due.
+    // Easy: one until its natural is due.
     let mut w = World::with_setup(3, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
     w.set_ai_seats([true, true]);
     w.hold_waves = true;
     run(&mut w, 300);
     for seat in 0..2u8 {
-        let rigs = home_vents(&w, seat)
+        let rigs = own_shafts(&w, seat)
             .iter()
             .filter(|&&v| rig_of(&w, seat, v))
             .count();
-        assert_eq!(rigs, 1, "Easy seat {seat}: one Pump at 5:00");
+        assert_eq!(rigs, 1, "Easy seat {seat}: one extractor at 5:00");
     }
 }
 
 #[test]
-fn the_ai_takes_an_expansions_vent_only_once_its_core_stands_there() {
-    // On these maps a natural's vent lies within 16 tiles of a main's Core, where the AI looks for its main's vents:
-    // it must wait for its Core at the natural, not raise a third refinery out there before.
-    let core_at = |w: &World, seat: u8, (x, y): (f64, f64), r: f64| {
-        w.bldgs.iter().any(|b| {
-            b.team == seat
-                && b.done
-                && b.kind.def().hq
-                && ((b.tx as f64 + 1.5 - x).powi(2) + (b.ty as f64 + 1.5 - y).powi(2)).sqrt() < r
-        })
-    };
-    for (seed, kind) in [(92, MapKind::Standard), (32, MapKind::OpenPlains)] {
-        for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
-            let mut w = World::with_setup(seed, 1, kind, false, races);
-            w.set_ai_seats([true, true]);
-            w.hold_waves = true;
-            let ctx = format!("seed {seed} {kind:?} {}", races[0].name);
-            // (the case: an expansion's vent within 16 tiles of a main's Core)
-            let near_main = w.map.nodes.iter().any(|n| {
-                n.ether
-                    && w.map.expansions.iter().any(|&(ex, ey)| {
-                        ((n.tx as f64 + 0.5 - ex).powi(2) + (n.ty as f64 + 0.5 - ey).powi(2)).sqrt()
-                            <= 7.5
-                    })
-                    && w.map
-                        .bases
-                        .iter()
-                        .any(|b| ((n.tx - b.0 - 2) as f64).hypot((n.ty - b.1 - 2) as f64) < 16.0)
-            });
-            assert!(near_main, "{ctx}: a natural's vent within the main's reach");
-            // Each refinery when it is first seen, a quarter-second after it is placed: one may outlive its Core (seed
-            // 92's Standard: a Siphon raised at 512 s once the natural's Conflux stood, the Conflux razed at 555 s).
-            let mut seen = std::collections::BTreeSet::new();
-            for _ in 0..30 * 600 / 15 {
-                for _ in 0..15 {
-                    w.step();
-                    w.events.clear();
-                }
-                for b in w.bldgs.iter().filter(|b| b.kind.def().on_vent) {
-                    if !seen.insert(b.id) {
-                        continue;
-                    }
-                    let Some(v) = b.vent.and_then(|v| w.map.node(v)) else {
-                        continue;
-                    };
-                    let (vx, vy) = (v.tx as f64 + 0.5, v.ty as f64 + 0.5);
-                    for &(ex, ey) in &w.map.expansions {
-                        if ((vx - ex).powi(2) + (vy - ey).powi(2)).sqrt() <= 7.5 {
-                            assert!(
-                                core_at(&w, b.team, (ex, ey), 16.0),
-                                "{ctx}: seat {} raised a refinery on the expansion vent at {},{} at {:.0}s with no Core there",
-                                b.team,
-                                v.tx,
-                                v.ty,
-                                w.time
-                            );
-                        }
-                    }
-                }
+fn the_ai_rebuilds_a_lost_extractor() {
+    // Its first extractor, out on its shaft, is destroyed: it raises another there (the nearest free shaft again),
+    // on the same terms as the first, within a minute and a half.
+    for races in [[&HUMANS, &HUMANS], [&VAEL, &VAEL]] {
+        let mut w = World::with_setup(3, 1, MapKind::Standard, false, races);
+        w.set_ai_seats([true, true]);
+        w.hold_waves = true;
+        let mut lost = None;
+        for _ in 0..30 * 300 {
+            w.step();
+            w.events.clear();
+            if let Some(b) = w
+                .bldgs
+                .iter()
+                .find(|b| b.team == ENEMY && b.done && b.kind.def().on_vent)
+            {
+                lost = Some((b.id, b.vent.unwrap()));
+                break;
             }
         }
+        let (id, vent) = lost.expect("an extractor by 5:00");
+        w.damage(id, 1e9, None);
+        assert!(w.bldg(id).is_none(), "destroyed");
+        let mut again = false;
+        for _ in 0..30 * 90 {
+            w.step();
+            w.events.clear();
+            if w.map.node(vent).and_then(|n| n.extractor).is_some_and(|x| {
+                w.bldg(x)
+                    .is_some_and(|b| b.team == ENEMY && b.kind.def().on_vent)
+            }) {
+                again = true;
+                break;
+            }
+        }
+        assert!(again, "{}: an extractor on its shaft again", races[0].name);
     }
 }
 

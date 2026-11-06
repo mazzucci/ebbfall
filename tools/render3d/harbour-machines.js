@@ -6,15 +6,14 @@
 // box with a net; the three never differ by size alone (legs, a long bar, round wheels).
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
+import { torus } from './harbour.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
-const torus = (r, t, seg = 24, arc = Math.PI * 2) => memo(`mt${r},${t},${seg},${arc}`, () => new THREE.TorusGeometry(r, t, 8, seg, arc));
 /** A half-cylinder shell (a canvas hood) with its axis along z, open side down. */
 const hood = (r, len, seg = 16) => memo(`mh${r},${len},${seg}`, () => { const g = new THREE.CylinderGeometry(r, r, len, seg, 1, true, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.computeVertexNormals(); return g; });
 const halfDisc = (r, seg = 16) => memo(`md${r},${seg}`, () => new THREE.CircleGeometry(r, seg, 0, Math.PI));
 const scaled = (pts, kx, kz, dx = 0) => pts.map(([x, z]) => [x * kx + dx, z * kz]);
-const lerp = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 
 /** A cart wheel with its axle along z: a pale timber disc inside an iron tyre (so it reads as a disc from the side),
  *  a dark hub and three dark spokes on the outer face turning with `turn`. `side` says which face is outside; `disc`
@@ -34,7 +33,7 @@ function barrel(g, M, x0, len, r0, r1, y = 0, z = 0) {
 /** Breakwater (vanguard, heavy): a boat's hull walking on four iron legs, its stem ahead: a tarred hull with plank
  *  seams, iron straps across it and an iron gunwale, the bow and stern decks bare tar so the dark hull and the point
  *  show in every facing; a canvas tarp humped over midships only (the pale top), ribbed on rope hoops with a seam
- *  along its ridge and a dark hem, a team panel across its middle between ink seams; a team strake along both hull
+ *  along its ridge and a dark hem, pale forward and team aft of an ink bar; a team strake along both hull
  *  sides between ink lines and the aft deck painted team inside an ink seam; a short splash mortar on the stem. The
  *  legs are dark iron with team knee caps and team-topped foot pads (pale shins read as a second pale mass in
  *  grey). Frames 0-1 the walk (diagonal pairs stride), 2 settling (the hull coming down, the spades swinging out),

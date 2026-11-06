@@ -26,12 +26,13 @@ Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
-  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre) sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre)
+  sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
 });
 // Harbour machines (step 1, harbour-machines.js): the Breakwater (0-1 the walk, 2 settling, 3 beached: look.js
 // UNIT_POSE), the Anchor Gun (0-1 travelling, 2 half, 3 anchored) and the Netter (two frames, its wheels turning).
 Object.assign(UNIT_MODELS, {
-  vanguard: { build: breakwater, frames: 4, r: 22, h: 20 },   // (r 22: the spades and legs splay past 17 beached and in some walk facings; the bow 14.4)
+  vanguard: { build: breakwater, frames: 4, r: 22, h: 20 },   // (r 22: the spades and legs splay past 17 beached and in some walk facings; the mortar's muzzle about 16.7 ahead)
   siegeTank: { build: anchorGun, frames: 4, r: 31, h: 24 },   // (r 31: the muzzle reaches 24.4 ahead, the dropped anchor about 29 astern; h 24: raised)
   interceptor: { build: netter, frames: 2, r: 14, h: 21 },    // (r 14: the reel is 15.8 across; h 21: the tubes raised)
 });

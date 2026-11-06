@@ -42,8 +42,8 @@ function arcBand(C, a0, a1, ro, ri, n = 16) {
   for (let i = n; i >= 0; i--) pts.push(at(i / n, ri(i / n)));
   return pts;
 }
-/** A petal: an ellipse rooted at the origin, `l` long along +x, `w` wide. */
-const petal = (l, w, n = 14) => { const p = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; p.push([l / 2 - Math.cos(a) * l / 2, Math.sin(a) * w / 2]); } return p; };
+/** A petal: an ellipse rooted at the origin, `l` long along +x, `w` wide; `k` narrows it towards the tip (a point). */
+const petal = (l, w, n = 14, k = 0) => { const p = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = l / 2 - Math.cos(a) * l / 2; p.push([x, Math.sin(a) * w / 2 * (1 - k * x / l)]); } return p; };
 
 /** Needle (melee): a sickle, point first, all pale: a pearl blade curved on an arc (R 13, 110 degrees, 4.8 wide at
  *  the hilt drawn to a keen point), a lighter ridge along its outer edge and only a hairline of ink along the inner
@@ -82,9 +82,10 @@ export function tender(M, f) {
   for (let k = 0; k < 6; k++) {                                                               // the outer petals: broad enough to touch, nearly flat: a solid scalloped disc 23 across, never a spark
     const a = k / 6 * Math.PI * 2 + Math.PI / 6 + (f % 2) * 0.04, p = grp(), team = k % 3 === 1;   // (team: two opposite petals)
     p.position.set(Math.cos(a) * 2.2, 0.5 + (k % 2) * 0.35, Math.sin(a) * 2.2); p.rotation.set(0, -a, 0); p.rotateZ(0.16); b.add(p);
-    add(p, plate(petal(9.4, 7.6), 1, 0.35), M.shell, 0, -0.5, 0);
-    if (team) { add(p, plate(scaled(petal(8.4, 6.7), 1, 1, 0.6), 0.6, 0.15), M.glaze, 0, 0.4, 0); add(p, plate(scaled(petal(9.1, 7.4), 1, 1, 0.25), 0.3, 0.1), M.inkSeam, 0, 0.3, 0); } // its glaze, an ink seam showing round it
-    else add(p, plate(scaled(petal(5.4, 1.3), 1, 1, 2.8), 0.4, 0.1), M.shellDeep, 0, 0.4, 0);   // a crease down the pearl ones
+    // (round 6: narrow, pointed petals with clear gaps between them, so the silhouette is a six-pointed flower, never a disc)
+    add(p, plate(petal(9.8, 5, 14, 0.55), 1, 0.35), M.shell, 0, -0.5, 0);
+    if (team) { add(p, plate(scaled(petal(9.2, 4.6, 14, 0.55), 1, 1, 0.5), 0.6, 0.15), M.glaze, 0, 0.4, 0); add(p, plate(scaled(petal(9.6, 4.9, 14, 0.55), 1, 1, 0.2), 0.3, 0.1), M.inkSeam, 0, 0.3, 0); } // its glaze, an ink seam showing round it
+    else add(p, plate(scaled(petal(5.6, 1.1, 14, 0.5), 1, 1, 2.8), 0.4, 0.1), M.shellDeep, 0, 0.4, 0);   // a crease down the pearl ones
   }
   for (let k = 0; k < 3; k++) {                                                               // the inner cup: three steeper, lighter petals round the light
     const a = k / 3 * Math.PI * 2 + Math.PI / 2, p = grp();

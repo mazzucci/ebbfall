@@ -25,12 +25,12 @@ const saddle = (r, t, seg = 28) => memo(`sd${r},${t},${seg}`, () => { const g = 
  *  low with its shadow right beneath it: not a dart. */
 export function glint(M, f) {
   const g = grp(), b = grp(); b.position.y = 5 + (f % 2) * 0.7;
-  add(b, sph(4.8, 22, 16), M.shell, 0, 0, 0).scale.set(1.05, 0.9, 1);                        // the drop's head
-  add(b, cone(4.0, 7, 16), M.shell, -6.4, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, blunt (7 long since step 1: in the white seat a short tail left a round eye, the Lens)
-  add(b, sph(4.5, 18, 12), M.ink, 0.1, -1.4, 0).scale.set(1.2, 0.7, 1);                      // the ink belly
+  add(b, sph(4.8, 22, 16), M.shellLight, 0, 0, 0).scale.set(1.05, 0.9, 1);                   // the drop's head, the lightest pearl: pale from above (a visible belly made it a dark blob, the Undertow)
+  add(b, cone(4.0, 7, 16), M.shellLight, -6.4, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, blunt (7 long since step 1: in the white seat a short tail left a round eye, the Lens)
+  add(b, sph(4.2, 18, 12), M.ink, 0.1, -2, 0).scale.set(0.95, 0.6, 0.82);                     // the ink belly, tucked under the head: seen from the side and the south, never from above
   add(b, sph(3.1, 18, 12), M.glaze, -1.7, 2.7, 0).scale.set(1.15, 0.55, 1.05);                 // the team patch: one smooth dome on the back, no bars; pearl shows round it
-  add(b, sph(3.75, 18, 12), M.inkSeam, -1.7, 2.35, 0).scale.set(1.15, 0.5, 1.05);             // the ink seam round its edge, wide enough to survive 1x
-  add(b, sph(2.1, 12, 10), M.inkSeam, 4.1, 0.6, 0);                                           // the ink socket
+  add(b, sph(3.4, 18, 12), M.inkSeam, -1.7, 2.45, 0).scale.set(1.15, 0.5, 1.05);              // the ink seam round its edge, a thin ring
+  add(b, sph(1.8, 12, 10), M.inkSeam, 4.3, 0.6, 0);                                           // the ink socket, small
   deeplight(b, M, 1.5, 4.9, 0.7, 0);                                                         // the one light, big and lit, at the tip
   add(b, sph(0.95, 8, 6), M.deepCore, 5.6, 0.9, 0);                                           // its pale heart, forward where the camera sees it
   add(b, sph(0.5, 8, 6), M.deepWhite, 6.1, 1.1, 0.5);                                          // a brighter centre that survives 1x
@@ -45,19 +45,19 @@ export function glint(M, f) {
  *  beneath it. Never the Glint: a dark hollow with a bright centre against the Glint's solid pale drop. */
 export function lens(M, f) {
   const g = grp(), b = grp(); b.position.y = 9 + (f % 2) * 0.7; b.rotation.z = -0.16;
-  add(b, cyl(7.2, 7.2, 1.4, 40), M.ink, 0, 0, 0);                                           // the disc
-  ring(b, 4.6, 0.22, M.shellDark, 0.72, { seg: 36 });                                         // the etched ring
-  ring(b, 7.6, 1.35, M.ring, 0, { seg: 44 });                                                 // the pearl rim
-  ring(b, 7.6, 0.9, M.shellDark, -0.8, { seg: 44 });
+  add(b, cyl(7.6, 7.6, 1.4, 40), M.ink, 0, 0, 0);                                           // the disc: the glass big and dark, the one "eye" (a narrow pupil in a wide pale rim read as a pebble, the Glint)
+  ring(b, 5, 0.18, M.shellDeep, 0.72, { seg: 36 });                                           // the etched ring, faint
+  ring(b, 7.9, 1.0, M.ring, 0, { seg: 44 });                                                  // the pearl rim, narrow
+  ring(b, 7.9, 0.8, M.shellDark, -0.8, { seg: 44 });
   for (const a0 of [0.35, Math.PI + 0.35]) {                                                  // team arcs: bow and stern
-    ring(b, 7.6, 1.45, M.glaze, 0.08, { arc: Math.PI * 0.56, a0, seg: 44 });
-    ring(b, 7.6, 1.52, M.inkSeam, 0.1, { arc: 0.06, a0: a0 - 0.06, seg: 44 });                // ink seams at the arc's ends
-    ring(b, 7.6, 1.52, M.inkSeam, 0.1, { arc: 0.06, a0: a0 + Math.PI * 0.56, seg: 44 });
-    ring(b, 6.2, 0.3, M.inkSeam, 1.3, { arc: Math.PI * 0.56, a0, seg: 44 });                  // and along its inner shoulder
+    ring(b, 7.9, 1.1, M.glaze, 0.08, { arc: Math.PI * 0.56, a0, seg: 44 });
+    ring(b, 7.9, 1.16, M.inkSeam, 0.1, { arc: 0.06, a0: a0 - 0.06, seg: 44 });                // ink seams at the arc's ends
+    ring(b, 7.9, 1.16, M.inkSeam, 0.1, { arc: 0.06, a0: a0 + Math.PI * 0.56, seg: 44 });
+    ring(b, 6.85, 0.25, M.inkSeam, 1.05, { arc: Math.PI * 0.56, a0, seg: 44 });               // and along its inner shoulder
   }
   deeplight(b, M, 1.3, 0, 1.3, 0);                                                           // the light in the middle
   for (let k = 0; k < 3; k++) {                                                               // three pods under the rim
-    const a = k / 3 * Math.PI * 2 + Math.PI, x = Math.cos(a) * 8.2, z = Math.sin(a) * 8.2;
+    const a = k / 3 * Math.PI * 2 + Math.PI, x = Math.cos(a) * 8.5, z = Math.sin(a) * 8.5;
     add(b, rbox(3.2, 2.2, 2.6, 0.8), M.shell, x, -2, z, 0, -a, 0);
     add(b, rbox(2.8, 0.5, 2.3, 0.2), M.glaze, x * 1.05, -0.85, z * 1.05, 0, -a, 0);          // team cap
     add(b, rbox(3, 0.2, 2.5, 0.1), M.inkSeam, x * 1.05, -1.2, z * 1.05, 0, -a, 0);

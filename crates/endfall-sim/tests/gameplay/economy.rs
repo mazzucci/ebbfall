@@ -235,7 +235,7 @@ fn a_full_core_reports_supply_blocked() {
         .expect("the tenth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Out of population. Build a Cottage.".to_string())
+        Err("Population full. Build a Cottage.".to_string())
     );
 }
 

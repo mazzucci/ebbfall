@@ -137,7 +137,7 @@ impl World {
                 format!("Population at its limit ({limit}): no more until some fall")
             } else {
                 format!(
-                    "Out of population. Build a {}.",
+                    "Population full. Build a {}.",
                     self.factions[team as usize].supply.def().label()
                 )
             });

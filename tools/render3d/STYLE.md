@@ -311,3 +311,46 @@ Glint (a pale drop with a tail, hovering low, its shadow beneath) is long, strip
 it and its shadow far off.
 
 Cells (`main.js`): the Kite r 19 h 18 (its tail reaches 17.5 aft), the Spyglass r 11 h 30, the Windjammer r 25 h 40.
+
+## Vael buildings (step 1, `vael-buildings.js`)
+
+The seven buildings after the Tidewell, on the Vael rules above: a three-lobed pearl plinth, an ink core, pearl
+shells, a few small deeplights (r 1.4-2), team glaze between ink seams on at least a sixth of the footprint and
+never only on the signature. Each roof is its own shape from above, and none is a ring of alternating glaze bands
+(the Tidewell's three arcs read as a lifebuoy in some seats): team glaze here is a skirt round a drum, a sleeve, a
+cap, a bar or one band, each between `inkSeam` edges. The camera (55 degrees, from the south) shows a face whose
+normal points up or south; a plate leaning towards the camera shows only its edge, since its back faces down: so
+the Sunpetal's petals splay a radian past vertical. Nothing is flat black: faces are violet glass with a sweep,
+mouths and pools carry a sheen or a light. Helpers in the file: `plinth`, `skirt` (a glaze band round a drum
+between seams), `hoop` (a flat glaze ring between seams), `upright` (an outline stood up in a group), `tentacle`
+(capsule segments along a curve, some sleeved), `ribbon` (a flat band along a helix, the Gyre's rail). The family's
+materials: `darkGlass` (the Glasshouse's panes), `petalGlass` (deep violet glass with a sheen, the Sunpetal's
+faces), `brine` (murky grey-teal, the Siphon's seep), `mouth` (dark violet lit from within, the Anemone's),
+`violetWater` (the Cradle's basin, deep violet, never black), `bud` (violet under a pearl sheen, the Cradle's bud).
+
+Round 1's blind test swapped the Sunpetal and the Anemone (pointed petals read as the aggressive one, seven straight
+lit tentacles as a flower), the Cradle (a raised lid read as a deck and a mast) and the Gyre (a widening coil read as
+a hoop over a post), and saw three "dark discs in pale rims" (Tidewell, Siphon, Darkwater): hence round 2's shapes.
+Round 2 swapped the Cradle and the Darkwater (tall curling arms over a pool read as an egg hatching, a dark pool
+with a pale pod as dark water with a moon), read the Siphon's funnel head as a turret or a propeller and the
+Sunpetal's wedge-shaped bars as a paw pad: hence round 3's Darkwater as the flat ink pool with thin arms leaning
+out, the Cradle's violet basin with a big bud and ribs splaying from a flat hinge, the Siphon's plain lit head, and
+the Sunpetal's pentagonal hub ring.
+
+| kind (key)            | signature shape, from above                                                                 | team glaze                                                                 | the light(s)                             |
+|-----------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|------------------------------------------|
+| Sunpetal (`spire`, 2x2) | a flower: five broad rounded pearl petals (27 long, 21 wide, round tips) spaced evenly round an ink core, each splayed 1.0 rad past vertical so its inner face shows from above: violet glass (`petalGlass`) in a pearl rim; one petal north | a bar of even width across each petal's face just above the hub; a pentagonal hub ring (a five-sided torus, a corner to each petal) on the core's top; a skirt round the ink core | one, on the pistil at the heart (r 1.9) |
+| Siphon (`siphon`, 2x2, on a seep) | a small murky pool (`brine`, r 15, no rings) in a wide team collar, a thick pearl straw (r 4.4-4.9) bent across it: up from the seep, ribbed at the bend (slightly), leaning east to a plain rounded pearl head with one light: no funnel, no pinwheel; three pearl stakes | the collar round the seep (a hoop, 4 wide), a sleeve on the straw's lower half, a band round the basin, caps on the stakes | one at the head (r 1.3), a small one where the straw drinks (r 1.1) |
+| Cradle (`kiln`, 3x3)  | a scallop with something growing in it: a fan-shaped basin of deep violet water (an arc of 237 degrees, r 30, closed to the north by a flat hinge bar 34 wide), nine pearl ribs splaying from the hinge across the floor to a pearl rim wall with ridges and a knob on each; one big bud standing in the water (r 8, 21 tall: violet under a pearl sheen, a pearl crown, a faint glow) | the hinge bar, a hoop along the rim wall's crest, a band round the wall's foot, caps on the straight edges, the bud's collar | one, at the bud's foot (r 1.5) |
+| Glasshouse (`loom`, 2x2) | a dome of dark glass in pearl ribs (eight meridians and one hoop) on an ink drum, a pearl crown; three buttresses | a band round the dome's foot, a skirt round the drum, the three buttresses (glaze blocks under pearl caps) | one, on the crown (r 1.2) |
+| Anemone (`ward`, 2x2) | an anemone that stings: five soft pearl tentacles (`tentacle`: six capsule segments, 2.6 tapering to 1.3) curling out, up and in from a pearl oral disc on a fat ink column, low (tips at y 42, so the shadows stay short), each ending in a blue-violet tip (`deeplight` with halos, no white heart); the mouth dark violet (`mouth`) with a faint pearl ring | a tall collar round the column, a hoop on the foot, the disc's rim, a sleeve on each tentacle's second and third segments | five violet tips (r 2) |
+| Gyre (`zenith`, 3x3)  | a cone of coil: a flat pearl rail (`ribbon`, 9.5 tapering to 4.5 wide) winding two turns up and inward from a wide base turn (r 38) to a tight top turn (r 10, `lin`), both ends to the south, round a short ink core; open to the sky, its top end under a light | a stripe along the rail's outer edge (an ink seam inside it, the rail's edge outside), a skirt round the base drum | one, at the rail's top end (r 1.7) |
+| Darkwater (`eclipse`, 2x2) | the dark pool: a flat, wide, still pool of ink (`poolDeep`, r 23.4, the darkest thing in it, a thin rim of pearl in shade) with four thin low pearl arms (r 2.2 tapering to 1.7, to y 23.5) rising at the rim on the diagonals and leaning outward, the pool open between them; nothing enclosed | a sleeve on each arm and its root block, a band round the basin | one, sunk at the centre, dim (r 1.2) |
+
+Shapes against each other: the Sunpetal's petals are broad, rounded and five, the Anemone's tentacles thin, curling
+and violet-tipped; the Glasshouse is a convex ribbed dome, the Darkwater a flat ink pool with thin arms leaning out, the Tidewell a
+broad pearl ring on a tall drum with pylons leaning out; the Siphon is the one with a tube and a small murky pool;
+the Cradle the one violet fan with a bud; the Gyre the one coil. No turning head on the Anemone: `bldg_ward` is one sprite, as before.
+
+Cells (`main.js`, unchanged): spire 82, siphon 50, kiln 42, loom 42, ward 50, zenith 72, eclipse 58. Team shares
+(round 3): Tidewell 0.226, Sunpetal 0.193, Siphon 0.235, Cradle 0.180, Glasshouse 0.179, Anemone 0.205, Gyre 0.234, Darkwater 0.173. The pack: `node tools/art/review.mjs <dir> --family=vbld`.

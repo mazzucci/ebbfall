@@ -141,7 +141,7 @@ window.render = async function (filter = '') {
     push(`bud_${n}`, Gd.bud(n, vaelNeutral), bldgCell(n, 8 + n * 7));
     push(`rubble_vael_${n}`, Gd.rubbleVael(n, vaelNeutral), bldgCell(n, 10));
   }
-  for (let st = 0; st < 4; st++) push(`shard_${st}`, Gd.saltField(st), unitCell(21, 24));
+  for (let st = 0; st < 4; st++) push(`shard_${st}`, Gd.saltField(st), unitCell(16, 16));
   for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.brineSeep(f), unitCell(30, 8));
   for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
   return { sprites: out, tints: fitTints() };

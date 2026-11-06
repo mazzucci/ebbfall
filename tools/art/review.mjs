@@ -1,5 +1,6 @@
-// The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [sliceRegex]
-// Renders the slice (the six step-0 kinds and the salt field) and writes into <outdir>:
+// The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
+// Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
+// eight units) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
@@ -7,8 +8,9 @@
 //                    and deuteranopia at full severity
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
 //                    maps the letters to the kinds
-//   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the slice as a small
-//                    scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell with Glints and Lenses
+//   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the family beside the
+//                    slice as a small scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell
+//                    with the Vael
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,7 +18,49 @@ import { encodePNG } from './png.js';
 import { tile } from './terrain2.js';
 import { render3d } from './render3d.mjs';
 
-const [outDir = '/tmp/review', filter = '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$'] = process.argv.slice(2);
+const VAEL = [['lumen', 'Glint'], ['prism', 'Lens'], ['scythe', 'Needle'], ['halo', 'Tender'], ['monolith', 'Conch'], ['umbra', 'Undertow'], ['shrike', 'Petrel'], ['sovereign', 'Argonaut']];
+/** A family: what to render (`filter`), the contact sheet's unit rows (`units`: kind -> frames) and extra rows, the
+ *  sprites whose team share is printed, the phone sheet's row of units (names at facing 0), the blind set's kinds
+ *  (sprite name -> what it is) and the Vael side of the battle stand-in (a list of [name, dx, dy] about its centre). */
+const FAMILIES = {
+  slice: {
+    filter: '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+    units: { harvester: [0], trooper: [0, 2, 3], lumen: [0], prism: [0] }, rows: ['bldg_core', 'bldg_conflux', 'shard_0', 'shard_1', 'shard_2', 'shard_3'],
+    shares: ['harvester_0_0', 'trooper_0_0', 'trooper_0_3', 'lumen_0_0', 'prism_0_0', 'bldg_core', 'bldg_conflux'],
+    phone: ['harvester_0_0', 'trooper_0_0', 'trooper_4_3', 'lumen_0_0', 'prism_0_0'], turned: ['harvester_12_0', 'trooper_8_0', 'lumen_8_0', 'prism_12_0'],
+    blind: [['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)'], ['lumen_0_0', 'lumen (Glint)'], ['prism_0_0', 'prism (Lens)']],
+    vael: sliceVael,
+  },
+  'vael-units': {
+    filter: '^(harvester|trooper|lumen|prism|scythe|halo|monolith|umbra|shrike|sovereign)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+    units: { lumen: [0], prism: [0], scythe: [0], halo: [0], monolith: [0], umbra: [0, 2], shrike: [0], sovereign: [0] }, rows: ['bldg_conflux', 'shard_0'],
+    shares: ['lumen_0_0', 'prism_0_0', 'scythe_0_0', 'halo_0_0', 'monolith_0_0', 'umbra_0_0', 'umbra_0_2', 'shrike_0_0', 'sovereign_0_0'],
+    phone: ['lumen_0_0', 'prism_0_0', 'scythe_0_0', 'halo_0_0', 'umbra_0_0', 'umbra_4_2', 'shrike_0_0', 'monolith_0_0', 'sovereign_0_0'],
+    turned: ['scythe_12_0', 'halo_8_0', 'umbra_8_0', 'shrike_12_0', 'monolith_4_0', 'sovereign_12_0'],
+    blind: [...VAEL.map(([k, n]) => [`${k}_0_0`, `${k} (${n})`]), ['umbra_0_2', 'umbra lurking, flat (Undertow)']],
+    vael: (cx, cy) => [
+      ['bldg_conflux', cx + 540, cy - 80, 1],
+      ...[0, 1, 2].map(k => [`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]),
+      ...[0, 1, 2, 3].map(k => [`prism_8_${k % 2}`, cx + 150 + (k % 2) * 50, cy - 30 + Math.floor(k / 2) * 70 + (k % 2) * 10, 1]),
+      ...[0, 1, 2, 3].map(k => [`scythe_${[8, 9, 7, 8][k]}_${k % 2}`, cx + 60 + (k % 2) * 40, cy - 90 + k * 34, 1]),
+      ...[0, 1].map(k => [`halo_8_${k}`, cx + 230 + k * 20, cy + 20 + k * 60, 1]),
+      ...[0, 1, 2].map(k => [`umbra_${[8, 7, 8][k]}_${[0, 0, 2][k]}`, cx + 30 + k * 30, cy + 70 + k * 40, 1]),
+      ...[0, 1].map(k => [`shrike_${[9, 8][k]}_0`, cx + 120 + k * 70, cy - 220 + k * 30, 1]),
+      ['monolith_8_0', cx + 300, cy + 110, 1], ['sovereign_8_0', cx + 420, cy + 30, 1],
+    ],
+  },
+};
+function sliceVael(cx, cy) {
+  const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
+  for (let k = 0; k < 3; k++) list.push([`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]);
+  for (let k = 0; k < 6; k++) list.push([`prism_8_${k % 2}`, cx + 150 + (k % 3) * 50, cy - 30 + Math.floor(k / 3) * 70 + (k % 3) * 10, 1]);
+  for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
+  return list;
+}
+
+const argv = process.argv.slice(2), famName = argv.find(a => a.startsWith('--family='))?.slice(9) ?? 'slice', FAM = FAMILIES[famName];
+if (!FAM) throw new Error(`no family ${famName}: ${Object.keys(FAMILIES).join(', ')}`);
+const [outDir = '/tmp/review', filter = FAM.filter] = argv.filter(a => !a.startsWith('--'));
 mkdirSync(join(outDir, 'blind'), { recursive: true });
 const all = await render3d(filter), TINTS = all.tints;
 const byName = new Map(all.map(s => [s.name, s]));
@@ -81,10 +125,9 @@ function simulate(c, mode) {
 const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
 
 // ---- 1. the contact sheet: each sprite at 1:1 in seats 0, 1, 6 and its bare mask ----
-const UNITS = ['harvester', 'trooper', 'lumen', 'prism'];
 const rows = [];
-for (const k of UNITS) for (const f of k === 'trooper' ? [0, 2, 3] : [0]) for (const d of [0, 4, 8, 12]) rows.push(`${k}_${d}_${f}`);
-rows.push('bldg_core', 'bldg_conflux', 'shard_0', 'shard_1', 'shard_2', 'shard_3');
+for (const [k, frames] of Object.entries(FAM.units)) for (const f of frames) for (const d of [0, 4, 8, 12]) rows.push(`${k}_${d}_${f}`);
+rows.push(...FAM.rows);
 {
   const PAD = 6, cells = rows.map(get), cw = Math.max(...cells.map(s => s.img.w)) + PAD, ch = cells.map(s => s.img.h + PAD);
   const cols = 4, c = canvas(cw * cols, ch.reduce((a, b) => a + b, 0)); fill(c, [52, 54, 56]);
@@ -100,9 +143,9 @@ rows.push('bldg_core', 'bldg_conflux', 'shard_0', 'shard_1', 'shard_2', 'shard_3
   writeFileSync(join(outDir, 'contact.json'), JSON.stringify({ columns: ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (white)', 'team mask'], rows }, null, 1));
 }
 
-// ---- 2. team share per sprite (facing 0, frame 0; the dug-in Picket too): mask pixels over the sprite's solid pixels ----
+// ---- 2. team share per sprite (facing 0, frame 0; pose frames too): mask pixels over the sprite's solid pixels ----
 console.log('team colour share of the solid pixels (facing 0; rule 3 floor 1/6 = 0.167):');
-for (const name of ['harvester_0_0', 'trooper_0_0', 'trooper_0_3', 'lumen_0_0', 'prism_0_0', 'bldg_core', 'bldg_conflux']) {
+for (const name of FAM.shares) {
   const s = get(name), m = masks.get(name); let solid = 0, team = 0;
   for (let i = 3; i < s.img.data.length; i += 4) { if (s.img.data[i] === 255) solid++; if (m.data[i] >= 128) team++; }
   console.log(`  ${name.padEnd(14)} ${(team / solid).toFixed(3)}  (${team} / ${solid} px)${team / solid < 1 / 6 ? '  BELOW THE FLOOR' : ''}`);
@@ -112,12 +155,14 @@ for (const name of ['harvester_0_0', 'trooper_0_0', 'trooper_0_3', 'lumen_0_0', 
 const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort((a, b) => a[2] - b[2])) draw(c, get(name), x, y, seat); };
 {
   const c = canvas(1688, 780); seabed(c); // a 2x phone (844x390 CSS px)
-  const list = [['shard_0', 130, 150], ['shard_2', 130, 300], ['bldg_core', 360, 330, 0], ['bldg_conflux', 1330, 330, 1]];
-  const unitsAt = (x0, y, seat) => [['harvester_0_0', x0, y, seat], ['trooper_0_0', x0 + 70, y, seat], ['trooper_4_3', x0 + 150, y, seat], ['lumen_0_0', x0 + 240, y, seat], ['prism_0_0', x0 + 310, y, seat]];
-  for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) list.push(...unitsAt(560, y, seat));
-  list.push(['harvester_12_0', 960, 760, 0], ['trooper_8_0', 1020, 760, 1], ['lumen_8_0', 1080, 760, 0], ['prism_12_0', 1140, 760, 1]);
+  const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
+  if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]);
+  list.push(['bldg_conflux', 1330, 330, 1]);
+  const gap = Math.min(80, Math.floor(1000 / FAM.phone.length));
+  for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
+  FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, 760, k % 2]));
   place(c, list);
-  ring(c, 630, 503, 24, 14); // the game's selection ring under the Picket (seat 0)
+  ring(c, 630, 503, 24, 14); // the game's selection ring under the second unit (seat 0)
   save('phone@2x.png', c);
   const p = half(c); save('phone.png', p);
   for (const mode of ['grey', 'protan', 'deutan']) save(`phone-${mode}.png`, simulate(p, mode));
@@ -126,9 +171,8 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 // ---- 4. blind: each unit alone at phone size, named by a random letter ----
 {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {};
-  const kinds = [['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)'], ['lumen_0_0', 'lumen (Glint)'], ['prism_0_0', 'prism (Lens)']];
   let n = 0;
-  for (const [name, what] of kinds) for (const seat of [0, 6]) {
+  for (const [name, what] of FAM.blind) for (const seat of [0, 6]) {
     const c = canvas(192, 192); seabed(c, 11 + n++ * 7, true); draw(c, get(name), 96, 110, seat);
     const L = letters.splice(Math.floor(Math.random() * letters.length), 1)[0];
     key[L] = `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
@@ -136,7 +180,7 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
   writeFileSync(join(outDir, 'blind', 'key.json'), JSON.stringify(key, null, 1));
 }
 
-// ---- 5. the battle stand-in: the slice as a scene, at desktop size and at a phone's ----
+// ---- 5. the battle stand-in: the family beside the slice as a scene, at desktop size and at a phone's ----
 function battle(w, h) {
   const c = canvas(w, h); seabed(c);
   const cx = w / 2, cy = h / 2, list = [];
@@ -144,10 +188,7 @@ function battle(w, h) {
   for (let k = 0; k < 4; k++) list.push([`harvester_${[2, 14, 1, 0][k]}_${k % 2}`, cx - 330 + (k % 2) * 50, cy - 60 + k * 36, 0]);
   for (let k = 0; k < 6; k++) list.push([`trooper_${k % 2 ? 1 : 0}_${k % 2}`, cx - 150 + (k % 3) * 46, cy - 40 + Math.floor(k / 3) * 60 + (k % 3) * 8, 0]);
   for (let k = 0; k < 3; k++) list.push(['trooper_0_3', cx - 60 + k * 16, cy + 110 + k * 50, 0]);
-  list.push(['bldg_conflux', cx + 540, cy - 80, 1]);
-  for (let k = 0; k < 3; k++) list.push([`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]);
-  for (let k = 0; k < 6; k++) list.push([`prism_8_${k % 2}`, cx + 150 + (k % 3) * 50, cy - 30 + Math.floor(k / 3) * 70 + (k % 3) * 10, 1]);
-  for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
+  list.push(...FAM.vael(cx, cy));
   place(c, list);
   ring(c, cx - 104, cy - 37, 24, 14);
   return c;

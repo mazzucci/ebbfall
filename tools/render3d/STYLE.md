@@ -141,9 +141,9 @@ value about 0.5, so it never outshines the pearl or the salt. The pool is a dim 
 ### Team colour
 
 Team glaze between `inkSeam` edges (a seam ring, a hem bar, an end cap), so seat 6's white and seat 3's lilac part from
-the pearl and the deeplight. At least a sixth of the footprint, never only on the signature: the Glint's saddle across
-the back plus the tail fin and side vanes; the Lens's two rim arcs plus the three pods under the rim; the Tidewell's
-three ring arcs plus the pylons' inner faces and caps.
+the pearl and the deeplight. At least a sixth of the footprint, never only on the signature: the Glint's one smooth
+dome on the back inside one ink seam plus the collar on its tail; the Lens's two rim arcs plus the three pods under
+the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.
 
 ### Shape language
 
@@ -184,3 +184,27 @@ ground), never a brighter glow.
 - Team masks (`<name>_m`) come from the materials marked `team()`; lamps are not team on the new look.
 - Check every change with `node tools/art/review.mjs <dir>`: the contact sheet, the phone sheets (grey, protan,
   deutan), the blind set and the battle stand-in, and the printed team shares (1/6 is the floor).
+
+## Vael units (step 1, `vael-units.js`)
+
+The six units after the slice, built on the Vael rules above: pale pearl on an ink core, one small deeplight each
+(r 0.85-1.5), team glaze between ink seams on at least a sixth of the footprint and never only on the signature. The
+Glint and the Lens stay as the slice made them (`vael2.js`). Everything hovers; the shadow says how high.
+
+| kind (key)             | signature shape, from above          | size (sim r)           | team glaze                                         | the light          |
+|------------------------|--------------------------------------|------------------------|----------------------------------------------------|--------------------|
+| Needle (`scythe`)      | a slim pale blade, point first: a leaf 22 long, 5 wide, a ridge down its back, an ink keel beneath | line (10), hovers at 6 | the hilt, the aft third of the blade, between two ink seams | in the eye of the needle, a pearl loop at the stern |
+| Tender (`halo`)        | a flower: six broad pearl petals open wide round a cup, the scalloped outline | support (9), hovers at 7 | a ring where the petals root (glaze on each root between seams) and a band round the ink calyx beneath | the one aqua light (`aqua`, `aquaCore`, `aquaHalo1..3` in `vael-units.js`: 0x3ee0c8 emissive, a white heart), never violet: a mender, not a weapon |
+| Conch (`monolith`)     | a spiral: a pearl shell of two and a half whorls, apex up, on an ink disc; the mouth an ink aperture facing the bow (the muzzle) | heavy (15), hovers at 3 | a ridge coiling along the whorls' shoulder between two ink-seam coils, and the mouth's lip | deep in the mouth |
+| Undertow (`umbra`)     | the one ink-dark Vael: a low blade of black glass (`ink`) with a thin pearl rim (`ring`) | line (10) | the hilt on both faces and a team grip block round it, between ink seams | small, at the pommel |
+| Petrel (`shrike`)      | a crescent: two pearl wings swept back and out from a small pod, ink beneath | flyer (11), flies at 20, its shadow well offset | both wingtips (seamed) and a cap on the pod's back | at the tail |
+| Argonaut (`sovereign`) | a long barge: a pearl hull 37 long, bow at +x, an ink underside; a coiled shell over the stern, its mouth onto the deck; a lantern at the bow | capital (18), hovers at 4 | the deck well between the gunwales (an ink hem) and the shell's ridge | the lantern: a pearl cage on a post at the bow |
+
+Shapes against each other: the Needle is long and pale, the Undertow long and dark (the PRD's one exception to the
+pale-on-ink value order, kept legible by its pearl rim and its hard shadow); the Tender is scalloped where the Lens is
+a dark disc and the Glint a solid drop; the Conch is round where the Argonaut is long; the Petrel is the only crescent,
+and the only thing with its shadow apart from it.
+
+States: the Undertow glides canted on its edge (frames 0-1, the face leaning to the south, hovering at 3) and lies flat
+on the ground when it lurks (frame 2: `UNIT_POSE.umbra`, shown while the snapshot's `cloaked` is set). The Petrel has
+one frame (a glider, `UNIT_FPS` 0); the Argonaut four (a slow bob, `UNIT_FPS` 4); the others two (a bob).

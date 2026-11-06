@@ -2,16 +2,16 @@
 import { shoot, S, LIFT } from './scene.js';
 import { makeMats, GOLD } from './materials.js';
 import { SEAT_COLORS } from '../../src/client/look.js';
-import * as THREE from 'three';
 import { UNIT_MODELS } from './models.js';
 import * as B from './buildings.js';
-import { DOODADS } from './doodads.js';
 import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
 import { lighthouse } from './harbour.js';
 import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
 import { breakwater, anchorGun, netter } from './harbour-machines.js';
+import * as Gd from './ground.js';
+import { SCENERY } from './scenery2.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
@@ -56,16 +56,6 @@ function bldgCell(n, h) {
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
-const RES = {
-  pit: new THREE.MeshStandardMaterial({ color: 0x120c1e, roughness: 1 }),
-  glow: new THREE.MeshStandardMaterial({ color: 0x3d2a80, emissive: 0xa98bff, emissiveIntensity: 2.2 }),
-  // the salt field (STYLE.md): halite, pale and unlit, on wet slate
-  slate: new THREE.MeshStandardMaterial({ color: 0x343a40, roughness: 0.8, metalness: 0.1, flatShading: true }),
-  salt: new THREE.MeshStandardMaterial({ color: 0xe4e0d4, roughness: 0.42, metalness: 0.04, flatShading: true }),
-  saltWet: new THREE.MeshStandardMaterial({ color: 0xc4c8c8, roughness: 0.25, metalness: 0.1, flatShading: true }),
-  crust: new THREE.MeshStandardMaterial({ color: 0xb9b5a6, roughness: 0.95, metalness: 0, flatShading: true }),
-};
-
 /**
  * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
  * colour (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
@@ -117,15 +107,21 @@ window.render = async function (filter = '') {
     const head = B.turretHead(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
     pushTeam(`turret_head_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
   }
-  const neutral = makeMats(GOLD); // construction and ruins: seat 0's gold
+  // The ground and the scenery (ground.js, scenery2.js; STYLE.md "The ground and the scenery"): construction and
+  // wrecks for both peoples (the Harbour's timber foundation, scaffold and rubble in seat 0's gold; the Vael's bud and
+  // pearl rubble, `bud_n` and `rubble_vael_n`, for the coder to wire), the salt field, the brine seep (four frames)
+  // and the scenery props under the names the client places (scenery.js).
+  const neutral = makeMats(GOLD), vaelNeutral = makeVaelMats();
   for (const n of [2, 3, 4]) {
-    push(`foundation_${n}`, B.foundation(n), bldgCell(n, 4));
-    push(`scaffold_${n}`, B.scaffold(n, neutral), bldgCell(n, 10 + n * 6), { shadow: false });
-    push(`rubble_${n}`, B.rubble(n, neutral), bldgCell(n, 10));
+    push(`foundation_${n}`, Gd.foundation(n, neutral), bldgCell(n, 5));
+    push(`scaffold_${n}`, Gd.scaffold(n, neutral), bldgCell(n, 10 + n * 6), { shadow: false });
+    push(`rubble_${n}`, Gd.rubble(n, neutral), bldgCell(n, 10));
+    push(`bud_${n}`, Gd.bud(n, vaelNeutral), bldgCell(n, 8 + n * 7));
+    push(`rubble_vael_${n}`, Gd.rubbleVael(n, vaelNeutral), bldgCell(n, 10));
   }
-  for (let st = 0; st < 4; st++) push(`shard_${st}`, B.shardField(st, RES), unitCell(15, 20));
-  for (let f = 0; f < 4; f++) push(`vent_${f}`, B.vent(f, RES), unitCell(30, 8));
-  for (const list of Object.values(DOODADS)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
+  for (let st = 0; st < 4; st++) push(`shard_${st}`, Gd.saltField(st), unitCell(15, 20));
+  for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.brineSeep(f), unitCell(30, 8));
+  for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
   return { sprites: out, tints: fitTints() };
 };
 window.ready = true;

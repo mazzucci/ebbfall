@@ -36,6 +36,9 @@ export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 76
  *  8 for walkers while they move). 0 holds the first frame: the Shrike glides on its swept wing (its two poses
  *  flickered at 14/s). The Sovereign's four hover frames (a bob, its lift ring turning) run at 4/s: a heavy barge, not
  *  a bounce. */
+/** A shooter whose shot has its own sprite (tools/art/effects2.js; pointing +x, its head at the anchor), not its
+ *  projectile kind's: the Harpooner's harpoon, the Lens's beam. */
+export const SHOT_LOOK = { lancer: 'harpoon', prism: 'beam' };
 export const UNIT_FPS = { shrike: 0, sovereign: 4 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown

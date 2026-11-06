@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import entry, { RoomObject } from '../relay/worker.js';
-import { relay } from '../relay/edge.js';
+import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
 import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
 import { readFileSync } from 'node:fs';
 import { rateLimit, OpenBudget, Limiter, addressKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, MISS_COST, MINUTE, HOUR } from '../relay/limits.js';
@@ -224,10 +224,20 @@ test('the record is written when it changes, at most once a second (the last cha
   assert.ok(store.alarm > Date.now(), 'an alarm set to forget the room once idle');
 });
 
+/** Room `code`'s object and record as if last used `ago` ms ago (the alarm reads the time; the tests do not wait). */
+async function aged(e, code, ago) {
+  const o = e.ROOMS.get(code), st = e.stores.get(code), rec = await st.get('room');
+  o.lastUsed = Date.now() - ago; if (rec) await st.put('room', { ...rec, used: Date.now() - ago });
+}
+
 test('an idle room\'s alarm deletes its record: the code is free, the room gone', async () => {
   const e = env();
   const { a, code } = await opened(e);
   a.close(); await wait(0);
+  await e.objects.get(code).alarm();
+  assert.ok(await e.stores.get(code).get('room'), 'empty a moment only: kept');
+  assert.ok(e.stores.get(code).alarm > Date.now() + ROOM_IDLE_MS - 5000, 'its alarm set again for the time left');
+  await aged(e, code, ROOM_IDLE_MS);
   await e.objects.get(code).alarm();
   assert.equal(await e.stores.get(code).get('room'), undefined);
   const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
@@ -235,6 +245,27 @@ test('an idle room\'s alarm deletes its record: the code is free, the room gone'
   e.evict(code);
   assert.equal((await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`))).status, 101, 'free for a new room');
   for (const x of e.objects.get(code).conns) x.other.close();
+});
+
+test('no record outlives its room: every write sets the alarm; one firing with people in sets itself again; after a reset with people in (no close), it deletes the record', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  const st = e.stores.get(code);
+  await wait(0);
+  assert.ok(st.alarm > Date.now(), 'the new room\'s record: an alarm with it');
+  say(a, { t: 'race', race: 'vael' }); await wait(1100);
+  st.alarm = 0; say(a, { t: 'race', race: 'humans' }); await wait(1100);
+  assert.ok(st.alarm > Date.now(), 'a later write: the alarm set again');
+  await aged(e, code, 2 * ROOM_IDLE_MS); st.alarm = 0;
+  await e.objects.get(code).alarm();
+  assert.ok(await st.get('room'), 'someone connected: kept');
+  assert.ok(st.alarm >= Date.now() + ROOM_IDLE_MS - 5000, 'the alarm set again');
+  e.evict(code); // (a deploy or a reset: the sockets gone with the object, `gone` never ran)
+  await aged(e, code, 0); await e.ROOMS.get(code).alarm(); // (the alarm on a fresh object, the room used a moment ago)
+  assert.ok(await st.get('room'), 'used a moment ago: kept');
+  await aged(e, code, ROOM_IDLE_MS); await e.ROOMS.get(code).alarm();
+  assert.equal(await st.get('room'), undefined, 'its record deleted: names, tokens and barred addresses with it');
+  a.close();
 });
 
 test('a stored record of a bad shape comes back as an empty lobby, never a broken room', async () => {

@@ -22,14 +22,15 @@ const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
 
 /** A room's Durable Object: its Room, its connections, and the clock while anyone is connected. The Room lives in
  *  memory, and Cloudflare evicts an object a minute or two after its last socket closes; a record in storage (the code,
- *  when it was last used, whether its game started, and the lobby itself: its seats with their spots, teams, names, races
- *  and tokens, the AI seats and their levels, the map; Room.keep) brings an evicted lobby back as it was: a seat held for
- *  a player who switched apps (relay/room.js, LOBBY_HOLD_MS) is still theirs, and an empty lobby comes back for a friend
- *  who joins late. The record is written when it changes (a ready toggle does not change it), at most once a SAVE_MS
- *  (the last change always, and at once when the last socket closes), and deleted by an alarm once the room has been
- *  empty ROOM_IDLE_MS. A game is not kept: an evicted or redeployed one is over (its players are told the room is
- *  gone). A join to a code with no room is answered 404, with no socket: the Worker tells the player and counts the miss
- *  (relay/edge.js). The objects named 'bench' and 'limits' are no rooms: one keeps the device test's reports
+ *  when it was last used, whether its game started, and the lobby itself: its seats with their spots, teams, names,
+ *  races, tokens and addresses, the addresses the host barred, the AI seats and their levels, the map; Room.keep)
+ *  brings an evicted lobby back as it was: a seat held for a player who switched apps (relay/room.js, LOBBY_HOLD_MS) is
+ *  still theirs, and an empty lobby comes back for a friend who joins late. The record is written when it changes (a
+ *  ready toggle does not change it), at most once a SAVE_MS (the last change always, and at once when the last socket
+ *  closes), and deleted by an alarm once the room has been empty ROOM_IDLE_MS (every write sets it; it sets itself
+ *  again while the room is in use). A game is not kept: an evicted or redeployed one is over (its players are told the
+ *  room is gone). A join to a code with no room is answered 404, with no socket: the Worker tells the player and counts
+ *  the miss (relay/edge.js). The objects named 'bench' and 'limits' are no rooms: one keeps the device test's reports
  *  (relay/bench.js BenchStore), the other counts rooms opened (relay/limits.js OpenBudget, in memory). */
 export class RoomObject {
   constructor(state, env, platform = CLOUDFLARE) {
@@ -83,10 +84,17 @@ export class RoomObject {
     if (rec === this.saved) return;
     this.saved = rec; this.savedAt = Date.now();
     this.storage?.put('room', { code: room.code, used: Date.now(), ...JSON.parse(rec) }).catch(() => { this.saved = ''; }); // (failed: written again with the next change)
+    // (a record always has its alarm, so none outlives its room: also when the object is reset with people in it, and
+    // `gone` never runs)
+    this.storage?.setAlarm?.(Date.now() + ROOM_IDLE_MS)?.catch?.(() => {});
   }
-  /** The room has been empty ROOM_IDLE_MS: its record goes (its code is free), and the room with it. */
+  /** The alarm: a room empty ROOM_IDLE_MS (by its last use, in memory or in its record) goes, its record with it (its
+   *  code is free; nothing of it, names, tokens or barred addresses, is kept); one in use or used since sets the alarm
+   *  again for the time left. */
   async alarm() {
-    if (this.conns.size) return; // (someone came back: a new alarm when they leave)
+    const now = Date.now(), rec = this.conns.size ? null : await this.storage?.get('room');
+    const last = this.conns.size ? now : Math.max(this.lastUsed, Number(rec?.used) || 0);
+    if (now - last < ROOM_IDLE_MS) { await this.storage?.setAlarm?.(last + ROOM_IDLE_MS); return; }
     clearTimeout(this.saveTimer); this.saveTimer = null;
     this.room = null; this.saved = '';
     await this.storage?.deleteAll?.();

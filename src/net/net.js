@@ -168,8 +168,9 @@ export class Net {
         break;
       case 'away': case 'back': case 'left': this.on[m.t]?.(m.seat, m); break; // (away: m.loading, its game not set up yet)
       case 'desync': this.on.desync?.(m.turn); break;
-      case 'error': // (`limit` in a game: a reconnect refused a moment (too many from this address): tried again, with the backoff)
-        if (m.code === 'limit' && this.setup) break;
+      case 'error': // (`limit` in a game, or in the lobby with a seat held: a reconnect refused a moment (too many from this
+        // address): tried again, with the backoff, the seat kept meanwhile)
+        if (m.code === 'limit' && (this.setup || this.held)) break;
         this.on.error?.(m); if (['update', 'version', 'full', 'started', 'noroom', 'replaced', 'name', 'limit', 'removed'].includes(m.code)) this.close(); break;
       case 'notice': this.on.notice?.(m); break;
       case 'pause': if (Number.isInteger(m.seat) && Array.isArray(m.left)) this.on.pause?.(m); break;

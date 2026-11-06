@@ -4,7 +4,7 @@
 // longer than the away limit (the other side must not be blamed, the game goes on), the page coming back while a
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
 // of three, four and eight with AI seats (M4): every client runs the AI alike; and one whose sides the start arranges
-// (a person's game seat not its lobby spot). And a limit refusal: a lobby stops, a game keeps reconnecting.
+// (a person's game seat not its lobby spot). And a limit refusal: a lobby stops, a game or a held lobby seat keeps reconnecting.
 import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -320,7 +320,7 @@ liveTest('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, ev
   } finally { await m.done(); }
 });
 
-test('a limit refusal (too many tries from this address): a lobby Net stops and says it; a game\'s keeps reconnecting', () => {
+test('a limit refusal (too many tries from this address): a lobby Net without a seat stops and says it; a game\'s, or one holding a lobby seat, keeps reconnecting', () => {
   class FakeWS { constructor(url) { this.url = url; this.readyState = 0; } send() {} close() { this.readyState = 3; } }
   const told = [];
   const lobby = new Net({ url: 'ws://x/', name: 'Ann', game: () => null, WebSocket: FakeWS, on: { error: (m) => told.push(m.code) } });
@@ -335,8 +335,12 @@ test('a limit refusal (too many tries from this address): a lobby Net stops and 
   game.setup = { seed: 1 };
   game.message({ t: 'error', code: 'limit', msg: 'x' });
   assert.ok(!game.closed, 'a game reconnects (its backoff), the seat waits for it');
+  const held = new Net({ url: 'ws://x/', room: 'BCDFGH', name: 'Bo', game: () => null, WebSocket: FakeWS, on: { error: (m) => told.push(m.code) } });
+  held.message({ t: 'seat', seat: 1, token: 't', room: 'BCDFGH' });
+  held.message({ t: 'error', code: 'limit', msg: 'x' });
+  assert.ok(!held.closed && held.held, 'a lobby seat held: reconnects too, its seat kept in the room\'s view');
   assert.deepEqual(told, ['limit', 'removed']);
-  game.close();
+  game.close(); held.close();
 });
 
 describe('matches through a relay', { concurrency: true }, () => {

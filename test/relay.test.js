@@ -956,7 +956,7 @@ test('keep() is a v5 record (a spot and a team per seat, holes kept); restore ch
   const { r, conn } = room(3); const a = conn('a');
   r.connect(a, hello());
   r.receive(a, { t: 'add', team: 5, ai: true, race: 'vael', diff: 2 }); r.receive(a, { t: 'drop', seat: 1 });
-  const k = JSON.parse(JSON.stringify(r.keep())), seat = { name: '', race: 'humans', token: null, ai: false, diff: 1, goneSince: 0 };
+  const k = JSON.parse(JSON.stringify(r.keep())), seat = { name: '', race: 'humans', token: null, ai: false, diff: 1, goneSince: 0, from: '' };
   assert.deepEqual(k, { v: 5, map: 4, seats: [{ ...seat, spot: 0, team: 0, name: 'Ann', token: r.seats[0].token }, { ...seat, spot: 2, team: 2 }, { ...seat, spot: 3, team: 5, race: 'vael', ai: true, diff: 2 }], barred: [] });
   const y = room(); assert.ok(y.r.restore(k, 100));
   const a2 = y.conn('a2'); y.r.connect(a2, hello({ token: k.seats[0].token }));
@@ -1050,7 +1050,10 @@ test('the host removes a person from the lobby (a stranger who guessed the code)
   assert.ok(r.seats.find(s => s.spot === 3) && !r.seats.find(s => s.spot === 3).token);
   r.close(b); r.receive(a, { t: 'remove', seat: 1 });
   assert.ok(!r.seats[1].token, 'an away person too: removed, the seat open');
-  const b2 = conn('b2'); assert.equal(r.connect(b2, hello({ name: 'Bo', token: got(b, 'seat')[0].token }), 'bo'), -1, 'their token takes nothing back');
+  const b2 = conn('b2'), old = got(b, 'seat')[0].token;
+  assert.equal(r.connect(b2, hello({ name: 'Bo', token: old }), 'bo-mobile'), 1, 'from another address (no bar there): in, as a newcomer');
+  assert.notEqual(got(b2, 'seat')[0].token, old, 'their token took nothing back: a new one, the lowest open seat');
+  r.receive(b2, { t: 'leave' });
   r.receive(a, { t: 'ai', seat: 1, on: true }); r.receive(a, { t: 'drop', seat: 3 });
   r.receive(a, { t: 'ready', ready: true }); r.receive(d, { t: 'ready', ready: true });
   assert.equal(r.phase, 'game');
@@ -1070,6 +1073,17 @@ test('a removed address stays barred as long as the room: through a kept lobby (
   assert.ok(back.r.connect(back.conn('d'), hello({ name: 'Di' }), 'di') >= 0, 'another address: in');
   const bad = room(3); assert.ok(bad.r.restore({ ...kept, barred: [7, '', 'x'.repeat(65), ...Array(100).fill('a')] }, 1000));
   assert.deepEqual([...bad.r.barred], ['a'], 'a record\'s list checked');
+  const away = room(3), h = away.conn('h'), f = away.conn('f');
+  away.r.connect(h, hello(), 'home'); away.r.connect(f, hello({ name: 'Eve' }), '198.51.100.7'); away.r.close(f); // (Eve away, her seat held)
+  const held = JSON.parse(JSON.stringify(away.r.keep()));
+  assert.equal(held.seats[1].from, '198.51.100.7', 'a held seat\'s address in the record');
+  const again = room(3); assert.ok(again.r.restore(held, 1000));
+  again.r.connect(again.conn('h2'), hello({ token: held.seats[0].token }), 'home');
+  again.r.receive(again.r.seats[0].conn, { t: 'remove', seat: 1 });
+  assert.ok(!again.r.seats[1].token, 'the restored away seat removed');
+  assert.equal(again.r.connect(again.conn('f2'), hello({ name: 'Eve' }), '198.51.100.7'), -1, 'and its address barred');
+  const odd = room(3); assert.ok(odd.r.restore({ ...held, seats: held.seats.map(x => ({ ...x, from: x.token ? 7 : 'x' })) }, 1000));
+  assert.deepEqual(odd.r.seats.map(x => x.from), ['', '', ''], 'a record\'s addresses checked; none for an open seat');
   const fresh = room(3); fresh.r.connect(fresh.conn('h'), hello(), 'home');
   assert.ok(fresh.r.connect(fresh.conn('e'), hello({ name: 'Eve' }), '203.0.113.9') >= 0, 'another room: no list outlives its room');
 });
@@ -1126,6 +1140,17 @@ test('the Node relay: open a room, join it by code, play turns over real sockets
     const shown = await open(`room=${seat.room.slice(0, 3)}-${seat.room.slice(3).toLowerCase()}`); shown.say({ proto: PROTO, name: 'Cy' });
     assert.equal((await shown.until(m => m.t === 'error')).code, 'started', 'the code as shown (BCD-fgh) is the room\'s');
     for (const x of [a, b]) x.ws.close();
+    // This machine's own tabs have no address: a REMOVE bars none of the others.
+    const h = await open('new=1'); h.say({ proto: PROTO, name: 'Ann' });
+    const room = (await h.until(m => m.t === 'seat')).room;
+    const e = await open(`room=${room}`); e.say({ proto: PROTO, name: 'Eve' });
+    await e.until(m => m.t === 'seat');
+    h.say({ t: 'remove', seat: 1 });
+    assert.equal((await e.until(m => m.t === 'error')).code, 'removed');
+    const f = await open(`room=${room}`); f.say({ proto: PROTO, name: 'Fay' });
+    assert.equal((await f.until(m => m.t === 'seat' || m.t === 'error')).seat, 1, 'another local tab: in');
+    assert.equal(relay.rooms.get(room).barred.size, 0, 'no address barred');
+    for (const x of [h, f]) x.ws.close();
   } finally { await relay.close(); }
 });
 

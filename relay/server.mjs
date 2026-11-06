@@ -67,7 +67,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null,
     ws.queue = []; ws.timer = null;
     ws.on('error', () => {}); // (an oversize or broken frame: `close` follows; it must not take the server down)
     const q = new URL(req.url, 'http://x').searchParams;
-    const from = addressKey(req.socket.remoteAddress), limited = !free(req.socket.remoteAddress || '');
+    const limited = !free(req.socket.remoteAddress || ''), from = limited ? addressKey(req.socket.remoteAddress) : ''; // (this machine's own: no address, so a REMOVE bars no local tab)
     const refuse = (code, msg) => { send(ws, { t: 'error', code, msg }); kick(ws); };
     let room = null;
     if (q.get('new')) {

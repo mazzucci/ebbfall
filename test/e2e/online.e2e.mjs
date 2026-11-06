@@ -780,7 +780,8 @@ test('a friend back on another browser: the host frees the AWAY seat with ×, an
 });
 
 test('a room code typed as shown or not (any case, a hyphen, spaces), the share line BCD-FGH, a wrong or out-of-date code said; the host REMOVEs a stranger, who cannot come back', { engines: true }, async () => {
-  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  const strict = startRelay({ port: 0, free: () => false }); await strict.ready; // (this machine an address like any: the relay leaves its own without one, so a REMOVE bars no local tab)
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${strict.port}/`)}`;
   const a = await page(DESKTOP, relayQ);
   try {
     await a.p.evaluate(() => { window.shared = []; navigator.share = async (d) => { window.shared.push(d); }; });
@@ -823,7 +824,7 @@ test('a room code typed as shown or not (any case, a hyphen, spaces), the share 
         assert.equal(new URL(y.p.url()).searchParams.get('room'), null, 'its code off the address bar');
       } finally { await y.ctx.close(); }
     }
-  } finally { await a.ctx.close(); }
+  } finally { await a.ctx.close(); await strict.close(); }
 });
 
 test('too many rooms from one address: the lobby says to wait, calmly', async () => {

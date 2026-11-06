@@ -268,11 +268,12 @@ export class Room {
     for (const s of out) this.open(s);
     if (out.length) this.lobby();
   }
-  /** The lobby as a record (seats with their spots, teams, tokens and levels, the host's choices, the addresses the host
-   *  barred: they last as long as the room, its record deleted with it; no connections, nobody ready). `v`: the
+  /** The lobby as a record (seats with their spots, teams, tokens, levels and addresses (for a REMOVE), the host's
+   *  choices, the addresses the host barred: they last as long as the room, its record deleted with it; no
+   *  connections, nobody ready). `v`: the
    *  record's shape (PROTO 5's; before it, none). */
   keep() {
-    return { v: 5, map: this.map, seats: this.seats.map(s => ({ spot: s.spot, team: s.team, name: s.name, race: s.race, token: s.token, ai: s.ai, diff: s.diff, goneSince: s.goneSince })), barred: [...this.barred] };
+    return { v: 5, map: this.map, seats: this.seats.map(s => ({ spot: s.spot, team: s.team, name: s.name, race: s.race, token: s.token, ai: s.ai, diff: s.diff, goneSince: s.goneSince, from: s.from })), barred: [...this.barred] };
   }
   /** A kept lobby back (the room was lost from memory, at `now`): its seats held, away, from when they went (now, for
    *  one that was here: its connection went with the memory), on their spots and teams (each its own, its spot's
@@ -290,10 +291,11 @@ export class Room {
     const race = (x, or) => (RACES.includes(x.race) ? x.race : or);
     this.seats = k.seats.map((x, i) => Object.assign(this.empty(teams[i], spots[i]), x.ai ? { ai: true, race: race(x, 'random'), diff: validDiff(x.diff) ? x.diff : validDiff(k.diff) ? k.diff : 1 } // (an AI seat; a held one; else open)
       : typeof x.token === 'string' && x.token ? { token: x.token.slice(0, 64), name: String(x.name || '').slice(0, MAX_NAME), race: race(x, 'humans') } : {}));
-    this.seats.forEach((s, i) => { if (s.token) s.goneSince = Math.min(Number(k.seats[i].goneSince) || now, now); }); // (never later than now: a hold runs out)
+    const addr = (a) => (typeof a === 'string' && a.length <= 64 ? a : '');
+    this.seats.forEach((s, i) => { if (s.token) { s.goneSince = Math.min(Number(k.seats[i].goneSince) || now, now); s.from = addr(k.seats[i].from); } }); // (never later than now: a hold runs out; its address, for a REMOVE)
     this.sortBySpot();
     if (validMap(k.map)) this.map = k.map;
-    if (Array.isArray(k.barred)) this.barred = new Set(k.barred.filter(a => typeof a === 'string' && a && a.length <= 64).slice(0, MAX_BARRED));
+    if (Array.isArray(k.barred)) this.barred = new Set(k.barred.filter(addr).slice(0, MAX_BARRED));
     this.fitRoom();
     return true;
   }

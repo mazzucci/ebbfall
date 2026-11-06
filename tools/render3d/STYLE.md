@@ -365,7 +365,7 @@ broad pearl ring on a tall drum with pylons leaning out; the Siphon is the one c
 edge of a square black hole; the Cradle the one violet fan with a bud; the Gyre the one coil. No turning head on the Anemone: `bldg_ward` is one sprite, as before.
 
 Cells (`main.js`, unchanged): spire 82, siphon 50, kiln 42, loom 42, ward 50, zenith 72, eclipse 58. Team shares
-(round 3; the Siphon in the shaft's round 3): Tidewell 0.226, Sunpetal 0.193, Siphon 0.233, Cradle 0.180, Glasshouse 0.179, Anemone 0.205, Gyre 0.234, Darkwater 0.173. The pack: `node tools/art/review.mjs <dir> --family=vbld`.
+(round 3; the Siphon in the shaft's round 3): Tidewell 0.226, Sunpetal 0.193, Siphon 0.219, Cradle 0.180, Glasshouse 0.179, Anemone 0.205, Gyre 0.234, Darkwater 0.173. The pack: `node tools/art/review.mjs <dir> --family=vbld`.
 
 ## Harbour buildings (`harbour-buildings.js`)
 

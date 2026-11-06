@@ -18,21 +18,22 @@ function fam(M) {
   const std = (o) => new THREE.MeshStandardMaterial(o);
   const halo = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide });
   const A = {
-    aqua: std({ color: 0x0c6a5a, emissive: 0x18d8b4, emissiveIntensity: 1.25, roughness: 0.25 }),                   // the Tender's light: aqua through and through (a hotter emissive clips to white in the finish)
+    aqua: std({ color: 0x0a5a4c, emissive: 0x12b898, emissiveIntensity: 1.0, roughness: 0.25 }),                     // the Tender's light: aqua through and through (round 3: x 1.25 of 0x18d8b4 clipped to white at 1x, a white star)
+    aquaGlass: new THREE.MeshPhysicalMaterial({ color: 0x1f8c7a, emissive: 0x0a4a40, emissiveIntensity: 1, roughness: 0.3, clearcoat: 0.8 }), // the Tender's inner petals: aqua glass round the light, so its heart is a broad aqua eye
     aquaCore: std({ color: 0x9cf4e4, emissive: 0xa8fff0, emissiveIntensity: 0.9 }),                                   // its pale heart, aqua-white, small
-    aquaHalo1: halo(0x30e0c0, 0.26), aquaHalo2: halo(0x28c4ac, 0.12), aquaHalo3: halo(0x20ac98, 0.06),
+    aquaHalo2: halo(0x28c4ac, 0.12), aquaHalo3: halo(0x20ac98, 0.06),
     inkMatte: std({ color: 0x0e0c14, metalness: 0.2, roughness: 0.62 }),                                              // the Undertow's black glass: matte, so a canted face takes no sheen from the rim light
   };
   FAM.set(M, A); return A;
 }
-/** The Tender's aqua light: a big aqua bead with a small heart (the aqua must survive the heart at 1x). */
+/** The Tender's aqua light: a big aqua bead with a small heart (the aqua must survive the heart at 1x), its halos kept
+ *  close (r 3 since round 3: a wide halo would wash the petals). */
 function aqualight(parent, M, r, x, y, z) {
   const A = fam(M);
-  add(parent, sph(r, 12, 10), A.aqua, x, y, z);
-  add(parent, sph(r * 0.36, 8, 6), A.aquaCore, x, y + r * 0.3, z + r * 0.5);
-  add(parent, sph(r * 1.6, 10, 8), A.aquaHalo1, x, y, z);
-  add(parent, sph(r * 2.3, 10, 8), A.aquaHalo2, x, y, z);
-  add(parent, sph(r * 3.1, 10, 8), A.aquaHalo3, x, y, z);
+  add(parent, sph(r, 16, 12), A.aqua, x, y, z);
+  add(parent, sph(r * 0.3, 8, 6), A.aquaCore, x, y + r * 0.3, z + r * 0.5);
+  add(parent, sph(r * 1.4, 12, 10), A.aquaHalo2, x, y, z);
+  add(parent, sph(r * 2, 12, 10), A.aquaHalo3, x, y, z);
 }
 const scaled = (pts, kx, kz, dx = 0) => pts.map(([x, z]) => [x * kx + dx, z * kz]);
 /** A band between two arcs about C (top view): radius `ro(t)` outside and `ri(t)` inside, t from a0 to a1. */
@@ -69,33 +70,41 @@ export function needle(M, f) {
   g.add(b); return g;
 }
 
-/** Tender (support, a detector): a flower of pearl petals round a big aqua light, 23 across (about 2.6x the Glint's
- *  footprint, a little over the Lens's: smaller, it read as the Glint): six narrow pointed outer petals with clear
- *  gaps (a six-pointed flower, never a disc), three lighter ones cupping the light, an ink calyx beneath with a team
- *  band round it; team glaze on two opposite outer petals (between ink seams), so the light stays aqua in every seat;
- *  the one Vael light that is aqua: a mender, not a weapon. */
+/** A round petal (top view): narrow at its root (the origin), its broad end a circle of radius `w`/2 at the tip, `l` long
+ *  along +x: from above a row of them is a scalloped rosette, notched between round lobes, never a star's points. */
+const roundPetal = (l, w, root = 0.3, n = 18) => {
+  const r = w / 2, cx = l - r, p = [[0, -w * root / 2]];
+  for (let i = 0; i <= n; i++) { const a = -Math.PI * 0.62 + Math.PI * 1.24 * i / n; p.push([cx + Math.cos(a) * r, Math.sin(a) * r]); }
+  p.push([0, w * root / 2]); return p;
+};
+/** A round petal's tip (top view): the part of its end circle (centre `cx` on the x axis, radius `r`) beyond a chord
+ *  `cut` behind the centre. */
+/** Tender (support, a detector): a flower of pearl round a big aqua heart, 23 across (about 2.6x the Glint's
+ *  footprint): six broad round petals cupped up round the heart, notched between their lobes (round 3: six narrow
+ *  pointed petals read as a star, a sparkle, the Glint), each petal's tip team glaze behind an ink seam, an ink calyx
+ *  beneath with a team band round it; the heart a cup of five small aqua-glass petals round the aqua light, inside an
+ *  ink ring: a broad aqua eye in every seat, the one Vael light that is aqua, a mender, not a weapon. */
 export function tender(M, f) {
-  const g = grp(), b = grp(); b.position.y = 7 + (f % 2) * 0.7;
+  const g = grp(), b = grp(), A = fam(M); b.position.y = 7 + (f % 2) * 0.7;
   add(b, lathe([[0, -3.6], [2.8, -3.3], [4.4, -1.9], [5, -0.2], [4.7, 0.6]], 24), M.ink, 0, 0, 0);   // the calyx: an ink cup beneath
   add(b, cyl(5.15, 4.95, 1.4, 24), M.glaze, 0, -1.1, 0);                                      // the team band round it
   add(b, cyl(5.25, 5.25, 0.35, 24), M.inkSeam, 0, -0.25, 0); add(b, cyl(5.1, 5.1, 0.35, 24), M.inkSeam, 0, -1.95, 0);
-  for (let k = 0; k < 6; k++) {                                                               // the outer petals: six, nearly flat, 23 across
-    const a = k / 6 * Math.PI * 2 + Math.PI / 6 + (f % 2) * 0.04, p = grp(), team = k % 3 === 1;   // (team: two opposite petals)
-    p.position.set(Math.cos(a) * 2.2, 0.5 + (k % 2) * 0.35, Math.sin(a) * 2.2); p.rotation.set(0, -a, 0); p.rotateZ(0.16); b.add(p);
-    // (round 6: narrow, pointed petals with clear gaps between them, so the silhouette is a six-pointed flower, never a disc)
-    add(p, plate(petal(9.8, 5, 14, 0.55), 1, 0.35), M.shell, 0, -0.5, 0);
-    if (team) { add(p, plate(scaled(petal(9.2, 4.6, 14, 0.55), 1, 1, 0.5), 0.6, 0.15), M.glaze, 0, 0.4, 0); add(p, plate(scaled(petal(9.6, 4.9, 14, 0.55), 1, 1, 0.2), 0.3, 0.1), M.inkSeam, 0, 0.3, 0); } // its glaze, an ink seam showing round it
-    else add(p, plate(scaled(petal(5.6, 1.1, 14, 0.5), 1, 1, 2.8), 0.4, 0.1), M.shellDeep, 0, 0.4, 0);   // a crease down the pearl ones
+  for (let k = 0; k < 6; k++) {                                                               // the petals: six, broad and round, cupped up, 23 across
+    const a = k / 6 * Math.PI * 2 + Math.PI / 6 + (f % 2) * 0.04, p = grp(), team = k % 2 === 0;   // (team: every other petal)
+    p.position.set(Math.cos(a) * 1.8, 0.4, Math.sin(a) * 1.8); p.rotation.set(0, -a, 0); p.rotateZ(0.34); b.add(p);
+    add(p, plate(roundPetal(10, 6.8), 1, 0.35), M.shell, 0, -0.5, 0);
+    // every other petal in team glaze inside an ink seam (round 3: two opposite team petals made a bar through the
+    // light at 1x, a bow or an insect; alternate petals show each lobe apart in every facing)
+    if (team) { add(p, plate(scaled(roundPetal(9.2, 6.0), 1, 1, 0.6), 0.6, 0.15), M.glaze, 0, 0.4, 0); add(p, plate(scaled(roundPetal(9.7, 6.5), 1, 1, 0.2), 0.3, 0.1), M.inkSeam, 0, 0.3, 0); }
+    else { add(p, plate(scaled(roundPetal(8.6, 5.4), 1, 1, 1), 0.4, 0.15), M.shellLight, 0, 0.35, 0); add(p, plate(scaled(petal(5, 0.9, 14, 0.5), 1, 1, 3.2), 0.4, 0.1), M.shellDeep, 0, 0.55, 0); } // a lighter face, a vein down its middle
   }
-  for (let k = 0; k < 3; k++) {                                                               // the inner cup: three steeper, lighter petals round the light
-    const a = k / 3 * Math.PI * 2 + Math.PI / 2, p = grp();
-    p.position.set(Math.cos(a) * 1.5, 1.1, Math.sin(a) * 1.5); p.rotation.set(0, -a, 0); p.rotateZ(0.6); b.add(p);
-    add(p, plate(petal(4.2, 3.8), 0.7, 0.2), M.shellLight, 0, -0.35, 0);
+  add(b, cyl(4.6, 3.4, 0.8, 24), M.inkSeam, 0, 1.0, 0);                                        // an ink ring under the heart: the seam between the pearl and the aqua
+  for (let k = 0; k < 5; k++) {                                                               // the inner cup: five small round petals of aqua glass round the light
+    const a = k / 5 * Math.PI * 2, p = grp();
+    p.position.set(Math.cos(a) * 1.2, 1.5, Math.sin(a) * 1.2); p.rotation.set(0, -a, 0); p.rotateZ(0.7); b.add(p);
+    add(p, plate(roundPetal(3.8, 2.9, 0.5), 0.6, 0.2), A.aquaGlass, 0, -0.3, 0);
   }
-  add(b, cyl(2.4, 1.8, 1, 16), M.ring, 0, 1, 0);                                              // the cup's pearl lip
-  add(b, cyl(1.8, 1.8, 0.5, 16), M.inkSeam, 0, 1.5, 0);                                       // an ink socket
-  aqualight(b, M, 2.2, 0, 3.8, 0);                                                            // the aqua light, big, held clear above the cup
-  // (round 3's size, about 2.6x the Glint: the blind test read it apart from the Glint only at this size; the PM, Nov 6)
+  aqualight(b, M, 2.4, 0, 3.4, 0);                                                            // the aqua light, big, in the cup
   g.add(b); return g;
 }
 

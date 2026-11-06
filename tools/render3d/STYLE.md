@@ -49,7 +49,7 @@ body with a pale top: in greyscale it parts from the Vael (pale body, dark core)
 | `timberPale`  | timber pale enough to read at 18 px (unused since step 1: a pale part of a Harbour unit is canvas, which keeps its value in the gold seat) | Standard 0xb09468, map `grainTex`, rough 0.75   |
 | `rope`        | coils, lines, lashings        | Standard 0xc8b48a, bump `ropeBump` 1.2, rough 0.95                                         |
 | `brass`       | small tips only: a pick's points, a muzzle bead, the lamp's cage and finial | Standard 0xc49a3c, metal 0.95, rough 0.28 |
-| `sandbag`     | the dug-in state: wet grey-brown, mid value (dark bags vanish on the ground, tan ones merge with gold) | Standard 0x7a7264, map `burlapTex`, rough 1 |
+| `sandbag`     | (the round-2 parapet; round 3's ring uses `sandbagPale`/`sandbagShade`, see Harbour infantry): wet grey-brown, mid value (dark bags vanish on the ground, tan ones merge with gold) | Standard 0x7a7264, map `burlapTex`, rough 1 |
 | `slate`       | kerbs, plinths, the salt field's bed | Standard 0x3e4247, rough 0.9, flat shaded                                           |
 | `flagstone`   | a quay's paving               | Standard 0x565b60, map `flagTex` (courses of stones, damp), bump 1.2, rough 0.88           |
 | `inkLine`     | the black ring either side of every team band | Standard 0x08080a, rough 0.8                                              |
@@ -113,10 +113,9 @@ Nothing emissive on the Harbour is team-tinted.
 
 ### States
 
-Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling behind a
-crescent parapet of wet sandbags laid ahead (r 7.6, 200 degrees, two courses), the rifle resting on them, a team
-groundsheet behind; frame 2 while going to ground (one course), frame 3 dug in. Cover is a wall in front, open behind:
-a full ring read as a machine's body in the round-1 blind test. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
+Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling in a ring of
+pale sandbags open at the back (step 2, round 3: see "Harbour infantry"; the round-1 crescent parapet read as a
+machine's body, and the round-2 brown one vanished at phone size); frame 2 while going to ground, frame 3 dug in. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
 frame with a visible fixture on the ground (the hull down and spades out; a dropped anchor and a taut line), never a tint.
 
 ## The Vael (sim race `vael`)
@@ -133,7 +132,7 @@ a dark heart: the opposite value order to the Harbour.
 | `ink`                  | **the ink core**: black glass bellies, discs, drums | Physical 0x0f0d16, metal 0.45, rough 0.14, clearcoat 1                   |
 | `inkSeam`              | ink edges round team glaze      | Standard 0x15121c, rough 0.5                                                               |
 | `glaze`, `glazePlain`  | **team glaze**                  | Physical team colour, clearcoat 0.9, iridescence 0.3; `team()`                             |
-| `deeplight`            | a small light (r 1.3-1.6 on a unit, in an ink socket at the Glint's tip) | Standard 0x2a3290, emissive 0x7080ff x 1.9  |
+| `deeplight`            | a small light (r 1.2-1.6 on a unit, in an ink socket on the Glint's crown) | Standard 0x2a3290, emissive 0x7080ff x 1.9  |
 | `deepCore`             | its white heart                 | Standard 0xc8d0ff, emissive 0xdde2ff x 1.1                                                 |
 | `deepHalo1..3`         | its falloff                     | Basic 0x6a7cf0 / 0x5a68e0 / 0x4c58c8, additive, opacity 0.18 / 0.09 / 0.045                |
 | `pool`, `poolDeep`     | a pool of deeplight             | Standard 0x0c1024 emissive 0x1a2260 x 0.3; 0x06081a emissive 0x121848 x 0.2 (dim, navy-ink, pearl ripple rings) |
@@ -155,8 +154,11 @@ the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.
 
 ### Shape language
 
-- Workers: drops. The Glint is a fat pearl drop (`shellLight`, pale from above: its ink belly is tucked under the head, seen from the side only, since a belly showing from above made it a dark blob, the Undertow) with a blunt tail (7 long, a team sleeve on its aft half and a pearl knob at its end), one big deeplight at the tip with
-  a pale heart; it hovers low with its shadow right beneath it. Round from above: a drop drawn to a point read as a
+- Workers: drops. The Glint is a fat pearl drop (`shellLight`, pale from above: its ink belly is tucked under the head, seen from the side only, since a belly showing from above made it a dark blob, the Undertow) with a blunt tail (7 long, a team sleeve on its aft half and a pearl knob at its end), one deeplight (r 1.2) on the crown ahead of the team dome with
+  a pale heart; under its bow two small ink claws hold its load, a cube of salt (5.4 across, a smaller cube grown on
+  it, `vael2.js` salt 0x9c968a flat-shaded, a band below the pearl, no light): the worker's cue no other unit has, as
+  the Rigger's sack (step 2, round 3: the plain round drop read as a soft healer, the Tender, 2 of 4 testers in two
+  rounds); it hovers low with its shadow right beneath it. Round from above: a drop drawn to a point read as a
   flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a sleeve on the tail: never a
   band across the body (bands with seams read as palings or a blade at 18 px).
 - Fighters: blades and discs. The Lens is an ink-glass disc (r 7.6, the glass big and dark: the one "eye") in a narrow pearl rim (r 7.9, tube 1), the light in the middle, a thin
@@ -207,15 +209,15 @@ craft and a barge with a big coil as a Conch: hence the shapes below.
 | kind (key)             | signature shape, from above          | size (sim r)           | team glaze                                         | the light          |
 |------------------------|--------------------------------------|------------------------|----------------------------------------------------|--------------------|
 | Needle (`scythe`)      | a sickle, point first, all pale (the brief's "slim blade" read as a boat's hull; an ink spine made it the Undertow): a pearl blade curved on an arc (R 13, 110 degrees), 4.8 wide at the heel drawn to a keen point, a lighter ridge along the outer edge, a hairline of ink along the inner one, a pearl keel beneath | line (10), hovers at 6 | a band across the blade's heel and the handle trailing from it, both between ink seams | in the eye of the needle, a pearl loop at the handle's end |
-| Tender (`halo`)        | a six-pointed flower, 23 across: six narrow pointed pearl petals with clear gaps between them (petals that touched made a disc, read as the Lens or the Glint), nearly flat, three lighter ones cupping the light; never a disc or a mote | support (9), hovers at 7 | two opposite outer petals (each inside an ink seam) and a band round the ink calyx beneath, so the light stays aqua in every seat | the one aqua light, big (r 2.2), held above the cup (`aqua` 0x18d8b4 emissive x 1.25, a small aqua-white heart, aqua halos; in `vael-units.js`), never violet: a mender, not a weapon |
+| Tender (`halo`)        | a round flower, 23 across: six broad round petals (`roundPetal`: narrow at the root, a round lobe at the tip) cupped up, notched between their lobes, each pearl one with a lighter face and a short vein; its heart a cup of five small aqua-glass petals (`aquaGlass`) inside an ink ring. Never pointed petals (step 2, round 3: six narrow pointed petals read as a star, a sparkle, the Glint) and never a disc (petals that touched read as the Lens) | support (9), hovers at 7 | every other petal (three, each inside an ink seam: two opposite ones made a bar through the heart at 1x) and a band round the ink calyx beneath | the one aqua light (r 2.4, `aqua` 0x12b898 emissive x 1.0, a small aqua-white heart, two close aqua halos; in `vael-units.js`: x 1.25 of 0x18d8b4 with wide halos clipped to white), never violet: a mender, not a weapon |
 | Conch (`monolith`)     | a spiral: a pearl shell of two and a half whorls, apex up, on an ink disc with a pearl rim; the mouth an ink aperture facing the bow (the muzzle) | heavy (15), hovers at 3 | a ridge coiling along the whorls' shoulder between two ink-seam coils, and the mouth's lip | deep in the mouth |
 | Undertow (`umbra`)     | the one ink-dark Vael: a low leaf blade with a swept leading edge, matte black glass (`inkMatte`) on a thin pearl plate (`ring`, 0.6), so the rim is a line from above and the edge-on blade is ink (a thick plate read as a pale spindle, the Needle) | line (10) | the hilt on both faces and a slim grip round it, between ink seams; lurking, a team dot on the pommel | at the pommel (r 1.2 gliding, 0.7 lurking); gliding, a thin line of deeplight down the leading edge |
 | Petrel (`shrike`)      | a gull: two pearl wings curved only at the root (the leading edge bowed forward, the trailing edge hollowed) and straight-swept outside it, on a pearl body 13 long riding above them with a head forward, ink beneath (a straight chevron read as a Harbour Kite; a crescent all along read as the Needle's sickle) | flyer (11), flies at 20, its shadow well offset | both wingtips behind a full ink seam across the wing, and a cap on the pod's back | at the tail |
 | Argonaut (`sovereign`) | a long barge, length before all: a pearl hull 44 long and 17 wide, bow at +x, an ink underside, pearl shell ridges along both gunwales; a small coiled shell over the stern; a lantern at the bow | capital (18), hovers at 4 | the deck well, a low team dome with an ink hem; the shell's ridge; the lantern's foot ring | the lantern: a big deeplight (r 2) on a short post under a pearl hood, no cage (a cage read as a gun barrel) |
 
 Shapes against each other: the Needle is a pale sickle, the Undertow a dark leaf (the PRD's one exception to the
-pale-on-ink value order, kept legible by its pearl rim, its lights and its hard shadow); the Tender is a pointed six-petal
-flower where the Lens is a dark disc and the Glint a tailed drop; the Conch is round where the Argonaut is long; the
+pale-on-ink value order, kept legible by its pearl rim, its lights and its hard shadow); the Tender is a round six-petal
+flower with an aqua heart where the Lens is a dark disc and the Glint a tailed drop carrying a cube of salt; the Conch is round where the Argonaut is long; the
 Petrel is a gull (a body on swept wings), the only thing with its shadow apart from it.
 
 States: the Undertow glides canted on its edge (frames 0-1, the face leaning to the south, hovering at 3, its edge and
@@ -226,41 +228,47 @@ is set: the same blade, kept dark). The Petrel has one frame (a glider, `UNIT_FP
 ## Harbour infantry (`harbour-infantry.js`)
 
 The sailor (`sailor`): an oilskin coat (tar, or `coat` given) with a flared skirt, an iron belt, a hood, sea boots;
-two stride frames or kneeling. Every kind wears the family's round canvas hat (`hat`: pale brim and crown, the team
-band round the crown between two ink rings, a dark line under the brim; brim 4.1-4.5, crown 2.9-3.1 by kind) except
-the Rigger's cap, and every kind has team canvas sleeves. Each owns an outline at 18 px, and every figure stands
-upright (round 1's level harpoon gun made the Harpooner read as lying prone; round 2's hand-barrow made the Rigger,
-the one low shape left, read the same):
+two stride frames or kneeling. The Picket, the Harpooner and the Mender wear the family's round canvas hat (`hat`:
+pale brim and crown, the team band round the crown between two ink rings, a dark line under the brim; brim 3.8-4.5,
+crown 2.8-3.1 by kind); the Rigger a dark tar cap. Every kind has team canvas sleeves. Each owns an outline at 18 px,
+and every figure stands upright (round 1's level harpoon gun made the Harpooner read as lying prone; round 2's
+hand-barrow made the Rigger, the one low shape left, read the same). Step 2's whole-set test read the four as "the
+same white hat on a team blob" and swapped them by size: since round 3 each carries one **signature bigger than its
+hat**, never another white dot:
 
-- **Rigger** (harvester, scale 0.95): the smallest figure, a small pale cap with a team band, a big pale canvas salt
-  sack low on its back (its top under the cap in every facing) bunched up by the right shoulder, tied round the
-  middle with a team band and at the neck with a team cord, a short pick with a salt-pale head held low in the left
-  hand (never a shaft that could read as a rifle); team yoke and apron. From above: a small cap and a big pale lump
-  below it on a dark body. No cart.
+- **Rigger** (harvester, scale 0.95): the smallest figure, the one that **carries things**: a fat lumpy pale salt sack
+  slung across the back over the left shoulder (a slant in every facing, its left end forward, held there by the left
+  hand; its bunched ends draped down; two team cords between ink rings), the body leant forward under it; a short
+  pick with a salt-pale head low in the right hand. A **dark tar cap** with a team band, no pale hat: the sack is its
+  one pale mass. A team waistcoat back under the sack, a team apron. From above: a slanted pale bolster beside a small
+  dark head. No cart.
 - **Picket** (trooper, 1.08): a pale disc with a thin bar angled up ahead: the rifle's stock and muzzle wrapped in
   pale canvas round a thin dark barrel (r 0.62), a brass bead; a narrow team pack behind. Pale timber on the stock
   was seat 0's own hue and the rifle vanished in gold: a pale thing on a Harbour unit is canvas, not timber. The
-  plain rifleman. Dug in (frames 2, 3; `UNIT_POSE`): the rifle still thin and angled up, one course of separate
-  sandbags with gaps between them round the front, one of them wetter and darker (`sandbagDark`) so the bags part,
-  the groundsheet behind.
-- **Harpooner** (lancer, 1.08): the harpoon gun shouldered and angled up ahead (0.52 rad): a timber butt, a tube r
-  1.3 served with pale canvas, team canvas over its breech and grip between 0.8-wide ink rings, an iron muzzle ring,
-  the harpoon's pale shaft out of it with a dark cork float on the line near the tip and a brass head with barbs
-  (brass on the tip only). The shaft, float and head cast no shadow (`userData.noShadow`, read by `scene.js`), so the
-  raised gun's shadow stays a third shorter. A small coil of tan rope with a dark eye hangs low at the right hip,
-  smaller than the hat. From above: a pale disc, a pale shaft rising ahead with a dot and a barbed tip, a small ring
-  at the hip. Team: the sleeves, the hat band (2.7), the pack, the grip and the breech.
-- **Mender** (medic, 1.08, unarmed): **the palest-bodied Harbour human**: an ash sailcloth coat (`ash` 0xaaa696, a
-  band below the hat, which stays the pale top; a cream coat put the white seat's straps and cross at the coat's own
-  value) under a hat with a tall crown, an ink belt, a broad satchel of dark sailcloth (`sailDark` 0x6e6a60) high on
-  the back with a **team cross** on its flap and its back face inside ink edges, two team straps over the shoulders,
-  a team hem, and a small warm **lamp** (`lampSmall` r 1 with a `lampCore` heart, in a brass cage) carried low in the
-  right hand at the hip. From above: a pale disc on an ash figure, a dark crossed square behind the hat, one warm
-  dot low at its side. Never a sack on a dark body (that is the Rigger).
+  plain rifleman. Dug in (frames 2, 3; `UNIT_POSE`): kneeling, the rifle still thin and angled up, inside a **ring of
+  pale sandbags** (`sandbagPale`, every third `sandbagShade`, each on an ink foot; R 8.4, eleven of twelve places,
+  the gap behind; five round the front while settling) on a whole team groundsheet disc inside an ink rim. The ring
+  is the state's signature: round 2's brown bags vanished on the seabed and the dug-in Picket read as a Mender or a
+  Harpooner.
+- **Harpooner** (lancer, 1.08): **the longest thing in the infantry**, past the body at both ends: the harpoon gun
+  shouldered and angled up ahead (0.46 rad), a long butt wrapped in team canvas well behind the back with an iron
+  heel, a team grip and breech wrap between ink rings, a thick tube (r 1.75) served with pale canvas, a fat **drum of
+  pale line** (`ropePale`, five turns round the tube between ink discs) ahead of the hands, an iron muzzle ring, the
+  harpoon's thick pale shaft (r 0.8) with a dark cork float and a big brass head with barbs (brass on the tip only).
+  The shaft, float and head cast no shadow (`userData.noShadow`, read by `scene.js`). No hip coil (the line is on the
+  gun). From above: a pale disc on a long thick pale bar with a knot in it and a barbed tip. Team: the sleeves, the
+  hat band (2.7), the pack, the butt, the grip and the breech.
+- **Mender** (medic, 1.08, unarmed): **the palest-bodied Harbour human**: an ash sailcloth coat (`ash` 0xaaa696)
+  under a hat with a tall crown and a narrow brim, an ink belt, and on its back a big **cream satchel** (`satchel`
+  0xe8e0c8, never team; 5 x 7 x 7.6) with a **dark ink cross** on its lid, its back and both ends (a cross shows in
+  every facing), ink hems at its lid and foot; two team straps over the shoulders, a tall team hem round the skirt,
+  and a small warm **lamp** (`lampSmall` r 1 with a `lampCore` heart, in a brass cage) carried low in the right hand
+  at the hip. From above: a pale disc beside a pale square with a dark cross. Round 2's dark satchel with a team
+  cross was too small to read at 18 px.
 
-Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 21 h 26 (the raised harpoon's tip), Mender r 15 h 21. Team shares at facing
-0 (round 4): Rigger 0.173, Picket 0.173 / 0.214 dug in, Harpooner 0.216, Mender 0.238. The pack:
-`node tools/art/review.mjs <dir> --family=hinf`.
+Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 29 h 31 (round 3: the longer gun, its tip about
+27 ahead and 26 up), Mender r 15 h 21. Team shares at facing 0 (round 3): Rigger 0.169, Picket 0.173 / 0.255 dug in,
+Harpooner 0.199, Mender 0.188. The pack: `node tools/art/review.mjs <dir> --family=hinf`.
 
 ## Harbour machines (step 1, `harbour-machines.js`)
 

@@ -24,7 +24,7 @@ pub const VAEL: Faction = Faction {
     ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
-    power: None, // (Roster v2: the Sunpetal is energy, not a leash on where to build)
+    power: None, // (Roster v2: the Sunpetal is population, not a leash on where to build)
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     warp: true,
@@ -139,7 +139,7 @@ pub(super) const HALO: UnitDef = UnitDef {
 };
 /// The Umbra (the Undertow): a blade that lurks (Roster v2): once it has neither walked nor struck for `LURK_S` it is
 /// hidden, seen and struck only where the other side detects; it shows the moment it moves or strikes. It lies in wait
-/// by a Pump or on a path; detected, it is a costly blade.
+/// by an Excavator or on a path; detected, it is a costly blade.
 /// Trained at the Zenith (an advanced hover unit, as the Sovereign is) once an Eclipse stands; a ground unit all the
 /// same.
 pub(super) const UMBRA: UnitDef = UnitDef {
@@ -277,7 +277,7 @@ pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Siphon",
     cost: [75, 0],
-    hp: 200.0, // (as the Humans' Pump: no shields)
+    hp: 200.0, // (as the Humans' Excavator: no shields)
     build: 25.0,
     on_vent: true,
     ..BLDG

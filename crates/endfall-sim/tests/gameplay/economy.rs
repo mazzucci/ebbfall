@@ -73,9 +73,9 @@ fn an_unfinished_pump_pays_nothing_and_a_seep_is_never_mined() {
     assert!(!w.start_gather(h[0], vent), "a seep is not mined");
     assert!(
         w.events.iter().any(
-            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Pump"))
+            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Excavator"))
         ),
-        "the player is told the Pump pays by itself"
+        "the player is told the Excavator digs by itself"
     );
     w.damage(site, 1e6, None);
     w.make_building(BldgKind::Extractor, PLAYER, vx, vy, true);
@@ -185,7 +185,7 @@ fn the_supply_cap_grows_with_the_map() {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();
         assert_eq!(w.supply_limit(), cap, "{n}x{n}");
-        // Supply buildings round the headquarters (Windmasts or Sunpetals), one past what reaches the cap.
+        // Supply buildings round the headquarters (Cottages or Sunpetals), one past what reaches the cap.
         let each = f.supply.def().supply;
         let hq = f.hq.def().supply;
         let need = ((cap - hq) as f64 / each as f64).ceil() as i32;
@@ -195,7 +195,7 @@ fn the_supply_cap_grows_with_the_map() {
         }
         w.recalc_supply(PLAYER);
         assert_eq!(w.sup[PLAYER as usize][1], cap, "{n}x{n}: capped at {cap}");
-        // Filled to the cap: blocked, and told the limit (another energy building would not help).
+        // Filled to the cap: blocked, and told the limit (another population building would not help).
         w.sup[PLAYER as usize][0] = cap;
         let hq_id = w
             .bldgs
@@ -206,7 +206,7 @@ fn the_supply_cap_grows_with_the_map() {
         assert_eq!(
             w.queue_unit(hq_id, f.worker),
             Err(format!(
-                "Energy at its limit ({cap}): no more until some fall"
+                "Population at its limit ({cap}): no more until some fall"
             )),
             "{n}x{n}"
         );
@@ -235,7 +235,7 @@ fn a_full_core_reports_supply_blocked() {
         .expect("the tenth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Out of energy. Build a Windmast.".to_string())
+        Err("Population full. Build a Cottage.".to_string())
     );
 }
 

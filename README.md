@@ -1,7 +1,7 @@
 # Ebbfall
 
-A browser real-time strategy game in the 1998 mold: mine salt, plant Pumps on the brine seeps, build supply, raise an army, and level
-the enemy Lighthouse before their waves level yours. Two races (the human colonists and the alien Vael), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
+A browser real-time strategy game in the 1998 mold: mine salt, plant Pumps on the brine seeps, raise energy, raise an army, and level
+the enemy Lighthouse before their waves level yours. Two peoples (the Harbour and the alien Vael, fighting over a drained seabed's salt), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
@@ -28,13 +28,17 @@ letter (`A` attack-move, `S` stop, `H` hold, `B` build with Riggers selected); *
 asks before leaving a game.
 
 **Units:** Riggers mine, build and repair. The Crew Hall trains Pickets (line infantry, ground only; they Dig In for more
-reach once Sandbags is researched), Harpooners (harpoons, strongest against flyers) and Menders (heal infantry). The Slipway builds
-Breakwaters (armoured walkers for the front line; their shells splash, ground only), Anchor Guns (artillery that fires
+reach once Sandbags is researched), Harpooners (harpoons, strongest against flyers, that slow what they hit) and Menders (heal infantry). The Slipway builds
+Breakwaters (armoured walkers for the front line that beach themselves where they fight: armour 6 and a splashing gun, a light gun on the move), Anchor Guns (artillery that fires
 only when anchored: the longest reach on the ground and a heavy splash, but a blind ring close in, ground only, and it
 fires only at what your side can see; under way, no gun at all) and Netters (fast ground missile vehicles that shoot only
 flyers: the escort against air). Menders and the vehicles need a Workshop, which researches weapon and armor upgrades.
 The Loft trains Kites, light jets that fly over cliffs and buildings, and Spyglasses, cheap unarmed flying scouts that
-spot hidden units. Lookouts hit ground and air.
+spot hidden units. Lookouts hit ground and air. The Vael: Glints mine and plant buildings that grow by themselves; the Cradle grows
+Needles (fast blades), Lenses (ranged, ground and air, with Surge), Conchs (heavy shells that Surface past a line) and
+Tenders (they mend); the Gyre sends out Petrels (flyers, hidden once Seaglass is researched), Undertows (blades that
+lurk: hidden while still, so put them on Hold to lie in wait) and the Argonaut, a capital barge whose lantern spots what
+hides. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 

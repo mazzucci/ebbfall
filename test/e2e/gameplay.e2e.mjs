@@ -711,7 +711,7 @@ test('a newcomer\'s FIRST GAME on the first page, and only there; once the guide
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnFirstHome').click();
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-    assert.match(await page.locator('#tut').textContent(), /1\/6/, 'the guided game');
+    assert.match(await page.locator('#tut').textContent(), /1\/7/, 'the guided game');
     await page.evaluate(() => endfall.engine.concede()); // (set-up: the game's end is what matters)
     await page.locator('#end').waitFor({ state: 'visible' });
     await page.locator('#btnAgain').click();
@@ -1500,7 +1500,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and what it fights best beside and what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -1532,7 +1532,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     const trooper = await hold('Picket');
     assert.match(trooper.text, /^Picket\s*50/, 'its name and cost first');
     assert.match(trooper.text, /Line infantry, cheap and steady\./, 'and what it does');
-    assert.doesNotMatch(trooper.text, /against|Needle|Kite|Breakwater|Argonaut/i, 'no counters: players find them themselves');
+    assert.match(trooper.text, /Best with Harpooners\. Beaten by Conchs\./, 'its partner and its killer, one line (Roster v2)');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Picket' }).getAttribute('title'), /against|Health|Damage/i, 'nor counters or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
@@ -1670,7 +1670,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
-    await d.hudText('#tut', /1\/6/);
+    await d.hudText('#tut', /1\/7/);
     assert.match(await d.page.locator('#tut').textContent(), /train two Riggers/);
     // Step 1: the Core, then Rigger twice (the button pulses).
     await d.grant(1000, 0);
@@ -1680,7 +1680,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Rigger button pulses');
     await d.pressCard('Rigger'); await d.pressCard('Rigger');
     await d.skip(30);
-    await d.hudText('#tut', /2\/6/);
+    await d.hudText('#tut', /2\/7/);
     // Step 2: a Rigger, Build: the Build button pulses; a Windmast finishes the step.
     // A Rigger standing at its field (one on the move can slip from under the tap).
     for (let i = 0; i < 8 && !(await d.selection()).some(e => e.type === 'harvester'); i++) {
@@ -1694,7 +1694,8 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     const spot = await d.findSpot('depot', { tx: core.tx + 5, ty: core.ty });
     await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Windmast' });
-    await d.hudText('#tut', /3\/6/);
+    await d.hudText('#tut', /3\/7/);
+    assert.match(await d.page.locator('#tut').textContent(), /Build a Pump on a brine seep/, 'then a Pump');
     // The opponent waits: by 5:30, with the army not ready, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
     assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');

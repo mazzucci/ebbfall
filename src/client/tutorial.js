@@ -15,18 +15,25 @@ const tut = { on: false, step: 0, start: 0, since: 0 };
 const mine = (type) => G.units.filter(u => u.team === G.me && u.type === type).length;
 const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && b.done);
 
-/** The steps for the player's race: [line, portrait, the buttons to pulse, done?]. */
+/** The step after which the opponent may come (the army is trained): its index in `steps()`. */
+const ARMY = 5;
+
+/** The steps for the player's race: [line, portrait, the buttons to pulse, done?]. Mine, energy, a Pump, the
+ *  barracks, a line and its anti-air (as many line units as fit under the first cap: six of a 1-energy kind, three of a
+ *  2-energy one), hold, attack. */
 function steps() {
-  const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker];
-  const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker)), soldier = BUILDINGS[rax].trains[0];
+  const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker], pump = BUILDINGS[f.ether];
+  const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker));
+  const [soldier, aa] = BUILDINGS[rax].trains, n = Math.max(3, Math.floor(6 / (UNITS[soldier].supply || 1)));
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
     { text: `Select your ${hq.name}, then train two ${plural(worker.name)}`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name}`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
+    { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (energy: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
+    { text: `Build a ${pump.name} on a brine seep: it pays salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
-    { text: `Train 6 ${plural(UNITS[soldier].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= 6 },
+    { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => calm() || G.time - tut.stepAt > 150 },
-    { text: `Select your ${plural(UNITS[soldier].name)} (double-tap or double-click one for all of them), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `Select your army (the ARMY button, or Q), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 
@@ -42,7 +49,7 @@ export function startTutorial(on) {
 
 function show() {
   const s = steps()[tut.step];
-  $('tut').innerHTML = `<span class="pic">${portrait(s.por[0], s.por[1], 26)}</span><span class="t">${s.text}</span><b>${tut.step + 1}/6</b>`;
+  $('tut').innerHTML = `<span class="pic">${portrait(s.por[0], s.por[1], 26)}</span><span class="t">${s.text}</span><b>${tut.step + 1}/${steps().length}</b>`;
 }
 
 function clearPulse() { for (const el of document.querySelectorAll('.pulse')) el.classList.remove('pulse'); }
@@ -52,11 +59,11 @@ export function updateTutorial() {
   if (!tut.on) return;
   if (G.over) { tut.on = false; $('tut').hidden = true; clearPulse(); return; } // (won or lost before the last step)
   // The opponent's patience runs out at HOLD_WAVES s whatever the step: a word, once, so it is no surprise.
-  if (!tut.warned && tut.step < 4 && G.time > HOLD_WAVES - 20) { tut.warned = true; toast('The enemy is gathering to attack: get some soldiers ready!', true); }
+  if (!tut.warned && tut.step < ARMY && G.time > HOLD_WAVES - 20) { tut.warned = true; toast('The enemy is gathering to attack: get some soldiers ready!', true); }
   const all = steps();
   while (tut.step < all.length && all[tut.step].done()) {
     tut.step++; tut.stepAt = G.time; sfx('done');
-    if (tut.step === 4) { holdWaves(false); tut.since = performance.now(); } // the army is ready: let them come
+    if (tut.step === ARMY) { holdWaves(false); tut.since = performance.now(); } // the army is ready: let them come
     if (tut.step === all.length) { tut.on = false; $('tut').hidden = true; clearPulse(); return; }
     show();
   }

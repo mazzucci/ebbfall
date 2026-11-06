@@ -133,8 +133,8 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
   }
   save('contact.png', c);
   writeFileSync(join(outDir, 'contact.json'), JSON.stringify({
-    units: { columns: [0, 4, 8, 12].flatMap(d => ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (white)', 'team mask'].map(s => `facing ${d}, ${s}`)), rows: cells.filter(r => !r.bldg).map(r => `${r.kind}_<facing>_${r.frame}`) },
-    buildings: { columns: ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (white)', 'team mask'], rows: cells.filter(r => r.bldg).map(r => r.bldg === 'turret' ? 'bldg_turret + turret_head_0' : r.name) },
+    units: { columns: [0, 4, 8, 12].flatMap(d => ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (yellow)', 'team mask'].map(s => `facing ${d}, ${s}`)), rows: cells.filter(r => !r.bldg).map(r => `${r.kind}_<facing>_${r.frame}`) },
+    buildings: { columns: ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (yellow)', 'team mask'], rows: cells.filter(r => r.bldg).map(r => r.bldg === 'turret' ? 'bldg_turret + turret_head_0' : r.name) },
   }, null, 1));
 }
 
@@ -155,6 +155,26 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
   save('phone@2x.png', c);
   const p = half(c); save('phone.png', p);
   for (const mode of ['grey', 'protan', 'deutan']) save(`phone-${mode}.png`, simulate(p, mode));
+}
+
+// ---- 2b. every seat's team colour: a row per seat (0-7) of the Harbour's units and its canvas-roofed buildings, then the
+// Vael's units and pale shells, at game size; the same in deuteranopia and protanopia (seats.png, seats-deutan.png,
+// seats-protan.png): whether each seat's team reads, and seat 0's gold apart from seat 6's yellow ----
+{
+  const ROW = 150, c = canvas(3000, ROW * 8 + 40); seabed(c, 5);
+  const list = [];
+  for (let seat = 0; seat < 8; seat++) {
+    const y = 90 + seat * ROW; let x = 90;
+    for (const [k] of HARBOUR) { list.push([`${k}_0_0`, x, y, seat]); x += 104; }
+    for (const k of ['barracks', 'factory', 'airfield']) { const w = get(`bldg_${k}`).img.w; x += w * 0.3; list.push([`bldg_${k}`, x, y + 40, seat]); x += w * 0.42; }
+    x += 40; for (const [k] of VAEL) { list.push([`${k}_0_0`, x, y, seat]); x += 104; }
+    for (const k of ['conflux', 'zenith']) { const w = get(`bldg_${k}`).img.w; x += w * 0.25; list.push([`bldg_${k}`, x, y + 40, seat]); x += w * 0.35; }
+  }
+  for (const [name, px, py, seat] of list.sort((a, b) => a[2] - b[2])) {
+    if (name.startsWith('bldg_')) drawBldg(c, name.slice(5), px, py, seat); else draw(c, get(name), px, py, seat);
+  }
+  const p = half(c); save('seats.png', p);
+  for (const mode of ['protan', 'deutan']) save(`seats-${mode}.png`, simulate(p, mode));
 }
 
 // ---- 3. blind: each sprite alone on plain seabed at phone size, named by random capital letters ----

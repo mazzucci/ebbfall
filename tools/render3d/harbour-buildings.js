@@ -3,9 +3,9 @@
 // at least a sixth of what the camera sees, never a flat shape on the ground. Each has a roof silhouette of its own from
 // above: the Windmast's dark mast through three square sails framed in tar, the Pump's pump jack (an A-frame, a
 // nodding beam, a small horse-head over a pool of brine, team counterweights), the Crew Hall's long dark gable with a
-// flag and a shade along its wall, the Workshop's dark iron slope with a pale vent beside a short pale derrick,
-// the Slipway's open hull on a ramp, the Lookout's tripod tower with a crow's nest (the gun turns on it, a sprite
-// apart), the Loft's launch deck with Kites parked on it beside a hangar tent. Big roofs are weathered cloth that sags
+// shade along its wall over a drill yard with a flag, the Workshop's dark iron slope with a pale vent beside a short
+// pale derrick, the Slipway's sharp-bowed open hull on a slip into water, the Lookout's tripod tower with a crow's
+// nest (the gun turns on it, a sprite apart), the Loft's launch deck with Kites parked on it beside a hangar tent. Big roofs are weathered cloth that sags
 // between supports (`sagQuad`) with worn hems (`wornHem`), never flat fills. Same conventions as models.js: game units
 // (1 tile = 32), buildings centred on their footprint, y up, +z south; the camera looks from the south.
 import * as THREE from 'three';
@@ -20,24 +20,8 @@ const gable = (len, w, h) => memo(`gb${len},${w},${h}`, () => {
   const s = new THREE.Shape([new THREE.Vector2(w / 2, 0), new THREE.Vector2(-w / 2, 0), new THREE.Vector2(0, h)]);
   const g = new THREE.ExtrudeGeometry(s, { depth: len, bevelEnabled: false }); g.rotateY(Math.PI / 2); g.translate(-len / 2, 0, 0); g.computeVertexNormals(); return boxUV(g);
 });
-/** A hipped roof: `w` along x, `d` along z, `h` to the ridge, the hips at 45 degrees, its eaves at y 0. */
-const hip = (w, d, h) => memo(`hip${w},${d},${h}`, () => {
-  const a = w / 2, b = d / 2, r = Math.max(0, b - a), v = [];
-  const tri = (p, q, t) => v.push(...p, ...q, ...t);
-  tri([-a, 0, b], [a, 0, b], [0, h, r]); tri([-a, 0, b], [0, h, r], [0, h, -r]); tri([-a, 0, b], [0, h, -r], [-a, 0, -b]); // the south hip, the west slope (two triangles)
-  tri([a, 0, b], [a, 0, -b], [0, h, -r]); tri([a, 0, b], [0, h, -r], [0, h, r]);                                             // the east slope
-  tri([a, 0, -b], [-a, 0, -b], [0, h, -r]);                                                                                // the north hip
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
-});
 /** An open-ended cylinder (a dodger, a ring): `cyl` is capped, and a cap over an open nest hid its deck. */
 const tube = (rt, rb, h, seg = 28) => memo(`tu${rt},${rb},${h},${seg}`, () => boxUV(new THREE.CylinderGeometry(rt, rb, h, seg, 1, true)));
-/** An open bowl: the lower half of a sphere (a boat's hull, right side up), radius 1, scaled by the caller. */
-const bowl = memo('bowl', () => new THREE.SphereGeometry(1, 28, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2));
-/** A ring (or an arc) round an ellipse of semi-axes a (x) and b (z), tube t, lying flat; `arc` in turns of a full ring. */
-const ering = (a, b, t, arc = 1) => memo(`er${a},${b},${t},${arc}`, () => {
-  const pts = []; for (let i = 0; i <= 48; i++) { const u = i / 48 * Math.PI * 2 * arc; pts.push(new THREE.Vector3(Math.cos(u) * a, 0, Math.sin(u) * b)); }
-  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, arc === 1), 64, t, 8, arc === 1);
-});
 /** A cylinder from point a to point b (a pole, a line, a brace). */
 function pole(parent, a, b, r, mat, seg = 10) {
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), len = A.distanceTo(B);
@@ -84,7 +68,8 @@ function bldgMats(M) {
   M.paintCanvas2 = M.paintCanvas.clone(); M.paintCanvas2.side = THREE.DoubleSide; M.paintCanvas2.userData.team = 1; // team canvas seen from both faces (a dodger's inside, a sail)
   M.paintWorn = M.paintCanvas2.clone(); M.paintWorn.color.multiplyScalar(0.8); M.paintWorn.userData.team = 1;   // weathered team canvas for the big roofs: a band below fresh paint, so a white seat's roof is no flat white plane
   M.inkLine2 = std({ color: 0x08080a, roughness: 0.8, metalness: 0, side: THREE.DoubleSide });
-  M.tar2 = M.tar.clone(); M.tar2.side = THREE.DoubleSide;                                                       // tarred cloth seen from both faces (a tent's sod-cloth)
+  M.tar2 = M.tar.clone(); M.tar2.side = THREE.DoubleSide;                                                       // tar seen from both faces (a tent's sod-cloth, the Slipway's hull)
+  M.tarIn2 = M.tarIn.clone(); M.tarIn2.side = THREE.DoubleSide;                                                 // a hull's inside, both faces
   M.kiteCloth = std({ color: 0xc6bc9e, map: M.canvas.map, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });  // the Loft's kites: Harbour cream, a band below pale canvas, never the Vael's pearl
   M.spark = std({ color: 0xffb890, emissive: 0xff6a28, emissiveIntensity: 3.2, toneMapped: false });          // the Workshop's sparks: orange specks over the anvil
   M.hearth = std({ color: 0x3a0500, emissive: 0xff2a08, emissiveIntensity: 1.5 });                            // the hearth's glow, small, orange-red (yellow merged with the gold seat)
@@ -277,12 +262,14 @@ export function pump(M) {
   return g;
 }
 
-/** Crew Hall (barracks, 3x3): a long tarred shed along x under a gable whose near (south) slope is weathered team
- *  canvas (`paintWorn`) sagging between timber battens that cast their shadows, its hems worn and dark; the far slope
- *  dark tar, a tarred ridge beam raised over it, a stove pipe; under the eave a shallow shade along the south wall;
- *  doors and shuttered windows, benches; a tall flagstaff at the west end with a team flag; a drill yard with a bell, a
- *  rifle rack, crates and casks. From above: a long two-tone pitched bar, a flag. (Round 1's pale hatches read as a
- *  hangar's windows; round 3's roof was a flat fill.) */
+/** Crew Hall (barracks, 3x3): soldiers live and drill here. A long tarred shed along x under one plain gable: the near
+ *  (south) slope weathered team canvas (`paintWorn`) with a gentle sag and worn dark hems, no battens or bays; the far
+ *  slope dark tar, a tarred ridge beam raised over it, a stove pipe; plain walls, two doors and small shuttered windows
+ *  under a shallow shade along the south wall. In front, the drill yard: a pale gravel square with a timber kerb, two
+ *  straw cross-post dummies (tan, low in contrast, no shadow: never a squad of white hats) and, at its corner, the tall flagstaff with
+ *  the team flag; a row of round pale targets on posts east, a rifle rack, a bell. From above: a long two-tone bar, a
+ *  sand square with a flag. (Step 2's testers took the battened roof's bays and the yard for boat
+ *  slips.) */
 export function crewHall(M) {
   bldgMats(M);
   const g = grp();
@@ -290,23 +277,20 @@ export function crewHall(M) {
   posts(g, M, [[-38, 34], [-24, 41], [-8, 41], [8, 41], [24, 41], [38, 34]]);
   const L = 80, W = 26, ZC = -12, H = 15, RH = 10, RW = W + 4;                                                // the shed's length, width, centre z, wall height, roof rise and width
   add(g, rbox(L, H, W, 0.8), M.tar, 0, 4 + H / 2, ZC);
-  for (const x of [-30, -10, 10, 30]) add(g, rbox(1.2, H, W + 0.4, 0.3), M.tar, x, 4 + H / 2, ZC);              // tarred ribs
   add(g, rbox(L + 1, 1.6, W + 1, 0.4), M.ironDark, 0, 4.8, ZC);                                                // plinth band
   add(g, gable(L + 4, RW, RH), M.tar, 0, 4 + H, ZC);                                                           // the gable roof, tarred: the far slope stays dark
   add(g, rbox(L + 5, 2.6, 2.6, 0.5), M.tar, 0, 4 + H + RH + 0.8, ZC);                                          // the ridge beam, tarred and raised: dark, its shadow down the near slope
   const a = Math.atan2(RH, RW / 2), ny = Math.cos(a), nz = Math.sin(a);                                       // the south slope: its angle and normal
-  { // team canvas over the near slope, sagging between the battens, a worn ink hem all round
+  { // team canvas over the near slope, one gentle sag (no bays), a worn ink hem all round
     const o = 2.1, X = (L + 4) / 2, e = [0, 4 + H + ny * o, ZC + RW / 2 + nz * o], r = [0, 4 + H + RH + ny * o, ZC + nz * o];
-    add(g, sagQuad([-X, e[1], e[2]], [X, e[1], e[2]], [X, r[1], r[2]], [-X, r[1], r[2]], 7, 1.5), M.paintWorn, 0, 0, 0);
+    add(g, sagQuad([-X, e[1], e[2]], [X, e[1], e[2]], [X, r[1], r[2]], [-X, r[1], r[2]], 1, 1.4), M.paintWorn, 0, 0, 0);
     wornHem(g, [-X - 0.4, e[1] - 0.2, e[2] + 0.3], [X + 0.4, e[1] - 0.2, e[2] + 0.3], 0.95, M.inkLine);              // the eave, dark and mended
     wornHem(g, [-X, r[1] + 0.2, r[2]], [X, r[1] + 0.2, r[2]], 0.7, M.inkLine);
     for (const sx of [-1, 1]) wornHem(g, [sx * X, e[1], e[2]], [sx * X, r[1], r[2]], 0.7, M.inkLine);
-    for (let k = 1; k < 7; k++) { const x = -X + k * (2 * X) / 7; pole(g, [x, e[1] + ny * 0.9, e[2] + nz * 0.9], [x, r[1] + ny * 0.9, r[2] + nz * 0.9], 0.8, M.timber, 6); } // the battens over it, casting their shadows across
   }
   add(g, cyl(1.3, 1.3, 9, 8), M.ironDark, -30, 4 + H + RH + 3, ZC - 5); add(g, cyl(2.1, 1.3, 1.4, 8), M.ironDark, -30, 4 + H + RH + 8, ZC - 5); // stove pipe, on the far slope
-  for (const x of [-28, -10, 8, 26]) add(g, rbox(7, 9, 1.2, 0.4), M.oilskin, x, 8.5, ZC + W / 2 + 0.6);           // doors along the south wall
-  for (const x of [-19, -1, 17]) add(g, rbox(4, 3, 1, 0.3), M.canvasDark, x, 14, ZC + W / 2 + 0.6);               // shuttered windows between them
-  for (const x of [-30, -12, 10, 28]) add(g, rbox(10, 1.2, 3, 0.3), M.timber, x, 6.6, ZC + W / 2 + 5);            // benches along the wall
+  for (const x of [-16, 16]) add(g, rbox(7, 9, 1.2, 0.4), M.oilskin, x, 8.5, ZC + W / 2 + 0.6);                   // two doors in the south wall
+  for (const x of [-30, -4, 4, 30]) add(g, rbox(3.4, 3, 1, 0.3), M.canvasDark, x, 12, ZC + W / 2 + 0.6);          // small shuttered windows
   { // a shallow shade along the south wall under the gable's eave: old sailcloth (a mid value) on posts, so the wall is no black band
     const z0 = ZC + W / 2 + 0.4, d = 8, drop = 2.4, sl = Math.atan2(drop, d);
     add(g, rbox(L - 4, 0.7, Math.hypot(d, drop), 0.25), M.canvasDark, 0, 15 - drop / 2, z0 + d / 2, sl, 0, 0);
@@ -314,16 +298,32 @@ export function crewHall(M) {
     add(g, rbox(L - 3.4, 1.2, 1.2, 0.3), M.timber, 0, 15 - drop, z0 + d);                                        // its front rail
     for (let x = -36; x <= 36; x += 18) add(g, cyl(0.6, 0.6, 15 - drop - 4, 8), M.timber, x, 4 + (15 - drop - 4) / 2, z0 + d); // posts
   }
-  // the flagstaff at the west end
-  add(g, cyl(0.7, 1, 46, 8), M.timber, -42, 27, 2); add(g, sph(0.9, 8, 6), M.brass, -42, 50.5, 2);
-  pennant(g, M, -41.7, 44, 2, 16, 5);                                                                        // the flag, flying east over the roof
-  // the yard: a bell on a frame, a rifle rack, casks, crates under a tarp
-  add(g, rbox(1.4, 12, 1.4, 0.3), M.timber, -36, 10, 24); add(g, rbox(1.4, 12, 1.4, 0.3), M.timber, -30, 10, 24); add(g, rbox(8, 1.4, 1.4, 0.3), M.timber, -33, 16.4, 24);
-  add(g, lathe([[0, 0], [1.2, 0], [2.4, 1.2], [2.6, 3.4], [1.4, 4.2], [0, 4.4]], 14), M.brass, -33, 11.6, 24);     // the bell (brass, a small thing)
-  for (let k = 0; k < 6; k++) pole(g, [20 + k * 2.4, 6, 30], [20.6 + k * 2.4, 16, 27.6], 0.42, M.ironDark);        // rifles in a rack
-  add(g, rbox(16, 1.2, 1.2, 0.3), M.timber, 26, 11.5, 28.5); add(g, rbox(16, 1.2, 1.2, 0.3), M.timber, 26, 5, 30);
-  crates(g, M, 36, 24, 2); barrel(g, M, -22, 32); barrel(g, M, -15, 34, 4, 2.4, 5.5);
-  add(g, torus(3.4, 1.2, 20), M.rope, 6, 5.2, 36, Math.PI / 2, 0, 0);
+  // the drill yard: a pale gravel square, a timber kerb, two ranks of straw drill-men
+  const DX = -14, DZ = 25, DW = 46, DD = 22;
+  add(g, rbox(DW, 0.6, DD, 0.2), M.sandbag, DX, 4.3, DZ);                                                   // packed sand
+  for (const [w, d, x, z] of [[DW + 1.6, 1.4, 0, -DD / 2], [DW + 1.6, 1.4, 0, DD / 2], [1.4, DD, -DW / 2, 0], [1.4, DD, DW / 2, 0]]) add(g, rbox(w, 1.2, d, 0.3), M.timber, DX + x, 4.6, DZ + z);
+  // straw cross-post dummies, set about the yard a little unevenly: a post and a crossbar, a straw body and a tan sack
+  // head; straw-tan, low in contrast and casting no shadow, so the yard reads as a training ground, never as a squad
+  const straw = M.straw ??= new THREE.MeshStandardMaterial({ color: 0x9c8658, roughness: 1, metalness: 0 });
+  for (const [x, z, ry] of [[-25, 20, 0.2], [-16, 21.5, -0.3], [-6, 19.5, 0.1], [3, 21, 0.4], [-22, 29.5, -0.2], [-12, 30.5, 0.3], [-3, 29, -0.1], [5, 30.5, 0.25]]) {
+    const d = grp(); d.position.set(DX + 14 + x, 4.6, z); d.rotation.y = ry; g.add(d);
+    add(d, cyl(0.45, 0.55, 6, 6), M.timber, 0, 3, 0);                                                         // the post
+    add(d, rbox(4.4, 0.6, 0.6, 0.15), M.timber, 0, 4.4, 0);                                                   // the crossbar
+    add(d, rbox(2, 2.4, 1.4, 0.5), straw, 0, 3.6, 0);                                                         // the straw body
+    add(d, sph(1.15, 8, 6), straw, 0, 6.3, 0).scale.set(1, 0.85, 0.9);                                        // the sack head, tan
+    d.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
+  }
+  // the flagstaff at the drill yard's corner, the team flag flying east
+  add(g, rbox(4, 2, 4, 0.4), M.slate, DX + DW / 2 + 4, 5, DZ - DD / 2 + 2);
+  add(g, cyl(0.75, 1, 44, 8), M.timber, DX + DW / 2 + 4, 26, DZ - DD / 2 + 2); add(g, sph(0.9, 8, 6), M.brass, DX + DW / 2 + 4, 48.5, DZ - DD / 2 + 2);
+  pennant(g, M, DX + DW / 2 + 4.3, 43, DZ - DD / 2 + 2, 18, 6);
+  // targets east: round pale butts on posts, facing the yard; a rifle rack; a bell by the door
+  for (const x of [24, 31, 38]) { add(g, cyl(0.5, 0.5, 8, 6), M.timber, x, 8, 14); add(g, cyl(2.6, 2.6, 0.8, 16), M.canvas, x, 11, 14.6, Math.PI / 2 - 0.25, 0, 0); add(g, cyl(1.1, 1.1, 0.9, 12), M.inkLine, x, 11.1, 15, Math.PI / 2 - 0.25, 0, 0); }
+  for (let k = 0; k < 6; k++) pole(g, [22 + k * 2.4, 6, 30], [22.6 + k * 2.4, 16, 27.6], 0.42, M.ironDark);        // rifles in a rack
+  add(g, rbox(16, 1.2, 1.2, 0.3), M.timber, 28, 11.5, 28.5); add(g, rbox(16, 1.2, 1.2, 0.3), M.timber, 28, 5, 30);
+  add(g, rbox(1.4, 12, 1.4, 0.3), M.timber, -40, 10, 6); add(g, rbox(1.4, 12, 1.4, 0.3), M.timber, -34, 10, 6); add(g, rbox(8, 1.4, 1.4, 0.3), M.timber, -37, 16.4, 6);
+  add(g, lathe([[0, 0], [1.2, 0], [2.4, 1.2], [2.6, 3.4], [1.4, 4.2], [0, 4.4]], 14), M.brass, -37, 11.6, 6);     // the bell (brass, a small thing)
+  crates(g, M, 36, 34, 1);
   return g;
 }
 
@@ -391,71 +391,87 @@ export function workshop(M) {
   return g;
 }
 
-/** Slipway (factory, 3x3): a timber ramp sloping down to the south off a stone head, a tarred hull on keel blocks and
- *  shores upon it, open: its dark inside, thwarts, a pale canvas tarp over the bow and a team tarp amidships between
- *  ink hems; two sheer legs over the ramp's head with a team sail lashed between them; the mould loft (a low tarred
- *  shed) east of the ramp under a hipped roof of weathered team canvas sagging between battens, worn ink hems at the
- *  eaves, a tarred ridge raised over it; casks, a cradle of planks. From above: a dark lozenge on a planked slope, an
- *  A-frame at its head. */
+/** A boat's hull, lengthwise along z (stern -z, bow +z), its gunwale at y about 0: `L` long, `B` the half-beam, `D` deep,
+ *  a transom stern and a sharp bow (the half-breadth runs to 0 at the stem), the sheer rising forward; the part of each
+ *  section between angles p0 and p1 (-pi/2 the port gunwale, 0 the keel, pi/2 starboard), scaled `k` about the hull's
+ *  axis (an inner skin, an outer band). */
+const hullB = (t, B) => B * (t < 0.42 ? 0.78 + 0.22 * Math.sin(t / 0.42 * Math.PI / 2) : 1 - ((t - 0.42) / 0.58) ** 1.7);
+const hullSheer = (t) => 3.2 * t ** 2.5 + 0.8 * (1 - t) ** 3;
+const hullGeo = (L, B, D, p0 = -Math.PI / 2, p1 = Math.PI / 2, k = 1) => memo(`hu${L},${B},${D},${p0},${p1},${k}`, () => {
+  const NS = 32, NJ = 14, pos = [], idx = [];
+  for (let i = 0; i <= NS; i++) for (let j = 0; j <= NJ; j++) {
+    const t = i / NS, ph = p0 + (p1 - p0) * j / NJ, b = hullB(t, B) * k, d = D * (1 - 0.2 * t ** 3) * k;
+    pos.push(b * Math.sin(ph), hullSheer(t) - d * Math.abs(Math.cos(ph)) ** 0.7, -L / 2 + t * L);
+  }
+  for (let i = 0; i < NS; i++) for (let j = 0; j < NJ; j++) { const q = i * (NJ + 1) + j; idx.push(q, q + 1, q + NJ + 1, q + 1, q + NJ + 2, q + NJ + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
+  g.setIndex(idx); g.computeVertexNormals(); return boxUV(g);
+});
+/** The hull's line at section angle ph (pi/2 the starboard gunwale), from stern to bow, as points (scaled k). */
+const hullLine = (L, B, D, ph, k = 1, n = 32) => Array.from({ length: n + 1 }, (_, i) => { const t = i / n; return new THREE.Vector3(hullB(t, B) * k * Math.sin(ph), hullSheer(t) - D * (1 - 0.2 * t ** 3) * k * Math.abs(Math.cos(ph)) ** 0.7, -L / 2 + t * L); });
+
+/** Slipway (factory, 3x3): a boat is built here. A stone slip inclined down to the south, running into a strip of dark
+ *  water at the quay's edge, two pale timber ways on dark sleepers; on them, on keel blocks and shores, the largest
+ *  shape: an open tarred hull (56 long) with a sharp bow pointing down the slip and a transom stern, its pale gunwale
+ *  outlining the boat, pale ribs across its dark inside, a team strake along each side under an ink seam, a pale stem
+ *  post; a capstan at the slip's stone head with its line to the stern. East, a low open lean-to (the mould loft) under
+ *  one slope of weathered team canvas, falling away from the slip, planks stacked beneath. No sheer legs and no peaked
+ *  roof (step 2's testers took them for a steeple and a hall, and the Loft is a deck beside a peaked tent). */
 export function slipway(M) {
   bldgMats(M);
   const g = grp();
   add(g, plate(oct(43), 4, 1.2), M.flagstone, 0, 0, 0);
-  posts(g, M, [[-40, -28], [40, 30], [-24, 41]]);
-  // the ramp: a planked timber deck from the stone head (north) down to the south edge
-  const RX = -12, RW = 42, RL = 72, lift = 7, slope = Math.atan2(lift, RL), RY = 3.5 + lift / 2;
-  add(g, rbox(RW + 4, 3, 12, 0.5), M.slate, RX, 4 + lift - 1.5, -RL / 2 + 3);                                 // the stone head
-  add(g, rbox(RW, 2.4, RL, 0.4), M.timber, RX, RY + 1.2, 0, slope, 0, 0);
-  for (let x = -18; x <= 18; x += 6) add(g, rbox(0.7, 2.6, RL - 2, 0.2), M.oilskin, RX + x, RY + 1.3, 0, slope, 0, 0); // plank seams
-  for (const sx of [-1, 1]) add(g, rbox(2.2, 2.2, RL, 0.4), M.tar, RX + sx * (RW / 2 + 0.8), RY + 1.8, 0, slope, 0, 0); // tarred kerbs
-  for (let z = -28; z <= 28; z += 14) add(g, rbox(RW + 1, 0.8, 1.2, 0.2), M.tar, RX, RY + 1.9 - z * Math.tan(slope), z, slope, 0, 0); // cross battens
-  // the hull on stocks: an open bowl of tarred planks, bow to the south
-  const HX = RX, HZ = 2, HY = RY + 13.5, HW = 9, HD = 7.5, HL = 25;
-  for (const z of [-18, -6, 6, 18]) { add(g, rbox(8, 4, 5, 0.5), M.timber, HX, RY + 2.6 + 2 - z * Math.tan(slope), HZ + z); }   // keel blocks
-  const hull = grp(); hull.position.set(HX, HY, HZ); hull.rotation.x = slope * 0.4; g.add(hull);
-  add(hull, bowl, M.tar, 0, 0, 0).scale.set(HW, HD, HL);
-  add(hull, bowl, M.tarIn, 0, 0.1, 0).scale.set(HW - 0.7, HD - 0.6, HL - 0.7);                                 // its dark inside
-  add(hull, ering(HW + 0.2, HL + 0.2, 0.9), M.timber, 0, 0.3, 0);                                                // the gunwale
-  add(hull, rbox(1.4, 2.2, HL * 2 + 2, 0.4), M.timber, 0, -HD + 0.6, 0);                                        // the keel
-  for (const z of [-12, -2, 9]) add(hull, rbox(2 * HW - 2.4, 1, 2.2, 0.3), M.timber, 0, -0.4, z);                   // thwarts
-  for (const z of [-21, -17]) add(hull, ering(HW - 0.6 - (z === -21 ? 1.5 : 0), HD - 0.8, 0.5, 0.5), M.timber, 0, 0.1, z, Math.PI / 2, 0, Math.PI); // open ribs at the stern: half rings standing in the hull
-  add(hull, rbox(HW * 2 - 0.4, 0.8, 11, 0.3), M.canvas, 0, 0.9, 18.5);                                            // the pale tarp over the bow
-  add(hull, rbox(HW * 2 + 0.2, 0.3, 11.4, 0.1), M.oilskin, 0, 0.45, 18.5);
-  tarp(g, M, HW * 2 - 0.2, 18, HX, HY + 1.2, HZ + 2, slope * 0.4, 0);                                              // the team tarp amidships
-  for (const dz of [-5, 5]) add(g, rbox(HW * 2, 1.4, 0.6, 0.2), M.rope, HX, HY + 1.7, HZ + 2 + dz);
-  add(g, cyl(0.9, 0.9, 7, 8), M.timber, HX, HY + 2.5, HZ + HL + 0.2);                                            // the stem post
-  for (const sx of [-1, 1]) for (const z of [-10, 10]) pole(g, [HX + sx * 15, RY + 2.6 - z * Math.tan(slope) * 0.5, HZ + z], [HX + sx * (HW - 1.5), HY - 2.5, HZ + z], 0.9, M.timber); // shores
-  // the sheer legs over the ramp's head, a team sail lashed between them
-  const AP = [RX, 44, -30];
-  for (const sx of [-1, 1]) pole(g, [RX + sx * 17, 4 + lift, -31], AP, 1.5, M.timber);
-  add(g, cyl(2.2, 2.2, 5, 10), M.ironDark, AP[0], AP[1], AP[2], 0, 0, Math.PI / 2);                              // the cap
-  pole(g, AP, [HX, HY + 1, HZ - 20], 0.35, M.rope).userData.noShadow = true;                                   // the tackle down to the stern
-  add(g, plate([[-9.4, -17], [9.4, -17], [1.4, -1], [-1.4, -1]], 0.5, 0.15), M.paintCanvas2, AP[0], AP[1] - 3, AP[2] + 1.2, -Math.PI / 2 + 0.08, 0, 0); // the sail: a triangle between the legs (the plate's z runs up the legs)
-  add(g, rbox(19.6, 0.6, 0.6, 0.1), M.inkLine2, AP[0], AP[1] - 20, AP[2] + 2.6);                                  // its ink hem at the foot (the legs are its dark edges)
-  // the mould loft east of the ramp: a low tarred shed under a hipped roof of team canvas (the family's one hipped roof)
-  const LX = 30, LZ = -4, LW = 23, LD = 44;
-  add(g, rbox(LW, 9, LD, 0.8), M.tar, LX, 8.5, LZ);
-  add(g, rbox(LW + 0.6, 1.4, LD + 0.6, 0.3), M.ironDark, LX, 4.7, LZ);
-  { // the hipped roof: tarred boards under team canvas that sags between battens, a dark ridge, worn ink hems at the eaves
-    const A = (LW + 4) / 2, B = (LD + 4) / 2, R = B - A, RHt = 10, o = [LX, 13, LZ], P = (x, y, z) => [o[0] + x, o[1] + y, o[2] + z];
-    add(g, hip(LW + 4, LD + 4, RHt), M.tar, ...o);
-    const W0 = P(-A, 0, B), W1 = P(-A, 0, -B), E0 = P(A, 0, -B), E1 = P(A, 0, B), RS = P(0, RHt, R), RN = P(0, RHt, -R);
-    add(g, sagQuad(W0, W1, RN, RS, 4, 1.1, 1.4), M.paintWorn, 0, 0, 0);                                          // the west slope, to the sun
-    add(g, sagQuad(E0, E1, RS, RN, 4, 1.1, 1.4), M.paintWorn, 0, 0, 0);                                          // the east slope, in its own shade
-    add(g, sagQuad(E1, W0, RS, RS, 1, 0.7, 1.1), M.paintWorn, 0, 0, 0);                                          // the south hip
-    add(g, sagQuad(W1, E0, RN, RN, 1, 0.7, 1.1), M.paintWorn, 0, 0, 0);                                          // the north hip
-    for (const [p, q] of [[W0, W1], [W1, E0], [E0, E1], [E1, W0]]) wornHem(g, p, q, 0.9, M.inkLine);              // the eaves, dark and mended
-    for (const [p, q] of [[W0, RS], [W1, RN], [E0, RN], [E1, RS]]) wornHem(g, p, q, 0.55, M.inkLine);             // the hips' seams
-    for (const [p0, p1, r0, r1] of [[W0, W1, RS, RN], [E1, E0, RS, RN]]) for (let k = 1; k < 4; k++) {          // battens over the long slopes, their shadows across
-      const e = lerp3(p0, p1, k / 4), r = lerp3(r0, r1, k / 4), side = Math.sign(e[0] - LX);
-      pole(g, [e[0] + side * 0.6, e[1] + 1.2, e[2]], [r[0], r[1] + 1.4, r[2]], 0.6, M.timber, 6);
-    }
-    add(g, rbox(2.4, 2.4, 2 * R + 3, 0.5), M.tar, LX, 13 + RHt + 1.3, LZ);                                         // the ridge pole, tarred and raised: dark, its shadow on the east slope
+  posts(g, M, [[-40, -28], [40, 30], [-26, 41]]);
+  // the slip: stone, inclined from its head (north, 14 up) down to the quay's south edge and into the water
+  const RX = -8, RW = 34, Z0 = -40, Z1 = 42, lift = 10, slope = Math.atan2(lift, Z1 - Z0), yt = (z) => 4 + lift * (Z1 - z) / (Z1 - Z0), ZC = (Z0 + Z1) / 2;
+  add(g, rbox(RW, 2.4, Math.hypot(Z1 - Z0, lift), 0.4), M.slate, RX, yt(ZC) - 1.2, ZC, slope, 0, 0);
+  add(g, rbox(RW + 6, lift + 2, 6, 0.5), M.slate, RX, 4 + (lift + 2) / 2 - 1, Z0 - 3);                          // the stone head
+  add(g, rbox(RW + 6.4, 0.6, 6.4, 0.2), M.slateLit, RX, 4 + lift + 1.3, Z0 - 3);
+  for (let z = Z0 + 4; z < Z1; z += 7) add(g, rbox(RW - 6, 0.9, 2, 0.2), M.tar, RX, yt(z) + 0.4, z, slope, 0, 0);   // sleepers, dark
+  for (const sx of [-1, 1]) add(g, rbox(2.6, 1.4, Z1 - Z0, 0.3), M.timberPale, RX + sx * 6.5, yt(ZC) + 1.3, ZC, slope, 0, 0); // the ways, pale
+  // the water at the slip's foot: dark, wet, a pale line of foam where the slip goes in
+  add(g, rbox(RW + 10, 0.8, 9, 0.3), M.brine, RX, 4.5, 41);
+  add(g, rbox(RW + 2, 0.5, 1, 0.2), M.saltPan, RX, 5, 37.2);
+  // the hull, bow down the slip
+  const L = 56, B = 12, D = 8, HZ = 1, HY = yt(HZ) + 2 + 3 + D - 0.6;
+  for (const z of [-20, -8, 4, 16]) for (const sx of [-1, 1]) add(g, rbox(4, 3, 4, 0.4), M.timber, RX + sx * 4.5, yt(HZ + z) + 3.3, HZ + z, slope, 0, 0); // keel blocks on the ways
+  const hull = grp(); hull.position.set(RX, HY, HZ); hull.rotation.x = slope; g.add(hull);
+  add(hull, hullGeo(L, B, D), M.tar2, 0, 0, 0);                                                                // the planking, tarred
+  add(hull, hullGeo(L, B, D, -Math.PI / 2, Math.PI / 2, 0.95), M.tarIn2, 0, 0.15, 0);                          // its dark inside
+  for (const sd of [-1, 1]) {
+    add(hull, hullGeo(L, B, D, sd > 0 ? Math.PI / 2 - 0.4 : -Math.PI / 2, sd > 0 ? Math.PI / 2 : -Math.PI / 2 + 0.4, 1.035), M.paintCanvas2, 0, 0, 0); // the team strake
+    add(hull, hullGeo(L, B, D, sd > 0 ? Math.PI / 2 - 0.5 : -Math.PI / 2 + 0.4, sd > 0 ? Math.PI / 2 - 0.4 : -Math.PI / 2 + 0.5, 1.03), M.inkLine2, 0, 0, 0); // its ink seam
   }
-  for (const z of [-14, 8]) add(g, rbox(1.2, 7, 7, 0.3), M.oilskin, LX - LW / 2 - 0.5, 8, LZ + z);              // doors onto the ramp
-  for (let k = 0; k < 5; k++) add(g, rbox(1.2, 1.6, 22, 0.2), M.timber, LX - 8 + k * 0.4, 4.8 + k * 1.5, LZ + LD / 2 + 10, 0, 0.05, 0); // planks seasoning south of it
-  barrel(g, M, 33, 30); barrel(g, M, 27, 33, 4, 2.4, 5.5); crates(g, M, -36, 32, 2);
-  add(g, torus(3.2, 1.1, 20), M.rope, 36, 5.1, -30, Math.PI / 2, 0, 0);
+  { // the transom, the gunwale round the sheer (pale: it outlines the boat), ribs across the open inside, the keel, the stem
+    const sec = Array.from({ length: 15 }, (_, j) => { const ph = -Math.PI / 2 + Math.PI * j / 14; return new THREE.Vector2(hullB(0, B) * Math.sin(ph), hullSheer(0) - D * Math.abs(Math.cos(ph)) ** 0.7); });
+    const tr = add(hull, new THREE.ShapeGeometry(new THREE.Shape(sec)), M.tar2, 0, 0, -L / 2); tr.userData.noShadow = false;
+    const port = hullLine(L, B, D, -Math.PI / 2), star = hullLine(L, B, D, Math.PI / 2);
+    const rim = [...port, ...star.slice(0, -1).reverse()].map(v => v.clone().setY(v.y + 0.4));
+    add(hull, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rim, true), 160, 0.95, 6, true), M.timberPale, 0, 0, 0);
+    for (const t of [0.14, 0.28, 0.42, 0.56, 0.7, 0.82]) {
+      const z = -L / 2 + t * L, b = hullB(t, B) * 0.93, d = D * (1 - 0.2 * t ** 3) * 0.93;
+      const pts = Array.from({ length: 13 }, (_, j) => { const ph = -Math.PI / 2 + Math.PI * j / 12; return new THREE.Vector3(b * Math.sin(ph), hullSheer(t) + 0.2 - d * Math.abs(Math.cos(ph)) ** 0.7, z); });
+      add(hull, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.5, 5), M.timberPale, 0, 0, 0);
+    }
+    add(hull, rbox(1.6, 2, L - 2, 0.4), M.timber, 0, -D + 0.2, 0);                                              // the keel
+    pole(hull, [0, -D * 0.6, L / 2 - 0.5], [0, hullSheer(1) + 3.2, L / 2 + 1.2], 0.9, M.timberPale, 8);           // the stem post, standing at the bow
+    pole(hull, [0, -D * 0.8, -L / 2], [0, hullSheer(0) + 1.5, -L / 2 - 0.6], 0.8, M.timber, 8);                   // the sternpost
+  }
+  for (const sx of [-1, 1]) for (const z of [-14, 0, 14]) pole(g, [RX + sx * (B + 6), yt(HZ + z) + 0.5, HZ + z], [RX + sx * (B - 0.5), HY - 3.5 - z * Math.tan(slope), HZ + z], 0.8, M.timber); // shores
+  // the capstan at the slip's head, its line down to the stern
+  add(g, cyl(2.4, 2.8, 4, 12), M.timber, RX, 4 + lift + 3.6, Z0 - 3); add(g, cyl(2.9, 2.9, 0.8, 12), M.ironDark, RX, 4 + lift + 5.4, Z0 - 3);
+  for (let k = 0; k < 2; k++) add(g, rbox(11, 0.8, 0.8, 0.2), M.timber, RX, 4 + lift + 5, Z0 - 3, 0, k * Math.PI / 2, 0);
+  pole(g, [RX, 4 + lift + 4, Z0 - 1], [RX, HY + hullSheer(0), HZ - L / 2 * Math.cos(slope)], 0.35, M.rope).userData.noShadow = true;
+  // the mould loft east: an open lean-to, one slope of weathered team canvas falling away from the slip, planks beneath
+  const X0 = 13, X1 = 41, ZN = -26, ZS = 20, YH = 20, YL = 11;
+  for (const z of [ZN + 1, (ZN + ZS) / 2, ZS - 1]) add(g, cyl(1, 1, YH - 4, 8), M.timber, X0 + 1, 4 + (YH - 4) / 2, z);
+  add(g, rbox(1.4, YL - 4, ZS - ZN, 0.3), M.tar, X1 - 1, 4 + (YL - 4) / 2, (ZN + ZS) / 2);                      // its back wall, tarred
+  add(g, rbox(2.2, 2.2, ZS - ZN + 2, 0.4), M.tar, X0 + 0.5, YH + 0.4, (ZN + ZS) / 2);                             // the high plate, tarred: a dark edge
+  add(g, sagQuad([X0, YH + 1.3, ZS], [X0, YH + 1.3, ZN], [X1, YL + 1.3, ZN], [X1, YL + 1.3, ZS], 3, 1.2), M.paintWorn, 0, 0, 0);
+  for (const [p, q] of [[[X0, YH + 1.1, ZS], [X0, YH + 1.1, ZN]], [[X1, YL + 1.1, ZN], [X1, YL + 1.1, ZS]], [[X0, YH + 1.1, ZS], [X1, YL + 1.1, ZS]], [[X0, YH + 1.1, ZN], [X1, YL + 1.1, ZN]]]) wornHem(g, p, q, 0.85, M.inkLine);
+  for (let k = 0; k < 4; k++) add(g, rbox(16, 1.4, 34, 0.2), k % 2 ? M.timberPale : M.timber, (X0 + X1) / 2 + 2, 4.9 + k * 1.5, (ZN + ZS) / 2 + 1, 0, 0.02 * k, 0); // planks stacked under it
+  crates(g, M, 31, 31, 1); barrel(g, M, 23, 33, 4, 2.4, 5.5); crates(g, M, -36, 30, 2);
+  add(g, torus(3.2, 1.1, 20), M.rope, -34, 5.1, -18, Math.PI / 2, 0, 0);
   return g;
 }
 

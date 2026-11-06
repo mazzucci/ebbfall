@@ -43,7 +43,7 @@ const UNIT_TEXT = {
   shrike: { hot: 'H', desc: 'Fast flyer. Raids workers and hunts other flyers. Hidden for good once Seaglass is researched.' },
   sovereign: { hot: 'V', desc: 'Capital barge gliding low, its beam splashing the ground from far off; its lantern spots hidden units. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed. Mends the nacre, then the hull, of nearby Vael, even under fire. Sees far and spots hidden units.' },
-  umbra: { hot: 'U', desc: 'Melee assassin. Hidden while still; its first strike comes from hiding, and it shows when it moves or strikes. Something that spots hidden units sees it anyway.' },
+  umbra: { hot: 'U', desc: 'Melee assassin. Hidden while still. Put it on Hold to lie in wait: its first strike comes from hiding, and it shows when it moves or strikes. Something that spots hidden units sees it anyway.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Riggers. Salt drop-off. +10 energy.' },

@@ -88,7 +88,7 @@ Rigger's yoke, apron and sack ties (see "Harbour infantry" below). The Lighthous
 gallery and the gallery's deck, canvas panels on the hull roof alternating pale and team at equal width, the house's
 south end wall and porch, one of the awning's two stripes, a thin band on a raised stone kerb, crate tarps, mooring
 posts' tops, a pennant. Every team band sits between two `inkLine` rings or hems (0.5 units, pure black: the finish
-keeps them), so seat 6's white parts from pale canvas.
+keeps them), so a pale seat's paint (seat 6's white until step 2; lilac now) parts from pale canvas.
 
 ### Shape language
 
@@ -149,7 +149,7 @@ value about 0.5, so it never outshines the pearl or the salt. The pool is a dim 
 
 ### Team colour
 
-Team glaze between `inkSeam` edges (a seam ring, a hem bar, an end cap), so seat 6's white and seat 3's lilac part from
+Team glaze between `inkSeam` edges (a seam ring, a hem bar, an end cap), so a pale seat (seat 6's white until step 2, seat 3's lilac) parts from
 the pearl and the deeplight. At least a sixth of the footprint, never only on the signature: the Glint's one smooth
 dome on the back inside one ink seam plus the collar on its tail; the Lens's two rim arcs plus the three pods under
 the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.

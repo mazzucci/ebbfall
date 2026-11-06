@@ -265,8 +265,8 @@ export function pump(M) {
 /** Crew Hall (barracks, 3x3): soldiers live and drill here. A long tarred shed along x under one plain gable: the near
  *  (south) slope weathered team canvas (`paintWorn`) with a gentle sag and worn dark hems, no battens or bays; the far
  *  slope dark tar, a tarred ridge beam raised over it, a stove pipe; plain walls, two doors and small shuttered windows
- *  under a shallow shade along the south wall. In front, the drill yard: a pale gravel square with a timber kerb, two
- *  straw cross-post dummies (tan, low in contrast, no shadow: never a squad of white hats) and, at its corner, the tall flagstaff with
+ *  under a shallow shade along the south wall. In front, the drill yard: a pale gravel square with a timber kerb, eight
+ *  straw cross-post dummies set unevenly (tan, low in contrast, no shadow: never a squad of white hats) and, at its corner, the tall flagstaff with
  *  the team flag; a row of round pale targets on posts east, a rifle rack, a bell. From above: a long two-tone bar, a
  *  sand square with a flag. (Step 2's testers took the battened roof's bays and the yard for boat
  *  slips.) */
@@ -298,7 +298,7 @@ export function crewHall(M) {
     add(g, rbox(L - 3.4, 1.2, 1.2, 0.3), M.timber, 0, 15 - drop, z0 + d);                                        // its front rail
     for (let x = -36; x <= 36; x += 18) add(g, cyl(0.6, 0.6, 15 - drop - 4, 8), M.timber, x, 4 + (15 - drop - 4) / 2, z0 + d); // posts
   }
-  // the drill yard: a pale gravel square, a timber kerb, two ranks of straw drill-men
+  // the drill yard: a pale gravel square, a timber kerb, eight straw cross-post dummies, set unevenly
   const DX = -14, DZ = 25, DW = 46, DD = 22;
   add(g, rbox(DW, 0.6, DD, 0.2), M.sandbag, DX, 4.3, DZ);                                                   // packed sand
   for (const [w, d, x, z] of [[DW + 1.6, 1.4, 0, -DD / 2], [DW + 1.6, 1.4, 0, DD / 2], [1.4, DD, -DW / 2, 0], [1.4, DD, DW / 2, 0]]) add(g, rbox(w, 1.2, d, 0.3), M.timber, DX + x, 4.6, DZ + z);

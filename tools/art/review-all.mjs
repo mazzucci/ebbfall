@@ -133,8 +133,8 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
   }
   save('contact.png', c);
   writeFileSync(join(outDir, 'contact.json'), JSON.stringify({
-    units: { columns: [0, 4, 8, 12].flatMap(d => ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (yellow)', 'team mask'].map(s => `facing ${d}, ${s}`)), rows: cells.filter(r => !r.bldg).map(r => `${r.kind}_<facing>_${r.frame}`) },
-    buildings: { columns: ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (yellow)', 'team mask'], rows: cells.filter(r => r.bldg).map(r => r.bldg === 'turret' ? 'bldg_turret + turret_head_0' : r.name) },
+    units: { columns: [0, 4, 8, 12].flatMap(d => ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (violet)', 'team mask'].map(s => `facing ${d}, ${s}`)), rows: cells.filter(r => !r.bldg).map(r => `${r.kind}_<facing>_${r.frame}`) },
+    buildings: { columns: ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (violet)', 'team mask'], rows: cells.filter(r => r.bldg).map(r => r.bldg === 'turret' ? 'bldg_turret + turret_head_0' : r.name) },
   }, null, 1));
 }
 
@@ -159,7 +159,7 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
 
 // ---- 2b. every seat's team colour: a row per seat (0-7) of the Harbour's units and its canvas-roofed buildings, then the
 // Vael's units and pale shells, at game size; the same in deuteranopia and protanopia (seats.png, seats-deutan.png,
-// seats-protan.png): whether each seat's team reads, and seat 0's gold apart from seat 6's yellow ----
+// seats-protan.png): whether each seat's team reads, and seat 0's gold apart from seat 6's violet ----
 {
   const ROW = 150, c = canvas(3000, ROW * 8 + 40); seabed(c, 5);
   const list = [];

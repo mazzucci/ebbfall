@@ -84,6 +84,15 @@ const grainTex = canvasTex(128, (g, n) => {
   for (let i = 0; i < 60; i++) { const y = rnd() * n; g.strokeStyle = `rgba(70,45,20,${0.15 + rnd() * 0.3})`; g.lineWidth = 0.6 + rnd() * 1.4; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(n / 3, y + rnd() * 6 - 3, 2 * n / 3, y + rnd() * 6 - 3, n, y + rnd() * 3 - 1.5); g.stroke(); }
 }, { repeat: 2 });
 const ropeBump = canvasTex(64, (g, n) => { g.fillStyle = '#808080'; g.fillRect(0, 0, n, n); g.strokeStyle = '#3a3a3a'; g.lineWidth = 3; for (let k = -n; k < n * 2; k += 8) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + n, n); g.stroke(); } }, { srgb: false, repeat: 6 });
+const flagTex = canvasTex(256, (g, n) => {
+  g.fillStyle = '#b8bcc0'; g.fillRect(0, 0, n, n); seed = 503;
+  for (let i = 0; i < 5000; i++) { const v = 130 + rnd() * 90; g.fillStyle = `rgba(${v},${v + 2},${v + 6},0.3)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 2, 1 + rnd() * 2); }
+  g.strokeStyle = 'rgba(20,22,26,0.85)'; g.lineWidth = 2.5;
+  for (let y = 0; y < n; y += 64) for (let x = 0; x < n; x += 64) { const o = (y / 64) % 2 ? 32 : 0; g.strokeRect(x + o + 1, y + 1, 62, 62); } // flagstones, in courses
+  for (let i = 0; i < 24; i++) { g.fillStyle = `rgba(255,255,255,${0.04 + rnd() * 0.08})`; const x = (rnd() * 4 | 0) * 64, y = (rnd() * 4 | 0) * 64; g.fillRect(x + ((y / 64) % 2 ? 32 : 0), y, 64, 64); } // lighter stones
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(30,35,30,${0.08 + rnd() * 0.15})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 4 + rnd() * 16, 2 + rnd() * 8, rnd() * 3, 0, 7); g.fill(); } // damp, weed
+}, { repeat: 2 });
+const flagBump = canvasTex(256, (g, n) => { g.fillStyle = '#808080'; g.fillRect(0, 0, n, n); g.strokeStyle = '#303030'; g.lineWidth = 3; for (let y = 0; y < n; y += 64) for (let x = 0; x < n; x += 64) g.strokeRect(x + ((y / 64) % 2 ? 32 : 0) + 1, y + 1, 62, 62); }, { srgb: false, repeat: 2 });
 const burlapTex = canvasTex(64, (g, n) => { g.fillStyle = '#cfc8b4'; g.fillRect(0, 0, n, n); g.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < n; k += 2) g.fillRect(k, 0, 1, n); g.fillStyle = 'rgba(0,0,0,0.1)'; for (let k = 1; k < n; k += 2) g.fillRect(0, k, n, 1); seed = 409; for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(60,45,25,${0.1 + rnd() * 0.15})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 3 + rnd() * 8, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); } }, { repeat: 4 });
 
 /** Team paint: per-seat frames are rendered once in NEUTRAL (white paint, white lamps) with a team mask the client
@@ -125,16 +134,20 @@ export function makeMats(tc = NEUTRAL) {
     mark: std({ color: 0xe4e0d4, metalness: 0.1, roughness: 0.7 }),
     beacon: std({ color: 0x300000, emissive: 0xff2a2a, emissiveIntensity: 3 }),
     // The Harbour (STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope, brass only on small tips.
-    tar: std({ color: 0x33302e, map: tarTex, bumpMap: tarBump, bumpScale: 1.4, metalness: 0.35, roughness: 0.48 }),   // tarred planking (reads ~0x1e1c1a lit)
+    tar: std({ color: 0x4a4542, map: tarTex, bumpMap: tarBump, bumpScale: 1.6, metalness: 0.3, roughness: 0.5 }),      // tarred planking (reads ~0x24211e lit, the seams showing)
     ironDark: std({ color: 0x2c2e31, map: panel, bumpMap: bump, bumpScale: 0.8, metalness: 0.85, roughness: 0.5 }),      // black iron: bands, fittings, gun metal
     canvas: std({ color: 0xd4ccb6, map: canvasWeave, roughness: 0.92, metalness: 0 }),                                    // pale canvas: hats, awnings, sails
     canvasDark: std({ color: 0x8f8872, map: canvasWeave, roughness: 0.95, metalness: 0 }),                                // a hat's underside, old sailcloth
     timber: std({ color: 0x7a5b3a, map: grainTex, roughness: 0.8, metalness: 0 }),                                        // handles, jetties, masts
     rope: std({ color: 0xc8b48a, bumpMap: ropeBump, bumpScale: 1.2, roughness: 0.95, metalness: 0 }),                     // coils, lines
     brass: std({ color: 0xc49a3c, metalness: 0.95, roughness: 0.28 }),                                                    // small tips only: a pick's point, a lamp's frame
-    sandbag: std({ color: 0x8e8a7c, map: burlapTex, roughness: 1, metalness: 0 }),                                        // dug-in state
+    sandbag: std({ color: 0x7a7264, map: burlapTex, roughness: 1, metalness: 0 }),                                        // dug-in state
     oilskin: std({ color: 0x24262a, roughness: 0.6, metalness: 0.2 }),                                                    // coats, boots
     paintCanvas: team(std({ color: tc.paint, map: canvasWeave, roughness: 0.88, metalness: 0.02 })),                      // team paint on cloth: matte
     slate: std({ color: 0x3e4247, roughness: 0.9, metalness: 0.05, flatShading: true }),                                  // a quay's stone
+    flagstone: std({ color: 0x565b60, map: flagTex, bumpMap: flagBump, bumpScale: 1.2, roughness: 0.88, metalness: 0.05 }), // a quay's paving
+    timberPale: std({ color: 0xb09468, map: grainTex, roughness: 0.75, metalness: 0 }),                                    // a rifle's stock, pale enough to read
+    inkLine: std({ color: 0x08080a, roughness: 0.8, metalness: 0 }),                                                      // the ink ring round a team band
+    lanternGlass: std({ color: 0xe6dcc0, emissive: 0x9a8650, emissiveIntensity: 0.55, metalness: 0.1, roughness: 0.2 }),   // the lantern room's pale glass, warm from the lamp inside
   };
 }

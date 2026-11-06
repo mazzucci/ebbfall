@@ -11,8 +11,8 @@ import { rigger, picket, lighthouse } from './harbour.js';
 import { glint, lens, tidewell } from './vael2.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
-Object.assign(UNIT_MODELS, { harvester: { build: rigger, frames: 2, r: 13, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 } }); // (trooper: 0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE)
-Object.assign(VAEL_UNITS, { lumen: { build: glint, frames: 2, r: 13, h: 14 }, prism: { build: lens, frames: 2, r: 13, h: 15 } });
+Object.assign(UNIT_MODELS, { harvester: { build: rigger, frames: 2, r: 15, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 } }); // (trooper: 0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE)
+Object.assign(VAEL_UNITS, { lumen: { build: glint, frames: 2, r: 12, h: 13 }, prism: { build: lens, frames: 2, r: 12, h: 14 } });
 Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 
 // The Vael units in the game; each race renders with its own materials.
@@ -33,7 +33,7 @@ function bldgCell(n, h) {
   const W = n * 32, left = 4, right = h * 0.5 + 6, up = h * LIFT + 6, down = h * 0.4 + 6;
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
-const BUILDINGS = { core: [4, lighthouse, 66], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
+const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
 const RES = {
   pit: new THREE.MeshStandardMaterial({ color: 0x120c1e, roughness: 1 }),
   glow: new THREE.MeshStandardMaterial({ color: 0x3d2a80, emissive: 0xa98bff, emissiveIntensity: 2.2 }),
@@ -54,7 +54,7 @@ function fitTints() {
   const REF = [
     [(M) => turn(UNIT_MODELS.trooper.build(M, 0), 2), unitCell(UNIT_MODELS.trooper.r, UNIT_MODELS.trooper.h), makeMats],
     [(M) => turn(UNIT_MODELS.vanguard.build(M, 0), 5), unitCell(UNIT_MODELS.vanguard.r, UNIT_MODELS.vanguard.h), makeMats],
-    [(M) => lighthouse(M), bldgCell(4, 66), makeMats], [(M) => B.barracks(M), bldgCell(3, 44), makeMats],
+    [(M) => lighthouse(M), bldgCell(4, 68), makeMats], [(M) => B.barracks(M), bldgCell(3, 44), makeMats],
     [(M) => turn(VAEL_UNITS.lumen.build(M, 0), 2), unitCell(VAEL_UNITS.lumen.r, VAEL_UNITS.lumen.h), makeVaelMats],
     [(M) => turn(VAEL_UNITS.scythe.build(M, 0), 3), unitCell(VAEL_UNITS.scythe.r, VAEL_UNITS.scythe.h), makeVaelMats],
     [(M) => VAEL_BUILDINGS.conflux[1](M), bldgCell(4, 70), makeVaelMats], [(M) => VAEL_BUILDINGS.kiln[1](M), bldgCell(3, 42), makeVaelMats],

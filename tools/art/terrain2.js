@@ -12,40 +12,60 @@ const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const SAND = [58, 54, 47], SAND_WET = [44, 42, 38], SLATE = [40, 44, 50], SALT = [142, 140, 130], SALT_DIM = [96, 95, 88], KELP = [26, 32, 27], KELP_DARK = [18, 22, 19];
 const ROCK_TOP = [92, 100, 116], ROCK_TOP2 = [74, 82, 98], ROCK_LIP = [150, 160, 178], ROCK_FACE = [44, 49, 60], ROCK_FACE2 = [56, 62, 74];
 
-/** Ground colour at pixel (x, y) of a tile; noise periodic over the tile so every tile seams with every other. */
+/** Distance from (x, y) to a polyline of [x, y] points. */
+function segDist(x, y, pts) {
+  let best = 1e9;
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1], [bx, by] = pts[i], dx = bx - ax, dy = by - ay;
+    const t = clamp01(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1));
+    best = Math.min(best, Math.hypot(x - ax - dx * t, y - ay - dy * t));
+  }
+  return best;
+}
+
+/** Ground colour at pixel (x, y) of a tile; noise periodic over the tile so every tile seams with every other. The base
+ *  tile (variant 0, most of the map) is calm: sand with slate showing through, soft ripples, low ridges. Variants add
+ *  marks inside the tile, faded out at its edges: a branching salt vein, a kelp strand, a crust plate, shells, a kelp patch. */
 function ground(x, y, variant) {
-  // Only fine detail here (periodic over the tile); large-scale variation comes from the renderer's overlay.
   const n2 = vnoise(x, y, 8, 9, 8), n3 = vnoise(x, y, 4, 13, 16), n4 = vnoise(x, y, 2, 15, 32), n5 = vnoise(x, y, 16, 19, 4);
-  let c = mix(SAND, SLATE, clamp01(0.3 + (n2 - 0.5) * 1.1));                               // sand with slate showing through
-  c = mix(c, SAND_WET, clamp01((n5 - 0.5) * 2.2) * 0.5);                                   // wet, darker sheets
-  const k = 0.94 + (n3 - 0.5) * 0.12 + (n4 - 0.5) * 0.1 + (hash2(x, y, 17, T) - 0.5) * 0.08;
+  let c = mix(SAND, SLATE, clamp01(0.3 + (n2 - 0.5) * 0.9));                                // sand with slate showing through
+  c = mix(c, SAND_WET, clamp01((n5 - 0.5) * 2) * 0.45);                                      // wet, darker sheets
+  const rip = Math.sin((4 * x + 2 * y) * Math.PI * 2 / T + (n3 - 0.5) * 2.4);                 // sand ripples running north-east
+  let k = 0.95 + rip * 0.045 + (n4 - 0.5) * 0.08 + (hash2(x, y, 17, T) - 0.5) * 0.07;
+  if (n5 > 0.6 && n5 < 0.66) k += (0.66 - Math.abs(n5 - 0.63) * 2 - 0.6) * 1.2;              // a low slate ridge: a soft contour catching the light
   c = c.map(v => v * k);
-  // salt crust: pale veins where a ridged noise peaks (thin, so the ground stays dark), a dim halo round them
-  const v1 = 1 - Math.abs(vnoise(x, y, 16, 23, 4) * 2 - 1), v2 = 1 - Math.abs(vnoise(x, y, 8, 29, 8) * 2 - 1);
-  const vein = v1 * 0.55 + v2 * 0.5;
-  if (vein > 0.92) c = mix(c, SALT, clamp01((vein - 0.92) * 14) * 0.55); else if (vein > 0.86) c = mix(c, SALT_DIM, (vein - 0.86) * 4);
-  // kelp: dark patches where a low noise sits high, ragged at their edge
-  const kelp = vnoise(x, y, 16, 31, 4) * 0.75 + vnoise(x, y, 4, 37, 16) * 0.25;
-  if (kelp > 0.66) c = mix(c, kelp > 0.72 ? KELP_DARK : KELP, clamp01((kelp - 0.64) * 8) * 0.9);
-  // interior-only decals for variants: a shell or pebble lit from the top-left, a strand of kelp, a crust plate
-  if (variant) {
-    const r = (q) => hash2(variant, q, 101);
-    for (let p = 0; p < 1 + variant % 3; p++) {
-      const cx = 10 + r(p * 3) * 44, cy = 10 + r(p * 3 + 1) * 44, rad = 1.6 + r(p * 3 + 2) * 2.6;
+  if (!variant) return c;
+  const r = (q) => hash2(variant, q, 101), u = (x + 0.5) / T, v = (y + 0.5) / T;
+  const win = clamp01(Math.min(1, Math.sin(Math.PI * u) * 4) * Math.min(1, Math.sin(Math.PI * v) * 4)); // fades marks out at the tile edge
+  const kind = (variant - 1) % 5;
+  if (kind === 0 || kind === 3) {                                                            // a branching salt vein, thin and pale
+    const p0 = [8 + r(1) * 10, 10 + r(2) * 44], p1 = [24 + r(3) * 8, 16 + r(4) * 32], p2 = [40 + r(5) * 8, 14 + r(6) * 36], p3 = [56 + r(7) * 6, 10 + r(8) * 44];
+    const main = [p0, p1, p2, p3], b1 = [p1, [p1[0] + 6 + r(9) * 8, p1[1] + (r(10) > 0.5 ? 1 : -1) * (8 + r(11) * 10)]], b2 = [p2, [p2[0] + 4 + r(12) * 6, p2[1] + (r(13) > 0.5 ? 1 : -1) * (6 + r(14) * 10)]];
+    const wob = (vnoise(x, y, 3, 53 + variant, 0) - 0.5) * 1.6, d = Math.min(segDist(x + wob, y, main), segDist(x, y + wob, b1) + 0.3, segDist(x, y + wob, b2) + 0.3);
+    if (d < 0.75) c = mix(c, SALT, 0.75 * win); else if (d < 1.7) c = mix(c, SALT_DIM, (1.7 - d) * 0.45 * win);
+  }
+  if (kind === 1) {                                                                          // a strand of kelp, with a dark patch under it
+    const pts = [[8 + r(20) * 10, 12 + r(21) * 12], [24 + r(22) * 8, 30 + r(23) * 10], [40 + r(24) * 8, 24 + r(25) * 20], [54 + r(26) * 6, 40 + r(27) * 12]];
+    const d = segDist(x, y + Math.sin(x * 0.5 + variant) * 1.5, pts);
+    const patch = vnoise(x, y, 8, 61 + variant, 0);
+    if (patch > 0.6) c = mix(c, KELP, clamp01((patch - 0.6) * 5) * 0.6 * win);
+    if (d < 1.2) c = mix(c, KELP_DARK, 0.9 * win); else if (d < 2.4) c = mix(c, KELP, (2.4 - d) * 0.4 * win);
+  }
+  if (kind === 2) {                                                                          // a plate of salt crust, cracked
+    const cx = 20 + r(30) * 24, cy = 20 + r(31) * 24, d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) + (hash2(x, y, 41 + variant, T) - 0.5) * 1.5;
+    if (d < 8 + r(32) * 4) { const crack = hash2(x >> 1, y >> 1, 43 + variant, T) > 0.88; c = mix(c, crack ? SAND_WET : SALT, (crack ? 0.5 : 0.5 + (hash2(x, y, 47, T) - 0.5) * 0.2) * win); }
+  }
+  if (kind === 3 || kind === 4) {                                                            // shells and pebbles lit from the north-west
+    for (let p = 0; p < 2 + kind; p++) {
+      const cx = 12 + r(p * 3 + 70) * 40, cy = 12 + r(p * 3 + 71) * 40, rad = 1.4 + r(p * 3 + 72) * 2.2;
       const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy);
-      if (d <= rad) { const lit = clamp01(0.55 - (dx + dy) / (rad * 2.4)); return p % 2 ? mix([60, 64, 70], [112, 118, 126], lit) : mix([118, 112, 98], [196, 190, 172], lit); }
+      if (d <= rad) { const lit = clamp01(0.55 - (dx + dy) / (rad * 2.4)); return p % 2 ? mix([56, 60, 66], [104, 110, 118], lit) : mix([110, 104, 90], [184, 178, 160], lit); }
       if (d <= rad + 2 && dy > 0 && dx > -rad * 0.4) c = c.map(v => v * (0.72 + 0.14 * (d - rad)));
     }
-    if (variant % 3 === 2) {                                                                  // a strand of kelp
-      const x0 = 10 + r(20) * 16, y0 = 12 + r(21) * 12, x1 = 36 + r(22) * 16, y1 = 36 + r(23) * 16;
-      const t = clamp01(((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) / ((x1 - x0) ** 2 + (y1 - y0) ** 2));
-      const px = x0 + (x1 - x0) * t + Math.sin(t * 9 + variant) * 3, py = y0 + (y1 - y0) * t, d = Math.abs(x + 0.5 - px) + Math.abs(y + 0.5 - py) * 0.4;
-      if (d < 1.1 && t > 0.02 && t < 0.98) c = mix(c, KELP_DARK, 0.85); else if (d < 2.2 && t > 0.02 && t < 0.98) c = mix(c, KELP, 0.5);
-    }
-    if (variant % 3 === 1) {                                                                  // a plate of salt crust, cracked
-      const cx = 18 + r(30) * 28, cy = 18 + r(31) * 28, d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) + (hash2(x, y, 41 + variant, T) - 0.5) * 1.5;
-      if (d < 7 + r(32) * 4) { const edge = hash2(x >> 1, y >> 1, 43 + variant, T) > 0.86; c = mix(c, edge ? SALT_DIM : SALT, edge ? 0.3 : 0.55 + (hash2(x, y, 47, T) - 0.5) * 0.2); }
-    }
+  }
+  if (kind === 4) {                                                                          // a patch of drying kelp
+    const patch = vnoise(x, y, 10, 67 + variant, 0) * 0.7 + vnoise(x, y, 3, 71 + variant, 0) * 0.3;
+    if (patch > 0.58) c = mix(c, patch > 0.68 ? KELP_DARK : KELP, clamp01((patch - 0.58) * 6) * 0.8 * win);
   }
   return c;
 }

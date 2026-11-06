@@ -85,8 +85,8 @@ export function makeVaelMats(tc = NEUTRAL) {
     deeplight: std({ color: 0x2a3290, emissive: 0x7080ff, emissiveIntensity: 1.9, roughness: 0.2 }),                       // a small light
     deepCore: std({ color: 0xc8d0ff, emissive: 0xdde2ff, emissiveIntensity: 1.1 }),                                       // its white heart
     deepHalo1: halo(0x6a7cf0, 0.18), deepHalo2: halo(0x5a68e0, 0.09), deepHalo3: halo(0x4c58c8, 0.045),
-    pool: std({ color: 0x0e1230, emissive: 0x2a34a0, emissiveIntensity: 0.22, metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
-    poolDeep: std({ color: 0x07091c, emissive: 0x1c2480, emissiveIntensity: 0.14, metalness: 0.5, roughness: 0.05 }),
+    pool: std({ color: 0x0c1024, emissive: 0x1a2260, emissiveIntensity: 0.3, metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
+    poolDeep: std({ color: 0x06081a, emissive: 0x121848, emissiveIntensity: 0.2, metalness: 0.5, roughness: 0.05 }),
   };
 }
 

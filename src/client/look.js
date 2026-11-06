@@ -3,10 +3,13 @@
 
 /** Seat colours, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
  *  white with a team mask the renderer tints, Notion: Ebbfall art), and the minimap's dots with more than two seats. Seats 0
- *  and 1 keep the two-player gold and magenta; then teal, lilac, green, blue, white, red: apart from each other (also
+ *  and 1 keep the two-player gold and magenta; then teal, lilac, green, blue, yellow, red: apart from each other (also
  *  with red-green colour blindness, as far as eight allow: there lightness parts gold from green and red), from the
- *  dark ground, the selection marks and the resources' teal and violet. Shared with the art tools (tools/render3d). */
-export const SEAT_COLORS = [0xd98a1f, 0xc22a5a, 0x15bd96, 0xc293e0, 0x79d85a, 0x388ef1, 0xe8e8e8, 0xe5553a];
+ *  dark ground, the selection marks and the resources' teal and violet, and from both peoples' bodies (the step-2 judge,
+ *  2026-11-06: seat 6 was white, lost on the Harbour's canvas and the Vael's pearl, so it is yellow now; seat 1's
+ *  magenta is a little lighter, so it stays apart from the Vael's ink and the seabed under protanopia). Shared with the
+ *  art tools (tools/render3d). */
+export const SEAT_COLORS = [0xd98a1f, 0xe0386e, 0x15bd96, 0xc293e0, 0x79d85a, 0x388ef1, 0xf2d230, 0xe5553a];
 /** Each game seat's spot on the menus' board (seats.js): a player keeps its spot's colour in the game, whatever seat
  *  its side gives it. Set when a game starts (single player's `startSetup`, a room's `setup.spots`); none: a seat's
  *  own number. */

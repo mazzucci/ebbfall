@@ -59,23 +59,38 @@ export function shadeLayers(w, h, { rock, ground, shade }) {
     const x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
     return (f(at(a, x0, y0)) * (1 - u) + f(at(a, x0 + 1, y0)) * u) * (1 - v) + (f(at(a, x0, y0 + 1)) * (1 - u) + f(at(a, x0 + 1, y0 + 1)) * u) * v;
   };
+  // (written channel by channel, nothing allocated per texel: the Shore's 1024x1024 texels would take seconds otherwise)
+  const isWet = (d) => (d > 0 ? 1 : 0), isDeep = (d) => (d > 1 ? 1 : 0);
+  const put = (a, o, r, g, b) => { a[o] = r; a[o + 1] = g; a[o + 2] = b; a[o + 3] = 255; };
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const fx = (tx + 0.5) / k - 0.5, fy = (ty + 0.5) / k - 0.5, o = (ty * W + tx) * 4, s = lerp2(sh, fx, fy);
-    const land = [Math.min(255, 200 + 55 * s), 200 + 50 * s, 205 + 45 * s];
-    if (!wet) { mul.set([...land.map(Math.round), 255], o); continue; }
+    const lr = Math.min(255, 200 + 55 * s), lg = 200 + 50 * s, lb = 205 + 45 * s;   // the land's shade
+    if (!wet) { put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); continue; }
+    // Away from any edge (the four tiles round the texel all one depth) the wobble cannot reach a contour (it moves a
+    // level by 0.15 at most): plain land, shallows or deep, with no noise to compute.
+    const x0 = Math.floor(fx), y0 = Math.floor(fy), d0 = at(depth, x0, y0);
+    if (d0 === at(depth, x0 + 1, y0) && d0 === at(depth, x0, y0 + 1) && d0 === at(depth, x0 + 1, y0 + 1)) {
+      if (d0 === 0) { put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); put(add, o, 0, 0, 0); continue; }
+      const deep = d0 === 2 ? 1 : 0;
+      for (let c = 0; c < 3; c++) { mul[o + c] = Math.round(SHALLOW[c] + (DEEP[c] - SHALLOW[c]) * deep); add[o + c] = Math.round(SHALLOW_ADD[c] + (DEEP_ADD[c] - SHALLOW_ADD[c]) * deep); }
+      mul[o + 3] = add[o + 3] = 255; continue;
+    }
     // How wet: 0 on land, 1 in water, its 0.5 contour the waterline, rounded between tiles and wobbled a little.
     const wob = (noise(fx * 1.7, fy * 1.7) - 0.5) * 0.22 + (noise(fx * 5.3 + 31, fy * 5.3) - 0.5) * 0.08;
-    const wv = lerp2(depth, fx, fy, (d) => (d > 0 ? 1 : 0)) + wob;
+    const wv = lerp2(depth, fx, fy, isWet) + wob;
     if (wv < 0.5) {
       const t = clamp01((wv - (0.5 - WET_BAND)) / WET_BAND), dark = 1 - (1 - WET_DARK) * t * t;  // darkest at the water's edge
-      mul.set([...land.map(v => Math.round(v * dark)), 255], o); add.set([0, 0, 0, 255], o);
+      put(mul, o, Math.round(lr * dark), Math.round(lg * dark), Math.round(lb * dark)); put(add, o, 0, 0, 0);
       continue;
     }
-    const dv = lerp2(depth, fx, fy, (d) => (d > 1 ? 1 : 0)) + (noise(fx * 1.9 + 57, fy * 1.9) - 0.5) * 0.22 + (noise(fx * 6.1, fy * 6.1 + 17) - 0.5) * 0.06;
-    if (dv >= 0.5 && dv < 0.5 + DROP) { mul.set([...DROP_DARK, 255], o); add.set([0, 0, 0, 255], o); continue; }
+    const dv = lerp2(depth, fx, fy, isDeep) + (noise(fx * 1.9 + 57, fy * 1.9) - 0.5) * 0.22 + (noise(fx * 6.1, fy * 6.1 + 17) - 0.5) * 0.06;
+    if (dv >= 0.5 && dv < 0.5 + DROP) { put(mul, o, DROP_DARK[0], DROP_DARK[1], DROP_DARK[2]); put(add, o, 0, 0, 0); continue; }
     const deep = dv < 0.5 ? 0 : 0.8 + 0.2 * clamp01((dv - 0.5) * 3), lap = wv < 0.5 + LAP ? 1 : 0;   // deep: 0 the shallows, 1 the deep
-    mul.set([0, 1, 2].map(c => Math.round(SHALLOW[c] + (DEEP[c] - SHALLOW[c]) * deep)).concat(255), o);
-    add.set([0, 1, 2].map(c => Math.round(SHALLOW_ADD[c] + (DEEP_ADD[c] - SHALLOW_ADD[c]) * deep + LAP_ADD[c] * lap)).concat(255), o);
+    for (let c = 0; c < 3; c++) {
+      mul[o + c] = Math.round(SHALLOW[c] + (DEEP[c] - SHALLOW[c]) * deep);
+      add[o + c] = Math.round(SHALLOW_ADD[c] + (DEEP_ADD[c] - SHALLOW_ADD[c]) * deep + LAP_ADD[c] * lap);
+    }
+    mul[o + 3] = add[o + 3] = 255;
   }
   return { k, w: W, h: H, mul, add };
 }

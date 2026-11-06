@@ -131,7 +131,7 @@ window.render = async function (filter = '') {
   }
   // The ground and the scenery (ground.js, scenery2.js; STYLE.md "The ground and the scenery"): construction and
   // wrecks for both peoples (the Harbour's timber foundation, scaffold and rubble in seat 0's gold; the Vael's bud and
-  // pearl rubble, `bud_n` and `rubble_vael_n`, for the coder to wire), the salt field, the brine seep (four frames)
+  // pearl rubble, `bud_n` and `rubble_vael_n`, which render.js draws by people), the salt field, the brine seep (four frames)
   // and the scenery props under the names the client places (scenery.js).
   const neutral = makeMats(GOLD), vaelNeutral = makeVaelMats();
   for (const n of [2, 3, 4]) {
@@ -141,7 +141,7 @@ window.render = async function (filter = '') {
     push(`bud_${n}`, Gd.bud(n, vaelNeutral), bldgCell(n, 8 + n * 7));
     push(`rubble_vael_${n}`, Gd.rubbleVael(n, vaelNeutral), bldgCell(n, 10));
   }
-  for (let st = 0; st < 4; st++) push(`shard_${st}`, Gd.saltField(st), unitCell(15, 20));
+  for (let st = 0; st < 4; st++) push(`shard_${st}`, Gd.saltField(st), unitCell(21, 24));
   for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.brineSeep(f), unitCell(30, 8));
   for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
   return { sprites: out, tints: fitTints() };

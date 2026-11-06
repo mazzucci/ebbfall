@@ -454,7 +454,7 @@ stroke), from a scrap to near a tile across, each its own centre, turn and mirro
 water (in the shallows kelp read as fish or swimmers). The pale branching vein tangles, the crust plates and the shore
 litter's pale pebble pairs are gone (doodles, cookies, pairs of dots). Variants draw their numbers through `sd`, a twice-hashed seed: `hash2` of neighbouring integers
 is correlated, which is why round 1's marks all lay one way. `src/client/gl/ground.js groundTile` picks a cell's tile
-(84% a base); the review pack picks the same.
+(about 90% a base); the review pack picks the same.
 
 **The reef** (`tile(m, v)`, m > 0): dead reef, a shade darker than round 1 (top [86,82,73] to [68,65,58]). A dark face
 in the reef's layers on every edge: the tall south face (18 px) as before, and short north (5 px), west and east (4 px)
@@ -496,21 +496,19 @@ the Harbour's foundation is a sill of timber beams with iron corner straps, pegs
 one corner and a stack of planks; the scaffold timber poles lashed with rope, two ledgers, rope braces, pale canvas
 hung on the north and east sides with an ink hem, a gold pennant (no shadow, as before); the rubble broken tarred
 planks and timber, bent iron bands, a few scraps of torn sailcloth dirtied grey, flagstones, a coil of old rope (the
-dead building's pale canvas and rope are greyed: `RM`, round 3; white squares read as confetti). The Vael's are new
-frames for the coder to wire: `bud_n`, a closed pearl bud (five petals with ink seams between them over an ink core,
-on a three-lobed ink plinth, one deeplight at the tip; h 8 + 7n), to show in place of or over the warp ghost
-(`BldgObj.warpIn`) while a Vael building grows; `rubble_vael_n`, pearl shards greyed by the fall (`RM.pearlDull`
+dead building's pale canvas and rope are greyed: `RM`, round 3; white squares read as confetti). The Vael's: `bud_n`, a closed pearl bud (five petals with ink seams between them over an ink core,
+on a three-lobed ink plinth, one deeplight at the tip; h 8 + 7n), shown over the warp ghost once the site is planted,
+fading as the building grows (render.js `BldgObj`, in the scaffold's place); `rubble_vael_n`, pearl shards greyed by the fall (`RM.pearlDull`
 0x48464a, `pearlDark` 0x323134; fewer and larger since round 3: white chips were the brightest thing in the
-construction sheet, a field of confetti) and chunks of ink glass round a small dim pool and broken domes, to pick by the dead building's people where `rubble_n` is picked
+construction sheet, a field of confetti) and chunks of ink glass round a small dim pool and broken domes, picked by the dead building's people (render.js `boom`, by the burst's seat) where `rubble_n` is picked
 by its radius.
 
 **The projectiles** (`effects2.js`): `harpoon` (36x10, its tip at the anchor: a dark iron shaft with a lit edge, a
 brass barbed head, the pale line paying out behind with a sag) and `beam` (40x8: a lance of deeplight, a white heart in
-a violet-blue sheath fading to the tail). `bolt`, `shell` and `missile` are as they were. Both wait for the renderer to
-pick a projectile's art by its shooter: today `PROJ_FIELDS` carries only the kind (bolt / shell / missile), which the
-Picket, Harpooner, Lens, Kite, Lookout, Petrel, Argonaut and Anemone share, so either a `ProjKind::Harpoon` and
-`::Beam` in the sim's data (the Harpooner's and the Lens's) or the shooter's kind in the snapshot and a `PROJ_LOOK`
-table in look.js.
+a violet-blue sheath fading to the tail). `bolt`, `shell` and `missile` are as they were. The renderer picks a
+shot's art by its shooter: `PROJ_FIELDS` carries `by`, the shooter's unit kind (fixed when fired; -1 for a building's),
+and look.js `SHOT_LOOK` names the kinds with their own sprite (the Harpooner's `harpoon`, the Lens's `beam`); the rest
+draw their projectile kind's.
 
 **The shade layers and the minimap** (`src/client/gl/ground.js shadeLayers`, drawn by `gl/render.js renderTerrain`
 and rendered the same by the review pack). A multiply: the land by 0.78-1 of the map's shade (it was 0.5-1, made for

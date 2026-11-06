@@ -364,7 +364,7 @@ class BldgObj {
     const sm = this.look.smoke; // chimneys
     if (live && sm && b.done && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
-  /** A warp-in site (the Vael): no scaffold or foundation; the whole building fades in as a violet ghost, more solid as
+  /** A warp-in site (the Vael): no foundation, its bud (in the scaffold's sprite) once planted; the whole building fades in as a violet ghost, more solid as
    *  it grows, inside a pulsing warp ring once planted (a site still waiting for its Lumen is a fainter ghost, no
    *  ring). Seen through fog, only the remembered ghost. */
   warpIn(b, t, live) {

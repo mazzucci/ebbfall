@@ -3,25 +3,25 @@
 // Cloudflare Worker (relay/worker.js) and the Node relay (relay/server.mjs) share them: `benchRequest`, the public
 // edge (paths, the Origin check, CORS, size, JSON), and `BenchStore`, the reports themselves in a key-value storage
 // (a Durable Object's, or a Map in Node). Reports hold measurements and device/browser info only, and expire.
+import { ALPHABET, LETTERS, newCode as makeCode } from '../src/net/roomcode.js';
+import { Limiter, addressKey, MINUTE, DAY } from './limits.js';
 
 export const BENCH_MAX = 64 * 1024; // bytes of JSON a report may have
 export const BENCH_TTL = 7 * 24 * 3600 * 1000; // a report is kept a week
 export const BENCH_VERSIONS = [1]; // the report formats taken (src/client/bench.js `v`)
-// Limits: an address first (2 a minute, 10 a day, 30 reads a minute), then everyone's (10 a minute, 500 a day: what
-// storage can grow by). The addresses' counts live in memory (a restart forgets them: a brake, not a ledger).
+// Limits: an address first (2 a minute, 10 in 24 hours, 30 reads a minute), then everyone's (10 a minute, 500 a UTC
+// day: what storage can grow by). The minutes and the addresses' counts live in memory (relay/limits.js `Limiter`, the
+// rooms' counter too: a restart forgets them, a brake, not a ledger); everyone's day is stored.
 export const BENCH_IP_PER_MIN = 2, BENCH_IP_PER_DAY = 10, BENCH_IP_GETS_PER_MIN = 30;
 export const BENCH_PER_MIN = 10, BENCH_PER_DAY = 500;
-const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // (the relay's room codes': no vowels, no look-alikes)
-const LETTERS = 6; // 20^6 = 64 million codes for a few thousand reports at most: not guessed
-const CODE = new RegExp(`^(?:PERF-)?([${ALPHABET}]{${LETTERS}})$`);
+const CODE = new RegExp(`^(?:PERF-)?([${ALPHABET}]{${LETTERS}})$`); // (the room codes' letters and length: 64 million codes for a few thousand reports at most, not guessed)
 const TRIES = 8;
-const DAY = 86400000;
 /** The address a request came from, as the edge passes it to the store. */
 export const IP_HEADER = 'X-Bench-IP';
 
 const json = (body, status = 200, headers = {}) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', ...headers } });
 const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
-const newCode = () => Array.from({ length: LETTERS }, () => ALPHABET[random() % ALPHABET.length]).join('');
+const newCode = () => makeCode(random);
 const pad = (t) => String(Math.max(0, Math.floor(t))).padStart(15, '0'); // (index keys sort by time)
 
 /**
@@ -84,33 +84,24 @@ function withHeaders(res, headers) {
  * day's count. One store takes every report (relay/worker.js: one Durable Object), so its limits are everyone's.
  */
 export class BenchStore {
-  constructor(storage, now = () => Date.now()) { this.storage = storage; this.now = now; this.recent = []; this.ips = new Map(); }
+  constructor(storage, now = () => Date.now()) {
+    this.storage = storage; this.now = now;
+    this.posts = new Limiter([{ ms: MINUTE, max: BENCH_IP_PER_MIN }, { ms: DAY, max: BENCH_IP_PER_DAY }], now); // (per address: an IPv6 /64, limits.js addressKey)
+    this.gets = new Limiter([{ ms: MINUTE, max: BENCH_IP_GETS_PER_MIN }], now);
+    this.all = new Limiter([{ ms: MINUTE, max: BENCH_PER_MIN }], now);
+  }
 
   async fetch(req) {
-    const ip = req.headers.get(IP_HEADER) || '';
+    const ip = addressKey(req.headers.get(IP_HEADER) || '');
     if (req.method === 'POST') return this.post(await req.text(), ip);
     return this.get(new URL(req.url).searchParams.get('code') || '', ip);
   }
 
-  /** An address's counts: posts in the last minute and today, reads in the last minute. An IPv6 address counts by its
-   *  /64 (one line's); an address with no report today and no read this minute is forgotten when there are many. */
-  address(ip, now) {
-    const today = Math.floor(now / DAY), key = ip.includes(':') ? ip.split(':').slice(0, 4).join(':') : ip;
-    if (this.ips.size > 5000) for (const [k, a] of this.ips) if (a.day !== today || (!a.n && !a.gets.some(t => now - t < 60000))) this.ips.delete(k);
-    let a = this.ips.get(key);
-    if (!a) this.ips.set(key, a = { posts: [], gets: [], day: 0, n: 0 });
-    a.posts = a.posts.filter(t => now - t < 60000); a.gets = a.gets.filter(t => now - t < 60000);
-    if (a.day !== today) { a.day = today; a.n = 0; }
-    return a;
-  }
-
   async post(text, ip = '') {
-    const now = this.now(), a = this.address(ip, now);
-    if (a.posts.length >= BENCH_IP_PER_MIN) return json({ error: 'Too many reports: try again in a minute' }, 429);
-    if (a.n >= BENCH_IP_PER_DAY) return json({ error: 'Too many reports from here today' }, 429);
-    this.recent = this.recent.filter(t => now - t < 60000);
-    if (this.recent.length >= BENCH_PER_MIN) return json({ error: 'Too many reports: try again in a minute' }, 429);
-    this.recent.push(now); a.posts.push(now); a.n++; // (counted before the storage's awaits: two at once cannot both pass)
+    const now = this.now(), mine = this.posts.check(ip);
+    if (mine) return json({ error: mine.ms === MINUTE ? 'Too many reports: try again in a minute' : 'Too many reports from here today' }, 429);
+    if (this.all.check('')) return json({ error: 'Too many reports: try again in a minute' }, 429);
+    this.all.count(''); this.posts.count(ip); // (counted before the storage's awaits: two at once cannot both pass)
     const day = Math.floor(now / DAY), count = await this.storage.get('day');
     const n = count?.day === day ? count.n : 0;
     if (n >= BENCH_PER_DAY) return json({ error: 'Too many reports today' }, 429);
@@ -123,9 +114,7 @@ export class BenchStore {
   }
 
   async get(code, ip = '') {
-    const a = this.address(ip, this.now());
-    if (a.gets.length >= BENCH_IP_GETS_PER_MIN) return json({ error: 'Too many reads: try again in a minute' }, 429);
-    a.gets.push(this.now());
+    if (!this.gets.take(ip)) return json({ error: 'Too many reads: try again in a minute' }, 429);
     const r = await this.storage.get('r:' + code);
     if (!r || this.now() - r.at >= BENCH_TTL) return json({ error: 'No such report (they are kept a week)' }, 404);
     return json(`{"code":"PERF-${code}","received":"${new Date(r.at).toISOString()}","report":${r.text}}`);

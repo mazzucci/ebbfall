@@ -1,5 +1,5 @@
-// The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [sliceRegex]
-// Renders the slice (the six step-0 kinds and the salt field) and writes into <outdir>:
+// The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [family|sliceRegex]
+// Renders a family (FAMILIES below; the step-0 slice by default, or any regex of sprite names) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
@@ -8,7 +8,8 @@
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
 //                    maps the letters to the kinds
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the slice as a small
-//                    scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell with Glints and Lenses
+//                    scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell with Glints and Lenses,
+//                    the family's other kinds among them
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,7 +17,21 @@ import { encodePNG } from './png.js';
 import { tile } from './terrain2.js';
 import { render3d } from './render3d.mjs';
 
-const [outDir = '/tmp/review', filter = '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$'] = process.argv.slice(2);
+/** A family: its `units` ([key, name, frames to show: [frame, label]]) and the extra placements of its `battle`
+ *  (beside the slice's scene; `cx`, `cy` its centre). The slice's buildings and salt always render. */
+const SLICE_UNITS = [['harvester', 'Rigger', [[0]]], ['trooper', 'Picket', [[0], [3, 'dug in']]], ['lumen', 'Glint', [[0]]], ['prism', 'Lens', [[0]]]];
+const FAMILIES = {
+  slice: { units: SLICE_UNITS, battle: () => [] },
+  // Harbour infantry (harbour-infantry.js): the Rigger and the Picket beside the Harpooner and the Mender; the Vael of the slice for the peoples
+  hinf: {
+    units: [['harvester', 'Rigger', [[0]]], ['trooper', 'Picket', [[0], [3, 'dug in']]], ['lancer', 'Harpooner', [[0]]], ['medic', 'Mender', [[0]]], ['lumen', 'Glint', [[0]]], ['prism', 'Lens', [[0]]]],
+    battle: (cx, cy) => [['lancer_0_0', cx - 190, cy + 40, 0], ['lancer_1_1', cx - 140, cy + 70, 0], ['lancer_0_0', cx - 110, cy + 20, 0], ['medic_0_1', cx - 230, cy + 10, 0], ['medic_2_0', cx - 180, cy + 100, 0], ['lancer_8_0', cx + 60, cy - 110, 1], ['medic_9_0', cx + 100, cy - 60, 1]],
+  },
+};
+const [outDir = '/tmp/review', pick = 'slice'] = process.argv.slice(2);
+const family = FAMILIES[pick] || { units: SLICE_UNITS, battle: () => [] };
+const unitKeys = [...new Set(family.units.map(([k]) => k))];
+const filter = FAMILIES[pick] ? `^(${unitKeys.join('|')})_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$` : pick;
 mkdirSync(join(outDir, 'blind'), { recursive: true });
 const all = await render3d(filter), TINTS = all.tints;
 const byName = new Map(all.map(s => [s.name, s]));
@@ -81,9 +96,8 @@ function simulate(c, mode) {
 const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
 
 // ---- 1. the contact sheet: each sprite at 1:1 in seats 0, 1, 6 and its bare mask ----
-const UNITS = ['harvester', 'trooper', 'lumen', 'prism'];
 const rows = [];
-for (const k of UNITS) for (const f of k === 'trooper' ? [0, 2, 3] : [0]) for (const d of [0, 4, 8, 12]) rows.push(`${k}_${d}_${f}`);
+for (const [k, , fr] of family.units) for (const f of fr.flatMap(([f]) => f === 3 ? [2, 3] : [f])) for (const d of [0, 4, 8, 12]) rows.push(`${k}_${d}_${f}`);
 rows.push('bldg_core', 'bldg_conflux', 'shard_0', 'shard_1', 'shard_2', 'shard_3');
 {
   const PAD = 6, cells = rows.map(get), cw = Math.max(...cells.map(s => s.img.w)) + PAD, ch = cells.map(s => s.img.h + PAD);
@@ -102,7 +116,7 @@ rows.push('bldg_core', 'bldg_conflux', 'shard_0', 'shard_1', 'shard_2', 'shard_3
 
 // ---- 2. team share per sprite (facing 0, frame 0; the dug-in Picket too): mask pixels over the sprite's solid pixels ----
 console.log('team colour share of the solid pixels (facing 0; rule 3 floor 1/6 = 0.167):');
-for (const name of ['harvester_0_0', 'trooper_0_0', 'trooper_0_3', 'lumen_0_0', 'prism_0_0', 'bldg_core', 'bldg_conflux']) {
+for (const name of [...family.units.flatMap(([k, , fr]) => fr.map(([f]) => `${k}_0_${f}`)), 'bldg_core', 'bldg_conflux']) {
   const s = get(name), m = masks.get(name); let solid = 0, team = 0;
   for (let i = 3; i < s.img.data.length; i += 4) { if (s.img.data[i] === 255) solid++; if (m.data[i] >= 128) team++; }
   console.log(`  ${name.padEnd(14)} ${(team / solid).toFixed(3)}  (${team} / ${solid} px)${team / solid < 1 / 6 ? '  BELOW THE FLOOR' : ''}`);
@@ -113,9 +127,10 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 {
   const c = canvas(1688, 780); seabed(c); // a 2x phone (844x390 CSS px)
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300], ['bldg_core', 360, 330, 0], ['bldg_conflux', 1330, 330, 1]];
-  const unitsAt = (x0, y, seat) => [['harvester_0_0', x0, y, seat], ['trooper_0_0', x0 + 70, y, seat], ['trooper_4_3', x0 + 150, y, seat], ['lumen_0_0', x0 + 240, y, seat], ['prism_0_0', x0 + 310, y, seat]];
-  for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) list.push(...unitsAt(560, y, seat));
-  list.push(['harvester_12_0', 960, 760, 0], ['trooper_8_0', 1020, 760, 1], ['lumen_8_0', 1080, 760, 0], ['prism_12_0', 1140, 760, 1]);
+  const shown = family.units.flatMap(([k, , fr]) => fr.map(([f]) => f === 3 ? `${k}_4_3` : `${k}_0_${f}`)), step = shown.length > 5 ? 66 : 80;
+  const unitsAt = (x0, y, seat) => shown.map((name, n) => [name, x0 + n * step, y, seat]);
+  for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) list.push(...unitsAt(540, y, seat));
+  unitKeys.forEach((k, n) => list.push([`${k}_${[12, 8][n % 2]}_0`, 1000 + n * 60, 760, n % 2])); // the other way round
   place(c, list);
   ring(c, 630, 503, 24, 14); // the game's selection ring under the Picket (seat 0)
   save('phone@2x.png', c);
@@ -126,7 +141,7 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 // ---- 4. blind: each unit alone at phone size, named by a random letter ----
 {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {};
-  const kinds = [['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)'], ['lumen_0_0', 'lumen (Glint)'], ['prism_0_0', 'prism (Lens)']];
+  const kinds = family.units.flatMap(([k, name, fr]) => fr.map(([f, label]) => [`${k}_0_${f}`, `${k}${label ? ' ' + label : ''} (${name})`]));
   let n = 0;
   for (const [name, what] of kinds) for (const seat of [0, 6]) {
     const c = canvas(192, 192); seabed(c, 11 + n++ * 7, true); draw(c, get(name), 96, 110, seat);
@@ -148,6 +163,7 @@ function battle(w, h) {
   for (let k = 0; k < 3; k++) list.push([`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]);
   for (let k = 0; k < 6; k++) list.push([`prism_8_${k % 2}`, cx + 150 + (k % 3) * 50, cy - 30 + Math.floor(k / 3) * 70 + (k % 3) * 10, 1]);
   for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
+  list.push(...family.battle(cx, cy));
   place(c, list);
   ring(c, cx - 104, cy - 37, 24, 14);
   return c;

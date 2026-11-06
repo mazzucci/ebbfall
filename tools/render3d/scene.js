@@ -50,7 +50,7 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  */
 export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false }) {
   scene.add(obj);
-  obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon)
   catcher.visible = shadow;
   // Frustum in ground units around the anchor: left/right are plain, up/down are scaled by sin(ELEV).
   const L = ax / S, R = (w - ax) / S, U = ay / S, D = (h - ay) / S, sn = Math.sin(ELEV);

@@ -584,8 +584,8 @@ const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag);
 function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
-const SALT = 0x4fd1c5;
-/** Colour of a target: a salt field teal, a building to work on amber. */
+const SALT = 0xe6e0d3;
+/** Colour of a target: a salt field pale salt (style.css --shard), a building to work on amber. */
 const targetColor = (e) => e.kind === 'node' ? SALT : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }

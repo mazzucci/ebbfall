@@ -388,7 +388,7 @@ function bindKeys() {
     if (grid && PAN_CODES.includes(ev.code) && !ev.ctrlKey && !ev.metaKey) return;
     const is = (key) => (grid ? ev.code === 'Key' + key : key.toLowerCase() === k.toLowerCase());
     const items = ui.watching ? [] : cardItems(); const it = items.find(i => i.key && i.key !== 'Esc' && is(i.key));
-    if (it && !it.dis && !ev.ctrlKey && !ev.metaKey) { doCommand(it.id, ev.shiftKey ? 5 : 1); invalidateCard(); ev.preventDefault(); return; } // (Shift: five of a unit)
+    if (it && !it.dis && !ev.ctrlKey && !ev.metaKey && !ev.repeat) { doCommand(it.id, ev.shiftKey ? 5 : 1); invalidateCard(); ev.preventDefault(); return; } // (Shift: five of a unit; a held key's repeats order nothing: a key held to pan must not toggle Dig In or queue on)
     if (!it && is('Q')) selectArmy();
   });
   window.addEventListener('keyup', ev => { held.delete(ev.code); });

@@ -120,7 +120,7 @@ function sync() {
   for (let i = 0; i < attacks.length; i += 2) attacks[i].task.target = units.get(attacks[i + 1]) || bldgs.get(attacks[i + 1]) || null;
 
   const P = game.projectiles(); S.projs = [];
-  for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
+  for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], by: UNIT_KEYS[P[o + fp.by]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
 
   const ev = game.drainEvents();
   if (ev !== '[]') for (const e of JSON.parse(ev)) S.events.push(e);

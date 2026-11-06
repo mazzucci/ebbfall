@@ -1,5 +1,6 @@
 // Effects at 2x resolution, painted with smooth gradients (explosions, smoke, muzzle flash, sparks, projectiles,
-// selection rings, the light blob and the rally flag). Names match what the renderer asks for.
+// selection rings, the light blob and the rally flag). Names match what the renderer asks for; `harpoon` and `beam`
+// (the ground family) wait for the renderer to pick a projectile's art by its shooter.
 import { image, hash2, vnoise } from './raster.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -37,6 +38,29 @@ function bolt() { return image(24, 8, (x, y) => { const t = x / 23, dy = Math.ab
 function missile() { // 20x8 rocket with a hot tail, pointing +x
   return image(20, 8, (x, y) => { const dy = Math.abs(y + 0.5 - 4); if (x >= 8 && dy < 1.6) return x > 17 ? [240, 240, 240, 255] : [150, 156, 166, 255]; if (x < 8 && dy < 2.6 - (8 - x) * 0.25) { const c = ramp(FIRE, 1 - x / 8); return [c[0], c[1], c[2], Math.round(255 * x / 8)]; } return [0, 0, 0, 0]; });
 }
+/** The Harpooner's harpoon (`harpoon`, 36x10, pointing +x, its tip at the anchor): a dark iron shaft, a brass barbed
+ *  head, and the pale line paying out behind it with a sag. For the coder to wire by the shooter's kind (look.js). */
+function harpoon() {
+  return image(36, 10, (x, y) => {
+    const cy = 5, dy = y + 0.5 - cy;
+    if (x >= 30 && Math.abs(dy) < 1.2 + (35 - x) * 0.25) return x >= 33 ? [196, 150, 60, 255] : [150, 112, 44, 255];        // the brass head
+    if (x >= 27 && x < 31 && Math.abs(dy) > 1 && Math.abs(dy) < 2.4 + (31 - x) * 0.3) return [120, 92, 40, 255];            // the barbs
+    if (x >= 10 && x < 30 && Math.abs(dy) < 1.1) return dy < -0.3 ? [84, 86, 90, 255] : [38, 40, 44, 255];                    // the shaft, a lit edge
+    const sag = Math.sin((x / 10) * Math.PI / 2) * 2.2;                                                                   // the line: from the shaft's butt back and down
+    if (x < 11 && Math.abs(dy - (2.2 - sag)) < 0.7) return [200, 180, 140, Math.round(255 * (0.4 + x / 18))];
+    return [0, 0, 0, 0];
+  });
+}
+/** The Lens's beam (`beam`, 40x8, +x, its head at the anchor): a lance of deeplight, a white heart in a violet-blue
+ *  sheath, fading to the tail. For the coder to wire by the shooter's kind (look.js). */
+function beam() {
+  return image(40, 8, (x, y) => {
+    const t = Math.min(1, x / 30), dy = Math.abs(y + 0.5 - 4), core = clamp01(1 - dy / 1.1) * t, sheath = clamp01(1 - dy / 3.2) * t * 0.7;
+    if (core <= 0 && sheath <= 0) return [0, 0, 0, 0];
+    const k = Math.max(core, sheath);
+    return [Math.round(lerp(112, 230, core)), Math.round(lerp(128, 236, core)), 255, Math.round(k * 255)];
+  });
+}
 function heal(f) { // 24x24 green sparkle for healing
   return image(24, 24, (x, y) => { const dx = Math.abs(x + 0.5 - 12), dy = Math.abs(y + 0.5 - 12), r = 4 + f * 3; const v = Math.max(0, 1 - Math.hypot(dx, dy) / r) * (1 - f * 0.25), plus = (dx < 1.2 && dy < r) || (dy < 1.2 && dx < r) ? 1 : 0; const a = Math.max(v * 0.6, plus * (1 - f * 0.3)); return [120, 255, 160, Math.round(a * 255)]; });
 }
@@ -64,6 +88,8 @@ export function effectSprites() {
   out.push({ name: 'shell', img: shell(), anchor: c });
   out.push({ name: 'missile', img: missile(), anchor: { x: 0.9, y: 0.5 } });
   for (let f = 0; f < 3; f++) out.push({ name: `heal_${f}`, img: heal(f), anchor: c });
+  out.push({ name: 'harpoon', img: harpoon(), anchor: { x: 1, y: 0.5 } });
+  out.push({ name: 'beam', img: beam(), anchor: { x: 1, y: 0.5 } });
   for (const r of [12, 18, 26]) { out.push({ name: `sel_${r}_0`, img: ring(r, [90, 214, 125]), anchor: c }); out.push({ name: `sel_${r}_1`, img: ring(r, [255, 90, 90]), anchor: c }); }
   return out;
 }

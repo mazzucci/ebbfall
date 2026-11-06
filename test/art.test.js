@@ -39,3 +39,8 @@ test('one frame per kind, not one per seat, and a mask tint for every seat', () 
   assert.equal(index.tints?.length, SEAT_COLORS.length, 'atlas.json tints: one per seat colour');
   for (const t of index.tints) assert.ok(Number.isInteger(t) && t >= 0 && t <= 0xffffff);
 });
+
+test('the frames the client draws for each people\'s construction, rubble and its own shots are in the atlas', () => {
+  for (const n of [2, 3, 4]) for (const k of ['foundation', 'scaffold', 'rubble', 'bud', 'rubble_vael']) assert.ok(frames[`${k}_${n}`], `${k}_${n}`);
+  for (const k of ['harpoon', 'beam']) assert.ok(frames[k], k);
+});

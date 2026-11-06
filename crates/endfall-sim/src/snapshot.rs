@@ -2,7 +2,7 @@
 //! once, here: the macro writes both the function that fills it and the list of its field names, which the client
 //! reads (through pkg/data.js) to find a field by name. A new field is one line, with no offsets to keep in step.
 
-use crate::data::{ProjKind, UnitKind};
+use crate::data::{ProjKind, UNIT_KINDS, UnitKind};
 use crate::map::Node;
 use crate::world::{Bldg, Phase, Proj, Task, Unit, World};
 
@@ -76,11 +76,13 @@ record! {
 }
 
 record! {
-    /// Per projectile; aim = the point it flies at.
+    /// Per projectile; aim = the point it flies at; by = the shooter's unit kind (its index in `unitKinds`, fixed when
+    /// fired), -1 for a building's: the client draws some kinds' shots their own way (the Harpooner's harpoon).
     PROJ_FIELDS, push_proj, |p: &Proj, w| {
         x = p.x, y = p.y,
         kind = match p.kind { ProjKind::Bolt => 0, ProjKind::Shell => 1, ProjKind::Missile => 2 },
         team = p.team,
+        by = if p.by_slot < UNIT_KINDS.len() { p.by_slot as f64 } else { -1.0 },
         aim_x = w.geo(p.target).map_or(p.x, |g| g.aim_point(p.x, p.y).0),
         aim_y = w.geo(p.target).map_or(p.y, |g| g.aim_point(p.x, p.y).1),
     }

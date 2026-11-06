@@ -7,26 +7,30 @@ are the "not drawings" part. Nothing here is a flat fill, a cartoon outline or a
 material, wear sits on edges, and every unit casts a real shadow.
 
 Step 0 (the slice) set this sheet with six models: the Rigger, Picket and Lighthouse (`harbour.js`), the Glint, Lens
-and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`buildings.js shardField`).
+and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1).
 Later makers build from it; where a later model needs a material that is not here, add it to `materials.js` /
 `vael.js makeVaelMats` and to this sheet in the same change.
 
 ## The ground
 
-The drained seabed: wet sand and slate, salt crust in thin veins, flat dark strands of drying kelp. It is the darkest thing
-on screen: mean value about 0.18 (sRGB 45-55), nothing on it brighter than the dim salt (sRGB ~140) and that only in
-thin veins. Palette (`terrain2.js`): sand `[58,54,47]`, wet sand `[44,42,38]`, slate `[40,44,50]`, salt `[142,140,130]`,
-dim salt `[96,95,88]`, kelp `[26,32,27]`, dark kelp `[18,22,19]`. The base tile (`ground_0`, most of the map) is calm:
-sand with slate showing through, soft ripples bent by noise (no direction may show at 2x), a low slate ridge as a
-contour; nothing that repeats visibly. The variants (`ground_1..5`) carry the marks, faded out at the tile's edge: thin
-branching low-contrast salt veins on smooth curves (never zigzags), two or three flat dark kelp strands, a cracked plate
-of crust, shells and pebbles clustered by noise at 0.6-1.4x, a piece of driftwood with a lit edge and a shadow.
-All base noise is periodic over the 64 px tile (scale x period = 64) so tiles seam. The rock plateaus keep the old
-blue-grey slate for now.
+The drained seabed: wet sand and slate, salt crust in faint pale veins, kelp drying in dark patches. It is the darkest
+thing on screen: mean value about 0.18 (sRGB 45-55), nothing on it brighter than the dim salt (sRGB ~140) and that only in
+thin lines. Palette (`terrain2.js`): sand `[58,54,47]`, wet sand `[44,42,38]`, slate `[40,44,50]`, salt `[142,140,130]`,
+dim salt `[96,95,88]`, kelp `[36,29,21]`, dark kelp `[23,19,14]` (brown-black, olive at the edge, never green: round 3's
+green kelp doubled as the seep). The bases (`ground_0..7`, most of the map): sand with
+slate showing through, soft ripples bent by noise (no direction may show at 2x), a low slate ridge as a contour, and
+faint pale salt veins, each base its own; the marks (`ground_8..19`) a kelp patch each, every one its own size, turn
+and mirror, lying in clusters with bare ground between and never in the water (step 1: "The ground and the scenery"
+below). The renderer picks them through
+`src/client/gl/ground.js`. All base noise is periodic over the 64 px tile (scale x period = 64) so tiles seam; what is a
+variant's own (veins, marks) fades out at the tile's edge. The rock plateaus are dead reef (step 1): a bleached lip, a
+pitted grey-brown top, a dark layered face on every edge.
 
-The salt field (`shard_0..3`): halite grown in cubic clusters on a bed of wet slate under a pale crust. Salt is pale
-by itself (`salt` 0xe4e0d4 rough 0.42, `saltWet` 0xc4c8c8 rough 0.25, flat shaded) and carries no light. Stage 3 is
-nearly mined out: fewer, lower clusters, the crust dug through to the slate.
+The salt field (`shard_0..3`): halite grown in cubic clusters on a bed of wet slate under a crust. Salt is pale
+by itself, a warm grey (`ground.js GMATS`: `salt` 0x7c776d rough 0.95, `saltWet` 0x6e6f68, flat shaded; it peaks near
+200 sRGB, under the units' highlights: step 0's 0xe4e0d4 and round 2's 0xc2bdae both peaked at white) and carries no
+light. The four
+stages differ by shape: standing clusters, fewer and lower clusters, a flat broken crust, a bare dark pit with a pale rim.
 
 ## The Harbour (sim race `humans`)
 
@@ -432,3 +436,97 @@ building once, in seat 0 or 6, with a Windmast, a Lookout and a Pump on a seep a
 Tidewell, Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a Harbour base of
 every building against the Tidewell). Lights and smoke (`look.js BLDG_LOOK`): the Workshop's glow on its hearth (3 px
 west of the centre, 20 below), its smoke from its one stack (footprint px 23, -13); the Pump has no light.
+
+## The ground and the scenery (step 1, `tools/art/terrain2.js`, `ground.js`, `scenery2.js`, `effects2.js`)
+
+The seabed, the reef, the two resources, the scenery, construction and wrecks for both peoples, and two projectiles,
+on the ground rules above: the ground stays the darkest thing on screen, salt carries no light, and nothing on the
+ground is as pale as a unit's top (the PM's note at gate A: the salt fields were the brightest thing on the map; a
+heap of shells rendered white in the maker's first round and would have passed for units' hats at phone size).
+
+**The seabed** (`terrain2.js`; round 2 after the judge: round 1's marks were three stamps in one orientation and
+scale, ink doodles on a flat sheet). Twenty tiles: eight bases (`ground_0..7`), each with its own faint pale salt veins
+(a few lines of a crackle of polygons some 16 px across, a pixel wide, dim salt at most 0.3, its own patches of the net
+picked by a low noise, faded at the tile's edge; eight bases so no one pattern comes back often enough to count), and
+twelve marks, kelp drying in a dark patch (`ground_8..19`: two or three lobes, fibrous inside, a damp halo, never a
+stroke), from a scrap to near a tile across, each its own centre, turn and mirror. `groundTile` lays them in clusters
+(a low noise over the map sets a cell's chance of a mark: none over about half the map, up to 0.4) and never in the
+water (in the shallows kelp read as fish or swimmers). The pale branching vein tangles, the crust plates and the shore
+litter's pale pebble pairs are gone (doodles, cookies, pairs of dots). Variants draw their numbers through `sd`, a twice-hashed seed: `hash2` of neighbouring integers
+is correlated, which is why round 1's marks all lay one way. `src/client/gl/ground.js groundTile` picks a cell's tile
+(about 90% a base); the review pack picks the same.
+
+**The reef** (`tile(m, v)`, m > 0): dead reef, a shade darker than round 1 (top [86,82,73] to [68,65,58]). A dark face
+in the reef's layers on every edge: the tall south face (18 px) as before, and short north (5 px), west and east (4 px)
+faces under the bleached lip, so the plateau reads as standing up from all sides (round 1's north edge was only a lip
+and read as walkable high ground); a dark foot on the ground at the north and west edges. The top's noise is periodic and
+shared by the variants (round 1 used a non-periodic noise: seams); its own marks are three to five ragged, drawn-out pits
+(each its own turn and length, a broken edge, low contrast; round 2's round dark pits read as chocolate chips) and one
+small bleached nub, at hashed places clear of the edge, no window. The plateau's inside has six variants (`rock_15_0..5`,
+`gl/ground.js rockTile`), the edges three. The minimap draws it `#6b665a`.
+
+**The salt field** (`ground.js saltField`, `shard_0..3`, GMATS as above): a field, not a clump (round 3's read as
+rubble or rock heaps). A wide flat apron of pale grey-white crust (`apron` 0x4d4c49, radius 17 with an uneven edge,
+`patch`; ~109 sRGB in grey in the review's units sheet), bigger than the crystals, under stages 0-2, so a field reads
+as a pale patch at 1x; the cell is `unitCell(21, 24)`. 0: nine tall clusters of halite cubes on a darker crust heart
+(`crust` 0x46433d), a spill of loose cubes; 1: four lower clusters, the crust dug through to the slate in places; 2: no
+standing crystals, slabs of crust and salt over wet slate on the apron; 3: a bare dark pit of wet slate with a film of
+brine and an uneven, broken pale rim, two cubes left. The crystals peak near 198 sRGB.
+
+**The brine seep** (`brineSeep`, `vent_0..3`, round 4): the opposite of kelp. Brine a mid teal-green (`seep` 0x1c3a35,
+~77 sRGB in grey, near the shallows' value and above the ground's ~40) welling up off centre (`seepDeep`), one small
+still glint, in an uneven pool ringed by an irregular pale salt crust (`rim` 0x5a5852, ~135 in grey) with flakes lifted
+at its edge, slate stones at no even spacing, three of them in a heap. No rings, no light (round 2's black disc and
+rings read as a Vael unit; round 3's dark brine read as a hole, the kelp's twin). The frames: bubbles of brine (a
+lighter teal, never foam-white) at five places, each swelling and slumping to a flat slick in turn. The renderer's
+violet glow over it is gone (`gl/render.js NodeObj`).
+
+**The scenery** (`scenery2.js`, `SCENERY`; the names are the old props' so the client, the scatter and the tests stay
+as they are): on the reef (solid), `boulders_*` a small heap of clams and whelks lying down with rounded brown
+pebbles (`shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
+round 1's heap read as a cluster of Vael units, round 3's grey pieces and angular stones like the salt's crystals), `spire_*` pilings (weathered `drift` 0x6c6252, a tar line, a barnacle crust, split tops),
+`ruin_*` a boat's ribs, `wreck_*` a tarred hull keel up. On the open ground (flat, walked over): `crater_0` an anchor in
+the sand, `crater_1` a tide pool (a small film of dull grey-blue water, `pool` 0x131a22, ~54 in grey, under the seep's brine (~77) so it is never taken for one: round 4's mint teal was brighter than the brine; in one lobed outline straight on the sand, its kelp brown-black,
+stones half in it, kelp at its west end; no rim and no rings: round 1's dark disc in a pale rim read as a brine seep),
+`debris_*` flotsam. The scenery's rope, sailcloth and cork are its own dull materials (`SMATS.rope`, `sail`, `cork`): the
+Harbour's pale rope and canvas read as white rings and sheets on the ground.
+
+**Construction and wrecks** (`ground.js`; `foundation_n`, `scaffold_n`, `rubble_n` in seat 0's gold as before):
+the Harbour's foundation is a sill of timber beams with iron corner straps, pegs and a string line, flagstones laid at
+one corner and a stack of planks; the scaffold timber poles lashed with rope, two ledgers, rope braces, pale canvas
+hung on the north and east sides with an ink hem, a gold pennant (no shadow, as before); the rubble broken tarred
+planks and timber, bent iron bands, a few scraps of torn sailcloth dirtied grey, flagstones, a coil of old rope (the
+dead building's pale canvas and rope are greyed: `RM`, round 3; white squares read as confetti). The Vael's: `bud_n`, a closed pearl bud (five petals with ink seams between them over an ink core,
+on a three-lobed ink plinth, one deeplight at the tip; h 8 + 7n), shown over the warp ghost once the site is planted,
+fading as the building grows (render.js `BldgObj`, in the scaffold's place); `rubble_vael_n`, pearl shards greyed by the fall (`RM.pearlDull`
+0x48464a, `pearlDark` 0x323134; fewer and larger since round 3: white chips were the brightest thing in the
+construction sheet, a field of confetti) and chunks of ink glass round a small dim pool and broken domes, picked by the dead building's people (render.js `boom`, by the burst's seat) where `rubble_n` is picked
+by its radius.
+
+**The projectiles** (`effects2.js`): `harpoon` (36x10, its tip at the anchor: a dark iron shaft with a lit edge, a
+brass barbed head, the pale line paying out behind with a sag) and `beam` (40x8: a lance of deeplight, a white heart in
+a violet-blue sheath fading to the tail). `bolt`, `shell` and `missile` are as they were. The renderer picks a
+shot's art by its shooter: `PROJ_FIELDS` carries `by`, the shooter's unit kind (fixed when fired; -1 for a building's),
+and look.js `SHOT_LOOK` names the kinds with their own sprite (the Harpooner's `harpoon`, the Lens's `beam`); the rest
+draw their projectile kind's.
+
+**The shade layers and the minimap** (`src/client/gl/ground.js shadeLayers`, drawn by `gl/render.js renderTerrain`
+and rendered the same by the review pack). A multiply: the land by 0.78-1 of the map's shade (it was 0.5-1, made for
+the old pale dirt), the shallows by [150,230,222], deep water by [66,118,198]; on a map with water, an add: the water's
+own light, [14,34,31] in the shallows, [2,8,22] in the deep, which lifts the shallows over the land (a multiply cannot:
+round 1's shore was a hue fade at equal darkness, lost in grey and protan). The shore: the waterline is the 0.5 contour
+of the tiles' wetness, rounded between tiles and wobbled a little; on its land side a wet line some 9 px wide darkening
+to 0.5 at the water, on its water side the lap, a 2 px line of pale foam (added [26,30,28]). Where the shallows fall to deep
+water, a crisp dark line some 2 px wide (multiply [34,60,104], round 3: round 2's soft blur lost the channel's edge),
+then the deep. In grey: land, a dark wet line, a pale lap, the lighter shallows, a dark line, the dark deep. On a map with water the layers have up to 16 texels a tile (at
+most 2048 a side), on a dry one one texel a tile as before. The minimap: land `hsl(36,10%,14-23%)`, reef `#6b665a`,
+shallows `#467c80` (a notch up), deep `#1d3658`.
+
+The grey check (round 4): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
+ground, the kelp, each resource, the seep's brine and rim, the salt's apron, the reef top and the units; the order
+to keep is units first, then the seep and the full salt, the kelp always under the ground.
+
+The pack: `node tools/art/review-ground.mjs <dir>` (the ground and units sheets at a phone's size and at 1:1 with the
+game's shade layer over them, grey / protan / deutan, every prop at 1:1, construction and rubble of both peoples, the
+projectiles at 1:1 and 4x, a Shore-like patch with the water tints and its minimap strip). It renders only the family
+and a few units for scale, never the whole atlas.

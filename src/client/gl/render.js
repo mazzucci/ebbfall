@@ -5,9 +5,10 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, colorOf } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
+import { groundTile, rockTile, shadeLayers } from './ground.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -147,10 +148,10 @@ export function zoomAt(factor, sx, sy) {
 }
 
 // ---- terrain (once per map) ----
-// A pixel per tile: the minimap's ground, the fog and the large-scale shading, at the map's size (sizeGrids).
+// A pixel per tile: the minimap's ground and the fog, at the map's size (sizeGrids); the shade layers are made per map.
 const thumb = document.createElement('canvas');
 const fog = new Sprite(); fog.scale.set(TILE); L.fog.addChild(fog);
-let fogCv, fogCtx, fogImg, fogTex, shadeCv, shadeCtx, shadeTex, gridW = 0, gridH = 0;
+let fogCv, fogCtx, fogImg, fogTex, gridW = 0, gridH = 0;
 /** Make the per-tile canvases and textures for a map of MW x MH (again only when a game's map has another size). */
 function sizeGrids() {
   if (gridW === MW && gridH === MH) return;
@@ -158,11 +159,10 @@ function sizeGrids() {
   const canvas = () => { const c = document.createElement('canvas'); c.width = MW; c.height = MH; return c; };
   const texture = (c) => { const t = Texture.from(c); t.source.scaleMode = 'linear'; return t; };
   thumb.width = MW; thumb.height = MH;
-  const old = [fogTex, shadeTex];
+  const old = [fogTex];
   fogCv = canvas(); fogCtx = fogCv.getContext('2d'); fogImg = fogCtx.createImageData(MW, MH); fogTex = texture(fogCv); fog.texture = fogTex;
   for (let i = 0; i < MW * MH; i++) fogImg.data.set([5, 7, 11, 255], i * 4); // (the fog's colour; updateFogImage sets alpha)
-  shadeCv = canvas(); shadeCtx = shadeCv.getContext('2d'); shadeTex = texture(shadeCv);
-  for (const t of old) t?.destroy(true); // (the shade sprite that used it goes in renderTerrain, before this)
+  for (const t of old) t?.destroy(true);
 }
 sizeGrids();
 
@@ -185,31 +185,32 @@ function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible 
 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
-  L.shade.removeChildren().forEach(c => c.destroy());
+  L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
   sizeGrids(); fogTick = -1; mmAt = -Infinity; // (a new map, or a replay from its first tick: fog and minimap at once)
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
+  const wetCell = (i, j) => [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].some(([x, y]) => !rock(x, y) && ground(x, y) !== 'land');
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its centre, offset half a tile.
   // Tiles go into 8x8-cell chunks so only the chunks on screen are drawn (no baking: it would cost a 4096² texture).
   chunks.length = 0;
   for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
     const m = rock(i, j) | rock(i + 1, j) << 1 | rock(i, j + 1) << 2 | rock(i + 1, j + 1) << 3;
     const r = rnd();
-    const name = m === 0 ? `ground_${r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5}` : `rock_${m}_${((r * 3) | 0)}`;
+    const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}` : rockTile(m, r);
     const ci = (j + 1) >> 3, cj = (i + 1) >> 3, key = ci * 64 + cj;
     let c = chunks[key]; if (!c) { c = chunks[key] = new Container(); c.cx = cj * 8 * TILE; c.cy = ci * 8 * TILE; L.terrain.addChild(c); }
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
   }
-  // Large-scale variation so the tiles never read as a grid.
-  const img = shadeCtx.createImageData(MW, MH);
-  for (let i = 0; i < MW * MH; i++) {
-    const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)), wet = map.rock[i] ? 'land' : ground(i % MW, (i / MW) | 0);
-    // Water over the ground, the same multiply: the shallows a clear sea-green, deep water a dark blue.
-    const c = wet === 'deep' ? [52, 92, 150] : wet === 'shallow' ? [118, 178, 196] : [Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s)];
-    img.data.set([...c, 255], i * 4);
+  // Large-scale variation so the tiles never read as a grid, and the water (gl/ground.js): a multiply (the land's shade,
+  // a wet line along the shore, the water's tints) and on a map with water an add (the water's light), over the scenery too.
+  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)] });
+  for (const [data, blendMode] of [[sh.mul, 'multiply'], [sh.add, 'add']]) {
+    if (!data) continue;
+    const cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
+    cv.getContext('2d').putImageData(new ImageData(data, sh.w, sh.h), 0, 0);
+    const t = Texture.from(cv); t.source.scaleMode = 'linear';
+    const vs = new Sprite(t); vs.scale.set(TILE / sh.k); vs.blendMode = blendMode; L.shade.addChild(vs);
   }
-  shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
-  const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
   const cores = G.bldgs.filter(b => b.d.hq).map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
@@ -219,8 +220,8 @@ export function renderTerrain() {
   }
   // Minimap background.
   const th = thumb.getContext('2d');
-  const wetCss = { shallow: '#3f6f7e', deep: '#1f3a63' };
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : wetCss[g] || `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
+  const wetCss = { shallow: '#467c80', deep: '#1d3658' }; // (the seabed warm and dark, the reef a pale grey, the sea teal and blue: as the ground looks)
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? '#6b665a' : wetCss[g] || `hsl(36,10%,${14 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
@@ -324,7 +325,9 @@ class BldgObj {
     const n = b.w;
     this.found = new Sprite(); setTex(this.found, tex(`foundation_${n}`)); L.bldgs.addChild(this.found);
     [this.body, this.paint] = teamSprite(L.bldgs); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
-    this.scaffold = new Sprite(); setTex(this.scaffold, tex(`scaffold_${n}`)); L.bldgs.addChild(this.scaffold);
+    // (a warp-in people's site grows in a bud, `bud_n`, in place of the scaffold; the foundation is the builders')
+    this.bud = !!FACTIONS[G.factions[b.team]]?.warp;
+    this.scaffold = new Sprite(); setTex(this.scaffold, tex(`${this.bud ? 'bud' : 'scaffold'}_${n}`)); L.bldgs.addChild(this.scaffold);
     this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
     this.look = BLDG_LOOK[b.type] || {};
     if (this.look.head) [this.head, this.headPaint] = teamSprite(L.bldgs);
@@ -339,7 +342,7 @@ class BldgObj {
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
     const name = this.name, warp = !b.done && !!FACTIONS[G.factions[b.team]]?.warp;
-    this.found.visible = this.scaffold.visible = !b.done && !warp; // (a warp-in site has neither)
+    this.found.visible = !b.done && !warp; this.scaffold.visible = !b.done && (!warp || b.planted); // (a warp-in site: its bud once planted, no foundation)
     if (b.done) { setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; }
     else { // the bottom k/8 of the art, its bottom edge where the full sprite's would be
       const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k)); setTex(this.paint, stage(name + '_m', k));
@@ -361,12 +364,13 @@ class BldgObj {
     const sm = this.look.smoke; // chimneys
     if (live && sm && b.done && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
-  /** A warp-in site (the Vael): no scaffold or foundation; the whole building fades in as a violet ghost, more solid as
+  /** A warp-in site (the Vael): no foundation, its bud (in the scaffold's sprite) once planted; the whole building fades in as a violet ghost, more solid as
    *  it grows, inside a pulsing warp ring once planted (a site still waiting for its Lumen is a fainter ghost, no
    *  ring). Seen through fog, only the remembered ghost. */
   warpIn(b, t, live) {
     setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
     paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xcbb6ff, (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
+    if (b.planted) this.scaffold.alpha = 1 - 0.75 * b.progress; // (the bud opens as the shell inside it grows)
     if (!live || !b.planted) return;
     const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = 0.55 + 0.35 * Math.sin(t * 4);
     bars.ellipse(b.x, cy, rx, ry).fill({ color: 0x9b7bff, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.8 * pulse });
@@ -382,15 +386,15 @@ class NodeObj {
   constructor(n) {
     this.ether = n.type === 'ether';
     this.s = new Sprite(); this.s.position.set(n.x, n.y); L.nodes.addChild(this.s);
-    // (a brine seep glows; salt carries no light: tools/render3d/STYLE.md)
-    this.glow = this.ether ? light(0xa78bfa, 1.1, 0.45) : null; if (this.glow) this.glow.position.set(n.x, n.y);
+    // (no light: the brine seep is dark liquid and salt carries none, tools/render3d/STYLE.md; the old ether's violet
+    // glow made the seep read as the Vael's)
   }
   update(n, t) {
-    if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; this.glow.alpha = n.extractor || dry ? 0 : 0.35 + 0.15 * Math.sin(t * 2 + n.x); }
+    if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; }
     else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); }
   }
-  show(v) { this.s.visible = v; if (this.glow) this.glow.visible = v; }
-  destroy() { this.s.destroy(); this.glow?.destroy(); }
+  show(v) { this.s.visible = v; }
+  destroy() { this.s.destroy(); }
 }
 
 function syncPool(pool, list, make, upd) {
@@ -410,14 +414,14 @@ export function addEffect(anim, x, y, o = {}) {
   if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
   effects.push(e);
 }
-/** A unit or building died: explosion sized to it, debris, a scorch mark, and a shake for big ones. */
-export function boom(x, y, r) {
+/** A unit or building died: explosion sized to it, debris, a scorch mark, and a shake and rubble (its people's: `race`) for big ones. */
+export function boom(x, y, r, race) {
   const big = r >= 20;
   addEffect(big ? 'boom_big' : 'boom_small', x, y, { light: 0xff9a3a, lightScale: big ? 2.4 : 1.1, life: big ? 0.7 : 0.45, scale: big ? Math.min(2, r / 28) : 1 });
   for (let i = 0; i < (big ? 10 : 4); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
   const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24); scorch.position.set(x, y + 2); L.decals.addChild(scorch);
   decals.push({ s: scorch, t: 0, life: 25 });
-  if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`rubble_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
+  if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
 const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xdcc8ff };
@@ -530,8 +534,9 @@ export function render(selList, place, power = false) {
   for (const p of G.projs) {
     if (p.team !== G.me && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
     const s = pooled(projPool, pi++, () => { const s = new Sprite(); s.anchor.set(0.5); L.projs.addChild(s); s.l = light(0xffd27a, 0.25, 0.7); return s; });
-    s.texture = tex(p.type); s.anchor.set(p.type === 'shell' ? 0.5 : p.type === 'missile' ? 0.9 : 1, 0.5);
-    if (p.type === 'missile' && Math.random() < dt * 25) addEffect('puff', p.x, p.y, { life: 0.5, scale: 0.45 });
+    const own = SHOT_LOOK[p.by]; // (a shooter whose shot is its own sprite: its head at the anchor, no trail)
+    s.texture = tex(own ?? p.type); s.anchor.set(own ? 1 : p.type === 'shell' ? 0.5 : p.type === 'missile' ? 0.9 : 1, 0.5);
+    if (!own && p.type === 'missile' && Math.random() < dt * 25) addEffect('puff', p.x, p.y, { life: 0.5, scale: 0.45 });
     s.position.set(p.x, p.y); s.rotation = Math.atan2(p.ay - p.y, p.ax - p.x); s.l.visible = true; s.l.position.set(p.x, p.y); s.l.scale.set(p.type === 'shell' ? 0.4 : 0.25);
   }
   for (let i = pi; i < projPool.length; i++) { projPool[i].visible = false; projPool[i].l.visible = false; }

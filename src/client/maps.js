@@ -15,12 +15,12 @@ export const MAP_KINDS = [
   { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
   { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
   { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
-  { story: 'A shore and a reef: the Humans held the cove, the Vael came up out of the shallows.' }, // Shore
+  { story: 'A shore and a reef: the Harbour held the cove, the Vael came up out of the shallows.' }, // Shore
 ];
 /** The characters a random map draws from: the first six (Shore has random maps of its own, `kind` fixed). */
 export const RANDOM_KINDS = 6;
 /** The Shore map's line in the menus. */
-const SHORE_LINE = 'A shore and a reef: the Humans hold the cove, the Vael the shallows.';
+const SHORE_LINE = 'A shore and a reef: the Harbour holds the cove, the Vael the shallows.';
 
 /** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts). */
 export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];

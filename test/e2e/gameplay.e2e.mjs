@@ -543,7 +543,7 @@ test('the Shore map: chosen from the list, its line said; a Human starts in its 
     const shore = await page.$$eval('#mapSel option', os => os.findIndex(o => o.textContent.startsWith('Tidewater Reef')));
     assert.ok(shore >= 0, 'the Shore map in the list');
     await page.locator('#mapSel').selectOption(String(shore));
-    await page.waitForFunction(() => /A shore and a reef: the Humans hold the cove, the Vael the shallows\./.test(document.getElementById('soloNote').textContent));
+    await page.waitForFunction(() => /A shore and a reef: the Harbour holds the cove, the Vael the shallows\./.test(document.getElementById('soloNote').textContent));
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const got = await page.evaluate(() => {
@@ -644,14 +644,14 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.deepEqual(await board(page).sides(), [['YOU'], ['COMPUTER 1']]);
       assert.deepEqual(await board(page).spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], 'eight spots: you, an AI, + SEAT in the next');
       assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => [t.getAttribute('aria-label'), t.querySelector('.race').textContent])),
-        device.hasTouch ? [['YOU HUM, Humans, Side 1: edit', 'HUM'], ['COMPUTER 1 HUM, Humans, Easy, Side 2: edit', 'HUM']] : [['YOU HUMANS, Side 1: edit', 'HUMANS'], ['COMPUTER 1 HUMANS, Easy, Side 2: edit', 'HUMANS']],
+        device.hasTouch ? [['YOU HARB, Harbour, Side 1: edit', 'HARB'], ['COMPUTER 1 HARB, Harbour, Easy, Side 2: edit', 'HARB']] : [['YOU HARBOUR, Side 1: edit', 'HARBOUR'], ['COMPUTER 1 HARBOUR, Easy, Side 2: edit', 'HARBOUR']],
         'each token says what it shows first, then the rest; a phone\'s short race');
       assert.equal(await page.locator('#soloBoard .tok b').first().evaluate(b => getComputedStyle(b).fontSize), device.hasTouch ? '16px' : '12px', 'a phone reads 16 px');
       // YOUR sheet: the race (RANDOM too) and the side, a dialog; Escape closes it and gives the focus back to the token.
       await page.locator('#soloBoard [data-k="tok0"]').focus(); await page.keyboard.press('Enter');
       assert.ok(await page.locator('#soloSheet').evaluate(d => d.open && d.matches(':modal') && d.getAttribute('aria-labelledby') === 'sheetTitle'), 'a modal dialog, named by its title');
       assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"]', gs => gs.map(g => g.getAttribute('aria-label'))), ['Race', 'Side'], 'your seat: its race and side, no level');
-      assert.deepEqual(await page.$$eval('#soloSheet [data-k^="race:"]', bs => bs.map(b => b.textContent)), ['HUMANS', 'VAEL', 'RANDOM']);
+      assert.deepEqual(await page.$$eval('#soloSheet [data-k^="race:"]', bs => bs.map(b => b.textContent)), ['HARBOUR', 'VAEL', 'RANDOM']);
       assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans', 'the focus on the lit chip');
       for (const key of ['Tab', 'Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
         await page.keyboard.press(key);
@@ -1219,7 +1219,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnSolo').click();
     await board(page).race(0, 'vael');
-    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 HUMANS,/, 'the opponent is human unless chosen');
+    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 HARBOUR,/, 'the opponent is human unless chosen');
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));

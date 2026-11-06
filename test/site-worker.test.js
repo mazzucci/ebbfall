@@ -157,7 +157,7 @@ test("a room's link: its own card in the og: and twitter: tags, with or without 
       assert.equal(content(html, 'og:url'), 'https://ebbfall.com/?room=WGNJKL');
       assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');
       assert.match(html, /<link rel="canonical" href="https:\/\/ebbfall\.com\/">/, 'the canonical page stays the game');
-      assert.match(html, /<title>Ebbfall: a free browser RTS in the 1998 mold<\/title>/, 'the tab\'s title as it was');
+      assert.match(html, /<title>Ebbfall: a classic RTS on a drained seabed, free in your browser<\/title>/, 'the tab\'s title as it was');
       assert.equal(/cloudflareinsights/.test(html), !!env.CF_ANALYTICS_TOKEN, 'the beacon with a token only');
       // Only the card's tags changed.
       const strip = (h) => h.replace(/<meta (?:property|name)="(?:og|twitter):(?:title|description|url)" content="[^"]*">/g, '').replace(/<script defer src="https:\/\/static\.cloudflareinsights[^<]*<\/script>/, '');
@@ -173,7 +173,7 @@ test("a challenge's link: its own card, the setup in words and its link made aga
       const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
       assert.equal(res.status, 200, q);
       for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', `${q} ${k}`);
-      for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Humans vs Vael · won in 12:34 · free, in your browser');
+      for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Harbour vs Vael · won in 12:34 · free, in your browser');
       assert.equal(content(html, 'og:url'), `https://ebbfall.com/?vs=${VS}`, 'the code, nothing else of the query');
       assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');
       const strip = (h) => h.replace(/<meta (?:property|name)="(?:og|twitter):(?:title|description|url)" content="[^"]*">/g, '').replace(/<script defer src="https:\/\/static\.cloudflareinsights[^<]*<\/script>/, '');

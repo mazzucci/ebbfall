@@ -53,7 +53,7 @@ const VS = '1.8.5.ky.h00v13v23v33'; // (Iron Compass, you against three Brutal V
 test("a challenge's link has a card of its own: the setup in words, its link made again from the code's values", () => {
   assert.deepEqual(preview(at(`?vs=${VS}`)), {
     title: 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass',
-    description: 'Humans vs Vael · won in 12:34 · free, in your browser',
+    description: 'Harbour vs Vael · won in 12:34 · free, in your browser',
     url: `https://ebbfall.com/?vs=${VS}`,
   });
   assert.equal(preview(at(`?vs=${VS}&relay=wss://x.example/&seed=7`)).url, `https://ebbfall.com/?vs=${VS}`, 'only the challenge: no other parameter');
@@ -102,7 +102,7 @@ test("a card's fields go to tags index.html has, one each", () => {
 
 test("index.html's head: title, description, canonical, Open Graph and X cards, the app's metas unchanged", () => {
   const title = head.match(/<title>([^<]*)<\/title>/)[1];
-  assert.equal(title, 'Ebbfall: a free browser RTS in the 1998 mold');
+  assert.equal(title, 'Ebbfall: a classic RTS on a drained seabed, free in your browser');
   const description = meta('description');
   assert.ok(description.length >= 70 && description.length <= 160, `a description of search-result length: ${description.length}`);
   assert.match(head, /<link rel="canonical" href="https:\/\/ebbfall\.com\/">/);

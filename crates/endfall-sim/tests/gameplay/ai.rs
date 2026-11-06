@@ -1058,7 +1058,7 @@ fn each_level_trains_only_its_own_mix() {
                     "Easy {name}: no vehicle bay: {raised:?}"
                 );
             }
-            if diff == 1 && f.name == "Humans" {
+            if diff == 1 && f.key == "humans" {
                 assert!(
                     !raised.contains(&ai.air),
                     "Medium Humans: no Loft: {raised:?}"

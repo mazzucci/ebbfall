@@ -520,15 +520,16 @@ impl Game {
         self.w.disable_ai();
     }
 
-    /// The guided first game: hold the opponent's waves back (until 6:00 at most), or let them come. A setup knob, not a
-    /// command: a replay of a guided game does not carry it.
+    /// The guided first game: hold the opponent's waves back (until 6:00 at most; its army meanwhile no bigger than
+    /// half the guide's: `World::guided_hold`), or let them come. A setup knob, not a command: a replay of a guided
+    /// game does not carry it.
     #[wasm_bindgen(js_name = holdWaves)]
     pub fn hold_waves(&mut self, on: bool) {
         if self.lock.is_some() {
             return;
         }
         self.untracked |= on;
-        self.w.hold_waves = on;
+        self.w.guided_hold(on);
     }
 
     /// Set a team's resources (tests and tools only).

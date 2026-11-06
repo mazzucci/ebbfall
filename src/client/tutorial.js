@@ -1,6 +1,6 @@
 // The guided first game: a short checklist over the map, one step at a time, driven by what is on the field (no
 // timers, no numbers beyond a count). Each step pulses the button it wants. Race-neutral: kinds come from the faction.
-import { G, UNITS, BUILDINGS, holdWaves } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, TILE, holdWaves, enemies } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 
 /** The longest the opponent waits for the guided player (s): the sim's HOLD_WAVES_MAX. */
@@ -14,6 +14,13 @@ import { alerts } from './tools.js';
 const tut = { on: false, step: 0, start: 0, since: 0 };
 const mine = (type) => G.units.filter(u => u.team === G.me && u.type === type).length;
 const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && b.done);
+/** How near (px) an enemy fighter must come to one of the player's buildings to be at the base. */
+const AT_BASE = 12 * TILE;
+/** Whether an enemy fighter (not a worker) is at the player's base: within AT_BASE of one of its buildings. */
+const enemyAtBase = () => {
+  const mineB = G.bldgs.filter(b => b.team === G.me);
+  return G.units.some(u => enemies(G.me, u.team) && !u.d.worker && mineB.some(b => Math.hypot(u.x - b.x, u.y - b.y) < AT_BASE));
+};
 
 /** The step after which the opponent may come (the army is trained): its index in `steps()`. */
 const ARMY = 5;
@@ -32,7 +39,9 @@ function steps() {
     { text: `Build a ${pump.name} on a brine seep: it pays salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
-    { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => calm() || G.time - tut.stepAt > 150 },
+    // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
+    // that never comes; never while one is still there)
+    { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
     { text: `Select your army (the ARMY button, or Q), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }

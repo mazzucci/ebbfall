@@ -196,7 +196,8 @@ impl World {
             }
             // Units wait while the money is spoken for by the building the build order wants next (supply, a
             // factory, the tech, the air factory): otherwise the army spends every shard as it comes in.
-            if qlen < 2 && !saving {
+            // (the guided first game: its army waits at `GUIDED_ARMY` while its waves are held)
+            if qlen < 2 && !saving && !self.guided_army_full(e, t) {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup[e as usize];

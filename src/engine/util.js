@@ -5,6 +5,8 @@
  *  test/challenge.test.js keeps them as many as the sim's levels. */
 export const DIFF_NAMES = ['Easy', 'Medium', 'Hard', 'Brutal'];
 
+/** A name's plural, as the game's names take it: Spyglass, Lens: -es; anything else -s (Conchs: said konk). */
+export const plural = (name) => name + (/(s|sh|x)$/.test(name) ? 'es' : 's');
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 

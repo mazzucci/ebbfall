@@ -13,6 +13,15 @@ pub fn check_invariants(w: &World, ctx: &str) {
         );
     }
     for u in &w.units {
+        // (no walker ever stands in deep water: ordered, pushed, spawned or landed there)
+        let (tx, ty) = w.map.tile_of(u.x, u.y);
+        assert!(
+            u.kind.def().mv != endfall_sim::data::Move::Walk
+                || w.map.ground(tx, ty, w.water) != endfall_sim::map::Ground::Deep,
+            "{ctx}: {:?} {} in deep water at ({tx}, {ty})",
+            u.kind,
+            u.id
+        );
         let abilities = u.kind.def().abilities;
         for (slot, &c) in u.ab_cd.iter().enumerate() {
             let max = abilities.get(slot).map_or(0.0, |a| a.def().cooldown);
@@ -178,7 +187,11 @@ pub fn check_invariants(w: &World, ctx: &str) {
             .filter(|b| b.team as usize == t && b.done)
             .map(|b| b.kind.def().supply)
             .sum();
-        assert_eq!(w.sup[t][1], cap.min(200), "{ctx}: team {t} supply cap");
+        assert_eq!(
+            w.sup[t][1],
+            cap.min(w.supply_limit()),
+            "{ctx}: team {t} supply cap"
+        );
     }
     for u in &w.units {
         assert!(

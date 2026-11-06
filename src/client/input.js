@@ -92,8 +92,8 @@ function boxSelect(x0, y0, x1, y1, add) {
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
 const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
-/** The vent under one of our finished extractors: clicking the extractor means "mine ether here". */
-const ventOf = (e) => e && e.kind === 'bldg' && e.team === G.me && e.d.onVent && e.done ? e.vent : null;
+/** A salt field (a seep is never mined: its Pump pays by itself). */
+const field = (e) => e && e.kind === 'node' && e.type !== 'ether' ? e : null;
 
 /** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
  *  must not build under a button, Cancel included). Returns whether the finger is over the map. */
@@ -103,7 +103,7 @@ function ghostAt(ev) {
   const p = canvasPos(ev), w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); return true;
 }
 
-/** Top-left tile for placing `type` with the cursor at (wx, wy); extractors snap onto a nearby free vent. */
+/** Top-left tile for placing `type` with the cursor at (wx, wy); a Pump snaps onto a nearby free seep. */
 function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
   if (d.onVent) {
@@ -128,15 +128,14 @@ function releaseWorkers(units) {
 /** Right-click / tap-on-ground semantics: context-sensitive order for the selection. */
 function commandAt(wx, wy, hit = pick(wx, wy)) {
   const sel = playerSel(); if (!sel.length || ui.watching) return; // (a replay takes no orders: no marker, no reply)
-  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const vent = ventOf(hit);
+  const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   let job = false; // harvesters were given work
-  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, hit && hit.kind === 'node' ? hit : null); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
+  if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, field(hit)); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && enemies(G.me, hit.team)) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
-  else if ((hit && hit.kind === 'node') || vent) {
-    const node = vent || hit, bare = node.type === 'ether' && !ventOf(node.extractor); // a vent needs a finished extractor (the sim says so)
-    for (const u of units) if (u.d.worker) startGather(u, node); else moveTo(u, wx, wy);
-    marker(wx, wy, vent ? '#a78bfa' : '#4fd1c5'); sfx('move', voice(units));
-    if (!bare && units.some(u => u.d.worker)) { flashTarget(vent ? hit : node, true); job = true; }
+  else if (field(hit)) {
+    for (const u of units) if (u.d.worker) startGather(u, hit); else moveTo(u, wx, wy);
+    marker(wx, wy, '#4fd1c5'); sfx('move', voice(units));
+    if (units.some(u => u.d.worker)) { flashTarget(hit); job = true; }
   }
   else if (hit && hit.kind === 'bldg' && hit.team === G.me && !hit.done && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) startBuild(u, hit); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else if (damaged(hit) && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
@@ -201,14 +200,13 @@ function touchTap(wx, wy, at) {
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
   if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
-  // (Not a bare vent: the worker there is likely building its refinery, and a tap should still pick it.)
-  const node = hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy);
-  const field = node && (node.type !== 'ether' || ventOf(node.extractor)) ? node : null;
-  if (field) { commandAt(wx, wy, field); return; }
+  // (Not a seep: the worker there is likely building its Pump, and a tap should still pick it.)
+  const node = field(hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy));
+  if (node) { commandAt(wx, wy, node); return; }
   if (hit && hit.kind !== 'node' && hit.team === G.me) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)
-    if (units.some(u => u.d.worker) && hit.kind === 'bldg' && (!hit.done || ventOf(hit))) { commandAt(wx, wy); return; }
+    if (units.some(u => u.d.worker) && hit.kind === 'bldg' && !hit.done) { commandAt(wx, wy); return; }
     selectOrDouble(hit, false, at); return;
   }
   if (units.length) { commandAt(wx, wy); return; }
@@ -350,7 +348,7 @@ function bindMinimap() {
 function bindSelectButton() {
   const bx = $('btnBox');
   if (bx) {
-    const show = () => { bx.hidden = false; $('btnHome').hidden = false; }; // (Home goes with SELECT: touch screens)
+    const show = () => { bx.hidden = false; $('btnHome').hidden = false; $('btnArmy').hidden = false; }; // (Home and Army go with SELECT: touch screens; a keyboard has Home and Q)
     if (matchMedia('(any-pointer: coarse)').matches) show();
     cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') show(); });
     let downAt = 0, viaPointer = false;

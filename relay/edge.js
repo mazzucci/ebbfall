@@ -1,4 +1,4 @@
-// The relay Worker's front door (relay/worker.js is its entry module, docs/MULTIPLAYER.md, Security): GET /version, the
+// The relay Worker's front door (relay/worker.js is its entry module, Notion: Multiplayer design, Security): GET /version, the
 // device test's reports, and every WebSocket to its room's Durable Object (?room=CODE, or ?new=1 to open a room), past
 // the Origin check and the limits, per address (CF-Connecting-IP, an IPv6 /64), checked before any room's object is
 // woken: opening a room, the CREATE_LIMIT binding (a minute's), then the limits object (an hour's, and everyone's);
@@ -62,7 +62,7 @@ export function relay(platform = CLOUDFLARE) {
         return new Response('No free room code', { status: 503 });
       }
       const typed = q.get('room') || '';
-      // (a code of the first format comes from a client from before PROTO 6, whose hello the room would refuse anyway:
+      // (a code of the first format comes from a client from before PROTO 7, whose hello the room would refuse anyway:
       // told to update now, rather than "no room")
       if (oldCode(typed)) return refuse('update', 'Ebbfall has an update. Tap UPDATE to get it');
       if (!(await within(env.JOIN_LIMIT, key))) return refuse('limit', SAY.minute);

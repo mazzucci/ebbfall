@@ -57,10 +57,12 @@ fn flyers_cross_cliffs_in_a_straight_line() {
 
 #[test]
 fn ground_only_weapons_cannot_touch_flyers() {
-    // A Vanguard's shells and an Umbra's blade (melee: the Vael's cloaked blade is useless against air).
-    for kind in [UnitKind::Vanguard, UnitKind::Umbra] {
+    // A Vanguard's shells, an Umbra's blade (melee: the Vael's cloaked blade is useless against air) and, since Roster
+    // v2, the Picket's rifle (the Harpooner is the Crew Hall's anti-air).
+    for kind in [UnitKind::Vanguard, UnitKind::Umbra, UnitKind::Trooper] {
         let mut w = arena(7);
         let van = w.make_unit(kind, PLAYER, 600.0, 900.0);
+        set_hp(&mut w, van, 1e6); // (it outlives the Raider's fire: what it does back is watched)
         let raider = w.make_unit(UnitKind::Raider, ENEMY, 680.0, 900.0);
         assert!(!w.can_hit(van, raider), "{kind:?} cannot hit a flyer");
         w.attack_ent(van, raider);
@@ -111,8 +113,8 @@ fn an_interceptor_cannot_touch_the_ground() {
 }
 
 #[test]
-fn anti_air_troopers_and_turrets_shoot_flyers_down() {
-    for shooter in ["lancer", "interceptor", "trooper", "turret"] {
+fn anti_air_units_and_turrets_shoot_flyers_down() {
+    for shooter in ["lancer", "interceptor", "turret"] {
         let mut w = arena(9);
         match shooter {
             "turret" => {
@@ -178,7 +180,7 @@ fn medics_walk_to_hurt_infantry_they_can_see() {
     w.units.iter_mut().find(|u| u.id == trooper).unwrap().hp = 5.0;
     run(&mut w, 15);
     assert!(
-        w.unit(trooper).unwrap().hp > 40.0,
+        w.unit(trooper).unwrap().hp > 30.0,
         "the medic came over and healed"
     );
     assert!(w.unit(medic).unwrap().x > 650.0);
@@ -277,9 +279,10 @@ fn weapons_upgrades_add_each_units_bonus() {
         7.0 + 1.0 - 2.0,
         "Trooper +1"
     );
+    // (by the time a Breakwater has walked into its reach, the held one it goes for has beached: armour 2 + 4)
     assert_eq!(
         first_hit(&mut w, UnitKind::Vanguard, PLAYER, UnitKind::Vanguard),
-        30.0 + 3.0 - 2.0,
+        20.0 + 3.0 - 6.0,
         "Vanguard +3"
     );
 }
@@ -287,10 +290,10 @@ fn weapons_upgrades_add_each_units_bonus() {
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        // (but a retired one: Entrenching keeps its index, and nothing researches it)
+        // (but a retired one: Cloaking Field keeps its index, and nothing researches it)
         assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
-            u != Upgrade::Entrenching,
+            u != Upgrade::CloakingField,
             "{u:?} is researched at some building"
         );
         assert_eq!(Upgrade::parse(u.def().key), Some(u));
@@ -342,7 +345,7 @@ fn every_weapon_reports_its_shots_for_the_sound() {
         (UnitKind::Scythe, UnitKind::Trooper, "blade"),
     ] {
         let mut w = arena(16);
-        if shooter.def().shields > 0.0 {
+        if shooter.def().mv == Move::Amph {
             w.factions = vec![&VAEL, &HUMANS];
         }
         let me = w.make_unit(shooter, PLAYER, 600.0, 900.0);
@@ -386,7 +389,8 @@ fn a_shell_splashes_walking_neighbours_only() {
             .collect()
     };
     let dmg = UnitKind::Vanguard.def().damage_vs(false);
-    let mut w = arena(16);
+    // (flat ground: the Breakwater's 2 tiles of reach would take it round the rock between them)
+    let mut w = flat_arena(16);
     let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 925.0); // 25 px from the target
@@ -403,7 +407,7 @@ fn a_shell_splashes_walking_neighbours_only() {
         "target, walking neighbour (splash), beyond the radius, own side"
     );
     // A flyer over the target is not splashed.
-    let mut w = arena(16);
+    let mut w = flat_arena(16);
     let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let flyer = w.make_unit(UnitKind::Raider, ENEMY, 752.0, 905.0);
@@ -450,7 +454,10 @@ fn a_spare_medic_stays_put_while_another_heals() {
         ((u.x - start.0).powi(2) + (u.y - start.1).powi(2)).sqrt() < 3.0,
         "the second Medic does not shuffle onto the patient"
     );
-    assert!(w.unit(t).unwrap().hp > 30.0, "the patient is healed");
+    assert!(
+        w.unit(t).unwrap().hp > 5.0 + UnitKind::Medic.def().heal,
+        "the patient is healed (by one Medic: more than a second of its rate in two)"
+    );
 }
 
 #[test]
@@ -536,24 +543,25 @@ fn a_unit_busy_with_a_building_turns_on_a_newcomer_that_shoots_it() {
 
 #[test]
 fn flyers_do_not_fear_what_cannot_reach_them() {
-    // A Vanguard cannot shoot up, a Trooper can: a Raider on attack-move goes for the Trooper even when farther.
+    // A Vanguard cannot shoot up, nor can a Picket since Roster v2; a Lancer can: a Raider on attack-move goes for the
+    // Lancer even when farther.
     let mut w = flat_arena(16);
     let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 30.0 * TILE, 32.0 * TILE);
-    let trooper = w.make_unit(UnitKind::Trooper, ENEMY, 25.0 * TILE, 32.0 * TILE);
-    w.hold_unit(vanguard);
-    w.hold_unit(trooper);
+    let picket = w.make_unit(UnitKind::Trooper, ENEMY, 29.0 * TILE, 33.0 * TILE);
+    let lancer = w.make_unit(UnitKind::Lancer, ENEMY, 25.0 * TILE, 32.0 * TILE);
+    for u in [vanguard, picket, lancer] {
+        w.hold_unit(u);
+    }
     let raider = w.make_unit(UnitKind::Raider, PLAYER, 31.0 * TILE, 32.0 * TILE);
     w.attack_move(raider, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
-    assert_eq!(target_of(&w, raider), Some(trooper));
-    // And the Vanguard, which shoots ground, treats the Raider as a plain unit but the Trooper as a threat.
-    assert_eq!(w.threat_tier(trooper, false), 0);
+    assert_eq!(target_of(&w, raider), Some(lancer));
+    // And the Vanguard, which shoots ground, treats the Raider as a plain unit but the Lancer as a threat.
+    assert_eq!(w.threat_tier(lancer, false), 0);
     assert_eq!(w.threat_tier(raider, false), 0, "a Raider shoots ground");
-    assert_eq!(
-        w.threat_tier(vanguard, true),
-        1,
-        "a Vanguard cannot reach a flyer"
-    );
+    for (u, name) in [(vanguard, "a Vanguard"), (picket, "a Picket")] {
+        assert_eq!(w.threat_tier(u, true), 1, "{name} cannot reach a flyer");
+    }
 }
 
 #[test]
@@ -586,13 +594,13 @@ fn harvesters_are_not_threats_and_unarmed_units_do_not_pull_units_off_buildings(
 #[test]
 fn a_chased_target_out_of_sight_is_let_go_and_the_attack_move_resumes() {
     let mut w = flat_arena(16);
-    let me = w.make_unit(UnitKind::Trooper, PLAYER, 20.0 * TILE, 32.0 * TILE);
+    let me = w.make_unit(UnitKind::Lancer, PLAYER, 20.0 * TILE, 32.0 * TILE);
     let obs = w.make_unit(UnitKind::Raider, ENEMY, 25.0 * TILE, 32.0 * TILE); // (a flyer that will not chase)
     w.hold_unit(obs);
     w.attack_move(me, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
     assert_eq!(target_of(&w, me), Some(obs));
-    // The flyer is carried far off: the Trooper does not follow it across the map.
+    // The flyer is carried far off: the Lancer does not follow it across the map.
     let o = w.units.iter_mut().find(|u| u.id == obs).unwrap();
     o.y -= 16.0 * TILE;
     run(&mut w, 1);
@@ -642,9 +650,10 @@ fn units_answer_a_shooter_and_then_carry_on_with_their_attack_move() {
 
 #[test]
 fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
+    // (Lancers: the Picket has no shot at a flyer since Roster v2)
     let mut w = flat_arena(16);
-    let me = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 32.0 * TILE);
-    let mate = w.make_unit(UnitKind::Trooper, PLAYER, 31.0 * TILE, 32.0 * TILE);
+    let me = w.make_unit(UnitKind::Lancer, PLAYER, 30.0 * TILE, 32.0 * TILE);
+    let mate = w.make_unit(UnitKind::Lancer, PLAYER, 31.0 * TILE, 32.0 * TILE);
     let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 38.0 * TILE);
     w.hold_unit(raider);
     run(&mut w, 1);
@@ -714,39 +723,39 @@ fn shields_research_soaks_damage_on_shields_only() {
 }
 
 #[test]
-fn a_halo_mends_shields_in_combat_and_never_the_hull() {
+fn a_tender_mends_nacre_first_then_hull_and_never_past_full() {
+    // Roster v2: the Tender (`mend`) tends any ally of its seat, its nacre (shields) first, then its hull; in combat
+    // too, one patient at a time.
     let mut w = flat_arena(18);
     w.factions = vec![&VAEL, &HUMANS];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
-    let halo = w.make_unit(UnitKind::Halo, PLAYER, x, y);
+    let tender = w.make_unit(UnitKind::Halo, PLAYER, x, y);
     let a = w.make_unit(UnitKind::Scythe, PLAYER, x + 40.0, y);
     let b = w.make_unit(UnitKind::Scythe, PLAYER, x - 40.0, y);
     let far = w.make_unit(UnitKind::Scythe, PLAYER, x + 9.0 * TILE, y);
-    for u in [halo, a, b, far] {
+    for u in [tender, a, b, far] {
         w.hold_unit(u);
     }
     let d = UnitKind::Scythe.def();
     for u in [a, b, far] {
-        w.damage(u, d.shields + 20.0, None); // shields gone, some hull lost
+        w.damage(u, d.shields + 20.0, None); // nacre gone, some hull lost
     }
     let hull = w.unit(a).unwrap().hp;
+    assert!(hull < d.hp);
     run(&mut w, 2);
-    // No regeneration yet (SHIELD_DELAY), so whatever came back was mended: about its rate (20/s since the
-    // 2026-10-31 balance pass) on one patient at a time.
+    // No regeneration yet (SHIELD_DELAY), so whatever came back was mended: about its rate on one patient at a time,
+    // all of it nacre while the nacre is not full.
     let (sa, sb) = (w.unit(a).unwrap().sh, w.unit(b).unwrap().sh);
     let mend = UnitKind::Halo.def().heal;
-    assert!(mend >= 20.0, "a Halo mends 20 shields/s: {mend}");
     assert!(
         sa + sb > 1.5 * mend && sa + sb < 2.5 * mend,
-        "one Halo mends about {mend} shields/s: {sa} + {sb}"
+        "one Tender mends about {mend}/s: {sa} + {sb}"
     );
-    assert_eq!(
-        w.unit(far).unwrap().sh,
-        0.0,
-        "out of reach (9 tiles) gets nothing, in the delay"
-    );
-    assert_eq!(w.unit(a).unwrap().hp, hull, "the hull is not mended");
-    // Under fire too: hits keep resetting the regeneration delay, the Halo still mends.
+    assert_eq!(w.unit(far).unwrap().sh, 0.0, "out of reach (9 tiles)");
+    for u in [a, b] {
+        assert_eq!(w.unit(u).unwrap().hp, hull, "nacre first: the hull waits");
+    }
+    // Under fire too: hits keep resetting the regeneration delay, the Tender still mends.
     for t in 0..2 * TPS {
         if t % 15 == 0 {
             w.damage(a, 1.0, None); // two small hits a second each
@@ -754,17 +763,81 @@ fn a_halo_mends_shields_in_combat_and_never_the_hull() {
         }
         w.step();
     }
+    let (sa2, sb2) = (w.unit(a).unwrap().sh, w.unit(b).unwrap().sh);
+    assert!(sa2 + sb2 > sa + sb, "mending outpaces 1-damage hits");
+    // Nacre nearly full: the rest of a second's mend goes to the hull.
+    w.units.iter_mut().find(|u| u.id == b).unwrap().hp = d.hp; // (one patient)
+    w.units.iter_mut().find(|u| u.id == b).unwrap().sh = d.shields;
+    w.units.iter_mut().find(|u| u.id == a).unwrap().sh = d.shields - 2.0;
+    run(&mut w, 1);
+    let u = w.unit(a).unwrap();
+    assert_eq!(u.sh, d.shields, "the nacre topped up");
     assert!(
-        w.unit(a).unwrap().sh + w.unit(b).unwrap().sh > sa + sb,
-        "mending outpaces 1-damage hits"
+        (u.hp - (hull + mend - 2.0)).abs() < 0.5,
+        "then the hull: {} from {hull}",
+        u.hp
     );
-    // A Halo does not heal infantry.
-    let t = w.make_unit(UnitKind::Trooper, PLAYER, x, y + 30.0);
-    w.hold_unit(t);
-    w.damage(t, 20.0, None);
-    let thp = w.unit(t).unwrap().hp;
+    // Left long enough, both are whole and no more.
+    run(&mut w, 30);
+    for u in [a, b] {
+        let u = w.unit(u).unwrap();
+        assert_eq!((u.hp, u.sh), (u.maxhp, u.maxsh), "full, never past it");
+    }
+}
+
+#[test]
+fn a_tender_mends_a_hull_only_ally_and_two_tenders_do_not_double_up() {
+    // The Lens has no nacre (Roster v2): the Tender mends its hull, up to full and no further. Two Tenders by one
+    // patient tend it one at a time (as two Medics do); a Human ally is tended too.
+    let mut w = flat_arena(18);
+    w.factions = vec![&VAEL, &HUMANS];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let mend = UnitKind::Halo.def().heal;
+    let t1 = w.make_unit(UnitKind::Halo, PLAYER, x, y);
+    let lens = w.make_unit(UnitKind::Prism, PLAYER, x + 40.0, y);
+    for u in [t1, lens] {
+        w.hold_unit(u);
+    }
+    assert_eq!(w.unit(lens).unwrap().maxsh, 0.0, "a Lens has no nacre");
+    let maxhp = w.unit(lens).unwrap().maxhp;
+    w.units.iter_mut().find(|u| u.id == lens).unwrap().hp = maxhp - 30.0;
     run(&mut w, 2);
-    assert_eq!(w.unit(t).unwrap().hp, thp, "a Halo does not heal a Trooper");
+    let hp = w.unit(lens).unwrap().hp;
+    assert!(
+        (hp - (maxhp - 30.0 + 2.0 * mend)).abs() < 1.0,
+        "its hull mended at {mend}/s: {hp}"
+    );
+    run(&mut w, 10);
+    assert_eq!(w.unit(lens).unwrap().hp, maxhp, "whole, never past it");
+    // A second Tender: still one Tender's rate on the one patient.
+    let t2 = w.make_unit(UnitKind::Halo, PLAYER, x + 80.0, y);
+    w.hold_unit(t2);
+    w.units.iter_mut().find(|u| u.id == lens).unwrap().hp = maxhp - 60.0;
+    run(&mut w, 2);
+    let gain = w.unit(lens).unwrap().hp - (maxhp - 60.0);
+    assert!(
+        (gain - 2.0 * mend).abs() < 1.0,
+        "two Tenders do not double up: {gain} in 2 s"
+    );
+    // Any ally of its seat: a Picket beside it too.
+    let p = w.make_unit(UnitKind::Trooper, PLAYER, x, y + 30.0);
+    w.hold_unit(p);
+    w.damage(p, 20.0, None);
+    let php = w.unit(p).unwrap().hp;
+    run(&mut w, 2);
+    assert!(w.unit(p).unwrap().hp > php, "a Tender mends a Picket too");
+    // Never the other side's (an unarmed one, alone with it: nobody fights).
+    let mut w = flat_arena(18);
+    w.factions = vec![&VAEL, &HUMANS];
+    let t = w.make_unit(UnitKind::Halo, PLAYER, x, y);
+    let foe = w.make_unit(UnitKind::Medic, ENEMY, x + 40.0, y);
+    for u in [t, foe] {
+        w.hold_unit(u);
+    }
+    w.damage(foe, 20.0, None);
+    let fhp = w.unit(foe).unwrap().hp;
+    run(&mut w, 2);
+    assert_eq!(w.unit(foe).unwrap().hp, fhp, "not an enemy");
 }
 
 #[test]
@@ -810,22 +883,28 @@ fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
 }
 
 #[test]
-fn vael_buildings_regenerate_shields_and_lumens_do_not_repair() {
+fn vael_buildings_have_no_nacre_and_lumens_do_not_repair() {
+    // Roster v2 folded the Vael buildings' shields into their hulls: nothing to regenerate, and a Glint still cannot
+    // repair, so a damaged Vael building stays damaged.
+    for k in VAEL.build_basic.iter().chain(VAEL.build_advanced) {
+        assert_eq!(k.def().shields, 0.0, "{k:?} has no nacre");
+    }
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let spire = build(&mut w, BldgKind::Spire, l[0], 90);
-    let d = BldgKind::Spire.def();
-    w.damage(spire, d.shields + 50.0, None);
+    w.damage(spire, 50.0, None);
     let b = w.bldg(spire).unwrap();
-    assert_eq!(b.sh, 0.0);
-    assert!(b.hp < b.maxhp, "the hull took the rest");
+    assert_eq!((b.sh, b.maxsh), (0.0, 0.0));
+    assert!(b.hp < b.maxhp, "the hull took it");
     let hull = b.hp;
     assert!(!w.can_repair(l[1], spire), "a Lumen cannot repair");
     assert!(!w.start_repair(l[1], spire));
-    run(&mut w, 6 + (d.shields / 2.0) as u32 + 2);
-    let b = w.bldg(spire).unwrap();
-    assert_eq!(b.sh, d.shields, "buildings regenerate their shields (2/s)");
-    assert_eq!(b.hp, hull, "but not their hull");
+    run(&mut w, 20);
+    assert_eq!(
+        w.bldg(spire).unwrap().hp,
+        hull,
+        "the hull never heals by itself"
+    );
     // The humans still repair.
     let mut w = rich(4242);
     let h = harvesters(&w, PLAYER);
@@ -926,11 +1005,7 @@ fn the_army_log_samples_both_sides_every_ten_seconds() {
     assert_eq!(w.army_log[1], vec![0, 0]);
     w.make_unit(UnitKind::Vanguard, ENEMY, 1600.0, 300.0);
     run(&mut w, 10);
-    assert_eq!(
-        w.army_log[1].last(),
-        Some(&200),
-        "a Vanguard: 125 shards + 75 ether"
-    );
+    assert_eq!(w.army_log[1].last(), Some(&150), "a Breakwater: 150 salt");
 }
 
 #[test]
@@ -993,10 +1068,11 @@ fn the_end_screen_learns_what_killed_each_side() {
 fn a_kill_by_a_shell_whose_shooter_died_still_counts() {
     let mut w = flat_arena(17);
     let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 26.0 * TILE, 30.0 * TILE);
-    let t = w.make_unit(UnitKind::Trooper, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    // (an unarmed Medic: the only shell in the air is the Vanguard's)
+    let t = w.make_unit(UnitKind::Medic, PLAYER, 30.0 * TILE, 30.0 * TILE);
     w.hold_unit(t);
     w.attack_ent(vanguard, t);
-    // Until its first shell is in the air, then the Vanguard dies; the Trooper is one hit from death.
+    // Until its first shell is in the air, then the Vanguard dies; the Medic is one hit from death.
     for _ in 0..30 * 5 {
         w.step();
         if !w.projs.is_empty() {

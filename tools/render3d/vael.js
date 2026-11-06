@@ -75,7 +75,19 @@ export function makeVaelMats(tc = NEUTRAL) {
     // its highlights and lit edges rather than by its surface
     umbral: phys({ color: 0x2a2334, bumpMap: pearlBump, bumpScale: 0.5, metalness: 0.35, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.5, sheenColor: 0x9a80f0, sheenRoughness: 0.4 }),
     umbralDeep: phys({ color: 0x15111b, metalness: 0.4, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
+    // the Eclipse's hidden light: a matte deep violet that takes no highlight, a shadow at any angle, more saturated
+    // than the Umbra's near-black so the two never merge
+    eclipsed: std({ color: 0x1a0a2a, emissive: 0x2e0f48, emissiveIntensity: 0.32, metalness: 0, roughness: 1 }),
     padHalo: halo(0x7a62e0, 0.1),
+    // The new look (STYLE.md): pearl shells on an ink core, "deeplight" (violet-blue, small) for the few lights.
+    ink: phys({ color: 0x0f0d16, metalness: 0.45, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.06 }),            // the ink core: black glass
+    inkSeam: std({ color: 0x15121c, metalness: 0.3, roughness: 0.5 }),                                                    // ink edges round team glaze
+    deeplight: std({ color: 0x2a3290, emissive: 0x7080ff, emissiveIntensity: 1.9, roughness: 0.2 }),                       // a small light
+    deepCore: std({ color: 0xc8d0ff, emissive: 0xdde2ff, emissiveIntensity: 1.1 }),                                       // its white heart
+    deepWhite: std({ color: 0xffffff, emissive: 0xf4f2ff, emissiveIntensity: 4, toneMapped: false }),                     // a light's brightest centre
+    deepHalo1: halo(0x6a7cf0, 0.18), deepHalo2: halo(0x5a68e0, 0.09), deepHalo3: halo(0x4c58c8, 0.045),
+    pool: std({ color: 0x0c1024, emissive: 0x1a2260, emissiveIntensity: 0.3, metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
+    poolDeep: std({ color: 0x06081a, emissive: 0x121848, emissiveIntensity: 0.2, metalness: 0.5, roughness: 0.05 }),
   };
 }
 
@@ -612,6 +624,38 @@ export function zenith(M) {
   return g;
 }
 
+/** Eclipse (shadow tech, 2x2): where light is hidden. Three pearl crescent arms on a dark drum cup a floating disc of
+ *  shadow ceramic tilted to the sky, its rim lit violet like a corona: from above, a deep violet disc in a bright ring,
+ *  apart from the Loom's needles and the Conflux's crystal. */
+export function eclipse(M) {
+  const g = grp();
+  plinth(g, M, 30, { pad: 15, lobes: 0.35 });
+  add(g, cyl(17, 20, 7, 40), M.umbralDeep, 0, 7.5, 0);                                             // dark drum
+  ring(g, 19, 1.5, M.glaze, 10.5, { seg: 48 });
+  add(g, cyl(12.5, 16.5, 3, 40), M.shell, 0, 12.5, 0);
+  ring(g, 16.6, 0.3, M.shellDeep, 13.9, { seg: 40 });
+  for (let k = 0; k < 3; k++) {
+    const a = k / 3 * Math.PI * 2 - Math.PI / 2, x = Math.cos(a), z = Math.sin(a);                   // (one arm at the back)
+    limb(g, [x * 19, 6, z * 19], [x * 17, 26, z * 17], 2.4, M.shell);
+    limb(g, [x * 18.6, 9, z * 18.6], [x * 17.4, 22, z * 17.4], 1.6, M.shellLight);                 // outer plate
+    add(g, rbox(4.2, 6, 4.2, 1), M.glaze, x * 19.6, 15, z * 19.6, 0, -a, 0);
+    add(g, rbox(0.7, 4, 0.7, 0.2), M.ether, x * 21.6, 15, z * 21.6, 0, -a, 0);
+    limb(g, [x * 17, 26, z * 17], [x * 13, 33, z * 13], 1.4, M.shell);                              // the cupping tip
+    lamp(g, M, 0.9, x * 13, 33.5, z * 13);
+  }
+  const d = grp(); d.position.set(0, 30, -2); d.rotation.x = 0.28;                                    // tilted to the camera
+  add(d, cyl(16, 16, 2.4, 56), M.umbral);                                                            // the shadow disc
+  add(d, cyl(13, 15, 1.2, 56), M.eclipsed, 0, 1.6, 0);                                              // its dark face
+  ring(d, 16.3, 1.4, M.gem, 0, { seg: 72 });                                                         // the corona
+  ring(d, 16.2, 0.4, M.gemCore, 1.2, { seg: 72 });                                                   // (its bright inner edge)
+  ring(d, 17.2, 2.2, M.halo1, 0, { seg: 72 });
+  ring(d, 18.4, 3.4, M.halo2, 0, { seg: 72 });
+  ring(d, 20, 4.8, M.halo3, 0, { seg: 72 });
+  g.add(d);
+  lamp(g, M, 1.6, 0, 18, 0, M.ether);                                                                // light under the shadow
+  return g;
+}
+
 export const VAEL_BUILDINGS = {
   conflux: [4, conflux, 70],
   spire: [2, spire, 82],
@@ -620,4 +664,5 @@ export const VAEL_BUILDINGS = {
   ward: [2, ward, 50],
   loom: [2, loom, 42],
   zenith: [3, zenith, 72],
+  eclipse: [2, eclipse, 58],
 };

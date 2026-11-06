@@ -216,11 +216,11 @@ test('the synth announcer says every phrase in every race\'s voice, one at a tim
   assert.deepEqual(errors, []);
   audio.announcer = 'synth';
   // One at a time: another phrase while one plays is dropped.
-  say('shards'); ramps.length = 0; say('ether');
+  say('salt'); ramps.length = 0; say('attack');
   assert.equal(ramps.length, 0, 'not over another phrase');
   Ctx.now += 10; clock += 30000;
-  audio.muted = true; ramps.length = 0; say('ether'); assert.equal(ramps.length, 0, 'muted'); audio.muted = false;
-  audio.quiet = true; ramps.length = 0; say('ether'); assert.equal(ramps.length, 0, 'quiet (a replay)'); audio.quiet = false;
+  audio.muted = true; ramps.length = 0; say('salt'); assert.equal(ramps.length, 0, 'muted'); audio.muted = false;
+  audio.quiet = true; ramps.length = 0; say('salt'); assert.equal(ramps.length, 0, 'quiet (a replay)'); audio.quiet = false;
   // The research sound speaks: more than the chime alone.
   Ctx.now += 10; clock += 30000;
   ramps.length = 0; sfx('done'); const chime = ramps.length;
@@ -247,21 +247,21 @@ test('the device\'s voice: each race its own voice, pitch and rate, the phrase\'
       ['Base under attack', 'Daniel', 'en-GB', 1, 1.03], ['Research complete', 'Samantha', 'en-US', 1.2, 0.95]]);
     // The repeat gap holds; a line speaking drops a new one, an attack cuts it.
     sp.spoken.length = 0; clock += 1000; say('research'); assert.equal(sp.spoken.length, 0, 'not again within its gap');
-    sp.speaking = true; clock += 30000; say('shards');
+    sp.speaking = true; clock += 30000; say('salt');
     assert.equal(sp.spoken.length, 0, 'not over a line still speaking');
     say('attack');
     assert.deepEqual([sp.cancels, sp.spoken.map(u => u.text)], [1, ['Base under attack']], 'an attack cuts in');
     // Muted: nothing; switched off mid-line: cut; the pause card: cut, and nothing while it is up.
     sp.spoken.length = 0; clock += 30000;
-    audio.muted = true; say('ether'); assert.equal(sp.spoken.length, 0, 'muted');
+    audio.muted = true; say('research'); assert.equal(sp.spoken.length, 0, 'muted');
     soundToggled(); assert.equal(sp.cancels, 2, 'switched off: the line is cut');
     audio.muted = false; soundToggled(); await settle();
     holdSound(true); assert.equal(sp.cancels, 3, 'the pause card cuts the line');
-    say('ether'); assert.equal(sp.spoken.length, 0, 'nothing while it is up');
+    say('research'); assert.equal(sp.spoken.length, 0, 'nothing while it is up');
     holdSound(false); await settle();
-    sp.speaking = false; say('ether'); assert.equal(sp.spoken.length, 1, 'and speaks after');
+    sp.speaking = false; say('research'); assert.equal(sp.spoken.length, 1, 'and speaks after');
     // `after`: the line waits (for the chime or the siren it goes with), and not if the sound went off meanwhile.
-    sp.spoken.length = 0; clock += 30000; say('shards', 0.02); assert.equal(sp.spoken.length, 0, 'not yet');
+    sp.spoken.length = 0; clock += 30000; say('salt', 0.02); assert.equal(sp.spoken.length, 0, 'not yet');
     await new Promise(r => setTimeout(r, 40)); assert.equal(sp.spoken.length, 1, 'after its wait');
     clock += 30000; say('research', 0.02); audio.muted = true;
     await new Promise(r => setTimeout(r, 40)); assert.equal(sp.spoken.length, 1, 'muted during the wait: not said');
@@ -328,7 +328,7 @@ test('every sound the sim asks for has a recipe', () => {
   assert.ok(weapons.has('bolt') && weapons.has('lance'), `every race's shot sounds were found: ${[...weapons]}`);
   // Each ability's key is the sound its cast event plays (data/abilities.rs), but a retired one's (no unit has it).
   const abilities = new Set([...sim.matchAll(/(\/\/\/ Retired[^\n]*\n(?:\/\/\/[^\n]*\n)*)?const [A-Z_]+: AbilityDef = AbilityDef \{\n    key: "([a-z]+)"/g)].filter(m => !m[1]).map(m => m[2]));
-  assert.ok(abilities.has('stim') && abilities.has('deploy') && !abilities.has('entrench'), `the abilities were found: ${[...abilities]}`);
+  assert.ok(abilities.has('entrench') && abilities.has('deploy') && !abilities.has('stim'), `the abilities were found: ${[...abilities]}`);
   for (const n of [...named, ...weapons, ...abilities]) assert.ok(recipes.includes(n), `the sim emits "${n}", the client has no recipe for it`);
 });
 

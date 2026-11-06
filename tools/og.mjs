@@ -33,7 +33,7 @@ const SCENE = [
   // the Humans (seat 0), from the left
   ['bldg_core', 40, 520, 0],
   ['vanguard_1_0', 330, 560, 0], ['trooper_0_1', 420, 495, 0], ['trooper_15_2', 450, 590, 0], ['trooper_0_0', 365, 455, 0],
-  ['lancer_1_2', 290, 620, 0], ['medic_0_1', 250, 505, 0],
+  ['lancer_1_0', 290, 620, 0], ['medic_0_1', 250, 505, 0],
   // the Vael (seat 1), from the right
   ['bldg_conflux', 1170, 520, 1],
   ['monolith_8_0', 880, 560, 1], ['scythe_8_1', 780, 500, 1], ['scythe_9_0', 760, 600, 1], ['prism_8_0', 905, 470, 1],

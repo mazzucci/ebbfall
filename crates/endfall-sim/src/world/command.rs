@@ -87,11 +87,15 @@ pub enum Command {
     },
     /// The seat gives up the game.
     Concede,
+    /// Whether the seat's idle walkers leave ground the flood will cover when it is announced (the tide; on by default).
+    SetRetreat {
+        on: bool,
+    },
 }
 
 impl Command {
     /// How many kinds of order there are (codes 0..KINDS).
-    pub const KINDS: u8 = 19;
+    pub const KINDS: u8 = 20;
     /// A small stable number for the kind of order (logs, the network, test coverage). Append only.
     pub fn code(&self) -> u8 {
         match self {
@@ -114,6 +118,7 @@ impl Command {
             Command::Cast { .. } => 16,
             Command::GroupAttackMove { .. } => 17,
             Command::Concede => 18,
+            Command::SetRetreat { .. } => 19,
         }
     }
 }
@@ -202,6 +207,14 @@ impl World {
                 self.attack_move_group(&mine, x, y);
             }
             Command::Concede => self.concede(seat),
+            Command::SetRetreat { on } => {
+                let bit = 1u8 << seat;
+                self.no_retreat = if on {
+                    self.no_retreat & !bit
+                } else {
+                    self.no_retreat | bit
+                };
+            }
             Command::Cast { ref units, ability } => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
                 return self.cast_group(&mine, ability);

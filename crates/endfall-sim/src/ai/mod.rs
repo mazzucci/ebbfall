@@ -18,6 +18,8 @@ use crate::world::{Phase, Task, World};
 
 /// Ticks between an AI's turns (about half a second).
 pub(crate) const AI_TURN: u32 = 16;
+/// Free supply below which the specialists' factories train first (produce.rs).
+pub(crate) const SUPPLY_TIGHT: i32 = 8;
 
 /// How many ticks after the first brain's turns the k-th of m brains takes its own: spread evenly over `AI_TURN`, so up
 /// to `AI_TURN` brains each have a tick of their own.
@@ -54,8 +56,6 @@ pub(crate) struct Ai {
     /// nearest it) the army heads for next.
     pub sweep: usize,
     pub sweep_since: f64,
-    /// Ether is piling up: keep a single harvester on it (with hysteresis).
-    pub ether_lean: bool,
     /// How many units the current attack wave started with (it retreats below 40%).
     pub wave_size: usize,
     /// The most enemy infantry (walking, bio) and heavy walkers (armour 2+) seen at once lately: (count, when).
@@ -64,6 +64,8 @@ pub(crate) struct Ai {
     pub heavy_seen: (usize, f64),
     /// Units kept home at its own expansion (out of the waves).
     pub guards: Vec<Id>,
+    /// Its home reserve (`Diff::reserve`): fighters kept out of the waves.
+    pub reserve: Vec<Id>,
     /// Where something it could not see last hit it (a cloaked raider): a detector goes there.
     pub cloak_hit: Option<(f64, f64)>,
     /// Something it could not see has hit it (anywhere): from then on one detector of its own (its side's
@@ -74,6 +76,23 @@ pub(crate) struct Ai {
     /// It has seen an enemy field detector (a unit that detects: an Observer, a Halo) with an enemy army: its
     /// always-cloaked fighters (the Umbra) would be found there, so its mix brings no more of them.
     pub detector_seen: bool,
+    /// The most enemy army (armed units, workers left out) seen at once lately, by value (`army_worth`), when, and
+    /// its own army's value then (a stale sighting grows by what its own army has grown since): what a wave must
+    /// beat (`Diff::wave_margin`).
+    pub army_seen: (f64, f64, f64),
+    /// The unit it sent to look at the foe's army (a stale sighting), and since when.
+    pub looking: Option<(Id, f64)>,
+    /// When an armed enemy last came at its buildings, and when it last placed a base (`Diff::passive_expand`).
+    pub attacked_at: f64,
+    pub last_base_at: f64,
+    /// When the foe last came at its buildings other than chasing its wave home (`World::passive_foe`).
+    pub came_at: f64,
+    /// When its next wave was first ready by count and time (it may wait for strength), if it is.
+    pub ready_since: Option<f64>,
+    /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
+    pub staging: Option<(f64, f64, f64)>,
+    /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
+    pub check: Option<crate::world::LaunchCheck>,
 }
 
 impl World {
@@ -102,6 +121,21 @@ impl World {
             .flatten()
             .find(|a| a.attacking)
             .and_then(|a| a.attackers.clone())
+    }
+
+    /// The units of `seat`'s current attack wave, if its AI has one out (the balance lab counts waves per seat).
+    pub fn ai_wave_of(&self, seat: u8) -> Option<&[Id]> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        if a.attacking {
+            a.attackers.as_deref()
+        } else {
+            None
+        }
+    }
+
+    /// Seat `seat`'s AI's check as its last wave went (the balance lab: `LaunchCheck`), if it has sent one.
+    pub fn ai_launch_check(&self, seat: u8) -> Option<crate::world::LaunchCheck> {
+        self.ai.get(seat as usize)?.as_ref()?.check
     }
 
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
@@ -134,7 +168,7 @@ impl World {
             team,
             wait,
             turns: 0,
-            wave: DIFF[self.diff_of(team)].wave,
+            wave: self.tuning(team).wave,
             last_wave: -20.0,
             attacking: false,
             attackers: None,
@@ -151,13 +185,21 @@ impl World {
             infantry_seen: (0, 0.0),
             heavy_seen: (0, 0.0),
             guards: Vec::new(),
+            reserve: Vec::new(),
             cloak_hit: None,
             unseen_hit: false,
             prong: Vec::new(),
             detector_seen: false,
+            army_seen: (0.0, 0.0, 0.0),
+            looking: None,
+            attacked_at: 0.0,
+            came_at: 0.0,
+            last_base_at: 0.0,
+            ready_since: None,
+            staging: None,
+            check: None,
             sweep: 0,
             sweep_since: 0.0,
-            ether_lean: false,
         }
     }
 
@@ -165,9 +207,10 @@ impl World {
     pub(crate) fn seat(&self) -> u8 {
         self.ai_turn
     }
-    /// The difficulty of the AI taking its turn (each AI seat may have its own: `World::diff_of`).
-    pub(crate) fn level(&self) -> &'static Diff {
-        &DIFF[self.diff_of(self.seat())]
+    /// The tuning of the AI taking its turn (each AI seat may have its own level, `World::diff_of`, or a lab's plan:
+    /// `World::tuning`).
+    pub(crate) fn level(&self) -> Diff {
+        self.tuning(self.seat())
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two
@@ -332,8 +375,8 @@ impl World {
     }
 
     /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
-    /// (the rules are `World::auto_cast`, shared with the balance duels). A siege gun packs up on every level (it
-    /// is how it follows its army); the other abilities only on a level that uses them.
+    /// (the rules are `World::auto_cast`, shared with the balance duels), on a level that uses them. (A siege gun
+    /// sets up and packs up by itself on every level, as a player's does.)
     fn ai_abilities(&mut self, _brain: &mut Brain) {
         self.auto_cast_for(self.seat(), self.level().abilities);
     }
@@ -361,8 +404,8 @@ pub(crate) struct Brain {
     cy: f64,
     rally: Pt,
     building: Vec<BldgKind>,
-    ext: Option<Id>,
-    flowing: bool,
+    /// Its finished Pumps.
+    pumps: usize,
     cores: Vec<Id>,
     want: Option<BldgKind>,
     expand: bool,

@@ -1,4 +1,4 @@
-// Limits on opening and joining rooms (docs/MULTIPLAYER.md, Security), and the counter behind them and the device
+// Limits on opening and joining rooms (Notion: Multiplayer design, Security), and the counter behind them and the device
 // test's (relay/bench.js): sliding windows per key, in memory (a restart forgets them: a brake, not a ledger). Pure, no
 // platform: the Worker (relay/worker.js) and the Node relay (relay/server.mjs) share the numbers and the counter.
 //
@@ -40,11 +40,15 @@ export function addressKey(ip) {
 /** At most `max` in any `ms` for each rule, per key; `now()` the clock (a fake one in the tests). */
 export class Limiter {
   constructor(rules, now = () => Date.now()) {
-    this.rules = rules; this.now = now; this.span = Math.max(...rules.map(r => r.ms)); this.keys = new Map();
+    this.rules = rules; this.now = now; this.span = Math.max(...rules.map(r => r.ms)); this.keys = new Map(); this.swept = now();
   }
-  /** A key's times within the longest window, oldest first. */
+  /** A key's times within the longest window, oldest first. The keys with nothing in it are forgotten once a window
+   *  (an address is held at most two windows after its last try), or at once when there are many. */
   times(key, now) {
-    if (this.keys.size > MAX_KEYS) for (const [k, t] of this.keys) if (!t.length || now - t[t.length - 1] >= this.span) this.keys.delete(k);
+    if (this.keys.size > MAX_KEYS || now - this.swept >= this.span) {
+      this.swept = now;
+      for (const [k, t] of this.keys) if (!t.length || now - t[t.length - 1] >= this.span) this.keys.delete(k);
+    }
     let t = this.keys.get(key);
     if (!t) this.keys.set(key, t = []);
     while (t.length && now - t[0] >= this.span) t.shift();

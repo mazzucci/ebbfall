@@ -54,6 +54,7 @@ impl World {
         self.stats.clear();
         self.army_log.clear();
         self.lost_to.clear();
+        self.ledger.clear();
         self.upgrades.clear();
         self.unseen_alert.clear();
         for _ in 0..self.seats() {
@@ -72,6 +73,7 @@ impl World {
         self.stats.push(Stats::default());
         self.army_log.push(Vec::new());
         self.lost_to.push(Vec::new());
+        self.ledger.push(Ledger::default());
         self.upgrades.push([0; UPGRADES.len()]);
         self.unseen_alert.push(f64::MIN);
     }
@@ -105,7 +107,16 @@ impl World {
                 jsmath::to_i32(cx + (nx as f64 + 0.5 - cx) * k),
                 jsmath::to_i32(cy + (ny as f64 + 0.5 - cy) * k),
             );
-            let f = self.map.nearest_free(at.0, at.1, 4).unwrap_or((bx, by + 5));
+            let f = self
+                .map
+                .nearest_passable_to(
+                    self.foot(faction.worker),
+                    at.0,
+                    at.1,
+                    4,
+                    (cx * TILE, cy * TILE),
+                )
+                .unwrap_or((bx, by + 5));
             let u = self.make_unit(
                 faction.worker,
                 team,

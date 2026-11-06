@@ -1,5 +1,6 @@
-//! Cloak and detection: the Observer is unseen and untouchable except where the other side detects (a finished
-//! Turret, a powered Ward, an Observer).
+//! Cloak and detection: the Undertow (always) and the Petrel (with Seaglass) are unseen and untouchable except where
+//! the other side detects (a finished Lookout, an Anemone, a Spyglass, a Tender). The Spyglass, cloaked before Roster
+//! v2, is seen and shot like any flyer.
 
 use super::common::*;
 
@@ -8,21 +9,24 @@ fn U(w: &World, id: Id) -> &Unit {
     w.unit(id).expect("unit")
 }
 
-/// The player's Lancer with an enemy Observer hovering beside it, by the player's base. Returns (lancer, observer).
-fn lancer_and_observer(w: &mut World) -> (Id, Id) {
+/// The player's Lancer (sturdy: the Petrel fires back) with an enemy Shrike, Seaglass researched, hovering beside it by
+/// the player's base. Returns (lancer, petrel).
+fn lancer_and_petrel(w: &mut World) -> (Id, Id) {
     let (tx, ty) = spot(w, BldgKind::Turret);
     let (x, y) = ((tx as f64 + 1.0) * TILE, (ty as f64 + 1.0) * TILE);
     let lancer = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
-    let obs = w.make_unit(UnitKind::Observer, ENEMY, x + 60.0, y);
-    w.hold_unit(obs);
+    set_hp(w, lancer, 1e6);
+    w.upgrades[ENEMY as usize][Upgrade::VeilWeave.index()] = 1;
+    let petrel = w.make_unit(UnitKind::Shrike, ENEMY, x + 60.0, y);
+    w.hold_unit(petrel);
     w.step();
-    (lancer, obs)
+    (lancer, petrel)
 }
 
 #[test]
-fn an_observer_is_unseen_and_untouchable_until_detected() {
+fn a_veiled_petrel_is_unseen_and_untouchable_until_detected() {
     let mut w = rich(13);
-    let (lancer, obs) = lancer_and_observer(&mut w);
+    let (lancer, obs) = lancer_and_petrel(&mut w);
     let (otx, oty) = w.map.tile_of(U(&w, obs).x, U(&w, obs).y);
     assert!(
         w.vis[PLAYER as usize][w.map.idx(otx, oty)] != 0,
@@ -36,7 +40,8 @@ fn an_observer_is_unseen_and_untouchable_until_detected() {
         "an order to attack what is not there is refused"
     );
     run(&mut w, 4);
-    assert_eq!(U(&w, obs).hp, U(&w, obs).maxhp, "nothing fires at it");
+    let u = U(&w, obs);
+    assert_eq!((u.hp, u.sh), (u.maxhp, u.maxsh), "nothing fires at it");
     // A Turret close by detects it: seen, and shot down.
     let (tx, ty) = (
         w.map.tile_of(U(&w, lancer).x, U(&w, lancer).y).0 - 3,
@@ -45,15 +50,37 @@ fn an_observer_is_unseen_and_untouchable_until_detected() {
     w.make_building(BldgKind::Turret, PLAYER, tx, ty, true);
     w.step();
     assert!(w.seen_by(PLAYER, obs), "detected");
-    run(&mut w, 6);
+    run(&mut w, 15);
     assert!(w.unit(obs).is_none(), "shot down once detected");
+}
+
+#[test]
+fn a_spyglass_is_seen_and_shot_like_any_flyer() {
+    // (Roster v2: the Observer, now the Spyglass, is no longer cloaked; it still detects)
+    let mut w = rich(13);
+    let (tx, ty) = spot(&w, BldgKind::Turret);
+    let (x, y) = ((tx as f64 + 1.0) * TILE, (ty as f64 + 1.0) * TILE);
+    let lancer = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
+    let glass = w.make_unit(UnitKind::Observer, ENEMY, x + 60.0, y);
+    w.hold_unit(glass);
+    w.step();
+    assert!(!w.is_cloaked(U(&w, glass)), "not cloaked");
+    assert!(w.seen_by(PLAYER, glass), "seen in plain sight");
+    assert!(UnitKind::Observer.def().detect > 0.0, "still a detector");
+    w.attack_ent(lancer, glass);
+    assert!(
+        matches!(U(&w, lancer).task, Task::Attack { target, .. } if target == glass),
+        "an order to attack it is taken"
+    );
+    run(&mut w, 8);
+    assert!(w.unit(glass).is_none(), "shot down");
 }
 
 #[test]
 fn an_attack_on_a_cloaked_unit_ends_when_detection_does() {
     let mut w = rich(13);
-    let (lancer, obs) = lancer_and_observer(&mut w);
-    // The player's own Observer detects; the Lancer attacks; then that Observer is gone.
+    let (lancer, obs) = lancer_and_petrel(&mut w);
+    // The player's own Observer (the Spyglass) detects; the Lancer attacks; then that Observer is gone.
     let mine = w.make_unit(
         UnitKind::Observer,
         PLAYER,
@@ -64,7 +91,7 @@ fn an_attack_on_a_cloaked_unit_ends_when_detection_does() {
     let o = w.units.iter_mut().find(|u| u.id == obs).unwrap();
     (o.hp, o.maxhp) = (1e6, 1e6);
     w.step();
-    assert!(w.seen_by(PLAYER, obs), "an Observer detects");
+    assert!(w.seen_by(PLAYER, obs), "a Spyglass detects");
     w.attack_ent(lancer, obs);
     run(&mut w, 1);
     assert!(
@@ -83,120 +110,92 @@ fn an_attack_on_a_cloaked_unit_ends_when_detection_does() {
 }
 
 #[test]
-fn a_ward_detects_only_while_powered() {
+fn an_anemone_detects_wherever_it_stands() {
+    // (Roster v2: no power fields, so nothing goes dark) An Anemone far from the Tidewell, with no Sunpetal by it,
+    // detects an Undertow beside it.
     let mut w = World::with_setup(13, 1, MapKind::Standard, false, [&VAEL, &HUMANS]);
     w.disable_ai();
     let (cx, cy) = core(&w, PLAYER);
-    // Far from the Conflux's own field: a Spire and a Ward beside it.
     let (sx, sy) = (cx + if cx < 32 { 12 } else { -12 }, cy);
-    let spire = w.make_building(BldgKind::Spire, PLAYER, sx, sy, true);
     let ward = w.make_building(BldgKind::Ward, PLAYER, sx + 3, sy, true);
-    let obs = w.make_unit(
-        UnitKind::Observer,
+    let umbra = w.make_unit(
+        UnitKind::Umbra,
         ENEMY,
         (sx as f64 + 4.0) * TILE,
         (sy as f64 + 4.0) * TILE,
     );
-    w.hold_unit(obs);
+    w.hold_unit(umbra);
     run(&mut w, 1);
-    assert!(w.bldg(ward).unwrap().powered);
-    assert!(w.seen_by(PLAYER, obs), "a powered Ward detects");
-    w.damage(spire, 1e6, None);
-    run(&mut w, 1);
-    assert!(!w.bldg(ward).unwrap().powered, "dark");
-    assert!(!w.seen_by(PLAYER, obs), "a dark Ward detects nothing");
+    assert!(w.bldg(ward).unwrap().powered, "never dark");
+    assert!(w.seen_by(PLAYER, umbra), "an Anemone detects");
 }
 
 #[test]
-fn a_researched_raider_cloaks_for_a_while_and_a_detector_still_finds_it() {
+fn a_researched_cloak_is_permanent_and_only_a_detector_finds_it() {
+    // The Petrel's Seaglass (Veil Weave): no button and no timer (owner, 2026-11-03): once its side has the tech the
+    // unit is always cloaked; a detector beside it still finds it. (The Kite's Cloak was retired with Roster v2.)
     let mut w = flat_arena(14);
-    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 30.0 * TILE);
-    w.hold_unit(raider);
-    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
-    (o.hp, o.maxhp) = (1e6, 1e6); // (it outlives being seen again)
+    let flyer = w.make_unit(UnitKind::Shrike, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    w.hold_unit(flyer);
+    let o = w.units.iter_mut().find(|u| u.id == flyer).unwrap();
+    (o.hp, o.maxhp) = (1e6, 1e6);
     let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 26.0 * TILE, 30.0 * TILE);
     w.hold_unit(lancer);
-    assert_eq!(
-        w.cast(raider, AbilityKind::Cloak),
-        Err("Research Cloaking Field first".into())
-    );
-    w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(raider, AbilityKind::Cloak).unwrap();
     w.step();
-    assert!(!w.seen_by(PLAYER, raider), "cloaked");
-    let hp = U(&w, raider).hp;
-    run(&mut w, 5);
+    assert!(w.seen_by(PLAYER, flyer), "seen before its tech");
+    assert!(w.cast(flyer, AbilityKind::Veil).is_err(), "never cast");
+    w.upgrades[ENEMY as usize][Upgrade::VeilWeave.index()] = 1;
+    w.step();
+    assert!(!w.seen_by(PLAYER, flyer), "cloaked once researched");
+    run(&mut w, 1); // (a missile already on its way still lands)
+    let hp = U(&w, flyer).hp;
+    run(&mut w, 20);
+    assert!(
+        !w.seen_by(PLAYER, flyer),
+        "still cloaked 20 s on (no timer)"
+    );
     assert_eq!(
-        U(&w, raider).hp,
+        U(&w, flyer).hp,
         hp,
         "the Lancer cannot shoot what it cannot see"
     );
-    run(&mut w, 8);
-    assert!(w.seen_by(PLAYER, raider), "visible again after 12 s");
-    run(&mut w, 2);
-    assert!(U(&w, raider).hp < hp, "and shot once visible");
-    // Cloaked again later (after its cooldown), but a Turret beside it detects it.
-    run(&mut w, 30);
-    w.cast(raider, AbilityKind::Cloak).unwrap();
     w.make_building(BldgKind::Turret, PLAYER, 27, 32, true);
     w.step();
-    assert!(w.seen_by(PLAYER, raider), "detected");
-}
-
-#[test]
-fn the_ai_cloaks_a_raider_only_against_anti_air_and_not_where_it_is_detected() {
-    // An AI Raider attacking a building: it cloaks with a Lancer near, not with only a Vanguard near (it cannot hit
-    // air), and not beside a detecting Turret (no point).
-    let scene = |foe: UnitKind, turret: bool| {
-        let mut w = flat_arena(15);
-        w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-        let depot = w.make_building(BldgKind::Depot, PLAYER, 30, 30, true);
-        let raider = w.make_unit(UnitKind::Raider, ENEMY, 33.0 * TILE, 31.0 * TILE);
-        w.attack_ent(raider, depot);
-        let f = w.make_unit(foe, PLAYER, 26.0 * TILE, 31.0 * TILE);
-        w.hold_unit(f);
-        if turret {
-            w.make_building(BldgKind::Turret, PLAYER, 34, 28, true);
-        }
-        w.step();
-        w.auto_cast(ENEMY);
-        U(&w, raider).boost.is_some()
-    };
-    assert!(scene(UnitKind::Lancer, false), "cloaks against a Lancer");
-    assert!(
-        !scene(UnitKind::Vanguard, false),
-        "not against what cannot hit air"
-    );
-    assert!(!scene(UnitKind::Lancer, true), "not beside a detector");
+    assert!(w.seen_by(PLAYER, flyer), "a detector beside it finds it");
 }
 
 #[test]
 fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
-    // A cloaked Raider of the player's shoots at the AI's harvesters before the AI's first scheduled Turret (4:00): the
-    // AI puts one up by them anyway. (This Raider cannot die and shoots whoever comes near, builders included, so the
-    // decision is what is checked, not the finished tower.)
+    // A cloaked Petrel (Seaglass) of the player's shoots at the AI's harvesters: the AI puts a Turret up by them, nearer the hit
+    // than its own schedule (the first from 2:30) puts one. Checked against the same minute played without the Raider
+    // (the quiet game places none in that minute, or one farther off). (This Petrel cannot die
+    // and shoots whoever comes near, builders included, so the decision is what is checked, not the finished tower.)
     let mut w = World::new(31, 1);
-    // (after its Foundry and its second vent's Rig stand, as it raises two sites at a time; and a Turret's price in
-    // the bank, which that vent's new crew has just spent)
+    // (after its Foundry and its second Pump stand, as it raises two sites at a time; and a Turret's price in the bank)
     run(&mut w, 175);
     w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let h = harvesters(&w, ENEMY)[0];
     let (hx, hy) = (U(&w, h).x, U(&w, h).y);
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, hx + 40.0, hy);
+    // (the same world, played the same way: the sim is deterministic)
+    let mut quiet = World::new(31, 1);
+    run(&mut quiet, 175);
+    quiet.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
+    let raider = w.make_unit(UnitKind::Shrike, PLAYER, hx + 40.0, hy);
     let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     (o.hp, o.maxhp) = (1e9, 1e9);
-    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
-    let turrets = |w: &World| {
+    w.upgrades[PLAYER as usize][Upgrade::VeilWeave.index()] = 1;
+    // (the nearest Turret to the hit, in tiles; none: infinitely far)
+    let nearest = |w: &World| {
         w.bldgs
             .iter()
             .filter(|b| b.team == ENEMY && b.kind == BldgKind::Turret)
-            .count()
+            .map(|b| ((b.x - hx).powi(2) + (b.y - hy).powi(2)).sqrt() / TILE)
+            .fold(f64::INFINITY, f64::min)
     };
-    assert_eq!(turrets(&w), 0, "no Turret yet");
-    let mut raised = false;
+    assert_eq!(nearest(&w), f64::INFINITY, "no Turret yet");
+    let (mut hit, mut unhit) = (f64::INFINITY, f64::INFINITY);
     for _ in 0..60 {
-        // (it re-cloaks whenever it can, and keeps shooting at a harvester near where it started)
-        let _ = w.cast(raider, AbilityKind::Cloak);
+        // (cloaked for good, it keeps shooting at a harvester near where it started)
         // (a miner: its workers now run from what hits them, and the one building the tower is not the target)
         if let Some(t) = harvesters(&w, ENEMY).into_iter().find(|&t| {
             let u = U(&w, t);
@@ -206,28 +205,36 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
             w.attack_ent(raider, t);
         }
         run(&mut w, 1);
-        raised |= turrets(&w) >= 1;
+        hit = hit.min(nearest(&w)); // (the site may fall to the Petrel: where it was placed counts)
     }
-    assert!(w.time < 240.0, "still before the scheduled Turret");
-    assert!(raised, "the AI put up a Turret");
+    for _ in 0..60 {
+        run(&mut quiet, 1);
+        unhit = unhit.min(nearest(&quiet));
+    }
+    // (within 16 tiles of where the shooting began: the harvesters it shot at scatter as they run, and the mark is
+    // where one was hit; the quiet game places none in that minute, or one farther off)
+    assert!(
+        hit < 16.0 && hit < unhit,
+        "a Turret by the hit ({hit:.1} tiles), nearer than the schedule's ({unhit:.1})"
+    );
 }
 
 #[test]
 fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on() {
-    // An AI Trooper shot by a cloaked Raider out by the player's base: no tower out there, and the AI keeps building.
+    // An AI Trooper shot by a cloaked Petrel (Seaglass) out by the player's base: no tower out there, and the AI keeps building.
     let mut w = World::new(31, 1);
     run(&mut w, 140);
     let (px, py) = core(&w, PLAYER);
     let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
     let t = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.hold_unit(t);
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, x + 40.0, y);
+    let raider = w.make_unit(UnitKind::Shrike, PLAYER, x + 40.0, y);
     let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     (o.hp, o.maxhp) = (1e9, 1e9);
-    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
+    w.upgrades[PLAYER as usize][Upgrade::VeilWeave.index()] = 1;
+    assert!(w.is_cloaked(U(&w, raider)));
     let built = w.bldgs.iter().filter(|b| b.team == ENEMY).count();
     for _ in 0..60 {
-        let _ = w.cast(raider, AbilityKind::Cloak);
         if w.unit(t).is_some() {
             w.attack_ent(raider, t);
         }
@@ -246,18 +253,17 @@ fn an_unseen_hit_far_from_home_raises_no_tower_there_and_the_build_order_goes_on
 
 #[test]
 fn an_attack_by_something_unseen_is_told_once_in_a_while() {
-    // A cloaked Raider shooting a Trooper: the player's alert says the attacker is unseen, once (not every hit); once it
+    // A cloaked Petrel (Seaglass) shooting a Trooper: the player's alert says the attacker is unseen, once (not every hit); once it
     // shows (or a detector finds it), the alerts are ordinary ones.
     let mut w = flat_arena(14);
-    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 30.0 * TILE);
+    let raider = w.make_unit(UnitKind::Shrike, ENEMY, 30.0 * TILE, 30.0 * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 32.0 * TILE, 30.0 * TILE);
     for id in [raider, trooper] {
         let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
         (u.hp, u.maxhp) = (1e6, 1e6); // (both outlive the test)
     }
     w.hold_unit(trooper);
-    w.upgrades[ENEMY as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(raider, AbilityKind::Cloak).unwrap();
+    w.upgrades[ENEMY as usize][Upgrade::VeilWeave.index()] = 1;
     let alerts = |w: &mut World, secs: u32| {
         let (mut unseen, mut seen) = (0, 0);
         for _ in 0..secs * TPS {
@@ -276,42 +282,37 @@ fn an_attack_by_something_unseen_is_told_once_in_a_while() {
         (unseen, seen)
     };
     let (unseen, seen) = alerts(&mut w, 11);
-    assert!(U(&w, trooper).hp < 1e6, "the cloaked Raider shoots");
-    assert_eq!(
-        (unseen, seen),
-        (1, 0),
-        "one unseen alert for the whole cloak"
-    );
-    let (unseen, _) = alerts(&mut w, 18);
-    assert_eq!(unseen, 0, "visible again: no unseen alert");
-    // Cloaked again past the 30 s gap, still with nothing to detect it: told again.
-    alerts(&mut w, 12); // (its 40 s cooldown)
-    w.cast(raider, AbilityKind::Cloak).unwrap();
+    assert!(U(&w, trooper).hp < 1e6, "the cloaked Petrel shoots");
+    assert_eq!((unseen, seen), (1, 0), "one unseen alert, not one a hit");
+    let (unseen, _) = alerts(&mut w, 15);
+    assert_eq!(unseen, 0, "not again within the gap");
     let (unseen, _) = alerts(&mut w, 10);
-    assert_eq!(unseen, 1, "a new cloak past the gap is told again");
-    // Cloaked again, but a Turret beside the Trooper detects it: an ordinary fight.
-    alerts(&mut w, 32);
-    w.make_building(BldgKind::Turret, PLAYER, 31, 32, true);
+    assert_eq!(unseen, 1, "told again once the gap is past");
+    // A Turret beside the Trooper detects it: an ordinary fight. (Sturdy: the Petrel, which nothing here outlasts,
+    // would bring it down and be hidden again.)
+    let turret = w.make_building(BldgKind::Turret, PLAYER, 31, 32, true);
+    let b = w.bldgs.iter_mut().find(|b| b.id == turret).unwrap();
+    (b.hp, b.maxhp) = (1e6, 1e6);
     alerts(&mut w, 1); // (its sight and detection from the next tick)
-    w.cast(raider, AbilityKind::Cloak).unwrap();
-    let (unseen, _) = alerts(&mut w, 10);
+    let (unseen, _) = alerts(&mut w, 40);
     assert_eq!(unseen, 0, "detected: nothing unseen");
 }
 
 #[test]
 fn a_halo_detects_cloaked_units_near_it() {
     // The Vael's detector in the field (2026-10-31): a Halo reveals what is cloaked within 5 tiles of it, as an
-    // Observer does within 7; farther off, though in its sight, the cloak holds.
+    // Observer does within 7; farther off, though in its sight, the cloak holds. (Held Undertows: they strike only
+    // what is within their blade's reach.)
     let mut w = flat_arena(14);
     w.factions = vec![&VAEL, &HUMANS];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
     let halo = w.make_unit(UnitKind::Halo, PLAYER, x, y);
-    let near = w.make_unit(UnitKind::Observer, ENEMY, x + 3.0 * TILE, y);
-    let far = w.make_unit(UnitKind::Observer, ENEMY, x - 8.0 * TILE, y);
+    let near = w.make_unit(UnitKind::Umbra, ENEMY, x + 3.0 * TILE, y);
+    let far = w.make_unit(UnitKind::Umbra, ENEMY, x - 8.0 * TILE, y);
     for u in [halo, near, far] {
         w.hold_unit(u);
     }
-    w.step();
+    run(&mut w, 3); // (lying still: they lurk)
     let (ftx, fty) = w.map.tile_of(U(&w, far).x, U(&w, far).y);
     assert!(
         w.vis[PLAYER as usize][w.map.idx(ftx, fty)] != 0,
@@ -325,26 +326,51 @@ fn a_halo_detects_cloaked_units_near_it() {
 }
 
 #[test]
-fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
-    // The Vael's shadow blade carries the Observer's permanent cloak on a fighter: Troopers can neither see nor shoot
-    // it while it cuts them down, and the hit is told as an unseen one. An Observer over them reveals it: it is shot.
+fn an_undertow_lurks_strikes_once_from_hiding_and_shows_when_it_moves_or_strikes() {
+    // Lurk (Roster v2, rule 2): the Undertow is seen as it comes out (it has not lain still yet); after `LURK_S` lying
+    // still it is hidden: the Picket can neither see nor be ordered onto it. Its first blow comes out of hiding (told
+    // as an unseen hit), and it shows from then on: the Picket shoots back. Walking off shows it too; lying still
+    // again hides it again. A detector beside it sees it lying still.
     let mut w = flat_arena(14);
     w.factions = vec![&HUMANS, &VAEL];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x, y);
     w.hold_unit(trooper);
     let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x + 3.0 * TILE, y);
+    w.hold_unit(umbra);
     w.step();
-    assert!(World::is_cloaked(U(&w, umbra)), "cloaked with no ability");
+    assert!(
+        !w.is_cloaked(U(&w, umbra)) && w.seen_by(PLAYER, umbra),
+        "seen as it comes out"
+    );
+    run(&mut w, 1);
+    assert!(w.seen_by(PLAYER, umbra), "still seen after a second");
+    run(&mut w, 2);
+    assert!(
+        w.is_cloaked(U(&w, umbra)),
+        "hidden once it has lain still for {LURK_S} s"
+    );
     assert!(!w.seen_by(PLAYER, umbra), "unseen in plain sight");
     w.attack_ent(trooper, umbra);
     assert!(
         !matches!(U(&w, trooper).task, Task::Attack { .. }),
         "an order to attack it is refused"
     );
+    // It walks to the Picket: seen while it walks.
     w.attack_ent(umbra, trooper);
+    w.step();
+    w.step();
+    assert!(w.seen_by(PLAYER, umbra), "seen as soon as it moves");
+    // Hidden again lying in wait beside it (held, in reach), then the blow.
+    w.units.iter_mut().find(|u| u.id == umbra).unwrap().x = x + 0.8 * TILE;
+    w.hold_unit(umbra);
+    w.units.iter_mut().find(|u| u.id == umbra).unwrap().cd = 3.0; // (it waits: no blow for 3 s)
+    run(&mut w, 2);
+    w.step();
+    assert!(!w.seen_by(PLAYER, umbra), "lying in wait: hidden again");
     let mut unseen = 0;
-    for _ in 0..8 * TPS {
+    let mut seen_after = false;
+    for _ in 0..4 * TPS {
         w.step();
         for e in w.events.drain(..) {
             if let endfall_sim::world::Event::Attacked {
@@ -356,30 +382,31 @@ fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
                 unseen += 1;
             }
         }
+        if unseen > 0 && w.unit(trooper).is_some() && w.seen_by(PLAYER, umbra) {
+            seen_after = true;
+        }
     }
-    assert!(w.unit(trooper).is_none(), "the Trooper fell");
-    assert_eq!(unseen, 1, "told once that something unseen attacks");
+    assert_eq!(unseen, 1, "its first blow is told as an unseen one, once");
+    assert!(seen_after, "seen once it has struck");
     let u = U(&w, umbra);
-    assert_eq!((u.hp, u.sh), (u.maxhp, u.maxsh), "untouched");
-    // Four Troopers with an Observer over them: detected, and shot as it closes in.
-    let troopers: Vec<Id> = (0..4)
-        .map(|k| w.make_unit(UnitKind::Trooper, PLAYER, x, y + (k as f64 - 1.5) * 20.0))
-        .collect();
-    let obs = w.make_unit(UnitKind::Observer, PLAYER, x, y);
+    assert!(u.hp < u.maxhp, "seen, it is shot: {} of {}", u.hp, u.maxhp);
+    // A Spyglass beside a lurking Undertow sees it.
+    let lurker = w.make_unit(UnitKind::Umbra, ENEMY, x - 6.0 * TILE, y);
+    w.hold_unit(lurker);
+    run(&mut w, 3);
+    assert!(w.is_cloaked(U(&w, lurker)) && !w.seen_by(PLAYER, lurker));
+    let obs = w.make_unit(UnitKind::Observer, PLAYER, x - 5.0 * TILE, y);
     w.hold_unit(obs);
     w.step();
-    assert!(w.seen_by(PLAYER, umbra), "an Observer detects it");
-    w.attack_ent(umbra, troopers[0]);
-    run(&mut w, 6);
     assert!(
-        w.unit(umbra).is_none_or(|u| u.sh < u.maxsh),
-        "detected, it is shot"
+        w.seen_by(PLAYER, lurker),
+        "a Spyglass detects it lying still"
     );
 }
 
 #[test]
 fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
-    // A Halo mends an Umbra's shields in the player's sight: the Halo is seen, the Umbra is not, so the mend's
+    // A Halo mends an Umbra (its hull: Roster v2 took its shields) in the player's sight: the Halo is seen, the Umbra is not, so the mend's
     // light (which runs from one to the other) is not shown to the player; once an Observer detects the Umbra, it is.
     let mut w = flat_arena(14);
     w.factions = vec![&HUMANS, &VAEL];
@@ -390,8 +417,10 @@ fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
     for u in [trooper, halo, umbra] {
         w.hold_unit(u);
     }
+    run(&mut w, 3); // (the Undertow lies still: it lurks)
     let mends = |w: &mut World, secs: u32| -> Vec<u8> {
-        w.units.iter_mut().find(|u| u.id == umbra).unwrap().sh = 0.0;
+        let u = w.units.iter_mut().find(|u| u.id == umbra).unwrap();
+        u.hp = u.maxhp / 2.0;
         let mut seen = Vec::new();
         for _ in 0..secs * TPS {
             w.step();
@@ -418,4 +447,40 @@ fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
         seen.iter().any(|s| s & 1 << PLAYER != 0),
         "detected: the mend shows ({seen:?})"
     );
+}
+
+/// Permanent cloaks and balance: Humans against Vael, AI on both sides (Medium and Hard, ten seeds, both starts):
+/// the games each race wins by 25:00, and how many games the Petrel's Seaglass was researched in.
+#[test]
+#[ignore]
+fn permanent_cloak_balance_probe() {
+    // `cargo test --release --test gameplay permanent_cloak_balance_probe -- --ignored --nocapture`
+    for diff in [1usize, 2] {
+        let (mut wins, mut games, mut cloaks) = ([0u32; 2], 0, 0);
+        for seed in 1..=10u32 {
+            for flip in [false, true] {
+                let races: [&Faction; 2] = if flip {
+                    [&VAEL, &HUMANS]
+                } else {
+                    [&HUMANS, &VAEL]
+                };
+                let vael = if flip { 0 } else { 1 };
+                let mut w = World::with_setup(seed, diff, MapKind::Standard, false, races);
+                w.set_ai_seats([true, true]);
+                while w.time < 25.0 * 60.0 && w.winner < 0 {
+                    w.step();
+                    w.events.clear();
+                }
+                games += 1;
+                if w.winner >= 0 {
+                    wins[(w.winner as usize == vael) as usize] += 1;
+                }
+                cloaks += (w.upgrades[vael][Upgrade::VeilWeave.index()] > 0) as u32;
+            }
+        }
+        println!(
+            "level {diff}: wins Humans {} Vael {} of {games}; Veil Weave in {cloaks}",
+            wins[0], wins[1]
+        );
+    }
 }

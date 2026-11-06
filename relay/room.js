@@ -1,6 +1,6 @@
 // The relay's room: a pure state machine (no sockets, no timers: the adapter calls `connect`, `receive`, `close` and
 // `tick(now)`), so the Node server and the Cloudflare Durable Object run the same rules and the tests drive it with a
-// fake clock. Design: docs/MULTIPLAYER.md. The relay keeps the clock: once every seat has loaded the game it closes a
+// fake clock. Design: Notion, Multiplayer design. The relay keeps the clock: once every seat has loaded the game it closes a
 // turn (3 ticks, 100 ms) on its own timer, puts the orders it has into the turn `DELAY` ahead, and sends that turn's
 // bundle to everyone. It never looks inside an order (the clients decode them); it only checks that every seat has the
 // same sim build (an opaque string from the client), and the clients compare hashes.
@@ -13,8 +13,8 @@
 // empty spot, on `team`, MAX_SEATS at most: open for a friend, or the AI's), drop {seat} (an open or AI seat goes, its
 // spot empty: never spot 0, never a person's, never below two), free {seat} (a held seat whose player is away is open
 // again: they came back on another browser or device, without its token), remove {seat} (a person goes, here or away:
-// told `error {code: 'removed'}`, the seat open again, and their address may not join the room again: a stranger who
-// guessed the code); sit {seat, team?} (a person other than the
+// told `error {code: 'removed'}`, the seat open again, and their address may not join the room again while it lasts: a
+// stranger who guessed the code); sit {seat, team?} (a person other than the
 // host moves to an open seat, taking its spot and side; team: the side it saw the seat on, refused if it is on another);
 // loaded {} (the game is set up: the clock may start), orders
 // {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
@@ -44,8 +44,8 @@
 // stays its player's (name, race, token, the host's role), away (`here: false`) and not ready, for LOBBY_HOLD_MS; its
 // token takes it back, a newcomer takes only a truly open seat, and the room cannot start while it is away. After the
 // hold the seat is open again (on its spot and side), or at once when the host frees it (free) or its player gives it up (leave).
-// `keep()` / `restore()`: the lobby as a record (seats with their spots, teams, tokens, races, AI levels; the map; no
-// connections), for an adapter that may lose its memory (relay/worker.js).
+// `keep()` / `restore()`: the lobby as a record (seats with their spots, teams, tokens, races, AI levels; the map; the
+// addresses the host's REMOVE barred; no connections), for an adapter that may lose its memory (relay/worker.js).
 //
 // AI seats (M4): a seat the host gives to the AI has no connection. Every client runs that seat's AI in its own game
 // (the sim's `ai_seats`: deterministic, from the setup's `ai` list), so the relay never waits for it (no load, no acks,
@@ -53,8 +53,9 @@
 
 import { MAPS, fits, fitMap } from '../src/client/maps.js';
 
-export const PROTO = 6; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start; 6: six-letter codes (src/net/roomcode.js), the limits' error `limit`, the host's remove) // the protocol's version: a client of another version is told to update
+export const PROTO = 7; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start; 6: the Shore maps, map indices 12 and 13, which a client of 5 does not know; 7: six-letter codes (src/net/roomcode.js), the limits' error `limit`, the host's remove) // the protocol's version: a client of another version is told to update
 export const TURN_MS = 100;
+const MAX_BARRED = 64; // addresses a room bars at most (the host's REMOVE; a room's record keeps them)
 export const TICKS_PER_TURN = 3;
 export const DELAY = 2; // turns between an order arriving and the turn it runs on
 export const CHECK_EVERY = 10; // turns between hash checkpoints
@@ -267,10 +268,11 @@ export class Room {
     for (const s of out) this.open(s);
     if (out.length) this.lobby();
   }
-  /** The lobby as a record (seats with their spots, teams, tokens and levels, the host's choices; no connections,
-   *  nobody ready). `v`: the record's shape (PROTO 5's; before it, none). */
+  /** The lobby as a record (seats with their spots, teams, tokens and levels, the host's choices, the addresses the host
+   *  barred: they last as long as the room, its record deleted with it; no connections, nobody ready). `v`: the
+   *  record's shape (PROTO 5's; before it, none). */
   keep() {
-    return { v: 5, map: this.map, seats: this.seats.map(s => ({ spot: s.spot, team: s.team, name: s.name, race: s.race, token: s.token, ai: s.ai, diff: s.diff, goneSince: s.goneSince })) };
+    return { v: 5, map: this.map, seats: this.seats.map(s => ({ spot: s.spot, team: s.team, name: s.name, race: s.race, token: s.token, ai: s.ai, diff: s.diff, goneSince: s.goneSince })), barred: [...this.barred] };
   }
   /** A kept lobby back (the room was lost from memory, at `now`): its seats held, away, from when they went (now, for
    *  one that was here: its connection went with the memory), on their spots and teams (each its own, its spot's
@@ -291,6 +293,7 @@ export class Room {
     this.seats.forEach((s, i) => { if (s.token) s.goneSince = Math.min(Number(k.seats[i].goneSince) || now, now); }); // (never later than now: a hold runs out)
     this.sortBySpot();
     if (validMap(k.map)) this.map = k.map;
+    if (Array.isArray(k.barred)) this.barred = new Set(k.barred.filter(a => typeof a === 'string' && a && a.length <= 64).slice(0, MAX_BARRED));
     this.fitRoom();
     return true;
   }
@@ -344,12 +347,12 @@ export class Room {
     this.open(s); this.lobby();
   }
   /** The host removes the person at spot `seat` (here or away; never spot 0, never an AI or open seat): they are told
-   *  so and closed, the seat is open again (its spot and side), and their address may not join this room again (a
-   *  stranger who guessed the code; their token went with the seat). */
+   *  so and closed, the seat is open again (its spot and side), and their address may not join this room again while it
+   *  lasts (`barred`, kept in its record: a stranger who guessed the code; their token went with the seat). */
   remove(seat) {
     const s = seat !== 0 ? this.bySpot(seat) : null;
     if (!s || !s.token) return;
-    if (s.from) this.barred.add(s.from);
+    if (s.from && this.barred.size < MAX_BARRED) this.barred.add(s.from);
     if (s.conn) { this.send(s.conn, { t: 'error', code: 'removed', msg: 'The host removed you from this room' }); this.kick(s.conn); }
     this.open(s); this.unready();
   }

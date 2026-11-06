@@ -1,9 +1,8 @@
 // What this side has seen of the enemy's army: every enemy fighter counted once, with when it was last in view (fog
-// and cloak respected). Shown on demand only: the pause card (lately) and the end card (the whole game).
+// and cloak respected). Shown on demand only: the end card (the whole game). (Not on the pause card: owner, 2026-11-03.)
 import { G, UNITS, visibleEnt, enemies } from '../engine/index.js';
 import { portrait } from './gl/render.js';
 
-const LATELY = 90; // seconds the pause card looks back
 const sightings = new Map(); // unit id -> { u (the mirror object: u.dead once it is gone), type, team, last }
 let noted = -1;
 
@@ -33,6 +32,3 @@ export function seenLine(t, lead, none, alive = false) {
   if (!seen.length) return none;
   return lead + seen.map(([type, n, team]) => `<span class="seen" title="${n} ${UNITS[type].name}" aria-label="${n} ${UNITS[type].name}">${portrait('unit', type, 22, team)}<b>${n}</b></span>`).join('');
 }
-
-/** The pause card's line: what is still out there, as far as it was seen in the last 90 s (the dead do not count). */
-export const seenLately = () => seenLine(G.time - LATELY, 'Seen lately: ', 'Nothing of theirs seen lately.', true);

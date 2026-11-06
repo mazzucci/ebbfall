@@ -28,7 +28,7 @@ const S = {
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
-const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
+const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), height: new Int8Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
 
 const live = (k) => ({ enumerable: true, get() { sync(); return S[k]; } });
 /** The world as the client sees it. Read-only: change it through the order functions below. */
@@ -40,6 +40,14 @@ function syncOcc() { if (occStale && game) { occStale = false; M.occ.set(game.oc
 export const idx = (x, y) => y * MW + x;
 export const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
 export const blocked = (x, y) => !inMap(x, y) || map.rock[idx(x, y)] || map.occ[idx(x, y)] !== 0;
+/** The water level (the sim's World::water), and what a tile is against it, as the sim's Map::ground: 'land' above
+ *  it, 'shallow' within two below, 'deep' further down (off the map: land). */
+export let WATER = 0;
+export const ground = (x, y) => {
+  if (!inMap(x, y)) return 'land';
+  const h = map.height[idx(x, y)];
+  return h > WATER ? 'land' : h > WATER - 2 ? 'shallow' : 'deep';
+};
 
 /** Entities not in this snapshot (their `gen` is an older one) are gone. */
 function retire(pool) { for (const [id, e] of pool) if (e.gen !== gen) { e.dead = true; pool.delete(id); } }
@@ -95,13 +103,12 @@ function sync() {
     let u = units.get(id);
     if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: { t: null, phase: null, node: null, b: null, target: null }, abCd: [0, 0], dead: false, gen }); }
     u.gen = gen; u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
-    const ct = U[o + fu.carry_type];
-    u.carry = U[o + fu.carry]; u.carryType = ct < 0 ? null : ct ? 'ether' : 'shard'; u.cd = U[o + fu.cd];
+    u.carry = U[o + fu.carry]; u.cd = U[o + fu.cd];
     // Abilities: seconds of cooldown left per slot (the kind's `abilities` order), the boost and the toggle that are on.
     // (no ability is 0: never read a key at index -1, which is a slow property lookup)
     u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const boost = U[o + fu.boost], mode = U[o + fu.mode];
     u.boost = boost > 0 ? ABILITY_KEYS[boost - 1] || null : null;
-    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
+    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.slowed = U[o + fu.slowed]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target], task = u.task;
     task.t = t; task.phase = task.node = task.b = task.target = null;
     if (t === 'gather') { task.phase = PHASES[U[o + fu.phase]]; task.node = nodes.get(target) || null; }
@@ -133,13 +140,13 @@ function fresh(g) {
   MW = game.mapW(); MH = game.mapH(); WW = MW * TILE; WH = MH * TILE;
   if (M.rock.length !== MW * MH) {
     const n = MW * MH;
-    Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), occ: new Int32Array(n) });
+    Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), height: new Int8Array(n), occ: new Int32Array(n) });
     Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n) });
   }
-  M.rock.set(game.rock()); M.shade.set(game.shade());
+  M.rock.set(game.rock()); M.shade.set(game.shade()); M.height.set(game.height()); WATER = game.water();
   dirty = true; sync();
 }
-/** An online game (docs/MULTIPLAYER.md): the room's setup, seen from seat `me`, in lockstep (orders go out to the
+/** An online game (Notion: Multiplayer design): the room's setup, seen from seat `me`, in lockstep (orders go out to the
  *  relay; the network layer feeds the turns back). `seed` is the map's; `races` the seats' (RANDOM drawn: seatRaces);
  *  `teams` a team per seat (empty: each its own), `ai` the seats the AI plays (at `diff`, or each at its own: `diffs`, a
  *  level per seat; every client runs them alike), on a `size` x `size` map. Two people and no AI: the game a two-seat

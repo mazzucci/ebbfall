@@ -63,8 +63,8 @@ export const oneTeam = (spots) => filled(spots).every(i => spots[i].team === spo
 export const freeTeam = (spots) => { let t = 0; while (spots.some(r => r && r.team === t)) t++; return t; };
 /** The lowest empty spot (-1: none; adding fills it). */
 export const firstEmpty = (spots) => spots.findIndex(r => !r);
-/** A seat's name: YOU, or AI and its spot's number (it keeps it while others come and go). */
-export const seatName = (i) => (i ? `AI ${i}` : 'YOU');
+/** A seat's name: YOU, or COMPUTER and its spot's number (it keeps it while others come and go). */
+export const seatName = (i) => (i ? `COMPUTER ${i}` : 'YOU');
 /** A new AI: on a side of its own, as the last AI (race, level), else Humans on Easy. */
 export function newAi(spots) {
   const like = filled(spots).slice(1).map(i => spots[i]).at(-1) || { race: 'humans', diff: 0 };

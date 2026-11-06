@@ -45,8 +45,13 @@ async function gameFits(d, what) {
     const cv = document.getElementById('game');
     const hud = document.getElementById('hud'), band = getComputedStyle(hud).position !== 'fixed' ? r('hud') : null; // (a narrow screen: the panels in a band below the map)
     return { vw: innerWidth, vh: innerHeight, stage: r('stage'), band, top: r('top'), canvas: [cv.clientWidth, cv.clientHeight], stageBox: [document.getElementById('stage').clientWidth, document.getElementById('stage').clientHeight],
-      parts: Object.fromEntries(['top', 'minimap', 'info', 'cmd', 'btnBox', 'btnHome', 'btnPause', 'btnSound'].map(id => [id, r(id)]).filter(([, b]) => b)) };
+      parts: Object.fromEntries(['top', 'minimap', 'info', 'cmd', 'btnBox', 'btnHome', 'btnArmy', 'btnPause', 'btnSound'].map(id => [id, r(id)]).filter(([, b]) => b)) };
   });
+  const { btnBox: sb, btnHome: hb, btnArmy: ab, minimap: mm } = got.parts;
+  if (sb && hb && ab && mm) { // (SELECT, HOME and ARMY: one row, three alike, as wide as the minimap)
+    const w = (b) => b[2] - b[0];
+    assert.ok(Math.abs(sb[0] - mm[0]) <= 1.5 && Math.abs(ab[2] - mm[2]) <= 1.5 && Math.abs(w(sb) - w(hb)) < 0.5 && Math.abs(w(sb) - w(ab)) < 0.5 && sb[1] === hb[1] && hb[1] === ab[1], `${what}: SELECT, HOME and ARMY as wide as the minimap: ${[sb, hb, ab, mm].map(b => b.map(Math.round))}`);
+  }
   for (const [id, [l, t, rt, b]] of Object.entries(got.parts)) assert.ok(l >= -0.5 && t >= -0.5 && rt <= got.vw + 0.5 && b <= got.vh + 0.5, `${what}: #${id} inside ${got.vw}x${got.vh}: ${[l, t, rt, b].map(Math.round)}`);
   const [l, t, r, b] = got.stage;
   const floor = got.band ? got.band[1] : got.vh; // (the band's top, or the screen's bottom)

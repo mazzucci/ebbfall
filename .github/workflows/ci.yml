@@ -16,14 +16,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  # The sim's own checks, beside the build: formatting, lints, the Rust tests (unit, gameplay, golden games) and the
+  # gameplay suite again in release mode with more random-play seeds.
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
       - uses: actions/cache@v6
         with:
           path: |
@@ -39,6 +37,29 @@ jobs:
       - run: cargo test --locked -- --skip random_play
       - name: Gameplay tests including randomized play (release mode, more seeds)
         run: cargo test --release --locked --test gameplay
+
+  # The WASM build, the Node tests and the production build (dist/, which the browser tests and the site use).
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # (the history: vite.config.js names the last commit that changed what ships, the build stamp)
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/cache@v6 # (its own: the WASM target and the wasm-bindgen CLI in .tools/, which the rust job never builds)
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+            .tools
+          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            wasm-${{ runner.os }}-
+            rust-${{ runner.os }}-
+      - run: rustup toolchain install
       - run: npm ci
       - run: npm run build:wasm
       - run: npm test
@@ -48,15 +69,45 @@ jobs:
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
       - run: node --test test/site-worker.test.js # (again, with dist/ built: its checks of the built page and service worker)
-      - name: Gameplay tests in a real browser (Chromium; WebKit and Firefox in the engines job)
-        run: |
-          npx playwright-core install --with-deps chromium
-          npm run test:e2e
+      - name: The build, for the browser tests
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+  # The browser tests in Chromium, on the build job's dist/, split by test over four jobs (ENDFALL_SHARD, the e2e
+  # harness: every fourth test of each file), as one file holds most of the time. WebKit and Firefox: the engines job.
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 4
+        run: |
+          npx playwright-core install --with-deps chromium
+          npm run test:e2e
+        env:
+          ENDFALL_SHARD: ${{ matrix.shard }}/4
 
   # The browser tests' cross-engine subset (the scenarios marked `engines: true`: the menu, sound and full screen, a short
   # game through the UI, taps on a phone, joining a room through a local relay, offline, the golden games) in WebKit
@@ -74,14 +125,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/cache/restore@v6 # (the build job's cache, read only)
+      - uses: actions/cache/restore@v6 # (the build job's WASM cache, read only)
         with:
           path: |
             ~/.cargo/registry
             target
             .tools
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
-          restore-keys: rust-${{ runner.os }}-
+          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            wasm-${{ runner.os }}-
+            rust-${{ runner.os }}-
       - run: rustup toolchain install
       - run: npm ci
       - run: npm run build
@@ -95,7 +148,9 @@ jobs:
           ENDFALL_ENGINE: ${{ matrix.engine }}
 
   # Determinism on another CPU: the golden games natively, in WASM in Node's V8, and in WebKit (JavaScriptCore on
-  # arm64, as on an iPhone) on an ARM Mac.
+  # arm64, as on an iPhone) on an ARM Mac. It runs on every pull request and on main, but neither a merge nor a deploy
+  # waits for it (owner, 2026-11-04: twice GitHub had no macOS runner for hours and held a deploy): its result is read
+  # by hand, a failure on a change to the sim is fixed (or reverted on main), and the post-merge check reports it.
   arm:
     runs-on: macos-15 # (Playwright's WebKit for macOS 14 is frozen)
     steps:
@@ -139,8 +194,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     # The relay and the site go out together: the relay waits for every check the site waits for, and the site for the
     # relay, so a failing check never leaves a new relay talking to the old site (a new protocol would tell every player
-    # to UPDATE to a version that is not there yet).
-    needs: [build, engines, arm]
+    # to UPDATE to a version that is not there yet). Not `arm` (see it above).
+    needs: [rust, build, e2e, engines]
     runs-on: ubuntu-latest
     concurrency:
       group: relay
@@ -196,7 +251,7 @@ jobs:
           exit 1
 
   # The site: https://ebbfall.com/ (and www) as a Cloudflare Worker with static assets (site/: worker.js, wrangler.toml;
-  # docs/MULTIPLAYER.md, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
+  # Notion: Multiplayer design, Hosting), off GitHub Pages since 2026-10-30. The files are the build job's (its Pages artifact,
   # tested there). First the relay check: the site never outruns the relay. The Worker answers through zone routes,
   # which see proxied traffic only: the deploy attaches them first (nothing changes yet), then site/dns.mjs proxy turns
   # the proxy on for GitHub Pages' own DNS records, an edit in place (the hostnames resolve throughout: to GitHub until
@@ -205,7 +260,7 @@ jobs:
   # edit on the zone) and CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [build, engines, arm, relay] # (a determinism break in another engine or on another CPU blocks publishing; the relay first)
+    needs: [rust, build, e2e, engines, relay] # (a determinism break in another engine blocks publishing; the relay first; not `arm`, read by hand)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -272,3 +327,17 @@ jobs:
       - name: The hostnames through Cloudflare, so to the Worker (GitHub Pages' records proxied; once)
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: node site/dns.mjs proxy
+      - name: The live site serves the build just deployed (its <meta name="build">; a deploy that did not take turns main red)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          meta() { grep -oE '<meta name="build" content="[^"]*"' | head -1 | sed -E 's/.*content="([^"]*)"/\1/'; }
+          want=$(meta < dist/index.html || true) # (the last game update: a docs- or CI-only commit ships the same build)
+          [ -n "$want" ] || { echo "::error::dist/index.html has no <meta name=\"build\">"; exit 1; }
+          live=''
+          for i in $(seq 1 24); do # (up to 2 minutes, as the relay's /version wait)
+            live=$(curl -fsS --max-time 10 -H 'Cache-Control: no-cache' "https://ebbfall.com/?build-check=${GITHUB_SHA}-$i" | meta || true)
+            if [ "$live" = "$want" ]; then echo "https://ebbfall.com/ serves the build deployed, the last game update $live"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://ebbfall.com/ serves build ${live:-unknown (no meta build)}, not the one deployed ($want): the deploy did not take"
+          exit 1

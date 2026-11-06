@@ -17,12 +17,12 @@ const P = {
   dmg: 'M19 5v4L9.5 18.5l-4-4L15 5zM7.5 16.5 4 20M6 13l5 5',
   air: 'M12 3c1 1 1.5 2.5 1.5 4.5v3l7 4v2l-7-2v3.5l2.5 2V21L12 20l-4 1v-1l2.5-2v-3.5l-7 2v-2l7-4v-3C10.5 5.5 11 4 12 3z',
   heal: 'M12 5v14M5 12h14',
+  health: 'M12 20s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z',
+  ground: 'M2 20h20M4 20l5-8 3.5 4.5L15 13l5 7', // (hills on a horizon: what walks, rolls or stands)
   armor: 'M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6zM12 9v6M9 12h6',
   stim: 'M13 2 5 14h6l-2 8 8-12h-6z',
   speed: 'M5 6l6 6-6 6M12 6l6 6-6 6',
   cloak: 'M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6M4 20 20 4',
-  deploy: 'M3 15h18M7 15l-3 5M17 15l3 5M8 15v-4h7v4M13 11l7-7',
-  undeploy: 'M4 13h16a2.5 2.5 0 0 1 0 5H4a2.5 2.5 0 0 1 0-5zM8 13V9h7v4M15 11h6M5 13 2 9M19 13l3-4', // (on its tracks: legs folded up, barrel down)
   blink: 'M4 12h9M10 8l4 4-4 4M17 6v12M20 9v6',
   overcharge: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M14 2l1 4-4-1',
   shields: 'M12 3a9 9 0 1 0 0.01 0M12 7a5 5 0 1 0 0.01 0M12 3v4M21 12h-4M12 21v-4M3 12h4',
@@ -32,6 +32,7 @@ const P = {
   mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6',
   pause: 'M8 5v14M16 5v14',
   home: 'M3 11 12 4l9 7M5 9.5V20h5v-6h4v6h5V9.5',
+  army: 'M9 5a3 3 0 1 0 .01 0M3 20v-1a6 6 0 0 1 12 0v1M16 6a2.5 2.5 0 1 0 .01 0M17 13.2a5 5 0 0 1 4 4.8v2', // (a group: two figures, one behind; crossed swords read as Deselect's X)
   frames: 'M4 20V9l8-5 8 5v11M3 20h18M4 9h16M4 9l16 11M20 9 4 20',
   help: 'M12 3a9 9 0 1 0 .01 0M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01',
 };

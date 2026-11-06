@@ -124,8 +124,6 @@ pub struct Unit {
     pub cd: f64,
     pub face: f64,
     pub carry: i32,
-    /// Some(true) = ether, Some(false) = shards, None = never carried anything.
-    pub carry_ether: Option<bool>,
     pub last_node: Option<Id>,
     pub repath: f64,
     pub flash: f64,
@@ -148,9 +146,25 @@ pub struct Unit {
     pub swap: f64,
     /// Seconds left warping in (a Vael unit sent to a power field): it cannot move, fire or heal, but can be hit.
     pub warp: f64,
+    /// Seconds left stunned (a walker swept by the flood): as warping in, it cannot move, fire or heal.
+    pub stun: f64,
+    /// Seconds left harpooned (`Weapon::slow`): it moves at `SLOW_SPEED` and casts nothing.
+    pub slowed: f64,
+    /// A lurker's (`UnitDef::lurk`) seconds without walking or striking, up to `LURK_S` (hidden from then on); 0 for
+    /// any other kind.
+    pub still: f64,
     /// A group's marching pace (px/s): set by a group order to its slowest member's speed, so the group arrives
     /// together; it only caps a unit on the move (not in a fight), and any new order clears it.
     pub pace: Option<f64>,
+}
+
+/// The tide's state (`World::set_tide`): the current cycle's first tick, its phases' lengths in ticks (high water,
+/// the ebb, low water, the flood: the cycle's spread drawn as it starts), and whether its warning has gone out.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tide {
+    pub start: u32,
+    pub phases: [u32; 4],
+    pub warned: bool,
 }
 
 /// A builder that stays within STUCK_RADIUS px of one spot for BUILDER_PATIENCE seconds without reaching its
@@ -158,6 +172,10 @@ pub struct Unit {
 /// second; jittering against a corner or being walled in does not.
 pub const BUILDER_PATIENCE: f64 = 6.0;
 pub const STUCK_RADIUS: f64 = 12.0;
+/// How far (px) a worker that has stopped at its work (a field, a drop-off, a site) may be nudged out of reach and
+/// still count as there: it stays put instead of stepping back in and turning to and fro (movement.rs
+/// `approach_settled`).
+pub const SETTLE: f64 = 6.0;
 /// Repairing a building from nothing to full costs this share of its price, paid as the hp come back. A harvester
 /// repairs at construction speed (the building's build time for its whole hp).
 pub const REPAIR_COST: f64 = 0.25;
@@ -203,6 +221,8 @@ pub struct Bldg {
     pub research: Option<(Upgrade, f64)>,
     /// Fractions of shards and ether owed for repairs, charged a whole unit at a time.
     pub repair_debt: [f64; 2],
+    /// A Pump's salt earned and not yet banked (below 1: `World::pump` banks whole salt).
+    pub pumped: f64,
 }
 
 impl Bldg {
@@ -235,6 +255,8 @@ pub struct Proj {
     /// The shooter's splash (share of the damage, radius in px), fixed when it was fired.
     pub splash: f64,
     pub splash_r: f64,
+    /// The shooter's harpoon (`Weapon::slow`, s), fixed when it was fired.
+    pub slow: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -316,6 +338,41 @@ pub struct Stats {
     pub lost: u32,
     pub killed: u32,
     pub razed: u32,
+}
+
+/// A seat's resources since the game began, `[shards, ether]`: mined (delivered to a drop-off) and spent (paid out,
+/// less refunds); and its construction sites cancelled, by building kind (`BLDG_KINDS`). For the balance lab
+/// (crates/endfall-lab); not world state (derived, not hashed, read by no rule).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Ledger {
+    pub mined: [i64; 2],
+    pub spent: [i64; 2],
+    pub cancelled: [u32; BLDG_KINDS.len()],
+}
+
+/// Why an AI's last wave went (`World::ai_launch_check`; PRD: the AI breaks a defence). For the balance lab; not world
+/// state (not hashed, read by no rule).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LaunchWhy {
+    /// Its level waits for no strength (`Diff::wave_margin` 0).
+    NoMargin,
+    /// Full supply, or `Diff::all_in_after` since its last wave.
+    AllIn,
+    /// It has never seen the foe's army.
+    NeverSeen,
+    /// Against a fresh sighting.
+    Fresh,
+    /// Against a stale sighting grown by its own army's growth since (after a look, if it looked).
+    Stale,
+}
+
+/// An AI's check as its last wave went: why, its wave's armed worth and the foe's army it expected (0 when it expected
+/// none). Lab only, like `Ledger`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LaunchCheck {
+    pub why: LaunchWhy,
+    pub mine: f64,
+    pub expected: f64,
 }
 
 /// Shape of an entity at the moment it is looked up: what approach/edge-distance/closest-point need.

@@ -1,4 +1,4 @@
-// The site's cache headers (docs/MULTIPLAYER.md, Hosting), one table for both ways a file is served: the Worker's
+// The site's cache headers (Notion: Multiplayer design, Hosting), one table for both ways a file is served: the Worker's
 // responses (worker.js) and the files Cloudflare serves alone, through dist/_headers (build.mjs). A module of its own:
 // a Worker's entry module may export only handlers.
 

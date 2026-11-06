@@ -123,8 +123,9 @@ fn the_ai_answers_flyers_with_lancers() {
 
 #[test]
 fn the_ai_answers_flyers_with_interceptors_once_its_factory_can() {
-    // Three Raiders watching its base. Without a Factory: two Lancers per flyer. With a Factory and a Foundry: its
-    // Factory trains Interceptors (worth two Lancers each) and its Garrison brings only half the answer in Lancers.
+    // Three Raiders watching its base. Without a Factory: two Lancers per flyer (the mix's Harpooners, one per two
+    // Pickets, count towards the answer since the balance pass). With a Factory and a Foundry: its Factory trains
+    // Interceptors (worth two Lancers each) and its Garrison brings only half the answer in Lancers.
     let trained = |w: &World, k: UnitKind| {
         count(w, ENEMY, k)
             + w.bldgs
@@ -183,34 +184,58 @@ fn the_ai_answers_flyers_with_interceptors_once_its_factory_can() {
     }
 }
 
+/// The Harpooners `e` has and has queued (the anti-air answer adds them; the mix trains one per two Pickets anyway).
+fn harpooners(w: &World, e: u8) -> usize {
+    count(w, e, UnitKind::Lancer)
+        + w.bldgs
+            .iter()
+            .filter(|b| b.team == e)
+            .flat_map(|b| b.queue.iter())
+            .filter(|&&q| q == UnitKind::Lancer)
+            .count()
+}
+
 #[test]
 fn the_ai_only_reacts_to_flyers_it_has_seen() {
+    // Against a control game (the same seed, no flyer): a raider the AI has not seen adds no Harpooners; once seen, it
+    // does (the anti-air answer, on top of the mix's one per two Pickets).
+    let mut control = World::new(31, 0);
     let mut w = World::new(31, 0);
+    run(&mut control, 150);
     run(&mut w, 150);
-    // A raider hiding in the top-left corner, far from anything the AI has looked at.
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, 40.0, 40.0);
-    w.hold_unit(raider);
+    // Three raiders hiding in the top-left corner, far from anything the AI has looked at (three: its answer is two
+    // anti-air per flyer seen, more than the mix's Harpooners cover).
+    let raiders: Vec<Id> = (0..3)
+        .map(|k| w.make_unit(UnitKind::Raider, PLAYER, 40.0 + k as f64 * 24.0, 40.0))
+        .collect();
+    for &r in &raiders {
+        w.hold_unit(r);
+        let u = w.units.iter_mut().find(|u| u.id == r).unwrap();
+        (u.hp, u.maxhp) = (1e9, 1e9); // (they stay to be answered: the mix's Harpooners would shoot them down)
+    }
+    run(&mut control, 40);
     run(&mut w, 40);
-    assert_eq!(
-        count(&w, ENEMY, UnitKind::Lancer),
-        0,
-        "no lancers against a flyer it cannot see"
-    );
+    let (had, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
     assert!(
-        !w.bldgs
-            .iter()
-            .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer))
+        had <= base + 1,
+        "none for a flyer it cannot see: {had} against {base} without it"
     );
-    // Now fly it into view.
+    // Now into view: where its base sees them, held, out of reach of its units (as in the gunship test below).
     let (cx, cy) = core(&w, ENEMY);
-    w.move_to(raider, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
+    for (k, &r) in raiders.iter().enumerate() {
+        let u = w.units.iter_mut().find(|u| u.id == r).unwrap();
+        (u.x, u.y) = (
+            (cx as f64 - 7.0 + k as f64) * TILE,
+            (cy as f64 + 9.0) * TILE,
+        );
+        w.hold_unit(r);
+    }
+    run(&mut control, 40);
     run(&mut w, 40);
+    let (has, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
     assert!(
-        count(&w, ENEMY, UnitKind::Lancer) > 0
-            || w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
-        "lancers once it has seen the flyer"
+        has > base + 1,
+        "Harpooners once it has seen the flyer: {has} against {base} without it"
     );
 }
 
@@ -353,7 +378,8 @@ fn the_ai_expands_to_a_second_base() {
         .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
         .map(|b| (b.x, b.y))
         .collect();
-    assert_eq!(cores.len(), 2, "AI has a second core by 12 min");
+    // (a passive foe: it may have taken a third by then, `Diff::passive_expand`)
+    assert!(cores.len() >= 2, "AI has a second core by 12 min");
     let exp = cores[1];
     let working = w
         .units
@@ -381,7 +407,7 @@ fn the_ai_finds_room_for_its_natural_on_cramped_labyrinths() {
             .iter()
             .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core)
             .count();
-        assert_eq!(cores, 2, "seed {seed}: the AI expanded");
+        assert!(cores >= 2, "seed {seed}: the AI expanded");
     }
 }
 
@@ -464,9 +490,11 @@ fn the_ai_researches_upgrades_in_a_long_game() {
         "AI finished at least one level (not only a tech) by 14 min: {:?}",
         w.upgrades[1]
     );
+    // (or it stands at the cap of 40, where an army grows no more)
+    let [used, cap] = w.sup[ENEMY as usize];
     assert!(
-        army(&w) > army_10,
-        "and kept building its army while researching ({army_10} -> {})",
+        army(&w) > army_10 || used + 2 >= cap,
+        "and kept building its army while researching ({army_10} -> {}, supply {used}/{cap})",
         army(&w)
     );
 }
@@ -624,10 +652,23 @@ fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
         .unwrap()
         .id;
     w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = 50.0;
+    // (and no Pumps: their trickle would pay a salt at a time for a repair)
+    let pumps: Vec<Id> = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY && b.vent.is_some())
+        .map(|b| b.id)
+        .collect();
+    for p in pumps {
+        w.damage(p, 1e6, None);
+    }
     let mut starts = 0;
     let mut was = false;
     for _ in 0..20 * TPS {
-        w.res[ENEMY as usize] = [0, 0]; // broke throughout
+        w.res[ENEMY as usize] = [0, 0]; // broke throughout (loads emptied: two deliveries in one tick would pay 16)
+        for u in w.units.iter_mut().filter(|u| u.team == ENEMY) {
+            u.carry = 0;
+        }
         w.step();
         let now = w.units.iter().any(|u| u.task == (Task::Repair { b: id }));
         if now && !was {
@@ -675,7 +716,7 @@ fn the_ai_finishes_games_on_every_map_kind() {
 #[test]
 #[ignore]
 fn raid_matrix() {
-    for (raiders, turrets, troopers) in [
+    for (raiders, turrets, lancers) in [
         (2, 0, 0),
         (2, 1, 0),
         (2, 0, 4),
@@ -684,9 +725,9 @@ fn raid_matrix() {
         (4, 0, 6),
         (4, 1, 4),
     ] {
-        let (h, lost) = raid(raiders, turrets, troopers);
+        let (h, lost) = raid(raiders, turrets, lancers);
         println!(
-            "RAID {raiders} raiders vs {turrets} turret(s) + {troopers} troopers: {h}/8 harvesters lost, {lost}/{raiders} raiders lost"
+            "RAID {raiders} raiders vs {turrets} turret(s) + {lancers} lancers: {h}/8 harvesters lost, {lost}/{raiders} raiders lost"
         );
     }
 }
@@ -712,37 +753,58 @@ fn the_ai_fields_vanguards_from_its_barracks() {
 
 #[test]
 fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
-    // An unarmed Observer, seen (a Turret of the AI's beside it detects it), is no air threat: no Lancers. A Raider in
-    // the same spot is.
+    // Unarmed Observers, seen (a Turret of the AI's beside them), are no air threat: no Harpooners beyond its mix.
+    // Raiders in the same spot are (three of each: its answer is two anti-air per flyer, more than the mix covers).
     for (kind, lancers) in [(UnitKind::Observer, false), (UnitKind::Raider, true)] {
         let mut w = World::new(31, 0);
         run(&mut w, 150);
         let (cx, cy) = core(&w, ENEMY);
-        let id = w.make_unit(
-            kind,
-            PLAYER,
-            (cx as f64 - 7.0) * TILE,
-            (cy as f64 + 9.0) * TILE,
-        );
-        w.hold_unit(id);
+        let ids: Vec<Id> = (0..3)
+            .map(|k| {
+                let id = w.make_unit(
+                    kind,
+                    PLAYER,
+                    (cx as f64 - 7.0 + k as f64) * TILE,
+                    (cy as f64 + 9.0) * TILE,
+                );
+                w.hold_unit(id);
+                id
+            })
+            .collect();
+        for &id in &ids {
+            let o = w.units.iter_mut().find(|u| u.id == id).unwrap();
+            (o.hp, o.maxhp) = (1e9, 1e9); // (they stay to be seen and answered)
+        }
         if kind == UnitKind::Observer {
             w.make_building(BldgKind::Turret, ENEMY, cx - 5, cy + 7, true);
-            let o = w.units.iter_mut().find(|u| u.id == id).unwrap();
-            (o.hp, o.maxhp) = (1e9, 1e9); // (the Turret shoots it; it must stay to be seen)
             w.step();
-            assert!(w.seen_by(ENEMY, id), "the AI sees the scout");
+            assert!(
+                ids.iter().all(|&id| w.seen_by(ENEMY, id)),
+                "the AI sees the scouts"
+            );
         }
         run(&mut w, 80);
-        let trained = count(&w, ENEMY, UnitKind::Lancer) > 0
-            || w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer));
-        assert_eq!(trained, lancers, "{kind:?}: Lancers trained = {trained}");
+        // (against a control game: the same seed and set-up, no flyer; the mix trains Harpooners anyway)
+        let mut control = World::new(31, 0);
+        run(&mut control, 150);
+        if kind == UnitKind::Observer {
+            control.make_building(BldgKind::Turret, ENEMY, cx - 5, cy + 7, true);
+            control.step();
+        }
+        run(&mut control, 80);
+        let (have, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
+        let trained = have > base + 1;
+        assert_eq!(
+            trained, lancers,
+            "{kind:?}: an anti-air answer = {trained} ({have} Harpooners, {base} without it)"
+        );
     }
 }
 
 #[test]
-fn the_ai_taps_its_expansion_vents_when_the_home_vents_run_dry() {
+fn the_ai_plants_pumps_at_its_expansion_once_its_mains_are_taken() {
+    // With both seeps of its main taken (here by the player's Pumps, which nothing attacks), the AI plants its next
+    // Pump at its natural once its Core stands there.
     let mut w = World::new(33, 1);
     let c = w
         .bldgs
@@ -751,85 +813,35 @@ fn the_ai_taps_its_expansion_vents_when_the_home_vents_run_dry() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    // The two vents by the AI's base hold little: they run dry early.
     let (ex, ey) = core(&w, ENEMY);
-    let home: Vec<Id> = w
+    let home: Vec<(Id, i32, i32)> = w
         .map
         .nodes
         .iter()
         .filter(|n| n.ether && (n.tx - ex).abs().max((n.ty - ey).abs()) <= 10)
-        .map(|n| n.id)
+        .map(|n| (n.id, n.tx, n.ty))
         .collect();
-    assert_eq!(home.len(), 2, "two vents by the main");
-    for &v in &home {
-        w.map.node_mut(v).unwrap().amount = 300;
+    assert_eq!(home.len(), 2, "two seeps by the main");
+    for &(_, tx, ty) in &home {
+        let b = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
+        let b = w.bldgs.iter_mut().find(|x| x.id == b).unwrap();
+        b.hp = 1e9;
+        b.maxhp = 1e9;
     }
     run(&mut w, 840);
-    for &v in &home {
-        assert_eq!(w.map.node(v).unwrap().amount, 0, "the home vents ran dry");
-    }
-    let tapped: Vec<_> = w
-        .map
-        .nodes
+    let tapped = w
+        .bldgs
         .iter()
-        .filter(|n| n.ether && !home.contains(&n.id))
-        .filter(|n| {
-            n.extractor
-                .and_then(|x| w.bldg(x))
-                .is_some_and(|b| b.team == ENEMY)
-        })
-        .collect();
-    assert!(!tapped.is_empty(), "an Extractor on another vent");
-    let on_dry = w
-        .units
-        .iter()
-        .filter(|u| {
-            u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if home.contains(&node))
-        })
+        .filter(|b| b.team == ENEMY && b.done && b.vent.is_some())
         .count();
+    assert!(tapped >= 1, "a Pump on another seep");
     assert!(
-        on_dry <= 2,
-        "at most one harvester on each dry vent: {on_dry}"
-    );
-    // Later, saving ether (one worker on it): nobody heads for the dry vent while the other flows.
-    for _ in 0..12 {
-        run(&mut w, 60);
-        let busy_dry = w
-            .units
+        w.bldgs
             .iter()
-            .filter(|u| u.team == ENEMY && u.carry == 0)
-            .filter(|u| matches!(u.task, Task::Gather { node, phase: Phase::Go | Phase::Wait, .. } if home.contains(&node)))
-            .count();
-        assert!(
-            busy_dry <= 2,
-            "{busy_dry} head for the dry vent at {}s",
-            w.time as i32
-        );
-    }
-    let flowing: Vec<Id> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| n.ether && !home.contains(&n.id) && n.amount > 0)
-        .filter(|n| {
-            n.extractor
-                .and_then(|x| w.bldg(x))
-                .is_some_and(|b| b.team == ENEMY)
-        })
-        .map(|n| n.id)
-        .collect();
-    let miners = w
-        .units
-        .iter()
-        .filter(|u| {
-            u.team == ENEMY
-                && matches!(u.task, Task::Gather { node, .. } if flowing.contains(&node))
-        })
-        .count();
-    assert!(
-        miners >= 1,
-        "someone mines the flowing vents at {}s",
-        w.time as i32
+            .filter(|b| b.team == ENEMY && b.done && b.kind.def().hq)
+            .count()
+            >= 2,
+        "its natural taken"
     );
 }
 
@@ -888,13 +900,6 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
                 );
             }
             assert!(
-                w.bldgs
-                    .iter()
-                    .filter(|b| b.team == ENEMY && b.kind.def().needs_power)
-                    .all(|b| b.powered || !b.done),
-                "its production stands in power fields"
-            );
-            assert!(
                 !w.bldgs
                     .iter()
                     .any(|b| b.team == ENEMY && !HUMANS.builds(b.kind) && !VAEL.builds(b.kind))
@@ -910,112 +915,37 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
 }
 
 #[test]
-fn the_vael_ai_relights_a_dark_kiln() {
-    // Its own Kilns may all stand inside the Conflux's field (no Spire loss darkens those), so one more Kiln goes
-    // up away from it, beside its own Spire; then every Spire falls.
-    let mut w = World::with_setup(4242, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
-    let c = w
-        .bldgs
-        .iter_mut()
-        .find(|b| b.team == PLAYER && b.kind.def().hq)
-        .unwrap();
-    c.hp = 1e9;
-    c.maxhp = 1e9;
-    run(&mut w, 200);
-    let b = w.map.bases[ENEMY as usize];
-    let ty = if b.1 < 32 { b.1 + 14 } else { b.1 - 14 };
-    w.make_building(BldgKind::Spire, ENEMY, b.0 + 4, ty, true);
-    let kiln = w.make_building(BldgKind::Kiln, ENEMY, b.0, ty, true);
-    run(&mut w, 1);
-    assert!(w.bldg(kiln).unwrap().powered, "the Spire lights it");
-    let spires: Vec<Id> = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Spire)
-        .map(|b| b.id)
-        .collect();
-    for s in spires {
-        w.damage(s, 1e6, None);
-    }
-    run(&mut w, 1);
-    let dark: Vec<Id> = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY && b.done && b.kind.def().needs_power && !b.powered)
-        .map(|b| b.id)
-        .collect();
-    assert!(dark.contains(&kiln), "the far Kiln went dark");
-    run(&mut w, 120);
-    for id in dark {
-        let b = w.bldg(id).expect("nothing attacks it");
-        assert!(b.powered, "the AI put a new Spire by its dark {:?}", b.kind);
-    }
-}
-
-#[test]
-fn each_ai_takes_ether_when_it_has_something_to_spend_it_on() {
-    // The Humans' first ether buy is the Foundry, after a Garrison: their Ether Rig follows the Garrison. The Vael
-    // mix in Prisms (ether, no tech) from the start: their Siphon comes first, and their Loom as soon as its ether
-    // is in the bank rather than on the clock (150 s).
+fn each_ai_plants_its_first_pump_before_its_tech() {
+    // A Pump pays from the moment it stands: both AIs plant their first once they have seven workers, before their
+    // tech building, within two minutes.
     for seed in [3, 21] {
         for f in [&HUMANS, &VAEL] {
             let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, f]);
             let s = &f.ai;
-            let mut first = [None; 3];
+            let mut first = [None; 2];
             for t in 0..30 * 200 {
                 w.step();
                 w.events.clear();
-                for (i, k) in [f.ether, s.rax, s.tech].into_iter().enumerate() {
+                for (i, k) in [f.ether, s.tech].into_iter().enumerate() {
                     if first[i].is_none() && w.bldgs.iter().any(|b| b.team == ENEMY && b.kind == k)
                     {
                         first[i] = Some(t);
                     }
                 }
             }
-            let [ether, rax, tech] = first.map(|t| t.expect("placed within 200 s"));
-            if f.key == HUMANS.key {
-                assert!(
-                    ether > rax,
-                    "seed {seed}: the Rig after the Garrison ({ether} vs {rax})"
-                );
-            } else {
-                assert!(
-                    ether < rax,
-                    "seed {seed}: the Siphon before the Kiln ({ether} vs {rax})"
-                );
-                assert!(
-                    tech < 30 * 150,
-                    "seed {seed}: the Loom once its ether is in ({tech})"
-                );
-            }
+            let [pump, tech] = first.map(|t| t.expect("placed within 200 s"));
+            assert!(
+                pump < tech,
+                "seed {seed} {}: the Pump before the tech ({pump} vs {tech})",
+                f.key
+            );
+            assert!(
+                pump < 30 * 120,
+                "seed {seed} {}: the Pump within 2:00 ({pump})",
+                f.key
+            );
         }
     }
-}
-
-#[test]
-fn an_ai_with_ether_piling_up_leans_on_its_specialists() {
-    // A Vanguard per two Troopers and a Siege Tank per six normally; with ether in the bank, one per Trooper and one
-    // per three. (Two Factories: one could not keep up with a Garrison's Troopers either way.)
-    let mut w = World::new(9, 1);
-    let b = w.map.bases[ENEMY as usize];
-    w.make_building(BldgKind::Forge, ENEMY, b.0 + 6, b.1 - 1, true);
-    w.make_building(BldgKind::Barracks, ENEMY, b.0 - 4, b.1 + 6, true);
-    w.make_building(BldgKind::Factory, ENEMY, b.0 + 6, b.1 + 6, true);
-    w.make_building(BldgKind::Factory, ENEMY, b.0 + 10, b.1 + 6, true);
-    for _ in 0..30 * 120 {
-        w.res[ENEMY as usize] = [3000, 1000];
-        w.step();
-        w.events.clear();
-    }
-    let (troopers, vehicles) = (
-        count(&w, ENEMY, UnitKind::Trooper),
-        count(&w, ENEMY, UnitKind::Vanguard) + count(&w, ENEMY, UnitKind::SiegeTank),
-    );
-    assert!(troopers >= 3, "it trained: {troopers}");
-    assert!(
-        vehicles * 2 > troopers,
-        "more than a vehicle per two Troopers: {vehicles} to {troopers}"
-    );
 }
 
 #[test]
@@ -1052,26 +982,169 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
 }
 
 #[test]
-fn the_ai_raises_a_capital_unit_late_in_the_game() {
-    // The Human AI with money to spare: past 7.5 minutes, once its Airfield stands, it raises a Bastion.
-    let mut w = World::new(9, 1);
-    let c = w
-        .bldgs
-        .iter_mut()
-        .find(|b| b.team == PLAYER && b.kind.def().hq)
-        .unwrap();
-    c.hp = 1e9;
-    c.maxhp = 1e9;
-    for _ in 0..30 * 720 {
-        w.res[ENEMY as usize] = [2000, 1000];
-        w.step();
-        w.events.clear();
+fn the_ai_raises_a_capital_unit_late_in_the_game_from_hard_up() {
+    // The Human AI with money to spare: past 7.5 minutes, once its Airfield stands, it raises a Bastion (the
+    // Windjammer) on Hard; on Medium never, the capitals being above its mix (`Diff::mix_tier`, Roster v2).
+    for (diff, want) in [(2, true), (1, false)] {
+        let mut w = World::new(9, diff);
+        let c = w
+            .bldgs
+            .iter_mut()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap();
+        c.hp = 1e9;
+        c.maxhp = 1e9;
+        let mut bastion = false;
+        for i in 0..30 * 720u32 {
+            w.res[ENEMY as usize] = [2000, 1000];
+            if i.is_multiple_of(60 * TPS) {
+                make_room(&mut w, ENEMY, 8); // (its army loses some each minute, as in a game)
+            }
+            w.step();
+            w.events.clear();
+            bastion |= count(&w, ENEMY, UnitKind::Bastion) > 0;
+        }
+        assert_eq!(bastion, want, "level {diff}: a Bastion by 12 minutes");
     }
+}
+
+#[test]
+fn each_level_trains_only_its_own_mix() {
+    // Roster v2's mix gate (`Diff::mix_tier`, `UnitKind::ai_tier`): Easy trains only tier 0 (workers, line units,
+    // their anti-air, the scout), Medium fields tier 1 too (heavies, healers, the Petrel) and never tier 2 (the
+    // Undertow, the Kite, the capitals). Ten minutes each, both peoples, money to spare against an idle player.
+    for f in [&HUMANS, &VAEL] {
+        for diff in [0usize, 1] {
+            let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, f]);
+            for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+                (b.hp, b.maxhp) = (1e9, 1e9);
+            }
+            let mut seen = [0usize; 3]; // units of each tier it ever had, queued ones too
+            let mut kinds: Vec<UnitKind> = Vec::new();
+            let mut raised: Vec<BldgKind> = Vec::new();
+            while w.time < 600.0 {
+                w.res[ENEMY as usize] = [2000, 1000];
+                if w.tick.is_multiple_of(30 * TPS) {
+                    make_room(&mut w, ENEMY, 6); // (its army loses some, as in a game)
+                }
+                w.step();
+                w.events.clear();
+                let queued = w
+                    .bldgs
+                    .iter()
+                    .filter(|b| b.team == ENEMY)
+                    .flat_map(|b| b.queue.iter().copied());
+                let units = w.units.iter().filter(|u| u.team == ENEMY).map(|u| u.kind);
+                for k in units.chain(queued) {
+                    if !kinds.contains(&k) {
+                        kinds.push(k);
+                        seen[k.ai_tier() as usize] += 1;
+                    }
+                }
+                for b in w.bldgs.iter().filter(|b| b.team == ENEMY) {
+                    if !raised.contains(&b.kind) {
+                        raised.push(b.kind);
+                    }
+                }
+            }
+            let name = f.name;
+            // Easy raises no vehicle bay; a factory whose units are all above the level is not raised either (a
+            // Medium Humans' Loft would train only Kites, tier 2; nothing unseen hits it here, so no detector call).
+            // And the AI never researches a dig-in it would not use (Sandbags: it digs nothing in).
+            let ai = &f.ai;
+            if diff == 0 {
+                assert!(
+                    ai.heavy.is_none_or(|h| !raised.contains(&h)),
+                    "Easy {name}: no vehicle bay: {raised:?}"
+                );
+            }
+            if diff == 1 && f.name == "Humans" {
+                assert!(
+                    !raised.contains(&ai.air),
+                    "Medium Humans: no Loft: {raised:?}"
+                );
+            }
+            assert_eq!(
+                w.upgrades[ENEMY as usize][Upgrade::Entrenching.index()],
+                0,
+                "level {diff} {name}: no Sandbags"
+            );
+            assert_eq!(
+                seen[2], 0,
+                "level {diff} {name}: no tier-2 unit in ten minutes: {kinds:?}"
+            );
+            if diff == 0 {
+                assert_eq!(seen[1], 0, "Easy {name}: tier 0 only: {kinds:?}");
+            } else {
+                assert!(seen[1] > 0, "Medium {name}: tier-1 units too: {kinds:?}");
+            }
+        }
+    }
+    // The tiers themselves.
+    use UnitKind::*;
+    for k in [Harvester, Lumen, Trooper, Lancer, Scythe, Prism, Observer] {
+        assert_eq!(k.ai_tier(), 0, "{k:?}");
+    }
+    for k in [Umbra, Raider, Bastion, Sovereign] {
+        assert_eq!(k.ai_tier(), 2, "{k:?}");
+    }
+    assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 2, 2]);
+}
+
+#[test]
+fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
+    // The balance follow-ups (`Diff::mix_over`): at Brutal an Anchor Gun per four Pickets from 4:00, at every other level
+    // the race's own entry (per six from 5:30); the Vael's mix is the same at every level.
+    use UnitKind::*;
+    let gun = HUMANS
+        .ai
+        .mix
+        .iter()
+        .copied()
+        .find(|m| m.0 == SiegeTank)
+        .unwrap();
+    assert_eq!(gun, (SiegeTank, 6, 330.0));
+    for (l, d) in DIFF.iter().enumerate().take(3) {
+        assert_eq!(d.mix_entry(gun), gun, "level {l}");
+    }
+    assert_eq!(DIFF[3].mix_entry(gun), (SiegeTank, 4, 240.0));
+    for &m in VAEL.ai.mix {
+        assert!(DIFF.iter().all(|d| d.mix_entry(m) == m), "{m:?}");
+    }
+    // In play: the same game at Hard and at Brutal for ten minutes, the Human AI's first Anchor Gun and how many it has
+    // trained by then (Brutal: the first before 5:30, and more of them).
+    let guns = |level: usize| {
+        let mut w = World::with_setup(7, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.set_ai_seats([true, true]);
+        let (mut first, mut seen) = (f64::INFINITY, Vec::new());
+        while w.time < 600.0 && !w.over {
+            w.step();
+            w.events.clear();
+            for u in w
+                .units
+                .iter()
+                .filter(|u| u.team == 0 && u.kind == SiegeTank)
+            {
+                first = first.min(w.time);
+                if !seen.contains(&u.id) {
+                    seen.push(u.id);
+                }
+            }
+        }
+        (first, seen.len())
+    };
+    let ((hard_first, hard_n), (brutal_first, brutal_n)) = (guns(2), guns(3));
     assert!(
-        w.units
-            .iter()
-            .any(|u| u.team == ENEMY && u.kind == UnitKind::Bastion),
-        "a Bastion by 12 minutes"
+        hard_first >= 330.0,
+        "Hard's first Anchor Gun at {hard_first:.0} s"
+    );
+    assert!(
+        brutal_first < 330.0,
+        "Brutal's first Anchor Gun at {brutal_first:.0} s"
+    );
+    assert!(
+        brutal_n > hard_n,
+        "Anchor Guns by 10:00: Brutal {brutal_n}, Hard {hard_n}"
     );
 }
 
@@ -1371,7 +1444,7 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
 #[test]
 fn the_vael_ai_keeps_no_spare_worker() {
     // A Vael planter leaves its site at once: the Vael AI's workers stay at its target through a long game on every
-    // level (an expansion adds five).
+    // level (a second base adds three).
     for (diff, d) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(17, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
@@ -1387,9 +1460,9 @@ fn the_vael_ai_keeps_no_spare_worker() {
                 .iter()
                 .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
                 .count();
-            // (its difficulty's, five more a base, and a crew for each flowing vent past the first)
+            // (its difficulty's, and three more with a second base)
             let target = w.harv_target_of(ENEMY, cores);
-            assert!(target >= d.harv + 5 * cores.saturating_sub(1));
+            assert_eq!(target, d.harv + 3 * (cores >= 2) as usize);
             most = most.max(harvesters(&w, ENEMY).len() as i64 - target as i64);
         }
         assert!(most <= 0, "diff {diff}: {most} over its target");
@@ -1436,9 +1509,10 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
     // Brutal's x1.3 income needs more factories than a main pocket has room for: with none left near its centre it
     // builds farther out (and the Vael raise a Spire out there first, for a field to build in) instead of waiting for
     // its natural. Its mean bank at 6 and 8 minutes over three seeds, against a player who holds: about 3,650 for
-    // either race before, about 1,250 / 1,800 (Human / Vael AI) now.
+    // either race before, about 1,250 / 1,800 (Human / Vael AI) then. Under the cap of 40 (PRD: the conversion) a
+    // seat at the cap cannot spend: only the samples short of it count, and it must reach the cap at all.
     for f in [[&HUMANS, &HUMANS], [&HUMANS, &VAEL]] {
-        let mut banked = Vec::new();
+        let (mut banked, mut capped) = (Vec::new(), 0);
         for seed in [3u32, 17, 44] {
             let mut w = World::with_setup(seed, 3, MapKind::Standard, false, f);
             for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
@@ -1450,10 +1524,20 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                     w.step();
                     w.events.clear();
                 }
-                banked.push(w.res[ENEMY as usize][0]);
+                let [used, cap] = w.sup[ENEMY as usize];
+                if used + 2 < w.supply_limit() || cap < w.supply_limit() {
+                    banked.push(w.res[ENEMY as usize][0]);
+                } else {
+                    capped += 1;
+                }
             }
         }
-        let mean = banked.iter().sum::<i32>() / banked.len() as i32;
+        assert!(
+            capped > 0,
+            "{}: it reached the cap of 40 by 8:00",
+            f[1].name
+        );
+        let mean = banked.iter().sum::<i32>() / banked.len().max(1) as i32;
         assert!(
             mean < 2500,
             "{}: {banked:?} banked (mean {mean})",
@@ -1520,7 +1604,7 @@ fn brutal_trains_its_workers_before_its_buildings() {
     // so its Core stood idle between workers; and a Human builder leaves the line while it builds, so the Human AI fell
     // behind the Vael AI in the opening. Now a worker's price stays in the bank while the crew is short: by 3:00 (its
     // build-up done; the first waves can meet about then, so the mining margin allows for a fleeing worker or two) the Human AI's Core
-    // has stood idle for under 10 s, its crew is full and it mines within two of the Vael AI. (Without it: 18-23 s idle, a crew of 17 and two to three fewer mining.)
+    // has stood idle for under 10 s, its crew is full and it has within two as many at work (mining or building) as the Vael AI. (Without it: 18-23 s idle, a crew of 17 and two to three fewer mining.)
     let d = &DIFF[3];
     assert!(d.workers_first);
     for seed in [3, 5, 17] {
@@ -1539,10 +1623,16 @@ fn brutal_trains_its_workers_before_its_buildings() {
                 idle += 1.0 / 30.0;
             }
         }
+        // At work: mining, or (a Human builder, who leaves the line) putting up a building.
         let mining = |s: u8| {
             harvesters(&w, s)
                 .iter()
-                .filter(|&&h| matches!(w.unit(h).unwrap().task, Task::Gather { .. }))
+                .filter(|&&h| {
+                    matches!(
+                        w.unit(h).unwrap().task,
+                        Task::Gather { .. } | Task::Build { .. }
+                    )
+                })
                 .count()
         };
         assert!(idle < 10.0, "seed {seed}: its Core stood idle {idle:.1} s");
@@ -1559,7 +1649,7 @@ fn brutal_trains_its_workers_before_its_buildings() {
         );
         assert!(
             mining(PLAYER) + 2 >= mining(ENEMY),
-            "seed {seed}: mining {} to the Vael AI's {}",
+            "seed {seed}: at work {} to the Vael AI's {}",
             mining(PLAYER),
             mining(ENEMY)
         );
@@ -1569,10 +1659,9 @@ fn brutal_trains_its_workers_before_its_buildings() {
 }
 
 #[test]
-fn the_ai_takes_both_vents_of_its_main_and_crews_them() {
-    // Every main has two vents. The AI raises its second refinery once the first flows and its tech is going up
-    // (Medium: before 4:00), mines both, and trains a crew for the second, so its shards do not pay for its ether.
-    // Easy keeps to one until its natural is due (`Diff::vents_from`).
+fn the_ai_plants_a_pump_on_both_seeps_of_its_main() {
+    // Every main has two seeps. The AI plants a Pump on each by 4:00 (Medium), and nobody works them (a Pump pays by
+    // itself). Easy keeps to one until its natural is due (`Diff::vents_from`).
     let home_vents = |w: &World, seat: u8| -> Vec<Id> {
         let c = w
             .bldgs
@@ -1604,17 +1693,9 @@ fn the_ai_takes_both_vents_of_its_main_and_crews_them() {
         w.set_ai_seats([true, true]);
         w.hold_waves = true; // (its economy, not a fight)
         let homes = [home_vents(&w, 0), home_vents(&w, 1)];
-        let mut mined = [vec![false; 2], vec![false; 2]];
         for _ in 0..30 * 240 {
             w.step();
             w.events.clear();
-            for seat in 0..2u8 {
-                for (i, &v) in homes[seat as usize].iter().enumerate() {
-                    mined[seat as usize][i] |= w.units.iter().any(|u| {
-                        u.team == seat && matches!(u.task, Task::Gather { node, phase: Phase::Mine, .. } if node == v)
-                    });
-                }
-            }
         }
         for seat in 0..2u8 {
             let ctx = format!("seed {seed} {kind:?} seat {seat}");
@@ -1623,18 +1704,12 @@ fn the_ai_takes_both_vents_of_its_main_and_crews_them() {
                 2,
                 "{ctx}: two vents by the main"
             );
-            for (i, &v) in homes[seat as usize].iter().enumerate() {
-                assert!(rig_of(&w, seat, v), "{ctx}: a refinery on vent {v} by 4:00");
-                assert!(mined[seat as usize][i], "{ctx}: vent {v} mined");
+            for &v in &homes[seat as usize] {
+                assert!(rig_of(&w, seat, v), "{ctx}: a Pump on seep {v} by 4:00");
             }
-            let crew = harvesters(&w, seat).len();
-            assert!(
-                crew > DIFF[1].harv,
-                "{ctx}: workers trained for the second vent's crew: {crew}"
-            );
         }
     }
-    // Easy: one refinery until its natural is due.
+    // Easy: one Pump until its natural is due.
     let mut w = World::with_setup(3, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
     w.set_ai_seats([true, true]);
     w.hold_waves = true;
@@ -1644,7 +1719,7 @@ fn the_ai_takes_both_vents_of_its_main_and_crews_them() {
             .iter()
             .filter(|&&v| rig_of(&w, seat, v))
             .count();
-        assert_eq!(rigs, 1, "Easy seat {seat}: one refinery at 5:00");
+        assert_eq!(rigs, 1, "Easy seat {seat}: one Pump at 5:00");
     }
 }
 
@@ -1679,12 +1754,18 @@ fn the_ai_takes_an_expansions_vent_only_once_its_core_stands_there() {
                         .any(|b| ((n.tx - b.0 - 2) as f64).hypot((n.ty - b.1 - 2) as f64) < 16.0)
             });
             assert!(near_main, "{ctx}: a natural's vent within the main's reach");
+            // Each refinery when it is first seen, a quarter-second after it is placed: one may outlive its Core (seed
+            // 92's Standard: a Siphon raised at 512 s once the natural's Conflux stood, the Conflux razed at 555 s).
+            let mut seen = std::collections::BTreeSet::new();
             for _ in 0..30 * 600 / 15 {
                 for _ in 0..15 {
                     w.step();
                     w.events.clear();
                 }
                 for b in w.bldgs.iter().filter(|b| b.kind.def().on_vent) {
+                    if !seen.insert(b.id) {
+                        continue;
+                    }
                     let Some(v) = b.vent.and_then(|v| w.map.node(v)) else {
                         continue;
                     };
@@ -1710,15 +1791,20 @@ fn the_ai_takes_an_expansions_vent_only_once_its_core_stands_there() {
 #[test]
 fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_field() {
     // The Human AI with money to spare and its Airfield up trains no Observer while nothing unseen has hit it. A
-    // cloaked Raider then shoots one of its Troopers out by the player's base (far from its own buildings, where no
-    // tower goes): it trains one Observer, and keeps it over its next wave rather than at home or racing ahead.
-    let mut w = World::new(9, 1);
+    // cloaked Petrel (Seaglass; the Raider's cloak went with Roster v2) then shoots one of its Troopers out by the
+    // player's base (far from its own buildings, where no
+    // tower goes): it trains one Observer, and keeps it over its next wave rather than at home or racing ahead. (On
+    // Hard: a Medium Human AI raises its Loft only once something unseen hits it, its Kites above Medium's mix.)
+    let mut w = World::new(9, 2);
     for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
         (b.hp, b.maxhp) = (1e9, 1e9);
     }
     let observers = |w: &World| count(w, ENEMY, UnitKind::Observer);
     let step = |w: &mut World| {
         w.res[ENEMY as usize] = [2000, 1000];
+        if w.tick.is_multiple_of(30 * TPS) {
+            make_room(w, ENEMY, 6); // (its army loses some, as in a game)
+        }
         w.step();
         w.events.clear();
     };
@@ -1741,9 +1827,8 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
     let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.hold_unit(trooper);
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, x + 40.0, y);
-    w.upgrades[PLAYER as usize][Upgrade::CloakingField.index()] = 1;
-    w.cast(raider, AbilityKind::Cloak).unwrap();
+    let raider = w.make_unit(UnitKind::Shrike, PLAYER, x + 40.0, y);
+    w.upgrades[PLAYER as usize][Upgrade::VeilWeave.index()] = 1;
     for _ in 0..3 * TPS {
         if w.unit(trooper).is_some() && w.unit(raider).is_some() {
             w.attack_ent(raider, trooper);
@@ -1752,10 +1837,10 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
     }
     assert!(
         w.unit(trooper).is_none_or(|t| t.hp < t.maxhp),
-        "the cloaked Raider hit it"
+        "the cloaked Petrel hit it"
     );
     if w.unit(raider).is_some() {
-        w.damage(raider, 1e6, None); // (the hit is the news; the Raider itself is not the test)
+        w.damage(raider, 1e6, None); // (the hit is the news; the Petrel itself is not the test)
     }
     let mut trained = None;
     while w.time < 540.0 && trained.is_none() {
@@ -1804,61 +1889,147 @@ fn the_ai_takes_an_observer_along_once_something_unseen_hits_its_army_in_the_fie
 fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
     // Each side's air factory waits for its level's `air_at`, less its script's `air_lead`: the Vael's Zenith half a
     // minute sooner (its Shrikes came only where the Zenith stood well before the 7:30 capital, in 6-28% of AI
-    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Medium.
-    let air_at = DIFF[1].air_at;
+    // games), the Humans' Airfield on time. Money to spare, against an idle player, on Hard (Medium's Humans raise
+    // no Loft since Roster v2: their Kites are above Medium's mix), over ten maps: every
+    // one comes, never before it is due, and the Vael's typical Zenith before the Humans' typical Airfield. One map in
+    // ten may be late: a main whose build order keeps two other sites going (supply, a second factory, its natural)
+    // has no turn for it for a few minutes (on #203's main seed 7 for both peoples at 8-9 minutes, with the tower at
+    // 2:30 the Humans' seed 6 at 8:26). A Vael main full by then raises a Spire out past it first and puts its Zenith
+    // in that field.
+    let air_at = DIFF[2].air_at;
+    let mut medians = Vec::new();
     for f in [&VAEL, &HUMANS] {
-        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);
-        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
-            (b.hp, b.maxhp) = (1e9, 1e9);
-        }
-        let mut placed = None;
-        while w.time < air_at + 30.0 && placed.is_none() {
-            w.res[ENEMY as usize] = [2000, 1000];
-            w.step();
-            w.events.clear();
-            placed = w
-                .bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.kind == f.ai.air)
-                .then_some(w.time);
-        }
-        let at = placed.unwrap_or(f64::MAX);
         let due = air_at - f.ai.air_lead;
-        let early = f.ai.air_lead > 0.0;
+        let mut times: Vec<f64> = (1..=10u32)
+            .map(|seed| {
+                let mut w = World::with_setup(seed, 2, MapKind::Standard, false, [&HUMANS, f]);
+                for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+                    (b.hp, b.maxhp) = (1e9, 1e9);
+                }
+                let mut placed = None;
+                while w.time < 900.0 && placed.is_none() {
+                    w.res[ENEMY as usize] = [2000, 1000];
+                    w.step();
+                    w.events.clear();
+                    placed = w
+                        .bldgs
+                        .iter()
+                        .any(|b| b.team == ENEMY && b.kind == f.ai.air)
+                        .then_some(w.time);
+                }
+                placed.unwrap_or(f64::MAX)
+            })
+            .collect();
         assert!(
-            at > due && at < if early { air_at } else { air_at + 30.0 },
-            "{}: its {:?} at {at:.0} s, due after {due:.0} s",
+            times.iter().all(|&at| at > due && at < 900.0),
+            "{}: its {:?} on every map, never before {due:.0} s: {times:?}",
             f.name,
             f.ai.air
         );
+        let late = times.iter().filter(|&&at| at > air_at + 60.0).count();
+        assert!(
+            late <= 1,
+            "{}: its {:?} by {:.0} s on all maps but one at most: {times:?}",
+            f.name,
+            f.ai.air,
+            air_at + 60.0
+        );
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        medians.push((times[4] + times[5]) / 2.0);
     }
+    assert!(
+        medians[0] < medians[1],
+        "the Vael's Zenith ({:.0} s) before the Humans' Airfield ({:.0} s) on a typical map",
+        medians[0],
+        medians[1]
+    );
     const { assert!(VAEL.ai.air_lead > HUMANS.ai.air_lead) };
 }
 
 #[test]
-fn the_vael_ai_mixes_in_umbras_once_its_loom_stands_but_not_on_easy() {
-    // Money to spare against an idle Human player: from 5:00, with its Loom up, the Vael AI's Kilns mix in Umbras
-    // (one per six Scythes until it sees detection with the enemy army). Easy, which does not adapt, never fields an
-    // unseen killer.
-    for (diff, want) in [(1, true), (2, true), (0, false)] {
+fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_from_hard_up() {
+    // Money to spare against an idle Human player: once its Zenith is going up and Umbras are near (5:00), the Vael
+    // AI raises an Eclipse (after its Loom; its Zenith comes from 4:30 to 6:30 here, so its Umbras by 10:00; by 11:00 on Hard, whose larger army keeps it at its supply cap with money refilled every tick: traced at 9:00-9:30, its Zenith due an Umbra and idle at 132/132 and 140/140, the Umbra waiting for free supply like anything else), and its Zenith mixes in Umbras (one per six Scythes until it sees
+    // detection with the enemy army) between its Shrikes and its Sovereign: the one building shares its time, so
+    // each still comes, and the Eclipse weaves the Shrikes' techs. Easy, which neither adapts nor researches techs,
+    // raises no Eclipse and never fields an unseen killer. Medium raises its Eclipse for the Shrikes' techs but, the
+    // Umbra and the Sovereign being above its mix since Roster v2 (`Diff::mix_tier`), trains neither.
+    for (diff, want) in [(2, true), (0, false), (1, true)] {
+        let umbras = diff >= 2;
         let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
-        let mut first = None;
-        while w.time < 480.0 && first.is_none() {
+        let (mut first, mut eclipse) = (None, None);
+        let end = if want { 660.0 } else { 600.0 };
+        let mut sovereign = false;
+        let mut lurked = false; // (one of its Undertows lay hidden, lurking, at some point)
+        let made = |w: &World, k: UnitKind| {
+            count(w, ENEMY, k)
+                + w.bldgs
+                    .iter()
+                    .filter(|b| b.team == ENEMY)
+                    .flat_map(|b| b.queue.iter())
+                    .filter(|&&q| q == k)
+                    .count()
+        };
+        let stands = |w: &World, k: BldgKind| {
+            w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == k && b.done)
+        };
+        while w.time < end {
             w.res[ENEMY as usize] = [2000, 1000];
+            if w.tick.is_multiple_of(30 * TPS) {
+                make_room(&mut w, ENEMY, 6); // (its army loses some, as in a game)
+            }
             w.step();
             w.events.clear();
-            first = (count(&w, ENEMY, UnitKind::Umbra) > 0).then_some(w.time);
+            if eclipse.is_none() && stands(&w, BldgKind::Eclipse) {
+                eclipse = Some(w.time);
+                assert!(stands(&w, BldgKind::Loom), "level {diff}: after its Loom");
+            }
+            if first.is_none() && made(&w, UnitKind::Umbra) > 0 {
+                first = Some(w.time);
+            }
+            sovereign |= made(&w, UnitKind::Sovereign) > 0;
+            lurked |= w
+                .units
+                .iter()
+                .any(|u| u.team == ENEMY && u.kind == UnitKind::Umbra && w.is_cloaked(u));
         }
         assert_eq!(
-            first.is_some(),
+            eclipse.is_some(),
             want,
-            "level {diff}: Umbras by 8:00 ({first:?})"
+            "level {diff}: an Eclipse ({eclipse:?})"
+        );
+        assert_eq!(
+            first.is_some_and(|t| t < 660.0),
+            umbras,
+            "level {diff}: Umbras by 11:00 on Hard, never below ({first:?}, the Eclipse at {eclipse:?})"
+        );
+        assert_eq!(sovereign, umbras, "level {diff}: a Sovereign on Hard only");
+        // Lurk needs nothing of the AI: its Undertows lie hidden whenever they wait (at its rally, before a wave).
+        assert_eq!(
+            lurked, umbras,
+            "level {diff}: its Undertows lurk while they wait"
         );
         if let Some(t) = first {
             assert!(t > 300.0, "level {diff}: not before 5:00 ({t:.0} s)");
+        }
+        if want {
+            assert!(
+                made(&w, UnitKind::Shrike) >= 1,
+                "level {diff}: the Zenith still makes its Shrikes by 11:00"
+            );
+            let techs = w.upgrades[ENEMY as usize];
+            assert!(
+                techs[Upgrade::VeilWeave.index()] + techs[Upgrade::Slipstream.index()] >= 1
+                    || w.bldgs.iter().any(|b| b.team == ENEMY
+                        && b.kind == BldgKind::Eclipse
+                        && b.research.is_some()),
+                "level {diff}: the Eclipse weaves a Shrike tech by 11:00"
+            );
         }
     }
 }
@@ -1873,6 +2044,9 @@ fn the_human_ai_raises_its_airfield_and_an_observer_once_an_umbra_hits_it() {
     }
     let step = |w: &mut World| {
         w.res[ENEMY as usize] = [2000, 1000];
+        if w.tick.is_multiple_of(30 * TPS) {
+            make_room(w, ENEMY, 6); // (its army loses some, as in a game)
+        }
         w.step();
         w.events.clear();
     };
@@ -1889,11 +2063,11 @@ fn the_human_ai_raises_its_airfield_and_an_observer_once_an_umbra_hits_it() {
     let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.hold_unit(trooper);
-    let umbra = w.make_unit(UnitKind::Umbra, PLAYER, x + 40.0, y);
+    // (an Undertow lying in wait beside it, lurking: its blow comes out of hiding)
+    let umbra = w.make_unit(UnitKind::Umbra, PLAYER, x + 30.0, y);
+    w.hold_unit(umbra);
+    w.units.iter_mut().find(|u| u.id == umbra).unwrap().still = LURK_S;
     for _ in 0..3 * TPS {
-        if w.unit(trooper).is_some() {
-            w.attack_ent(umbra, trooper);
-        }
         step(&mut w);
     }
     assert!(
@@ -1916,4 +2090,89 @@ fn the_human_ai_raises_its_airfield_and_an_observer_once_an_umbra_hits_it() {
         "the Airfield before its schedule ({placed:.0} s)"
     );
     assert!(observer.is_some(), "an Observer by 8:00");
+}
+
+#[test]
+fn the_ai_raises_its_first_tower_at_two_and_a_half_minutes() {
+    // Its first defence tower (a Turret, a Ward) once its first factory stands and from 2:30 (it was 4:00): an early
+    // wave found nothing at home but a few units (on the Shore map, where the routes are shorter, the Humans lost about
+    // three harvesters by 5:00 and won 14 of 40 at Medium; with the tower at 2:30, 1.6 and 17). Money to spare,
+    // against an idle player, on Medium.
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let mut placed = None;
+        while w.time < 300.0 && placed.is_none() {
+            w.res[ENEMY as usize] = [2000, 1000];
+            w.step();
+            w.events.clear();
+            placed = w
+                .bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == f.ai.tower)
+                .then_some(w.time);
+        }
+        let at = placed.unwrap_or(f64::MAX);
+        assert!(
+            at > 150.0 && at < 240.0,
+            "{}: its first {:?} at {at:.0} s (from 150 s, before the old 240 s)",
+            f.name,
+            f.ai.tower
+        );
+    }
+}
+
+#[test]
+fn a_seat_s_plan_replaces_its_level_s_tuning() {
+    // The balance lab's plans (World::set_ai_plans): a whole `Diff` per seat in place of its level's, read by every AI
+    // decision through `World::tuning`. Without one, a seat plays its level (the goldens pin that nothing changed).
+    let mut w = World::with_setup(4, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    for s in 0..2 {
+        assert_eq!(w.tuning(s), DIFF[w.diff_of(s)], "no plan: its level's");
+    }
+    assert!(!w.set_ai_plans(&[None]), "a plan for every seat, or none");
+    // A quick first wave (a small one, so it can leave before its level's own time) against a late one: each leaves
+    // when its plan says, the quick one before Medium's own first wave could, the late one after.
+    let (quick, late) = (120.0, 420.0);
+    assert!(quick + 30.0 < DIFF[1].first && late > DIFF[1].first + 60.0);
+    // (no siege rules, no home reserve and no pull-back: the waves' times are the plans' alone, whatever the foe does)
+    let plan = |first, wave| {
+        Some(Diff {
+            first,
+            wave,
+            reserve: 0.0,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        })
+    };
+    assert!(w.set_ai_plans(&[plan(quick, 2), plan(late, DIFF[1].wave)]));
+    assert_eq!(w.tuning(0).first, quick);
+    assert_eq!(w.tuning(1).first, late);
+    let mut launched = [None::<f64>; 2];
+    while w.time < 600.0 && launched.iter().any(|l| l.is_none()) && w.winner < 0 {
+        w.step();
+        w.events.clear();
+        for s in 0..2u8 {
+            if launched[s as usize].is_none() && w.ai_wave_of(s).is_some() {
+                launched[s as usize] = Some(w.time);
+            }
+        }
+    }
+    let [a, b] = launched.map(|l| l.unwrap_or(f64::MAX));
+    assert!(
+        a < 600.0 && b < 600.0,
+        "both waves leave: {a:.0} s and {b:.0} s"
+    );
+    assert!(
+        a >= quick && b >= late,
+        "no wave before its plan's time: {a:.0} s and {b:.0} s"
+    );
+    assert!(
+        a < DIFF[1].first,
+        "the quick plan's wave before its level's own first wave could leave ({a:.0} s, Medium {} s)",
+        DIFF[1].first
+    );
 }

@@ -6,9 +6,6 @@ use super::*;
 /// Game times (s) after which the AI wants its first and second capital unit.
 const CAPITAL_AT: [f64; 2] = [450.0, 660.0];
 
-/// Unspent ether the AI counts as piling up (it then leans on its ether-hungry specialists).
-pub(crate) const ETHER_FLOAT: i32 = 200;
-
 impl World {
     /// Production: the right unit from each building, rally points, nothing while saving.
     pub(crate) fn ai_produce(&mut self, brain: &mut Brain) {
@@ -76,7 +73,25 @@ impl World {
         } else {
             enemy_air * 2
         };
-        for &bid in &my_b {
+        // Supply tight: the specialists' factories (the air factory, the vehicle bay) take the free places before the
+        // barracks, else several barracks fill them every round and a specialist that is due never fits. With room to
+        // spare, every factory in building order as ever.
+        let order: Vec<Id> = {
+            let [used, cap] = self.sup[e as usize];
+            let s = &self.factions[e as usize].ai;
+            let first = |id: &Id| {
+                self.bldg(*id)
+                    .is_some_and(|b| b.kind == s.air || s.heavy == Some(b.kind))
+            };
+            if cap - used < SUPPLY_TIGHT {
+                let (mut a, b): (Vec<Id>, Vec<Id>) = my_b.iter().copied().partition(first);
+                a.extend(b);
+                a
+            } else {
+                my_b.clone()
+            }
+        };
+        for &bid in &order {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
                 continue;
@@ -97,25 +112,34 @@ impl World {
             };
             // The main factory answers enemy flyers, then each factory mixes in the specialists it trains by ratio
             // (each once its requirement stands: a Vanguard per two Troopers once the Forge stands beats massed
-            // infantry). Ether piling up (the line unit costs none) halves the ratios: spend it on specialists.
-            let floating = self.res[e as usize][1] >= ETHER_FLOAT;
+            // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges).
             let heavy = s.heavy == Some(b.kind);
-            let mixed = s.mix.iter().find(|&&(k, per, from)| {
-                let per = self.answer_ratio(k, if floating { per.div_ceil(2) } else { per });
-                let Some(per) = self.cloak_ratio(k, per) else {
-                    return false;
-                };
-                b.kind.def().trains.contains(&k)
-                    && t >= from
-                    && k.def()
-                        .req
-                        .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
-                    && (mine(self, k) + 1) * per <= mine(self, s.basic)
-            });
+            // (only what its level trains: a mix above it leaves the factory to its other units)
+            let level = self.level();
+            let mixed = s
+                .mix
+                .iter()
+                .map(|&m| level.mix_entry(m))
+                .find(|&(k, per, from)| {
+                    if !self.level_allows(k) {
+                        return false;
+                    }
+                    let per = self.answer_ratio(k, per);
+                    let Some(per) = self.cloak_ratio(k, per) else {
+                        return false;
+                    };
+                    b.kind.def().trains.contains(&k)
+                        && t >= from
+                        && k.def()
+                            .req
+                            .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+                        && (mine(self, k) + 1) * per <= mine(self, s.basic)
+                });
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
             // up for it rather than spending the money on raiders.
-            let capital = b.kind.def().trains.iter().copied().find(|k| {
+            let capital = b.kind.def().trains.iter().copied().find(|&k| {
                 k.def().capital
+                    && self.level_allows(k)
                     && k.def()
                         .req
                         .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
@@ -144,8 +168,13 @@ impl World {
                 heavy_aa.filter(|k| short_of_aa && b.kind.def().trains.contains(k))
             {
                 k
-            } else if (b.kind == s.rax || heavy)
-                && let Some(&(k, _, _)) = mixed
+            } else if let Some((k, _, _)) = mixed
+                && (b.kind == s.rax
+                    || heavy
+                    // (the air factory takes turns: a mixed-in unit (the Vael's Umbra), then a raider, until its
+                    // raiders are all out: neither starves the other)
+                    || (b.kind == s.air
+                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)))
             {
                 k
             } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {
@@ -153,11 +182,10 @@ impl World {
             } else {
                 b.kind.def().trains[0]
             };
-            // Short of ether for the specialist? Troopers (shards only) rather than an idle barracks. Short of
-            // shards it waits for them instead, as a Trooper would only delay the specialist.
-            let u = if self.res[e as usize][1] >= need(u)[1] {
+            // (a unit above its level's mix: its line unit instead, or nothing from a vehicle bay or an air factory)
+            let u = if self.level_allows(u) {
                 u
-            } else if heavy {
+            } else if heavy || b.kind == s.air {
                 continue;
             } else {
                 b.kind.def().trains[0]
@@ -185,6 +213,11 @@ impl World {
         }
     }
 
+    /// Whether the seat taking its turn trains `k` at its level (`Diff::mix_tier`).
+    pub(crate) fn level_allows(&self, k: UnitKind) -> bool {
+        k.ai_tier() <= self.level().mix_tier
+    }
+
     /// The capital unit `e`'s finished air factory should raise now (one after CAPITAL_AT[0] s, a second after
     /// [1]), if any: counted with those queued.
     pub(crate) fn capital_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<UnitKind> {
@@ -194,8 +227,9 @@ impl World {
             .filter_map(|&id| self.bldg(id))
             .filter(|b| b.done && b.kind == air)
             .find_map(|b| {
-                b.kind.def().trains.iter().copied().find(|k| {
+                b.kind.def().trains.iter().copied().find(|&k| {
                     k.def().capital
+                        && self.level_allows(k)
                         && k.def()
                             .req
                             .is_none_or(|r| self.ai_count(my_b, true, r) >= 1)

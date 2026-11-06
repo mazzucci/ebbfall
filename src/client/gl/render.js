@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies } from '../../engine/index.js';
+import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, colorOf } from '../look.js';
 import { drag } from '../input.js';
@@ -43,7 +43,7 @@ for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)
 }
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
- *  (atlas.json `tints`, from look.js SEAT_COLORS; docs/ART.md). */
+ *  (atlas.json `tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
 export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
 /** A seat's paint in this game: its spot's (look.js `colorOf`: a player keeps its board spot's colour). */
 export const seatTint = (team) => spotTint(colorOf(team));
@@ -202,7 +202,12 @@ export function renderTerrain() {
   }
   // Large-scale variation so the tiles never read as a grid.
   const img = shadeCtx.createImageData(MW, MH);
-  for (let i = 0; i < MW * MH; i++) { const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)); img.data.set([Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s), 255], i * 4); }
+  for (let i = 0; i < MW * MH; i++) {
+    const s = Math.min(1, Math.max(0, (map.shade[i] - 0.2) * 1.8)), wet = map.rock[i] ? 'land' : ground(i % MW, (i / MW) | 0);
+    // Water over the ground, the same multiply: the shallows a clear sea-green, deep water a dark blue.
+    const c = wet === 'deep' ? [52, 92, 150] : wet === 'shallow' ? [118, 178, 196] : [Math.min(255, Math.round(130 + 125 * s + 12 * s)), Math.round(130 + 120 * s), Math.round(135 + 110 * s)];
+    img.data.set([...c, 255], i * 4);
+  }
   shadeCtx.putImageData(img, 0, 0); shadeTex.source.update();
   const vs = new Sprite(shadeTex); vs.scale.set(TILE); vs.blendMode = 'multiply'; L.shade.addChild(vs); // over the scenery too
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
@@ -214,7 +219,8 @@ export function renderTerrain() {
   }
   // Minimap background.
   const th = thumb.getContext('2d');
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
+  const wetCss = { shallow: '#3f6f7e', deep: '#1f3a63' };
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? '#3b4556' : wetCss[g] || `hsl(214,18%,${18 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
@@ -259,7 +265,7 @@ class UnitObj {
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own colour)
     this.size = u.r > 12 ? 26 : 18;
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
-    this.cargo = light(0x4fd1c5, 0.18, 0.9);
+    this.cargo = light(0xeee6d2, 0.14, 0.5); // (the salt a worker carries: pale, faint)
     this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
@@ -267,7 +273,7 @@ class UnitObj {
     if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
     // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
     const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
-    const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
+    const f = pose && u.swap > 0 ? pose.swap : pose && (u.mode || (u.cloaked && u.d.lurk)) ? pose.on : Math.floor(this.walk) % frames; // (a lurker lying hidden shows its `on` pose: the Undertow flat)
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     const name = `${u.type}_${dir}_${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
@@ -286,10 +292,15 @@ class UnitObj {
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
       bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
     }
+    // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
+    if (u.slowed > 0) {
+      const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4);
+      bars.ellipse(u.x, y, rx, ry).stroke({ width: 2.5, color: 0x3b2a1a, alpha: 0.55 * a }).ellipse(u.x, y, rx, ry).stroke({ width: 1.2, color: 0xe2c992, alpha: 0.9 * a });
+    }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
-    if (u.carry) { this.cargo.tint = u.carryType === 'ether' ? 0xa78bfa : 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
+    if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; } }
   destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); } // (a Graphics frees its context only when destroyed without options)
@@ -343,7 +354,7 @@ class BldgObj {
       setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(b.x, b.y); this.headPaint.position.set(b.x, b.y);
       paintAs(this.head, this.headPaint, this.seat, this.body.tint, this.body.alpha);
     }
-    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x, b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
+    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
     if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
@@ -371,14 +382,15 @@ class NodeObj {
   constructor(n) {
     this.ether = n.type === 'ether';
     this.s = new Sprite(); this.s.position.set(n.x, n.y); L.nodes.addChild(this.s);
-    this.glow = light(this.ether ? 0xa78bfa : 0x4fd1c5, this.ether ? 1.1 : 0.55, this.ether ? 0.45 : 0.25); this.glow.position.set(n.x, n.y);
+    // (a brine seep glows; salt carries no light: tools/render3d/STYLE.md)
+    this.glow = this.ether ? light(0xa78bfa, 1.1, 0.45) : null; if (this.glow) this.glow.position.set(n.x, n.y);
   }
   update(n, t) {
     if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; this.glow.alpha = n.extractor || dry ? 0 : 0.35 + 0.15 * Math.sin(t * 2 + n.x); }
-    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); this.glow.alpha = 0.18 + 0.06 * Math.sin(t * 1.7 + n.y); }
+    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); }
   }
-  show(v) { this.s.visible = this.glow.visible = v; }
-  destroy() { this.s.destroy(); this.glow.destroy(); }
+  show(v) { this.s.visible = v; if (this.glow) this.glow.visible = v; }
+  destroy() { this.s.destroy(); this.glow?.destroy(); }
 }
 
 function syncPool(pool, list, make, upd) {
@@ -559,30 +571,30 @@ const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag);
 function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
-const SHARD = 0x4fd1c5, ETHER = 0xa78bfa;
-/** Colour of a target: shard field teal, ether (vent or extractor being mined) violet, a building to work on amber. */
-const targetColor = (e, mining) => e.kind === 'node' ? (e.type === 'ether' ? ETHER : SHARD) : mining ? ETHER : 0xf5a524;
+const SALT = 0x4fd1c5;
+/** Colour of a target: a salt field teal, a building to work on amber. */
+const targetColor = (e) => e.kind === 'node' ? SALT : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
-export function flashTarget(e, mining = false) { if (e) flashes.push({ e, mining, t: performance.now() / 1000 }); }
+export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
 function outline(e, width, color, alpha) {
   if (e.kind === 'node') { const r = e.r + 7; lines.ellipse(e.x, e.y, r, r * 0.72).stroke({ width, color, alpha }); return; }
   lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {
   for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected resource field
-  // Faint, steady: the shard field, extractor or building each selected harvester is working on.
+  // Faint, steady: the salt field or building each selected harvester is working on.
   const done = new Set();
   for (const u of selList) {
     if (u.kind !== 'unit' || u.team !== G.me || u.dead) continue;
-    const T = u.task, e = T.t === 'gather' ? (T.node?.extractor || T.node) : (T.t === 'build' || T.t === 'repair') ? T.b : null;
+    const T = u.task, e = T.t === 'gather' ? T.node : (T.t === 'build' || T.t === 'repair') ? T.b : null;
     if (!e || e.dead || done.has(e)) continue;
-    done.add(e); outline(e, 1.5, targetColor(e, T.t === 'gather'), 0.5);
+    done.add(e); outline(e, 1.5, targetColor(e), 0.5);
   }
   // Bright, blinking for 0.9 s after an order.
   for (let i = flashes.length - 1; i >= 0; i--) {
     const f = flashes[i], age = now - f.t;
     if (age > 0.9 || f.e.dead) { flashes.splice(i, 1); continue; }
-    if (Math.floor(age / 0.15) % 2 === 0) outline(f.e, 3, targetColor(f.e, f.mining), 1);
+    if (Math.floor(age / 0.15) % 2 === 0) outline(f.e, 3, targetColor(f.e), 1);
   }
 }
 

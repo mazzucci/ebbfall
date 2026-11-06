@@ -3,6 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, liveGame, fmt, setResources, armyLog, lostTo, startReplay, replayEnd, foes, enemies } from './engine/index.js';
+import { plural } from './engine/util.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, spotTint, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -11,7 +12,7 @@ import { sfx, audio, audioState } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
-import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge } from './client/menu.js';
+import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { setSpots } from './client/look.js';
@@ -73,7 +74,7 @@ function begin(reset) {
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  if (!menu.tutorial) toast(`Mine shards. Build ${aName(BUILDINGS[myFaction().supply].name)} before supply caps.`);
+  if (!menu.tutorial) toast(`Mine salt. Build ${aName(BUILDINGS[myFaction().supply].name)} before you run out of energy.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 /** The leave dialog's line: alone the game waits and leaving loses it; online it goes on (unless a room pause holds
@@ -133,7 +134,7 @@ function whatBeatYou() {
   const kinds = [...Object.keys(UNITS).map(k => ['unit', k]), ...Object.keys(BUILDINGS).map(k => ['bldg', k])];
   const top = lostTo(G.me).map((n, i) => [n, ...kinds[i]]).filter(([n]) => n > 0).sort((p, q) => q[0] - p[0]).slice(0, 2);
   const el = $('endWhy'); el.hidden = !top.length; if (!top.length) return;
-  const name = (t, k) => (t === 'unit' ? UNITS : BUILDINGS)[k].name + 's';
+  const name = (t, k) => plural((t === 'unit' ? UNITS : BUILDINGS)[k].name);
   const pic = (t, k) => portrait(t, k, 22, foes()[0]); // (in an enemy's colours)
   el.innerHTML = `Most of your losses: to ${top.map(([n, t, k]) => `${pic(t, k)}${name(t, k)} (${n})`).join(' and ')}.`;
 }
@@ -222,7 +223,7 @@ setInterval(() => {
   for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
-$('btnPauseHelp').addEventListener('click', () => { $('help').hidden = false; $('btnHelpClose').focus(); }); // How to play, over the pause menu
+$('btnPauseHelp').addEventListener('click', openHelp); // How to play, over the pause menu (at its top)
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;

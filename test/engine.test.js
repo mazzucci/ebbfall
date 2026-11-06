@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { mulberry } from '../src/engine/util.js';
+import { mulberry, plural } from '../src/engine/util.js';
 import { GOLDEN, playGolden } from '../src/engine/golden.js';
 import * as C from '../src/engine/constants.js';
 
@@ -55,14 +55,25 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
   assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
-  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
+  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Picket \+1.*Lookout \+2/, 'the Weapons description is built from the tables');
 });
 
-test('no unit lists what it beats or what beats it: players find the counters themselves', { skip }, () => {
-  for (const [k, u] of Object.entries(C.UNITS)) assert.ok(!('strong' in u) && !('weak' in u), `${k}: no counter lists (balance.rs keeps the counter loops)`);
+test('every fighting unit names its partner (its own people) and its killer (the other people), workers none', { skip }, () => {
+  for (const [fk, f] of Object.entries(C.FACTIONS)) {
+    const own = C.kindsOf(f);
+    for (const k of [...own].filter(k => C.UNITS[k])) {
+      const line = C.pairLine(k);
+      if (C.UNITS[k].worker) { assert.equal(line, '', `${k}: a worker has no line`); continue; }
+      const [with_, by] = C.PAIRS[k] || [];
+      assert.ok(own.has(with_) && C.UNITS[with_], `${fk} ${k}: its partner ${with_} is a unit of its own people`);
+      assert.ok(C.UNITS[by] && !own.has(by), `${fk} ${k}: its killer ${by} is the other people's`);
+      assert.match(line, /^Best with [A-Z][A-Za-z ]+s\. Beaten by [A-Z][A-Za-z ]+s\.$/, `${k}: ${line}`);
+    }
+  }
+  assert.equal(C.pairLine('trooper'), 'Best with Harpooners. Beaten by Conchs.');
 });
 
-test('no text a side reads on its card names the other race\'s units or buildings', { skip }, () => {
+test('no description a side reads on its card names the other race\'s units or buildings (only the partner/killer line does, on purpose)', { skip }, () => {
   for (const [fk, f] of Object.entries(C.FACTIONS)) {
     const own = C.kindsOf(f), defs = (k) => C.UNITS[k] || C.BUILDINGS[k];
     const theirs = [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)].filter(([k]) => !own.has(k)).map(([, d]) => d.name);
@@ -132,7 +143,7 @@ test('orders report errors and a rally point shows up on the building', { skip }
   const core = E.G.bldgs.find(b => b.team === E.PLAYER);
   assert.match(E.placeBuilding(E.PLAYER, 'forge', core.tx, core.ty, null), /Cannot build there/);
   E.setResources(E.PLAYER, 0, 0);
-  assert.match(E.queueUnit(core, 'harvester'), /Not enough shards/);
+  assert.match(E.queueUnit(core, 'harvester'), /Not enough salt/);
   E.setRally(core, 100, 200, E.map.nodes[0]);
   assert.deepEqual(core.rally, { x: 100, y: 200, node: E.map.nodes[0] });
 });
@@ -153,14 +164,14 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(E.G.units.every(u => !u.dead));
 });
 
-test('a harvester whose last node is a vent without an extractor goes idle instead of getting stuck', { skip }, () => {
-  // Reproduces the review finding: resume after building, with last_node = an ether vent and no extractor.
+test('a harvester whose last node is a seep goes idle instead of getting stuck', { skip }, () => {
+  // Reproduces the review finding: resume after building, with last_node = a seep (never mined).
   for (const S of [E]) {
     S.resetGame(7, 1);
     S.setResources(E.PLAYER, 1000, 0);
     const G = S.G, core = G.bldgs.find(b => b.team === S.PLAYER), vent = S.map.nodes.find(n => n.type === 'ether');
     const h = G.units.find(u => u.team === S.PLAYER);
-    S.startGather(h, vent); // refused (no extractor), last node unchanged
+    S.startGather(h, vent); // refused (a seep is not mined), last node unchanged
     let placed = false;
     for (let r = 3; r < 9 && !placed; r++) for (let a = 0; a < 12 && !placed; a++) {
       const tx = Math.round(core.tx + 2 + Math.cos(a / 12 * 6.28) * r - 1), ty = Math.round(core.ty + 2 + Math.sin(a / 12 * 6.28) * r - 1);
@@ -168,8 +179,8 @@ test('a harvester whose last node is a vent without an extractor goes idle inste
     }
     assert.ok(placed);
     let toasts = 0;
-    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Ether Rig/.test(e.msg)) toasts++; G.events.length = 0; }
-    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} extractor toasts`);
+    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Pump/.test(e.msg)) toasts++; G.events.length = 0; }
+    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} Pump toasts`);
     assert.notEqual(G.units.find(u => u.id === h.id).task.t, 'build');
   }
 });
@@ -203,7 +214,7 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
-test('an extractor knows its vent, and harvesters ordered to the vent mine ether', { skip }, () => {
+test('a Pump knows its seep and pays salt by itself; harvesters ordered to the seep are refused', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
@@ -213,10 +224,14 @@ test('an extractor knows its vent, and harvesters ordered to the vent mine ether
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
   assert.equal(ext.vent, vent);
   runSeconds(60); // walk over, then 25 s of construction
-  assert.ok(ext.done, 'extractor built');
+  assert.ok(ext.done, 'Pump built');
+  for (const h of hs) E.stopUnit(h);
+  E.setResources(E.PLAYER, 0, 0);
+  runSeconds(20);
+  assert.equal(E.G.res[E.PLAYER][0], 10, 'ten salt in 20 s, nobody mining');
   for (const h of hs) E.startGather(h, ext.vent);
-  runSeconds(40);
-  assert.ok(E.G.res[E.PLAYER][1] > 0, 'ether mined: ' + E.G.res[E.PLAYER][1]);
+  assert.ok(hs.every(h => h.task.t !== 'gather'), 'nobody works the seep');
+  assert.equal(E.G.res[E.PLAYER][1], 0, 'no ether');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
@@ -248,17 +263,17 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found. A retired one (Entrenching: no building researches it) keeps only its place.
+  // its own; each ability's tech is found. A retired one (Cloaking Field: no building researches it) keeps only its place.
   const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
-  assert.ok(!researched('entrenching') && researched('cloakingField'));
+  assert.ok(researched('entrenching') && !researched('cloakingField'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
-  // fires at all: no tech). (Entrench is retired: no unit has it, but the kinds keep their places.)
-  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null]]);
+  // fires at all: no tech). (Stim and Cloak are retired: no unit has them, but the kinds keep their places.)
+  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null], ['beach', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
   assert.ok(n >= 2);
@@ -337,7 +352,7 @@ function view() {
   return JSON.stringify({
     tick: G.tick, time: G.time, over: G.over, winner: G.winner, out: G.out, res: G.res, sup: G.sup, stats: G.stats, upgrades: G.upgrades,
     vis: Array.from(G.vis), explored: Array.from(G.explored), occ: Array.from(map.occ),
-    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, carryType: u.carryType, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, warp: u.warp, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
+    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, warp: u.warp, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
     bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, planted: b.planted, powered: b.powered, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, vent: id(b.vent), dead: b.dead })),
     nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners, extractor: id(n.extractor) })),
     projs: G.projs,
@@ -426,5 +441,15 @@ test('the client names no unit or building kind outside its data tables and look
   for (const f of ['client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js', 'client/scout.js', 'client/online.js', 'net/net.js']) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
     for (const k of [...Object.keys(C.UNITS), ...Object.keys(C.BUILDINGS)]) assert.ok(!src.includes(`=== '${k}'`) && !src.includes(`!== '${k}'`), `${f} tests for '${k}'`);
+  }
+});
+
+test('every unit and building name has a proper plural (Lenses, Spyglasses; never a doubled s)', () => {
+  assert.equal(plural('Lens'), 'Lenses');
+  assert.equal(plural('Spyglass'), 'Spyglasses');
+  assert.equal(plural('Conch'), 'Conchs');
+  assert.equal(plural('Picket'), 'Pickets');
+  for (const d of [...Object.values(C.UNITS), ...Object.values(C.BUILDINGS)]) {
+    assert.doesNotMatch(plural(d.name), /ss$/, d.name);
   }
 });

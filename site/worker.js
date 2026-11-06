@@ -29,7 +29,7 @@ function withCache(res, path) {
  * Cloudflare Web Analytics: with CF_ANALYTICS_TOKEN (a var, from the repo variable of that name: CI's deploy) the page
  * carries the beacon, a deferred cross-origin script (the service worker leaves it to the network: offline it does not
  * load, and nothing else needs it). Unset by default: the zone's automatic injection may already add it at the edge
- * (docs/MULTIPLAYER.md, Hosting), and both at once would count every visit twice.
+ * (Notion: Multiplayer design, Hosting), and both at once would count every visit twice.
  *
  * ETag: the file's own (and the assets' 304) only for the file as it is. A rewritten page is another document than the
  * file, and which one depends on the link (the room's code), the token and this Worker's code (the cards' wording), not

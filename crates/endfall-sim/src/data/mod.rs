@@ -9,6 +9,7 @@
 mod diff;
 mod export;
 mod humans;
+mod tide;
 mod upgrades;
 mod vael;
 
@@ -16,6 +17,7 @@ pub use diff::*;
 pub use export::data_json;
 pub(crate) use export::{Obj, ToJson, array, quote};
 pub use humans::HUMANS;
+pub use tide::*;
 pub use upgrades::*;
 pub use vael::VAEL;
 
@@ -25,6 +27,33 @@ pub const PLAYER: u8 = 0;
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
+/// The most supply (energy) a seat can have, by the map's width in tiles (Roster v2): 60 on 64x64, 70 on 96x96, 80 on
+/// 128x128. Bigger maps run longer, hold more fields, and room for an AI's home reserve beside its wave.
+pub fn supply_limit(map_w: i32) -> i32 {
+    if map_w <= 64 {
+        60
+    } else if map_w <= 96 {
+        70
+    } else {
+        80
+    }
+}
+
+/// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
+pub const WADE_SPEED: f64 = 0.7;
+/// The share of its speed a harpooned unit keeps while slowed (`Weapon::slow`; flyers too).
+pub const SLOW_SPEED: f64 = 0.5;
+/// Seconds a lurker (`UnitDef::lurk`) must lie still, neither walking nor striking, before it is hidden.
+pub const LURK_S: f64 = 2.0;
+
+/// How a unit gets about: on foot over land and shallows (Walk), anywhere water or land (Amph), or in the air (Fly).
+/// Rock and buildings block Walk and Amph alike (src/map.rs `passable`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Move {
+    Walk,
+    Amph,
+    Fly,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProjKind {
@@ -102,6 +131,7 @@ kinds! {
         Ward => vael::WARD,
         Zenith => vael::ZENITH,
         Factory => humans::FACTORY,
+        Eclipse => vael::ECLIPSE,
     }
 }
 
@@ -150,6 +180,8 @@ def_struct! {
         splash_r: f64 = "splashR",
         /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
         up_dmg: f64 = "upDmg",
+        /// The Harpoon: a unit it hits is slowed for this many seconds (`SLOW_SPEED`, and no abilities); 0 = none.
+        slow: f64 = "slow",
     }
 }
 
@@ -166,6 +198,7 @@ pub(crate) const W: Weapon = Weapon {
     splash: 0.0,
     splash_r: 0.0,
     up_dmg: 0.0,
+    slow: 0.0,
 };
 
 impl Weapon {
@@ -192,9 +225,10 @@ impl UnitKind {
     pub fn siege(self) -> bool {
         self.def().weapon.is_some_and(|w| w.siege) && self.toggle().is_some()
     }
-    /// Armed and always cloaked (the Umbra; not the unarmed Observer): a fighter that wins where it is not detected.
+    /// Armed and hidden by nature (the Undertow, which lurks; not an unarmed scout): a fighter that wins where it is
+    /// not detected.
     pub fn cloaked_fighter(self) -> bool {
-        self.def().cloaked && self.def().armed()
+        (self.def().cloaked || self.def().lurk) && self.def().armed()
     }
 }
 
@@ -217,12 +251,14 @@ def_struct! {
         build: f64 = "build",
         /// Flies: moves in straight lines over terrain and buildings, only collides with other flyers.
         air: bool = "air",
+        /// How it gets about (`Move`): Walk for the Humans' ground units, Amph for the Vael's, Fly for flyers (exactly
+        /// the `air` ones).
+        mv: Move = "move",
         /// Living infantry (Medics heal these).
         bio: bool = "bio",
-        /// Hit points per second healed into nearby damaged infantry (Medic), or with `mend`, shield points into nearby
-        /// shielded allies (Halo).
+        /// Hit points per second healed into nearby damaged infantry (the Mender), or with `mend` into any nearby ally.
         heal: f64 = "heal",
-        /// The heal goes to shields, not hulls: the Halo mends any shielded ally, in combat too.
+        /// The heal goes to any ally, nacre (shields) first, then hull: the Tender mends in combat too.
         mend: bool = "mend",
         /// A finished building of this kind is needed to train the unit.
         req: Option<BldgKind> = "req",
@@ -236,6 +272,8 @@ def_struct! {
         capital: bool = "capital",
         /// Always cloaked: the other side can neither see nor target it except where it detects (`detect`).
         cloaked: bool = "cloaked",
+        /// Lurk (the Undertow): cloaked as `cloaked` is, but only once it has neither walked nor struck for `LURK_S`.
+        lurk: bool = "lurk",
         /// Radius (tiles) in which it reveals the other side's cloaked units; 0 = none.
         detect: f64 = "detect",
     }
@@ -308,6 +346,9 @@ pub struct Faction {
 pub struct AiScript {
     pub rax: BldgKind,
     pub tech: BldgKind,
+    /// A second tech building after `tech`, if the side has one (the Vael's Eclipse): raised when a mixed-in unit
+    /// it unlocks is due (on a level that fields it) or one of its techs would serve (`World::tech2_due`).
+    pub tech2: Option<BldgKind>,
     pub tower: BldgKind,
     pub air: BldgKind,
     /// Its vehicle bay, if it has one: it trains only its answer to flyers (`heavy_anti_air`) and the mixed-in units
@@ -329,7 +370,7 @@ pub struct AiScript {
     /// Wave sizes scale by this (fewer, stronger units: 0.6).
     pub wave_scale: f64,
     /// Seconds before it starts its techs (sooner only on a level that researches sooner; none does today). A
-    /// knob per side: both wait until 5:00, when the opening's factories and power fields are up.
+    /// knob per side: the Humans at 3:30 (their Workshop brings the Mender and the Slipway's Breakwaters), the Vael at 5:00.
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).
     pub air_lead: f64,
@@ -384,6 +425,7 @@ const UNIT: UnitDef = UnitDef {
     r: 9.0,
     build: 15.0,
     air: false,
+    mv: Move::Walk,
     bio: false,
     heal: 0.0,
     mend: false,
@@ -395,24 +437,26 @@ const UNIT: UnitDef = UnitDef {
     abilities: &[],
     capital: false,
     cloaked: false,
+    lurk: false,
     detect: 0.0,
 };
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
 /// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
 pub const MINE_SLOTS: i32 = 1;
-/// Seconds to mine a load: 8 shards, or 6 ether (faster, so one vent still feeds about three harvesters).
+/// Seconds to mine a load of 8 salt.
 pub const SHARD_MINE_TIME: f64 = 2.0;
-pub const ETHER_MINE_TIME: f64 = 1.6;
+/// Salt a second a finished Pump on a seep pays its owner, with no workers (PRD: the conversion, rule 1): about one
+/// worker's income, so it pays back its 75 in two and a half minutes.
+pub const PUMP_RATE: f64 = 0.5;
+/// What a refusal for want of salt says (the client's announcer keys on it).
+pub const NOT_ENOUGH: &str = "Not enough salt";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
 /// Shields regenerate after this long without being hit (s), at these rates per second (units, buildings).
 pub const SHIELD_DELAY: f64 = 6.0;
 pub const SHIELD_REGEN_UNIT: f64 = 3.0;
 pub const SHIELD_REGEN_BLDG: f64 = 2.0;
-
-/// Ether per trip from an Ether Rig on a vent that has run dry (a full one gives 6).
-pub const VENT_TRICKLE: i32 = 2;
 
 /// A Vanguard shell also hits walking units of the target's side within this many px, for this share of its damage.
 pub const SHELL_SPLASH_R: f64 = 40.0;

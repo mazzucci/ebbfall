@@ -21,6 +21,7 @@ const SAFE = /^[^<>&"'\u0000-\u001f]*$/;
 test('a setup round-trips through its code: a duel, three Brutal AIs, teams, gaps on the board, a random map', () => {
   const cases = [
     [{ map: at('Ashen Basin'), side: 1, secs: 754, spots: spots(you(), ai('vael', 1, 3)) }, '1.0.1.ky.h00v13'],
+    [{ map: at('Random Shore'), side: 1, secs: 754, spots: spots(you(), ai('vael', 1, 3)), kind: 6, seed: 2 }, '1.d.1.ky.h00v13.6.2'],
     [{ map: at('Iron Compass'), side: 5, secs: 754, spots: spots(you(), ai('vael', 1, 3), ai('vael', 2, 3), ai('vael', 3, 3)) }, '1.8.5.ky.h00v13v23v33'],
     [{ map: at('Dust Quarter'), side: 2, secs: 61, spots: spots(you('vael'), null, ai('humans', 0, 1), ai('vael', 1, 2)) }, '1.4.2.1p.v00xh01v12'],
     [{ map: RANDOM_64, side: 0, secs: 3600, spots: spots(you(), ai('humans', 1, 0)), kind: 4, seed: 123456789 }, '1.3.0.2s0.h00h10.4.21i3v9'],
@@ -57,7 +58,7 @@ test('only a code the game makes is a challenge: hostile, malformed, non-canonic
     undefined, null, 7, {}, [], '', ' ', good + ' ', ' ' + good, good.toUpperCase(), good + '.', good + 'x', good + '.0.1',
     '2.8.5.ky.h00v13v23v33', '0.8.5.ky.h00v13v23v33', '1.8.11.ky.h00v13v23v33', '1', '1.8', '1.8.11.ky', '1.8.11.ky.', '1..11.ky.h00v13',
     '1.08.5.ky.h00v13v23v33', '1.8.05.ky.h00v13v23v33', '1.8.5.0ky.h00v13v23v33', // (leading zeros; a side past starts x players)
-    '1.c.0.ky.h00v13', '1.z.0.ky.h00v13', // (no such map)
+    '1.e.0.ky.h00v13', '1.z.0.ky.h00v13', // (no such map)
     '1.0.0.ky.h00v13v23', // (three players on a two-start map)
     '1.0.0.ky.h00', '1.0.0.ky.h00x', '1.0.0.ky.xh00v13', // (alone; you not in spot 0)
     '1.0.0.ky.h01v13', // (your level: none)
@@ -68,7 +69,8 @@ test('only a code the game makes is a challenge: hostile, malformed, non-canonic
     '1.0.0.0.h00v13', '1.0.0.7ps0.h00v13', // (no time; 100 hours)
     '1.0.0.ky.h00v13x', '1.0.0.ky.h00v13xxxxxx', // (trailing empty spots)
     '1.0.0.ky.h00v13.4.2', // (a fixed map with a seed)
-    '1.3.0.ky.h00v13', '1.3.0.ky.h00v13.6.2', '1.3.0.ky.h00v13.4', '1.3.0.ky.h00v13.4.1z141z4', '1.3.0.ky.h00v13.4.02', // (a random map: kind and seed)
+    '1.3.0.ky.h00v13', '1.3.0.ky.h00v13.6.2', '1.d.0.ky.h00v13.0.2', '1.d.0.ky.h00v13.7.2', // (a plain random map never draws the Shore, nor Random Shore another kind)
+    '1.3.0.ky.h00v13.4', '1.3.0.ky.h00v13.4.1z141z4', '1.3.0.ky.h00v13.4.02', // (a random map: kind and seed)
     '1.0.0.ky.h00v13&x=1', '1.0.0.ky.h00v13<script>', '<script>alert(1)</script>', '1.0.0.ky.h00v13%00', '1.0.0.ky.h00v13\n',
     '1.0.0.ky.h00v1３', '1.0.0.ky.h00v13'.padEnd(65, 'x'), 'x'.repeat(5000), '1.0.0.ky.' + 'h00'.repeat(9),
   ];
@@ -142,7 +144,7 @@ test("the code's races and levels are the game's", () => {
   for (let d = 0; d < DIFF.length; d++) assert.ok(decode(`1.0.0.a.h00v1${d}`), `level ${d}`);
   assert.equal(decode(`1.0.0.a.h00v1${DIFF.length}`), null);
   for (let i = 0; i < MAPS.length; i++) {
-    const code = encode({ map: i, side: 0, secs: 1, spots: spots(you(), ai('vael', 1, 0)), ...(MAPS[i].random ? { kind: 0, seed: 1 } : {}) });
+    const code = encode({ map: i, side: 0, secs: 1, spots: spots(you(), ai('vael', 1, 0)), ...(MAPS[i].random ? { kind: MAPS[i].kind ?? 0, seed: 1 } : {}) });
     assert.ok(decode(code), `map ${i}: ${MAPS[i].name}`);
     assert.equal(mapOf(decode(code)).size, MAPS[i].size);
     assert.ok(seatsOf(i) >= 2);

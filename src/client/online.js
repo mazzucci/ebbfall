@@ -1,4 +1,4 @@
-// Multiplayer (docs/MULTIPLAYER.md): the lobby page and the glue between the network layer (src/net/net.js) and the
+// Multiplayer (Notion: Multiplayer design): the lobby page and the glue between the network layer (src/net/net.js) and the
 // game. Mobile-first and few words: open a room (a code to share, six letters shown BCD-FGH (src/net/roomcode.js), or a
 // link) or join one; then the room is the
 // single-player page's board (seats.js): eight fixed spots, a token per seat, each with its side as a tag. A person is a
@@ -20,7 +20,7 @@ import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/inde
 import { $, toast, LOAD_FAILED } from './ui.js';
 import { sfx } from './audio.js';
 import { mapSelect, drawPreview, showMenu } from './menu.js';
-import { MAPS, MAX_PLAYERS, fitMap, mapLabel } from './maps.js';
+import { MAPS, MAX_PLAYERS, fitMap, mapNoteOf } from './maps.js';
 import { filled, freeTeam, firstEmpty, sideChoices, sideColor, seatColor, raceTitle, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 import { touchDevice, enterFullscreen } from './screen.js';
 import { cleanName, playerName } from './store.js';
@@ -175,7 +175,7 @@ function connect(room) {
       start: (setup, seat, m) => {
         online.rematch = false; online.wants = []; online.dead = false; online.gone.clear(); online.setup = setup;
         online.seat = seat; owedSeat = null; // (the game's seat: the relay seats the sides together at the start)
-        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the AI' : n)); // (an AI seat is "the AI" in every line that names a seat)
+        online.names = setup.names.map((n, s) => (setup.ai?.[s] ? 'the computer' : n)); // (an AI seat is "the computer" in every line that names a seat)
         online.hold = null; online.left = Array.isArray(m?.left) ? m.left : setup.names.map(() => PAUSES);
         editing = -1; sheet?.close(); // (the lobby stays up while the game loads, its sheet closed)
         const net = online.net;
@@ -285,7 +285,7 @@ function showLobby(m) {
 /** A seat nobody has taken (no name, not here, not the AI's): open for a friend. */
 const isOpen = (s) => !!s && !s.ai && !s.here && !s.name;
 /** An AI seat's name: AI and its spot's number (as single player's). */
-const aiName = (i) => `AI ${i}`;
+const aiName = (i) => `COMPUTER ${i}`;
 /** The lobby as seats.js reads a board: a `{ team, race, diff }` per spot, null when empty. */
 const boardOf = (m) => m.seats.map((s, i) => (s ? { team: m.teams[i], race: s.race, diff: s.diff, ai: s.ai } : null));
 /** The seats in the room. */
@@ -300,7 +300,7 @@ function aiFor(m) {
 function viewOf(m, i) {
   const s = m.seats[i], me = online.seat, host = me === 0, open = isOpen(s), side = m.teams[i], sideCol = sideColor(boardOf(m), side);
   if (s.ai) return { name: aiName(i), race: s.race, diff: s.diff ?? 1, side, sideColor: sideCol, ro: !host, tip: 'Race, level, side' };
-  if (open) return { name: '', open: true, host: i === 0, side, sideColor: sideCol, act: host ? '' : 'SIT HERE', tip: host ? 'Share the link, give it to the AI, or move it' : 'Take this seat' };
+  if (open) return { name: '', open: true, host: i === 0, side, sideColor: sideCol, act: host ? '' : 'SIT HERE', tip: host ? 'Share the link, give it to the computer, or move it' : 'Take this seat' };
   const mine = i === me;
   return { name: mine ? 'YOU' : s.name || '…', race: s.race, diff: null, side, sideColor: sideCol, me: mine, host: i === 0, ready: s.ready && s.here, away: !s.here, ro: !mine && !host, tip: mine ? 'Race, side' : 'Side' };
 }
@@ -327,9 +327,10 @@ function renderLobby(m) {
     pair.append(t, x);
     return pair;
   };
+  // One add: + SEAT, an open seat (a friend takes it, or the host gives it to the computer from its sheet; owner,
+  // 2026-11-03: shorter than a second + COMPUTER beside it).
   box.replaceChildren(...m.seats.map((s, i) => (s ? token(i) : emptySpot(i === free ? [
-    { label: '+ AI', title: 'An AI on a side of its own', k: 'addai', on: () => { sfx('select'); add(true); } },
-    { label: '+ SEAT', title: 'An open seat for a friend, on a side of its own', k: 'addseat', on: () => { sfx('select'); add(false); } },
+    { label: '+ SEAT', title: 'An open seat on a side of its own: for a friend, or give it to the computer', k: 'addseat', on: () => { sfx('select'); add(false); } },
   ] : []))));
   if (focus) box.querySelector(`[data-k="${focus}"]`)?.focus();
   // The title row: SHARE LINK the big button while the host has a seat open.
@@ -338,8 +339,8 @@ function renderLobby(m) {
   // The map: the host's list (any map that seats the room) and its thumbnail; a guest's one line, whose pick it is. A
   // seat more than the map's starts: the relay moved to the smallest map that seats them, said a moment.
   const map = fitMap(m.map, n);
-  if (lastMap && lastMap.map !== map && n > lastMap.n) {
-    mapNote = `Map: ${mapLabel(map).replace(' · ', ' (')})`; clearTimeout(noteTimer); // (Map: Dust Quarter (up to 4))
+  if (lastMap && lastMap.map !== map && (n > lastMap.n || MAPS[map].line)) { // (or a map with a line of its own: said too)
+    mapNote = mapNoteOf(map); clearTimeout(noteTimer); // (Map: Dust Quarter (up to 4))
     noteTimer = setTimeout(() => { mapNote = ''; if (lobbyState) status(lobbyLine(lobbyState)); }, 4000);
   }
   lastMap = { map, n };
@@ -358,7 +359,7 @@ function lobbyLine(m) {
   if (mapNote) return mapNote;
   if (!host && isOpen(m.seats[0])) return 'The host left: SIT HERE on the first seat to pick';
   if (new Set(m.teams.filter((t, i) => m.seats[i])).size < 2) return 'Nobody to fight';
-  if (open && (host || !gone.length)) return host ? `${open > 1 ? `${open} seats are` : 'A seat is'} open: share the link, or give ${open > 1 ? 'them' : 'it'} to the AI` : 'Waiting for players…';
+  if (open && (host || !gone.length)) return host ? `${open > 1 ? `${open} seats are` : 'A seat is'} open: share the link, or give ${open > 1 ? 'them' : 'it'} to the computer` : 'Waiting for players…';
   if (gone.length) return `Waiting for ${gone.join(', ')}…`;
   return all.every(s => s.ai || s.ready) ? 'Starting…' : 'Ready when you are';
 }
@@ -395,7 +396,7 @@ function renderSheet() {
     onSide: host ? (t) => online.net?.side(i, t) : null,
     buttons: !host ? [] : open ? [
       { label: 'SHARE LINK', title: 'Share the link to this room', k: 'share', big: true, on: share },
-      { label: 'GIVE TO AI', title: 'The AI plays this seat', k: 'giveai', ghost: true, on: () => { const like = aiFor(m); online.net?.ai(i, true, like.race, like.diff); } },
+      { label: 'GIVE TO COMPUTER', title: 'The computer plays this seat', k: 'giveai', ghost: true, on: () => { const like = aiFor(m); online.net?.ai(i, true, like.race, like.diff); } },
       ...(n > 2 && i > 0 ? [remove] : []),
     ] : s.ai ? [
       { label: 'OPEN FOR A FRIEND', title: 'An open seat again, for a friend', k: 'open', ghost: true, on: () => online.net?.ai(i, false) },

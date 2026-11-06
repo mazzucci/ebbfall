@@ -957,7 +957,7 @@ test('keep() is a v5 record (a spot and a team per seat, holes kept); restore ch
   r.connect(a, hello());
   r.receive(a, { t: 'add', team: 5, ai: true, race: 'vael', diff: 2 }); r.receive(a, { t: 'drop', seat: 1 });
   const k = JSON.parse(JSON.stringify(r.keep())), seat = { name: '', race: 'humans', token: null, ai: false, diff: 1, goneSince: 0 };
-  assert.deepEqual(k, { v: 5, map: 4, seats: [{ ...seat, spot: 0, team: 0, name: 'Ann', token: r.seats[0].token }, { ...seat, spot: 2, team: 2 }, { ...seat, spot: 3, team: 5, race: 'vael', ai: true, diff: 2 }] });
+  assert.deepEqual(k, { v: 5, map: 4, seats: [{ ...seat, spot: 0, team: 0, name: 'Ann', token: r.seats[0].token }, { ...seat, spot: 2, team: 2 }, { ...seat, spot: 3, team: 5, race: 'vael', ai: true, diff: 2 }], barred: [] });
   const y = room(); assert.ok(y.r.restore(k, 100));
   const a2 = y.conn('a2'); y.r.connect(a2, hello({ token: k.seats[0].token }));
   const l = y.got(a2, 'lobby').at(-1);
@@ -1057,6 +1057,21 @@ test('the host removes a person from the lobby (a stranger who guessed the code)
   const n = r.seats.findIndex(s => s.conn === d);
   r.receive(a, { t: 'remove', seat: n });
   assert.ok(!d.kicked && r.seats[n].token, 'not in a game');
+});
+
+test('a removed address stays barred as long as the room: through a kept lobby (the Worker\'s eviction), not into a new room', () => {
+  const { r, conn } = room(3); const a = conn('a'), c = conn('c');
+  r.connect(a, hello(), 'home'); r.connect(c, hello({ name: 'Eve' }), '203.0.113.9');
+  r.receive(a, { t: 'remove', seat: 1 });
+  const kept = JSON.parse(JSON.stringify(r.keep()));
+  assert.deepEqual(kept.barred, ['203.0.113.9'], 'in the room\'s record (deleted with it)');
+  const back = room(3); assert.ok(back.r.restore(kept, 1000));
+  assert.equal(back.r.connect(back.conn('c2'), hello({ name: 'Eve' }), '203.0.113.9'), -1, 'still barred after the restore');
+  assert.ok(back.r.connect(back.conn('d'), hello({ name: 'Di' }), 'di') >= 0, 'another address: in');
+  const bad = room(3); assert.ok(bad.r.restore({ ...kept, barred: [7, '', 'x'.repeat(65), ...Array(100).fill('a')] }, 1000));
+  assert.deepEqual([...bad.r.barred], ['a'], 'a record\'s list checked');
+  const fresh = room(3); fresh.r.connect(fresh.conn('h'), hello(), 'home');
+  assert.ok(fresh.r.connect(fresh.conn('e'), hello({ name: 'Eve' }), '203.0.113.9') >= 0, 'another room: no list outlives its room');
 });
 
 test('a lobby leave is confirmed: a ping right after it is answered, the seat open', () => {

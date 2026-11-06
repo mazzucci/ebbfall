@@ -1,11 +1,12 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
-// ⚠ chip), the whole-army and idle-factory chips in the top bar (each only while it has something to offer), the idle-harvester key, double-click "all of this type on screen", control-group tabs
+// ⚠ chip), the whole-army (Q) and idle-factory (,) keys, the idle-harvester key, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save). The pause card is pause.js.
 import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies } from '../engine/index.js';
+import { plural } from '../engine/util.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
-import { centerOn, ping, clearPings, cam, view, portrait } from './gl/render.js';
+import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
 import { setIconButton } from './icons.js';
 import { paused, closePause } from './pause.js';
 import { online } from './online.js';
@@ -32,8 +33,8 @@ export function onAttacked(e) {
 function detectors() {
   const f = myFaction(), bl = [...f.buildBasic, ...f.buildAdvanced];
   const names = [...bl.filter(k => BUILDINGS[k].detect > 0).map(k => BUILDINGS[k].name),
-    ...[...new Set(bl.concat(f.hq).flatMap(k => BUILDINGS[k].trains || []))].filter(k => UNITS[k].detect > 0).map(k => UNITS[k].name)];
-  const p = names.map(n => n + 's');
+    ...[...new Set(bl.concat(f.hq).flatMap(k => BUILDINGS[k].trains || []))].filter(k => UNITS[k].detect > 0 && !UNITS[k].capital).map(k => UNITS[k].name)]; // (not a capital unit: a late giant is no answer to name)
+  const p = names.map(plural);
   return p.length > 1 ? p.slice(0, -1).join(', ') + ' and ' + p[p.length - 1] : p[0] || 'Detectors';
 }
 /** Look at the latest attack; again, the one before (up to three), then round again. */
@@ -67,7 +68,7 @@ export function selectIdleFactory() {
 
 /** Select the next idle harvester and look at it. */
 export function selectIdle() {
-  const idle = idleHarvesters(); if (!idle.length) { toast(`No idle ${UNITS[myFaction().worker].name}s`); return; }
+  const idle = idleHarvesters(); if (!idle.length) { toast(`No idle ${plural(UNITS[myFaction().worker].name)}`); return; }
   const u = idle[idleIndex++ % idle.length]; choose([u]); centerOn(u.x, u.y);
 }
 /** Select every combat unit; a second tap within a second also looks at them. */
@@ -150,17 +151,10 @@ function watchNews() {
   news.army = a;
 }
 
-/** Refresh the shortcut chips, the alert chip and the group tabs (called with the HUD). */
+/** Refresh the alert chip and the group tabs (called with the HUD). (No army or idle-factory chips in the top bar:
+ *  owner, 2026-11-03; Q and , still select them from the keyboard.) */
 export function updateTools() {
   watchPower(); watchNews(); watchCapitals();
-  const a = army().length, wk = myFaction().worker;
-  const ak = myFaction().buildBasic.map(k => BUILDINGS[k].trains[0]).find(Boolean) || wk, apic = $('btnArmy').querySelector('.pic'); // the race's first soldier
-  if (apic.dataset.k !== ak) { apic.dataset.k = ak; apic.innerHTML = portrait('unit', ak, 24); }
-  // Each chip only while it has something to offer; no counts (select, and the panel tells the rest).
-  $('btnArmy').hidden = !a;
-  const pk = myFaction().buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker)), ppic = $('btnProd').querySelector('.pic'); // the race's main factory
-  if (pk && ppic.dataset.k !== pk) { ppic.dataset.k = pk; ppic.innerHTML = portrait('bldg', pk, 24); }
-  $('btnProd').hidden = !idleFactories().length;
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
   const tabs = [];
   // Saved groups only, and none on touch screens (empty tabs there were tapped by mistake instead of the map).
@@ -186,7 +180,8 @@ export function updateTools() {
 export function initTools() {
   setIconButton($('btnPause'), 'pause', 'PAUSE');
   setIconButton($('btnHome'), 'home', 'HOME');
-  for (const [id, fn] of [['btnArmy', selectArmy], ['btnProd', selectIdleFactory], ['btnAlert', jumpToAlert], ['btnHome', goHome]]) {
+  setIconButton($('btnArmy'), 'army', 'ARMY');
+  for (const [id, fn] of [['btnAlert', jumpToAlert], ['btnHome', goHome], ['btnArmy', selectArmy]]) {
     $(id).addEventListener('pointerdown', ev => ev.stopPropagation());
     $(id).addEventListener('click', fn);
   }

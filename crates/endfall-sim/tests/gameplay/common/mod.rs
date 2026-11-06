@@ -359,3 +359,27 @@ pub fn set_hp(w: &mut World, id: Id, hp: f64) {
     u.maxhp = u.maxhp.max(hp);
     u.hp = hp;
 }
+
+/// Under the supply cap (`World::supply_limit`) an AI whose army never dies (a test's player that cannot lose) stands
+/// at the cap for good and trains nothing more: its fighters are destroyed until it has `room` supply free, as losses
+/// in a real game would free it. Its specialists go first, then its line unit (which its mix counts its specialists against), each in id
+/// order.
+pub fn make_room(w: &mut World, team: u8, room: i32) {
+    let basic = w.factions[team as usize].ai.basic;
+    let mut fighters: Vec<(bool, Id)> = w
+        .units
+        .iter()
+        .filter(|u| u.team == team && !u.kind.def().worker)
+        .map(|u| (u.kind == basic, u.id))
+        .collect();
+    fighters.sort();
+    let fighters: Vec<Id> = fighters.into_iter().map(|(_, id)| id).collect();
+    for id in fighters {
+        let [used, cap] = w.sup[team as usize];
+        if cap - used >= room {
+            break;
+        }
+        w.damage(id, 1e9, None);
+        w.recalc_supply(team);
+    }
+}

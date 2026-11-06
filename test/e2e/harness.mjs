@@ -21,12 +21,34 @@ export const ENGINE_NAME = ENGINES[ENGINE];
  */
 export function test(name, opts = {}, fn) {
   if (typeof opts === 'function') [opts, fn] = [{}, opts];
+  if (!inShard()) return; // (another shard's: not registered at all)
   const { engines, chromium, ...rest } = opts;
   if (ENGINE !== 'chromium' && !rest.skip) {
     if (chromium) rest.skip = `Chromium only: ${chromium}`;
     else if (!engines && !process.env.ENDFALL_ALL) rest.skip = `not in the cross-engine subset (ENDFALL_ALL=1 runs it in ${ENGINE_NAME})`;
   }
   return nodeTest(name, rest, fn);
+}
+// ENDFALL_SHARD=i/n (1 <= i <= n): run only every n-th test of each file, starting at the i-th, so CI can split the
+// suite over n jobs by test rather than by file (one file holds most of the time). Each file registers its tests in a
+// fixed order, so the split is the same every run and every test lands in exactly one shard.
+const SHARD = (process.env.ENDFALL_SHARD || '').match(/^(\d+)\/(\d+)$/)?.slice(1).map(Number);
+if (process.env.ENDFALL_SHARD && !(SHARD && SHARD[0] >= 1 && SHARD[0] <= SHARD[1])) throw new Error(`ENDFALL_SHARD must be i/n, not ${process.env.ENDFALL_SHARD}`);
+// Each file starts its rotation at an offset of its own (from its name), so the small files do not all put their
+// first tests in shard 1: still every test in exactly one shard, the same one every run.
+const fileOffset = (() => {
+  const file = (process.argv[1] || '').split('/').pop();
+  let h = 0;
+  for (const c of file) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h;
+})();
+let registered = 0, kept = 0;
+const inShard = () => { const mine = !SHARD || (fileOffset + registered++) % SHARD[1] === SHARD[0] - 1; kept += mine ? 1 : 0; return mine; };
+/** Whether this shard runs any of this file's tests (all, unsharded): for a `before` hook that starts something that
+ *  would keep the file running (a relay). Asked once the file has registered its tests (a hook may run before). */
+export async function anyHere() {
+  await new Promise(r => setImmediate(r));
+  return !SHARD || kept > 0;
 }
 /** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
 export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
@@ -50,13 +72,18 @@ export async function start() {
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;
-  browser = await launchEngine(ENGINE);
+  // Sharded, the browser starts with the first test that asks for a page (`context`): a file none of whose tests are in
+  // this shard launches none, and ends (a browser with no test to close it would keep it running for good: node:test
+  // runs `after` only when a test ran). The server alone keeps nothing alive.
+  if (SHARD) server.unref();
+  else browser = await launchEngine(ENGINE);
 }
 export async function stop() { await browser?.close(); server?.close(); }
 // ENDFALL_CPU_THROTTLE=n (n > 1): every page's CPU slowed n times (CDP, so Chromium only), to shake out tests that
 // time what they should wait for (a busy machine gives a page few frames).
 const THROTTLE = Number(process.env.ENDFALL_CPU_THROTTLE) || 0;
 async function context(device) {
+  browser ??= await launchEngine(ENGINE);
   const ctx = await browser.newContext(deviceFor(ENGINE, device));
   if (THROTTLE > 1 && ENGINE === 'chromium') ctx.on('page', (p) => ctx.newCDPSession(p).then(s => s.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })).catch(() => {}));
   return ctx;
@@ -68,7 +95,7 @@ export const baseUrl = () => base;
 export const DESKTOP = { viewport: { width: 1280, height: 720 } };
 export const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
-/** Single player's board through its UI (eight spots): + AI (the lowest empty spot, a side of its own), and a seat's
+/** Single player's board through its UI (eight spots): + SEAT (the lowest empty spot, a side of its own), and a seat's
  *  sheet (its token, chips, DONE): a race, a level, a side (its number from 0: SIDE 1 is 0), REMOVE. `scope`: the
  *  board's and the sheet's ids (the lobby's: board(page, 'online')). */
 export function board(page, scope = 'solo') {
@@ -122,9 +149,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  await (touch ? page.locator('#btnSolo').tap() : page.locator('#btnSolo').click()); // the menu's first page: SINGLE PLAYER
-  if (first) await (touch ? page.locator('#btnFirst').tap() : page.locator('#btnFirst').click()); // the guided first game
-  else if (race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
+  // The menu's first page: FIRST GAME (the guided game, offered there to a newcomer) or SINGLE PLAYER.
+  await (touch ? page.locator(first ? '#btnFirstHome' : '#btnSolo').tap() : page.locator(first ? '#btnFirstHome' : '#btnSolo').click());
+  if (!first && race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
   if (!first && diff !== 0) await board(page).diff(1, diff);
   if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
@@ -152,6 +179,18 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     // Skip game time, then let the frame loop run twice (or 250 ms at most): what the skipped ticks raised (toasts,
     // alerts, effects) reaches the page as a player would see it, not on whichever frame comes next.
     skip: (s) => ev((s) => { endfall.skip(s); return new Promise(r => { const t = setTimeout(r, 250); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(t); r(); })); }); }, s),
+    /** Fast-forward until `cond(arg)` holds in the page (checked every `step` s of game time, up to `seconds`), in one
+     *  call into the page, then let two frames run as `skip` does. Returns whether it held. `cond` runs in the page:
+     *  it may read only `endfall` and its argument. Faster than `until` for a plain wait (no round trip a step). */
+    skipUntil: async (cond, arg, { seconds = 120, step = 0.5 } = {}) => {
+      const ok = await ev(([src, arg, seconds, step]) => {
+        const f = (0, eval)(`(${src})`);
+        for (let t = 0; t < seconds; t += step) { if (f(arg)) return true; endfall.skip(step); }
+        return !!f(arg);
+      }, [cond.toString(), arg, seconds, step]);
+      await d.skip(0);
+      return ok;
+    },
     grant: (shards, ether) => ev(([a, b]) => endfall.setResources(0, a, b), [shards, ether]),
     centerOn: (x, y) => ev(([x, y]) => endfall.centerOn(x, y), [x, y]),
     /** World point → page pixel (after centring the camera there, so it is on screen). */
@@ -208,9 +247,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
     /** Labels of the command card buttons as the player sees them, with their enabled state. */
     card: () => page.$$eval('#cmd button', bs => bs.map(b => ({ label: b.querySelector('.l').textContent, enabled: !b.disabled && b.getAttribute('aria-disabled') !== 'true' }))),
-    /** Wait until the card shows `label` usable (not locked): after a set-up changed what it offers (a tech
+    /** Wait until the card shows `label` usable: after a set-up changed what it offers (a tech
      *  researched by the debug handle), the card is drawn again on a later frame. */
-    readyCard: (label) => page.locator('#cmd button:not([disabled]):not(.locked)', { hasText: label }).first().waitFor({ timeout: 5000 }),
+    readyCard: (label) => page.locator('#cmd button:not([disabled])', { hasText: label }).first().waitFor({ timeout: 5000 }),
     async pressCard(label) {
       const b = page.locator('#cmd button:not([disabled])', { hasText: label }).first();
       await b.waitFor({ timeout: 5000 });

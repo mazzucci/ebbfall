@@ -1,4 +1,4 @@
-// Room codes (docs/MULTIPLAYER.md, Security): six letters of ALPHABET, 20^6 = 64 million codes, shown and said in two
+// Room codes (Notion: Multiplayer design, Security): six letters of ALPHABET, 20^6 = 64 million codes, shown and said in two
 // threes, BCD-FGH. One module for every place that makes, reads or shows one: the relay (relay/worker.js and
 // relay/server.mjs make them), the lobby (src/client/online.js reads what is typed or linked) and a room link's card
 // (site/preview.js). Pure, no imports. The links carry the code without the hyphen (`?room=BCDFGH`); a code is read
@@ -24,5 +24,5 @@ export function parseCode(text) {
 /** A code as shown and said: BCD-FGH. */
 export const showCode = (code) => `${code.slice(0, 3)}-${code.slice(3)}`;
 
-/** A code of the first format (four letters, until PROTO 6), as an old client sends it. */
+/** A code of the first format (four letters, until PROTO 7), as an old client sends it. */
 export const oldCode = (text) => typeof text === 'string' && OLD.test(text.toUpperCase());

@@ -297,23 +297,27 @@ export function rubble(n, M) {
 }
 
 // ---------------- resources ----------------
+/** A salt field (STYLE.md): a bed of wet slate with a pale crust, and halite grown on it in cubic clusters, stacked
+ *  and tilted; stage 0 is full, 3 nearly mined out (fewer, lower clusters, the crust dug through). No light: salt is
+ *  pale by itself and must never compete with the lamps or a selection ring. */
 export function shardField(stage, mats) {
   const g = grp(); s = 31;
-  add(g, cyl(13, 15, 2, 14), mats.rock, 0, 1, 0).scale.set(1, 1, 0.8);
-  const crystals = [[-6, 2, 3.4, 15, -0.25, 0.2], [5, 3, 3, 13, 0.3, -0.3], [0, -2, 3.8, 19, 0.05, 0.1], [-2, 6, 2.6, 10, -0.4, 0.4], [7, -4, 2.2, 10, 0.5, -0.2], [-8, -4, 2, 8, -0.5, -0.4]];
-  crystals.slice(0, 6 - stage * 1.5 | 0).forEach(([x, z, r, h, lx, lz]) => {
-    const k = 1 - stage * 0.15, c = grp();
-    add(c, new THREE.CylinderGeometry(r * k, r * k * 1.1, h * k * 0.75, 5), mats.crystal, 0, h * k * 0.375, 0);
-    add(c, new THREE.ConeGeometry(r * k, h * k * 0.4, 5), mats.crystalTip, 0, h * k * 0.75 + h * k * 0.2, 0);
-    c.position.set(x, 1, z); c.rotation.set(lz, rnd() * 3, -lx); g.add(c);
+  add(g, cyl(13, 15, 2, 14), mats.slate, 0, 1, 0).scale.set(1, 1, 0.8);
+  add(g, cyl(11.5, 12.5, 0.8, 14), mats.crust, 0, 2.2, 0).scale.set(1, 1, 0.78);
+  const cubes = (r, h) => { const c = grp(); add(c, rbox(r * 1.3, h, r * 1.2, 0.15), mats.salt, 0, h / 2, 0); add(c, rbox(r * 0.85, h * 0.8, r * 0.9, 0.12), mats.saltWet, r * 0.5, h * 0.72, -r * 0.3, 0.2, 0.5, 0.1); add(c, rbox(r * 0.7, h * 0.55, r * 0.7, 0.1), mats.salt, -r * 0.45, h * 0.95, r * 0.35, 0.1, 0.9, -0.15); return c; };
+  const clusters = [[-6, 2, 3.2, 9, -0.2, 0.15], [5, 3, 2.8, 7.5, 0.25, -0.2], [0, -2, 3.6, 11, 0.05, 0.1], [-2, 6, 2.4, 5.5, -0.3, 0.3], [7, -4, 2.1, 5, 0.3, -0.15], [-8, -4, 2, 4.5, -0.3, -0.3]];
+  clusters.slice(0, 6 - stage * 1.5 | 0).forEach(([x, z, r, h, lx, lz]) => {
+    const k = 1 - stage * 0.15, c = cubes(r * k, h * k);
+    c.position.set(x, 2, z); c.rotation.set(lz, rnd() * 3, -lx); g.add(c);
   });
-  for (let k = 0; k < 6; k++) add(g, new THREE.DodecahedronGeometry(1.5 + rnd() * 1.5), mats.rock, (rnd() - 0.5) * 24, 1, (rnd() - 0.5) * 18);
-  for (let k = 0; k < 7 - stage * 2; k++) add(g, new THREE.ConeGeometry(0.9, 3 + rnd() * 2, 5), mats.crystalTip, (rnd() - 0.5) * 22, 1.5, (rnd() - 0.5) * 16, (rnd() - 0.5), 0, (rnd() - 0.5));
+  for (let k = 0; k < 6; k++) add(g, new THREE.DodecahedronGeometry(1.4 + rnd() * 1.4), mats.slate, (rnd() - 0.5) * 24, 1, (rnd() - 0.5) * 18, rnd(), rnd(), 0).scale.y = 0.6;
+  for (let k = 0; k < 8 - stage * 2; k++) add(g, rbox(1.2, 1.2, 1.2, 0.1), mats.salt, (rnd() - 0.5) * 24, 2.2, (rnd() - 0.5) * 16, (rnd() - 0.5), rnd() * 3, (rnd() - 0.5)); // loose cubes
+  if (stage >= 2) for (let k = 0; k < 4; k++) add(g, rbox(3 + rnd() * 3, 0.6, 2 + rnd() * 2, 0.2), mats.slate, (rnd() - 0.5) * 16, 2.5, (rnd() - 0.5) * 12, 0, rnd() * 3, 0); // dug through to the slate
   return g;
 }
 export function vent(f, mats) {
   const g = grp(); s = 51;
-  for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; const r = 23 + rnd() * 3; add(g, new THREE.DodecahedronGeometry(4 + rnd() * 3), mats.rock, Math.cos(a) * r, 2, Math.sin(a) * r, rnd(), rnd(), rnd()).scale.y = 0.7; }
+  for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; const r = 23 + rnd() * 3; add(g, new THREE.DodecahedronGeometry(4 + rnd() * 3), mats.slate, Math.cos(a) * r, 2, Math.sin(a) * r, rnd(), rnd(), rnd()).scale.y = 0.7; }
   add(g, cyl(20, 22, 2, 32), mats.pit, 0, 0.5, 0);
   add(g, new THREE.ConeGeometry(18, 8, 32, 1, true), mats.pit, 0, -2, 0, Math.PI, 0, 0);
   // three spiral arms (arcs of growing radius), turned a little more each frame

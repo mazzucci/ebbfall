@@ -3,8 +3,13 @@
 A browser real-time strategy game in the 1998 StarCraft mold, built as a learning-and-fun project. The simulation is
 Rust compiled to WASM (`crates/endfall-sim`); the client is plain JavaScript ES modules, Vite and PixiJS 8 (WebGL)
 over code-generated sprite sheets (pre-rendered 3D units and buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer can be added without
-rewriting it. See `docs/PLAN.md` for the roadmap and open questions
-and `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
+rewriting it. Two Notion pages hold what is not code: Ebbfall: planning (the
+roadmap, reviews, open questions) and Ebbfall: developer docs ("Multiplayer design": lockstep, the relay, hosting,
+deploy and rollback; "Ebbfall art": the art pipeline, frame names, seat colours). `docs/` is kept for the public site
+that explains the game to players: no plans and no developer notes there. Agendas, handoff notes for paused work,
+the owner's decisions and anything to remember for later go to Notion too (subpages of Ebbfall: planning, one per work
+item, the branch named), never to local files such as ~/endfall-handoff: every session, on any machine, must be able to
+read them. See `README.md` for the player-facing description. The game was called Endfall until 2026-10-26: player-facing text
 says Ebbfall and the repo is github.com/mazzucci/ebbfall; internal names (`endfall-sim`, `window.endfall`, `ENDFALL_*`,
 storage keys, the local folder) keep the old word.
 
@@ -25,6 +30,19 @@ npm run build      # production build into dist/ (static files, deploy anywhere)
 npm run preview    # serve dist/ on http://localhost:4173
 npm test           # headless sim tests (node --test), no browser needed
 npm run sim        # scripted 10-minute game per difficulty on the Rust sim, prints economy/army snapshots
+npm run lab -- report   # the balance lab (crates/endfall-lab/README.md): a fixed batch of AI-vs-AI games natively,
+                        # win rates with 95% intervals, target checks (PASS/WARN), key figures; JSON in target/lab/
+npm run lab -- compare A.json B.json   # two reports cell by cell: what moved, and whether more than the noise
+npm run lab -- report --sizes 64 --maps Shore --shore-field channel   # the Shore with the basins' field exposed
+                        # (channel-far: farther out; each people's income and losses at fields in the Shore section)
+npm run lab -- sheet    # the formula sheet: every unit's numbers, DPS, cost-weighted efficiency, time to kill
+npm run lab -- plans    # games with random AI plans (workers, first wave, expansion; a placebo and a planted coin):
+                        # a logistic model of what wins, win rates by setting; --plant runs the planted control;
+                        # --first-max 12:00 draws first waves up to 12:00; each first wave's value and result by bin;
+                        # --tide (report too): the same batch with the tide on
+                        # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
+npm run lab -- turtle   # a Medium seat that never attacks (no waves, no raids; --raids keeps its raids) against
+                        # Medium (the tide's turtle row, its baseline)
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed
 cargo test --release --test gameplay   # the same gameplay suite with 4x more random-play seeds
 npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromium (needs npm run build first and
@@ -32,20 +50,24 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
                    # cross-engine subset there (`engines: true`; WebKit skips the
                    # menu's focus test); ENDFALL_ALL=1 runs all but the Chromium-only ones. Firefox has WebGL on Linux
                    # only with a display: it runs headed whenever DISPLAY is set (so on a desktop it takes your screen,
-                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does
+                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does. ENDFALL_SHARD=i/n runs every
+                   # n-th test of each file from the i-th (CI splits Chromium over four jobs); `d.skipUntil` fast-forwards
+                   # in the page until a condition holds (prefer it to `until` for a plain wait)
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
                              # Android emulator or BrowserStack's real devices
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
-                             # the 3D part needs a Chromium, see docs/ART.md)
+                             # the 3D part needs a Chromium, see Notion: Ebbfall art)
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
 node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
                              # wording (a Chromium too; output is committed, kept under 300 KB)
 ```
 
-CI (`.github/workflows/ci.yml`) runs rustfmt, clippy, `cargo test`, the WASM build, `npm test`, `npm run build` and the
-browser tests (all in Chromium, the cross-engine subset in WebKit and Firefox) on every pull request, and publishes
+CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
+and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
+over four `e2e` jobs; the cross-engine subset in WebKit and Firefox; the golden games on an ARM Mac, `arm`, which holds
+neither a merge nor a deploy since 2026-11-04 and is read by hand) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
-docs/MULTIPLAYER.md, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
+Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
 run must not leave a relay change undeployed): the job hashes the bundle wrangler would upload (`deploy --dry-run`,
 wrangler pinned) with wrangler.toml, reads the live build from `GET https://relay.ebbfall.com/version`
@@ -53,7 +75,7 @@ wrangler pinned) with wrangler.toml, reads the live build from `GET https://rela
 /version, or on a run started by hand; then waits for /version to say the new build. The `deploy` job (the site)
 publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/net.js's, which a test keeps equal), so
 the site never outruns the relay. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
-iPad, an iPhone and a Pixel (docs/MULTIPLAYER.md, "Browsers and devices").
+iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
 A change to the simulation must keep `cargo test` and `npm test` green, in particular the determinism tests (same seed
 and commands produce the same `stateHash()`), and every rule change needs a scenario in the gameplay tests.
@@ -85,23 +107,38 @@ src/engine/           the client's view of the Rust sim: index.js starts instant
                       and descriptions;
                       util.js small helpers; golden.js the golden games' table and runner (Node test, browsers in CI,
                       selftest.html). pkg/ is generated by build:wasm and not committed
+crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a library, all I/O, clocks and threads
+                      here; batch.rs (the cells and seeds, one game played and recorded, threads in a fixed order),
+                      report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
+                      compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
+                      plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
+                      turtle.rs (a never-attacking Medium against Medium), waves.rs (every AI wave: its value against
+                      the defence on arrival, its result, where its units fell; in report and turtle),
+                      model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction),
-                      upgrades.rs, diff.rs (AI tuning per difficulty), export.rs (the tables as JSON, one small writer)
+                      upgrades.rs, diff.rs (AI tuning per difficulty), tide.rs (the tide's cycle, levels, warning and
+                      sweep), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
-                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free
-  src/path.rs         A* + line-of-sight smoothing (f32 cost grid, fixed heap tie-breaks, a look-ahead window)
+                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes, occupancy grid, nearest_free;
+                      heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
+                      `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
+                      (`generate_shore`: two starts, each a cove and a reef basin, `basins`; its own generator, so the
+                      other kinds' maps never change)
+  src/path.rs         A* + line-of-sight smoothing for a walker's `Foot` (f32 cost grid, fixed heap tie-breaks, a
+                      look-ahead window)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
                       starts, who is out, the last team standing), orders, spawn, economy, construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, paths.rs (a group's one route shared by the units of one order, long
-                      searches budgeted per seat per tick), fog
+                      searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
+                      retreat, the sweep)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
-  src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (docs/MULTIPLAYER.md)
+  src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap; the
@@ -125,10 +162,14 @@ src/client/           everything that touches the browser
                       `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About, the record; FIRST GAME
-                      until a first game is over), the single-player page (the board: eight fixed spots, you and one to
+  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About; FIRST GAME until a
+                      first game is over, by the record of games, which is kept but not shown; the build stamp at
+                      its foot, "Updated <date> · <hash>": the last game update, the newest commit under
+                      vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
+                      from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
+                      (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
-                      + AI in the lowest empty spot; the map list, any map that seats them, with a preview, FIRST GAME),
+                      + AI in the lowest empty spot; the map list, any map that seats them, with a preview; no FIRST GAME there),
                       the About page (the source, the device check, the version); the map list and preview the lobby
                       shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
@@ -161,6 +202,8 @@ src/client/           everything that touches the browser
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
+  stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
+                      Shields for a shielded race, Armour; damage, ground/air, tags), base stats only (test/stats.test.js)
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, in a replay BACK TO REPLAY / DONE, online a menu over a game that
@@ -178,7 +221,7 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
-  scout.js            what this side has seen of the enemy's army (the pause card's and end card's scouting lines)
+  scout.js            what this side has seen of the enemy's army (the end card's scouting line)
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
                       first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
                       installs, and About) asks the service worker and says so until everything is saved
@@ -191,7 +234,7 @@ src/client/           everything that touches the browser
                       without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build
                       with VITE_RELAY_URL shows MULTIPLAYER in the HTML itself, vite.config.js)
-src/net/net.js        the network client (docs/MULTIPLAYER.md): hello/rejoin, lobby messages (seats by spot), its game seat
+src/net/net.js        the network client (Notion: Multiplayer design): hello/rejoin, lobby messages (seats by spot), its game seat
                       from `start`, sends this side's orders,
                       feeds the relay's turns to the lockstep Game, acks with checkpoint hashes, reconnects; no DOM
 src/net/roomcode.js   room codes, one module for the relay, the lobby and the link's card: six letters of a vowel-free
@@ -228,6 +271,7 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
                       seat 2 (the start arranges the sides)
+test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P
 test/seats.test.js    the board's rules: spots to seats, team ids and each seat's spot, a new AI's spot and side, the
@@ -250,26 +294,29 @@ test/site-preview.test.js the link cards (site/preview.js): a room's code read a
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
+test/build-stamp.test.js the build stamp: the commit and its date baked in, <meta name="build"> in the page's head
+test/build-inputs.test.js every file the production build reads lies under vite.config.js `SHIPPED` (a path missing
+                      there would ship a game update under an older stamp)
 test/store.test.js    the player's name: `cleanName` (and that the relay names a hello the same), `playerName`'s one key
 test/challenge.test.js a challenge's code (src/client/challenge.js): setups round-trip, the code canonical (sides as they
                       first appear, the side modulo starts x players), hostile, malformed and other versions refused (a
                       fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
                       does when they outgrow one), labels, an online setup's map at its own size, the team splits
-relay/                the multiplayer relay (docs/MULTIPLAYER.md): room.js, the rules as a pure state machine (seats on
+relay/                the multiplayer relay (Notion: Multiplayer design): room.js, the rules as a pure state machine (seats on
                       the board's fixed spots (a seat keeps its spot in the lobby), AI seats and their levels, the
                       game's seats arranged by side only at the start (`setup.spots`), the room's map checked against
                       its seats (it imports src/client/maps.js), lobby, the turn clock, the log, away and back,
-                      desync checks, the host's remove); server.mjs, a Node WebSocket server
-                      for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
+                      desync checks, the host's remove: the address barred while the room lasts, in its record);
+                      server.mjs, a Node WebSocket server for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
                       this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
-                      limits.js, the limits per address and in all (docs/MULTIPLAYER.md, Security: Workers Rate
+                      limits.js, the limits per address and in all (Notion: Multiplayer design, Security: Workers Rate
                       Limiting bindings for an address's minute, an object named `limits` for its hour and everyone's
                       rooms, all in memory in the Node relay but for this machine) and the counter bench.js shares;
                       bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
-site/                 the site, https://ebbfall.com/ (docs/MULTIPLAYER.md, Hosting): dist/ as a Worker's static assets
+site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design, Hosting): dist/ as a Worker's static assets
                       (wrangler.toml: ebbfall.com/* and www as zone routes, exact paths as on GitHub Pages, the Worker
                       first only for / and /index.html); worker.js (the game's page, rewritten with HTMLRewriter only for
                       a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
@@ -297,10 +344,8 @@ scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the
                       sprite finish, run in headless Chromium (three.js)
-tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see docs/ART.md
+tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
-docs/ART.md           art style guide, palette, frame names
-docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored in Notion)
 ```
 
 ## Rules that keep the sim multiplayer-ready
@@ -327,7 +372,9 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   96x96, 8 on 128x128, `map::max_starts`, all of them generated whatever the seats; seats sit round the map in order, `map::seat_starts`: allies in consecutive
   seats are neighbours, which is how the menus' teams are made, and with teams `Game::with_seats` turns the seats by
   whole starts only and the free starts go between teams, `map::team_starts`, so any split of consecutive seats starts
-  side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`),
+  side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`; in the
+  balance lab only, a plan: a whole `Diff` per seat, `World::set_ai_plans`, never from JS or the network and not
+  hashed; every AI decision reads its numbers through `World::tuning`, the plan or else its level's),
   and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
   an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
   decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one
@@ -346,6 +393,44 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
   `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
   wave called home to a raid by another) apply only with more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
+- Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`
+  everywhere on the kinds without water) and the world one water level (`World::water`: 0, not hashed, unless the
+  tide is on). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
+  its kind's class (`UnitDef::mv`, `Move`): Walk (the Humans' ground units: land and shallows), Amph (the Vael's:
+  anywhere), Fly (flyers, exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
+  level: `World::foot(kind)`, `Map::passable`, `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay
+  class-free (map generation, buildings, flyers). The contact rules: a Walk unit in the shallows moves at `WADE_SPEED`
+  (0.7, in `live_speed`); nothing fires from deep water (`fire` refuses, an attacker in deep water closes in until it
+  stands on shallows or land, an idle or attack-moving one picks no fight there, and one there drops a flyer or a target itself in deep water;
+  a crowd's push never shoves a walker into it); buildings go by the builder's class (`builds_on`: a
+  Walk builder on land, an Amph builder on land and shallows, nobody in deep water), the AI's placement through the same
+  `can_place`. On a map without water all of it is inert (the goldens pin that).
+- The tide (PRD: the tide on the Shore map; `World::set_tide`, a world switch, off by default: the menus play without
+  it until the tide's clock and water are drawn; Rust callers, the lab and the tests turn it on): the water level
+  moves through a cycle (`world/tide.rs`, its numbers in `data/tide.rs`): high water, the ebb, low water, the flood
+  (3:00 by default, each cycle up to 15% longer or shorter, drawn from the world's RNG as it starts; a game starts at
+  high water), a step at a time between `WATER_LOW` and `WATER_HIGH`; `tide_phase`, `tide_level`. It runs first in
+  `step`. When the level moves, routes it cuts are dropped (`terrain_changed` and each walker's own) and, on the way
+  up, a walker on ground now deep is swept to the nearest ground it may stand on, losing 30% of its maximum health
+  and stunned 2 s (`Unit::stun`, like `warp`), or destroyed with `set_flood_kills` (the lab's comparison).
+  `TIDE_WARN_S` before the flood each seat with walkers on ground it will cover is warned (a toast, the alert sound, a
+  ping) and, its switch on (`SetRetreat`, a command; `World::no_retreat`, a bit per seat; on by default), its idle
+  walkers and its idle or mining workers there walk to ground that stays dry; units under any other order keep it.
+  Amphibians are never swept. With the tide, building goes by the level that matters (`builds_on`: a Walk builder on
+  land at high water, an Amph builder on what is at most shallow at low water), and no building fires from deep water
+  either. The tide enters the hash only when on (level, cycle, switches; a stunned unit's stun), so every game
+  without it hashes as before; `golden_hashes_pin_the_shore_with_the_tide` pins one with it.
+- The Shore map (`MapKind::Shore`, appended; 64x64, two starts): each start's share holds a cove on land (a pocket in
+  a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
+  across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
+  shallows round it. Starts by people: a seat whose builders are Amph (the Vael) starts in its start's basin
+  (`Map::basins`), the others in its cove; the start a seat does not use stays open ground with its field. A Shore
+  with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
+  Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
+  tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
+  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, behind the Core; `CHANNEL` and
+  `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
+  the network and not hashed, `Map::generate_with`).
 - The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
   with four and 128x128 with eight, each size with maps of its own, any of them for as many players as its starts
   (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index
@@ -364,14 +449,21 @@ docs/PLAN.md          roadmap, architecture decisions, open questions (mirrored 
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `random_play`): every building can be built and every unit trained, requirements,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
   every 16 ticks on a tick of its own), maps of 2, 4 and 8 starts
   that are walkable and alike for every start, group paths (one search for a group's order, long searches budgeted,
-  no shared route through rock), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
-  `Game` API the browser uses, across many seeds, checking world invariants (positions, hp, occupancy grid, supply,
+  no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
+  amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
+  ground and fields, a walker reaching both coves, both basins and every field, short ways between a cove and the basin
+  it faces, starts by people, a walker sent out to sea stopping on the shore, both AIs finishing from either start at
+  every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
+  only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
+  switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
+  under high water: a hand-built map), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command
   card buttons) on desktop and a landscape phone. The debug handle may only be used to read state, fast-forward

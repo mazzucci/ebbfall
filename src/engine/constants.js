@@ -1,8 +1,8 @@
 // Game data as the client sees it. Every number comes from the Rust sim (crates/endfall-sim/src/data/, exported
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
-// Costs are [shards, ether]. Distances are in tiles unless named otherwise; speeds in px/s.
+// Costs are [salt, 0] (the second slot was ether, gone with the conversion). Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
-import { DIFF_NAMES } from './util.js';
+import { DIFF_NAMES, plural } from './util.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
 
 export const TILE = D.consts.tile;
@@ -22,60 +22,77 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 
-/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does,
- *  never which enemy units it beats or loses to: players find the counters themselves (the duels of
- *  tests/gameplay/balance.rs keep the design's counter loops). */
+/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does;
+ *  its partner and its killer are a line of their own (`PAIRS`), the counters made visible (Roster v2). */
 const UNIT_TEXT = {
-  harvester: { hot: 'H', desc: 'Mines shards and ether. Builds structures.' },
-  trooper: { hot: 'T', desc: 'Rifle infantry. Cheap and quick; shoots ground and air.' },
-  vanguard: { hot: 'V', desc: 'Heavy walker for the front line: it fights on the move, with long range and thick plate, and its shells splash onto nearby ground units. Cannot hit flyers.' },
-  lancer: { hot: 'L', desc: 'Cheap anti-air infantry. Missiles shred flyers, weak against the ground.' },
+  harvester: { hot: 'H', desc: 'Mines salt. Builds structures and repairs them.' },
+  trooper: { hot: 'T', desc: 'Line infantry, cheap and steady. Shoots the ground only. Digs in for more reach once Sandbags is researched.' },
+  vanguard: { hot: 'V', desc: 'Armoured walker for the front. Beaches itself where it fights: armour 6 and a splashing gun; on the move only a light gun.' },
+  lancer: { hot: 'L', desc: 'Slow-firing crewman whose harpoon reaches ground and air and hits flyers hard. What it hits moves at half speed and uses no ability for 3 s.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  raider: { hot: 'W', desc: 'Fast light jet. Flies over cliffs and buildings, strafes the ground. Can cloak (Cloaking Field).' },
-  observer: { hot: 'O', desc: 'Cheap flying scout. Unarmed and fast; sees far and flies over cliffs. Cloaked: unseen unless detected. Detects cloaked units.' },
-  siegeTank: { hot: 'S', desc: 'Tracked artillery. Deployed, its siege gun outranges everything on the ground and its shells splash hard, but nothing inside its blind ring can be hit, nor flyers, and it fires as far as your side can see. On its tracks it has only a light gun. Behind a line it breaks massed infantry and towers; alone it is easy prey.' },
-  interceptor: { hot: 'I', desc: 'Ground missile vehicle: intercepts flyers. Cannot hit the ground. Fast and armoured, it keeps the sky clear over your line.' },
-  bastion: { hot: 'B', desc: 'Capital gunship. Slow and heavily armoured; its cannon splashes the ground and reaches flyers. Hunted by anti-air.' },
+  raider: { hot: 'W', desc: 'Fast light flyer. Flies over cliffs and buildings, strafes the ground. Faster once Tailwind is researched.' },
+  observer: { hot: 'O', desc: 'Unarmed flying scout. Fast, sees far, flies over cliffs, and spots hidden units near it.' },
+  siegeTank: { hot: 'S', desc: 'Artillery. Anchors by itself where it stops and shells from afar with heavy splash, but not up close; it cannot fire on the move.' },
+  interceptor: { hot: 'I', desc: 'Fast, armoured anti-air gun on wheels: keeps the sky clear over your line. Cannot hit the ground.' },
+  bastion: { hot: 'B', desc: 'Flying capital ship. Slow and heavily armoured; its guns splash the ground and reach flyers.' },
   // the Vael
-  lumen: { hot: 'L', desc: 'Mines shards and ether. Plants Vael structures.' },
-  scythe: { hot: 'S', desc: 'Hover-knight with ceramic blades. Fights up close: it has to catch its target first. Cannot hit flyers.' },
-  prism: { hot: 'P', desc: 'Ring of crystal that fires lances at ground and air: the Vael all-rounder and their answer to flyers.' },
-  monolith: { hot: 'M', desc: 'Slow siege slab. Long range; its shots splash onto nearby ground units. Cannot hit flyers.' },
-  shrike: { hot: 'H', desc: 'Fast crescent flyer. Raids workers and hunts other flyers. Can veil itself (Veil Weave).' },
-  sovereign: { hot: 'V', desc: 'Capital barge. A great shell gliding low over the ground, its beam splashing the ground from far off. Cannot hit flyers.' },
-  halo: { hot: 'A', desc: 'Unarmed hovering ring that mends the shields of nearby Vael, even under fire. Sees far. Detects cloaked units.' },
-  umbra: { hot: 'U', desc: 'The Lumen is the Vael\'s light; the Umbra is its shadow. Always cloaked: unseen and untargetable except near a detector. Cuts down any ground army that brings none, siege lines too; found, it is a costly blade. Cannot hit flyers.' },
+  lumen: { hot: 'L', desc: 'Mines salt. Plants Vael structures, which grow by themselves.' },
+  scythe: { hot: 'S', desc: 'Fast blade in a shell of nacre. Fights up close: it has to catch its target first. Cannot hit flyers.' },
+  prism: { hot: 'P', desc: 'A lens that fires at ground and air: the Vael all-rounder and their answer to flyers. Surges once Surge Chamber is researched.' },
+  monolith: { hot: 'M', desc: 'Slow heavy shell. Long range; its shots splash onto nearby ground units. Surfaces a short way off. Cannot hit flyers.' },
+  shrike: { hot: 'H', desc: 'Fast flyer. Raids workers and hunts other flyers. Hidden for good once Seaglass is researched.' },
+  sovereign: { hot: 'V', desc: 'Capital barge gliding low, its beam splashing the ground from far off; its lantern spots hidden units. Cannot hit flyers.' },
+  halo: { hot: 'A', desc: 'Unarmed. Mends the nacre, then the hull, of nearby Vael, even under fire. Sees far and spots hidden units.' },
+  umbra: { hot: 'U', desc: 'Melee assassin. Hidden while still. Put it on Hold to lie in wait: its first strike comes from hiding, and it shows when it moves or strikes. Something that spots hidden units sees it anyway.' },
 };
 const BLDG_TEXT = {
-  core: { hot: 'C', desc: 'Trains Harvesters. Resource drop-off. +10 supply.' },
-  depot: { hot: 'D', desc: '+8 supply.' },
-  extractor: { hot: 'E', desc: 'A drilling rig built on an ether vent. Harvesters mine ether from it.' },
-  barracks: { hot: 'G', desc: 'Trains Troopers, Lancers and Medics (Medics need a Foundry).' },
-  forge: { hot: 'F', desc: 'Researches weapon and armor upgrades, Cloaking Field and Rapid Construction; unlocks Medics at the Garrison and vehicles at the Factory.' },
-  factory: { hot: 'R', desc: 'Builds vehicles: Vanguards, Siege Tanks and Interceptors (all need a Foundry).' },
-  turret: { hot: 'T', desc: 'Static defense against ground and air. Detects cloaked units.' },
-  airfield: { hot: 'A', desc: 'Trains Raiders, Observers and the Bastion capital gunship.' },
+  core: { hot: 'C', desc: 'Trains Riggers. Salt drop-off. +10 energy.' },
+  depot: { hot: 'D', desc: '+8 energy.' },
+  extractor: { hot: 'E', desc: 'Built on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
+  barracks: { hot: 'G', desc: 'Trains Pickets, Harpooners and Menders (Menders need a Workshop).' },
+  forge: { hot: 'F', desc: 'Researches Weapons, Plating, Sandbags and All Hands; unlocks Menders and the Slipway\'s machines.' },
+  factory: { hot: 'R', desc: 'Builds the machines: Breakwaters, Anchor Guns and Netters (all need a Workshop).' },
+  turret: { hot: 'T', desc: 'Static defence against ground and air. Spots hidden units.' },
+  airfield: { hot: 'A', desc: 'Trains Kites, Spyglasses and the Windjammer capital ship. Researches Tailwind.' },
   // the Vael
-  conflux: { hot: 'C', desc: 'The Vael heart. Trains Lumens. Resource drop-off. +10 supply.' },
-  spire: { hot: 'S', desc: '+8 supply.' },
-  siphon: { hot: 'E', desc: 'Grown on an ether vent. Lumens draw ether from it.' },
-  kiln: { hot: 'K', desc: 'Fires Scythes, Prisms, Monoliths, Halos and Umbras (all but Scythes and Prisms need a Loom). With its rally point in a power field, they warp in there.' },
-  loom: { hot: 'L', desc: 'Weaves the Weapons and Shields upgrades, Overcharge Core and Veil Weave; unlocks Monoliths, Halos and Umbras.' },
-  ward: { hot: 'W', desc: 'Crystal sentinel against ground and air. Detects cloaked units.' },
-  zenith: { hot: 'Z', desc: 'Launches Shrikes and raises the Sovereign capital barge. With its rally point in a power field, they warp in there.' },
+  conflux: { hot: 'C', desc: 'The Vael heart, a pool of deeplight. Trains Glints. Salt drop-off. +10 energy.' },
+  spire: { hot: 'S', desc: '+8 energy.' },
+  siphon: { hot: 'E', desc: 'Grown on a brine seep: pays salt by itself, half a salt a second, with no workers.' },
+  kiln: { hot: 'K', desc: 'Grows Needles, Lenses, Conchs and Tenders (the last two need a Glasshouse).' },
+  loom: { hot: 'L', desc: 'Researches Weapons, Hardshell and Surge Chamber; unlocks Conchs and Tenders.' },
+  ward: { hot: 'W', desc: 'Sentinel against ground and air. Spots hidden units.' },
+  zenith: { hot: 'Z', desc: 'Launches Petrels, hidden Undertows and the Argonaut capital barge.' },
+  // (its name is the sim's, vael.rs: the words here never repeat it)
+  eclipse: { hot: 'I', desc: 'Where the Vael keep their dark. Unlocks Undertows and researches the Petrels\' Seaglass and Spindrift.' },
 };
-const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Shields soak 1 more damage of every hit per level (units and buildings).' },
-  afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
+const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor per level for all units.' }, shields: { hot: 'S', desc: 'Nacre soaks 1 more damage of every hit per level.' },
+  afterburners: { hot: 'F' }, overchargeCore: { hot: 'O' }, slipstream: { hot: 'F' }, cloakingField: { hot: 'K' }, entrenching: { hot: 'K' }, veilWeave: { hot: 'V' }, rapidConstruction: { hot: 'B' } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
+/** Each fighting unit's partner (what it fights best beside) and killer (what beats it), from Roster v2's
+ *  compositions: one line in its train button's details (`pairLine`). Workers have none. Every killer is held by a
+ *  cost-equal duel (crates/endfall-sim/tests/gameplay/balance.rs `every_units_killer_on_its_card_beats_it`). */
+export const PAIRS = {
+  trooper: ['lancer', 'monolith'], lancer: ['trooper', 'scythe'], medic: ['trooper', 'scythe'],
+  vanguard: ['siegeTank', 'monolith'], siegeTank: ['vanguard', 'shrike'], interceptor: ['bastion', 'scythe'],
+  raider: ['interceptor', 'prism'], observer: ['siegeTank', 'shrike'], bastion: ['interceptor', 'shrike'],
+  scythe: ['halo', 'vanguard'], prism: ['monolith', 'siegeTank'], halo: ['scythe', 'trooper'],
+  monolith: ['prism', 'raider'], umbra: ['shrike', 'trooper'], shrike: ['umbra', 'interceptor'],
+  sovereign: ['prism', 'raider'],
+};
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
 export const UNITS = merge(D.units, UNIT_TEXT);
+/** A unit's partner and killer as one line ("Best with Harpooners. Beaten by Conchs."), or '' for a worker. */
+export function pairLine(k) {
+  const p = PAIRS[k];
+  return p ? `Best with ${plural(UNITS[p[0]].name)}. Beaten by ${plural(UNITS[p[1]].name)}.` : '';
+}
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Requires X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) d.desc += ` Requires ${D.buildings[d.req].name}.`;
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
-/** Team-wide upgrades; per level: cost [shards, ether], seconds. */
+/** Team-wide upgrades; per level: cost [salt, 0], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
@@ -84,23 +101,26 @@ export const FACTIONS = D.factions;
 /** A side's own kinds (`f`: a FACTIONS entry): its buildings and the units they train. */
 export const kindsOf = (f) => { const b = [f.hq, ...f.buildBasic, ...f.buildAdvanced]; return new Set([...b, ...b.flatMap(k => BUILDINGS[k].trains || [])]); };
 /** Upgrade `k`'s words for side `f`. Weapons, which both races research, names that side's own weapons only. */
-export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage for every weapon (' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
-  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? `, its light gun +${UNITS[t].light.upDmg}` : ''}`).join(', ') + ' per level).';
+export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage per level: ' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
+  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? ` (light gun +${UNITS[t].light.upDmg})` : ''}`).join(', ') + '.';
 const ABILITY_TEXT = {
-  stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' },
-  blink: { hot: 'F', desc: 'Hop 4 tiles towards the target (or straight ahead).' },
+  stim: { hot: 'T', desc: 'Fire 50% faster and run faster for 10 s. Costs 10 health.' }, // (retired with Roster v2)
+  entrench: { hot: 'T', desc: 'Dig in: 2 more tiles of reach, but no moving, until you dig out (2 s each way).' },
+  blink: { hot: 'F', desc: 'Sink and surface up to 4 tiles towards the target (or straight ahead).' },
   overcharge: { hot: 'O', desc: 'Fire twice as fast for 6 s.' },
-  cloak: { hot: 'C', desc: 'Cloaked for 12 s: unseen and untouchable except near a detector.' },
-  veil: { hot: 'C', desc: 'Veiled for 12 s: unseen and untouchable except near a detector.' },
-  deploy: { hot: 'D', desc: 'Set up to fire the siege gun (3 s, neither moving nor firing meanwhile); it deploys by itself when it reaches its target. On its tracks it has only a light gun. Then the button reads Undeploy.', off: { name: 'Undeploy', icon: 'undeploy', desc: 'Pack up onto its tracks to move again (3 s, neither moving nor firing meanwhile), with only its light gun. A move order packs it up too.' } },
+  cloak: { desc: 'Always hidden once researched: unseen and untouchable except near a spotter.' }, // (retired with Roster v2)
+  veil: { desc: 'Always hidden once Seaglass is researched: unseen and untouchable except near a spotter.' },
+  deploy: { desc: 'Anchors whenever it stops (3 s, no moving or firing meanwhile), and weighs anchor when it has to move: it fires only anchored.' },
+  beach: { desc: 'Beaches itself where it fights (2 s): armour 6 and its splashing gun. Gets under way again when it has to move.' },
 };
-/** One-tap unit abilities (self-cast or toggle), with their hotkeys and descriptions; a toggle's `off`: its button's
- *  name, icon and words while it is on (the button names the action, src/client/cards.js `abilityTargets`). */
+/** Unit abilities, with their hotkeys and descriptions: one tap each on the card, but for an automatic one (`auto`:
+ *  the Siege Tank's Deploy), which the unit uses by itself and which has no button or key. */
 export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 // A tech's words come from what it does: the ability it unlocks (and who has it), the flyer it speeds up.
 for (const u of Object.values(UPGRADES)) {
-  if (u.effect === 'unlock') u.desc = `Unlocks ${ABILITIES[u.of].name} for ${Object.values(UNITS).filter(d => (d.abilities || []).includes(u.of)).map(d => d.name + 's').join(' and ')}.`;
-  if (u.effect === 'speed') u.desc = `${UNITS[u.of].name}s fly ${Math.round((TECH_SPEED - 1) * 100)}% faster.`;
+  const who = (k) => Object.values(UNITS).filter(d => (d.abilities || []).includes(k)).map(d => plural(d.name)).join(' and ');
+  if (u.effect === 'unlock') u.desc = ABILITIES[u.of].auto ? `${who(u.of)} are always cloaked: unseen except near a detector.` : `Unlocks ${ABILITIES[u.of].name} for ${who(u.of)}.`;
+  if (u.effect === 'speed') u.desc = `${plural(UNITS[u.of].name)} fly ${Math.round((TECH_SPEED - 1) * 100)}% faster.`;
   if (u.effect === 'build') u.desc = `Buildings go up ${Math.round((TECH_BUILD - 1) * 100)}% faster, those already rising too.`;
 }
 /** The tech that unlocks ability `k` (its key), or null when none does. */

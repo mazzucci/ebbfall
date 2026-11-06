@@ -288,7 +288,7 @@ test('only WebSockets, only from the game\'s pages when ORIGINS is set', async (
 test('GET /version: the protocol and the build CI deployed, from anywhere, never cached; the client speaks that protocol', async () => {
   assert.equal(CLIENT_PROTO, PROTO, 'src/net/net.js and relay/room.js agree (CI publishes the site only when the live relay says this PROTO)');
   const e = env({ ORIGINS: 'https://ebbfall.com', RELAY_BUILD: '0123456789abcdef' });
-  assert.equal(PROTO, 6, 'PROTO 6: six-letter codes, the limits, the host\'s remove (a client of 5 is told to update)');
+  assert.equal(PROTO, 7, 'PROTO 7: six-letter codes, the limits, the host\'s remove (a client of 6 is told to update)');
   assert.equal(typeof entry.fetch, 'function', 'the entry module\'s Worker');
   const res = await worker.fetch(new Request('https://relay.ebbfall.com/version'), e); // (no Origin: curl in CI)
   assert.equal(res.status, 200);
@@ -561,4 +561,9 @@ test('addresses: an IPv6 address counts by its /64 however written, an IPv4 one 
   for (let i = 0; i < 5100; i++) l.take(`a${i}`);
   at.now += 2 * HOUR; l.take('new');
   assert.ok(l.keys.size < 10, `idle keys forgotten (${l.keys.size})`);
+  const few = new Limiter([{ ms: MINUTE, max: 2 }], () => at.now);
+  few.take('203.0.113.5'); at.now += MINUTE - 1; few.take('x');
+  assert.ok(few.keys.has('203.0.113.5'), 'within its window: kept');
+  at.now += MINUTE; few.take('x');
+  assert.ok(!few.keys.has('203.0.113.5'), 'a few keys too: an address is not held past its window and one more');
 });

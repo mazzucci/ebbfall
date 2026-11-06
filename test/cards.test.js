@@ -2,7 +2,7 @@
 // `cardItems`) on the WASM sim: every selection of each race's units (with and without their techs, each order armed,
 // the Build pages, a building being placed) and every building of each race (finished, rising, training, researching,
 // dark, several of a kind). In WASD every button has its slot's grid key: none of W A S D, no key twice on a card;
-// a selection with workers keeps Build. A toggle's button names its action: Deploy, then Undeploy.
+// a selection with workers keeps Build. The Siege Tank deploys by itself: no button, and an order to is refused.
 // Skipped when src/engine/pkg/ has not been built (run `npm run build:wasm`); CI sets ENDFALL_REQUIRE_WASM=1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -94,11 +94,18 @@ for (const race of ['humans', 'vael']) {
       }
       assert.equal(new Set(shown.map(i => i.key)).size, shown.length, `${what}: no key twice (${shown.map(i => i.label + ' ' + i.key).join(', ')})`);
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
+      // A building's card and a Build page keep two rows (the Kiln's four units, Rally and Cancel; the Zenith's three),
+      // and their letters (CLASSIC) are each one button's.
+      if (/, techs \d+, |, Build(: Advanced)?$/.test(what)) {
+        assert.ok(Math.max(...shown.map(i => i.slot)) <= 5, `${what}: two rows at most (${shown.map(i => i.label + ' ' + i.slot).join(', ')})`);
+        const letters = items.map(i => i.key).filter(k => k && k !== 'Esc');
+        assert.equal(new Set(letters).size, letters.length, `${what}: no CLASSIC key twice (${items.map(i => i.label + ' ' + i.key).join(', ')})`);
+      }
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
-      // A toggle's button names its action, never lit (a timed ability is, while it runs); the retired Entrench is gone.
-      assert.ok(!items.some(i => i.active && i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].toggle), `${what}: no lit toggle`);
-      assert.ok(!items.some(i => i.id === 'a_entrench' || i.id === 'r_entrenching'), `${what}: no Entrench`);
+      // No automatic ability (the Anchor Gun's Drop Anchor) has a button; the retired Stim is gone.
+      assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);
+      assert.ok(!items.some(i => i.id === 'a_stim' || i.id === 'r_cloakingField'), `${what}: no Stim, no Cloaking Field`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
       if (attack) { assert.equal(attack.key, 'A', `${what}: classic Attack`); assert.equal(wasd.find(i => i.id === 'attack').key, GRID[attack.slot]); }
@@ -107,44 +114,50 @@ for (const race of ['humans', 'vael']) {
   });
 }
 
-test('a toggle names what a tap does: Deploy while any tank is on its tracks (for those), then Undeploy (for all)', { skip }, () => {
+test('the Siege Tank deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);
   const ids = [0, 1].map(i => E.debugSpawn(E.G.me, 'siegeTank', hq.x + 90 + i * 40, hq.y + 90));
-  const van = E.debugSpawn(E.G.me, 'vanguard', hq.x + 90, hq.y + 140);
   const unit = (id) => E.G.units.find(u => u.id === id);
-  const run = (secs) => { for (let i = 0; i < secs * 30; i++) E.step(); };
-  const button = () => { ui.sel = [...ids, van].map(unit); ui.mode = null; ui.place = null; return C.cardItems().find(i => i.id === 'a_deploy'); };
-  const targets = () => C.abilityTargets([...ids, van].map(unit), 'deploy').units.map(u => u.id).sort();
-  assert.ok(!C.cardItems().some(i => i.id === 'a_entrench'), 'the Vanguard has no toggle (Entrench is retired)');
-  let b = button();
-  assert.deepEqual([b.label, b.icon, b.key, !!b.dis, !!b.active], ['Deploy', 'deploy', 'D', false, false], 'all on their tracks');
-  assert.deepEqual(targets(), ids.slice().sort(), 'for both tanks (not the Vanguard)');
-  // One deployed: still Deploy, for the other one only (the sim flips each tank it is sent).
-  assert.equal(E.castAbility([unit(ids[0])], 'deploy'), null); run(3.5);
-  b = button();
-  assert.deepEqual([b.label, b.icon, !!b.dis, !!b.active], ['Deploy', 'deploy', false, false], 'one deployed, one on its tracks');
-  assert.deepEqual(targets(), [ids[1]], 'for the one on its tracks');
-  assert.equal(E.castAbility(targets().map(unit), 'deploy'), null);
-  // All deployed or settling in: Undeploy, greyed while one still settles in (a tap would pack up only the other).
-  b = button();
-  assert.deepEqual([b.label, b.icon, b.key, !!b.dis, !!b.active], ['Undeploy', 'undeploy', 'D', true, false], 'one still settling in');
-  run(3.5);
-  b = button();
-  assert.deepEqual([b.label, b.icon, !!b.dis, !!b.active], ['Undeploy', 'undeploy', false, false], 'both deployed');
-  assert.match(b.tip, /Pack up/);
-  assert.deepEqual(targets(), ids.slice().sort(), 'for both');
-  assert.equal(E.castAbility(targets().map(unit), 'deploy'), null);
-  assert.ok(ids.every(id => unit(id).mode === null && unit(id).swap > 0), 'both packing up');
-  b = button();
-  assert.deepEqual([b.label, !!b.dis], ['Deploy', true], 'packing up: Deploy, greyed until it can');
-  // One packed up, one still packing up (a fresh tank on its tracks beside one that packs up later): greyed too.
-  run(3.5);
-  assert.equal(E.castAbility([unit(ids[0])], 'deploy'), null); run(3.5);
-  assert.equal(E.castAbility([unit(ids[0])], 'deploy'), null);
-  b = button();
-  assert.deepEqual([b.label, !!b.dis], ['Deploy', true], 'one packing up: Deploy waits for it');
-  run(3.5);
-  assert.deepEqual([button().label, !!button().dis], ['Deploy', false], 'both on their tracks');
+  ui.sel = ids.map(unit); ui.mode = null; ui.place = null;
+  const items = C.cardItems();
+  assert.ok(!items.some(i => i.id === 'a_deploy'), `no Deploy: ${items.map(i => i.label).join(', ')}`);
+  assert.ok(!items.some(i => i.key === 'D'), 'and nothing on D');
+  assert.ok(E.castAbility(ids.map(unit), 'deploy'), 'an order to deploy is refused');
+  for (let i = 0; i < 4 * 30; i++) E.step();
+  assert.ok(ids.every(id => unit(id).mode === 'deploy'), 'standing, both set up by themselves');
+  ui.sel = []; ui.mode = null;
+});
+
+test('what is not open yet is hidden in place: its slot stays empty, nothing else moves, its key does nothing', { skip }, () => {
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  const hq = E.G.bldgs.find(b => b.team === E.G.me);
+  const lumen = E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
+  const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
+  // The Build list: the basic page is all there from the start; no Advanced before a Kiln stands.
+  ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
+  assert.deepEqual(slots(), ['b_spire@0', 'b_kiln@1', 'b_siphon@2', 'b_conflux@3', 'esc@5'], 'no Advanced yet');
+  assert.ok(!C.cardItems().some(i => i.id === 'b_loom'), 'nor the advanced page\'s keys');
+  // A unit's abilities: one waiting for its tech is left out, the others keep their places.
+  // (Roster v2: Surface is the Conch's (`monolith`), Surge the Lens's (`prism`), researched)
+  const scythe = E.debugSpawn(E.G.me, 'prism', hq.x + 90, hq.y + 90), mono = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  const unit = (id) => E.G.units.find(u => u.id === id);
+  ui.sel = [unit(scythe), unit(mono)]; ui.mode = null;
+  const before = slots();
+  assert.ok(before.includes('a_blink@2') && !before.some(s => s.startsWith('a_overcharge')), `Blink in place, Overcharge hidden: ${before}`);
+  E.debugResearch(E.G.me, 'overchargeCore', 1);
+  ui.sel = [unit(scythe), unit(mono)];
+  const after = slots();
+  assert.ok(after.includes('a_blink@2') && after.includes('a_overcharge@3'), `researched, Overcharge in its own place: ${after}`);
+  // A Lens alone: its card keeps its shape whether Surge is researched or not (Deselect stays put).
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  const m2 = E.debugSpawn(E.G.me, 'prism', hq.x + 120, hq.y + 90);
+  ui.sel = [unit(m2)];
+  const plain = slots();
+  assert.ok(!plain.some(s => s.startsWith('a_overcharge')) && plain.includes('deselect@5'), `before: Overcharge hidden, Deselect in its place: ${plain}`);
+  E.debugResearch(E.G.me, 'overchargeCore', 1);
+  ui.sel = [unit(m2)];
+  const lit = slots();
+  assert.ok(lit.includes('a_overcharge@2') && lit.includes('deselect@5'), `after: Overcharge in its slot, Deselect where it was: ${lit}`);
   ui.sel = []; ui.mode = null;
 });

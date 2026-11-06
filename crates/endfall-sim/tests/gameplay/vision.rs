@@ -86,11 +86,12 @@ fn an_allys_detector_reveals_a_cloaked_enemy_to_the_team() {
     let mut w = four(&[0, 0, 1, 1]);
     let (x, y) = middle(&w);
     let mine = w.make_unit(UnitKind::Trooper, 0, x, y);
-    let obs = w.make_unit(UnitKind::Observer, 2, x + 40.0, y);
+    // (an Undertow, held 60 px off, out of its blade's reach, lying still long enough to lurk)
+    let obs = w.make_unit(UnitKind::Umbra, 2, x + 60.0, y);
     w.hold_unit(mine);
     w.hold_unit(obs);
-    w.step();
-    assert!(sees(&w, 0, x + 40.0, y), "its spot is in sight");
+    run(&mut w, 3);
+    assert!(sees(&w, 0, x + 60.0, y), "its spot is in sight");
     assert!(
         !w.seen_by(0, obs) && w.cloaked_from(0, obs_unit(&w, obs)),
         "cloaked: unseen"
@@ -100,7 +101,7 @@ fn an_allys_detector_reveals_a_cloaked_enemy_to_the_team() {
     w.hold_unit(det);
     w.step();
     assert!(
-        w.detects(0, x + 40.0, y),
+        w.detects(0, x + 60.0, y),
         "seat 0 detects where its ally's detector does"
     );
     assert!(w.seen_by(0, obs), "the cloaked enemy is seen by seat 0");
@@ -108,7 +109,7 @@ fn an_allys_detector_reveals_a_cloaked_enemy_to_the_team() {
     // A Trooper of seat 0 can now fire at it (detection is what an attack order needs).
     run(&mut w, 6);
     assert!(
-        w.unit(obs).is_none_or(|o| o.hp < o.maxhp),
+        w.unit(obs).is_none_or(|o| o.hp + o.sh < o.maxhp + o.maxsh),
         "seat 0's Trooper fires at what its ally detects"
     );
 }
@@ -395,7 +396,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         .events
         .iter()
         .filter_map(|e| match e {
-            Event::Toast { team, msg, .. } if msg == "A shard field ran dry" => Some(*team),
+            Event::Toast { team, msg, .. } if msg == "A salt field ran dry" => Some(*team),
             _ => None,
         })
         .collect();
@@ -404,7 +405,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
 }
 
 #[test]
-fn a_shard_field_running_dry_is_told_to_its_miner_and_enemies_who_see_it_not_to_allies() {
+fn a_salt_field_running_dry_is_told_to_its_miner_and_enemies_who_see_it_not_to_allies() {
     assert_eq!(
         told_dry(None),
         vec![0],

@@ -17,15 +17,17 @@ mod orders;
 mod paths;
 mod seats;
 mod spawn;
+mod tide;
 mod types;
 mod wire;
 
 use crate::ai::Ai;
 use crate::data::*;
 use crate::jsmath::{self, PI, clamp, dist};
-use crate::map::{Id, Map, MapKind, MapSize, Node};
+use crate::map::{Foot, Ground, Id, Map, MapKind, MapSize, Node, ShoreField};
 use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
+pub use combat::{absorb, hull_loss};
 pub use command::{Command, Logged};
 pub use economy::FIELD_LOW;
 pub use paths::{LONG_SEARCH, LONG_SEARCHES, PathWork};
@@ -56,6 +58,13 @@ pub struct World {
     pub diff: usize,
     /// Each AI seat's difficulty, when they differ (`set_diffs`; empty: every AI plays `diff`). Read through `diff_of`.
     pub diffs: Vec<usize>,
+    /// A seat's AI tuning in place of its level's (`set_ai_plans`): the balance lab's random plans, set only from
+    /// Rust, never by the menus, JS or the network, so not hashed. Empty (always, outside the lab): every AI plays its
+    /// level. Read through `tuning`.
+    pub ai_plans: Vec<Option<Diff>>,
+    /// Where a Shore reef basin's main field lies (`set_shore_field`): the balance lab's exposed-income variants, set
+    /// only from Rust, never by the menus, JS or the network, so not hashed (the map it makes is). `BACK` outside the lab.
+    pub shore_field: ShoreField,
     pub time: f64,
     pub tick: u32,
     pub units: Vec<Unit>,
@@ -78,6 +87,18 @@ pub struct World {
     pub conceded: i32,
     /// The guided first game: the scripted opponent sends no wave while this is set (at most `HOLD_WAVES_MAX` s).
     pub hold_waves: bool,
+    /// The water level, in tile units: against each tile's height (`Map::height`) it makes land, shallows and deep
+    /// water (`Map::ground`). 0 without the tide (the map and the constant decide it, so not hashed); with it, the
+    /// tide's (`tide`), hashed.
+    pub water: i8,
+    /// The tide (`set_tide`; None: off, the water level stays 0): the level's cycle, low to high and back.
+    pub tide: Option<Tide>,
+    /// Seats whose walkers do not leave ground the flood will cover when it is announced (a bit per seat; `SetRetreat`;
+    /// none by default).
+    pub no_retreat: u8,
+    /// The flood destroys the walkers it catches instead of sweeping them ashore (`set_flood_kills`: the balance lab's
+    /// comparison; off by default).
+    pub flood_kills: bool,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
     pub stats: Vec<Stats>,
     /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
@@ -86,6 +107,8 @@ pub struct World {
     /// Each seat's units lost, counted by what killed them: a unit kind's index, or `UNIT_KINDS.len()` plus a
     /// building kind's (a turret). The end screen's "what beat you". Not hashed, like `army_log`.
     pub lost_to: Vec<Vec<u32>>,
+    /// Each seat's resources mined and spent so far (`Ledger`). Not hashed, like `army_log`.
+    pub ledger: Vec<Ledger>,
     /// While a projectile lands: its shooter's `lost_to` slot and seat (the shooter may be gone by then).
     hit_by: Option<(usize, u8)>,
     /// Upgrade levels per seat, in `UPGRADES` order.
@@ -183,6 +206,8 @@ impl World {
             seed,
             diff,
             diffs: Vec::new(),
+            ai_plans: Vec::new(),
+            shore_field: ShoreField::BACK,
             map_kind,
             map_size,
             side,
@@ -204,9 +229,14 @@ impl World {
             winner: -1,
             conceded: -1,
             hold_waves: false,
+            water: 0,
+            tide: None,
+            no_retreat: 0,
+            flood_kills: false,
             stats: Vec::new(),
             army_log: Vec::new(),
             lost_to: Vec::new(),
+            ledger: Vec::new(),
             hit_by: None,
             upgrades: Vec::new(),
             alerts: Vec::new(),
@@ -252,12 +282,13 @@ impl World {
         self.alerts.clear();
         self.events.clear();
         let starts = crate::map::max_starts(self.map_size);
-        self.map = Map::generate(
+        self.map = Map::generate_with(
             seed,
             self.map_kind,
             self.map_size,
             starts,
             &mut self.next_id,
+            self.shore_field,
         );
         self.size_grids();
         assert!(
@@ -268,10 +299,25 @@ impl World {
         );
         // The seats onto the starts, then the starts nobody took.
         let ring = std::mem::take(&mut self.map.bases);
-        self.map.bases = crate::map::team_starts(starts, &self.teams, self.side)
-            .into_iter()
-            .map(|i| ring[i])
-            .collect();
+        let order = crate::map::team_starts(starts, &self.teams, self.side);
+        self.map.bases = order.iter().map(|&i| ring[i]).collect();
+        // Starts by people (the Shore map): a seat whose builders are amphibious (the Vael) starts in its start's reef
+        // basin, the others in its cove; the start a seat does not use stays open ground with its field.
+        let basins = std::mem::take(&mut self.map.basins);
+        if !basins.is_empty() {
+            self.map.basins = order.iter().map(|&i| basins[i]).collect();
+            for seat in 0..self.seats() {
+                if self.factions[seat].worker.def().mv == Move::Amph {
+                    self.map.bases[seat] = self.map.basins[seat];
+                }
+            }
+        }
+        // (the tide's first cycle before the starts are dealt: they are placed at its high water; each seat retreats)
+        self.water = 0;
+        self.no_retreat = 0;
+        if self.tide.is_some() {
+            self.start_tide();
+        }
         for team in 0..self.seats() as u8 {
             self.deal_start(team);
         }
@@ -323,6 +369,33 @@ impl World {
     /// The difficulty an AI seat plays at (its own, else the game's).
     pub fn diff_of(&self, team: u8) -> usize {
         self.diffs.get(team as usize).copied().unwrap_or(self.diff)
+    }
+    /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`). Every AI
+    /// decision reads its numbers here.
+    pub fn tuning(&self, team: u8) -> Diff {
+        self.ai_plans
+            .get(team as usize)
+            .copied()
+            .flatten()
+            .unwrap_or(DIFF[self.diff_of(team)])
+    }
+    /// Move a Shore reef basin's main field (the balance lab's exposed-income variants) and start the game again on the
+    /// map that makes: call it first, before the seats' levels, plans and AI seats. Nothing else changes; on a map
+    /// without basins nothing at all. The balance lab's only: never from the menus, JS or the network.
+    pub fn set_shore_field(&mut self, field: ShoreField) {
+        self.shore_field = field;
+        self.reset(self.seed, self.diff);
+    }
+    /// Give each seat's AI a plan of its own before play, a whole `Diff` in place of its level's (None: its level's;
+    /// empty: none), with fresh brains. The balance lab's only: never from the menus, JS or the network. False
+    /// (nothing changes) for a list of another length.
+    pub fn set_ai_plans(&mut self, plans: &[Option<Diff>]) -> bool {
+        if !plans.is_empty() && plans.len() != self.seats() {
+            return false;
+        }
+        self.ai_plans = plans.to_vec();
+        self.init_ai();
+        true
     }
     /// Give each seat's AI a difficulty of its own before play (a person's seat ignores its entry; empty: every AI
     /// plays the game's `diff`), with fresh brains. False (nothing changes) for a list of another length.
@@ -421,10 +494,34 @@ impl World {
             hits: Self::hits_of(u.kind),
         }
     }
+    /// What a unit of `kind` may stand on now: its movement class at the current water level.
+    pub fn foot(&self, kind: UnitKind) -> Foot {
+        Foot {
+            class: kind.def().mv,
+            water: self.water,
+        }
+    }
+    /// The ground under (x, y) (world px) at the current water level.
+    pub fn ground_at(&self, x: f64, y: f64) -> Ground {
+        let (tx, ty) = self.map.tile_of(x, y);
+        self.map.ground(tx, ty, self.water)
+    }
+    /// A unit standing in deep water: it cannot fire from there (it is a road, not a battlefield).
+    pub(crate) fn in_deep(&self, uid: Id) -> bool {
+        let u = self.u(uid);
+        !u.kind.def().air && self.ground_at(u.x, u.y) == Ground::Deep
+    }
+
     /// A unit's walking speed right now (px/s).
     pub(crate) fn live_speed(&self, uid: Id) -> f64 {
         let u = self.u(uid);
-        let own = self.base_speed(uid) * self.speed_mul(uid);
+        let mut own = self.base_speed(uid) * self.speed_mul(uid);
+        if u.kind.def().mv == Move::Walk && self.ground_at(u.x, u.y) == Ground::Shallow {
+            own *= WADE_SPEED; // (a walker wades through the shallows)
+        }
+        if u.slowed > 0.0 {
+            own *= SLOW_SPEED; // (harpooned)
+        }
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
             _ => own,
@@ -444,12 +541,30 @@ impl World {
         let u = self.um(uid);
         u.cd -= dt;
         u.flash -= dt;
+        if u.slowed > 0.0 {
+            // (a whole number of seconds counted down by DT leaves a rounding crumb: none of it is a tick)
+            let left = u.slowed - dt;
+            u.slowed = if left > 1e-9 { left } else { 0.0 };
+        }
         if u.warp > 0.0 {
             u.warp = (u.warp - dt).max(0.0);
             return;
         }
+        if u.stun > 0.0 {
+            u.stun = (u.stun - dt).max(0.0);
+            return;
+        }
         let c = self.live(uid);
         let task = self.u(uid).task;
+        // A lurker lies still another tick (walking or striking during its task starts the count again).
+        let lurk = c.kind.def().lurk;
+        let at = {
+            let u = self.um(uid);
+            if lurk {
+                u.still = (u.still + dt).min(LURK_S);
+            }
+            (u.x, u.y)
+        };
         if c.kind.def().heal > 0.0 {
             self.medic(uid, dt);
         }
@@ -474,6 +589,12 @@ impl World {
             Task::Repair { b } => self.update_repair(uid, b, c.r, c.team, dt),
             Task::Build { b } => self.update_build(uid, b, c.r, c.team, dt),
         }
+        if lurk
+            && let Some(i) = self.ui(uid)
+            && (self.units[i].x, self.units[i].y) != at
+        {
+            self.units[i].still = 0.0;
+        }
     }
 
     /// Advance the world by one fixed tick.
@@ -481,6 +602,10 @@ impl World {
         let dt = DT;
         self.time += dt;
         self.tick += 1;
+        // (the tide first: the walkers it sweeps are where they land when the spatial hash is built)
+        if self.tide.is_some() {
+            self.tide_tick();
+        }
         self.rebuild_hash();
         let ids: Vec<Id> = self.units.iter().map(|u| u.id).collect();
         for id in ids {
@@ -572,6 +697,15 @@ impl World {
             if u.warp > 0.0 {
                 mix(jsmath::to_i32(u.warp * 16.0));
             }
+            if u.stun > 0.0 {
+                mix(jsmath::to_i32(u.stun * 16.0) + 1); // (swept by the flood: only with the tide)
+            }
+            if u.slowed > 0.0 {
+                mix(jsmath::to_i32(u.slowed * 16.0) + 2); // (harpooned)
+            }
+            if u.kind.def().lurk {
+                mix(jsmath::to_i32(u.still * 16.0) + 3); // (a lurker's time lying still)
+            }
             if let Some(p) = u.pace {
                 mix(jsmath::to_i32(p * 16.0));
             }
@@ -587,6 +721,9 @@ impl World {
             }
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);
+            if b.pumped > 0.0 {
+                mix(jsmath::to_i32(b.pumped * 1024.0) + 1);
+            }
             if let Some((up, p)) = b.research {
                 mix(up.index() as i32 + 1);
                 mix(jsmath::to_i32(p * 1024.0));
@@ -604,15 +741,17 @@ impl World {
                 mix(t as i32 + 1);
             }
         }
+        // The tide, when it is on (a game without it hashes as before): the level, the cycle, the seats' switches.
+        if let Some(t) = &self.tide {
+            mix(self.water as i32);
+            mix(t.start as i32);
+            for &p in &t.phases {
+                mix(p as i32);
+            }
+            mix(t.warned as i32);
+            mix(self.no_retreat as i32);
+            mix(self.flood_kills as i32);
+        }
         h
-    }
-}
-
-/// "n" when a name takes "an" ("an Ether Rig"), else "" ("a Siphon").
-pub(crate) fn an(name: &str) -> &'static str {
-    if name.starts_with(['A', 'E', 'I', 'O', 'U']) {
-        "n"
-    } else {
-        ""
     }
 }

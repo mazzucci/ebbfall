@@ -3,7 +3,7 @@
 //   RESTART, LEAVE GAME (leaving gives the game up);
 // - in a replay: BACK TO REPLAY, DONE (back to the end card);
 // - online it is a menu and the game goes on under it (only the relay can stop a shared clock): BACK TO GAME, HOW TO
-//   PLAY, OPTIONS, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (docs/MULTIPLAYER.md) shows
+//   PLAY, OPTIONS, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (Notion: Multiplayer design) shows
 //   the card on every side, with who paused and the time left; only the one who paused can end it early (RESUME: the
 //   others see whose pause it is, greyed), and once it is over the card closes for those who did not open it.
 // Opening it leaves full screen (the player may be off to another app); BACK TO GAME (and a replay's DONE) goes back
@@ -15,7 +15,6 @@
 import { G, fmt } from '../engine/index.js';
 import { $, ui, toast } from './ui.js';
 import { sfx, holdSound } from './audio.js';
-import { seenLately } from './scout.js';
 import { online, who, Who, ifYouLeave } from './online.js';
 import { isFull, enterFullscreen, exitFullscreen } from './screen.js';
 import { anyOptions } from './options.js';
@@ -51,8 +50,6 @@ export function togglePause() {
 
 function openCard() {
   $('pause').hidden = false; holdSound(true);
-  const seen = ui.watching ? '' : seenLately(); // (the clock and the scouting report live here, not on screen; a replay shows both sides)
-  $('pauseSeen').innerHTML = seen; $('pauseSeen').hidden = !seen;
   render();
   clearInterval(card.timer); card.timer = setInterval(render, 500); // (online the clock runs on: so does the card's)
   $('btnResume').focus();

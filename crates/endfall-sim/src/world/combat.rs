@@ -5,7 +5,14 @@ use super::*;
 /// Shields take a hit first (armor protects only the hull; shield upgrades, `sh_armor`, soak that much of a hit that
 /// lands on shields, at least 1 still landing); returns what is left for the hull. Being hit restarts the wait
 /// before shields regenerate.
-fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_armor: f64) -> f64 {
+pub fn absorb(
+    sh: &mut f64,
+    maxsh: f64,
+    hit_at: &mut f64,
+    now: f64,
+    amt: f64,
+    sh_armor: f64,
+) -> f64 {
     if maxsh <= 0.0 {
         return amt; // no shields at all (a race without them): nothing changes
     }
@@ -21,6 +28,11 @@ fn absorb(sh: &mut f64, maxsh: f64, hit_at: &mut f64, now: f64, amt: f64, sh_arm
     let took = sh.min(on);
     *sh -= took;
     on - took
+}
+
+/// What a hit's `rest` (past the shields: `absorb`) takes off a hull with `armor`: the armour off, at least 1.
+pub fn hull_loss(rest: f64, armor: f64) -> f64 {
+    (rest - armor).max(1.0)
 }
 
 /// How far (px, to the patient's edge) a healer reaches: a Medic 2.5 tiles, a Halo (`mend`) 3.
@@ -236,11 +248,12 @@ impl World {
             let armor_up = self.effect_level(team, Effect::Armor) as f64;
             let sh_up = self.effect_level(team, Effect::Shields) as f64;
             let now = self.time;
+            let settled = settled_armor(&self.units[i]);
             let u = &mut self.units[i];
             u.struck = now;
             let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt, sh_up);
             if rest > 0.0 {
-                u.hp -= (rest - u.kind.def().armor - armor_up).max(1.0);
+                u.hp -= hull_loss(rest, u.kind.def().armor + armor_up + settled);
             }
             u.flash = 0.12;
             if let Some(by) = by {
@@ -258,7 +271,7 @@ impl World {
             let b = &mut self.bldgs[i];
             let rest = absorb(&mut b.sh, b.maxsh, &mut b.hit_at, now, amt, sh_up);
             if rest > 0.0 {
-                b.hp -= (rest - b.kind.def().armor).max(1.0);
+                b.hp -= hull_loss(rest, b.kind.def().armor);
             }
             b.flash = 0.12;
             if b.hp <= 0.0 {
@@ -425,6 +438,16 @@ impl World {
     }
 
     pub(crate) fn fire(&mut self, shooter: Id, target: Id) {
+        let deep = if self.unit(shooter).is_some() {
+            self.in_deep(shooter)
+        } else {
+            // (a building under the tide's high water: never without the tide, where nothing is built in deep water)
+            self.bldg(shooter)
+                .is_some_and(|b| self.ground_at(b.x, b.y) == Ground::Deep)
+        };
+        if deep {
+            return; // deep water is a road: nothing fires from it (nor spends its cooldown)
+        }
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
         let Some((w, x, y, team)) = self.weapon_of(shooter) else {
             return; // unarmed (or gone)
@@ -459,6 +482,7 @@ impl World {
                     team,
                     splash: splash.0,
                     splash_r: splash.1,
+                    slow: w.slow,
                 });
                 let sounds = self.factions[team as usize].sounds;
                 let weapon = match kind {
@@ -471,14 +495,21 @@ impl World {
             None => {
                 let melee = self.factions[team as usize].sounds[3];
                 self.fired(shooter, team, x, y, melee);
-                self.damage(target, dmg, Some(shooter))
+                self.damage(target, dmg, Some(shooter));
+                self.harpoon(target, w.slow);
             }
+        }
+        // A lurker that strikes shows itself, once the blow has landed: its first strike comes out of hiding (an
+        // unseen hit, as the alert and the AI's detector call have it), the next ones are seen.
+        if let Some(i) = self.ui(shooter) {
+            self.units[i].still = 0.0;
         }
     }
 
     /// A Medic heals the most hurt friendly infantry within 2.5 tiles that no other healer tended this tick (so two
     /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
-    /// allies it can see. A Halo (`mend`) does the same for shields, on any shielded ally, within 3 tiles.
+    /// allies it can see. A Tender (`mend`) does the same for any ally, within 3 tiles: its nacre (shields) first,
+    /// then its hull (Roster v2: the Lens and the Undertow have no nacre).
     pub(crate) fn medic(&mut self, uid: Id, dt: f64) {
         let (mx, my, team, heal, mend, sight, idle) = {
             let u = self.u(uid);
@@ -497,7 +528,7 @@ impl World {
         // What this healer restores on a patient: (now, full), or None if it cannot tend it.
         let need = |o: &Unit| {
             if mend {
-                (o.maxsh > 0.0).then_some((o.sh, o.maxsh))
+                Some((o.sh + o.hp, o.maxsh + o.maxhp))
             } else {
                 o.kind.def().bio.then_some((o.hp, o.maxhp))
             }
@@ -529,7 +560,9 @@ impl World {
             let tick = self.tick;
             let p = &mut self.units[i];
             if mend {
-                p.sh = (p.sh + heal * dt).min(p.maxsh);
+                let to_sh = (heal * dt).min(p.maxsh - p.sh);
+                p.sh += to_sh;
+                p.hp = (p.hp + heal * dt - to_sh).min(p.maxhp);
             } else {
                 p.hp = (p.hp + heal * dt).min(p.maxhp);
             }
@@ -553,6 +586,18 @@ impl World {
             }
         } else if let (true, Some((_, sx, sy))) = (idle, seek) {
             self.move_to(uid, sx, sy);
+        }
+    }
+
+    /// A harpoon's hit (`Weapon::slow`, s): the unit hit, if it still stands, is slowed for that long (not longer:
+    /// a second harpoon renews it, it does not add up).
+    fn harpoon(&mut self, target: Id, slow: f64) {
+        if slow <= 0.0 {
+            return;
+        }
+        if let Some(i) = self.ui(target) {
+            let u = &mut self.units[i];
+            u.slowed = u.slowed.max(slow);
         }
     }
 
@@ -590,6 +635,7 @@ impl World {
                 };
                 self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
+                self.harpoon(p.target, p.slow); // (the target only: a harpoon has no splash)
                 for s in splash {
                     if self.unit(s).is_some() {
                         self.damage(s, p.dmg * p.splash, Some(p.by));
@@ -609,18 +655,29 @@ impl World {
             }
         }
     }
-    /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move.
+    /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
+    /// with nothing to fight on its tracks (the Anchor Gun: no light gun) deploys where it stops (no order does it): it
+    /// packs up again only when it has to move. One with a light gun (the Breakwater) settles only where it fights, or
+    /// where it is told to hold.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
+        let sets_up_idle = c.siege.is_some() && (c.range <= 0.0 || hold);
+        if sets_up_idle && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 && self.deploy(uid)
+        {
+            return;
+        }
+        let deep = self.in_deep(uid); // (an idle unit in deep water picks no fight: it cannot fire from there)
         let u = self.um(uid);
         u.aggro_cd -= dt;
-        if c.combat && u.aggro_cd <= 0.0 {
+        if c.combat && !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
-            // (an idle siege gun looks as far as it shoots: it sets up where it stands)
+            // (an idle siege gun that sets up where it stops looks as far as it shoots: it fights from where it stands)
             let rng = if hold {
                 c.range + c.r
-            } else {
+            } else if sets_up_idle || self.u(uid).mode.is_some() {
                 c.siege.unwrap_or(c.sight * TILE * 0.85)
+            } else {
+                c.sight * TILE * 0.85
             };
             let flier = c.kind.def().air;
             let ring = if hold { c.ring } else { c.setup_ring() };
@@ -648,9 +705,10 @@ impl World {
 
     /// Attack-move: walk to (x, y), turning on any enemy met on the way.
     pub(crate) fn update_amove(&mut self, uid: Id, x: f64, y: f64, c: Live, dt: f64) {
+        let deep = self.in_deep(uid); // (crossing deep water, it picks no fight: it could not fire from there)
         let u = self.um(uid);
         u.aggro_cd -= dt;
-        if u.aggro_cd <= 0.0 {
+        if !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
             let t = self.find_target(
@@ -733,6 +791,19 @@ impl World {
             }
             return;
         };
+        // In deep water nothing fires, and closing in does not get it out against a flyer or a target itself in deep
+        // water: it gives the chase up, as for a target gone (two crossing armies do not circle each other mid-sea).
+        if self.in_deep(uid)
+            && self
+                .unit(target)
+                .is_some_and(|v| v.kind.def().air || self.ground_at(v.x, v.y) == Ground::Deep)
+        {
+            match back {
+                Some(b) => self.resume_back(uid, b),
+                None => self.resume_after(uid),
+            }
+            return;
+        }
         // A target picked up on the way gives way to something that matters more: anything in sight that can
         // shoot us, or a unit in weapon range instead of a plain building. An explicit attack order stands.
         if let Some(b) = back
@@ -778,8 +849,14 @@ impl World {
             self.siege_attack(uid, target, t, back, c, reach, dt);
             return;
         }
-        // Like the JS, this tick still closes on and fires at the original target.
-        if self.approach(uid, t, c.range + c.r * 0.5, dt) && self.u(uid).cd <= 0.0 {
+        // Like the JS, this tick still closes on and fires at the original target. In deep water (where nothing
+        // fires) it closes on until it stands on shallows or land.
+        let reach = if self.in_deep(uid) {
+            0.0
+        } else {
+            c.range + c.r * 0.5
+        };
+        if self.approach(uid, t, reach, dt) && self.u(uid).cd <= 0.0 {
             self.fire(uid, target);
         }
     }
@@ -809,8 +886,13 @@ impl World {
         let seen = self.seen_by(c.team, target);
         let in_band = d >= c.min && d < reach && seen;
         if !deployed {
-            if in_band {
-                self.deploy(uid);
+            if in_band && self.deploy(uid) {
+                return;
+            }
+            // In its band but it may not set up (harpooned): with a light gun it fights on its tracks, closing to that
+            // gun's reach; without one it waits where it is.
+            let held_off = in_band;
+            if held_off && c.range <= 0.0 {
                 return;
             }
             if d < c.min && c.range <= 0.0 {
@@ -824,7 +906,7 @@ impl World {
             // On its tracks it closes in (in reach but out of its side's sight: on until its own eyes see it), and its
             // light gun fires at the target once in its reach: on the way, or at one too close to set up for.
             let light = c.range + c.r * 0.5;
-            let close = if d < c.min {
+            let close = if d < c.min || held_off {
                 light
             } else if d < reach {
                 c.sight * TILE * 0.8
@@ -876,5 +958,13 @@ impl World {
                 b.sh = (b.sh + SHIELD_REGEN_BLDG * dt).min(b.maxsh);
             }
         }
+    }
+}
+
+/// The armour a unit's toggle adds while it is settled in (the Breakwater beached); none while settling or packing up.
+pub(crate) fn settled_armor(u: &Unit) -> f64 {
+    match u.mode.filter(|_| u.swap <= 0.0).map(|k| k.def().effect) {
+        Some(AbilityEffect::Settle { armor, .. }) => armor,
+        _ => 0.0,
     }
 }

@@ -1,5 +1,5 @@
-//! The scripted opponent's tuning per difficulty: a level is how well it plays, not what it is given (only Brutal
-//! gathers faster than the player).
+//! The scripted opponent's tuning per difficulty: a level is mostly how well it plays, not what it is given (Hard
+//! gathers 10% faster than the player, so it beats Medium; Brutal 30%).
 
 /// A time for a step it never takes.
 pub const NEVER: f64 = f64::MAX;
@@ -10,6 +10,8 @@ pub const NEVER: f64 = f64::MAX;
 /// factory, raises its vehicle bay (NEVER: it does not). `raids`: flyers hunt the player's workers. `prong`: a big wave sends a third at an
 /// expansion. `answers`: it adapts its mix to what it has seen. `abilities`: its units use theirs.
 /// `supply_ahead`: free supply below which it builds more; `supply_at_once`: how many supply buildings at a time.
+/// The AI reads a seat's through `World::tuning`: its level's, or a plan the balance lab set for that seat.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Diff {
     pub income: f64,
     pub wave: usize,
@@ -41,9 +43,65 @@ pub struct Diff {
     /// leaves its Core idle for want of shards (Brutal's build order spent every shard, and its Human AI, whose
     /// builders leave the line, fell behind the Vael's in the opening).
     pub workers_first: bool,
-    /// Seconds before it mines more than one vent (each base has two): its main's second refinery goes up once the
-    /// first flows and its tech is going up, but not before this; then the expansion's.
+    /// Seconds before it plants more than one Pump (each base has two seeps): its main's first goes up once it has
+    /// seven workers, the rest not before this; then the expansion's.
     pub vents_from: f64,
+    /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
+    /// the AI breaks a defence; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
+    /// waiting (NEVER: it does not fade). A sighting older than `sighting_age` is stale: it first sends a unit to
+    /// look (waiting up to `look_for` seconds for it), then counts the foe as the last sighting plus what its own army
+    /// has grown since. With full supply, or `all_in_after` seconds since its last wave, it goes with everything.
+    pub wave_margin: f64,
+    pub margin_fade: f64,
+    pub sighting_age: f64,
+    pub look_for: f64,
+    pub all_in_after: f64,
+    /// A wave first gathers this many tiles short of its goal (0: it goes straight in) and goes in together once most
+    /// of it is there, or after `stage_wait` seconds.
+    pub stage: f64,
+    pub stage_wait: f64,
+    /// Out-expanding a passive foe: with its natural taken and no enemy at its buildings for `passive_expand`
+    /// seconds (NEVER: never), it takes another base, at most `max_bases` in all.
+    pub passive_expand: f64,
+    pub max_bases: usize,
+    /// A home reserve: this share of its army's worth (its cheapest fighters) never goes out with a wave; it stays
+    /// at the rally and defends (0: none). At full supply the reserve goes all in too. Like `retreat_below`, only
+    /// against a passive foe (none of its armed units at our buildings for `passive_expand` seconds).
+    pub reserve: f64,
+    /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
+    /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
+    pub retreat_below: f64,
+    /// The most advanced units it trains (`UnitKind::ai_tier`; Roster v2): 0 its line units and their anti-air
+    /// (Easy), 1 its heavies, healers, anti-air vehicles and the Petrel too (Medium), 2 everything (Hard and up).
+    pub mix_tier: u8,
+    /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
+    /// plays differently, matched by kind (Brutal: the Humans' Anchor Guns sooner and more of them, against the Vael's
+    /// Lenses). A kind of the other race leaves that race's mix as it is.
+    pub mix_over: &'static [(super::UnitKind, usize, f64)],
+}
+
+impl Diff {
+    /// A race's mix entry as this level plays it (`mix_over`).
+    pub fn mix_entry(&self, entry: (super::UnitKind, usize, f64)) -> (super::UnitKind, usize, f64) {
+        self.mix_over
+            .iter()
+            .copied()
+            .find(|o| o.0 == entry.0)
+            .unwrap_or(entry)
+    }
+}
+
+impl super::UnitKind {
+    /// How advanced a unit is for the AI's per-level mix (`Diff::mix_tier`): 0 the workers, line units, their
+    /// anti-air and the scout; 2 the Undertow, the Kite and the capitals; 1 the rest.
+    pub fn ai_tier(self) -> u8 {
+        use super::UnitKind::*;
+        match self {
+            Harvester | Lumen | Trooper | Lancer | Scythe | Prism | Observer => 0,
+            Umbra | Raider | Bastion | Sovereign => 2,
+            _ => 1,
+        }
+    }
 }
 
 pub const DIFF: [Diff; 4] = [
@@ -64,7 +122,7 @@ pub const DIFF: [Diff; 4] = [
         research_from: NEVER,
         expand_at: 540.0,
         air_at: NEVER,
-        heavy_at: 215.0,
+        heavy_at: NEVER, // (Roster v2: Easy trains nothing of its vehicle bay's)
         raids: false,
         prong: false,
         answers: false,
@@ -76,14 +134,28 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: true,
         workers_first: false,
         vents_from: 540.0,
+        wave_margin: 0.0,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 0.0,
+        stage_wait: 30.0,
+        passive_expand: NEVER,
+        max_bases: 2,
+        reserve: 0.0,
+        retreat_below: 0.0,
+        mix_tier: 0,
+        mix_over: &[],
     },
-    // Medium: the whole script at an even pace (12 workers at x1.0, about what 13 at x0.9 gathered before, after phone
-    // playtests found its mid-game waves too much; 11 left the Human AI behind the Vael AI), but one attack at a time.
+    // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
+    // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
+    // the Pumps make up the income (the lab after PR 1 tunes them).
     Diff {
         income: 1.0,
         wave: 7,
         wave_grow: 2,
-        harv: 12,
+        harv: 10,
         rax: 2,
         extra_rax: 3,
         first: 170.0,
@@ -103,13 +175,26 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: false,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 12.0,
+        stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
+        mix_tier: 1,
+        mix_over: &[],
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
-        income: 1.0,
+        income: 1.1, // (Roster v2 balance pass: the ladder, Hard over Medium; Brutal has 1.3)
         wave: 8,
         wave_grow: 3,
-        harv: 16,
+        harv: 11,
         rax: 3,
         extra_rax: 4,
         first: 150.0,
@@ -129,8 +214,21 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: false,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 12.0,
+        stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
+        mix_tier: 2,
+        mix_over: &[],
     },
-    // Brutal: Hard, faster still, gathering 30% more than the player (the only level that is given anything), and
+    // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
     // factories to start, like Hard: with four, the Human AI's builders spent so long off the line (a Human builder
     // stays until its building stands) that it gathered far less than the Vael AI. It trains its workers before its
@@ -139,7 +237,7 @@ pub const DIFF: [Diff; 4] = [
         income: 1.3,
         wave: 7,
         wave_grow: 4,
-        harv: 18,
+        harv: 12,
         rax: 3,
         extra_rax: 5,
         first: 120.0,
@@ -159,5 +257,20 @@ pub const DIFF: [Diff; 4] = [
         extras_after_expanding: false,
         workers_first: true,
         vents_from: 0.0,
+        wave_margin: 1.3,
+        margin_fade: NEVER,
+        sighting_age: 120.0,
+        look_for: 60.0,
+        all_in_after: NEVER,
+        stage: 12.0,
+        stage_wait: 30.0,
+        passive_expand: 180.0,
+        max_bases: 4,
+        reserve: 0.25,
+        retreat_below: 1.0,
+        mix_tier: 2,
+        // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
+        // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
+        mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
     },
 ];

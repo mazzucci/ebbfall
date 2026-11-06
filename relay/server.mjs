@@ -28,7 +28,7 @@ const loopback = (a) => a === '::1' || /^(::ffff:)?127\./.test(a);
 export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null, free = loopback, now } = {}) {
   const rooms = new Map(), limits = new RoomLimits(now);
   let seed = Date.now() >>> 0;
-  const random = () => Math.floor(Math.random() * 2 ** 32);
+  const random = () => crypto.getRandomValues(new Uint32Array(1))[0]; // (as the Worker's)
   const code = () => { for (;;) { const c = newCode(random); if (!rooms.has(c)) return c; } };
   // Every connection's messages go out in order, after the test delay if any (one queue, one timer at a time).
   const flush = (ws) => {
@@ -76,7 +76,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null,
       const c = code(); room = new Room({ code: c, send, kick, seed: seed++ }); room.lastUsed = Date.now(); rooms.set(c, room);
     } else {
       const typed = q.get('room') || '';
-      if (oldCode(typed)) { refuse('update', 'Ebbfall has an update. Tap UPDATE to get it'); return; } // (a client from before PROTO 6)
+      if (oldCode(typed)) { refuse('update', 'Ebbfall has an update. Tap UPDATE to get it'); return; } // (a client from before PROTO 7)
       if (limited && !limits.join(from)) { refuse('limit', SAY.minute); return; }
       room = rooms.get(parseCode(typed));
       if (!room) { if (limited) limits.miss(from); refuse('noroom', 'No room with that code'); return; }

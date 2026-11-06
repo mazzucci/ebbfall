@@ -1,4 +1,4 @@
-//! Group paths (M4 step 2d): units of a seat given one order share one route, long searches are budgeted per seat per
+//! Group paths: units of a seat given one order share one route, long searches are budgeted per seat per
 //! tick (the rest wait their turn), every route a unit takes is walkable, and everyone still arrives.
 
 use crate::common::*;
@@ -82,8 +82,9 @@ fn routes_walkable(w: &World, ids: &[Id], fresh: bool, ctx: &str) {
         *last = centre_of(w, *last);
         let (first, at) = (p[0], Pt { x: u.x, y: u.y });
         let centre = centre_of(w, at);
+        let foot = w.foot(u.kind);
         assert!(
-            !fresh || los(&w.map, at, first) || los(&w.map, centre, first),
+            !fresh || los(&w.map, foot, at, first) || los(&w.map, foot, centre, first),
             "{ctx}: unit {id} at ({:.2}, {:.2}) cannot walk to its first waypoint ({:.2}, {:.2}): {:?}",
             u.x / TILE,
             u.y / TILE,
@@ -95,7 +96,7 @@ fn routes_walkable(w: &World, ids: &[Id], fresh: bool, ctx: &str) {
         );
         for s in p.windows(2) {
             assert!(
-                los(&w.map, s[0], s[1]),
+                los(&w.map, foot, s[0], s[1]),
                 "{ctx}: unit {id}'s route crosses rock from ({:.0}, {:.0}) to ({:.0}, {:.0}); {:?} at {:?}",
                 s[0].x / TILE,
                 s[0].y / TILE,
@@ -447,7 +448,7 @@ fn a_unit_bound_beside_the_groups_goal_but_behind_a_wall_still_gets_there() {
 /// The path work per tick of 12-minute games of Hard AIs (two on 64x64, 96x96 and 128x128, four on 96x96, eight on
 /// 128x128; seeds by PATH_SEEDS, "3,17,29,41,53" by default): the step's time (average, 99th and 99.9th percentile,
 /// worst) and searches per tick (average, worst). A measure, not a test: `cargo test --release --test gameplay
-/// path_cost -- --ignored --nocapture` (docs/MULTIPLAYER.md, M4 steps 2d and 2e).
+/// path_cost -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn path_cost_per_tick() {
@@ -493,4 +494,295 @@ fn path_cost_per_tick() {
             calls.iter().max().unwrap()
         );
     }
+}
+
+/// True when a point travelling the straight segment a→b stays off rock and buildings: a unit's centre, which
+/// `separate` pushes back out of a blocked tile.
+fn centre_line_clear(w: &World, a: Pt, b: Pt) -> bool {
+    let steps = (((b.x - a.x).powi(2) + (b.y - a.y).powi(2)).sqrt() / 2.0).ceil() as i32 + 1;
+    (0..=steps).all(|i| {
+        let t = i as f64 / steps as f64;
+        let (x, y) = (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        !w.map
+            .blocked((x / TILE).floor() as i32, (y / TILE).floor() as i32)
+    })
+}
+
+#[test]
+fn a_walker_beside_a_rock_corner_does_not_step_into_it() {
+    // A route is smoothed from the centre of the unit's tile, but the unit walks its first leg from where it stands.
+    // Off-centre beside a corner, that line went through the rock the route went round: pushed back out, a worker on
+    // its round planned the same route again at once, and stepped into the corner and back every tick (a Lumen at
+    // seed 8's Labyrinth sat so for two minutes). Walkers off-centre on every side of an L of rock, sent every way:
+    // the line from where each stands to its next waypoint never crosses rock, and each gets there.
+    let (mut runs, mut bad) = (0, Vec::new());
+    for (dx, dy) in [
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ] {
+        for (ox, oy) in [
+            (1.0, 1.0),
+            (16.0, 1.0),
+            (31.0, 1.0),
+            (1.0, 16.0),
+            (31.0, 16.0),
+            (1.0, 31.0),
+            (16.0, 31.0),
+            (31.0, 31.0),
+        ] {
+            for (gx, gy) in [
+                (-6, 0),
+                (6, 0),
+                (0, -6),
+                (0, 6),
+                (-5, -5),
+                (5, -5),
+                (-5, 5),
+                (5, 5),
+                (-6, 2),
+                (2, -6),
+                (6, -2),
+                (-2, 6),
+                (-4, 7),
+                (7, 4),
+            ] {
+                let mut w = flat_arena(1);
+                let (rx, ry) = (32, 32);
+                for (x, y) in [(rx, ry), (rx - 1, ry), (rx, ry - 1)] {
+                    let i = w.map.idx(x, y);
+                    w.map.rock[i] = 1;
+                }
+                let (tx, ty) = (rx + dx, ry + dy);
+                if w.map.blocked(tx, ty) {
+                    continue;
+                }
+                let u = w.make_unit(
+                    UnitKind::Harvester,
+                    PLAYER,
+                    tx as f64 * TILE + ox,
+                    ty as f64 * TILE + oy,
+                );
+                let goal = (
+                    (rx + gx) as f64 * TILE + 16.0,
+                    (ry + gy) as f64 * TILE + 16.0,
+                );
+                w.move_to(u, goal.0, goal.1);
+                runs += 1;
+                let mut arrived = false;
+                for _ in 0..(12 * TPS) {
+                    let un = w.unit(u).unwrap();
+                    if let Some(&p) = un.path.as_ref().and_then(|p| p.first())
+                        && !centre_line_clear(&w, Pt { x: un.x, y: un.y }, p)
+                    {
+                        bad.push(format!(
+                            "from tile {dx},{dy} +({ox},{oy}) to {gx},{gy}: at ({:.1}, {:.1}) bound for ({:.1}, {:.1})",
+                            un.x, un.y, p.x, p.y
+                        ));
+                        break;
+                    }
+                    w.step();
+                    let un = w.unit(u).unwrap();
+                    if (un.x - goal.0).abs() < 2.0 && (un.y - goal.1).abs() < 2.0 {
+                        arrived = true;
+                        break;
+                    }
+                }
+                if !arrived && bad.len() < 50 {
+                    bad.push(format!(
+                        "from tile {dx},{dy} +({ox},{oy}) to {gx},{gy}: not there in 12 s"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(runs > 600, "{runs} runs");
+    assert!(
+        bad.is_empty(),
+        "{} of {runs}: {:?}",
+        bad.len(),
+        &bad[..bad.len().min(6)]
+    );
+}
+
+#[test]
+fn no_worker_stands_at_a_rock_corner_on_its_round() {
+    // A real game where it happened: seed 4's Labyrinth, two Hard Vael AIs; from 1:34 a Lumen stood at tile (48, 13)
+    // beside a rock, stepping into it and back on its way to a field. Every worker on its round (gathering, with a
+    // route) leaves its tile within 8 seconds.
+    let mut w = World::with_size(4, 3, MapKind::Labyrinth, MapSize::DUEL, 0, &[&VAEL, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    let mut since: std::collections::BTreeMap<Id, ((i32, i32), u32)> = Default::default();
+    for t in 0..(3 * 60 * TPS) {
+        w.step();
+        if t % 15 != 0 {
+            continue;
+        }
+        for u in &w.units {
+            let tile = w.map.tile_of(u.x, u.y);
+            let on_round = matches!(u.task, Task::Gather { .. })
+                && u.path.as_ref().is_some_and(|p| !p.is_empty());
+            if !on_round {
+                since.remove(&u.id);
+                continue;
+            }
+            let e = since.entry(u.id).or_insert((tile, t));
+            if e.0 != tile {
+                *e = (tile, t);
+            }
+            assert!(
+                t - e.1 < 8 * TPS,
+                "{:.1}s: {:?} {} has stood at tile {tile:?} since {:.1}s, at ({:.1}, {:.1}) bound for {:?}",
+                t as f64 / TPS as f64,
+                u.kind,
+                u.id,
+                e.1 as f64 / TPS as f64,
+                u.x,
+                u.y,
+                u.path.as_ref().and_then(|p| p.first()).map(|p| (p.x, p.y))
+            );
+        }
+    }
+}
+
+/// A blocked goal (a crystal, a building) ends a search on the free tile beside it that the search reaches first, the
+/// same side from every direction: the problem turned half round (the two starts' symmetry) ends on the turned tile,
+/// ties included. Before, the first free tile of a fixed scan (the ring's top row first) won. And a goal nobody can
+/// reach ends at the same nearest point from anywhere along the way there (a unit's replans must not swing it to and
+/// fro: an army walked back and forth for half an hour beside a Barracks wedged against rock).
+#[test]
+fn a_blocked_goal_ends_on_the_side_reached_first_from_every_direction() {
+    use endfall_sim::map::Foot;
+    use endfall_sim::path::{PathScratch, astar};
+    let mut w = arena(3);
+    let (mw, mh) = (w.map.w, w.map.h);
+    flatten(&mut w, 1..mw - 1, 1..mh - 1);
+    let turn = |t: (i32, i32)| (mw - 1 - t.0, mh - 1 - t.1);
+    let rock = |w: &mut World, t: (i32, i32)| {
+        for p in [t, turn(t)] {
+            let i = w.map.idx(p.0, p.1);
+            w.map.rock[i] = 1;
+        }
+    };
+    // A crystal with two of its neighbours taken (a field's arc), and its image.
+    let g = (24, 26);
+    for t in [g, (g.0 + 1, g.1), (g.0, g.1 + 1)] {
+        rock(&mut w, t);
+    }
+    let foot = Foot {
+        class: Move::Walk,
+        water: w.water,
+    };
+    let end = |w: &World, s: (i32, i32), g: (i32, i32)| {
+        let mut scratch = PathScratch::new(w.map.rock.len());
+        let p = astar(&w.map, foot, &mut scratch, s.0, s.1, g.0, g.1).unwrap();
+        p.last().map_or(s, |q| w.map.tile_of(q.x, q.y))
+    };
+    let mut sides = std::collections::BTreeSet::new();
+    for dy in -6..=6i32 {
+        for dx in -6..=6i32 {
+            if dx.abs().max(dy.abs()) != 6 {
+                continue;
+            }
+            let s = (g.0 + dx, g.1 + dy);
+            let e = end(&w, s, g);
+            assert_eq!(
+                end(&w, turn(s), turn(g)),
+                turn(e),
+                "from {s:?}: the turned search ends on the turned tile"
+            );
+            assert_eq!(
+                (e.0 - g.0).abs().max((e.1 - g.1).abs()),
+                1,
+                "from {s:?}: beside the goal"
+            );
+            sides.insert(e);
+        }
+    }
+    assert!(
+        sides.len() >= 5,
+        "every side used, not one fixed tile: {sides:?}"
+    );
+    // A goal walled in on three sides of a pocket nobody can enter: from far away, and from half way along the route,
+    // the search ends on the same nearest tile.
+    let g = (40, 20);
+    for t in (37..=43)
+        .flat_map(|x| [(x, 17), (x, 23)])
+        .chain((18..=22).flat_map(|y| [(37, y), (43, y)]))
+    {
+        rock(&mut w, t);
+    }
+    let far = end(&w, (20, 40), g);
+    let mut scratch = PathScratch::new(w.map.rock.len());
+    let p = astar(&w.map, foot, &mut scratch, 20, 40, g.0, g.1).unwrap();
+    let mid = w.map.tile_of(p[p.len() / 2].x, p[p.len() / 2].y);
+    assert_eq!(end(&w, mid, g), far, "the same end from half way there");
+    assert_eq!(end(&w, turn((20, 40)), turn(g)), turn(far), "and turned");
+    // Goals on the map's diagonals (the line to its middle cannot tell the tiles beside them apart on its own: 184 of
+    // these searches came out unturned before its second key), each with one of its eight neighbours taken in turn,
+    // from eight directions at 2 to 59 tiles: turned alike, and the same end from half way.
+    let (mut searched, mut unturned, mut swung) = (0, Vec::new(), Vec::new());
+    for g in [(8, 8), (20, 20), (31, 31), (40, 40), (12, 51), (44, 19)] {
+        for n in [
+            (1, 0),
+            (1, 1),
+            (0, 1),
+            (-1, 1),
+            (-1, 0),
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+        ] {
+            let mut w = arena(3);
+            flatten(&mut w, 1..mw - 1, 1..mh - 1);
+            rock(&mut w, g);
+            rock(&mut w, (g.0 + n.0, g.1 + n.1));
+            for k in 2..60 {
+                for (dx, dy) in [
+                    (1, 0),
+                    (1, 1),
+                    (0, 1),
+                    (-1, 1),
+                    (-1, 0),
+                    (-1, -1),
+                    (0, -1),
+                    (1, -1),
+                ] {
+                    let s = (g.0 + dx * k, g.1 + dy * k);
+                    if !(1..mw - 1).contains(&s.0)
+                        || !(1..mh - 1).contains(&s.1)
+                        || !w.map.passable(foot, s.0, s.1)
+                    {
+                        continue;
+                    }
+                    searched += 1;
+                    let e = end(&w, s, g);
+                    if end(&w, turn(s), turn(g)) != turn(e) {
+                        unturned.push((g, n, s));
+                    }
+                    let p = astar(&w.map, foot, &mut scratch, s.0, s.1, g.0, g.1).unwrap();
+                    let mid = w.map.tile_of(p[p.len() / 2].x, p[p.len() / 2].y);
+                    if end(&w, mid, g) != e {
+                        swung.push((g, n, s));
+                    }
+                }
+            }
+        }
+    }
+    assert!(searched > 9000, "enough searches ({searched})");
+    assert_eq!(
+        unturned,
+        vec![],
+        "diagonal goals: the turned search ends on the turned tile (goal, taken, start)"
+    );
+    assert_eq!(
+        swung,
+        vec![],
+        "diagonal goals: the same end from half way (goal, taken, start)"
+    );
 }

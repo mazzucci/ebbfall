@@ -1,7 +1,7 @@
 # Ebbfall
 
-A browser real-time strategy game in the 1998 mold: mine shards and ether, build supply, raise an army, and level
-the enemy Command Core before their waves level yours. Two races (the human colonists and the alien Vael), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
+A browser real-time strategy game in the 1998 mold: mine salt, plant Pumps on the brine seeps, raise energy, raise an army, and level
+the enemy Lighthouse before their waves level yours. Two peoples (the Harbour and the alien Vael, fighting over a drained seabed's salt), up to eight players (you and one to seven AIs, each at its own level, free for all or in teams of any shape, or friends over the Internet with AIs in the empty seats), twelve maps of three sizes (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
@@ -21,19 +21,24 @@ npm test         # headless simulation tests
 **Mouse and keyboard:** left-click or drag to select, right-click to move / attack / gather / set a rally point; hold
 the middle button and drag to move the map. Two keyboard schemes, chosen in OPTIONS (the menu's first page or the pause
 card, with a mouse): **Classic** moves the map with the arrow keys or the screen's edge, and each command has its own
-letter (`A` attack-move, `S` stop, `H` hold, `B` build with Harvesters selected); **WASD** moves the map with `W` `A`
+letter (`A` attack-move, `S` stop, `H` hold, `B` build with Riggers selected); **WASD** moves the map with `W` `A`
 `S` `D` whatever is selected, and a command's key is its button's place on the card (`E` `R` `T` the top row, `F` `G`
 `H` the middle one, `C` `V` `B` the bottom one). In both, `Ctrl`+`1`–`9` saves a control group, `Q` selects the army,
-`Space` looks at the last attack, `Home` jumps to your Core, `P` pauses. `Backspace` (or the browser's back gesture)
+`Space` looks at the last attack, `Home` jumps to your Lighthouse, `P` pauses. `Backspace` (or the browser's back gesture)
 asks before leaving a game.
 
-**Units:** Harvesters mine, build and repair. The Garrison trains Troopers (shoot ground and air), Lancers (cheap anti-air
-missiles) and Medics (heal infantry). The Factory builds Vanguards (heavy walkers for the front line that fight on the move; their shells splash, ground only),
-Siege Tanks (artillery whose siege gun fires only when deployed: the longest reach on the ground and a heavy splash,
-but a blind ring close in, ground only, and it fires only at what your side can see; on its tracks, a light gun) and
-Interceptors (fast ground missile vehicles that shoot only flyers: the escort against air). Medics and the vehicles need a Foundry,
-which researches weapon and armor upgrades. The Airfield trains Raiders, light jets that fly over cliffs
-and buildings, and Observers, cheap unarmed flying scouts. Turrets hit ground and air.
+**Units:** Riggers mine, build and repair. The Crew Hall trains Pickets (line infantry, ground only; they Dig In for more
+reach once Sandbags is researched), Harpooners (harpoons, strongest against flyers, that slow what they hit) and Menders (heal infantry). The Slipway builds
+Breakwaters (armoured walkers for the front line that beach themselves where they fight: armour 6 and a splashing gun, a light gun on the move), Anchor Guns (artillery that fires
+only when anchored: the longest reach on the ground and a heavy splash, but a blind ring close in, ground only, and it
+fires only at what your side can see; under way, no gun at all) and Netters (fast ground missile vehicles that shoot only
+flyers: the escort against air). Menders and the vehicles need a Workshop, which researches weapon and armor upgrades.
+The Loft trains Kites, light jets that fly over cliffs and buildings, and Spyglasses, cheap unarmed flying scouts that
+spot hidden units. Lookouts hit ground and air. The Vael: Glints mine and plant buildings that grow by themselves; the Cradle grows
+Needles (fast blades), Lenses (ranged, ground and air, with Surge), Conchs (heavy shells that Surface past a line) and
+Tenders (they mend); the Gyre sends out Petrels (flyers, hidden once Seaglass is researched), Undertows (blades that
+lurk: hidden while still, so put them on Hold to lie in wait) and the Argonaut, a capital barge whose lantern spots what
+hides. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 
@@ -44,11 +49,11 @@ both sides in view, at up to 8x.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
-**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a shard field to gather.
+**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a salt field to gather.
 Two fingers pan. Drag on the minimap to scroll.
 
-The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; the plan is lockstep multiplayer on top of
-it. See `docs/PLAN.md` for the roadmap and `CLAUDE.md` for how the code is organised.
+The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of
+it, through a relay. See `CLAUDE.md` for how the code is organised.
 
 ## License
 

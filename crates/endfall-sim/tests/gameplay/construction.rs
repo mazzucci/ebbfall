@@ -66,9 +66,9 @@ fn cancelling_construction_refunds_three_quarters() {
     let forge = w
         .place_building(PLAYER, BldgKind::Forge, tx, ty, Some(h[1]))
         .unwrap();
-    assert_eq!(w.res[PLAYER as usize], [850, 900]);
+    assert_eq!(w.res[PLAYER as usize], [850, 1000], "no ether paid");
     assert!(w.cancel_construction(forge));
-    assert_eq!(w.res[PLAYER as usize], [850 + 112, 900 + 75]);
+    assert_eq!(w.res[PLAYER as usize], [850 + 112, 1000]);
     assert!(
         w.bldg(forge).is_none() && w.can_place(BldgKind::Forge, tx, ty, PLAYER),
         "the site is free again"
@@ -284,7 +284,7 @@ fn the_foundry_takes_two_by_two_tiles() {
         .filter(|&i| w.map.occ[i] == f as i32)
         .count();
     assert_eq!(taken, 4, "it blocks four tiles");
-    assert_eq!(BldgKind::Forge.def().name, "Foundry");
+    assert_eq!(BldgKind::Forge.def().name, "Workshop");
 }
 
 #[test]
@@ -335,168 +335,41 @@ fn a_lumen_plants_a_vael_building_and_is_free_at_once() {
 }
 
 #[test]
-fn vael_production_needs_power_and_goes_dark_without_it() {
+fn vael_production_needs_no_power_and_never_goes_dark() {
+    // Roster v2 retired the power field: no Vael building needs one, a Cradle (the Kiln) goes up on any free ground far
+    // from every Sunpetal and the Tidewell, and with every Sunpetal and the Tidewell gone it trains, an Anemone
+    // (Ward) fires and a Glasshouse (Loom) researches on.
+    assert_eq!(VAEL.power, None);
+    for k in BLDG_KINDS {
+        assert!(!k.def().needs_power, "{k:?} needs no power");
+        assert_eq!(k.def().power, 0.0, "{k:?} casts no field");
+    }
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (cx, cy) = core(&w, PLAYER);
-    // Out of every field: the Kiln cannot be placed there.
-    let far = (cx + 20).min(w.map.w - 4);
-    assert!(
-        !w.can_place(BldgKind::Kiln, far, cy, PLAYER)
-            || w.powered_at(PLAYER, (far as f64 + 1.5) * TILE, (cy as f64 + 1.5) * TILE)
-    );
-    // A Spire, then a Kiln covered only by it (not by the Conflux): the first Spire spot round the Core with room for
-    // a Kiln beyond it.
-    let conflux = w
-        .bldgs
-        .iter()
-        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
-        .unwrap();
-    let (hx, hy) = (conflux.x, conflux.y);
-    let beyond = |w: &World, (stx, sty): (i32, i32), powered: bool| {
-        let (sx, sy) = ((stx + 1) as f64 * TILE, (sty + 1) as f64 * TILE);
-        (-8..=8)
-            .flat_map(|dy| (-8..=8).map(move |dx| (stx + 1 + dx, sty + 1 + dy)))
-            .find(|&(tx, ty)| {
-                let (kx, ky) = ((tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE);
-                let apart = tx + 3 <= stx || stx + 2 <= tx || ty + 3 <= sty || sty + 2 <= ty;
-                // (its ground free: power it has only once the Spire stands)
-                let free = if powered {
-                    w.can_place(BldgKind::Kiln, tx, ty, PLAYER)
-                } else {
-                    // (can_place but for power: free, explored ground, no field on its edge)
-                    (-1..=3).all(|y| {
-                        (-1..=3).all(|x| {
-                            let (xx, yy) = (tx + x, ty + y);
-                            let edge = !(0..3).contains(&x) || !(0..3).contains(&y);
-                            w.map.in_map(xx, yy)
-                                && w.map.occ[w.map.idx(xx, yy)] >= 0
-                                && (edge
-                                    || (!w.map.blocked(xx, yy)
-                                        && w.explored[PLAYER as usize][w.map.idx(xx, yy)] != 0))
-                        })
-                    })
-                };
-                apart
-                    && free
-                    && endfall_sim::jsmath::dist(kx, ky, hx, hy) > 7.5 * TILE
-                    && endfall_sim::jsmath::dist(kx, ky, sx, sy) < 6.0 * TILE
-            })
-    };
-    let at = (3..7)
+    // The first free 3x3 at least 9 tiles from the Tidewell: no field anywhere near it.
+    let (tx, ty) = (9..14)
         .flat_map(|r| (0..24).map(move |a| (r, a)))
         .map(|(r, a)| {
             let ang = a as f64 / 24.0 * std::f64::consts::TAU;
             (
-                (cx as f64 + 1.0 + ang.cos() * r as f64).round() as i32,
-                (cy as f64 + 1.0 + ang.sin() * r as f64).round() as i32,
+                (cx as f64 + 2.0 + ang.cos() * r as f64) as i32,
+                (cy as f64 + 2.0 + ang.sin() * r as f64) as i32,
             )
         })
-        .find(|&t| w.can_place(BldgKind::Spire, t.0, t.1, PLAYER) && beyond(&w, t, false).is_some())
-        .expect("a Spire spot with room beyond it");
-    let spire = w
-        .place_building(PLAYER, BldgKind::Spire, at.0, at.1, Some(l[0]))
-        .unwrap();
-    run(&mut w, 90);
-    assert!(w.bldg(spire).unwrap().done);
-    let (sx, sy) = (w.bldg(spire).unwrap().x, w.bldg(spire).unwrap().y);
-    let site = beyond(&w, at, true);
-    let (tx, ty) = site.expect("a spot only the Spire covers");
+        .find(|&(tx, ty)| w.can_place(BldgKind::Kiln, tx, ty, PLAYER))
+        .expect("a free spot far from the Tidewell");
+    assert!(!w.powered_at(PLAYER, (tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE));
     let kiln = w
         .place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1]))
         .unwrap();
     run(&mut w, 60);
-    assert!(w.bldg(kiln).unwrap().done && w.bldg(kiln).unwrap().powered);
-    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
-    run(&mut w, 5);
-    let p = w.bldg(kiln).unwrap().prog;
-    assert!(p > 0.0, "training while powered");
-    // The Spire falls: the Kiln goes dark and its training pauses; a new Spire brings it back.
-    w.damage(spire, 1e6, None);
-    run(&mut w, 1);
-    let k = w.bldg(kiln).unwrap();
-    assert!(!k.powered, "dark without a Spire");
-    let p = k.prog;
-    run(&mut w, 5);
-    assert_eq!(w.bldg(kiln).unwrap().prog, p, "training pauses while dark");
-    let (stx, sty) = ((sx / TILE) as i32 - 1, (sy / TILE) as i32 - 1);
-    let s2 = w
-        .place_building(PLAYER, BldgKind::Spire, stx, sty, Some(l[2]))
-        .unwrap();
-    run(&mut w, 40);
-    assert!(
-        w.bldg(s2).unwrap().done && w.bldg(kiln).unwrap().powered,
-        "a new Spire powers it again"
-    );
-    run(&mut w, 30);
-    assert_eq!(
-        count(&w, PLAYER, UnitKind::Scythe),
-        1,
-        "and the Scythe comes out"
-    );
-}
-
-#[test]
-fn the_power_gate_is_the_only_thing_keeping_a_kiln_out() {
-    let mut w = rich_vael(4242);
-    let l = harvesters(&w, PLAYER);
-    let (cx, cy) = core(&w, PLAYER);
-    // A free spot outside every field: a Spire (no power needed) fits there, a Kiln does not.
-    let mut spot = None;
-    'find: for r in 9..14 {
-        for a in 0..24 {
-            let ang = a as f64 / 24.0 * std::f64::consts::TAU;
-            let (tx, ty) = (
-                (cx as f64 + 2.0 + ang.cos() * r as f64) as i32,
-                (cy as f64 + 2.0 + ang.sin() * r as f64) as i32,
-            );
-            let centre = ((tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE);
-            // Free ground for a 3x3 (two Spires cover it) plus a Spire's room beside it, and no field there.
-            let free = w.can_place(BldgKind::Spire, tx, ty, PLAYER)
-                && w.can_place(BldgKind::Spire, tx + 1, ty + 1, PLAYER);
-            if free
-                && w.can_place(BldgKind::Spire, tx + 3, ty, PLAYER)
-                && !w.powered_at(PLAYER, centre.0, centre.1)
-                && !w.can_place(BldgKind::Kiln, tx, ty, PLAYER)
-            {
-                spot = Some((tx, ty));
-                break 'find;
-            }
-        }
-    }
-    let (tx, ty) = spot.expect("an unpowered spot");
-    assert_eq!(
-        w.place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1])),
-        Err("Needs power: place it in a power field (near a Spire)".to_string()),
-        "the refusal says what is missing"
-    );
-    // An unfinished Spire beside it does not power it yet; the finished one does.
-    let s = w
-        .place_building(PLAYER, BldgKind::Spire, tx + 3, ty, Some(l[0]))
-        .unwrap();
-    run(&mut w, 3);
-    assert!(
-        !w.bldg(s).unwrap().done && !w.can_place(BldgKind::Kiln, tx, ty, PLAYER),
-        "a growing Spire powers nothing"
-    );
-    run(&mut w, 40);
-    assert!(w.bldg(s).unwrap().done);
-    assert!(
-        w.can_place(BldgKind::Kiln, tx, ty, PLAYER),
-        "inside the finished Spire's field the Kiln fits"
-    );
-}
-
-#[test]
-fn a_dark_ward_holds_its_fire_and_a_dark_loom_keeps_its_research() {
-    let mut w = rich_vael(4242);
-    let l = harvesters(&w, PLAYER);
-    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
-    build(&mut w, BldgKind::Kiln, l[1], 90);
+    assert!(w.bldg(kiln).unwrap().done);
     let loom = build(&mut w, BldgKind::Loom, l[2], 90);
     let ward = build(&mut w, BldgKind::Ward, l[3], 90);
-    // Darken them: no power source left at all.
-    w.damage(spire, 1e6, None);
+    // (queued while the Tidewell still gives supply)
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    // Nothing that ever cast a field is left: the Tidewell falls (with its workers kept: the game goes on).
     let hq = w
         .bldgs
         .iter()
@@ -504,30 +377,38 @@ fn a_dark_ward_holds_its_fire_and_a_dark_loom_keeps_its_research() {
         .unwrap()
         .id;
     w.damage(hq, 1e6, None);
-    w.start_research(loom, Upgrade::Weapons).unwrap_or(());
-    run(&mut w, 1);
     assert!(
-        !w.bldg(ward).unwrap().powered && !w.bldg(loom).unwrap().powered,
-        "dark"
+        !w.bldgs
+            .iter()
+            .any(|b| b.team == PLAYER && b.kind == BldgKind::Spire)
     );
+    w.start_research(loom, Upgrade::Weapons).unwrap();
+    run(&mut w, 1);
+    for b in [kiln, loom, ward] {
+        assert!(w.bldg(b).unwrap().powered, "never dark");
+    }
     let r = w.bldg(loom).unwrap().research;
     let (x, y) = (
         w.bldg(ward).unwrap().x + 4.0 * TILE,
         w.bldg(ward).unwrap().y,
     );
-    let foe = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
+    let foe = w.make_unit(UnitKind::Medic, ENEMY, x, y); // (unarmed: it does not fight back)
     w.hold_unit(foe);
     let hp = w.unit(foe).unwrap().hp;
     run(&mut w, 5);
-    assert_eq!(
-        w.unit(foe).map(|u| u.hp),
-        Some(hp),
-        "a dark Ward does not fire"
+    assert!(
+        w.unit(foe).is_none_or(|u| u.hp < hp),
+        "the Anemone fires with no Sunpetal anywhere"
     );
+    assert!(
+        w.bldg(loom).unwrap().research.map(|r| r.1) > r.map(|r| r.1),
+        "the Glasshouse researches on"
+    );
+    run(&mut w, 30);
     assert_eq!(
-        w.bldg(loom).unwrap().research,
-        r,
-        "a dark Loom keeps its research where it was"
+        count(&w, PLAYER, UnitKind::Scythe),
+        1,
+        "and the Needle comes out"
     );
 }
 
@@ -543,13 +424,13 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Supply blocked. Build a Spire.".to_string())
+        Err("Out of energy. Build a Sunpetal.".to_string())
     );
 }
 
-// ---------------- Vael warp-in ----------------
+// ---------------- no Vael warp-in ----------------
 
-/// A Vael Kiln at (20,30) powered by a Spire beside it, and a forward Spire at (40,30), on open ground.
+/// A Vael Kiln at (20,30) with a Spire beside it, and a forward Spire at (40,30), on open ground.
 fn kiln_and_forward_spire() -> (World, Id, (f64, f64)) {
     let mut w = rich_vael(5);
     flatten(&mut w, 12..52, 12..52);
@@ -577,38 +458,37 @@ fn trained(w: &mut World, kind: UnitKind) -> Id {
 }
 
 #[test]
-fn a_vael_unit_warps_in_at_a_rally_point_inside_a_power_field() {
+fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
+    // Before Roster v2 a unit warped in at a rally point inside a power field; there are no fields now: it comes out
+    // beside its Cradle, at once able to act, and walks to the rally.
     let (mut w, kiln, at) = kiln_and_forward_spire();
     w.set_rally(kiln, at.0, at.1, None);
     w.queue_unit(kiln, UnitKind::Scythe).unwrap();
+    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
     let s = trained(&mut w, UnitKind::Scythe);
-    let u = w.unit(s).unwrap();
+    let (k, u) = (w.bldg(kiln).unwrap(), w.unit(s).unwrap());
     assert!(
-        ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt() < 2.0 * 32.0,
-        "it appears at the forward field, not at the Kiln: ({}, {})",
+        ((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0,
+        "beside the Cradle, not at the forward Sunpetal: ({}, {})",
         u.x,
         u.y
     );
-    assert!(u.warp > 0.0, "warping in");
-    // While it warps in it does nothing: an order waits, and it cannot cast.
-    let (x0, y0) = (u.x, u.y);
-    w.move_to(s, at.0 + 300.0, at.1);
+    assert_eq!(u.warp, 0.0, "no warp-in");
+    run(&mut w, 15);
+    let u = w.unit(s).unwrap();
     assert!(
-        w.cast(s, AbilityKind::Blink).is_err(),
-        "no casting while warping in"
+        ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt() < 3.0 * 32.0,
+        "it walked to its rally: ({}, {})",
+        u.x,
+        u.y
     );
-    run(&mut w, 2);
-    let u = w.unit(s).unwrap();
-    assert_eq!((u.x, u.y), (x0, y0), "it does not move while warping in");
-    run(&mut w, 2);
-    let u = w.unit(s).unwrap();
-    assert_eq!(u.warp, 0.0);
-    assert!(u.x > x0 + 32.0, "then it follows its order");
+    let b = trained(&mut w, UnitKind::Scythe);
+    assert_eq!(w.unit(b).unwrap().warp, 0.0, "nor the next one");
 }
 
 #[test]
 fn units_step_out_beside_the_factory_otherwise() {
-    // Rally outside every power field: beside the Kiln, no warp.
+    // A rally far off: the unit comes out beside the Kiln, no warp.
     let (mut w, kiln, at) = kiln_and_forward_spire();
     w.set_rally(kiln, at.0 + 12.0 * 32.0, at.1, None);
     w.queue_unit(kiln, UnitKind::Scythe).unwrap();
@@ -616,7 +496,7 @@ fn units_step_out_beside_the_factory_otherwise() {
     let (k, u) = (w.bldg(kiln).unwrap(), w.unit(s).unwrap());
     assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
     assert_eq!(u.warp, 0.0);
-    // The headquarters' workers never warp, even to a powered rally point.
+    // Nor do the headquarters' workers.
     let core = w
         .bldgs
         .iter()
@@ -639,39 +519,6 @@ fn units_step_out_beside_the_factory_otherwise() {
     h.queue_unit(rax, UnitKind::Trooper).unwrap();
     let t = trained(&mut h, UnitKind::Trooper);
     assert_eq!(h.unit(t).unwrap().warp, 0.0);
-}
-
-#[test]
-fn a_batch_warps_in_side_by_side_and_a_rally_past_the_edge_stays_on_the_map() {
-    let (mut w, kiln, at) = kiln_and_forward_spire();
-    w.set_rally(kiln, at.0, at.1, None);
-    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
-    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
-    let a = trained(&mut w, UnitKind::Scythe);
-    let b = trained(&mut w, UnitKind::Scythe);
-    let (ua, ub) = (w.unit(a).unwrap(), w.unit(b).unwrap());
-    assert!(
-        ((ua.x - ub.x).powi(2) + (ua.y - ub.y).powi(2)).sqrt() >= 30.0,
-        "on separate tiles: ({}, {}) and ({}, {})",
-        ua.x,
-        ua.y,
-        ub.x,
-        ub.y
-    );
-    let (bx, by) = (ub.x, ub.y);
-    run(&mut w, 1);
-    let ub = w.unit(b).unwrap();
-    assert_eq!((ub.x, ub.y), (bx, by), "nobody shoves a unit warping in");
-    // A field reaching past the west edge, and a rally point tapped beyond it.
-    flatten(&mut w, 1..12, 25..36);
-    let edge = w.make_building(BldgKind::Spire, PLAYER, 2, 30, true);
-    let ey = w.bldg(edge).unwrap().y;
-    w.set_rally(kiln, -30.0, ey, None);
-    w.queue_unit(kiln, UnitKind::Scythe).unwrap();
-    let c = trained(&mut w, UnitKind::Scythe);
-    let uc = w.unit(c).unwrap();
-    assert!(uc.warp > 0.0, "it warps in by the edge");
-    assert!(uc.x >= 16.0, "on the map: {}", uc.x);
 }
 
 /// Ticks a lone builder at work takes to raise a `kind` for the player (from its first progress to done).

@@ -50,15 +50,15 @@ fn queued(b: &Bldg, i: usize) -> f64 {
 }
 
 record! {
-    /// Per unit. carry_type: -1 none, 0 shards, 1 ether. hid: bit t set = cloaked and hidden from seat t; cloaked:
+    /// Per unit. hid: bit t set = cloaked and hidden from seat t; cloaked:
     /// cloaked at all (drawn as a shimmer where it is seen).
     UNIT_FIELDS, push_unit, |u: &Unit, w| {
         id = u.id, kind = u.kind.index(), team = u.team, x = u.x, y = u.y, hp = u.hp, maxhp = u.maxhp, sh = u.sh, maxsh = u.maxsh, r = u.r,
-        face = u.face, flash = u.flash, carry = u.carry, carry_type = u.carry_ether.map_or(-1.0, |e| e as u8 as f64),
+        face = u.face, flash = u.flash, carry = u.carry,
         task = task_parts(&u.task).0, phase = task_parts(&u.task).1, target = task_parts(&u.task).2, cd = u.cd,
         ab_cd0 = u.ab_cd[0], ab_cd1 = u.ab_cd[1], boost = u.boost.map_or(0, |(k, _)| k.index() + 1),
-        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, warp = u.warp,
-        hid = hidden_from(u, w), cloaked = World::is_cloaked(u) as u8,
+        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, warp = u.warp, slowed = u.slowed,
+        hid = hidden_from(u, w), cloaked = w.is_cloaked(u) as u8,
     }
 }
 

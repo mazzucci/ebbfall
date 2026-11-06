@@ -72,11 +72,14 @@ impl World {
         }
     }
 
-    /// Whether unit `u` is cloaked: always (an Observer, an Umbra), or for now (a Cloak or Veil running).
-    pub fn is_cloaked(u: &Unit) -> bool {
+    /// Whether unit `u` is cloaked: always (`cloaked`), a lurker (the Undertow) once it has lain still for `LURK_S`,
+    /// or once its side has researched its cloak (the Petrel's Seaglass: permanent, no button, owner 2026-11-03).
+    pub fn is_cloaked(&self, u: &Unit) -> bool {
         u.kind.def().cloaked
-            || u.boost
-                .is_some_and(|(k, _)| matches!(k.def().effect, AbilityEffect::Cloak { .. }))
+            || (u.kind.def().lurk && u.still >= LURK_S)
+            || u.kind.def().abilities.iter().any(|&k| {
+                matches!(k.def().effect, AbilityEffect::Cloak) && self.ability_unlocked(u.team, k)
+            })
     }
 
     /// Whether `team` detects the tile under world point (x, y).
@@ -87,7 +90,7 @@ impl World {
 
     /// Whether unit `u` is hidden from `team`: cloaked, an enemy's, and outside its detection.
     pub fn cloaked_from(&self, team: u8, u: &Unit) -> bool {
-        self.enemies(team, u.team) && World::is_cloaked(u) && !self.detects(team, u.x, u.y)
+        self.enemies(team, u.team) && self.is_cloaked(u) && !self.detects(team, u.x, u.y)
     }
 
     /// Whether `id` (unit or building) is hidden from `team` by cloak (buildings never are).

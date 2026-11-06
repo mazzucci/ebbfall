@@ -1,4 +1,4 @@
-// The network side of a multiplayer game (docs/MULTIPLAYER.md): one WebSocket to the relay. It joins or opens a room,
+// The network side of a multiplayer game (Notion: Multiplayer design): one WebSocket to the relay. It joins or opens a room,
 // follows the lobby, and once the game starts it carries the game's orders out and the relay's turns in. The turns
 // go to the game strictly in order (a turn that arrives early waits for the gap before it); the game runs a tick only
 // once its turn is in (the `Game`'s lockstep: crates/endfall-sim/src/lockstep.rs). Every few turns it acks the last
@@ -9,7 +9,7 @@
 // It does not own the game: `game()` returns the current lockstep `Game` (or null before the start), so the same class
 // serves the browser (one game, through src/engine) and the tests (several games in one process).
 
-export const PROTO = 6; // (relay/room.js: 6, six-letter codes, the limits, the host's remove)
+export const PROTO = 7; // (relay/room.js: 7, six-letter codes, the limits, the host's remove)
 export const PAUSES = 3; // pauses a seat may call in a game (relay/room.js; the start message says how many are left)
 const TICKS_PER_TURN = 3;
 const ACK_EVERY = 3; // turns

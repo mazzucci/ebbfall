@@ -19,6 +19,13 @@ impl World {
         if !self.map.in_map(tx, ty) || !self.map.in_map(tx + d.w - 1, ty + d.h - 1) {
             return false;
         }
+        for y in ty..ty + d.h {
+            for x in tx..tx + d.w {
+                if !self.builds_on(team, x, y) {
+                    return false; // not this people's ground (a vent included)
+                }
+            }
+        }
         if d.on_vent {
             let nd = self
                 .map
@@ -59,6 +66,24 @@ impl World {
         true
     }
 
+    /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
+    /// on land only, an Amph builder (the Vael's) on land and shallows; nobody in deep water. With the tide, against
+    /// the level that matters: a Walk builder on what is land at high water (it stays dry), an Amph builder on what
+    /// is at most shallow at low water (every Vael building can be reached on foot at some low tide).
+    pub fn builds_on(&self, team: u8, x: i32, y: i32) -> bool {
+        let amph = self.factions[team as usize].worker.def().mv == Move::Amph;
+        let water = match (&self.tide, amph) {
+            (None, _) => self.water,
+            (Some(_), false) => WATER_HIGH,
+            (Some(_), true) => WATER_LOW,
+        };
+        match self.map.ground(x, y, water) {
+            Ground::Land => true,
+            Ground::Shallow => self.factions[team as usize].worker.def().mv == Move::Amph,
+            Ground::Deep => false,
+        }
+    }
+
     pub fn has_req(&self, team: u8, kind: BldgKind) -> bool {
         match kind.def().req {
             None => true,
@@ -74,16 +99,9 @@ impl World {
     pub(crate) fn pay(&mut self, team: u8, cost: [i32; 2], sign: i32) {
         self.res[team as usize][0] += sign * cost[0];
         self.res[team as usize][1] += sign * cost[1];
-    }
-    pub(crate) fn short_of(&self, team: u8, cost: [i32; 2]) -> String {
-        format!(
-            "Not enough {}",
-            if self.res[team as usize][0] < cost[0] {
-                "shards"
-            } else {
-                "ether"
-            }
-        )
+        let spent = &mut self.ledger[team as usize].spent;
+        spent[0] -= (sign * cost[0]) as i64;
+        spent[1] -= (sign * cost[1]) as i64;
     }
 
     /// Queue a unit at a building; Err carries the message to show.
@@ -108,14 +126,20 @@ impl World {
             return Err("Queue is full".into());
         }
         if !self.can_afford(team, d.cost) {
-            return Err(self.short_of(team, d.cost));
+            return Err(NOT_ENOUGH.into());
         }
         let s = self.sup[team as usize];
         if s[0] + d.supply > s[1] {
-            return Err(format!(
-                "Supply blocked. Build a {}.",
-                self.factions[team as usize].supply.def().label()
-            ));
+            // (at the map's limit another energy building adds nothing: say so rather than send the player to build one)
+            let limit = self.supply_limit();
+            return Err(if s[1] >= limit {
+                format!("Energy at its limit ({limit}): no more until some fall")
+            } else {
+                format!(
+                    "Out of energy. Build a {}.",
+                    self.factions[team as usize].supply.def().label()
+                )
+            });
         }
         self.pay(team, d.cost, -1);
         self.bm(bid).unwrap().queue.push(kind);
@@ -175,7 +199,7 @@ impl World {
         }
         let cost = up.cost(level);
         if !self.can_afford(team, cost) {
-            return Err(self.short_of(team, cost));
+            return Err(NOT_ENOUGH.into());
         }
         self.pay(team, cost, -1);
         self.bm(bid).unwrap().research = Some((up, 0.0));
@@ -193,7 +217,10 @@ impl World {
         self.pay(team, up.cost(level), 1);
     }
 
+    /// A building's rally point; on a salt field, its new workers mine there (a seep is never mined: a rally on one is
+    /// a plain point).
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
+        let node = node.filter(|&n| self.map.node(n).is_some_and(|n| !n.ether));
         if let Some(b) = self.bm(bid)
             && !b.kind.def().trains.is_empty()
         {
@@ -291,19 +318,19 @@ impl World {
         self.set_task(uid, Task::Hold);
     }
 
-    /// Returns whether the order took effect (refused for non-harvesters and vents without our extractor).
+    /// Returns whether the order took effect (refused for non-harvesters, and on a seep: its Pump pays by itself).
     pub fn start_gather(&mut self, uid: Id, node: Id) -> bool {
         let u = self.u(uid);
         if !u.kind.def().worker {
             return false;
         }
         let team = u.team;
-        // A node that is gone was a depleted shard field; the gather update retargets from there.
-        if self.map.node(node).is_some_and(|n| n.ether) && !self.extractor_ready(node, Some(team)) {
-            let rig = self.factions[team as usize].ether.def().name;
+        // A node that is gone was a depleted field; the gather update retargets from there.
+        if self.map.node(node).is_some_and(|n| n.ether) {
+            let pump = self.factions[team as usize].ether.def().name;
             self.toast(
                 team,
-                format!("Build a{} {rig} on the vent first", an(rig)),
+                format!("A seep is not mined: a {pump} on it pays salt by itself"),
                 true,
             );
             return false;
@@ -378,6 +405,7 @@ impl World {
         };
         let b = self.bldgs.remove(i);
         self.clear_footprint(&b);
+        self.ledger[b.team as usize].cancelled[b.kind.index()] += 1;
         let cost = b.kind.def().cost;
         self.pay(b.team, [cost[0] * 3 / 4, cost[1] * 3 / 4], 1);
         let crew: Vec<Id> = self
@@ -425,7 +453,7 @@ impl World {
             return Err(format!("Requires {}", d.req.unwrap().def().name));
         }
         if !self.can_afford(team, d.cost) {
-            return Err(self.short_of(team, d.cost));
+            return Err(NOT_ENOUGH.into());
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);

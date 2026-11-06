@@ -115,21 +115,26 @@ impl World {
             // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges).
             let heavy = s.heavy == Some(b.kind);
             // (only what its level trains: a mix above it leaves the factory to its other units)
-            let mixed = s.mix.iter().find(|&&(k, per, from)| {
-                if !self.level_allows(k) {
-                    return false;
-                }
-                let per = self.answer_ratio(k, per);
-                let Some(per) = self.cloak_ratio(k, per) else {
-                    return false;
-                };
-                b.kind.def().trains.contains(&k)
-                    && t >= from
-                    && k.def()
-                        .req
-                        .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
-                    && (mine(self, k) + 1) * per <= mine(self, s.basic)
-            });
+            let level = self.level();
+            let mixed = s
+                .mix
+                .iter()
+                .map(|&m| level.mix_entry(m))
+                .find(|&(k, per, from)| {
+                    if !self.level_allows(k) {
+                        return false;
+                    }
+                    let per = self.answer_ratio(k, per);
+                    let Some(per) = self.cloak_ratio(k, per) else {
+                        return false;
+                    };
+                    b.kind.def().trains.contains(&k)
+                        && t >= from
+                        && k.def()
+                            .req
+                            .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
+                        && (mine(self, k) + 1) * per <= mine(self, s.basic)
+                });
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
             // up for it rather than spending the money on raiders.
             let capital = b.kind.def().trains.iter().copied().find(|&k| {
@@ -163,7 +168,7 @@ impl World {
                 heavy_aa.filter(|k| short_of_aa && b.kind.def().trains.contains(k))
             {
                 k
-            } else if let Some(&(k, _, _)) = mixed
+            } else if let Some((k, _, _)) = mixed
                 && (b.kind == s.rax
                     || heavy
                     // (the air factory takes turns: a mixed-in unit (the Vael's Umbra), then a raider, until its

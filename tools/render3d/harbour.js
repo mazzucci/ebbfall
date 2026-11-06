@@ -1,125 +1,16 @@
 // The Harbour (the Humans' new look, STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope and brass
-// only on small tips. Step 0's slice: the Rigger (harvester), the Picket (trooper, with its dug-in state) and the
-// Lighthouse (core). Same conventions as models.js: game units, units face +x, y up, +z south.
+// only on small tips. Step 0's slice: the Lighthouse (core); the Rigger and the Picket moved to harbour-infantry.js with
+// the rest of the infantry. Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
+import { grp, add, rbox, cyl, sph, plate } from './models.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
-const lathe = (pts, seg = 20) => memo(`hl${JSON.stringify(pts)},${seg}`, () => { const g = new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg); g.computeVertexNormals(); return g; });
-const torus = (r, t, seg = 24, arc = Math.PI * 2) => memo(`ht${r},${t},${seg},${arc}`, () => new THREE.TorusGeometry(r, t, 8, seg, arc));
+export const lathe = (pts, seg = 20) => memo(`hl${JSON.stringify(pts)},${seg}`, () => { const g = new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg); g.computeVertexNormals(); return g; });
+export const torus = (r, t, seg = 24, arc = Math.PI * 2) => memo(`ht${r},${t},${seg},${arc}`, () => new THREE.TorusGeometry(r, t, 8, seg, arc));
 /** A half-cylinder shell (an upturned hull) with its axis along z, open side down. */
 const hull = (r, len, seg = 20) => memo(`hh${r},${len},${seg}`, () => { const g = new THREE.CylinderGeometry(r, r, len, seg, 1, true, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.computeVertexNormals(); return g; });
 const oct = (r, k = 0.42) => { const c = r * k; return [[-r + c, -r], [r - c, -r], [r, -r + c], [r, r - c], [r - c, r], [-r + c, r], [-r, r - c], [-r, -r + c]]; };
-
-/** A sailor in a tar oilskin coat: legs by frame (two strides), or kneeling (`kneel`: the right knee down, the left
- *  foot forward); the body lowered to `drop`. Returns the group; the head sits at y 13.6 - drop. */
-function sailor(M, f, { kneel = false } = {}) {
-  const g = grp(), drop = kneel ? 3.4 : 0, st = [3.2, -3.2][f % 2];
-  for (const side of [-1, 1]) {
-    const z = side * 2.1;
-    if (kneel) {
-      if (side < 0) { limb(g, [0, 6.2 - drop, z], [3.8, 3.4, z], 1.25, M.oilskin); limb(g, [3.8, 3.4, z], [3.8, 1.2, z], 1.1, M.oilskin); add(g, rbox(3.6, 1.6, 2.2, 0.6), M.oilskin, 4.4, 0.8, z); }
-      else { limb(g, [0, 6.2 - drop, z], [-2.6, 1.4, z], 1.25, M.oilskin); limb(g, [-2.6, 1.4, z], [-6.2, 1, z], 1.1, M.oilskin); add(g, rbox(2.2, 1.6, 2.4, 0.6), M.oilskin, -7, 0.9, z, 0, 0, 0.5); }
-      continue;
-    }
-    const s = st * side;
-    add(g, rbox(3.6, 1.6, 2.2, 0.6), M.oilskin, s + 0.6, 0.8, z);                               // sea boot
-    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.25, M.oilskin);
-    limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.1, M.oilskin);
-  }
-  const b = grp(); b.position.y = -drop; g.add(b);
-  add(b, cyl(3.3, 4.1, 3.6, 12), M.tar, 0, 7.4, 0);                                            // the coat's flared skirt
-  add(b, rbox(5.2, 6.2, 6.8, 1.6), M.tar, 0, 10.4, 0);                                          // the coat
-  add(b, rbox(5.4, 0.9, 7, 0.3), M.ironDark, 0, 8.4, 0);                                        // belt
-  add(b, rbox(2, 2.2, 1.4, 0.4), M.ironDark, 2.6, 8.4, 0.2);                                    // buckle pouch
-  add(b, sph(2.1, 16, 12), M.oilskin, 0.2, 13.5, 0);                                            // head (hood up)
-  add(b, sph(1.6, 12, 10), M.canvasDark, 1.2, 13.3, 0).scale.set(0.8, 0.9, 0.9);               // the face, in the hood's shade
-  return Object.assign(g, { body: b });
-}
-
-/** Rigger (worker): a stocky sailor in a pale cap hauling a two-wheeled hand-barrow behind them, hands on the
- *  handles: a plain team-painted box on big pale-rimmed wheels under a dark tarp, a pale coil of rope and the pick on
- *  it. From above a long shape, a figure with a pale head ahead of a team box with a pale ring on it: never the
- *  Picket's disc and stick, and nothing striped. */
-export function rigger(M, f) {
-  const g = grp(), man = sailor(M, f); man.position.x = 3.2; g.add(man);
-  const b = man.body;
-  add(b, cyl(2.5, 2.7, 1.3, 14), M.canvas, 0.2, 15.4, 0);                                       // a pale canvas cap: the head shows above the barrow
-  add(b, cyl(2.6, 2.6, 0.3, 14), M.inkLine, 0.2, 14.7, 0);                                      // its dark band
-  add(b, rbox(2, 0.4, 3, 0.15), M.oilskin, 2.6, 14.9, 0);                                       // its peak
-  for (const side of [-1, 1]) add(b, rbox(3.8, 1.3, 3.8, 0.7), M.paintCanvas, -0.4, 13.1, side * 3.7, side * 0.35, 0, 0); // yoke over the shoulders (team)
-  add(b, rbox(5.4, 0.4, 7.4, 0.1), M.inkLine, -0.4, 12.4, 0);                                   // its ink edge
-  for (const side of [-1, 1]) {
-    limb(b, [0.6, 11.2, side * 3.4], [-2.2, 7.8, side * 3.6], 1.1, M.paintCanvas);              // arms back to the handles (team canvas sleeves, as the Picket's)
-    add(b, sph(0.9, 8, 6), M.oilskin, -2.4, 7.6, side * 3.6);                                   // hands on the handles
-  }
-  // the barrow: two shafts from the hands, a plain team-painted box on two big wheels, a dark oilskin tarp over the
-  // load with the coil and the pick on it; nothing striped (bands on the box made it read as a wasp at 18 px)
-  for (const side of [-1, 1]) add(g, rbox(8.5, 0.8, 0.8, 0.25), M.timber, -3.2, 7.3, side * 3.6);
-  add(g, rbox(7, 5.6, 6.6, 0.5), M.paintCanvas, -6.2, 5.6, 0);                                  // the box, one plain team panel
-  add(g, rbox(7.2, 0.5, 6.8, 0.15), M.inkLine, -6.2, 2.9, 0);                                   // one ink line at its foot
-  for (const side of [-1, 1]) {
-    add(g, cyl(3.3, 3.3, 0.9, 18), M.timberPale, -6.2, 3.3, side * 4.2, Math.PI / 2);            // the wheels: pale rims, wide of the box, so they read as discs from the side
-    add(g, cyl(3.4, 3.4, 0.5, 18), M.ironDark, -6.2, 3.3, side * 4.6, Math.PI / 2);              // iron tyre
-    add(g, cyl(1, 1, 1.3, 10), M.ironDark, -6.2, 3.3, side * 4.5, Math.PI / 2);                  // hub
-    for (let k = 0; k < 3; k++) add(g, rbox(0.5, 6, 0.4, 0.1), M.oilskin, -6.2, 3.3, side * 4.3, 0, 0, k * Math.PI / 3 + f * 0.4); // spokes (turning)
-  }
-  add(g, rbox(6.4, 1.4, 6, 0.6), M.oilskin, -6.2, 8.9, 0);                                      // the dark tarp over the load
-  for (const z of [-2, 2]) add(g, rbox(0.5, 1.6, 6.4, 0.15), M.rope, -6.2 + z, 9, 0);           // lashings
-  add(g, torus(2.6, 1.1, 28), M.rope, -6.2, 10.4, 0, Math.PI / 2, 0, 0);                          // the coil, lying on the tarp
-  add(g, cyl(0.42, 0.42, 10, 8), M.timber, -5.6, 11.5, 0.4, 0, 0.45, Math.PI / 2);               // the pick across the coil
-  add(g, rbox(1, 1.1, 5, 0.3), M.ironDark, -1.1, 11.5, 2.6, 0, 0.45, 0);                         // its head
-  for (const side of [-1, 1]) add(g, new THREE.ConeGeometry(0.5, 1.6, 6), M.brass, -1.1 - side * 1.1, 11.5, 2.6 + side * 2.9, side * Math.PI / 2, 0.45, 0);
-  g.scale.setScalar(0.95);
-  return g;
-}
-
-/** Picket (line infantry): a sailor under a round canvas hat, pale brim and crown, the team band round the crown
- *  between two black ink rings; team canvas sleeves and a team bedroll across the back; a long rifle with a pale
- *  timber stock held out ahead: from above a pale disc with a long bar. Frames: 0-1 the march, 2 going to ground
- *  (kneeling, the first course of a sandbag parapet laid ahead), 3 dug in (two courses, the rifle resting on them,
- *  a team groundsheet spread behind). */
-export function picket(M, f) {
-  const st = f < 2 ? 0 : f - 1, kneel = st > 0;                                                  // 0 marching, 1 settling, 2 dug in
-  const g = sailor(M, f, { kneel }), b = g.body;
-  const hat = grp(); hat.position.set(0.2, 14.6, 0); b.add(hat);
-  add(hat, lathe([[0, 0], [4.4, 0], [4.4, 0.5], [3.2, 0.65], [3.1, 3], [2.4, 3.6], [1, 3.95], [0, 4.05]]), M.canvas, 0, 0, 0);
-  add(hat, cyl(4.45, 4.45, 0.3, 24), M.canvasDark, 0, 0.1, 0);                                   // the brim's underside
-  add(hat, cyl(4.5, 4.5, 0.3, 24), M.inkLine, 0, -0.1, 0);                                       // a dark line under the brim
-  add(hat, cyl(3.25, 3.25, 1.9, 20), M.paintCanvas, 0, 1.85, 0);                                 // team band round the crown
-  add(hat, cyl(3.35, 3.35, 0.5, 20), M.inkLine, 0, 0.9, 0); add(hat, cyl(3.35, 3.35, 0.5, 20), M.inkLine, 0, 2.95, 0); // black ink rings above and below it
-  add(b, rbox(2.6, 5.4, 4.2, 0.6), M.paintCanvas, -3.8, 10.6, 0);                                // a narrow pack on the back (team): the figure stays slim
-  add(b, rbox(2.8, 0.4, 4.4, 0.1), M.inkLine, -3.8, 13.3, 0); add(b, rbox(2.8, 0.4, 4.4, 0.1), M.inkLine, -3.8, 7.9, 0);
-  add(b, rbox(2.9, 0.5, 1.4, 0.15), M.rope, -3.8, 11.6, 0);                                      // its strap
-  add(b, rbox(0.8, 2.2, 1.6, 0.3), M.ironDark, -5.2, 9.2, 1.2);                                  // water can
-  // arms (team canvas sleeves) and the rifle: a pale timber stock, a long iron barrel, a brass bead at the muzzle
-  const ry = kneel ? 8.4 : 9.8;
-  const gun = grp(); gun.position.set(2.4, ry, 0.6); gun.rotation.z = kneel ? 0 : 0.34; b.add(gun); // standing: the muzzle up ahead, close to the body, never a level barrel out to the side
-  add(gun, rbox(7.5, 1.6, 1.7, 0.5), M.timberPale, 0.8, 0, 0);                                   // stock
-  add(gun, rbox(1.2, 1.9, 1.9, 0.2), M.ironDark, 4.9, 0, 0);                                     // lock
-  add(gun, cyl(0.62, 0.62, 9.8, 8), M.ironDark, 9.5, 0.3, 0, 0, 0, Math.PI / 2);                 // barrel
-  add(gun, rbox(1, 2.2, 1, 0.3), M.oilskin, -1.2, -1.2, 0);                                      // grip
-  add(gun, sph(0.55, 8, 6), M.brass, 14.5, 0.3, 0);
-  limb(b, [0.6, 11, 3.6], [3.6, ry - 0.2, 1.4], 1.1, M.paintCanvas);
-  limb(b, [0.6, 11, -3.6], [kneel ? 7.6 : 6.4, kneel ? ry : ry + 1.6, 0.4], 1.1, M.paintCanvas);
-  // the parapet: a crescent of wet sandbags laid ahead, one course while settling, two dug in; the groundsheet behind
-  if (st) {
-    const R = 7.6, n = 7;
-    for (let k = 0; k < n; k++) {
-      const a = -Math.PI * 0.55 + k * (Math.PI * 1.1 / (n - 1)), x = Math.cos(a) * R, z = Math.sin(a) * R;
-      add(g, rbox(2.6, 2.1, 4, 0.9), M.sandbag, x, 1.05, z, 0, -a, 0);
-      if (st === 2 && k < n - 1) { const a2 = a + Math.PI * 0.55 / (n - 1); add(g, rbox(2.5, 2, 3.8, 0.9), M.sandbag, Math.cos(a2) * R * 0.96, 3, Math.sin(a2) * R * 0.96, 0, -a2, 0); }
-    }
-    if (st === 2) {
-      add(g, new THREE.CylinderGeometry(6.4, 6.4, 0.5, 24, 1, false, Math.PI / 2, Math.PI), M.paintCanvas, -0.8, 0.25, 0, 0, 0, 0); // the groundsheet, a half disc behind
-      add(g, new THREE.CylinderGeometry(6.7, 6.7, 0.35, 24, 1, false, Math.PI / 2, Math.PI), M.inkLine, -0.8, 0.17, 0, 0, 0, 0);
-      add(g, rbox(3.2, 2.2, 3.2, 0.3), M.timber, -4.6, 1.1, -5.2); add(g, rbox(3.4, 0.6, 3.4, 0.1), M.paintCanvas, -4.6, 2.4, -5.2); add(g, rbox(3.5, 0.3, 3.5, 0.1), M.inkLine, -4.6, 2.05, -5.2); // an ammunition crate, its lid team
-    }
-  }
-  g.scale.setScalar(1.08);
-  return g;
-}
 
 /** Lighthouse (core, 4x4): a tapered tarred tower with iron bands and a team band, a lantern room (pale glass in a
  *  dark cage, a warm lamp inside) under a canvas cone; a keeper's house roofed with an upturned hull under lashed

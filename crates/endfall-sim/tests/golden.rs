@@ -115,7 +115,7 @@ const EXPECTED: [[u32; 3]; 7] = [
     [1398393618, 2091837655, 3458291719],
     [2912609126, 4240363442, 2198048794],
     [3186563809, 1445435501, 2517808180],
-    [2009087198, 1261575630, 2454641051],
+    [2009087198, 1261575630, 492018294],
 ];
 
 #[test]
@@ -274,7 +274,7 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 
 const EXPECTED_RESULTS: [&str; 3] = [
     "142/146/114/4 lost_to 146 | 158/114/146/19 lost_to 114 | over true winner 1 conceded -1 at 25451",
-    "96/99/24/3 lost_to 99 | 74/24/99/35 lost_to 24 | over true winner 1 conceded -1 at 14750",
+    "124/128/91/3 lost_to 128 | 127/91/128/37 lost_to 91 | over true winner 1 conceded -1 at 19962",
     "11/15/7/0 lost_to 15 | 57/7/15/2 lost_to 7 | over true winner 1 conceded -1 at 10261",
 ];
 

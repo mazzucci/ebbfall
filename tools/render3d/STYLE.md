@@ -43,7 +43,7 @@ body with a pale top: in greyscale it parts from the Vael (pale body, dark core)
 | `canvas`      | pale canvas: hats, awnings, sails, cones | Standard 0xd4ccb6, map `canvasWeave` (weave, stains, stitched seams), rough 0.92 |
 | `canvasDark`  | a hat's underside, old sailcloth | Standard 0x8f8872, map `canvasWeave`, rough 0.95                                        |
 | `timber`      | handles, masts, jetties, keels | Standard 0x7a5b3a, map `grainTex`, rough 0.8                                              |
-| `timberPale`  | a rifle's stock, a barrow's shafts: timber pale enough to read at 18 px | Standard 0xb09468, map `grainTex`, rough 0.75   |
+| `timberPale`  | timber pale enough to read at 18 px (unused since step 1: a pale part of a Harbour unit is canvas, which keeps its value in the gold seat) | Standard 0xb09468, map `grainTex`, rough 0.75   |
 | `rope`        | coils, lines, lashings        | Standard 0xc8b48a, bump `ropeBump` 1.2, rough 0.95                                         |
 | `brass`       | small tips only: a pick's points, a muzzle bead, the lamp's cage and finial | Standard 0xc49a3c, metal 0.95, rough 0.28 |
 | `sandbag`     | the dug-in state: wet grey-brown, mid value (dark bags vanish on the ground, tan ones merge with gold) | Standard 0x7a7264, map `burlapTex`, rough 1 |
@@ -51,7 +51,10 @@ body with a pale top: in greyscale it parts from the Vael (pale body, dark core)
 | `flagstone`   | a quay's paving               | Standard 0x565b60, map `flagTex` (courses of stones, damp), bump 1.2, rough 0.88           |
 | `inkLine`     | the black ring either side of every team band | Standard 0x08080a, rough 0.8                                              |
 | `lanternPane` | the lantern room's panes, see-through | Physical 0xf0e8d0, transparent, opacity 0.15, rough 0.1, no depth write              |
-| `lampHot`, `lampHalo`, `lampHalo2` | the lantern's lamp and its warm halo: the brightest Harbour pixel | Standard 0xfff8e0 emissive 0xfff2c0 x 6; Basic 0xffd080 / 0xffb860 additive, opacity 0.22 / 0.1 |
+| `lampHot`, `lampCore`, `lampAmber`, `lampHalo`, `lampHalo2` | the lantern's lamp, its near-white core on the south face, the core's tight amber halo and the warm halo: the brightest Harbour pixel | Standard 0xfff8e0 emissive 0xfff2c0 x 6; Standard 0xffffff emissive x 8 (not tone-mapped); Basic 0xffb040 additive 0.45; Basic 0xffd080 / 0xffb860 additive, opacity 0.22 / 0.1 |
+| `canvasShade`  | canvas a band below pale: the lantern's cone under the lamp | Standard 0xb4ac96, map `canvasWeave`, rough 0.94                                   |
+| `slateLit`     | a kerb's lit top edge         | Standard 0x737a80, rough 0.85, flat shaded                                                 |
+| `lanternGlass` | pale warm glass, opaque (unused by the Lighthouse, kept) | Standard 0xe6dcc0, emissive 0x9a8650 x 0.55                                  |
 | `paintCanvas` | **team paint on cloth** (matte) | Standard team colour, map `canvasWeave`, rough 0.88, metal 0.02; `team()`               |
 | `paint`       | team paint on iron (the older units) | Standard team colour, map `panel`, metal 0.55, rough 0.32; `team()`                 |
 | `white`       | the one lamp                  | Standard 0xfff4d0, emissive 0xfff0c0 x 2.4 (not team)                                      |
@@ -62,7 +65,9 @@ shade 0x8c8670, timber 0x6e5234, pale timber 0xa88a60, rope 0xc0ac80, brass 0xb8
 
 ### Value rules
 
-A Harbour unit is dark (coat, hull: value 0.10-0.15) with one pale top (hat, canvas, coil: 0.75-0.85). Keep the mid
+A Harbour unit is dark (coat, hull: value 0.10-0.15) with one pale top (hat, canvas, coil: 0.75-0.85); the one
+exception is the Mender, whose coat is ash sailcloth (0.6, a band below its hat, far above tar) so that "the pale one is
+the medic" (rounds 3-4 of the infantry). Keep the mid
 greys for timber and rope only, in small amounts. The ground sits under both (0.18) so the dark body still parts from
 it by the hard shadow and the ink, and the pale top by value. Seat 0's gold must never sit next to brass: brass is only
 on a tip (a point, a bead, a finial), never a band or a plate.
@@ -71,10 +76,11 @@ on a tip (a point, a bead, a finial), never a band or a plate.
 
 Team paint is matte canvas (`paintCanvas`). It goes on at least a sixth of what the camera sees (measured by
 `tools/art/review.mjs`, mask pixels over solid pixels, facing 0), and never only on the signature shape, and never as
-a flat shape on the ground (a painted ring on the quay read as a decal). The family trait: **team canvas sleeves** on
+a flat shape on a building's ground (a painted ring on the quay read as a decal; the dug-in Picket's groundsheet, a
+half disc of cloth behind its parapet between ink hems, is the one flat team shape, and it is the unit's). The family trait: **team canvas sleeves** on
 every Harbour figure, plus a team band round the Picket's hat crown (the brim and crown top stay pale) and a narrow
 pack on the back (nothing wide across the shoulders: a bedroll made the Picket read as a broader Harpooner); the
-Rigger's yoke and the painted box of the barrow under its tarpaulin. The Lighthouse: the 18-unit band under the
+Rigger's yoke, apron and sack ties (see "Harbour infantry" below). The Lighthouse: the 18-unit band under the
 gallery and the gallery's deck, canvas panels on the hull roof alternating pale and team at equal width, the house's
 south end wall and porch, one of the awning's two stripes, a thin band on a raised stone kerb, crate tarps, mooring
 posts' tops, a pennant. Every team band sits between two `inkLine` rings or hems (0.5 units, pure black: the finish
@@ -82,25 +88,24 @@ keeps them), so seat 6's white parts from pale canvas.
 
 ### Shape language
 
-- Infantry: a round hat. The Picket's canvas hat (brim r 4.4, crown r 3.1, a dark line under the brim) is the pale
-  disc from above; the long rifle (15 units, a pale timber stock and a thick barrel) is held close and angled up ahead
-  (standing) or level on the parapet (dug in): a level barrel held out to the side reads as a Harpooner. Slim: nothing
-  wide across the shoulders. The Rigger wears a small pale canvas cap (its head shows above the load) and hauls a
-  two-wheeled hand-barrow behind, hands on the handles: a figure ahead of a team box with a pale coil of rope and the
-  pick on it, at scale 0.95 so the worker is smaller than the Picket: a long shape, never a disc. Each kind must own an
-  outline at 18 px, not only a colour (the round-1 blind test swapped a hatted Rigger with the Picket).
+- Infantry: a round hat, and every figure upright (a level gun or a low load read as a figure lying prone). The
+  Picket's canvas hat (brim r 4.4, crown r 3.1, a dark line under the brim) is the pale disc from above, with a thin
+  rifle angled up ahead. Slim: nothing wide across the shoulders. Each kind must own an outline at 18 px, not only a
+  colour: the Rigger, Picket, Harpooner and Mender as built are in "Harbour infantry" below.
 - Vehicles: boxes and hulls (an upturned hull is a roof, a box is a cab or a crate).
 - Flyers: triangles and sails.
 - Buildings: the same hulls and boxes on a slate quay; a Lighthouse tower is a tarred cylinder with iron bands.
 
 ### Scale by role (sim radius, world px)
 
-Worker 9 (the Rigger, figure scale 1.08, ~16 tall), line 10-11 (the Picket, 1.08, 20 tall with the hat), heavy 14-15,
+Worker 9 (the Rigger, scale 0.95, ~15 tall), line 10-11 (the Picket, 1.08, 20 tall with the hat; the Harpooner and the
+Mender, 1.08), heavy 14-15,
 capital 18. A figure is ~6 wide at the shoulders; a hat may reach r 5.
 
 ### Lights
 
-Few and small: the Lighthouse has one lamp (`white`, r 3.4) in a brass cage; a unit has none (no lamps on infantry).
+Few and small: the Lighthouse has one lamp (`lampHot`, r 4.8, its core `lampCore`) in a brass cage; the Mender's hand
+lamp (r 1, `lampSmall` in harbour-infantry.js) is the one light on a unit.
 Nothing emissive on the Harbour is team-tinted.
 
 ### States
@@ -108,8 +113,8 @@ Nothing emissive on the Harbour is team-tinted.
 Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling behind a
 crescent parapet of wet sandbags laid ahead (r 7.6, 200 degrees, two courses), the rifle resting on them, a team
 groundsheet behind; frame 2 while going to ground (one course), frame 3 dug in. Cover is a wall in front, open behind:
-a full ring read as a machine's body in the round-1 blind test. Beached / anchored (later vehicles and flyers): the same pattern, a pose
-frame with a visible fixture on the ground (a gangplank and chocks; a dropped anchor and a taut line), never a tint.
+a full ring read as a machine's body in the round-1 blind test. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
+frame with a visible fixture on the ground (the hull down and spades out; a dropped anchor and a taut line), never a tint.
 
 ## The Vael (sim race `vael`)
 
@@ -212,6 +217,74 @@ States: the Undertow glides canted on its edge (frames 0-1, the face leaning to 
 tail lit) and lies flat on the ground when it lurks (frame 2: `UNIT_POSE.umbra`, shown while the snapshot's `cloaked`
 is set: the same blade, kept dark). The Petrel has one frame (a glider, `UNIT_FPS` 0); the Argonaut four (a slow bob,
 `UNIT_FPS` 4); the others two (a bob).
+
+## Harbour infantry (`harbour-infantry.js`)
+
+The sailor (`sailor`): an oilskin coat (tar, or `coat` given) with a flared skirt, an iron belt, a hood, sea boots;
+two stride frames or kneeling. Every kind wears the family's round canvas hat (`hat`: pale brim and crown, the team
+band round the crown between two ink rings, a dark line under the brim; brim 4.1-4.5, crown 2.9-3.1 by kind) except
+the Rigger's cap, and every kind has team canvas sleeves. Each owns an outline at 18 px, and every figure stands
+upright (round 1's level harpoon gun made the Harpooner read as lying prone; round 2's hand-barrow made the Rigger,
+the one low shape left, read the same):
+
+- **Rigger** (harvester, scale 0.95): the smallest figure, a small pale cap with a team band, a big pale canvas salt
+  sack low on its back (its top under the cap in every facing) bunched up by the right shoulder, tied round the
+  middle with a team band and at the neck with a team cord, a short pick with a salt-pale head held low in the left
+  hand (never a shaft that could read as a rifle); team yoke and apron. From above: a small cap and a big pale lump
+  below it on a dark body. No cart.
+- **Picket** (trooper, 1.08): a pale disc with a thin bar angled up ahead: the rifle's stock and muzzle wrapped in
+  pale canvas round a thin dark barrel (r 0.62), a brass bead; a narrow team pack behind. Pale timber on the stock
+  was seat 0's own hue and the rifle vanished in gold: a pale thing on a Harbour unit is canvas, not timber. The
+  plain rifleman. Dug in (frames 2, 3; `UNIT_POSE`): the rifle still thin and angled up, one course of separate
+  sandbags with gaps between them round the front, one of them wetter and darker (`sandbagDark`) so the bags part,
+  the groundsheet behind.
+- **Harpooner** (lancer, 1.08): the harpoon gun shouldered and angled up ahead (0.52 rad): a timber butt, a tube r
+  1.3 served with pale canvas, team canvas over its breech and grip between 0.8-wide ink rings, an iron muzzle ring,
+  the harpoon's pale shaft out of it with a dark cork float on the line near the tip and a brass head with barbs
+  (brass on the tip only). The shaft, float and head cast no shadow (`userData.noShadow`, read by `scene.js`), so the
+  raised gun's shadow stays a third shorter. A small coil of tan rope with a dark eye hangs low at the right hip,
+  smaller than the hat. From above: a pale disc, a pale shaft rising ahead with a dot and a barbed tip, a small ring
+  at the hip. Team: the sleeves, the hat band (2.7), the pack, the grip and the breech.
+- **Mender** (medic, 1.08, unarmed): **the palest-bodied Harbour human**: an ash sailcloth coat (`ash` 0xaaa696, a
+  band below the hat, which stays the pale top; a cream coat put the white seat's straps and cross at the coat's own
+  value) under a hat with a tall crown, an ink belt, a broad satchel of dark sailcloth (`sailDark` 0x6e6a60) high on
+  the back with a **team cross** on its flap and its back face inside ink edges, two team straps over the shoulders,
+  a team hem, and a small warm **lamp** (`lampSmall` r 1 with a `lampCore` heart, in a brass cage) carried low in the
+  right hand at the hip. From above: a pale disc on an ash figure, a dark crossed square behind the hat, one warm
+  dot low at its side. Never a sack on a dark body (that is the Rigger).
+
+Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 21 h 26 (the raised harpoon's tip), Mender r 15 h 21. Team shares at facing
+0 (round 4): Rigger 0.173, Picket 0.173 / 0.214 dug in, Harpooner 0.216, Mender 0.238. The pack:
+`node tools/art/review.mjs <dir> --family=hinf`.
+
+## Harbour machines (step 1, `harbour-machines.js`)
+
+The three vehicles after the slice, on the Harbour rules above: boxes and hulls, a dark tarred body under a pale
+canvas top, team paint as matte canvas between ink lines on at least a sixth of the footprint and never only on the
+signature, timber and rope in small amounts, brass on a muzzle ring only, no lights. Each kind owns one cue a stranger
+names at 20 px, and the three never differ by size alone: legs under a pointed hull, a long bar ahead of a box, round
+wheels under a drum. Round 1's blind test passed (90%) but the judge failed the team colour: a canvas awning over the
+whole deck inside a hairline team rim made the Breakwater "a pale egg on stilts" (a Rigger to one tester) and the rim
+vanished in seat 6. Round 2's rules: the hull shows dark, bow and stern, in every facing; the canvas is a tarp over
+midships only; team paint has a real area (a quarter), on the hull's sides and on cloth, inside ink; legs are dark iron
+with team pads (pale shins read as a second pale mass in grey). The maker's rounds also taught: three bands across a
+tarp (pale, team, pale, with hoops) read as stripes, an insect: a tarp is two-tone at most; team knee caps above the
+gunwale read as antennae; a team deck alone on a carriage under a hood and a gun was 0.07 of the footprint.
+
+| kind (key)                  | signature shape, from above                                                                                                                                                       | size (sim r)   | team paint                                                                                                   | the pale top                                     |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|--------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| Breakwater (`vanguard`)     | the boat hull on legs: a tarred hull 29 long with its stem ahead, plank seams and iron straps on its bare bow and stern decks, an iron gunwale, a canvas tarp humped over midships (two-tone: pale forward of an ink bar, team aft of it, a rope hoop and a ridge seam on the pale part, a dark worn hem), four dark iron legs standing under it, a short mortar on the stem | heavy (14), the hull 8 up on its legs (cell r 22: the spades and legs splay past 17) | the strake along both hull sides (3.4 tall) between ink lines, the aft half of the tarp, the aft deck inside an ink seam, the knee caps and the foot pads' tops | the forward half of the tarp                     |
+| Anchor Gun (`siegeTank`)    | the long gun: a 21-unit tapered iron barrel on trunnion cheeks forward of a tarred carriage between iron-shod timber runners on six spoked wheels, a low canvas hood on rope hoops over the crew at the stern | heavy (14), the muzzle reaches 24 ahead, the dropped anchor about 29 astern (cell r 31) | the carriage's whole deck inside an ink hem, the hood's two end caps inside an ink rim, the six wheel discs inside their iron tyres, a band round the breech | the hood (r 4.6, 12 wide) |
+| Netter (`interceptor`)      | the box with a net: a tarred box on four big cart wheels (pale timber discs in iron tyres), behind the cab the folded net on a reel, a fat drum of pale rope wider than the box between pale timber end discs with cork floats in two rows, its mesh hanging down the tail; on the cab roof a twin flak mount, two fat tubes well apart angled up 52 degrees on one cradle (short and steep, never the Anchor Gun's long level bar) | line-heavy (12; cell r 14, the reel 15.8 across) | the whole long sides of the box and the cab's roof, between ink lines; a strap over the mount's cradle    | the net reel and the wheels' discs               |
+
+States, by pose frames as the Picket's (`UNIT_POSE` in look.js: `vanguard: { walk: 2, swap: 2, on: 3 }`, added for
+the Breakwater; the Anchor Gun keeps `siegeTank`'s row): the Breakwater beached (frame 2 settling: the hull half down,
+the legs folding, the spades swinging out; frame 3: the hull down on the sand, the legs crouched tight under it, four
+spades out either side, each a timber shaft from the gunwale with a broad pale timber blade and an iron edge lying on
+the ground); the Anchor Gun anchored (frame 2: the gun rising, the anchor swinging down off the stern on its hawser;
+frame 3: the gun raised 26 degrees and an anchor dropped on the sand astern, a pale timber stock across its ring, a
+pale hawser taut from the stern post). Travelling, the anchor is lashed on the hood. The Netter has two frames (the
+wheels turn). A fixture on the ground, never a tint, as the sheet says.
 
 ## Harbour air (step 1, `harbour-air.js`)
 

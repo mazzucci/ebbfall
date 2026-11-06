@@ -379,12 +379,17 @@ impl World {
                 .filter_map(|&id| self.bldg(id))
                 .any(|b| b.kind.def().trains.contains(&u))
         };
-        let unlocks = s.mix.iter().any(|&(u, per, from)| {
-            u.def().req == Some(k)
-                && self.cloak_ratio(u, per).is_some()
-                && t > from - k.def().build
-                && trained(u)
-        });
+        let level = self.level();
+        let unlocks = s
+            .mix
+            .iter()
+            .map(|&m| level.mix_entry(m))
+            .any(|(u, per, from)| {
+                u.def().req == Some(k)
+                    && self.cloak_ratio(u, per).is_some()
+                    && t > from - k.def().build
+                    && trained(u)
+            });
         let d = self.level();
         let techs = d.abilities
             && t > d.research_from.min(s.tech_from)

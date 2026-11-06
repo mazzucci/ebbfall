@@ -1,6 +1,6 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// eight units; `hair`, the Harbour air) and writes into <outdir>:
+// eight units; `hinf`, the Harbour infantry; `hmach`, the Harbour machines; `hair`, the Harbour air) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
@@ -9,7 +9,7 @@
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
 //                    maps the letters to the kinds
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the family beside the
-//                    slice as a small scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell
+//                    slice as a small scene: a Lighthouse with Riggers and Pickets (and the family's Harbour units) at a salt field against a Tidewell
 //                    with the Vael
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,8 @@ import { render3d } from './render3d.mjs';
 const VAEL = [['lumen', 'Glint'], ['prism', 'Lens'], ['scythe', 'Needle'], ['halo', 'Tender'], ['monolith', 'Conch'], ['umbra', 'Undertow'], ['shrike', 'Petrel'], ['sovereign', 'Argonaut']];
 /** A family: what to render (`filter`), the contact sheet's unit rows (`units`: kind -> frames) and extra rows, the
  *  sprites whose team share is printed, the phone sheet's row of units (names at facing 0), the blind set's kinds
- *  (sprite name -> what it is) and the Vael side of the battle stand-in (a list of [name, dx, dy] about its centre). */
+ *  (sprite name -> what it is) and the family's extra placements in the battle stand-in (`vael`: [name, x, y, seat], the
+ *  Vael side and any Harbour units the family adds; x, y about its centre). */
 const FAMILIES = {
   slice: {
     filter: '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
@@ -49,6 +50,21 @@ const FAMILIES = {
       ['monolith_8_0', cx + 300, cy + 110, 1], ['sovereign_8_0', cx + 420, cy + 30, 1],
     ],
   },
+  // Harbour infantry (harbour-infantry.js): the Rigger and the Picket beside the Harpooner and the Mender, the slice's
+  // Glint and Lens with them for the peoples; the battle adds Harpooners and Menders on both sides
+  hinf: {
+    filter: '^(harvester|trooper|lancer|medic|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+    units: { harvester: [0], trooper: [0, 2, 3], lancer: [0], medic: [0], lumen: [0], prism: [0] }, rows: ['bldg_core', 'bldg_conflux', 'shard_0'],
+    shares: ['harvester_0_0', 'trooper_0_0', 'trooper_0_3', 'lancer_0_0', 'medic_0_0', 'lumen_0_0', 'prism_0_0'],
+    phone: ['harvester_0_0', 'trooper_0_0', 'trooper_4_3', 'lancer_0_0', 'medic_0_0', 'lumen_0_0', 'prism_0_0'],
+    turned: ['harvester_12_0', 'trooper_8_0', 'lancer_12_0', 'medic_8_0'],
+    blind: [['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)'], ['lancer_0_0', 'lancer (Harpooner)'], ['medic_0_0', 'medic (Mender)'], ['lumen_0_0', 'lumen (Glint)'], ['prism_0_0', 'prism (Lens)']],
+    vael: (cx, cy) => [
+      ...sliceVael(cx, cy),
+      ['lancer_0_0', cx - 190, cy + 40, 0], ['lancer_1_1', cx - 140, cy + 70, 0], ['lancer_0_0', cx - 110, cy + 20, 0],
+      ['medic_0_1', cx - 230, cy + 10, 0], ['medic_2_0', cx - 180, cy + 100, 0], ['lancer_8_0', cx + 60, cy - 110, 1], ['medic_9_0', cx + 100, cy - 60, 1],
+    ],
+  },
 };
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
@@ -57,6 +73,23 @@ function sliceVael(cx, cy) {
   for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
   return list;
 }
+// Harbour machines (harbour-machines.js): the Breakwater (walking and beached), the Anchor Gun (travelling and anchored)
+// and the Netter, with the slice's Rigger and Picket (standing and dug in) for the people; the battle adds the machines
+// on the Harbour side. `gap`: the phone row's spacing (heavies are wider than the 80 px default allows).
+FAMILIES.hmach = {
+  filter: '^(harvester|trooper|vanguard|siegeTank|interceptor|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+  units: { vanguard: [0, 2, 3], siegeTank: [0, 2, 3], interceptor: [0], harvester: [0], trooper: [0, 3] }, rows: ['bldg_core', 'shard_0'],
+  shares: ['vanguard_0_0', 'vanguard_0_3', 'siegeTank_0_0', 'siegeTank_0_3', 'interceptor_0_0', 'harvester_0_0', 'trooper_0_0'],
+  phone: ['vanguard_0_0', 'trooper_0_0', 'siegeTank_0_0', 'harvester_0_0', 'interceptor_0_0', 'vanguard_0_3', 'trooper_4_3', 'siegeTank_0_3'], gap: 92,
+  turned: ['vanguard_12_0', 'siegeTank_8_0', 'interceptor_12_0', 'vanguard_8_3'],
+  blind: [['vanguard_0_0', 'vanguard (Breakwater)'], ['vanguard_0_3', 'vanguard beached (Breakwater)'], ['siegeTank_0_0', 'siegeTank (Anchor Gun)'], ['siegeTank_0_3', 'siegeTank anchored (Anchor Gun)'], ['interceptor_0_0', 'interceptor (Netter)'], ['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)']],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ['siegeTank_0_3', cx - 260, cy + 40, 0], ['siegeTank_2_0', cx - 310, cy + 160, 0],
+    ['vanguard_1_0', cx - 30, cy - 130, 0], ['vanguard_0_3', cx - 10, cy + 30, 0],
+    ['interceptor_0_0', cx - 210, cy - 130, 0], ['interceptor_15_1', cx - 130, cy + 180, 0],
+  ],
+};
 // Harbour air (harbour-air.js): the Kite, the Spyglass and the Windjammer, the Vael's Petrel beside them for contrast
 // and the slice's Rigger and Picket for the people; the battle puts the flyers over the slice, Petrels over the Vael.
 FAMILIES.hair = {
@@ -106,7 +139,7 @@ const tiles = {}; const groundTile = (v) => tiles[v] ??= tile(0, v);
  *  beside a unit and be read as part of it; the test judges the unit, not the tile). */
 function seabed(c, seed = 0, plain = false) {
   const ox = (seed * 37) % 64, oy = (seed * 53) % 64;
-  for (let ty = -1; ty * 64 < c.h; ty++) for (let tx = -1; tx * 64 < c.w; tx++) {
+  for (let ty = -1; (ty - 1) * 64 < c.h; ty++) for (let tx = -1; (tx - 1) * 64 < c.w; tx++) { // (one tile past the edge: the origin's offset)
     const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(plain || r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5);
     for (let y = 0; y < 64; y++) { const py = ty * 64 + y - oy; if (py < 0 || py >= c.h) continue; for (let x = 0; x < 64; x++) { const px = tx * 64 + x - ox; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4), (py * c.w + px) * 4); } }
   }
@@ -175,7 +208,7 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
   if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]);
   list.push(['bldg_conflux', 1330, 330, 1]);
-  const gap = Math.min(80, Math.floor(1000 / FAM.phone.length));
+  const gap = Math.min(FAM.gap ?? 80, Math.floor(1000 / FAM.phone.length));
   for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
   FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, FAM.turnedY ?? 760, k % 2])); // (`turnedY`: a family with a long flyer lifts the row clear of the edge)
   place(c, list);

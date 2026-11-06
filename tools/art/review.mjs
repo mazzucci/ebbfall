@@ -58,9 +58,9 @@ function sliceVael(cx, cy) {
   return list;
 }
 
-const argv = process.argv.slice(2), famName = argv.find(a => a.startsWith('--family='))?.slice(9) ?? 'slice', FAM = FAMILIES[famName];
+const argv = process.argv.slice(2), famAt = argv.indexOf('--family'), famName = argv.find(a => a.startsWith('--family='))?.slice(9) ?? (famAt >= 0 ? argv[famAt + 1] : 'slice'), FAM = FAMILIES[famName];
 if (!FAM) throw new Error(`no family ${famName}: ${Object.keys(FAMILIES).join(', ')}`);
-const [outDir = '/tmp/review', filter = FAM.filter] = argv.filter(a => !a.startsWith('--'));
+const [outDir = '/tmp/review', filter = FAM.filter] = argv.filter((a, i) => !a.startsWith('--') && !(famAt >= 0 && i === famAt + 1));
 mkdirSync(join(outDir, 'blind'), { recursive: true });
 const all = await render3d(filter), TINTS = all.tints;
 const byName = new Map(all.map(s => [s.name, s]));

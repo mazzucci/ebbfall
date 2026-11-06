@@ -20,7 +20,7 @@ Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
-  shrike: { build: petrel, frames: 1, r: 17, h: 24 }, sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre) sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
 });
 
 // The Vael units in the game; each race renders with its own materials.

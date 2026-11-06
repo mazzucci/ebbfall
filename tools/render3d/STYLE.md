@@ -149,7 +149,7 @@ the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.
 
 - Workers: drops. The Glint is a fat pearl drop (`shellLight`, pale from above: its ink belly is tucked under the head, seen from the side only, since a belly showing from above made it a dark blob, the Undertow) with a blunt tail (7 long, a team sleeve on its aft half and a pearl knob at its end), one big deeplight at the tip with
   a pale heart; it hovers low with its shadow right beneath it. Round from above: a drop drawn to a point read as a
-  flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a collar on the tail: never a
+  flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a sleeve on the tail: never a
   band across the body (bands with seams read as palings or a blade at 18 px).
 - Fighters: blades and discs. The Lens is an ink-glass disc (r 7.6, the glass big and dark: the one "eye") in a narrow pearl rim (r 7.9, tube 1), the light in the middle, a thin
   pearl ring etched in the glass: from above a dark hollow with a bright centre, never the Glint's solid pale drop.
@@ -189,7 +189,7 @@ ground), never a brighter glow.
 
 The six units after the slice, built on the Vael rules above: pale pearl on an ink core, one small deeplight each
 (r 0.7-2), team glaze between ink seams on at least a sixth of the footprint and never only on the signature. The
-Lens stays as the slice made it; the Glint (`vael2.js`) got a longer tail with a team sleeve and a pearl knob, because
+Lens kept its slice shape with a bigger, darker glass and a narrower rim (r 7.6); the Glint (`vael2.js`) got a longer tail with a team sleeve and a pearl knob, because
 in the white seat a short tail left a round eye that read as the Lens. Everything hovers; the shadow says how high.
 Round 1's blind test read a slim leaf as a boat's hull, a small pointed flower as a star, a dark leaf as a Harbour
 craft and a barge with a big coil as a Conch: hence the shapes below.
@@ -204,9 +204,9 @@ craft and a barge with a big coil as a Conch: hence the shapes below.
 | Argonaut (`sovereign`) | a long barge, length before all: a pearl hull 44 long and 17 wide, bow at +x, an ink underside, pearl shell ridges along both gunwales; a small coiled shell over the stern; a lantern at the bow | capital (18), hovers at 4 | the deck well, a low team dome with an ink hem; the shell's ridge; the lantern's foot ring | the lantern: a big deeplight (r 2) on a short post under a pearl hood, no cage (a cage read as a gun barrel) |
 
 Shapes against each other: the Needle is a pale sickle, the Undertow a dark leaf (the PRD's one exception to the
-pale-on-ink value order, kept legible by its pearl rim, its lights and its hard shadow); the Tender is a round cup of
-petals where the Lens is a dark disc and the Glint a tailed drop; the Conch is round where the Argonaut is long; the
-Petrel is the only crescent, and the only thing with its shadow apart from it.
+pale-on-ink value order, kept legible by its pearl rim, its lights and its hard shadow); the Tender is a pointed six-petal
+flower where the Lens is a dark disc and the Glint a tailed drop; the Conch is round where the Argonaut is long; the
+Petrel is a gull (a body on swept wings), the only thing with its shadow apart from it.
 
 States: the Undertow glides canted on its edge (frames 0-1, the face leaning to the south, hovering at 3, its edge and
 tail lit) and lies flat on the ground when it lurks (frame 2: `UNIT_POSE.umbra`, shown while the snapshot's `cloaked`

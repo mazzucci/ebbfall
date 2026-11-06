@@ -69,17 +69,17 @@ export function needle(M, f) {
   g.add(b); return g;
 }
 
-/** Tender (support, a detector): a broad flower of pearl petals round a big aqua light, 23 across (between the Lens
- *  and 1.5x the Glint: round 2's smaller cup read as a mote, the Glint): six wide outer petals that touch, nearly
- *  flat, three lighter ones cupping the light, an ink calyx beneath with a team band round it; team glaze on two
- *  opposite outer petals (between ink seams), so the light stays aqua in every seat. Round and soft, never a star;
+/** Tender (support, a detector): a flower of pearl petals round a big aqua light, 23 across (about 2.6x the Glint's
+ *  footprint, a little over the Lens's: smaller, it read as the Glint): six narrow pointed outer petals with clear
+ *  gaps (a six-pointed flower, never a disc), three lighter ones cupping the light, an ink calyx beneath with a team
+ *  band round it; team glaze on two opposite outer petals (between ink seams), so the light stays aqua in every seat;
  *  the one Vael light that is aqua: a mender, not a weapon. */
 export function tender(M, f) {
   const g = grp(), b = grp(); b.position.y = 7 + (f % 2) * 0.7;
   add(b, lathe([[0, -3.6], [2.8, -3.3], [4.4, -1.9], [5, -0.2], [4.7, 0.6]], 24), M.ink, 0, 0, 0);   // the calyx: an ink cup beneath
   add(b, cyl(5.15, 4.95, 1.4, 24), M.glaze, 0, -1.1, 0);                                      // the team band round it
   add(b, cyl(5.25, 5.25, 0.35, 24), M.inkSeam, 0, -0.25, 0); add(b, cyl(5.1, 5.1, 0.35, 24), M.inkSeam, 0, -1.95, 0);
-  for (let k = 0; k < 6; k++) {                                                               // the outer petals: broad enough to touch, nearly flat: a solid scalloped disc 23 across, never a spark
+  for (let k = 0; k < 6; k++) {                                                               // the outer petals: six, nearly flat, 23 across
     const a = k / 6 * Math.PI * 2 + Math.PI / 6 + (f % 2) * 0.04, p = grp(), team = k % 3 === 1;   // (team: two opposite petals)
     p.position.set(Math.cos(a) * 2.2, 0.5 + (k % 2) * 0.35, Math.sin(a) * 2.2); p.rotation.set(0, -a, 0); p.rotateZ(0.16); b.add(p);
     // (round 6: narrow, pointed petals with clear gaps between them, so the silhouette is a six-pointed flower, never a disc)

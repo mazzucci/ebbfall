@@ -43,6 +43,5 @@ export const UNIT_FPS = { shrike: 0, sovereign: 4 };
  *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). The Picket (trooper): two strides,
  *  going to ground, dug in behind its sandbags (tools/render3d/harbour.js). The Undertow (umbra): two frames gliding on
  *  its edge, then frame 2 lying flat as it lurks (tools/render3d/vael-units.js): its `on` is for the snapshot's
- *  `cloaked`, not a toggle (the renderer is to pick `on` while the unit is cloaked; it has no `mode`, so until then the
- *  frame is never shown). */
+ *  `cloaked`, not a toggle (gl/render.js picks `on` while a lurker is cloaked: it has no `mode`). */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 }, trooper: { walk: 2, swap: 2, on: 3 }, umbra: { walk: 2, swap: 2, on: 2 } };

@@ -45,16 +45,18 @@ function arcBand(C, a0, a1, ro, ri, n = 16) {
 /** A petal: an ellipse rooted at the origin, `l` long along +x, `w` wide. */
 const petal = (l, w, n = 14) => { const p = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; p.push([l / 2 - Math.cos(a) * l / 2, Math.sin(a) * w / 2]); } return p; };
 
-/** Needle (melee): a sickle, point first: a pearl blade curved on an arc (R 13, 110 degrees, 4.8 wide at the hilt
- *  drawn to a keen point), an ink spine along its inner edge, an ink keel beneath, a team band across the blade's
- *  heel and a team handle trailing from it, both between ink seams; at the handle's end the eye of the needle, a
- *  pearl loop with the one deeplight in it. A curved blade, never a boat's hull or the Glint's drop. */
+/** Needle (melee): a sickle, point first, all pale: a pearl blade curved on an arc (R 13, 110 degrees, 4.8 wide at
+ *  the hilt drawn to a keen point), a lighter ridge along its outer edge and only a hairline of ink along the inner
+ *  one (round 2's ink spine made it a dark sliver, the Undertow), a pearl keel beneath; a team band across the
+ *  blade's heel and a team handle trailing from it, both between ink seams; at the handle's end the eye of the
+ *  needle, a pearl loop with the one deeplight in it. A pale curved blade, never a boat's hull or the Glint's drop. */
 export function needle(M, f) {
   const g = grp(), b = grp(); b.position.y = 6 + (f % 2) * 0.6;
   const C = [-1.5, -7.2], A0 = 2.18, A1 = 0.26, R = 13, w = (t) => 4.8 * (1 - t) ** 0.7;    // the arc: the hilt at A0 (aft, south-west), the tip at A1 (ahead, north-east)
-  add(b, plate(arcBand(C, A0, A1, () => R, (t) => R - w(t)), 1.4, 0.45), M.shellLight, 0, -0.7, 0);           // the blade
-  add(b, plate(arcBand(C, A0, A1 + 0.12, (t) => R - w(t) + 1.2, (t) => R - w(t) - 0.1, 14), 1.1, 0.3), M.ink, 0, 0.35, 0);   // the ink spine along the inner edge
-  add(b, plate(arcBand(C, A0, A1 + 0.08, () => R - 0.6, (t) => R - w(t) + 0.4), 1.2, 0.3), M.ink, 0, -1.9, 0);   // the ink keel beneath
+  add(b, plate(arcBand(C, A0, A1, () => R, (t) => R - w(t)), 1.4, 0.45), M.shell, 0, -0.7, 0);                // the blade
+  add(b, plate(arcBand(C, A0, A1 + 0.04, () => R - 0.3, (t) => R - w(t) * 0.55 - 0.3), 0.9, 0.3), M.shellLight, 0, 0.3, 0); // its lighter ridge along the outer edge
+  add(b, plate(arcBand(C, A0, A1 + 0.1, (t) => R - w(t) + 0.45, (t) => R - w(t) - 0.05, 14), 0.9, 0.1), M.inkSeam, 0, 0.35, 0);   // a hairline of ink along the inner edge
+  add(b, plate(arcBand(C, A0, A1 + 0.08, () => R - 0.6, (t) => R - w(t) + 0.4), 1.2, 0.3), M.shellDark, 0, -1.9, 0);   // the keel beneath, pearl in shade
   add(b, plate(arcBand(C, A0 + 0.02, A0 - 0.5, () => R + 0.1, (t) => R - w(t * 0.2) - 0.2, 6), 1, 0.3), M.glaze, 0, 0.5, 0); // the team band across the heel
   for (const a of [A0 - 0.5, A0 + 0.02]) add(b, plate(arcBand(C, a + 0.03, a - 0.03, () => R + 0.2, () => R - 5.2, 2), 1.1, 0.1), M.inkSeam, 0, 0.6, 0); // ink seams either side
   const ha = A0, hx = C[0] + Math.cos(ha) * (R - 2.4), hz = C[1] + Math.sin(ha) * (R - 2.4), dx = -Math.sin(ha), dz = Math.cos(ha); // the handle: tangent, trailing aft from the heel
@@ -67,21 +69,22 @@ export function needle(M, f) {
   g.add(b); return g;
 }
 
-/** Tender (support, a detector): a round cup of pearl petals round a big aqua light, 21 across: six broad round
- *  outer petals open wide, three lighter ones cupping the light, an ink calyx beneath with a team band round it;
- *  team glaze on two opposite outer petals (between ink seams), so the light stays aqua in every seat. Round and
- *  soft, never a star; the one Vael light that is aqua: a mender, not a weapon. */
+/** Tender (support, a detector): a broad flower of pearl petals round a big aqua light, 23 across (between the Lens
+ *  and 1.5x the Glint: round 2's smaller cup read as a mote, the Glint): six wide outer petals that touch, nearly
+ *  flat, three lighter ones cupping the light, an ink calyx beneath with a team band round it; team glaze on two
+ *  opposite outer petals (between ink seams), so the light stays aqua in every seat. Round and soft, never a star;
+ *  the one Vael light that is aqua: a mender, not a weapon. */
 export function tender(M, f) {
   const g = grp(), b = grp(); b.position.y = 7 + (f % 2) * 0.7;
   add(b, lathe([[0, -3.6], [2.8, -3.3], [4.4, -1.9], [5, -0.2], [4.7, 0.6]], 24), M.ink, 0, 0, 0);   // the calyx: an ink cup beneath
   add(b, cyl(5.15, 4.95, 1.4, 24), M.glaze, 0, -1.1, 0);                                      // the team band round it
   add(b, cyl(5.25, 5.25, 0.35, 24), M.inkSeam, 0, -0.25, 0); add(b, cyl(5.1, 5.1, 0.35, 24), M.inkSeam, 0, -1.95, 0);
-  for (let k = 0; k < 6; k++) {                                                               // the outer petals: round, broad, open wide
+  for (let k = 0; k < 6; k++) {                                                               // the outer petals: broad enough to touch, nearly flat: a solid scalloped disc 23 across, never a spark
     const a = k / 6 * Math.PI * 2 + Math.PI / 6 + (f % 2) * 0.04, p = grp(), team = k % 3 === 1;   // (team: two opposite petals)
-    p.position.set(Math.cos(a) * 2.4, 0.5, Math.sin(a) * 2.4); p.rotation.set(0, -a, 0); p.rotateZ(0.3); b.add(p);
-    add(p, plate(petal(8.2, 5.8), 1, 0.35), M.shell, 0, -0.5, 0);
-    if (team) { add(p, plate(scaled(petal(7.4, 5.1), 1, 1, 0.5), 0.6, 0.15), M.glaze, 0, 0.4, 0); add(p, plate(scaled(petal(8, 5.6), 1, 1, 0.2), 0.3, 0.1), M.inkSeam, 0, 0.3, 0); } // its glaze, an ink seam showing round it
-    else add(p, plate(scaled(petal(4.6, 1.2), 1, 1, 2.4), 0.4, 0.1), M.shellDeep, 0, 0.4, 0);   // a crease down the pearl ones
+    p.position.set(Math.cos(a) * 2.2, 0.5 + (k % 2) * 0.35, Math.sin(a) * 2.2); p.rotation.set(0, -a, 0); p.rotateZ(0.16); b.add(p);
+    add(p, plate(petal(9.4, 7.6), 1, 0.35), M.shell, 0, -0.5, 0);
+    if (team) { add(p, plate(scaled(petal(8.4, 6.7), 1, 1, 0.6), 0.6, 0.15), M.glaze, 0, 0.4, 0); add(p, plate(scaled(petal(9.1, 7.4), 1, 1, 0.25), 0.3, 0.1), M.inkSeam, 0, 0.3, 0); } // its glaze, an ink seam showing round it
+    else add(p, plate(scaled(petal(5.4, 1.3), 1, 1, 2.8), 0.4, 0.1), M.shellDeep, 0, 0.4, 0);   // a crease down the pearl ones
   }
   for (let k = 0; k < 3; k++) {                                                               // the inner cup: three steeper, lighter petals round the light
     const a = k / 3 * Math.PI * 2 + Math.PI / 2, p = grp();
@@ -126,17 +129,17 @@ export function undertow(M, f) {
   const g = grp(), b = grp(), flat = f === 2;
   const blade = [[10.5, 0], [7.5, -1.6], [3, -2.9], [-2.5, -3.5], [-7, -3.2], [-9.5, -2], [-9.5, 2], [-7, 3.2], [-2.5, 3.5], [3, 2.9], [7.5, 1.6]]; // a leaf with a swept leading edge
   const s = grp(); b.add(s);                                                                  // the blade: built flat (its outline in the ground plane), canted on its edge to glide
-  add(s, plate(blade, 1.5, 0.4), M.ring, 0, -0.75, 0);                                        // the pearl plate: the rim
+  add(s, plate(blade, 0.6, 0.2), M.ring, 0, -0.3, 0);                                         // the pearl plate: thin, so from the edge the blade is ink and from above its rim a line
   const A = fam(M);
-  add(s, plate(scaled(blade, 0.92, 0.76, -0.2), 1.2, 0.3), A.inkMatte, 0, 0.1, 0);           // the black glass inset in it, top (matte: no sheen on the canted face)
-  add(s, plate(scaled(blade, 0.92, 0.76, -0.2), 1, 0.3), A.inkMatte, 0, -1.6, 0);            // and beneath
+  add(s, plate(scaled(blade, 0.96, 0.86, -0.1), 1.5, 0.35), A.inkMatte, 0, 0.1, 0);          // the black glass inset in it, top (matte: no sheen on the canted face)
+  add(s, plate(scaled(blade, 0.96, 0.86, -0.1), 1.2, 0.35), A.inkMatte, 0, -1.5, 0);         // and beneath
   const hilt = [[-3.4, -2.6], [-8.8, -2.3], [-8.8, 2.3], [-3.4, 2.6]];
   add(s, plate(hilt, 1.1, 0.3), M.glaze, 0, 0.9, 0); add(s, plate(hilt, 1, 0.3), M.glaze, 0, -1.3, 0);   // the hilt: team glaze, both faces
   for (const y of [1.1, -1.1]) { add(s, rbox(0.5, 1.6, 4.8, 0.1), M.inkSeam, -3.3, y, 0); add(s, rbox(0.5, 1.6, 4.2, 0.1), M.inkSeam, -8.9, y, 0); } // ink seams either side of it
   add(s, rbox(5.4, 2.4, 2.4, 0.6), M.glaze, -6.1, 0.4, 0);                                     // the grip: a slim team block round the hilt
   add(s, rbox(0.5, 2.7, 2.7, 0.2), M.inkSeam, -3.5, 0.4, 0); add(s, rbox(0.5, 2.7, 2.7, 0.2), M.inkSeam, -8.7, 0.4, 0); // its ink ends
   add(s, rbox(1.2, 1.8, 1.8, 0.4), M.ring, -10.3, 0.4, 0);                                    // the pommel
-  if (flat) { b.position.y = 0.6; deeplight(s, M, 0.7, -11.1, 0.4, 0); }                      // lurking: dark, the tail light small
+  if (flat) { b.position.y = 0.6; deeplight(s, M, 0.7, -11.1, 0.4, 0); add(s, sph(0.55, 8, 6), M.glaze, -10.3, 1.4, 0); } // lurking: dark, the tail light small, a team dot on the pommel
   else {
     s.rotation.x = 0.7; b.position.y = 3.3 + (f % 2) * 0.5; b.rotation.z = 0.06;              // canted: the face leans to the south, the lower edge low over the ground
     deeplight(s, M, 1.2, -11.4, 0.4, 0);                                                       // the tail light, bright
@@ -156,11 +159,13 @@ export function petrel(M) {
   const g = grp(), b = grp(); b.position.y = 20; b.rotation.z = 0.1;
   for (const side of [-1, 1]) {
     const w = grp(); w.rotation.x = side * 0.14; b.add(w);
-    const pts = [[4.5, 0], [1.5, side * 4], [-5, side * 10], [-10, side * 15], [-11.4, side * 14.4], [-8.2, side * 8.4], [-4.8, side * 3.4], [-3.2, 0]];
+    // a gull's wing: the leading edge bowed forward then swept to the tip, the trailing edge hollowed (curves, never a straight chevron)
+    const bez = (P, n) => { const o = []; for (let i = 0; i < n; i++) { const t = i / n, u = 1 - t; o.push([u * u * P[0][0] + 2 * u * t * P[1][0] + t * t * P[2][0], side * (u * u * P[0][1] + 2 * u * t * P[1][1] + t * t * P[2][1])]); } return o; };
+    const pts = [...bez([[4.5, 0], [5.5, 9], [-9.5, 15.2]], 7), [-11.2, side * 15.4], [-11.8, side * 14.2], ...bez([[-11.2, 13.2], [-5.5, 6.5], [-3.4, 0]], 7)];
     add(w, plate(pts, 1.6, 0.5), M.shellLight, 0, 0, 0);                                      // the wing
     add(w, plate(scaled(pts, 0.94, 0.94, -0.2), 1, 0.3), M.ink, 0, -1.1, 0);                 // ink beneath
-    add(w, plate([[-5.6, side * 9.8], [-10.1, side * 15.2], [-11.6, side * 14.4], [-8.6, side * 8.6]], 1.2, 0.3), M.glaze, 0, 0.6, 0); // the team tip
-    add(w, plate([[-5, side * 9], [-6.1, side * 10.3], [-9.2, side * 9.1], [-8, side * 7.9]], 1.5, 0.1), M.inkSeam, 0, 0.5, 0); // the ink seam across the wing where the glaze begins
+    add(w, plate([...bez([[-3.6, 10.6], [-6.5, 13.8], [-9.5, 15.2]], 5), [-11.2, side * 15.4], [-11.8, side * 14.2], ...bez([[-11.2, 13.2], [-9.2, 10.8], [-7.6, 8.6]], 5)], 1.2, 0.3), M.glaze, 0, 0.6, 0); // the team tip
+    add(w, plate([[-3.2, side * 10.1], [-4.4, side * 11.6], [-8, side * 9.6], [-7, side * 8]], 1.5, 0.1), M.inkSeam, 0, 0.5, 0); // the ink seam across the wing where the glaze begins
   }
   add(b, sph(2.9, 16, 12), M.shell, 1, 0.6, 0).scale.set(1.9, 0.75, 1);                       // the pod
   add(b, sph(2.4, 14, 10), M.ink, 0.4, -0.6, 0).scale.set(1.9, 0.6, 0.9);                     // its ink belly
@@ -185,6 +190,7 @@ export function argonaut(M, f) {
   for (const side of [-1, 1]) for (const [x, l] of [[8, 16], [-8, 12]]) add(b, rbox(l, 0.9, 1.1, 0.4), M.ring, x, 4.3, side * 6.4, 0, side * 0.06, 0); // shell ridges along the gunwales
   add(b, sph(1, 24, 16), M.glaze, 2, 3.5, 0).scale.set(12.6, 1.5, 6.3);                       // the deck well: a low team dome
   add(b, sph(1, 24, 16), M.inkSeam, 2, 3.3, 0).scale.set(13.2, 1.3, 6.8);                     // its ink hem
+  add(b, rbox(22, 0.7, 0.8, 0.3), M.ring, 2, 4.9, 0); add(b, rbox(0.8, 0.7, 11, 0.3), M.ring, 4, 4.9, 0); // a pearl fold down the dome's length and a rib across it: not a flat oval
   add(b, cyl(2.2, 2.4, 1.2, 14), M.glaze, 17.5, 4.5, 0); add(b, cyl(2.5, 2.5, 0.35, 14), M.inkSeam, 17.5, 5.2, 0); // the lantern's team foot ring, seamed
   const H = { cx: -13, turns: 2.1, r0: 3.6, r1: 0.45, y0: 6, y1: 12.5, a0: 0 }, T0 = 3.4, T1 = 0.7;
   add(b, coil(H, T0, T1, 110, 14), M.shell, 0, 0, 0);                                         // the coiled shell over the stern, small

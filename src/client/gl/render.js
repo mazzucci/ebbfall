@@ -292,6 +292,11 @@ class UnitObj {
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
       bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
     }
+    // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
+    if (u.slowed > 0) {
+      const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4);
+      bars.ellipse(u.x, y, rx, ry).stroke({ width: 2.5, color: 0x3b2a1a, alpha: 0.55 * a }).ellipse(u.x, y, rx, ry).stroke({ width: 1.2, color: 0xe2c992, alpha: 0.9 * a });
+    }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;

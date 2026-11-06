@@ -1862,6 +1862,7 @@ fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_from_hard_up(
         let (mut first, mut eclipse) = (None, None);
         let end = if want { 660.0 } else { 600.0 };
         let mut sovereign = false;
+        let mut lurked = false; // (one of its Undertows lay hidden, lurking, at some point)
         let made = |w: &World, k: UnitKind| {
             count(w, ENEMY, k)
                 + w.bldgs
@@ -1891,6 +1892,10 @@ fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_from_hard_up(
                 first = Some(w.time);
             }
             sovereign |= made(&w, UnitKind::Sovereign) > 0;
+            lurked |= w
+                .units
+                .iter()
+                .any(|u| u.team == ENEMY && u.kind == UnitKind::Umbra && w.is_cloaked(u));
         }
         assert_eq!(
             eclipse.is_some(),
@@ -1903,6 +1908,11 @@ fn the_vael_ai_raises_an_eclipse_and_mixes_in_umbras_at_its_zenith_from_hard_up(
             "level {diff}: Umbras by 11:00 on Hard, never below ({first:?}, the Eclipse at {eclipse:?})"
         );
         assert_eq!(sovereign, umbras, "level {diff}: a Sovereign on Hard only");
+        // Lurk needs nothing of the AI: its Undertows lie hidden whenever they wait (at its rally, before a wave).
+        assert_eq!(
+            lurked, umbras,
+            "level {diff}: its Undertows lurk while they wait"
+        );
         if let Some(t) = first {
             assert!(t > 300.0, "level {diff}: not before 5:00 ({t:.0} s)");
         }
@@ -1952,11 +1962,11 @@ fn the_human_ai_raises_its_airfield_and_an_observer_once_an_umbra_hits_it() {
     let (x, y) = ((px as f64 + 2.0) * TILE + 200.0, (py as f64 + 2.0) * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.hold_unit(trooper);
-    let umbra = w.make_unit(UnitKind::Umbra, PLAYER, x + 40.0, y);
+    // (an Undertow lying in wait beside it, lurking: its blow comes out of hiding)
+    let umbra = w.make_unit(UnitKind::Umbra, PLAYER, x + 30.0, y);
+    w.hold_unit(umbra);
+    w.units.iter_mut().find(|u| u.id == umbra).unwrap().still = LURK_S;
     for _ in 0..3 * TPS {
-        if w.unit(trooper).is_some() {
-            w.attack_ent(umbra, trooper);
-        }
         step(&mut w);
     }
     assert!(

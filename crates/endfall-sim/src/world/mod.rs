@@ -519,6 +519,9 @@ impl World {
         if u.kind.def().mv == Move::Walk && self.ground_at(u.x, u.y) == Ground::Shallow {
             own *= WADE_SPEED; // (a walker wades through the shallows)
         }
+        if u.slowed > 0.0 {
+            own *= SLOW_SPEED; // (harpooned)
+        }
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
             _ => own,
@@ -538,6 +541,11 @@ impl World {
         let u = self.um(uid);
         u.cd -= dt;
         u.flash -= dt;
+        if u.slowed > 0.0 {
+            // (a whole number of seconds counted down by DT leaves a rounding crumb: none of it is a tick)
+            let left = u.slowed - dt;
+            u.slowed = if left > 1e-9 { left } else { 0.0 };
+        }
         if u.warp > 0.0 {
             u.warp = (u.warp - dt).max(0.0);
             return;
@@ -548,6 +556,15 @@ impl World {
         }
         let c = self.live(uid);
         let task = self.u(uid).task;
+        // A lurker lies still another tick (walking or striking during its task starts the count again).
+        let lurk = c.kind.def().lurk;
+        let at = {
+            let u = self.um(uid);
+            if lurk {
+                u.still = (u.still + dt).min(LURK_S);
+            }
+            (u.x, u.y)
+        };
         if c.kind.def().heal > 0.0 {
             self.medic(uid, dt);
         }
@@ -571,6 +588,12 @@ impl World {
             Task::Gather { node, phase, timer } => self.update_gather(uid, node, phase, timer, dt),
             Task::Repair { b } => self.update_repair(uid, b, c.r, c.team, dt),
             Task::Build { b } => self.update_build(uid, b, c.r, c.team, dt),
+        }
+        if lurk
+            && let Some(i) = self.ui(uid)
+            && (self.units[i].x, self.units[i].y) != at
+        {
+            self.units[i].still = 0.0;
         }
     }
 
@@ -676,6 +699,12 @@ impl World {
             }
             if u.stun > 0.0 {
                 mix(jsmath::to_i32(u.stun * 16.0) + 1); // (swept by the flood: only with the tide)
+            }
+            if u.slowed > 0.0 {
+                mix(jsmath::to_i32(u.slowed * 16.0) + 2); // (harpooned)
+            }
+            if u.kind.def().lurk {
+                mix(jsmath::to_i32(u.still * 16.0) + 3); // (a lurker's time lying still)
             }
             if let Some(p) = u.pace {
                 mix(jsmath::to_i32(p * 16.0));

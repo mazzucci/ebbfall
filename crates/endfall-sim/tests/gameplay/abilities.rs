@@ -343,7 +343,7 @@ fn what_roster_v2_retired_stays_retired() {
             .all(|b| !b.def().researches.contains(&Upgrade::CloakingField))
     );
     assert_eq!(UnitKind::Trooper.toggle(), Some(AbilityKind::Entrench));
-    assert_eq!(UnitKind::Vanguard.toggle(), None);
+    assert_eq!(UnitKind::Vanguard.toggle(), Some(AbilityKind::Beach));
     assert_eq!(UnitKind::SiegeTank.toggle(), Some(AbilityKind::Deploy));
     // A cast of Stim (from an old client, a replay, the wire) is refused; so is Cloaking Field's research.
     let (mut w, forge) = forge_arena(13);
@@ -405,4 +405,117 @@ fn a_speed_tech_makes_its_flyer_faster_alone_and_in_a_group() {
             "Afterburners, {n} Raiders: {fast} vs {slow}"
         );
     }
+}
+
+/// How far `uid` walks in one second towards (x, y) (px), from where it stands.
+fn walked(w: &mut World, uid: Id, x: f64, y: f64) -> f64 {
+    let (x0, y0) = (w.unit(uid).unwrap().x, w.unit(uid).unwrap().y);
+    w.move_to(uid, x, y);
+    run(w, 1);
+    let u = w.unit(uid).unwrap();
+    ((u.x - x0).powi(2) + (u.y - y0).powi(2)).sqrt()
+}
+
+#[test]
+fn a_harpoon_slows_what_it_hits_for_three_seconds_flyers_too_and_no_ability_meanwhile() {
+    // The Harpoon (Roster v2, rule 1): a unit a Harpooner hits moves at half speed and casts nothing for 3 s; a
+    // second harpoon renews the 3 s, it does not add to them. Flyers too.
+    let mut w = flat_arena(21);
+    w.factions = vec![&HUMANS, &VAEL];
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    for kind in [UnitKind::Scythe, UnitKind::Shrike] {
+        w.units.clear();
+        let foe = w.make_unit(kind, ENEMY, x + 5.0 * TILE, y);
+        w.hold_unit(foe);
+        let free = walked(&mut w, foe, x + 5.0 * TILE, y + 20.0 * TILE);
+        w.hold_unit(foe);
+        let h = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
+        w.attack_ent(h, foe);
+        let mut hit = false;
+        for _ in 0..3 * TPS {
+            w.step();
+            if w.unit(foe).unwrap().slowed > 0.0 {
+                hit = true;
+                break;
+            }
+        }
+        assert!(hit, "{kind:?}: harpooned");
+        let s = w.unit(foe).unwrap().slowed;
+        assert!(s > 2.9 && s <= 3.0, "{kind:?}: for 3 s ({s})");
+        w.units.retain(|u| u.id != h); // (no second harpoon while it is measured)
+        let slow = walked(&mut w, foe, x + 5.0 * TILE, y - 20.0 * TILE);
+        assert!(
+            (slow / free - SLOW_SPEED).abs() < 0.05,
+            "{kind:?}: half speed ({slow:.1} px against {free:.1})"
+        );
+        run(&mut w, 3);
+        assert_eq!(w.unit(foe).unwrap().slowed, 0.0, "{kind:?}: worn off");
+        let again = walked(&mut w, foe, x + 5.0 * TILE, y + 20.0 * TILE);
+        assert!(
+            (again / free - 1.0).abs() < 0.05,
+            "{kind:?}: full speed again"
+        );
+    }
+    // Two harpoons a second apart: the second renews the slow, to 3 s, never more.
+    w.units.clear();
+    let foe = w.make_unit(UnitKind::Scythe, ENEMY, x + 5.0 * TILE, y);
+    w.hold_unit(foe);
+    for k in 0..2 {
+        let h = w.make_unit(UnitKind::Lancer, PLAYER, x, y + k as f64 * 30.0);
+        w.attack_ent(h, foe);
+    }
+    let mut most: f64 = 0.0;
+    for _ in 0..6 * TPS {
+        w.step();
+        most = most.max(w.unit(foe).map_or(0.0, |u| u.slowed));
+    }
+    assert!(most > 2.9 && most <= 3.0, "renewed, never stacked: {most}");
+    // A harpooned Conch cannot Surface (nor any other ability) until it wears off: an order or the AI's own cast.
+    w.units.clear();
+    let conch = w.make_unit(UnitKind::Monolith, ENEMY, x, y);
+    w.units.iter_mut().find(|u| u.id == conch).unwrap().slowed = 3.0;
+    let why = w.can_cast(conch, AbilityKind::Blink).unwrap_err();
+    assert!(why.contains("Harpooned"), "{why}");
+    assert!(w.cast(conch, AbilityKind::Blink).is_err());
+    run(&mut w, 3);
+    assert_eq!(w.can_cast(conch, AbilityKind::Blink), Ok(()), "free again");
+}
+
+#[test]
+fn a_harpooned_lens_does_not_surge_in_the_ais_fight_until_it_wears_off() {
+    // The AI's casts go through the same refusal: a Lens with Surge researched, in a fight (three armed enemies near,
+    // its target in reach), surges by itself only once the harpoon has worn off.
+    let mut w = flat_arena(22);
+    w.factions = vec![&HUMANS, &VAEL];
+    w.set_ai_seats([false, true]);
+    w.upgrades[ENEMY as usize][Upgrade::OverchargeCore.index()] = 1;
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let lens = w.make_unit(UnitKind::Prism, ENEMY, x, y);
+    let foes: Vec<Id> = (0..3)
+        .map(|k| {
+            w.make_unit(
+                UnitKind::Trooper,
+                PLAYER,
+                x + 4.0 * TILE,
+                y + (k as f64 - 1.0) * 24.0,
+            )
+        })
+        .collect();
+    for &f in &foes {
+        w.hold_unit(f);
+    }
+    w.attack_ent(lens, foes[1]);
+    w.step(); // (its side sees them)
+    w.units.iter_mut().find(|u| u.id == lens).unwrap().slowed = 3.0;
+    w.auto_cast(ENEMY);
+    assert!(
+        w.unit(lens).unwrap().boost.is_none(),
+        "no Surge while harpooned"
+    );
+    w.units.iter_mut().find(|u| u.id == lens).unwrap().slowed = 0.0;
+    w.auto_cast(ENEMY);
+    assert!(
+        w.unit(lens).unwrap().boost.is_some(),
+        "it surges once the harpoon has worn off"
+    );
 }

@@ -40,6 +40,9 @@ impl World {
         if u.warp > 0.0 {
             return Err("Still warping in".into());
         }
+        if u.slowed > 0.0 {
+            return Err("Harpooned: no abilities while slowed".into());
+        }
         // Not again while more than half of it is left (a thumb that taps twice must not pay twice). (With today's
         // numbers only Stim reaches this: the others' cooldowns outlast them.)
         let secs = match ability.def().effect {

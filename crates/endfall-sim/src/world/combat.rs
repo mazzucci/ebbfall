@@ -248,11 +248,12 @@ impl World {
             let armor_up = self.effect_level(team, Effect::Armor) as f64;
             let sh_up = self.effect_level(team, Effect::Shields) as f64;
             let now = self.time;
+            let settled = settled_armor(&self.units[i]);
             let u = &mut self.units[i];
             u.struck = now;
             let rest = absorb(&mut u.sh, u.maxsh, &mut u.hit_at, now, amt, sh_up);
             if rest > 0.0 {
-                u.hp -= hull_loss(rest, u.kind.def().armor + armor_up);
+                u.hp -= hull_loss(rest, u.kind.def().armor + armor_up + settled);
             }
             u.flash = 0.12;
             if let Some(by) = by {
@@ -481,6 +482,7 @@ impl World {
                     team,
                     splash: splash.0,
                     splash_r: splash.1,
+                    slow: w.slow,
                 });
                 let sounds = self.factions[team as usize].sounds;
                 let weapon = match kind {
@@ -493,8 +495,14 @@ impl World {
             None => {
                 let melee = self.factions[team as usize].sounds[3];
                 self.fired(shooter, team, x, y, melee);
-                self.damage(target, dmg, Some(shooter))
+                self.damage(target, dmg, Some(shooter));
+                self.harpoon(target, w.slow);
             }
+        }
+        // A lurker that strikes shows itself, once the blow has landed: its first strike comes out of hiding (an
+        // unseen hit, as the alert and the AI's detector call have it), the next ones are seen.
+        if let Some(i) = self.ui(shooter) {
+            self.units[i].still = 0.0;
         }
     }
 
@@ -581,6 +589,18 @@ impl World {
         }
     }
 
+    /// A harpoon's hit (`Weapon::slow`, s): the unit hit, if it still stands, is slowed for that long (not longer:
+    /// a second harpoon renews it, it does not add up).
+    fn harpoon(&mut self, target: Id, slow: f64) {
+        if slow <= 0.0 {
+            return;
+        }
+        if let Some(i) = self.ui(target) {
+            let u = &mut self.units[i];
+            u.slowed = u.slowed.max(slow);
+        }
+    }
+
     pub(crate) fn update_projs(&mut self, dt: f64) {
         let mut i = self.projs.len();
         while i > 0 {
@@ -615,6 +635,7 @@ impl World {
                 };
                 self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
+                self.harpoon(p.target, p.slow); // (the target only: a harpoon has no splash)
                 for s in splash {
                     if self.unit(s).is_some() {
                         self.damage(s, p.dmg * p.splash, Some(p.by));
@@ -927,5 +948,13 @@ impl World {
                 b.sh = (b.sh + SHIELD_REGEN_BLDG * dt).min(b.maxsh);
             }
         }
+    }
+}
+
+/// The armour a unit's toggle adds while it is settled in (the Breakwater beached); none while settling or packing up.
+pub(crate) fn settled_armor(u: &Unit) -> f64 {
+    match u.mode.filter(|_| u.swap <= 0.0).map(|k| k.def().effect) {
+        Some(AbilityEffect::Settle { armor, .. }) => armor,
+        _ => 0.0,
     }
 }

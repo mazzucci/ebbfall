@@ -44,8 +44,8 @@ export function statRows(k) {
     const [ico, label] = ground && air ? ['both', 'Hits ground and air'] : air ? ['air', 'Hits air'] : ['ground', 'Hits ground'];
     attack.push(chip('targets', '', label, ico));
   } else attack.push(chip('dmg', '—', 'No weapon', 'dmg', true));
-  const tags = [[gs.some(([g]) => g.splash > 0), 'Splash'], [d.heal > 0, 'Heals'], [d.air, 'Flying'], [d.cloaked, 'Cloaked'], [d.detect > 0, 'Detector']];
-  const says = { Heals: d.mend ? 'Heals: mends shields' : 'Heals infantry' };
+  const tags = [[gs.some(([g]) => g.splash > 0), 'Splash'], [gs.some(([g]) => g.slow > 0), 'Slows'], [d.heal > 0, 'Heals'], [d.air, 'Flying'], [d.cloaked, 'Cloaked'], [d.lurk, 'Lurks'], [d.detect > 0, 'Detector']];
+  const says = { Heals: d.mend ? 'Heals: mends shields' : 'Heals infantry', Slows: 'Slows what it hits', Lurks: 'Hidden while it lies still' };
   for (const [on, name] of tags) if (on) attack.push(chip('tag', name, says[name] || name, null));
   return [tough, attack];
 }

@@ -86,11 +86,11 @@ fn an_allys_detector_reveals_a_cloaked_enemy_to_the_team() {
     let mut w = four(&[0, 0, 1, 1]);
     let (x, y) = middle(&w);
     let mine = w.make_unit(UnitKind::Trooper, 0, x, y);
-    // (an Undertow, always cloaked; held 60 px off, out of its blade's reach)
+    // (an Undertow, held 60 px off, out of its blade's reach, lying still long enough to lurk)
     let obs = w.make_unit(UnitKind::Umbra, 2, x + 60.0, y);
     w.hold_unit(mine);
     w.hold_unit(obs);
-    w.step();
+    run(&mut w, 3);
     assert!(sees(&w, 0, x + 60.0, y), "its spot is in sight");
     assert!(
         !w.seen_by(0, obs) && w.cloaked_from(0, obs_unit(&w, obs)),

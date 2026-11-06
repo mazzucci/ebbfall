@@ -656,10 +656,13 @@ impl World {
         }
     }
     /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
-    /// that stops deploys (no order does it): it packs up again only when it has to move.
+    /// with nothing to fight on its tracks (the Anchor Gun: no light gun) deploys where it stops (no order does it): it
+    /// packs up again only when it has to move. One with a light gun (the Breakwater) settles only where it fights, or
+    /// where it is told to hold.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
-        if c.siege.is_some() && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 {
-            self.deploy(uid);
+        let sets_up_idle = c.siege.is_some() && (c.range <= 0.0 || hold);
+        if sets_up_idle && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 && self.deploy(uid)
+        {
             return;
         }
         let deep = self.in_deep(uid); // (an idle unit in deep water picks no fight: it cannot fire from there)
@@ -668,11 +671,13 @@ impl World {
         if c.combat && !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
-            // (an idle siege gun looks as far as it shoots: it sets up where it stands)
+            // (an idle siege gun that sets up where it stops looks as far as it shoots: it fights from where it stands)
             let rng = if hold {
                 c.range + c.r
-            } else {
+            } else if sets_up_idle || self.u(uid).mode.is_some() {
                 c.siege.unwrap_or(c.sight * TILE * 0.85)
+            } else {
+                c.sight * TILE * 0.85
             };
             let flier = c.kind.def().air;
             let ring = if hold { c.ring } else { c.setup_ring() };
@@ -881,8 +886,13 @@ impl World {
         let seen = self.seen_by(c.team, target);
         let in_band = d >= c.min && d < reach && seen;
         if !deployed {
-            if in_band {
-                self.deploy(uid);
+            if in_band && self.deploy(uid) {
+                return;
+            }
+            // In its band but it may not set up (harpooned): with a light gun it fights on its tracks, closing to that
+            // gun's reach; without one it waits where it is.
+            let held_off = in_band;
+            if held_off && c.range <= 0.0 {
                 return;
             }
             if d < c.min && c.range <= 0.0 {
@@ -896,7 +906,7 @@ impl World {
             // On its tracks it closes in (in reach but out of its side's sight: on until its own eyes see it), and its
             // light gun fires at the target once in its reach: on the way, or at one too close to set up for.
             let light = c.range + c.r * 0.5;
-            let close = if d < c.min {
+            let close = if d < c.min || held_off {
                 light
             } else if d < reach {
                 c.sight * TILE * 0.8

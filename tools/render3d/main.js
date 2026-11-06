@@ -9,11 +9,19 @@ import { DOODADS } from './doodads.js';
 import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
 import { rigger, picket, lighthouse } from './harbour.js';
 import { glint, lens, tidewell } from './vael2.js';
+import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 Object.assign(UNIT_MODELS, { harvester: { build: rigger, frames: 2, r: 15, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 } }); // (trooper: 0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE)
 Object.assign(VAEL_UNITS, { lumen: { build: glint, frames: 2, r: 12, h: 13 }, prism: { build: lens, frames: 2, r: 12, h: 14 } });
 Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
+// Vael units (step 1, vael-units.js): the Needle, the Tender, the Conch, the Undertow (0-1 gliding, 2 lying flat as it
+// lurks: look.js UNIT_POSE), the Petrel (one frame: a glider) and the Argonaut (four: a slow bob).
+Object.assign(VAEL_UNITS, {
+  scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
+  monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
+  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre) sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+});
 
 // The Vael units in the game; each race renders with its own materials.
 const VAEL_IN_GAME = VAEL_UNITS;

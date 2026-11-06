@@ -141,17 +141,17 @@ value about 0.5, so it never outshines the pearl or the salt. The pool is a dim 
 ### Team colour
 
 Team glaze between `inkSeam` edges (a seam ring, a hem bar, an end cap), so seat 6's white and seat 3's lilac part from
-the pearl and the deeplight. At least a sixth of the footprint, never only on the signature: the Glint's saddle across
-the back plus the tail fin and side vanes; the Lens's two rim arcs plus the three pods under the rim; the Tidewell's
-three ring arcs plus the pylons' inner faces and caps.
+the pearl and the deeplight. At least a sixth of the footprint, never only on the signature: the Glint's one smooth
+dome on the back inside one ink seam plus the collar on its tail; the Lens's two rim arcs plus the three pods under
+the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.
 
 ### Shape language
 
-- Workers: drops. The Glint is a fat pearl drop with a short blunt tail, ink belly, one big deeplight at the tip with
+- Workers: drops. The Glint is a fat pearl drop (`shellLight`, pale from above: its ink belly is tucked under the head, seen from the side only, since a belly showing from above made it a dark blob, the Undertow) with a blunt tail (7 long, a team sleeve on its aft half and a pearl knob at its end), one big deeplight at the tip with
   a pale heart; it hovers low with its shadow right beneath it. Round from above: a drop drawn to a point read as a
-  flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a collar on the tail: never a
+  flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a sleeve on the tail: never a
   band across the body (bands with seams read as palings or a blade at 18 px).
-- Fighters: blades and discs. The Lens is an ink-glass disc (r 7.2) in a pearl rim, the light in the middle, a thin
+- Fighters: blades and discs. The Lens is an ink-glass disc (r 7.6, the glass big and dark: the one "eye") in a narrow pearl rim (r 7.9, tube 1), the light in the middle, a thin
   pearl ring etched in the glass: from above a dark hollow with a bright centre, never the Glint's solid pale drop.
 - Support: flowers. Heavies: spirals.
 - Buildings: rings, pools, pylons on a three-lobed plinth. The Tidewell is a pearl ring round a pool on a ribbed ink
@@ -184,3 +184,31 @@ ground), never a brighter glow.
 - Team masks (`<name>_m`) come from the materials marked `team()`; lamps are not team on the new look.
 - Check every change with `node tools/art/review.mjs <dir>`: the contact sheet, the phone sheets (grey, protan,
   deutan), the blind set and the battle stand-in, and the printed team shares (1/6 is the floor).
+
+## Vael units (step 1, `vael-units.js`)
+
+The six units after the slice, built on the Vael rules above: pale pearl on an ink core, one small deeplight each
+(r 0.7-2), team glaze between ink seams on at least a sixth of the footprint and never only on the signature. The
+Lens kept its slice shape with a bigger, darker glass and a narrower rim (r 7.6); the Glint (`vael2.js`) got a longer tail with a team sleeve and a pearl knob, because
+in the white seat a short tail left a round eye that read as the Lens. Everything hovers; the shadow says how high.
+Round 1's blind test read a slim leaf as a boat's hull, a small pointed flower as a star, a dark leaf as a Harbour
+craft and a barge with a big coil as a Conch: hence the shapes below.
+
+| kind (key)             | signature shape, from above          | size (sim r)           | team glaze                                         | the light          |
+|------------------------|--------------------------------------|------------------------|----------------------------------------------------|--------------------|
+| Needle (`scythe`)      | a sickle, point first, all pale (the brief's "slim blade" read as a boat's hull; an ink spine made it the Undertow): a pearl blade curved on an arc (R 13, 110 degrees), 4.8 wide at the heel drawn to a keen point, a lighter ridge along the outer edge, a hairline of ink along the inner one, a pearl keel beneath | line (10), hovers at 6 | a band across the blade's heel and the handle trailing from it, both between ink seams | in the eye of the needle, a pearl loop at the handle's end |
+| Tender (`halo`)        | a six-pointed flower, 23 across: six narrow pointed pearl petals with clear gaps between them (petals that touched made a disc, read as the Lens or the Glint), nearly flat, three lighter ones cupping the light; never a disc or a mote | support (9), hovers at 7 | two opposite outer petals (each inside an ink seam) and a band round the ink calyx beneath, so the light stays aqua in every seat | the one aqua light, big (r 2.2), held above the cup (`aqua` 0x18d8b4 emissive x 1.25, a small aqua-white heart, aqua halos; in `vael-units.js`), never violet: a mender, not a weapon |
+| Conch (`monolith`)     | a spiral: a pearl shell of two and a half whorls, apex up, on an ink disc with a pearl rim; the mouth an ink aperture facing the bow (the muzzle) | heavy (15), hovers at 3 | a ridge coiling along the whorls' shoulder between two ink-seam coils, and the mouth's lip | deep in the mouth |
+| Undertow (`umbra`)     | the one ink-dark Vael: a low leaf blade with a swept leading edge, matte black glass (`inkMatte`) on a thin pearl plate (`ring`, 0.6), so the rim is a line from above and the edge-on blade is ink (a thick plate read as a pale spindle, the Needle) | line (10) | the hilt on both faces and a slim grip round it, between ink seams; lurking, a team dot on the pommel | at the pommel (r 1.2 gliding, 0.7 lurking); gliding, a thin line of deeplight down the leading edge |
+| Petrel (`shrike`)      | a gull: two pearl wings curved only at the root (the leading edge bowed forward, the trailing edge hollowed) and straight-swept outside it, on a pearl body 13 long riding above them with a head forward, ink beneath (a straight chevron read as a Harbour Kite; a crescent all along read as the Needle's sickle) | flyer (11), flies at 20, its shadow well offset | both wingtips behind a full ink seam across the wing, and a cap on the pod's back | at the tail |
+| Argonaut (`sovereign`) | a long barge, length before all: a pearl hull 44 long and 17 wide, bow at +x, an ink underside, pearl shell ridges along both gunwales; a small coiled shell over the stern; a lantern at the bow | capital (18), hovers at 4 | the deck well, a low team dome with an ink hem; the shell's ridge; the lantern's foot ring | the lantern: a big deeplight (r 2) on a short post under a pearl hood, no cage (a cage read as a gun barrel) |
+
+Shapes against each other: the Needle is a pale sickle, the Undertow a dark leaf (the PRD's one exception to the
+pale-on-ink value order, kept legible by its pearl rim, its lights and its hard shadow); the Tender is a pointed six-petal
+flower where the Lens is a dark disc and the Glint a tailed drop; the Conch is round where the Argonaut is long; the
+Petrel is a gull (a body on swept wings), the only thing with its shadow apart from it.
+
+States: the Undertow glides canted on its edge (frames 0-1, the face leaning to the south, hovering at 3, its edge and
+tail lit) and lies flat on the ground when it lurks (frame 2: `UNIT_POSE.umbra`, shown while the snapshot's `cloaked`
+is set: the same blade, kept dark). The Petrel has one frame (a glider, `UNIT_FPS` 0); the Argonaut four (a slow bob,
+`UNIT_FPS` 4); the others two (a bob).

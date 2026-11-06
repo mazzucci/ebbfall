@@ -104,22 +104,23 @@ export function shaftPit(g, x, y, z, w) {
 /** The mine shaft's collar and mouth, square, centred at (x, y, z) on the ground at y: the shaft itself, its far wall
  *  going down below the ground as deep as the camera sees through the mouth (1.43 times its width at 55 degrees), lined
  *  with timber at the top and falling to black, a ladder down it; round it two courses of squared timbers laid
- *  log-cabin fashion (each course's ends past the other's), `w` the mouth's width. Below the ground only the far wall
+ *  log-cabin fashion into one square box (`courses` 1: a single ring of four, the Excavator's), `w` the mouth's width. Below the ground only the far wall
  *  is built: the camera sees nothing else of the shaft. `M`: makeMats (iron; nothing team). Shared by the free shaft
  *  (`mineShaft`) and the Excavator over it. */
-export function shaftCollar(g, M, x = 0, y = 0, z = 0, w = 20) {
+export function shaftCollar(g, M, x = 0, y = 0, z = 0, w = 20, courses = 2) {
   if (!SH.beam.map) for (const m of [SH.beam, SH.ladder, SH.lining, SH.rim]) { m.map = M.timber.map; m.needsUpdate = true; }  // (the Harbour's timber grain)
-  const b = 5, h = 3.4, o = w / 2 + b / 2, L = w + b * 2 + 5, zN = z - w / 2;
+  const b = 5, h = 3.4, o = w / 2 + b / 2, L = w + b * 2, zN = z - w / 2;                    // (L: the beams stop at the box's corners: round 2's ends past them read as ladder rails)
   shaftPit(g, x, y, z, w);
   for (const sx of [-1, 1]) add(g, rbox(0.6, 20, 0.6, 0.2), SH.ladder, x + sx * 2.1, y - 4, zN + 1.1);     // a slim ladder down the far wall
   for (let k = 0; k < 6; k++) add(g, rbox(4.4, 0.45, 0.45, 0.1), SH.ladder, x, y + 4.6 - k * 3, zN + 1.2);
   for (const [c, rot] of [[0, 0], [1, Math.PI / 2]]) for (const s of [-1, 1]) {
-    const yy = y + h / 2 + c * h;                                                            // two courses: x-beams below, z-beams above
-    const px = rot ? s * o : (s < 0 ? -0.6 : 0.5), pz = rot ? (s < 0 ? 0.4 : -0.5) : s * o; // (each beam a little off: hewn, not machined)
-    add(g, rbox(L - (c ? 0 : 1.6), h, b, 0.8), SH.beam, x + px, yy, z + pz, 0, rot + s * 0.02 * (c + 1), 0);
+    const one = courses === 1, yy = y + h / 2 + (one ? 0 : c * h);                           // two courses (x-beams below, z-beams above), or one ring of four
+    const len = one && c ? w : c ? L - 0.4 : L;
+    add(g, rbox(len, h, b, 0.8), SH.beam, x + (rot ? s * o : 0), yy, z + (rot ? 0 : s * o), 0, rot + s * 0.01 * (c + 1), 0);
   }
+  const top = y + (courses === 1 ? h : 2 * h);
   add(g, rbox(w + 0.6, 0.7, 1.4, 0.3), SH.rim, x, y + h + 0.2, z + w / 2 + 0.8);                 // the near edge's worn lip, lit (the depth's first cue)
-  for (const [sx, sz] of [[-1, -1], [1, 1]]) add(g, rbox(1.8, 1.2, 1.8, 0.2), M.ironDark, x + sx * o, y + 2 * h + 0.3, z + sz * o); // two iron dogs at the corners
+  for (const [sx, sz] of [[-1, -1], [1, 1]]) add(g, rbox(1.8, 1.2, 1.8, 0.2), M.ironDark, x + sx * o, top + 0.3, z + sz * o); // two iron dogs at the corners
 }
 
 /** The mine shaft (`vent_0..3`): an old entrance going down to the beds of rock salt under the seabed, a square dark

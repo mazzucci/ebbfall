@@ -187,8 +187,8 @@ const profile = (pts, t, bevel = 0.3) => memo(`pf${JSON.stringify(pts)},${t},${b
  *  and dark mouth): a timber headframe, four legs leaning in over the mouth, two back-stays down to the west, and on
  *  its top the winch wheel (the sheave: a team-painted rim between ink rings on iron spokes, facing the camera); the
  *  pale rope runs over the wheel and straight down into the dark, and back down into a small tarred winch house (its
- *  drum inside) under a team lean-to. A tub on short rails south of the mouth, its sides team, a load of rock salt in it. From
- *  above: a wheel on a short frame over a dark square. No horse-head, beam, pool or bucket (round 4: a hanging load
+ *  drum inside) under a team lean-to; the quay clear between it and the mouth (round 2's tub and salt were a dark
+ *  tangle at 1x). From above: a wheel on a short frame over a dark square. No horse-head, beam, pool or bucket (round 4: a hanging load
  *  read as a well-sweep). */
 export function excavator(M) {
   bldgMats(M);
@@ -200,15 +200,12 @@ export function excavator(M) {
     const uv = q.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 16, uv.getY(i) / 16); return q;
   }), M.flagstone, 0, 0, 0);
   posts(g, M, [[-24, 22], [22, 22], [27, -12]]);
-  shaftCollar(g, M, S[0], S[1], S[2], 18);
-  // the headframe: four timber legs leaning in from round the mouth to a cap under the wheel's axle, tied twice
+  shaftCollar(g, M, S[0], S[1], S[2], 18, 1);                                                                   // one low ring of timbers: the quay holds the rest
+  // the headframe: four timber legs leaning in from round the mouth to a cap under the wheel's axle
   const R = 11, W = [S[0] - 8, 44, S[2]];                                                                        // the wheel: radius, centre (its east side over the mouth)
   const foot = (sx, sz) => [S[0] + (sx < 0 ? -12.5 : 10.5), Y + 0.5, S[2] + sz * 10.5], head = (sx, sz) => [W[0] + sx * 3, W[1] - 2.2, W[2] + sz * 3.6];
   const legs = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
   for (const [sx, sz] of legs) pole(g, foot(sx, sz), head(sx, sz), 1.35, M.timber, 6);
-  for (const t of [0.6]) for (const [a, b] of [[[-1, -1], [1, -1]], [[-1, 1], [1, 1]], [[-1, -1], [-1, 1]], [[1, -1], [1, 1]]]) {
-    pole(g, lerp3(foot(...a), head(...a), t), lerp3(foot(...b), head(...b), t), 0.8, M.timber, 6);           // the ties, round the tower
-  }
   for (const sz of [-1, 1]) add(g, rbox(9, 2, 2.2, 0.4), M.timber, W[0], W[1] - 1.6, W[2] + sz * 3.6);          // the cap beams
   for (const sz of [-1, 1]) add(g, rbox(3, 2.6, 2.6, 0.4), M.ironDark, W[0], W[1] - 0.2, W[2] + sz * 3.6);     // the axle's bearings
   // the back-stays, down to the west towards the winch
@@ -232,7 +229,7 @@ export function excavator(M) {
   pole(g, [W[0] + R + 1.2, W[1], W[2]], [W[0] + R + 1.2, Y - 1, W[2]], 0.6, M.rope, 6).userData.noShadow = true; // down into the dark
   // the winch house, south-west (clear of the wheel's back, so the team rim stands on the quay; its drum inside):
   // tarred, under a lean-to of weathered team canvas sagging between its rafters, worn hems
-  const HX = 12.5, HZ = 9.5;
+  const HX = 13.5, HZ = 10.5;
   add(g, rbox(19, 10, 15, 0.8), M.tar, EX, 9, EZ);
   add(g, rbox(19.6, 1.4, 15.6, 0.3), M.ironDark, EX, 4.7, EZ);
   { const e = [EZ + HZ, 14.6], r = [EZ - HZ, 19.6];                                                             // the eave (south) and the high edge (north)
@@ -242,16 +239,6 @@ export function excavator(M) {
     for (const sx of [-1, 1]) wornHem(g, [EX + sx * HX, e[1], e[0]], [EX + sx * HX, r[1], r[0]], 0.7, M.inkLine);
     for (const x of [-HX / 3, HX / 3]) pole(g, [EX + x, e[1] + 0.5, e[0] + 0.6], [EX + x, r[1] + 0.5, r[0] - 0.4], 0.45, M.rope, 6); } // two lashings over it, on the rafters
   add(g, rbox(5, 7, 1, 0.3), M.oilskin, EX + 5, 8, EZ + 7.8);                                                    // its door
-  // the tub on short rails south of the mouth: team sides between ink hems, rock salt heaped in it
-  const RZ0 = S[2] + 13.5, RZ1 = 27;
-  for (let z = RZ0 + 1.5; z < RZ1; z += 3.4) add(g, rbox(8, 0.8, 1.4, 0.2), M.timber, S[0], Y + 0.4, z);           // sleepers
-  for (const sx of [-1, 1]) add(g, rbox(0.7, 0.8, RZ1 - RZ0, 0.1), M.ironDark, S[0] + sx * 2.6, Y + 1, (RZ0 + RZ1) / 2); // rails
-  const C = [S[0], Y + 2.4, 20.5];
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(1.5, 1.5, 0.8, 10), M.ironDark, C[0] + sx * 3.3, C[1], C[2] + sz * 2.8, 0, 0, Math.PI / 2);
-  add(g, rbox(9, 6, 10, 0.6), M.paintCanvas, C[0], C[1] + 3.6, C[2]);                                           // the tub, team
-  for (const y of [0.5, 6.7]) add(g, rbox(9.5, 0.6, 10.5, 0.2), M.inkLine, C[0], C[1] + y, C[2]);              // its hems
-  const salt = M.rockSalt ??= new THREE.MeshStandardMaterial({ color: 0x6e6a63, roughness: 0.9, metalness: 0, flatShading: true }); // grey rock salt, no glow
-  for (const [x, z, r] of [[-1.8, -2, 2.2], [1.8, -1.2, 2], [0, 2, 2.1], [-2, 2.6, 1.6], [2.4, 2.8, 1.5]]) add(g, new THREE.DodecahedronGeometry(r), salt, C[0] + x, C[1] + 5.6, C[2] + z, x, z, r); // the load, low in the tub
   return g;
 }
 

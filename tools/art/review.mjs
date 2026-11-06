@@ -1,6 +1,7 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// eight units; `hinf`, the Harbour infantry; `hbld`, the Harbour buildings) and writes into <outdir>:
+// eight units; `hinf`, the Harbour infantry; `hmach`, the Harbour machines; `hair`, the Harbour air; `vbld`, the Vael's eight
+// buildings; `hbld`, the Harbour buildings) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px);
 //                    a building family lays its own scene out (`phoneScene`: every building in three seats, units for scale)
@@ -96,6 +97,27 @@ FAMILIES.hbld = {
     ...[0, 1, 2].map(k => [`trooper_${[0, 1, 0][k]}_${k % 2}`, cx - 700 + k * 40, cy - 10 + k * 20, 0]), ...[0, 1].map(k => [`harvester_${[3, 2][k]}_${k}`, cx - 960 + k * 40, cy + 150 + k * 20, 0]),
   ],
 };
+// Vael buildings (vael-buildings.js): the eight buildings in the contact sheet, on the phone sheets with a few Glints
+// and Lenses for scale (`phoneBldgs` places them instead of the default Lighthouse and Tidewell), alone in the blind
+// set (`blindSize`: a bigger patch than a unit's) and, in the battle, a whole Vael base against the Lighthouse
+const VBLD = [['conflux', 'Tidewell'], ['spire', 'Sunpetal'], ['siphon', 'Siphon'], ['kiln', 'Cradle'], ['loom', 'Glasshouse'], ['ward', 'Anemone'], ['zenith', 'Gyre'], ['eclipse', 'Darkwater']];
+FAMILIES.vbld = {
+  filter: '^harvester_(0|1|2|14)_[01]$|^trooper_(0_[03]|1_1)$|^(lumen|prism)_(0|4|8|12)_[01]$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|zenith|eclipse)$|^shard_[0-3]$',
+  units: {}, rows: VBLD.map(([k]) => `bldg_${k}`),
+  shares: VBLD.map(([k]) => `bldg_${k}`),
+  phone: ['lumen_0_0', 'prism_0_0', 'lumen_4_0', 'prism_8_0'], turned: ['lumen_8_0', 'prism_12_0'],
+  phoneBldgs: [['bldg_conflux', 330, 210, 0], ['bldg_spire', 600, 210, 0], ['bldg_siphon', 810, 210, 0], ['bldg_kiln', 1040, 210, 0], ['bldg_loom', 1270, 210, 0], ['bldg_eclipse', 1470, 210, 0],
+    ['bldg_zenith', 300, 630, 0], ['bldg_ward', 1120, 630, 0], ['bldg_spire', 1300, 630, 1], ['bldg_ward', 1470, 630, 6], ['bldg_eclipse', 1620, 630, 6]],
+  blindSize: 480,
+  blind: VBLD.map(([k, n]) => [`bldg_${k}`, `${k} (${n})`]),
+  vael: (cx, cy) => [
+    ['bldg_conflux', cx + 560, cy - 60, 1], ['bldg_spire', cx + 330, cy - 250, 1], ['bldg_siphon', cx + 160, cy - 180, 1],
+    ['bldg_kiln', cx + 420, cy + 150, 1], ['bldg_loom', cx + 220, cy + 10, 1], ['bldg_ward', cx + 60, cy - 10, 1],
+    ['bldg_zenith', cx + 700, cy + 180, 1], ['bldg_eclipse', cx + 180, cy + 200, 1],
+    ...[0, 1, 2].map(k => [`lumen_${[8, 8, 4][k]}_0`, cx + 340 + k * 36, cy - 120 + k * 26, 1]),
+    ...[0, 1, 2, 3].map(k => [`prism_8_${k % 2}`, cx + 40 + (k % 2) * 46, cy + 80 + Math.floor(k / 2) * 60 + (k % 2) * 10, 1]),
+  ],
+};
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
   for (let k = 0; k < 3; k++) list.push([`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]);
@@ -103,6 +125,40 @@ function sliceVael(cx, cy) {
   for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
   return list;
 }
+// Harbour machines (harbour-machines.js): the Breakwater (walking and beached), the Anchor Gun (travelling and anchored)
+// and the Netter, with the slice's Rigger and Picket (standing and dug in) for the people; the battle adds the machines
+// on the Harbour side. `gap`: the phone row's spacing (heavies are wider than the 80 px default allows).
+FAMILIES.hmach = {
+  filter: '^(harvester|trooper|vanguard|siegeTank|interceptor|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+  units: { vanguard: [0, 2, 3], siegeTank: [0, 2, 3], interceptor: [0], harvester: [0], trooper: [0, 3] }, rows: ['bldg_core', 'shard_0'],
+  shares: ['vanguard_0_0', 'vanguard_0_3', 'siegeTank_0_0', 'siegeTank_0_3', 'interceptor_0_0', 'harvester_0_0', 'trooper_0_0'],
+  phone: ['vanguard_0_0', 'trooper_0_0', 'siegeTank_0_0', 'harvester_0_0', 'interceptor_0_0', 'vanguard_0_3', 'trooper_4_3', 'siegeTank_0_3'], gap: 92,
+  turned: ['vanguard_12_0', 'siegeTank_8_0', 'interceptor_12_0', 'vanguard_8_3'],
+  blind: [['vanguard_0_0', 'vanguard (Breakwater)'], ['vanguard_0_3', 'vanguard beached (Breakwater)'], ['siegeTank_0_0', 'siegeTank (Anchor Gun)'], ['siegeTank_0_3', 'siegeTank anchored (Anchor Gun)'], ['interceptor_0_0', 'interceptor (Netter)'], ['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)']],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ['siegeTank_0_3', cx - 260, cy + 40, 0], ['siegeTank_2_0', cx - 310, cy + 160, 0],
+    ['vanguard_1_0', cx - 30, cy - 130, 0], ['vanguard_0_3', cx - 10, cy + 30, 0],
+    ['interceptor_0_0', cx - 210, cy - 130, 0], ['interceptor_15_1', cx - 130, cy + 180, 0],
+  ],
+};
+// Harbour air (harbour-air.js): the Kite, the Spyglass and the Windjammer, the Vael's Petrel beside them for contrast
+// and the slice's Rigger and Picket for the people; the battle puts the flyers over the slice, Petrels over the Vael.
+FAMILIES.hair = {
+  filter: '^(raider|observer|bastion|shrike|harvester|trooper|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+  units: { raider: [0], observer: [0], bastion: [0], shrike: [0] }, rows: ['bldg_core', 'shard_0'],
+  shares: ['raider_0_0', 'observer_0_0', 'bastion_0_0', 'shrike_0_0'],
+  phone: ['harvester_0_0', 'trooper_0_0', 'raider_0_0', 'observer_0_0', 'shrike_0_0', 'lumen_0_0', 'prism_0_0', 'bastion_0_0'],
+  turned: ['raider_12_0', 'observer_8_0', 'shrike_12_0', 'raider_4_0', 'bastion_12_0'], turnedY: 690,
+  blind: [['raider_0_0', 'raider (Kite)'], ['observer_0_0', 'observer (Spyglass)'], ['bastion_0_0', 'bastion (Windjammer)'], ['shrike_0_0', 'shrike (Petrel)'],
+    ['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)']],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ...[0, 1, 2, 3].map(k => [`raider_${[1, 0, 2, 1][k]}_0`, cx - 120 + k * 44, cy - 150 + (k % 2) * 40, 0]),
+    ['observer_2_0', cx - 250, cy - 170, 0], ['bastion_1_0', cx - 420, cy + 200, 0],
+    ['shrike_9_0', cx + 260, cy - 230, 1], ['shrike_8_0', cx + 330, cy - 190, 1],
+  ],
+};
 
 const argv = process.argv.slice(2), famAt = argv.indexOf('--family'), famName = argv.find(a => a.startsWith('--family='))?.slice(9) ?? (famAt >= 0 ? argv[famAt + 1] : 'slice'), FAM = FAMILIES[famName];
 if (!FAM) throw new Error(`no family ${famName}: ${Object.keys(FAMILIES).join(', ')}`);
@@ -135,7 +191,7 @@ const tiles = {}; const groundTile = (v) => tiles[v] ??= tile(0, v);
  *  beside a unit and be read as part of it; the test judges the unit, not the tile). */
 function seabed(c, seed = 0, plain = false) {
   const ox = (seed * 37) % 64, oy = (seed * 53) % 64;
-  for (let ty = -1; ty * 64 - oy < c.h; ty++) for (let tx = -1; tx * 64 - ox < c.w; tx++) { // (minus the origin's shift: a patch's far edge was left bare)
+  for (let ty = -1; (ty - 1) * 64 < c.h; ty++) for (let tx = -1; (tx - 1) * 64 < c.w; tx++) { // (one tile past the edge: the origin's offset)
     const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(plain || r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5);
     for (let y = 0; y < 64; y++) { const py = ty * 64 + y - oy; if (py < 0 || py >= c.h) continue; for (let x = 0; x < 64; x++) { const px = tx * 64 + x - ox; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4), (py * c.w + px) * 4); } }
   }
@@ -203,11 +259,11 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
   const c = canvas(1688, 780); seabed(c); // a 2x phone (844x390 CSS px)
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
   if (FAM.phoneScene) { list.length = 0; list.push(...FAM.phoneScene()); } else {
-    if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]);
-    list.push(['bldg_conflux', 1330, 330, 1]);
-    const gap = Math.min(80, Math.floor(1000 / FAM.phone.length));
+    if (FAM.phoneBldgs) list.push(...FAM.phoneBldgs);
+    else { if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]); list.push(['bldg_conflux', 1330, 330, 1]); }
+    const gap = Math.min(FAM.gap ?? 80, Math.floor(1000 / FAM.phone.length));
     for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
-    FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, 760, k % 2]));
+    FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, FAM.turnedY ?? 760, k % 2])); // (`turnedY`: a family with a long flyer lifts the row clear of the edge)
   }
   place(c, list);
   if (!FAM.phoneScene) ring(c, 630, 503, 24, 14); // the game's selection ring under the second unit (seat 0)
@@ -218,11 +274,11 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 
 // ---- 4. blind: each unit alone at phone size, named by a random letter ----
 {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {};
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {}, B = FAM.blindSize ?? 192;
   let n = 0;
   for (const [name, what] of FAM.blind) for (const seat of [0, 6]) {
-    const B = FAM.blindSize ?? 192, c = canvas(B, B); seabed(c, 11 + n++ * 7, true); draw(c, get(name), B / 2, B * 0.57, seat); // (a building family: wider images)
-    if (name === 'bldg_turret' && byName.has('turret_head_0')) draw(c, get('turret_head_0'), B / 2, B * 0.57, seat); // (its gun: a head sprite the game draws at the building's own point)
+    const c = canvas(B, B); seabed(c, 11 + n++ * 7, true); draw(c, get(name), B / 2, B / 2 + B * 0.07, seat);
+    if (name === 'bldg_turret' && byName.has('turret_head_0')) draw(c, get('turret_head_0'), B / 2, B / 2 + B * 0.07, seat); // (its gun: a head sprite the game draws at the building's own point)
     const L = letters.splice(Math.floor(Math.random() * letters.length), 1)[0];
     key[L] = `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
   }

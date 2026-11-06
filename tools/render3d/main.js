@@ -11,6 +11,9 @@ import { lighthouse } from './harbour.js';
 import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
+import { breakwater, anchorGun, netter } from './harbour-machines.js';
+import { kite, spyglass, windjammer } from './harbour-air.js';
+import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, gyre, darkwater } from './vael-buildings.js';
 import * as HB from './harbour-buildings.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
@@ -26,7 +29,28 @@ Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
-  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre) sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre)
+  sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+});
+// Harbour machines (step 1, harbour-machines.js): the Breakwater (0-1 the walk, 2 settling, 3 beached: look.js
+// UNIT_POSE), the Anchor Gun (0-1 travelling, 2 half, 3 anchored) and the Netter (two frames, its wheels turning).
+Object.assign(UNIT_MODELS, {
+  vanguard: { build: breakwater, frames: 4, r: 22, h: 20 },   // (r 22: the spades and legs splay past 17 beached and in some walk facings; the mortar's muzzle about 16.7 ahead)
+  siegeTank: { build: anchorGun, frames: 4, r: 31, h: 24 },   // (r 31: the muzzle reaches 24.4 ahead, the dropped anchor about 29 astern; h 24: raised)
+  interceptor: { build: netter, frames: 2, r: 14, h: 21 },    // (r 14: the reel is 15.8 across; h 21: the tubes raised)
+});
+// Harbour air (step 1, harbour-air.js): the Kite (flies at 17, its tail reaching 17.5 aft), the Spyglass (at 26) and
+// the Windjammer (at 24, 44 long); one frame each, gliders (look.js UNIT_FPS 0). The cells hold the flyer and its
+// shadow, which lands 0.4 of the height east and 0.3 south of it.
+Object.assign(UNIT_MODELS, {
+  raider: { build: kite, frames: 1, r: 19, h: 18 }, observer: { build: spyglass, frames: 1, r: 11, h: 30 },
+  bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
+});
+// Vael buildings (step 1, vael-buildings.js): the Sunpetal, the Siphon, the Cradle, the Glasshouse, the Anemone (one
+// sprite, no turning head), the Gyre and the Darkwater; the Tidewell above. Footprints and cell heights as before.
+Object.assign(VAEL_BUILDINGS, {
+  spire: [2, sunpetal, 82], siphon: [2, vSiphon, 50], kiln: [3, cradle, 42], loom: [2, glasshouse, 42],
+  ward: [2, anemone, 50], zenith: [3, gyre, 72], eclipse: [2, darkwater, 58],
 });
 
 // The Vael units in the game; each race renders with its own materials.

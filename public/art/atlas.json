@@ -4,8 +4,7 @@
   "atlas-1.json",
   "atlas-2.json",
   "atlas-3.json",
-  "atlas-4.json",
-  "atlas-5.json"
+  "atlas-4.json"
  ],
  "animations": {
   "boom_big": [
@@ -445,196 +444,148 @@
    "medic_15_1"
   ],
   "raider_0": [
-   "raider_0_0",
-   "raider_0_1"
+   "raider_0_0"
   ],
   "raider_1": [
-   "raider_1_0",
-   "raider_1_1"
+   "raider_1_0"
   ],
   "raider_2": [
-   "raider_2_0",
-   "raider_2_1"
+   "raider_2_0"
   ],
   "raider_3": [
-   "raider_3_0",
-   "raider_3_1"
+   "raider_3_0"
   ],
   "raider_4": [
-   "raider_4_0",
-   "raider_4_1"
+   "raider_4_0"
   ],
   "raider_5": [
-   "raider_5_0",
-   "raider_5_1"
+   "raider_5_0"
   ],
   "raider_6": [
-   "raider_6_0",
-   "raider_6_1"
+   "raider_6_0"
   ],
   "raider_7": [
-   "raider_7_0",
-   "raider_7_1"
+   "raider_7_0"
   ],
   "raider_8": [
-   "raider_8_0",
-   "raider_8_1"
+   "raider_8_0"
   ],
   "raider_9": [
-   "raider_9_0",
-   "raider_9_1"
+   "raider_9_0"
   ],
   "raider_10": [
-   "raider_10_0",
-   "raider_10_1"
+   "raider_10_0"
   ],
   "raider_11": [
-   "raider_11_0",
-   "raider_11_1"
+   "raider_11_0"
   ],
   "raider_12": [
-   "raider_12_0",
-   "raider_12_1"
+   "raider_12_0"
   ],
   "raider_13": [
-   "raider_13_0",
-   "raider_13_1"
+   "raider_13_0"
   ],
   "raider_14": [
-   "raider_14_0",
-   "raider_14_1"
+   "raider_14_0"
   ],
   "raider_15": [
-   "raider_15_0",
-   "raider_15_1"
+   "raider_15_0"
   ],
   "observer_0": [
-   "observer_0_0",
-   "observer_0_1"
+   "observer_0_0"
   ],
   "observer_1": [
-   "observer_1_0",
-   "observer_1_1"
+   "observer_1_0"
   ],
   "observer_2": [
-   "observer_2_0",
-   "observer_2_1"
+   "observer_2_0"
   ],
   "observer_3": [
-   "observer_3_0",
-   "observer_3_1"
+   "observer_3_0"
   ],
   "observer_4": [
-   "observer_4_0",
-   "observer_4_1"
+   "observer_4_0"
   ],
   "observer_5": [
-   "observer_5_0",
-   "observer_5_1"
+   "observer_5_0"
   ],
   "observer_6": [
-   "observer_6_0",
-   "observer_6_1"
+   "observer_6_0"
   ],
   "observer_7": [
-   "observer_7_0",
-   "observer_7_1"
+   "observer_7_0"
   ],
   "observer_8": [
-   "observer_8_0",
-   "observer_8_1"
+   "observer_8_0"
   ],
   "observer_9": [
-   "observer_9_0",
-   "observer_9_1"
+   "observer_9_0"
   ],
   "observer_10": [
-   "observer_10_0",
-   "observer_10_1"
+   "observer_10_0"
   ],
   "observer_11": [
-   "observer_11_0",
-   "observer_11_1"
+   "observer_11_0"
   ],
   "observer_12": [
-   "observer_12_0",
-   "observer_12_1"
+   "observer_12_0"
   ],
   "observer_13": [
-   "observer_13_0",
-   "observer_13_1"
+   "observer_13_0"
   ],
   "observer_14": [
-   "observer_14_0",
-   "observer_14_1"
+   "observer_14_0"
   ],
   "observer_15": [
-   "observer_15_0",
-   "observer_15_1"
+   "observer_15_0"
   ],
   "bastion_0": [
-   "bastion_0_0",
-   "bastion_0_1"
+   "bastion_0_0"
   ],
   "bastion_1": [
-   "bastion_1_0",
-   "bastion_1_1"
+   "bastion_1_0"
   ],
   "bastion_2": [
-   "bastion_2_0",
-   "bastion_2_1"
+   "bastion_2_0"
   ],
   "bastion_3": [
-   "bastion_3_0",
-   "bastion_3_1"
+   "bastion_3_0"
   ],
   "bastion_4": [
-   "bastion_4_0",
-   "bastion_4_1"
+   "bastion_4_0"
   ],
   "bastion_5": [
-   "bastion_5_0",
-   "bastion_5_1"
+   "bastion_5_0"
   ],
   "bastion_6": [
-   "bastion_6_0",
-   "bastion_6_1"
+   "bastion_6_0"
   ],
   "bastion_7": [
-   "bastion_7_0",
-   "bastion_7_1"
+   "bastion_7_0"
   ],
   "bastion_8": [
-   "bastion_8_0",
-   "bastion_8_1"
+   "bastion_8_0"
   ],
   "bastion_9": [
-   "bastion_9_0",
-   "bastion_9_1"
+   "bastion_9_0"
   ],
   "bastion_10": [
-   "bastion_10_0",
-   "bastion_10_1"
+   "bastion_10_0"
   ],
   "bastion_11": [
-   "bastion_11_0",
-   "bastion_11_1"
+   "bastion_11_0"
   ],
   "bastion_12": [
-   "bastion_12_0",
-   "bastion_12_1"
+   "bastion_12_0"
   ],
   "bastion_13": [
-   "bastion_13_0",
-   "bastion_13_1"
+   "bastion_13_0"
   ],
   "bastion_14": [
-   "bastion_14_0",
-   "bastion_14_1"
+   "bastion_14_0"
   ],
   "bastion_15": [
-   "bastion_15_0",
-   "bastion_15_1"
+   "bastion_15_0"
   ],
   "siegeTank_0": [
    "siegeTank_0_0",
@@ -1345,11 +1296,11 @@
  "scale": 2,
  "tints": [
   15771693,
-  14558542,
+  14493005,
   4774574,
   14922991,
   11333491,
-  4630515,
+  4630259,
   16316663,
   16014901
  ]

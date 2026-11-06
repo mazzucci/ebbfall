@@ -477,7 +477,7 @@ No upright faceted crystals and no green pool or plume anywhere.
 the shade layers, and by the review pack the same way): one continuous crust under each field, so a field reads as a
 salt flat and not as separate rocks. Salt nodes within 3.6 tiles of each other join (a field's arc spaces them 2 to
 3.2 apart); the pan is their union of discs (1.3 tiles) and capsules between joined nodes (0.95), its shore wobbled
-by two low noises. A dull grey-white crust (`PAN` [75,73,68], about 60 in grey on the seabed's 40: under the reef top
+by two low noises. A dull grey-white crust (`PAN` [75,73,68], about 58 in grey on the seabed's 40: under the reef top
 and a unit's body; round 1's pale pan, ~100, was the largest light mass on screen and the workers lost contrast where
 they mine), cracked into flags about half a tile across by faint pale lines that come and go (dark outlines read as
 paving), each flag its own shade, a fine grain, darker and damp towards its edge. The edge is crisp (round 2's soft, dithered

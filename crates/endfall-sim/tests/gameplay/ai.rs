@@ -191,26 +191,40 @@ fn the_ai_only_reacts_to_flyers_it_has_seen() {
     let raider = w.make_unit(UnitKind::Raider, PLAYER, 40.0, 40.0);
     w.hold_unit(raider);
     run(&mut w, 40);
-    assert_eq!(
+    // (Harpooners come in its mix anyway, one per two Pickets since the balance pass: an answer is more than that)
+    let (lancers, troopers) = (
         count(&w, ENEMY, UnitKind::Lancer),
-        0,
-        "no lancers against a flyer it cannot see"
+        count(&w, ENEMY, UnitKind::Trooper),
     );
+    let queued = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY)
+        .flat_map(|b| b.queue.iter())
+        .filter(|&&q| q == UnitKind::Lancer)
+        .count();
     assert!(
-        !w.bldgs
-            .iter()
-            .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer))
+        lancers + queued <= troopers / 2 + 1,
+        "no Harpooners beyond its mix against a flyer it cannot see: {lancers} (+{queued} queued) for {troopers} Pickets"
     );
     // Now fly it into view.
     let (cx, cy) = core(&w, ENEMY);
     w.move_to(raider, (cx as f64 - 3.0) * TILE, (cy as f64 + 6.0) * TILE);
     run(&mut w, 40);
+    let queued = w
+        .bldgs
+        .iter()
+        .filter(|b| b.team == ENEMY)
+        .flat_map(|b| b.queue.iter())
+        .filter(|&&q| q == UnitKind::Lancer)
+        .count();
+    let (lancers, troopers) = (
+        count(&w, ENEMY, UnitKind::Lancer),
+        count(&w, ENEMY, UnitKind::Trooper),
+    );
     assert!(
-        count(&w, ENEMY, UnitKind::Lancer) > 0
-            || w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer)),
-        "lancers once it has seen the flyer"
+        lancers + queued > troopers / 2,
+        "Harpooners beyond its mix once it has seen the flyer: {lancers} (+{queued} queued) for {troopers} Pickets"
     );
 }
 
@@ -749,11 +763,23 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
             assert!(w.seen_by(ENEMY, id), "the AI sees the scout");
         }
         run(&mut w, 80);
-        let trained = count(&w, ENEMY, UnitKind::Lancer) > 0
-            || w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.queue.contains(&UnitKind::Lancer));
-        assert_eq!(trained, lancers, "{kind:?}: Lancers trained = {trained}");
+        // (Harpooners come in its mix anyway, one per two Pickets since the balance pass: an answer is more than that)
+        let queued = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY)
+            .flat_map(|b| b.queue.iter())
+            .filter(|&&q| q == UnitKind::Lancer)
+            .count();
+        let (have, troopers) = (
+            count(&w, ENEMY, UnitKind::Lancer) + queued,
+            count(&w, ENEMY, UnitKind::Trooper),
+        );
+        let trained = have > troopers / 2;
+        assert_eq!(
+            trained, lancers,
+            "{kind:?}: an anti-air answer = {trained} ({have} Harpooners, {troopers} Pickets)"
+        );
     }
 }
 

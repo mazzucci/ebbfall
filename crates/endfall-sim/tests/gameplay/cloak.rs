@@ -312,7 +312,7 @@ fn a_halo_detects_cloaked_units_near_it() {
     for u in [halo, near, far] {
         w.hold_unit(u);
     }
-    w.step();
+    run(&mut w, 3); // (lying still: they lurk)
     let (ftx, fty) = w.map.tile_of(U(&w, far).x, U(&w, far).y);
     assert!(
         w.vis[PLAYER as usize][w.map.idx(ftx, fty)] != 0,
@@ -326,26 +326,51 @@ fn a_halo_detects_cloaked_units_near_it() {
 }
 
 #[test]
-fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
-    // The Vael's shadow blade carries the Observer's permanent cloak on a fighter: Troopers can neither see nor shoot
-    // it while it cuts them down, and the hit is told as an unseen one. An Observer over them reveals it: it is shot.
+fn an_undertow_lurks_strikes_once_from_hiding_and_shows_when_it_moves_or_strikes() {
+    // Lurk (Roster v2, rule 2): the Undertow is seen as it comes out (it has not lain still yet); after `LURK_S` lying
+    // still it is hidden: the Picket can neither see nor be ordered onto it. Its first blow comes out of hiding (told
+    // as an unseen hit), and it shows from then on: the Picket shoots back. Walking off shows it too; lying still
+    // again hides it again. A detector beside it sees it lying still.
     let mut w = flat_arena(14);
     w.factions = vec![&HUMANS, &VAEL];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, x, y);
     w.hold_unit(trooper);
     let umbra = w.make_unit(UnitKind::Umbra, ENEMY, x + 3.0 * TILE, y);
+    w.hold_unit(umbra);
     w.step();
-    assert!(w.is_cloaked(U(&w, umbra)), "cloaked with no ability");
+    assert!(
+        !w.is_cloaked(U(&w, umbra)) && w.seen_by(PLAYER, umbra),
+        "seen as it comes out"
+    );
+    run(&mut w, 1);
+    assert!(w.seen_by(PLAYER, umbra), "still seen after a second");
+    run(&mut w, 2);
+    assert!(
+        w.is_cloaked(U(&w, umbra)),
+        "hidden once it has lain still for {LURK_S} s"
+    );
     assert!(!w.seen_by(PLAYER, umbra), "unseen in plain sight");
     w.attack_ent(trooper, umbra);
     assert!(
         !matches!(U(&w, trooper).task, Task::Attack { .. }),
         "an order to attack it is refused"
     );
+    // It walks to the Picket: seen while it walks.
     w.attack_ent(umbra, trooper);
+    w.step();
+    w.step();
+    assert!(w.seen_by(PLAYER, umbra), "seen as soon as it moves");
+    // Hidden again lying in wait beside it (held, in reach), then the blow.
+    w.units.iter_mut().find(|u| u.id == umbra).unwrap().x = x + 0.8 * TILE;
+    w.hold_unit(umbra);
+    w.units.iter_mut().find(|u| u.id == umbra).unwrap().cd = 3.0; // (it waits: no blow for 3 s)
+    run(&mut w, 2);
+    w.step();
+    assert!(!w.seen_by(PLAYER, umbra), "lying in wait: hidden again");
     let mut unseen = 0;
-    for _ in 0..8 * TPS {
+    let mut seen_after = false;
+    for _ in 0..4 * TPS {
         w.step();
         for e in w.events.drain(..) {
             if let endfall_sim::world::Event::Attacked {
@@ -357,25 +382,25 @@ fn an_umbra_is_always_cloaked_strikes_unseen_and_is_struck_where_detected() {
                 unseen += 1;
             }
         }
+        if unseen > 0 && w.unit(trooper).is_some() && w.seen_by(PLAYER, umbra) {
+            seen_after = true;
+        }
     }
-    assert!(w.unit(trooper).is_none(), "the Trooper fell");
-    assert_eq!(unseen, 1, "told once that something unseen attacks");
+    assert_eq!(unseen, 1, "its first blow is told as an unseen one, once");
+    assert!(seen_after, "seen once it has struck");
     let u = U(&w, umbra);
-    assert_eq!((u.hp, u.sh), (u.maxhp, u.maxsh), "untouched");
-    // Four Troopers with an Observer over them: detected, and shot as it closes in.
-    let troopers: Vec<Id> = (0..4)
-        .map(|k| w.make_unit(UnitKind::Trooper, PLAYER, x, y + (k as f64 - 1.5) * 20.0))
-        .collect();
-    let obs = w.make_unit(UnitKind::Observer, PLAYER, x, y);
+    assert!(u.hp < u.maxhp, "seen, it is shot: {} of {}", u.hp, u.maxhp);
+    // A Spyglass beside a lurking Undertow sees it.
+    let lurker = w.make_unit(UnitKind::Umbra, ENEMY, x - 6.0 * TILE, y);
+    w.hold_unit(lurker);
+    run(&mut w, 3);
+    assert!(w.is_cloaked(U(&w, lurker)) && !w.seen_by(PLAYER, lurker));
+    let obs = w.make_unit(UnitKind::Observer, PLAYER, x - 5.0 * TILE, y);
     w.hold_unit(obs);
     w.step();
-    assert!(w.seen_by(PLAYER, umbra), "an Observer detects it");
-    w.attack_ent(umbra, troopers[0]);
-    run(&mut w, 6);
     assert!(
-        w.unit(umbra)
-            .is_none_or(|u| u.hp + u.sh < u.maxhp + u.maxsh),
-        "detected, it is shot"
+        w.seen_by(PLAYER, lurker),
+        "a Spyglass detects it lying still"
     );
 }
 
@@ -392,6 +417,7 @@ fn a_mend_on_an_undetected_cloaked_unit_is_not_shown_to_the_enemy() {
     for u in [trooper, halo, umbra] {
         w.hold_unit(u);
     }
+    run(&mut w, 3); // (the Undertow lies still: it lurks)
     let mends = |w: &mut World, secs: u32| -> Vec<u8> {
         let u = w.units.iter_mut().find(|u| u.id == umbra).unwrap();
         u.hp = u.maxhp / 2.0;

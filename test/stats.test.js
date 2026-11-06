@@ -7,7 +7,7 @@ import { UNITS, BUILDINGS, FACTIONS, kindsOf } from '../src/engine/constants.js'
 import { statRows, statsHtml } from '../src/client/stats.js';
 
 const vael = kindsOf(FACTIONS.vael), humans = kindsOf(FACTIONS.humans);
-const TAGS = ['Splash', 'Heals', 'Flying', 'Cloaked', 'Detector'];
+const TAGS = ['Splash', 'Slows', 'Heals', 'Flying', 'Cloaked', 'Lurks', 'Detector'];
 const armed = (d) => !d.worker && !!(d.weapon?.dmg || d.weapon?.dmgAir || d.light?.dmg || d.light?.dmgAir);
 
 test('every unit gets the same two rows: toughness, then attack', () => {
@@ -29,6 +29,8 @@ test('every unit gets the same two rows: toughness, then attack', () => {
     assert.equal(tags.includes('Flying'), !!d.air, `${k}: Flying when it flies`);
     assert.equal(tags.includes('Detector'), d.detect > 0, `${k}: Detector when it detects`);
     assert.equal(tags.includes('Cloaked'), !!d.cloaked, `${k}: Cloaked when always cloaked`);
+    assert.equal(tags.includes('Lurks'), !!d.lurk, `${k}: Lurks when it hides lying still`);
+    assert.equal(tags.includes('Slows'), [d.weapon, d.light].some(w => w?.slow > 0), `${k}: Slows when its shot slows`);
     assert.equal(tags.includes('Heals'), d.heal > 0, `${k}: Heals when it heals or mends`);
     for (const c of [...tough, ...attack]) {
       assert.ok(c.label && !/undefined|NaN|null/.test(c.label + c.text), `${k}: ${c.k} is well formed (${c.label}, ${c.text})`);

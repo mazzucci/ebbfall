@@ -340,3 +340,138 @@ fn an_idle_tank_deploys_where_it_stands_and_is_free_again_once_its_target_is_gon
         "idle and still deployed"
     );
 }
+
+#[test]
+fn a_breakwater_beaches_itself_where_it_fights_armour_six_and_weighs_off_to_move() {
+    // The Breakwater (Roster v2): sent at a Picket, it walks into its splash gun's reach and beaches by itself (2 s,
+    // no button): beached, its armour is 2 + 4 and it fires its splash gun. Sent to move, it packs up (2 s) and goes.
+    let mut w = flat_arena(23);
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let bw = w.make_unit(UnitKind::Vanguard, PLAYER, x, y);
+    let target = w.make_unit(UnitKind::Trooper, ENEMY, x + 5.0 * TILE, y);
+    w.hold_unit(target);
+    w.units.iter_mut().find(|u| u.id == target).unwrap().hp = 1e6; // (it stands the whole test)
+    w.attack_ent(bw, target);
+    let (mut beached_at, mut siege) = (None, 0);
+    for _ in 0..8 * TPS {
+        let sx = w.unit(bw).unwrap().x;
+        w.step();
+        let u = w.unit(bw).unwrap();
+        if beached_at.is_none() && u.mode == Some(AbilityKind::Beach) && u.swap <= 0.0 {
+            beached_at = Some(w.time);
+        }
+        for e in w.events.drain(..) {
+            if let Event::Fire { x, weapon, .. } = e
+                && (x - sx).abs() < 1.0
+                && weapon == "shell"
+            {
+                siege += 1;
+            }
+        }
+    }
+    assert!(beached_at.is_some(), "it beached by itself");
+    assert!(siege >= 2, "beached, its splash gun fires: {siege}");
+    // Its armour beached: a 20-damage blow takes 20 - 6 off its hull, against 20 - 2 on the move.
+    let hp = w.unit(bw).unwrap().hp;
+    w.damage(bw, 20.0, None);
+    assert_eq!(hp - w.unit(bw).unwrap().hp, 14.0, "armour 6 beached");
+    // Sent to move: it packs up first (2 s, no armour bonus meanwhile), then walks.
+    w.move_to(bw, x - 6.0 * TILE, y);
+    w.step();
+    assert!(w.unit(bw).unwrap().mode.is_none(), "packing up");
+    let hp = w.unit(bw).unwrap().hp;
+    w.damage(bw, 20.0, None);
+    assert_eq!(hp - w.unit(bw).unwrap().hp, 18.0, "armour 2 off the beach");
+    let beach_x = w.unit(bw).unwrap().x;
+    run(&mut w, 4);
+    assert!(
+        w.unit(bw).unwrap().x < beach_x - 2.0 * TILE,
+        "and off it goes"
+    );
+    // No button: an order to beach is refused, as Drop Anchor's is.
+    assert!(AbilityKind::Beach.def().auto);
+    assert!(w.cast_group(&[bw], AbilityKind::Beach).is_err());
+}
+
+#[test]
+fn a_harpooned_breakwater_cannot_beach_and_fights_with_its_light_gun() {
+    // Its light gun on the move: a Breakwater that cannot beach (harpooned: no ability, Drop Anchor and Beach
+    // included) fights a Picket beside it with its light gun, 10 a shot.
+    let mut w = flat_arena(24);
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let bw = w.make_unit(UnitKind::Vanguard, PLAYER, x, y);
+    let target = w.make_unit(UnitKind::Trooper, ENEMY, x + 1.0 * TILE, y);
+    w.hold_unit(target);
+    w.units.iter_mut().find(|u| u.id == target).unwrap().hp = 1e6;
+    w.units.iter_mut().find(|u| u.id == bw).unwrap().slowed = 6.0;
+    w.attack_ent(bw, target);
+    let mut hp = w.unit(target).unwrap().hp;
+    let mut hits = Vec::new();
+    for _ in 0..4 * TPS {
+        w.step();
+        let now = w.unit(target).unwrap().hp;
+        if now < hp {
+            hits.push(hp - now);
+        }
+        hp = now;
+    }
+    assert!(
+        w.unit(bw).unwrap().mode.is_none(),
+        "not beached while harpooned"
+    );
+    assert!(
+        hits.len() >= 2 && hits.iter().all(|&h| h == 10.0),
+        "its light gun fights on, 10 a shot every 1.5 s: {hits:?}"
+    );
+    // The slow worn off, it beaches where it fights.
+    w.units.iter_mut().find(|u| u.id == bw).unwrap().slowed = 0.0;
+    run(&mut w, 3);
+    assert_eq!(
+        w.unit(bw).unwrap().mode,
+        Some(AbilityKind::Beach),
+        "then it beaches"
+    );
+    // An Anchor Gun (no light gun) harpooned in its band waits where it is: it neither walks in nor anchors.
+    let gun = w.make_unit(UnitKind::SiegeTank, PLAYER, x - 8.0 * TILE, y);
+    w.units.iter_mut().find(|u| u.id == gun).unwrap().slowed = 3.0;
+    w.attack_ent(gun, target);
+    let x0 = w.unit(gun).unwrap().x;
+    run(&mut w, 2);
+    let u = w.unit(gun).unwrap();
+    assert!(u.mode.is_none() && (u.x - x0).abs() < 1.0, "waits it out");
+    run(&mut w, 5);
+    assert_eq!(
+        w.unit(gun).unwrap().mode,
+        Some(AbilityKind::Deploy),
+        "then anchors"
+    );
+}
+
+#[test]
+fn an_idle_breakwater_stays_afloat_and_goes_for_what_comes_into_sight() {
+    // It settles only where it fights: stopped with nothing to fight it does not beach (it can move off at once), and
+    // an enemy that comes into its sight (not only into its 2-tile gun's reach) is gone for and fought beached. The
+    // Anchor Gun, with nothing to fight on its tracks, still anchors wherever it stops.
+    let mut w = flat_arena(25);
+    let (x, y) = (30.0 * TILE, 30.0 * TILE);
+    let bw = w.make_unit(UnitKind::Vanguard, PLAYER, x, y);
+    let gun = w.make_unit(UnitKind::SiegeTank, PLAYER, x, y + 3.0 * TILE);
+    run(&mut w, 4);
+    assert!(w.unit(bw).unwrap().mode.is_none(), "idle, not beached");
+    assert_eq!(
+        w.unit(gun).unwrap().mode,
+        Some(AbilityKind::Deploy),
+        "the Anchor Gun anchors"
+    );
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, x + 6.0 * TILE, y);
+    w.hold_unit(foe);
+    w.units.iter_mut().find(|u| u.id == foe).unwrap().hp = 1e6;
+    run(&mut w, 6);
+    let u = w.unit(bw).unwrap();
+    assert_eq!(
+        u.mode,
+        Some(AbilityKind::Beach),
+        "it went for it and beached"
+    );
+    assert!(u.x > x + 2.0 * TILE, "where it fights, not where it stood");
+}

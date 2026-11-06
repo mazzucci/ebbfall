@@ -262,7 +262,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
   // fires at all: no tech). (Stim and Cloak are retired: no unit has them, but the kinds keep their places.)
-  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null]]);
+  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null], ['beach', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
   assert.ok(n >= 2);

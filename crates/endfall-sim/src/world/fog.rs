@@ -72,10 +72,11 @@ impl World {
         }
     }
 
-    /// Whether unit `u` is cloaked: always (an Observer, an Umbra), or once its side has researched its cloak (the
-    /// Raider's Cloak, the Shrike's Veil: permanent, no button, owner 2026-11-03).
+    /// Whether unit `u` is cloaked: always (`cloaked`), a lurker (the Undertow) once it has lain still for `LURK_S`,
+    /// or once its side has researched its cloak (the Petrel's Seaglass: permanent, no button, owner 2026-11-03).
     pub fn is_cloaked(&self, u: &Unit) -> bool {
         u.kind.def().cloaked
+            || (u.kind.def().lurk && u.still >= LURK_S)
             || u.kind.def().abilities.iter().any(|&k| {
                 matches!(k.def().effect, AbilityEffect::Cloak) && self.ability_unlocked(u.team, k)
             })

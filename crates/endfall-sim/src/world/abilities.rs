@@ -40,6 +40,9 @@ impl World {
         if u.warp > 0.0 {
             return Err("Still warping in".into());
         }
+        if u.slowed > 0.0 {
+            return Err("Harpooned: no abilities while slowed".into());
+        }
         // Not again while more than half of it is left (a thumb that taps twice must not pay twice). (With today's
         // numbers only Stim reaches this: the others' cooldowns outlast them.)
         let secs = match ability.def().effect {
@@ -111,17 +114,19 @@ impl World {
     }
 
     /// A siege gun sets up by itself on reaching its target (an attack, an attack-move or an idle unit's own pick):
-    /// its toggle goes on as if cast, the task stays (it fires once settled).
-    pub(crate) fn deploy(&mut self, uid: Id) {
+    /// its toggle goes on as if cast, the task stays (it fires once settled). Whether it set up: not when it may not
+    /// (harpooned, `can_cast`), and the caller fights on without it.
+    pub(crate) fn deploy(&mut self, uid: Id) -> bool {
         let Some(k) = self.u(uid).kind.toggle() else {
-            return;
+            return false;
         };
         if self.u(uid).mode.is_some() || self.can_cast(uid, k).is_err() {
-            return;
+            return false;
         }
         let task = self.u(uid).task;
         let _ = self.cast(uid, k);
         self.um(uid).task = task; // (cast holds it: keep the attack)
+        true
     }
 
     /// Every unit of `units` that can use `ability` does (a selection taps once); Err only if none could, with the

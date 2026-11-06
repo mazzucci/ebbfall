@@ -70,6 +70,8 @@ impl World {
             swap: 0.0,
             warp: 0.0,
             stun: 0.0,
+            slowed: 0.0,
+            still: 0.0,
             pace: None,
         });
         id

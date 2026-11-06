@@ -147,6 +147,9 @@ const SFX = {
     noise(b, t, { dur: 0.16, vol: 0.06, filter: 'lowpass', f: 600, to: 200 }); tone(b, t + 0.05, { f: 140, to: 90, dur: 0.18, type: 'square', vol: 0.03 });
     tone(b, t + 0.15, { f: 75, to: 45, dur: 0.35, type: 'sine', vol: 0.08 });
   },
+  beach: (b, t) => { // (the Breakwater: a hull grinding onto sand)
+    noise(b, t, { dur: 0.3, vol: 0.05, filter: 'lowpass', f: 420, to: 160 }); tone(b, t + 0.08, { f: 95, to: 60, dur: 0.3, type: 'sine', vol: 0.07 });
+  },
   blink: (b, t) => { tone(b, t, { f: 1800, to: 400, dur: 0.14, type: 'sine', vol: 0.04 }); noise(b, t, { dur: 0.1, vol: 0.02, filter: 'bandpass', f: 3000, q: 2 }); },
   overcharge: (b, t) => { tone(b, t, { f: 220, to: 880, dur: 0.3, type: 'triangle', vol: 0.04 }); tone(b, t + 0.1, { f: 440, to: 1320, dur: 0.22, type: 'sine', vol: 0.02 }); },
   cloak: (b, t) => { noise(b, t, { dur: 0.35, vol: 0.03, filter: 'bandpass', f: 3500, to: 600, q: 3 }); tone(b, t, { f: 900, to: 300, dur: 0.3, type: 'sine', vol: 0.02 }); },

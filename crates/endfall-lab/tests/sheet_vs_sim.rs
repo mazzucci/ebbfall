@@ -45,7 +45,8 @@ fn the_sheets_time_to_kill_matches_a_fight_in_the_sim() {
             UnitKind::Scythe,
             "shields, then armour 1",
         ),
-        (UnitKind::Trooper, UnitKind::Vanguard, "armour 2"),
+        // (an armoured target that never settles: a held Breakwater beaches, armour 6, which the sheet leaves out)
+        (UnitKind::Trooper, UnitKind::Interceptor, "armour 1"),
         (UnitKind::Lancer, UnitKind::Shrike, "a flyer with shields"),
     ] {
         let row = rows().into_iter().find(|r| r.kind == attacker).unwrap();

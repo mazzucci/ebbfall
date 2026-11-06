@@ -13,9 +13,9 @@ pub enum AbilityEffect {
         speed: f64,
         hp: f64,
     },
-    /// A toggle: settled in (deployed), +`range` tiles of reach and no moving; `swap` seconds to settle in or pack up,
-    /// without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
-    Settle { range: f64, swap: f64 },
+    /// A toggle: settled in (deployed), +`range` tiles of reach, +`armor` armour and no moving; `swap` seconds to
+    /// settle in or pack up, without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
+    Settle { range: f64, swap: f64, armor: f64 },
     /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
     Blink { dist: f64 },
     /// Always cloaked once researched (as an Observer is: seen and targeted only where the other side detects); never
@@ -66,6 +66,7 @@ const ENTRENCH: AbilityDef = AbilityDef {
     effect: AbilityEffect::Settle {
         range: 2.0,
         swap: 2.0,
+        armor: 0.0,
     },
 };
 /// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up. The
@@ -80,6 +81,22 @@ const DEPLOY: AbilityDef = AbilityDef {
     effect: AbilityEffect::Settle {
         range: 0.0,
         swap: 3.0,
+        armor: 0.0,
+    },
+};
+/// The Breakwater's (Roster v2): it beaches itself where it fights, as the Anchor Gun anchors (by itself, packing up
+/// when sent to move), quicker to set up, and beached it is a wall: +4 armour (6 in all) and its splash gun; on the
+/// move only its light gun.
+const BEACH: AbilityDef = AbilityDef {
+    key: "beach",
+    name: "Beach",
+    toggle: true,
+    auto: true,
+    cooldown: 0.0,
+    effect: AbilityEffect::Settle {
+        range: 0.0,
+        swap: 2.0,
+        armor: 4.0,
     },
 };
 const BLINK: AbilityDef = AbilityDef {
@@ -132,5 +149,6 @@ kinds! {
         Cloak => CLOAK,
         Veil => VEIL,
         Deploy => DEPLOY,
+        Beach => BEACH,
     }
 }

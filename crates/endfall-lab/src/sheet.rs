@@ -367,11 +367,15 @@ mod tests {
         for k in UNIT_KINDS {
             assert!(rows.iter().any(|r| r.kind == k), "{} missing", k.def().name);
         }
-        // (the Anchor Gun has one gun since Roster v2, anchored: one row, its plain name)
+        // (the Anchor Gun has one gun since Roster v2, anchored: one row, its plain name; the Breakwater two, beached
+        // and on the move)
         assert!(
             rows.iter()
                 .any(|r| r.name == "Anchor Gun" && r.weapon.is_some())
-                && !rows.iter().any(|r| r.name.ends_with("(mobile)"))
+        );
+        assert!(
+            rows.iter().any(|r| r.name == "Breakwater (deployed)")
+                && rows.iter().any(|r| r.name == "Breakwater (mobile)")
         );
         let (md, csv) = sheet(1.5, Some(2.0), "test");
         for k in UNIT_KINDS {

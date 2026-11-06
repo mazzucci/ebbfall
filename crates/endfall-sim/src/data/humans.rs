@@ -87,6 +87,8 @@ pub(super) const TROOPER: UnitDef = UnitDef {
     abilities: &[AbilityKind::Entrench],
     ..UNIT
 };
+/// The Breakwater (Roster v2): an armoured walker that beaches itself where it fights (`Beach`, by itself, 2 s): beached,
+/// armour 6 and its splash gun; on the move a light gun only. It packs up when sent to move.
 pub(super) const VANGUARD: UnitDef = UnitDef {
     key: "vanguard",
     name: "Breakwater",
@@ -101,6 +103,7 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 2.0,
+        siege: true,
         dmg: 20.0,
         cd: 1.5,
         proj: Some(ProjKind::Shell),
@@ -109,6 +112,15 @@ pub(super) const VANGUARD: UnitDef = UnitDef {
         splash_r: SHELL_SPLASH_R,
         ..W
     }),
+    light: Some(Weapon {
+        range: 1.5,
+        dmg: 10.0,
+        cd: 1.5,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
+        ..W
+    }),
+    abilities: &[AbilityKind::Beach],
     ..UNIT
 };
 /// Back-line artillery: deployed (`Deploy`), its siege gun outranges everything on the ground and splashes hard, but
@@ -141,7 +153,8 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     abilities: &[AbilityKind::Deploy],
     ..UNIT
 };
-/// The cheap, early anti-air (the Garrison's, before a Foundry stands); the Interceptor is the faster, tougher answer.
+/// The Harpooner: a slow-firing crewman, ground and air, whose harpoon slows what it hits (`Weapon::slow`); the Netter
+/// is the faster, tougher answer to flyers.
 pub(super) const LANCER: UnitDef = UnitDef {
     key: "lancer",
     name: "Harpooner",
@@ -158,6 +171,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
         cd: 2.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 2.0,
+        slow: 3.0, // (the Harpoon: half speed and no abilities for 3 s, past its 2.5 s reload)
         ..W
     }),
     ..UNIT

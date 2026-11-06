@@ -50,7 +50,7 @@ function fightStats(x) {
   let h = '';
   const wp = x.d.weapon, light = x.d.light;
   if (light) { // a siege gun: both guns, the one it fires now first (Deployed, or the light gun on its tracks)
-    const guns = [[wp, bonus, 'Deployed: siege gun damage against ground'], [light, (light.upDmg || 0) * effectLevel(up, 'weapons'), 'On its tracks: light gun damage against ground']];
+    const guns = [[wp, bonus, 'Settled: splash gun damage against ground'], [light, (light.upDmg || 0) * effectLevel(up, 'weapons'), 'On the move: light gun damage against ground']];
     for (const [g, b, t] of x.mode ? guns : guns.reverse()) h += stat('dmg', g.dmg, b, t);
   } else if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
   if (wp?.dmgAir) h += stat('air', wp.dmgAir, bonus, 'Damage against flyers');

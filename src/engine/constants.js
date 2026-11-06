@@ -28,8 +28,8 @@ export const TECH_BUILD = D.consts.tech_build;
 const UNIT_TEXT = {
   harvester: { hot: 'H', desc: 'Mines salt. Builds structures and repairs them.' },
   trooper: { hot: 'T', desc: 'Line infantry, cheap and steady. Shoots the ground only. Digs in for more reach once Sandbags is researched.' },
-  vanguard: { hot: 'V', desc: 'Armoured walker for the front: a short gun whose shells splash.' },
-  lancer: { hot: 'L', desc: 'Slow-firing crewman whose harpoon reaches ground and air; hits flyers hard.' },
+  vanguard: { hot: 'V', desc: 'Armoured walker for the front. Beaches itself where it fights: armour 6 and a splashing gun; on the move only a light gun.' },
+  lancer: { hot: 'L', desc: 'Slow-firing crewman whose harpoon reaches ground and air and hits flyers hard. What it hits moves at half speed and uses no ability for 3 s.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   raider: { hot: 'W', desc: 'Fast light flyer. Flies over cliffs and buildings, strafes the ground. Faster once Tailwind is researched.' },
   observer: { hot: 'O', desc: 'Unarmed flying scout. Fast, sees far, flies over cliffs, and spots hidden units near it.' },
@@ -44,7 +44,7 @@ const UNIT_TEXT = {
   shrike: { hot: 'H', desc: 'Fast flyer. Raids workers and hunts other flyers. Hidden for good once Seaglass is researched.' },
   sovereign: { hot: 'V', desc: 'Capital barge gliding low, its beam splashing the ground from far off; its lantern spots hidden units. Cannot hit flyers.' },
   halo: { hot: 'A', desc: 'Unarmed. Mends the nacre, then the hull, of nearby Vael, even under fire. Sees far and spots hidden units.' },
-  umbra: { hot: 'U', desc: 'Melee assassin, always hidden: unseen and untargetable except near something that spots it.' },
+  umbra: { hot: 'U', desc: 'Melee assassin. Hidden while still; its first strike comes from hiding, and it shows when it moves or strikes. Something that spots hidden units sees it anyway.' },
 };
 const BLDG_TEXT = {
   core: { hot: 'C', desc: 'Trains Riggers. Salt drop-off. +10 supply.' },
@@ -96,6 +96,7 @@ const ABILITY_TEXT = {
   cloak: { desc: 'Always hidden once researched: unseen and untouchable except near a spotter.' }, // (retired with Roster v2)
   veil: { desc: 'Always hidden once Seaglass is researched: unseen and untouchable except near a spotter.' },
   deploy: { desc: 'Anchors whenever it stops (3 s, no moving or firing meanwhile), and weighs anchor when it has to move: it fires only anchored.' },
+  beach: { desc: 'Beaches itself where it fights (2 s): armour 6 and its splashing gun. Gets under way again when it has to move.' },
 };
 /** Unit abilities, with their hotkeys and descriptions: one tap each on the card, but for an automatic one (`auto`:
  *  the Siege Tank's Deploy), which the unit uses by itself and which has no button or key. */

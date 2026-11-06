@@ -41,6 +41,10 @@ pub fn supply_limit(map_w: i32) -> i32 {
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
+/// The share of its speed a harpooned unit keeps while slowed (`Weapon::slow`; flyers too).
+pub const SLOW_SPEED: f64 = 0.5;
+/// Seconds a lurker (`UnitDef::lurk`) must lie still, neither walking nor striking, before it is hidden.
+pub const LURK_S: f64 = 2.0;
 
 /// How a unit gets about: on foot over land and shallows (Walk), anywhere water or land (Amph), or in the air (Fly).
 /// Rock and buildings block Walk and Amph alike (src/map.rs `passable`).
@@ -176,6 +180,8 @@ def_struct! {
         splash_r: f64 = "splashR",
         /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
         up_dmg: f64 = "upDmg",
+        /// The Harpoon: a unit it hits is slowed for this many seconds (`SLOW_SPEED`, and no abilities); 0 = none.
+        slow: f64 = "slow",
     }
 }
 
@@ -192,6 +198,7 @@ pub(crate) const W: Weapon = Weapon {
     splash: 0.0,
     splash_r: 0.0,
     up_dmg: 0.0,
+    slow: 0.0,
 };
 
 impl Weapon {
@@ -218,9 +225,10 @@ impl UnitKind {
     pub fn siege(self) -> bool {
         self.def().weapon.is_some_and(|w| w.siege) && self.toggle().is_some()
     }
-    /// Armed and always cloaked (the Umbra; not the unarmed Observer): a fighter that wins where it is not detected.
+    /// Armed and hidden by nature (the Undertow, which lurks; not an unarmed scout): a fighter that wins where it is
+    /// not detected.
     pub fn cloaked_fighter(self) -> bool {
-        self.def().cloaked && self.def().armed()
+        (self.def().cloaked || self.def().lurk) && self.def().armed()
     }
 }
 
@@ -264,6 +272,8 @@ def_struct! {
         capital: bool = "capital",
         /// Always cloaked: the other side can neither see nor target it except where it detects (`detect`).
         cloaked: bool = "cloaked",
+        /// Lurk (the Undertow): cloaked as `cloaked` is, but only once it has neither walked nor struck for `LURK_S`.
+        lurk: bool = "lurk",
         /// Radius (tiles) in which it reveals the other side's cloaked units; 0 = none.
         detect: f64 = "detect",
     }
@@ -427,6 +437,7 @@ const UNIT: UnitDef = UnitDef {
     abilities: &[],
     capital: false,
     cloaked: false,
+    lurk: false,
     detect: 0.0,
 };
 /// Units a building's production queue holds (the one in training first).

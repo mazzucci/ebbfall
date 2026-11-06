@@ -279,9 +279,10 @@ fn weapons_upgrades_add_each_units_bonus() {
         6.0 + 1.0 - 2.0,
         "Trooper +1"
     );
+    // (by the time a Breakwater has walked into its reach, the held one it goes for has beached: armour 2 + 4)
     assert_eq!(
         first_hit(&mut w, UnitKind::Vanguard, PLAYER, UnitKind::Vanguard),
-        20.0 + 3.0 - 2.0,
+        20.0 + 3.0 - 6.0,
         "Vanguard +3"
     );
 }

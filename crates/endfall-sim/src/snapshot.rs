@@ -57,7 +57,7 @@ record! {
         face = u.face, flash = u.flash, carry = u.carry,
         task = task_parts(&u.task).0, phase = task_parts(&u.task).1, target = task_parts(&u.task).2, cd = u.cd,
         ab_cd0 = u.ab_cd[0], ab_cd1 = u.ab_cd[1], boost = u.boost.map_or(0, |(k, _)| k.index() + 1),
-        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, warp = u.warp,
+        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, warp = u.warp, slowed = u.slowed,
         hid = hidden_from(u, w), cloaked = w.is_cloaked(u) as u8,
     }
 }

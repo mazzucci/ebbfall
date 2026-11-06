@@ -54,6 +54,7 @@ export function lens(M, f) {
     ring(b, 7.9, 1.16, M.inkSeam, 0.1, { arc: 0.06, a0: a0 - 0.06, seg: 44 });                // ink seams at the arc's ends
     ring(b, 7.9, 1.16, M.inkSeam, 0.1, { arc: 0.06, a0: a0 + Math.PI * 0.56, seg: 44 });
     ring(b, 6.85, 0.25, M.inkSeam, 1.05, { arc: Math.PI * 0.56, a0, seg: 44 });               // and along its inner shoulder
+    ring(b, 6.1, 0.5, M.ring, 0.8, { arc: Math.PI * 0.56 + 0.12, a0: a0 - 0.06, seg: 44 }); // a pearl keyline inside it, on the glass: the team band always has a light edge against the black (seat 1 under protanopia)
   }
   deeplight(b, M, 1.3, 0, 1.3, 0);                                                           // the light in the middle
   for (let k = 0; k < 3; k++) {                                                               // three pods under the rim

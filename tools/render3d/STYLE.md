@@ -7,7 +7,7 @@ are the "not drawings" part. Nothing here is a flat fill, a cartoon outline or a
 material, wear sits on edges, and every unit casts a real shadow.
 
 Step 0 (the slice) set this sheet with six models: the Rigger, Picket and Lighthouse (`harbour.js`), the Glint, Lens
-and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1).
+and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1; the salt works since step 2).
 Later makers build from it; where a later model needs a material that is not here, add it to `materials.js` /
 `vael.js makeVaelMats` and to this sheet in the same change.
 
@@ -26,11 +26,10 @@ below). The renderer picks them through
 variant's own (veins, marks) fades out at the tile's edge. The rock plateaus are dead reef (step 1): a bleached lip, a
 pitted grey-brown top, a dark layered face on every edge.
 
-The salt field (`shard_0..3`): halite grown in cubic clusters on a bed of wet slate under a crust. Salt is pale
-by itself, a warm grey (`ground.js GMATS`: `salt` 0x7c776d rough 0.95, `saltWet` 0x6e6f68, flat shaded; it peaks near
-200 sRGB, under the units' highlights: step 0's 0xe4e0d4 and round 2's 0xc2bdae both peaked at white) and carries no
-light. The four
-stages differ by shape: standing clusters, fewer and lower clusters, a flat broken crust, a bare dark pit with a pale rim.
+The salt field (`shard_0..3`): the salt works, a heap of salt on each node standing on one cracked salt pan under the
+whole field ("The salt works" below). Salt is pale but under the units' highlights (it peaks near 190 sRGB) and carries
+no light. The four stages differ by shape: a tall cone and a small one, one cone dug flat, a low raked windrow, a
+scraped wet hollow with a pale broken rim.
 
 ## The Harbour (sim race `humans`)
 
@@ -88,7 +87,7 @@ Rigger's yoke, apron and sack ties (see "Harbour infantry" below). The Lighthous
 gallery and the gallery's deck, canvas panels on the hull roof alternating pale and team at equal width, the house's
 south end wall and porch, one of the awning's two stripes, a thin band on a raised stone kerb, crate tarps, mooring
 posts' tops, a pennant. Every team band sits between two `inkLine` rings or hems (0.5 units, pure black: the finish
-keeps them), so seat 6's white parts from pale canvas.
+keeps them), so a pale seat's paint (seat 6's white until step 2; lilac now) parts from pale canvas.
 
 ### Shape language
 
@@ -149,7 +148,7 @@ value about 0.5, so it never outshines the pearl or the salt. The pool is a dim 
 
 ### Team colour
 
-Team glaze between `inkSeam` edges (a seam ring, a hem bar, an end cap), so seat 6's white and seat 3's lilac part from
+Team glaze between `inkSeam` edges (a seam ring, a hem bar, an end cap), so a pale seat (seat 6's white until step 2, seat 3's lilac) parts from
 the pearl and the deeplight. At least a sixth of the footprint, never only on the signature: the Glint's one smooth
 dome on the back inside one ink seam plus the collar on its tail; the Lens's two rim arcs plus the three pods under
 the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.
@@ -161,7 +160,9 @@ the rim; the Tidewell's three ring arcs plus the pylons' inner faces and caps.
   flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a sleeve on the tail: never a
   band across the body (bands with seams read as palings or a blade at 18 px).
 - Fighters: blades and discs. The Lens is an ink-glass disc (r 7.6, the glass big and dark: the one "eye") in a narrow pearl rim (r 7.9, tube 1), the light in the middle, a thin
-  pearl ring etched in the glass: from above a dark hollow with a bright centre, never the Glint's solid pale drop.
+  pearl ring etched in the glass: from above a dark hollow with a bright centre, never the Glint's solid pale drop. Inside
+  each team arc, past its ink seam, a pearl keyline on the glass (r 6.1, tube 0.5), so the team band has a light edge
+  against the black in every seat (seat 1's magenta went mid-grey on the black disc under protanopia).
 - Support: flowers. Heavies: spirals.
 - Buildings: rings, pools, pylons on a three-lobed plinth. The Tidewell is a pearl ring round a pool on a ribbed ink
   drum, three short lit sluice channels from the pylons' feet into the pool that stop well short of the centre (no
@@ -383,24 +384,27 @@ brightest planes on screen in seat 6, and the Windmast's sails hiding the mast (
 (the judge passed it) but all four testers swapped the Pump and the Workshop: the Workshop's new long pale jib with its
 hanging bale read as a pump jack or a well-sweep with a bucket, the Pump's big pale horse-head as a dial or a wheel.
 Round 5, the table below, keeps round 4's other six and takes round 3's Pump and Workshop back, cleared at 1x.
+In step 2 (both peoples' lists) all four testers swapped the Crew Hall and the Slipway ("a long shed with ribbed bays
+and a yard: a boathouse"; "a pitched-roof hall with a steeple"); the table has their step-2 fix: the Crew Hall a plain
+roof over a drill yard with a flag, the Slipway a large sharp-bowed hull on a slip into water beside a low lean-to.
 
 | kind (key)              | signature from above                                                                                              | the team canvas                                                                     |
 |-------------------------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | Windmast (`depot`)      | a square tarred store (30 x 28) with a timber deck on top; out of it a tarred ship's mast (to 75, iron bands two over each sail) carrying three square sails one over another, narrowing upward (course 28-31 x 10.5, topsail 22-25 x 9.5, topgallant 16-19 x 8, heads at 35, 51.5, 67), hung on the mast's far side so the dark mast runs down their faces: each team canvas bellied away (`sailGeo`, a bent grid), leaning foot-south 0.12, framed all round in tar (the yard, tarred bolt-ropes down the leeches and along the foot) so it never shares the kites' wedge; the yards (r 1.2) reach 5.5 past the cloth each side with iron bands at their ends; braced 0.18; a small top over the course, a pennant. Nothing radial | the three sails, two canvas doors on the store's south face in ink frames, a lean-to over the casks south, the crate tarps, the pennant |
 | Pump (`extractor`)      | round 3's pump jack along x on an iron skid: a tarred A-frame (the samson post, two A's astride, its saddle at 31), the walking beam (30, timber, a mid value, iron straps) nodding at 0.42, east end down; at that end a small horse-head (r 8, timber cheeks inside an iron face, `profile`: small and darkish, never a pale disc), the bridle straight down from its foremost point to a carrier bar and the rod into the stuffing box; at the west end an equaliser, pitman arms down to two cranks on a gearbox; the well: an iron casing with flanges standing in a spreading pool of brine (`blob`, 28 points; `brine`, wet, no light) on a pale salt crust, a ripple of salt round it, a flow line north to a salt pan; an engine house north-west with a drive shaft. No sacks, crates or casks (clutter at 1x) | the two counterweights on the cranks (quadrants r 12 behind an ink rim, the near one facing the camera), the engine house's tarp, a windbreak (27 x 14) on posts behind the salt pan |
-| Crew Hall (`barracks`)  | a long tarred shed along x (80 x 26) under a gable: the near (south) slope weathered team canvas (`paintWorn`) sagging 1.5 between seven bays of timber battens that cast their shadows, worn ink hems all round, the far slope dark tar, a tarred ridge beam (2.6) raised over it, a stove pipe on the far slope; under its eave a shallow shade along the south wall (old sailcloth, `canvasDark`, 8 deep, falling 2.4, on posts with a rail) so the wall is not a black band; doors and shuttered windows along the wall, benches; a tall flagstaff at the west end; a yard with a bell, a rifle rack, crates and casks | the near roof slope (84 x 17), the flag, a crate tarp: a long two-tone pitched bar |
+| Crew Hall (`barracks`)  | soldiers live and drill here: a long tarred shed along x (80 x 26), plain walls, under one plain gable: the near (south) slope weathered team canvas (`paintWorn`) with one gentle sag, no battens or bays (step 2: the bays read as boat slips), worn ink hems all round, the far slope dark tar, a tarred ridge beam (2.6) raised over it, a stove pipe; two doors and small shuttered windows under a shallow shade along the south wall (`canvasDark`, on posts with a rail); in front the drill yard, a square of packed sand (`sandbag`, 46 x 22) in a timber kerb with eight straw cross-post dummies set a little unevenly (a post, a crossbar, a straw body and a sack head in straw-tan, 0x9c8658, no cast shadow: step 2's ranks of round pale heads read as a parked squad of infantry), the flagstaff (44) at its north-east corner; three round pale targets on posts east, a rifle rack, a bell | the near roof slope (84 x 17), the flag, a crate tarp: a long two-tone bar over a sand square with a flag |
 | Workshop (`forge`)      | round 3's smithy (34 x 28) under a dark corrugated iron roof on timber posts, one slope down to the south, a louvred vent along the roof (three pale timber louvres, a pale timber gable cap with an iron strap: a pale ridge in grey), a square iron stack at its north-west corner; the forge out in the yard south of it: a slate hearth glowing orange-red (`hearth`, r 3.4; gold must not meet the forge glow) under a short flue, the anvil, five orange sparks over it, a quench tub; a short pale timber derrick west of the smithy (mast 50, boom r 2 with iron bands up to the south-east), the bale hung over the quay, never past the footprint (round 4's long jib read as a pump jack); no bench, bars or chain coil (clutter at 1x) | an awning along the open south side (39 x 13) on posts under the eave, the bale (team canvas, roped, between ink hems), a wrap round the stack, a crate tarp |
-| Slipway (`factory`)     | a planked timber ramp (42 x 72) sloping down to the south off a stone head, a tarred hull on keel blocks and shores upon it, open: its dark inside (`tarIn`), thwarts, open ribs at the stern, a pale tarp over the bow; two sheer legs over the ramp's head; a low shed east under a hipped roof (rise 10) of weathered team canvas over tarred boards, sagging between three battens on each long slope, worn ink hems at the eaves and down the hips, a tarred ridge (2.4) raised over it | the tarp amidships, the sail lashed between the sheer legs (a triangle, vertical), the shed's hipped roof (the family's one hipped roof) |
+| Slipway (`factory`)     | a boat is built here: a stone slip (34 wide) inclined 10 down to the south off a stone head, running into a strip of dark water (`brine`) at the quay's edge with a pale line of foam, two pale timber ways (`timberPale`) on dark sleepers; on them, on keel blocks and shores, the largest shape: an open tarred hull (`hullGeo`: 56 long, half-beam 12, deep 8, a transom stern, a sharp bow pointing down the slip, the sheer rising forward), its pale gunwale outlining the boat, six pale ribs across its dark inside (`tarIn2`), a keel, a pale stem post, a team strake along each side under an ink seam; a capstan on the head with its line to the stern. East, the mould loft: a low open lean-to (28 x 46), one slope falling away from the slip (20 to 11) on posts, a tarred back wall and a dark high plate, planks stacked beneath. No sheer legs and no peaked roof (step 2: a steeple and a hall; and the Loft is a deck beside a peaked tent) | the lean-to's slope (weathered canvas sagging in three bays, worn ink hems), the strakes, crate tarps |
 | Lookout (`turret`)      | a tall tripod of tarred poles (r 2.2) on a stone footing, lashed, braced three times, a ladder up the south leg; the crow's nest at y 48, a shallow tarred tub (r 10.2, 6 tall, open hoops: the camera sees into it) floored dark (`oilskin`, tarred seams: the gun shows on it, not a pale face), a canvas skirt hung beneath it, a pennant staff; a long shadow: a tower, not a drum | a screen lashed round the tripod's waist outside the legs (a cone, 0.38 to 0.54 of the way up, between ink hems), the skirt under the nest, the dodger over the tub's whole wall (an open tube, ink hems top and foot), crates under a tarp at the foot |
 | its gun (`turret_head`) | a heavy iron swivel gun (36, r 2.7 to 2, angled up 0.2) on a pivot post and yoke in the nest, two pale canvas servings along the barrel so it reads far past the rim, a muzzle swell and a brass bead, a cascabel; no dome or hood (round 2's hood read as a ball); drawn over the base, no shadow | the breech wrapped between ink rings, a powder chest behind the gunner's place |
 | Loft (`airfield`)       | where the Kites are kept and launched: a broad raised launch deck (44 x 40 at y 20) on tarred trestles with cross braces, planked, a rail on its west and north edges, a stair up from the quay; two Kites (`parkedKite`: a delta wider than long, 27 x 17 at k 1, cream nose (`kiteCloth`), a team band along the trailing edge behind an ink seam, timber leading edges, spine and cross spar, a keel pod, on chocks) parked on it nose east, turned apart, tethered to cleats; a small windsock (striped tubes) on a short staff at its north-east corner; east the hangar, a tent along z (28 x 40, ridge 24) with no walls: a tarred sod-cloth (`tar2`) at its foot, weathered canvas sagging 1.6 between rafter lines (ropes over it casting shadows), worn hems, a tarred ridge pole (r 1.4) raised on forked poles, a tarred back cloth, a dark floor, open south where a third Kite's nose shows; guy lines; a winch with a line up to the deck. No mast (round 2's mast read as the Windmast) | the tent's two slopes, the Kites' trailing bands, the windsock's stripes, crate tarps |
 
 Roofs against each other: the Lighthouse a cone on a round tower and a striped hull; the Windmast a dark mast through a stack of
 three framed trapezoids, yard ends out to the sides, over a dark store; the Pump an A-frame and a nodding beam with a
-small dark head over a spreading pool of brine, team counterweights; the Crew Hall a long two-tone gable over a shade; the Workshop a dark ribbed slope with a pale vent along it, a
-team strip at its foot and a short pale boom; the Slipway an open hull on a ramp and a hipped roof; the Lookout a small open
+small dark head over a spreading pool of brine, team counterweights; the Crew Hall a long two-tone gable over a shade and a sand drill yard with dummies and a flag; the Workshop a dark ribbed slope with a pale vent along it, a
+team strip at its foot and a short pale boom; the Slipway a sharp-bowed open hull on a slip into water and a low lean-to; the Lookout a small open
 tub on a tall tripod with a long gun; the Loft a planked deck carrying two pale deltas beside a tent. A 3x3 quay needs about 1250 square units of team to reach the sixth, so the
-Crew Hall's slope, the Slipway's hipped roof and the Loft's tent are large; their forms differ and none is its
+Crew Hall's slope, the Slipway's lean-to and the Loft's tent are large; their forms differ and none is its
 building's signature.
 
 What the blind tests taught: a radial star of vanes reads as propellers (flyers), a tall mast as "the Windmast"
@@ -430,7 +434,7 @@ depot 32 -> 42 (the Windmast's mast), turret 14 -> 36 (the Lookout's nest and pe
 (`TURRET_HEAD_H`: a north-facing muzzle stands about 74 above the anchor). The anchor stays the footprint's centre, so
 the head still seats on the base. Every Harbour building and all 16 head frames have their top row clear (11 px or more
 of room). Team shares at
-facing 0 (round 5): Windmast 0.240, Pump 0.175, Crew Hall 0.242, Workshop 0.171, Slipway 0.234, Lookout 0.191 (its gun
+facing 0 (step 2): Windmast 0.240, Pump 0.175, Crew Hall 0.256, Workshop 0.171, Slipway 0.194, Lookout 0.194 (its gun
 0.182), Loft 0.174. The pack: `node tools/art/review.mjs <dir> --family=hbld` (the phone sheet is a scene of each
 building once, in seat 0 or 6, with a Windmast, a Lookout and a Pump on a seep again in seat 1, a salt field, the
 Tidewell, Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a Harbour base of
@@ -465,25 +469,47 @@ shared by the variants (round 1 used a non-periodic noise: seams); its own marks
 small bleached nub, at hashed places clear of the edge, no window. The plateau's inside has six variants (`rock_15_0..5`,
 `gl/ground.js rockTile`), the edges three. The minimap draws it `#6b665a`.
 
-**The salt field** (`ground.js saltField`, `shard_0..3`, GMATS as above): a field, not a clump (round 3's read as
-rubble or rock heaps). A wide flat apron of pale grey-white crust (`apron` 0x4d4c49, radius 17 with an uneven edge,
-`patch`; ~109 sRGB in grey in the review's units sheet), bigger than the crystals, under stages 0-2, so a field reads
-as a pale patch at 1x; the cell is `unitCell(21, 24)`. 0: nine tall clusters of halite cubes on a darker crust heart
-(`crust` 0x46433d), a spill of loose cubes; 1: four lower clusters, the crust dug through to the slate in places; 2: no
-standing crystals, slabs of crust and salt over wet slate on the apron; 3: a bare dark pit of wet slate with a film of
-brine and an uneven, broken pale rim, two cubes left. The crystals peak near 198 sRGB.
+**The salt works** (step 2, after the owner's note that grey faceted crystal clumps in an arc by the main read as a
+mineral line and a green pool as a geyser, from another game, and the whole-set judge's "the salt reads as rubble").
+No upright faceted crystals and no green pool or plume anywhere.
 
-**The brine seep** (`brineSeep`, `vent_0..3`, round 4): the opposite of kelp. Brine a mid teal-green (`seep` 0x1c3a35,
-~77 sRGB in grey, near the shallows' value and above the ground's ~40) welling up off centre (`seepDeep`), one small
-still glint, in an uneven pool ringed by an irregular pale salt crust (`rim` 0x5a5852, ~135 in grey) with flakes lifted
-at its edge, slate stones at no even spacing, three of them in a heap. No rings, no light (round 2's black disc and
-rings read as a Vael unit; round 3's dark brine read as a hole, the kelp's twin). The frames: bubbles of brine (a
-lighter teal, never foam-white) at five places, each swelling and slumping to a flat slick in turn. The renderer's
-violet glow over it is gone (`gl/render.js NodeObj`).
+*The salt pan* (`src/client/gl/ground.js saltPans`, drawn by `gl/render.js renderTerrain` over the tiles and under
+the shade layers, and by the review pack the same way): one continuous crust under each field, so a field reads as a
+salt flat and not as separate rocks. Salt nodes within 3.6 tiles of each other join (a field's arc spaces them 2 to
+3.2 apart); the pan is their union of discs (1.3 tiles) and capsules between joined nodes (0.95), its shore wobbled
+by two low noises. A dull grey-white crust (`PAN` [75,73,68], about 58 in grey on the seabed's 40: under the reef top
+and a unit's body; round 1's pale pan, ~100, was the largest light mass on screen and the workers lost contrast where
+they mine), cracked into flags about half a tile across by faint pale lines that come and go (dark outlines read as
+paving), each flag its own shade, a fine grain, darker and damp towards its edge. The edge is crisp (round 2's soft, dithered
+edge read as smoke or fog-of-war): a thin pale lip (`PAN_LIP` [104,101,94], 0.07 tile) with a dark line of shadow
+under it, and past it a few flakes (~0.3 tile) broken off onto the seabed, each with its own lip and shadow. The pan's
+shape is a distance field read bilinearly from a 4-texel grid; a 1 world px texel cost about four times as much
+(1.4 s for a 128x128 map's 20 fields, cold) and was not kept. The heaps carry the brightness. One texel
+is 2 world px (`PAN_RES`), linear-filtered; on a desktop's Chromium a 64x64 map's pans take some 50-75 ms to make cold
+(20 ms warm), a 128x128 map's 105-145 ms (60-80 ms warm): the cells of the 4-texel grid wholly off the pan are skipped,
+and each loop is a small function over typed arrays (as one large function V8 kept deoptimizing it: 0.2-0.5 s cold).
+The pan stays when its nodes are worked out.
+
+*The heaps* (`ground.js saltField`, `shard_0..3`, `unitCell(16, 16)`): heaps of salt the shape of salt-works piles,
+cones at the angle salt rests at with a rounded top, barely uneven, each on a damp spilt foot (`W.heap` 0x8a867e with a
+grain map and bump, `grainTexture`: no smooth clay; white in the light, grey on its shadow side, peaking near 185 sRGB).
+0: a tall cone and a small one; 1: one cone with a scoop dug out of its face (a flat top read as a cake); 2: a long, low raked ridge (a cone drawn out 2.2 to 0.62)
+with rake grooves along its flanks; 3: a scraped hollow of wet slate in
+the crust with a pale broken rim (`W.terrace`) and two lumps left.
+
+**The brine seep** (`brineSeep`, `vent_0..3`, step 2): a brine spring. Iron brine, an unsaturated red-brown with a
+wet sheen and a small still glint (`W.brine` 0x51392a rough 0.15, ~60 in grey; `W.glint`; round 2's maroon could read
+as a red splat; round 1's rust-ochre read as the Harbour's orange and as fire), wells up off
+centre (`W.welling`) in a pool held by salt terraces stepping down round it (`W.terrace` 0x504e49, three uneven tiers 2 high,
+each bevelled and smooth shaded: lit rounded rims over steps in shadow, no flat fills), the brine's iron staining the
+terraces and a tongue of crust where it spills to the south-east (`W.ochre` 0x3e2c22, dull); slate stones at no even
+spacing. No green, no plume, no rings, no light. The
+frames: bubbles of a lighter ochre at five places, each swelling and slumping to a flat slick in turn. The tide pool
+(scenery) stays a dull grey-blue film, ~54 in grey: never ochre, never ringed by white.
 
 **The scenery** (`scenery2.js`, `SCENERY`; the names are the old props' so the client, the scatter and the tests stay
-as they are): on the reef (solid), `boulders_*` a small heap of clams and whelks lying down with rounded brown
-pebbles (`shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
+as they are): on the reef (solid), `boulders_*` a small heap of clams and whelks lying down with rounded grey-brown
+pebbles (`pebble` 0x35312d, off the seep's rust; `shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
 round 1's heap read as a cluster of Vael units, round 3's grey pieces and angular stones like the salt's crystals), `spire_*` pilings (weathered `drift` 0x6c6252, a tar line, a barnacle crust, split tops),
 `ruin_*` a boat's ribs, `wreck_*` a tarred hull keel up. On the open ground (flat, walked over): `crater_0` an anchor in
 the sand, `crater_1` a tide pool (a small film of dull grey-blue water, `pool` 0x131a22, ~54 in grey, under the seep's brine (~77) so it is never taken for one: round 4's mint teal was brighter than the brine; in one lobed outline straight on the sand, its kelp brown-black,
@@ -522,11 +548,13 @@ then the deep. In grey: land, a dark wet line, a pale lap, the lighter shallows,
 most 2048 a side), on a dry one one texel a tile as before. The minimap: land `hsl(36,10%,14-23%)`, reef `#6b665a`,
 shallows `#467c80` (a notch up), deep `#1d3658`.
 
-The grey check (round 4): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
-ground, the kelp, each resource, the seep's brine and rim, the salt's apron, the reef top and the units; the order
-to keep is units first, then the seep and the full salt, the kelp always under the ground.
+The grey check (round 4; the salt works add a worker standing in the middle of a pan in the base shot, its body's
+grey against the pan's round it): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
+ground, the kelp, each resource, the seep's brine and terraces, the salt pan, the reef top, the tide pool and the
+units; the order to keep is units first, then the seep and the full salt, the kelp always under the ground.
 
 The pack: `node tools/art/review-ground.mjs <dir>` (the ground and units sheets at a phone's size and at 1:1 with the
 game's shade layer over them, grey / protan / deutan, every prop at 1:1, construction and rubble of both peoples, the
-projectiles at 1:1 and 4x, a Shore-like patch with the water tints and its minimap strip). It renders only the family
+projectiles at 1:1 and 4x, a Shore-like patch with the water tints and its minimap strip, and the base shot: a real
+main from the sim's map at a phone's size). It renders only the family
 and a few units for scale, never the whole atlas.

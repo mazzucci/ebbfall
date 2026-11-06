@@ -2,6 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { SEAT_COLORS } from '../../src/client/look.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
 before(start);
@@ -2228,7 +2229,7 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
     assert.ok(seen.hqVis && seen.hqSeen, 'the ally\'s base is in our fog-free area');
     assert.ok(seen.army > 0 && seen.allSeen, `the ally's units (${seen.army} fighters) are all in our sight`);
     const near = (p, q) => p.every((v, i) => Math.abs(v - q[i]) <= 24);
-    assert.ok(near(seen.hqPixel, [0x15, 0xbd, 0x96]), `the ally's Core on the minimap in its spot's colour (COMPUTER 2's teal, though it plays seat 1), clear of fog: ${seen.hqPixel}`);
+    assert.ok(near(seen.hqPixel, [16, 8, 0].map(b => SEAT_COLORS[2] >> b & 255)), `the ally's Core on the minimap in its spot's colour (COMPUTER 2's teal, though it plays seat 1), clear of fog: ${seen.hqPixel}`);
     assert.ok(seen.frame.some(p => p.every(v => v >= 200)), `framed in white, an ally's: ${seen.frame.join(' ')}`);
     assert.deepEqual(seen.enemyHq, [0, 0], 'the enemies\' bases still in the fog');
   } finally { await ctx.close(); }

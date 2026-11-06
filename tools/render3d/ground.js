@@ -7,104 +7,117 @@ import { torus } from './vael.js';
 
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
 const std = (o) => new THREE.MeshStandardMaterial(o);
-/** The ground's own materials: wet slate, salt a warm grey well under the units' pale tops (the PM's note at gate A,
- *  and round 2's judge: 0xc2bdae still peaked at 251, as bright as a unit's highlight), the crust, the brine a dark
- *  teal-green liquid. Salt carries no light. */
+/** The ground's own materials, shared with the scenery (scenery2.js): wet slate. The salt works' own are `W` below.
+ *  Salt carries no light. */
 export const GMATS = {
   slate: std({ color: 0x343a40, roughness: 0.8, metalness: 0.1, flatShading: true }),
   slateWet: std({ color: 0x272c31, roughness: 0.45, metalness: 0.15, flatShading: true }),
-  salt: std({ color: 0x7c776d, roughness: 0.95, metalness: 0.02, flatShading: true }),           // halite: a warm grey, the palest thing on the ground but under every unit's top
-  saltWet: std({ color: 0x6e6f68, roughness: 0.7, metalness: 0.05, flatShading: true }),       // a wet face, greyer
-  crust: std({ color: 0x46433d, roughness: 0.95, metalness: 0, flatShading: true }),            // the salt crust over slate (a pale bed made the whole field a pale plate)
-  brine: std({ color: 0x1a2226, roughness: 0.12, metalness: 0.35, flatShading: false }),        // still brine in a mined-out pit
-  seep: std({ color: 0x1c3a35, roughness: 0.4, metalness: 0.1 }),                              // the seep's brine: a mid teal-green near the shallows' value, never under the ground (round 3's dark brine read as a hole, as kelp)
-  seepDeep: std({ color: 0x163029, roughness: 0.4, metalness: 0.1 }),                           // where it wells up, a shade deeper
-  bubble: std({ color: 0x2e4f48, roughness: 0.4, metalness: 0.1 }),                             // a bubble of brine: a lighter teal, never foam-white
-  glint: std({ color: 0x6f8a84, roughness: 0.3, metalness: 0 }),                                // one small still glint on the brine
-  rim: std({ color: 0x5a5852, roughness: 0.95, metalness: 0, flatShading: true }),              // the salt crust round the seep: pale, so it reads "liquid with a salt rim" in grey
-  apron: std({ color: 0x4d4c49, roughness: 0.95, metalness: 0, flatShading: true }),            // the salt field's bed: a pale grey-white crust, wider than the crystals
 };
 /** A flat, uneven patch (no round plinth: round 2's read as tokens or coins): an outline of radius R wobbling by `amp`,
  *  squashed to `sq` in depth, `h` thick, its phase `ph`; `edge(a)` gives its radius at angle a. */
 const wob = (R, amp, ph) => (a) => R * (1 + amp * (0.13 * Math.sin(3 * a + ph) + 0.08 * Math.sin(5 * a + ph * 1.7) + 0.05 * Math.sin(9 * a + ph * 2.3)));
-function patch(edge, sq, h) {
+function patch(edge, sq, h, bevel = 0) {
   const sh = new THREE.Shape();
-  for (let k = 0; k <= 60; k++) { const a = k / 60 * Math.PI * 2, r = edge(a), x = Math.cos(a) * r, z = Math.sin(a) * r * sq; k ? sh.lineTo(x, -z) : sh.moveTo(x, -z); }
-  const geo = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false, curveSegments: 1 }); geo.rotateX(-Math.PI / 2); geo.computeVertexNormals(); return geo;
+  for (let k = 0; k <= 60; k++) { const a = k / 60 * Math.PI * 2, r = edge(a) - bevel, x = Math.cos(a) * r, z = Math.sin(a) * r * sq; k ? sh.lineTo(x, -z) : sh.moveTo(x, -z); }
+  const geo = new THREE.ExtrudeGeometry(sh, bevel ? { depth: h, bevelEnabled: true, bevelThickness: bevel * 0.6, bevelSize: bevel, bevelSegments: 3, curveSegments: 1 } : { depth: h, bevelEnabled: false, curveSegments: 1 });
+  geo.rotateX(-Math.PI / 2); geo.computeVertexNormals(); return geo;
+}
+/** A grain for salt (a heap's colour and bump): fine speckle, light and dark, seeded; tiled. */
+function grainTexture(color) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), img = g.createImageData(128, 128); let q = 977;
+  const r = () => ((q = (q * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 128 * 128; i++) { const v = color ? 210 + (r() - 0.5) * 80 + (r() < 0.08 ? -60 : 0) : 128 + (r() - 0.5) * 220; img.data.set([v, v, v, 255], i * 4); }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 3); if (color) t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 const G = GMATS;
 /** The rubble's dull stand-ins for the peoples' pale materials: dead buildings' cloth and pearl, greyed by the fall. */
 const RM = { rope: std({ color: 0x6e6048, roughness: 0.95, metalness: 0 }), sail: std({ color: 0x45413a, roughness: 0.95, metalness: 0 }), pearlDull: std({ color: 0x48464a, roughness: 0.75, metalness: 0.05, flatShading: true }), pearlDark: std({ color: 0x323134, roughness: 0.75, metalness: 0.05, flatShading: true }) };
 
 // ---------------- resources ----------------
-/** A salt field (`shard_0..3`), readable from full to nearly mined out by its shape, not only its size:
- *  0 full: six tall clusters of halite cubes, stacked and tilted, on a crust bed over wet slate, a spill of loose cubes;
- *  1 worked: three lower clusters, the crust dug through to the slate in places;
- *  2 low: no standing crystals, a flat salt crust broken into slabs over the bed, a few loose cubes;
- *  3 nearly gone: a bare dark pit of wet slate and a pale broken rim of salt round it, two cubes left. */
+// The salt works (STYLE.md "The salt works", since the step-2 note that the faceted crystal clumps in an arc read as a
+// mineral line and the green pool as a geyser): a field is a salt pan, drawn by the client under the field's nodes
+// (src/client/gl/ground.js saltPans), with a heap of raked salt on each node; a seep is a brine spring, rust-ochre brine
+// in white salt terraces.
+const W = {
+  heap: std({ color: 0x8a867e, map: grainTexture(true), bumpMap: grainTexture(false), bumpScale: 3.5, roughness: 1, metalness: 0 }), // salt: grained, white in the light, grey in its own shade, under the units' tops
+  heapWet: std({ color: 0x6c6a64, roughness: 0.8, metalness: 0 }),                              // a heap's damp foot
+  terrace: std({ color: 0x504e49, roughness: 0.9, metalness: 0 }),                             // the spring's salt terraces: smooth shaded, lit rims over shadowed steps
+  ochre: std({ color: 0x3e2c22, roughness: 0.9, metalness: 0 }),                                // crust stained by the iron in the brine, a dull red-brown
+  brine: std({ color: 0x51392a, roughness: 0.15, metalness: 0.1 }),                             // iron brine: a deep red-brown, wet and glossy (round 1's ochre read as the Harbour's orange, as fire)
+  welling: std({ color: 0x33241a, roughness: 0.15, metalness: 0.1 }),
+  glint: std({ color: 0x9a8a78, roughness: 0.2, metalness: 0 }),                                // the wet glint on the brine, small and still                           // where it wells up
+  bubble: std({ color: 0x5e3c2c, roughness: 0.2, metalness: 0.2 }),                             // a bubble of brine, a lighter red-brown
+};
+
+/** A heap of salt, the shape of a salt-works pile: a smooth cone, straight-sided at the angle salt rests at, its top
+ *  rounded (or cut flat where it has been worked, `cut` the top's share of R), barely lumpy (never faceted: faceted
+ *  uprights read as crystals). Radius R, height H, its lumps seeded by `seed`. */
+function saltHeap(g, R, H, x, z, seed, cut = 0, scoop = 0) {
+  const prof = [new THREE.Vector2(R * 1.06, 0)];
+  for (let k = 0; k <= 10; k++) { const t = k / 10, r = R * (1 - t) + R * cut * t, y = H * t; prof.push(new THREE.Vector2(Math.max(0.01, r), y - (cut ? 0 : H * 0.06 * t ** 6))); }
+  if (cut) prof.push(new THREE.Vector2(0.01, H));
+  const geo = new THREE.LatheGeometry(prof, 32), pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {                                                     // a little uneven round its sides
+    const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i), a = Math.atan2(pz, px), t = py / H;
+    let k = 1 + 0.035 * Math.sin(a * 4 + seed) + 0.02 * Math.sin(a * 7 + seed * 2.3 + py * 0.3);
+    if (scoop) k *= 1 - scoop * Math.max(0, Math.cos(a - 0.6)) ** 3 * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 0.7;   // a scoop dug out of its south-east face: a hollow, its rim lit
+    pos.setXYZ(i, px * k, py, pz * k);
+  }
+  geo.computeVertexNormals();
+  add(g, geo, W.heap, x, 0.3, z);
+  add(g, patch(wob(R * 1.25, 1.2, seed), 0.85, 0.3), W.heapWet, x, 0, z);                  // its spilt, damp foot on the pan
+}
+
+/** A salt field's node (`shard_0..3`): a heap of raked salt on the pan, readable from full to nearly worked out by its
+ *  shape: 0 a tall heap and a second beside it; 1 one heap, lower; 2 a low spread mound, raked flat; 3 a scraped wet
+ *  hollow in the crust with a pale broken rim and two lumps left. The pan itself is the client's (gl/ground.js). */
 export function saltField(stage, M = G) {
   const g = grp(); s = 31;
-  const edge = wob(17, 1.0, 0.7), sq = 0.8;                                                 // the field's own uneven edge: a wide apron of crust
-  for (let k = 0; k < 4; k++) { const a = rnd() * Math.PI * 2, r = edge(a) * (0.9 + rnd() * 0.25); add(g, new THREE.DodecahedronGeometry(1 + rnd() * 1.6), M.slate, Math.cos(a) * r, 0.5, Math.sin(a) * r * sq, rnd(), rnd(), 0).scale.y = 0.55; } // slate chips round it
-  const cubes = (r, h) => { const c = grp(); add(c, rbox(r * 1.3, h, r * 1.2, 0.15), M.salt, 0, h / 2, 0); add(c, rbox(r * 0.85, h * 0.8, r * 0.9, 0.12), M.saltWet, r * 0.5, h * 0.72, -r * 0.3, 0.2, 0.5, 0.1); add(c, rbox(r * 0.7, h * 0.55, r * 0.7, 0.1), M.salt, -r * 0.45, h * 0.95, r * 0.35, 0.1, 0.9, -0.15); return c; };
-  const clusters = [[-6, 2, 3.2, 12, -0.2, 0.15], [5, 3, 2.8, 10, 0.25, -0.2], [0, -2, 3.6, 14, 0.05, 0.1], [-2, 6, 2.4, 8, -0.3, 0.3], [7, -4, 2.1, 7.5, 0.3, -0.15], [-8, -4, 2, 6.5, -0.3, -0.3],
-    [10, 2, 2, 7, 0.3, 0.1], [-10, 3, 1.8, 6, -0.35, 0.1], [3, -7, 2.2, 8.5, 0.1, -0.3]];
-  const loose = (n, y = 1.2) => { for (let k = 0; k < n; k++) add(g, rbox(1.2, 1.2, 1.2, 0.1), M.salt, (rnd() - 0.5) * 22, y, (rnd() - 0.5) * 15, (rnd() - 0.5), rnd() * 3, (rnd() - 0.5)); };
-  if (stage < 2) {
-    add(g, patch(edge, sq, 0.8), M.apron, 0, 0, 0);                                         // the crust apron, its edge uneven
-    add(g, patch(wob(9, 1.3, 2.2), 0.8, 0.3), M.crust, 1, 0.8, 1);                         // darker crust where the crystals grow
-    const keep = stage ? [clusters[2], clusters[0], clusters[1], clusters[3]] : clusters, k = stage ? 0.72 : 1;
-    keep.forEach(([x, z, r, h, lx, lz]) => { const c = cubes(r * k, h * k); c.position.set(x, 0.8, z); c.rotation.set(lz, rnd() * 3, -lx); g.add(c); });
-    loose(stage ? 5 : 8);
-    if (stage) for (let k = 0; k < 3; k++) add(g, rbox(3 + rnd() * 3, 0.6, 2 + rnd() * 2, 0.2), M.slateWet, 6 - k * 8 + rnd() * 2, 0.9, 5 - k * 3, 0, rnd() * 3, 0); // dug through to the slate
-  } else if (stage === 2) {
-    add(g, patch(edge, sq, 0.5), M.apron, 0, 0, 0);                                         // the apron, worn
-    add(g, patch(wob(10, 1.3, 1.1), 0.8, 0.2), M.slateWet, 0, 0.5, 0);                     // wet slate between the slabs
-    for (let k = 0; k < 11; k++) {                                                          // the crust in flat slabs, a little tilted, cracks between
-      const a = k / 11 * Math.PI * 2 + rnd() * 0.3, d = k < 3 ? 2 + rnd() * 3 : 7 + rnd() * 3, w = 4 + rnd() * 2.5;
-      add(g, rbox(w, 0.9 + rnd() * 0.4, w * (0.6 + rnd() * 0.3), 0.3), k % 4 === 2 ? M.salt : k % 2 ? M.saltWet : M.crust, Math.cos(a) * d, 0.9, Math.sin(a) * d * sq, (rnd() - 0.5) * 0.18, rnd() * 3, (rnd() - 0.5) * 0.18);
-    }
-    loose(4, 1.6);
+  if (stage === 0) { saltHeap(g, 9, 15, -1, -1, 0.7); saltHeap(g, 4.2, 6.5, 8, 5, 2.1); }   // a tall cone and a small one
+  else if (stage === 1) saltHeap(g, 8.5, 10, 0, 0, 1.3, 0, 0.7);                           // one, a scoop dug out of its face
+  else if (stage === 2) {
+    const g2 = grp(); g2.rotation.y = 0.5; g.add(g2);                                       // a long, low ridge of raked salt
+    const r2 = grp(); r2.scale.set(2.2, 1, 0.62); g2.add(r2); saltHeap(r2, 6, 5.5, 0, 0, 2.6);
+    for (const side of [-1, 1]) for (let k = 1; k <= 2; k++) add(g2, rbox(22 - k * 5, 0.25, 0.35, 0.1), W.heapWet, 0, 5.5 - k * 1.7, side * k * 1.2, side * 0.45, 0, 0);   // rake grooves along its flanks
   } else {
-    const pit = wob(13, 1.2, 0.7);
-    add(g, patch(pit, sq, 0.3), M.slateWet, 0, 0, 0);                                       // the pit: bare wet slate
-    add(g, patch(wob(7, 1.6, 2.1), 0.7, 0.2), M.brine, 1, 0.3, 0.5);                        // a film of brine in its bottom
-    for (let k = 0; k < 16; k++) {                                                          // the rim: the crust's last broken edge, uneven, a gap here and there
-      if (k % 6 === 5) continue;
-      const a = k / 16 * Math.PI * 2 + (rnd() - 0.5) * 0.25, w = 2.2 + rnd() * 2.6, r = pit(a) - 1.2;
-      add(g, rbox(w, 0.8 + rnd() * 0.8, 1.5 + rnd() * 1.2, 0.25), k % 4 === 1 ? M.saltWet : M.apron, Math.cos(a) * r, 0.6, Math.sin(a) * r * sq, (rnd() - 0.5) * 0.2, -a + Math.PI / 2, (rnd() - 0.5) * 0.2);
+    const pit = wob(9, 1.2, 0.7);
+    add(g, patch(pit, 0.8, 0.25), M.slateWet, 0, 0, 0);                                     // the scraped hollow, wet slate
+    for (let k = 0; k < 14; k++) {                                                          // the crust's broken rim round it, pale, a gap here and there
+      if (k % 5 === 4) continue;
+      const a = k / 14 * Math.PI * 2 + (rnd() - 0.5) * 0.25, w = 2 + rnd() * 2.2, r = pit(a) - 0.8;
+      add(g, rbox(w, 0.7 + rnd() * 0.6, 1.4 + rnd(), 0.25), W.terrace, Math.cos(a) * r, 0.4, Math.sin(a) * r * 0.8, (rnd() - 0.5) * 0.2, -a + Math.PI / 2, (rnd() - 0.5) * 0.2);
     }
-    add(g, rbox(1.6, 1.6, 1.6, 0.12), M.salt, -3, 0.9, 2, 0.3, 0.6, 0.2); add(g, rbox(1.2, 1.2, 1.2, 0.1), M.saltWet, 4, 0.7, -2.5, -0.2, 1.2, 0.1); // two cubes left
+    saltHeap(g, 2.4, 2, -3, 2, 5.1); saltHeap(g, 1.8, 1.5, 4, -2, 6.2);                       // two lumps left
   }
   return g;
 }
 
-/** The brine seep (`vent_0..3`, an animation): brine welling up in an uneven pool, a mid teal-green near the shallows'
- *  value, ringed by an irregular pale crust of salt (so it reads "liquid with a salt rim" in grey too, and is the
- *  opposite of the dark kelp), one still glint, slate stones at no even spacing. No rings, no light (round 2's black
- *  disc and rings read as a Vael unit; round 3's dark brine as a hole, the kelp's twin). The frames: bubbles of brine at
- *  a few places, each swelling and slumping flat in turn. */
+/** The brine seep (`vent_0..3`, an animation): a brine spring. Rust-ochre brine wells up in a pool held by white salt
+ *  terraces that step down round it, the brine's iron staining a tongue of crust where it spills; slate stones at no
+ *  even spacing. No green, no plume, no rings, no light (round 2's black disc and rings read as a Vael unit, round 4's
+ *  green pool as a geyser). The frames: bubbles at a few places, each swelling and slumping flat in turn. */
 export function brineSeep(f, M = G) {
   const g = grp(); s = 51;
-  const rim = wob(23, 1.1, 1.3), pool = wob(17, 1.2, 2.9), sq = 0.82;
-  add(g, patch(rim, sq, 0.6), M.rim, 0, 0, 0);                                              // the salt rim, its width uneven
-  for (let k = 0; k < 6; k++) {                                                             // crust flakes lifted at its edge
-    const a = rnd() * Math.PI * 2, r = (pool(a) + rim(a)) / 2 + (rnd() - 0.5) * 2;
-    add(g, rbox(2 + rnd() * 2.5, 0.6, 1.2 + rnd() * 1.4, 0.15), M.rim, Math.cos(a) * r, 0.75, Math.sin(a) * r * sq, (rnd() - 0.5) * 0.3, rnd() * 3, (rnd() - 0.5) * 0.3);
-  }
-  add(g, patch(pool, sq, 0.4), M.seep, 0, 0.6, 0);                                         // the brine
-  add(g, patch(wob(6, 1.0, 0.4), 0.8, 0.15), M.seepDeep, -2, 1.0, 1);                     // where it wells up, off centre
-  add(g, patch(wob(2.2, 0.8, 1.9), 0.5, 0.05), M.glint, -7, 1.02, -6);                    // the glint, still
-  for (let k = 0; k < 6; k++) {                                                             // slate stones: three in a heap on one side, the rest strays
-    const a = k < 3 ? 0.9 + rnd() * 0.5 : rnd() * Math.PI * 2, r = rim(a) * (k < 3 ? 0.95 + rnd() * 0.1 : 0.85 + rnd() * 0.35), sz = k < 3 ? 2.2 + rnd() * 2.2 : 1.2 + rnd() * 1.6;
+  const sq = 0.82, t1 = wob(26, 1.1, 1.3), t2 = wob(21, 1.2, 2.1), t3 = wob(17, 1.0, 0.4), pool = wob(14, 1.2, 2.9);
+  add(g, patch(wob(13, 1.6, 0.9), 0.55, 0.3), W.ochre, 14, 0, 12);                          // the spill: a rust tongue of crust to the south-east
+  add(g, patch(t1, sq, 1.2, 1.4), W.terrace, 0, 0, 0);                                     // the terraces, stepping up to the pool: rounded rims, steps in shadow
+  add(g, patch(wob(16, 1.3, 1.7), 0.6, 0.06), W.ochre, 8, 2.05, 7);                         // the stain where the brine runs down over them
+  add(g, patch(t2, sq, 1.2, 1.4), W.terrace, -0.5, 2, -0.5);
+  add(g, patch(t3, sq, 1.2, 1.4), W.terrace, -1, 4, -1);
+  add(g, patch(pool, sq, 0.3), W.brine, -1, 5.75, -1);                                      // the brine, in the top terrace's rim
+  add(g, patch(wob(4.5, 1.0, 0.4), 0.8, 0.12), W.welling, -3, 6.05, 0);                    // where it wells up, off centre
+  add(g, patch(wob(2.2, 0.8, 1.9), 0.45, 0.05), W.glint, -8, 6.07, -5); add(g, patch(wob(1.2, 0.8, 0.9), 0.5, 0.05), W.glint, -5.5, 6.07, -7);   // the wet glint, still
+  for (let k = 0; k < 5; k++) {                                                             // slate stones: two together, the rest strays
+    const a = k < 2 ? 3.6 + rnd() * 0.4 : rnd() * Math.PI * 2, r = t1(a) * (0.98 + rnd() * 0.2), sz = 1.4 + rnd() * 2;
     add(g, new THREE.DodecahedronGeometry(sz), k % 2 ? M.slate : M.slateWet, Math.cos(a) * r, sz * 0.3, Math.sin(a) * r * sq, rnd(), rnd(), rnd()).scale.y = 0.55;
   }
-  const sites = [[-2, 1, 1.4], [5, -4, 1], [-8, 3, 0.8], [3, 6, 1.1], [9, 2, 0.7]];        // bubbles: each site its own phase and size
+  const sites = [[-3, 0, 1.3], [4, -4, 0.9], [-8, -4, 0.8], [3, 5, 1], [-6, 6, 0.7]];       // bubbles: each site its own phase and size
   sites.forEach(([x, z, k], i) => {
     const ph = (f + i * 3) % 4;
-    if (ph === 0) add(g, sph(0.7 * k, 10, 8), M.bubble, x, 1.1, z).scale.set(1, 0.6, 1);
-    else if (ph === 1) add(g, sph(1.3 * k, 12, 8), M.bubble, x, 1.2, z).scale.set(1, 0.7, 1);
-    else if (ph === 2) add(g, patch(wob(1.8 * k, 1.5, i), 1, 0.08), M.bubble, x, 1.02, z);  // slumped: a flat slick, no ring
+    if (ph === 0) add(g, sph(0.7 * k, 10, 8), W.bubble, x, 6.15, z).scale.set(1, 0.6, 1);
+    else if (ph === 1) add(g, sph(1.3 * k, 12, 8), W.bubble, x, 6.25, z).scale.set(1, 0.7, 1);
+    else if (ph === 2) add(g, patch(wob(1.8 * k, 1.5, i), 1, 0.06), W.bubble, x, 6.07, z);  // slumped: a flat slick, no ring
   });
   return g;
 }

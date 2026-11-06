@@ -113,8 +113,8 @@ Nothing emissive on the Harbour is team-tinted.
 Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling behind a
 crescent parapet of wet sandbags laid ahead (r 7.6, 200 degrees, two courses), the rifle resting on them, a team
 groundsheet behind; frame 2 while going to ground (one course), frame 3 dug in. Cover is a wall in front, open behind:
-a full ring read as a machine's body in the round-1 blind test. Beached / anchored (later vehicles and flyers): the same pattern, a pose
-frame with a visible fixture on the ground (a gangplank and chocks; a dropped anchor and a taut line), never a tint.
+a full ring read as a machine's body in the round-1 blind test. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
+frame with a visible fixture on the ground (the hull down and spades out; a dropped anchor and a taut line), never a tint.
 
 ## The Vael (sim race `vael`)
 
@@ -256,6 +256,61 @@ the one low shape left, read the same):
 Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 21 h 26 (the raised harpoon's tip), Mender r 15 h 21. Team shares at facing
 0 (round 4): Rigger 0.173, Picket 0.173 / 0.214 dug in, Harpooner 0.216, Mender 0.238. The pack:
 `node tools/art/review.mjs <dir> --family=hinf`.
+
+## Harbour machines (step 1, `harbour-machines.js`)
+
+The three vehicles after the slice, on the Harbour rules above: boxes and hulls, a dark tarred body under a pale
+canvas top, team paint as matte canvas between ink lines on at least a sixth of the footprint and never only on the
+signature, timber and rope in small amounts, brass on a muzzle ring only, no lights. Each kind owns one cue a stranger
+names at 20 px, and the three never differ by size alone: legs under a pointed hull, a long bar ahead of a box, round
+wheels under a drum. Round 1's blind test passed (90%) but the judge failed the team colour: a canvas awning over the
+whole deck inside a hairline team rim made the Breakwater "a pale egg on stilts" (a Rigger to one tester) and the rim
+vanished in seat 6. Round 2's rules: the hull shows dark, bow and stern, in every facing; the canvas is a tarp over
+midships only; team paint has a real area (a quarter), on the hull's sides and on cloth, inside ink; legs are dark iron
+with team pads (pale shins read as a second pale mass in grey). The maker's rounds also taught: three bands across a
+tarp (pale, team, pale, with hoops) read as stripes, an insect: a tarp is two-tone at most; team knee caps above the
+gunwale read as antennae; a team deck alone on a carriage under a hood and a gun was 0.07 of the footprint.
+
+| kind (key)                  | signature shape, from above                                                                                                                                                       | size (sim r)   | team paint                                                                                                   | the pale top                                     |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|--------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| Breakwater (`vanguard`)     | the boat hull on legs: a tarred hull 29 long with its stem ahead, plank seams and iron straps on its bare bow and stern decks, an iron gunwale, a canvas tarp humped over midships (two-tone: pale forward of an ink bar, team aft of it, a rope hoop and a ridge seam on the pale part, a dark worn hem), four dark iron legs standing under it, a short mortar on the stem | heavy (14), the hull 8 up on its legs (cell r 22: the spades and legs splay past 17) | the strake along both hull sides (3.4 tall) between ink lines, the aft half of the tarp, the aft deck inside an ink seam, the knee caps and the foot pads' tops | the forward half of the tarp                     |
+| Anchor Gun (`siegeTank`)    | the long gun: a 21-unit tapered iron barrel on trunnion cheeks forward of a tarred carriage between iron-shod timber runners on six spoked wheels, a low canvas hood on rope hoops over the crew at the stern | heavy (14), the muzzle reaches 24 ahead, the dropped anchor about 29 astern (cell r 31) | the carriage's whole deck inside an ink hem, the hood's two end caps inside an ink rim, the six wheel discs inside their iron tyres, a band round the breech | the hood (r 4.6, 12 wide) |
+| Netter (`interceptor`)      | the box with a net: a tarred box on four big cart wheels (pale timber discs in iron tyres), behind the cab the folded net on a reel, a fat drum of pale rope wider than the box between pale timber end discs with cork floats in two rows, its mesh hanging down the tail; on the cab roof a twin flak mount, two fat tubes well apart angled up 52 degrees on one cradle (short and steep, never the Anchor Gun's long level bar) | line-heavy (12; cell r 14, the reel 15.8 across) | the whole long sides of the box and the cab's roof, between ink lines; a strap over the mount's cradle    | the net reel and the wheels' discs               |
+
+States, by pose frames as the Picket's (`UNIT_POSE` in look.js: `vanguard: { walk: 2, swap: 2, on: 3 }`, added for
+the Breakwater; the Anchor Gun keeps `siegeTank`'s row): the Breakwater beached (frame 2 settling: the hull half down,
+the legs folding, the spades swinging out; frame 3: the hull down on the sand, the legs crouched tight under it, four
+spades out either side, each a timber shaft from the gunwale with a broad pale timber blade and an iron edge lying on
+the ground); the Anchor Gun anchored (frame 2: the gun rising, the anchor swinging down off the stern on its hawser;
+frame 3: the gun raised 26 degrees and an anchor dropped on the sand astern, a pale timber stock across its ring, a
+pale hawser taut from the stern post). Travelling, the anchor is lashed on the hood. The Netter has two frames (the
+wheels turn). A fixture on the ground, never a tint, as the sheet says.
+
+## Harbour air (step 1, `harbour-air.js`)
+
+The three flyers after the slice, on the Harbour rules above: triangles and sails, a tarred hull or frame under pale
+canvas, team paint as matte canvas between ink lines on at least a sixth of the footprint and never only on the
+signature. Every flyer casts its shadow well apart from it, as the Petrel does (the sun from the north-west lands the
+shadow of a thing at height y about 0.4 y east and 0.3 y south of it). The frames on the sails (spines, yards, spars,
+masts) are tarred dark (`oilskin`, `tar`), not timber: a timber triangle round a sail read as brass beside seat 0's
+gold. Lights: one small stern lantern on the Windjammer (`white`, r 0.8), none on the others. One frame each: gliders
+(`UNIT_FPS` 0; the client's slow swell moves them). Rounds 1 and 2 of the blind test read a small pale balloon, even
+over a dark gondola, as a Rigger on the ground (a pale disc on a small unit is a hat or a head, and testers ignore
+the shadow): a small flyer needs a silhouette that cannot be a figure, so the Spyglass is an airship.
+
+| kind (key)             | signature shape, from above                                                                                                                                                                                                                              | size (sim r), height | team paint                                                                                                        |
+|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|-------------------------------------------------------------------------------------------------------------------|
+| Kite (`raider`)        | one filled triangle sail, point first (18 long, 19 across), nose up, in two panels folded up to the tips (one takes the sun, the other its shade; `sail()` `half`, dihedral 0.22), a dark spine down the keel and dark spars along the edges, the pale panel a band below pale canvas (`canvasShade`, so seat 6's white panel parts from it in grey), worn darker along its edges (`canvasDark`); a tarred pod 7 below on a bridle, hung forward so its dark bow shows under the apex, a lookout and a bolt-thrower at its bow; a kite's tail: a line trailing aft and down with three team bows on it (a dotted tail at phone size) | line (10), flies at 17 | the whole starboard panel behind an ink seam along the keel, the three bows on the tail, the pod's flanks between ink lines |
+| Spyglass (`observer`)  | a small airship: a cigar-shaped canvas envelope (13 long, 6.6 across, nose at +x, a sphere laid along x) with three team stripes along its length (the top and both upper flanks, 1.5 wide) between ink seams and a rope girdle; three fins at the stern (two out to the sides in `canvasDark`, one up, dark); a tarred gondola (7.2 x 2.8) slung under it along its length on four struts, a lookout, a short thick dark telescope out of its bow angled down and to starboard (a dark stroke breaks the silhouette in every facing), a brass bead at the tip only. No sails, no hull on top; smaller than the Kite; its shadow a cigar far from it | scout (8), flies at 26 | the three stripes, a panel on the gondola's south flank |
+| Windjammer (`bastion`) | a long tarred hull (44, bow at +x) with iron gunwales under three pale delta sails in a row, each pitched nose up from its yard on a tarred mast, the sun on its top (`canvasLit`, in `harbour-air.js`), clear dark deck between them; rigging from the mastheads to the bow and the stern, a pennant on the main mast; a team awning over the quarterdeck (an ink seam 0.4 proud all round it) and a team-topped forecastle block at the bow with the cannon on it (brass muzzle bead) | capital (18), flies at 24 | each sail's hem, the quarterdeck awning, the forecastle's top, the pennant: all between ink lines (no team along the gunwales: rails outlined the whole hull pale in seat 6) |
+
+Shapes against each other: the Kite is one triangle, the Windjammer a dark boat under three; the Spyglass is a striped
+cigar with fins over a hanging block. Against the Vael's Petrel (a body between two swept pearl wings, hollowed at the
+root) the Kite is a filled straight-edged triangle with a dark frame on it and a tail of dots; the Spyglass against the
+Glint (a pale drop with a tail, hovering low, its shadow beneath) is long, striped and finned, with a dark block under
+it and its shadow far off.
+
+Cells (`main.js`): the Kite r 19 h 18 (its tail reaches 17.5 aft), the Spyglass r 11 h 30, the Windjammer r 25 h 40.
 
 ## Vael buildings (step 1, `vael-buildings.js`)
 

@@ -57,6 +57,23 @@ function sliceVael(cx, cy) {
   for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
   return list;
 }
+// Harbour machines (harbour-machines.js): the Breakwater (walking and beached), the Anchor Gun (travelling and anchored)
+// and the Netter, with the slice's Rigger and Picket (standing and dug in) for the people; the battle adds the machines
+// on the Harbour side. `gap`: the phone row's spacing (heavies are wider than the 80 px default allows).
+FAMILIES.hmach = {
+  filter: '^(harvester|trooper|vanguard|siegeTank|interceptor|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+  units: { vanguard: [0, 2, 3], siegeTank: [0, 2, 3], interceptor: [0], harvester: [0], trooper: [0, 3] }, rows: ['bldg_core', 'shard_0'],
+  shares: ['vanguard_0_0', 'vanguard_0_3', 'siegeTank_0_0', 'siegeTank_0_3', 'interceptor_0_0', 'harvester_0_0', 'trooper_0_0'],
+  phone: ['vanguard_0_0', 'trooper_0_0', 'siegeTank_0_0', 'harvester_0_0', 'interceptor_0_0', 'vanguard_0_3', 'trooper_4_3', 'siegeTank_0_3'], gap: 92,
+  turned: ['vanguard_12_0', 'siegeTank_8_0', 'interceptor_12_0', 'vanguard_8_3'],
+  blind: [['vanguard_0_0', 'vanguard (Breakwater)'], ['vanguard_0_3', 'vanguard beached (Breakwater)'], ['siegeTank_0_0', 'siegeTank (Anchor Gun)'], ['siegeTank_0_3', 'siegeTank anchored (Anchor Gun)'], ['interceptor_0_0', 'interceptor (Netter)'], ['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)']],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ['siegeTank_0_3', cx - 260, cy + 40, 0], ['siegeTank_2_0', cx - 310, cy + 160, 0],
+    ['vanguard_1_0', cx - 30, cy - 130, 0], ['vanguard_0_3', cx - 10, cy + 30, 0],
+    ['interceptor_0_0', cx - 210, cy - 130, 0], ['interceptor_15_1', cx - 130, cy + 180, 0],
+  ],
+};
 
 const argv = process.argv.slice(2), famAt = argv.indexOf('--family'), famName = argv.find(a => a.startsWith('--family='))?.slice(9) ?? (famAt >= 0 ? argv[famAt + 1] : 'slice'), FAM = FAMILIES[famName];
 if (!FAM) throw new Error(`no family ${famName}: ${Object.keys(FAMILIES).join(', ')}`);
@@ -89,7 +106,7 @@ const tiles = {}; const groundTile = (v) => tiles[v] ??= tile(0, v);
  *  beside a unit and be read as part of it; the test judges the unit, not the tile). */
 function seabed(c, seed = 0, plain = false) {
   const ox = (seed * 37) % 64, oy = (seed * 53) % 64;
-  for (let ty = -1; ty * 64 < c.h; ty++) for (let tx = -1; tx * 64 < c.w; tx++) {
+  for (let ty = -1; (ty - 1) * 64 < c.h; ty++) for (let tx = -1; (tx - 1) * 64 < c.w; tx++) { // (one tile past the edge: the origin's offset)
     const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(plain || r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5);
     for (let y = 0; y < 64; y++) { const py = ty * 64 + y - oy; if (py < 0 || py >= c.h) continue; for (let x = 0; x < 64; x++) { const px = tx * 64 + x - ox; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4), (py * c.w + px) * 4); } }
   }
@@ -158,7 +175,7 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
   if (byName.has('bldg_core')) list.push(['bldg_core', 360, 330, 0]);
   list.push(['bldg_conflux', 1330, 330, 1]);
-  const gap = Math.min(80, Math.floor(1000 / FAM.phone.length));
+  const gap = Math.min(FAM.gap ?? 80, Math.floor(1000 / FAM.phone.length));
   for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
   FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, 760, k % 2]));
   place(c, list);

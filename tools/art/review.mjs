@@ -5,7 +5,8 @@
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
 //   phone-grey.png, phone-protan.png, phone-deutan.png   phone.png in greyscale and under Machado et al. 2009 protanopia
 //                    and deuteranopia at full severity
-//   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6; blind/key.json maps the letters to the kinds
+//   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
+//                    maps the letters to the kinds
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the slice as a small
 //                    scene: a Lighthouse with Riggers and Pickets at a salt field against a Tidewell with Glints and Lenses
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
@@ -40,10 +41,13 @@ function draw(c, s, x, y, seat = null) {
 }
 /** The seabed: ground tiles (64 px, 2x) from terrain2.js, the variants spread as the game spreads them. */
 const tiles = {}; const groundTile = (v) => tiles[v] ??= tile(0, v);
-function seabed(c) {
-  for (let ty = 0; ty * 64 < c.h; ty++) for (let tx = 0; tx * 64 < c.w; tx++) {
-    const r = ((tx * 7919 + ty * 104729) % 97) / 97, t = groundTile(r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5);
-    for (let y = 0; y < 64; y++) { const py = ty * 64 + y; if (py >= c.h) break; const n = Math.min(64, c.w - tx * 64); c.data.set(t.data.subarray(y * 64 * 4, (y * 64 + n) * 4), (py * c.w + tx * 64) * 4); }
+/** `seed` gives a patch its own tiles and origin; `plain` draws the base tile only (the blind images: no mark may sit
+ *  beside a unit and be read as part of it; the test judges the unit, not the tile). */
+function seabed(c, seed = 0, plain = false) {
+  const ox = (seed * 37) % 64, oy = (seed * 53) % 64;
+  for (let ty = -1; ty * 64 < c.h; ty++) for (let tx = -1; tx * 64 < c.w; tx++) {
+    const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(plain || r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5);
+    for (let y = 0; y < 64; y++) { const py = ty * 64 + y - oy; if (py < 0 || py >= c.h) continue; for (let x = 0; x < 64; x++) { const px = tx * 64 + x - ox; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4), (py * c.w + px) * 4); } }
   }
 }
 /** A selection ring as the game draws one (pale, under the unit), radius in atlas px. */
@@ -123,8 +127,9 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {};
   const kinds = [['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)'], ['lumen_0_0', 'lumen (Glint)'], ['prism_0_0', 'prism (Lens)']];
+  let n = 0;
   for (const [name, what] of kinds) for (const seat of [0, 6]) {
-    const c = canvas(192, 192); seabed(c); draw(c, get(name), 96, 110, seat);
+    const c = canvas(192, 192); seabed(c, 11 + n++ * 7, true); draw(c, get(name), 96, 110, seat);
     const L = letters.splice(Math.floor(Math.random() * letters.length), 1)[0];
     key[L] = `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
   }

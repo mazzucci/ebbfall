@@ -150,7 +150,9 @@ export function makeMats(tc = NEUTRAL) {
     inkLine: std({ color: 0x08080a, roughness: 0.8, metalness: 0 }),                                                      // the ink ring round a team band
     lanternGlass: std({ color: 0xe6dcc0, emissive: 0x9a8650, emissiveIntensity: 0.55, metalness: 0.1, roughness: 0.2 }),   // pale warm glass (opaque)
     lanternPane: new THREE.MeshPhysicalMaterial({ color: 0xf0e8d0, transparent: true, opacity: 0.15, roughness: 0.1, metalness: 0, depthWrite: false }), // the lantern room's panes, see-through
-    lampHot: std({ color: 0xfff8e0, emissive: 0xfff2c0, emissiveIntensity: 6 }),                                           // the lantern's lamp: the brightest Harbour pixel
+    lampHot: std({ color: 0xfff8e0, emissive: 0xfff2c0, emissiveIntensity: 6 }),
+    lampCore: std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 8, toneMapped: false }),                      // the lamp's near-white core
+    slateLit: std({ color: 0x737a80, roughness: 0.85, metalness: 0.05, flatShading: true }),                              // a kerb's lit top edge                                           // the lantern's lamp: the brightest Harbour pixel
     lampHalo: new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }),
     lampHalo2: new THREE.MeshBasicMaterial({ color: 0xffb860, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false }),
   };

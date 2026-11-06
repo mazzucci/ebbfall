@@ -69,7 +69,7 @@ function ground(x, y, variant) {
   if (kind === 3) {                                                                          // shells and pebbles, clustered by noise, sizes 0.6-1.4x, lit from the north-west
     const cx0 = 16 + r(70) * 32, cy0 = 16 + r(71) * 32;
     for (let p = 0; p < 7; p++) {
-      const a = r(72 + p * 3) * Math.PI * 2, dist = r(73 + p * 3) ** 0.7 * 14, cx = cx0 + Math.cos(a) * dist, cy = cy0 + Math.sin(a) * dist, rad = 1.6 * (0.6 + r(74 + p * 3) * 0.8);
+      const a = r(72 + p * 3) * Math.PI * 2, dist = (p < 3 ? r(73 + p * 3) * 4.5 : 6 + r(73 + p * 3) ** 2 * 10), cx = cx0 + Math.cos(a) * dist, cy = cy0 + Math.sin(a) * dist, rad = 1.6 * (0.6 + r(74 + p * 3) * 0.8); // three packed together, the rest strays
       const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy);
       if (d <= rad) { const lit = clamp01(0.55 - (dx + dy) / (rad * 2.4)); return p % 3 ? mix([56, 60, 66], [104, 110, 118], lit) : mix([110, 104, 90], [184, 178, 160], lit); }
       if (d <= rad + 2 && dy > 0 && dx > -rad * 0.4) c = c.map(v => v * (0.72 + 0.14 * (d - rad)));

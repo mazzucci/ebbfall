@@ -28,11 +28,12 @@ export function glint(M, f) {
   add(b, sph(4.8, 22, 16), M.shell, 0, 0, 0).scale.set(1.05, 0.9, 1);                        // the drop's head
   add(b, cone(4.0, 5, 16), M.shell, -5.6, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, short and blunt
   add(b, sph(4.5, 18, 12), M.ink, 0.1, -1.4, 0).scale.set(1.2, 0.7, 1);                      // the ink belly
-  add(b, sph(3.6, 18, 12), M.glaze, -1.5, 2.5, 0).scale.set(1.15, 0.52, 1.05);                 // the team patch: one smooth dome on the back, no bars
-  add(b, sph(3.75, 18, 12), M.inkSeam, -1.5, 2.3, 0).scale.set(1.15, 0.5, 1.05);              // the ink seam round its edge
+  add(b, sph(3.1, 18, 12), M.glaze, -1.7, 2.7, 0).scale.set(1.15, 0.55, 1.05);                 // the team patch: one smooth dome on the back, no bars; pearl shows round it
+  add(b, sph(3.75, 18, 12), M.inkSeam, -1.7, 2.35, 0).scale.set(1.15, 0.5, 1.05);             // the ink seam round its edge, wide enough to survive 1x
   add(b, sph(2.1, 12, 10), M.inkSeam, 4.1, 0.6, 0);                                           // the ink socket
   deeplight(b, M, 1.5, 4.9, 0.7, 0);                                                         // the one light, big and lit, at the tip
-  add(b, sph(0.75, 8, 6), M.deepCore, 5.6, 0.9, 0);                                           // its pale heart, forward where the camera sees it
+  add(b, sph(0.95, 8, 6), M.deepCore, 5.6, 0.9, 0);                                           // its pale heart, forward where the camera sees it
+  add(b, sph(0.5, 8, 6), M.deepWhite, 6.1, 1.1, 0.5);                                          // a brighter centre that survives 1x
   add(b, cyl(2.2, 2.6, 1.2, 14), M.glaze, -6.6, 0.1, 0, 0, 0, Math.PI / 2);                   // the tail's team collar
   add(b, cyl(2.7, 2.7, 0.3, 14), M.inkSeam, -5.9, 0.1, 0, 0, 0, Math.PI / 2);
   g.add(b); return g;

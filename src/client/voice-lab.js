@@ -5,7 +5,7 @@ import { speak, PHRASES, STYLES } from './voice.js';
 import { speakLine, voiceFor, englishVoices, onVoices, picked, stopSpeech } from './speech.js';
 
 const RACES = [
-  ['humans', 'Humans', [
+  ['humans', 'Harbour', [
     ['A', 'humansRadio', 'Clean radio', 'A field radio, wider and cleaner than the original: no clipping, a faint click at the end.'],
     ['B', 'humansClear', 'Clear', 'A warm, clear voice, no radio.'],
     ['C', 'humansOriginal', 'Original', 'The radio operator the game had until now, for comparison.'],

@@ -379,7 +379,7 @@ fn workers_at_a_crowded_field_do_not_tremble() {
     // times a second and stepped back about once a second, pushed in and out of reach by the miner beside it; now
     // 0 and 0.5, the steps back being its trips home.)
     for seed in [3, 17, 29] {
-        for (race, w) in [("Humans", rich(seed)), ("Vael", rich_vael(seed))] {
+        for (race, w) in [("Harbour", rich(seed)), ("Vael", rich_vael(seed))] {
             let (mut w, ids) = crowded_field(w, 12);
             run(&mut w, 10);
             let (flick, rev) = tremble(&mut w, &ids, 20.0);

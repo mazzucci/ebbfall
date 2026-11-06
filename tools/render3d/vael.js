@@ -79,6 +79,14 @@ export function makeVaelMats(tc = NEUTRAL) {
     // than the Umbra's near-black so the two never merge
     eclipsed: std({ color: 0x1a0a2a, emissive: 0x2e0f48, emissiveIntensity: 0.32, metalness: 0, roughness: 1 }),
     padHalo: halo(0x7a62e0, 0.1),
+    // The new look (STYLE.md): pearl shells on an ink core, "deeplight" (violet-blue, small) for the few lights.
+    ink: phys({ color: 0x0f0d16, metalness: 0.45, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.06 }),            // the ink core: black glass
+    inkSeam: std({ color: 0x15121c, metalness: 0.3, roughness: 0.5 }),                                                    // ink edges round team glaze
+    deeplight: std({ color: 0x2a3290, emissive: 0x7080ff, emissiveIntensity: 1.9, roughness: 0.2 }),                       // a small light
+    deepCore: std({ color: 0xc8d0ff, emissive: 0xdde2ff, emissiveIntensity: 1.1 }),                                       // its white heart
+    deepHalo1: halo(0x6a7cf0, 0.18), deepHalo2: halo(0x5a68e0, 0.09), deepHalo3: halo(0x4c58c8, 0.045),
+    pool: std({ color: 0x0e1230, emissive: 0x2a34a0, emissiveIntensity: 0.22, metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
+    poolDeep: std({ color: 0x07091c, emissive: 0x1c2480, emissiveIntensity: 0.14, metalness: 0.5, roughness: 0.05 }),
   };
 }
 

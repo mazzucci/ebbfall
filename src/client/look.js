@@ -40,5 +40,6 @@ export const UNIT_FPS = { shrike: 0, sovereign: 4 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Siege Tank: two tread
- *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). */
-export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };
+ *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). The Picket (trooper): two strides,
+ *  going to ground, dug in behind its sandbags (tools/render3d/harbour.js). */
+export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 }, trooper: { walk: 2, swap: 2, on: 3 } };

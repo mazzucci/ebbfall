@@ -51,6 +51,41 @@ const hazardTex = canvasTex(64, (g, n) => {
 });
 const treadTex = canvasTex(64, (g, n) => { g.fillStyle = '#2a2a2a'; g.fillRect(0, 0, n, n); g.fillStyle = '#111'; for (let k = 0; k < n; k += 8) g.fillRect(k, 0, 4, n); g.fillStyle = 'rgba(255,255,255,0.08)'; for (let k = 2; k < n; k += 8) g.fillRect(k, 0, 1, n); });
 
+// ---- the Harbour (tools/render3d/STYLE.md): tarred planking, canvas, timber, rope, sandbags ----
+/** Tarred hull planking: near-black with plank seams, a few pale scuffs where the tar has worn, caulking lines. */
+const tarTex = canvasTex(256, (g, n) => {
+  g.fillStyle = '#d8d4cc'; g.fillRect(0, 0, n, n); // (a light base: the material colour darkens it; keeps the finish's banding from crushing it)
+  seed = 101;
+  for (let i = 0; i < 3000; i++) { const v = 150 + rnd() * 90; g.fillStyle = `rgba(${v},${v - 4},${v - 10},0.3)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 4, 1 + rnd() * 2); }
+  g.strokeStyle = 'rgba(20,18,16,0.85)'; g.lineWidth = 2.5;
+  for (let y = 0; y < n; y += 32) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(n, y + 0.5); g.stroke(); } // plank seams
+  g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = 1;
+  for (let y = 0; y < n; y += 32) { g.beginPath(); g.moveTo(0, y + 3); g.lineTo(n, y + 3); g.stroke(); }  // a lit plank edge
+  g.strokeStyle = 'rgba(20,18,16,0.7)'; g.lineWidth = 2;
+  for (let i = 0; i < 14; i++) { const x = rnd() * n, y = (rnd() * 8 | 0) * 32; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 32); g.stroke(); } // plank ends
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(230,220,200,${0.1 + rnd() * 0.2})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 3 + rnd() * 10, 1 + rnd() * 2.5, rnd() * 3, 0, 7); g.fill(); } // worn tar
+}, { repeat: 2 });
+const tarBump = canvasTex(256, (g, n) => {
+  g.fillStyle = '#808080'; g.fillRect(0, 0, n, n); g.strokeStyle = '#404040'; g.lineWidth = 2.5;
+  for (let y = 0; y < n; y += 32) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(n, y + 0.5); g.stroke(); }
+}, { srgb: false, repeat: 2 });
+/** Canvas: a pale weave with stitched seams, faint stains and patches. */
+const canvasWeave = canvasTex(128, (g, n) => {
+  g.fillStyle = '#efe9da'; g.fillRect(0, 0, n, n); seed = 211;
+  for (let i = 0; i < 4000; i++) { const v = 200 + rnd() * 55; g.fillStyle = `rgba(${v},${v - 5},${v - 18},0.35)`; g.fillRect(rnd() * n, rnd() * n, 1, 1); }
+  g.fillStyle = 'rgba(0,0,0,0.05)'; for (let k = 0; k < n; k += 3) g.fillRect(k, 0, 1, n); for (let k = 0; k < n; k += 3) g.fillRect(0, k, n, 1);
+  for (let i = 0; i < 12; i++) { g.fillStyle = `rgba(120,100,70,${0.06 + rnd() * 0.1})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 6 + rnd() * 16, 4 + rnd() * 10, rnd() * 3, 0, 7); g.fill(); } // stains
+  g.strokeStyle = 'rgba(90,80,60,0.55)'; g.lineWidth = 1; g.setLineDash([2, 2]);
+  for (const p of [20, 84]) { g.beginPath(); g.moveTo(0, p); g.lineTo(n, p); g.stroke(); g.beginPath(); g.moveTo(p + 30, 0); g.lineTo(p + 30, n); g.stroke(); } // stitched seams
+  g.setLineDash([]);
+}, { repeat: 3 });
+const grainTex = canvasTex(128, (g, n) => {
+  g.fillStyle = '#c9b592'; g.fillRect(0, 0, n, n); seed = 307;
+  for (let i = 0; i < 60; i++) { const y = rnd() * n; g.strokeStyle = `rgba(70,45,20,${0.15 + rnd() * 0.3})`; g.lineWidth = 0.6 + rnd() * 1.4; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(n / 3, y + rnd() * 6 - 3, 2 * n / 3, y + rnd() * 6 - 3, n, y + rnd() * 3 - 1.5); g.stroke(); }
+}, { repeat: 2 });
+const ropeBump = canvasTex(64, (g, n) => { g.fillStyle = '#808080'; g.fillRect(0, 0, n, n); g.strokeStyle = '#3a3a3a'; g.lineWidth = 3; for (let k = -n; k < n * 2; k += 8) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + n, n); g.stroke(); } }, { srgb: false, repeat: 6 });
+const burlapTex = canvasTex(64, (g, n) => { g.fillStyle = '#cfc8b4'; g.fillRect(0, 0, n, n); g.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < n; k += 2) g.fillRect(k, 0, 1, n); g.fillStyle = 'rgba(0,0,0,0.1)'; for (let k = 1; k < n; k += 2) g.fillRect(0, k, n, 1); seed = 409; for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(60,45,25,${0.1 + rnd() * 0.15})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 3 + rnd() * 8, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); } }, { repeat: 4 });
+
 /** Team paint: per-seat frames are rendered once in NEUTRAL (white paint, white lamps) with a team mask the client
  *  tints with the seat's colour (Notion: Ebbfall art); scaffolds and rubble keep seat 0's gold (GOLD). */
 export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: SEAT_COLORS[0], light: 0xffc65a };
@@ -89,5 +124,17 @@ export function makeMats(tc = NEUTRAL) {
     etherSoft: std({ color: 0x4a2f9a, emissive: 0x9a7cf0, emissiveIntensity: 0.9, roughness: 0.3 }),
     mark: std({ color: 0xe4e0d4, metalness: 0.1, roughness: 0.7 }),
     beacon: std({ color: 0x300000, emissive: 0xff2a2a, emissiveIntensity: 3 }),
+    // The Harbour (STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope, brass only on small tips.
+    tar: std({ color: 0x33302e, map: tarTex, bumpMap: tarBump, bumpScale: 1.4, metalness: 0.35, roughness: 0.48 }),   // tarred planking (reads ~0x1e1c1a lit)
+    ironDark: std({ color: 0x2c2e31, map: panel, bumpMap: bump, bumpScale: 0.8, metalness: 0.85, roughness: 0.5 }),      // black iron: bands, fittings, gun metal
+    canvas: std({ color: 0xd4ccb6, map: canvasWeave, roughness: 0.92, metalness: 0 }),                                    // pale canvas: hats, awnings, sails
+    canvasDark: std({ color: 0x8f8872, map: canvasWeave, roughness: 0.95, metalness: 0 }),                                // a hat's underside, old sailcloth
+    timber: std({ color: 0x7a5b3a, map: grainTex, roughness: 0.8, metalness: 0 }),                                        // handles, jetties, masts
+    rope: std({ color: 0xc8b48a, bumpMap: ropeBump, bumpScale: 1.2, roughness: 0.95, metalness: 0 }),                     // coils, lines
+    brass: std({ color: 0xc49a3c, metalness: 0.95, roughness: 0.28 }),                                                    // small tips only: a pick's point, a lamp's frame
+    sandbag: std({ color: 0x8e8a7c, map: burlapTex, roughness: 1, metalness: 0 }),                                        // dug-in state
+    oilskin: std({ color: 0x24262a, roughness: 0.6, metalness: 0.2 }),                                                    // coats, boots
+    paintCanvas: team(std({ color: tc.paint, map: canvasWeave, roughness: 0.88, metalness: 0.02 })),                      // team paint on cloth: matte
+    slate: std({ color: 0x3e4247, roughness: 0.9, metalness: 0.05, flatShading: true }),                                  // a quay's stone
   };
 }

@@ -265,7 +265,7 @@ class UnitObj {
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own colour)
     this.size = u.r > 12 ? 26 : 18;
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
-    this.cargo = light(0x4fd1c5, 0.18, 0.9);
+    this.cargo = light(0xeee6d2, 0.14, 0.5); // (the salt a worker carries: pale, faint)
     this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
@@ -300,7 +300,7 @@ class UnitObj {
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
-    if (u.carry) { this.cargo.tint = 0x4fd1c5; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
+    if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; } }
   destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); } // (a Graphics frees its context only when destroyed without options)
@@ -354,7 +354,7 @@ class BldgObj {
       setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(b.x, b.y); this.headPaint.position.set(b.x, b.y);
       paintAs(this.head, this.headPaint, this.seat, this.body.tint, this.body.alpha);
     }
-    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x, b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
+    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
     if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
@@ -382,14 +382,15 @@ class NodeObj {
   constructor(n) {
     this.ether = n.type === 'ether';
     this.s = new Sprite(); this.s.position.set(n.x, n.y); L.nodes.addChild(this.s);
-    this.glow = light(this.ether ? 0xa78bfa : 0x4fd1c5, this.ether ? 1.1 : 0.55, this.ether ? 0.45 : 0.25); this.glow.position.set(n.x, n.y);
+    // (a brine seep glows; salt carries no light: tools/render3d/STYLE.md)
+    this.glow = this.ether ? light(0xa78bfa, 1.1, 0.45) : null; if (this.glow) this.glow.position.set(n.x, n.y);
   }
   update(n, t) {
     if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; this.glow.alpha = n.extractor || dry ? 0 : 0.35 + 0.15 * Math.sin(t * 2 + n.x); }
-    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); this.glow.alpha = 0.18 + 0.06 * Math.sin(t * 1.7 + n.y); }
+    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); }
   }
-  show(v) { this.s.visible = this.glow.visible = v; }
-  destroy() { this.s.destroy(); this.glow.destroy(); }
+  show(v) { this.s.visible = v; if (this.glow) this.glow.visible = v; }
+  destroy() { this.s.destroy(); this.glow?.destroy(); }
 }
 
 function syncPool(pool, list, make, upd) {

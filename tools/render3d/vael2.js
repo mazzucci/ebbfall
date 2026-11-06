@@ -3,7 +3,7 @@
 // units, units face +x, y up, +z south; everything hovers. Team glaze sits between thin ink seams, so a white seat
 // still parts from the pearl.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate } from './models.js';
+import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { ring, torus, cone } from './vael.js';
 
 const cache = new Map();
@@ -20,23 +20,32 @@ export function deeplight(parent, M, r, x, y, z) {
 /** A band over the back of a body round the x axis (a half torus in the yz plane, open side down). */
 const saddle = (r, t, seg = 28) => memo(`sd${r},${t},${seg}`, () => { const g = new THREE.TorusGeometry(r, t, 8, seg, Math.PI); g.rotateY(Math.PI / 2); return g; });
 
-/** Glint (worker): a fat pearl drop, its blunt tail to the stern (a team sleeve on its aft half, a pearl knob at its end), an ink belly beneath, one big deeplight at the
- *  tip in an ink socket; the team glaze saddle set back behind it, between two ink seams. Round from above, hovering
- *  low with its shadow right beneath it: not a dart. */
+/** The Glint's own material: the salt crystal it carries (halite, flat-shaded facets, no light). */
+const SALT = new WeakMap();
+const saltMat = (M) => { if (!SALT.has(M)) SALT.set(M, new THREE.MeshStandardMaterial({ color: 0x9c968a, roughness: 0.6, metalness: 0, flatShading: true })); return SALT.get(M); };
+/** Glint (worker): a fat pearl drop, its blunt tail to the stern (a team sleeve on its aft half, a pearl knob at its
+ *  end), an ink belly beneath, one deeplight on the crown of the head in an ink socket, the team glaze dome on the back
+ *  between ink seams; under its bow two small ink claws hold a cube of salt, the worker's load (round 3: a plain round
+ *  drop read as a soft healer, the Tender; the carried crystal is the cue no other unit has, as the Rigger's sack).
+ *  Round from above, hovering low with its shadow right beneath it: not a dart, never a star. */
 export function glint(M, f) {
   const g = grp(), b = grp(); b.position.y = 5 + (f % 2) * 0.7;
   add(b, sph(4.8, 22, 16), M.shellLight, 0, 0, 0).scale.set(1.05, 0.9, 1);                   // the drop's head, the lightest pearl: pale from above (a visible belly made it a dark blob, the Undertow)
   add(b, cone(4.0, 7, 16), M.shellLight, -6.4, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, blunt (7 long since step 1: in the white seat a short tail left a round eye, the Lens)
   add(b, sph(4.2, 18, 12), M.ink, 0.1, -2, 0).scale.set(0.95, 0.6, 0.82);                     // the ink belly, tucked under the head: seen from the side and the south, never from above
-  add(b, sph(3.1, 18, 12), M.glaze, -1.7, 2.7, 0).scale.set(1.15, 0.55, 1.05);                 // the team patch: one smooth dome on the back, no bars; pearl shows round it
-  add(b, sph(3.4, 18, 12), M.inkSeam, -1.7, 2.45, 0).scale.set(1.15, 0.5, 1.05);              // the ink seam round its edge, a thin ring
-  add(b, sph(1.8, 12, 10), M.inkSeam, 4.3, 0.6, 0);                                           // the ink socket, small
-  deeplight(b, M, 1.5, 4.9, 0.7, 0);                                                         // the one light, big and lit, at the tip
-  add(b, sph(0.95, 8, 6), M.deepCore, 5.6, 0.9, 0);                                           // its pale heart, forward where the camera sees it
-  add(b, sph(0.5, 8, 6), M.deepWhite, 6.1, 1.1, 0.5);                                          // a brighter centre that survives 1x
+  add(b, sph(3.1, 18, 12), M.glaze, -2.2, 2.6, 0).scale.set(1.15, 0.55, 1.05);                 // the team patch: one smooth dome on the back, no bars; pearl shows round it
+  add(b, sph(3.4, 18, 12), M.inkSeam, -2.2, 2.35, 0).scale.set(1.15, 0.5, 1.05);              // the ink seam round its edge, a thin ring
+  add(b, sph(1.6, 12, 10), M.inkSeam, 2.4, 3.2, 0);                                           // the ink socket on the crown
+  deeplight(b, M, 1.2, 2.8, 3.6, 0);                                                         // the one light, on the crown, ahead of the dome
+  add(b, sph(0.45, 8, 6), M.deepWhite, 3.2, 4.1, 0.4);                                         // a brighter centre that survives 1x
   add(b, cyl(1.1, 2.3, 2.6, 14), M.glaze, -7.9, 0.1, 0, 0, 0, Math.PI / 2);                   // the tail's team sleeve, the aft half of the tail
   add(b, cyl(2.5, 2.5, 0.35, 14), M.inkSeam, -6.5, 0.1, 0, 0, 0, Math.PI / 2);                // its ink seam
   add(b, sph(1.15, 10, 8), M.ring, -9.6, 0.1, 0);                                              // a pearl knob at the tail's end
+  // the load: a cube of salt held under the bow by two ink claws, a facet turned up to the light
+  const load = grp(); load.position.set(7.4, -1.0, 0); load.rotation.set(0.08, 0.6, 0.06); b.add(load);
+  add(load, rbox(5.4, 5.4, 5.4, 0.3), saltMat(M), 0, 0, 0);                                    // a warm grey cube, its top level to the sun, a band below the pearl so it parts from the head
+  add(load, rbox(2.4, 1.8, 2.4, 0.25), saltMat(M), 1.0, 3.2, -0.9, 0.2, 0.5, 0.25);              // a smaller cube grown on it
+  for (const s of [-1, 1]) limb(b, [3.4, -1.4, s * 2.4], [7.0, -0.8, s * 3.6], 0.8, M.inkSeam); // the claws, gripping its sides
   g.add(b); return g;
 }
 

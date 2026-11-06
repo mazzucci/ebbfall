@@ -17,7 +17,7 @@ The drained seabed: wet sand and slate, salt crust in faint pale veins, kelp dry
 thing on screen: mean value about 0.18 (sRGB 45-55), nothing on it brighter than the dim salt (sRGB ~140) and that only in
 thin lines. Palette (`terrain2.js`): sand `[58,54,47]`, wet sand `[44,42,38]`, slate `[40,44,50]`, salt `[142,140,130]`,
 dim salt `[96,95,88]`, kelp `[36,29,21]`, dark kelp `[23,19,14]` (brown-black, olive at the edge, never green: round 3's
-green kelp doubled as the seep). The bases (`ground_0..7`, most of the map): sand with
+green kelp doubled as the old seep). The bases (`ground_0..7`, most of the map): sand with
 slate showing through, soft ripples bent by noise (no direction may show at 2x), a low slate ridge as a contour, and
 faint pale salt veins, each base its own; the marks (`ground_8..19`) a kelp patch each, every one its own size, turn
 and mirror, lying in clusters with bare ground between and never in the water (step 1: "The ground and the scenery"
@@ -337,7 +337,7 @@ mouths and pools carry a sheen or a light. Helpers in the file: `plinth`, `skirt
 between seams), `hoop` (a flat glaze ring between seams), `upright` (an outline stood up in a group), `tentacle`
 (capsule segments along a curve, some sleeved), `ribbon` (a flat band along a helix, the Gyre's rail). The family's
 materials: `darkGlass` (the Glasshouse's panes), `petalGlass` (deep violet glass with a sheen, the Sunpetal's
-faces), `brine` (murky grey-teal, the Siphon's seep), `mouth` (dark violet lit from within, the Anemone's),
+faces), `brine` (murky grey-teal, the damp brine the Siphon draws), `mouth` (dark violet lit from within, the Anemone's),
 `violetWater` (the Cradle's basin, deep violet, never black), `bud` (violet under a pearl sheen, the Cradle's bud).
 
 Round 1's blind test swapped the Sunpetal and the Anemone (pointed petals read as the aggressive one, seven straight
@@ -352,7 +352,7 @@ the Sunpetal's pentagonal hub ring.
 | kind (key)            | signature shape, from above                                                                 | team glaze                                                                 | the light(s)                             |
 |-----------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|------------------------------------------|
 | Sunpetal (`spire`, 2x2) | a flower: five broad rounded pearl petals (27 long, 21 wide, round tips) spaced evenly round an ink core, each splayed 1.0 rad past vertical so its inner face shows from above: violet glass (`petalGlass`) in a pearl rim; one petal north | a bar of even width across each petal's face just above the hub; a pentagonal hub ring (a five-sided torus, a corner to each petal) on the core's top; a skirt round the ink core | one, on the pistil at the heart (r 1.9) |
-| Siphon (`siphon`, 2x2, on a seep) | a small murky pool (`brine`, r 15, no rings) in a wide team collar, a thick pearl straw (r 4.4-4.9) bent across it: up from the seep, ribbed at the bend (slightly), leaning east to a plain rounded pearl head with one light: no funnel, no pinwheel; three pearl stakes | the collar round the seep (a hoop, 4 wide), a sleeve on the straw's lower half, a band round the basin, caps on the stakes | one at the head (r 1.3), a small one where the straw drinks (r 1.1) |
+| Siphon (`siphon`, 2x2, on a mine shaft, drawing the last damp brine from the salt beds) | a small murky pool (`brine`, r 15, no rings) in a wide team collar, a thick pearl straw (r 4.4-4.9) bent across it: up from the seep, ribbed at the bend (slightly), leaning east to a plain rounded pearl head with one light: no funnel, no pinwheel; three pearl stakes | the collar round the seep (a hoop, 4 wide), a sleeve on the straw's lower half, a band round the basin, caps on the stakes | one at the head (r 1.3), a small one where the straw drinks (r 1.1) |
 | Cradle (`kiln`, 3x3)  | a scallop with something growing in it: a fan-shaped basin of deep violet water (an arc of 237 degrees, r 30, closed to the north by a flat hinge bar 34 wide), nine pearl ribs splaying from the hinge across the floor to a pearl rim wall with ridges and a knob on each; one big bud standing in the water (r 8, 21 tall: violet under a pearl sheen, a pearl crown, a faint glow) | the hinge bar, a hoop along the rim wall's crest, a band round the wall's foot, caps on the straight edges, the bud's collar | one, at the bud's foot (r 1.5) |
 | Glasshouse (`loom`, 2x2) | a dome of dark glass in pearl ribs (eight meridians and one hoop) on an ink drum, a pearl crown; three buttresses | a band round the dome's foot, a skirt round the drum, the three buttresses (glaze blocks under pearl caps) | one, on the crown (r 1.2) |
 | Anemone (`ward`, 2x2) | an anemone that stings: five soft pearl tentacles (`tentacle`: six capsule segments, 2.6 tapering to 1.3) curling out, up and in from a pearl oral disc on a fat ink column, low (tips at y 42, so the shadows stay short), each ending in a blue-violet tip (`deeplight` with halos, no white heart); the mouth dark violet (`mouth`) with a faint pearl ring | a tall collar round the column, a hoop on the foot, the disc's rim, a sleeve on each tentacle's second and third segments | five violet tips (r 2) |
@@ -376,7 +376,8 @@ pale on top, team canvas between ink hems on at least a sixth of what the camera
 team sheet is a roof slope, an awning, a sail, a vane, a wrap or a tarp over crates with a shadow), mooring posts with
 team tops along the quay's edge, crates under lashed tarps, casks, coils and salt sacks at human scale so a Picket
 beside a building reads as a person. Each building owns a roof silhouette from above, and the team canvas takes a
-different form on each (the PM's note at gate A: no two roofs alike). Round 1's blind test (75%) swapped the Pump and
+different form on each (the PM's note at gate A: no two roofs alike). (Rounds 1 to 5 and step 2 judged the Pump, a pump
+jack over a pool of brine, which the Excavator replaced; the history keeps its name.) Round 1's blind test (75%) swapped the Pump and
 the Lookout (a dark beam on a four-legged frame read as a dome with a barrel; a nest at 36 on thin legs as a squat
 tank), the Windmast and the Loft (a round pale lid read as a landing pad; a lattice tower as a derrick), the Loft and the
 Crew Hall (pale roof hatches as lit windows); the Workshop was named only by elimination (a team roof over a crane that
@@ -390,7 +391,8 @@ judge found the big roofs (the Loft's tent, the Slipway's hipped roof, the Crew 
 brightest planes on screen in seat 6, and the Windmast's sails hiding the mast (a pagoda roof). Round 4 fixed those
 (the judge passed it) but all four testers swapped the Pump and the Workshop: the Workshop's new long pale jib with its
 hanging bale read as a pump jack or a well-sweep with a bucket, the Pump's big pale horse-head as a dial or a wheel.
-Round 5, the table below, keeps round 4's other six and takes round 3's Pump and Workshop back, cleared at 1x.
+Round 5 kept round 4's other six and took round 3's Pump and Workshop back, cleared at 1x; the Excavator (the mine
+shaft round, Opus, during the Fable limit) replaced the Pump, and its row is new.
 In step 2 (both peoples' lists) all four testers swapped the Crew Hall and the Slipway ("a long shed with ribbed bays
 and a yard: a boathouse"; "a pitched-roof hall with a steeple"); the table has their step-2 fix: the Crew Hall a plain
 roof over a drill yard with a flag, the Slipway a large sharp-bowed hull on a slip into water beside a low lean-to.
@@ -398,7 +400,7 @@ roof over a drill yard with a flag, the Slipway a large sharp-bowed hull on a sl
 | kind (key)              | signature from above                                                                                              | the team canvas                                                                     |
 |-------------------------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | Windmast (`depot`)      | a square tarred store (30 x 28) with a timber deck on top; out of it a tarred ship's mast (to 75, iron bands two over each sail) carrying three square sails one over another, narrowing upward (course 28-31 x 10.5, topsail 22-25 x 9.5, topgallant 16-19 x 8, heads at 35, 51.5, 67), hung on the mast's far side so the dark mast runs down their faces: each team canvas bellied away (`sailGeo`, a bent grid), leaning foot-south 0.12, framed all round in tar (the yard, tarred bolt-ropes down the leeches and along the foot) so it never shares the kites' wedge; the yards (r 1.2) reach 5.5 past the cloth each side with iron bands at their ends; braced 0.18; a small top over the course, a pennant. Nothing radial | the three sails, two canvas doors on the store's south face in ink frames, a lean-to over the casks south, the crate tarps, the pennant |
-| Pump (`extractor`)      | round 3's pump jack along x on an iron skid: a tarred A-frame (the samson post, two A's astride, its saddle at 31), the walking beam (30, timber, a mid value, iron straps) nodding at 0.42, east end down; at that end a small horse-head (r 8, timber cheeks inside an iron face, `profile`: small and darkish, never a pale disc), the bridle straight down from its foremost point to a carrier bar and the rod into the stuffing box; at the west end an equaliser, pitman arms down to two cranks on a gearbox; the well: an iron casing with flanges standing in a spreading pool of brine (`blob`, 28 points; `brine`, wet, no light) on a pale salt crust, a ripple of salt round it, a flow line north to a salt pan; an engine house north-west with a drive shaft. No sacks, crates or casks (clutter at 1x) | the two counterweights on the cranks (quadrants r 12 behind an ink rim, the near one facing the camera), the engine house's tarp, a windbreak (27 x 14) on posts behind the salt pan |
+| Excavator (`extractor`) | a small mine head over the shaft: the shaft's own collar and dark mouth (ground.js `shaftCollar`, 18 across, 8 east of the centre) through a flagstone quay open over it; a timber headframe, four legs (r 1.35) leaning in from round the mouth to two cap beams at 42, tied once round, two back-stays down to the west; on top **the winch wheel**, the signature: a sheave (r 11, its centre at 44, 8 west of the mouth's centre) facing south to the camera, six iron spokes, an iron hub with a brass cap, a team rim (tube 1.6) between ink rings, standing against the bare quay (nothing team behind it: round 1 of the shaft had the winch house's tarp there, gold on gold); the pale rope over its top and straight down into the black, and from its west side down to a rope drum on iron stands north-west (the wound rope `ropeWound`, a band below the free rope); a tarred winch house south-west under a lean-to of weathered team canvas (`paintWorn`, sagging in three bays, worn hems, two rope lashings); south of the mouth a tub on short rails with a load of grey rock salt (`rockSalt` 0x6e6a63, a faint warm emissive, under the field's salt). No beam, horse-head, pool, bucket or crane (a hanging load read as a well-sweep, round 4; a boom is the Workshop's) | the wheel's rim (never the only team), the winch house's lean-to, the tub's sides between ink hems, a crate tarp north-east, the mooring posts' tops |
 | Crew Hall (`barracks`)  | soldiers live and drill here: a long tarred shed along x (80 x 26), plain walls, under one plain gable: the near (south) slope weathered team canvas (`paintWorn`) with one gentle sag, no battens or bays (step 2: the bays read as boat slips), worn ink hems all round, the far slope dark tar, a tarred ridge beam (2.6) raised over it, a stove pipe; two doors and small shuttered windows under a shallow shade along the south wall (`canvasDark`, on posts with a rail); in front the drill yard, a square of packed sand (`sandbag`, 46 x 22) in a timber kerb with eight straw cross-post dummies set a little unevenly (a post, a crossbar, a straw body and a sack head in straw-tan, 0x9c8658, no cast shadow: step 2's ranks of round pale heads read as a parked squad of infantry), the flagstaff (44) at its north-east corner; three round pale targets on posts east, a rifle rack, a bell | the near roof slope (84 x 17), the flag, a crate tarp: a long two-tone bar over a sand square with a flag |
 | Workshop (`forge`)      | round 3's smithy (34 x 28) under a dark corrugated iron roof on timber posts, one slope down to the south, a louvred vent along the roof (three pale timber louvres, a pale timber gable cap with an iron strap: a pale ridge in grey), a square iron stack at its north-west corner; the forge out in the yard south of it: a slate hearth glowing orange-red (`hearth`, r 3.4; gold must not meet the forge glow) under a short flue, the anvil, five orange sparks over it, a quench tub; a short pale timber derrick west of the smithy (mast 50, boom r 2 with iron bands up to the south-east), the bale hung over the quay, never past the footprint (round 4's long jib read as a pump jack); no bench, bars or chain coil (clutter at 1x) | an awning along the open south side (39 x 13) on posts under the eave, the bale (team canvas, roped, between ink hems), a wrap round the stack, a crate tarp |
 | Slipway (`factory`)     | a boat is built here: a stone slip (34 wide) inclined 10 down to the south off a stone head, running into a strip of dark water (`brine`) at the quay's edge with a pale line of foam, two pale timber ways (`timberPale`) on dark sleepers; on them, on keel blocks and shores, the largest shape: an open tarred hull (`hullGeo`: 56 long, half-beam 12, deep 8, a transom stern, a sharp bow pointing down the slip, the sheer rising forward), its pale gunwale outlining the boat, six pale ribs across its dark inside (`tarIn2`), a keel, a pale stem post, a team strake along each side under an ink seam; a capstan on the head with its line to the stern. East, the mould loft: a low open lean-to (28 x 46), one slope falling away from the slip (20 to 11) on posts, a tarred back wall and a dark high plate, planks stacked beneath. No sheer legs and no peaked roof (step 2: a steeple and a hall; and the Loft is a deck beside a peaked tent) | the lean-to's slope (weathered canvas sagging in three bays, worn ink hems), the strakes, crate tarps |
@@ -407,8 +409,8 @@ roof over a drill yard with a flag, the Slipway a large sharp-bowed hull on a sl
 | Loft (`airfield`)       | where the Kites are kept and launched: a broad raised launch deck (44 x 40 at y 20) on tarred trestles with cross braces, planked, a rail on its west and north edges, a stair up from the quay; two Kites (`parkedKite`: a delta wider than long, 27 x 17 at k 1, cream nose (`kiteCloth`), a team band along the trailing edge behind an ink seam, timber leading edges, spine and cross spar, a keel pod, on chocks) parked on it nose east, turned apart, tethered to cleats; a small windsock (striped tubes) on a short staff at its north-east corner; east the hangar, a tent along z (28 x 40, ridge 24) with no walls: a tarred sod-cloth (`tar2`) at its foot, weathered canvas sagging 1.6 between rafter lines (ropes over it casting shadows), worn hems, a tarred ridge pole (r 1.4) raised on forked poles, a tarred back cloth, a dark floor, open south where a third Kite's nose shows; guy lines; a winch with a line up to the deck. No mast (round 2's mast read as the Windmast) | the tent's two slopes, the Kites' trailing bands, the windsock's stripes, crate tarps |
 
 Roofs against each other: the Lighthouse a cone on a round tower and a striped hull; the Windmast a dark mast through a stack of
-three framed trapezoids, yard ends out to the sides, over a dark store; the Pump an A-frame and a nodding beam with a
-small dark head over a spreading pool of brine, team counterweights; the Crew Hall a long two-tone gable over a shade and a sand drill yard with dummies and a flag; the Workshop a dark ribbed slope with a pale vent along it, a
+three framed trapezoids, yard ends out to the sides, over a dark store; the Excavator a team wheel on a short timber
+tower over a black square, a rope down into it, a team lean-to beside; the Crew Hall a long two-tone gable over a shade and a sand drill yard with dummies and a flag; the Workshop a dark ribbed slope with a pale vent along it, a
 team strip at its foot and a short pale boom; the Slipway a sharp-bowed open hull on a slip into water and a low lean-to; the Lookout a small open
 tub on a tall tripod with a long gun; the Loft a planked deck carrying two pale deltas beside a tent. A 3x3 quay needs about 1250 square units of team to reach the sixth, so the
 Crew Hall's slope, the Slipway's lean-to and the Loft's tent are large; their forms differ and none is its
@@ -419,14 +421,16 @@ whatever it carries; a pale level beam reads as a gun barrel or a telescope, and
 nest on a tripod reads as a ball; a triangle longer than wide reads as a pennant, one wider than long as a wing; sails hung in front of their mast hide
 it and stack into a pagoda roof; small dark buildings with many props are named by elimination, but one big pale shape
 added to each can become the other's signature (round 4: a long pale jib with a hanging load reads as a pump jack, a
-big pale horse-head as a dial); patches in a row on a roof read as windows.
+big pale horse-head as a dial); patches in a row on a roof read as windows. So the Excavator's wheel is the one
+wheel among the Harbour's buildings, on a short frame (not a mast: the Windmast's) and with no boom (the Workshop's).
 
 Gotchas: `cyl` is capped, so a "ring" of it over an open thing is a lid (a hoop over the nest hid its deck for two
 rounds): rings and dodgers are `tube` (open-ended, two-sided materials). A flag is a `plate` turned rotation.x -pi/2
 (outline x along the fly, z up), so it faces the camera; the Lighthouse's pennant (rotation.z) stands edge-on.
 
 Lights: none but the Workshop's hearth and sparks. Materials of the family (`bldgMats`): `brine` 0x3a4a50 rough 0.12
-metal 0.35, `saltPan` 0xd8d4c6 flat, `tarIn` (tar's map on the back faces, a hull's inside), `kiteCloth` 0xc6bc9e,
+metal 0.35 (the Slipway's water), `saltPan` 0xd8d4c6 flat (the Slipway's foam), `rockSalt` and `ropeWound` (the
+Excavator's, made in its builder), `tarIn` (tar's map on the back faces, a hull's inside), `kiteCloth` 0xc6bc9e,
 `canvas2` / `canvasDark2` / `paintCanvas2` / `inkLine2` (two-sided, for sails, vanes and dodgers seen from both
 faces), `spark` (0xffb890, emissive 0xff6a28 x 3.2, not tone-mapped), `hearth` (0x3a0500, emissive 0xff2a08 x 1.5: orange-red, as
 yellow merged with the gold seat), `paintWorn` (team canvas two-sided at 0.8 of the paint: the big roofs, so a white
@@ -441,12 +445,17 @@ depot 32 -> 42 (the Windmast's mast), turret 14 -> 36 (the Lookout's nest and pe
 (`TURRET_HEAD_H`: a north-facing muzzle stands about 74 above the anchor). The anchor stays the footprint's centre, so
 the head still seats on the base. Every Harbour building and all 16 head frames have their top row clear (11 px or more
 of room). Team shares at
-facing 0 (step 2): Windmast 0.240, Pump 0.175, Crew Hall 0.256, Workshop 0.171, Slipway 0.194, Lookout 0.194 (its gun
+facing 0 (step 2; the Excavator in the mine shaft round): Windmast 0.240, Excavator 0.201, Crew Hall 0.256, Workshop 0.171, Slipway 0.194, Lookout 0.194 (its gun
 0.182), Loft 0.174. The pack: `node tools/art/review.mjs <dir> --family=hbld` (the phone sheet is a scene of each
-building once, in seat 0 or 6, with a Windmast, a Lookout and a Pump on a seep again in seat 1, a salt field, the
+building once, in seat 0 or 6, with a Windmast, a Lookout and an Excavator on a shaft again in seat 1, a salt field, the
 Tidewell, Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a Harbour base of
 every building against the Tidewell). Lights and smoke (`look.js BLDG_LOOK`): the Workshop's glow on its hearth (3 px
-west of the centre, 20 below), its smoke from its one stack (footprint px 23, -13); the Pump has no light.
+west of the centre, 20 below), its smoke from its one stack (footprint px 23, -13); the Excavator has no light.
+The Excavator's own pack: `node tools/art/review.mjs <dir> --family=shaft` (the shaft's frames, the Excavator in
+seats 0, 1 and 6 with its mask, the Excavator and the Siphon each over a shaft; a Harbour base at a phone's size with
+an Excavator on its shaft, a free and a dry shaft, a Siphon on a shaft, in grey, protan and deutan; the blind set: the
+shaft, the Excavator, the Workshop, the Windmast and the Siphon; `base.png`, the real game's main, needing
+`npm run build:wasm`).
 
 ## The ground and the scenery (step 1, `tools/art/terrain2.js`, `ground.js`, `scenery2.js`, `effects2.js`)
 
@@ -495,23 +504,30 @@ The salt's icon (the top bar's `.dot.shard` in `src/style.css`, 12x10; `icons.js
 `index.html`) is a cluster of three pointed crystals, the middle one tallest and the two beside it leaning out, white
 on its lit face and pale grey (0xb9b4aa) on its shaded one; never teal.
 
-**The brine seep** (`brineSeep`, `vent_0..3`, step 2): a brine spring. Iron brine, an unsaturated red-brown with a
-wet sheen and a small still glint (`W.brine` 0x51392a rough 0.15, ~60 in grey; `W.glint`; round 2's maroon could read
-as a red splat; round 1's rust-ochre read as the Harbour's orange and as fire), wells up off
-centre (`W.welling`) in a pool held by salt terraces stepping down round it (`W.terrace` 0x504e49, three uneven tiers 2 high,
-each bevelled and smooth shaded: lit rounded rims over steps in shadow, no flat fills), the brine's iron staining the
-terraces and a tongue of crust where it spills to the south-east (`W.ochre` 0x3e2c22, dull); slate stones at no even
-spacing. No green, no plume, no rings, no light. The
-frames: bubbles of a lighter ochre at five places, each swelling and slumping to a flat slick in turn. The tide pool
-(scenery) stays a dull grey-blue film, ~54 in grey: never ochre, never ringed by white.
+**The mine shaft** (`mineShaft`, `vent_0..3`; Opus, during the Fable limit). As the sea fell it uncovered old beds of
+rock salt under the seabed, deeper than the surface crystals; a shaft is an old entrance going down to them (Stelian:
+"an entry to a mine, with less detail"; the brine spring before it had "too much detail and green"). A few big forms
+that read at a phone's 64 px: a square dark mouth (24 across) in a heavy collar of squared timbers laid log-cabin
+fashion, two courses, each course's ends past the other's (`SH.beam` 0x6e6a62 with the timber grain: old, weathered
+grey-brown, since the Harbour's `timber` finished orange on the ground), two iron dogs at its corners; a low apron of
+dug spoil round it (`SH.spoil` 0x302f2c, radius 28, an uneven edge, a low heap to the south-east, open over the mouth)
+and two big slate stones. The shaft is built as a real hole (`shaftCollar`): its far wall goes down below the ground
+as deep as the camera sees through the mouth (1.43 times its width at 55 degrees; only that wall, as nothing else of
+the shaft can be seen), a band of timber lining in shade (`SH.lining`) at the top, then rock in shade (`SH.rock`),
+darker (`SH.deep`), and black (`SH.mouth`, unlit), a ladder (`SH.ladder`) going down it from just over the collar: the
+one thing darker than the ground, and a depth the eye reads as a hole to climb down. No liquid anywhere, no rope,
+windlass or bucket (a well), no green, no plume, no rings, no light, nothing team: it is neutral ground. The four frames
+are the same (it no longer bubbles); render.js draws a dry one at 0.6, and its mouth still reads darker than the ground.
+The Excavator stands on the same `shaftCollar`, so a shaft under it lines up; the Siphon covers it but for the spoil's
+edge. The tide pool (scenery) stays a dull grey-blue film, ~54 in grey, never ringed by white.
 
 **The scenery** (`scenery2.js`, `SCENERY`; the names are the old props' so the client, the scatter and the tests stay
 as they are): on the reef (solid), `boulders_*` a small heap of clams and whelks lying down with rounded grey-brown
-pebbles (`pebble` 0x35312d, off the seep's rust; `shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
+pebbles (`pebble` 0x35312d; `shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
 round 1's heap read as a cluster of Vael units, round 3's grey pieces and angular stones like the salt's crystals), `spire_*` pilings (weathered `drift` 0x6c6252, a tar line, a barnacle crust, split tops),
 `ruin_*` a boat's ribs, `wreck_*` a tarred hull keel up. On the open ground (flat, walked over): `crater_0` an anchor in
-the sand, `crater_1` a tide pool (a small film of dull grey-blue water, `pool` 0x131a22, ~54 in grey, under the seep's brine (~77) so it is never taken for one: round 4's mint teal was brighter than the brine; in one lobed outline straight on the sand, its kelp brown-black,
-stones half in it, kelp at its west end; no rim and no rings: round 1's dark disc in a pale rim read as a brine seep),
+the sand, `crater_1` a tide pool (a small film of dull grey-blue water, `pool` 0x131a22, ~54 in grey, never taken for brine: round 4's mint teal was brighter than the old seep's brine; in one lobed outline straight on the sand, its kelp brown-black,
+stones half in it, kelp at its west end; no rim and no rings: round 1's dark disc in a pale rim read as a seep),
 `debris_*` flotsam. The scenery's rope, sailcloth and cork are its own dull materials (`SMATS.rope`, `sail`, `cork`): the
 Harbour's pale rope and canvas read as white rings and sheets on the ground.
 
@@ -548,8 +564,9 @@ shallows `#467c80` (a notch up), deep `#1d3658`.
 
 The grey check (round 4; the base shot adds a worker standing between two salt fields, its body's grey against the
 ground's round it): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
-ground, the kelp, each resource, the seep's brine and terraces, the salt field's apron, the reef top, the tide pool and the
-units; the order to keep is units first, then the seep and the full salt, the kelp always under the ground.
+ground, the kelp, each resource, the shaft's mouth, collar and spoil, the salt field's apron, the reef top, the tide pool and the
+units; the order to keep is units first, then the full salt, the kelp always under the ground, and the shaft's mouth
+the darkest of all.
 
 The pack: `node tools/art/review-ground.mjs <dir>` (the ground and units sheets at a phone's size and at 1:1 with the
 game's shade layer over them, grey / protan / deutan, every prop at 1:1, construction and rubble of both peoples, the

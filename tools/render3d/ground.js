@@ -1,4 +1,4 @@
-// The ground family (STYLE.md "The ground and the scenery"): the salt field, the brine seep, and construction and
+// The ground family (STYLE.md "The ground and the scenery"): the salt field, the mine shaft, and construction and
 // wrecks for both peoples. Same conventions as models.js: game units (1 tile = 32), y up, +z south; buildings and
 // fields are centred on their footprint. The scenery props are in scenery2.js.
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ const std = (o) => new THREE.MeshStandardMaterial(o);
 /** The ground's own materials, shared with the scenery (scenery2.js): wet slate, and the salt field's: salt a pale warm
  *  white-grey, the palest thing on the ground but under the units' pale tops (the PM's note at gate A, and round 2's
  *  judge: 0xc2bdae still peaked at 251, as bright as a unit's highlight), the crust, the brine of a mined-out pit. The
- *  seep's own are `W` below. Salt carries no light. */
+ *  shaft's own are `SH` below. Salt carries no light. */
 export const GMATS = {
   slate: std({ color: 0x343a40, roughness: 0.8, metalness: 0.1, flatShading: true }),
   slateWet: std({ color: 0x272c31, roughness: 0.45, metalness: 0.15, flatShading: true }),
@@ -23,27 +23,31 @@ export const GMATS = {
 /** A flat, uneven patch (no round plinth: round 2's read as tokens or coins): an outline of radius R wobbling by `amp`,
  *  squashed to `sq` in depth, `h` thick, its phase `ph`; `edge(a)` gives its radius at angle a. */
 const wob = (R, amp, ph) => (a) => R * (1 + amp * (0.13 * Math.sin(3 * a + ph) + 0.08 * Math.sin(5 * a + ph * 1.7) + 0.05 * Math.sin(9 * a + ph * 2.3)));
-function patch(edge, sq, h, bevel = 0) {
+function patch(edge, sq, h, bevel = 0, hole = null) {
   const sh = new THREE.Shape();
   for (let k = 0; k <= 60; k++) { const a = k / 60 * Math.PI * 2, r = edge(a) - bevel, x = Math.cos(a) * r, z = Math.sin(a) * r * sq; k ? sh.lineTo(x, -z) : sh.moveTo(x, -z); }
+  if (hole) sh.holes.push(squareHole(...hole));
   const geo = new THREE.ExtrudeGeometry(sh, bevel ? { depth: h, bevelEnabled: true, bevelThickness: bevel * 0.6, bevelSize: bevel, bevelSegments: 3, curveSegments: 1 } : { depth: h, bevelEnabled: false, curveSegments: 1 });
   geo.rotateX(-Math.PI / 2); geo.computeVertexNormals(); return geo;
 }
+/** A square hole for a shape (the shaft's mouth through what lies round it): centre (x, z), half-width `r`. */
+export const squareHole = (x, z, r) => new THREE.Path([[x - r, -z - r], [x - r, -z + r], [x + r, -z + r], [x + r, -z - r]].map(([u, v]) => new THREE.Vector2(u, v)));
 const G = GMATS;
 /** The rubble's dull stand-ins for the peoples' pale materials: dead buildings' cloth and pearl, greyed by the fall. */
 const RM = { rope: std({ color: 0x6e6048, roughness: 0.95, metalness: 0 }), sail: std({ color: 0x45413a, roughness: 0.95, metalness: 0 }), pearlDull: std({ color: 0x48464a, roughness: 0.75, metalness: 0.05, flatShading: true }), pearlDark: std({ color: 0x323134, roughness: 0.75, metalness: 0.05, flatShading: true }) };
 
 // ---------------- resources ----------------
-// The salt field (STYLE.md "The salt works"): salt crystal clusters on a pale crust apron, in four stages. The seep
-// is a brine spring, rust-ochre brine in white salt terraces (since the step-2 note that the green pool read as a geyser).
-/** The brine spring's materials. */
-const W = {
-  terrace: std({ color: 0x504e49, roughness: 0.9, metalness: 0 }),                             // the spring's salt terraces: smooth shaded, lit rims over shadowed steps
-  ochre: std({ color: 0x3e2c22, roughness: 0.9, metalness: 0 }),                                // crust stained by the iron in the brine, a dull red-brown
-  brine: std({ color: 0x51392a, roughness: 0.15, metalness: 0.1 }),                             // iron brine: a deep red-brown, wet and glossy (round 1's ochre read as the Harbour's orange, as fire)
-  welling: std({ color: 0x33241a, roughness: 0.15, metalness: 0.1 }),
-  glint: std({ color: 0x9a8a78, roughness: 0.2, metalness: 0 }),                                // the wet glint on the brine, small and still
-  bubble: std({ color: 0x5e3c2c, roughness: 0.2, metalness: 0.2 }),                             // a bubble of brine, a lighter red-brown
+// The salt field (STYLE.md "The salt works"): salt crystal clusters on a pale crust apron, in four stages. The mine
+// shaft: an old square mouth going down to the rock salt under the seabed, in a timber collar (no liquid anywhere).
+/** The shaft's own materials: its dark mouth (the one thing darker than the ground), the trodden spoil round it. */
+const SH = {
+  mouth: new THREE.MeshBasicMaterial({ color: 0x000000 }),                                     // the dark going down: no sheen, no light, the darkest thing on screen
+  deep: std({ color: 0x0c0b0a, roughness: 1, metalness: 0 }),                                  // the far wall, deeper
+  rock: std({ color: 0x1e1b18, roughness: 1, metalness: 0, flatShading: true }),               // the rock under the seabed, in shade
+  lining: std({ color: 0x3a3028, roughness: 0.95, metalness: 0 }),                             // the shaft's timber lining at its top, in shade
+  ladder: std({ color: 0x5a4c3c, roughness: 0.9, metalness: 0 }),
+  beam: std({ color: 0x6e6a62, roughness: 0.88, metalness: 0 }),                               // the collar's timbers: old, weathered grey-brown (the Harbour's own timber read orange)
+  spoil: std({ color: 0x302f2c, roughness: 0.95, metalness: 0, flatShading: true }),           // dug earth and broken rock round the mouth, a step over the seabed
 };
 
 /** A salt field (`shard_0..3`), readable from full to nearly mined out by its shape, not only its size:
@@ -88,32 +92,38 @@ export function saltField(stage, M = G) {
   return g;
 }
 
-/** The brine seep (`vent_0..3`, an animation): a brine spring. Rust-ochre brine wells up in a pool held by white salt
- *  terraces that step down round it, the brine's iron staining a tongue of crust where it spills; slate stones at no
- *  even spacing. No green, no plume, no rings, no light (round 2's black disc and rings read as a Vael unit, round 4's
- *  green pool as a geyser). The frames: bubbles at a few places, each swelling and slumping flat in turn. */
-export function brineSeep(f, M = G) {
-  const g = grp(); s = 51;
-  const sq = 0.82, t1 = wob(26, 1.1, 1.3), t2 = wob(21, 1.2, 2.1), t3 = wob(17, 1.0, 0.4), pool = wob(14, 1.2, 2.9);
-  add(g, patch(wob(13, 1.6, 0.9), 0.55, 0.3), W.ochre, 14, 0, 12);                          // the spill: a rust tongue of crust to the south-east
-  add(g, patch(t1, sq, 1.2, 1.4), W.terrace, 0, 0, 0);                                     // the terraces, stepping up to the pool: rounded rims, steps in shadow
-  add(g, patch(wob(16, 1.3, 1.7), 0.6, 0.06), W.ochre, 8, 2.05, 7);                         // the stain where the brine runs down over them
-  add(g, patch(t2, sq, 1.2, 1.4), W.terrace, -0.5, 2, -0.5);
-  add(g, patch(t3, sq, 1.2, 1.4), W.terrace, -1, 4, -1);
-  add(g, patch(pool, sq, 0.3), W.brine, -1, 5.75, -1);                                      // the brine, in the top terrace's rim
-  add(g, patch(wob(4.5, 1.0, 0.4), 0.8, 0.12), W.welling, -3, 6.05, 0);                    // where it wells up, off centre
-  add(g, patch(wob(2.2, 0.8, 1.9), 0.45, 0.05), W.glint, -8, 6.07, -5); add(g, patch(wob(1.2, 0.8, 0.9), 0.5, 0.05), W.glint, -5.5, 6.07, -7);   // the wet glint, still
-  for (let k = 0; k < 5; k++) {                                                             // slate stones: two together, the rest strays
-    const a = k < 2 ? 3.6 + rnd() * 0.4 : rnd() * Math.PI * 2, r = t1(a) * (0.98 + rnd() * 0.2), sz = 1.4 + rnd() * 2;
-    add(g, new THREE.DodecahedronGeometry(sz), k % 2 ? M.slate : M.slateWet, Math.cos(a) * r, sz * 0.3, Math.sin(a) * r * sq, rnd(), rnd(), rnd()).scale.y = 0.55;
+/** The mine shaft's collar and mouth, square, centred at (x, y, z) on the ground at y: the shaft itself, its far wall
+ *  going down below the ground as deep as the camera sees through the mouth (1.43 times its width at 55 degrees), lined
+ *  with timber at the top and falling to black, a ladder down it; round it two courses of squared timbers laid
+ *  log-cabin fashion (each course's ends past the other's), `w` the mouth's width. Below the ground only the far wall
+ *  is built: the camera sees nothing else of the shaft. `M`: makeMats (iron; nothing team). Shared by the free shaft
+ *  (`mineShaft`) and the Excavator over it. */
+export function shaftCollar(g, M, x = 0, y = 0, z = 0, w = 20) {
+  if (!SH.beam.map) for (const m of [SH.beam, SH.ladder, SH.lining]) { m.map = M.timber.map; m.needsUpdate = true; }  // (the Harbour's timber grain)
+  const b = 5, h = 3.4, o = w / 2 + b / 2, L = w + b * 2 + 5, D = w * Math.tan(55 * Math.PI / 180), zN = z - w / 2;
+  const bands = [[0, 3.2, SH.lining], [3.2, 6.5, SH.rock], [6.5, 11, SH.deep], [11, D + 2, SH.mouth]];   // the far wall, top down: lining, rock in shade, darker, black
+  for (const [t, u, mat] of bands) add(g, rbox(w + 1, u - t, 1, 0.05), mat, x, y - (t + u) / 2, zN - 0.5);
+  for (const sx of [-1, 1]) add(g, rbox(1, D, 1, 0.05), SH.mouth, x + sx * (w / 2 + 0.5), y - D / 2, zN);   // (the side walls' far corners, black)
+  for (const sx of [-1, 1]) add(g, rbox(1, 20, 1, 0.3), SH.ladder, x + sx * 2.6, y - 4, zN + 1.1);         // a ladder down the far wall
+  for (let k = 0; k < 6; k++) add(g, rbox(5.2, 0.7, 0.7, 0.2), SH.ladder, x, y + 4.6 - k * 3, zN + 1.2);
+  for (const [c, rot] of [[0, 0], [1, Math.PI / 2]]) for (const s of [-1, 1]) {
+    const yy = y + h / 2 + c * h;                                                            // two courses: x-beams below, z-beams above
+    const px = rot ? s * o : (s < 0 ? -0.6 : 0.5), pz = rot ? (s < 0 ? 0.4 : -0.5) : s * o; // (each beam a little off: hewn, not machined)
+    add(g, rbox(L - (c ? 0 : 1.6), h, b, 0.8), SH.beam, x + px, yy, z + pz, 0, rot + s * 0.02 * (c + 1), 0);
   }
-  const sites = [[-3, 0, 1.3], [4, -4, 0.9], [-8, -4, 0.8], [3, 5, 1], [-6, 6, 0.7]];       // bubbles: each site its own phase and size
-  sites.forEach(([x, z, k], i) => {
-    const ph = (f + i * 3) % 4;
-    if (ph === 0) add(g, sph(0.7 * k, 10, 8), W.bubble, x, 6.15, z).scale.set(1, 0.6, 1);
-    else if (ph === 1) add(g, sph(1.3 * k, 12, 8), W.bubble, x, 6.25, z).scale.set(1, 0.7, 1);
-    else if (ph === 2) add(g, patch(wob(1.8 * k, 1.5, i), 1, 0.06), W.bubble, x, 6.07, z);  // slumped: a flat slick, no ring
-  });
+  for (const [sx, sz] of [[-1, -1], [1, 1]]) add(g, rbox(1.8, 1.2, 1.8, 0.2), M.ironDark, x + sx * o, y + 2 * h + 0.3, z + sz * o); // two iron dogs at the corners
+}
+
+/** The mine shaft (`vent_0..3`): an old entrance going down to the beds of rock salt under the seabed, a square dark
+ *  mouth in a heavy timber collar on a low apron of dug spoil, two big stones beside it. A few big forms that read at a
+ *  phone's 64 px; no liquid, no light, no rope or windlass (a well), nothing team (it is neutral ground). The four
+ *  frames are the same: it no longer bubbles. `M`: makeMats (timber, iron). */
+export function mineShaft(f, M) {
+  const g = grp(); s = 51;
+  add(g, patch(wob(28, 1.0, 1.3), 0.86, 1.2, 1.2, [0, -1, 13.5]), SH.spoil, 0, 0, 0);       // the spoil: trodden, its edge uneven, open over the mouth
+  add(g, patch(wob(12, 1.4, 2.6), 0.6, 1.2, 1.2), SH.spoil, 14, 0.6, 11);                    // a low heap of it to the south-east
+  shaftCollar(g, M, 0, 1.2, -1, 24);
+  for (const [x, z, sz] of [[-21, 10, 3.6], [19, -14, 2.8]]) add(g, new THREE.DodecahedronGeometry(sz), G.slate, x, sz * 0.4, z, rnd(), rnd(), rnd()).scale.y = 0.6; // two big stones
   return g;
 }
 

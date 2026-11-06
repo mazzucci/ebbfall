@@ -1,7 +1,7 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
 // eight units; `hinf`, the Harbour infantry; `hmach`, the Harbour machines; `hair`, the Harbour air; `vbld`, the Vael's eight
-// buildings; `hbld`, the Harbour buildings) and writes into <outdir>:
+// buildings; `hbld`, the Harbour buildings; `shaft`, the mine shaft and the Excavator) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px);
 //                    a building family lays its own scene out (`phoneScene`: each building once, in seat 0 or 6, a few again in
@@ -71,11 +71,11 @@ const FAMILIES = {
 };
 // Harbour buildings (harbour-buildings.js): the eight buildings (the Lookout's gun its own sprite) with the slice's
 // Rigger and Picket for scale; a family of buildings, so the phone sheet is a scene of its own (`phoneScene`: the
-// Lighthouse, Windmast, Pump, Crew Hall and Workshop in seat 0, the Slipway, Lookout and Loft in seat 6, a Windmast, a
-// Lookout and a Pump on a seep in seat 1, a salt field, the Tidewell, Pickets, Riggers, a Glint and a Lens), the blind
+// Lighthouse, Windmast, Excavator, Crew Hall and Workshop in seat 0, the Slipway, Lookout and Loft in seat 6, a Windmast, a
+// Lookout and an Excavator on a shaft in seat 1, a salt field, the Tidewell, Pickets, Riggers, a Glint and a Lens), the blind
 // images are wider (`blindSize`) and the battle stand-in (`vael`) adds a Harbour base of every building but the
 // Lighthouse, already in the battle, to the slice's Vael side
-const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Pump'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
+const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Excavator'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
 FAMILIES.hbld = {
   filter: '^(harvester|trooper|lumen|prism)_\\d+_\\d+$|^bldg_(core|depot|extractor|barracks|forge|factory|turret|airfield|conflux)$|^turret_head_\\d+$|^shard_\\d$|^vent_0$',
   units: {}, rows: [...HBLD.map(([k]) => `bldg_${k}`), 'turret_head_0', 'turret_head_4', 'turret_head_8', 'turret_head_12'],
@@ -121,6 +121,29 @@ FAMILIES.vbld = {
     ...[0, 1, 2].map(k => [`lumen_${[8, 8, 4][k]}_0`, cx + 340 + k * 36, cy - 120 + k * 26, 1]),
     ...[0, 1, 2, 3].map(k => [`prism_8_${k % 2}`, cx + 40 + (k % 2) * 46, cy + 80 + Math.floor(k / 2) * 60 + (k % 2) * 10, 1]),
   ],
+};
+// The mine shaft and the Excavator (ground.js `mineShaft`, harbour-buildings.js `excavator`): the shaft's four frames,
+// the Excavator in each seat, and each people's building over a shaft (a row or a blind image named `a+b` draws b over
+// a at the same point; an entry's fifth value is its opacity: a dry shaft is drawn at 0.6, as render.js draws it).
+// The phone scene is a Harbour base (Lighthouse, Windmast, Workshop, Crew Hall) with an Excavator on its shaft, a free
+// shaft and a dry one, a salt field and Riggers, a Siphon on a shaft of its own beside a Tidewell; the blind set puts
+// the shaft beside the buildings it could be taken for or with (the Workshop's crane, the Windmast's mast). No battle
+// stand-in; `base`: the real game's main at a phone's size (review-ground.mjs --base-only into the same directory).
+FAMILIES.shaft = {
+  filter: '^harvester_(0|2|4|8|12|14)_[01]$|^lumen_(4|8)_0$|^bldg_(core|depot|forge|barracks|extractor|siphon|conflux)$|^shard_[0-3]$|^vent_\\d$',
+  units: {}, rows: ['vent_0', 'vent_1', 'vent_2', 'vent_3', 'bldg_extractor', 'vent_0+bldg_extractor', 'vent_0+bldg_siphon'],
+  shares: ['bldg_extractor', 'bldg_forge', 'bldg_depot'],
+  phone: [], turned: [],
+  phoneScene: () => [
+    ['bldg_core', 260, 330, 0], ['bldg_depot', 540, 200, 0], ['bldg_forge', 520, 520, 0], ['bldg_barracks', 820, 600, 0],
+    ['vent_0', 780, 250], ['bldg_extractor', 780, 250, 0], ['vent_0', 1000, 210], ['vent_1', 1080, 470, null, 0.6],
+    ['shard_0', 300, 640], ['shard_0', 380, 700], ['shard_1', 200, 690], ['shard_2', 120, 600],
+    ...[0, 1, 2].map(k => [`harvester_${[2, 14, 4][k]}_${k % 2}`, 280 + k * 46, 590 + (k % 2) * 30, 0]), ['harvester_0_0', 680, 330, 0], ['harvester_8_1', 900, 300, 0],
+    ['vent_0', 1400, 270], ['bldg_siphon', 1400, 270, 1], ['bldg_conflux', 1500, 600, 1], ['shard_0', 1260, 640], ['lumen_8_0', 1300, 380, 1], ['lumen_4_0', 1240, 560, 1],
+  ],
+  blindSize: 400,
+  blind: [['vent_0', 'the mine shaft (vent)'], ['vent_0+bldg_extractor', 'extractor (Excavator) over a shaft'], ['bldg_forge', 'forge (Workshop)'], ['bldg_depot', 'depot (Windmast)'], ['vent_0+bldg_siphon', 'siphon (Siphon) over a shaft']],
+  noBattle: true, base: true,
 };
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
@@ -178,14 +201,14 @@ const tintOf = (seat) => { const c = TINTS[seat]; return [c >> 16 & 255, c >> 8 
 const canvas = (w, h) => ({ w, h, data: new Uint8ClampedArray(w * h * 4) });
 const fill = (c, rgb) => { for (let i = 0; i < c.w * c.h; i++) c.data.set([...rgb, 255], i * 4); };
 /** Source-over of a sprite (atlas px) with its anchor at (x, y); the team mask tinted over it for a seat. */
-function draw(c, s, x, y, seat = null) {
+function draw(c, s, x, y, seat = null, alpha = 1) {
   const { w, h, data } = s.img, ox = Math.round(x - s.anchor.x * w), oy = Math.round(y - s.anchor.y * h);
   const m = seat === null ? null : masks.get(s.name), tint = seat === null ? null : tintOf(seat);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const px = ox + i, py = oy + j; if (px < 0 || py < 0 || px >= c.w || py >= c.h) continue;
     const si = (j * w + i) * 4, di = (py * c.w + px) * 4;
-    let a = data[si + 3] / 255; if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + data[si + k] * a;
-    if (m) { a = m.data[si + 3] / 255; if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + m.data[si + k] * tint[k] * a; }
+    let a = data[si + 3] / 255 * alpha; if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + data[si + k] * a;
+    if (m) { a = m.data[si + 3] / 255 * alpha; if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + m.data[si + k] * tint[k] * a; }
     c.data[di + 3] = 255;
   }
 }
@@ -235,13 +258,13 @@ const rows = [];
 for (const [k, frames] of Object.entries(FAM.units)) for (const f of frames) for (const d of [0, 4, 8, 12]) rows.push(`${k}_${d}_${f}`);
 rows.push(...FAM.rows);
 {
-  const PAD = 6, cells = rows.map(get), cw = Math.max(...cells.map(s => s.img.w)) + PAD, ch = cells.map(s => s.img.h + PAD);
+  const PAD = 6, parts = rows.map(r => r.split('+').map(get)), cells = parts.map(p => p[p.length - 1]), cw = Math.max(...cells.map(s => s.img.w)) + PAD, ch = cells.map(s => s.img.h + PAD);
   const cols = 4, c = canvas(cw * cols, ch.reduce((a, b) => a + b, 0)); fill(c, [52, 54, 56]);
   let y = 0;
   cells.forEach((s, n) => {
     [0, 1, 6, 'm'].forEach((seat, col) => {
       const x = col * cw + Math.round(s.anchor.x * s.img.w) + PAD / 2, ay = y + Math.round(s.anchor.y * s.img.h) + PAD / 2;
-      if (seat === 'm') { const m = masks.get(s.name); if (m) draw(c, { img: m, anchor: s.anchor, name: '' }, x, ay); } else draw(c, s, x, ay, seat);
+      for (const p of parts[n]) if (seat === 'm') { const m = masks.get(p.name); if (m) draw(c, { img: m, anchor: p.anchor, name: '' }, x, ay); } else draw(c, p, x, ay, seat); // (a part over another, both anchored at the same point)
     });
     y += ch[n];
   });
@@ -258,7 +281,7 @@ for (const name of FAM.shares) {
 }
 
 // ---- 3. the phone sheet: everything at game size on the seabed beside a salt field ----
-const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort((a, b) => a[2] - b[2])) draw(c, get(name), x, y, seat); };
+const place = (c, list) => { for (const [name, x, y, seat, alpha] of list.slice().sort((a, b) => a[2] - b[2])) draw(c, get(name), x, y, seat ?? null, alpha); };
 {
   const c = canvas(1688, 780); seabed(c); // a 2x phone (844x390 CSS px)
   const list = [['shard_0', 130, 150], ['shard_2', 130, 300]];
@@ -280,11 +303,11 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
 {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'.split(''), key = {}, B = FAM.blindSize ?? 192;
   let n = 0;
-  for (const [name, what] of FAM.blind) for (const seat of [0, 6]) {
-    const c = canvas(B, B); seabed(c, 11 + n++ * 7, true); draw(c, get(name), B / 2, B / 2 + B * 0.07, seat);
+  for (const [name, what] of FAM.blind) for (const seat of name.split('+').some(p => masks.has(p)) ? [0, 6] : [null]) { // (neutral ground once)
+    const c = canvas(B, B); seabed(c, 11 + n++ * 7, true); for (const p of name.split('+')) draw(c, get(p), B / 2, B / 2 + B * 0.07, seat);
     if (name === 'bldg_turret' && byName.has('turret_head_0')) draw(c, get('turret_head_0'), B / 2, B / 2 + B * 0.07, seat); // (its gun: a head sprite the game draws at the building's own point)
     const L = letters.splice(Math.floor(Math.random() * letters.length), 1)[0];
-    key[L] = `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
+    key[L] = seat === null ? `${what}, neutral` : `${what}, seat ${seat}`; writeFileSync(join(outDir, 'blind', `${L}.png`), encodePNG(half(c)));
   }
   writeFileSync(join(outDir, 'blind', 'key.json'), JSON.stringify(key, null, 1));
 }
@@ -302,6 +325,12 @@ function battle(w, h) {
   ring(c, cx - 104, cy - 37, 24, 14);
   return c;
 }
-save('battle-desktop.png', half(battle(2560, 1440)));
-{ const c = battle(1688, 780); save('battle-phone@2x.png', c); save('battle-phone.png', half(c)); }
+if (!FAM.noBattle) {
+  save('battle-desktop.png', half(battle(2560, 1440)));
+  const c = battle(1688, 780); save('battle-phone@2x.png', c); save('battle-phone.png', half(c));
+}
+if (FAM.base) { // the real game's main (needs the WASM build: npm run build:wasm)
+  const { execFileSync } = await import('node:child_process');
+  execFileSync(process.execPath, [new URL('./review-ground.mjs', import.meta.url).pathname, outDir, '--base-only'], { stdio: 'inherit' });
+}
 console.log('review pack ->', outDir);

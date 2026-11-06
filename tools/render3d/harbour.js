@@ -42,31 +42,35 @@ function sailor(M, f, { kneel = false } = {}) {
  *  with iron bands under a team-canvas tarpaulin, a pale coil of rope on top and the pick laid across it. From above a
  *  long shape, a dark figure ahead of a team box with a pale ring on it: never the Picket's disc and stick. */
 export function rigger(M, f) {
-  const g = grp(), man = sailor(M, f); man.position.x = 3.6; g.add(man);
+  const g = grp(), man = sailor(M, f); man.position.x = 3.2; g.add(man);
   const b = man.body;
-  add(b, cyl(2.5, 2.6, 1.1, 14), M.oilskin, 0.2, 15.3, 0);                                      // flat cap
+  add(b, cyl(2.5, 2.7, 1.3, 14), M.canvas, 0.2, 15.4, 0);                                       // a pale canvas cap: the head shows above the barrow
+  add(b, cyl(2.6, 2.6, 0.3, 14), M.inkLine, 0.2, 14.7, 0);                                      // its dark band
   add(b, rbox(2, 0.4, 3, 0.15), M.oilskin, 2.6, 14.9, 0);                                       // its peak
   for (const side of [-1, 1]) add(b, rbox(3.2, 1.3, 3.4, 0.7), M.paintCanvas, -0.4, 13.1, side * 3.6, side * 0.35, 0, 0); // yoke over the shoulders (team)
   add(b, rbox(5.4, 0.4, 7.4, 0.1), M.inkLine, -0.4, 12.4, 0);                                   // its ink edge
-  for (const side of [-1, 1]) limb(b, [0.6, 11.2, side * 3.4], [-2.6, 7.6, side * 3.7], 1.1, M.paintCanvas); // arms back to the shafts (team canvas sleeves, as the Picket's)
-  // the barrow: two shafts from the hands, a box on two wheels, bands, the load
-  for (const side of [-1, 1]) add(g, rbox(10, 0.8, 0.8, 0.25), M.timber, -4.2, 7.2, side * 3.7);
-  add(g, rbox(8.4, 5, 7.4, 0.4), M.paintCanvas, -7.4, 5.3, 0);                                  // the box, team-painted
-  for (const y of [3.0, 7.6]) add(g, rbox(8.7, 0.5, 7.7, 0.15), M.inkLine, -7.4, y, 0);           // ink bands above and below the paint
-  for (const x of [-10.8, -4]) add(g, rbox(0.8, 5.2, 7.8, 0.15), M.timber, x, 5.3, 0);           // timber corner posts
   for (const side of [-1, 1]) {
-    add(g, cyl(3.1, 3.1, 1.1, 18), M.ironDark, -7.4, 3.1, side * 4.5, Math.PI / 2);              // wheels
-    add(g, cyl(1.1, 1.1, 1.4, 10), M.oilskin, -7.4, 3.1, side * 4.6, Math.PI / 2);
-    for (let k = 0; k < 4; k++) add(g, rbox(0.5, 5.2, 0.4, 0.1), M.timber, -7.4, 3.1, side * 4.55, 0, 0, k * Math.PI / 4 + f * 0.4); // spokes (turning)
+    limb(b, [0.6, 11.2, side * 3.4], [-2.2, 7.8, side * 3.6], 1.1, M.paintCanvas);              // arms back to the handles (team canvas sleeves, as the Picket's)
+    add(b, sph(0.9, 8, 6), M.oilskin, -2.4, 7.6, side * 3.6);                                   // hands on the handles
   }
-  add(g, rbox(7.8, 1.3, 7, 0.5), M.paintCanvas, -7.4, 8.4, 0);                                   // the team tarpaulin over the load
-  add(g, rbox(8.1, 0.35, 7.3, 0.1), M.inkLine, -7.4, 7.75, 0);                                   // its ink hem
-  for (const z of [-2.4, 2.4]) add(g, rbox(0.5, 1.6, 7.4, 0.15), M.rope, -7.4 + z, 8.5, 0);     // lashings
-  add(g, torus(3.1, 1.25, 28), M.rope, -7.4, 10.1, 0, Math.PI / 2, 0, 0);                        // the coil, lying on the tarp
-  add(g, cyl(0.42, 0.42, 11, 8), M.timber, -6.6, 11.4, 0.4, 0, 0.45, Math.PI / 2);               // the pick across the coil
-  add(g, rbox(1, 1.1, 5, 0.3), M.ironDark, -1.6, 11.4, 2.8, 0, 0.45, 0);                         // its head
-  for (const side of [-1, 1]) add(g, new THREE.ConeGeometry(0.5, 1.6, 6), M.brass, -1.6 - side * 1.1, 11.4, 2.8 + side * 2.9, side * Math.PI / 2, 0.45, 0);
-  g.scale.setScalar(1.06);
+  // the barrow: two shafts from the hands, a box on two wheels, bands, the load; it closes up on the figure
+  for (const side of [-1, 1]) add(g, rbox(8.5, 0.8, 0.8, 0.25), M.timber, -3.2, 7.3, side * 3.6);
+  add(g, rbox(7, 4.6, 7, 0.4), M.paintCanvas, -6.2, 5.2, 0);                                    // the box, team-painted
+  for (const y of [3.1, 7.3]) add(g, rbox(7.3, 0.5, 7.3, 0.15), M.inkLine, -6.2, y, 0);           // ink bands above and below the paint
+  for (const x of [-9.1, -3.3]) add(g, rbox(0.8, 4.8, 7.4, 0.15), M.timber, x, 5.2, 0);          // timber corner posts
+  for (const side of [-1, 1]) {
+    add(g, cyl(2.8, 2.8, 1.1, 18), M.ironDark, -6.2, 2.8, side * 4.3, Math.PI / 2);              // wheels
+    add(g, cyl(1, 1, 1.4, 10), M.oilskin, -6.2, 2.8, side * 4.4, Math.PI / 2);
+    for (let k = 0; k < 4; k++) add(g, rbox(0.5, 4.6, 0.4, 0.1), M.timber, -6.2, 2.8, side * 4.35, 0, 0, k * Math.PI / 4 + f * 0.4); // spokes (turning)
+  }
+  add(g, rbox(6.6, 1.3, 6.6, 0.5), M.paintCanvas, -6.2, 8.1, 0);                                 // the team tarpaulin over the load
+  add(g, rbox(6.9, 0.35, 6.9, 0.1), M.inkLine, -6.2, 7.45, 0);                                   // its ink hem
+  for (const z of [-2.2, 2.2]) add(g, rbox(0.5, 1.6, 7, 0.15), M.rope, -6.2 + z, 8.2, 0);       // lashings
+  add(g, torus(2.8, 1.2, 28), M.rope, -6.2, 9.7, 0, Math.PI / 2, 0, 0);                          // the coil, lying on the tarp
+  add(g, cyl(0.42, 0.42, 10, 8), M.timber, -5.6, 10.9, 0.4, 0, 0.45, Math.PI / 2);               // the pick across the coil
+  add(g, rbox(1, 1.1, 5, 0.3), M.ironDark, -1.1, 10.9, 2.6, 0, 0.45, 0);                         // its head
+  for (const side of [-1, 1]) add(g, new THREE.ConeGeometry(0.5, 1.6, 6), M.brass, -1.1 - side * 1.1, 10.9, 2.6 + side * 2.9, side * Math.PI / 2, 0.45, 0);
+  g.scale.setScalar(0.95);
   return g;
 }
 
@@ -81,22 +85,23 @@ export function picket(M, f) {
   const hat = grp(); hat.position.set(0.2, 14.6, 0); b.add(hat);
   add(hat, lathe([[0, 0], [4.4, 0], [4.4, 0.5], [3.2, 0.65], [3.1, 3], [2.4, 3.6], [1, 3.95], [0, 4.05]]), M.canvas, 0, 0, 0);
   add(hat, cyl(4.45, 4.45, 0.3, 24), M.canvasDark, 0, 0.1, 0);                                   // the brim's underside
+  add(hat, cyl(4.5, 4.5, 0.3, 24), M.inkLine, 0, -0.1, 0);                                       // a dark line under the brim
   add(hat, cyl(3.25, 3.25, 1.9, 20), M.paintCanvas, 0, 1.85, 0);                                 // team band round the crown
   add(hat, cyl(3.35, 3.35, 0.5, 20), M.inkLine, 0, 0.9, 0); add(hat, cyl(3.35, 3.35, 0.5, 20), M.inkLine, 0, 2.95, 0); // black ink rings above and below it
-  add(b, cyl(1.4, 1.4, 9.4, 12), M.paintCanvas, -3.4, 12.2, 0, Math.PI / 2);                     // bedroll across the back (team)
-  add(b, cyl(1.5, 1.5, 0.5, 12), M.inkLine, -3.4, 12.2, 4.6, Math.PI / 2); add(b, cyl(1.5, 1.5, 0.5, 12), M.inkLine, -3.4, 12.2, -4.6, Math.PI / 2);
-  add(b, rbox(2.6, 0.5, 2, 0.15), M.rope, -3.4, 13.5, 0);                                        // its strap
+  add(b, rbox(2.6, 5.4, 4.2, 0.6), M.paintCanvas, -3.8, 10.6, 0);                                // a narrow pack on the back (team): the figure stays slim
+  add(b, rbox(2.8, 0.4, 4.4, 0.1), M.inkLine, -3.8, 13.3, 0); add(b, rbox(2.8, 0.4, 4.4, 0.1), M.inkLine, -3.8, 7.9, 0);
+  add(b, rbox(2.9, 0.5, 1.4, 0.15), M.rope, -3.8, 11.6, 0);                                      // its strap
   add(b, rbox(0.8, 2.2, 1.6, 0.3), M.ironDark, -5.2, 9.2, 1.2);                                  // water can
   // arms (team canvas sleeves) and the rifle: a pale timber stock, a long iron barrel, a brass bead at the muzzle
   const ry = kneel ? 8.4 : 9.8;
-  const gun = grp(); gun.position.set(2.8, ry, 1.0); b.add(gun);
+  const gun = grp(); gun.position.set(2.4, ry, 0.6); gun.rotation.z = kneel ? 0 : 0.34; b.add(gun); // standing: the muzzle up ahead, close to the body, never a level barrel out to the side
   add(gun, rbox(7.5, 1.6, 1.7, 0.5), M.timberPale, 0.8, 0, 0);                                   // stock
   add(gun, rbox(1.2, 1.9, 1.9, 0.2), M.ironDark, 4.9, 0, 0);                                     // lock
   add(gun, cyl(0.62, 0.62, 9.8, 8), M.ironDark, 9.5, 0.3, 0, 0, 0, Math.PI / 2);                 // barrel
   add(gun, rbox(1, 2.2, 1, 0.3), M.oilskin, -1.2, -1.2, 0);                                      // grip
   add(gun, sph(0.55, 8, 6), M.brass, 14.5, 0.3, 0);
-  limb(b, [0.6, 11, 3.6], [4, ry - 0.4, 1.6], 1.1, M.paintCanvas);
-  limb(b, [0.6, 11, -3.6], [7.6, ry, 0.6], 1.1, M.paintCanvas);
+  limb(b, [0.6, 11, 3.6], [3.6, ry - 0.2, 1.4], 1.1, M.paintCanvas);
+  limb(b, [0.6, 11, -3.6], [kneel ? 7.6 : 6.4, kneel ? ry : ry + 1.6, 0.4], 1.1, M.paintCanvas);
   // the parapet: a crescent of wet sandbags laid ahead, one course while settling, two dug in; the groundsheet behind
   if (st) {
     const R = 7.6, n = 7;
@@ -122,7 +127,7 @@ export function picket(M, f) {
 export function lighthouse(M) {
   const g = grp();
   add(g, plate(oct(62), 4, 1.2), M.flagstone, 0, 0, 0);
-  for (let k = 0; k < 10; k++) add(g, rbox(2.2, 1.2, 2.2, 0.3), M.slate, -58 + k * 13, 4.6, 58 - (k % 3)); // kerb stones along the south edge
+  for (let k = 0; k < 10; k++) { add(g, rbox(2.4, 2.4, 2.4, 0.3), M.slate, -58 + k * 13, 5, 58 - (k % 3)); add(g, rbox(2.5, 0.6, 2.5, 0.1), M.paintCanvas, -58 + k * 13, 6.4, 58 - (k % 3)); } // mooring posts along the south edge, their tops painted
   // the keeper's house
   const HX = -32, HZ = -6, HL = 72;
   add(g, rbox(30, 14, HL, 1), M.timber, HX, 11, HZ);                                                // timber walls
@@ -130,35 +135,40 @@ export function lighthouse(M) {
   add(g, rbox(31, 1.6, HL + 1, 0.4), M.ironDark, HX, 4.8, HZ);                                      // plinth band
   add(g, hull(16, HL), M.tar, HX, 18, HZ);                                                          // the upturned hull roof
   add(g, rbox(2.2, 2.2, HL + 2, 0.6), M.timber, HX, 34.5, HZ);                                      // keel
-  for (let k = 0; k < 6; k++) add(g, hull(16.5, 9.4), k % 3 === 1 ? M.canvas : M.paintCanvas, HX, 18.2, HZ - 25 + k * 10); // lashed canvas panels, two team to one pale
+  for (let k = 0; k < 6; k++) add(g, hull(16.5, 9.4), k % 2 ? M.canvas : M.paintCanvas, HX, 18.2, HZ - 25 + k * 10); // lashed canvas panels, pale and team alternating at equal width
   for (let k = 0; k <= 6; k++) add(g, torus(16.9, 0.5, 32, Math.PI), M.rope, HX, 18.2, HZ - 30 + k * 10, 0, 0, 0); // the lashings between them
   for (let k = 0; k <= 6; k++) add(g, hull(16.75, 1.2), M.inkLine, HX, 18.2, HZ - 30 + k * 10);     // ink where the panels meet
   add(g, rbox(5, 7, 5, 0.6), M.ironDark, HX - 8, 36, HZ - 24); add(g, rbox(5.6, 1.4, 5.6, 0.4), M.slate, HX - 8, 40, HZ - 24); // chimney
   add(g, new THREE.CircleGeometry(15.4, 24, 0, Math.PI), M.paintCanvas, HX, 18.2, HZ + HL / 2 + 0.3); // the south end wall under the hull: team
   add(g, new THREE.CircleGeometry(15.8, 24, 0, Math.PI), M.inkLine, HX, 18.2, HZ + HL / 2 + 0.1);
   add(g, rbox(9, 9, 1.2, 0.4), M.oilskin, HX + 2, 9, HZ + HL / 2 + 0.9);                             // south door
-  add(g, rbox(12, 0.6, 7, 0.2), M.canvas, HX + 2, 15.5, HZ + HL / 2 + 3, 0.3);                       // canvas porch
+  add(g, rbox(14, 0.6, 8, 0.2), M.paintCanvas, HX + 2, 15.5, HZ + HL / 2 + 3.5, 0.3);                 // the porch's team canvas
+  add(g, rbox(14.3, 0.3, 8.3, 0.1), M.inkLine, HX + 2, 15.1, HZ + HL / 2 + 3.5, 0.3);
   for (const x of [-10, 10]) add(g, rbox(4, 4, 1, 0.3), M.canvasDark, HX + x, 11, HZ + HL / 2 + 0.9); // windows, shuttered
   // the tower: tapered, tarred, banded; the gallery; the lantern room; the cone
   const TX = 20, TZ = -10;
   add(g, cyl(20, 22, 6, 32), M.slate, TX, 7, TZ);
   add(g, cyl(11.5, 18.5, 34, 32), M.tar, TX, 25, TZ);                                                // the tarred shaft
-  for (const [y, r] of [[13, 17.5], [20, 16]]) add(g, cyl(r + 0.5, r + 0.6, 1.6, 32), M.ironDark, TX, y, TZ); // iron bands
-  add(g, cyl(12.2, 14.7, 16, 32), M.paintCanvas, TX, 33, TZ);                                        // the team band
-  add(g, cyl(15, 15, 0.8, 32), M.inkLine, TX, 24.8, TZ); add(g, cyl(12.5, 12.5, 0.8, 32), M.inkLine, TX, 41.2, TZ); // ink rings
-  add(g, torus(24.5, 3, 48), M.paintCanvas, TX, 4.1, TZ, Math.PI / 2, 0, 0).scale.z = 0.25;           // a painted mooring ring round the tower's foot
-  add(g, torus(27.7, 0.5, 48), M.inkLine, TX, 4.15, TZ, Math.PI / 2, 0, 0); add(g, torus(21.3, 0.5, 48), M.inkLine, TX, 4.15, TZ, Math.PI / 2, 0, 0); // its ink edges
+  for (const [y, r] of [[12, 17.7], [18, 16.5]]) add(g, cyl(r + 0.5, r + 0.6, 1.6, 32), M.ironDark, TX, y, TZ); // iron bands
+  add(g, cyl(12.2, 15, 18, 32), M.paintCanvas, TX, 32, TZ);                                          // the team band
+  add(g, cyl(15.3, 15.3, 0.8, 32), M.inkLine, TX, 22.8, TZ); add(g, cyl(12.5, 12.5, 0.8, 32), M.inkLine, TX, 41.2, TZ); // ink rings
+  add(g, torus(24.5, 1.6, 48), M.slate, TX, 4.4, TZ, Math.PI / 2, 0, 0);                             // a raised stone kerb round the tower's foot
+  add(g, torus(24.5, 1.2, 48), M.paintCanvas, TX, 5.3, TZ, Math.PI / 2, 0, 0).scale.z = 0.5;          // a thin painted band on its top
+  add(g, cyl(14.3, 12.3, 0.6, 32), M.paintCanvas, TX, 43.9, TZ);                                      // the gallery's deck painted team
+  add(g, cyl(14.5, 14.5, 0.4, 32), M.inkLine, TX, 43.8, TZ);
   add(g, cyl(14.2, 12.4, 2.2, 32), M.ironDark, TX, 42.6, TZ);                                         // gallery deck
   for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; add(g, cyl(0.3, 0.3, 4, 6), M.ironDark, TX + Math.cos(a) * 13.6, 45.6, TZ + Math.sin(a) * 13.6); }
   add(g, torus(13.6, 0.3, 36), M.ironDark, TX, 47.6, TZ, Math.PI / 2, 0, 0);                        // rail
   add(g, cyl(9.2, 9.8, 1.6, 24), M.ironDark, TX, 44.5, TZ);                                           // lantern-room floor
-  add(g, cyl(8.2, 8.2, 12, 24), M.lanternGlass, TX, 51.3, TZ);                                        // the lantern room: pale glass
-  for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + Math.PI / 10; add(g, rbox(0.9, 12.4, 0.9, 0.2), M.ironDark, TX + Math.cos(a) * 8.3, 51.3, TZ + Math.sin(a) * 8.3, 0, -a, 0); } // the cage
-  for (const y of [47.5, 55]) add(g, cyl(8.5, 8.5, 0.6, 24), M.ironDark, TX, y, TZ);                  // its rails
-  add(g, sph(3.6, 16, 12), M.white, TX, 51.5, TZ);                                                    // the lamp
-  add(g, cyl(9, 9, 1.4, 24), M.ironDark, TX, 58, TZ);
-  add(g, new THREE.ConeGeometry(10, 7, 24), M.canvas, TX, 62, TZ);                                   // the canvas cone
-  add(g, cyl(0.4, 0.4, 3, 6), M.brass, TX, 66.5, TZ); add(g, sph(0.6, 8, 6), M.brass, TX, 68.1, TZ); // finial
+  add(g, cyl(8.2, 8.2, 12, 24), M.lanternPane, TX, 51.3, TZ);                                         // the lantern room: glass, see-through
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; add(g, rbox(0.6, 12.4, 0.6, 0.2), M.ironDark, TX + Math.cos(a) * 8.3, 51.3, TZ + Math.sin(a) * 8.3, 0, -a, 0); } // the cage
+  for (const y of [45.6, 57]) add(g, cyl(8.5, 8.5, 0.6, 24), M.ironDark, TX, y, TZ);                  // its rails
+  add(g, sph(4.8, 16, 12), M.lampHot, TX, 51.6, TZ);                                                  // the lamp: the brightest Harbour pixel
+  add(g, sph(6.4, 16, 12), M.lampHalo, TX, 51.6, TZ); add(g, sph(8.6, 16, 12), M.lampHalo2, TX, 51.6, TZ); // its warm halo
+  add(g, cyl(2.4, 3, 2, 12), M.brass, TX, 46.2, TZ);                                                   // the lamp's brass foot
+  add(g, cyl(8.8, 8.8, 1.2, 24), M.ironDark, TX, 57.9, TZ);
+  add(g, new THREE.ConeGeometry(8.6, 5, 24), M.canvas, TX, 61, TZ);                                   // the canvas cone: no overhang, so the lamp shows under it
+  add(g, cyl(0.4, 0.4, 3, 6), M.brass, TX, 64.5, TZ); add(g, sph(0.6, 8, 6), M.brass, TX, 66.1, TZ); // finial
   add(g, rbox(8, 10, 1.2, 0.4), M.oilskin, TX, 11, TZ + 21.6);                                       // the tower's door, facing south
   // the quay: a timber jetty south-east under team sailcloth, bollards, rope coils, crates under a lashed tarp, a pennant
   add(g, rbox(44, 2.4, 16, 0.4), M.timber, 30, 5, 48);
@@ -169,14 +179,17 @@ export function lighthouse(M) {
   add(g, plate([[0, -4.5], [16, -1.2], [16, 1.2], [0, 4.5]], 0.5, 0.15), M.paintCanvas, 52, 35, -46, 0, 0, Math.PI / 2); // the pennant
   for (const [x, z, n] of [[-46, -46, 3], [-44, 44, 2]]) {                                            // crates, stacked, under a lashed tarp
     for (let k = 0; k < n; k++) { add(g, rbox(10 - k * 1.5, 5, 10 - k * 1.5, 0.4), M.timber, x + k * 0.8, 6.5 + k * 5, z - k * 0.6); add(g, rbox(10.3 - k * 1.5, 0.8, 10.3 - k * 1.5, 0.2), M.ironDark, x + k * 0.8, 6.5 + k * 5, z - k * 0.6); }
-    add(g, rbox(11.5, 1, 11.5, 0.5), M.paintCanvas, x + (n - 1) * 0.8, 4.5 + n * 5, z - (n - 1) * 0.6);
-    add(g, rbox(11.8, 0.4, 11.8, 0.2), M.inkLine, x + (n - 1) * 0.8, 3.8 + n * 5, z - (n - 1) * 0.6);
+    add(g, rbox(13, 1, 13, 0.5), M.paintCanvas, x + (n - 1) * 0.8, 4.5 + n * 5, z - (n - 1) * 0.6);
+    add(g, rbox(13.3, 0.4, 13.3, 0.2), M.inkLine, x + (n - 1) * 0.8, 3.8 + n * 5, z - (n - 1) * 0.6);
     for (const dz of [-3, 3]) add(g, rbox(0.5, 1.4, 12.4, 0.15), M.rope, x + (n - 1) * 0.8 + dz, 4.6 + n * 5, z - (n - 1) * 0.6);
   }
   for (const [x, z] of [[14, 36], [50, 36], [14, 60], [50, 60]]) add(g, cyl(0.7, 0.7, 20, 8), M.timber, x, 14, z); // the jetty's awning on four posts
-  for (let k = 0; k < 5; k++) add(g, rbox(8, 0.8, 26, 0.3), k % 2 ? M.canvas : M.paintCanvas, 16 + k * 8, 24 - Math.abs(k - 2) * 0.5, 48, 0.12); // sailcloth in panels, every other one team, sagging between the spars
-  for (let k = 0; k <= 5; k++) add(g, rbox(0.6, 1.4, 27, 0.2), M.rope, 12 + k * 8, 24.2 - Math.abs(k - 2.5) * 0.5, 48, 0.12); // the seams, roped
-  add(g, rbox(41, 0.4, 27.5, 0.2), M.inkLine, 32, 23.3, 48, 0.12);                                      // the ink hem under it
+  for (let k = 0; k < 2; k++) for (let j = 0; j < 3; j++) {                                            // sailcloth: two stripes, pale and team, each folded over three sags between the spars
+    const x = 12 + k * 20 + j * 6.67 + 3.33, tilt = j === 1 ? 0 : (j ? -1 : 1) * 0.16;
+    add(g, rbox(6.9, 0.8, 26, 0.3), k ? M.paintCanvas : M.canvas, x, 23.6 - (j === 1 ? 0.9 : 0), 48, 0.12, 0, tilt);
+  }
+  add(g, rbox(0.6, 1.4, 27, 0.2), M.rope, 32, 24.2, 48, 0.12);                                          // the seam between them, roped
+  add(g, rbox(41, 0.4, 27.5, 0.2), M.inkLine, 32, 22.6, 48, 0.12);                                      // the ink hem under it
   add(g, rbox(2, 2, 30, 0.3), M.timber, 12, 24.4, 48, 0.12); add(g, rbox(2, 2, 30, 0.3), M.timber, 52, 24.4, 48, 0.12); // its spars
   return g;
 }

@@ -13,13 +13,14 @@ Later makers build from it; where a later model needs a material that is not her
 
 ## The ground
 
-The drained seabed: wet sand and slate, salt crust in pale veins, dark patches of drying kelp. It is the darkest thing
+The drained seabed: wet sand and slate, salt crust in thin veins, flat dark strands of drying kelp. It is the darkest thing
 on screen: mean value about 0.18 (sRGB 45-55), nothing on it brighter than the dim salt (sRGB ~140) and that only in
 thin veins. Palette (`terrain2.js`): sand `[58,54,47]`, wet sand `[44,42,38]`, slate `[40,44,50]`, salt `[142,140,130]`,
 dim salt `[96,95,88]`, kelp `[26,32,27]`, dark kelp `[18,22,19]`. The base tile (`ground_0`, most of the map) is calm:
-sand with slate showing through, soft ripples running north-east, a low slate ridge as a contour; nothing that repeats
-visibly. The variants (`ground_1..5`) carry the marks, faded out at the tile's edge: a thin branching salt vein, a kelp
-strand over a dark patch, a cracked plate of crust, shells and pebbles lit from the north-west, a patch of drying kelp.
+sand with slate showing through, soft ripples bent by noise (no direction may show at 2x), a low slate ridge as a
+contour; nothing that repeats visibly. The variants (`ground_1..5`) carry the marks, faded out at the tile's edge: thin
+branching low-contrast salt veins on smooth curves (never zigzags), two or three flat dark kelp strands, a cracked plate
+of crust, shells and pebbles clustered by noise at 0.6-1.4x, a piece of driftwood with a lit edge and a shadow.
 All base noise is periodic over the 64 px tile (scale x period = 64) so tiles seam. The rock plateaus keep the old
 blue-grey slate for now.
 
@@ -49,7 +50,8 @@ body with a pale top: in greyscale it parts from the Vael (pale body, dark core)
 | `slate`       | kerbs, plinths, the salt field's bed | Standard 0x3e4247, rough 0.9, flat shaded                                           |
 | `flagstone`   | a quay's paving               | Standard 0x565b60, map `flagTex` (courses of stones, damp), bump 1.2, rough 0.88           |
 | `inkLine`     | the black ring either side of every team band | Standard 0x08080a, rough 0.8                                              |
-| `lanternGlass`| the lantern room's pale glass | Standard 0xe6dcc0, emissive 0x9a8650 x 0.55, rough 0.2                                     |
+| `lanternPane` | the lantern room's panes, see-through | Physical 0xf0e8d0, transparent, opacity 0.15, rough 0.1, no depth write              |
+| `lampHot`, `lampHalo`, `lampHalo2` | the lantern's lamp and its warm halo: the brightest Harbour pixel | Standard 0xfff8e0 emissive 0xfff2c0 x 6; Basic 0xffd080 / 0xffb860 additive, opacity 0.22 / 0.1 |
 | `paintCanvas` | **team paint on cloth** (matte) | Standard team colour, map `canvasWeave`, rough 0.88, metal 0.02; `team()`               |
 | `paint`       | team paint on iron (the older units) | Standard team colour, map `panel`, metal 0.55, rough 0.32; `team()`                 |
 | `white`       | the one lamp                  | Standard 0xfff4d0, emissive 0xfff0c0 x 2.4 (not team)                                      |
@@ -68,21 +70,25 @@ on a tip (a point, a bead, a finial), never a band or a plate.
 ### Team colour
 
 Team paint is matte canvas (`paintCanvas`). It goes on at least a sixth of what the camera sees (measured by
-`tools/art/review.mjs`, mask pixels over solid pixels, facing 0), and never only on the signature shape. The family
-trait: **team canvas sleeves** on every Harbour figure, plus a team band round the Picket's hat crown (the brim and
-crown top stay pale) and a bedroll across the back; the Rigger's yoke and the painted box of the barrow under its
-tarpaulin. The Lighthouse: the 16-unit band under the gallery, two of every three canvas panels on the hull roof (one
-stays pale, so the roof still reads as canvas), the house's south end wall, the jetty's sailcloth panels, a painted
-mooring ring round the tower's foot, crate tarps, a pennant. Every team band sits between two `inkLine` rings or hems
-(0.5 units, pure black: the finish keeps them), so seat 6's white parts from pale canvas.
+`tools/art/review.mjs`, mask pixels over solid pixels, facing 0), and never only on the signature shape, and never as
+a flat shape on the ground (a painted ring on the quay read as a decal). The family trait: **team canvas sleeves** on
+every Harbour figure, plus a team band round the Picket's hat crown (the brim and crown top stay pale) and a narrow
+pack on the back (nothing wide across the shoulders: a bedroll made the Picket read as a broader Harpooner); the
+Rigger's yoke and the painted box of the barrow under its tarpaulin. The Lighthouse: the 18-unit band under the
+gallery and the gallery's deck, canvas panels on the hull roof alternating pale and team at equal width, the house's
+south end wall and porch, one of the awning's two stripes, a thin band on a raised stone kerb, crate tarps, mooring
+posts' tops, a pennant. Every team band sits between two `inkLine` rings or hems (0.5 units, pure black: the finish
+keeps them), so seat 6's white parts from pale canvas.
 
 ### Shape language
 
-- Infantry: a round hat. The Picket's canvas hat (brim r 4.4, crown r 3.1) is the pale disc from above; the long
-  rifle (15 units, a pale timber stock and a thick barrel) is the bar out of it: disc and stick. The Rigger has a flat
-  dark cap and hauls a two-wheeled hand-barrow behind: a dark figure ahead of a team box with a pale coil of rope and
-  the pick on it: a long two-lobed shape, never a disc. Each kind must own an outline at 18 px, not only a colour (the
-  round-1 blind test swapped a hatted Rigger with the Picket).
+- Infantry: a round hat. The Picket's canvas hat (brim r 4.4, crown r 3.1, a dark line under the brim) is the pale
+  disc from above; the long rifle (15 units, a pale timber stock and a thick barrel) is held close and angled up ahead
+  (standing) or level on the parapet (dug in): a level barrel held out to the side reads as a Harpooner. Slim: nothing
+  wide across the shoulders. The Rigger wears a small pale canvas cap (its head shows above the load) and hauls a
+  two-wheeled hand-barrow behind, hands on the handles: a figure ahead of a team box with a pale coil of rope and the
+  pick on it, at scale 0.95 so the worker is smaller than the Picket: a long shape, never a disc. Each kind must own an
+  outline at 18 px, not only a colour (the round-1 blind test swapped a hatted Rigger with the Picket).
 - Vehicles: boxes and hulls (an upturned hull is a roof, a box is a cab or a crate).
 - Flyers: triangles and sails.
 - Buildings: the same hulls and boxes on a slate quay; a Lighthouse tower is a tarred cylinder with iron bands.
@@ -141,14 +147,16 @@ three ring arcs plus the pylons' inner faces and caps.
 
 ### Shape language
 
-- Workers: drops. The Glint is a fat pearl drop with a short blunt tail, ink belly, one big deeplight at the tip; it
-  hovers low with its shadow right beneath it. Round from above: a drop drawn to a point read as a flying dart.
+- Workers: drops. The Glint is a fat pearl drop with a short blunt tail, ink belly, one big deeplight at the tip with
+  a pale heart; it hovers low with its shadow right beneath it. Round from above: a drop drawn to a point read as a
+  flying dart. Its team glaze is one smooth dome on the back inside one ink seam, and a collar on the tail: never a
+  band across the body (bands with seams read as palings or a blade at 18 px).
 - Fighters: blades and discs. The Lens is an ink-glass disc (r 7.2) in a pearl rim, the light in the middle, a thin
   pearl ring etched in the glass: from above a dark hollow with a bright centre, never the Glint's solid pale drop.
 - Support: flowers. Heavies: spirals.
 - Buildings: rings, pools, pylons on a three-lobed plinth. The Tidewell is a pearl ring round a pool on a ribbed ink
-  drum, a pearl islet with three walkways on the pool (so it is a well, not an eye), broad-footed pylons with a lit
-  sluice onto the pool.
+  drum, three short lit sluice channels from the pylons' feet into the pool that stop well short of the centre (no
+  hub: spokes to a centre read as a badge, an open pool as an eye), broad-footed pylons.
 
 ### Scale by role
 

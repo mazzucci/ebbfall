@@ -12,7 +12,7 @@ const tri = (r, k = 0.55) => { const p = []; for (let i = 0; i < 12; i++) { cons
 /** A small deeplight: a violet-blue bead with a white heart and a soft falloff. */
 export function deeplight(parent, M, r, x, y, z) {
   add(parent, sph(r, 10, 8), M.deeplight, x, y, z);
-  add(parent, sph(r * 0.5, 8, 6), M.deepCore, x, y, z);
+  add(parent, sph(r * 0.62, 8, 6), M.deepCore, x, y, z);
   add(parent, sph(r * 1.7, 10, 8), M.deepHalo1, x, y, z);
   add(parent, sph(r * 2.5, 10, 8), M.deepHalo2, x, y, z);
   add(parent, sph(r * 3.4, 10, 8), M.deepHalo3, x, y, z);
@@ -28,17 +28,13 @@ export function glint(M, f) {
   add(b, sph(4.8, 22, 16), M.shell, 0, 0, 0).scale.set(1.05, 0.9, 1);                        // the drop's head
   add(b, cone(4.0, 5, 16), M.shell, -5.6, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, short and blunt
   add(b, sph(4.5, 18, 12), M.ink, 0.1, -1.4, 0).scale.set(1.2, 0.7, 1);                      // the ink belly
-  add(b, saddle(4.75, 1.4), M.glaze, -1.6, 0, 0).scale.set(1, 0.92, 1.02);                   // the team saddle, set back
-  add(b, saddle(4.82, 0.3), M.inkSeam, 0, 0, 0).scale.set(1, 0.92, 1.02);                    // ink seams either side of it
-  add(b, saddle(4.82, 0.3), M.inkSeam, -3.2, 0, 0).scale.set(1, 0.92, 1.02);
+  add(b, sph(3.6, 18, 12), M.glaze, -1.5, 2.5, 0).scale.set(1.15, 0.52, 1.05);                 // the team patch: one smooth dome on the back, no bars
+  add(b, sph(3.75, 18, 12), M.inkSeam, -1.5, 2.3, 0).scale.set(1.15, 0.5, 1.05);              // the ink seam round its edge
   add(b, sph(2.1, 12, 10), M.inkSeam, 4.1, 0.6, 0);                                           // the ink socket
-  deeplight(b, M, 1.5, 4.9, 0.7, 0);                                                         // the one light, big, at the tip
-  add(b, rbox(3.2, 2.4, 0.8, 0.3), M.glaze, -6.4, 2.6, 0, 0, 0, 0.35);                        // tail fin (team)
-  add(b, rbox(3.4, 0.3, 1, 0.1), M.inkSeam, -6.3, 1.5, 0, 0, 0, 0.35);                        // its ink root
-  for (const side of [-1, 1]) {
-    add(b, rbox(3.2, 0.7, 2.4, 0.3), M.glaze, -1.6, 0.6, side * 5.2, side * 0.25, 0, 0);     // side vanes (team)
-    add(b, rbox(3.4, 0.25, 0.8, 0.1), M.inkSeam, -1.6, 0.6, side * 4.2, side * 0.25, 0, 0);
-  }
+  deeplight(b, M, 1.5, 4.9, 0.7, 0);                                                         // the one light, big and lit, at the tip
+  add(b, sph(0.75, 8, 6), M.deepCore, 5.6, 0.9, 0);                                           // its pale heart, forward where the camera sees it
+  add(b, cyl(2.2, 2.6, 1.2, 14), M.glaze, -6.6, 0.1, 0, 0, 0, Math.PI / 2);                   // the tail's team collar
+  add(b, cyl(2.7, 2.7, 0.3, 14), M.inkSeam, -5.9, 0.1, 0, 0, 0, Math.PI / 2);
   g.add(b); return g;
 }
 
@@ -81,9 +77,13 @@ export function tidewell(M) {
   for (const r of [30, 25, 20, 11]) ring(g, r, 0.3, M.shellDeep, 17.05, { seg: 56 });              // ripples, faint pearl rings
   add(g, cyl(15, 15, 0.4, 40), M.poolDeep, 0, 17.1, 0);                                       // deeper at the centre
   add(g, cyl(33, 33, 0.25, 48), M.deepHalo2, 0, 17.4, 0);                                     // a faint sheen over it
-  add(g, cyl(6, 7.5, 3, 24), M.shell, 0, 18, 0); add(g, cyl(6.3, 6.3, 0.4, 24), M.shellLight, 0, 19.6, 0); // a pearl islet at the centre
-  for (const a of [Math.PI / 2, -Math.PI / 6, -Math.PI * 5 / 6]) add(g, rbox(28, 1.2, 3.2, 0.4), M.shell, Math.cos(a) * 19, 17.8, Math.sin(a) * 19, 0, -a, 0); // three walkways to it
-  deeplight(g, M, 1.6, 0, 21, 0);                                                            // the islet's light
+  for (const a of [Math.PI / 2, -Math.PI / 6, -Math.PI * 5 / 6]) {                           // three short sluice channels from the pylons into the pool, stopping well short of the centre
+    const x = Math.cos(a), z = Math.sin(a);
+    add(g, rbox(11, 1.6, 4.6, 0.5), M.shellDark, x * 27, 17.4, z * 27, 0, -a, 0);
+    add(g, rbox(10.6, 0.5, 2.4, 0.2), M.deeplight, x * 27, 18.2, z * 27, 0, -a, 0);          // the lit water in the channel
+    add(g, rbox(2.6, 2.2, 5.4, 0.5), M.shell, x * 21.6, 17.8, z * 21.6, 0, -a, 0);            // its pearl mouth
+  }
+  deeplight(g, M, 1.6, -4, 18.2, 2);                                                         // a light adrift near the centre
   for (const [x, z, r] of [[-14, 12, 1.1], [15, -8, 1.0]]) deeplight(g, M, r, x, 18.2, z);   // lights adrift on the pool
   ring(g, 40, 7, M.ring, 20, { seg: 72 });                                                    // the ring
   ring(g, 40, 7.2, M.shellDark, 18.6, { seg: 72 });                                           // its underside

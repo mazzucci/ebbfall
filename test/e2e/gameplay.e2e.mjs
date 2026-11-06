@@ -1500,7 +1500,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, not what it beats or what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and what it fights best beside and what beats it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);

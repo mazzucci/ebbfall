@@ -195,7 +195,7 @@ fn the_supply_cap_grows_with_the_map() {
         }
         w.recalc_supply(PLAYER);
         assert_eq!(w.sup[PLAYER as usize][1], cap, "{n}x{n}: capped at {cap}");
-        // Filled to the cap: blocked, with the race's own building named.
+        // Filled to the cap: blocked, and told the limit (another energy building would not help).
         w.sup[PLAYER as usize][0] = cap;
         let hq_id = w
             .bldgs
@@ -205,7 +205,9 @@ fn the_supply_cap_grows_with_the_map() {
             .id;
         assert_eq!(
             w.queue_unit(hq_id, f.worker),
-            Err(format!("Out of energy. Build a {}.", f.supply.def().name)),
+            Err(format!(
+                "Energy at its limit ({cap}): no more until some fall"
+            )),
             "{n}x{n}"
         );
     }

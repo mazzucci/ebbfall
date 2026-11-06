@@ -26,7 +26,6 @@ function steps() {
   const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker));
   const [soldier, aa] = BUILDINGS[rax].trains, n = Math.max(3, Math.floor(6 / (UNITS[soldier].supply || 1)));
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
-  const army = `${plural(UNITS[soldier].name)} and ${plural(UNITS[aa].name)}`;
   return [
     { text: `Select your ${hq.name}, then train two ${plural(worker.name)}`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (energy: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
@@ -34,7 +33,7 @@ function steps() {
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => calm() || G.time - tut.stepAt > 150 },
-    { text: `Select your ${army} (double-tap or double-click one for all of its kind), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `Select your army (the ARMY button, or Q), then Attack the enemy base`, por: ['unit', soldier], want: ['attack'], done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 

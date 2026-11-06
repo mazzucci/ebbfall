@@ -34,7 +34,11 @@ only when anchored: the longest reach on the ground and a heavy splash, but a bl
 fires only at what your side can see; under way, no gun at all) and Netters (fast ground missile vehicles that shoot only
 flyers: the escort against air). Menders and the vehicles need a Workshop, which researches weapon and armor upgrades.
 The Loft trains Kites, light jets that fly over cliffs and buildings, and Spyglasses, cheap unarmed flying scouts that
-spot hidden units. Lookouts hit ground and air.
+spot hidden units. Lookouts hit ground and air. The Vael: Glints mine and plant buildings that grow by themselves; the Cradle grows
+Needles (fast blades), Lenses (ranged, ground and air, with Surge), Conchs (heavy shells that Surface past a line) and
+Tenders (they mend); the Gyre sends out Petrels (flyers, hidden once Seaglass is researched), Undertows (blades that
+lurk: hidden while still, so put them on Hold to lie in wait) and the Argonaut, a capital barge whose lantern spots what
+hides. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 

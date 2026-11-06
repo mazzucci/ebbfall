@@ -74,7 +74,7 @@ function begin(reset) {
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  if (!menu.tutorial) toast(`Mine salt. Build ${aName(BUILDINGS[myFaction().supply].name)} before supply caps.`);
+  if (!menu.tutorial) toast(`Mine salt. Build ${aName(BUILDINGS[myFaction().supply].name)} before you run out of energy.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 /** The leave dialog's line: alone the game waits and leaving loses it; online it goes on (unless a room pause holds

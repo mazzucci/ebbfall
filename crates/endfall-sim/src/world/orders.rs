@@ -130,10 +130,16 @@ impl World {
         }
         let s = self.sup[team as usize];
         if s[0] + d.supply > s[1] {
-            return Err(format!(
-                "Out of energy. Build a {}.",
-                self.factions[team as usize].supply.def().label()
-            ));
+            // (at the map's limit another energy building adds nothing: say so rather than send the player to build one)
+            let limit = self.supply_limit();
+            return Err(if s[1] >= limit {
+                format!("Energy at its limit ({limit}): no more until some fall")
+            } else {
+                format!(
+                    "Out of energy. Build a {}.",
+                    self.factions[team as usize].supply.def().label()
+                )
+            });
         }
         self.pay(team, d.cost, -1);
         self.bm(bid).unwrap().queue.push(kind);

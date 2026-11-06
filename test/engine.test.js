@@ -58,11 +58,22 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
   assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Picket \+1.*Lookout \+2/, 'the Weapons description is built from the tables');
 });
 
-test('no unit lists what it beats or what beats it: players find the counters themselves', { skip }, () => {
-  for (const [k, u] of Object.entries(C.UNITS)) assert.ok(!('strong' in u) && !('weak' in u), `${k}: no counter lists (balance.rs keeps the counter loops)`);
+test('every fighting unit names its partner (its own people) and its killer (the other people), workers none', { skip }, () => {
+  for (const [fk, f] of Object.entries(C.FACTIONS)) {
+    const own = C.kindsOf(f);
+    for (const k of [...own].filter(k => C.UNITS[k])) {
+      const line = C.pairLine(k);
+      if (C.UNITS[k].worker) { assert.equal(line, '', `${k}: a worker has no line`); continue; }
+      const [with_, by] = C.PAIRS[k] || [];
+      assert.ok(own.has(with_) && C.UNITS[with_], `${fk} ${k}: its partner ${with_} is a unit of its own people`);
+      assert.ok(C.UNITS[by] && !own.has(by), `${fk} ${k}: its killer ${by} is the other people's`);
+      assert.match(line, /^Best with [A-Z][A-Za-z ]+s\. Beaten by [A-Z][A-Za-z ]+s\.$/, `${k}: ${line}`);
+    }
+  }
+  assert.equal(C.pairLine('trooper'), 'Best with Harpooners. Beaten by Conchs.');
 });
 
-test('no text a side reads on its card names the other race\'s units or buildings', { skip }, () => {
+test('no description a side reads on its card names the other race\'s units or buildings (only the partner/killer line does, on purpose)', { skip }, () => {
   for (const [fk, f] of Object.entries(C.FACTIONS)) {
     const own = C.kindsOf(f), defs = (k) => C.UNITS[k] || C.BUILDINGS[k];
     const theirs = [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)].filter(([k]) => !own.has(k)).map(([, d]) => d.name);

@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { lathe, torus } from './harbour.js';
-import { shaftCollar, squareHole } from './ground.js';
+import { shaftCollar } from './ground.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
@@ -183,62 +183,70 @@ export function windmast(M) {
 
 /** A vertical profile: a `plate` outline given as [x, up] points, standing in the xy plane, `t` thick about z 0. */
 const profile = (pts, t, bevel = 0.3) => memo(`pf${JSON.stringify(pts)},${t},${bevel}`, () => { const g = plate(pts, t, bevel).clone(); g.rotateX(-Math.PI / 2); g.translate(0, 0, t / 2); return g; });
-/** Excavator (extractor, 2x2): a small mine head over the shaft (ground.js `shaftCollar`, the free shaft's own collar
- *  and dark mouth): a timber headframe, four legs leaning in over the mouth, two back-stays down to the west, and on
- *  its top the winch wheel (the sheave: a team-painted rim between ink rings on iron spokes, facing the camera); the
- *  pale rope runs over the wheel and straight down into the dark, and back down into a small tarred winch house (its
- *  drum inside) under a team lean-to; the quay clear between it and the mouth (round 2's tub and salt were a dark
- *  tangle at 1x). From above: a wheel on a short frame over a dark square. No horse-head, beam, pool or bucket (round 4: a hanging load
- *  read as a well-sweep). */
+/** Excavator (extractor, 2x2): a small mine head standing straight on the shaft (no quay or pad of its own: round 3's
+ *  "ring on a pad" read as a turret mount or a landing pad, and as StarCraft's refinery): the shaft's own boxed collar
+ *  (ground.js `shaftCollar`, the free shaft's, so the two line up) and dark mouth, the dug earth round it. A timber
+ *  headframe, four legs from the collar's corners leaning in, tied once round, two back-stays down to the west; on its
+ *  top the winch wheel (the sheave: a team-painted rim between ink rings, its spokes and hub lit timber so the wheel
+ *  reads as a lit disc), facing the camera; the pale rope over the wheel and straight down into the dark, and back down
+ *  into a small tarred winch house west of the collar under a lean-to of team canvas; a tub on short rails south of
+ *  the collar, team sides, a load of rock salt. From above: a wheel on a short frame over a dark square in timber. No
+ *  horse-head, beam, pool or bucket (round 4 of the buildings: a hanging load read as a well-sweep). */
 export function excavator(M) {
   bldgMats(M);
-  const g = grp(), Y = 4, S = [8, Y, 1];                                                                        // the quay's top; the shaft's centre
-  add(g, memo('quayShaft', () => {                                                                              // the quay, open over the shaft's mouth
-    const sh = new THREE.Shape(oct(29).map(([x, z]) => new THREE.Vector2(x, -z))); sh.holes.push(squareHole(S[0], S[2], 10.4));
-    const q = new THREE.ExtrudeGeometry(sh, { depth: 4 - 2.4, bevelEnabled: true, bevelThickness: 1.2, bevelSize: 1.2, bevelSegments: 3, curveSegments: 12 });
-    q.rotateX(-Math.PI / 2); q.translate(0, 1.2, 0);
-    const uv = q.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 16, uv.getY(i) / 16); return q;
-  }), M.flagstone, 0, 0, 0);
-  posts(g, M, [[-24, 22], [22, 22], [27, -12]]);
-  shaftCollar(g, M, S[0], S[1], S[2], 18, 1);                                                                   // one low ring of timbers: the quay holds the rest
-  // the headframe: four timber legs leaning in from round the mouth to a cap under the wheel's axle
-  const R = 11, W = [S[0] - 8, 44, S[2]];                                                                        // the wheel: radius, centre (its east side over the mouth)
-  const foot = (sx, sz) => [S[0] + (sx < 0 ? -12.5 : 10.5), Y + 0.5, S[2] + sz * 10.5], head = (sx, sz) => [W[0] + sx * 3, W[1] - 2.2, W[2] + sz * 3.6];
+  const g = grp(), Y0 = 0.7, S = [0, Y0, -1], YC = Y0 + 6.8;                                                    // the dug earth's top; the shaft's mouth; the collar's top
+  shaftCollar(g, M, S[0], S[1], S[2], 24);                                                                      // the shaft's own collar, as the free shaft's
+  // the headframe: four timber legs from the collar's corners leaning in to a cap under the wheel's axle, tied once
+  const R = 11, W = [S[0] - 3, 46, S[2]];                                                                       // the wheel: radius, centre (its east side over the mouth)
+  const foot = (sx, sz) => [S[0] + sx * 14.5, YC, S[2] + sz * 14.5], head = (sx, sz) => [W[0] + sx * 3, W[1] - 2.2, W[2] + sz * 3.6];
   const legs = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
   for (const [sx, sz] of legs) pole(g, foot(sx, sz), head(sx, sz), 1.35, M.timber, 6);
+  for (const [a, b] of [[[-1, -1], [1, -1]], [[-1, 1], [1, 1]], [[-1, -1], [-1, 1]], [[1, -1], [1, 1]]]) {
+    pole(g, lerp3(foot(...a), head(...a), 0.6), lerp3(foot(...b), head(...b), 0.6), 0.8, M.timber, 6);          // the ties, round the tower
+  }
   for (const sz of [-1, 1]) add(g, rbox(9, 2, 2.2, 0.4), M.timber, W[0], W[1] - 1.6, W[2] + sz * 3.6);          // the cap beams
   for (const sz of [-1, 1]) add(g, rbox(3, 2.6, 2.6, 0.4), M.ironDark, W[0], W[1] - 0.2, W[2] + sz * 3.6);     // the axle's bearings
   // the back-stays, down to the west towards the winch
-  for (const sz of [-1, 1]) pole(g, [W[0] - 1.5, W[1] - 2, W[2] + sz * 3.6], [-24, Y + 0.5, S[2] - 3 + sz * 7], 1.3, M.timber, 6);
-  // the wheel (the sheave): iron spokes and hub, a team rim between ink rings, facing south to the camera
+  for (const sz of [-1, 1]) pole(g, [W[0] - 1.5, W[1] - 2, W[2] + sz * 3.6], [-27, Y0 + 0.5, S[2] - 2 + sz * 6], 1.3, M.timber, 6);
+  // the wheel (the sheave): lit timber spokes and hub, a team rim between ink rings, facing south to the camera
+  const spoke = M.spokeTimber ??= new THREE.MeshStandardMaterial({ color: 0xa89c88, map: M.timber.map, roughness: 0.75, metalness: 0 }); // lit timber, a mid grey: the wheel reads as a lit disc (round 3's judge)
   const wheel = grp(); wheel.position.set(...W); g.add(wheel);
   add(wheel, cyl(1.8, 1.8, 8.4, 10), M.ironDark, 0, 0, 0, Math.PI / 2, 0, 0);                                   // the axle
-  add(wheel, cyl(2.4, 2.4, 2.6, 12), M.ironDark, 0, 0, 0, Math.PI / 2, 0, 0);                                   // the hub
+  add(wheel, cyl(2.6, 2.6, 2.6, 12), spoke, 0, 0, 0, Math.PI / 2, 0, 0);                                        // the hub
   add(wheel, sph(0.7, 8, 6), M.brass, 0, 0, 1.6);                                                               // its cap (a tip)
-  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.26; pole(wheel, [Math.cos(a) * 2, Math.sin(a) * 2, 0], [Math.cos(a) * (R - 1.4), Math.sin(a) * (R - 1.4), 0], 0.7, M.ironDark, 6); }
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.26; pole(wheel, [Math.cos(a) * 2, Math.sin(a) * 2, 0], [Math.cos(a) * (R - 1.4), Math.sin(a) * (R - 1.4), 0], 0.8, spoke, 6); }
   add(wheel, torus(R, 1.6, 44), M.paint, 0, 0, 0);                                                             // the rim, team
   add(wheel, torus(R - 1.7, 0.45, 44), M.inkLine, 0, 0, 0);                                                    // its ink rings
   for (const dz of [-1.4, 1.4]) add(wheel, torus(R + 0.4, 0.45, 44), M.inkLine, 0, 0, dz);
+  // the winch house, west of the collar (its drum inside): tarred, under a lean-to of weathered team canvas
+  const EX = -25, EZ = 18, HX = 7.6, HZ = 10.5;
   // the rope: from the winch house up to the wheel's top, over it, and straight down into the mouth
-  const EX = -15, EZ = 14, D = [-12, 12.5, EZ - 8], DR = 0;                                                    // the winch house; where the rope enters it (its north wall)
+  const D = [-21, 12.5, EZ - 9];                                                                                // where the rope enters the house (its north wall)
   const dx = D[0] - W[0], dy = D[1] - W[1], d = Math.hypot(dx, dy), al = Math.atan2(dy, dx), be = Math.acos(R / d);
   const ta = al - be, T = [W[0] + Math.cos(ta) * (R + 1.2), W[1] + Math.sin(ta) * (R + 1.2)];                  // where the rope leaves the wheel (the upper tangent)
   add(wheel, torus(R + 1.2, 0.6, 30, (ta % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)), M.rope, 0, 0, 0);       // over the wheel's top
-  pole(g, [T[0], T[1], W[2]], [D[0], D[1] + DR, D[2]], 0.5, M.rope, 6).userData.noShadow = true;
+  pole(g, [T[0], T[1], W[2]], D, 0.5, M.rope, 6).userData.noShadow = true;
   add(g, rbox(2.6, 2.6, 1.2, 0.4), M.ironDark, D[0], D[1], D[2] + 0.2);                                         // the fairlead it runs in by
-  pole(g, [W[0] + R + 1.2, W[1], W[2]], [W[0] + R + 1.2, Y - 1, W[2]], 0.6, M.rope, 6).userData.noShadow = true; // down into the dark
-  // the winch house, south-west (clear of the wheel's back, so the team rim stands on the quay; its drum inside):
-  // tarred, under a lean-to of weathered team canvas sagging between its rafters, worn hems
-  const HX = 13.5, HZ = 10.5;
-  add(g, rbox(19, 10, 15, 0.8), M.tar, EX, 9, EZ);
-  add(g, rbox(19.6, 1.4, 15.6, 0.3), M.ironDark, EX, 4.7, EZ);
-  { const e = [EZ + HZ, 14.6], r = [EZ - HZ, 19.6];                                                             // the eave (south) and the high edge (north)
-    add(g, sagQuad([EX - HX, e[1], e[0]], [EX + HX, e[1], e[0]], [EX + HX, r[1], r[0]], [EX - HX, r[1], r[0]], 3, 1.9, 0.4), M.paintWorn, 0, 0, 0);
+  pole(g, [W[0] + R + 1.2, W[1], W[2]], [W[0] + R + 1.2, Y0 - 3, W[2]], 0.6, M.rope, 6).userData.noShadow = true; // down into the dark
+  add(g, rbox(13, 10, 18, 0.8), M.tar, EX, Y0 + 5, EZ);
+  add(g, rbox(13.6, 1.4, 18.6, 0.3), M.ironDark, EX, Y0 + 0.7, EZ);
+  { const e = [EZ + HZ, Y0 + 10.6], r = [EZ - HZ, Y0 + 15.6];                                                   // the eave (south) and the high edge (north)
+    add(g, sagQuad([EX - HX, e[1], e[0]], [EX + HX, e[1], e[0]], [EX + HX, r[1], r[0]], [EX - HX, r[1], r[0]], 2, 1.6, 0.4), M.paintWorn, 0, 0, 0);
     wornHem(g, [EX - HX, e[1] - 0.1, e[0] + 0.2], [EX + HX, e[1] - 0.1, e[0] + 0.2], 0.85, M.inkLine);
     wornHem(g, [EX - HX, r[1] + 0.1, r[0]], [EX + HX, r[1] + 0.1, r[0]], 0.7, M.inkLine);
     for (const sx of [-1, 1]) wornHem(g, [EX + sx * HX, e[1], e[0]], [EX + sx * HX, r[1], r[0]], 0.7, M.inkLine);
-    for (const x of [-HX / 3, HX / 3]) pole(g, [EX + x, e[1] + 0.5, e[0] + 0.6], [EX + x, r[1] + 0.5, r[0] - 0.4], 0.45, M.rope, 6); } // two lashings over it, on the rafters
-  add(g, rbox(5, 7, 1, 0.3), M.oilskin, EX + 5, 8, EZ + 7.8);                                                    // its door
+    pole(g, [EX, e[1] + 0.5, e[0] + 0.6], [EX, r[1] + 0.5, r[0] - 0.4], 0.45, M.rope, 6); }                   // a lashing over it, on the rafter
+  add(g, rbox(5, 7, 1, 0.3), M.oilskin, EX + 2, Y0 + 3.5, EZ + 9.3);                                            // its door
+  // the tub on short rails south of the collar: team sides between ink hems, rock salt heaped in it
+  const TX = 5, RZ0 = S[2] + 17.5, RZ1 = 30;
+  for (let z = RZ0 + 1; z < RZ1; z += 3.4) add(g, rbox(8, 0.8, 1.4, 0.2), M.timber, TX, Y0 + 0.4, z);              // sleepers
+  for (const sx of [-1, 1]) add(g, rbox(0.7, 0.8, RZ1 - RZ0, 0.1), M.ironDark, TX + sx * 2.6, Y0 + 1, (RZ0 + RZ1) / 2); // rails
+  const C = [TX, Y0 + 2.4, 24];
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(1.5, 1.5, 0.8, 10), M.ironDark, C[0] + sx * 3.3, C[1], C[2] + sz * 2.8, 0, 0, Math.PI / 2);
+  add(g, rbox(9, 6, 10, 0.6), M.paintCanvas, C[0], C[1] + 3.6, C[2]);                                           // the tub, team
+  for (const y of [0.5, 6.7]) add(g, rbox(9.5, 0.6, 10.5, 0.2), M.inkLine, C[0], C[1] + y, C[2]);              // its hems
+  const salt = M.rockSalt ??= new THREE.MeshStandardMaterial({ color: 0x6e6a63, roughness: 0.9, metalness: 0, flatShading: true }); // grey rock salt, no glow
+  for (const [x, z, r] of [[-1.8, -2, 2.2], [1.8, -1.2, 2], [0, 2, 2.1], [-2, 2.6, 1.6], [2.4, 2.8, 1.5]]) add(g, new THREE.DodecahedronGeometry(r), salt, C[0] + x, C[1] + 5.6, C[2] + z, x, z, r); // the load, low in the tub
   return g;
 }
 

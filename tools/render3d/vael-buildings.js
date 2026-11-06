@@ -3,7 +3,7 @@
 // the Cradle (kiln), the Glasshouse (loom), the Anemone (ward), the Gyre (zenith) and the Darkwater (eclipse); the
 // Tidewell (conflux) stays in vael2.js and is the reference. Same conventions: game units (1 tile = 32), y up, +z
 // south (towards the camera); a building's anchor is its footprint's centre. Each building owns a roof from above:
-// a five-petal flower open to the sky, an open clam at a shaft's mouth, a half-open shell, a ribbed dome, a star of
+// a five-petal flower open to the sky, a cluster of soft lobes drinking from a shaft, a half-open shell, a ribbed dome, a star of
 // tentacles with lit tips, a widening spiral ribbon, a dark pool in a crown of arms; the Tidewell is a ring with
 // pylons. No ring of alternating glaze bands anywhere (the Tidewell's read as a lifebuoy): team glaze is one band,
 // a sleeve, a cap or a patch, each between ink seams.
@@ -146,51 +146,42 @@ export function sunpetal(M) {
   return g;
 }
 
-/** A clam's valve, its umbo (the hinge's beak) at the origin, opening towards +z: a fan `R` long reaching `PHI` either
- *  side of the axis, its edge rounded, doming `H` (up, or down with `sgn` -1) highest near the umbo; the zone from `s0`
- *  to `s1` of the way from the umbo to the edge. */
-const fanY = (s, f, PHI, H) => H * Math.pow(Math.max(0, 1 - s * s), 0.55) * Math.pow(Math.max(0, Math.cos(f / PHI * Math.PI / 2)), 0.45);
-const fanR = (f, R, PHI) => R * (0.62 + 0.38 * Math.cos(f / PHI * Math.PI / 2));                 // the edge pulled in at the sides: a rounded oval, not a sector
-const valve = (R, PHI, H, s0, s1, sgn = 1) => memo(`valve${[R, PHI, H, s0, s1, sgn]}`, () => {
-  const NS = 14, NF = 40, pos = [], idx = [];
-  for (let i = 0; i <= NS; i++) for (let j = 0; j <= NF; j++) {
-    const sv = s0 + (s1 - s0) * i / NS, f = -PHI + 2 * PHI * j / NF, r = sv * fanR(f, R, PHI);
-    pos.push(Math.sin(f) * r, sgn * fanY(sv, f, PHI, H), Math.cos(f) * r);
-  }
-  for (let i = 0; i < NS; i++) for (let j = 0; j < NF; j++) { const q = i * (NF + 1) + j, a = [q, q + NF + 1, q + 1], b = [q + 1, q + NF + 1, q + NF + 2]; idx.push(...(sgn > 0 ? [...a, ...b] : [a[0], a[2], a[1], b[0], b[2], b[1]])); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.setIndex(idx); g.computeVertexNormals();
-  if (sgn * g.attributes.normal.getY(Math.floor(NS / 2) * (NF + 1) + NF / 2) < 0) { const ix = g.getIndex(); for (let k = 0; k < ix.count; k += 3) { const t = ix.getX(k); ix.setX(k, ix.getX(k + 1)); ix.setX(k + 1, t); } g.computeVertexNormals(); }
-  return boxUV(g);
-});
-/** A line along a valve's surface at `s` of the way out (a growth line, a seam), as a tube of radius `t`. */
-const valveLine = (R, PHI, H, sv, t, lift = 0.15) => memo(`vline${[R, PHI, H, sv, t, lift]}`, () => {
-  const pts = []; for (let j = 0; j <= 40; j++) { const f = -PHI + 2 * PHI * j / 40, r = sv * fanR(f, R, PHI); pts.push(new THREE.Vector3(Math.sin(f) * r, fanY(sv, f, PHI, H) + lift, Math.cos(f) * r)); }
-  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, t, 5);
-});
-/** Siphon (economy, on a mine shaft, 2x2): a broad pearl clam settled at the north edge of the shaft's mouth, its hinge
- *  on the collar's north beam, open a little towards the south, drinking the last damp brine from the salt beds below.
- *  Two smooth pearl valves, a broad rounded oval from the hinge (about 32 across, 16 long), the upper lifted on the hinge (0.22 rad) so its back
- *  faces the camera: three growth lines in arcs round the umbo (a clam's, never rays), a team band round its margin
- *  between ink seams; the ink mantle dark in the gape, the one deeplight in it off centre.
- *  The shaft's black mouth (its own sprite, drawn under every building) stays open south of it and round its sides,
- *  its collar and dug earth showing all round. No spiral, no rays, nothing upright or pointed, no tentacles, no liquid
- *  (round 1: an upright straw read as a gun turret; round 2: a whorl's spiral as the Gyre and its small framed mouth
- *  as a door; a pale ring round the open mouth with a light in it read as an eye). */
+/** Siphon (economy, on a mine shaft, 2x2): something grown that has settled on the shaft's north rim and drinks from
+ *  it: an irregular cluster of soft pearl lobes of different sizes heaped over the collar's north beam and its corners
+ *  (more of it to the east), team glaze patches on three of them inside ink seams, a dark ink opening low on its south
+ *  face; out of that opening three thick soft feeding tubes droop over the beam and down into the black, darkening as
+ *  they go, and the one deeplight glows in the opening. No plinth: the shaft's own sprite (drawn under every building)
+ *  is its ground, so the black mouth stays largely open and the collar and dug earth show round it. Asymmetric and
+ *  low: no dome, no lid, no spiral, nothing upright or pointed, nothing waving up (round 1: an upright straw read as a
+ *  gun turret; round 2: a whorl's spiral as the Gyre; round 3: a clam over the hole as a lid built on the frame, the
+ *  Excavator). */
 export function siphon(M) {
-  const g = grp(), Y = 7.6, ZH = -15, R = 16.5, PHI = 1.42, HU = 4.4, HL = 3.4, OPEN = 0.24, SM = 0.84, WX = 1.3; // (WX: the valves widened across) // the collar's top; the hinge's z; the fan; the valves' rise; the lift; the margin's start
-  const lower = grp(); lower.position.set(0, Y + 0.6, ZH); lower.scale.x = WX; g.add(lower);
-  add(lower, valve(R, PHI, HL, 0, 1, -1), M.shell, 0, 0, 0);                                     // the lower valve, its belly down in the mouth
-  add(lower, valve(R * 0.97, PHI * 0.97, 0.01, 0.08, 1, 1), M.inkSeam, 0, 0.05, 0);              // the ink mantle between the valves, dark in the gape
-  add(lower, valveLine(R, PHI, 0, 1, 1.0, -0.3), M.ring, 0, 0, 0);                                // its lip, polished, a pale line under the gape: two valves
-  const upper = grp(); upper.position.set(0, Y + 0.9, ZH); upper.rotation.x = -OPEN; upper.scale.x = WX; g.add(upper);
-  add(upper, valve(R, PHI, HU, 0, SM), M.shell, 0, 0, 0);                                        // the upper valve, smooth pearl
-  add(upper, valve(R * 1.004, PHI, HU * 1.01, SM, 1), M.glaze, 0, 0.02, 0);                      // its margin, team
-  add(upper, valveLine(R, PHI, HU, SM, 0.42), M.inkSeam, 0, 0, 0); add(upper, valveLine(R, PHI, 0, 1, 0.45, 0), M.inkSeam, 0, 0, 0); // ink seams either side
-  for (const sv of [0.34, 0.56, 0.76]) add(upper, valveLine(R, PHI, HU, sv, 0.28, 0.1), M.shellDark, 0, 0, 0);  // growth lines, arcs round the umbo
-  const inner = M.shellIn ??= Object.assign(M.shellDark.clone(), { side: THREE.BackSide });
-  add(upper, valve(R * 0.99, PHI * 0.99, HU * 0.92, 0, 1), inner, 0, -0.2, 0);                   // its inside, in shade (seen in the gape)
-  add(g, rbox(7, 1.6, 2.4, 0.6), M.inkSeam, 0, Y + 1.4, ZH - 1);                                  // the hinge's ink ligament
-  deeplight(g, M, 1.0, 5, Y + 1.8, ZH + R * 0.9);                                                // the one light, in the gape, off centre
+  const g = grp(), sq = 0.7;                                                                     // (the lobes squashed: soft, settled)
+  const LOBES = [[6, 7, -21, 9.5, M.shell, 1], [-6, 6, -22.5, 7, M.shellLight, 1], [15, 5.2, -15, 6.2, M.shell, 1], [-14, 4.4, -16, 4.6, M.shellDark, 0],
+    [1, 11.2, -24.5, 4.6, M.shellLight, 0], [21, 3.6, -23, 4.2, M.shellDark, 0], [-17, 3, -24, 3.4, M.shell, 0], [11, 12.2, -20, 3.6, M.shellLight, 0]];
+  for (const [x, y, z, r, mat, team] of LOBES) {
+    add(g, sph(r, 28, 18), mat, x, y, z).scale.set(1, sq, 1.05);
+    if (!team) continue;                                                                        // a team patch on the lobe's crown, inside an ink seam
+    const t = 0.7, h = r * 1.015 * Math.cos(t) * sq;
+    add(g, new THREE.SphereGeometry(r * 1.015, 28, 10, 0, Math.PI * 2, 0, t), M.glaze, x, y, z).scale.set(1, sq, 1.05);
+    add(g, torus(r * 1.015 * Math.sin(t), 0.5, Math.PI * 2, 40), M.inkSeam, x, y + h, z, Math.PI / 2, 0, 0).scale.set(1, 1.05, 1);
+  }
+  add(g, sph(4.2, 20, 14), M.ink, 4, 6.2, -14.6).scale.set(1.5, 0.7, 0.6);                     // the dark opening the tubes come out of
+  deeplight(g, M, 1.1, 3.5, 7.4, -13.4);                                                        // the one light, in it
+  // the feeding tubes: soft, thick, drooping over the beam and down into the black, darker as they go down
+  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
+  const TUBES = [[2.3, [[-1, 6.5, -15.5], [-2.6, 9.6, -13], [-3.6, 7.6, -9.6], [-4.2, 1.5, -7.6], [-4.6, -6, -6.6], [-4.8, -14, -6.2]]],
+    [2.7, [[5.5, 7, -15], [6.2, 10, -12.2], [5.6, 7, -8.4], [4.6, 0.5, -6], [4, -7, -4.8], [3.8, -15, -4.3]]],
+    [1.9, [[13.5, 5.8, -10.5], [11.6, 9.4, -8.2], [9.2, 6.4, -6], [8.2, -0.5, -4.2], [7.8, -8, -3.4], [7.7, -15, -3]]]];
+  for (const [r, pts] of TUBES) {
+    const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+    const part = (u0, u1, rr) => { const q = []; for (let k = 0; k <= 16; k++) q.push(c.getPoint(u0 + (u1 - u0) * k / 16)); return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 24, rr, 10); };
+    add(g, part(0, 0.5, r), M.shell, 0, 0, 0);                                                   // over the rim, pale
+    add(g, part(0.06, 0.24, r * 1.08), M.glaze, 0, 0, 0);                                         // a team sleeve at its root, between ink seams
+    for (const u of [0.05, 0.25]) add(g, part(u - 0.012, u + 0.012, r * 1.14), M.inkSeam, 0, 0, 0);
+    add(g, part(0.46, 0.6, r * 0.95), deep, 0, 0, 0);                                            // going down, in shade
+    add(g, part(0.58, 1, r * 0.9), dark, 0, 0, 0);                                               // lost in the dark
+  }
   return g;
 }
 

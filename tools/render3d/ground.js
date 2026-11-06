@@ -104,7 +104,7 @@ export function shaftPit(g, x, y, z, w) {
 /** The mine shaft's collar and mouth, square, centred at (x, y, z) on the ground at y: the shaft itself, its far wall
  *  going down below the ground as deep as the camera sees through the mouth (1.43 times its width at 55 degrees), lined
  *  with timber at the top and falling to black, a ladder down it; round it two courses of squared timbers laid
- *  log-cabin fashion into one square box (`courses` 1: a single ring of four, the Excavator's), `w` the mouth's width. Below the ground only the far wall
+ *  log-cabin fashion into one square box (`courses` 1: a single ring of four), `w` the mouth's width. Below the ground only the far wall
  *  is built: the camera sees nothing else of the shaft. `M`: makeMats (iron; nothing team). Shared by the free shaft
  *  (`mineShaft`) and the Excavator over it. */
 export function shaftCollar(g, M, x = 0, y = 0, z = 0, w = 20, courses = 2) {

@@ -15,15 +15,15 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 /** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
-/** Buildings: `glow` [colour, size, strength, height above the centre, flicker], `head` (a turret head sprite that
+/** Buildings: `glow` [colour, size, strength, height above the centre, flicker, px east of the centre], `head` (a turret head sprite that
  * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). */
 export const BLDG_LOOK = {
-  core: { glow: [0xffd27a, 1.6, 0.35, 30, false] },
+  core: { glow: [0xffd27a, 1.2, 0.35, 46, false, 20] }, // (on the Lighthouse's lamp)
   extractor: { glow: [0xa78bfa, 1.1, 0.5, 12, false] },
   forge: { glow: [0xff8a2a, 1.2, 0.4, 12, true], smoke: [[17, 4], [47, 4]] },
   turret: { head: 'turret_head' },
   // the Vael: violet light from their crystals
-  conflux: { glow: [0xb48cff, 1.6, 0.4, 26, false] },
+  conflux: { glow: [0xb48cff, 1.6, 0.4, 12, false] }, // (on the Tidewell's pool)
   siphon: { glow: [0xa78bfa, 1.1, 0.55, 14, false] },
   spire: { glow: [0xb48cff, 0.9, 0.35, 34, false] },
   ward: { glow: [0xb48cff, 0.8, 0.35, 20, false] },
@@ -40,5 +40,6 @@ export const UNIT_FPS = { shrike: 0, sovereign: 4 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Siege Tank: two tread
- *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). */
-export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };
+ *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). The Picket (trooper): two strides,
+ *  going to ground, dug in behind its sandbags (tools/render3d/harbour.js). */
+export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 }, trooper: { walk: 2, swap: 2, on: 3 } };

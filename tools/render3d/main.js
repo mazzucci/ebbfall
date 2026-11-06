@@ -12,6 +12,7 @@ import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
 import { breakwater, anchorGun, netter } from './harbour-machines.js';
+import { kite, spyglass, windjammer } from './harbour-air.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
@@ -35,6 +36,13 @@ Object.assign(UNIT_MODELS, {
   vanguard: { build: breakwater, frames: 4, r: 22, h: 20 },   // (r 22: the spades and legs splay past 17 beached and in some walk facings; the mortar's muzzle about 16.7 ahead)
   siegeTank: { build: anchorGun, frames: 4, r: 31, h: 24 },   // (r 31: the muzzle reaches 24.4 ahead, the dropped anchor about 29 astern; h 24: raised)
   interceptor: { build: netter, frames: 2, r: 14, h: 21 },    // (r 14: the reel is 15.8 across; h 21: the tubes raised)
+});
+// Harbour air (step 1, harbour-air.js): the Kite (flies at 17, its tail reaching 17.5 aft), the Spyglass (at 26) and
+// the Windjammer (at 24, 44 long); one frame each, gliders (look.js UNIT_FPS 0). The cells hold the flyer and its
+// shadow, which lands 0.4 of the height east and 0.3 south of it.
+Object.assign(UNIT_MODELS, {
+  raider: { build: kite, frames: 1, r: 19, h: 18 }, observer: { build: spyglass, frames: 1, r: 11, h: 30 },
+  bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
 });
 
 // The Vael units in the game; each race renders with its own materials.

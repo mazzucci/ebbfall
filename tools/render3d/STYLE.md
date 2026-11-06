@@ -485,9 +485,10 @@ edge read as smoke or fog-of-war): a thin pale lip (`PAN_LIP` [104,101,94], 0.07
 under it, and past it a few flakes (~0.3 tile) broken off onto the seabed, each with its own lip and shadow. The pan's
 shape is a distance field read bilinearly from a 4-texel grid; a 1 world px texel cost about four times as much
 (1.4 s for a 128x128 map's 20 fields, cold) and was not kept. The heaps carry the brightness. One texel
-is 2 world px (`PAN_RES`), linear-filtered; a field's pan takes some 35 ms to make warm (a 64x64 map's five fields
-about 0.5 s cold, a 128x128 map's twenty about 0.7 s). The pan stays when its nodes are
-worked out.
+is 2 world px (`PAN_RES`), linear-filtered; on a desktop's Chromium a 64x64 map's pans take some 50-75 ms to make cold
+(20 ms warm), a 128x128 map's 105-145 ms (60-80 ms warm): the cells of the 4-texel grid wholly off the pan are skipped,
+and each loop is a small function over typed arrays (as one large function V8 kept deoptimizing it: 0.2-0.5 s cold).
+The pan stays when its nodes are worked out.
 
 *The heaps* (`ground.js saltField`, `shard_0..3`, `unitCell(16, 16)`): heaps of salt the shape of salt-works piles,
 cones at the angle salt rests at with a rounded top, barely uneven, each on a damp spilt foot (`W.heap` 0x8a867e with a

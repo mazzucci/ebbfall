@@ -44,7 +44,7 @@ function steps() {
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
     // that never comes; never while one is still there)
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
-    { text: `Train more ${plural(UNITS[soldier].name)} with your salt (an army of ${goal}), then select it (the ARMY button, or Q) and Attack the enemy base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `Spend your salt: an army of ${goal} ${plural(UNITS[soldier].name)}, then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 

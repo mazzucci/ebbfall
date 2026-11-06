@@ -6,6 +6,11 @@ use super::*;
 pub const FIELD_LOW: i32 = 1500;
 
 impl World {
+    /// The most supply a seat can have on this map (`data::supply_limit`).
+    pub fn supply_limit(&self) -> i32 {
+        supply_limit(self.map.w)
+    }
+
     pub fn recalc_supply(&mut self, team: u8) {
         let (mut used, mut cap) = (0, 0);
         for u in self.units.iter().filter(|u| u.team == team) {
@@ -19,7 +24,7 @@ impl World {
                 used += q.def().supply;
             }
         }
-        self.sup[team as usize] = [used, cap.min(SUPPLY_LIMIT)];
+        self.sup[team as usize] = [used, cap.min(self.supply_limit())];
     }
 
     /// The nearest salt field with salt left within `max_d` px (a seep is never mined: its Pump pays by itself).

@@ -28,7 +28,7 @@ async function open(query = '', device = DESKTOP, { init = null, permissions = [
 /** The game as it starts: each seat's race and team, the map's size, every Core where it stands. */
 const startOf = (page) => page.evaluate(() => ({ races: endfall.G.factions.slice(), teams: endfall.G.teams.slice(), w: endfall.map.w,
   cores: endfall.G.bldgs.filter(b => b.d.hq).map(b => [b.team, b.x, b.y]).sort((p, q) => p[0] - q[0]) }));
-/** Win at once: the AIs stopped, each enemy Core nearly down with our Troopers beside it. */
+/** Win at once: the AIs stopped, each enemy Core nearly down with our Pickets beside it. */
 async function win(page) {
   await page.evaluate(() => {
     endfall.engine.disableAi();

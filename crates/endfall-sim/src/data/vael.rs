@@ -24,7 +24,7 @@ pub const VAEL: Faction = Faction {
     ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
-    power: Some(BldgKind::Spire),
+    power: None, // (Roster v2: the Sunpetal is energy, not a leash on where to build)
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     warp: true,
@@ -57,7 +57,7 @@ pub const VAEL: Faction = Faction {
 
 pub(super) const LUMEN: UnitDef = UnitDef {
     key: "lumen",
-    name: "Lumen",
+    name: "Glint",
     cost: [50, 0],
     hp: 20.0,
     shields: 20.0,
@@ -77,10 +77,10 @@ pub(super) const LUMEN: UnitDef = UnitDef {
 };
 pub(super) const SCYTHE: UnitDef = UnitDef {
     key: "scythe",
-    name: "Scythe",
+    name: "Needle",
     cost: [100, 0],
     supply: 2,
-    hp: 80.0,
+    hp: 70.0,
     shields: 40.0,
     armor: 1.0,
     speed: 88.0,
@@ -95,17 +95,15 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
         up_dmg: 2.0,
         ..W
     }),
-    abilities: &[AbilityKind::Blink],
     mv: Move::Amph,
     ..UNIT
 };
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
-    name: "Prism",
-    cost: [100, 0],
+    name: "Lens",
+    cost: [110, 0],
     supply: 2,
-    hp: 70.0,
-    shields: 60.0,
+    hp: 90.0,
     armor: 1.0,
     speed: 85.0,
     sight: 9.0,
@@ -121,18 +119,18 @@ pub(super) const PRISM: UnitDef = UnitDef {
         ..W
     }),
     mv: Move::Amph,
+    abilities: &[AbilityKind::Overcharge],
     ..UNIT
 };
 pub(super) const HALO: UnitDef = UnitDef {
     key: "halo",
-    name: "Halo",
-    cost: [75, 0],
-    hp: 40.0,
-    shields: 40.0,
+    name: "Tender",
+    cost: [100, 0],
+    hp: 60.0,
     speed: 110.0,
     sight: 10.0,
     build: 20.0,
-    heal: 20.0,
+    heal: 6.0,
     mend: true,
     req: Some(BldgKind::Loom),
     detect: 5.0, // (the Vael's detector in the field: its army's eyes)
@@ -145,11 +143,10 @@ pub(super) const HALO: UnitDef = UnitDef {
 /// same.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
-    name: "Umbra",
-    cost: [125, 0],
+    name: "Undertow",
+    cost: [175, 0],
     supply: 2,
-    hp: 60.0,
-    shields: 60.0,
+    hp: 90.0,
     armor: 1.0,
     speed: 95.0,
     sight: 8.0,
@@ -171,11 +168,11 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 /// The Vael capital barge: a great shell gliding low, whose beam splashes the ground from far off; it cannot hit flyers.
 pub(super) const SOVEREIGN: UnitDef = UnitDef {
     key: "sovereign",
-    name: "Sovereign",
-    cost: [350, 0],
+    name: "Argonaut",
+    cost: [500, 0],
     supply: 6,
     hp: 300.0,
-    shields: 250.0,
+    shields: 200.0,
     armor: 2.0,
     speed: 52.0,
     sight: 10.0,
@@ -193,15 +190,16 @@ pub(super) const SOVEREIGN: UnitDef = UnitDef {
         ..W
     }),
     mv: Move::Amph,
+    detect: 7.0,
     ..UNIT
 };
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
-    name: "Monolith",
-    cost: [175, 0],
+    name: "Conch",
+    cost: [250, 0],
     supply: 4,
-    hp: 160.0,
-    shields: 140.0,
+    hp: 180.0,
+    shields: 120.0,
     armor: 2.0,
     speed: 55.0,
     sight: 9.0,
@@ -218,17 +216,17 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
         splash_r: 40.0,
         ..W
     }),
-    abilities: &[AbilityKind::Overcharge],
+    abilities: &[AbilityKind::Blink],
     mv: Move::Amph,
     ..UNIT
 };
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
-    name: "Shrike",
-    cost: [125, 0],
+    name: "Petrel",
+    cost: [175, 0],
     supply: 2,
-    hp: 90.0,
-    shields: 60.0,
+    hp: 80.0,
+    shields: 40.0,
     speed: 165.0,
     sight: 9.0,
     r: 11.0,
@@ -250,12 +248,11 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
 
 pub(super) const CONFLUX: BldgDef = BldgDef {
     key: "conflux",
-    name: "Conflux",
+    name: "Tidewell",
     cost: [400, 0],
     w: 4,
     h: 4,
-    hp: 1000.0,
-    shields: 400.0,
+    hp: 1400.0,
     armor: 2.0,
     supply: 10,
     build: 80.0,
@@ -263,24 +260,21 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     trains: &[UnitKind::Lumen],
     dropoff: true,
     hq: true,
-    power: 7.0,
     ..BLDG
 };
 pub(super) const SPIRE: BldgDef = BldgDef {
     key: "spire",
-    name: "Spire",
+    name: "Sunpetal",
     cost: [100, 0],
-    hp: 200.0,
-    shields: 200.0,
+    hp: 400.0,
     supply: 8,
     build: 25.0,
     sight: 6.0,
-    power: 6.5,
     ..BLDG
 };
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
-    name: "Pump",
+    name: "Siphon",
     cost: [75, 0],
     hp: 200.0, // (as the Humans' Pump: no shields)
     build: 25.0,
@@ -289,12 +283,11 @@ pub(super) const SIPHON: BldgDef = BldgDef {
 };
 pub(super) const KILN: BldgDef = BldgDef {
     key: "kiln",
-    name: "Kiln",
+    name: "Cradle",
     cost: [150, 0],
     w: 3,
     h: 3,
-    hp: 500.0,
-    shields: 300.0,
+    hp: 800.0,
     build: 45.0,
     sight: 7.0,
     trains: &[
@@ -303,32 +296,27 @@ pub(super) const KILN: BldgDef = BldgDef {
         UnitKind::Monolith,
         UnitKind::Halo,
     ],
-    needs_power: true,
     ..BLDG
 };
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
-    name: "Loom",
+    name: "Glasshouse",
     cost: [150, 0],
-    hp: 500.0,
-    shields: 300.0,
+    hp: 800.0,
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Kiln),
     researches: &[Upgrade::Weapons, Upgrade::Shields, Upgrade::OverchargeCore],
-    needs_power: true,
     ..BLDG
 };
 pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
-    name: "Ward",
+    name: "Anemone",
     cost: [125, 0],
-    hp: 200.0,
-    shields: 120.0,
+    hp: 320.0,
     build: 25.0,
     sight: 9.0,
     req: Some(BldgKind::Kiln),
-    needs_power: true,
     weapon: Some(Weapon {
         range: 7.0,
         dmg: 20.0,
@@ -343,32 +331,28 @@ pub(super) const WARD: BldgDef = BldgDef {
 };
 pub(super) const ZENITH: BldgDef = BldgDef {
     key: "zenith",
-    name: "Zenith",
+    name: "Gyre",
     cost: [175, 0],
     w: 3,
     h: 3,
-    hp: 500.0,
-    shields: 300.0,
+    hp: 800.0,
     build: 55.0,
     sight: 8.0,
     // (the advanced hover units: the flyer, the cloaked blade (once an Eclipse stands) and the capital barge)
     trains: &[UnitKind::Shrike, UnitKind::Umbra, UnitKind::Sovereign],
     req: Some(BldgKind::Kiln), // (air is a branch of its own, beside the ground tech)
-    needs_power: true,
     ..BLDG
 };
 /// The Eclipse (shadow tech, after the Loom): where light is hidden. The Lumen is the Vael's light, the Umbra its
 /// shadow; the Eclipse unlocks the Umbra (trained at the Zenith) and weaves the flyers' shadow techs.
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
-    name: "Eclipse",
+    name: "Darkwater",
     cost: [150, 0],
-    hp: 500.0,
-    shields: 300.0,
+    hp: 800.0,
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Loom),
     researches: &[Upgrade::VeilWeave, Upgrade::Slipstream],
-    needs_power: true,
     ..BLDG
 };

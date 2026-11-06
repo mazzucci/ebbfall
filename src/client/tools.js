@@ -2,6 +2,7 @@
 // ⚠ chip), the whole-army (Q) and idle-factory (,) keys, the idle-harvester key, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save). The pause card is pause.js.
 import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies } from '../engine/index.js';
+import { plural } from '../engine/util.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
@@ -32,8 +33,8 @@ export function onAttacked(e) {
 function detectors() {
   const f = myFaction(), bl = [...f.buildBasic, ...f.buildAdvanced];
   const names = [...bl.filter(k => BUILDINGS[k].detect > 0).map(k => BUILDINGS[k].name),
-    ...[...new Set(bl.concat(f.hq).flatMap(k => BUILDINGS[k].trains || []))].filter(k => UNITS[k].detect > 0).map(k => UNITS[k].name)];
-  const p = names.map(n => n + 's');
+    ...[...new Set(bl.concat(f.hq).flatMap(k => BUILDINGS[k].trains || []))].filter(k => UNITS[k].detect > 0 && !UNITS[k].capital).map(k => UNITS[k].name)]; // (not a capital unit: a late giant is no answer to name)
+  const p = names.map(plural);
   return p.length > 1 ? p.slice(0, -1).join(', ') + ' and ' + p[p.length - 1] : p[0] || 'Detectors';
 }
 /** Look at the latest attack; again, the one before (up to three), then round again. */
@@ -67,7 +68,7 @@ export function selectIdleFactory() {
 
 /** Select the next idle harvester and look at it. */
 export function selectIdle() {
-  const idle = idleHarvesters(); if (!idle.length) { toast(`No idle ${UNITS[myFaction().worker].name}s`); return; }
+  const idle = idleHarvesters(); if (!idle.length) { toast(`No idle ${plural(UNITS[myFaction().worker].name)}`); return; }
   const u = idle[idleIndex++ % idle.length]; choose([u]); centerOn(u.x, u.y);
 }
 /** Select every combat unit; a second tap within a second also looks at them. */

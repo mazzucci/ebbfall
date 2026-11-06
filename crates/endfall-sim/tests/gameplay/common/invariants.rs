@@ -189,7 +189,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             .sum();
         assert_eq!(
             w.sup[t][1],
-            cap.min(SUPPLY_LIMIT),
+            cap.min(w.supply_limit()),
             "{ctx}: team {t} supply cap"
         );
     }

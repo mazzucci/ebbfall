@@ -11,7 +11,7 @@ pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching, // (retired: nothing researches it)
+    Entrenching, // (Sandbags: unlocks the Picket's Dig In)
     Afterburners,
     OverchargeCore,
     Slipstream,
@@ -71,14 +71,14 @@ const WEAPONS: UpgradeDef = UpgradeDef {
 };
 const ARMOR: UpgradeDef = UpgradeDef {
     key: "armor",
-    name: "Armor",
+    name: "Plating",
     effect: Effect::Armor,
     ..WEAPONS
 };
 
 const SHIELDS: UpgradeDef = UpgradeDef {
     key: "shields",
-    name: "Shields",
+    name: "Hardshell",
     effect: Effect::Shields,
     ..WEAPONS
 };
@@ -93,11 +93,11 @@ const TECH: UpgradeDef = UpgradeDef {
     time: [60.0; 3],
     levels: 1,
 };
-/// Retired with the Entrench it unlocked (2026-10-31): no building researches it; it keeps its index.
+/// Sandbags: unlocks the Picket's Dig In (Roster v2 revived it, retired on 2026-10-31 with the Vanguard's dig-in).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
-    name: "Entrenching",
-    short: "Entrench",
+    name: "Sandbags",
+    short: "",
     effect: Effect::Unlock(AbilityKind::Entrench),
     cost: [[125, 0]; 3],
     time: [70.0; 3],
@@ -105,15 +105,15 @@ const ENTRENCHING: UpgradeDef = UpgradeDef {
 };
 const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
-    name: "Afterburners",
-    short: "Afterburn",
+    name: "Tailwind",
+    short: "",
     effect: Effect::Speed(UnitKind::Raider),
     ..TECH
 };
 const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {
     key: "overchargeCore",
-    name: "Overcharge Core",
-    short: "Overcharge",
+    name: "Surge Chamber",
+    short: "Surge Ch.",
     effect: Effect::Unlock(AbilityKind::Overcharge),
     cost: [[150, 0]; 3],
     time: [80.0; 3],
@@ -121,11 +121,12 @@ const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {
 };
 const SLIPSTREAM: UpgradeDef = UpgradeDef {
     key: "slipstream",
-    name: "Slipstream",
+    name: "Spindrift",
     effect: Effect::Speed(UnitKind::Shrike),
     ..TECH
 };
 
+/// Retired with the Kite's cloak (Roster v2): no building researches it; it keeps its index.
 const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
     key: "cloakingField",
     name: "Cloaking Field",
@@ -137,15 +138,15 @@ const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
 };
 const VEIL_WEAVE: UpgradeDef = UpgradeDef {
     key: "veilWeave",
-    name: "Veil Weave",
+    name: "Seaglass",
     short: "",
     effect: Effect::Unlock(AbilityKind::Veil),
     ..CLOAKING_FIELD
 };
 const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     key: "rapidConstruction",
-    name: "Rapid Construction",
-    short: "Rapid Build",
+    name: "All Hands",
+    short: "",
     effect: Effect::BuildSpeed,
     ..TECH
 };

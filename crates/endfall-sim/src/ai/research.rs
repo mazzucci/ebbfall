@@ -109,6 +109,10 @@ impl World {
     /// that unit stands (no Slipstream at an Eclipse before a Zenith); anything else always.
     pub(crate) fn tech_of_use(&self, e: u8, my_b: &[Id], up: Upgrade) -> bool {
         let serves: &dyn Fn(UnitKind) -> bool = match up.def().effect {
+            // (not a dig-in: the AI never digs a unit in, its siege guns anchor by their own rule)
+            Effect::Unlock(ab) if matches!(ab.def().effect, AbilityEffect::Settle { .. }) => {
+                return false;
+            }
             Effect::Unlock(ab) => &move |k: UnitKind| k.def().abilities.contains(&ab),
             Effect::Speed(unit) => &move |k: UnitKind| k == unit,
             _ => return true,

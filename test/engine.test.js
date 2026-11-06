@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { mulberry } from '../src/engine/util.js';
+import { mulberry, plural } from '../src/engine/util.js';
 import { GOLDEN, playGolden } from '../src/engine/golden.js';
 import * as C from '../src/engine/constants.js';
 
@@ -55,7 +55,7 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
   assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
-  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Trooper \+1.*Turret \+2/, 'the Weapons description is built from the tables');
+  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Picket \+1.*Lookout \+2/, 'the Weapons description is built from the tables');
 });
 
 test('no unit lists what it beats or what beats it: players find the counters themselves', { skip }, () => {
@@ -252,16 +252,16 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found. A retired one (Entrenching: no building researches it) keeps only its place.
+  // its own; each ability's tech is found. A retired one (Cloaking Field: no building researches it) keeps only its place.
   const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
-  assert.ok(!researched('entrenching') && researched('cloakingField'));
+  assert.ok(researched('entrenching') && !researched('cloakingField'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
   // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
-  // fires at all: no tech). (Entrench is retired: no unit has it, but the kinds keep their places.)
+  // fires at all: no tech). (Stim and Cloak are retired: no unit has them, but the kinds keep their places.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
@@ -430,5 +430,15 @@ test('the client names no unit or building kind outside its data tables and look
   for (const f of ['client/hud.js', 'client/card.js', 'client/ui.js', 'client/input.js', 'client/tools.js', 'client/gl/render.js', 'client/audio.js', 'client/scout.js', 'client/online.js', 'net/net.js']) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
     for (const k of [...Object.keys(C.UNITS), ...Object.keys(C.BUILDINGS)]) assert.ok(!src.includes(`=== '${k}'`) && !src.includes(`!== '${k}'`), `${f} tests for '${k}'`);
+  }
+});
+
+test('every unit and building name has a proper plural (Lenses, Spyglasses; never a doubled s)', () => {
+  assert.equal(plural('Lens'), 'Lenses');
+  assert.equal(plural('Spyglass'), 'Spyglasses');
+  assert.equal(plural('Conch'), 'Conchs');
+  assert.equal(plural('Picket'), 'Pickets');
+  for (const d of [...Object.values(C.UNITS), ...Object.values(C.BUILDINGS)]) {
+    assert.doesNotMatch(plural(d.name), /ss$/, d.name);
   }
 });

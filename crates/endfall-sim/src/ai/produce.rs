@@ -114,7 +114,11 @@ impl World {
             // (each once its requirement stands: a Vanguard per two Troopers once the Forge stands beats massed
             // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges).
             let heavy = s.heavy == Some(b.kind);
+            // (only what its level trains: a mix above it leaves the factory to its other units)
             let mixed = s.mix.iter().find(|&&(k, per, from)| {
+                if !self.level_allows(k) {
+                    return false;
+                }
                 let per = self.answer_ratio(k, per);
                 let Some(per) = self.cloak_ratio(k, per) else {
                     return false;
@@ -128,8 +132,9 @@ impl World {
             });
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
             // up for it rather than spending the money on raiders.
-            let capital = b.kind.def().trains.iter().copied().find(|k| {
+            let capital = b.kind.def().trains.iter().copied().find(|&k| {
                 k.def().capital
+                    && self.level_allows(k)
                     && k.def()
                         .req
                         .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
@@ -172,6 +177,14 @@ impl World {
             } else {
                 b.kind.def().trains[0]
             };
+            // (a unit above its level's mix: its line unit instead, or nothing from a vehicle bay or an air factory)
+            let u = if self.level_allows(u) {
+                u
+            } else if heavy || b.kind == s.air {
+                continue;
+            } else {
+                b.kind.def().trains[0]
+            };
             let qlen = b.queue.len();
             if b.rally.is_none() {
                 self.set_rally(bid, rally.x, rally.y, None);
@@ -195,6 +208,11 @@ impl World {
         }
     }
 
+    /// Whether the seat taking its turn trains `k` at its level (`Diff::mix_tier`).
+    pub(crate) fn level_allows(&self, k: UnitKind) -> bool {
+        k.ai_tier() <= self.level().mix_tier
+    }
+
     /// The capital unit `e`'s finished air factory should raise now (one after CAPITAL_AT[0] s, a second after
     /// [1]), if any: counted with those queued.
     pub(crate) fn capital_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<UnitKind> {
@@ -204,8 +222,9 @@ impl World {
             .filter_map(|&id| self.bldg(id))
             .filter(|b| b.done && b.kind == air)
             .find_map(|b| {
-                b.kind.def().trains.iter().copied().find(|k| {
+                b.kind.def().trains.iter().copied().find(|&k| {
                     k.def().capital
+                        && self.level_allows(k)
                         && k.def()
                             .req
                             .is_none_or(|r| self.ai_count(my_b, true, r) >= 1)

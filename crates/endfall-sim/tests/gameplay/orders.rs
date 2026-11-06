@@ -11,7 +11,7 @@ fn every_building_and_unit_can_be_made() {
     }
 }
 
-/// Builds every building of a race once (each as soon as its requirement and power stand), then trains every unit
+/// Builds every building of a race once (each as soon as its requirement stands), then trains every unit
 /// each building offers, one of each.
 fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
     let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [f, &HUMANS]);
@@ -36,15 +36,10 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
                 .iter()
                 .any(|b| b.team == PLAYER && b.kind == k && b.done)
         };
-        let powered = |w: &World| {
-            w.bldgs
-                .iter()
-                .any(|b| b.team == PLAYER && b.kind.def().power > 0.0 && b.done)
-        };
-        let Some(at) = todo.iter().position(|&k| {
-            let d = k.def();
-            d.req.is_none_or(|r| has(&w, r)) && (!d.needs_power || powered(&w))
-        }) else {
+        let Some(at) = todo
+            .iter()
+            .position(|&k| k.def().req.is_none_or(|r| has(&w, r)))
+        else {
             assert!(todo.is_empty(), "{}: {todo:?} can never be built", f.key);
             break;
         };
@@ -99,7 +94,7 @@ fn forge_and_turret_need_a_finished_barracks() {
         let (tx, ty) = spot(&w, kind);
         assert_eq!(
             w.place_building(PLAYER, kind, tx, ty, Some(h[0])),
-            Err("Requires Garrison".to_string())
+            Err("Requires Crew Hall".to_string())
         );
     }
     let (tx, ty) = spot(&w, BldgKind::Barracks);
@@ -133,7 +128,7 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     );
     assert_eq!(
         w.queue_unit(rax, UnitKind::Trooper),
-        Err("Garrison cannot train that".into()),
+        Err("Crew Hall cannot train that".into()),
         "not before it is finished"
     );
     assert!(w.start_build(h[0], rax));
@@ -142,7 +137,7 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     }
     assert_eq!(
         w.queue_unit(rax, UnitKind::Vanguard),
-        Err("Garrison cannot train that".into()),
+        Err("Crew Hall cannot train that".into()),
         "vehicles come from the Factory"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
@@ -184,26 +179,26 @@ fn medics_and_vehicles_need_a_forge_and_an_airfield_or_a_factory_a_garrison() {
         let (tx, ty) = spot(&w, k);
         assert_eq!(
             w.place_building(PLAYER, k, tx, ty, Some(h[1])),
-            Err("Requires Garrison".into()),
+            Err("Requires Crew Hall".into()),
             "air and vehicles are branches off the first factory: {k:?}"
         );
     }
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
     assert_eq!(
         w.queue_unit(rax, UnitKind::Medic),
-        Err("Requires Foundry".into())
+        Err("Requires Workshop".into())
     );
     // The Factory (no Foundry needed to build it) trains Vanguards and Siege Tanks, both once a Foundry stands.
     let fac = build(&mut w, BldgKind::Factory, h[3], 120);
     for k in [UnitKind::Vanguard, UnitKind::SiegeTank] {
         assert_eq!(
             w.queue_unit(fac, k),
-            Err("Requires Foundry".into()),
+            Err("Requires Workshop".into()),
             "{k:?}"
         );
         assert_eq!(
             w.queue_unit(rax, k),
-            Err("Garrison cannot train that".into()),
+            Err("Crew Hall cannot train that".into()),
             "{k:?}: not at the Garrison"
         );
     }
@@ -225,15 +220,15 @@ fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_s
     // The Vael tech tree: Kiln, then the Loom (Weapons, Shields, Overcharge Core) and the Zenith (the advanced hover
     // units: Shrike, Umbra, Sovereign; it researches nothing), then the Eclipse after the Loom (Veil Weave and
     // Slipstream, moved there, and the Umbra's requirement). The Umbra stays a ground unit: only flyers are `air`.
+    // (Their names since Roster v2: the Cradle, the Glasshouse, the Gyre and the Darkwater.)
     let mut w = rich_vael(11);
     flatten(&mut w, 12..52, 12..52);
     for tx in [20, 26, 32] {
-        w.make_building(BldgKind::Spire, PLAYER, tx, 26, true);
+        w.make_building(BldgKind::Spire, PLAYER, tx, 26, true); // (supply)
     }
     let kiln = w.make_building(BldgKind::Kiln, PLAYER, 20, 30, true);
     let zenith = w.make_building(BldgKind::Zenith, PLAYER, 24, 30, true);
-    w.step(); // (powered)
-    assert!(w.bldg(zenith).unwrap().powered);
+    w.step();
     assert_eq!(
         BldgKind::Kiln.def().trains,
         &[
@@ -254,11 +249,11 @@ fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_s
     assert!(VAEL.builds(BldgKind::Eclipse) && !HUMANS.builds(BldgKind::Eclipse));
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Umbra),
-        Err("Kiln cannot train that".into())
+        Err("Cradle cannot train that".into())
     );
     assert_eq!(
         w.queue_unit(zenith, UnitKind::Umbra),
-        Err("Requires Eclipse".into())
+        Err("Requires Darkwater".into())
     );
     let (tx, ty) = (32, 30);
     assert!(
@@ -269,17 +264,16 @@ fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_s
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     assert_eq!(
         w.queue_unit(zenith, UnitKind::Umbra),
-        Err("Requires Eclipse".into()),
+        Err("Requires Darkwater".into()),
         "the Loom alone unlocks no Umbra"
     );
     let eclipse = w.make_building(BldgKind::Eclipse, PLAYER, tx, ty, true);
     w.step();
-    assert!(w.bldg(eclipse).unwrap().powered);
     // The research moved: refused at the Loom and the Zenith, taken at the Eclipse.
     for (at, up) in [(loom, Upgrade::VeilWeave), (zenith, Upgrade::Slipstream)] {
         assert_eq!(
             w.start_research(at, up),
-            Err("Research happens at a finished Eclipse".into()),
+            Err("Research happens at a finished Darkwater".into()),
             "{up:?}"
         );
     }
@@ -342,7 +336,8 @@ fn research_rules_and_refunds() {
         [4900, 5000],
         "cancel refunds in full"
     );
-    // Losing the forge mid-research refunds too.
+    // Losing the forge mid-research refunds too. (Weakened, so it falls well before its research is done.)
+    w.bldgs.iter_mut().find(|b| b.id == f).unwrap().hp = 200.0;
     let hp = w.bldg(f).unwrap().hp;
     let foe = w.make_unit(
         UnitKind::Vanguard,
@@ -367,6 +362,7 @@ fn research_rules_and_refunds() {
         [5000, 5000],
         "its research was refunded"
     );
+    assert_eq!(w.upgrades[PLAYER as usize][Upgrade::Weapons.index()], 0);
     for _ in 0..3 {
         research_level(&mut w, f2, Upgrade::Weapons);
     }
@@ -533,16 +529,18 @@ fn messages_name_each_races_own_buildings() {
             })
             .collect()
     };
+    // (each race's refinery by its own name: the Humans' Pump, the Vael's Siphon; its research hall: the Workshop,
+    // the Glasshouse)
     for (w, rig, hall) in [
         (
             &mut rich(5),
             "A seep is not mined: a Pump on it pays salt by itself",
-            "Foundry",
+            "Workshop",
         ),
         (
             &mut rich_vael(5),
-            "A seep is not mined: a Pump on it pays salt by itself",
-            "Loom",
+            "A seep is not mined: a Siphon on it pays salt by itself",
+            "Glasshouse",
         ),
     ] {
         w.events.clear();
@@ -635,8 +633,10 @@ fn a_group_keeps_its_pace_after_a_skirmish_on_the_way() {
         "the fight is over and the march goes on: {}",
         x(&w, v)
     );
+    // (within the 2.5 tiles between where each stopped to fight, the Picket at its 4.5 tiles of reach and the
+    // Breakwater at its 2: a Picket at its own speed again would be 200 px and more ahead by now)
     assert!(
-        (x(&w, t) - x(&w, v)).abs() < 48.0,
+        (x(&w, t) - x(&w, v)).abs() < 2.5 * TILE + 8.0,
         "still together: {} vs {}",
         x(&w, t),
         x(&w, v)

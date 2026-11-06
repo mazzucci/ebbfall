@@ -329,8 +329,8 @@ impl World {
                     }
                     AbilityEffect::Blink { dist } => {
                         fight
-                            && target_d
-                                .is_some_and(|t| t > reach + 2.0 * TILE && t < (dist + 4.0) * TILE)
+                            // (a little out of its reach, close enough that the hop lands it within reach)
+                            && target_d.is_some_and(|t| t > reach + 2.0 * TILE && t < reach + dist * TILE)
                     }
                     // (a cloak is permanent once researched: nothing to cast)
                     AbilityEffect::Cloak => false,

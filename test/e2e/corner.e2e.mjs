@@ -122,7 +122,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       await page.keyboard.press('Backspace'); await page.locator('#leave').waitFor();
       await cornerOn(o, 'the leave card', '#leave', '#leave .card');
       await press('#btnStay'); await topBarOn(o, 'kept playing');
-      // The end card (a short game: the enemy's Core nearly down, our Troopers beside it).
+      // The end card (a short game: the enemy's Core nearly down, our Pickets beside it).
       await page.evaluate(() => {
         const c = endfall.G.bldgs.find(b => b.team !== endfall.G.me && b.d.hq); endfall.engine.debugSetHp(c.id, 5);
         for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'trooper', c.x + i * 20, c.y + 90);

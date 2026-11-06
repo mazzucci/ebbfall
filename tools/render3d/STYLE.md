@@ -7,7 +7,7 @@ are the "not drawings" part. Nothing here is a flat fill, a cartoon outline or a
 material, wear sits on edges, and every unit casts a real shadow.
 
 Step 0 (the slice) set this sheet with six models: the Rigger, Picket and Lighthouse (`harbour.js`), the Glint, Lens
-and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1; the salt works since step 2).
+and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1).
 Later makers build from it; where a later model needs a material that is not here, add it to `materials.js` /
 `vael.js makeVaelMats` and to this sheet in the same change.
 
@@ -26,10 +26,9 @@ below). The renderer picks them through
 variant's own (veins, marks) fades out at the tile's edge. The rock plateaus are dead reef (step 1): a bleached lip, a
 pitted grey-brown top, a dark layered face on every edge.
 
-The salt field (`shard_0..3`): the salt works, a heap of salt on each node standing on one cracked salt pan under the
-whole field ("The salt works" below). Salt is pale but under the units' highlights (it peaks near 190 sRGB) and carries
-no light. The four stages differ by shape: a tall cone and a small one, one cone dug flat, a low raked windrow, a
-scraped wet hollow with a pale broken rim.
+The salt field (`shard_0..3`): salt crystal clusters on a pale crust apron ("The salt works" below). Salt is pale but
+under the units' highlights (it peaks near 198 sRGB) and carries no light. The four stages differ by shape: standing
+clusters, fewer and lower clusters, a flat broken crust, a bare dark pit with a pale rim.
 
 ## The Harbour (sim race `humans`)
 
@@ -477,33 +476,24 @@ shared by the variants (round 1 used a non-periodic noise: seams); its own marks
 small bleached nub, at hashed places clear of the edge, no window. The plateau's inside has six variants (`rock_15_0..5`,
 `gl/ground.js rockTile`), the edges three. The minimap draws it `#6b665a`.
 
-**The salt works** (step 2, after the owner's note that grey faceted crystal clumps in an arc by the main read as a
-mineral line and a green pool as a geyser, from another game, and the whole-set judge's "the salt reads as rubble").
-No upright faceted crystals and no green pool or plume anywhere.
+**The salt works**. Stelian's call on the live game (2026-11-06): step 2's salt heaps on a cracked salt pan had "too
+much detail and green"; the salt is back to #231's crystals, nudged whiter so they read as salt crystals.
 
-*The salt pan* (`src/client/gl/ground.js saltPans`, drawn by `gl/render.js renderTerrain` over the tiles and under
-the shade layers, and by the review pack the same way): one continuous crust under each field, so a field reads as a
-salt flat and not as separate rocks. Salt nodes within 3.6 tiles of each other join (a field's arc spaces them 2 to
-3.2 apart); the pan is their union of discs (1.3 tiles) and capsules between joined nodes (0.95), its shore wobbled
-by two low noises. A dull grey-white crust (`PAN` [75,73,68], about 58 in grey on the seabed's 40: under the reef top
-and a unit's body; round 1's pale pan, ~100, was the largest light mass on screen and the workers lost contrast where
-they mine), cracked into flags about half a tile across by faint pale lines that come and go (dark outlines read as
-paving), each flag its own shade, a fine grain, darker and damp towards its edge. The edge is crisp (round 2's soft, dithered
-edge read as smoke or fog-of-war): a thin pale lip (`PAN_LIP` [104,101,94], 0.07 tile) with a dark line of shadow
-under it, and past it a few flakes (~0.3 tile) broken off onto the seabed, each with its own lip and shadow. The pan's
-shape is a distance field read bilinearly from a 4-texel grid; a 1 world px texel cost about four times as much
-(1.4 s for a 128x128 map's 20 fields, cold) and was not kept. The heaps carry the brightness. One texel
-is 2 world px (`PAN_RES`), linear-filtered; on a desktop's Chromium a 64x64 map's pans take some 50-75 ms to make cold
-(20 ms warm), a 128x128 map's 105-145 ms (60-80 ms warm): the cells of the 4-texel grid wholly off the pan are skipped,
-and each loop is a small function over typed arrays (as one large function V8 kept deoptimizing it: 0.2-0.5 s cold).
-The pan stays when its nodes are worked out.
+*The crystals* (`ground.js saltField`, `shard_0..3`, `unitCell(21, 24)`, `GMATS`): a field, not a clump (round 3's
+read as rubble or rock heaps). Clusters of halite cubes, stacked and tilted, flat shaded: `salt` 0x76716a with a faint
+warm `emissive` 0x332e27 (halite's translucency: it lifts the faces in shade, which the scene's blue sky and rim light
+turned slate-blue, to a pale grey-white; a small glow, no light cast), `saltWet` 0x716d66 (emissive 0x25221d) on the
+wet faces; white on the lit tops, pale grey on the shaded sides, never green or teal, peaking at 198 sRGB, under the
+units' highlights (step 0's 0xe4e0d4 and round 2's 0xc2bdae both peaked at white). Under stages 0-2 a wide flat apron
+of pale grey-white crust (`apron` 0x4d4c49, radius 17 with an uneven edge, `patch`), bigger than the crystals, so a
+field reads as a pale patch at 1x. 0: nine tall clusters on a darker crust heart (`crust` 0x46433d), a spill of loose
+cubes; 1: four lower clusters, the crust dug through to the slate in places; 2: no standing crystals, slabs of crust
+and salt over wet slate on the apron; 3: a bare dark pit of wet slate with a film of brine (`brine` 0x1a2226) and an
+uneven, broken pale rim, two cubes left. Nothing is drawn under a field but the seabed.
 
-*The heaps* (`ground.js saltField`, `shard_0..3`, `unitCell(16, 16)`): heaps of salt the shape of salt-works piles,
-cones at the angle salt rests at with a rounded top, barely uneven, each on a damp spilt foot (`W.heap` 0x8a867e with a
-grain map and bump, `grainTexture`: no smooth clay; white in the light, grey on its shadow side, peaking near 185 sRGB).
-0: a tall cone and a small one; 1: one cone with a scoop dug out of its face (a flat top read as a cake); 2: a long, low raked ridge (a cone drawn out 2.2 to 0.62)
-with rake grooves along its flanks; 3: a scraped hollow of wet slate in
-the crust with a pale broken rim (`W.terrace`) and two lumps left.
+The salt's icon (the top bar's `.dot.shard` in `src/style.css`, 12x10; `icons.js` `gather`; the menu's shore in
+`index.html`) is a cluster of three pointed crystals, the middle one tallest and the two beside it leaning out, white
+on its lit face and pale grey (0xb9b4aa) on its shaded one; never teal.
 
 **The brine seep** (`brineSeep`, `vent_0..3`, step 2): a brine spring. Iron brine, an unsaturated red-brown with a
 wet sheen and a small still glint (`W.brine` 0x51392a rough 0.15, ~60 in grey; `W.glint`; round 2's maroon could read
@@ -556,9 +546,9 @@ then the deep. In grey: land, a dark wet line, a pale lap, the lighter shallows,
 most 2048 a side), on a dry one one texel a tile as before. The minimap: land `hsl(36,10%,14-23%)`, reef `#6b665a`,
 shallows `#467c80` (a notch up), deep `#1d3658`.
 
-The grey check (round 4; the salt works add a worker standing in the middle of a pan in the base shot, its body's
-grey against the pan's round it): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
-ground, the kelp, each resource, the seep's brine and terraces, the salt pan, the reef top, the tide pool and the
+The grey check (round 4; the base shot adds a worker standing between two salt fields, its body's grey against the
+ground's round it): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
+ground, the kelp, each resource, the seep's brine and terraces, the salt field's apron, the reef top, the tide pool and the
 units; the order to keep is units first, then the seep and the full salt, the kelp always under the ground.
 
 The pack: `node tools/art/review-ground.mjs <dir>` (the ground and units sheets at a phone's size and at 1:1 with the

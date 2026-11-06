@@ -188,9 +188,11 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
   const d = await newGame(PHONE);
   try {
     await d.grant(1000, 0);
+    // A Rigger standing still at its crystal: a walking one can leave the tap's point on a slow engine (Firefox).
+    const miner = () => d.eval(() => endfall.G.units.find(u => u.team === 0 && u.task.t === 'gather' && u.task.phase === 'mine')?.id);
+    const hId = await until(d, miner, { seconds: 20, step: 0.2, what: 'a Rigger mining' });
     const s = await d.state();
-    const h = mine(s, 'harvester')[0];
-    await d.clickEntity(h.id);
+    await d.clickEntity(hId);
     assert.equal((await d.selection())[0]?.type, 'harvester', 'tapping a harvester selects it');
     assert.equal(await d.hudText('#selName', /^Rigger$/), 'Rigger');
     const [mm, info, cmd] = await Promise.all(['#minimap', '#info', '#cmd'].map(q => d.page.locator(q).boundingBox()));
@@ -1672,7 +1674,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
     await d.hudText('#tut', /1\/7/);
-    assert.match(await d.page.locator('#tut').textContent(), /train two Riggers/);
+    assert.match(await d.page.locator('#tut').textContent(), /train a Rigger, and another once you have 50 salt again/);
     // Step 1: the Core, then Rigger twice (the button pulses).
     await d.grant(1000, 0);
     const s = await d.state(), core = coreOf(s);

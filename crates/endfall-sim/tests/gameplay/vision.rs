@@ -369,7 +369,7 @@ fn a_person_may_build_where_only_an_ally_has_looked() {
     assert!(placed.is_ok(), "with an ally there: placed ({placed:?})");
 }
 
-/// The seats told "A shard field ran dry" when one of seat 0's crystals runs out, with an Observer of `watcher`
+/// The seats told "A salt crystal is mined out" when one of seat 0's crystals runs out, with an Observer of `watcher`
 /// beside it (teams [0, 0, 1, 1]).
 fn told_dry(watcher: Option<u8>) -> Vec<u8> {
     let mut w = four(&[0, 0, 1, 1]);
@@ -396,7 +396,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         .events
         .iter()
         .filter_map(|e| match e {
-            Event::Toast { team, msg, .. } if msg == "A salt field ran dry" => Some(*team),
+            Event::Toast { team, msg, .. } if msg == "A salt crystal is mined out" => Some(*team),
             _ => None,
         })
         .collect();

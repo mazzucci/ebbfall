@@ -282,7 +282,7 @@ impl World {
             let miner = self.u(uid).team;
             for t in 0..self.seats() as u8 {
                 if self.vis[t as usize][i] != 0 && (t == miner || self.enemies(t, miner)) {
-                    self.toast(t, "A salt field ran dry", false);
+                    self.toast(t, "A salt crystal is mined out", false);
                 }
             }
         }

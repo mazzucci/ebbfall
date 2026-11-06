@@ -37,7 +37,7 @@ function steps() {
   const goal = n + 4, army = () => G.units.filter(u => u.team === G.me && !u.d.worker).length;
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
-    { text: `Select your ${hq.name}, then train two ${plural(worker.name)}`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
+    { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} salt again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (energy: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
     { text: `Build a ${pump.name} on a brine seep: it pays salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
     { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },

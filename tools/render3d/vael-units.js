@@ -94,7 +94,7 @@ export function tender(M, f) {
   add(b, cyl(2.4, 1.8, 1, 16), M.ring, 0, 1, 0);                                              // the cup's pearl lip
   add(b, cyl(1.8, 1.8, 0.5, 16), M.inkSeam, 0, 1.5, 0);                                       // an ink socket
   aqualight(b, M, 2.2, 0, 3.8, 0);                                                            // the aqua light, big, held clear above the cup
-  g.scale.setScalar(0.84);                                                                    // round 4: about 1.8x the Glint's footprint, under the Lens's (size by role: Glint, Needle, Tender, Lens, Conch)
+  // (round 3's size, about 2.6x the Glint: the blind test read it apart from the Glint only at this size; the PM, Nov 6)
   g.add(b); return g;
 }
 

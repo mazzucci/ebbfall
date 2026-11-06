@@ -206,8 +206,8 @@ src/client/           everything that touches the browser
                       Shields for a shielded race, Armour; damage, ground/air, tags), base stats only (test/stats.test.js)
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
-  pause.js            the pause card: alone it pauses, in a replay BACK TO REPLAY / DONE, online a menu over a game that
-                      goes on, with a pause for everyone (the relay's) and its state on every side; full screen out/in
+  pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
+                      everyone (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
   look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour)
@@ -221,7 +221,6 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
-  scout.js            what this side has seen of the enemy's army (the end card's scouting line)
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
                       first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
                       installs, and About) asks the service worker and says so until everything is saved

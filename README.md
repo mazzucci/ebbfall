@@ -42,10 +42,9 @@ hides. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 
-**Pause and after the game:** the pause card shows the clock and the enemy units you have seen in the last minute and
-a half. Against a friend the game goes on under it; PAUSE FOR EVERYONE stops it for both of you (three a game, five
-minutes at most, and only you can end your pause early). The end card says what beat you and what you saw of their army; WATCH plays the game again from the start,
-both sides in view, at up to 8x.
+**Pause and after the game:** the pause card shows the clock. Against a friend the game goes on under it; PAUSE FOR
+EVERYONE stops it for both of you (three a game, five minutes at most, and only you can end your pause early). The end
+card says what beat you and charts both armies over the game.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 

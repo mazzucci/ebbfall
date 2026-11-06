@@ -347,9 +347,8 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #info.empty{display:none} /* nothing selected: no console (like no command card), on any screen */
 #endStats b{color:var(--fg)}
 #endStats{font:13px var(--mono);color:var(--muted);gap:18px}
-#endWhy,#endSeen{font-size:13px;color:var(--muted);margin:8px 0 0} #endWhy img{display:inline-block;vertical-align:middle;margin:0 3px}
-.seen{display:inline-flex;align-items:center;margin:0 6px 0 2px;white-space:nowrap} .seen img{margin-right:2px} .seen b{font-weight:600;color:var(--fg)}
-@media (max-height:420px){#endWhy,#endSeen{margin-top:4px}}
+#endWhy{font-size:13px;color:var(--muted);margin:8px 0 0} #endWhy img{display:inline-block;vertical-align:middle;margin:0 3px}
+@media (max-height:420px){#endWhy{margin-top:4px}}
 #endChart svg{display:block;width:100%;max-width:420px;height:auto;margin:10px 0 2px}
 @media (max-height:420px){#endChart svg{max-width:300px;margin-top:6px}} /* short landscape phones: the buttons stay in view */
 #endKey{font:12px var(--mono);color:var(--muted);gap:16px;margin-bottom:8px}
@@ -397,11 +396,6 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* A refused button (not enough to pay, supply blocked) shakes, and its cost flashes: the button is the message. */
 @keyframes refuse{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
 .cb.refused{animation:refuse .35s} .cb.refused .c{color:var(--bad)}
-/* A replay: a small bar under the top bar (speed, done); no command card (the log is the game) */
-#replayBar{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:6px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 6px}
-#replayBar[hidden]{display:none} #replayBar .t{font:600 11px var(--display);letter-spacing:.14em;color:var(--muted);padding:0 4px} #replayBar .ib{min-width:44px;min-height:32px}
-@media (max-height:500px){#replayBar{top:40px}}
-body.replay #cmd{visibility:hidden}
 /* An online game waiting for someone, or over for a reason the end card does not tell: one line under the top bar */
 #netWait{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:8px;background:rgba(11,15,22,.86);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font:600 12px var(--display);letter-spacing:.08em;color:var(--fg);max-width:calc(100vw - 32px)}
 #netWait[hidden]{display:none} #netWait .ib{min-width:44px;min-height:32px}

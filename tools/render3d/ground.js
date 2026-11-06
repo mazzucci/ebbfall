@@ -47,8 +47,8 @@ const W = {
 };
 
 /** A salt field (`shard_0..3`), readable from full to nearly mined out by its shape, not only its size:
- *  0 full: six tall clusters of halite cubes, stacked and tilted, on a crust bed over wet slate, a spill of loose cubes;
- *  1 worked: three lower clusters, the crust dug through to the slate in places;
+ *  0 full: nine tall clusters of halite cubes, stacked and tilted, on a crust bed over wet slate, a spill of loose cubes;
+ *  1 worked: four lower clusters, the crust dug through to the slate in places;
  *  2 low: no standing crystals, a flat salt crust broken into slabs over the bed, a few loose cubes;
  *  3 nearly gone: a bare dark pit of wet slate and a pale broken rim of salt round it, two cubes left. */
 export function saltField(stage, M = G) {

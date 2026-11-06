@@ -420,9 +420,15 @@ sod-cloth). Cloth helpers: `sagQuad` (a patch over four corners sagging between 
 its sag must stay above the tarred roof under it, or the tar shows through as dark spots that read as portholes) and
 `wornHem` (a dark hem of uneven thickness along an edge).
 
-Cells stay the old ones (`main.js BUILDINGS`: depot 32, extractor 58, barracks 44, forge 72, turret 14 and its head
-30, airfield 58, factory 48; the footprint's own room above and below holds what rises higher). Team shares at
+Cells (`main.js BUILDINGS`, the `h` of `bldgCell`): extractor 58, barracks 44, forge 72, airfield 58, factory 48 stay
+the old ones; three are taller than the old models' because the new ones rise higher and touched the cell's top row:
+depot 32 -> 42 (the Windmast's mast), turret 14 -> 36 (the Lookout's nest and pennant), its head 30 -> 62
+(`TURRET_HEAD_H`: a north-facing muzzle stands about 74 above the anchor). The anchor stays the footprint's centre, so
+the head still seats on the base. Every Harbour building and all 16 head frames have their top row clear (11 px or more
+of room). Team shares at
 facing 0 (round 5): Windmast 0.240, Pump 0.175, Crew Hall 0.242, Workshop 0.171, Slipway 0.234, Lookout 0.191 (its gun
-0.182), Loft 0.174. The pack: `node tools/art/review.mjs <dir> --family=hbld` (the phone sheet is a scene of every
-building in three seats with Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a
-Harbour base of all eight against the Tidewell).
+0.182), Loft 0.174. The pack: `node tools/art/review.mjs <dir> --family=hbld` (the phone sheet is a scene of each
+building once, in seat 0 or 6, with a Windmast, a Lookout and a Pump on a seep again in seat 1, a salt field, the
+Tidewell, Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a Harbour base of
+every building against the Tidewell). Lights and smoke (`look.js BLDG_LOOK`): the Workshop's glow on its hearth (3 px
+west of the centre, 20 below), its smoke from its one stack (footprint px 23, -13); the Pump has no light.

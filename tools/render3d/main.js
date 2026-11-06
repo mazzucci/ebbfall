@@ -72,10 +72,12 @@ function bldgCell(n, h) {
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
-// Harbour buildings (step 1, harbour-buildings.js): the seven after the Lighthouse, in its cells; the Lookout's gun is
-// the turret head (drawn over the base, turning).
-Object.assign(BUILDINGS, { depot: [2, HB.windmast, 32], extractor: [2, HB.pump, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 14], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
-const TURRET_HEAD = HB.lookoutGun;
+// Harbour buildings (step 1, harbour-buildings.js): the seven after the Lighthouse; the Lookout's gun is the turret head
+// (drawn over the base, turning). Cells taller than the old models' where the new ones rise higher (the Windmast's mast
+// 32 -> 42, the Lookout's nest and pennant 14 -> 36, its gun 30 -> 62: a north-facing muzzle stands about 74 above the
+// anchor), so nothing touches a cell's top; the anchor stays the footprint's centre, so the head still seats on the base.
+Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.pump, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
+const TURRET_HEAD = HB.lookoutGun, TURRET_HEAD_H = 62;
 const RES = {
   pit: new THREE.MeshStandardMaterial({ color: 0x120c1e, roughness: 1 }),
   glow: new THREE.MeshStandardMaterial({ color: 0x3d2a80, emissive: 0xa98bff, emissiveIntensity: 2.2 }),
@@ -135,7 +137,7 @@ window.render = async function (filter = '') {
   for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
   for (let dir = 0; dir < FACINGS; dir++) {
     const head = TURRET_HEAD(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
-    pushTeam(`turret_head_${dir}`, head, bldgCell(2, 30), { shadow: false }); // drawn above the base, which has its own shadow
+    pushTeam(`turret_head_${dir}`, head, bldgCell(2, TURRET_HEAD_H), { shadow: false }); // drawn above the base, which has its own shadow
   }
   const neutral = makeMats(GOLD); // construction and ruins: seat 0's gold
   for (const n of [2, 3, 4]) {

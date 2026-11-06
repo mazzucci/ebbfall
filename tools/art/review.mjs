@@ -4,7 +4,8 @@
 // buildings; `hbld`, the Harbour buildings) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px);
-//                    a building family lays its own scene out (`phoneScene`: every building in three seats, units for scale)
+//                    a building family lays its own scene out (`phoneScene`: each building once, in seat 0 or 6, a few again in
+//                    seat 1, units for scale)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
 //   phone-grey.png, phone-protan.png, phone-deutan.png   phone.png in greyscale and under Machado et al. 2009 protanopia
 //                    and deuteranopia at full severity
@@ -69,8 +70,11 @@ const FAMILIES = {
   },
 };
 // Harbour buildings (harbour-buildings.js): the eight buildings (the Lookout's gun its own sprite) with the slice's
-// Rigger and Picket for scale; a family of buildings, so the phone sheet is a scene of its own (`phoneScene`), the
-// blind images are wider (`blindSize`) and the battle stand-in is a Harbour base with every building (`harbour`)
+// Rigger and Picket for scale; a family of buildings, so the phone sheet is a scene of its own (`phoneScene`: the
+// Lighthouse, Windmast, Pump, Crew Hall and Workshop in seat 0, the Slipway, Lookout and Loft in seat 6, a Windmast, a
+// Lookout and a Pump on a seep in seat 1, a salt field, the Tidewell, Pickets, Riggers, a Glint and a Lens), the blind
+// images are wider (`blindSize`) and the battle stand-in (`vael`) adds a Harbour base of every building but the
+// Lighthouse, already in the battle, to the slice's Vael side
 const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Pump'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
 FAMILIES.hbld = {
   filter: '^(harvester|trooper|lumen|prism)_\\d+_\\d+$|^bldg_(core|depot|extractor|barracks|forge|factory|turret|airfield|conflux)$|^turret_head_\\d+$|^shard_\\d$|^vent_0$',

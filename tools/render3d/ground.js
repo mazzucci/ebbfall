@@ -44,10 +44,11 @@ const SH = {
   mouth: new THREE.MeshBasicMaterial({ color: 0x000000 }),                                     // the dark going down: no sheen, no light, the darkest thing on screen
   deep: std({ color: 0x0c0b0a, roughness: 1, metalness: 0 }),                                  // the far wall, deeper
   rock: std({ color: 0x1e1b18, roughness: 1, metalness: 0, flatShading: true }),               // the rock under the seabed, in shade
-  lining: std({ color: 0x3a3028, roughness: 0.95, metalness: 0 }),                             // the shaft's timber lining at its top, in shade
+  lining: std({ color: 0x2c2620, roughness: 0.95, metalness: 0 }),                             // the shaft's timber lining at its top, in shade
   ladder: std({ color: 0x5a4c3c, roughness: 0.9, metalness: 0 }),
-  beam: std({ color: 0x6e6a62, roughness: 0.88, metalness: 0 }),                               // the collar's timbers: old, weathered grey-brown (the Harbour's own timber read orange)
-  spoil: std({ color: 0x302f2c, roughness: 0.95, metalness: 0, flatShading: true }),           // dug earth and broken rock round the mouth, a step over the seabed
+  beam: std({ color: 0x847d71, roughness: 0.88, metalness: 0 }),                               // the collar's timbers: old, weathered grey-brown (the Harbour's own timber read orange)
+  spoil: std({ color: 0x3e3b36, roughness: 1, metalness: 0 }),                                 // dry dug earth round the mouth, the ground's value or a touch over (round 1's darker blot read as a puddle of tar)
+  rim: std({ color: 0xa69c8a, roughness: 0.85, metalness: 0 }),                               // the near edge's worn lip, lit: where the mouth begins
 };
 
 /** A salt field (`shard_0..3`), readable from full to nearly mined out by its shape, not only its size:
@@ -92,6 +93,14 @@ export function saltField(stage, M = G) {
   return g;
 }
 
+/** The shaft below the ground at a mouth `w` across centred at (x, y, z): its far wall, as deep as the camera sees
+ *  through the mouth, a thin lining band, rock in shade, then black. Shared by the collar and the Siphon's mouth. */
+export function shaftPit(g, x, y, z, w) {
+  const D = w * Math.tan(55 * Math.PI / 180), zN = z - w / 2;
+  const bands = [[0, 1.6, SH.lining], [1.6, 4, SH.rock], [4, 8, SH.deep], [8, D + 2, SH.mouth]];      // the far wall, top down: a thin lining, rock in shade, darker, black
+  for (const [t, u, mat] of bands) add(g, rbox(w + 1, u - t, 1, 0.05), mat, x, y - (t + u) / 2, zN - 0.5);
+  for (const sx of [-1, 1]) add(g, rbox(1, D, 1, 0.05), SH.mouth, x + sx * (w / 2 + 0.5), y - D / 2, zN);   // (the side walls' far corners, black)
+}
 /** The mine shaft's collar and mouth, square, centred at (x, y, z) on the ground at y: the shaft itself, its far wall
  *  going down below the ground as deep as the camera sees through the mouth (1.43 times its width at 55 degrees), lined
  *  with timber at the top and falling to black, a ladder down it; round it two courses of squared timbers laid
@@ -99,18 +108,17 @@ export function saltField(stage, M = G) {
  *  is built: the camera sees nothing else of the shaft. `M`: makeMats (iron; nothing team). Shared by the free shaft
  *  (`mineShaft`) and the Excavator over it. */
 export function shaftCollar(g, M, x = 0, y = 0, z = 0, w = 20) {
-  if (!SH.beam.map) for (const m of [SH.beam, SH.ladder, SH.lining]) { m.map = M.timber.map; m.needsUpdate = true; }  // (the Harbour's timber grain)
-  const b = 5, h = 3.4, o = w / 2 + b / 2, L = w + b * 2 + 5, D = w * Math.tan(55 * Math.PI / 180), zN = z - w / 2;
-  const bands = [[0, 3.2, SH.lining], [3.2, 6.5, SH.rock], [6.5, 11, SH.deep], [11, D + 2, SH.mouth]];   // the far wall, top down: lining, rock in shade, darker, black
-  for (const [t, u, mat] of bands) add(g, rbox(w + 1, u - t, 1, 0.05), mat, x, y - (t + u) / 2, zN - 0.5);
-  for (const sx of [-1, 1]) add(g, rbox(1, D, 1, 0.05), SH.mouth, x + sx * (w / 2 + 0.5), y - D / 2, zN);   // (the side walls' far corners, black)
-  for (const sx of [-1, 1]) add(g, rbox(1, 20, 1, 0.3), SH.ladder, x + sx * 2.6, y - 4, zN + 1.1);         // a ladder down the far wall
-  for (let k = 0; k < 6; k++) add(g, rbox(5.2, 0.7, 0.7, 0.2), SH.ladder, x, y + 4.6 - k * 3, zN + 1.2);
+  if (!SH.beam.map) for (const m of [SH.beam, SH.ladder, SH.lining, SH.rim]) { m.map = M.timber.map; m.needsUpdate = true; }  // (the Harbour's timber grain)
+  const b = 5, h = 3.4, o = w / 2 + b / 2, L = w + b * 2 + 5, zN = z - w / 2;
+  shaftPit(g, x, y, z, w);
+  for (const sx of [-1, 1]) add(g, rbox(0.6, 20, 0.6, 0.2), SH.ladder, x + sx * 2.1, y - 4, zN + 1.1);     // a slim ladder down the far wall
+  for (let k = 0; k < 6; k++) add(g, rbox(4.4, 0.45, 0.45, 0.1), SH.ladder, x, y + 4.6 - k * 3, zN + 1.2);
   for (const [c, rot] of [[0, 0], [1, Math.PI / 2]]) for (const s of [-1, 1]) {
     const yy = y + h / 2 + c * h;                                                            // two courses: x-beams below, z-beams above
     const px = rot ? s * o : (s < 0 ? -0.6 : 0.5), pz = rot ? (s < 0 ? 0.4 : -0.5) : s * o; // (each beam a little off: hewn, not machined)
     add(g, rbox(L - (c ? 0 : 1.6), h, b, 0.8), SH.beam, x + px, yy, z + pz, 0, rot + s * 0.02 * (c + 1), 0);
   }
+  add(g, rbox(w + 0.6, 0.7, 1.4, 0.3), SH.rim, x, y + h + 0.2, z + w / 2 + 0.8);                 // the near edge's worn lip, lit (the depth's first cue)
   for (const [sx, sz] of [[-1, -1], [1, 1]]) add(g, rbox(1.8, 1.2, 1.8, 0.2), M.ironDark, x + sx * o, y + 2 * h + 0.3, z + sz * o); // two iron dogs at the corners
 }
 
@@ -120,9 +128,9 @@ export function shaftCollar(g, M, x = 0, y = 0, z = 0, w = 20) {
  *  frames are the same: it no longer bubbles. `M`: makeMats (timber, iron). */
 export function mineShaft(f, M) {
   const g = grp(); s = 51;
-  add(g, patch(wob(28, 1.0, 1.3), 0.86, 1.2, 1.2, [0, -1, 13.5]), SH.spoil, 0, 0, 0);       // the spoil: trodden, its edge uneven, open over the mouth
-  add(g, patch(wob(12, 1.4, 2.6), 0.6, 1.2, 1.2), SH.spoil, 14, 0.6, 11);                    // a low heap of it to the south-east
-  shaftCollar(g, M, 0, 1.2, -1, 24);
+  add(g, patch(wob(28, 1.0, 1.3), 0.86, 0.7, 0.5, [0, -1, 13.5]), SH.spoil, 0, 0, 0);       // the spoil: dry dug earth, low and shallow, its edge uneven, open over the mouth
+  add(g, patch(wob(12, 1.4, 2.6), 0.6, 0.9, 0.6), SH.spoil, 14, 0.4, 11);                    // a low heap of it to the south-east
+  shaftCollar(g, M, 0, 0.7, -1, 24);
   for (const [x, z, sz] of [[-21, 10, 3.6], [19, -14, 2.8]]) add(g, new THREE.DodecahedronGeometry(sz), G.slate, x, sz * 0.4, z, rnd(), rnd(), rnd()).scale.y = 0.6; // two big stones
   return g;
 }

@@ -132,7 +132,7 @@ FAMILIES.vbld = {
 FAMILIES.shaft = {
   filter: '^harvester_(0|2|4|8|12|14)_[01]$|^lumen_(4|8)_0$|^bldg_(core|depot|forge|barracks|extractor|siphon|conflux)$|^shard_[0-3]$|^vent_\\d$',
   units: {}, rows: ['vent_0', 'vent_1', 'vent_2', 'vent_3', 'bldg_extractor', 'vent_0+bldg_extractor', 'vent_0+bldg_siphon'],
-  shares: ['bldg_extractor', 'bldg_forge', 'bldg_depot'],
+  shares: ['bldg_extractor', 'bldg_siphon', 'bldg_forge', 'bldg_depot'],
   phone: [], turned: [],
   phoneScene: () => [
     ['bldg_core', 260, 330, 0], ['bldg_depot', 540, 200, 0], ['bldg_forge', 520, 520, 0], ['bldg_barracks', 820, 600, 0],

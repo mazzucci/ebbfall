@@ -449,3 +449,120 @@ fn every_units_killer_on_its_card_beats_it() {
         }
     }
 }
+
+#[test]
+#[ignore]
+fn brutal_worker_loss_probe() {
+    // Brutal Humans against Brutal Vael on 64x64: what kills the Humans' units (lost_to), and how many Riggers are gone
+    // by 4:00, 7:00 and the end.
+    let mut total = vec![0u32; UNIT_KINDS.len() + BLDG_KINDS.len()];
+    for seed in 1..=8u32 {
+        let mut w = World::with_setup(seed, 3, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.set_ai_seats([true, true]);
+        let mut gone = [0usize; 3];
+        let mut seen: Vec<Id> = Vec::new();
+        let mut dead = 0usize;
+        while !w.over && w.time < 1200.0 {
+            w.step();
+            w.events.clear();
+            let alive: Vec<Id> = w
+                .units
+                .iter()
+                .filter(|u| u.team == 0 && u.kind == UnitKind::Harvester)
+                .map(|u| u.id)
+                .collect();
+            dead += seen.iter().filter(|id| !alive.contains(id)).count();
+            seen = alive;
+            if (w.time - 240.0).abs() < 0.02 {
+                gone[0] = dead;
+            }
+            if (w.time - 420.0).abs() < 0.02 {
+                gone[1] = dead;
+            }
+        }
+        gone[2] = dead;
+        for (k, n) in w.lost_to[0].iter().enumerate() {
+            total[k] += n;
+        }
+        println!(
+            "seed {seed}: winner {:?} at {:.0} s; Riggers gone by 4:00 {}, 7:00 {}, end {}",
+            w.winner, w.time, gone[0], gone[1], gone[2]
+        );
+    }
+    let mut top: Vec<(u32, String)> = total
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| **n > 0)
+        .map(|(k, &n)| {
+            let name = if k < UNIT_KINDS.len() {
+                UNIT_KINDS[k].def().name.to_string()
+            } else {
+                BLDG_KINDS[k - UNIT_KINDS.len()].def().name.to_string()
+            };
+            (n, name)
+        })
+        .collect();
+    top.sort_by_key(|t| std::cmp::Reverse(t.0));
+    println!("the Humans' losses by killer: {top:?}");
+}
+
+#[test]
+#[ignore]
+fn human_mirror_grind_probe() {
+    // The Human Medium mirror on 96x96 (the lab's timeouts): each minute, each seat's army supply, workers, Cores,
+    // towers, units lost and killed, and banked salt.
+    use endfall_sim::map::MapSize;
+    let seeds: Vec<u32> = std::env::var("PROBE_SEEDS")
+        .map(|s| s.split(',').map(|x| x.parse().unwrap()).collect())
+        .unwrap_or(vec![4, 6, 7]);
+    for seed in seeds {
+        let mut w = World::with_size(
+            seed,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        assert!(w.set_diffs(&[1, 1]));
+        assert!(w.set_ai_seats([true, true]));
+        println!("seed {seed}");
+        while w.winner < 0 && w.time < 1800.0 {
+            w.step();
+            w.events.clear();
+            if w.tick.is_multiple_of(60 * 30) {
+                let mut line = format!("{:>3} min", (w.time / 60.0).round());
+                for s in 0..2u8 {
+                    let army: i32 = w
+                        .units
+                        .iter()
+                        .filter(|u| u.team == s && !u.kind.def().worker)
+                        .map(|u| u.kind.def().supply)
+                        .sum();
+                    let workers = w
+                        .units
+                        .iter()
+                        .filter(|u| u.team == s && u.kind.def().worker)
+                        .count();
+                    let cores = w
+                        .bldgs
+                        .iter()
+                        .filter(|b| b.team == s && b.kind == BldgKind::Core)
+                        .count();
+                    let towers = w
+                        .bldgs
+                        .iter()
+                        .filter(|b| b.team == s && b.kind == BldgKind::Turret)
+                        .count();
+                    let st = &w.stats[s as usize];
+                    line += &format!(
+                        " | s{s}: army {army:>2} wk {workers:>2} cores {cores} towers {towers} lost {:>3} killed {:>3} salt {:>5}",
+                        st.lost, st.killed, w.res[s as usize][0]
+                    );
+                }
+                println!("{line}");
+            }
+        }
+        println!("  winner {} at {:.0} s", w.winner, w.time);
+    }
+}

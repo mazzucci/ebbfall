@@ -1092,6 +1092,45 @@ fn each_level_trains_only_its_own_mix() {
 }
 
 #[test]
+fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
+    // The balance follow-ups (`Diff::mix_over`): at Brutal an Anchor Gun per four Pickets from 4:00, at every other level
+    // the race's own entry (per six from 5:30); the Vael's mix is the same at every level.
+    use UnitKind::*;
+    let gun = HUMANS
+        .ai
+        .mix
+        .iter()
+        .copied()
+        .find(|m| m.0 == SiegeTank)
+        .unwrap();
+    assert_eq!(gun, (SiegeTank, 6, 330.0));
+    for (l, d) in DIFF.iter().enumerate().take(3) {
+        assert_eq!(d.mix_entry(gun), gun, "level {l}");
+    }
+    assert_eq!(DIFF[3].mix_entry(gun), (SiegeTank, 4, 240.0));
+    for &m in VAEL.ai.mix {
+        assert!(DIFF.iter().all(|d| d.mix_entry(m) == m), "{m:?}");
+    }
+    // In play: the same game at Hard and at Brutal, the Human AI's first Anchor Gun (Hard: none before 5:30; on this
+    // seed none in the first ten minutes).
+    let first_gun = |level: usize| {
+        let mut w = World::with_setup(7, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.set_ai_seats([true, true]);
+        while w.time < 600.0 && !w.over {
+            w.step();
+            w.events.clear();
+            if w.units.iter().any(|u| u.team == 0 && u.kind == SiegeTank) {
+                return w.time;
+            }
+        }
+        f64::INFINITY
+    };
+    let (hard, brutal) = (first_gun(2), first_gun(3));
+    assert!(hard >= 330.0, "Hard's first Anchor Gun at {hard:.0} s");
+    assert!(brutal < 330.0, "Brutal's first Anchor Gun at {brutal:.0} s");
+}
+
+#[test]
 fn the_guided_first_game_holds_the_first_wave_until_released() {
     // Easy, with the waves held: no attack before 4:50 even with an army ready; released, the wave goes.
     let mut w = World::new(4242, 0);

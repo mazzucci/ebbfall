@@ -473,10 +473,10 @@ fn brutal_worker_loss_probe() {
                 .collect();
             dead += seen.iter().filter(|id| !alive.contains(id)).count();
             seen = alive;
-            if (w.time - 240.0).abs() < 0.02 {
+            if w.tick == 240 * 30 {
                 gone[0] = dead;
             }
-            if (w.time - 420.0).abs() < 0.02 {
+            if w.tick == 420 * 30 {
                 gone[1] = dead;
             }
         }

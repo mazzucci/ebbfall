@@ -1111,23 +1111,41 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     for &m in VAEL.ai.mix {
         assert!(DIFF.iter().all(|d| d.mix_entry(m) == m), "{m:?}");
     }
-    // In play: the same game at Hard and at Brutal, the Human AI's first Anchor Gun (Hard: none before 5:30; on this
-    // seed none in the first ten minutes).
-    let first_gun = |level: usize| {
+    // In play: the same game at Hard and at Brutal for ten minutes, the Human AI's first Anchor Gun and how many it has
+    // trained by then (Brutal: the first before 5:30, and more of them).
+    let guns = |level: usize| {
         let mut w = World::with_setup(7, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
+        let (mut first, mut seen) = (f64::INFINITY, Vec::new());
         while w.time < 600.0 && !w.over {
             w.step();
             w.events.clear();
-            if w.units.iter().any(|u| u.team == 0 && u.kind == SiegeTank) {
-                return w.time;
+            for u in w
+                .units
+                .iter()
+                .filter(|u| u.team == 0 && u.kind == SiegeTank)
+            {
+                first = first.min(w.time);
+                if !seen.contains(&u.id) {
+                    seen.push(u.id);
+                }
             }
         }
-        f64::INFINITY
+        (first, seen.len())
     };
-    let (hard, brutal) = (first_gun(2), first_gun(3));
-    assert!(hard >= 330.0, "Hard's first Anchor Gun at {hard:.0} s");
-    assert!(brutal < 330.0, "Brutal's first Anchor Gun at {brutal:.0} s");
+    let ((hard_first, hard_n), (brutal_first, brutal_n)) = (guns(2), guns(3));
+    assert!(
+        hard_first >= 330.0,
+        "Hard's first Anchor Gun at {hard_first:.0} s"
+    );
+    assert!(
+        brutal_first < 330.0,
+        "Brutal's first Anchor Gun at {brutal_first:.0} s"
+    );
+    assert!(
+        brutal_n > hard_n,
+        "Anchor Guns by 10:00: Brutal {brutal_n}, Hard {hard_n}"
+    );
 }
 
 #[test]

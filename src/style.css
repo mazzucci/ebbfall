@@ -8,7 +8,7 @@
   --bg:#0b0f16; --panel:#121a25; --panel2:#182333; --line:#263548; --line2:#34475f;
   --fg:#dde5ee; --muted:#8294aa; --dim:#54657a;
   --ally:#f5a524; --ally2:#ffd27a; --foe:#e2457a; --foe2:#ff8bb0;
-  --shard:#4fd1c5; --ether:#a78bfa; --ok:#5ad67d; --warn:#ffb545; --bad:#ff5a5a;
+  --shard:#e6e0d3; --ether:#a78bfa; --ok:#5ad67d; --warn:#ffb545; --bad:#ff5a5a;
   --display:"Chakra Petch",system-ui,sans-serif; --mono:"Share Tech Mono",ui-monospace,Menlo,monospace;
   color-scheme:dark;
 }
@@ -30,8 +30,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
 /* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 salt, 40/40 supply). */
 #rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
-.dot{width:10px;height:10px;border-radius:2px;transform:rotate(45deg);display:inline-block}
-.dot.shard{background:var(--shard)}
+/* The salt (a cost, the top bar's figure): a heap of salt on its grey crust pan, as on the field (tools/render3d/ground.js):
+   a smooth cone, white in the light, grey in its own shade. Drawn in a 12x10 box, so it keeps its shape at any size. */
+.dot{display:inline-block;width:12px;height:10px}
+.dot.shard{background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M0 9.4h12' stroke='%23858179' stroke-width='1.2'/%3E%3Cpath d='M5.2 1.1Q6 .3 6.8 1.1L11.2 8.8H.8z' fill='%23f3efe6'/%3E%3Cpath d='M6 .7Q6.4 .6 6.8 1.1L11.2 8.8H6z' fill='%23b7b2a7'/%3E%3C/svg%3E")}
 .res.low b{color:var(--bad)} #resSup.low{animation:pulse-warn 1s infinite alternate;border-radius:4px}
 .spacer{flex:1}
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
@@ -88,7 +90,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
 .qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:6px;height:6px}
+#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:9px;height:7.5px}
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
 /* Its stat chips (stats.js): two rows, toughness then attack, each slot in the same place for every unit; the figures
    in the HUD's mono font, the icons the console's; a slot with nothing in it (no armour, no weapon) dimmed, not gone. */
@@ -128,7 +130,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* salt in the left column */
-.cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:5px;height:5px;flex:none}
+.cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
 .cb.cancel{color:var(--foe2)}
 .screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;box-sizing:border-box;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -295,7 +297,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #minimap{width:128px;height:128px;box-shadow:0 2px 10px rgba(0,0,0,.5)} /* (as wide as SELECT, HOME and ARMY above it) */
   #cmd{grid-template-columns:repeat(3,64px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
-  .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:4px;height:4px} .cb .ico{width:18px;height:18px}
+  .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:6px;height:5px} .cb .ico{width:18px;height:18px}
   /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */
   /* Always there, one width (the room between the minimap and a full command card): nothing pops in or resizes. */
   #info{display:flex;flex:none;width:min(480px,calc(100% - 364px));flex-wrap:nowrap;align-self:flex-end;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;

@@ -53,7 +53,7 @@ export function cardItems() {
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
     const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic;
     page.forEach((k, i) => { if (open(k)) at(i, bldgItem(k)); });
-    (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then F still builds a Foundry from the keyboard
+    (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
     // Advanced only once something on it can be built (the Garrison or Kiln stands).
     if (!adv && f.buildAdvanced.some(open)) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
     at(5, adv ? { ...back, id: 'build1' } : back);

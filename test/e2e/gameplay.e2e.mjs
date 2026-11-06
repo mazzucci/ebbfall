@@ -35,7 +35,7 @@ test('a depot built through the UI finishes and raises supply', { engines: true 
   const d = await newGame(DESKTOP);
   try {
     await d.grant(500, 0);
-    await buildAndFinish(d, 'd', 'depot');
+    await buildAndFinish(d, 'w', 'depot');
     assert.deepEqual((await d.state()).sup[1], 18);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -45,12 +45,12 @@ test('every finished production building offers its unit, and pressing it trains
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    await buildAndFinish(d, 'd', 'depot', 0); // supply for six units
-    const rax = await buildAndFinish(d, 'g', 'barracks', 0);
-    const forge = await buildAndFinish(d, 'f', 'forge', 1);
-    await buildAndFinish(d, 't', 'turret', 2);
-    const airfield = await buildAndFinish(d, 'a', 'airfield', 3);
-    const factory = await buildAndFinish(d, 'r', 'factory', 0);
+    await buildAndFinish(d, 'w', 'depot', 0); // supply for six units
+    const rax = await buildAndFinish(d, 'c', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'k', 'forge', 1);
+    await buildAndFinish(d, 'o', 'turret', 2);
+    const airfield = await buildAndFinish(d, 'f', 'airfield', 3);
+    const factory = await buildAndFinish(d, 's', 'factory', 0);
     for (const [b, label, unit] of [[coreOf(await d.state()), 'Rigger', 'harvester'], [rax, 'Picket', 'trooper'], [rax, 'Harpooner', 'lancer'], [rax, 'Mender', 'medic'], [factory, 'Breakwater', 'vanguard'], [factory, 'Anchor Gun', 'siegeTank'], [airfield, 'Kite', 'raider'], [airfield, 'Spyglass', 'observer']]) {
       await d.clickEntity(b.id);
       const card = await d.card();
@@ -69,17 +69,17 @@ test('medics appear once a forge stands, and a raider flies straight across the 
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    const rax = await buildAndFinish(d, 'g', 'barracks', 0);
+    const rax = await buildAndFinish(d, 'c', 'barracks', 0);
     await d.clickEntity(rax.id);
     const card = await d.card();
     assert.ok(card.some(c => c.label === 'Harpooner' && c.enabled), 'Harpooner available');
     assert.ok(!card.some(c => c.label === 'Mender'), `no Mender before a Workshop stands: ${JSON.stringify(card)}`);
     await d.key('m'); // (its key does nothing while it is hidden)
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0, 'nothing queued');
-    await buildAndFinish(d, 'f', 'forge', 1);
+    await buildAndFinish(d, 'k', 'forge', 1);
     await d.clickEntity(rax.id);
     await d.readyCard('Mender'); // (there once the Workshop stands)
-    const airfield = await buildAndFinish(d, 'a', 'airfield', 2);
+    const airfield = await buildAndFinish(d, 'f', 'airfield', 2);
     await d.clickEntity(airfield.id);
     await d.pressCard('Kite');
     const raider = await until(d, async () => mine(await d.state(), 'raider')[0], { seconds: 40, what: 'a raider' });
@@ -104,7 +104,7 @@ test('a building under construction shows its progress, and a stalled one can be
     let s = await d.state();
     const core = coreOf(s), spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
     const h = mine(s, 'harvester')[0];
-    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     await d.skip(10);
     assert.ok(myBldg(await d.state(), 'depot')[0]?.progress > 0, 'construction started before we pull the builder away');
     // Pull the builder away: construction must stop and say so.
@@ -129,7 +129,7 @@ test('an unfinished building can be cancelled for a 75% refund', async () => {
   try {
     await d.grant(1000, 0);
     const s = await d.state(), core = coreOf(s), spot = await d.findSpot('barracks', { tx: core.tx + 1, ty: core.ty + 1 });
-    await d.buildWithUI('g', 'barracks', spot.tx, spot.ty, mine(s, 'harvester')[0].id);
+    await d.buildWithUI('c', 'barracks', spot.tx, spot.ty, mine(s, 'harvester')[0].id);
     const rax = myBldg(await d.state(), 'barracks')[0];
     assert.ok(rax && !rax.done, 'barracks under construction');
     const before = (await d.state()).res[0];
@@ -168,7 +168,7 @@ test('a Pump placed on a seep pays salt by itself; workers sent to it stay off i
     const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
     const h = mine(s, 'harvester');
     // Click a little off the seep: placement snaps onto it.
-    await d.clickEntity(h[0].id); await d.key('b'); await d.key('e');
+    await d.clickEntity(h[0].id); await d.key('b'); await d.key('u');
     const [x, y] = await d.screen(vent.x + 14, vent.y + 10); await d.page.mouse.move(x, y); await d.page.mouse.click(x, y);
     s = await d.state();
     const ext = myBldg(s, 'extractor')[0];
@@ -336,8 +336,8 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    const rax = await buildAndFinish(d, 'g', 'barracks', 0);
-    const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    const rax = await buildAndFinish(d, 'c', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'k', 'forge', 1);
     // The Crew Hall trains the infantry, Menders once the Workshop stands (vehicles come from the Slipway); the Workshop
     // only researches.
     await d.clickEntity(rax.id);
@@ -387,8 +387,8 @@ test('phone: All Hands researched at the Workshop, then buildings go up faster',
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    await buildAndFinish(d, 'g', 'barracks', 0);
-    const forge = await buildAndFinish(d, 'f', 'forge', 1);
+    await buildAndFinish(d, 'c', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'k', 'forge', 1);
     const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
     const pct = Math.round((rate - 1) * 100);
     await d.clickEntity(forge.id);
@@ -425,7 +425,7 @@ test('phone: All Hands researched at the Workshop, then buildings go up faster',
     // A Windmast (22 s) now goes up faster: a tick of work is rate / 22 of a second's worth (read tick by tick in one go).
     const s = await d.state();
     const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
-    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, mine(s, 'harvester')[2].id);
+    await d.buildWithUI('w', 'depot', spot.tx, spot.ty, mine(s, 'harvester')[2].id);
     const site = () => d.state().then(s => s.bldgs.find(b => b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty));
     await until(d, async () => (await site())?.progress > 0, { seconds: 30, step: 1, what: 'the builder at work' });
     const steps = await d.eval(([tx, ty]) => {
@@ -452,7 +452,7 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
     const d = await newGame(device, 1, 4242, { ai: false });
     try {
       await d.grant(1000, 0);
-      const depot = await buildAndFinish(d, 'd', 'depot', 0);
+      const depot = await buildAndFinish(d, 'w', 'depot', 0);
       if (d.touch) assert.deepEqual(await d.selection(), [], 'phone: after placing, the worker is let go');
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
@@ -845,7 +845,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(2000, 0);
-    await buildAndFinish(d, 'g', 'barracks', 1); // (the advanced page opens with a Crew Hall)
+    await buildAndFinish(d, 'c', 'barracks', 1); // (the advanced page opens with a Crew Hall)
     const h = mine(await d.state(), 'harvester')[0];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.pressCard('Build'); await d.readyCard('Advanced'); await d.pressCard('Advanced'); // the Workshop is on the advanced page
@@ -913,8 +913,8 @@ const queueLayout = (d) => d.page.evaluate(() => {
 // The production queue fills from the left, the unit in training first, in a fixed row of slots (the free ones empty
 // outlines): the portrait, the name and the health stay where they are from an empty queue to a full one and as units
 // finish, on a desktop and on a phone, for both races.
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: ['g', 'barracks'], unit: 'Picket' }],
-  ['vael', { hq: 'conflux', worker: 'lumen', supply: ['s', 'spire'], factory: ['k', 'kiln'], unit: 'Needle' }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: ['c', 'barracks'], unit: 'Picket' }],
+  ['vael', { hq: 'conflux', worker: 'lumen', supply: ['s', 'spire'], factory: ['c', 'kiln'], unit: 'Needle' }]]) {
   test(`the production queue fills from the left and nothing in the console moves (${race})`, { chromium: CDP_TOUCH }, async () => {
     for (const device of [DESKTOP, PHONE]) {
       const d = await newGame(device, 1, 4242, { ai: false, race });
@@ -960,7 +960,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
 // research shows with its own bar, and nothing in the console moves when the research starts or ends; a queued unit is
 // still cancelled with a tap. All four screens.
 const SMALL_PHONE = { ...PHONE, viewport: { width: 667, height: 375 } }, UPRIGHT = { ...PHONE, viewport: { width: 412, height: 915 } };
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['g', 'barracks'], ['a', 'airfield']], unit: 'Kite', tech: 'Tailwind', name: 'Tailwind', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['c', 'barracks'], ['f', 'airfield']], unit: 'Kite', tech: 'Tailwind', name: 'Tailwind', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
   test(`a factory's research shows beside its queue, and nothing in the console moves as it starts and ends (${race})`, async () => {
     for (const device of R.devices) {
       const d = await newGame(device, 1, 4242, { ai: false, race });
@@ -1024,8 +1024,8 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
 // capital unit's (the most figures): whole, on one line or two, inside the console.
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['d', 'depot'], ['g', 'barracks'], ['a', 'airfield']], unit: 'Kite', tech: 'Tailwind', capital: 'bastion' }],
-  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['k', 'kiln'], ['z', 'zenith']], unit: 'Petrel', tech: null, capital: 'sovereign' }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['w', 'depot'], ['c', 'barracks'], ['f', 'airfield']], unit: 'Kite', tech: 'Tailwind', capital: 'bastion' }],
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['c', 'kiln'], ['y', 'zenith']], unit: 'Petrel', tech: null, capital: 'sovereign' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -1134,7 +1134,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.place), null, 'and it stops the placing');
-    await buildAndFinish(d, 'g', 'barracks', 1);
+    await buildAndFinish(d, 'c', 'barracks', 1);
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.pressCard('Build');
     await d.readyCard('Advanced'); // (once the Crew Hall stands)
@@ -1163,7 +1163,7 @@ test('phone: a site that loses its builder says so once; no keyboard letters; gr
     await d.grant(2000, 0);
     const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
     const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
-    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     await d.skip(2);
     // Pull the builder off: select it and send it to a shard field.
     const node = (await d.state()).nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
@@ -1289,7 +1289,7 @@ test('phone: placing a building lets the worker go; a tap on a blocked spot says
     assert.equal(await d.eval(() => endfall.ui.place), null, 'Cancel stops placing');
     // A good spot: the site is placed and the worker let go, so it is clear the order took.
     const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
-    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     s = await d.state();
     assert.ok(myBldg(s, 'depot').some(b => b.tx === spot.tx && b.ty === spot.ty), 'the Windmast site is placed');
     assert.deepEqual(await d.selection(), [], 'the worker is let go after placing');
@@ -1451,9 +1451,9 @@ test('a double-click on a factory selects all of them and they train as one; the
     const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester');
     assert.equal(await d.page.locator('#btnProd').count(), 0, 'no idle-factory chip in the top bar');
     const a = await d.findSpot('barracks', { tx: core.tx + 6, ty: core.ty });
-    await d.buildWithUI('g', 'barracks', a.tx, a.ty, hs[0].id);
+    await d.buildWithUI('c', 'barracks', a.tx, a.ty, hs[0].id);
     const b = await d.findSpot('barracks', { tx: a.tx + 4, ty: a.ty });
-    await d.buildWithUI('g', 'barracks', b.tx, b.ty, hs[1].id);
+    await d.buildWithUI('c', 'barracks', b.tx, b.ty, hs[1].id);
     const rax = () => d.state().then(st => st.bldgs.filter(x => x.team === 0 && x.type === 'barracks'));
     await until(d, async () => (await rax()).filter(x => x.done).length === 2, { seconds: 120, what: 'two Crew Halls' });
     await d.key('Escape');
@@ -1481,9 +1481,9 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
     await d.grant(3000, 500);
     const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester');
     const a = await d.findSpot('barracks', { tx: core.tx + 6, ty: core.ty });
-    await d.buildWithUI('g', 'barracks', a.tx, a.ty, hs[0].id);
+    await d.buildWithUI('c', 'barracks', a.tx, a.ty, hs[0].id);
     const b = await d.findSpot('barracks', { tx: a.tx + 4, ty: a.ty });
-    await d.buildWithUI('g', 'barracks', b.tx, b.ty, hs[1].id);
+    await d.buildWithUI('c', 'barracks', b.tx, b.ty, hs[1].id);
     const rax = () => d.state().then(st => st.bldgs.filter(x => x.team === 0 && x.type === 'barracks'));
     await until(d, async () => (await rax()).filter(x => x.done).length === 2, { seconds: 120, what: 'two Crew Halls' });
     const [g0, g1] = await rax();
@@ -1507,11 +1507,11 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     await d.grant(1000, 0);
     const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
     const spot = await d.findSpot('barracks', { tx: core.tx + 6, ty: core.ty });
-    await d.buildWithUI('g', 'barracks', spot.tx, spot.ty, h.id);
+    await d.buildWithUI('c', 'barracks', spot.tx, spot.ty, h.id);
     const rax = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'barracks'));
     await until(d, async () => (await rax())?.done, { seconds: 90, what: 'the Crew Hall' });
     await d.grant(1000, 500);
-    await buildAndFinish(d, 'f', 'forge', 1); // (the Mender is on the card once a Workshop stands)
+    await buildAndFinish(d, 'k', 'forge', 1); // (the Mender is on the card once a Workshop stands)
     await d.clickEntity((await rax()).id);
     await d.readyCard('Mender');
     const cdp = await d.page.context().newCDPSession(d.page);
@@ -1693,7 +1693,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.page.waitForTimeout(300);
     assert.equal(await d.page.locator('#cmd button.pulse').first().getAttribute('data-id'), 'build');
     const spot = await d.findSpot('depot', { tx: core.tx + 5, ty: core.ty });
-    await d.buildWithUI('d', 'depot', spot.tx, spot.ty, h.id);
+    await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.done), { seconds: 60, what: 'the Windmast' });
     await d.hudText('#tut', /3\/7/);
     assert.match(await d.page.locator('#tut').textContent(), /Build a Pump on a brine seep/, 'then a Pump');
@@ -1717,15 +1717,15 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'harvester', x, y); endfall.engine.debugSpawn(0, 'harvester', x, y); }, [core.x, core.y + 80]);
     await d.skip(1);
     await step(2);
-    await buildAndFinish(d, 'd', 'depot');
+    await buildAndFinish(d, 'w', 'depot');
     await step(3);
     s = await d.state();
     const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-    await d.clickEntity(mine(s, 'harvester')[1].id); await d.key('b'); await d.key('e');
+    await d.clickEntity(mine(s, 'harvester')[1].id); await d.key('b'); await d.key('u');
     const [vx, vy] = await d.screen(vent.x, vent.y); await d.page.mouse.move(vx, vy); await d.page.mouse.click(vx, vy);
     assert.ok(await d.skipUntil(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'extractor' && b.done), null, { seconds: 120 }), 'the Pump');
     await step(4);
-    await buildAndFinish(d, 'g', 'barracks', 2);
+    await buildAndFinish(d, 'c', 'barracks', 2);
     await step(5);
     // The guide's army, spawned out of the way (mid-map: it must not meet the enemy below), makes the step.
     await d.eval(() => { const c = 32 * 32; for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', c, c); });
@@ -2689,7 +2689,7 @@ test('desktop, CLASSIC controls (the default): with a unit selected A arms attac
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await selectedTrooper(d);
-    assert.deepEqual((await cardKeys(d)).map(([, k, l]) => `${l} ${k}`), ['Attack A', 'Hold H', 'Dig In T', 'Deselect Esc'], 'each button its own letter');
+    assert.deepEqual((await cardKeys(d)).map(([, k, l]) => `${l} ${k}`), ['Attack A', 'Hold H', 'Dig In D', 'Deselect Esc'], 'each button its own letter');
     await d.key('a');
     assert.equal(await d.eval(() => endfall.ui.mode), 'attack', 'A arms attack-move');
     await d.key('Escape');
@@ -2708,7 +2708,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   try {
     const { page } = d;
     await d.grant(2000, 0);
-    await buildAndFinish(d, 'g', 'barracks', 1); // (the Build list's Advanced page opens with a Crew Hall; built while CLASSIC)
+    await buildAndFinish(d, 'c', 'barracks', 1); // (the Build list's Advanced page opens with a Crew Hall; built while CLASSIC)
     await d.key('p');
     assert.ok(await page.locator('#btnPauseOptions').isVisible(), 'OPTIONS on the pause card');
     assert.ok(await page.$eval('#pause .card', c => c.scrollHeight <= c.clientHeight + 1), 'the pause card fits with OPTIONS');
@@ -2783,24 +2783,24 @@ test('desktop, as the Vael: the Gyre trains an Undertow once a Darkwater stands 
   try {
     await d.grant(4000, 3000);
     await buildAndFinish(d, 's', 'spire', 0, V);
-    const kiln = await buildAndFinish(d, 'k', 'kiln', 1, V);
+    const kiln = await buildAndFinish(d, 'c', 'kiln', 1, V);
     await d.clickEntity(kiln.id);
     await d.readyCard('Needle');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Needle 0', 'Lens 1', 'Rally 4', 'Cancel 5'], 'the Cradle before a Glasshouse: the Conch\'s and the Tender\'s slots empty, Rally and Cancel in place; two rows');
-    const zenith = await buildAndFinish(d, 'z', 'zenith', 2, V);
+    const zenith = await buildAndFinish(d, 'y', 'zenith', 2, V);
     await d.clickEntity(zenith.id);
     await d.readyCard('Petrel');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Petrel 0', 'Argonaut 2', 'Rally 3', 'Cancel 5'], 'the Gyre: the Undertow\'s slot empty until a Darkwater stands; two rows');
-    await buildAndFinish(d, 'l', 'loom', 3, V);
+    await buildAndFinish(d, 'g', 'loom', 3, V);
     await d.clickEntity(kiln.id);
     await d.readyCard('Tender');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Needle 0', 'Lens 1', 'Conch 2', 'Tender 3', 'Rally 4', 'Cancel 5'], 'the Cradle with a Glasshouse: four units, Rally, Cancel; two rows');
     await d.clickEntity(zenith.id);
     assert.equal(await d.page.locator('#cmd [data-id="t_umbra"]').count(), 0, 'a Glasshouse alone unlocks nothing');
-    const eclipse = await buildAndFinish(d, 'i', 'eclipse', 0, V); // (B then I: the Advanced page's key)
+    const eclipse = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
     await d.clickEntity(eclipse.id);
     await d.readyCard('Seaglass');
-    assert.deepEqual((await cardKeys(d)).map(([at, k, l]) => `${l} ${k} ${at}`), ['Seaglass V 0', 'Spindrift F 1'], 'the Darkwater: its two researches');
+    assert.deepEqual((await cardKeys(d)).map(([at, k, l]) => `${l} ${k} ${at}`), ['Seaglass S 0', 'Spindrift F 1'], 'the Darkwater: its two researches');
     await d.clickEntity(zenith.id);
     await d.readyCard('Undertow');
     const queue = async () => (await d.state()).bldgs.find(b => b.id === zenith.id).queue;
@@ -2826,23 +2826,23 @@ test('desktop, as the Vael: the Gyre trains an Undertow once a Darkwater stands 
   } finally { await d.close(); }
 });
 
-test('desktop: the Slipway trains a Netter once a Workshop stands (I, or its slot\'s key in WASD); it shoots flyers down and never the ground', async () => {
+test('desktop: the Slipway trains a Netter once a Workshop stands (N, or its slot\'s key in WASD); it shoots flyers down and never the ground', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   const { GRID } = await import('../../src/client/controls.js');
   try {
     await d.grant(3000, 2000);
-    await buildAndFinish(d, 'd', 'depot', 0);
-    await buildAndFinish(d, 'g', 'barracks', 1);
-    const factory = await buildAndFinish(d, 'r', 'factory', 2);
+    await buildAndFinish(d, 'w', 'depot', 0);
+    await buildAndFinish(d, 'c', 'barracks', 1);
+    const factory = await buildAndFinish(d, 's', 'factory', 2);
     await d.clickEntity(factory.id);
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Rally 3', 'Cancel 5'], 'no vehicle before a Workshop stands: their slots empty, Rally and Cancel in place');
-    await buildAndFinish(d, 'f', 'forge', 3);
+    await buildAndFinish(d, 'k', 'forge', 3);
     await d.clickEntity(factory.id);
     await d.readyCard('Netter');
     assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Breakwater', 'Anchor Gun', 'Netter', 'Rally', 'Cancel'], 'three vehicles, Rally after them, the queue\'s Cancel in its place');
     const queue = async () => (await d.state()).bldgs.find(b => b.id === factory.id).queue;
-    await d.key('i');
-    assert.deepEqual(await queue(), ['interceptor'], `I trains a Netter (toasts: ${(await d.toasts()).join(' | ')})`);
+    await d.key('n');
+    assert.deepEqual(await queue(), ['interceptor'], `N trains a Netter (toasts: ${(await d.toasts()).join(' | ')})`);
     await pickControls(d, 'wasd');
     await d.clickEntity(factory.id);
     const [at, key] = (await cardKeys(d)).find(([, , l]) => l === 'Netter');

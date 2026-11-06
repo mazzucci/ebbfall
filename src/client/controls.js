@@ -1,6 +1,6 @@
 // The controls of a mouse and a keyboard, two schemes (CONTROLS on the OPTIONS card: options.js):
 // - CLASSIC (the default): the arrow keys and the screen's edge move the map (W A S D too while nothing is selected),
-//   and a command's key is its own letter (A attack-move, B build, T Trooper, ...);
+//   and a command's key is its own letter (A attack-move, B build, K Picket, ...);
 // - WASD: W A S D always move the map, whatever is selected, and the command card's buttons take their keys by where
 //   they sit (GRID): the same slot, the same key, on every card. The keys that are not commands stay: Ctrl+1–9 and
 //   1–9 (groups), Shift (five, or keep placing), Space (the last alert), Esc, P (pause), Q (the whole army: so not in

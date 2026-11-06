@@ -18,9 +18,9 @@ Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 // Vael units (step 1, vael-units.js): the Needle, the Tender, the Conch, the Undertow (0-1 gliding, 2 lying flat as it
 // lurks: look.js UNIT_POSE), the Petrel (one frame: a glider) and the Argonaut (four: a slow bob).
 Object.assign(VAEL_UNITS, {
-  scythe: { build: needle, frames: 2, r: 14, h: 10 }, halo: { build: tender, frames: 2, r: 12, h: 12 },
-  monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 13, h: 12 },
-  shrike: { build: petrel, frames: 1, r: 17, h: 24 }, sovereign: { build: argonaut, frames: 4, r: 24, h: 22 },
+  scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
+  monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
+  shrike: { build: petrel, frames: 1, r: 17, h: 24 }, sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
 });
 
 // The Vael units in the game; each race renders with its own materials.

@@ -20,13 +20,13 @@ export function deeplight(parent, M, r, x, y, z) {
 /** A band over the back of a body round the x axis (a half torus in the yz plane, open side down). */
 const saddle = (r, t, seg = 28) => memo(`sd${r},${t},${seg}`, () => { const g = new THREE.TorusGeometry(r, t, 8, seg, Math.PI); g.rotateY(Math.PI / 2); return g; });
 
-/** Glint (worker): a fat pearl drop, its short blunt tail to the stern, an ink belly beneath, one big deeplight at the
+/** Glint (worker): a fat pearl drop, its blunt tail to the stern (a team sleeve on its aft half, a pearl knob at its end), an ink belly beneath, one big deeplight at the
  *  tip in an ink socket; the team glaze saddle set back behind it, between two ink seams. Round from above, hovering
  *  low with its shadow right beneath it: not a dart. */
 export function glint(M, f) {
   const g = grp(), b = grp(); b.position.y = 5 + (f % 2) * 0.7;
   add(b, sph(4.8, 22, 16), M.shell, 0, 0, 0).scale.set(1.05, 0.9, 1);                        // the drop's head
-  add(b, cone(4.0, 5, 16), M.shell, -5.6, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, short and blunt
+  add(b, cone(4.0, 7, 16), M.shell, -6.4, 0.1, 0, 0, 0, Math.PI / 2).scale.set(1, 0.85, 1);  // its tail, blunt (7 long since step 1: in the white seat a short tail left a round eye, the Lens)
   add(b, sph(4.5, 18, 12), M.ink, 0.1, -1.4, 0).scale.set(1.2, 0.7, 1);                      // the ink belly
   add(b, sph(3.1, 18, 12), M.glaze, -1.7, 2.7, 0).scale.set(1.15, 0.55, 1.05);                 // the team patch: one smooth dome on the back, no bars; pearl shows round it
   add(b, sph(3.75, 18, 12), M.inkSeam, -1.7, 2.35, 0).scale.set(1.15, 0.5, 1.05);             // the ink seam round its edge, wide enough to survive 1x
@@ -34,8 +34,9 @@ export function glint(M, f) {
   deeplight(b, M, 1.5, 4.9, 0.7, 0);                                                         // the one light, big and lit, at the tip
   add(b, sph(0.95, 8, 6), M.deepCore, 5.6, 0.9, 0);                                           // its pale heart, forward where the camera sees it
   add(b, sph(0.5, 8, 6), M.deepWhite, 6.1, 1.1, 0.5);                                          // a brighter centre that survives 1x
-  add(b, cyl(2.2, 2.6, 1.2, 14), M.glaze, -6.6, 0.1, 0, 0, 0, Math.PI / 2);                   // the tail's team collar
-  add(b, cyl(2.7, 2.7, 0.3, 14), M.inkSeam, -5.9, 0.1, 0, 0, 0, Math.PI / 2);
+  add(b, cyl(1.1, 2.3, 2.6, 14), M.glaze, -7.9, 0.1, 0, 0, 0, Math.PI / 2);                   // the tail's team sleeve, the aft half of the tail
+  add(b, cyl(2.5, 2.5, 0.35, 14), M.inkSeam, -6.5, 0.1, 0, 0, 0, Math.PI / 2);                // its ink seam
+  add(b, sph(1.15, 10, 8), M.ring, -9.6, 0.1, 0);                                              // a pearl knob at the tail's end
   g.add(b); return g;
 }
 

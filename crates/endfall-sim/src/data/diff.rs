@@ -74,6 +74,21 @@ pub struct Diff {
     /// The most advanced units it trains (`UnitKind::ai_tier`; Roster v2): 0 its line units and their anti-air
     /// (Easy), 1 its heavies, healers, anti-air vehicles and the Petrel too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
+    /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
+    /// plays differently, matched by kind (Brutal: the Humans' Anchor Guns sooner and more of them, against the Vael's
+    /// Lenses). A kind of the other race leaves that race's mix as it is.
+    pub mix_over: &'static [(super::UnitKind, usize, f64)],
+}
+
+impl Diff {
+    /// A race's mix entry as this level plays it (`mix_over`).
+    pub fn mix_entry(&self, entry: (super::UnitKind, usize, f64)) -> (super::UnitKind, usize, f64) {
+        self.mix_over
+            .iter()
+            .copied()
+            .find(|o| o.0 == entry.0)
+            .unwrap_or(entry)
+    }
 }
 
 impl super::UnitKind {
@@ -131,6 +146,7 @@ pub const DIFF: [Diff; 4] = [
         reserve: 0.0,
         retreat_below: 0.0,
         mix_tier: 0,
+        mix_over: &[],
     },
     // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
@@ -171,6 +187,7 @@ pub const DIFF: [Diff; 4] = [
         reserve: 0.25,
         retreat_below: 1.0,
         mix_tier: 1,
+        mix_over: &[],
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -209,6 +226,7 @@ pub const DIFF: [Diff; 4] = [
         reserve: 0.25,
         retreat_below: 1.0,
         mix_tier: 2,
+        mix_over: &[],
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -251,5 +269,8 @@ pub const DIFF: [Diff; 4] = [
         reserve: 0.25,
         retreat_below: 1.0,
         mix_tier: 2,
+        // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
+        // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
+        mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
     },
 ];

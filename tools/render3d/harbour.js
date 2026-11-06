@@ -166,11 +166,12 @@ export function lighthouse(M) {
   for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; add(g, rbox(0.6, 12.4, 0.6, 0.2), M.ironDark, TX + Math.cos(a) * 8.3, 51.3, TZ + Math.sin(a) * 8.3, 0, -a, 0); } // the cage
   for (const y of [45.6, 57]) add(g, cyl(8.5, 8.5, 0.6, 24), M.ironDark, TX, y, TZ);                  // its rails
   add(g, sph(4.8, 16, 12), M.lampHot, TX, 51.6, TZ);                                                  // the lamp: the brightest Harbour pixel
-  add(g, sph(2.2, 12, 8), M.lampCore, TX, 51.6, TZ + 3.4);                                             // its near-white core on the south face, where the camera looks
+  add(g, sph(2.4, 12, 8), M.lampCore, TX, 52, TZ + 3.8);                                               // its near-white core on the south face, where the camera looks: 3 px at phone size
+  add(g, sph(3.6, 12, 8), M.lampAmber, TX, 52, TZ + 3.8);                                              // a tight amber halo round it, 1 px at phone size
   add(g, sph(6.4, 16, 12), M.lampHalo, TX, 51.6, TZ); add(g, sph(8.6, 16, 12), M.lampHalo2, TX, 51.6, TZ); // its warm halo
   add(g, cyl(2.4, 3, 2, 12), M.brass, TX, 46.2, TZ);                                                   // the lamp's brass foot
   add(g, cyl(8.8, 8.8, 1.2, 24), M.ironDark, TX, 57.9, TZ);
-  add(g, new THREE.ConeGeometry(8.6, 5, 24), M.canvasDark, TX, 61, TZ);                               // the canvas cone, old sailcloth, a band dimmer than the lamp; no overhang, so the lamp shows under it
+  add(g, new THREE.ConeGeometry(8.6, 5, 24), M.canvasShade, TX, 61, TZ);                              // the canvas cone, a band below pale canvas and below the lamp; no overhang, so the lamp shows under it
   add(g, cyl(0.4, 0.4, 3, 6), M.brass, TX, 64.5, TZ); add(g, sph(0.6, 8, 6), M.brass, TX, 66.1, TZ); // finial
   add(g, rbox(8, 10, 1.2, 0.4), M.oilskin, TX, 11, TZ + 21.6);                                       // the tower's door, facing south
   // the quay: a timber jetty south-east under team sailcloth, bollards, rope coils, crates under a lashed tarp, a pennant

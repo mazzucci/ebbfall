@@ -152,6 +152,8 @@ export function makeMats(tc = NEUTRAL) {
     lanternPane: new THREE.MeshPhysicalMaterial({ color: 0xf0e8d0, transparent: true, opacity: 0.15, roughness: 0.1, metalness: 0, depthWrite: false }), // the lantern room's panes, see-through
     lampHot: std({ color: 0xfff8e0, emissive: 0xfff2c0, emissiveIntensity: 6 }),
     lampCore: std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 8, toneMapped: false }),                      // the lamp's near-white core
+    lampAmber: new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }), // the core's tight amber halo
+    canvasShade: std({ color: 0xb4ac96, map: canvasWeave, roughness: 0.94, metalness: 0 }),                               // canvas a band below pale: the lantern roof, under the lamp
     slateLit: std({ color: 0x737a80, roughness: 0.85, metalness: 0.05, flatShading: true }),                              // a kerb's lit top edge                                           // the lantern's lamp: the brightest Harbour pixel
     lampHalo: new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }),
     lampHalo2: new THREE.MeshBasicMaterial({ color: 0xffb860, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false }),

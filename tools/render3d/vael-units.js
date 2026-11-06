@@ -94,6 +94,7 @@ export function tender(M, f) {
   add(b, cyl(2.4, 1.8, 1, 16), M.ring, 0, 1, 0);                                              // the cup's pearl lip
   add(b, cyl(1.8, 1.8, 0.5, 16), M.inkSeam, 0, 1.5, 0);                                       // an ink socket
   aqualight(b, M, 2.2, 0, 3.8, 0);                                                            // the aqua light, big, held clear above the cup
+  g.scale.setScalar(0.84);                                                                    // round 4: about 1.8x the Glint's footprint, under the Lens's (size by role: Glint, Needle, Tender, Lens, Conch)
   g.add(b); return g;
 }
 
@@ -159,20 +160,22 @@ export function petrel(M) {
   const g = grp(), b = grp(); b.position.y = 20; b.rotation.z = 0.1;
   for (const side of [-1, 1]) {
     const w = grp(); w.rotation.x = side * 0.14; b.add(w);
-    // a gull's wing: the leading edge bowed forward then swept to the tip, the trailing edge hollowed (curves, never a straight chevron)
+    // a gull's wing: the curve only at the root (the leading edge bowed forward, the trailing edge hollowed), the outer
+    // wing straight and swept to the tip (a crescent all along read as the Needle's sickle at phone size)
     const bez = (P, n) => { const o = []; for (let i = 0; i < n; i++) { const t = i / n, u = 1 - t; o.push([u * u * P[0][0] + 2 * u * t * P[1][0] + t * t * P[2][0], side * (u * u * P[0][1] + 2 * u * t * P[1][1] + t * t * P[2][1])]); } return o; };
-    const pts = [...bez([[4.5, 0], [5.5, 9], [-9.5, 15.2]], 7), [-11.2, side * 15.4], [-11.8, side * 14.2], ...bez([[-11.2, 13.2], [-5.5, 6.5], [-3.4, 0]], 7)];
+    const pts = [...bez([[4.5, 0], [6, 6.5], [-2.2, 9.6]], 6), [-9.5, side * 15.2], [-11.2, side * 15.4], [-11.8, side * 14.2], [-7.6, side * 9.4], ...bez([[-7.6, 9.4], [-5.4, 4.6], [-3.4, 0]], 6)];
     add(w, plate(pts, 1.6, 0.5), M.shellLight, 0, 0, 0);                                      // the wing
     add(w, plate(scaled(pts, 0.94, 0.94, -0.2), 1, 0.3), M.ink, 0, -1.1, 0);                 // ink beneath
-    add(w, plate([...bez([[-3.6, 10.6], [-6.5, 13.8], [-9.5, 15.2]], 5), [-11.2, side * 15.4], [-11.8, side * 14.2], ...bez([[-11.2, 13.2], [-9.2, 10.8], [-7.6, 8.6]], 5)], 1.2, 0.3), M.glaze, 0, 0.6, 0); // the team tip
-    add(w, plate([[-3.2, side * 10.1], [-4.4, side * 11.6], [-8, side * 9.6], [-7, side * 8]], 1.5, 0.1), M.inkSeam, 0, 0.5, 0); // the ink seam across the wing where the glaze begins
+    add(w, plate([[-4.3, side * 11.2], [-9.5, side * 15.2], [-11.2, side * 15.4], [-11.8, side * 14.2], [-8.3, side * 10.2]], 1.2, 0.3), M.glaze, 0, 0.6, 0); // the team tip
+    add(w, plate([[-3.7, side * 10.5], [-4.9, side * 11.9], [-8.8, side * 10.6], [-7.8, side * 9.4]], 1.5, 0.1), M.inkSeam, 0, 0.5, 0); // the ink seam across the wing where the glaze begins
   }
-  add(b, sph(2.9, 16, 12), M.shell, 1, 0.6, 0).scale.set(1.9, 0.75, 1);                       // the pod
-  add(b, sph(2.4, 14, 10), M.ink, 0.4, -0.6, 0).scale.set(1.9, 0.6, 0.9);                     // its ink belly
-  add(b, sph(1.7, 12, 10), M.glaze, -0.6, 1.9, 0).scale.set(1.5, 0.5, 1);                     // the team cap on its back
-  add(b, sph(2.05, 12, 10), M.inkSeam, -0.6, 1.65, 0).scale.set(1.5, 0.45, 1);                // its ink seam
-  add(b, sph(1.2, 10, 8), M.inkSeam, -4.8, 0.4, 0);                                           // the tail socket
-  deeplight(b, M, 1, -5.4, 0.4, 0);                                                           // the light at the tail
+  add(b, sph(3.1, 16, 12), M.shell, 0.5, 1.4, 0).scale.set(2.1, 0.8, 1);                      // the body: a pearl hull 13 long riding above the wings, so it is a bird, not a blade
+  add(b, sph(2.6, 14, 10), M.ink, 0, 0, 0).scale.set(2.1, 0.6, 0.9);                          // its ink belly
+  add(b, sph(2.2, 14, 10), M.shellLight, 4.2, 2, 0).scale.set(1, 0.7, 0.8);                   // the head, forward
+  add(b, sph(2.3, 12, 10), M.glaze, -0.8, 2.9, 0).scale.set(1.9, 0.5, 1.1);                   // the team cap on its back, most of the body's top (the pale body costs team share)
+  add(b, sph(2.65, 12, 10), M.inkSeam, -0.8, 2.65, 0).scale.set(1.9, 0.45, 1.1);              // its ink seam
+  add(b, sph(1.3, 10, 8), M.inkSeam, -6.2, 1.2, 0);                                           // the tail socket
+  deeplight(b, M, 1, -6.9, 1.2, 0);                                                           // the light at the tail
   g.add(b); return g;
 }
 

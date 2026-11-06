@@ -366,7 +366,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     assert.ok((await d.card()).some(c => c.label === 'Weapons II'), 'next level offered');
     const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [forge.x, forge.y + 90]);
     await d.clickEntity(id);
-    assert.match(await d.hudText('#mod', /6\+1/), /6\+1/, 'Picket damage shows the bonus');
+    assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'Picket damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 2, 'a few figures: ground, armor (a Picket hits no flyers)');
     // A Picket's Dig In waits for Sandbags, researched at the Workshop.
     assert.ok(!(await d.card()).some(c => c.label === 'Dig In'), 'no Dig In before Sandbags');

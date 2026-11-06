@@ -271,12 +271,12 @@ fn weapons_upgrades_add_each_units_bonus() {
     let (mut w, f) = forge_arena(30);
     assert_eq!(
         first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Vanguard),
-        6.0 - 2.0
+        7.0 - 2.0
     );
     research_level(&mut w, f, Upgrade::Weapons);
     assert_eq!(
         first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Vanguard),
-        6.0 + 1.0 - 2.0,
+        7.0 + 1.0 - 2.0,
         "Trooper +1"
     );
     // (by the time a Breakwater has walked into its reach, the held one it goes for has beached: armour 2 + 4)
@@ -320,7 +320,7 @@ fn armor_upgrades_soak_one_more_point_per_level() {
     research_level(&mut w, f, Upgrade::Armor);
     assert_eq!(
         first_hit(&mut w, UnitKind::Trooper, ENEMY, UnitKind::Trooper),
-        6.0 - 2.0,
+        7.0 - 2.0,
         "two armor levels"
     );
     research_level(&mut w, f, Upgrade::Armor);

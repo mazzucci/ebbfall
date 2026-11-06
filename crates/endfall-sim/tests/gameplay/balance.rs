@@ -39,45 +39,6 @@ fn balance_matrix() {
 }
 
 #[test]
-#[ignore = "the conversion: ether costs are 0 until PR 2 re-prices the rosters and rewrites these duels"]
-fn the_counters_hold_in_cost_equal_fights() {
-    // Thresholds sit well inside the measured values (balance_matrix, flat arena, median of three spawn offsets).
-    use UnitKind::*;
-    for budget in [1100.0, 2200.0] {
-        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
-        assert!(
-            d(&[Lancer], &[Raider]) > 0.4,
-            "{budget}: Lancers shoot down Raiders"
-        );
-        assert!(
-            d(&[Trooper], &[Raider]) > 0.4,
-            "{budget}: Troopers outrange Raiders"
-        );
-        assert!(
-            d(&[Trooper], &[Lancer]) > 0.5,
-            "{budget}: Lancers are weak against the ground"
-        );
-        assert!(
-            d(&[Vanguard], &[Trooper]) > 0.0,
-            "{budget}: splashing shells beat massed Troopers"
-        );
-        assert!(
-            d(&[Trooper, Trooper, Vanguard], &[Trooper]) > 0.2,
-            "{budget}: combined arms beat Trooper spam"
-        );
-        // Raiders pick off the Troopers first and the Vanguards cannot shoot back: a tank-heavy army needs anti-air.
-        assert!(
-            d(&[Trooper, Trooper, Vanguard], &[Raider]) < 0.0,
-            "{budget}: Raiders punish an army without enough anti-air"
-        );
-        assert!(
-            d(&[Trooper, Lancer], &[Raider]) > 0.4,
-            "{budget}: while Troopers and Lancers shoot them down"
-        );
-    }
-}
-
-#[test]
 #[ignore]
 fn anti_air_matrix() {
     // The Interceptor and the Lancer against flyers and the ground (cost-equal), for tuning.
@@ -107,76 +68,6 @@ fn anti_air_matrix() {
             println!("{budget} {name:>20}: {:+.2}", duel(a, b, budget));
         }
     }
-}
-
-#[test]
-#[ignore = "the conversion: ether costs are 0 until PR 2 re-prices the rosters and rewrites these duels"]
-fn the_interceptor_answers_flyers_and_is_dead_weight_on_the_ground() {
-    // The Factory's anti-air vehicle (the 2026-10-30 balance study's "Skyguard"): it beats every flyer at equal cost,
-    // the capital gunship too, and cannot fight the ground at all. Measured at 2200 / 4400: +0.81 / +0.80 against
-    // Raiders, +0.70 / +0.71 against Shrikes, +0.52 / +0.38 against Bastions; -1.00 against any ground army, and beside
-    // Troopers it is dead weight against Troopers (-0.92 / -0.91) while the pair still beats Shrikes (+0.76 / +0.73).
-    // The Lancer (60/25 since 2026-10-31, from 75/25) stays the cheap early answer: as good per cost against the light
-    // flyers (+0.83 / +0.81 against Raiders), but its infantry falls to the Bastion's splash (+0.31 / +0.25 there,
-    // where the Interceptor's hull holds).
-    use UnitKind::*;
-    let range = |name: &str, v: f64, lo: f64, hi: f64| {
-        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
-    };
-    for budget in [2200.0, 4400.0] {
-        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
-        range(
-            "Interceptor v Raider",
-            d(&[Interceptor], &[Raider]),
-            0.6,
-            1.0,
-        );
-        range(
-            "Interceptor v Shrike",
-            d(&[Interceptor], &[Shrike]),
-            0.5,
-            1.0,
-        );
-        let bastion = d(&[Interceptor], &[Bastion]);
-        range("Interceptor v Bastion", bastion, 0.2, 1.0);
-        for foe in [Trooper, Scythe, Lancer] {
-            range(
-                &format!("Interceptor v {foe:?} (cannot hit the ground)"),
-                d(&[Interceptor], &[foe]),
-                -1.0,
-                -0.95,
-            );
-        }
-        range(
-            "Trooper+Interceptor v Trooper",
-            d(&[Trooper, Interceptor], &[Trooper]),
-            -1.0,
-            -0.6,
-        );
-        range(
-            "Trooper+Interceptor v Shrike",
-            d(&[Trooper, Interceptor], &[Shrike]),
-            0.5,
-            1.0,
-        );
-        range("Lancer v Raider", d(&[Lancer], &[Raider]), 0.6, 1.0);
-        range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
-        let lancer_bastion = d(&[Lancer], &[Bastion]);
-        assert!(
-            bastion > lancer_bastion,
-            "{budget}: the tougher answer to the gunship ({bastion:+.2} against the Lancer's {lancer_bastion:+.2})"
-        );
-    }
-    // The cheap early answer: cheaper than the Interceptor, and trained before a Foundry stands.
-    assert!(unit_value(Lancer) < unit_value(Interceptor) * 0.6);
-    assert_eq!(Lancer.def().req, None);
-    assert_eq!(Interceptor.def().req, Some(BldgKind::Forge));
-    assert!(Interceptor.def().speed > Lancer.def().speed && Interceptor.def().hp > Lancer.def().hp);
-    assert_eq!(
-        Interceptor.def().detect,
-        0.0,
-        "detection stays the Observer's job"
-    );
 }
 
 #[test]
@@ -213,70 +104,6 @@ fn a_turret_or_a_few_lancers_answer_an_early_raider_raid() {
 }
 
 #[test]
-#[ignore = "the conversion: ether costs are 0 until PR 2 re-prices the rosters and rewrites these duels"]
-fn the_vael_counters_hold_in_cost_equal_fights() {
-    // The loop to protect (race/VAEL.md): Scythes beat Lancers and workers, Troopers beat Scythes and Prisms; Prisms beat
-    // Raiders and Lancers; Vanguards beat Prisms; Monoliths beat Vanguards; Raiders beat Monoliths and Scythes;
-    // Lancers and Troopers beat Shrikes; Shrikes beat Raiders and Vanguards. Bigger budgets than the human matrix:
-    // a Monolith is worth 425.
-    use UnitKind::*;
-    let range = |name: &str, v: f64, lo: f64, hi: f64| {
-        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
-    };
-    for budget in [2200.0, 4400.0] {
-        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
-        // Troopers win the small fights: in AI-vs-AI games (1v1, both seats, every map) that is what evens the races.
-        range("Scythe v Trooper", d(&[Scythe], &[Trooper]), -0.5, 0.1);
-        range("Scythe v Lancer", d(&[Scythe], &[Lancer]), 0.5, 1.0);
-        range(
-            "Raider v Scythe (cannot hit air)",
-            d(&[Raider], &[Scythe]),
-            0.9,
-            1.0,
-        );
-        range("Prism v Raider", d(&[Prism], &[Raider]), 0.4, 1.0);
-        range("Prism v Lancer", d(&[Prism], &[Lancer]), 0.5, 1.0);
-        range("Prism v Trooper", d(&[Prism], &[Trooper]), -0.75, 0.0);
-        range("Vanguard v Prism", d(&[Vanguard], &[Prism]), 0.2, 1.0);
-        range("Monolith v Trooper", d(&[Monolith], &[Trooper]), -0.3, 1.0);
-        range("Shrike v Raider", d(&[Shrike], &[Raider]), 0.6, 1.0);
-        range("Lancer v Shrike", d(&[Lancer], &[Shrike]), 0.6, 1.0);
-        range("Trooper v Shrike", d(&[Trooper], &[Shrike]), 0.3, 1.0);
-        range("Shrike v Vanguard", d(&[Shrike], &[Vanguard]), 0.6, 1.0);
-        range(
-            "Scythe+Prism v Trooper+Vanguard",
-            d(&[Scythe, Prism], &[Trooper, Trooper, Vanguard]),
-            -0.7,
-            0.1,
-        );
-        // Monoliths beat Vanguards at 2200 and 3300 (+0.33, +0.18; at 4400 ten Monoliths meet sixteen Vanguards and
-        // lose, -0.18: the price 175/125 sits on that army size's edge, 6600 is +0.13 again).
-        let mono_budget = if budget > 4000.0 { 3300.0 } else { budget };
-        range(
-            "Monolith v Vanguard",
-            duel(&[Monolith], &[Vanguard], mono_budget),
-            0.0,
-            1.0,
-        );
-        range(
-            "Scythe+Prism v Lancer+Trooper",
-            d(&[Scythe, Prism], &[Lancer, Trooper]),
-            0.2,
-            1.0,
-        );
-        // The Lancer's ground damage 5 -> 9 (2026-10-31): still weak on the ground (Troopers beat it, above), but no
-        // longer dead weight beside Troopers (-0.59 / -0.58 against Prisms before, -0.24 / -0.33 after; at 60/25
-        // instead of 75/25, -0.19 / +0.27: more of them for the money).
-        range(
-            "Lancer+Trooper v Prism",
-            d(&[Lancer, Trooper], &[Prism]),
-            -0.45,
-            0.4,
-        );
-    }
-}
-
-#[test]
 fn a_halo_finds_cloaked_raiders_for_its_army() {
     // With every tech and the AI's use of abilities: veiled Shrikes (Petrels with Seaglass) beat Prisms (Lenses) that
     // cannot see them (the Raider's cloak went with Roster v2). One Halo per three Prisms detects them (5 tiles,
@@ -291,42 +118,6 @@ fn a_halo_finds_cloaked_raiders_for_its_army() {
         "Prisms alone lose to cloaked {foe:?}: {alone:+.2}"
     );
     assert!(led > 0.3, "a Halo among them finds the {foe:?}: {led:+.2}");
-}
-
-#[test]
-#[ignore = "the conversion: ether costs are 0 until PR 2 re-prices the rosters and rewrites these duels"]
-fn the_capital_units_hold_their_counters_in_cost_equal_fights() {
-    // A Bastion (800 by value) or a Sovereign (850) crushes heavy ground and loses to what shoots up; budgets of four.
-    use UnitKind::*;
-    let range = |name: &str, v: f64, lo: f64, hi: f64| {
-        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
-    };
-    for budget in [3300.0, 6600.0] {
-        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
-        range("Bastion v Vanguard", d(&[Bastion], &[Vanguard]), 0.6, 1.0);
-        range("Bastion v Scythe", d(&[Bastion], &[Scythe]), 0.6, 1.0);
-        range("Bastion v Sovereign", d(&[Bastion], &[Sovereign]), 0.6, 1.0);
-        range("Bastion v Lancer", d(&[Bastion], &[Lancer]), -1.0, -0.05);
-        range("Bastion v Prism", d(&[Bastion], &[Prism]), -1.0, -0.05);
-        range("Bastion v Shrike", d(&[Bastion], &[Shrike]), -1.0, -0.1);
-        range("Sovereign v Trooper", d(&[Sovereign], &[Trooper]), 0.3, 1.0);
-        range("Sovereign v Prism", d(&[Sovereign], &[Prism]), 0.3, 1.0);
-        range("Sovereign v Lancer", d(&[Sovereign], &[Lancer]), 0.6, 1.0);
-        range(
-            "Sovereign v Raider (cannot hit air)",
-            d(&[Sovereign], &[Raider]),
-            -1.0,
-            -0.9,
-        );
-        // Its ground trade (2026-10-31, range 9, damage 48): it holds the Vael's own line army better (at 850 by
-        // value: -0.62 / -0.21 with damage 40, -0.37 / +0.33 with 48).
-        range(
-            "Sovereign v Scythe+Prism",
-            d(&[Sovereign], &[Scythe, Prism]),
-            if budget < 5000.0 { -0.5 } else { 0.0 },
-            1.0,
-        );
-    }
 }
 
 #[test]
@@ -391,39 +182,6 @@ fn a_siege_line_holds_where_the_same_shards_in_troopers_do_not() {
     let scy = siege_line(1, (Trooper, 8), &[Scythe]);
     assert!(scy > 0.3, "so do Scythes: {scy:+.2}");
     assert!(scy > siege_line(0, (Trooper, 16), &[Scythe]));
-}
-
-#[test]
-#[ignore = "Roster v2: two Anchor Guns and twelve Pickets now tie the Needle+Lens army (-0.03, was +0.39); for the \
-            balance pass to settle"]
-fn a_siege_line_holds_against_the_vael_line_army() {
-    use UnitKind::*;
-    let mix = siege_line(2, (Trooper, 12), &[Scythe, Prism]);
-    assert!(mix > 0.15, "the Vael's line army breaks on it: {mix:+.2}");
-}
-
-#[test]
-#[ignore = "the conversion: ether costs are 0 until PR 2 re-prices the rosters and rewrites these duels"]
-fn siege_tanks_alone_lose_to_what_closes_in_and_to_flyers() {
-    use UnitKind::*;
-    // Two tanks with no escort: Scythes walk into their blind ring.
-    let alone = siege_line(2, (Trooper, 0), &[Scythe]);
-    assert!(
-        alone < -0.15,
-        "unescorted tanks fall to Scythes: {alone:+.2}"
-    );
-    // A few tanks against Scythes that Blink under their guns (cost-equal; massed tanks cover each other better).
-    let blink = duel_with(&[SiegeTank], &[Scythe], 2200.0, tech_micro);
-    assert!(blink < -0.1, "Blink closes the gap: {blink:+.2}");
-    for budget in [2200.0, 4400.0] {
-        for flyer in [Raider, Shrike] {
-            let v = duel(&[SiegeTank], &[flyer], budget);
-            assert!(
-                v < -0.9,
-                "{budget}: a tank cannot shoot up ({flyer:?}: {v:+.2})"
-            );
-        }
-    }
 }
 
 #[test]
@@ -521,56 +279,173 @@ fn siege_line_once(
     alive(&w, &line) / spent_a - alive(&w, &foes) / spent_b
 }
 
-#[test]
-#[ignore = "the conversion: ether costs are 0 until PR 2 re-prices the rosters and rewrites these duels"]
-fn the_umbra_wins_where_it_is_not_detected_and_loses_the_money_where_it_is() {
-    // The Vael's cloaked blade is binary by design (the 2026-10-30 balance study): it cuts down any ground army that
-    // brings no detector, the siege line included, and is a costly melee unit once an Observer or a Halo finds it; it
-    // cannot touch flyers (nor they it, unseen). Measured: +1.00 undetected; -0.81 / -0.85 against Troopers with an
-    // Observer, -0.60 / -0.83 with a tank too, -0.75 against Prisms with a Halo; 0.00 against Raiders.
-    use UnitKind::*;
-    let range = |name: &str, v: f64, lo: f64, hi: f64| {
-        assert!(v >= lo && v <= hi, "{name}: {v:+.2} not in {lo}..{hi}")
-    };
-    let tank_line: &[UnitKind] = &[Trooper, Trooper, Trooper, Trooper, SiegeTank];
-    let seen_line: &[UnitKind] = &[Trooper, Trooper, Trooper, Trooper, SiegeTank, Observer];
-    for budget in [2200.0, 4400.0] {
-        let d = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
-        range("Umbra v Trooper", d(&[Umbra], &[Trooper]), 0.9, 1.0);
-        range("Umbra v Trooper+Tank", d(&[Umbra], tank_line), 0.9, 1.0);
-        range(
-            "Umbra v Trooper+Vanguard+Medic",
-            d(&[Umbra], &[Trooper, Trooper, Trooper, Vanguard, Medic]),
-            0.9,
-            1.0,
-        );
-        range(
-            "Umbra v Trooper+Observer",
-            d(&[Umbra], &[Trooper, Trooper, Trooper, Trooper, Observer]),
-            -1.0,
-            -0.5,
-        );
-        range(
-            "Umbra v Trooper+Tank+Observer",
-            d(&[Umbra], seen_line),
-            -1.0,
-            -0.4,
-        );
-        range(
-            "Umbra v Prism+Halo (the mirror)",
-            d(&[Umbra], &[Prism, Prism, Prism, Halo]),
-            -1.0,
-            -0.5,
-        );
-        range("Umbra v Raider (air)", d(&[Umbra], &[Raider]), -0.1, 0.1);
-        range(
-            "Scythe+Umbra v Trooper",
-            d(&[Scythe, Scythe, Umbra], &[Trooper]),
-            0.3,
-            1.0,
-        );
+/// Every tech and the AI's ability use (`tech_micro`), and the side's Pickets dig in where they stand (Dig In, as a
+/// player holding a line would).
+fn dig_micro(w: &mut World, mine: &[Id], theirs: &[Id]) {
+    tech_micro(w, mine, theirs);
+    for &id in mine {
+        if w.unit(id)
+            .is_some_and(|u| u.kind == UnitKind::Trooper && u.mode.is_none() && u.swap <= 0.0)
+        {
+            let _ = w.cast(id, AbilityKind::Entrench);
+        }
     }
-    // A deployed tank behind a line of Troopers: the Umbras walk through the screen and under the blind ring.
-    let line = siege_line(1, (Trooper, 8), &[Umbra]);
-    assert!(line < -0.5, "an undetected siege line falls: {line:+.2}");
+}
+
+#[test]
+#[ignore]
+fn roster_v2_cross_matrix() {
+    // Roster v2's compositions, Harbour against Vael at equal cost: every tech and the AI's casts on both sides, and
+    // the same Harbour armies with their Pickets dug in (`dig`).
+    use UnitKind::*;
+    let harbour: [(&str, &[UnitKind]); 8] = [
+        ("picket", &[Trooper]),
+        ("harpooner", &[Lancer]),
+        ("2pkt+harp", &[Trooper, Trooper, Lancer]),
+        (
+            "4pkt+2harp+mend",
+            &[Trooper, Trooper, Trooper, Trooper, Lancer, Lancer, Medic],
+        ),
+        ("breakwater", &[Vanguard]),
+        ("bw+2pkt", &[Vanguard, Trooper, Trooper]),
+        ("anchor+bw", &[SiegeTank, Vanguard]),
+        ("kite", &[Raider]),
+    ];
+    let vael: [(&str, &[UnitKind]); 6] = [
+        ("needle", &[Scythe]),
+        ("lens", &[Prism]),
+        ("needle+lens", &[Scythe, Prism]),
+        ("2needle+tender", &[Scythe, Scythe, Halo]),
+        ("conch", &[Monolith]),
+        ("conch+2lens", &[Monolith, Prism, Prism]),
+    ];
+    for budget in [2200.0, 4400.0] {
+        println!(
+            "budget {budget}: rows Harbour, columns {}",
+            vael.map(|v| v.0).join(" ")
+        );
+        for (na, a) in harbour {
+            let row: Vec<String> = vael
+                .iter()
+                .map(|(_, b)| format!("{:+.2}", duel_with(a, b, budget, tech_micro)))
+                .collect();
+            let dug: Vec<String> = vael
+                .iter()
+                .map(|(_, b)| format!("{:+.2}", duel_with(a, b, budget, dig_micro)))
+                .collect();
+            println!("{na:>16} {} | dug {}", row.join(" "), dug.join(" "));
+        }
+    }
+}
+
+#[test]
+fn roster_v2s_counters_hold_in_cost_equal_fights() {
+    // Roster v2's own claims (its "Race against race" and compositions), with every tech and the AI's casts on both
+    // sides, at two budgets. Thresholds sit inside the values measured by roster_v2_cross_matrix and anti_air_matrix.
+    use UnitKind::*;
+    for budget in [2200.0, 4400.0] {
+        let d = |a: &[UnitKind], b: &[UnitKind]| duel_with(a, b, budget, tech_micro);
+        // (anti-air without the techs: Seaglass would hide the Petrels from what shoots them)
+        let plain = |a: &[UnitKind], b: &[UnitKind]| duel(a, b, budget);
+        let checks: [(&str, f64, f64); 13] = [
+            (
+                "Pickets beat Needles: they shoot as the blades close",
+                d(&[Trooper], &[Scythe]),
+                0.1,
+            ),
+            ("the Lens outranges Pickets", -d(&[Trooper], &[Prism]), 0.1),
+            (
+                "a beached Breakwater breaks Needles",
+                d(&[Vanguard], &[Scythe]),
+                0.5,
+            ),
+            (
+                "a beached Breakwater's splash beats massed Pickets",
+                d(&[Vanguard], &[Trooper]),
+                0.2,
+            ),
+            (
+                "the Conch's splash beats a clump of Pickets",
+                -d(&[Trooper], &[Monolith]),
+                0.5,
+            ),
+            (
+                "Anchor Guns behind Breakwaters hold the Conch",
+                d(&[SiegeTank, Vanguard], &[Monolith]),
+                -0.15,
+            ),
+            (
+                "the Kite beats what cannot shoot up",
+                d(&[Raider], &[Scythe]),
+                0.8,
+            ),
+            ("Lenses shoot Kites down", -d(&[Raider], &[Prism]), 0.4),
+            (
+                "the Netter shoots flyers down",
+                plain(&[Interceptor], &[Shrike]),
+                0.6,
+            ),
+            (
+                "the Netter is dead weight on the ground",
+                -plain(&[Interceptor], &[Trooper]),
+                0.9,
+            ),
+            (
+                "Harpooners answer Petrels",
+                plain(&[Lancer], &[Shrike]),
+                0.4,
+            ),
+            ("Harpooners answer Kites", plain(&[Lancer], &[Raider]), 0.3),
+            (
+                "Harpooners are weak against the ground",
+                -plain(&[Lancer], &[Trooper]),
+                0.3,
+            ),
+        ];
+        for (claim, got, floor) in checks {
+            assert!(
+                got > floor,
+                "{budget}: {claim}: {got:+.2} (more than {floor:+.2} wanted)"
+            );
+        }
+    }
+}
+
+#[test]
+fn every_units_killer_on_its_card_beats_it() {
+    // Each fighting unit's train button names what beats it (src/engine/constants.js PAIRS, "Beaten by ..."): the
+    // card must not lie. Cost-equal, every tech and the AI's casts on the ground; flyers without the techs (Seaglass
+    // would hide the Petrels). Unarmed units (the Mender, the Spyglass, the Tender) lose to anything and are left out.
+    use UnitKind::*;
+    let killers: [(UnitKind, UnitKind); 13] = [
+        (Trooper, Monolith),
+        (Lancer, Scythe),
+        (Vanguard, Monolith),
+        (SiegeTank, Shrike),
+        (Interceptor, Scythe),
+        (Raider, Prism),
+        (Bastion, Shrike),
+        (Scythe, Vanguard),
+        (Prism, SiegeTank),
+        (Monolith, Raider),
+        (Umbra, Trooper),
+        (Shrike, Interceptor),
+        (Sovereign, Raider),
+    ];
+    for budget in [2200.0, 4400.0] {
+        for (unit, killer) in killers {
+            let air = unit.def().air || killer.def().air;
+            let s = if air {
+                duel(&[killer], &[unit], budget)
+            } else {
+                duel_with(&[killer], &[unit], budget, tech_micro)
+            };
+            assert!(
+                s > 0.1,
+                "{budget}: the {:?}'s card says it is beaten by {:?}: {s:+.2}",
+                unit,
+                killer
+            );
+        }
+    }
 }

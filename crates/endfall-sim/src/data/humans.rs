@@ -38,14 +38,17 @@ pub const HUMANS: Faction = Faction {
         basic: UnitKind::Trooper,
         anti_air: UnitKind::Lancer,
         heavy_anti_air: Some(UnitKind::Interceptor),
+        // (Roster v2's Line: a Harpooner per two Pickets, its harpoon slowing what closes in; a Mender per six behind
+        // them; Breakwaters at the front once the Slipway stands)
         mix: &[
+            (UnitKind::Lancer, 2, 0.0),
             (UnitKind::Medic, 6, 0.0),
             (UnitKind::SiegeTank, 6, 330.0),
             (UnitKind::Vanguard, 2, 0.0),
         ],
         raider: UnitKind::Raider,
         wave_scale: 1.0,
-        tech_from: 300.0,
+        tech_from: 210.0, // (the Workshop sooner: Menders and the Slipway's Breakwaters earlier)
         air_lead: 0.0,
     },
 };
@@ -72,13 +75,13 @@ pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
     name: "Picket",
     cost: [50, 0],
-    hp: 40.0,
+    hp: 45.0,
     speed: 92.0,
     build: 15.0,
     bio: true,
     weapon: Some(Weapon {
         range: 4.5,
-        dmg: 6.0,
+        dmg: 7.0,
         cd: 1.0,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,
@@ -166,7 +169,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
     bio: true,
     weapon: Some(Weapon {
         range: 6.0,
-        dmg: 10.0,
+        dmg: 16.0,
         dmg_air: 24.0,
         cd: 2.5,
         proj: Some(ProjKind::Missile),
@@ -216,7 +219,7 @@ pub(super) const MEDIC: UnitDef = UnitDef {
 pub(super) const BASTION: UnitDef = UnitDef {
     key: "bastion",
     name: "Windjammer",
-    cost: [400, 0],
+    cost: [500, 0],
     supply: 6,
     hp: 450.0,
     armor: 2.0,

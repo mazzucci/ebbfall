@@ -1117,68 +1117,52 @@
    "monolith_15_1"
   ],
   "shrike_0": [
-   "shrike_0_0",
-   "shrike_0_1"
+   "shrike_0_0"
   ],
   "shrike_1": [
-   "shrike_1_0",
-   "shrike_1_1"
+   "shrike_1_0"
   ],
   "shrike_2": [
-   "shrike_2_0",
-   "shrike_2_1"
+   "shrike_2_0"
   ],
   "shrike_3": [
-   "shrike_3_0",
-   "shrike_3_1"
+   "shrike_3_0"
   ],
   "shrike_4": [
-   "shrike_4_0",
-   "shrike_4_1"
+   "shrike_4_0"
   ],
   "shrike_5": [
-   "shrike_5_0",
-   "shrike_5_1"
+   "shrike_5_0"
   ],
   "shrike_6": [
-   "shrike_6_0",
-   "shrike_6_1"
+   "shrike_6_0"
   ],
   "shrike_7": [
-   "shrike_7_0",
-   "shrike_7_1"
+   "shrike_7_0"
   ],
   "shrike_8": [
-   "shrike_8_0",
-   "shrike_8_1"
+   "shrike_8_0"
   ],
   "shrike_9": [
-   "shrike_9_0",
-   "shrike_9_1"
+   "shrike_9_0"
   ],
   "shrike_10": [
-   "shrike_10_0",
-   "shrike_10_1"
+   "shrike_10_0"
   ],
   "shrike_11": [
-   "shrike_11_0",
-   "shrike_11_1"
+   "shrike_11_0"
   ],
   "shrike_12": [
-   "shrike_12_0",
-   "shrike_12_1"
+   "shrike_12_0"
   ],
   "shrike_13": [
-   "shrike_13_0",
-   "shrike_13_1"
+   "shrike_13_0"
   ],
   "shrike_14": [
-   "shrike_14_0",
-   "shrike_14_1"
+   "shrike_14_0"
   ],
   "shrike_15": [
-   "shrike_15_0",
-   "shrike_15_1"
+   "shrike_15_0"
   ],
   "halo_0": [
    "halo_0_0",
@@ -1246,67 +1230,83 @@
   ],
   "umbra_0": [
    "umbra_0_0",
-   "umbra_0_1"
+   "umbra_0_1",
+   "umbra_0_2"
   ],
   "umbra_1": [
    "umbra_1_0",
-   "umbra_1_1"
+   "umbra_1_1",
+   "umbra_1_2"
   ],
   "umbra_2": [
    "umbra_2_0",
-   "umbra_2_1"
+   "umbra_2_1",
+   "umbra_2_2"
   ],
   "umbra_3": [
    "umbra_3_0",
-   "umbra_3_1"
+   "umbra_3_1",
+   "umbra_3_2"
   ],
   "umbra_4": [
    "umbra_4_0",
-   "umbra_4_1"
+   "umbra_4_1",
+   "umbra_4_2"
   ],
   "umbra_5": [
    "umbra_5_0",
-   "umbra_5_1"
+   "umbra_5_1",
+   "umbra_5_2"
   ],
   "umbra_6": [
    "umbra_6_0",
-   "umbra_6_1"
+   "umbra_6_1",
+   "umbra_6_2"
   ],
   "umbra_7": [
    "umbra_7_0",
-   "umbra_7_1"
+   "umbra_7_1",
+   "umbra_7_2"
   ],
   "umbra_8": [
    "umbra_8_0",
-   "umbra_8_1"
+   "umbra_8_1",
+   "umbra_8_2"
   ],
   "umbra_9": [
    "umbra_9_0",
-   "umbra_9_1"
+   "umbra_9_1",
+   "umbra_9_2"
   ],
   "umbra_10": [
    "umbra_10_0",
-   "umbra_10_1"
+   "umbra_10_1",
+   "umbra_10_2"
   ],
   "umbra_11": [
    "umbra_11_0",
-   "umbra_11_1"
+   "umbra_11_1",
+   "umbra_11_2"
   ],
   "umbra_12": [
    "umbra_12_0",
-   "umbra_12_1"
+   "umbra_12_1",
+   "umbra_12_2"
   ],
   "umbra_13": [
    "umbra_13_0",
-   "umbra_13_1"
+   "umbra_13_1",
+   "umbra_13_2"
   ],
   "umbra_14": [
    "umbra_14_0",
-   "umbra_14_1"
+   "umbra_14_1",
+   "umbra_14_2"
   ],
   "umbra_15": [
    "umbra_15_0",
-   "umbra_15_1"
+   "umbra_15_1",
+   "umbra_15_2"
   ],
   "sovereign_0": [
    "sovereign_0_0",
@@ -1409,11 +1409,11 @@
  "scale": 2,
  "tints": [
   15771693,
-  14493006,
+  14558542,
   4774574,
   14922991,
   11333491,
-  4630259,
+  4630515,
   16316663,
   16014901
  ]

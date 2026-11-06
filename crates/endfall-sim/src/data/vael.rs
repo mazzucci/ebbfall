@@ -113,7 +113,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
         range: 5.5,
         dmg: 14.0,
         dmg_air: 14.0,
-        cd: 0.9,
+        cd: 1.1,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,
         ..W

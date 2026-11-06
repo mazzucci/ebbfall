@@ -70,14 +70,15 @@ const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'E', desc: '+1 armor
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Each fighting unit's partner (what it fights best beside) and killer (what beats it), from Roster v2's
- *  compositions: one line in its train button's details (`pairLine`). Workers have none. */
+ *  compositions: one line in its train button's details (`pairLine`). Workers have none. Every killer is held by a
+ *  cost-equal duel (crates/endfall-sim/tests/gameplay/balance.rs `every_units_killer_on_its_card_beats_it`). */
 export const PAIRS = {
   trooper: ['lancer', 'monolith'], lancer: ['trooper', 'scythe'], medic: ['trooper', 'scythe'],
   vanguard: ['siegeTank', 'monolith'], siegeTank: ['vanguard', 'shrike'], interceptor: ['bastion', 'scythe'],
-  raider: ['interceptor', 'prism'], observer: ['siegeTank', 'shrike'], bastion: ['interceptor', 'prism'],
-  scythe: ['halo', 'lancer'], prism: ['monolith', 'vanguard'], halo: ['scythe', 'trooper'],
-  monolith: ['prism', 'siegeTank'], umbra: ['shrike', 'observer'], shrike: ['umbra', 'interceptor'],
-  sovereign: ['prism', 'siegeTank'],
+  raider: ['interceptor', 'prism'], observer: ['siegeTank', 'shrike'], bastion: ['interceptor', 'shrike'],
+  scythe: ['halo', 'vanguard'], prism: ['monolith', 'siegeTank'], halo: ['scythe', 'trooper'],
+  monolith: ['prism', 'raider'], umbra: ['shrike', 'trooper'], shrike: ['umbra', 'interceptor'],
+  sovereign: ['prism', 'raider'],
 };
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
 export const UNITS = merge(D.units, UNIT_TEXT);

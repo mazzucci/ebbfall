@@ -54,8 +54,6 @@ const petal = (l, w, n = 16, k = 0) => { const p = []; for (let i = 0; i < n; i+
 /** An outline stood upright in a group: [u, h] points (u across, h up) extruded `depth` towards local -z; the outer
  *  face at z = 0 faces local +z. */
 const upright = (parent, pts, depth, bevel, mat, z = 0) => add(parent, plate(pts, depth, bevel), mat, 0, 0, z, -Math.PI / 2, 0, 0);
-/** A ring of ripples on a pool. */
-const ripples = (g, M, rs, y) => { for (const r of rs) add(g, torus(r, 0.25, Math.PI * 2, 48), M.shellDeep, 0, y, 0, Math.PI / 2, 0, 0); };
 /** A flat ribbon along a helix round the y axis (`turns` from radius r0 to r1, geometric or linear with `lin`, y0 to y1, from angle a0),
  *  `w0` to `w1` wide across the radius and `t` thick; four strips with hard edges, so its top face takes the light. */
 function ribbon(H, w0, w1, t, seg = 120) {
@@ -74,9 +72,6 @@ function ribbon(H, w0, w1, t, seg = 120) {
     return boxUV(g);
   });
 }
-
-
-
 
 /** Glasshouse (tech, 2x2): a dome of dark glass in pearl ribs on an ink drum: eight pearl meridians and one hoop
  *  over the glass, a pearl crown with the one deeplight on it; a team band round the dome's foot and a team skirt

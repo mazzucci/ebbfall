@@ -10,6 +10,7 @@ import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
 import { rigger, picket, lighthouse } from './harbour.js';
 import { glint, lens, tidewell } from './vael2.js';
 import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
+import { kite, spyglass, windjammer } from './harbour-air.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 Object.assign(UNIT_MODELS, { harvester: { build: rigger, frames: 2, r: 15, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 } }); // (trooper: 0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE)
@@ -21,6 +22,13 @@ Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
   shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre) sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
+});
+// Harbour air (step 1, harbour-air.js): the Kite (flies at 17, its tail reaching 17.5 aft), the Spyglass (at 26) and
+// the Windjammer (at 24, 44 long); one frame each, gliders (look.js UNIT_FPS 0). The cells hold the flyer and its
+// shadow, which lands 0.4 of the height east and 0.3 south of it.
+Object.assign(UNIT_MODELS, {
+  raider: { build: kite, frames: 1, r: 19, h: 18 }, observer: { build: spyglass, frames: 1, r: 11, h: 30 },
+  bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
 });
 
 // The Vael units in the game; each race renders with its own materials.

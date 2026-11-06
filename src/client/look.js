@@ -35,8 +35,9 @@ export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 76
 /** Animation frames per second by unit type (default: 14 for flyers, whose rotors spin and the Raider's jet flickers;
  *  8 for walkers while they move). 0 holds the first frame: the Shrike glides on its swept wing (its two poses
  *  flickered at 14/s). The Sovereign's four hover frames (a bob, its lift ring turning) run at 4/s: a heavy barge, not
- *  a bounce. */
-export const UNIT_FPS = { shrike: 0, sovereign: 4 };
+ *  a bounce. The Harbour's flyers (the Kite, the Spyglass, the Windjammer: tools/render3d/harbour-air.js) are gliders
+ *  too, one frame each. */
+export const UNIT_FPS = { shrike: 0, sovereign: 4, raider: 0, observer: 0, bastion: 0 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Siege Tank: two tread

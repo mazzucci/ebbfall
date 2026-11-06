@@ -1,6 +1,6 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// eight units) and writes into <outdir>:
+// eight units; `hair`, the Harbour air) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px)
 //   phone.png        the same at CSS-pixel size (what the game shows at default zoom: world px 1:1)
@@ -57,6 +57,23 @@ function sliceVael(cx, cy) {
   for (let k = 0; k < 3; k++) list.push([`prism_${[10, 8, 6][k]}_0`, cx + 120 + k * 10, cy + 130 + k * 50, 1]);
   return list;
 }
+// Harbour air (harbour-air.js): the Kite, the Spyglass and the Windjammer, the Vael's Petrel beside them for contrast
+// and the slice's Rigger and Picket for the people; the battle puts the flyers over the slice, Petrels over the Vael.
+FAMILIES.hair = {
+  filter: '^(raider|observer|bastion|shrike|harvester|trooper|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
+  units: { raider: [0], observer: [0], bastion: [0], shrike: [0] }, rows: ['bldg_core', 'shard_0'],
+  shares: ['raider_0_0', 'observer_0_0', 'bastion_0_0', 'shrike_0_0'],
+  phone: ['harvester_0_0', 'trooper_0_0', 'raider_0_0', 'observer_0_0', 'shrike_0_0', 'lumen_0_0', 'prism_0_0', 'bastion_0_0'],
+  turned: ['raider_12_0', 'observer_8_0', 'shrike_12_0', 'raider_4_0', 'bastion_12_0'], turnedY: 690,
+  blind: [['raider_0_0', 'raider (Kite)'], ['observer_0_0', 'observer (Spyglass)'], ['bastion_0_0', 'bastion (Windjammer)'], ['shrike_0_0', 'shrike (Petrel)'],
+    ['harvester_0_0', 'harvester (Rigger)'], ['trooper_0_0', 'trooper (Picket)'], ['trooper_0_3', 'trooper dug in (Picket)']],
+  vael: (cx, cy) => [
+    ...sliceVael(cx, cy),
+    ...[0, 1, 2, 3].map(k => [`raider_${[1, 0, 2, 1][k]}_0`, cx - 120 + k * 44, cy - 150 + (k % 2) * 40, 0]),
+    ['observer_2_0', cx - 250, cy - 170, 0], ['bastion_1_0', cx - 420, cy + 200, 0],
+    ['shrike_9_0', cx + 260, cy - 230, 1], ['shrike_8_0', cx + 330, cy - 190, 1],
+  ],
+};
 
 const argv = process.argv.slice(2), famAt = argv.indexOf('--family'), famName = argv.find(a => a.startsWith('--family='))?.slice(9) ?? (famAt >= 0 ? argv[famAt + 1] : 'slice'), FAM = FAMILIES[famName];
 if (!FAM) throw new Error(`no family ${famName}: ${Object.keys(FAMILIES).join(', ')}`);
@@ -160,7 +177,7 @@ const place = (c, list) => { for (const [name, x, y, seat] of list.slice().sort(
   list.push(['bldg_conflux', 1330, 330, 1]);
   const gap = Math.min(80, Math.floor(1000 / FAM.phone.length));
   for (const [y, seat] of [[500, 0], [630, 1], [760, 6]]) FAM.phone.forEach((name, k) => list.push([name, 560 + k * gap, y, seat]));
-  FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, 760, k % 2]));
+  FAM.turned.forEach((name, k) => list.push([name, 600 + FAM.phone.length * gap + k * 60, FAM.turnedY ?? 760, k % 2])); // (`turnedY`: a family with a long flyer lifts the row clear of the edge)
   place(c, list);
   ring(c, 630, 503, 24, 14); // the game's selection ring under the second unit (seat 0)
   save('phone@2x.png', c);

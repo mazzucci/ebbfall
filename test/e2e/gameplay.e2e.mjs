@@ -1759,7 +1759,7 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     assert.ok(await d.skipUntil((src) => (0, eval)(`(${src})`)() === 0, foesAtBase.toString(), { seconds: 60 }), 'the enemy at the base destroyed');
     await d.skip(1);
     await step(7);
-    assert.match(await d.page.locator('#tut').textContent(), /Spend your salt: an army of 10 Pickets, then select it \(ARMY or Q\) and Attack their base/);
+    assert.match(await d.page.locator('#tut').textContent(), /Spend your salt on Pickets \(an army of 10\), then select it \(ARMY or Q\) and Attack their base/);
     // Ten strong already (the guide's eight and the strike force): with the army selected, Attack pulses.
     await d.key('q');
     await d.page.locator('#cmd button.pulse[data-id="attack"]').waitFor({ timeout: 10000 });

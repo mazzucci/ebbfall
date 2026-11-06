@@ -246,7 +246,26 @@ fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
         if w.over {
             return (w.winner == PLAYER as i32).then_some(w.time);
         }
-        if tick % 15 != 0 || w.time - from < pace {
+        if tick % 15 != 0 {
+            continue;
+        }
+        // The guided opponent after the release: at most 3 fighters trained (a wave's survivors may add one), no Lookout.
+        let foes = w
+            .units
+            .iter()
+            .filter(|u| u.team == ENEMY && !u.kind.def().worker)
+            .count();
+        assert!(
+            foes <= 4,
+            "the guided opponent keeps at most 3 fighters (plus a wave survivor): {foes}"
+        );
+        assert!(
+            !w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == BldgKind::Turret),
+            "the guided opponent raises no Lookout"
+        );
+        if w.time - from < pace {
             continue;
         }
         for h in idle_workers(w) {

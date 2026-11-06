@@ -16,7 +16,8 @@ const mine = (type) => G.units.filter(u => u.team === G.me && u.type === type).l
 const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && b.done);
 /** How near (px) an enemy fighter must come to one of the player's buildings to be at the base. */
 const AT_BASE = 12 * TILE;
-/** Whether an enemy fighter (not a worker) is at the player's base: within AT_BASE of one of its buildings. */
+/** Whether an enemy fighter (not a worker) is at the player's base: within AT_BASE of one of its buildings, seen or
+ *  not (a wave just out of sight must not end the step; the guided opponent keeps its few fighters at home). */
 const enemyAtBase = () => {
   const mineB = G.bldgs.filter(b => b.team === G.me);
   return G.units.some(u => enemies(G.me, u.team) && !u.d.worker && mineB.some(b => Math.hypot(u.x - b.x, u.y - b.y) < AT_BASE));
@@ -44,7 +45,7 @@ function steps() {
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
     // that never comes; never while one is still there)
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
-    { text: `Spend your salt: an army of ${goal} ${plural(UNITS[soldier].name)}, then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `Spend your salt on ${plural(UNITS[soldier].name)} (an army of ${goal}), then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 

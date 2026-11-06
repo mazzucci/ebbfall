@@ -113,8 +113,8 @@ Nothing emissive on the Harbour is team-tinted.
 Shown on the sprite itself, by pose frames (`src/client/look.js UNIT_POSE`): the Picket dug in = kneeling behind a
 crescent parapet of wet sandbags laid ahead (r 7.6, 200 degrees, two courses), the rifle resting on them, a team
 groundsheet behind; frame 2 while going to ground (one course), frame 3 dug in. Cover is a wall in front, open behind:
-a full ring read as a machine's body in the round-1 blind test. Beached / anchored (later vehicles and flyers): the same pattern, a pose
-frame with a visible fixture on the ground (a gangplank and chocks; a dropped anchor and a taut line), never a tint.
+a full ring read as a machine's body in the round-1 blind test. Beached / anchored (the machines, "Harbour machines" below): the same pattern, a pose
+frame with a visible fixture on the ground (the hull down and spades out; a dropped anchor and a taut line), never a tint.
 
 ## The Vael (sim race `vael`)
 
@@ -256,3 +256,32 @@ the one low shape left, read the same):
 Cells (`main.js`): Rigger r 12 h 18, Picket r 17 h 20, Harpooner r 21 h 26 (the raised harpoon's tip), Mender r 15 h 21. Team shares at facing
 0 (round 4): Rigger 0.173, Picket 0.173 / 0.214 dug in, Harpooner 0.216, Mender 0.238. The pack:
 `node tools/art/review.mjs <dir> --family=hinf`.
+
+## Harbour machines (step 1, `harbour-machines.js`)
+
+The three vehicles after the slice, on the Harbour rules above: boxes and hulls, a dark tarred body under a pale
+canvas top, team paint as matte canvas between ink lines on at least a sixth of the footprint and never only on the
+signature, timber and rope in small amounts, brass on a muzzle ring only, no lights. Each kind owns one cue a stranger
+names at 20 px, and the three never differ by size alone: legs under a pointed hull, a long bar ahead of a box, round
+wheels under a drum. Round 1's blind test passed (90%) but the judge failed the team colour: a canvas awning over the
+whole deck inside a hairline team rim made the Breakwater "a pale egg on stilts" (a Rigger to one tester) and the rim
+vanished in seat 6. Round 2's rules: the hull shows dark, bow and stern, in every facing; the canvas is a tarp over
+midships only; team paint has a real area (a quarter), on the hull's sides and on cloth, inside ink; legs are dark iron
+with team pads (pale shins read as a second pale mass in grey). The maker's rounds also taught: three bands across a
+tarp (pale, team, pale, with hoops) read as stripes, an insect: a tarp is two-tone at most; team knee caps above the
+gunwale read as antennae; a team deck alone on a carriage under a hood and a gun was 0.07 of the footprint.
+
+| kind (key)                  | signature shape, from above                                                                                                                                                       | size (sim r)   | team paint                                                                                                   | the pale top                                     |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|--------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| Breakwater (`vanguard`)     | the boat hull on legs: a tarred hull 29 long with its stem ahead, plank seams and iron straps on its bare bow and stern decks, an iron gunwale, a canvas tarp humped over midships (two-tone: pale forward of an ink bar, team aft of it, a rope hoop and a ridge seam on the pale part, a dark worn hem), four dark iron legs standing under it, a short mortar on the stem | heavy (14), the hull 8 up on its legs (cell r 22: the spades and legs splay past 17) | the strake along both hull sides (3.4 tall) between ink lines, the aft half of the tarp, the aft deck inside an ink seam, the knee caps and the foot pads' tops | the forward half of the tarp                     |
+| Anchor Gun (`siegeTank`)    | the long gun: a 21-unit tapered iron barrel on trunnion cheeks forward of a tarred carriage between iron-shod timber runners on six spoked wheels, a low canvas hood on rope hoops over the crew at the stern | heavy (14), the muzzle reaches 24 ahead, the dropped anchor about 29 astern (cell r 31) | the carriage's whole deck inside an ink hem, the hood's two end caps inside an ink rim, the six wheel discs inside their iron tyres, a band round the breech | the hood (r 4.6, 12 wide) |
+| Netter (`interceptor`)      | the box with a net: a tarred box on four big cart wheels (pale timber discs in iron tyres), behind the cab the folded net on a reel, a fat drum of pale rope wider than the box between pale timber end discs with cork floats in two rows, its mesh hanging down the tail; on the cab roof a twin flak mount, two fat tubes well apart angled up 52 degrees on one cradle (short and steep, never the Anchor Gun's long level bar) | line-heavy (12; cell r 14, the reel 15.8 across) | the whole long sides of the box and the cab's roof, between ink lines; a strap over the mount's cradle    | the net reel and the wheels' discs               |
+
+States, by pose frames as the Picket's (`UNIT_POSE` in look.js: `vanguard: { walk: 2, swap: 2, on: 3 }`, added for
+the Breakwater; the Anchor Gun keeps `siegeTank`'s row): the Breakwater beached (frame 2 settling: the hull half down,
+the legs folding, the spades swinging out; frame 3: the hull down on the sand, the legs crouched tight under it, four
+spades out either side, each a timber shaft from the gunwale with a broad pale timber blade and an iron edge lying on
+the ground); the Anchor Gun anchored (frame 2: the gun rising, the anchor swinging down off the stern on its hawser;
+frame 3: the gun raised 26 degrees and an anchor dropped on the sand astern, a pale timber stock across its ring, a
+pale hawser taut from the stern post). Travelling, the anchor is lashed on the hood. The Netter has two frames (the
+wheels turn). A fixture on the ground, never a tint, as the sheet says.

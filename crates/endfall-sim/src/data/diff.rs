@@ -174,7 +174,7 @@ pub const DIFF: [Diff; 4] = [
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
-        income: 1.0,
+        income: 1.1, // (Roster v2 balance pass: the ladder, Hard over Medium; Brutal has 1.3)
         wave: 8,
         wave_grow: 3,
         harv: 11,

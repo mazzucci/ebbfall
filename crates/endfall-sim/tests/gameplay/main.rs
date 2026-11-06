@@ -10,6 +10,7 @@ mod combat;
 mod common;
 mod construction;
 mod economy;
+mod guided;
 mod jitter;
 mod lockstep;
 mod maps;

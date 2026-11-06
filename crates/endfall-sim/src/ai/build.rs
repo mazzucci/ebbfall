@@ -508,6 +508,8 @@ impl World {
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && self.ai_count(&my_b, false, s.tower) < (t > 150.0) as usize + (t > 480.0) as usize
             && tower_room
+            && !self.guided
+        // (the guided first game: none; `guided_hold`)
         {
             Some(s.tower)
         // (the rules let air follow the first factory; this AI chooses ground tech first)

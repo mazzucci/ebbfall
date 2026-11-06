@@ -7,7 +7,7 @@ are the "not drawings" part. Nothing here is a flat fill, a cartoon outline or a
 material, wear sits on edges, and every unit casts a real shadow.
 
 Step 0 (the slice) set this sheet with six models: the Rigger, Picket and Lighthouse (`harbour.js`), the Glint, Lens
-and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1).
+and Tidewell (`vael2.js`), plus the seabed (`tools/art/terrain2.js`) and the salt field (`ground.js saltField` since step 1; the salt works since step 2).
 Later makers build from it; where a later model needs a material that is not here, add it to `materials.js` /
 `vael.js makeVaelMats` and to this sheet in the same change.
 
@@ -26,11 +26,10 @@ below). The renderer picks them through
 variant's own (veins, marks) fades out at the tile's edge. The rock plateaus are dead reef (step 1): a bleached lip, a
 pitted grey-brown top, a dark layered face on every edge.
 
-The salt field (`shard_0..3`): halite grown in cubic clusters on a bed of wet slate under a crust. Salt is pale
-by itself, a warm grey (`ground.js GMATS`: `salt` 0x7c776d rough 0.95, `saltWet` 0x6e6f68, flat shaded; it peaks near
-200 sRGB, under the units' highlights: step 0's 0xe4e0d4 and round 2's 0xc2bdae both peaked at white) and carries no
-light. The four
-stages differ by shape: standing clusters, fewer and lower clusters, a flat broken crust, a bare dark pit with a pale rim.
+The salt field (`shard_0..3`): the salt works, a heap of salt on each node standing on one cracked salt pan under the
+whole field ("The salt works" below). Salt is pale but under the units' highlights (it peaks near 190 sRGB) and carries
+no light. The four stages differ by shape: a tall cone and a small one, one cone dug flat, a low raked windrow, a
+scraped wet hollow with a pale broken rim.
 
 ## The Harbour (sim race `humans`)
 
@@ -470,25 +469,47 @@ shared by the variants (round 1 used a non-periodic noise: seams); its own marks
 small bleached nub, at hashed places clear of the edge, no window. The plateau's inside has six variants (`rock_15_0..5`,
 `gl/ground.js rockTile`), the edges three. The minimap draws it `#6b665a`.
 
-**The salt field** (`ground.js saltField`, `shard_0..3`, GMATS as above): a field, not a clump (round 3's read as
-rubble or rock heaps). A wide flat apron of pale grey-white crust (`apron` 0x4d4c49, radius 17 with an uneven edge,
-`patch`; ~109 sRGB in grey in the review's units sheet), bigger than the crystals, under stages 0-2, so a field reads
-as a pale patch at 1x; the cell is `unitCell(21, 24)`. 0: nine tall clusters of halite cubes on a darker crust heart
-(`crust` 0x46433d), a spill of loose cubes; 1: four lower clusters, the crust dug through to the slate in places; 2: no
-standing crystals, slabs of crust and salt over wet slate on the apron; 3: a bare dark pit of wet slate with a film of
-brine and an uneven, broken pale rim, two cubes left. The crystals peak near 198 sRGB.
+**The salt works** (step 2, after the owner's note that grey faceted crystal clumps in an arc by the main read as a
+mineral line and a green pool as a geyser, from another game, and the whole-set judge's "the salt reads as rubble").
+No upright faceted crystals and no green pool or plume anywhere.
 
-**The brine seep** (`brineSeep`, `vent_0..3`, round 4): the opposite of kelp. Brine a mid teal-green (`seep` 0x1c3a35,
-~77 sRGB in grey, near the shallows' value and above the ground's ~40) welling up off centre (`seepDeep`), one small
-still glint, in an uneven pool ringed by an irregular pale salt crust (`rim` 0x5a5852, ~135 in grey) with flakes lifted
-at its edge, slate stones at no even spacing, three of them in a heap. No rings, no light (round 2's black disc and
-rings read as a Vael unit; round 3's dark brine read as a hole, the kelp's twin). The frames: bubbles of brine (a
-lighter teal, never foam-white) at five places, each swelling and slumping to a flat slick in turn. The renderer's
-violet glow over it is gone (`gl/render.js NodeObj`).
+*The salt pan* (`src/client/gl/ground.js saltPans`, drawn by `gl/render.js renderTerrain` over the tiles and under
+the shade layers, and by the review pack the same way): one continuous crust under each field, so a field reads as a
+salt flat and not as separate rocks. Salt nodes within 3.6 tiles of each other join (a field's arc spaces them 2 to
+3.2 apart); the pan is their union of discs (1.3 tiles) and capsules between joined nodes (0.95), its shore wobbled
+by two low noises. A dull grey-white crust (`PAN` [75,73,68], about 58 in grey on the seabed's 40: under the reef top
+and a unit's body; round 1's pale pan, ~100, was the largest light mass on screen and the workers lost contrast where
+they mine), cracked into flags about half a tile across by faint pale lines that come and go (dark outlines read as
+paving), each flag its own shade, a fine grain, darker and damp towards its edge. The edge is crisp (round 2's soft, dithered
+edge read as smoke or fog-of-war): a thin pale lip (`PAN_LIP` [104,101,94], 0.07 tile) with a dark line of shadow
+under it, and past it a few flakes (~0.3 tile) broken off onto the seabed, each with its own lip and shadow. The pan's
+shape is a distance field read bilinearly from a 4-texel grid; a 1 world px texel cost about four times as much
+(1.4 s for a 128x128 map's 20 fields, cold) and was not kept. The heaps carry the brightness. One texel
+is 2 world px (`PAN_RES`), linear-filtered; on a desktop's Chromium a 64x64 map's pans take some 50-75 ms to make cold
+(20 ms warm), a 128x128 map's 105-145 ms (60-80 ms warm): the cells of the 4-texel grid wholly off the pan are skipped,
+and each loop is a small function over typed arrays (as one large function V8 kept deoptimizing it: 0.2-0.5 s cold).
+The pan stays when its nodes are worked out.
+
+*The heaps* (`ground.js saltField`, `shard_0..3`, `unitCell(16, 16)`): heaps of salt the shape of salt-works piles,
+cones at the angle salt rests at with a rounded top, barely uneven, each on a damp spilt foot (`W.heap` 0x8a867e with a
+grain map and bump, `grainTexture`: no smooth clay; white in the light, grey on its shadow side, peaking near 185 sRGB).
+0: a tall cone and a small one; 1: one cone with a scoop dug out of its face (a flat top read as a cake); 2: a long, low raked ridge (a cone drawn out 2.2 to 0.62)
+with rake grooves along its flanks; 3: a scraped hollow of wet slate in
+the crust with a pale broken rim (`W.terrace`) and two lumps left.
+
+**The brine seep** (`brineSeep`, `vent_0..3`, step 2): a brine spring. Iron brine, an unsaturated red-brown with a
+wet sheen and a small still glint (`W.brine` 0x51392a rough 0.15, ~60 in grey; `W.glint`; round 2's maroon could read
+as a red splat; round 1's rust-ochre read as the Harbour's orange and as fire), wells up off
+centre (`W.welling`) in a pool held by salt terraces stepping down round it (`W.terrace` 0x504e49, three uneven tiers 2 high,
+each bevelled and smooth shaded: lit rounded rims over steps in shadow, no flat fills), the brine's iron staining the
+terraces and a tongue of crust where it spills to the south-east (`W.ochre` 0x3e2c22, dull); slate stones at no even
+spacing. No green, no plume, no rings, no light. The
+frames: bubbles of a lighter ochre at five places, each swelling and slumping to a flat slick in turn. The tide pool
+(scenery) stays a dull grey-blue film, ~54 in grey: never ochre, never ringed by white.
 
 **The scenery** (`scenery2.js`, `SCENERY`; the names are the old props' so the client, the scatter and the tests stay
-as they are): on the reef (solid), `boulders_*` a small heap of clams and whelks lying down with rounded brown
-pebbles (`shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
+as they are): on the reef (solid), `boulders_*` a small heap of clams and whelks lying down with rounded grey-brown
+pebbles (`pebble` 0x35312d, off the seep's rust; `shell` 0x5a4a3a, `shellDark` 0x3a3028: brown and dark, never white or grey-white, nothing angular and upright;
 round 1's heap read as a cluster of Vael units, round 3's grey pieces and angular stones like the salt's crystals), `spire_*` pilings (weathered `drift` 0x6c6252, a tar line, a barnacle crust, split tops),
 `ruin_*` a boat's ribs, `wreck_*` a tarred hull keel up. On the open ground (flat, walked over): `crater_0` an anchor in
 the sand, `crater_1` a tide pool (a small film of dull grey-blue water, `pool` 0x131a22, ~54 in grey, under the seep's brine (~77) so it is never taken for one: round 4's mint teal was brighter than the brine; in one lobed outline straight on the sand, its kelp brown-black,
@@ -527,11 +548,13 @@ then the deep. In grey: land, a dark wet line, a pale lap, the lighter shallows,
 most 2048 a side), on a dry one one texel a tile as before. The minimap: land `hsl(36,10%,14-23%)`, reef `#6b665a`,
 shallows `#467c80` (a notch up), deep `#1d3658`.
 
-The grey check (round 4): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
-ground, the kelp, each resource, the seep's brine and rim, the salt's apron, the reef top and the units; the order
-to keep is units first, then the seep and the full salt, the kelp always under the ground.
+The grey check (round 4; the salt works add a worker standing in the middle of a pan in the base shot, its body's
+grey against the pan's round it): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
+ground, the kelp, each resource, the seep's brine and terraces, the salt pan, the reef top, the tide pool and the
+units; the order to keep is units first, then the seep and the full salt, the kelp always under the ground.
 
 The pack: `node tools/art/review-ground.mjs <dir>` (the ground and units sheets at a phone's size and at 1:1 with the
 game's shade layer over them, grey / protan / deutan, every prop at 1:1, construction and rubble of both peoples, the
-projectiles at 1:1 and 4x, a Shore-like patch with the water tints and its minimap strip). It renders only the family
+projectiles at 1:1 and 4x, a Shore-like patch with the water tints and its minimap strip, and the base shot: a real
+main from the sim's map at a phone's size). It renders only the family
 and a few units for scale, never the whole atlas.

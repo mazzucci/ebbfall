@@ -19,6 +19,9 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 /** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
+/** The Vael buildings' glow: their lantern light (tools/render3d/vael-palette.js, Fen lantern). */
+const VAEL_GLOW = [0xffa070, 0xff9862];
+
 /** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a turret head sprite that
  * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). */
 export const BLDG_LOOK = {
@@ -26,11 +29,11 @@ export const BLDG_LOOK = {
   // (the Pump: no light; salt carries none)
   forge: { glow: [0xff5a1e, 0.9, 0.4, -20, true, -3], smoke: [[23, -13]] }, // (the glow on the Workshop's hearth, out in the yard south of the smithy: 3 px west of the centre, 20 below it, as measured on the sprite; the smoke from its one stack, at the north-west corner)
   turret: { head: 'turret_head' },
-  // the Vael: violet light from their crystals
-  conflux: { glow: [0xb48cff, 1.6, 0.4, 12, false] }, // (on the Tidewell's pool)
-  siphon: { glow: [0xa78bfa, 1.1, 0.55, 14, false] },
-  spire: { glow: [0xb48cff, 0.9, 0.35, 34, false] },
-  ward: { glow: [0xb48cff, 0.8, 0.35, 20, false] },
+  // the Vael: the light of their palette (VAEL_GLOW)
+  conflux: { glow: [VAEL_GLOW[0], 1.6, 0.4, 12, false] }, // (on the Tidewell's pool)
+  siphon: { glow: [VAEL_GLOW[1], 1.1, 0.55, 14, false] },
+  spire: { glow: [VAEL_GLOW[0], 0.9, 0.35, 34, false] },
+  ward: { glow: [VAEL_GLOW[0], 0.8, 0.35, 20, false] },
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */

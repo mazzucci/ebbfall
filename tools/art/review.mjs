@@ -145,6 +145,19 @@ FAMILIES.shaft = {
   blind: [['vent_0', 'the mine shaft (vent)'], ['vent_0+bldg_extractor', 'extractor (Excavator) over a shaft'], ['bldg_forge', 'forge (Workshop)'], ['bldg_depot', 'depot (Windmast)'], ['vent_0+bldg_siphon', 'siphon (Siphon) over a shaft']],
   noBattle: true, base: true,
 };
+// The Vael's palette (tools/render3d/vael-palette.js, Fen lantern): every
+// Vael unit and building, with the bud, the rubble and the beam, in seats 0, 1, 2 and 6 on the seabed at a phone's size
+// (`palette.png`, its greyscale `palette-grey.png`, and `palette@2x.png`, atlas px), beside the usual contact sheet, the
+// phone sheets and a battle of a whole Vael base and army against the Harbour.
+FAMILIES['vael-palette'] = {
+  filter: '^harvester_(0|1|2|14)_[01]$|^trooper_[01]_[0-3]$|^(lumen|prism|scythe|halo|monolith|umbra|shrike|sovereign)_\\d+_\\d+$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|zenith|eclipse)$|^(bud|rubble_vael)_[234]$|^shard_\\d$',
+  units: { lumen: [0], prism: [0], scythe: [0], halo: [0], monolith: [0], umbra: [0, 2], shrike: [0], sovereign: [0] }, rows: VBLD.map(([k]) => `bldg_${k}`),
+  shares: [...FAMILIES['vael-units'].shares, ...VBLD.map(([k]) => `bldg_${k}`)],
+  phone: FAMILIES['vael-units'].phone, turned: FAMILIES['vael-units'].turned,
+  blind: [],
+  vael: (cx, cy) => [...FAMILIES.vbld.vael(cx, cy), ...FAMILIES['vael-units'].vael(cx, cy).filter(([n]) => !n.startsWith('bldg_')).map(([n, x, y, s]) => [n, x - 260, y + 120, s])],
+  paletteSheet: { units: VAEL.map(([k]) => k), poses: ['umbra_0_2', 'umbra_6_2'], bldgs: VBLD.map(([k]) => `bldg_${k}`), extra: ['bud_2', 'bud_3', 'bud_4', 'rubble_vael_3'] },
+};
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];
   for (let k = 0; k < 3; k++) list.push([`lumen_${[9, 8, 7][k]}_0`, cx + 330 + k * 40, cy - 160 + k * 30, 1]);
@@ -270,6 +283,29 @@ rows.push(...FAM.rows);
   });
   save('contact.png', c);
   writeFileSync(join(outDir, 'contact.json'), JSON.stringify({ columns: ['seat 0 (gold)', 'seat 1 (magenta)', 'seat 6 (white)', 'team mask'], rows }, null, 1));
+}
+
+// ---- 1b. the palette sheet (FAM.paletteSheet): every kind in seats 0, 1, 2 and 6 on the seabed, at a phone's size ----
+if (FAM.paletteSheet) {
+  const P = FAM.paletteSheet, SEATS = [0, 1, 2, 6], GAP = 16;
+  const { effectSprites } = await import('./effects2.js'), beam = effectSprites().find(e => e.name === 'beam');
+  // rows: each unit at facings 2 and 10 (the four seats each), the Undertow's lurk, each building, then the bud, rubble, beam
+  const rows = [...P.units.map(k => SEATS.flatMap(st => [[`${k}_2_0`, st], [`${k}_10_0`, st]])), SEATS.flatMap(st => P.poses.map(n => [n, st]))];
+  for (let i = 0; i < P.bldgs.length; i += 2) rows.push(SEATS.flatMap(st => P.bldgs.slice(i, i + 2).map(n => [n, st])));
+  rows.push(P.extra.map(n => [n, null]));
+  const box = (n) => { const s = n === 'beam' ? beam : get(n); return [s.img.w, s.img.h]; };
+  const sized = rows.map(r => ({ r, w: r.map(([n]) => box(n)[0] + GAP), h: Math.max(...r.map(([n]) => box(n)[1])) + GAP }));
+  const W = Math.max(...sized.map(x => x.w.reduce((a, b) => a + b, 0))) + GAP, H = sized.reduce((a, x) => a + x.h, 0) + GAP + 40;
+  const c = canvas(W + (W & 1), H + (H & 1)); seabed(c, 3, true);
+  let y = GAP;
+  for (const { r, w, h } of sized) {
+    let x = GAP;
+    r.forEach(([n, st], i) => { const s = get(n); draw(c, s, x + s.anchor.x * s.img.w, y + s.anchor.y * s.img.h, st); x += w[i]; });
+    y += h;
+  }
+  { const x0 = GAP, y0 = y; for (let j = 0; j < beam.img.h; j++) for (let i = 0; i < beam.img.w; i++) { const si = (j * beam.img.w + i) * 4, di = ((y0 + j) * c.w + x0 + i) * 4, a = beam.img.data[si + 3] / 255; for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + beam.img.data[si + k] * a; } }
+  save('palette@2x.png', c); const p = half(c); save('palette.png', p); save('palette-grey.png', simulate(p, 'grey'));
+  writeFileSync(join(outDir, 'palette.json'), JSON.stringify({ seats: SEATS, rows: rows.map(r => r.map(([n, st]) => st === null ? n : `${n} @${st}`)) }, null, 1));
 }
 
 // ---- 2. team share per sprite (facing 0, frame 0; pose frames too): mask pixels over the sprite's solid pixels ----

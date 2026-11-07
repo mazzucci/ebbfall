@@ -1,5 +1,5 @@
 // The Vael's buildings on the new look (STYLE.md, "Vael buildings"): pale pearl shells on an ink core, a few small
-// blue-violet deeplights, team glaze between ink seams. Step 1's family: the Sunpetal (spire), the Siphon (siphon),
+// lantern deeplights (vael-palette.js), team glaze between ink seams. Step 1's family: the Sunpetal (spire), the Siphon (siphon),
 // the Cradle (kiln), the Glasshouse (loom), the Anemone (ward), the Gyre (zenith) and the Darkwater (eclipse); the
 // Tidewell (conflux) stays in vael2.js and is the reference. Same conventions: game units (1 tile = 32), y up, +z
 // south (towards the camera); a building's anchor is its footprint's centre. Each building owns a roof from above:
@@ -13,19 +13,20 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { torus, lathe } from './vael.js';
 import { deeplight } from './vael2.js';
+import { VP } from './vael-palette.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
-// ---- the family's own material: dark glass, a shade bluer than the ink core, for faces and panes ----
+// ---- the family's own materials (colours: vael-palette.js): dark glass for faces and panes, the Cradle's basin and bud ----
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
   const A = {
-    darkGlass: new THREE.MeshPhysicalMaterial({ color: 0x16142c, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
-    petalGlass: new THREE.MeshPhysicalMaterial({ color: 0x1c1840, emissive: 0x0e0c22, emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: 0x8c80d8 }), // the Sunpetal's faces: deep violet glass with a light sweep, never flat black
-    violetWater: new THREE.MeshStandardMaterial({ color: 0x3a2e74, emissive: 0x241a58, emissiveIntensity: 0.55, metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep violet, never black
-    bud: new THREE.MeshPhysicalMaterial({ color: 0x6a5aa8, emissive: 0x2c2060, emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: 0xe8e0ff }), // the Cradle's bud: violet under a pearl sheen
-    mouth: new THREE.MeshStandardMaterial({ color: 0x1a1830, emissive: 0x201c48, emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark violet, lit from within
+    darkGlass: new THREE.MeshPhysicalMaterial({ color: VP.darkGlass, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
+    petalGlass: new THREE.MeshPhysicalMaterial({ color: VP.petalGlass[0], emissive: VP.petalGlass[1], emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: VP.petalGlass[2] }), // the Sunpetal's faces: deep glass with a light sweep, never flat black
+    violetWater: new THREE.MeshStandardMaterial({ color: VP.basin[0], emissive: VP.basin[1], emissiveIntensity: VP.basin[2], metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep and lit (violet on the pearl palette), never black
+    bud: new THREE.MeshPhysicalMaterial({ color: VP.bud[0], emissive: VP.bud[1], emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: VP.bud[2] }), // the Cradle's bud: the light's colour under a pale sheen
+    mouth: new THREE.MeshStandardMaterial({ color: VP.mouth[0], emissive: VP.mouth[1], emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark, lit from within
   };
   FAM.set(M, A); return A;
 }
@@ -114,7 +115,7 @@ function tentacle(g, M, pts, r0, r1, glazed = []) {
 }
 
 /** Sunpetal (supply, 2x2): a flower open to the sky: five broad rounded pearl petals spaced evenly round an ink
- *  core, each splayed well past the view angle so its inner face shows from above: violet glass with a light sweep
+ *  core, each splayed well past the view angle so its inner face shows from above: smoked-amber glass with a light sweep
  *  in a pearl rim, a team band across the face at its root between ink seams; a team skirt round the core; the one
  *  deeplight on the pistil at the heart. Nothing pointed: round tips, no wedges. The Anemone beside it is thin
  *  curling tentacles, not petals. */
@@ -136,7 +137,7 @@ export function sunpetal(M) {
     p.position.set(Math.cos(a) * 8.5, 17.5, Math.sin(a) * 8.5); p.rotation.y = Math.PI / 2 - a; // local +z points outward
     const lean = grp(); lean.rotation.x = 1.0; p.add(lean);                                      // splayed past the view angle: its face to the sky
     upright(lean, blade, 2.4, 0.7, M.shell);                                                     // the petal, pearl
-    upright(lean, face, 0.5, 0.1, A.petalGlass, -2.6);                                           // the violet glass face
+    upright(lean, face, 0.5, 0.1, A.petalGlass, -2.6);                                           // the dark glass face
     upright(lean, [[-8.6, 3.2], [8.6, 3.2], [8.8, 10.4], [-8.8, 10.4]], 0.6, 0.1, M.glaze, -2.7);      // the team band across the face above the hub, even in width
     upright(lean, [[-8.6, 2.4], [8.6, 2.4], [8.6, 3.2], [-8.6, 3.2]], 0.7, 0.1, M.inkSeam, -2.8);      // ink seams either side
     upright(lean, [[-8.9, 10.4], [8.9, 10.4], [9, 11.3], [-9, 11.3]], 0.7, 0.1, M.inkSeam, -2.8);
@@ -179,7 +180,7 @@ export function siphon(M) {
   add(g, sph(4.2, 20, 14), M.ink, 4, 6.2, -14.6).scale.set(1.5, 0.7, 0.6);                     // the dark opening the tubes come out of
   deeplight(g, M, 1.1, 3.5, 7.4, -13.4);                                                        // the one light, in it
   // the feeding tubes: soft, thick, drooping over the beam and down into the black, darker as they go down
-  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
+  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: VP.tubeDeep, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
   const TUBES = [[2.3, [[-1, 6.5, -15.5], [-2.6, 9.6, -13], [-3.6, 7.6, -9.6], [-4.2, 1.5, -7.6], [-4.6, -6, -6.6], [-4.8, -14, -6.2]]],
     [2.7, [[5.5, 7, -15], [6.2, 10, -12.2], [5.6, 7, -8.4], [4.6, 0.5, -6], [4, -7, -4.8], [3.8, -15, -4.3]]],
     [1.9, [[13.5, 5.8, -10.5], [11.6, 9.4, -8.2], [9.2, 6.4, -6], [8.2, -0.5, -4.2], [7.8, -8, -3.4], [7.7, -15, -3]]]];
@@ -197,16 +198,16 @@ export function siphon(M) {
 
 /** Cradle (trains the line, 3x3): a scallop shell with something growing in it: a fan-shaped bowl, its flat hinge
  *  a team bar across the north, pearl flutes splaying from the hinge across the bowl's floor to a ridged rim wall
- *  (a knob on each ridge); the basin deep violet water (`violetWater`, never black); in it one big bud, violet
+ *  (a knob on each ridge); the basin dark amber water (`violetWater`, an old name, never black); in it one big bud, horn
  *  under a pearl sheen with a pearl crown and a faint glow, and one deeplight at its foot. From above: a pale fan
- *  of ribs on violet, a bud at its heart; the Darkwater beside it is a flat ink pool with low thin arms. */
+ *  of ribs on dark water, a bud at its heart; the Darkwater beside it is a flat ink pool with low thin arms. */
 export function cradle(M) {
   const g = grp(), A = fam(M);
   plinth(g, M, 40, 0.2);
   const C = [0, 4], R = 30, A0 = -0.5, A1 = Math.PI + 0.5, N = 15, HZ = C[1] - 31, HW = 15;        // the fan: an arc of 237 degrees round C, closed to the north by a flat hinge 30 wide
   const fan = (k) => { const p = []; for (let i = 0; i <= 28; i++) { const a = A0 + (A1 - A0) * i / 28; p.push([C[0] + Math.cos(a) * R * k, C[1] + Math.sin(a) * R * k]); } p.push([-HW * k, C[1] + (HZ - C[1]) * k], [HW * k, C[1] + (HZ - C[1]) * k]); return p; };
   add(g, plate(fan(1.06), 5, 1), M.shellDark, 0, 4, 0);                                          // the bowl's floor, pearl in shade
-  add(g, plate(fan(0.97), 1.2, 0.3), A.violetWater, 0, 8.6, 0);                                  // the basin: deep violet water
+  add(g, plate(fan(0.97), 1.2, 0.3), A.violetWater, 0, 8.6, 0);                                  // the basin: dark amber water
   for (let i = 0; i < 9; i++) {                                                                  // the flutes: pearl ribs splaying from the hinge across the floor to the rim
     const a = A0 + 0.15 + (A1 - A0 - 0.3) * i / 8, x0 = 0, z0 = HZ + 3, x1 = C[0] + Math.cos(a) * (R - 1.5), z1 = C[1] + Math.sin(a) * (R - 1.5);
     const len = Math.hypot(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0);
@@ -232,7 +233,7 @@ export function cradle(M) {
   add(g, rbox(2 * HW + 4.4, 0.6, 8.4, 0.2), M.inkSeam, 0, 4.3, HZ - 1); add(g, rbox(2 * HW + 4.4, 0.6, 8.4, 0.2), M.inkSeam, 0, 14.9, HZ - 1);
   add(g, rbox(2 * HW, 2.2, 6, 0.7), M.ink, 0, 16, HZ - 1); add(g, rbox(2 * HW - 6, 1.2, 4, 0.5), M.ring, 0, 17.6, HZ - 1); // an ink cap, a pearl ridge
   const bud = grp(); bud.position.set(-2, 10, 3); g.add(bud);                                   // the bud: big, an egg standing in the water
-  add(bud, sph(8, 20, 16), A.bud, 0, 6, 0).scale.set(1, 1.3, 1);                                 // violet under a pearl sheen
+  add(bud, sph(8, 20, 16), A.bud, 0, 6, 0).scale.set(1, 1.3, 1);                                 // horn under a pale sheen
   add(bud, sph(6.6, 18, 14), M.shellLight, 0, 11.2, 0).scale.set(1, 1.05, 1);                    // its pearl crown, the top half
   add(bud, sph(10.5, 14, 10), M.deepHalo2, 0, 6, 0).scale.set(1, 1.2, 1);                        // a faint glow round it
   add(bud, cyl(4.6, 5.2, 1.4, 16), M.glaze, 0, 17.6, 0); add(bud, cyl(5.3, 5.3, 0.5, 16), M.inkSeam, 0, 16.7, 0); add(bud, sph(2.4, 10, 8), M.ring, 0, 18.9, 0); // a team collar under a pearl tip
@@ -241,10 +242,10 @@ export function cradle(M) {
 }
 
 /** Anemone (defence, 2x2): an anemone that stings: a fat ink column on a pearl foot, a pearl oral disc with a team
- *  rim round a dark violet mouth lit from within, and five soft pearl tentacles curling out, up and in from the
- *  disc, each tapering to a blue-violet tip (deeplight, never a pale bulb); a tall team collar round the column, a
+ *  rim round a dark mouth lit from within, and five soft pearl tentacles curling out, up and in from the
+ *  disc, each tapering to a lantern tip (deeplight, never a pale bulb); a tall team collar round the column, a
  *  hoop on the foot, a team sleeve on each tentacle's middle, all between ink seams. Low and curled, so its
- *  shadows stay short. From above: five curling arms with violet tips round a pale disc: nothing like petals. */
+ *  shadows stay short. From above: five curling arms with lit tips round a pale disc: nothing like petals. */
 export function anemone(M) {
   const g = grp(), A = fam(M);
   plinth(g, M, 27, 0.4);
@@ -254,13 +255,13 @@ export function anemone(M) {
   skirt(g, M, 12.2, 6.4, 15, 28);                                                              // the team collar
   add(g, cyl(12.5, 10.5, 3, 28), M.shell, 0, 24.5, 0);                                         // the oral disc
   hoop(g, M, 11.3, 3.2, 26, 36);                                                               // its team rim
-  add(g, cyl(7, 7.5, 1.4, 20), A.mouth, 0, 26.4, 0);                                           // the mouth: dark violet, lit from within
+  add(g, cyl(7, 7.5, 1.4, 20), A.mouth, 0, 26.4, 0);                                           // the mouth: dark, lit from within
   add(g, torus(4.2, 0.5, Math.PI * 2, 24), M.shellDeep, 0, 27.1, 0, Math.PI / 2, 0, 0);         // a faint pearl ring in it
   for (let k = 0; k < 5; k++) {                                                                 // five tentacles, one to the north, curling out, up and in
     const a = -Math.PI / 2 + k / 5 * Math.PI * 2, x = Math.cos(a), z = Math.sin(a), t = Math.sin(k * 2.1) * 0.6;
     const P = [[10, 26], [15.5, 27.5], [20, 30.5], [22.5, 35], [21.5, 39.5 + t], [18.5, 42 + t]].map(([r, y]) => [x * r, y, z * r]);
     tentacle(g, M, P, 2.6, 1.3, [1, 2]);
-    add(g, sph(2, 12, 10), M.deeplight, ...P[5]);                                              // the stinging tip: blue-violet, no white heart
+    add(g, sph(2, 12, 10), M.deeplight, ...P[5]);                                              // the stinging tip: the lantern light, no white heart
     add(g, sph(3.2, 10, 8), M.deepHalo1, ...P[5]); add(g, sph(4.6, 10, 8), M.deepHalo2, ...P[5]);
   }
   return g;

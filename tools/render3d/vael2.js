@@ -1,4 +1,4 @@
-// The Vael's new look (STYLE.md): pale pearl shells on an ink core, violet-blue "deeplight" in a few small lights.
+// The Vael's new look (STYLE.md): pale shells on an ink core, "deeplight" (the lantern light, vael-palette.js) in a few small lights.
 // Step 0's slice: the Glint (lumen), the Lens (prism) and the Tidewell (conflux). Same conventions as vael.js: game
 // units, units face +x, y up, +z south; everything hovers. Team glaze sits between thin ink seams, so a white seat
 // still parts from the pearl.
@@ -9,7 +9,7 @@ import { ring, torus, cone } from './vael.js';
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
 const tri = (r, k = 0.55) => { const p = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, rr = r * (1 - k * 0.5 + k * 0.5 * Math.cos(3 * a)); p.push([Math.cos(a) * rr, Math.sin(a) * rr]); } return p; };
-/** A small deeplight: a violet-blue bead with a white heart and a soft falloff. */
+/** A small deeplight: a lantern bead with a cream heart and a soft falloff. */
 export function deeplight(parent, M, r, x, y, z) {
   add(parent, sph(r, 10, 8), M.deeplight, x, y, z);
   add(parent, sph(r * 0.62, 8, 6), M.deepCore, x, y, z);

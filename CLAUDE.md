@@ -50,9 +50,12 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
                    # cross-engine subset there (`engines: true`; WebKit skips the
                    # menu's focus test); ENDFALL_ALL=1 runs all but the Chromium-only ones. Firefox has WebGL on Linux
                    # only with a display: it runs headed whenever DISPLAY is set (so on a desktop it takes your screen,
-                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does. ENDFALL_SHARD=i/n runs every
-                   # n-th test of each file from the i-th (CI splits Chromium over four jobs); `d.skipUntil` fast-forwards
+                   # full screen too); use xvfb-run -a npm run test:e2e, as CI does. ENDFALL_SHARD=i/n runs the i-th
+                   # of n shards balanced by measured time (test/e2e/times.json: longest first into the least-loaded
+                   # shard, a test not in it weighs the median; a file run alone runs its tests of that shard; CI splits
+                   # Chromium over four jobs); `d.skipUntil` fast-forwards
                    # in the page until a condition holds (prefer it to `until` for a plain wait)
+node tools/e2e-times.mjs <run id>... # refresh test/e2e/times.json from green ci.yml runs' e2e logs (each test's median); plan [n]: the shards
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
                              # Android emulator or BrowserStack's real devices
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
@@ -64,8 +67,9 @@ node tools/og.mjs            # regenerate public/og.png (the link preview's imag
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
 and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
-over four `e2e` jobs; the cross-engine subset in WebKit and Firefox; the golden games on an ARM Mac, `arm`, which holds
-neither a merge nor a deploy since 2026-11-04 and is read by hand) on every pull request, and publishes
+over four `e2e` jobs; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
+which hold neither a merge nor a deploy (`arm` since 2026-11-04, `engines` since 2026-11-07) and are read by hand: the
+ruleset requires build, rust and e2e (1) to (4), and `relay` and `deploy` wait on the same) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
 Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
@@ -250,7 +254,8 @@ test/scenery.test.js  the scenery scatter on real maps: deterministic, props whe
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`
-                      for the cross-engine subset and `chromium: 'why'` for Chromium-only), gameplay.e2e.mjs (scenarios),
+                      for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
+                      (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
@@ -281,6 +286,8 @@ test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: a
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P
+test/shards.test.js   the e2e shards (test/e2e/shards.mjs): every test in exactly one shard for n = 1 to 6, deterministic,
+                      balanced, a test missing from the table placed by the median
 test/seats.test.js    the board's rules: spots to seats, team ids and each seat's spot, a new AI's spot and side, the
                       sides a sheet offers, a saved board checked (and one from before the spots)
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);

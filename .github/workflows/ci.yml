@@ -82,7 +82,8 @@ jobs:
           path: dist
 
   # The browser tests in Chromium, on the build job's dist/, split by test over four jobs (ENDFALL_SHARD, the e2e
-  # harness: every fourth test of each file), as one file holds most of the time. WebKit and Firefox: the engines job.
+  # harness: balanced by each test's measured time, test/e2e/times.json), as one file holds most of the time. WebKit and
+  # Firefox: the engines job.
   e2e:
     needs: build
     runs-on: ubuntu-latest
@@ -112,6 +113,7 @@ jobs:
   # The browser tests' cross-engine subset (the scenarios marked `engines: true`: the menu, sound and full screen, a short
   # game through the UI, taps on a phone, joining a room through a local relay, offline, the golden games) in WebKit
   # (Safari's engine) and Firefox, beside the build job. Firefox has WebGL only with a display: a virtual one (xvfb).
+  # Like `arm`, neither a merge nor a deploy waits for it (2026-11-07): its result is read by hand.
   engines:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -194,8 +196,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     # The relay and the site go out together: the relay waits for every check the site waits for, and the site for the
     # relay, so a failing check never leaves a new relay talking to the old site (a new protocol would tell every player
-    # to UPDATE to a version that is not there yet). Not `arm` (see it above).
-    needs: [rust, build, e2e, engines]
+    # to UPDATE to a version that is not there yet). Not `arm` nor `engines`, read by hand (see them above).
+    needs: [rust, build, e2e]
     runs-on: ubuntu-latest
     concurrency:
       group: relay
@@ -260,7 +262,7 @@ jobs:
   # edit on the zone) and CLOUDFLARE_ACCOUNT_ID secrets; without them it deploys nothing.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [rust, build, e2e, engines, relay] # (a determinism break in another engine blocks publishing; the relay first; not `arm`, read by hand)
+    needs: [rust, build, e2e, relay] # (the relay first; not `arm` nor `engines`, read by hand)
     runs-on: ubuntu-latest
     permissions:
       contents: read

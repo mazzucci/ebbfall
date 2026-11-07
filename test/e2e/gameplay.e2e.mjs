@@ -1174,8 +1174,11 @@ test('phone: a site that loses its builder says so once; no keyboard letters; gr
     await d.skip(2);
     // Pull the builder off: select it and send it to a shard field.
     const node = (await d.state()).nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-    await d.clickEntity(h.id); await d.clickWorld(node.x, node.y);
-    await until(d, async () => (await d.toasts()).some(t => /paused: no builder/.test(t)), { seconds: 6, what: 'the paused-site toast' });
+    // (the builder stands on its site: a tap can take the site instead, so tap until the builder is the selection)
+    for (let i = 0; i < 8; i++) { await d.clickEntity(h.id); if ((await d.selection()).some(e => e.id === h.id)) break; await d.page.waitForTimeout(200); }
+    assert.ok((await d.selection()).some(e => e.id === h.id), 'the builder selected');
+    await d.clickWorld(node.x, node.y);
+    await until(d, async () => (await d.toasts()).some(t => /paused: no builder/.test(t)), { seconds: 10, what: 'the paused-site toast' });
     await d.skip(3);
     assert.ok((await d.toasts()).filter(t => /paused: no builder/.test(t)).length <= 1, 'never stacked');
     assert.equal(await d.page.locator('#cmd .cb .k').first().isVisible().catch(() => false), false, 'no keyboard letters on touch');

@@ -83,17 +83,18 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                 .map(|n| n.amount)
                 .sum();
             let vents = w.map.nodes.iter().filter(|n| n.ether).count();
+            // A vent in the centre on an ether storm, and only there (the other kinds' centre holds a field or nothing).
+            let centre = w.map.occ[w.map.idx(w.map.w / 2, w.map.h / 2)];
+            assert_eq!(
+                centre < 0 && w.map.node(-centre as Id).unwrap().ether,
+                kind == MapKind::EtherStorm,
+                "seed {seed} {kind:?}: a vent in the centre on an ether storm only"
+            );
             match kind {
                 MapKind::DeepFields => {
                     assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
                 }
                 MapKind::EtherStorm => {
-                    // (a centre vent always, which a standard map has only with its centre field)
-                    let centre = w.map.occ[w.map.idx(w.map.w / 2, w.map.h / 2)];
-                    assert!(
-                        centre < 0 && w.map.node(-centre as Id).unwrap().ether,
-                        "seed {seed}: a vent in the centre"
-                    );
                     assert!(
                         vents >= std_vents && ether >= std_ether * 3,
                         "seed {seed}: richer vents"
@@ -860,7 +861,9 @@ fn crystal(kind: MapKind) -> i32 {
 
 #[test]
 fn no_base_has_a_vent_and_every_start_has_two_open_shafts_alike() {
-    // No vent by any main or expansion (no vent within 10 tiles of a Core's site): two open shafts per start, the
+    // No vent by any main or expansion (no vent within 10 tiles of a Core's site or of any crystal of any field, the
+    // centre's vent too, where an ether storm has one, and the centre's field where a map has one): two open shafts
+    // per start, the
     // first 16 to 20 tiles from its Core, the second farther out (24 to 36), each nearer its own start than any
     // other; the same for every start (distances to its Core and to the centre), whatever the size, the kind and the
     // symmetry; on open ground, owning its tiles, reachable by a walker from every start and buildable by both
@@ -891,6 +894,11 @@ fn no_base_has_a_vent_and_every_start_has_two_open_shafts_alike() {
                 let mid = m.occ[m.idx(n / 2, n / 2)];
                 let centre_vent =
                     (mid < 0 && m.node(-mid as Id).unwrap().ether).then(|| -mid as Id);
+                assert_eq!(
+                    centre_vent.is_some(),
+                    kind == MapKind::EtherStorm,
+                    "{ctx}: a vent in the centre on an ether storm only"
+                );
                 let shafts: Vec<&endfall_sim::map::Node> = m
                     .nodes
                     .iter()
@@ -916,8 +924,13 @@ fn no_base_has_a_vent_and_every_start_has_two_open_shafts_alike() {
                         m.reach_from(from, walk)
                     })
                     .collect();
-                // (every vent: the open shafts, and the centre's where there is one, which stays where it always
-                // was, a tile or so nearer the expansions round the centre)
+                let salt: Vec<(f64, f64)> = m
+                    .nodes
+                    .iter()
+                    .filter(|f| !f.ether)
+                    .map(|f| (f.tx as f64, f.ty as f64))
+                    .collect();
+                // (every vent: the open shafts, and the centre's where there is one)
                 for v in m.nodes.iter().filter(|v| v.ether) {
                     for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
                         let i = m.idx(v.tx + x, v.ty + y);
@@ -929,13 +942,24 @@ fn no_base_has_a_vent_and_every_start_has_two_open_shafts_alike() {
                         );
                         assert_eq!(m.rock[i], 0, "{ctx}: vent {} on open ground", v.id);
                     }
-                    for &s in sites.iter().filter(|_| Some(v.id) != centre_vent) {
+                    for &s in &sites {
                         assert!(
                             d(vc(v), s) >= 10.0,
                             "{ctx}: the vent at {},{} is {:.1} from a Core's site",
                             v.tx,
                             v.ty,
                             d(vc(v), s)
+                        );
+                    }
+                    for &s in &salt {
+                        assert!(
+                            d(vc(v), s) >= 10.0,
+                            "{ctx}: the vent at {},{} is {:.1} from the crystal at {},{}",
+                            v.tx,
+                            v.ty,
+                            d(vc(v), s),
+                            s.0,
+                            s.1
                         );
                     }
                     for (r, &base) in reach.iter().zip(&m.bases) {
@@ -968,8 +992,12 @@ fn no_base_has_a_vent_and_every_start_has_two_open_shafts_alike() {
                     assert_eq!(own.len(), 2, "{ctx}: two shafts of the start at {base:?}");
                     let mut r: Vec<f64> = own.iter().map(|v| d(vc(v), c)).collect();
                     r.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    // (16 to 20 and 24 to 36, the strict rings; 14 to 22 and 21 to 40 where a tight layout, the
+                    // Shore's salt round them, leaves those no room)
                     assert!(
-                        (16.0..=20.0).contains(&r[0]) && (24.0..=36.0).contains(&r[1]),
+                        (14.0..=22.0).contains(&r[0])
+                            && (21.0..=40.0).contains(&r[1])
+                            && r[1] >= r[0] + 4.0,
                         "{ctx}: the start at {base:?} has its shafts {r:?} from its Core"
                     );
                     let mut key: Vec<i64> = own

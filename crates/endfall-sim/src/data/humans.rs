@@ -23,7 +23,6 @@ pub const HUMANS: Faction = Faction {
     ether: BldgKind::Extractor,
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
-    warp: false,
     ai: AiScript {
         rax: BldgKind::Barracks,
         tech: BldgKind::Forge,

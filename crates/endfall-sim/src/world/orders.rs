@@ -356,9 +356,7 @@ impl World {
     /// Whether `uid` may work on building `b`: a harvester of the same team, and the building is unfinished.
     pub fn can_build(&self, uid: Id, b: Id) -> bool {
         match (self.unit(uid), self.bldg(b)) {
-            (Some(u), Some(bd)) => {
-                u.kind.def().worker && u.team == bd.team && !bd.done && !bd.planted // (a planted seed needs nobody)
-            }
+            (Some(u), Some(bd)) => u.kind.def().worker && u.team == bd.team && !bd.done,
             _ => false,
         }
     }

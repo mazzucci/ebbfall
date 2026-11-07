@@ -60,7 +60,7 @@ impl World {
 
     /// More harvesters while short of the target; an expansion gets five from the main base.
     pub(crate) fn ai_harvesters(&mut self, brain: &mut Brain) {
-        let Brain { e, harv, my_b, .. } = brain.clone();
+        let Brain { harv, my_b, .. } = brain.clone();
         // Economy and build order.
         let queued_h: usize = my_b
             .iter()
@@ -79,9 +79,9 @@ impl World {
             .filter(|&id| self.bldg(id).is_some_and(|b| b.kind.def().hq && b.done))
             .collect();
         let harv_target = self.harv_target(cores.len());
-        // A side whose builder stays at its site until the building stands (people; a Vael planter leaves at once)
-        // keeps one spare for it: the AI replaces one worker away building or repairing, so its income does not dip
-        // with every building it raises. (One at most: workers are never disbanded, so more would stay for good.)
+        // A builder stays at its site until the building stands (either people), so the AI keeps one spare for it: it
+        // replaces one worker away building or repairing, so its income does not dip with every building it raises.
+        // (One at most: workers are never disbanded, so more would stay for good.)
         let away = harv
             .iter()
             .filter(|&&h| {
@@ -89,12 +89,7 @@ impl World {
                     .is_some_and(|u| matches!(u.task, Task::Build { .. } | Task::Repair { .. }))
             })
             .count();
-        let spare = if self.factions[e as usize].warp {
-            0
-        } else {
-            away.min(1)
-        };
-        let crew = harv.len() - spare;
+        let crew = harv.len() - away.min(1);
         let mut queued = queued_h;
         for &c in &cores {
             if crew + queued < harv_target

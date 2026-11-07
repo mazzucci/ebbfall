@@ -83,7 +83,7 @@ export function cardItems() {
     // One building, or several finished ones of a kind (a double-tap): their shared card, shown for the one with the
     // shortest queue (where a unit goes next).
     const b = bl.length === 1 ? bl[0] : leastBusy(bl);
-    if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: myFaction().warp ? 'Plant' : 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to ${myFaction().warp ? 'plant it' : 'finish construction'}` });
+    if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {

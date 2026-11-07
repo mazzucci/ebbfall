@@ -87,7 +87,7 @@ function sync() {
       const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
       bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false, gen, queue: [], rally: null, research: null, vent: null });
     }
-    b.gen = gen; b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.planted = !!B[o + fb.planted]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
+    b.gen = gen; b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
     if (B[o + fb.has_rally]) { const r = b.rally ||= {}; r.x = B[o + fb.rally_x]; r.y = B[o + fb.rally_y]; r.node = nodes.get(B[o + fb.rally_node]) || null; } else b.rally = null;
     const q = b.queue; q.length = B[o + fb.queue_len]; for (let k = 0; k < q.length; k++) q[k] = UNIT_KEYS[B[o + fb.q0 + k]];
     if (B[o + fb.research]) { const r = b.research ||= {}; r.type = UPGRADE_KEYS[B[o + fb.research] - 1]; r.prog = B[o + fb.research_prog]; } else b.research = null;

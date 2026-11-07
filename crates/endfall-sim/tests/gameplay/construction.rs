@@ -288,50 +288,114 @@ fn the_foundry_takes_two_by_two_tiles() {
 }
 
 #[test]
-fn a_lumen_plants_a_vael_building_and_is_free_at_once() {
+fn a_lumen_stays_at_its_vael_site_until_it_stands() {
+    // PRD: builders who stay (Stelian, 2026-11-06). The Vael build as the Harbour does: the Glint stays on the site
+    // while it rises, and goes back to the salt once it stands.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Spire);
     let site = w
         .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
         .unwrap();
-    let mut planted_at = None;
-    for t in 0..30 * 20 {
+    let mut rose = false;
+    for _ in 0..30 * 60 {
         w.step();
-        if planted_at.is_none() && w.bldg(site).unwrap().planted {
-            planted_at = Some(t);
+        let b = w.bldg(site).unwrap();
+        if b.done {
             break;
         }
+        if b.progress > 0.0 {
+            rose = true;
+            assert_eq!(
+                w.unit(l[0]).unwrap().task,
+                Task::Build { b: site },
+                "the Glint stays while it rises (progress {:.2})",
+                b.progress
+            );
+        }
     }
-    assert!(
-        planted_at.is_some(),
-        "the Lumen reached the site and planted it"
-    );
-    assert!(
-        !matches!(w.unit(l[0]).unwrap().task, Task::Build { .. }),
-        "and went back to work at once"
-    );
-    // Ordered far away: the Spire still finishes in its build time.
-    w.move_to(l[0], 50.0, 50.0);
-    run(&mut w, BldgKind::Spire.def().build as u32 + 2);
-    assert!(w.bldg(site).unwrap().done, "it grew by itself");
+    assert!(rose && w.bldg(site).unwrap().done, "the Sunpetal stands");
     assert!(
         !w.can_build(l[1], site),
-        "nothing for a worker to do on a seed"
+        "nothing left to build on a finished one"
     );
-    // The humans still build with a worker at the site.
-    let mut w = rich(4242);
-    let h = harvesters(&w, PLAYER);
-    let (tx, ty) = spot(&w, BldgKind::Depot);
-    let d = w
-        .place_building(PLAYER, BldgKind::Depot, tx, ty, Some(h[0]))
-        .unwrap();
-    run(&mut w, 8);
-    assert!(!w.bldg(d).unwrap().planted);
-    w.stop_unit(h[0]);
-    let p = w.bldg(d).unwrap().progress;
-    run(&mut w, 5);
-    assert_eq!(w.bldg(d).unwrap().progress, p, "no builder, no progress");
+    run(&mut w, 1);
+    assert!(
+        matches!(w.unit(l[0]).unwrap().task, Task::Gather { .. }),
+        "and the Glint went back to the salt: {:?}",
+        w.unit(l[0]).unwrap().task
+    );
+}
+
+#[test]
+fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
+    // The Harbour's rule, now both peoples': no builder, no progress; another Glint sent to it finishes it.
+    for (mut w, kind) in [
+        (rich_vael(4242), BldgKind::Spire),
+        (rich(4242), BldgKind::Depot),
+    ] {
+        let l = harvesters(&w, PLAYER);
+        let (tx, ty) = spot(&w, kind);
+        let site = w.place_building(PLAYER, kind, tx, ty, Some(l[0])).unwrap();
+        run(&mut w, 8);
+        let p = w.bldg(site).unwrap().progress;
+        assert!(p > 0.0, "{kind:?}: it started rising");
+        w.stop_unit(l[0]);
+        run(&mut w, 5);
+        assert_eq!(
+            w.bldg(site).unwrap().progress,
+            p,
+            "{kind:?}: no builder, no progress"
+        );
+        assert!(!w.bldg(site).unwrap().done);
+        assert!(
+            w.can_build(l[1], site),
+            "{kind:?}: a site waits for a builder"
+        );
+        assert!(w.start_build(l[1], site));
+        run(&mut w, kind.def().build as u32 + 10);
+        assert!(w.bldg(site).unwrap().done, "{kind:?}: resumed and finished");
+    }
+}
+
+#[test]
+fn a_persons_new_siphon_keeps_its_builder_until_it_stands_then_sends_it_back_to_work() {
+    // Rule 3: a person's new extractor, either people's, has its builder on it until it stands (it needs no worker
+    // after: it pays by itself), and the builder then goes back to the salt, as from any building.
+    for (mut w, ext, rax) in [
+        (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
+        (rich(9), BldgKind::Extractor, BldgKind::Barracks),
+    ] {
+        let (cx, cy) = core(&w, PLAYER);
+        w.make_building(rax, PLAYER, cx - 5, cy, true);
+        let h = harvesters(&w, PLAYER)[0];
+        let (vx, vy) = player_vent(&w);
+        let b = w
+            .place_building(PLAYER, ext, vx, vy, Some(h))
+            .unwrap_or_else(|e| panic!("{ext:?}: {e}"));
+        for _ in 0..30 * 90 {
+            w.step();
+            if w.bldg(b).unwrap().done {
+                break;
+            }
+            assert_eq!(
+                w.unit(h).unwrap().task,
+                Task::Build { b },
+                "{ext:?}: its builder stays until it stands"
+            );
+        }
+        assert!(w.bldg(b).unwrap().done, "{ext:?}: built");
+        run(&mut w, 1);
+        assert!(
+            matches!(w.unit(h).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+            "{ext:?}: its builder back on the salt: {:?}",
+            w.unit(h).unwrap().task
+        );
+        assert!(
+            w.bldg(b).unwrap().pumped > 0.0,
+            "{ext:?}: and it draws by itself"
+        );
+    }
 }
 
 #[test]

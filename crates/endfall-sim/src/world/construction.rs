@@ -96,10 +96,7 @@ impl World {
         b.flash -= dt;
         b.cd -= dt;
         if !b.done {
-            if b.planted && self.advance_construction(bid, dt) {
-                self.finish_construction(bid, None);
-            }
-            return;
+            return; // (it rises only while a builder works on it: `update_build`)
         }
         let d = b.kind.def();
         if d.on_vent && self.bldg(bid).is_some_and(|b| b.vent.is_some()) {
@@ -171,19 +168,13 @@ impl World {
         }
         if reached {
             self.um(uid).stuck = 0.0;
-            if self.factions[team as usize].warp {
-                // Warp-in: plant the seed and go back to work; the building grows by itself.
-                self.bm(b).unwrap().planted = true;
-                self.resume_after(uid);
-                return;
-            }
             if self.advance_construction(b, dt) {
                 self.finish_construction(b, Some(uid));
             }
         }
     }
 
-    /// Construction progress for `dt` (a builder at work, or a planted warp site by itself), at its side's rate
+    /// Construction progress for `dt` (a builder at work, of either people), at its side's rate
     /// (a `BuildSpeed` tech). True when it is done.
     pub(crate) fn advance_construction(&mut self, b: Id, dt: f64) -> bool {
         let team = self.bldg(b).unwrap().team;

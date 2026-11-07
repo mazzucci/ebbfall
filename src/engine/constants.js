@@ -34,7 +34,7 @@ const UNIT_TEXT = {
   interceptor: { hot: 'N', desc: 'Fast, armoured anti-air gun on wheels: keeps the sky clear over your line. Cannot hit the ground.' },
   bastion: { hot: 'W', desc: 'Flying capital ship. Slow and heavily armoured; its guns splash the ground and reach flyers.' },
   // the Vael
-  lumen: { hot: 'G', desc: 'Mines salt. Plants Vael structures, which grow by themselves.' },
+  lumen: { hot: 'G', desc: 'Mines salt. Grows Vael structures, staying with each until it stands.' },
   scythe: { hot: 'N', desc: 'Fast blade in a shell of nacre. Fights up close: it has to catch its target first. Cannot hit flyers.' },
   prism: { hot: 'L', desc: 'A lens that fires at ground and air: the Vael all-rounder and their answer to flyers. Surges once Surge Chamber is researched.' },
   monolith: { hot: 'C', desc: 'Slow heavy shell. Long range; its shots splash onto nearby ground units. Surfaces a short way off. Cannot hit flyers.' },

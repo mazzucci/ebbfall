@@ -862,7 +862,8 @@ fn the_ai_builds_on_when_the_player_takes_its_shafts_and_never_builds_on_another
 
 #[test]
 fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
-    for diff in 0..3usize {
+    // Every level, its Glints tied up at their sites as the Harbour's are (PRD: builders who stay).
+    for diff in 0..DIFF.len() {
         for seed in [3u32, 4242] {
             let mut w = World::with_setup(seed, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
             let mut t = 0;
@@ -892,6 +893,38 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
                 "only Vael buildings"
             );
         }
+    }
+}
+
+#[test]
+fn two_vael_ais_finish_a_game_at_every_level() {
+    // PRD: builders who stay. With every Glint staying at its site, neither Vael AI stalls at any level: both raise
+    // their Cradle and a Siphon, and one of them wins.
+    for diff in 0..DIFF.len() {
+        let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
+        w.set_ai_seats([true, true]);
+        let kinds = [BldgKind::Kiln, BldgKind::Siphon];
+        let mut stood = [[false; 2]; 2]; // [seat][kind]: a finished one seen
+        let mut t = 0;
+        while !w.over && t < 30 * 60 * 40 {
+            w.step();
+            w.events.clear();
+            t += 1;
+            for b in w.bldgs.iter().filter(|b| b.done) {
+                if let Some(k) = kinds.iter().position(|&k| k == b.kind) {
+                    stood[b.team as usize][k] = true;
+                }
+            }
+        }
+        assert!(
+            w.over,
+            "diff {diff}: someone wins within 40 min (t={:.0})",
+            w.time
+        );
+        assert_eq!(
+            stood, [[true; 2]; 2],
+            "diff {diff}: both raised a Cradle and a Siphon"
+        );
     }
 }
 
@@ -1346,89 +1379,93 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
 
 #[test]
 fn the_ai_replaces_a_worker_that_is_away_building() {
-    // A person's builder stays at its site until the building stands: the Human AI keeps one spare, so a worker sent
-    // off to build is replaced and its income does not dip with every building it raises; one at most (the extra
-    // ones stay for good), and the Vael AI, whose planter leaves at once, keeps none.
-    let mut w = World::new(17, 1);
-    let home = w.bldgs.iter_mut().find(|b| b.team == PLAYER).unwrap();
-    (home.hp, home.maxhp) = (1e9, 1e9); // (the idle player's base stands: its waves do not end the game first)
-    // (its difficulty's, and a crew for its second vent once that flows)
-    let target = |w: &World| w.harv_target_of(ENEMY, 1);
-    let core = |w: &World| {
-        w.bldgs
-            .iter()
-            .find(|b| b.team == ENEMY && b.kind.def().hq)
-            .map(|b| (b.id, b.tx, b.ty))
+    // A builder stays at its site until the building stands (either people's, PRD: builders who stay): the AI keeps
+    // one spare, so a worker sent off to build is replaced and its income does not dip with every building it
+    // raises; one at most (the extra ones stay for good).
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(17, 1, MapKind::Standard, false, [&HUMANS, f]);
+        let home = w.bldgs.iter_mut().find(|b| b.team == PLAYER).unwrap();
+        (home.hp, home.maxhp) = (1e9, 1e9); // (the idle player's base stands: its waves do not end the game first)
+        // (its difficulty's, and a crew for its second vent once that flows)
+        let target = |w: &World| w.harv_target_of(ENEMY, 1);
+        let core = |w: &World| {
+            w.bldgs
+                .iter()
+                .find(|b| b.team == ENEMY && b.kind.def().hq)
+                .map(|b| (b.id, b.tx, b.ty))
+                .unwrap()
+        };
+        let building = |w: &World| {
+            w.units
+                .iter()
+                .any(|u| u.team == ENEMY && matches!(u.task, Task::Build { .. }))
+        };
+        // Wait for a full crew, nothing queued at the Core and nobody off building.
+        let mut t = 0;
+        while !(harvesters(&w, ENEMY).len() >= target(&w)
+            && w.bldg(core(&w).0).unwrap().queue.is_empty()
+            && !building(&w))
+        {
+            assert!(t < 30 * 360, "never a full, settled crew");
+            w.step();
+            w.events.clear();
+            t += 1;
+        }
+        // Exactly a full crew (earlier builders' replacements are still about): the extra ones fall.
+        while harvesters(&w, ENEMY).len() > target(&w) {
+            let extra = *harvesters(&w, ENEMY).last().unwrap();
+            w.damage(extra, 1e9, None);
+            w.step();
+            w.events.clear();
+        }
+        let (cid, cx, cy) = core(&w);
+        let before = harvesters(&w, ENEMY).len();
+        // One of them goes off to build a Cottage or a Sunpetal (and stays there).
+        let builder = harvesters(&w, ENEMY)[0];
+        let (tx, ty) = (4..18)
+            .flat_map(|r| (0..24).map(move |a| (r, a)))
+            .map(|(r, a)| {
+                let ang = a as f64 / 24.0 * std::f64::consts::TAU;
+                (
+                    (cx as f64 + 1.0 + ang.cos() * r as f64).round() as i32,
+                    (cy as f64 + 1.0 + ang.sin() * r as f64).round() as i32,
+                )
+            })
+            .find(|&(tx, ty)| w.can_place(f.supply, tx, ty, ENEMY))
+            .expect("room for a supply building");
+        // (its price, and a worker's: its bank may be spent just now)
+        w.res[ENEMY as usize][0] += f.supply.def().cost[0] + f.worker.def().cost[0];
+        w.place_building(ENEMY, f.supply, tx, ty, Some(builder))
+            .expect("placed");
+        run(&mut w, 2);
+        let queued = w
+            .bldg(cid)
             .unwrap()
-    };
-    let building = |w: &World| {
-        w.units
+            .queue
             .iter()
-            .any(|u| u.team == ENEMY && matches!(u.task, Task::Build { .. }))
-    };
-    // Wait for a full crew, nothing queued at the Core and nobody off building.
-    let mut t = 0;
-    while !(harvesters(&w, ENEMY).len() >= target(&w)
-        && w.bldg(core(&w).0).unwrap().queue.is_empty()
-        && !building(&w))
-    {
-        assert!(t < 30 * 360, "never a full, settled crew");
-        w.step();
-        w.events.clear();
-        t += 1;
+            .filter(|k| k.def().worker)
+            .count();
+        assert!(
+            harvesters(&w, ENEMY).len() + queued > before,
+            "{}: a replacement for the builder: {} + {queued} queued vs {before}",
+            f.key,
+            harvesters(&w, ENEMY).len()
+        );
+        // And no more than one, however long it runs.
+        run(&mut w, 30);
+        assert!(
+            harvesters(&w, ENEMY).len() <= target(&w) + 1,
+            "{}: one spare at most: {}",
+            f.key,
+            harvesters(&w, ENEMY).len()
+        );
     }
-    // Exactly a full crew (earlier builders' replacements are still about): the extra ones fall.
-    while harvesters(&w, ENEMY).len() > target(&w) {
-        let extra = *harvesters(&w, ENEMY).last().unwrap();
-        w.damage(extra, 1e9, None);
-        w.step();
-        w.events.clear();
-    }
-    let (cid, cx, cy) = core(&w);
-    let before = harvesters(&w, ENEMY).len();
-    // One of them goes off to build a Depot (and stays there, as a Human builder does).
-    let builder = harvesters(&w, ENEMY)[0];
-    let (tx, ty) = (4..18)
-        .flat_map(|r| (0..24).map(move |a| (r, a)))
-        .map(|(r, a)| {
-            let ang = a as f64 / 24.0 * std::f64::consts::TAU;
-            (
-                (cx as f64 + 1.0 + ang.cos() * r as f64).round() as i32,
-                (cy as f64 + 1.0 + ang.sin() * r as f64).round() as i32,
-            )
-        })
-        .find(|&(tx, ty)| w.can_place(BldgKind::Depot, tx, ty, ENEMY))
-        .expect("room for a Depot");
-    // (the Depot's price, and a worker's: its bank may be spent just now)
-    w.res[ENEMY as usize][0] += 100 + UnitKind::Harvester.def().cost[0];
-    w.place_building(ENEMY, BldgKind::Depot, tx, ty, Some(builder))
-        .expect("placed");
-    run(&mut w, 2);
-    let queued = w
-        .bldg(cid)
-        .unwrap()
-        .queue
-        .iter()
-        .filter(|k| k.def().worker)
-        .count();
-    assert!(
-        harvesters(&w, ENEMY).len() + queued > before,
-        "a replacement for the builder: {} + {queued} queued vs {before}",
-        harvesters(&w, ENEMY).len()
-    );
-    // And no more than one, however long it runs.
-    run(&mut w, 30);
-    assert!(
-        harvesters(&w, ENEMY).len() <= target(&w) + 1,
-        "one spare at most: {}",
-        harvesters(&w, ENEMY).len()
-    );
 }
 
 #[test]
-fn the_vael_ai_keeps_no_spare_worker() {
-    // A Vael planter leaves its site at once: the Vael AI's workers stay at its target through a long game on every
-    // level (a second base adds three).
+fn the_vael_ai_keeps_one_spare_worker_at_most() {
+    // A Glint stays at its site as a Rigger does: the Vael AI keeps one spare for it, and no more, through a long game
+    // on every level (a second base adds three).
     for (diff, d) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(17, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
@@ -1449,7 +1486,7 @@ fn the_vael_ai_keeps_no_spare_worker() {
             assert_eq!(target, d.harv + 3 * (cores >= 2) as usize);
             most = most.max(harvesters(&w, ENEMY).len() as i64 - target as i64);
         }
-        assert!(most <= 0, "diff {diff}: {most} over its target");
+        assert!(most <= 1, "diff {diff}: {most} over its target");
     }
 }
 

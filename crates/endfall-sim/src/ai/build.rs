@@ -279,8 +279,7 @@ impl World {
                 Some(_) => {}
                 None => sites.push((id, progress, t)),
             }
-            let attended = self.bldg(id).is_some_and(|b| b.planted) // (a planted seed grows by itself)
-                || self.units.iter().any(|u| u.task == (Task::Build { b: id }));
+            let attended = self.units.iter().any(|u| u.task == (Task::Build { b: id }));
             if !attended && let Some(h) = self.free_builder(harv, x, y) {
                 self.start_build(h, id);
             }

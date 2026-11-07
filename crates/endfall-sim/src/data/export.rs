@@ -177,7 +177,6 @@ fn faction(f: &Faction) -> String {
         .str("supply", f.supply.def().key)
         .str("ether", f.ether.def().key)
         .num("repairs", f.repairs)
-        .num("warp", f.warp)
         .done()
 }
 

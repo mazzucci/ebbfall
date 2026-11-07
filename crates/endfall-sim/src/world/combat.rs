@@ -96,7 +96,7 @@ impl World {
         }
         if !only_units && hits.0 {
             for b in &self.bldgs {
-                if !self.enemies(team, b.team) {
+                if !self.enemies(team, b.team) || self.spared(team, b) {
                     continue;
                 }
                 let g = b.geo();
@@ -109,6 +109,20 @@ impl World {
             }
         }
         best.map(|(_, _, id)| id)
+    }
+
+    /// The guided first game (`guided_hold`): the opponent's units (`team`) leave a person's extractors on the open
+    /// shafts alone while that person still has a headquarters, so the guide's Pump, out past the base, outlives the
+    /// wave that walks by it (and a game down to its Pump still ends).
+    pub(crate) fn spared(&self, team: u8, b: &Bldg) -> bool {
+        self.guided
+            && b.vent.is_some()
+            && self.is_ai(team)
+            && !self.is_ai(b.team)
+            && self
+                .bldgs
+                .iter()
+                .any(|o| o.team == b.team && o.kind.def().hq)
     }
 
     /// How urgent a target is for a shooter that flies or not: 0 it can hurt the shooter (a fighting unit or a

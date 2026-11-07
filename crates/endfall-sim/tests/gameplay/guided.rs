@@ -5,12 +5,15 @@
 use crate::common::*;
 use endfall_sim::world::Command;
 
-/// The guide's army: six Pickets (a 1-energy line unit: six fit under the first cap) and two Harpooners.
+/// The guide's army: six Pickets (a 1-population line unit: six fit under the first cap) and two Harpooners.
 const SOLDIERS: usize = 6;
 const ANTI_AIR: usize = 2;
-/// The army the guide's last step asks for before the attack (tutorial.js: the line units and their anti-air, and two
-/// more: ten, room to spare under the first cap with six workers).
-const ARMY_GOAL: usize = SOLDIERS + ANTI_AIR + 2;
+/// The army the guide's last step asks for before the attack (tutorial.js `goal`): one Picket more than the
+/// Lighthouse's population holds with the guide's six workers and its army, so the Cottage step comes first.
+fn army_goal() -> usize {
+    let room = BldgKind::Core.def().supply as usize - 6 - SOLDIERS - ANTI_AIR;
+    SOLDIERS + ANTI_AIR + room + 1
+}
 /// An enemy this close to the player's Lighthouse (px) is at the base.
 const AT_BASE: f64 = 14.0 * 32.0;
 
@@ -23,7 +26,8 @@ struct Guided {
     kills: usize,
     army_left: usize,
     core: bool,
-    depot: bool,
+    /// The guide's Excavator, on its open shaft, still standing after the wave.
+    extractor: bool,
 }
 
 fn idle_workers(w: &World) -> Vec<Id> {
@@ -125,15 +129,23 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                     );
                 }
             }
-            // A Windmast, a Pump on a brine seep, a Crew Hall.
-            1..=3 => {
-                let kind = [BldgKind::Depot, BldgKind::Extractor, BldgKind::Barracks][step - 1];
+            // A Crew Hall; later (step 3) an Excavator on the mine shaft the guide pings.
+            1 | 3 => {
+                let kind = if step == 1 {
+                    BldgKind::Barracks
+                } else {
+                    BldgKind::Extractor
+                };
                 if done(&w, kind).is_some() {
                     step += 1;
                     step_at = t;
+                    if step == 4 {
+                        w.guided_hold(false); // (the army and the Excavator ready: the guide lets them come)
+                        released = Some(t);
+                    }
                 } else if !reading && !placed(&w, kind) {
                     let (tx, ty) = if kind.def().on_vent {
-                        player_vent(&w)
+                        w.guided_shaft(PLAYER).unwrap()
                     } else {
                         spot(&w, kind)
                     };
@@ -151,17 +163,15 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                 }
             }
             // The army: six Pickets and two Harpooners.
-            4 => {
+            2 => {
                 let rax = done(&w, BldgKind::Barracks).unwrap();
                 let (n, aa) = (
                     count(&w, PLAYER, UnitKind::Trooper),
                     count(&w, PLAYER, UnitKind::Lancer),
                 );
                 if n >= SOLDIERS && aa >= ANTI_AIR {
-                    step = 5;
+                    step = 3;
                     step_at = t;
-                    w.guided_hold(false); // (the guide lets them come)
-                    released = Some(t);
                 } else if !reading {
                     let q = &w.bldg(rax).unwrap().queue;
                     let queued = |k| q.iter().filter(|&&x| x == k).count();
@@ -228,13 +238,13 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
         kills: wave.iter().filter(|&&id| w.unit(id).is_none()).count(),
         army_left: army(&w).len(),
         core: w.bldg(lighthouse).is_some(),
-        depot: done(&w, BldgKind::Depot).is_some(),
+        extractor: done(&w, BldgKind::Extractor).is_some(),
     };
     (g, w)
 }
 
-/// The guide's last step, after the wave: train with the bank until the army is `ARMY_GOAL` strong (after `pace` s of
-/// reading), then attack-move it at the enemy Lighthouse, and at the nearest enemy building whenever it stands idle
+/// The guide's last two steps, after the wave: a Cottage (the population the last army needs), then train with the
+/// bank until the army is `army_goal()` strong (after `pace` s of reading each), then attack-move it at the enemy Lighthouse, and at the nearest enemy building whenever it stands idle
 /// (what a newcomer does once the Lighthouse is down). The game time it is won at, if within 8 minutes.
 fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
     w.guided_hold(false); // (released already, unless the hold ran out first)
@@ -273,15 +283,35 @@ fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
                 let _ = w.apply(PLAYER, &Command::Gather { unit: h, node: n });
             }
         }
+        // The population step: a Cottage first.
+        if done(w, BldgKind::Depot).is_none() {
+            let builder = harvesters(w, PLAYER)
+                .into_iter()
+                .find(|&h| matches!(w.unit(h).unwrap().task, Task::Gather { .. }));
+            if !placed(w, BldgKind::Depot)
+                && let Some(h) = builder
+            {
+                let (tx, ty) = spot(w, BldgKind::Depot);
+                let _ = w.apply(
+                    PLAYER,
+                    &Command::Place {
+                        kind: BldgKind::Depot,
+                        tx,
+                        ty,
+                        builder: Some(h),
+                    },
+                );
+            }
+        }
         let a = army(w);
         if !attacking {
             let Some(rax) = done(w, BldgKind::Barracks) else {
                 continue;
             };
             let q = w.bldg(rax).unwrap().queue.len();
-            if a.len() >= ARMY_GOAL {
+            if a.len() >= army_goal() {
                 attacking = true;
-            } else if a.len() + q < ARMY_GOAL && q < 2 {
+            } else if a.len() + q < army_goal() && q < 2 {
                 let _ = w.apply(
                     PLAYER,
                     &Command::Queue {
@@ -334,7 +364,8 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
     // the army is trained), and other Standard seeds; the army, standing where it was trained, is sent at the wave
     // 20 s after it reaches the base. Held, the opponent's army stops at four (the sim's GUIDED_ARMY), so its first
     // wave is half the guide's eight (it was 10 to 15 before: the eight fell, and the Lighthouse with them). Then the
-    // last step: ten strong with the bank, and the attack. Released, the opponent's army stays at three at most (the
+    // last steps: a Cottage (the Lighthouse's 20 population hold the guide's six workers and eight soldiers, not the
+    // last army), fifteen strong with the bank, and the attack. Released, the opponent's army stays at three at most (the
     // sim's GUIDED_ARMY_AFTER) and it raises no towers: the guide's way wins (it never did with them: a Lookout under
     // repair and a refilled army stopped even twenty Pickets).
     for (seed, pace) in [
@@ -357,9 +388,10 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
             g.kills + 1 >= g.wave,
             "{ctx}: the wave is destroyed or driven off"
         );
+        assert!(g.core, "{ctx}: the Lighthouse stands");
         assert!(
-            g.core && g.depot,
-            "{ctx}: the Lighthouse and the Windmast stand"
+            g.extractor,
+            "{ctx}: the Excavator on its open shaft survives the first wave"
         );
         assert!(
             g.army_left >= SOLDIERS + ANTI_AIR - 2,
@@ -368,12 +400,20 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
         let from = w.time;
         let won = win_guided(&mut w, pace);
         eprintln!(
-            "seed {seed} pace {pace}: wave {} held at {:.0} s; step 7 from {from:.0} s, won at {won:?}",
+            "seed {seed} pace {pace}: wave {} held at {:.0} s; steps 6 and 7 from {from:.0} s, won at {won:?}",
             g.wave, g.arrived
         );
         assert!(
             won.is_some_and(|t| t - from < 360.0),
             "{ctx}: the guide's last step wins the game within 6 minutes (from {from:.0} s): {won:?}"
+        );
+        assert!(
+            done(&w, BldgKind::Extractor).is_some(),
+            "{ctx}: the Excavator on its open shaft stands at the end"
+        );
+        assert!(
+            done(&w, BldgKind::Depot).is_some(),
+            "{ctx}: the Cottage the last army needed"
         );
     }
 }

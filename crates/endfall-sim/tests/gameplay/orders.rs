@@ -529,17 +529,17 @@ fn messages_name_each_races_own_buildings() {
             })
             .collect()
     };
-    // (each race's refinery by its own name: the Humans' Pump, the Vael's Siphon; its research hall: the Workshop,
+    // (each race's refinery by its own name: the Harbour's Excavator, the Vael's Siphon; its research hall: the Workshop,
     // the Glasshouse)
     for (w, rig, hall) in [
         (
             &mut rich(5),
-            "A seep is not mined: a Pump on it pays salt by itself",
+            "Workers cannot mine a shaft: an Excavator on it digs salt by itself",
             "Workshop",
         ),
         (
             &mut rich_vael(5),
-            "A seep is not mined: a Siphon on it pays salt by itself",
+            "Workers cannot mine a shaft: a Siphon on it draws salt by itself",
             "Glasshouse",
         ),
     ] {

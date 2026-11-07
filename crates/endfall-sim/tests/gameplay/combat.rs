@@ -946,7 +946,8 @@ fn a_monolith_splashes_with_its_own_numbers() {
 #[test]
 fn a_healer_on_attack_move_keeps_behind_the_fight() {
     // Before, an attack-moving Medic walked straight through while the soldiers stopped to fight, and arrived first.
-    let mut w = arena(19);
+    // (on open ground: seed 21's strip across the map from x 18 to 40 at y 27, 28)
+    let mut w = arena(21);
     let squad: Vec<Id> = (0..3)
         .map(|i| w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 860.0 + 30.0 * i as f64))
         .collect();

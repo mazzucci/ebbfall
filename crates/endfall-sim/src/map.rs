@@ -19,7 +19,7 @@ pub struct Node {
     pub r: f64,
     /// Building id of the extractor standing on an ether vent.
     pub extractor: Option<Id>,
-    /// Which shard field (an arc of crystals, laid down together) it belongs to; 0 for a vent.
+    /// Which shard field (a clump of crystals, laid down together) it belongs to; 0 for a vent.
     pub field: u32,
 }
 
@@ -126,7 +126,7 @@ pub struct Map {
     /// after the seats' (a World refuses more seats than its map has bases).
     pub bases: Vec<(i32, i32)>,
     /// The middle of each expansion's clearing (tiles; every start's images too, the natural's first): its field on
-    /// the side away from its main, a vent to either side of the room for its Core. Empty on a test arena.
+    /// the side away from its main, room for its Core on the near side. Empty on a test arena.
     pub expansions: Vec<(f64, f64)>,
     /// The Shore map's reef basins, one per start in the order of `bases` (top-left tile of a 4x4 headquarters in the
     /// middle of each): where a Vael seat starts instead of its cove. Empty on every other kind.
@@ -270,7 +270,7 @@ impl Sym {
 const POCKET_R: f64 = 12.0;
 /// The Shore map: a reef basin's middle lies this many tiles from the centre (20, not 14, since the first Shore report:
 /// basins 28 apart and 40 from a cove made the first wave decide every game); its reef ring's inner radius (10: room
-/// for a main's field and vents); the deep band's half-width round the axis between the two basins, and the shallows
+/// for a main's field); the deep band's half-width round the axis between the two basins, and the shallows
 /// beyond it; the heights of shallows and of deep water (at the water level 0: `Map::ground`).
 const SHORE_BASIN: f64 = 20.0;
 /// How far (degrees) a reef basin is turned from straight south (or north) of the centre, away from its own cove.
@@ -283,9 +283,9 @@ const SHORE_SHALLOWS: f64 = 4.0;
 const SHORE_SHALLOW_H: i8 = 0;
 
 /// Where a Shore reef basin's main field lies: `turn` radians from the direction of its channel (the basin's middle the
-/// pivot), `r` tiles out (6.5: a main's arc round the Core; farther, the same arc carried out that much further in the
-/// same direction, its shape unchanged); the two vents keep to either side of `turn` inside the basin, as ever. The
-/// menus always play `BACK`; the others are the balance lab's exposed-income variants (`World::set_shore_field`).
+/// pivot), `r` tiles out (6.5: a main's outcrop by the Core, `MAIN_CLUMP_R` from its middle; farther, the same outcrop
+/// carried out that much further in the same direction, its shape unchanged). The menus always play `BACK`; the others
+/// are the balance lab's exposed-income variants (`World::set_shore_field`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShoreField {
     pub turn: f64,
@@ -293,25 +293,27 @@ pub struct ShoreField {
 }
 
 impl ShoreField {
-    /// Behind the Core, away from the channel (every game's: draw for draw the map it always was).
-    pub const BACK: ShoreField = ShoreField { turn: PI, r: 6.5 };
-    /// On the channel's side, facing the Humans' cove, 40 degrees off the channel (its arc reaches across the channel's
-    /// line, inside the reef; the walkers' way in stays as long: a gameplay test measures it). One vent lands on the
-    /// sea gate's line, 8 tiles out, short of the gate.
+    /// To the Core's flank, square to the channel on the side away from the sea gate (every game's; the name is from
+    /// when it lay behind the Core).
+    pub const BACK: ShoreField = ShoreField {
+        turn: PI / 2.0,
+        r: 6.5,
+    };
+    /// On the channel's side, facing the Humans' cove, 40 degrees off the channel (it reaches across the channel's
+    /// line, inside the reef; the walkers' way in stays as long: a gameplay test measures it).
     pub const CHANNEL: ShoreField = ShoreField {
         turn: 40.0 * PI / 180.0,
         r: 6.5,
     };
-    /// `CHANNEL`'s field carried 7 tiles further out, past the reef ring: its vents stay where `CHANNEL`'s are. Not
-    /// distance alone: in about a third of seeds it lies within 6 tiles of the facing cove's farthest expansion (whose
-    /// vents then move), and in a few the generator's rock settles differently.
+    /// `CHANNEL`'s field carried 7 tiles further out, past the reef ring. Not distance alone: in a few seeds the
+    /// generator's rock settles differently.
     pub const CHANNEL_FAR: ShoreField = ShoreField {
         turn: 40.0 * PI / 180.0,
         r: 13.5,
     };
 }
 
-/// How far a main's crystals lie from its Core's middle (the Shore basins' too).
+/// How far a main's field lies from its Core's middle, as `ShoreField::r` counts it.
 const MAIN_FIELD_R: f64 = 6.5;
 
 impl Default for ShoreField {
@@ -323,36 +325,218 @@ const SHORE_DEEP_H: i8 = -3;
 
 /// The pocket's one ramp, in tiles across.
 const RAMP_W: f64 = 4.5;
-/// How far (degrees) a main's vents lie round from the direction of its field, one to either side (90: square to it).
-const MAIN_VENT_TURN: f64 = 78.0;
-/// Where an expansion's two vents may lie, the first that fits on each side: the turn (degrees) from the direction
-/// of its field, and the distance (tiles) from the site's middle.
-const EXP_VENT_AT: [(f64, f64); 11] = [
-    (90.0, 5.5),
-    (90.0, 4.5),
-    (115.0, 5.5),
-    (115.0, 4.5),
-    (140.0, 5.5),
-    (140.0, 4.5),
-    (90.0, 6.5),
-    (115.0, 6.5),
-    (65.0, 5.5),
-    (65.0, 6.5),
-    (140.0, 6.5),
-];
-/// Vents lie at least this many tiles apart (top-left to top-left, either way): two tiles of ground between them.
+/// Vents (mine shafts, 2x2) lie at least this many tiles apart (top-left to top-left, either way): two tiles of ground
+/// between them.
 const VENT_GAP: i32 = 4;
 
-/// The 2x2 block at `v` (top-left) mirrored across the line through `c` heading `dir`, clamped onto the map a tile in.
-fn mirror_block(v: (i32, i32), c: (f64, f64), dir: f64, w: i32, h: i32) -> (i32, i32) {
-    let (ux, uy) = (jsmath::cos(dir), jsmath::sin(dir));
-    let (rx, ry) = (v.0 as f64 + 0.5 - c.0, v.1 as f64 + 0.5 - c.1); // (from c to the block's centre)
-    let along = rx * ux + ry * uy;
-    let (mx, my) = (c.0 + 2.0 * along * ux - rx, c.1 + 2.0 * along * uy - ry);
-    (
-        (jsmath::round(mx - 0.5) as i32).clamp(1, w - 3),
-        (jsmath::round(my - 0.5) as i32).clamp(1, h - 3),
-    )
+/// The open mine shafts (vents: no base has one of its own; an extractor on one is income out in the open): two per
+/// start, the first start's and their images. The first lies `SHAFT_NEAR` tiles from its main's Core (centre to centre),
+/// towards the map's middle, outside the pocket (ideally `SHAFT_NEAR_AT`); the second `SHAFT_FAR` out (ideally
+/// `SHAFT_FAR_AT`, `SHAFT_FAR_TURN` degrees round from the middle's direction: contested ground, between neighbours),
+/// nearer its own start than any other by `SHAFT_OWN`. Each at least `SHAFT_CLEAR` tiles from every main's Core and
+/// every expansion's site, `SHAFT_OFF_LINE` off the line from a main to its natural and off its ramp's, and
+/// `SHAFT_CENTRE` from the middle where a field or vent stands there.
+const SHAFT_NEAR: (f64, f64) = (16.0, 20.0);
+const SHAFT_NEAR_AT: f64 = 18.0;
+const SHAFT_FAR: (f64, f64) = (24.0, 36.0);
+const SHAFT_FAR_AT: f64 = 27.0;
+const SHAFT_FAR_TURN: f64 = 35.0;
+const SHAFT_OWN: f64 = 2.0;
+const SHAFT_CLEAR: f64 = 10.5;
+const SHAFT_OFF_LINE: f64 = 4.5;
+const SHAFT_CENTRE: f64 = 8.0;
+
+/// A salt outcrop: crystals in a rounded, uneven clump (not an arc, not in rows), as tile offsets in a box (`X` a
+/// crystal), one picked per map from its seed and turned by one of the grid's eight symmetries. The crystals stand in
+/// little groups (side by side, never touching only at a corner, where a worker would squeeze between them) with a
+/// tile of ground or more between groups, so every crystal has free ground beside it, reached from outside. A main's
+/// has seven (`CLUMP_7`), an expansion's five (`CLUMP_5`).
+const CLUMP_7: [[&str; 5]; 4] = [
+    [".XX..", ".X...", "...XX", "X....", "X...."],
+    ["..X..", ".XX..", "....X", "X...X", "X...."],
+    [".X...", ".X.XX", ".....", "XX...", "...X."],
+    ["..XX.", "X....", "X..X.", "...X.", ".X..."],
+];
+const CLUMP_5: [[&str; 4]; 3] = [
+    [".XX.", "....", "X..X", "X..."],
+    ["X...", "X.XX", "....", ".X.."],
+    ["..X.", "..X.", "X...", "X..X"],
+];
+/// How far (tiles) a main's outcrop lies from its Core's middle (the clump's middle), to one flank of the Core; an
+/// expansion's from its site's middle, on the far side from its main.
+const MAIN_CLUMP_R: f64 = 6.2;
+const EXP_CLUMP_R: f64 = 5.0;
+/// An expansion's crystals keep within this many tiles of its site's middle where they can (clear of a Shore reef).
+const EXP_REACH: f64 = 6.4;
+/// A main's crystals lie at least this far (tiles, in a straight line) out from its Core's edge, tile middle to tile
+/// middle: two tiles of ground between, and none at a corner of the Core.
+const MAIN_KEEP: f64 = 3.0;
+
+/// The distance from point `p` to the segment from `a` to `b`.
+fn seg_dist(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+    let (vx, vy) = (b.0 - a.0, b.1 - a.1);
+    let l2 = vx * vx + vy * vy;
+    let t = if l2 > 0.0 {
+        (((p.0 - a.0) * vx + (p.1 - a.1) * vy) / l2).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    jsmath::hypot(p.0 - (a.0 + vx * t), p.1 - (a.1 + vy * t))
+}
+
+/// Where the open shafts may go, for the first start (its images follow by `Sym`): the ground's layout, before rock.
+struct ShaftRules<'a> {
+    sym: Sym,
+    w: i32,
+    h: i32,
+    /// The first start's Core (top-left tile): a walker from there reaches every shaft.
+    b0: (i32, i32),
+    /// Every main's Core middle (the first start's first): a shaft lies nearer its own than any other.
+    cores: Vec<(f64, f64)>,
+    /// Every main's Core middle and, on the Shore, every reef basin's middle: a shaft keeps `SHAFT_NEAR`'s least from each.
+    keep_off: Vec<(f64, f64)>,
+    /// Every expansion's site, every start's.
+    sites: Vec<(f64, f64)>,
+    /// Lines a shaft keeps off: each main to its natural, and out through its ramp.
+    lines: Vec<((f64, f64), (f64, f64))>,
+    centre: (f64, f64),
+    centre_busy: bool,
+    /// Whether a tile is land a Walk builder may build on (always, but on the Shore).
+    land: &'a dyn Fn(i32, i32) -> bool,
+    /// The numbers it holds a shaft to: `Limits::STRICT` for every map so far; the looser ones only where a map's
+    /// shafts found no room under them (`Map::mend_shafts`).
+    limits: Limits,
+}
+
+/// What a shaft must keep to (`ShaftRules::allows`): its distance from its own Core, the first's and the second's (the
+/// second at least `far_past` beyond the first), its margin nearer its own start than any other, its distance from the
+/// other Cores (and basins), the expansions' sites, the main-to-natural and ramp lines and a busy centre, from its own
+/// images, and the gap to other vents (`vent_fits`).
+#[derive(Clone, Copy)]
+struct Limits {
+    near: (f64, f64),
+    far: (f64, f64),
+    far_past: f64,
+    own: f64,
+    keep: f64,
+    clear: f64,
+    off_line: f64,
+    centre: f64,
+    apart: f64,
+    gap: i32,
+}
+
+impl Limits {
+    /// Every map's (the goldens pin the maps they make).
+    const STRICT: Limits = Limits {
+        near: SHAFT_NEAR,
+        far: SHAFT_FAR,
+        far_past: 5.0,
+        own: SHAFT_OWN,
+        keep: SHAFT_NEAR.0,
+        clear: SHAFT_CLEAR,
+        off_line: SHAFT_OFF_LINE,
+        centre: SHAFT_CENTRE,
+        apart: 6.0,
+        gap: VENT_GAP,
+    };
+    /// Where those found no room: wider rings, less room round sites and lines.
+    const RELAXED: Limits = Limits {
+        near: (13.0, 24.0),
+        far: (20.0, 42.0),
+        far_past: 4.0,
+        own: 0.0,
+        keep: 12.0,
+        clear: 8.0,
+        off_line: 2.5,
+        centre: 5.0,
+        apart: 5.0,
+        gap: VENT_GAP,
+    };
+    /// The last try: anywhere a walker reaches on its own side of the map, clear of the Cores.
+    const LAST: Limits = Limits {
+        near: (8.0, 32.0),
+        far: (10.0, 48.0),
+        far_past: 3.0,
+        own: 0.0,
+        keep: 8.0,
+        clear: 0.0,
+        off_line: 0.0,
+        centre: 3.0,
+        apart: 4.0,
+        gap: VENT_GAP - 1,
+    };
+}
+
+impl ShaftRules<'_> {
+    /// Whether a shaft centred at `q` (tile units: its top-left tile plus a half) is allowed, the first (`far` false:
+    /// `SHAFT_NEAR` from the first Core) or the second (`far`: `SHAFT_FAR`, and past the first by 5 at least).
+    fn allows(&self, q: (f64, f64), far: bool, near_r: f64) -> bool {
+        let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
+        let c0 = self.cores[0];
+        let r = d(q, c0);
+        let l = self.limits;
+        let (lo, hi) = if far {
+            (l.far.0.max(near_r + l.far_past), l.far.1)
+        } else {
+            l.near
+        };
+        let v = (
+            jsmath::round(q.0 - 0.5) as i32,
+            jsmath::round(q.1 - 0.5) as i32,
+        );
+        (lo..=hi).contains(&r)
+            && v.0 >= 2
+            && v.1 >= 2
+            && v.0 <= self.w - 4
+            && v.1 <= self.h - 4
+            && self.cores[1..].iter().all(|&c| d(q, c) > r + l.own)
+            && self.keep_off.iter().all(|&c| d(q, c) >= l.keep)
+            && self.sites.iter().all(|&e| d(q, e) >= l.clear)
+            && self
+                .lines
+                .iter()
+                .all(|&(a, b)| seg_dist(q, a, b) >= l.off_line)
+            && (!self.centre_busy || d(q, self.centre) >= l.centre)
+            && (1..self.sym.k).all(|g| d(q, self.sym.point(g, q)) >= l.apart)
+            && (0..2).all(|dy| (0..2).all(|dx| (self.land)(v.0 + dx, v.1 + dy)))
+    }
+
+    /// The ideal spots of the first start's two shafts on open ground (the generator clears rock round them), each the
+    /// best allowed point of a sweep round the middle's direction; None where nothing is allowed (the placement then
+    /// searches round a point straight towards the middle).
+    fn ideals(&self) -> [(f64, f64); 2] {
+        let c0 = self.cores[0];
+        let mid = jsmath::atan2(self.centre.1 - c0.1, self.centre.0 - c0.0);
+        let at = |a: f64, r: f64| (c0.0 + jsmath::cos(a) * r, c0.1 + jsmath::sin(a) * r);
+        // (scores: the first straight towards the middle at SHAFT_NEAR_AT; the second SHAFT_FAR_TURN round at
+        // SHAFT_FAR_AT; ties to the side away from the natural's line)
+        let best = |far: bool, near_r: f64| {
+            let mut best: Option<(f64, (f64, f64))> = None;
+            let (lo, hi) = if far { SHAFT_FAR } else { SHAFT_NEAR };
+            for i in 0..=36 {
+                let off = -90.0 + 5.0 * i as f64;
+                let mut r = lo;
+                while r <= hi {
+                    let q = at(mid + off * PI / 180.0, r);
+                    let score = if far {
+                        (off.abs() - SHAFT_FAR_TURN).abs() / 10.0 + (r - SHAFT_FAR_AT).abs() / 2.0
+                    } else {
+                        off.abs() / 10.0 + (r - SHAFT_NEAR_AT).abs()
+                    } - 0.001 * seg_dist(q, self.lines[0].0, self.lines[0].1);
+                    if self.allows(q, far, near_r) && best.is_none_or(|(s, _)| score < s) {
+                        best = Some((score, q));
+                    }
+                    r += 0.5;
+                }
+            }
+            best.map(|(_, q)| q)
+        };
+        let a = best(false, 0.0).unwrap_or(at(mid, SHAFT_NEAR_AT));
+        let r = jsmath::hypot(a.0 - c0.0, a.1 - c0.1);
+        let b = best(true, r).unwrap_or(at(mid + SHAFT_FAR_TURN * PI / 180.0, SHAFT_FAR_AT));
+        [a, b]
+    }
 }
 
 impl Map {
@@ -565,7 +749,7 @@ impl Map {
         let middle = f() < 0.55; // a contested field in the centre
         let scale = 6.0 + f() * 4.5; // rock feature size, in tiles
         let mut open: Vec<(f64, f64, f64)> = cores.iter().map(|c| (c.0, c.1, 12.0)).collect();
-        // An expansion's clearing: its field on the far side and room for a Core on the near side, beside the vent.
+        // An expansion's clearing: its field on the far side and room for a Core on the near side.
         for &p in &sites {
             for g in 0..k {
                 let q = sym.point(g, p);
@@ -577,6 +761,50 @@ impl Map {
         } else if kind == MapKind::EtherStorm {
             open.push((centre.0, centre.1, 3.5)); // (its centre vent, without a field)
         }
+        // The open shafts: where they may go, and open ground round their ideal spots.
+        let ramp_of = |g: usize| {
+            let (c, a) = (cores[g], sym.angle(g, ramp_dir));
+            (
+                c,
+                (c.0 + jsmath::cos(a) * 20.0, c.1 + jsmath::sin(a) * 20.0),
+            )
+        };
+        let land = |_: i32, _: i32| true;
+        let mut rules = ShaftRules {
+            sym,
+            w: mw,
+            h: mh,
+            b0,
+            cores: cores.clone(),
+            keep_off: cores.clone(),
+            sites: sites
+                .iter()
+                .flat_map(|&p| (0..k).map(move |g| sym.point(g, p)))
+                .collect(),
+            lines: (0..k)
+                .flat_map(|g| [(cores[g], sym.point(g, natural)), ramp_of(g)])
+                .collect(),
+            centre,
+            centre_busy: middle || kind == MapKind::EtherStorm,
+            land: &land,
+            limits: Limits::STRICT,
+        };
+        let ideals = rules.ideals();
+        for q in ideals {
+            for g in 0..k {
+                let q = sym.point(g, q);
+                open.push((q.0, q.1, 3.0));
+            }
+        }
+        // Each main's salt to one flank of its Core: the side farther from its ramp (the front stays free to build).
+        let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
+        let from_ramp = |a: f64| ((a - ramp_dir + 3.0 * PI).rem_euclid(2.0 * PI) - PI).abs();
+        let flank = if from_ramp(away - PI / 2.0) > from_ramp(away + PI / 2.0) + 1e-9 {
+            away - PI / 2.0
+        } else {
+            away + PI / 2.0
+        };
+        let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
         // Open ground just outside each ramp, so it leads somewhere.
         let ramp_out = (
             c0.0 + jsmath::cos(ramp_dir) * (POCKET_R + 3.0),
@@ -644,14 +872,17 @@ impl Map {
             m.nodes.clear();
             m.occ.fill(0);
             *next_id = id0;
-            m.place_fields(next_id, kind, sym, c0, centre, &sites, middle);
+            m.place_fields(next_id, kind, &rules, ideals, flank, shape, &sites, middle);
             let reach = m.walkable_from(b0);
             let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
             let fields_ok = m.nodes.iter().all(|n| {
                 let s = if n.ether { 2 } else { 1 };
                 (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
             });
-            if orbit[1..].iter().all(|b| reached(b.0, b.1)) && fields_ok {
+            // (and both shafts found room: more open ground next time if not)
+            let shafts_ok =
+                m.nodes.iter().filter(|n| n.ether).count() == 2 * k + rules.centre_busy as usize;
+            if orbit[1..].iter().all(|b| reached(b.0, b.1)) && fields_ok && shafts_ok {
                 break;
             }
             thr += 0.03;
@@ -662,12 +893,20 @@ impl Map {
             MapKind::Barren => (0.4, 0.6),
             _ => (1.0, 1.0),
         };
-        // Two vents by every base, and the centre's (a vent that found no room would be a silent hole: a change to
-        // the generator must fail its tests loudly instead).
+        // Two open shafts a start, and the centre's vent: where no threshold gave them room, laid again under looser
+        // rules (a start never goes without; no map so far needs it, and a change to the generator that makes one
+        // need it fails its tests loudly here).
+        let want = 2 * k + rules.centre_busy as usize;
+        let strict = m.nodes.iter().filter(|n| n.ether).count() == want;
+        m.mend_shafts(next_id, &mut rules, ideals, want);
+        debug_assert!(
+            strict,
+            "seed {seed} {kind:?} {mw}x{mh}: every start has its two open shafts without mending"
+        );
         debug_assert_eq!(
             m.nodes.iter().filter(|n| n.ether).count(),
-            2 * k * (1 + sites.len()) + (middle || kind == MapKind::EtherStorm) as usize,
-            "seed {seed} {kind:?} {mw}x{mh}: every base has its two vents"
+            2 * k + rules.centre_busy as usize,
+            "seed {seed} {kind:?} {mw}x{mh}: every start has its two open shafts"
         );
         m.expansions = sites
             .iter()
@@ -684,9 +923,9 @@ impl Map {
     /// of reef rock, `SHORE_BASIN` tiles from the centre, south or north, with a channel facing the cove across the sea
     /// and a sea gate onto the deep band: the Vael's road to the other share, which walkers cannot take). A deep band
     /// runs down the middle between the two reefs, shallows `SHORE_SHALLOWS` wide all round it; the land east and west
-    /// of it meets beyond each reef. Cove and basin each hold a field and two vents (either can be a start: a Human
-    /// seat takes its cove, a Vael seat its basin), and the expansions lie on land. Rock is raised until a walker (Walk)
-    /// gets from the first cove to the other cove, to both basins and to every field.
+    /// of it meets beyond each reef. Cove and basin each hold a field (either can be a start: a Human
+    /// seat takes its cove, a Vael seat its basin); the expansions and each start's two open shafts lie on land. Rock is
+    /// raised until a walker (Walk) gets from the first cove to the other cove, to both basins and to every field.
     fn generate_shore(seed: u32, size: MapSize, next_id: &mut Id, field: ShoreField) -> Self {
         let (mw, mh) = (size.w, size.h);
         let sym = Sym { k: 2, w: mw, h: mh };
@@ -747,7 +986,7 @@ impl Map {
                 && d(p, centre) > 7.0
                 && d(p, sym.point(1, p)) > 12.0
                 && axis(p.0, p.1) > SHORE_DEEP + SHORE_SHALLOWS + 3.0
-                // (clear of the reefs by more than an expansion's vents reach: 7.5 tiles round its middle)
+                // (clear of the reefs by more than an expansion's clearing: 7.5 tiles round its middle)
                 && pool(p.0, p.1) > SHORE_REEF + 1.5 + 7.5
                 && sites
                     .iter()
@@ -813,6 +1052,66 @@ impl Map {
                 3.5,
             ));
         }
+        // Heights: a reef's basin and the band's rim shallows, the band's middle deep (outside the reefs), the rest
+        // land (read where the first share holds the tile: its image is the same).
+        let height = |x: i32, y: i32| {
+            let (sx, sy) = [(x, y), sym.tile(1, (x, y))]
+                .into_iter()
+                .min_by_key(|&(x, y)| y * mw + x)
+                .unwrap();
+            let (fx, fy) = (sx as f64, sy as f64);
+            if pool(fx, fy) < SHORE_REEF {
+                SHORE_SHALLOW_H
+            } else if axis(fx, fy) < SHORE_DEEP && pool(fx, fy) >= SHORE_REEF + 1.5 {
+                SHORE_DEEP_H
+            } else if axis(fx, fy) < SHORE_DEEP + SHORE_SHALLOWS {
+                SHORE_SHALLOW_H
+            } else {
+                DRY
+            }
+        };
+        // The open shafts: on land (a walker builds there at high water), off each cove's ramp and its natural's line.
+        let land = |x: i32, y: i32| x >= 0 && y >= 0 && x < mw && y < mh && height(x, y) == DRY;
+        let shaft_rules = |sites: &[(f64, f64)]| {
+            let natural = sites.first().copied().unwrap_or(centre);
+            ShaftRules {
+                sym,
+                w: mw,
+                h: mh,
+                b0,
+                cores: cores.to_vec(),
+                keep_off: cores.iter().chain(&pools).copied().collect(),
+                sites: sites
+                    .iter()
+                    .flat_map(|&p| (0..2).map(move |g| sym.point(g, p)))
+                    .collect(),
+                lines: (0..2)
+                    .flat_map(|g| {
+                        let c = cores[g];
+                        let out = (
+                            c.0 + jsmath::cos(ramp[g]) * 20.0,
+                            c.1 + jsmath::sin(ramp[g]) * 20.0,
+                        );
+                        [(c, sym.point(g, natural)), (c, out)]
+                    })
+                    .collect(),
+                centre,
+                centre_busy: false,
+                land: &land,
+                limits: Limits::STRICT,
+            }
+        };
+        let ideals = shaft_rules(&sites).ideals();
+        for q in ideals {
+            for g in 0..2 {
+                let q = sym.point(g, q);
+                open.push((q.0, q.1, 3.0));
+            }
+        }
+        // The cove's salt to one flank of its Core (its ramp faces the centre: either flank is as far from it).
+        let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
+        let flank = away + PI / 2.0;
+        let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
         let tiles = (mw * mh) as usize;
         let (mut nv, mut fixed, mut clear) =
             (vec![0.0; tiles], vec![false; tiles], vec![false; tiles]);
@@ -828,17 +1127,7 @@ impl Map {
                 fixed[i] = x == 0 || y == 0 || x == mw - 1 || y == mh - 1 || wall(fx, fy);
                 clear[i] =
                     sea(fx, fy) || open.iter().any(|e| jsmath::hypot(fx - e.0, fy - e.1) < e.2);
-                // Heights: a reef's basin and the band's rim shallows, the band's middle deep (outside the reefs),
-                // the rest land.
-                m.height[i] = if pool(fx, fy) < SHORE_REEF {
-                    SHORE_SHALLOW_H
-                } else if axis(fx, fy) < SHORE_DEEP && pool(fx, fy) >= SHORE_REEF + 1.5 {
-                    SHORE_DEEP_H
-                } else if axis(fx, fy) < SHORE_DEEP + SHORE_SHALLOWS {
-                    SHORE_SHALLOW_H
-                } else {
-                    DRY
-                };
+                m.height[i] = height(x, y);
             }
         }
         let walk = Foot {
@@ -847,9 +1136,10 @@ impl Map {
         };
         // (little rock on land, as on open plains: the sea is this map's character, and walkers need its passages)
         let id0 = *next_id;
-        // Rock raised until it connects; a layout no threshold makes whole (an expansion whose vents find no room
-        // anywhere) loses its farthest expansion and tries again.
+        // Rock raised until it connects; a layout no threshold makes whole (a shaft that finds no room anywhere)
+        // loses its farthest expansion and tries again.
         loop {
+            let rules = shaft_rules(&sites);
             let mut thr = SHORE_ROCK;
             let mut ok = false;
             for _ in 0..16 {
@@ -860,9 +1150,17 @@ impl Map {
                 m.nodes.clear();
                 m.occ.fill(0);
                 *next_id = id0;
-                // (the basins' first: every other vent then keeps its distance from theirs)
-                m.place_basin_fields(next_id, sym, p0, channel[0], field);
-                m.place_fields(next_id, MapKind::Shore, sym, c0, centre, &sites, false);
+                m.place_basin_fields(next_id, sym, p0, channel[0], field, shape);
+                m.place_fields(
+                    next_id,
+                    MapKind::Shore,
+                    &rules,
+                    ideals,
+                    flank,
+                    shape,
+                    &sites,
+                    false,
+                );
                 let reach = m.reach_from(b0, walk);
                 let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
                 let fields_ok = m.nodes.iter().all(|n| {
@@ -870,9 +1168,8 @@ impl Map {
                     (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy)))
                 });
                 let starts_ok = coves.iter().chain(&basins).all(|b| reached(b.0, b.1));
-                // (and every vent found room: more open ground next time if not)
-                let vents_ok =
-                    m.nodes.iter().filter(|n| n.ether).count() == 8 + 2 * 2 * sites.len();
+                // (and both shafts found room: more open ground next time if not)
+                let vents_ok = m.nodes.iter().filter(|n| n.ether).count() == 4;
                 if starts_ok && fields_ok && vents_ok {
                     ok = true;
                     break;
@@ -893,21 +1190,26 @@ impl Map {
             .iter()
             .flat_map(|&p| (0..2).map(move |g| sym.point(g, p)))
             .collect();
-        // Two vents by every cove and every basin, and two by every expansion (a vent that found no room would be a
-        // silent hole: a change to the generator must fail its tests loudly instead).
+        // Two open shafts a start: where none gave them room, laid again under looser rules (as `generate`).
+        let strict = m.nodes.iter().filter(|n| n.ether).count() == 4;
+        m.mend_shafts(next_id, &mut shaft_rules(&sites), ideals, 4);
+        debug_assert!(
+            strict,
+            "seed {seed}: every Shore start has its two open shafts without mending"
+        );
         debug_assert_eq!(
             m.nodes.iter().filter(|n| n.ether).count(),
-            8 + 2 * m.expansions.len(),
-            "seed {seed}: every Shore start and expansion has its two vents"
+            4,
+            "seed {seed}: every Shore start has its two open shafts"
         );
         m
     }
 
-    /// A reef basin's field and two vents, and their images in the other share: an arc of crystals behind the Core
-    /// (away from the channel), a vent to either side of it. A main's field (seven crystals 6.5 tiles out, the vents
-    /// 8 out, as a cove's), not an expansion's: the smaller, nearer one mined faster and ran low, so a Vael start
-    /// expanded two minutes early (the first Shore report).
-    /// `field` (lab only) puts the field elsewhere: `ShoreField::BACK` is every game's.
+    /// A reef basin's field and its image in the other share: a main's salt outcrop (seven crystals, `MAIN_CLUMP_R`
+    /// from the basin's middle, as a cove's), to the flank of its Core square to the channel (`ShoreField::BACK`), not
+    /// an expansion's: the smaller, nearer one mined faster and ran low, so a Vael start expanded two minutes early
+    /// (the first Shore report). No vent: the shafts lie out in the open.
+    /// `at` (lab only) puts the field elsewhere: `ShoreField::BACK` is every game's.
     fn place_basin_fields(
         &mut self,
         next_id: &mut Id,
@@ -915,35 +1217,27 @@ impl Map {
         p0: (f64, f64),
         channel: f64,
         at: ShoreField,
+        shape: u32,
     ) {
-        let back = channel + at.turn;
-        // (a field farther than a main's is the main's arc carried out: the same shape, its pivot moved)
-        let out = at.r - MAIN_FIELD_R;
-        let pivot = (
-            p0.0 + jsmath::cos(back) * out,
-            p0.1 + jsmath::sin(back) * out,
+        let dir = channel + at.turn;
+        // (a field farther than a main's is the main's outcrop carried out: the same shape, its middle moved)
+        // (a field by the Core keeps inside the reef, as near as its Core allows; one carried out past it, the lab's,
+        // does not try)
+        let (r, reach) = if at.r <= MAIN_FIELD_R {
+            (MAIN_CLUMP_R - 1.0, SHORE_REEF - 0.9)
+        } else {
+            (at.r - MAIN_FIELD_R + MAIN_CLUMP_R, f64::INFINITY)
+        };
+        let field = self.add_clump(
+            next_id,
+            p0,
+            dir,
+            (r, MAIN_KEEP, reach),
+            7,
+            shape.rotate_left(16),
         );
-        let field = self.add_shards(next_id, pivot.0, pivot.1, back, 7, MAIN_FIELD_R);
         let img: Vec<(i32, i32)> = field.iter().map(|&t| sym.tile(1, t)).collect();
         self.add_shards_at(next_id, &img);
-        for hand in [1.0, -1.0] {
-            let fit = (0..=10).find_map(|i| {
-                let a = back + hand * (80.0 + 6.0 * i as f64) * PI / 180.0;
-                [8.0, 7.5, 8.5, 7.0].into_iter().find_map(|r| {
-                    let v = (
-                        jsmath::round(p0.0 + jsmath::cos(a) * r) as i32 - 1,
-                        jsmath::round(p0.1 + jsmath::sin(a) * r) as i32 - 1,
-                    );
-                    self.vent_fits(sym, v, VENT_GAP - 1).then_some(v)
-                })
-            });
-            if let Some(v) = fit {
-                for g in 0..2 {
-                    let v = sym.block(g, v, 2);
-                    self.add_vent(next_id, v.0, v.1);
-                }
-            }
-        }
     }
 
     /// Tiles a unit with `foot` can reach from `from` (4-neighbour steps over tiles it may stand on).
@@ -964,45 +1258,30 @@ impl Map {
     }
 
     /// The resource fields of a generated map, each start's the exact tile-for-tile image of the first's: each base's
-    /// own field behind it (away from the centre) with a vent to either side, the centre field (if any) and vent (if
-    /// any: always on an ether storm), then the expansions (nearest the main first), each with its field on the far
-    /// side from the main and a vent to either side of the room for its Core.
+    /// own salt outcrop to one flank of its Core (`flank`, a direction), the centre field (if any) and vent (if any:
+    /// always on an ether storm), the expansions (nearest the main first), each with its outcrop on the far side from
+    /// the main, then the open shafts (`place_shafts`). No base has a vent of its own.
     #[allow(clippy::too_many_arguments)]
     fn place_fields(
         &mut self,
         next_id: &mut Id,
         kind: MapKind,
-        sym: Sym,
-        c0: (f64, f64),
-        centre: (f64, f64),
+        rules: &ShaftRules,
+        ideals: [(f64, f64); 2],
+        flank: f64,
+        shape: u32,
         sites: &[(f64, f64)],
         middle: bool,
     ) {
         let (mw, mh) = (self.w, self.h);
+        let (sym, c0, centre) = (rules.sym, rules.cores[0], rules.centre);
         let images = |tiles: &[(i32, i32)], g: usize| -> Vec<(i32, i32)> {
             tiles.iter().map(|&t| sym.tile(g, t)).collect()
         };
-        let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
-        // The first vent: 8 tiles out to one side of the Core, a little behind its flank (towards its field), which
-        // leaves the front of the pocket, towards its ramp, for buildings.
-        let side = away + MAIN_VENT_TURN * PI / 180.0;
-        let v0 = (
-            (jsmath::round(c0.0 + jsmath::cos(side) * 8.0) as i32 - 1).clamp(1, mw - 3),
-            (jsmath::round(c0.1 + jsmath::sin(side) * 8.0) as i32 - 1).clamp(1, mh - 3),
-        );
-        // The second vent: the first's mirror image across the line from the Core through its field (tile for tile
-        // where that line is a symmetry of the grid: a start in a corner or by the middle of a side).
-        let v1 = mirror_block(v0, c0, away, mw, mh);
-        let home = self.add_shards(next_id, c0.0, c0.1, away, 7, 6.5);
-        for v in [v0, v1] {
-            self.add_vent(next_id, v.0, v.1);
-        }
+        let at = (MAIN_CLUMP_R, MAIN_KEEP, f64::INFINITY);
+        let home = self.add_clump(next_id, c0, flank, at, 7, shape);
         for g in 1..sym.k {
             self.add_shards_at(next_id, &images(&home, g));
-            for v in [v0, v1] {
-                let v = sym.block(g, v, 2);
-                self.add_vent(next_id, v.0, v.1);
-            }
         }
         if middle {
             let left = self.add_shards(next_id, centre.0 - 3.0, centre.1, PI, 3, 2.5);
@@ -1013,48 +1292,105 @@ impl Map {
         if middle || kind == MapKind::EtherStorm {
             self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the centre is its own image
         }
-        for &p in sites {
+        for (i, &p) in sites.iter().enumerate() {
             // The crystals lie on the far side of the site from the main, clear of the main's ramp.
             let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
-            let field = self.add_shards(next_id, p.0, p.1, out, 5, 4.5);
+            let turn = shape.rotate_left(5 * (i as u32 + 1));
+            let at = (EXP_CLUMP_R, 0.0, EXP_REACH);
+            let field = self.add_clump(next_id, p, out, at, 5, turn);
             for g in 1..sym.k {
                 self.add_shards_at(next_id, &images(&field, g));
             }
-            // A vent to either side of the site's middle, where its Core goes: square to the field if it fits,
-            // else turned towards the main (never into the field), nearer in if need be.
-            for hand in [1.0, -1.0] {
-                // (then, where none of those fits, anywhere on its own side of the site, nearest square first)
-                let sweep = (0..=12).flat_map(|i| {
-                    [3.5, 4.5, 5.5, 6.5, 7.5]
-                        .map(|r| (90.0 + 7.5 * (i as f64) * [1.0, -1.0][i % 2], r))
-                });
-                let fit = [VENT_GAP, VENT_GAP - 1].iter().find_map(|&gap| {
-                    EXP_VENT_AT
-                        .iter()
-                        .copied()
-                        .chain(sweep.clone())
-                        .find_map(|(turn, r)| {
-                            let a = out + hand * turn * PI / 180.0;
-                            let v = (
-                                jsmath::round(p.0 + jsmath::cos(a) * r) as i32 - 1,
-                                jsmath::round(p.1 + jsmath::sin(a) * r) as i32 - 1,
-                            );
-                            self.vent_fits(sym, v, gap).then_some(v)
+        }
+        self.place_shafts(next_id, rules, ideals);
+    }
+
+    /// The first start's two open shafts and their images: each the allowed spot (`ShaftRules::allows`) nearest its
+    /// ideal where a shaft fits (`vent_fits`) and a walker from the first start reaches its side. A shaft that finds no
+    /// room is left out, which the generator then mends (more open ground) or fails on loudly.
+    fn place_shafts(&mut self, next_id: &mut Id, rules: &ShaftRules, ideals: [(f64, f64); 2]) {
+        let (sym, c0) = (rules.sym, rules.cores[0]);
+        let walk = Foot {
+            class: Move::Walk,
+            water: 0,
+        };
+        let reach = self.reach_from(rules.b0, walk);
+        let mut near_r = 0.0;
+        for (i, ideal) in ideals.into_iter().enumerate() {
+            let far = i == 1;
+            let l = rules.limits;
+            let r = if far { l.far.1 } else { l.near.1 }.ceil() as i32 + 1;
+            let (bx, by) = (c0.0 as i32, c0.1 as i32);
+            let mut best: Option<(f64, (i32, i32))> = None;
+            for y in (by - r).max(0)..=(by + r).min(self.h - 1) {
+                for x in (bx - r).max(0)..=(bx + r).min(self.w - 1) {
+                    let q = (x as f64 + 0.5, y as f64 + 0.5);
+                    let dd = jsmath::hypot(q.0 - ideal.0, q.1 - ideal.1);
+                    if best.is_some_and(|(b, _)| dd >= b) || !rules.allows(q, far, near_r) {
+                        continue;
+                    }
+                    let ring = (-1..=2).any(|dy| {
+                        (-1..=2).any(|dx| {
+                            let (tx, ty) = (x + dx, y + dy);
+                            self.in_map(tx, ty) && reach[self.idx(tx, ty)]
                         })
-                });
-                if let Some(v) = fit {
-                    for g in 0..sym.k {
-                        let v = sym.block(g, v, 2);
-                        self.add_vent(next_id, v.0, v.1);
+                    });
+                    if ring && self.vent_fits(sym, (x, y), l.gap) {
+                        best = Some((dd, (x, y)));
                     }
                 }
             }
+            let Some((_, v)) = best else {
+                return;
+            };
+            near_r = jsmath::hypot(v.0 as f64 + 0.5 - c0.0, v.1 as f64 + 0.5 - c0.1);
+            for g in 0..sym.k {
+                let v = sym.block(g, v, 2);
+                self.add_vent(next_id, v.0, v.1);
+            }
+        }
+    }
+
+    /// The last resort where a map's shafts found no room under `Limits::STRICT` at any rock threshold: its shafts
+    /// (the last vents laid down) taken up and laid again under `Limits::RELAXED`, then `Limits::LAST`, until every
+    /// start has its two (`want` vents in all, the centre's counted). A map that never needs it is unchanged.
+    fn mend_shafts(
+        &mut self,
+        next_id: &mut Id,
+        rules: &mut ShaftRules,
+        ideals: [(f64, f64); 2],
+        want: usize,
+    ) {
+        let vents = |m: &Map| m.nodes.iter().filter(|n| n.ether).count();
+        for limits in [Limits::RELAXED, Limits::LAST] {
+            if vents(self) == want {
+                return;
+            }
+            // (the shafts are the last nodes laid down: any vents after the last crystal, the centre's excepted)
+            let (cx, cy) = (self.w / 2 - 1, self.h / 2 - 1);
+            while let Some(n) = self
+                .nodes
+                .last()
+                .filter(|n| n.ether && (n.tx, n.ty) != (cx, cy))
+            {
+                let (tx, ty) = (n.tx, n.ty);
+                for y in ty..ty + 2 {
+                    for x in tx..tx + 2 {
+                        let i = self.idx(x, y);
+                        self.occ[i] = 0;
+                    }
+                }
+                self.nodes.pop();
+                *next_id -= 1;
+            }
+            rules.limits = limits;
+            self.place_shafts(next_id, rules, ideals);
         }
     }
 
     /// Whether a vent (2x2, top-left `v`) and its images fit: on the map, a tile clear of the edge, on open ground with
     /// a tile of it (no rock, crystal or vent) round each, so workers can walk all round it, and `gap` from every other
-    /// vent (`VENT_GAP`, or a tile less where an expansion has no room else). Every field so far is the same in every
+    /// vent (`VENT_GAP`). Every field so far is the same in every
     /// start's share, so what is free round `v` is free round each image.
     fn vent_fits(&self, sym: Sym, v: (i32, i32), gap: i32) -> bool {
         let clear = (-1..=2).all(|dy| {
@@ -1109,6 +1445,103 @@ impl Map {
                 k += 1;
             }
             if self.add_shard(next_id, tx, ty, field) {
+                used.push((tx, ty));
+            }
+        }
+        used
+    }
+
+    /// A salt outcrop of `n` crystals (7 or 5: `CLUMP_7`, `CLUMP_5`), its pattern picked by `shape`, its middle `r`
+    /// tiles from `from` (tiles) towards `dir`, or farther until every crystal lies `keep` tiles out from the 4x4 Core
+    /// centred on `from` (a main's: two tiles of ground between its Core and the salt, and no crystal at its corner,
+    /// where a worker would squeeze past); of the pattern's eight turns, the first from `shape`'s that lies nearest
+    /// with every crystal within `reach` of `from` (a reef basin's: inside its reef), else the nearest. A crystal whose
+    /// tile is taken goes to the nearest free one round it. Returns the tiles used (to mirror them exactly).
+    #[allow(clippy::too_many_arguments)]
+    fn add_clump(
+        &mut self,
+        next_id: &mut Id,
+        from: (f64, f64),
+        dir: f64,
+        (r, keep, reach): (f64, f64, f64),
+        n: usize,
+        shape: u32,
+    ) -> Vec<(i32, i32)> {
+        let rows: &[&str] = if n == 7 {
+            &CLUMP_7[(shape % CLUMP_7.len() as u32) as usize]
+        } else {
+            &CLUMP_5[(shape % CLUMP_5.len() as u32) as usize]
+        };
+        let s = rows.len() as i32;
+        let offsets = |turn: u32| -> Vec<(i32, i32)> {
+            rows.iter()
+                .enumerate()
+                .flat_map(|(y, row)| {
+                    row.bytes()
+                        .enumerate()
+                        .filter(|&(_, c)| c == b'X')
+                        .map(move |(x, _)| (x as i32 - s / 2, y as i32 - s / 2))
+                })
+                .map(|(ox, oy)| if turn >= 4 { (-ox, oy) } else { (ox, oy) })
+                .map(|(ox, oy)| match turn % 4 {
+                    0 => (ox, oy),
+                    1 => (-oy, ox),
+                    2 => (-ox, -oy),
+                    _ => (oy, -ox),
+                })
+                .collect()
+        };
+        let at = |r: f64| {
+            (
+                jsmath::round(from.0 + jsmath::cos(dir) * r) as i32,
+                jsmath::round(from.1 + jsmath::sin(dir) * r) as i32,
+            )
+        };
+        // (how far a crystal's tile lies out from the Core's: past its edge, in a straight line)
+        let clear = |(cx, cy): (i32, i32), offs: &[(i32, i32)]| {
+            offs.iter().all(|&(ox, oy)| {
+                let (x, y) = ((cx + ox) as f64 - from.0, (cy + oy) as f64 - from.1);
+                jsmath::hypot((x.abs() - 1.5).max(0.0), (y.abs() - 1.5).max(0.0)) >= keep
+            })
+        };
+        let within = |(cx, cy): (i32, i32), offs: &[(i32, i32)]| {
+            offs.iter().all(|&(ox, oy)| {
+                jsmath::hypot((cx + ox) as f64 - from.0, (cy + oy) as f64 - from.1) <= reach
+            })
+        };
+        let base = shape / 8 % 8;
+        let (_, _, offsets, (cx, cy)) = (0..8u32)
+            .map(|t| {
+                let offs = offsets((base + t) % 8);
+                let out = (0..12)
+                    .find(|&i| clear(at(r + 0.5 * i as f64), &offs))
+                    .unwrap_or(12);
+                let c = at(r + 0.5 * out.min(11) as f64);
+                (!within(c, &offs), out, offs, c)
+            })
+            .min_by_key(|(far, out, _, _)| (*far, *out))
+            .unwrap();
+        let field = self.new_field();
+        let mut used = Vec::new();
+        let free = |m: &Map, x: i32, y: i32| {
+            x >= 1 && y >= 1 && x <= m.w - 2 && y <= m.h - 2 && m.occ[m.idx(x, y)] == 0
+        };
+        for (ox, oy) in offsets {
+            let (tx, ty) = (
+                (cx + ox).clamp(1, self.w - 2),
+                (cy + oy).clamp(1, self.h - 2),
+            );
+            let spot = (0..=2).find_map(|r| {
+                (-r..=r).find_map(|dy| {
+                    (-r..=r)
+                        .filter(|dx: &i32| dx.abs().max(dy.abs()) == r)
+                        .map(|dx| (tx + dx, ty + dy))
+                        .find(|&(x, y)| free(self, x, y))
+                })
+            });
+            if let Some((tx, ty)) = spot
+                && self.add_shard(next_id, tx, ty, field)
+            {
                 used.push((tx, ty));
             }
         }
@@ -1311,5 +1744,76 @@ impl Map {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A map whose shafts find no room under the strict rules (rock over every ring they may lie in) still gets two
+    /// per start, each start's the image of the first's, a walker's reach from its start: `mend_shafts`.
+    #[test]
+    fn shafts_that_find_no_room_are_laid_again_under_looser_rules() {
+        let size = MapSize::DUEL;
+        let sym = Sym { k: 2, w: 64, h: 64 };
+        let mut m = Map::empty(size);
+        let b0 = (8, 52);
+        m.bases = vec![b0, sym.block(1, b0, 4)];
+        let cores: Vec<(f64, f64)> = (0..2)
+            .map(|g| sym.point(g, (b0.0 as f64 + 1.5, b0.1 as f64 + 1.5)))
+            .collect();
+        // (rock wherever a strict shaft could stand: 15 to 37 tiles from either Core)
+        for y in 1..63 {
+            for x in 1..63 {
+                let r = cores
+                    .iter()
+                    .map(|c| jsmath::hypot(x as f64 + 0.5 - c.0, y as f64 + 0.5 - c.1))
+                    .fold(f64::INFINITY, f64::min);
+                if (15.0..=37.0).contains(&r) {
+                    let i = m.idx(x, y);
+                    m.rock[i] = 1;
+                }
+            }
+        }
+        let land = |_: i32, _: i32| true;
+        let mut rules = ShaftRules {
+            sym,
+            w: 64,
+            h: 64,
+            b0,
+            cores: cores.clone(),
+            keep_off: cores.clone(),
+            sites: Vec::new(),
+            // (a natural's line, out towards the map's edge: out of the way)
+            lines: vec![(cores[0], (cores[0].0 - 1.0, cores[0].1 + 1.0))],
+            centre: (31.5, 31.5),
+            centre_busy: false,
+            land: &land,
+            limits: Limits::STRICT,
+        };
+        let ideals = rules.ideals();
+        let mut next_id = 1;
+        m.place_shafts(&mut next_id, &rules, ideals);
+        assert_eq!(m.nodes.len(), 0, "no room under the strict rules");
+        m.mend_shafts(&mut next_id, &mut rules, ideals, 4);
+        assert_eq!(m.nodes.len(), 4, "two shafts a start");
+        let reach = m.reach_from(
+            (b0.0 + 1, b0.1 - 1),
+            Foot {
+                class: Move::Walk,
+                water: 0,
+            },
+        );
+        for n in &m.nodes {
+            assert!(
+                m.nodes
+                    .iter()
+                    .any(|o| (o.tx, o.ty) == sym.block(1, (n.tx, n.ty), 2)),
+                "each shaft's image"
+            );
+            let reached = (-1..=2).any(|dy| (-1..=2).any(|dx| reach[m.idx(n.tx + dx, n.ty + dy)]));
+            assert!(reached, "the shaft at {},{} reached", n.tx, n.ty);
+        }
     }
 }

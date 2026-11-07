@@ -905,7 +905,7 @@ mod tests {
         assert_eq!(g.w.bldgs.len(), 2);
         assert_eq!(g.w.units.len(), 8);
         assert!(g.w.map.nodes.len() > 20);
-        assert_eq!(g.w.sup[PLAYER as usize], [4, 10]);
+        assert_eq!(g.w.sup[PLAYER as usize], [4, 20]);
     }
 
     #[test]
@@ -959,7 +959,7 @@ mod tests {
                 .iter()
                 .any(|b| b.team == PLAYER && b.kind == BldgKind::Depot && b.done)
         );
-        assert_eq!(g.w.sup[PLAYER as usize][1], 18);
+        assert_eq!(g.w.sup[PLAYER as usize][1], 28);
     }
 
     #[test]

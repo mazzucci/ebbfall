@@ -136,8 +136,8 @@ test('what is not open yet is hidden in place: its slot stays empty, nothing els
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
   // The Build list: the basic page is all there from the start; no Advanced before a Kiln stands.
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
-  assert.deepEqual(slots(), ['b_spire@0', 'b_kiln@1', 'b_siphon@2', 'b_conflux@3', 'esc@5'], 'no Advanced yet');
-  assert.ok(!C.cardItems().some(i => i.id === 'b_loom'), 'nor the advanced page\'s keys');
+  assert.deepEqual(slots(), ['b_kiln@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Cradle first; no Advanced yet');
+  assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_siphon'), 'nor the advanced page\'s keys (the Siphon\'s too: it needs the Cradle)');
   // A unit's abilities: one waiting for its tech is left out, the others keep their places.
   // (Roster v2: Surface is the Conch's (`monolith`), Surge the Lens's (`prism`), researched)
   const scythe = E.debugSpawn(E.G.me, 'prism', hq.x + 90, hq.y + 90), mono = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);

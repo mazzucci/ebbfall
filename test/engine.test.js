@@ -93,7 +93,7 @@ test('a fresh game has two cores, eight harvesters and resource nodes', { skip }
   assert.equal(E.G.bldgs.length, 2);
   assert.equal(E.G.units.length, 8);
   assert.ok(E.map.nodes.length > 20);
-  assert.deepEqual(E.G.sup[E.PLAYER], [4, 10]);
+  assert.deepEqual(E.G.sup[E.PLAYER], [4, 20]); // (the Lighthouse holds 20 population)
   assert.ok(E.G.units.every(u => u.task.t === 'gather' && u.task.node && u.task.node.kind === 'node'));
 });
 
@@ -135,7 +135,7 @@ test('placing a depot costs 100 shards and a harvester builds it', { skip }, () 
   runSeconds(45);
   const depot = E.G.bldgs.find(b => b.type === 'depot' && b.team === E.PLAYER);
   assert.ok(depot && depot.done, 'depot finished');
-  assert.equal(E.G.sup[E.PLAYER][1], 18);
+  assert.equal(E.G.sup[E.PLAYER][1], 28);
 });
 
 test('orders report errors and a rally point shows up on the building', { skip }, () => {
@@ -164,14 +164,14 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(E.G.units.every(u => !u.dead));
 });
 
-test('a harvester whose last node is a seep goes idle instead of getting stuck', { skip }, () => {
-  // Reproduces the review finding: resume after building, with last_node = a seep (never mined).
+test('a harvester whose last node is a mine shaft goes idle instead of getting stuck', { skip }, () => {
+  // Reproduces the review finding: resume after building, with last_node = a mine shaft (never mined).
   for (const S of [E]) {
     S.resetGame(7, 1);
     S.setResources(E.PLAYER, 1000, 0);
     const G = S.G, core = G.bldgs.find(b => b.team === S.PLAYER), vent = S.map.nodes.find(n => n.type === 'ether');
     const h = G.units.find(u => u.team === S.PLAYER);
-    S.startGather(h, vent); // refused (a seep is not mined), last node unchanged
+    S.startGather(h, vent); // refused (a shaft is not mined), last node unchanged
     let placed = false;
     for (let r = 3; r < 9 && !placed; r++) for (let a = 0; a < 12 && !placed; a++) {
       const tx = Math.round(core.tx + 2 + Math.cos(a / 12 * 6.28) * r - 1), ty = Math.round(core.ty + 2 + Math.sin(a / 12 * 6.28) * r - 1);
@@ -179,8 +179,8 @@ test('a harvester whose last node is a seep goes idle instead of getting stuck',
     }
     assert.ok(placed);
     let toasts = 0;
-    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Pump/.test(e.msg)) toasts++; G.events.length = 0; }
-    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} Pump toasts`);
+    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Excavator/.test(e.msg)) toasts++; G.events.length = 0; }
+    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} Excavator toasts`);
     assert.notEqual(G.units.find(u => u.id === h.id).task.t, 'build');
   }
 });
@@ -214,23 +214,32 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
-test('a Pump knows its seep and pays salt by itself; harvesters ordered to the seep are refused', { skip }, () => {
+test('an Excavator knows its mine shaft and digs salt by itself; harvesters ordered to the shaft are refused', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
-  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the player's own vent
+  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the nearest, out in the open
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
+  // (the Excavator needs the Crew Hall; the shaft, out in the open, is on the map from the start)
+  let rax = null;
+  for (let r = 4; r < 12 && !rax; r++) for (let a = 0; a < 16 && !rax; a++) {
+    const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
+    if (E.canPlace('barracks', tx, ty, E.PLAYER)) { assert.equal(E.placeBuilding(E.PLAYER, 'barracks', tx, ty, hs[1]), null); rax = { tx, ty }; }
+  }
+  assert.ok(rax, 'room for a Crew Hall');
+  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null, 'refused before the Crew Hall stands');
+  runSeconds(60);
   assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
   assert.equal(ext.vent, vent);
   runSeconds(60); // walk over, then 25 s of construction
-  assert.ok(ext.done, 'Pump built');
+  assert.ok(ext.done, 'Excavator built');
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
   assert.equal(E.G.res[E.PLAYER][0], 10, 'ten salt in 20 s, nobody mining');
   for (const h of hs) E.startGather(h, ext.vent);
-  assert.ok(hs.every(h => h.task.t !== 'gather'), 'nobody works the seep');
+  assert.ok(hs.every(h => h.task.t !== 'gather'), 'nobody works the shaft');
   assert.equal(E.G.res[E.PLAYER][1], 0, 'no ether');
 });
 
@@ -406,7 +415,10 @@ test('allies share vision: G.vis is what this side\'s team sees, its fog-free ar
   // Seat 1's Trooper in the middle of a 96x96 map, an enemy (seat 2) beside it; nobody else near. Seen from seat 0.
   const look = (teams) => {
     E.resetGameSeats(31, 1, 0, 0, ['humans', 'vael', 'humans', 'vael'], teams, [false, false, false, false], 0, 96);
-    const x = 48 * C.TILE + 16, y = 48 * C.TILE + 16, at = E.idx(48, 48);
+    // (by the middle, off the mine shafts: every shaft and the ground round it is on everyone's map from the start)
+    let tx = 48, ty = 48;
+    for (let r = 0; r < 10 && E.G.explored[E.idx(tx, ty)]; r++) [tx, ty] = [48 + r, 48];
+    const x = tx * C.TILE + 16, y = ty * C.TILE + 16, at = E.idx(tx, ty);
     assert.equal(E.G.vis[at], 0, 'the middle out of sight to begin with');
     const ally = E.debugSpawn(1, 'trooper', x, y), enemy = E.debugSpawn(2, 'trooper', x + 40, y);
     E.step();

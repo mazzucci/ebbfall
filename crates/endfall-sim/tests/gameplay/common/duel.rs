@@ -184,7 +184,19 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (us
         .filter(|n| !n.ether)
         .min_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
         .unwrap();
-    let (nx, ny, nid) = (node.x, node.y, node.id);
+    let (nx, ny, nid, field) = (node.x, node.y, node.id, node.field);
+    // (the middle of the home field's clump: where a turret by the mineral line covers every crystal)
+    let crystals: Vec<(f64, f64)> = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| !n.ether && n.field == field)
+        .map(|n| (n.x, n.y))
+        .collect();
+    let k = crystals.len() as f64;
+    let (fx, fy) = crystals
+        .iter()
+        .fold((0.0, 0.0), |a, c| (a.0 + c.0 / k, a.1 + c.1 / k));
     for k in 0..4 {
         w.make_unit(
             UnitKind::Harvester,
@@ -201,8 +213,8 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (us
         let f = w
             .map
             .nearest_free(
-                tile_round(nx / TILE) + 2 + 3 * k as i32,
-                tile_round(ny / TILE) + 2,
+                tile_round(fx / TILE) + 3 * k as i32,
+                tile_round(fy / TILE),
                 6,
             )
             .unwrap();

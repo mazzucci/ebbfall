@@ -11,6 +11,7 @@ import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, audioState } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
+import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
@@ -66,13 +67,13 @@ function begin(reset) {
   $('help').hidden = true; $('options').hidden = true; ended = false; outSaid = false;
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
-  setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
+  setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  if (!menu.tutorial) toast(`Mine salt. Build ${aName(BUILDINGS[myFaction().supply].name)} before you run out of energy.`);
+  if (!menu.tutorial) toast(`Mine salt. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 /** The leave dialog's line: alone the game waits and leaving loses it; online it goes on (unless a room pause holds

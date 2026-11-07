@@ -8,6 +8,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
+import { loadTimes, assigner } from './shards.mjs';
 
 export const ENGINE = engineName();
 /** The engine's name as people write it: Chromium, WebKit, Firefox. */
@@ -21,7 +22,7 @@ export const ENGINE_NAME = ENGINES[ENGINE];
  */
 export function test(name, opts = {}, fn) {
   if (typeof opts === 'function') [opts, fn] = [{}, opts];
-  if (!inShard()) return; // (another shard's: not registered at all)
+  if (!inShard(name)) return; // (another shard's: not registered at all)
   const { engines, chromium, ...rest } = opts;
   if (ENGINE !== 'chromium' && !rest.skip) {
     if (chromium) rest.skip = `Chromium only: ${chromium}`;
@@ -29,26 +30,30 @@ export function test(name, opts = {}, fn) {
   }
   return nodeTest(name, rest, fn);
 }
-// ENDFALL_SHARD=i/n (1 <= i <= n): run only every n-th test of each file, starting at the i-th, so CI can split the
-// suite over n jobs by test rather than by file (one file holds most of the time). Each file registers its tests in a
-// fixed order, so the split is the same every run and every test lands in exactly one shard.
+// ENDFALL_SHARD=i/n (1 <= i <= n): run only the i-th of n shards, balanced by each test's measured time (shards.mjs,
+// times.json: longest first into the least-loaded shard; a test missing from the table weighs the median), so CI can
+// split the suite over n jobs by test rather than by file (one file holds most of the time). The split is the same in
+// every shard and every run, so every test lands in exactly one shard; a file run alone runs its tests of that shard.
 const SHARD = (process.env.ENDFALL_SHARD || '').match(/^(\d+)\/(\d+)$/)?.slice(1).map(Number);
 if (process.env.ENDFALL_SHARD && !(SHARD && SHARD[0] >= 1 && SHARD[0] <= SHARD[1])) throw new Error(`ENDFALL_SHARD must be i/n, not ${process.env.ENDFALL_SHARD}`);
-// Each file starts its rotation at an offset of its own (from its name), so the small files do not all put their
-// first tests in shard 1: still every test in exactly one shard, the same one every run.
-const fileOffset = (() => {
-  const file = (process.argv[1] || '').split('/').pop();
-  let h = 0;
-  for (const c of file) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return h;
-})();
-let registered = 0, kept = 0;
-const inShard = () => { const mine = !SHARD || (fileOffset + registered++) % SHARD[1] === SHARD[0] - 1; kept += mine ? 1 : 0; return mine; };
+const FILE = (process.argv[1] || '').split('/').pop();
+// ENDFALL_E2E_LIST=1: register nothing and start nothing, only print each test's file and name, a line each after
+// LISTED (tools/e2e-times.mjs reads them to match CI's log to the files and to print the shards).
+export const LISTED = 'ENDFALL_E2E_TEST ';
+const LIST = !!process.env.ENDFALL_E2E_LIST;
+const shardOf = SHARD && assigner(loadTimes(), SHARD[1], FILE);
+let kept = 0;
+const inShard = (name) => {
+  if (LIST) { process.stdout.write(LISTED + JSON.stringify([FILE, name]) + '\n'); return false; }
+  const mine = !SHARD || shardOf(name) === SHARD[0] - 1;
+  kept += mine ? 1 : 0;
+  return mine;
+};
 /** Whether this shard runs any of this file's tests (all, unsharded): for a `before` hook that starts something that
  *  would keep the file running (a relay). Asked once the file has registered its tests (a hook may run before). */
 export async function anyHere() {
   await new Promise(r => setImmediate(r));
-  return !SHARD || kept > 0;
+  return !LIST && (!SHARD || kept > 0);
 }
 /** CDP touch: Chromium's `Input.dispatchTouchEvent`, for gestures (a drag, two fingers, a long press, a double tap). */
 export const CDP_TOUCH = 'gestures through CDP (Input.dispatchTouchEvent); other engines tap only';
@@ -62,6 +67,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 let server, browser, base;
 export async function start() {
+  if (LIST) return;
   if (!existsSync(join(dist, 'index.html'))) throw new Error('dist/ is missing: run npm run build first');
   server = createServer((req, res) => {
     let p = normalize(join(dist, decodeURIComponent(new URL(req.url, 'http://x').pathname)));

@@ -352,7 +352,7 @@ the Sunpetal's pentagonal hub ring.
 | kind (key)            | signature shape, from above                                                                 | team glaze                                                                 | the light(s)                             |
 |-----------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|------------------------------------------|
 | Sunpetal (`spire`, 2x2) | a flower: five broad rounded pearl petals (27 long, 21 wide, round tips) spaced evenly round an ink core, each splayed 1.0 rad past vertical so its inner face shows from above: violet glass (`petalGlass`) in a pearl rim; one petal north | a bar of even width across each petal's face just above the hub; a pentagonal hub ring (a five-sided torus, a corner to each petal) on the core's top; a skirt round the ink core | one, on the pistil at the heart (r 1.9) |
-| Siphon (`siphon`, 2x2, on a mine shaft, drawing the last damp brine from the salt beds; the shaft's round 4, Opus, during the Fable limit) | something grown that has settled on the shaft's north rim and drinks from it: an irregular, asymmetric cluster of eight soft pearl lobes of different sizes (r 3.4 to 9.5, squashed to 0.7, more of them east) heaped over the collar's north beam and corners, a dark ink opening low on its south face, and out of it three thick soft feeding tubes (r 1.9 to 2.7) drooping over the beam and down into the black, pale over the rim, pearl in shade going down, then ink. No plinth or pad: the shaft's own sprite (drawn under every building) is its ground, so the black mouth stays largely open and the collar and dug earth show round it. No dome, lid, spiral or groove, nothing upright or pointed, nothing waving up. Round 1's upright straw read as the Lookout's gun or StarCraft's missile turret; round 2's whorl (a pearl dome with a spiral groove) as the Gyre and its small framed mouth as a door; round 3's clam over the hole as "a domed cap built on the shaft frame", the Excavator, 4 testers of 4 | patches on the crowns of three lobes inside ink seams, a sleeve at each tube's root between seams | one, in the ink opening (r 1.1) |
+| Siphon (`siphon`, 2x2, on a mine shaft, drawing the last damp brine from the salt beds; the shaft's round 4, Opus, during the Fable limit) | something grown that has settled on the shaft's north rim and drinks from it: an irregular, asymmetric cluster of eight soft pearl lobes of different sizes (r 3.4 to 9.5, squashed to 0.7, more of them east) heaped over the collar's north beam and corners, a dark ink opening low on its south face, and out of it three thick soft feeding tubes (r 1.9 to 2.7) drooping over the beam and down into the black, pale over the rim, pearl in shade going down, then ink. No plinth or pad: the shaft's own sprite (drawn under every building) is its ground, so the black mouth stays largely open and the collar and dug earth show round it. No dome, lid, spiral or groove, nothing upright or pointed, nothing waving up. Round 1's upright straw read as the Lookout's gun or StarCraft's missile turret; round 2's whorl (a pearl dome with a spiral groove) as the Gyre and its small framed mouth as a door; round 3's clam over the hole as "a domed cap built on the shaft frame", the Excavator, 4 testers of 4 | ragged part-bands low on each lobe's flank inside ink seams (never a spot on a crown: toadstools), a sleeve at each tube's root between seams | one, in the ink opening (r 1.1) |
 | Cradle (`kiln`, 3x3)  | a scallop with something growing in it: a fan-shaped basin of deep violet water (an arc of 237 degrees, r 30, closed to the north by a flat hinge bar 34 wide), nine pearl ribs splaying from the hinge across the floor to a pearl rim wall with ridges and a knob on each; one big bud standing in the water (r 8, 21 tall: violet under a pearl sheen, a pearl crown, a faint glow) | the hinge bar, a hoop along the rim wall's crest, a band round the wall's foot, caps on the straight edges, the bud's collar | one, at the bud's foot (r 1.5) |
 | Glasshouse (`loom`, 2x2) | a dome of dark glass in pearl ribs (eight meridians and one hoop) on an ink drum, a pearl crown; three buttresses | a band round the dome's foot, a skirt round the drum, the three buttresses (glaze blocks under pearl caps) | one, on the crown (r 1.2) |
 | Anemone (`ward`, 2x2) | an anemone that stings: five soft pearl tentacles (`tentacle`: six capsule segments, 2.6 tapering to 1.3) curling out, up and in from a pearl oral disc on a fat ink column, low (tips at y 42, so the shadows stay short), each ending in a blue-violet tip (`deeplight` with halos, no white heart); the mouth dark violet (`mouth`) with a faint pearl ring | a tall collar round the column, a hoop on the foot, the disc's rim, a sleeve on each tentacle's second and third segments | five violet tips (r 2) |
@@ -365,7 +365,7 @@ broad pearl ring on a tall drum with pylons leaning out; the Siphon is the one h
 hole's rim, its tubes drooping down into it (the Anemone's tentacles curl up); the Cradle the one violet fan with a bud; the Gyre the one coil. No turning head on the Anemone: `bldg_ward` is one sprite, as before.
 
 Cells (`main.js`, unchanged): spire 82, siphon 50, kiln 42, loom 42, ward 50, zenith 72, eclipse 58. Team shares
-(round 3; the Siphon in the shaft's round 4): Tidewell 0.226, Sunpetal 0.193, Siphon 0.203, Cradle 0.180, Glasshouse 0.179, Anemone 0.205, Gyre 0.234, Darkwater 0.173. The pack: `node tools/art/review.mjs <dir> --family=vbld`.
+(round 3; the Siphon in the shaft's round 4): Tidewell 0.226, Sunpetal 0.193, Siphon 0.205, Cradle 0.180, Glasshouse 0.179, Anemone 0.205, Gyre 0.234, Darkwater 0.173. The pack: `node tools/art/review.mjs <dir> --family=vbld`.
 
 ## Harbour buildings (`harbour-buildings.js`)
 
@@ -445,12 +445,19 @@ depot 32 -> 42 (the Windmast's mast), turret 14 -> 36 (the Lookout's nest and pe
 (`TURRET_HEAD_H`: a north-facing muzzle stands about 74 above the anchor). The anchor stays the footprint's centre, so
 the head still seats on the base. Every Harbour building and all 16 head frames have their top row clear (11 px or more
 of room). Team shares at
-facing 0 (step 2; the Excavator in the mine shaft round): Windmast 0.240, Excavator 0.184, Crew Hall 0.256, Workshop 0.171, Slipway 0.194, Lookout 0.194 (its gun
+facing 0 (step 2; the Excavator in the mine shaft round): Windmast 0.240, Excavator 0.196, Crew Hall 0.256, Workshop 0.171, Slipway 0.194, Lookout 0.194 (its gun
 0.182), Loft 0.174. The pack: `node tools/art/review.mjs <dir> --family=hbld` (the phone sheet is a scene of each
 building once, in seat 0 or 6, with a Windmast, a Lookout and an Excavator on a shaft again in seat 1, a salt field, the
 Tidewell, Pickets and Riggers for scale; the blind images are 200 px wide; the battle stand-in is a Harbour base of
 every building against the Tidewell). Lights and smoke (`look.js BLDG_LOOK`): the Workshop's glow on its hearth (3 px
 west of the centre, 20 below), its smoke from its one stack (footprint px 23, -13); the Excavator has no light.
+Round 4 polish (Opus, during the Fable limit; no silhouette changed): the Excavator's lean-to slopes down to the west
+so its canvas catches the north-west light, its south gable a step darker (`paintShade`, 0.72 of the worn paint), one
+shadow crease down its sag (`paintCrease`); the rope from the wheel to the winch house and the one down the shaft in
+shade (`ropeShade` 0x6e6250), so the wheel is the only pale form up top; the tub's load one lit grey mound (`rockSalt`
+0x55524d), two iron straps on its side; the Siphon's team moved off its lobes' crowns (round 4's testers and judge:
+"toadstools") into ragged part-bands low on every lobe's flank, inside ink seams, and longer sleeves at the tubes'
+roots. Team shares: Excavator 0.196, Siphon 0.205.
 The Excavator's own pack: `node tools/art/review.mjs <dir> --family=shaft` (the shaft's frames, the Excavator in
 seats 0, 1 and 6 with its mask, the Excavator and the Siphon each over a shaft; a Harbour base at a phone's size with
 an Excavator on its shaft, a free and a dry shaft, a Siphon on a shaft, in grey, protan and deutan; the blind set: the
@@ -488,7 +495,10 @@ small bleached nub, at hashed places clear of the edge, no window. The plateau's
 **The salt works**. Stelian's call on the live game (2026-11-06): step 2's salt heaps on a cracked salt pan had "too
 much detail and green"; the salt is back to #231's crystals, nudged whiter so they read as salt crystals.
 
-*The crystals* (`ground.js saltField`, `shard_0..3`, `unitCell(21, 24)`, `GMATS`): a field, not a clump (round 3's
+*The crystals* (`ground.js saltField`, `shard_0..3`, `unitCell(21, 24)`, `GMATS`; round 4 polish of the shaft, Opus, during
+the Fable limit: `salt` 0x96928a with emissive 0x423e36 and `saltWet` 0x8a8780 / 0x34312b, brighter and whiter, as the
+old values below read as grey rubble at game size, and a dark `footing` 0x23211e under each cluster so it stands off
+the ground; shapes, layouts and stages unchanged): a field, not a clump (round 3's
 read as rubble or rock heaps). Clusters of halite cubes, stacked and tilted, flat shaded: `salt` 0x76716a with a faint
 warm `emissive` 0x332e27 (halite's translucency: it lifts the faces in shade, which the scene's blue sky and rim light
 turned slate-blue, to a pale grey-white; a small glow, no light cast), `saltWet` 0x716d66 (emissive 0x25221d) on the

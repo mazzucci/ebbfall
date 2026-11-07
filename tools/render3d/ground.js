@@ -14,10 +14,11 @@ const std = (o) => new THREE.MeshStandardMaterial(o);
 export const GMATS = {
   slate: std({ color: 0x343a40, roughness: 0.8, metalness: 0.1, flatShading: true }),
   slateWet: std({ color: 0x272c31, roughness: 0.45, metalness: 0.15, flatShading: true }),
-  salt: std({ color: 0x76716a, emissive: 0x332e27, roughness: 0.95, metalness: 0.02, flatShading: true }), // halite: white on its lit tops, pale grey in shade (the faint emissive is its translucency: the sky's blue made the shaded faces slate), never green or teal
-  saltWet: std({ color: 0x716d66, emissive: 0x25221d, roughness: 0.7, metalness: 0.05, flatShading: true }),  // a wet face, a little greyer
+  salt: std({ color: 0x96928a, emissive: 0x423e36, roughness: 0.95, metalness: 0.02, flatShading: true }), // (round 4 polish: brighter, whiter; 0x76716a read as grey rubble at game size) // halite: white on its lit tops, pale grey in shade (the faint emissive is its translucency: the sky's blue made the shaded faces slate), never green or teal
+  saltWet: std({ color: 0x8a8780, emissive: 0x34312b, roughness: 0.7, metalness: 0.05, flatShading: true }),  // a wet face, a little greyer
   crust: std({ color: 0x46433d, roughness: 0.95, metalness: 0, flatShading: true }),            // the salt crust over slate (a pale bed made the whole field a pale plate)
   brine: std({ color: 0x1a2226, roughness: 0.12, metalness: 0.35, flatShading: false }),        // still brine in a mined-out pit
+  footing: std({ color: 0x23211e, roughness: 1, metalness: 0, flatShading: true }),            // a dark footing at each cluster's base, so the crystals stand off the ground
   apron: std({ color: 0x4d4c49, roughness: 0.95, metalness: 0, flatShading: true }),            // the salt field's bed: a pale grey-white crust, wider than the crystals
 };
 /** A flat, uneven patch (no round plinth: round 2's read as tokens or coins): an outline of radius R wobbling by `amp`,
@@ -60,7 +61,7 @@ export function saltField(stage, M = G) {
   const g = grp(); s = 31;
   const edge = wob(17, 1.0, 0.7), sq = 0.8;                                                 // the field's own uneven edge: a wide apron of crust
   for (let k = 0; k < 4; k++) { const a = rnd() * Math.PI * 2, r = edge(a) * (0.9 + rnd() * 0.25); add(g, new THREE.DodecahedronGeometry(1 + rnd() * 1.6), M.slate, Math.cos(a) * r, 0.5, Math.sin(a) * r * sq, rnd(), rnd(), 0).scale.y = 0.55; } // slate chips round it
-  const cubes = (r, h) => { const c = grp(); add(c, rbox(r * 1.3, h, r * 1.2, 0.15), M.salt, 0, h / 2, 0); add(c, rbox(r * 0.85, h * 0.8, r * 0.9, 0.12), M.saltWet, r * 0.5, h * 0.72, -r * 0.3, 0.2, 0.5, 0.1); add(c, rbox(r * 0.7, h * 0.55, r * 0.7, 0.1), M.salt, -r * 0.45, h * 0.95, r * 0.35, 0.1, 0.9, -0.15); return c; };
+  const cubes = (r, h) => { const c = grp(); add(c, cyl(r * 1.05, r * 1.25, 0.7, 10), M.footing, 0, 0.2, 0).scale.set(1.15, 1, 1); add(c, rbox(r * 1.3, h, r * 1.2, 0.15), M.salt, 0, h / 2, 0); add(c, rbox(r * 0.85, h * 0.8, r * 0.9, 0.12), M.saltWet, r * 0.5, h * 0.72, -r * 0.3, 0.2, 0.5, 0.1); add(c, rbox(r * 0.7, h * 0.55, r * 0.7, 0.1), M.salt, -r * 0.45, h * 0.95, r * 0.35, 0.1, 0.9, -0.15); return c; };
   const clusters = [[-6, 2, 3.2, 12, -0.2, 0.15], [5, 3, 2.8, 10, 0.25, -0.2], [0, -2, 3.6, 14, 0.05, 0.1], [-2, 6, 2.4, 8, -0.3, 0.3], [7, -4, 2.1, 7.5, 0.3, -0.15], [-8, -4, 2, 6.5, -0.3, -0.3],
     [10, 2, 2, 7, 0.3, 0.1], [-10, 3, 1.8, 6, -0.35, 0.1], [3, -7, 2.2, 8.5, 0.1, -0.3]];
   const loose = (n, y = 1.2) => { for (let k = 0; k < n; k++) add(g, rbox(1.2, 1.2, 1.2, 0.1), M.salt, (rnd() - 0.5) * 22, y, (rnd() - 0.5) * 15, (rnd() - 0.5), rnd() * 3, (rnd() - 0.5)); };

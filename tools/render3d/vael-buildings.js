@@ -148,7 +148,7 @@ export function sunpetal(M) {
 
 /** Siphon (economy, on a mine shaft, 2x2): something grown that has settled on the shaft's north rim and drinks from
  *  it: an irregular cluster of soft pearl lobes of different sizes heaped over the collar's north beam and its corners
- *  (more of it to the east), team glaze patches on three of them inside ink seams, a dark ink opening low on its south
+ *  (more of it to the east), team glaze in ragged part-bands low on every lobe inside ink seams, a dark ink opening low on its south
  *  face; out of that opening three thick soft feeding tubes droop over the beam and down into the black, darkening as
  *  they go, and the one deeplight glows in the opening. No plinth: the shaft's own sprite (drawn under every building)
  *  is its ground, so the black mouth stays largely open and the collar and dug earth show round it. Asymmetric and
@@ -157,14 +157,24 @@ export function sunpetal(M) {
  *  Excavator). */
 export function siphon(M) {
   const g = grp(), sq = 0.7;                                                                     // (the lobes squashed: soft, settled)
-  const LOBES = [[6, 7, -21, 9.5, M.shell, 1], [-6, 6, -22.5, 7, M.shellLight, 1], [15, 5.2, -15, 6.2, M.shell, 1], [-14, 4.4, -16, 4.6, M.shellDark, 0],
-    [1, 11.2, -24.5, 4.6, M.shellLight, 0], [21, 3.6, -23, 4.2, M.shellDark, 0], [-17, 3, -24, 3.4, M.shell, 0], [11, 12.2, -20, 3.6, M.shellLight, 0]];
-  for (const [x, y, z, r, mat, team] of LOBES) {
+  const LOBES = [[6, 7, -21, 9.5, M.shell, [0.2, 2.0]], [-6, 6, -22.5, 7, M.shellLight, [1.0, 2.1]], [15, 5.2, -15, 6.2, M.shell, [0.5, 1.9]], [-14, 4.4, -16, 4.6, M.shellDark, [1.2, 1.8]],
+    [1, 11.2, -24.5, 4.6, M.shellLight, [0.4, 2.0]], [21, 3.6, -23, 4.2, M.shellDark, [0.6, 1.7]], [-17, 3, -24, 3.4, M.shell, [0.9, 1.6]], [11, 12.2, -20, 3.6, M.shellLight, [0.3, 1.8]]];
+  // a point on a lobe (the ellipsoid as SphereGeometry draws it: phi round, theta down from the crown)
+  const on = (x, y, z, r, phi, th, k = 1.02) => new THREE.Vector3(x - Math.cos(phi) * Math.sin(th) * r * k, y + Math.cos(th) * r * k * sq, z + Math.sin(phi) * Math.sin(th) * r * k * 1.05);
+  for (const [x, y, z, r, mat, band] of LOBES) {
     add(g, sph(r, 28, 18), mat, x, y, z).scale.set(1, sq, 1.05);
-    if (!team) continue;                                                                        // a team patch on the lobe's crown, inside an ink seam
-    const t = 0.7, h = r * 1.015 * Math.cos(t) * sq;
-    add(g, new THREE.SphereGeometry(r * 1.015, 28, 10, 0, Math.PI * 2, 0, t), M.glaze, x, y, z).scale.set(1, sq, 1.05);
-    add(g, torus(r * 1.015 * Math.sin(t), 0.5, Math.PI * 2, 40), M.inkSeam, x, y + h, z, Math.PI / 2, 0, 0).scale.set(1, 1.05, 1);
+    if (!band) continue;                                                                       // a team patch low on the lobe: a ragged part-band round its flank, inside ink seams (round 4: crown spots read as toadstools)
+    const [p0, pl] = band, T0 = 0.9, T1 = 1.7, rag = (u) => 0.1 * Math.sin(u * 7 + p0 * 3) + 0.06 * Math.sin(u * 13 + p0);   // its edges wander
+    const pos = [], idx = [], NU = 24, NV = 4;
+    for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) { const u = i / NU, ph = p0 + pl * u, t0 = T0 + rag(u), t1 = T1 - rag(u + 0.5) * 0.7, th = t0 + (t1 - t0) * j / NV, q = on(x, y, z, r, ph, th, 1.015); pos.push(q.x, q.y, q.z); }
+    for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const a = i * (NV + 1) + j; idx.push(a, a + 1, a + NV + 1, a + 1, a + NV + 2, a + NV + 1); }
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); bg.setIndex(idx); bg.computeVertexNormals();
+    { const n = bg.attributes.normal, c = new THREE.Vector3(x, y, z), p = new THREE.Vector3(pos[0], pos[1], pos[2]); if (new THREE.Vector3(n.getX(0), n.getY(0), n.getZ(0)).dot(p.sub(c)) < 0) { const ix = bg.getIndex(); for (let k = 0; k < ix.count; k += 3) { const t = ix.getX(k); ix.setX(k, ix.getX(k + 1)); ix.setX(k + 1, t); } bg.computeVertexNormals(); } }
+    add(g, boxUV(bg), M.glaze, 0, 0, 0);
+    for (const edge of [0, 1]) {                                                               // its ink seams, along the ragged edges
+      const pts = []; for (let i = 0; i <= NU; i++) { const u = i / NU; pts.push(on(x, y, z, r, p0 + pl * u, edge ? T1 - rag(u + 0.5) * 0.7 : T0 + rag(u), 1.03)); }
+      add(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.4, 5), M.inkSeam, 0, 0, 0);
+    }
   }
   add(g, sph(4.2, 20, 14), M.ink, 4, 6.2, -14.6).scale.set(1.5, 0.7, 0.6);                     // the dark opening the tubes come out of
   deeplight(g, M, 1.1, 3.5, 7.4, -13.4);                                                        // the one light, in it
@@ -177,8 +187,8 @@ export function siphon(M) {
     const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
     const part = (u0, u1, rr) => { const q = []; for (let k = 0; k <= 16; k++) q.push(c.getPoint(u0 + (u1 - u0) * k / 16)); return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 24, rr, 10); };
     add(g, part(0, 0.5, r), M.shell, 0, 0, 0);                                                   // over the rim, pale
-    add(g, part(0.06, 0.24, r * 1.08), M.glaze, 0, 0, 0);                                         // a team sleeve at its root, between ink seams
-    for (const u of [0.05, 0.25]) add(g, part(u - 0.012, u + 0.012, r * 1.14), M.inkSeam, 0, 0, 0);
+    add(g, part(0.06, 0.36, r * 1.08), M.glaze, 0, 0, 0);                                         // a team sleeve at its root, between ink seams
+    for (const u of [0.05, 0.37]) add(g, part(u - 0.012, u + 0.012, r * 1.14), M.inkSeam, 0, 0, 0);
     add(g, part(0.46, 0.6, r * 0.95), deep, 0, 0, 0);                                            // going down, in shade
     add(g, part(0.58, 1, r * 0.9), dark, 0, 0, 0);                                               // lost in the dark
   }

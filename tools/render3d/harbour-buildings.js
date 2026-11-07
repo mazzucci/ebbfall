@@ -225,17 +225,23 @@ export function excavator(M) {
   const dx = D[0] - W[0], dy = D[1] - W[1], d = Math.hypot(dx, dy), al = Math.atan2(dy, dx), be = Math.acos(R / d);
   const ta = al - be, T = [W[0] + Math.cos(ta) * (R + 1.2), W[1] + Math.sin(ta) * (R + 1.2)];                  // where the rope leaves the wheel (the upper tangent)
   add(wheel, torus(R + 1.2, 0.6, 30, (ta % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)), M.rope, 0, 0, 0);       // over the wheel's top
-  pole(g, [T[0], T[1], W[2]], D, 0.5, M.rope, 6).userData.noShadow = true;
+  const ropeShade = M.ropeShade ??= new THREE.MeshStandardMaterial({ color: 0x6e6250, bumpMap: M.rope.bumpMap, bumpScale: 1.2, roughness: 0.95, metalness: 0 }); // rope in shade: the wheel is the only pale form up top
+  pole(g, [T[0], T[1], W[2]], D, 0.45, ropeShade, 6).userData.noShadow = true;
   add(g, rbox(2.6, 2.6, 1.2, 0.4), M.ironDark, D[0], D[1], D[2] + 0.2);                                         // the fairlead it runs in by
-  pole(g, [W[0] + R + 1.2, W[1], W[2]], [W[0] + R + 1.2, Y0 - 3, W[2]], 0.6, M.rope, 6).userData.noShadow = true; // down into the dark
+  pole(g, [W[0] + R + 1.2, W[1], W[2]], [W[0] + R + 1.2, Y0 - 3, W[2]], 0.5, ropeShade, 6).userData.noShadow = true; // down into the dark
   add(g, rbox(13, 10, 18, 0.8), M.tar, EX, Y0 + 5, EZ);
   add(g, rbox(13.6, 1.4, 18.6, 0.3), M.ironDark, EX, Y0 + 0.7, EZ);
-  { const e = [EZ + HZ, Y0 + 10.6], r = [EZ - HZ, Y0 + 15.6];                                                   // the eave (south) and the high edge (north)
-    add(g, sagQuad([EX - HX, e[1], e[0]], [EX + HX, e[1], e[0]], [EX + HX, r[1], r[0]], [EX - HX, r[1], r[0]], 2, 1.6, 0.4), M.paintWorn, 0, 0, 0);
-    wornHem(g, [EX - HX, e[1] - 0.1, e[0] + 0.2], [EX + HX, e[1] - 0.1, e[0] + 0.2], 0.85, M.inkLine);
-    wornHem(g, [EX - HX, r[1] + 0.1, r[0]], [EX + HX, r[1] + 0.1, r[0]], 0.7, M.inkLine);
-    for (const sx of [-1, 1]) wornHem(g, [EX + sx * HX, e[1], e[0]], [EX + sx * HX, r[1], r[0]], 0.7, M.inkLine);
-    pole(g, [EX, e[1] + 0.5, e[0] + 0.6], [EX, r[1] + 0.5, r[0] - 0.4], 0.45, M.rope, 6); }                   // a lashing over it, on the rafter
+  { // the lean-to slopes down to the west, so its canvas catches the north-west light; the south gable a step darker,
+    // one shadow crease where it sags between the rafters (round 4 polish: a flat painted box at 1x)
+    const yW = Y0 + 10.4, yE = Y0 + 17, xW = EX - HX, xE = EX + HX, zN = EZ - HZ, zS = EZ + HZ;
+    add(g, sagQuad([xW, yW, zS], [xW, yW, zN], [xE, yE, zN], [xE, yE, zS], 1, 1.5, 0.4), M.paintWorn, 0, 0, 0);
+    const shade = M.paintShade ??= Object.assign(M.paintWorn.clone(), { userData: { team: 1 } }); if (!shade.userData.dim) { shade.color.multiplyScalar(0.72); shade.userData.dim = 1; }
+    const crease = M.paintCrease ??= Object.assign(M.paintWorn.clone(), { userData: { team: 1 } }); if (!crease.userData.dim) { crease.color.multiplyScalar(0.5); crease.userData.dim = 1; }
+    add(g, profile([[xW - EX, yW - Y0 - 0.2], [xE - EX, yE - Y0 - 0.2], [xE - EX, 9.6], [xW - EX, 9.6]], 0.8, 0.2), shade, EX, Y0, zS + 0.2); // the south gable, a step darker
+    for (let k = 0; k < 4; k++) { const u0 = k / 4, u1 = (k + 1) / 4, sag = (u) => 1.1 * Math.sin(Math.PI * Math.min(1, u * 1.15)) ** 0.7; // the crease down the middle of the sag
+      pole(g, [xW + (xE - xW) * u0, yW + (yE - yW) * u0 + 0.2 - sag(u0) * 0.95, EZ], [xW + (xE - xW) * u1, yW + (yE - yW) * u1 + 0.2 - sag(u1) * 0.95, EZ], 0.32, crease, 6); }
+    wornHem(g, [xW, yW - 0.1, zS + 0.2], [xE, yE - 0.1, zS + 0.2], 0.7, M.inkLine); wornHem(g, [xW, yW - 0.1, zN - 0.2], [xE, yE - 0.1, zN - 0.2], 0.7, M.inkLine);
+    wornHem(g, [xW - 0.2, yW - 0.1, zS], [xW - 0.2, yW - 0.1, zN], 0.85, M.inkLine); wornHem(g, [xE, yE + 0.1, zS], [xE, yE + 0.1, zN], 0.7, M.inkLine); }
   add(g, rbox(5, 7, 1, 0.3), M.oilskin, EX + 2, Y0 + 3.5, EZ + 9.3);                                            // its door
   // the tub on short rails south of the collar: team sides between ink hems, rock salt heaped in it
   const TX = 5, RZ0 = S[2] + 17.5, RZ1 = 30;
@@ -245,8 +251,9 @@ export function excavator(M) {
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(1.5, 1.5, 0.8, 10), M.ironDark, C[0] + sx * 3.3, C[1], C[2] + sz * 2.8, 0, 0, Math.PI / 2);
   add(g, rbox(9, 6, 10, 0.6), M.paintCanvas, C[0], C[1] + 3.6, C[2]);                                           // the tub, team
   for (const y of [0.5, 6.7]) add(g, rbox(9.5, 0.6, 10.5, 0.2), M.inkLine, C[0], C[1] + y, C[2]);              // its hems
-  const salt = M.rockSalt ??= new THREE.MeshStandardMaterial({ color: 0x6e6a63, roughness: 0.9, metalness: 0, flatShading: true }); // grey rock salt, no glow
-  for (const [x, z, r] of [[-1.8, -2, 2.2], [1.8, -1.2, 2], [0, 2, 2.1], [-2, 2.6, 1.6], [2.4, 2.8, 1.5]]) add(g, new THREE.DodecahedronGeometry(r), salt, C[0] + x, C[1] + 5.6, C[2] + z, x, z, r); // the load, low in the tub
+  const salt = M.rockSalt ??= new THREE.MeshStandardMaterial({ color: 0x55524d, roughness: 0.9, metalness: 0, flatShading: true }); // grey rock salt, lit, no glow
+  add(g, new THREE.DodecahedronGeometry(4.2, 1), salt, C[0], C[1] + 6, C[2] + 0.3, 0.3, 0.5, 0.1).scale.set(1, 0.5, 1.05); // the load: one lit mound, heaped over the rim
+  for (const sx of [-1, 1]) add(g, rbox(0.8, 6.4, 0.5, 0.15), M.ironDark, C[0] + sx * 2.6, C[1] + 3.6, C[2] + 5.15);  // two iron straps on its south side
   return g;
 }
 

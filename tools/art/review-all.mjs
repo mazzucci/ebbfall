@@ -25,7 +25,7 @@ for (const d of ['blind/units', 'blind/buildings']) mkdirSync(join(outDir, d), {
 const HARBOUR = [['harvester', 'Rigger'], ['trooper', 'Picket'], ['lancer', 'Harpooner'], ['medic', 'Mender'], ['vanguard', 'Breakwater'], ['siegeTank', 'Anchor Gun'], ['interceptor', 'Netter'], ['raider', 'Kite'], ['observer', 'Spyglass'], ['bastion', 'Windjammer']];
 const VAEL = [['lumen', 'Glint'], ['scythe', 'Needle'], ['prism', 'Lens'], ['halo', 'Tender'], ['monolith', 'Conch'], ['umbra', 'Undertow'], ['shrike', 'Petrel'], ['sovereign', 'Argonaut']];
 const STATES = [['trooper', 3, 'Picket dug in'], ['vanguard', 3, 'Breakwater beached'], ['siegeTank', 3, 'Anchor Gun anchored'], ['umbra', 2, 'Undertow lurking']];
-const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Pump'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
+const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Excavator'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
 const VBLD = [['conflux', 'Tidewell'], ['spire', 'Sunpetal'], ['siphon', 'Siphon'], ['kiln', 'Cradle'], ['loom', 'Glasshouse'], ['ward', 'Anemone'], ['zenith', 'Gyre'], ['eclipse', 'Darkwater']];
 const UNITS = [...HARBOUR, ...VAEL];
 

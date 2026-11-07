@@ -345,15 +345,6 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 .pulse{animation:pulse-warn .8s infinite alternate;border-color:var(--warn)!important}
 @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
 #info.empty{display:none} /* nothing selected: no console (like no command card), on any screen */
-#endStats b{color:var(--fg)}
-#endStats{font:13px var(--mono);color:var(--muted);gap:18px}
-#endWhy{font-size:13px;color:var(--muted);margin:8px 0 0} #endWhy img{display:inline-block;vertical-align:middle;margin:0 3px}
-@media (max-height:420px){#endWhy{margin-top:4px}}
-#endChart svg{display:block;width:100%;max-width:420px;height:auto;margin:10px 0 2px}
-@media (max-height:420px){#endChart svg{max-width:300px;margin-top:6px}} /* short landscape phones: the buttons stay in view */
-#endKey{font:12px var(--mono);color:var(--muted);gap:16px;margin-bottom:8px}
-#endKey span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--ally)}
-#endKey .foe::before{background:var(--foe)}
 .rec{font:12px var(--mono);color:var(--muted);text-align:center;align-self:center}
 
 /* The compact console (landscape phones, and narrow or portrait screens): one row; the queue stays one row with its

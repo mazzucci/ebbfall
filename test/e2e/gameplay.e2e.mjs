@@ -1439,7 +1439,7 @@ test('an Anchor Gun deploys by itself where it stands (no button, D does nothing
   } finally { await d.close(); }
 });
 
-test('the end screen charts both armies, counts the result on the menu, and Rematch replays the same map', async () => {
+test('the end screen counts the result on the menu, and Rematch replays the same map', async () => {
   const d = await newGame(DESKTOP, 0, 4242);
   try {
     await d.eval(() => localStorage.removeItem('endfall.record'));
@@ -1452,8 +1452,6 @@ test('the end screen charts both armies, counts the result on the menu, and Rema
     await until(d, async () => (await d.state()).over, { seconds: 60, step: 1, what: 'the game to end' });
     await d.page.locator('#end').waitFor({ state: 'visible' });
     assert.equal(await d.page.locator('#result').textContent(), 'VICTORY');
-    assert.equal(await d.page.locator('#endChart polyline').count(), 2, 'two lines: ours and theirs');
-    assert.equal(await d.page.locator('#endChart text').count(), 0, 'no numbers on the chart');
     await d.page.locator('#btnRematch').click();
     await until(d, async () => !(await d.state()).over, { seconds: 10, step: 0.5, what: 'the rematch' });
     assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');
@@ -2234,7 +2232,6 @@ test('two against two: out while the ally fights on (orders refused, told once),
     const won = await page.evaluate(() => endfall.G.winner === endfall.G.teams[0]);
     assert.equal(await page.locator('#result').textContent(), won ? 'VICTORY' : 'DEFEAT');
     assert.match(await page.locator('#endSub').textContent(), won ? /^Your team wins after \d\d:\d\d\.$/ : /^Your team lost after \d\d:\d\d\.$/);
-    assert.equal(await page.locator('#endKey .foe').textContent(), 'Enemy armies', 'the chart sums the enemies');
     assert.ok(out, "this seat was out before the end (seed 7: deterministic)");
     assert.ok([...toasts].some(t => /You are out: your team fights on/.test(t)), `told once out: ${[...toasts]}`);
   } finally { await ctx.close(); }
@@ -2343,18 +2340,21 @@ test('phone: a unit it cannot pay for shakes its button, with no toast over the 
   } finally { await d.close(); }
 });
 
-test('the end card says what killed most of your units, not what beats it', async () => {
+test('the end card keeps to the result on a phone: DEFEAT, its line, the map\'s, NEW GAME and REMATCH; no stats, no chart', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
-    const core = coreOf(await d.state()), at = { x: core.x + 220, y: core.y + 60 };
-    await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'trooper', x, y); endfall.engine.debugSpawn(0, 'trooper', x + 20, y); endfall.engine.debugSpawn(1, 'monolith', x + 60, y); }, [at.x, at.y]);
-    await until(d, () => d.eval(() => endfall.G.units.filter(u => u.team === 0 && u.type === 'trooper').length === 0), { seconds: 30, step: 2, what: 'the Pickets to fall' });
+    await d.skip(20);
     await d.eval(() => endfall.engine.concede()); // (set-up: the game ends; the end card is what is tested)
     await d.page.locator('#end').waitFor({ state: 'visible' });
-    const why = await d.page.locator('#endWhy').textContent();
-    assert.match(why, /Most of your losses: to Conchs \(2\)/, why);
-    assert.doesNotMatch(why, /beat/, 'not what beats them: players work the counters out');
-    assert.ok((await d.page.locator('#endWhy').boundingBox()).height < 50, 'one line, portraits inline');
+    assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
+    assert.match(await d.page.locator('#endSub').textContent(), /^You conceded after \d\d:\d\d\.$/);
+    assert.ok((await d.page.locator('#endMap').textContent()).length > 10, 'the map\'s line');
+    const text = await d.page.locator('#end .card').innerText();
+    assert.doesNotMatch(text, /trained|lost|killed|razed|losses|army/i, text);
+    assert.equal(await d.page.locator('#end svg').count(), 0, 'no chart');
+    assert.deepEqual(await d.page.locator('#end button:visible').allTextContents(), ['NEW GAME', 'REMATCH']);
+    const box = await d.page.locator('#end .card').boundingBox(), v = d.page.viewportSize();
+    assert.ok(box.y >= 0 && box.y + box.height <= v.height, `the card fits the screen: ${JSON.stringify(box)} in ${JSON.stringify(v)}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

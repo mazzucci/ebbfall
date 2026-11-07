@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { NEUTRAL, team } from './materials.js';
+import { VP } from './vael-palette.js';
 
 // ---------------- textures ----------------
 function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
@@ -21,21 +22,27 @@ function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
 let seed = 23; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 /** The same seams on the colour map and the bump map: curved hairline panel seams, a few engraved channels and
  *  inlaid light lines. Clean: no grime, rivets or chips. */
-function seamMarks(g, n, { seam, groove, inlay, light }) {
+function seamMarks(g, n, { seam, groove, inlay, light, seamW = 1.8 }) {
   seed = 41; g.lineCap = 'round';
   const arcs = []; for (let i = 0; i < 12; i++) arcs.push([rnd() * n, rnd() * n, 50 + rnd() * 110, rnd() * 6, 0.5 + rnd() * 1.6]);
-  g.strokeStyle = seam; g.lineWidth = 1.8; for (const [x, y, r, a, l] of arcs) { g.beginPath(); g.arc(x, y, r, a, a + l); g.stroke(); }
+  g.strokeStyle = seam; g.lineWidth = seamW; for (const [x, y, r, a, l] of arcs) { g.beginPath(); g.arc(x, y, r, a, a + l); g.stroke(); }
   g.strokeStyle = light; g.lineWidth = 0.8; for (const [x, y, r, a, l] of arcs) { g.beginPath(); g.arc(x, y, r + 1.4, a + 0.03, a + l - 0.03); g.stroke(); }
   g.strokeStyle = groove; g.lineWidth = 3; for (let i = 0; i < 5; i++) { const [x, y, r, a, l] = arcs[i]; g.beginPath(); g.arc(x, y, r * 0.86, a + 0.1, a + l * 0.7); g.stroke(); } // engraved channels
   g.strokeStyle = inlay; g.lineWidth = 0.9; for (let i = 0; i < 5; i++) { const [x, y, r, a, l] = arcs[i]; g.beginPath(); g.arc(x, y, r * 0.86, a + 0.14, a + l * 0.66); g.stroke(); }   // light inlaid in the channel
   g.strokeStyle = seam; g.lineWidth = 1.4; for (let i = 0; i < 8; i++) { const x = rnd() * n, y = rnd() * n, a = (rnd() * 4 | 0) * Math.PI / 4 + 0.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * (20 + rnd() * 60), y + Math.sin(a) * (20 + rnd() * 60)); g.stroke(); }
 }
-const pearl = canvasTex(256, (g, n) => {
-  g.fillStyle = '#ecebe8'; g.fillRect(0, 0, n, n);
-  seed = 7; for (let i = 0; i < 1800; i++) { const v = 225 + rnd() * 30; g.fillStyle = `rgba(${v},${v},${v - 4},0.25)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 2, 1 + rnd() * 2); } // faint grain
-  for (let i = 0; i < 14; i++) { g.fillStyle = `rgba(190,180,215,${0.04 + rnd() * 0.06})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 20 + rnd() * 50, 10 + rnd() * 30, rnd() * 3, 0, 7); g.fill(); } // pearly mottling
-  seamMarks(g, n, { seam: 'rgba(45,38,60,0.8)', groove: 'rgba(70,62,90,0.5)', inlay: 'rgba(180,160,255,0.75)', light: 'rgba(255,255,255,0.55)' });
+/** The shell's colour map in the palette's colours (vael-palette.js): a faint grain, a mottling of aged ivory and the
+ *  dark seams. */
+const shellTex = (T) => canvasTex(256, (g, n) => {
+  const [g0, gk, gb] = T.grain, [[mr, mg, mb], ma, mk, mn] = T.mottle;
+  g.fillStyle = T.base; g.fillRect(0, 0, n, n);
+  seed = 7; for (let i = 0; i < 1800; i++) { const v = g0 + rnd() * gk; g.fillStyle = `rgba(${v},${v},${v + gb},0.25)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 2, 1 + rnd() * 2); } // faint grain
+  for (let i = 0; i < mn; i++) { g.fillStyle = `rgba(${mr},${mg},${mb},${ma + rnd() * mk})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 20 + rnd() * 50, 10 + rnd() * 30, rnd() * 3, 0, 7); g.fill(); } // mottling
+  seamMarks(g, n, T);
 }, { repeat: 2 });
+const pearl = shellTex(VP.tex);
+/** The team glaze's map: the same marks in neutral greys, so the team mask carries no hue of the shell's. */
+const glazeMap = shellTex(VP.glazeTex);
 const pearlBump = canvasTex(256, (g, n) => {
   g.fillStyle = '#808080'; g.fillRect(0, 0, n, n);
   seamMarks(g, n, { seam: '#3c3c3c', groove: '#505050', inlay: '#6a6a6a', light: '#a8a8a8' });
@@ -45,19 +52,21 @@ const pearlBump = canvasTex(256, (g, n) => {
 export function makeVaelMats(tc = NEUTRAL) {
   const phys = (o) => new THREE.MeshPhysicalMaterial(o);
   const std = (o) => new THREE.MeshStandardMaterial(o);
-  const ceramic = (color, extra = {}) => phys({ color, map: pearl, bumpMap: pearlBump, bumpScale: 1.1, metalness: 0.1, roughness: 0.5, clearcoat: 0.5, clearcoatRoughness: 0.22, sheen: 0.15, sheenColor: 0xd8ccff, sheenRoughness: 0.6, ...extra });
+  const ceramic = (color, extra = {}) => phys({ color, map: pearl, bumpMap: pearlBump, bumpScale: 1.1, metalness: 0.1, roughness: 0.5, clearcoat: 0.5, clearcoatRoughness: 0.22, sheen: 0.15, sheenColor: VP.sheen, sheenRoughness: 0.6, ...VP.ceramic, ...extra });
   const team_ = tc.paint;
   // translucent additive shells around crystals and lights: the glow's falloff
   const halo = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide });
+  const [dl, dc, [h1, h2, h3]] = [VP.deeplight, VP.deepCore, VP.deepHalo];
   return {
-    shell: ceramic(0xcbc2b1),                                                                   // pearl ceramic: reads 0xd8cfbf after the sheen
-    shellLight: ceramic(0xdad2c2, { bumpScale: 0.8 }),                                          // top plates
-    shellDark: ceramic(0xa39a8b, { roughness: 0.58, clearcoat: 0.3 }),                          // undersides, recesses
-    shellDeep: ceramic(0x7e766c, { roughness: 0.7, clearcoat: 0.1 }),                           // crevices and channels
-    ring: ceramic(0xd6cfc0, { roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.12, metalness: 0.2 }),
+    // the shell (vael-palette.js): bone, a warm off-white aged to ivory, horn-brown beneath
+    shell: ceramic(VP.shell),                                                                   // the body
+    shellLight: ceramic(VP.shellLight, { bumpScale: 0.8 }),                                     // top plates
+    shellDark: ceramic(VP.shellDark, { roughness: 0.58, clearcoat: 0.3, ...VP.shellDarkExtra }), // undersides, recesses
+    shellDeep: ceramic(VP.shellDeep, { roughness: 0.7, clearcoat: 0.1, ...VP.shellDeepExtra }),  // crevices and channels
+    ring: ceramic(VP.ring, { roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.12, metalness: 0.2, ...VP.ringExtra }),
     glass: phys({ color: 0x17121f, metalness: 0.5, roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05 }),
     glassBlade: phys({ color: 0x221a30, metalness: 0.7, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }),
-    glaze: team(phys({ color: team_, map: pearl, bumpMap: pearlBump, bumpScale: 0.4, metalness: 0.2, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.35, iridescenceIOR: 1.4 })),
+    glaze: team(phys({ color: team_, map: glazeMap, bumpMap: pearlBump, bumpScale: 0.4, metalness: 0.2, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.35, iridescenceIOR: 1.4 })),
     glazePlain: team(phys({ color: team_, metalness: 0.2, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.12, iridescence: 0.3 })),
     gem: std({ color: 0x2a2254, emissive: 0x7260cc, emissiveIntensity: 0.55, metalness: 0.4, roughness: 0.15, flatShading: true }),
     gemCore: std({ color: 0x5a4aa0, emissive: 0xb8a8ff, emissiveIntensity: 0.95, roughness: 0.2 }),
@@ -79,15 +88,16 @@ export function makeVaelMats(tc = NEUTRAL) {
     // than the Umbra's near-black so the two never merge
     eclipsed: std({ color: 0x1a0a2a, emissive: 0x2e0f48, emissiveIntensity: 0.32, metalness: 0, roughness: 1 }),
     padHalo: halo(0x7a62e0, 0.1),
-    // The new look (STYLE.md): pearl shells on an ink core, "deeplight" (violet-blue, small) for the few lights.
-    ink: phys({ color: 0x0f0d16, metalness: 0.45, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.06 }),            // the ink core: black glass
-    inkSeam: std({ color: 0x15121c, metalness: 0.3, roughness: 0.5 }),                                                    // ink edges round team glaze
-    deeplight: std({ color: 0x2a3290, emissive: 0x7080ff, emissiveIntensity: 1.9, roughness: 0.2 }),                       // a small light
-    deepCore: std({ color: 0xc8d0ff, emissive: 0xdde2ff, emissiveIntensity: 1.1 }),                                       // its white heart
-    deepWhite: std({ color: 0xffffff, emissive: 0xf4f2ff, emissiveIntensity: 4, toneMapped: false }),                     // a light's brightest centre
-    deepHalo1: halo(0x6a7cf0, 0.18), deepHalo2: halo(0x5a68e0, 0.09), deepHalo3: halo(0x4c58c8, 0.045),
-    pool: std({ color: 0x0c1024, emissive: 0x1a2260, emissiveIntensity: 0.3, metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
-    poolDeep: std({ color: 0x06081a, emissive: 0x121848, emissiveIntensity: 0.2, metalness: 0.5, roughness: 0.05 }),
+    // The new look (STYLE.md): bone shells on an ink core, "deeplight" (the lantern light, small) for the few lights.
+    // (gem, ether, core, halo, mend, pad, umbral, eclipsed above: the first models' materials, no longer in the atlas)
+    ink: phys({ color: VP.ink, metalness: 0.45, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.06 }),            // the ink core: black glass
+    inkSeam: std({ color: VP.inkSeam, metalness: 0.3, roughness: 0.5 }),                                                    // ink edges round team glaze
+    deeplight: std({ color: dl[0], emissive: dl[1], emissiveIntensity: dl[2], roughness: 0.2 }),                       // a small light
+    deepCore: std({ color: dc[0], emissive: dc[1], emissiveIntensity: dc[2] }),                                       // its white heart
+    deepWhite: std({ color: 0xffffff, emissive: VP.deepWhite, emissiveIntensity: 4, toneMapped: false }),                     // a light's brightest centre
+    deepHalo1: halo(h1, 0.18), deepHalo2: halo(h2, 0.09), deepHalo3: halo(h3, 0.045),
+    pool: std({ color: VP.pool[0], emissive: VP.pool[1], emissiveIntensity: VP.pool[2], metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
+    poolDeep: std({ color: VP.poolDeep[0], emissive: VP.poolDeep[1], emissiveIntensity: VP.poolDeep[2], metalness: 0.5, roughness: 0.05 }),
   };
 }
 

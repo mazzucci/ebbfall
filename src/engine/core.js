@@ -197,10 +197,6 @@ export function stateHash() { return game.stateHash(); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
  *  byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start. */
 export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
-/** `team`'s army value every 10 s since the start (the end screen's chart). */
-export const armyLog = (team) => Array.from(game.armyLog(team));
-/** `team`'s units lost by what killed them: unit kinds in order, then building kinds (empty before any loss). */
-export const lostTo = (team) => Array.from(game.lostTo(team));
 
 // ---- orders (the future network command set) ----
 export const moveTo = (u, x, y) => touch(game.moveTo(u.id, x, y));

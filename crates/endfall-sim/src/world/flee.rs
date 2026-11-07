@@ -39,7 +39,6 @@ impl World {
                 let d = o.kind.def();
                 let reach = tiles.unwrap_or_else(|| d.weapon.map_or(0.0, |w| w.range) + margin);
                 self.enemies(o.team, team)
-                    && o.warp <= 0.0
                     && d.threat()
                     && d.damage_vs(false) > 0.0
                     && dist(o.x, o.y, x, y) <= reach * TILE
@@ -80,7 +79,6 @@ impl World {
             .filter_map(|o| self.unit(o))
             .any(|o| {
                 o.team == team
-                    && o.warp <= 0.0
                     && o.kind.def().threat()
                     && o.kind.def().damage_vs(air) > 0.0
                     && near(o.x, o.y)
@@ -88,7 +86,6 @@ impl World {
             || self.bldgs.iter().any(|b| {
                 b.team == team
                     && b.done
-                    && (b.powered || !b.kind.def().needs_power)
                     && b.kind.def().weapon.is_some_and(|w| w.damage_vs(air) > 0.0)
                     && near(b.x, b.y)
             });

@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
+import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from '../look.js';
@@ -288,16 +288,9 @@ class UnitObj {
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // Abilities: a boost glows (Stim warm, Overcharge violet); a deployed tank shows it in its pose (UNIT_POSE).
     let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
-    // Warping in at a power field (the Vael): a violet ghost, more solid as it lands, inside a pulsing ring, like a site.
-    const warp = u.warp > 0 ? u.warp / UNIT_WARP : 0;
     // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
     const cloak = u.cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
-    if (warp) tint = u.flash > 0 ? 0xffffff : 0xcbb6ff;
-    paintAs(this.body, this.paint, this.seat, tint, warp ? 0.2 + 0.65 * (1 - warp) : cloak);
-    if (warp) {
-      const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
-      bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
-    }
+    paintAs(this.body, this.paint, this.seat, tint, cloak);
     // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
     if (u.slowed > 0) {
       const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4);
@@ -353,8 +346,8 @@ class BldgObj {
       const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k)); setTex(this.paint, stage(name + '_m', k));
       this.body.y = this.paint.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height;
     }
-    // hit flash; dark: no power field covers it
-    paintAs(this.body, this.paint, this.seat, b.done && !b.powered ? 0x6f6a88 : 0xffffff, b.flash > 0 ? 0.75 : 1);
+    // hit flash
+    paintAs(this.body, this.paint, this.seat, 0xffffff, b.flash > 0 ? 0.75 : 1);
     if (warp) this.warpIn(b, t, live);
     if (this.head) {
       this.head.visible = this.headPaint.visible = b.done && live;
@@ -515,8 +508,7 @@ function pauseMark(x, y, t) {
 
 let lastT = 0;
 /** sel: the client's current selection; place: pending building placement or null. */
-/** `power`: show our power fields (a power building or one that needs power is selected, or the Build list is open). */
-export function render(selList, place, power = false) {
+export function render(selList, place) {
   const t = G.time, now = performance.now() / 1000, dt = Math.min(0.1, lastT ? now - lastT : 0.016); lastT = now;
   const sel = new Set(selList), VW = vw(), VH = vh();
   shake *= Math.pow(0.02, dt);
@@ -580,15 +572,12 @@ export function render(selList, place, power = false) {
   updateEffects(dt);
   updateFogImage();
 
-  ghost.visible = ghostPaint.visible = !!place; ghostRect.visible = !!place || power; ghostRect.clear();
-  const placingPowered = place && BUILDINGS[place.type].needsPower;
-  if (power && !placingPowered) for (const s of G.bldgs) if (s.team === G.me && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.04 }).stroke({ width: 1, color: 0xb48cff, alpha: 0.35 });
+  ghost.visible = ghostPaint.visible = ghostRect.visible = !!place; ghostRect.clear();
   if (place) {
     const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, G.me);
     setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghostPaint.position.copyFrom(ghost.position);
     paintAs(ghost, ghostPaint, seatTint(G.me), ok ? 0xb8ffc8 : 0xff7070, 0.6);
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
-    if (d.needsPower) for (const s of G.bldgs) if (s.team === G.me && s.done && s.d.power > 0) ghostRect.circle(s.x, s.y, s.d.power * TILE).fill({ color: 0xb48cff, alpha: 0.07 }).stroke({ width: 1.5, color: 0xb48cff, alpha: 0.6 }); // the power fields it must stand in
   }
   box.clear();
   if (drag.box) {

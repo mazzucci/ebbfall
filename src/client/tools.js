@@ -49,7 +49,7 @@ export function goHome() {
   if (c) centerOn(c.x, c.y); else toast('No base left');
 }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); lit.clear(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
@@ -57,8 +57,8 @@ const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / lis
 let idleIndex = 0;
 const idleHarvesters = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle');
 const army = () => G.units.filter(u => u.team === G.me && !u.d.worker);
-/** Our finished factories (they train more than workers) with nothing queued, and the power to train. */
-const idleFactories = () => G.bldgs.filter(b => b.team === G.me && b.done && !b.queue.length && (b.d.trains || []).some(t => !UNITS[t].worker) && !(b.d.needsPower && !b.powered));
+/** Our finished factories (they train more than workers) with nothing queued. */
+const idleFactories = () => G.bldgs.filter(b => b.team === G.me && b.done && !b.queue.length && (b.d.trains || []).some(t => !UNITS[t].worker));
 let prodIndex = 0;
 /** Select the next idle factory and look at it. */
 export function selectIdleFactory() {
@@ -109,16 +109,6 @@ const touch = matchMedia('(pointer: coarse)').matches;
 /** The group tab being pressed (kept outside the element: tabs are rebuilt when counts change). */
 const press = { k: 0, held: false, timer: 0 };
 let groupsKey = '';
-/** Our buildings that need power, and whether they had it: one going dark pings the minimap (the toast says which). */
-const lit = new Map();
-function watchPower() {
-  for (const b of G.bldgs) {
-    if (b.team !== G.me || !b.done || !b.d.needsPower) continue;
-    if (lit.get(b.id) && !b.powered) ping(b.x, b.y);
-    lit.set(b.id, b.powered);
-  }
-}
-
 /** Capital units announced this game, by "<team>:<kind>": the first of each kind gets a word (and the enemy's a siren). */
 const capitals = new Set();
 function watchCapitals() {
@@ -154,7 +144,7 @@ function watchNews() {
 /** Refresh the alert chip and the group tabs (called with the HUD). (No army or idle-factory chips in the top bar:
  *  owner, 2026-11-03; Q and , still select them from the keyboard.) */
 export function updateTools() {
-  watchPower(); watchNews(); watchCapitals();
+  watchNews(); watchCapitals();
   $('btnAlert').hidden = !(alerts.last && performance.now() - alerts.last.t < ALERT_SHOWN);
   const tabs = [];
   // Saved groups only, and none on touch screens (empty tabs there were tapped by mistake instead of the map).

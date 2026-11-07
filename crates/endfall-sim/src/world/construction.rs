@@ -102,25 +102,6 @@ impl World {
             return;
         }
         let d = b.kind.def();
-        if d.needs_power {
-            let (bx, by, team, was) = (b.x, b.y, b.team, b.powered);
-            let on = self.powered_at(team, bx, by);
-            self.bm(bid).unwrap().powered = on;
-            if was && !on {
-                self.toast(
-                    team,
-                    format!(
-                        "{} unpowered: build a {} near it",
-                        d.name,
-                        self.power_name(team)
-                    ),
-                    true,
-                );
-            }
-            if !on {
-                return; // dark: no training, research or firing
-            }
-        }
         if d.on_vent && self.bldg(bid).is_some_and(|b| b.vent.is_some()) {
             self.pump(bid, dt);
         }
@@ -251,13 +232,5 @@ impl World {
         for o in others.into_iter().chain(builder) {
             self.resume_after(o);
         }
-    }
-
-    /// Whether a point is inside one of `team`'s power fields (a finished Spire or Conflux near enough).
-    pub fn powered_at(&self, team: u8, x: f64, y: f64) -> bool {
-        self.bldgs.iter().any(|s| {
-            let p = s.kind.def().power;
-            s.team == team && s.done && p > 0.0 && dist(s.x, s.y, x, y) <= p * TILE
-        })
     }
 }

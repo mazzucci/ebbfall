@@ -117,7 +117,7 @@ fn an_anemone_detects_wherever_it_stands() {
     w.disable_ai();
     let (cx, cy) = core(&w, PLAYER);
     let (sx, sy) = (cx + if cx < 32 { 12 } else { -12 }, cy);
-    let ward = w.make_building(BldgKind::Ward, PLAYER, sx + 3, sy, true);
+    w.make_building(BldgKind::Ward, PLAYER, sx + 3, sy, true);
     let umbra = w.make_unit(
         UnitKind::Umbra,
         ENEMY,
@@ -126,7 +126,6 @@ fn an_anemone_detects_wherever_it_stands() {
     );
     w.hold_unit(umbra);
     run(&mut w, 1);
-    assert!(w.bldg(ward).unwrap().powered, "never dark");
     assert!(w.seen_by(PLAYER, umbra), "an Anemone detects");
 }
 

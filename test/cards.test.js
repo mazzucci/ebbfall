@@ -63,14 +63,13 @@ function cards(race) {
   }
   // Buildings: a stand-in for each of the race's kinds in each state the card draws (the card reads these fields).
   let id = 90000;
-  const bldg = (k, o = {}) => ({ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, planted: false, powered: true, queue: [], research: null, prog: 0, ...o });
+  const bldg = (k, o = {}) => ({ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, planted: false, queue: [], research: null, prog: 0, ...o });
   for (const lv of [0, 1, 99]) { // (no techs, the first level of each, all: finished techs leave their slots)
     E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
     if (lv) for (const [k, u] of Object.entries(E.UPGRADES)) E.debugResearch(E.G.me, k, Math.min(lv, u.levels));
     for (const k of kinds) {
       const d = E.BUILDINGS[k], first = d.trains?.[0], states = [['finished', [bldg(k)]], ['rising', [bldg(k, { done: false })]], ['planted', [bldg(k, { done: false, planted: true })]], ['two finished', [bldg(k), bldg(k)]]];
       if (first) states.push(['training', [bldg(k, { queue: [first, first] })]]);
-      if (d.needsPower) states.push(['dark', [bldg(k, { powered: false })]]);
       for (const r of d.researches || []) states.push([`researching ${r}`, [bldg(k, { research: { type: r } })]], [`two, one researching ${r}`, [bldg(k, { research: { type: r } }), bldg(k)]]);
       for (const [state, sel] of states) for (const mode of [null, 'rally']) show(`${k} ${state}, techs ${lv}, ${mode || 'nothing'} armed`, sel, mode);
     }

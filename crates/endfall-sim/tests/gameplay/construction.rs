@@ -335,15 +335,10 @@ fn a_lumen_plants_a_vael_building_and_is_free_at_once() {
 }
 
 #[test]
-fn vael_production_needs_no_power_and_never_goes_dark() {
-    // Roster v2 retired the power field: no Vael building needs one, a Cradle (the Kiln) goes up on any free ground far
-    // from every Sunpetal and the Tidewell, and with every Sunpetal and the Tidewell gone it trains, an Anemone
-    // (Ward) fires and a Glasshouse (Loom) researches on.
-    assert_eq!(VAEL.power, None);
-    for k in BLDG_KINDS {
-        assert!(!k.def().needs_power, "{k:?} needs no power");
-        assert_eq!(k.def().power, 0.0, "{k:?} casts no field");
-    }
+fn vael_production_needs_no_sunpetal_near_it() {
+    // Roster v2 retired the power field (and its code went with plant-and-leave construction): a Cradle (the Kiln)
+    // goes up on any free ground far from every Sunpetal and the Tidewell, and with every Sunpetal and the Tidewell
+    // gone it trains, an Anemone (Ward) fires and a Glasshouse (Loom) researches on.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (cx, cy) = core(&w, PLAYER);
@@ -359,7 +354,6 @@ fn vael_production_needs_no_power_and_never_goes_dark() {
         })
         .find(|&(tx, ty)| w.can_place(BldgKind::Kiln, tx, ty, PLAYER))
         .expect("a free spot far from the Tidewell");
-    assert!(!w.powered_at(PLAYER, (tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE));
     let kiln = w
         .place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1]))
         .unwrap();
@@ -384,9 +378,6 @@ fn vael_production_needs_no_power_and_never_goes_dark() {
     );
     w.start_research(loom, Upgrade::Weapons).unwrap();
     run(&mut w, 1);
-    for b in [kiln, loom, ward] {
-        assert!(w.bldg(b).unwrap().powered, "never dark");
-    }
     let r = w.bldg(loom).unwrap().research;
     let (x, y) = (
         w.bldg(ward).unwrap().x + 4.0 * TILE,
@@ -473,7 +464,6 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
         u.x,
         u.y
     );
-    assert_eq!(u.warp, 0.0, "no warp-in");
     run(&mut w, 15);
     let u = w.unit(s).unwrap();
     assert!(
@@ -483,7 +473,11 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
         u.y
     );
     let b = trained(&mut w, UnitKind::Scythe);
-    assert_eq!(w.unit(b).unwrap().warp, 0.0, "nor the next one");
+    let (k, u) = (w.bldg(kiln).unwrap(), w.unit(b).unwrap());
+    assert!(
+        ((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0,
+        "nor the next one"
+    );
 }
 
 #[test]
@@ -495,7 +489,6 @@ fn units_step_out_beside_the_factory_otherwise() {
     let s = trained(&mut w, UnitKind::Scythe);
     let (k, u) = (w.bldg(kiln).unwrap(), w.unit(s).unwrap());
     assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
-    assert_eq!(u.warp, 0.0);
     // Nor do the headquarters' workers.
     let core = w
         .bldgs
@@ -508,7 +501,8 @@ fn units_step_out_beside_the_factory_otherwise() {
     w.set_rally(core, cx, cy, None);
     w.queue_unit(core, UnitKind::Lumen).unwrap();
     let l = trained(&mut w, UnitKind::Lumen);
-    assert_eq!(w.unit(l).unwrap().warp, 0.0);
+    let (k, u) = (w.bldg(core).unwrap(), w.unit(l).unwrap());
+    assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
     // Nor do the Humans' units.
     let mut h = rich(5);
     flatten(&mut h, 12..52, 12..52);
@@ -518,7 +512,8 @@ fn units_step_out_beside_the_factory_otherwise() {
     h.set_rally(rax, rx, ry, None);
     h.queue_unit(rax, UnitKind::Trooper).unwrap();
     let t = trained(&mut h, UnitKind::Trooper);
-    assert_eq!(h.unit(t).unwrap().warp, 0.0);
+    let (k, u) = (h.bldg(rax).unwrap(), h.unit(t).unwrap());
+    assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
 }
 
 /// Ticks a lone builder at work takes to raise a `kind` for the player (from its first progress to done).

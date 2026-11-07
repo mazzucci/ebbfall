@@ -21,7 +21,6 @@ pub const VAEL: Faction = Faction {
     ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
-    power: None, // (Roster v2: the Sunpetal is population, not a leash on where to build)
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     warp: true,

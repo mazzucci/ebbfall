@@ -68,7 +68,6 @@ impl World {
             boost: None,
             mode: None,
             swap: 0.0,
-            warp: 0.0,
             stun: 0.0,
             slowed: 0.0,
             still: 0.0,
@@ -97,7 +96,6 @@ impl World {
             maxsh: d.shields,
             hit_at: f64::NEG_INFINITY,
             planted: false,
-            powered: true,
             progress: if done { 1.0 } else { 0.0 },
             done,
             queue: Vec::new(),
@@ -155,23 +153,15 @@ impl World {
         id
     }
 
-    /// A new unit from a building: warped in at the rally point (see `warp_spot`), else stepping out beside it.
+    /// A new unit from a building, stepping out beside it.
     pub(crate) fn spawn_from(&mut self, bid: Id, kind: UnitKind) -> Id {
         let b = self.bldg(bid).unwrap().clone();
-        let warp = self.warp_spot(&b, kind);
-        let (x, y) = match warp {
-            Some(at) => at,
-            None => {
-                let f = self.exit_tile(&b, kind);
-                (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0)
-            }
-        };
+        let f = self.exit_tile(&b, kind);
+        let (x, y) = (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0);
         let u = self.make_unit(kind, b.team, x, y);
         self.stats[b.team as usize].built += 1;
         self.sfx(b.team, "ready");
-        if warp.is_some() {
-            self.um(u).warp = UNIT_WARP; // already where it was sent
-        } else if let Some(rl) = b.rally {
+        if let Some(rl) = b.rally {
             match rl.node {
                 Some(n) if kind.def().worker => {
                     self.start_gather(u, n);
@@ -186,51 +176,6 @@ impl World {
         }
         self.recalc_supply(b.team);
         u
-    }
-
-    /// Where a warping side's factory (not its headquarters, not a worker) sends a new unit: its rally point (kept
-    /// inside the map) when that is inside one of the side's power fields, on the nearest tile there that is open
-    /// (for a walker) and not under another unit of its layer, so a batch lands side by side.
-    fn warp_spot(&self, b: &Bldg, kind: UnitKind) -> Option<(f64, f64)> {
-        let rl = b.rally?;
-        let d = kind.def();
-        if !self.factions[b.team as usize].warp
-            || d.worker
-            || b.kind.def().hq
-            || rl.node.is_some()
-            || !self.powered_at(b.team, rl.x, rl.y)
-        {
-            return None;
-        }
-        let (rx, ry) = (self.map.clamp_x(rl.x), self.map.clamp_y(rl.y));
-        let t = self.map.tile_of(rx, ry);
-        let centre = |(x, y): (i32, i32)| (x as f64 * TILE + 16.0, y as f64 * TILE + 16.0);
-        // (crowded, distance, y, x): smaller is better.
-        let mut best: Option<(bool, f64, i32, i32)> = None;
-        for y in t.1 - 2..=t.1 + 2 {
-            for x in t.0 - 2..=t.0 + 2 {
-                if !self.map.in_map(x, y) || (!d.air && !self.map.passable(self.foot(kind), x, y)) {
-                    continue;
-                }
-                let (cx, cy) = centre((x, y));
-                let key = (self.crowded(x, y, d.air), dist(cx, cy, rx, ry), y, x);
-                if best.is_none_or(|k| {
-                    key.0
-                        .cmp(&k.0)
-                        .then(key.1.partial_cmp(&k.1).unwrap())
-                        .then((key.2, key.3).cmp(&(k.2, k.3)))
-                        .is_lt()
-                }) {
-                    best = Some(key);
-                }
-            }
-        }
-        let k = best?;
-        Some(if (k.3, k.2) == t && !k.0 {
-            (rx, ry)
-        } else {
-            centre((k.3, k.2))
-        })
     }
 
     /// Whether a unit of the layer (flyers or walkers) already stands on tile (x, y).

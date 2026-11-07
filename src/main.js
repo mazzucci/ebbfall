@@ -38,13 +38,6 @@ const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hid
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
 
-/** Whether to show the player's power fields: a race with them, and a power building (or one that needs power)
- * selected, or the Build list open, so the rule is visible before a placement fails. */
-function showPower() {
-  if (!myFaction().power) return false;
-  return ui.mode === 'build' || ui.mode === 'build2' || !!ui.place || ui.sel.some(e => e.kind === 'bldg' && e.team === G.me && (e.d.power > 0 || e.d.needsPower));
-}
-
 /** Start a game on the map and against the opponents chosen in the menu: one AI (the duel, as always), or two to seven,
  *  each for itself or in teams (the seats in team order, this player seat 0), each AI at its own difficulty. */
 function newGame() {
@@ -233,7 +226,7 @@ function loop(now) {
   // At most 60 frames a second (a 120 Hz phone would draw every frame twice as often for nothing: the world moves 30
   // times a second), and 20 under a card that stops the game (pause, leave, help, end).
   const draw = started && now - drawn >= (running() ? 12 : 50);
-  if (draw) { drawn = now; render(ui.sel, ui.place, showPower()); }
+  if (draw) { drawn = now; render(ui.sel, ui.place); }
   if (probe.on) probe.lap('render', draw);
   hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
   if (probe.on) probe.lap('end');

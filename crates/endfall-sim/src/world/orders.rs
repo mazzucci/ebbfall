@@ -9,13 +9,6 @@ impl World {
         if !self.factions[team as usize].builds(kind) {
             return false; // the other race's building
         }
-        let (cx, cy) = (
-            (tx as f64 + d.w as f64 / 2.0) * TILE,
-            (ty as f64 + d.h as f64 / 2.0) * TILE,
-        );
-        if d.needs_power && !self.powered_at(team, cx, cy) {
-            return false; // outside every power field
-        }
         if !self.map.in_map(tx, ty) || !self.map.in_map(tx + d.w - 1, ty + d.h - 1) {
             return false;
         }
@@ -440,19 +433,6 @@ impl World {
     ) -> Result<Id, String> {
         let d = kind.def();
         if !self.can_place(kind, tx, ty, team) {
-            let (cx, cy) = (
-                (tx as f64 + d.w as f64 / 2.0) * TILE,
-                (ty as f64 + d.h as f64 / 2.0) * TILE,
-            );
-            if self.factions[team as usize].builds(kind)
-                && d.needs_power
-                && !self.powered_at(team, cx, cy)
-            {
-                return Err(format!(
-                    "Needs power: place it in a power field (near a {})",
-                    self.power_name(team)
-                ));
-            }
             return Err("Cannot build there".into());
         }
         if !self.has_req(team, kind) {

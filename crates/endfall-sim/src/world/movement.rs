@@ -280,11 +280,11 @@ impl World {
         }
     }
 
-    /// Push overlapping units apart and out of blocked tiles. A unit holding position, warping in or deployed (a
+    /// Push overlapping units apart and out of blocked tiles. A unit holding position or deployed (a
     /// siege gun in a fight is so without holding) stands firm: others flow around it. Two workers of a side on their
     /// gathering round pass through each other, as in 1998: a crowded field never jams or jostles.
     pub(crate) fn separate(&mut self) {
-        let firm = |u: &Unit| u.task == Task::Hold || u.warp > 0.0 || u.mode.is_some();
+        let firm = |u: &Unit| u.task == Task::Hold || u.mode.is_some();
         let gathering = |u: &Unit| matches!(u.task, Task::Gather { .. });
         for i in 0..self.units.len() {
             if firm(&self.units[i]) {

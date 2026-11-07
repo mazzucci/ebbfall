@@ -21,7 +21,6 @@ export function bldgStatus(b) {
     const warp = warps(b.team), busy = buildersOf(b).length; // (a warp-in site waits for a worker to plant it)
     return warp ? (busy ? 'Being planted' : 'Not planted yet') : busy ? 'Constructing' : 'Paused: no builder';
   }
-  if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[FACTIONS[G.factions[b.team]]?.power]?.name ?? 'power source'} near it`; // (the owner's race)
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
@@ -175,7 +174,6 @@ let stripBound = false;
 
 function taskName(u) {
   const T = u.task;
-  if (u.warp > 0) return 'Warping in'; // (before any order it was given meanwhile)
   if (u.mode === 'deploy') return u.swap > 0 ? 'Deploying' : 'Deployed'; // (firing or not: a deployed tank shells what it can)
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
   if (T.t === 'build') return warps(u.team) ? 'Planting' : 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';

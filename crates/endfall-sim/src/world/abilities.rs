@@ -37,9 +37,6 @@ impl World {
                 "Busy packing up".into()
             });
         }
-        if u.warp > 0.0 {
-            return Err("Still warping in".into());
-        }
         if u.slowed > 0.0 {
             return Err("Harpooned: no abilities while slowed".into());
         }

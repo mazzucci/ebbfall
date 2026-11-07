@@ -15,8 +15,6 @@ export const DT = D.consts.dt;
 /** The seats a menu game deals: the player and the scripted opponent (tests and tools; the client itself plays G.me). */
 export const PLAYER = D.consts.player;
 export const ENEMY = D.consts.enemy;
-/** Seconds a unit takes to warp in at a power field (the Vael). */
-export const UNIT_WARP = D.consts.unit_warp;
 /** A speed tech's multiple for its flyer. */
 export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */

@@ -176,10 +176,6 @@ fn faction(f: &Faction) -> String {
         .raw("buildAdvanced", keys(f.build_advanced, |k| k.def().key))
         .str("supply", f.supply.def().key)
         .str("ether", f.ether.def().key)
-        .raw(
-            "power",
-            f.power.map_or("null".to_string(), |k| quote(k.def().key)),
-        )
         .num("repairs", f.repairs)
         .num("warp", f.warp)
         .done()
@@ -194,7 +190,6 @@ pub fn data_json() -> String {
         .num("dt", DT)
         .num("player", PLAYER)
         .num("enemy", ENEMY)
-        .num("unit_warp", UNIT_WARP)
         .num("tech_speed", TECH_SPEED)
         .num("tech_build", TECH_BUILD)
         .done();

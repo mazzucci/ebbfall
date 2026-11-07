@@ -765,7 +765,6 @@ impl World {
                     self.hostile(b.team)
                         && b.done
                         && d.weapon.is_some()
-                        && (b.powered || !d.needs_power)
                         && self.ai_sees(b.x, b.y)
                         && near(b.x, b.y)
                 })

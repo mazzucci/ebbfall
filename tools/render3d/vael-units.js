@@ -10,19 +10,20 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { lathe, coil, cone } from './vael.js';
 import { deeplight } from './vael2.js';
+import { VP } from './vael-palette.js';
 
-// ---- the family's own materials: the Tender's aqua light (the one Vael light that is not violet) ----
+// ---- the family's own materials (colours: vael-palette.js): the Tender's mending light, apart from the weapons' ----
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
   const std = (o) => new THREE.MeshStandardMaterial(o);
   const halo = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide });
   const A = {
-    aqua: std({ color: 0x0a5a4c, emissive: 0x12b898, emissiveIntensity: 1.0, roughness: 0.25 }),                     // the Tender's light: aqua through and through (round 3: x 1.25 of 0x18d8b4 clipped to white at 1x, a white star)
-    aquaGlass: new THREE.MeshPhysicalMaterial({ color: 0x1f8c7a, emissive: 0x0a4a40, emissiveIntensity: 1, roughness: 0.3, clearcoat: 0.8 }), // the Tender's inner petals: aqua glass round the light, so its heart is a broad aqua eye
-    aquaCore: std({ color: 0x9cf4e4, emissive: 0xa8fff0, emissiveIntensity: 0.9 }),                                   // its pale heart, aqua-white, small
-    aquaHalo2: halo(0x28c4ac, 0.12), aquaHalo3: halo(0x20ac98, 0.06),
-    inkMatte: std({ color: 0x0e0c14, metalness: 0.2, roughness: 0.62 }),                                              // the Undertow's black glass: matte, so a canted face takes no sheen from the rim light
+    aqua: std({ color: VP.mend.light[0], emissive: VP.mend.light[1], emissiveIntensity: VP.mend.light[2], roughness: 0.25 }),                     // the Tender's light: aqua through and through (round 3: x 1.25 of 0x18d8b4 clipped to white at 1x, a white star)
+    aquaGlass: new THREE.MeshPhysicalMaterial({ color: VP.mend.glass[0], emissive: VP.mend.glass[1], emissiveIntensity: 1, roughness: 0.3, clearcoat: 0.8 }), // the Tender's inner petals: aqua glass round the light, so its heart is a broad aqua eye
+    aquaCore: std({ color: VP.mend.core[0], emissive: VP.mend.core[1], emissiveIntensity: 0.9 }),                                   // its pale heart, aqua-white, small
+    aquaHalo2: halo(VP.mend.halo[0], 0.12), aquaHalo3: halo(VP.mend.halo[1], 0.06),
+    inkMatte: std({ color: VP.inkMatte, metalness: 0.2, roughness: 0.62 }),                                              // the Undertow's black glass: matte, so a canted face takes no sheen from the rim light
   };
   FAM.set(M, A); return A;
 }

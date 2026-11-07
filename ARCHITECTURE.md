@@ -366,7 +366,8 @@ public/               copied as is into dist/: the icons, the manifest, art/; og
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the
-                      sprite finish, run in headless Chromium (three.js)
+                      sprite finish, run in headless Chromium (three.js); vael-palette.js, the Vael's colours by
+                      variant (VAEL_PALETTE=pearl|verdigris|lantern, pearl by default; VITE_VAEL_PALETTE for the glows)
 tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 ```

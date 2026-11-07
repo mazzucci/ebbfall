@@ -2,6 +2,7 @@
 // selection rings, the light blob and the rally flag). Names match what the renderer asks for; `harpoon` and `beam`
 // (the ground family) wait for the renderer to pick a projectile's art by its shooter.
 import { image, hash2, vnoise } from './raster.js';
+import { VP } from '../render3d/vael-palette.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -51,14 +52,15 @@ function harpoon() {
     return [0, 0, 0, 0];
   });
 }
-/** The Lens's beam (`beam`, 40x8, +x, its head at the anchor): a lance of deeplight, a white heart in a violet-blue
- *  sheath, fading to the tail. For the coder to wire by the shooter's kind (look.js). */
+/** The Lens's beam (`beam`, 40x8, +x, its head at the anchor): a lance of deeplight, a white heart in a sheath of the
+ *  palette's light (violet-blue on the pearl), fading to the tail. For the coder to wire by the shooter's kind (look.js). */
 function beam() {
   return image(40, 8, (x, y) => {
     const t = Math.min(1, x / 30), dy = Math.abs(y + 0.5 - 4), core = clamp01(1 - dy / 1.1) * t, sheath = clamp01(1 - dy / 3.2) * t * 0.7;
     if (core <= 0 && sheath <= 0) return [0, 0, 0, 0];
     const k = Math.max(core, sheath);
-    return [Math.round(lerp(112, 230, core)), Math.round(lerp(128, 236, core)), 255, Math.round(k * 255)];
+    const { sheath: s, heart: h } = VP.beam; // (the Vael's palette, tools/render3d/vael-palette.js)
+    return [Math.round(lerp(s[0], h[0], core)), Math.round(lerp(s[1], h[1], core)), Math.round(lerp(s[2], h[2], core)), Math.round(k * 255)];
   });
 }
 function heal(f) { // 24x24 green sparkle for healing

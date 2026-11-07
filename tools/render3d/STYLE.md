@@ -124,6 +124,43 @@ frame with a visible fixture on the ground (the hull down and spades out; a drop
 Pale pearl shells on an ink core, with violet-blue "deeplight" in a few small lights. A Vael thing is a pale body with
 a dark heart: the opposite value order to the Harbour.
 
+### The palette (2026-11-07, Opus, during the Fable limit: two variants, the pick to come)
+
+Cold blind testers read the pearl Vael as StarCraft's Protoss ("white and gold armour with glowing blue-violet cores";
+the Tidewell a Nexus, the Sunpetal a Pylon, the Glint a Probe). Stelian's call: a palette change only, every Vael
+building and unit, no shape, frame, cell, team-mask or seat-colour change, the Harbour untouched. Every colour of the
+Vael's own materials now lives in `vael-palette.js` (`VAEL_PALETTES`), read by `makeVaelMats`, the families'
+materials in `vael-units.js` and `vael-buildings.js`, the Lens's `beam` (`tools/art/effects2.js`) and the buildings'
+glow (`src/client/look.js VAEL_GLOW`). Pick one with `VAEL_PALETTE=pearl|verdigris|lantern` for the Node drivers
+(`tools/art/render3d.mjs` passes it to the page as `?vael=`) and `VITE_VAEL_PALETTE` for the build's glows; `pearl`,
+today's look, stays the default (and renders byte for byte as before) until Stelian picks, then the pick becomes the
+default and the others go. The pack: `VAEL_PALETTE=<name> node tools/art/review.mjs <dir> --family=vael-palette`
+(`palette.png` and `palette-grey.png`: every Vael kind in seats 0, 1, 2 and 6 at a phone's size, with the bud, the
+rubble and the beam).
+
+Rules for both: no violet anywhere in the Vael's own materials (the team glaze's map is a neutral grey copy of the
+pearl's, so the mask carries no hue) and no gold trim; the ink stays near-black, tinted to the palette; the Tender's
+light stays apart from the weapons' (a mender, not a weapon); neither shell nor light may pass for a seat colour.
+
+| part | Verdigris | Fen lantern |
+|------|-----------|-------------|
+| idea | weathered copper: a dusty sage verdigris crust on the exposed plates, the bare copper russet underneath, in the plinths' sides and through worn spots and seams | bone: warm off-white, aged to ivory in mottles, dark umber seams, horn-brown undersides |
+| `shell` / `shellLight` / `ring` | 0x6c968a / 0x7ea89c / 0x8ab2a6, rough 0.62, clearcoat 0.2, sheen 0x94b8ae | 0xcdc3ad / 0xdcd4c2 / 0xd4cab4, rough 0.6, clearcoat 0.18, sheen 0xf0e2c8 |
+| `shellDark` / `shellDeep` | copper 0x6e4a36 / 0x4a3226, metal 0.5 / 0.45 | horn 0x98866a / 0x665642 |
+| texture marks | copper mottles rgb(196,124,86) at 0.16-0.32, seams rgba(58,34,22), copper inlay | ivory mottles rgb(196,168,120) at 0.10-0.22, seams rgba(40,26,14) 2.2 wide, umber inlay |
+| `ink` / `inkSeam` | 0x0a1113 / 0x0f181a (green-black) | 0x17110c / 0x1d150e (horn-black) |
+| the light (`deeplight`, heart, halos) | deep teal-blue, leaning blue: emissive 0x1e9ad8 x 1.9, heart 0xcff0ff, halos 0x2a9ad8 / 0x2088c8 / 0x1a74b0 | lantern peach-orange: emissive 0xff8c4c x 1.5 (hue about 22: round 1's 0xff9c48 merged with seat 0's gold glaze in the Tidewell), a cream heart 0xffe8d0, dim halos 0xf08a54 / 0xd8743e / 0xb85e30 (a lantern, not a fire) |
+| pools, glass, basin, bud, mouth | navy-teal: pool 0x081620 (emissive 0x0e3048), petal glass 0x0e2a3e, the Cradle's basin 0x123a5c, its bud 0x2a6688 | smoked amber: pool 0x16100c (emissive 0x2e180a, near-black: the light stays in the lights), petal glass 0x2c1a0c, basin 0x3c2812 (emissive 0x4a2608), bud 0x8a6e4e |
+| the Tender's light | candle-white: emissive 0xe8d8b8, pale glass petals 0xcfc6b2 (no aqua: it sat on the verdigris and seat 2) | pale sea-glass: emissive 0x7ad8c8, glass 0x5a9a90 (paler than seat 2's teal) |
+| beam / building glow | sheath rgb(40,150,220), heart rgb(205,238,255) / 0x48b0e8 | sheath rgb(255,140,80), heart rgb(255,236,210) / 0xffa070 |
+
+The seat checks (seats 0, 1, 2, 6, colour and grey): the verdigris was first a saturated green-teal (0x4a8c7a) that
+merged with seat 2's teal glaze (#0e9478): hence the dusty sage, chroma about 0.25, a step paler than seat 2, so the
+team band reads by its saturation; its copper is a dark russet (0x6e4a36), not an orange, so it never stands as a gold
+rim beside seat 0. In grey the sage sits a step below the pearl, so the team band's ink seams carry more of the
+separation in seats 1 and 2. The lantern's amber is a small light with a cream heart, never a painted surface, so it
+does not read as seat 0's gold paint; its bone is a touch less yellow than first drawn (0xcdc1a8) for the same reason.
+
 ### Materials (`vael.js makeVaelMats`)
 
 | key                    | what                            | three.js                                                                                  |

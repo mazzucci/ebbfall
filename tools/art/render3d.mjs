@@ -1,5 +1,6 @@
 // Runs tools/render3d/ in headless Chromium (playwright-core) and returns its sprites as { name, img, anchor } (masks:
 // `trim`; unit frames: `anim`, `frame`), and `.tints`, the mask tint per seat (tools/render3d/main.js fitTints).
+// VAEL_PALETTE=pearl|verdigris|lantern picks the Vael's palette (tools/render3d/vael-palette.js; pearl by default).
 // Needs a Chromium: CHROMIUM_PATH, or the one matching playwright-core (`npx playwright-core install chromium`).
 import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
@@ -18,7 +19,7 @@ export async function render3d(filter = '') {
     if (!existsSync(p)) return route.fulfill({ status: 404, body: 'not found' });
     route.fulfill({ status: 200, contentType: TYPES[extname(p)] || 'application/octet-stream', body: readFileSync(p) });
   });
-  await page.goto('http://art.local/tools/render3d/index.html');
+  await page.goto('http://art.local/tools/render3d/index.html' + (process.env.VAEL_PALETTE ? `?vael=${encodeURIComponent(process.env.VAEL_PALETTE)}` : '')); // (the Vael's palette, tools/render3d/vael-palette.js)
   await page.waitForFunction(() => window.ready === true, null, { timeout: 60000 }).catch(() => { throw new Error('renderer page failed: ' + errors.join('; ')); });
   const { sprites: list, tints } = await page.evaluate((f) => window.render(f), filter);
   await browser.close();

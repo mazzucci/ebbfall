@@ -13,19 +13,20 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { torus, lathe } from './vael.js';
 import { deeplight } from './vael2.js';
+import { VP } from './vael-palette.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
-// ---- the family's own material: dark glass, a shade bluer than the ink core, for faces and panes ----
+// ---- the family's own materials (colours: vael-palette.js): dark glass for faces and panes, the Cradle's basin and bud ----
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
   const A = {
-    darkGlass: new THREE.MeshPhysicalMaterial({ color: 0x16142c, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
-    petalGlass: new THREE.MeshPhysicalMaterial({ color: 0x1c1840, emissive: 0x0e0c22, emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: 0x8c80d8 }), // the Sunpetal's faces: deep violet glass with a light sweep, never flat black
-    violetWater: new THREE.MeshStandardMaterial({ color: 0x3a2e74, emissive: 0x241a58, emissiveIntensity: 0.55, metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep violet, never black
-    bud: new THREE.MeshPhysicalMaterial({ color: 0x6a5aa8, emissive: 0x2c2060, emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: 0xe8e0ff }), // the Cradle's bud: violet under a pearl sheen
-    mouth: new THREE.MeshStandardMaterial({ color: 0x1a1830, emissive: 0x201c48, emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark violet, lit from within
+    darkGlass: new THREE.MeshPhysicalMaterial({ color: VP.darkGlass, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
+    petalGlass: new THREE.MeshPhysicalMaterial({ color: VP.petalGlass[0], emissive: VP.petalGlass[1], emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: VP.petalGlass[2] }), // the Sunpetal's faces: deep glass with a light sweep, never flat black
+    violetWater: new THREE.MeshStandardMaterial({ color: VP.basin[0], emissive: VP.basin[1], emissiveIntensity: VP.basin[2], metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep and lit (violet on the pearl palette), never black
+    bud: new THREE.MeshPhysicalMaterial({ color: VP.bud[0], emissive: VP.bud[1], emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: VP.bud[2] }), // the Cradle's bud: the light's colour under a pale sheen
+    mouth: new THREE.MeshStandardMaterial({ color: VP.mouth[0], emissive: VP.mouth[1], emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark, lit from within
   };
   FAM.set(M, A); return A;
 }
@@ -179,7 +180,7 @@ export function siphon(M) {
   add(g, sph(4.2, 20, 14), M.ink, 4, 6.2, -14.6).scale.set(1.5, 0.7, 0.6);                     // the dark opening the tubes come out of
   deeplight(g, M, 1.1, 3.5, 7.4, -13.4);                                                        // the one light, in it
   // the feeding tubes: soft, thick, drooping over the beam and down into the black, darker as they go down
-  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
+  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: VP.tubeDeep, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
   const TUBES = [[2.3, [[-1, 6.5, -15.5], [-2.6, 9.6, -13], [-3.6, 7.6, -9.6], [-4.2, 1.5, -7.6], [-4.6, -6, -6.6], [-4.8, -14, -6.2]]],
     [2.7, [[5.5, 7, -15], [6.2, 10, -12.2], [5.6, 7, -8.4], [4.6, 0.5, -6], [4, -7, -4.8], [3.8, -15, -4.3]]],
     [1.9, [[13.5, 5.8, -10.5], [11.6, 9.4, -8.2], [9.2, 6.4, -6], [8.2, -0.5, -4.2], [7.8, -8, -3.4], [7.7, -15, -3]]]];

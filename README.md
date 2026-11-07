@@ -44,7 +44,8 @@ hides. A unit's button names what it fights best beside and what beats it.
 
 **Pause and after the game:** the pause card shows the clock. Against a friend the game goes on under it; PAUSE FOR
 EVERYONE stops it for both of you (three a game, five minutes at most, and only you can end your pause early). The end
-card says what beat you and charts both armies over the game.
+card gives the result and the time, and the map's story; after a victory against the AI, SHARE sends a friend the same
+game as a challenge.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 

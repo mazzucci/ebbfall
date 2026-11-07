@@ -2,9 +2,8 @@
 // Loaded by src/boot.js behind the menu (the renderer waits for its art, and the sim for its WASM, below); the menu and
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
-import { G, DT, TILE, UNITS, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, armyLog, lostTo, foes, enemies } from './engine/index.js';
-import { plural } from './engine/util.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, spotTint, portrait } from './client/gl/render.js';
+import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies } from './engine/index.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, teamLayers, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -18,9 +17,8 @@ import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { setSpots } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
-import { armyChart } from './client/chart.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
-import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave, Who } from './client/online.js';
+import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
@@ -111,16 +109,6 @@ function drainEvents() {
   G.events.length = 0;
 }
 
-/** The end card's one line on what killed most of this side's units (what beats those, the player works out). */
-function whatBeatYou() {
-  const kinds = [...Object.keys(UNITS).map(k => ['unit', k]), ...Object.keys(BUILDINGS).map(k => ['bldg', k])];
-  const top = lostTo(G.me).map((n, i) => [n, ...kinds[i]]).filter(([n]) => n > 0).sort((p, q) => q[0] - p[0]).slice(0, 2);
-  const el = $('endWhy'); el.hidden = !top.length; if (!top.length) return;
-  const name = (t, k) => plural((t === 'unit' ? UNITS : BUILDINGS)[k].name);
-  const pic = (t, k) => portrait(t, k, 22, foes()[0]); // (in an enemy's colours)
-  el.innerHTML = `Most of your losses: to ${top.map(([n, t, k]) => `${pic(t, k)}${name(t, k)} (${n})`).join(' and ')}.`;
-}
-
 /** This side's allies (the other seats of its team). */
 const allies = () => G.teams.map((_, s) => s).filter(s => s !== G.me && !enemies(G.me, s));
 /** This side's game is over: the game is, or every seat of its team is out (a free-for-all goes on without it). */
@@ -150,13 +138,6 @@ function endGame() {
   $('endSub').textContent = endLine(win);
   const map = online.playing ? onlineMap(online.setup) : setup();
   $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
-  const S = G.stats[G.me];
-  $('endStats').innerHTML = `<span>Units trained <b>${S.built}</b></span><span>Units lost <b>${S.lost}</b></span><span>Enemies killed <b>${S.killed}</b></span><span>Structures razed <b>${S.razed}</b></span>`;
-  whatBeatYou();
-  // Both armies over the game (the enemy's revealed now), and the result on this device's record.
-  const chart = armyChart(armyLog(G.me), foes().map(armyLog).reduce((sum, l) => l.map((v, i) => v + (sum[i] || 0)), [])); // (the enemies together)
-  $('endChart').innerHTML = chart; $('endKey').hidden = !chart;
-  const fs = foes(); $('endKey').querySelector('.foe').textContent = fs.length > 1 ? 'Enemy armies' : online.playing ? `${Who(fs[0])}'s army` : 'Enemy army';
   $('btnAgain').textContent = online.playing ? 'LEAVE ROOM' : 'NEW GAME'; // (online: this room, and its rematch, are left)
   $('btnAgain').title = online.playing ? 'Back to the menu: out of this room' : 'Back to the menu, for another map or opponent';
   showShare(win && !online.playing && !BENCH ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)

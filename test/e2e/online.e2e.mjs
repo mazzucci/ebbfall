@@ -690,10 +690,10 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       await a.p.locator('#leave').waitFor({ state: 'visible', timeout: 5000 });
       assert.equal(await a.p.locator('#leaveSub').textContent(), 'The game goes on. If you leave, Bo wins.');
       await a.tap('#btnStay');
-      // The end card names the friend's army, leaves the room (no NEW GAME), and a rematch asked can be taken back.
+      // The end card leaves the room (no NEW GAME), and a rematch asked can be taken back.
       await a.p.evaluate(() => endfall.engine.concede()); // (set-up: the end card is what is tested)
       for (const x of [a, b]) await x.p.locator('#end').waitFor({ state: 'visible', timeout: RUN_MS });
-      assert.deepEqual(await b.p.evaluate(() => [document.getElementById('btnAgain').textContent, document.querySelector('#endKey .foe').textContent]), ['LEAVE ROOM', "Ann's army"]);
+      assert.equal(await b.p.evaluate(() => document.getElementById('btnAgain').textContent), 'LEAVE ROOM');
       await b.tap('#btnRematch');
       assert.equal(await b.p.locator('#btnRematch').getAttribute('title'), 'Tap again to take it back');
       await a.p.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'Bo wants a rematch'), null, { timeout: 5000 });

@@ -1,4 +1,5 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
+import { shownBldgs } from './memory.js';
 import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
@@ -37,7 +38,7 @@ export function updateHud() {
   $('rShard').textContent = s; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc);
   watchSites();
-  ui.sel = ui.sel.filter(x => !x.dead && (x.team === G.me || x.kind !== 'unit' || visibleEnt(x))); // (an enemy that slips out of sight or detection is let go)
+  ui.sel = ui.sel.filter(x => !x.dead && (x.kind === 'node' || x.team === G.me || !enemies(G.me, x.team) || x.ghost || visibleEnt(x))); // (an enemy that slips out of sight or detection is let go; a remembered building, picked in the fog, stays; a field stays)
   renderSelection();
   buildCard();
 }
@@ -91,10 +92,11 @@ function renderSelection() {
     module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
   } else if (sel.length === 1 && sel[0].kind === 'node') {
     // A salt field (what is left and who works it), or a mine shaft (an Excavator or a Siphon on it digs by itself).
-    const n = sel[0], seep = n.type === 'ether', rig = n.extractor ? BUILDINGS[n.extractor.type] : BUILDINGS[myFaction().ether];
+    // (who holds a shaft: what this side may see of it, an enemy's as last seen: memory.js)
+    const n = sel[0], seep = n.type === 'ether', on = seep && shownBldgs().find(b => b.vent === n), rig = on ? BUILDINGS[on.type] : BUILDINGS[myFaction().ether];
     named(seep ? 'Mine shaft' : 'Salt field');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = seep ? (n.extractor ? `${aName(rig.name).replace(/^a/, 'A')} ${rig.verb} salt here by itself` : `Build ${aName(rig.name)} on it: it ${rig.verb} salt by itself`) : `${n.amount} salt left`;
+    sub.textContent = seep ? (on ? `${aName(rig.name).replace(/^a/, 'A')} ${rig.verb} salt here by itself` : `Build ${aName(rig.name)} on it: it ${rig.verb} salt by itself`) : `${n.amount} salt left`;
     if (seep) $('life').hidden = true; else life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
     const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
     module('node' + working, `<span class="st" title="${plural(UNITS[myFaction().worker].name)} working it" aria-label="${plural(UNITS[myFaction().worker].name)} working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);

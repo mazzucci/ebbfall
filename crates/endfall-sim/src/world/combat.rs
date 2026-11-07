@@ -114,7 +114,7 @@ impl World {
     /// The guided first game (`guided_hold`): the opponent's units (`team`) leave a person's extractors on the open
     /// shafts alone while that person still has a headquarters, so the guide's Pump, out past the base, outlives the
     /// wave that walks by it (and a game down to its Pump still ends).
-    fn spared(&self, team: u8, b: &Bldg) -> bool {
+    pub(crate) fn spared(&self, team: u8, b: &Bldg) -> bool {
         self.guided
             && b.vent.is_some()
             && self.is_ai(team)

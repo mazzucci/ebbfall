@@ -171,8 +171,9 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     // (the quiet game places none in that minute, or one farther off). (This Petrel cannot die
     // and shoots whoever comes near, builders included, so the decision is what is checked, not the finished tower.)
     let mut w = World::new(31, 1);
-    // (after its Foundry and its second Pump stand, as it raises two sites at a time; and a Turret's price in the bank)
-    run(&mut w, 175);
+    // (at 2:40, between its sites, as it raises two at a time: since its Excavator waits for its Crew Hall, at 2:55
+    // both were in hand that minute and no tower could go up; and a Turret's price in the bank)
+    run(&mut w, 160);
     w.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     // (a miner at its home field: not one out building on an open shaft)
     let h = harvesters(&w, ENEMY)
@@ -182,7 +183,7 @@ fn the_ai_puts_a_detector_where_something_unseen_hit_it() {
     let (hx, hy) = (U(&w, h).x, U(&w, h).y);
     // (the same world, played the same way: the sim is deterministic)
     let mut quiet = World::new(31, 1);
-    run(&mut quiet, 175);
+    run(&mut quiet, 160);
     quiet.res[ENEMY as usize][0] += BldgKind::Turret.def().cost[0];
     let raider = w.make_unit(UnitKind::Shrike, PLAYER, hx + 40.0, hy);
     let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();

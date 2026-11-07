@@ -2,6 +2,7 @@
 // Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
 // draws a box; the minimap grows under the finger and moves the view by the finger's travel. A mouse: the middle
 // button held and dragged pans. The keyboard's camera and command keys follow the controls scheme (controls.js).
+import { shownBldgs } from './memory.js';
 import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, enemies, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
 import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
@@ -61,7 +62,7 @@ function pick(wx, wy) {
   let best = null, bd = Infinity;
   for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
   if (best) return best;
-  for (const b of G.bldgs) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) { if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue; return b; } }
+  for (const b of shownBldgs()) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
   return nodeAt(wx, wy);
 }
 /** The explored resource field under (wx, wy), if any. */
@@ -108,7 +109,8 @@ function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
   if (d.onVent) {
     let best = null, bd = 72;
-    for (const n of map.nodes) if (n.type === 'ether' && !n.extractor) { const dd = dist(n, { x: wx, y: wy }); if (dd < bd) { bd = dd; best = n; } }
+    const taken = new Set(shownBldgs().map(b => b.vent).filter(Boolean)); // (as this side sees them: memory.js)
+    for (const n of map.nodes) if (n.type === 'ether' && !taken.has(n)) { const dd = dist(n, { x: wx, y: wy }); if (dd < bd) { bd = dd; best = n; } }
     if (best) return { tx: best.tx, ty: best.ty };
   }
   return { tx: Math.round(wx / TILE - d.w / 2), ty: Math.round(wy / TILE - d.h / 2) };

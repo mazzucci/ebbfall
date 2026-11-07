@@ -24,7 +24,8 @@ const TOWERS_PER_BASE: usize = 1;
 
 impl World {
     /// The free open shaft (a vent with no extractor) this seat takes next: the nearest by walking distance from its
-    /// main at (cx, cy) (tiles) on its own side of the map (nearer its own start than any enemy start still in), its
+    /// main at (cx, cy) (tiles) on its own side of the map (nearer its own start than any other seat's still in, an
+    /// ally's too; a free start's shafts are anyone's), its
     /// top-left tile. The walk is measured once per main (`Ai::shafts`: the ground does not move) by a flood over the
     /// ground its workers stand on.
     pub(crate) fn free_shaft(&mut self, cx: f64, cy: f64) -> Option<(i32, i32)> {
@@ -39,8 +40,9 @@ impl World {
             (x as f64 + 2.0, y as f64 + 2.0)
         };
         let own = start(e as usize);
+        // (every other seat still in, its allies too: an ally's near shaft is the ally's to take)
         let foes: Vec<(f64, f64)> = (0..self.seats() as u8)
-            .filter(|&s| self.enemies(e, s) && !self.out[s as usize])
+            .filter(|&s| s != e && !self.out[s as usize])
             .map(|s| start(s as usize))
             .collect();
         let (_, order) = self.ai().shafts.as_ref()?;
@@ -472,10 +474,13 @@ impl World {
         // `vents_from`; a lost one is built again on the same terms.
         // (Not in the guided first game: its opponent's income stays in its base, which the guide's last step
         // attacks; an extractor out on a shaft kept paying for fighters after the base fell. `guided_hold`)
+        // (Only once its requirement stands, the barracks: wanted before then it would hold the rest of the build
+        // order, the barracks too, behind a building it cannot place.)
         let pump_due = !building.contains(&f.ether)
             && harv.len() >= 7
             && (pumps == 0 || t > d.vents_from)
-            && !self.guided;
+            && !self.guided
+            && self.has_req(e, f.ether);
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =

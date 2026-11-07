@@ -1256,8 +1256,8 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
         [0, 1].map(|t| w.res[t][0] - start[t][0])
     };
     let (medium, brutal) = (gathered(1), gathered(3));
-    // (alike but for a trip or two: the world's one RNG times every unit's route refresh, and the AI's faster miners
-    // draw from it at other moments)
+    // (alike but for a trip: the world's one RNG times every unit's route refresh, and the AI's faster miners draw
+    // from it at other moments)
     let (pm, pb) = (medium[PLAYER as usize], brutal[PLAYER as usize]);
     assert!(
         (pm - pb).abs() <= pm / 30,

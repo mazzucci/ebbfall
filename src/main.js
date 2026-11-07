@@ -11,6 +11,7 @@ import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, audioState } from './client/audio.js';
 import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
+import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
@@ -68,7 +69,7 @@ function begin(reset) {
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   resetSightings();
-  setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide();
+  setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide();
   renderTerrain();
   // Start zoomed all the way out over the base, to see as much as possible; the wheel or a pinch zooms in.
   cam.zoom = ZOOM_MIN; const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
@@ -98,7 +99,7 @@ function quitToTitle() {
 
 // ---- replays: the game just played, again from its first tick, both sides in view, at a few speeds ----
 const SPEEDS = [1, 2, 4, 8];
-function clearScene() { setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); stopGlide(); }
+function clearScene() { setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide(); }
 function watch() {
   if (!startReplay()) { toast('This game cannot be watched again', true); return; }
   ui.watching = 4; audio.quiet = true; document.body.classList.add('replay'); $('replayBar').hidden = false; $('end').hidden = true;

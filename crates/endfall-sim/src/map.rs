@@ -403,6 +403,69 @@ struct ShaftRules<'a> {
     centre_busy: bool,
     /// Whether a tile is land a Walk builder may build on (always, but on the Shore).
     land: &'a dyn Fn(i32, i32) -> bool,
+    /// The numbers it holds a shaft to: `Limits::STRICT` for every map so far; the looser ones only where a map's
+    /// shafts found no room under them (`Map::mend_shafts`).
+    limits: Limits,
+}
+
+/// What a shaft must keep to (`ShaftRules::allows`): its distance from its own Core, the first's and the second's (the
+/// second at least `far_past` beyond the first), its margin nearer its own start than any other, its distance from the
+/// other Cores (and basins), the expansions' sites, the main-to-natural and ramp lines and a busy centre, from its own
+/// images, and the gap to other vents (`vent_fits`).
+#[derive(Clone, Copy)]
+struct Limits {
+    near: (f64, f64),
+    far: (f64, f64),
+    far_past: f64,
+    own: f64,
+    keep: f64,
+    clear: f64,
+    off_line: f64,
+    centre: f64,
+    apart: f64,
+    gap: i32,
+}
+
+impl Limits {
+    /// Every map's (the goldens pin the maps they make).
+    const STRICT: Limits = Limits {
+        near: SHAFT_NEAR,
+        far: SHAFT_FAR,
+        far_past: 5.0,
+        own: SHAFT_OWN,
+        keep: SHAFT_NEAR.0,
+        clear: SHAFT_CLEAR,
+        off_line: SHAFT_OFF_LINE,
+        centre: SHAFT_CENTRE,
+        apart: 6.0,
+        gap: VENT_GAP,
+    };
+    /// Where those found no room: wider rings, less room round sites and lines.
+    const RELAXED: Limits = Limits {
+        near: (13.0, 24.0),
+        far: (20.0, 42.0),
+        far_past: 4.0,
+        own: 0.0,
+        keep: 12.0,
+        clear: 8.0,
+        off_line: 2.5,
+        centre: 5.0,
+        apart: 5.0,
+        gap: VENT_GAP,
+    };
+    /// The last try: anywhere a walker reaches on its own side of the map, clear of the Cores.
+    const LAST: Limits = Limits {
+        near: (8.0, 32.0),
+        far: (10.0, 48.0),
+        far_past: 3.0,
+        own: 0.0,
+        keep: 8.0,
+        clear: 0.0,
+        off_line: 0.0,
+        centre: 3.0,
+        apart: 4.0,
+        gap: VENT_GAP - 1,
+    };
 }
 
 impl ShaftRules<'_> {
@@ -412,10 +475,11 @@ impl ShaftRules<'_> {
         let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
         let c0 = self.cores[0];
         let r = d(q, c0);
+        let l = self.limits;
         let (lo, hi) = if far {
-            (SHAFT_FAR.0.max(near_r + 5.0), SHAFT_FAR.1)
+            (l.far.0.max(near_r + l.far_past), l.far.1)
         } else {
-            SHAFT_NEAR
+            l.near
         };
         let v = (
             jsmath::round(q.0 - 0.5) as i32,
@@ -426,15 +490,15 @@ impl ShaftRules<'_> {
             && v.1 >= 2
             && v.0 <= self.w - 4
             && v.1 <= self.h - 4
-            && self.cores[1..].iter().all(|&c| d(q, c) > r + SHAFT_OWN)
-            && self.keep_off.iter().all(|&c| d(q, c) >= SHAFT_NEAR.0)
-            && self.sites.iter().all(|&e| d(q, e) >= SHAFT_CLEAR)
+            && self.cores[1..].iter().all(|&c| d(q, c) > r + l.own)
+            && self.keep_off.iter().all(|&c| d(q, c) >= l.keep)
+            && self.sites.iter().all(|&e| d(q, e) >= l.clear)
             && self
                 .lines
                 .iter()
-                .all(|&(a, b)| seg_dist(q, a, b) >= SHAFT_OFF_LINE)
-            && (!self.centre_busy || d(q, self.centre) >= SHAFT_CENTRE)
-            && (1..self.sym.k).all(|g| d(q, self.sym.point(g, q)) >= 6.0)
+                .all(|&(a, b)| seg_dist(q, a, b) >= l.off_line)
+            && (!self.centre_busy || d(q, self.centre) >= l.centre)
+            && (1..self.sym.k).all(|g| d(q, self.sym.point(g, q)) >= l.apart)
             && (0..2).all(|dy| (0..2).all(|dx| (self.land)(v.0 + dx, v.1 + dy)))
     }
 
@@ -706,7 +770,7 @@ impl Map {
             )
         };
         let land = |_: i32, _: i32| true;
-        let rules = ShaftRules {
+        let mut rules = ShaftRules {
             sym,
             w: mw,
             h: mh,
@@ -723,6 +787,7 @@ impl Map {
             centre,
             centre_busy: middle || kind == MapKind::EtherStorm,
             land: &land,
+            limits: Limits::STRICT,
         };
         let ideals = rules.ideals();
         for q in ideals {
@@ -828,8 +893,16 @@ impl Map {
             MapKind::Barren => (0.4, 0.6),
             _ => (1.0, 1.0),
         };
-        // Two open shafts a start, and the centre's vent (a shaft that found no room would be a silent hole: a change
-        // to the generator must fail its tests loudly instead).
+        // Two open shafts a start, and the centre's vent: where no threshold gave them room, laid again under looser
+        // rules (a start never goes without; no map so far needs it, and a change to the generator that makes one
+        // need it fails its tests loudly here).
+        let want = 2 * k + rules.centre_busy as usize;
+        let strict = m.nodes.iter().filter(|n| n.ether).count() == want;
+        m.mend_shafts(next_id, &mut rules, ideals, want);
+        debug_assert!(
+            strict,
+            "seed {seed} {kind:?} {mw}x{mh}: every start has its two open shafts without mending"
+        );
         debug_assert_eq!(
             m.nodes.iter().filter(|n| n.ether).count(),
             2 * k + rules.centre_busy as usize,
@@ -1025,6 +1098,7 @@ impl Map {
                 centre,
                 centre_busy: false,
                 land: &land,
+                limits: Limits::STRICT,
             }
         };
         let ideals = shaft_rules(&sites).ideals();
@@ -1116,8 +1190,13 @@ impl Map {
             .iter()
             .flat_map(|&p| (0..2).map(move |g| sym.point(g, p)))
             .collect();
-        // Two open shafts a start (a shaft that found no room would be a silent hole: a change to the generator must
-        // fail its tests loudly instead).
+        // Two open shafts a start: where none gave them room, laid again under looser rules (as `generate`).
+        let strict = m.nodes.iter().filter(|n| n.ether).count() == 4;
+        m.mend_shafts(next_id, &mut shaft_rules(&sites), ideals, 4);
+        debug_assert!(
+            strict,
+            "seed {seed}: every Shore start has its two open shafts without mending"
+        );
         debug_assert_eq!(
             m.nodes.iter().filter(|n| n.ether).count(),
             4,
@@ -1239,7 +1318,8 @@ impl Map {
         let mut near_r = 0.0;
         for (i, ideal) in ideals.into_iter().enumerate() {
             let far = i == 1;
-            let r = if far { SHAFT_FAR.1 } else { SHAFT_NEAR.1 }.ceil() as i32 + 1;
+            let l = rules.limits;
+            let r = if far { l.far.1 } else { l.near.1 }.ceil() as i32 + 1;
             let (bx, by) = (c0.0 as i32, c0.1 as i32);
             let mut best: Option<(f64, (i32, i32))> = None;
             for y in (by - r).max(0)..=(by + r).min(self.h - 1) {
@@ -1255,7 +1335,7 @@ impl Map {
                             self.in_map(tx, ty) && reach[self.idx(tx, ty)]
                         })
                     });
-                    if ring && self.vent_fits(sym, (x, y), VENT_GAP) {
+                    if ring && self.vent_fits(sym, (x, y), l.gap) {
                         best = Some((dd, (x, y)));
                     }
                 }
@@ -1268,6 +1348,43 @@ impl Map {
                 let v = sym.block(g, v, 2);
                 self.add_vent(next_id, v.0, v.1);
             }
+        }
+    }
+
+    /// The last resort where a map's shafts found no room under `Limits::STRICT` at any rock threshold: its shafts
+    /// (the last vents laid down) taken up and laid again under `Limits::RELAXED`, then `Limits::LAST`, until every
+    /// start has its two (`want` vents in all, the centre's counted). A map that never needs it is unchanged.
+    fn mend_shafts(
+        &mut self,
+        next_id: &mut Id,
+        rules: &mut ShaftRules,
+        ideals: [(f64, f64); 2],
+        want: usize,
+    ) {
+        let vents = |m: &Map| m.nodes.iter().filter(|n| n.ether).count();
+        for limits in [Limits::RELAXED, Limits::LAST] {
+            if vents(self) == want {
+                return;
+            }
+            // (the shafts are the last nodes laid down: any vents after the last crystal, the centre's excepted)
+            let (cx, cy) = (self.w / 2 - 1, self.h / 2 - 1);
+            while let Some(n) = self
+                .nodes
+                .last()
+                .filter(|n| n.ether && (n.tx, n.ty) != (cx, cy))
+            {
+                let (tx, ty) = (n.tx, n.ty);
+                for y in ty..ty + 2 {
+                    for x in tx..tx + 2 {
+                        let i = self.idx(x, y);
+                        self.occ[i] = 0;
+                    }
+                }
+                self.nodes.pop();
+                *next_id -= 1;
+            }
+            rules.limits = limits;
+            self.place_shafts(next_id, rules, ideals);
         }
     }
 
@@ -1627,5 +1744,76 @@ impl Map {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A map whose shafts find no room under the strict rules (rock over every ring they may lie in) still gets two
+    /// per start, each start's the image of the first's, a walker's reach from its start: `mend_shafts`.
+    #[test]
+    fn shafts_that_find_no_room_are_laid_again_under_looser_rules() {
+        let size = MapSize::DUEL;
+        let sym = Sym { k: 2, w: 64, h: 64 };
+        let mut m = Map::empty(size);
+        let b0 = (8, 52);
+        m.bases = vec![b0, sym.block(1, b0, 4)];
+        let cores: Vec<(f64, f64)> = (0..2)
+            .map(|g| sym.point(g, (b0.0 as f64 + 1.5, b0.1 as f64 + 1.5)))
+            .collect();
+        // (rock wherever a strict shaft could stand: 15 to 37 tiles from either Core)
+        for y in 1..63 {
+            for x in 1..63 {
+                let r = cores
+                    .iter()
+                    .map(|c| jsmath::hypot(x as f64 + 0.5 - c.0, y as f64 + 0.5 - c.1))
+                    .fold(f64::INFINITY, f64::min);
+                if (15.0..=37.0).contains(&r) {
+                    let i = m.idx(x, y);
+                    m.rock[i] = 1;
+                }
+            }
+        }
+        let land = |_: i32, _: i32| true;
+        let mut rules = ShaftRules {
+            sym,
+            w: 64,
+            h: 64,
+            b0,
+            cores: cores.clone(),
+            keep_off: cores.clone(),
+            sites: Vec::new(),
+            // (a natural's line, out towards the map's edge: out of the way)
+            lines: vec![(cores[0], (cores[0].0 - 1.0, cores[0].1 + 1.0))],
+            centre: (31.5, 31.5),
+            centre_busy: false,
+            land: &land,
+            limits: Limits::STRICT,
+        };
+        let ideals = rules.ideals();
+        let mut next_id = 1;
+        m.place_shafts(&mut next_id, &rules, ideals);
+        assert_eq!(m.nodes.len(), 0, "no room under the strict rules");
+        m.mend_shafts(&mut next_id, &mut rules, ideals, 4);
+        assert_eq!(m.nodes.len(), 4, "two shafts a start");
+        let reach = m.reach_from(
+            (b0.0 + 1, b0.1 - 1),
+            Foot {
+                class: Move::Walk,
+                water: 0,
+            },
+        );
+        for n in &m.nodes {
+            assert!(
+                m.nodes
+                    .iter()
+                    .any(|o| (o.tx, o.ty) == sym.block(1, (n.tx, n.ty), 2)),
+                "each shaft's image"
+            );
+            let reached = (-1..=2).any(|dy| (-1..=2).any(|dx| reach[m.idx(n.tx + dx, n.ty + dy)]));
+            assert!(reached, "the shaft at {},{} reached", n.tx, n.ty);
+        }
     }
 }

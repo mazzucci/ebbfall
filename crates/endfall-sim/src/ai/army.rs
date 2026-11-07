@@ -209,7 +209,12 @@ impl World {
             .known
             .iter()
             .filter_map(|k| self.bldg(k.0))
-            .filter(|b| b.vent.is_some() && self.hostile(b.team) && self.can_hit(r, b.id))
+            .filter(|b| {
+                b.vent.is_some()
+                    && self.hostile(b.team)
+                    && self.can_hit(r, b.id)
+                    && !self.spared(self.ai_turn, b) // (the guided game's: never a target)
+            })
             .filter(|b| {
                 cores
                     .iter()

@@ -199,10 +199,12 @@ fn harpooners(w: &World, e: u8) -> usize {
 fn the_ai_only_reacts_to_flyers_it_has_seen() {
     // Against a control game (the same seed, no flyer): a raider the AI has not seen adds no Harpooners; once seen, it
     // does (the anti-air answer, on top of the mix's one per two Pickets).
+    // (from 2:00, soon after its Crew Hall stands: by 2:30 its mix holds enough Harpooners to cover three flyers'
+    // answer, since the Excavator waits for the Crew Hall and the Lighthouse holds 20 population)
     let mut control = World::new(31, 0);
     let mut w = World::new(31, 0);
-    run(&mut control, 150);
-    run(&mut w, 150);
+    run(&mut control, 120);
+    run(&mut w, 120);
     // Three raiders hiding in the top-left corner, far from anything the AI has looked at (three: its answer is two
     // anti-air per flyer seen, more than the mix's Harpooners cover).
     let raiders: Vec<Id> = (0..3)
@@ -230,8 +232,9 @@ fn the_ai_only_reacts_to_flyers_it_has_seen() {
         );
         w.hold_unit(r);
     }
-    run(&mut control, 40);
-    run(&mut w, 40);
+    // (Easy's one Crew Hall trains them one at a time behind its queue: a minute for the answer to show)
+    run(&mut control, 60);
+    run(&mut w, 60);
     let (has, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
     assert!(
         has > base + 1,

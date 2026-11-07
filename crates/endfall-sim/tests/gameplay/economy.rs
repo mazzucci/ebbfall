@@ -166,7 +166,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
     }
     assert_eq!(queued, 5, "queue holds five");
     let [used, cap] = w.sup[PLAYER as usize];
-    assert_eq!((used, cap), (9, 10));
+    assert_eq!((used, cap), (9, 20), "the Lighthouse's 20 population");
     w.cancel_queue(core_id, 4);
     w.cancel_queue(core_id, 3);
     let res_before = w.res[PLAYER as usize][0];
@@ -174,7 +174,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
     assert_eq!(w.res[PLAYER as usize][0], res_before + 50, "cancel refunds");
     let h = harvesters(&w, PLAYER);
     build(&mut w, BldgKind::Depot, h[0], 90);
-    assert_eq!(w.sup[PLAYER as usize][1], 18);
+    assert_eq!(w.sup[PLAYER as usize][1], 28);
 }
 
 #[test]
@@ -227,12 +227,18 @@ fn a_full_core_reports_supply_blocked() {
         .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
         .unwrap()
         .id;
-    for _ in 0..6 {
-        let _ = w.queue_unit(core_id, UnitKind::Harvester);
+    // (19 of the Lighthouse's 20 population used: four workers and fifteen more)
+    let (x, y) = (
+        w.bldg(core_id).unwrap().x,
+        w.bldg(core_id).unwrap().y + 80.0,
+    );
+    for _ in 0..15 {
+        w.make_unit(UnitKind::Harvester, PLAYER, x, y);
     }
-    run(&mut w, 70); // trains five: 9 of 10 supply used
+    w.recalc_supply(PLAYER);
+    assert_eq!(w.sup[PLAYER as usize], [19, 20]);
     w.queue_unit(core_id, UnitKind::Harvester)
-        .expect("the tenth fits");
+        .expect("the twentieth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
         Err("Population full. Build a Cottage.".to_string())
@@ -241,10 +247,12 @@ fn a_full_core_reports_supply_blocked() {
 
 #[test]
 fn builders_go_back_to_the_salt() {
-    // The builder of a Pump, as of anything else, goes back to the salt it was mining (nobody works a seep).
+    // The builder of an Excavator, as of anything else, goes back to the salt it was mining (nobody works a shaft).
     let mut w = rich(5);
     run(&mut w, 3);
     let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Barracks);
+    w.make_building(BldgKind::Barracks, PLAYER, tx, ty, true); // (an Excavator needs the Crew Hall)
     build(&mut w, BldgKind::Extractor, h[0], 90);
     run(&mut w, 1);
     assert!(
@@ -695,4 +703,61 @@ fn either_half_mines_its_field_alike() {
         }
     }
     assert!(checked >= 6, "enough mirrored starts checked ({checked})");
+}
+
+#[test]
+fn every_shaft_is_on_the_map_from_the_start_and_an_excavator_needs_the_crew_hall() {
+    // Every mine shaft starts explored for every seat (not seen: the fog still hides who holds it), so a person
+    // places an Excavator on a far shaft in the first seconds without scouting it, once the Crew Hall stands; without
+    // the Crew Hall it is refused. Both peoples.
+    for (mut w, ext, rax) in [
+        (rich(9), BldgKind::Extractor, BldgKind::Barracks),
+        (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
+    ] {
+        run(&mut w, 1);
+        for s in 0..2usize {
+            for n in w.map.nodes.iter().filter(|n| n.ether) {
+                assert_eq!(
+                    w.explored[s][w.map.idx(n.tx, n.ty)],
+                    1,
+                    "{ext:?}: seat {s} has the shaft at {},{} on its map",
+                    n.tx,
+                    n.ty
+                );
+            }
+        }
+        let (cx, cy) = core(&w, PLAYER);
+        // (the farthest shaft from the player's Core: out past the enemy's base, unseen)
+        let far = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .max_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
+            .map(|n| (n.tx, n.ty))
+            .unwrap();
+        assert_eq!(
+            w.vis[PLAYER as usize][w.map.idx(far.0, far.1)],
+            0,
+            "{ext:?}: the far shaft is not in sight"
+        );
+        let h = harvesters(&w, PLAYER)[0];
+        assert!(
+            w.place_building(PLAYER, ext, far.0, far.1, Some(h))
+                .is_err(),
+            "{ext:?}: refused before the barracks"
+        );
+        w.make_building(rax, PLAYER, cx - 5, cy, true);
+        let b = w
+            .place_building(PLAYER, ext, far.0, far.1, Some(h))
+            .unwrap_or_else(|e| panic!("{ext:?}: {e}"));
+        assert_eq!(
+            w.bldg(b)
+                .and_then(|b| b.vent)
+                .and_then(|v| w.map.node(v))
+                .map(|n| (n.tx, n.ty)),
+            Some(far),
+            "{ext:?}: on the far shaft"
+        );
+    }
 }

@@ -8,19 +8,16 @@ pub const HUMANS: Faction = Faction {
     name: "Harbour",
     hq: BldgKind::Core,
     worker: UnitKind::Harvester,
-    // The basic page holds what can be built from the start (the Core too); the advanced page what needs the
-    // Garrison (the Turret too), so it appears once the Garrison stands (owner, 2026-11-03).
-    build_basic: &[
-        BldgKind::Depot,
-        BldgKind::Barracks,
-        BldgKind::Extractor,
-        BldgKind::Core,
-    ],
+    // The basic page holds what can be built from the start (the Core too), the Crew Hall first; the advanced page
+    // what needs the Crew Hall (the Turret and the Excavator too), so it appears once the Crew Hall stands (owner,
+    // 2026-11-03; the Excavator moved there with its requirement, the PM, 2026-11-06).
+    build_basic: &[BldgKind::Barracks, BldgKind::Depot, BldgKind::Core],
     build_advanced: &[
         BldgKind::Forge,
         BldgKind::Airfield,
         BldgKind::Turret,
         BldgKind::Factory,
+        BldgKind::Extractor,
     ],
     supply: BldgKind::Depot,
     ether: BldgKind::Extractor,
@@ -290,7 +287,7 @@ pub(super) const CORE: BldgDef = BldgDef {
     h: 4,
     hp: 1300.0,
     armor: 2.0,
-    supply: 10,
+    supply: 20,
     build: 75.0,
     sight: 10.0,
     trains: &[UnitKind::Harvester],
@@ -315,6 +312,8 @@ pub(super) const EXTRACTOR: BldgDef = BldgDef {
     hp: 200.0,
     build: 25.0,
     on_vent: true,
+    // (its people's barracks first: workers on the crystals, then soldiers, then a shaft out in the open)
+    req: Some(BldgKind::Barracks),
     ..BLDG
 };
 pub(super) const BARRACKS: BldgDef = BldgDef {

@@ -23,15 +23,17 @@ const enemyAtBase = () => {
   return G.units.some(u => enemies(G.me, u.team) && !u.d.worker && mineB.some(b => Math.hypot(u.x - b.x, u.y - b.y) < AT_BASE));
 };
 
-/** The step after which the opponent may come (the army is trained): its index in `steps()`. */
-const ARMY = 5;
-/** The step that builds the race's extractor on a shaft out in the open: its index in `steps()`. */
-const PUMP = 2;
+/** The step after which the opponent may come (the army is trained, the extractor out on its shaft): its index in
+ *  `steps()`. */
+const ARMY = 4;
+/** The step that builds the race's extractor on a shaft out in the open (it needs the barracks: after the army):
+ *  its index in `steps()`. */
+const PUMP = 3;
 /** How often (ms) the guide pings its shaft again while that step waits for the extractor to be placed. */
 const REPING = 8000;
 
 /** The open shaft the guide leads to: the one nearest the player's headquarters (ties by id), the sim's
- *  World::guided_shaft, which the guided game shows the player from the start. */
+ *  World::guided_shaft (every shaft is on the map from the start: explored). */
 function guideShaft() {
   const hq = G.bldgs.find(b => b.team === G.me && b.type === myFaction().hq);
   if (!hq) return null;
@@ -48,25 +50,28 @@ function leadToShaft(look) {
   if (look) centerOn(n.x, n.y);
 }
 
-/** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?]. Mine,
- *  population, an Excavator (the Vael: a Siphon), the barracks, a line and its anti-air (as many line units as fit
- *  under the first cap: six of a 1-population kind, three of a 2-population one), hold, then spend the bank on more of
- *  the line up to an army of `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
+/** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?].
+ *  Workers on the crystals, the barracks, a line and its anti-air (six of a 1-population kind, three of a 2-population
+ *  one), the extractor out on its shaft (it needs the barracks), hold, then population (where it runs out: the last
+ *  army is sized past the headquarters' population, `goal`), then spend the bank on more of the line up to an army of
+ *  `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
 function steps() {
-  const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker], pump = BUILDINGS[f.ether];
+  const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker], pump = BUILDINGS[f.ether], house = BUILDINGS[f.supply];
   const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker));
-  const [soldier, aa] = BUILDINGS[rax].trains, n = Math.max(3, Math.floor(6 / (UNITS[soldier].supply || 1)));
-  const goal = n + 4, army = () => G.units.filter(u => u.team === G.me && !u.d.worker).length;
+  const [soldier, aa] = BUILDINGS[rax].trains, pop = (k) => UNITS[k].supply || 1, n = Math.max(3, Math.floor(6 / pop(soldier)));
+  // (the last army: one more of the line than the headquarters' population holds with the guide's workers and army)
+  const room = (hq.supply || 0) - (tut.start + 2) - n * pop(soldier) - 2 * pop(aa);
+  const goal = n + 2 + Math.max(1, Math.floor(room / pop(soldier)) + 1), army = () => G.units.filter(u => u.team === G.me && !u.d.worker).length;
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} salt again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    { text: `Select a ${worker.name}: Build a ${BUILDINGS[f.supply].name} (population: every unit needs some)`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
-    { text: `Build ${aName(pump.name)} on the mine shaft marked on the map: it ${pump.verb} salt by itself`, por: ['bldg', f.ether], want: ['build', 'b_' + f.ether], done: () => built(f.ether) },
-    { text: `Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
+    { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
+    { text: `Build ${aName(pump.name)} on the mine shaft marked on the map: it ${pump.verb} salt by itself`, por: ['bldg', f.ether], want: ['build', 'build2', 'b_' + f.ether], done: () => built(f.ether) },
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
     // that never comes; never while one is still there)
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
+    { text: `The army of ${goal} needs more population: select a ${worker.name} and Build ${aName(house.name)}`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
     { text: `Spend your salt on ${plural(UNITS[soldier].name)} (an army of ${goal}), then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }

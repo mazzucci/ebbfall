@@ -45,29 +45,10 @@ impl World {
     /// wave while on (until `HOLD_WAVES_MAX` s at most), and meanwhile the opponent's army stops growing at
     /// `GUIDED_ARMY`; released, the first wave goes, and its army grows to `GUIDED_ARMY_AFTER` at most for the rest of
     /// the game (`guided_army_full`). It raises no towers by the clock either (`ai_build`): a Lookout under repair
-    /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level. Each
-    /// person's nearest open shaft (`guided_shaft`) is explored from the start, so the guide's extractor step can be
-    /// built there straight away (the guide pings it and shows it).
+    /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level.
     pub fn guided_hold(&mut self, on: bool) {
         self.hold_waves = on;
         self.guided |= on;
-        if on {
-            for s in 0..self.seats() as u8 {
-                if self.is_ai(s) {
-                    continue;
-                }
-                if let Some((tx, ty)) = self.guided_shaft(s) {
-                    for y in ty - 2..=ty + 3 {
-                        for x in tx - 2..=tx + 3 {
-                            if self.map.in_map(x, y) {
-                                let i = self.map.idx(x, y);
-                                self.explored[s as usize][i] = 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /// The open shaft (vent) nearest seat `s`'s start in a straight line (ties by id), its top-left tile: the one the

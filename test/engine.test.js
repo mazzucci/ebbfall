@@ -93,7 +93,7 @@ test('a fresh game has two cores, eight harvesters and resource nodes', { skip }
   assert.equal(E.G.bldgs.length, 2);
   assert.equal(E.G.units.length, 8);
   assert.ok(E.map.nodes.length > 20);
-  assert.deepEqual(E.G.sup[E.PLAYER], [4, 10]);
+  assert.deepEqual(E.G.sup[E.PLAYER], [4, 20]); // (the Lighthouse holds 20 population)
   assert.ok(E.G.units.every(u => u.task.t === 'gather' && u.task.node && u.task.node.kind === 'node'));
 });
 
@@ -135,7 +135,7 @@ test('placing a depot costs 100 shards and a harvester builds it', { skip }, () 
   runSeconds(45);
   const depot = E.G.bldgs.find(b => b.type === 'depot' && b.team === E.PLAYER);
   assert.ok(depot && depot.done, 'depot finished');
-  assert.equal(E.G.sup[E.PLAYER][1], 18);
+  assert.equal(E.G.sup[E.PLAYER][1], 28);
 });
 
 test('orders report errors and a rally point shows up on the building', { skip }, () => {
@@ -220,7 +220,15 @@ test('an Excavator knows its mine shaft and digs salt by itself; harvesters orde
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
   const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the nearest, out in the open
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
-  E.debugSpawn(E.PLAYER, 'harvester', vent.x, vent.y + 64); E.step(); // (a scout beside it: a person builds on explored ground)
+  // (the Excavator needs the Crew Hall; the shaft, out in the open, is on the map from the start)
+  let rax = null;
+  for (let r = 4; r < 12 && !rax; r++) for (let a = 0; a < 16 && !rax; a++) {
+    const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
+    if (E.canPlace('barracks', tx, ty, E.PLAYER)) { assert.equal(E.placeBuilding(E.PLAYER, 'barracks', tx, ty, hs[1]), null); rax = { tx, ty }; }
+  }
+  assert.ok(rax, 'room for a Crew Hall');
+  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null, 'refused before the Crew Hall stands');
+  runSeconds(60);
   assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
   assert.equal(ext.vent, vent);
@@ -407,7 +415,10 @@ test('allies share vision: G.vis is what this side\'s team sees, its fog-free ar
   // Seat 1's Trooper in the middle of a 96x96 map, an enemy (seat 2) beside it; nobody else near. Seen from seat 0.
   const look = (teams) => {
     E.resetGameSeats(31, 1, 0, 0, ['humans', 'vael', 'humans', 'vael'], teams, [false, false, false, false], 0, 96);
-    const x = 48 * C.TILE + 16, y = 48 * C.TILE + 16, at = E.idx(48, 48);
+    // (by the middle, off the mine shafts: every shaft and the ground round it is on everyone's map from the start)
+    let tx = 48, ty = 48;
+    for (let r = 0; r < 10 && E.G.explored[E.idx(tx, ty)]; r++) [tx, ty] = [48 + r, 48];
+    const x = tx * C.TILE + 16, y = ty * C.TILE + 16, at = E.idx(tx, ty);
     assert.equal(E.G.vis[at], 0, 'the middle out of sight to begin with');
     const ally = E.debugSpawn(1, 'trooper', x, y), enemy = E.debugSpawn(2, 'trooper', x + 40, y);
     E.step();

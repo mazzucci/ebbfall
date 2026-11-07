@@ -8,19 +8,16 @@ pub const VAEL: Faction = Faction {
     name: "Vael",
     hq: BldgKind::Conflux,
     worker: UnitKind::Lumen,
-    // The basic page holds what can be built from the start (the Conflux too); the advanced page what needs the Kiln
-    // (the Ward too), so it appears once the Kiln stands (owner, 2026-11-03).
-    build_basic: &[
-        BldgKind::Spire,
-        BldgKind::Kiln,
-        BldgKind::Siphon,
-        BldgKind::Conflux,
-    ],
+    // The basic page holds what can be built from the start (the Conflux too), the Kiln first; the advanced page what
+    // needs the Kiln (the Ward and the Siphon too), so it appears once the Kiln stands (owner, 2026-11-03; the Siphon
+    // moved there with its requirement, the PM, 2026-11-06).
+    build_basic: &[BldgKind::Kiln, BldgKind::Spire, BldgKind::Conflux],
     build_advanced: &[
         BldgKind::Loom,
         BldgKind::Zenith,
         BldgKind::Ward,
         BldgKind::Eclipse,
+        BldgKind::Siphon,
     ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
@@ -255,7 +252,7 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 10,
+    supply: 20,
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],
@@ -280,6 +277,8 @@ pub(super) const SIPHON: BldgDef = BldgDef {
     hp: 200.0, // (as the Humans' Excavator: no shields)
     build: 25.0,
     on_vent: true,
+    // (its people's barracks first: workers on the crystals, then soldiers, then a shaft out in the open)
+    req: Some(BldgKind::Kiln),
     ..BLDG
 };
 pub(super) const KILN: BldgDef = BldgDef {

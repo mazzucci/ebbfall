@@ -46,7 +46,7 @@ const UNIT_TEXT = {
   umbra: { hot: 'U', desc: 'Melee assassin. Hidden while still. Put it on Hold to lie in wait: its first strike comes from hiding, and it shows when it moves or strikes. Something that spots hidden units sees it anyway.' },
 };
 const BLDG_TEXT = {
-  core: { hot: 'L', desc: 'Trains Riggers. Salt drop-off. +10 population.' },
+  core: { hot: 'L', desc: 'Trains Riggers. Salt drop-off. +20 population.' },
   depot: { hot: 'W', desc: '+8 population.' },
   // (on a mine shaft: each race's own verb, `verb` and `doing`, for the panel and the guide)
   extractor: { hot: 'X', verb: 'digs', doing: 'Digging', desc: 'Built on a mine shaft: digs salt by itself, half a salt a second, with no workers.' },
@@ -56,7 +56,7 @@ const BLDG_TEXT = {
   turret: { hot: 'O', desc: 'Static defence against ground and air. Spots hidden units.' },
   airfield: { hot: 'F', desc: 'Trains Kites, Spyglasses and the Windjammer capital ship. Researches Tailwind.' },
   // the Vael
-  conflux: { hot: 'T', desc: 'The Vael heart, a pool of deeplight. Trains Glints. Salt drop-off. +10 population.' },
+  conflux: { hot: 'T', desc: 'The Vael heart, a pool of deeplight. Trains Glints. Salt drop-off. +20 population.' },
   spire: { hot: 'S', desc: '+8 population.' },
   siphon: { hot: 'I', verb: 'draws', doing: 'Drawing', desc: 'Grown on a mine shaft: draws salt by itself, half a salt a second, with no workers.' },
   kiln: { hot: 'C', desc: 'Grows Needles, Lenses, Conchs and Tenders (the last two need a Glasshouse).' },

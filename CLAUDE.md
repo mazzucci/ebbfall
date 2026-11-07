@@ -125,7 +125,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's salt in an
                       uneven clump to one flank of its Core, `add_clump`; no base has a vent: two open mine shafts per
                       start out in the open, 16 to 20 and 24 to 36 tiles from its Core, `place_shafts`, and the centre's
-                      vent where a map has one), occupancy grid, nearest_free;
+                      vent where a map has one; every shaft starts explored for every seat, `World::explore_shafts`),
+                      occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
                       (`generate_shore`: two starts, each a cove and a reef basin, `basins`; its own generator, so the

@@ -53,9 +53,7 @@ pub fn spot(w: &World, kind: BldgKind) -> (i32, i32) {
 /// Place `kind` with `builder` and run until it is finished (or fail after `limit` seconds).
 pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
     let (tx, ty) = if kind.def().on_vent {
-        let v = player_vent(w);
-        explore(w, PLAYER, v);
-        v
+        player_vent(w)
     } else {
         spot(w, kind)
     };
@@ -76,19 +74,6 @@ pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
         "{kind:?} not finished after {limit}s: progress {:?}",
         w.bldg(b).map(|b| b.progress)
     );
-}
-
-/// Mark the ground round a vent (top-left `v`) explored for `team` (a person places only on explored ground; the open
-/// shafts lie out past the Core's sight): a scene's setup.
-pub fn explore(w: &mut World, team: u8, v: (i32, i32)) {
-    for y in v.1 - 1..=v.1 + 2 {
-        for x in v.0 - 1..=v.0 + 2 {
-            if w.map.in_map(x, y) {
-                let i = w.map.idx(x, y);
-                w.explored[team as usize][i] = 1;
-            }
-        }
-    }
 }
 
 /// The open shaft nearest the player's Core (top-left tile).

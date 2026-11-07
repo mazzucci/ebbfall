@@ -144,9 +144,7 @@ pub struct Unit {
     /// The toggle that is on (Deploy), and the seconds left settling in or packing up (no moving or firing then).
     pub mode: Option<AbilityKind>,
     pub swap: f64,
-    /// Seconds left warping in (a Vael unit sent to a power field): it cannot move, fire or heal, but can be hit.
-    pub warp: f64,
-    /// Seconds left stunned (a walker swept by the flood): as warping in, it cannot move, fire or heal.
+    /// Seconds left stunned (a walker swept by the flood): it cannot move, fire or heal, but can be hit.
     pub stun: f64,
     /// Seconds left harpooned (`Weapon::slow`): it moves at `SLOW_SPEED` and casts nothing.
     pub slowed: f64,
@@ -203,10 +201,6 @@ pub struct Bldg {
     pub sh: f64,
     pub maxsh: f64,
     pub hit_at: f64,
-    /// Warp-in: the site has been planted and grows by itself.
-    pub planted: bool,
-    /// Inside a power field (always true for a building that needs none).
-    pub powered: bool,
     pub progress: f64,
     pub done: bool,
     pub queue: Vec<UnitKind>,

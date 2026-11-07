@@ -123,8 +123,8 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in, ties to its partner: seats
   0 and 1, 2 and 3, ...), and `is_ai(team)` is the
   only difference a seat's player makes (AI income, building in
-  unexplored ground, losing as soon as its buildings are gone; a person's new refinery gets one worker (its builder; for the Vael, whose planter has left, the nearest), the AI
-  balances its own).
+  unexplored ground, losing as soon as its buildings are gone). A builder of either people stays at its site until the building stands; a
+  new refinery needs no worker, and its builder goes back to the salt, as from any building.
 - Two-seat habits the goldens pin stay on two-start maps only: seat 0 facing east and stepping out south (with
   `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
   wave called home to a raid by another) apply only with more than one enemy still in.

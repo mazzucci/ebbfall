@@ -1,6 +1,6 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
 import { shownBldgs } from './memory.js';
-import { G, UNITS, BUILDINGS, FACTIONS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
@@ -16,12 +16,7 @@ export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; //
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) {
-    if (b.planted) return 'Growing';
-    const warp = warps(b.team), busy = buildersOf(b).length; // (a warp-in site waits for a worker to plant it)
-    return warp ? (busy ? 'Being planted' : 'Not planted yet') : busy ? 'Constructing' : 'Paused: no builder';
-  }
-  if (b.d.needsPower && !b.powered) return `Unpowered: build a ${BUILDINGS[FACTIONS[G.factions[b.team]]?.power]?.name ?? 'power source'} near it`; // (the owner's race)
+  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
@@ -175,17 +170,14 @@ let stripBound = false;
 
 function taskName(u) {
   const T = u.task;
-  if (u.warp > 0) return 'Warping in'; // (before any order it was given meanwhile)
   if (u.mode === 'deploy') return u.swap > 0 ? 'Deploying' : 'Deployed'; // (firing or not: a deployed tank shells what it can)
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
-  if (T.t === 'build') return warps(u.team) ? 'Planting' : 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
+  if (T.t === 'build') return 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (u.swap > 0) return 'Packing up';
   if (T.t === 'move') return 'Moving'; if (T.t === 'hold') return 'Holding position'; if (T.t === 'flee') return 'Running for cover'; return 'Idle';
 }
 
 export const aName = (name) => (/^[AEIOU]/.test(name) ? 'an ' : 'a ') + name;
-/** Whether `team`'s race warps its buildings in (a worker plants a site, which then grows by itself). */
-const warps = (team) => !!FACTIONS[G.factions[team]]?.warp;
 /**
  * A building's production queue in the selection console: one slot per unit it can hold, filled from the left (the
  * one in training first), the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.
@@ -232,7 +224,7 @@ function watchSites() {
   for (const b of G.bldgs) {
     if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); continue; }
     const has = buildersOf(b).length > 0;
-    if (siteHadBuilder.get(b.id) && !has && !b.planted) toast(myFaction().warp ? `${b.d.name} not planted (select it and tap Plant)` : `${b.d.name} paused: no builder (select it and tap Resume)`, true);
+    if (siteHadBuilder.get(b.id) && !has) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
     siteHadBuilder.set(b.id, has);
   }
   for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) siteHadBuilder.delete(id);

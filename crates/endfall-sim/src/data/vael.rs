@@ -1,4 +1,4 @@
-//! The Vael: warp-in construction, power fields and shields (the design is on the design-mockups branch).
+//! The Vael: shields, amphibious units, and their builders (the design is on the design-mockups branch).
 
 use super::*;
 
@@ -21,10 +21,8 @@ pub const VAEL: Faction = Faction {
     ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
-    power: None, // (Roster v2: the Sunpetal is population, not a leash on where to build)
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
-    warp: true,
     ai: AiScript {
         rax: BldgKind::Kiln,
         tech: BldgKind::Loom,

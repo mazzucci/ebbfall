@@ -387,12 +387,6 @@ impl World {
     pub(crate) fn sfx(&mut self, team: u8, name: &'static str) {
         self.emit(Event::Sfx { team, name });
     }
-    /// What casts a seat's power fields, by name ("power" for a race without them).
-    pub(crate) fn power_name(&self, team: u8) -> &'static str {
-        self.factions[team as usize]
-            .power
-            .map_or("power", |k| k.def().name)
-    }
     /// Whether the scripted opponent plays this seat.
     pub fn is_ai(&self, team: u8) -> bool {
         self.ai_seats[team as usize]
@@ -577,10 +571,6 @@ impl World {
             let left = u.slowed - dt;
             u.slowed = if left > 1e-9 { left } else { 0.0 };
         }
-        if u.warp > 0.0 {
-            u.warp = (u.warp - dt).max(0.0);
-            return;
-        }
         if u.stun > 0.0 {
             u.stun = (u.stun - dt).max(0.0);
             return;
@@ -725,9 +715,6 @@ impl World {
                 mix(u.mode.map_or(0, |k| k.index() as i32 + 1));
                 mix(jsmath::to_i32(u.swap * 16.0));
             }
-            if u.warp > 0.0 {
-                mix(jsmath::to_i32(u.warp * 16.0));
-            }
             if u.stun > 0.0 {
                 mix(jsmath::to_i32(u.stun * 16.0) + 1); // (swept by the flood: only with the tide)
             }
@@ -746,9 +733,6 @@ impl World {
             mix(jsmath::to_i32(b.hp * 16.0));
             if b.maxsh > 0.0 {
                 mix(jsmath::to_i32(b.sh * 16.0));
-            }
-            if b.planted && !b.done {
-                mix(1); // a planted seed grows by itself next tick
             }
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);

@@ -1248,7 +1248,7 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
   } finally { await ctx.close(); }
 });
 
-test('phone: as the Vael, a Glint plants a Sunpetal and is free at once; the seed grows by itself', { chromium: CDP_TOUCH }, async () => {
+test('phone: as the Vael, a Glint stays at its Sunpetal; pulled away, the site pauses and Resume sends one back', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
   try {
     await d.grant(1000, 0);
@@ -1257,11 +1257,24 @@ test('phone: as the Vael, a Glint plants a Sunpetal and is free at once; the see
     const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
     await d.buildWithUI('s', 'spire', spot.tx, spot.ty, lumen.id);
     const spire = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'spire'));
-    await until(d, async () => (await spire())?.planted, { seconds: 20, what: 'the Sunpetal to be planted' });
-    assert.notEqual((await d.state()).units.find(u => u.id === lumen.id).task.t, 'build', 'the Glint went back to work');
+    await until(d, async () => (await spire())?.progress > 0.2, { seconds: 30, what: 'the Sunpetal to rise' });
+    const task = async () => (await d.state()).units.find(u => u.id === lumen.id).task;
+    assert.equal(await task(), 'build', 'the Glint stays on its site');
+    // Pull the Glint off (tap until it, not the site it stands on, is the selection) and send it to the salt.
+    const node = (await d.state()).nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
+    for (let i = 0; i < 8; i++) { await d.clickEntity(lumen.id); if ((await d.selection()).some(e => e.id === lumen.id)) break; await d.page.waitForTimeout(200); }
+    assert.ok((await d.selection()).some(e => e.id === lumen.id), 'the Glint selected');
+    await d.clickWorld(node.x, node.y);
+    await until(d, async () => (await d.toasts()).some(t => /Sunpetal paused: no builder \(select it and tap Resume\)/.test(t)), { seconds: 10, what: 'the paused-site toast' });
+    const p = (await spire()).progress;
+    await d.skip(4);
+    assert.equal((await spire()).progress, p, 'no Glint, no progress');
     await d.clickEntity((await spire()).id);
-    assert.match(await d.hudText('#selSub', /Growing/), /Growing/, 'the seed grows by itself');
-    await until(d, async () => (await spire())?.done, { seconds: 40, what: 'the Sunpetal to finish' });
+    assert.match(await d.hudText('#selSub', /Paused/), /Paused: no builder/, 'the panel says so');
+    const labels = (await d.card()).map(c => c.label);
+    assert.ok(labels.includes('Resume') && !labels.includes('Plant'), `Resume on the card: ${labels}`);
+    await d.pressCard('Resume');
+    await until(d, async () => (await spire())?.done, { seconds: 60, what: 'the resumed Sunpetal to finish' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

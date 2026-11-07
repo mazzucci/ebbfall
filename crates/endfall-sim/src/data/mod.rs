@@ -289,10 +289,6 @@ def_struct! {
         hq: bool = "hq",
         /// Shield points over the hull (the Vael).
         shields: f64 = "shields",
-        /// Works only inside a power field (placed in one, dark when none covers it).
-        needs_power: bool = "needsPower",
-        /// Radius (tiles, centre to building centre) of the power field this building casts when finished; 0 = none.
-        power: f64 = "power",
         /// Upgrades researched here.
         researches: &'static [Upgrade] = "researches",
         cost: [i32; 2] = "cost",
@@ -309,13 +305,10 @@ def_struct! {
         req: Option<BldgKind> = "req",
         /// A turret's weapon; None = no defence.
         weapon: Option<Weapon> = "weapon",
-        /// Radius (tiles) in which it reveals the other side's cloaked units when finished (and powered); 0 = none.
+        /// Radius (tiles) in which it reveals the other side's cloaked units when finished; 0 = none.
         detect: f64 = "detect",
     }
 }
-
-/// Seconds a unit takes to warp in at a power field (a warping side's factory sending it to its rally point).
-pub const UNIT_WARP: f64 = 2.5;
 
 /// A playable side: its headquarters and worker (the start), and its Build list (basic and advanced pages).
 pub struct Faction {
@@ -325,18 +318,13 @@ pub struct Faction {
     pub worker: UnitKind,
     pub build_basic: &'static [BldgKind],
     pub build_advanced: &'static [BldgKind],
-    /// Its supply building, its refinery (built on an ether vent) and what casts its power fields, if it has them:
-    /// the roles its messages and its AI name.
+    /// Its supply building and its refinery (built on an ether vent): the roles its messages and its AI name.
     pub supply: BldgKind,
     pub ether: BldgKind,
-    pub power: Option<BldgKind>,
     /// The sound of its shots, by projectile: [bolt, shell, missile, melee] (recipe names in src/client/audio.js).
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings (the Vael regenerate shields instead).
     pub repairs: bool,
-    /// Warp-in: a worker plants a site and is free at once; the building then grows by itself. And a factory's
-    /// new units warp in at its rally point when that is inside one of the side's power fields (`UNIT_WARP` s).
-    pub warp: bool,
     /// How the scripted opponent plays this side.
     pub ai: AiScript,
 }
@@ -481,8 +469,6 @@ const BLDG: BldgDef = BldgDef {
     hq: false,
     researches: &[],
     shields: 0.0,
-    needs_power: false,
-    power: 0.0,
     weapon: None,
     detect: 0.0,
 };

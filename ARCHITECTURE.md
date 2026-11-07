@@ -44,7 +44,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   high water), a step at a time between `WATER_LOW` and `WATER_HIGH`; `tide_phase`, `tide_level`. It runs first in
   `step`. When the level moves, routes it cuts are dropped (`terrain_changed` and each walker's own) and, on the way
   up, a walker on ground now deep is swept to the nearest ground it may stand on, losing 30% of its maximum health
-  and stunned 2 s (`Unit::stun`, like `warp`), or destroyed with `set_flood_kills` (the lab's comparison).
+  and stunned 2 s (`Unit::stun`), or destroyed with `set_flood_kills` (the lab's comparison).
   `TIDE_WARN_S` before the flood each seat with walkers on ground it will cover is warned (a toast, the alert sound, a
   ping) and, its switch on (`SetRetreat`, a command; `World::no_retreat`, a bit per seat; on by default), its idle
   walkers and its idle or mining workers there walk to ground that stays dry; units under any other order keep it.

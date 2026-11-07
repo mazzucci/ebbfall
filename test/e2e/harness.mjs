@@ -179,7 +179,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     state: () => ev(() => ({
       res: endfall.G.res[0].slice(), sup: endfall.G.sup[0].slice(), over: endfall.G.over, winner: endfall.G.winner,
       units: endfall.G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, task: u.task.t })),
-      bldgs: endfall.G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, tx: b.tx, ty: b.ty, x: b.x, y: b.y, w: b.w, h: b.h, done: b.done, progress: b.progress, planted: b.planted, powered: b.powered, queue: b.queue.slice() })),
+      bldgs: endfall.G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, tx: b.tx, ty: b.ty, x: b.x, y: b.y, w: b.w, h: b.h, done: b.done, progress: b.progress, queue: b.queue.slice() })),
       nodes: endfall.map.nodes.map(n => ({ id: n.id, type: n.type, tx: n.tx, ty: n.ty, x: n.x, y: n.y, r: n.r })),
     })),
     // Skip game time, then let the frame loop run twice (or 250 ms at most): what the skipped ticks raised (toasts,

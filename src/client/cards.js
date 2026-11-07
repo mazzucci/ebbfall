@@ -21,7 +21,7 @@ const COLS = 3;
 /** Whether unit `u` could use ability `k` now (it has it, it is ready, it is not settling in or packing up). */
 function canUse(u, k) {
   const slot = (UNITS[u.type].abilities || []).indexOf(k);
-  return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0 && !(u.warp > 0); // (a cost it cannot pay is refused by the sim, with a toast)
+  return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0; // (a cost it cannot pay is refused by the sim, with a toast)
 }
 /** The selection's abilities, one button each (in table order), each in the place it has with all of them unlocked
  *  (`pos`): one still waiting for its tech is left out (its slot stays empty, its key does nothing), so players find
@@ -83,7 +83,7 @@ export function cardItems() {
     // One building, or several finished ones of a kind (a double-tap): their shared card, shown for the one with the
     // shortest queue (where a unit goes next).
     const b = bl.length === 1 ? bl[0] : leastBusy(bl);
-    if (!b.done && !b.planted && !buildersOf(b).length) at(0, { id: 'resume', label: myFaction().warp ? 'Plant' : 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to ${myFaction().warp ? 'plant it' : 'finish construction'}` });
+    if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
     trains.forEach((t, i) => {
@@ -107,8 +107,6 @@ export function cardItems() {
       });
       if (busy && !trains.length) at(2, cancelr);
     }
-    // A dark building (no power field) trains and researches nothing: its buttons say so.
-    if (b.done && b.d.needsPower && !b.powered) for (const it of items) if (/^[tr]_/.test(it.id)) Object.assign(it, { dis: true, tip: (it.tip || '') + ` Unpowered: build a ${BUILDINGS[myFaction().power]?.name ?? 'power source'} near it.` });
     // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
     if (trains.length) {
       const last = mostBusy(bl).queue.at(-1);
@@ -129,8 +127,8 @@ export function cardItems() {
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }
 
-/** Of several buildings of a kind: the powered one with the shortest queue (then the most progress, then by id). */
-export const leastBusy = (bs) => bs.slice().sort((p, q) => (p.d.needsPower && !p.powered) - (q.d.needsPower && !q.powered) || p.queue.length - q.queue.length || q.prog - p.prog || p.id - q.id)[0];
+/** Of several buildings of a kind: the one with the shortest queue (then the most progress, then by id). */
+export const leastBusy = (bs) => bs.slice().sort((p, q) => p.queue.length - q.queue.length || q.prog - p.prog || p.id - q.id)[0];
 /** The first of them researching (what a research Cancel shows and cancels). */
 export const researching = (bs) => bs.find(o => o.research);
 /** The one with the longest queue (a Cancel takes its last unit). */

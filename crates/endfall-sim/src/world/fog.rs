@@ -22,7 +22,7 @@ impl World {
                     explored[i] = 1;
                 });
             }
-            // Detection: where this team's detectors (finished, and powered if they need it) reveal cloaked units.
+            // Detection: where this team's detectors (finished ones) reveal cloaked units.
             self.det[team].fill(0);
             let mut detectors: Vec<(f64, f64, f64)> = Vec::new();
             for u in self
@@ -37,9 +37,7 @@ impl World {
                 .iter()
                 .filter(|b| b.team as usize == team && b.done && b.kind.def().detect > 0.0)
             {
-                if !b.kind.def().needs_power || b.powered {
-                    detectors.push((b.x, b.y, b.kind.def().detect));
-                }
+                detectors.push((b.x, b.y, b.kind.def().detect));
             }
             for (x, y, s) in detectors {
                 let det = &mut self.det[team];

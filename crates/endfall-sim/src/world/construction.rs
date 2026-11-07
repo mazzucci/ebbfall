@@ -96,31 +96,9 @@ impl World {
         b.flash -= dt;
         b.cd -= dt;
         if !b.done {
-            if b.planted && self.advance_construction(bid, dt) {
-                self.finish_construction(bid, None);
-            }
-            return;
+            return; // (it rises only while a builder works on it: `update_build`)
         }
         let d = b.kind.def();
-        if d.needs_power {
-            let (bx, by, team, was) = (b.x, b.y, b.team, b.powered);
-            let on = self.powered_at(team, bx, by);
-            self.bm(bid).unwrap().powered = on;
-            if was && !on {
-                self.toast(
-                    team,
-                    format!(
-                        "{} unpowered: build a {} near it",
-                        d.name,
-                        self.power_name(team)
-                    ),
-                    true,
-                );
-            }
-            if !on {
-                return; // dark: no training, research or firing
-            }
-        }
         if d.on_vent && self.bldg(bid).is_some_and(|b| b.vent.is_some()) {
             self.pump(bid, dt);
         }
@@ -190,19 +168,13 @@ impl World {
         }
         if reached {
             self.um(uid).stuck = 0.0;
-            if self.factions[team as usize].warp {
-                // Warp-in: plant the seed and go back to work; the building grows by itself.
-                self.bm(b).unwrap().planted = true;
-                self.resume_after(uid);
-                return;
-            }
             if self.advance_construction(b, dt) {
                 self.finish_construction(b, Some(uid));
             }
         }
     }
 
-    /// Construction progress for `dt` (a builder at work, or a planted warp site by itself), at its side's rate
+    /// Construction progress for `dt` (a builder at work, of either people), at its side's rate
     /// (a `BuildSpeed` tech). True when it is done.
     pub(crate) fn advance_construction(&mut self, b: Id, dt: f64) -> bool {
         let team = self.bldg(b).unwrap().team;
@@ -251,13 +223,5 @@ impl World {
         for o in others.into_iter().chain(builder) {
             self.resume_after(o);
         }
-    }
-
-    /// Whether a point is inside one of `team`'s power fields (a finished Spire or Conflux near enough).
-    pub fn powered_at(&self, team: u8, x: f64, y: f64) -> bool {
-        self.bldgs.iter().any(|s| {
-            let p = s.kind.def().power;
-            s.team == team && s.done && p > 0.0 && dist(s.x, s.y, x, y) <= p * TILE
-        })
     }
 }

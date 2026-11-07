@@ -194,14 +194,14 @@ impl World {
         }
         // A seat is out with no buildings left, except that a person's seat still has a chance while a worker of
         // theirs lives (it can build again); the AI's does not wait for that. It is also out when nothing of it can
-        // act any more: no headquarters that stands or will (a planted site grows by itself), no worker, no fighter,
+        // act any more: no headquarters that stands, no worker, no fighter,
         // and no factory with a unit in training or the means to train one (a few Depots do not keep a game going).
         // The last seat is checked first (with two: seat 1, then seat 0).
         let out = |w: &World, t: u8| {
             let worker = w.units.iter().any(|u| u.team == t && u.kind.def().worker);
             let fighter = w.units.iter().any(|u| u.team == t && u.kind.def().threat());
             let mine = || w.bldgs.iter().filter(move |b| b.team == t);
-            let hq = mine().any(|b| b.kind.def().hq && (b.done || b.planted));
+            let hq = mine().any(|b| b.kind.def().hq && b.done);
             let factory = mine().any(|b| {
                 b.done
                     && (!b.queue.is_empty()

@@ -288,62 +288,121 @@ fn the_foundry_takes_two_by_two_tiles() {
 }
 
 #[test]
-fn a_lumen_plants_a_vael_building_and_is_free_at_once() {
+fn a_lumen_stays_at_its_vael_site_until_it_stands() {
+    // PRD: builders who stay (Stelian, 2026-11-06). The Vael build as the Harbour does: the Glint stays on the site
+    // while it rises, and goes back to the salt once it stands.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Spire);
     let site = w
         .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
         .unwrap();
-    let mut planted_at = None;
-    for t in 0..30 * 20 {
+    let mut rose = false;
+    for _ in 0..30 * 60 {
         w.step();
-        if planted_at.is_none() && w.bldg(site).unwrap().planted {
-            planted_at = Some(t);
+        let b = w.bldg(site).unwrap();
+        if b.done {
             break;
         }
+        if b.progress > 0.0 {
+            rose = true;
+            assert_eq!(
+                w.unit(l[0]).unwrap().task,
+                Task::Build { b: site },
+                "the Glint stays while it rises (progress {:.2})",
+                b.progress
+            );
+        }
     }
-    assert!(
-        planted_at.is_some(),
-        "the Lumen reached the site and planted it"
-    );
-    assert!(
-        !matches!(w.unit(l[0]).unwrap().task, Task::Build { .. }),
-        "and went back to work at once"
-    );
-    // Ordered far away: the Spire still finishes in its build time.
-    w.move_to(l[0], 50.0, 50.0);
-    run(&mut w, BldgKind::Spire.def().build as u32 + 2);
-    assert!(w.bldg(site).unwrap().done, "it grew by itself");
+    assert!(rose && w.bldg(site).unwrap().done, "the Sunpetal stands");
     assert!(
         !w.can_build(l[1], site),
-        "nothing for a worker to do on a seed"
+        "nothing left to build on a finished one"
     );
-    // The humans still build with a worker at the site.
-    let mut w = rich(4242);
-    let h = harvesters(&w, PLAYER);
-    let (tx, ty) = spot(&w, BldgKind::Depot);
-    let d = w
-        .place_building(PLAYER, BldgKind::Depot, tx, ty, Some(h[0]))
-        .unwrap();
-    run(&mut w, 8);
-    assert!(!w.bldg(d).unwrap().planted);
-    w.stop_unit(h[0]);
-    let p = w.bldg(d).unwrap().progress;
-    run(&mut w, 5);
-    assert_eq!(w.bldg(d).unwrap().progress, p, "no builder, no progress");
+    run(&mut w, 1);
+    assert!(
+        matches!(w.unit(l[0]).unwrap().task, Task::Gather { .. }),
+        "and the Glint went back to the salt: {:?}",
+        w.unit(l[0]).unwrap().task
+    );
 }
 
 #[test]
-fn vael_production_needs_no_power_and_never_goes_dark() {
-    // Roster v2 retired the power field: no Vael building needs one, a Cradle (the Kiln) goes up on any free ground far
-    // from every Sunpetal and the Tidewell, and with every Sunpetal and the Tidewell gone it trains, an Anemone
-    // (Ward) fires and a Glasshouse (Loom) researches on.
-    assert_eq!(VAEL.power, None);
-    for k in BLDG_KINDS {
-        assert!(!k.def().needs_power, "{k:?} needs no power");
-        assert_eq!(k.def().power, 0.0, "{k:?} casts no field");
+fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
+    // The Harbour's rule, now both peoples': no builder, no progress; another Glint sent to it finishes it.
+    for (mut w, kind) in [
+        (rich_vael(4242), BldgKind::Spire),
+        (rich(4242), BldgKind::Depot),
+    ] {
+        let l = harvesters(&w, PLAYER);
+        let (tx, ty) = spot(&w, kind);
+        let site = w.place_building(PLAYER, kind, tx, ty, Some(l[0])).unwrap();
+        run(&mut w, 8);
+        let p = w.bldg(site).unwrap().progress;
+        assert!(p > 0.0, "{kind:?}: it started rising");
+        w.stop_unit(l[0]);
+        run(&mut w, 5);
+        assert_eq!(
+            w.bldg(site).unwrap().progress,
+            p,
+            "{kind:?}: no builder, no progress"
+        );
+        assert!(!w.bldg(site).unwrap().done);
+        assert!(
+            w.can_build(l[1], site),
+            "{kind:?}: a site waits for a builder"
+        );
+        assert!(w.start_build(l[1], site));
+        run(&mut w, kind.def().build as u32 + 10);
+        assert!(w.bldg(site).unwrap().done, "{kind:?}: resumed and finished");
     }
+}
+
+#[test]
+fn a_persons_new_siphon_keeps_its_builder_until_it_stands_then_sends_it_back_to_work() {
+    // Rule 3: a person's new extractor, either people's, has its builder on it until it stands (it needs no worker
+    // after: it pays by itself), and the builder then goes back to the salt, as from any building.
+    for (mut w, ext, rax) in [
+        (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
+        (rich(9), BldgKind::Extractor, BldgKind::Barracks),
+    ] {
+        let (cx, cy) = core(&w, PLAYER);
+        w.make_building(rax, PLAYER, cx - 5, cy, true);
+        let h = harvesters(&w, PLAYER)[0];
+        let (vx, vy) = player_vent(&w);
+        let b = w
+            .place_building(PLAYER, ext, vx, vy, Some(h))
+            .unwrap_or_else(|e| panic!("{ext:?}: {e}"));
+        for _ in 0..30 * 90 {
+            w.step();
+            if w.bldg(b).unwrap().done {
+                break;
+            }
+            assert_eq!(
+                w.unit(h).unwrap().task,
+                Task::Build { b },
+                "{ext:?}: its builder stays until it stands"
+            );
+        }
+        assert!(w.bldg(b).unwrap().done, "{ext:?}: built");
+        run(&mut w, 1);
+        assert!(
+            matches!(w.unit(h).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
+            "{ext:?}: its builder back on the salt: {:?}",
+            w.unit(h).unwrap().task
+        );
+        assert!(
+            w.bldg(b).unwrap().pumped > 0.0,
+            "{ext:?}: and it draws by itself"
+        );
+    }
+}
+
+#[test]
+fn vael_production_needs_no_sunpetal_near_it() {
+    // Roster v2 retired the power field (and its code went with plant-and-leave construction): a Cradle (the Kiln)
+    // goes up on any free ground far from every Sunpetal and the Tidewell, and with every Sunpetal and the Tidewell
+    // gone it trains, an Anemone (Ward) fires and a Glasshouse (Loom) researches on.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (cx, cy) = core(&w, PLAYER);
@@ -359,7 +418,6 @@ fn vael_production_needs_no_power_and_never_goes_dark() {
         })
         .find(|&(tx, ty)| w.can_place(BldgKind::Kiln, tx, ty, PLAYER))
         .expect("a free spot far from the Tidewell");
-    assert!(!w.powered_at(PLAYER, (tx as f64 + 1.5) * TILE, (ty as f64 + 1.5) * TILE));
     let kiln = w
         .place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1]))
         .unwrap();
@@ -384,9 +442,6 @@ fn vael_production_needs_no_power_and_never_goes_dark() {
     );
     w.start_research(loom, Upgrade::Weapons).unwrap();
     run(&mut w, 1);
-    for b in [kiln, loom, ward] {
-        assert!(w.bldg(b).unwrap().powered, "never dark");
-    }
     let r = w.bldg(loom).unwrap().research;
     let (x, y) = (
         w.bldg(ward).unwrap().x + 4.0 * TILE,
@@ -473,7 +528,6 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
         u.x,
         u.y
     );
-    assert_eq!(u.warp, 0.0, "no warp-in");
     run(&mut w, 15);
     let u = w.unit(s).unwrap();
     assert!(
@@ -483,7 +537,11 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
         u.y
     );
     let b = trained(&mut w, UnitKind::Scythe);
-    assert_eq!(w.unit(b).unwrap().warp, 0.0, "nor the next one");
+    let (k, u) = (w.bldg(kiln).unwrap(), w.unit(b).unwrap());
+    assert!(
+        ((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0,
+        "nor the next one"
+    );
 }
 
 #[test]
@@ -495,7 +553,6 @@ fn units_step_out_beside_the_factory_otherwise() {
     let s = trained(&mut w, UnitKind::Scythe);
     let (k, u) = (w.bldg(kiln).unwrap(), w.unit(s).unwrap());
     assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
-    assert_eq!(u.warp, 0.0);
     // Nor do the headquarters' workers.
     let core = w
         .bldgs
@@ -508,7 +565,8 @@ fn units_step_out_beside_the_factory_otherwise() {
     w.set_rally(core, cx, cy, None);
     w.queue_unit(core, UnitKind::Lumen).unwrap();
     let l = trained(&mut w, UnitKind::Lumen);
-    assert_eq!(w.unit(l).unwrap().warp, 0.0);
+    let (k, u) = (w.bldg(core).unwrap(), w.unit(l).unwrap());
+    assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
     // Nor do the Humans' units.
     let mut h = rich(5);
     flatten(&mut h, 12..52, 12..52);
@@ -518,7 +576,8 @@ fn units_step_out_beside_the_factory_otherwise() {
     h.set_rally(rax, rx, ry, None);
     h.queue_unit(rax, UnitKind::Trooper).unwrap();
     let t = trained(&mut h, UnitKind::Trooper);
-    assert_eq!(h.unit(t).unwrap().warp, 0.0);
+    let (k, u) = (h.bldg(rax).unwrap(), h.unit(t).unwrap());
+    assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
 }
 
 /// Ticks a lone builder at work takes to raise a `kind` for the player (from its first progress to done).

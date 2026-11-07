@@ -57,7 +57,7 @@ record! {
         face = u.face, flash = u.flash, carry = u.carry,
         task = task_parts(&u.task).0, phase = task_parts(&u.task).1, target = task_parts(&u.task).2, cd = u.cd,
         ab_cd0 = u.ab_cd[0], ab_cd1 = u.ab_cd[1], boost = u.boost.map_or(0, |(k, _)| k.index() + 1),
-        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, warp = u.warp, slowed = u.slowed,
+        mode = u.mode.map_or(0, |k| k.index() + 1), swap = u.swap, slowed = u.slowed,
         hid = hidden_from(u, w), cloaked = w.is_cloaked(u) as u8,
     }
 }
@@ -70,7 +70,6 @@ record! {
         has_rally = b.rally.is_some() as u8, rally_x = b.rally.map_or(0.0, |r| r.x), rally_y = b.rally.map_or(0.0, |r| r.y),
         rally_node = b.rally.and_then(|r| r.node).unwrap_or(0), queue_len = b.queue.len(),
         q0 = queued(b, 0), q1 = queued(b, 1), q2 = queued(b, 2), q3 = queued(b, 3), q4 = queued(b, 4),
-        planted = b.planted as u8, powered = b.powered as u8,
         research = b.research.map_or(0.0, |(u, _)| u.index() as f64 + 1.0), research_prog = b.research.map_or(0.0, |(_, p)| p),
     }
 }

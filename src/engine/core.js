@@ -87,7 +87,7 @@ function sync() {
       const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
       bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false, gen, queue: [], rally: null, research: null, vent: null });
     }
-    b.gen = gen; b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.planted = !!B[o + fb.planted]; b.powered = !!B[o + fb.powered]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
+    b.gen = gen; b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
     if (B[o + fb.has_rally]) { const r = b.rally ||= {}; r.x = B[o + fb.rally_x]; r.y = B[o + fb.rally_y]; r.node = nodes.get(B[o + fb.rally_node]) || null; } else b.rally = null;
     const q = b.queue; q.length = B[o + fb.queue_len]; for (let k = 0; k < q.length; k++) q[k] = UNIT_KEYS[B[o + fb.q0 + k]];
     if (B[o + fb.research]) { const r = b.research ||= {}; r.type = UPGRADE_KEYS[B[o + fb.research] - 1]; r.prog = B[o + fb.research_prog]; } else b.research = null;
@@ -108,7 +108,7 @@ function sync() {
     // (no ability is 0: never read a key at index -1, which is a slow property lookup)
     u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const boost = U[o + fu.boost], mode = U[o + fu.mode];
     u.boost = boost > 0 ? ABILITY_KEYS[boost - 1] || null : null;
-    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.warp = U[o + fu.warp]; u.slowed = U[o + fu.slowed]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
+    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.slowed = U[o + fu.slowed]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target], task = u.task;
     task.t = t; task.phase = task.node = task.b = task.target = null;
     if (t === 'gather') { task.phase = PHASES[U[o + fu.phase]]; task.node = nodes.get(target) || null; }

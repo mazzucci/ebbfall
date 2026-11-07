@@ -206,14 +206,14 @@ pub fn army_of(w: &World, keep: impl Fn(usize) -> bool) -> f64 {
         .sum()
 }
 
-/// An armed building that works: finished, and powered if it needs power.
+/// An armed building that works: a finished one.
 fn working_tower(b: &endfall_sim::world::Bldg) -> bool {
-    b.done && b.kind.def().weapon.is_some() && (b.powered || !b.kind.def().needs_power)
+    b.done && b.kind.def().weapon.is_some()
 }
 
 /// Whether one of the wave's units stands within `REACH` tiles of an enemy building: the tick, the wave's value (in
 /// all and within `REACH` tiles of that unit) and the defence's within `REACH` tiles of it (armed units, workers left
-/// out, and armed buildings that work: finished, and powered if they need power).
+/// out, and armed buildings that work: finished ones).
 fn arrival(w: &World, s: usize, mine: &[Seen]) -> Option<Arrival> {
     let reach = REACH * 32.0;
     let edge = |b: &endfall_sim::world::Bldg, x: f64, y: f64| {

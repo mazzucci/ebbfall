@@ -279,8 +279,7 @@ impl World {
                 Some(_) => {}
                 None => sites.push((id, progress, t)),
             }
-            let attended = self.bldg(id).is_some_and(|b| b.planted) // (a planted seed grows by itself)
-                || self.units.iter().any(|u| u.task == (Task::Build { b: id }));
+            let attended = self.units.iter().any(|u| u.task == (Task::Build { b: id }));
             if !attended && let Some(h) = self.free_builder(harv, x, y) {
                 self.start_build(h, id);
             }
@@ -457,18 +456,6 @@ impl World {
         let [used, cap] = self.sup[e as usize];
         let f = self.factions[e as usize];
         let s = &f.ai;
-        // Spire discipline: a building that went dark gets a new power source beside it before anything else.
-        let dark = my_b
-            .iter()
-            .filter_map(|&id| self.bldg(id))
-            .find(|b| b.done && b.kind.def().needs_power && !b.powered)
-            .map(|b| {
-                (
-                    b.tx as f64 + b.w as f64 / 2.0,
-                    b.ty as f64 + b.h as f64 / 2.0,
-                )
-            });
-        let relight = dark.filter(|_| f.supply.def().power > 0.0 && !building.contains(&f.supply));
         // An extractor on every shaft it can (PRD: the conversion, rule 1), one site at a time, the nearest free one
         // on its side first (`free_shaft`): the first once it has seven workers, the rest from the level's
         // `vents_from`; a lost one is built again on the same terms.
@@ -495,8 +482,7 @@ impl World {
         let detector_at = self.ai().cloak_hit.filter(|&(x, y)| {
             !self.bldgs.iter().any(|b| {
                 b.team == e
-                    && b.kind.def().detect > 0.0
-                    && (!b.kind.def().needs_power || b.powered || !b.done) // (a site counts: one is coming)
+                    && b.kind.def().detect > 0.0 // (a site counts: one is coming)
                     && dist(b.x, b.y, x, y) < 6.0 * TILE
             })
         });
@@ -509,10 +495,9 @@ impl World {
         let detector_air = self.ai().unseen_hit
             && f.field_detector()
                 .is_some_and(|k| s.air.def().trains.contains(&k));
-        let want = if relight.is_some()
-            || (cap - used <= supply_margin
-                && cap < self.supply_limit()
-                && supply_rising < d.supply_at_once)
+        let want = if cap - used <= supply_margin
+            && cap < self.supply_limit()
+            && supply_rising < d.supply_at_once
         {
             Some(f.supply)
         } else if detector_at.is_some()
@@ -582,9 +567,8 @@ impl World {
         });
         let spot = match placeable {
             Some(w) => {
-                let (fx, fy) = match (relight, detector_at) {
-                    (Some(at), _) if w == f.supply => at, // by the dark building
-                    (_, Some((x, y))) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark
+                let (fx, fy) = match detector_at {
+                    Some((x, y)) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark
                     _ => (cx, cy),
                 };
                 // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.
@@ -594,16 +578,15 @@ impl World {
                         b.ty as f64 + b.h as f64 / 2.0,
                     )
                 });
-                // One try per unseen hit (a mark it cannot serve, say no power there for a Ward, must not hold the
+                // One try per unseen hit (a mark it cannot serve, say no room there for a tower, must not hold the
                 // build order up); the next hit marks again.
                 let for_mark = w == s.tower && detector_at.is_some();
                 if for_mark {
                     self.ai_mut().cloak_hit = None;
                 }
-                // (Not an extractor, which needs its shaft, nor a power source meant to relight a dark building, nor
-                // a detector meant for the spot it was hit at.)
+                // (Not an extractor, which needs its shaft, nor a detector meant for the spot it was hit at.)
                 match self.find_spot(w, fx, fy) {
-                    None if w != f.ether && !(w == f.supply && relight.is_some()) && !for_mark => {
+                    None if w != f.ether && !for_mark => {
                         second
                             .and_then(|(ex, ey)| self.find_spot(w, ex, ey))
                             .or_else(|| {
@@ -622,37 +605,7 @@ impl World {
             }
             None => None,
         };
-        // No powered room left anywhere for a building that needs power (a Vael factory in a full main): a power
-        // source first, out past the main's room, so the next try has a field to build in. Unless one is going up out
-        // there already: a Spire going up in the main for supply (the Vael nearly always have one) must not hold it
-        // back, or a full main never gets its factory (its Zenith, say) at all.
-        let far_power_rising = |w: &World, p: BldgKind| {
-            my_b.iter().filter_map(|&id| w.bldg(id)).any(|b| {
-                b.kind == p
-                    && !b.done
-                    && jsmath::hypot(
-                        b.tx as f64 + b.w as f64 / 2.0 - cx,
-                        b.ty as f64 + b.h as f64 / 2.0 - cy,
-                    ) >= ROOM - 1.0
-            })
-        };
-        let (place, spot) = match (placeable, spot, f.power) {
-            (Some(w), None, Some(p))
-                if w.def().needs_power
-                    && (w == s.rax || w == s.air) // (a factory: not a tower meant for a mark)
-                    && !far_power_rising(self, p)
-                    && self.can_afford(
-                        e,
-                        [0, 1].map(|i| {
-                            w.def().cost[i] + p.def().cost[i] + if expansion_due { hq_cost[i] } else { 0 }
-                        }),
-                    ) =>
-            {
-                (Some(p), self.find_far_spot(p, cx, cy, ROOM))
-            }
-            other => (other.0, other.1),
-        };
-        if let (Some(w), Some(spot)) = (place, spot) {
+        if let (Some(w), Some(spot)) = (placeable, spot) {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
             if let Some(b) = self.free_builder(&harv, sx, sy) {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));

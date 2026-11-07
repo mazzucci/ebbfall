@@ -19,7 +19,6 @@ export const GMATS = {
   crust: std({ color: 0x46433d, roughness: 0.95, metalness: 0, flatShading: true }),            // the salt crust over slate (a pale bed made the whole field a pale plate)
   brine: std({ color: 0x1a2226, roughness: 0.12, metalness: 0.35, flatShading: false }),        // still brine in a mined-out pit
   footing: std({ color: 0x23211e, roughness: 1, metalness: 0, flatShading: true }),            // a dark footing at each cluster's base, so the crystals stand off the ground
-  apron: std({ color: 0x4d4c49, roughness: 0.95, metalness: 0, flatShading: true }),            // the salt field's bed: a pale grey-white crust, wider than the crystals
 };
 /** A flat, uneven patch (no round plinth: round 2's read as tokens or coins): an outline of radius R wobbling by `amp`,
  *  squashed to `sq` in depth, `h` thick, its phase `ph`; `edge(a)` gives its radius at angle a. */
@@ -38,7 +37,8 @@ const G = GMATS;
 const RM = { rope: std({ color: 0x6e6048, roughness: 0.95, metalness: 0 }), sail: std({ color: 0x45413a, roughness: 0.95, metalness: 0 }), pearlDull: std({ color: 0x48464a, roughness: 0.75, metalness: 0.05, flatShading: true }), pearlDark: std({ color: 0x323134, roughness: 0.75, metalness: 0.05, flatShading: true }) };
 
 // ---------------- resources ----------------
-// The salt field (STYLE.md "The salt works"): salt crystal clusters on a pale crust apron, in four stages. The mine
+// The salt (STYLE.md "The salt works"): a node's crystal clusters in four stages and four variants, standing on the
+// clump's shared crust, which the client draws (src/client/gl/crust.js). The mine
 // shaft: an old square mouth going down to the rock salt under the seabed, in a timber collar (no liquid anywhere).
 /** The shaft's own materials: its dark mouth (the one thing darker than the ground), the trodden spoil round it. */
 const SH = {
@@ -52,44 +52,54 @@ const SH = {
   rim: std({ color: 0xa69c8a, roughness: 0.85, metalness: 0 }),                               // the near edge's worn lip, lit: where the mouth begins
 };
 
-/** A salt field (`shard_0..3`), readable from full to nearly mined out by its shape, not only its size:
- *  0 full: nine tall clusters of halite cubes, stacked and tilted, on a crust bed over wet slate, a spill of loose cubes;
- *  1 worked: four lower clusters, the crust dug through to the slate in places;
- *  2 low: no standing crystals, a flat salt crust broken into slabs over the bed, a few loose cubes;
- *  3 nearly gone: a bare dark pit of wet slate and a pale broken rim of salt round it, two cubes left. */
-export function saltField(stage, M = G) {
-  const g = grp(); s = 31;
-  const edge = wob(17, 1.0, 0.7), sq = 0.8;                                                 // the field's own uneven edge: a wide apron of crust
-  for (let k = 0; k < 4; k++) { const a = rnd() * Math.PI * 2, r = edge(a) * (0.9 + rnd() * 0.25); add(g, new THREE.DodecahedronGeometry(1 + rnd() * 1.6), M.slate, Math.cos(a) * r, 0.5, Math.sin(a) * r * sq, rnd(), rnd(), 0).scale.y = 0.55; } // slate chips round it
-  const cubes = (r, h) => { const c = grp(); add(c, cyl(r * 1.05, r * 1.25, 0.7, 10), M.footing, 0, 0.2, 0).scale.set(1.15, 1, 1); add(c, rbox(r * 1.3, h, r * 1.2, 0.15), M.salt, 0, h / 2, 0); add(c, rbox(r * 0.85, h * 0.8, r * 0.9, 0.12), M.saltWet, r * 0.5, h * 0.72, -r * 0.3, 0.2, 0.5, 0.1); add(c, rbox(r * 0.7, h * 0.55, r * 0.7, 0.1), M.salt, -r * 0.45, h * 0.95, r * 0.35, 0.1, 0.9, -0.15); return c; };
-  const clusters = [[-6, 2, 3.2, 12, -0.2, 0.15], [5, 3, 2.8, 10, 0.25, -0.2], [0, -2, 3.6, 14, 0.05, 0.1], [-2, 6, 2.4, 8, -0.3, 0.3], [7, -4, 2.1, 7.5, 0.3, -0.15], [-8, -4, 2, 6.5, -0.3, -0.3],
-    [10, 2, 2, 7, 0.3, 0.1], [-10, 3, 1.8, 6, -0.35, 0.1], [3, -7, 2.2, 8.5, 0.1, -0.3]];
-  const loose = (n, y = 1.2) => { for (let k = 0; k < n; k++) add(g, rbox(1.2, 1.2, 1.2, 0.1), M.salt, (rnd() - 0.5) * 22, y, (rnd() - 0.5) * 15, (rnd() - 0.5), rnd() * 3, (rnd() - 0.5)); };
+/** The crystals' four variants (`v`), so no one sprite comes back in a clump: each its own clusters `[x, z, r, h, lean
+ *  x, lean z]` (one tile is 32 across), its own turn of the whole group about the vertical (the shapes turn, never the
+ *  light) and its own seed. 0 big: one tall heap among eight (the portrait's); 1 a spread of medium clusters; 2 a low
+ *  bed of small cubes; 3 two tall leaning columns and a few small ones. Mixed in a clump, they make one irregular
+ *  outcrop of big and small crystals (STYLE.md "The salt works"). */
+const SALT_VARIANTS = [
+  { turn: 0, seed: 31, cl: [[-6, 2, 3.2, 12, -0.2, 0.15], [5, 3, 2.8, 10, 0.25, -0.2], [0, -2, 3.8, 16, 0.05, 0.1], [-2, 6, 2.4, 8, -0.3, 0.3], [7, -4, 2.1, 7.5, 0.3, -0.15], [-8, -4, 2, 6.5, -0.3, -0.3], [10, 2, 2, 7, 0.3, 0.1], [-10, 3, 1.8, 6, -0.35, 0.1], [3, -7, 2.2, 8.5, 0.1, -0.3]] },
+  { turn: 1.9, seed: 47, cl: [[-7, -1, 2.7, 9.5, -0.25, 0.1], [3, -5, 2.9, 10.5, 0.15, -0.25], [6, 4, 2.6, 9, 0.3, 0.2], [-2, 6, 2.3, 7.5, -0.1, 0.35], [-11, 6, 1.8, 5.5, -0.4, 0.2], [11, -3, 2, 6.5, 0.4, -0.1], [-3, -10, 1.7, 5, 0, -0.4]] },
+  { turn: 4.1, seed: 59, cl: [[-8, 0, 2, 5.5, -0.3, 0], [-3, 4, 2.2, 6, -0.1, 0.25], [3, -1, 2.4, 6.5, 0.1, -0.1], [8, 3, 1.9, 5, 0.3, 0.2], [0, -7, 1.8, 4.5, 0, -0.3], [6, -6, 1.6, 4, 0.25, -0.3], [-6, -6, 1.6, 4, -0.25, -0.35], [-11, 5, 1.5, 3.5, -0.4, 0.2], [11, -2, 1.5, 3.5, 0.4, 0]] },
+  { turn: 0.8, seed: 73, cl: [[-3, 1, 3.4, 15, -0.32, 0.1], [4, -2, 3, 13, 0.3, -0.18], [-9, -5, 1.8, 5.5, -0.3, -0.25], [9, 5, 2, 6, 0.35, 0.2], [1, 8, 1.7, 4.5, 0, 0.35], [-10, 5, 1.5, 4, -0.35, 0.2]] },
+];
+export const SALT_VARIANT_COUNT = SALT_VARIANTS.length;
+
+/** A salt node's crystals (`shard_k`, variant 0, and `shard_k_v`, v = 1..3), readable from full to nearly mined out by
+ *  their shape, not only their size. They stand on the outcrop's shared crust, which the client draws under a clump
+ *  (src/client/gl/crust.js): no apron of their own, only a dark footing at each cluster's foot and their cast shadows.
+ *  0 full: the variant's clusters of halite cubes, stacked and tilted, a spill of loose cubes;
+ *  1 worked: its larger half, lower, the crust dug through to wet slate in places;
+ *  2 low: no standing crystals, slabs of salt and crust broken over a patch of wet slate, a few loose cubes;
+ *  3 nearly gone: a small dark pit of wet slate with a film of brine and a broken pale rim, two cubes left. */
+export function saltField(stage, v = 0, M = G) {
+  const g = grp(), V = SALT_VARIANTS[v % SALT_VARIANTS.length]; s = V.seed;
+  const body = grp(); body.rotation.y = V.turn; g.add(body);                                // (the variant's turn: shapes only)
+  const cubes = (r, h) => { const c = grp(); add(c, cyl(r * 0.8, r * 0.95, 0.6, 10), M.footing, 0, 0.15, 0).scale.set(1.1, 1, 1); add(c, rbox(r * 1.3, h, r * 1.2, 0.15), M.salt, 0, h / 2, 0); add(c, rbox(r * 0.85, h * 0.8, r * 0.9, 0.12), M.saltWet, r * 0.5, h * 0.72, -r * 0.3, 0.2, 0.5, 0.1); add(c, rbox(r * 0.7, h * 0.55, r * 0.7, 0.1), M.salt, -r * 0.45, h * 0.95, r * 0.35, 0.1, 0.9, -0.15); return c; }; // (a narrow footing: the crust is the bed)
+  const loose = (n, y = 0.7, spread = 20) => { for (let k = 0; k < n; k++) { const z = rnd() * 0.9 + 0.7; add(body, rbox(z, z, z, 0.1), M.salt, (rnd() - 0.5) * spread, y, (rnd() - 0.5) * spread * 0.75, (rnd() - 0.5), rnd() * 3, (rnd() - 0.5)); } };
   if (stage < 2) {
-    add(g, patch(edge, sq, 0.8), M.apron, 0, 0, 0);                                         // the crust apron, its edge uneven
-    add(g, patch(wob(9, 1.3, 2.2), 0.8, 0.3), M.crust, 1, 0.8, 1);                         // darker crust where the crystals grow
-    const keep = stage ? [clusters[2], clusters[0], clusters[1], clusters[3]] : clusters, k = stage ? 0.72 : 1;
-    keep.forEach(([x, z, r, h, lx, lz]) => { const c = cubes(r * k, h * k); c.position.set(x, 0.8, z); c.rotation.set(lz, rnd() * 3, -lx); g.add(c); });
-    loose(stage ? 5 : 8);
-    if (stage) for (let k = 0; k < 3; k++) add(g, rbox(3 + rnd() * 3, 0.6, 2 + rnd() * 2, 0.2), M.slateWet, 6 - k * 8 + rnd() * 2, 0.9, 5 - k * 3, 0, rnd() * 3, 0); // dug through to the slate
+    const big = [...V.cl].sort((a, b) => b[3] - a[3]), keep = stage ? big.slice(0, Math.ceil(big.length / 2)) : V.cl, k = stage ? 0.72 : 1;
+    keep.forEach(([x, z, r, h, lx, lz]) => { const c = cubes(r * k * 1.7, h * k * 1.25); c.position.set(x * 1.4, 0, z * 1.4); c.rotation.set(lz, rnd() * 3, -lx); body.add(c); });
+    loose(stage ? 3 : 4, 0.8, 34);
+    if (stage) for (let j = 0; j < 2; j++) add(body, patch(wob(3.5 + rnd() * 1.5, 1.4, rnd() * 6), 0.8, 0.3), M.slateWet, 7 - j * 13 + rnd() * 2, 0.05, 5 - j * 9); // dug through to the slate
   } else if (stage === 2) {
-    add(g, patch(edge, sq, 0.5), M.apron, 0, 0, 0);                                         // the apron, worn
-    add(g, patch(wob(10, 1.3, 1.1), 0.8, 0.2), M.slateWet, 0, 0.5, 0);                     // wet slate between the slabs
-    for (let k = 0; k < 11; k++) {                                                          // the crust in flat slabs, a little tilted, cracks between
-      const a = k / 11 * Math.PI * 2 + rnd() * 0.3, d = k < 3 ? 2 + rnd() * 3 : 7 + rnd() * 3, w = 4 + rnd() * 2.5;
-      add(g, rbox(w, 0.9 + rnd() * 0.4, w * (0.6 + rnd() * 0.3), 0.3), k % 4 === 2 ? M.salt : k % 2 ? M.saltWet : M.crust, Math.cos(a) * d, 0.9, Math.sin(a) * d * sq, (rnd() - 0.5) * 0.18, rnd() * 3, (rnd() - 0.5) * 0.18);
+    add(body, patch(wob(8, 1.3, 1.1 + v), 0.8, 0.2), M.slateWet, 0, 0.05, 0);                   // wet slate where the crystals stood
+    const n = 7 + (v % 2) * 2;
+    for (let k = 0; k < n; k++) {                                                           // the crust in flat slabs, a little tilted, cracks between
+      const a = k / n * Math.PI * 2 + rnd() * 0.4, d = k < 2 ? 2 + rnd() * 2 : 6 + rnd() * 3, w = 3.5 + rnd() * 2.5;
+      add(body, rbox(w, 0.9 + rnd() * 0.5, w * (0.6 + rnd() * 0.3), 0.3), k % 4 === 1 ? M.salt : k % 2 ? M.saltWet : M.crust, Math.cos(a) * d, 0.5, Math.sin(a) * d * 0.8, (rnd() - 0.5) * 0.25, rnd() * 3, (rnd() - 0.5) * 0.25);
     }
-    loose(4, 1.6);
+    loose(3, 1.1, 16);
   } else {
-    const pit = wob(13, 1.2, 0.7);
-    add(g, patch(pit, sq, 0.3), M.slateWet, 0, 0, 0);                                       // the pit: bare wet slate
-    add(g, patch(wob(7, 1.6, 2.1), 0.7, 0.2), M.brine, 1, 0.3, 0.5);                        // a film of brine in its bottom
-    for (let k = 0; k < 16; k++) {                                                          // the rim: the crust's last broken edge, uneven, a gap here and there
-      if (k % 6 === 5) continue;
-      const a = k / 16 * Math.PI * 2 + (rnd() - 0.5) * 0.25, w = 2.2 + rnd() * 2.6, r = pit(a) - 1.2;
-      add(g, rbox(w, 0.8 + rnd() * 0.8, 1.5 + rnd() * 1.2, 0.25), k % 4 === 1 ? M.saltWet : M.apron, Math.cos(a) * r, 0.6, Math.sin(a) * r * sq, (rnd() - 0.5) * 0.2, -a + Math.PI / 2, (rnd() - 0.5) * 0.2);
+    const pit = wob(10, 1.2, 0.7 + v * 1.3);
+    add(body, patch(pit, 0.8, 0.3), M.slateWet, 0, 0, 0);                                     // the pit: bare wet slate
+    add(body, patch(wob(5.5, 1.6, 2.1 + v), 0.7, 0.2), M.brine, 1, 0.3, 0.5);                // a film of brine in its bottom
+    for (let k = 0; k < 13; k++) {                                                          // the rim: the crust's last broken edge, uneven, a gap here and there
+      if (k % 5 === (v + 3) % 5) continue;
+      const a = k / 13 * Math.PI * 2 + (rnd() - 0.5) * 0.25, w = 2 + rnd() * 2.2, r = pit(a) - 0.8;
+      add(body, rbox(w, 0.8 + rnd() * 0.8, 1.4 + rnd() * 1.1, 0.25), k % 4 === 1 ? M.saltWet : M.salt, Math.cos(a) * r, 0.5, Math.sin(a) * r * 0.8, (rnd() - 0.5) * 0.2, -a + Math.PI / 2, (rnd() - 0.5) * 0.2);
     }
-    add(g, rbox(1.6, 1.6, 1.6, 0.12), M.salt, -3, 0.9, 2, 0.3, 0.6, 0.2); add(g, rbox(1.2, 1.2, 1.2, 0.1), M.saltWet, 4, 0.7, -2.5, -0.2, 1.2, 0.1); // two cubes left
+    add(body, rbox(1.6, 1.6, 1.6, 0.12), M.salt, -3, 0.9, 2, 0.3, 0.6, 0.2); add(body, rbox(1.2, 1.2, 1.2, 0.1), M.saltWet, 4, 0.7, -2.5, -0.2, 1.2, 0.1); // two cubes left
   }
   return g;
 }

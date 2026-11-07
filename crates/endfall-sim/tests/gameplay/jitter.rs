@@ -324,7 +324,9 @@ fn workers_in_real_games_do_not_tremble() {
     // them Lumens queueing, mining or setting off at a field); after: a handful. (With both seats played by the AI,
     // a slower measure: 2869 before, 364 after.) 12 on the maps whose shafts lay by fields, 17 since they keep 10 tiles
     // off every crystal: the games play otherwise once the shafts are in use, and their Lumens queue at their main's
-    // field a few times more.
+    // field a few times more. That is queueing, not a stutter (measured for #245): the worst unit is the same before and
+    // after, 10 changes in its worst window (8 turns, 2 reversals), and no unit shows in more than 2 windows; the new
+    // windows are Lumens walking round their clump to a free crystal.
     let workers: Vec<_> = trembling_in_real_games()
         .into_iter()
         .filter(|w| w.2)

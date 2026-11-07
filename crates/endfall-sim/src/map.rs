@@ -141,7 +141,8 @@ pub enum MapKind {
     Standard,
     /// Ten times the shards in every field.
     DeepFields,
-    /// Rich vents, each holding three times the ether, and one in the centre (where the other kinds may have a field).
+    /// Rich vents, each holding three times the ether, and one in the centre where it keeps 10 tiles off every field's
+    /// salt (its expansions are chosen so it does; no sampled seed lacks it), where the other kinds may have a field.
     EtherStorm,
     /// Little rock: open ground, fast attacks.
     OpenPlains,

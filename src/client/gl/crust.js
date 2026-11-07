@@ -13,6 +13,9 @@ export const CRUST_K = 1;
 const LINK = 3.2;
 /** The blobs: a node's spread (tiles), a link's half-width spread and weight, the threshold of the outline. */
 const SIGMA = 0.42, BRIDGE = 0.4, BRIDGE_W = 0.7, EDGE = 0.3;
+/** The bed's value under its crystals (the look-alike judge: the bed was the largest pale shape on screen, a step down
+ *  lets the white crystals and the pale workers read on it). */
+const BED_VALUE = 0.8;
 /** How far past its outermost node a crust's image reaches (tiles): the blob, the wobble and the footing. */
 const MARGIN = 1.5;
 
@@ -141,7 +144,7 @@ export function crustImage(clump, k = CRUST_K) {
     const ink = 0.55 + 0.45 * smooth(0.5, 1.5, d);                                                   // the finish's ink on the outline
     const alpha = cov + out * (1 - cov);
     for (let c = 0; c < 3; c++) {
-      const base = (DIM[c] + (PALE[c] - DIM[c]) * m) * damp;
+      const base = (DIM[c] + (PALE[c] - DIM[c]) * m) * damp * BED_VALUE;
       data[o + c] = Math.round(CURVE[Math.min(1023, Math.round((base * lit + rim * RIM_TINT[c] * base) * 1023))] * ink * cov / alpha);
     }
     data[o + 3] = Math.round(alpha * 255);

@@ -1111,15 +1111,18 @@ test('a box over units and buildings selects only the units, and only the fighte
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.skip(5);
-    const core = coreOf(await d.state());
-    await d.boxSelect(core.x - 30, core.y - 30, core.x + 150, core.y + 90); // the Core and the harvesters beside it
+    const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester');
+    // A box round the Core and its harvesters, wherever the salt lies (a clump to one flank).
+    const xs = [core.x, ...hs.map(h => h.x)], ys = [core.y, ...hs.map(h => h.y)];
+    const box = [Math.min(...xs) - 30, Math.min(...ys) - 30, Math.max(...xs) + 30, Math.max(...ys) + 30];
+    await d.boxSelect(...box); // the Core and the harvesters beside it
     const sel = await d.selection();
     assert.ok(sel.length >= 1 && sel.every(e => e.kind === 'unit'), `units only: ${JSON.stringify(sel)}`);
     await d.boxSelect(core.x - 20, core.y - 20, core.x + 20, core.y + 20); // the Core alone
     assert.deepEqual((await d.selection()).map(e => e.type), ['core'], 'a box with no units selects the building');
     // A soldier among the workers: the box takes the soldier only.
-    const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 100, core.y + 40]);
-    await d.boxSelect(core.x - 30, core.y - 30, core.x + 150, core.y + 90);
+    const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]);
+    await d.boxSelect(...box);
     assert.deepEqual((await d.selection()).map(e => e.id), [id], 'fighters in the box: the workers are left out');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

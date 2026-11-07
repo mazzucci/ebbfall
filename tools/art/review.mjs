@@ -145,7 +145,7 @@ FAMILIES.shaft = {
   blind: [['vent_0', 'the mine shaft (vent)'], ['vent_0+bldg_extractor', 'extractor (Excavator) over a shaft'], ['bldg_forge', 'forge (Workshop)'], ['bldg_depot', 'depot (Windmast)'], ['vent_0+bldg_siphon', 'siphon (Siphon) over a shaft']],
   noBattle: true, base: true,
 };
-// The Vael's palette (tools/render3d/vael-palette.js; VAEL_PALETTE=pearl|verdigris|lantern picks the one rendered): every
+// The Vael's palette (tools/render3d/vael-palette.js, Fen lantern): every
 // Vael unit and building, with the bud, the rubble and the beam, in seats 0, 1, 2 and 6 on the seabed at a phone's size
 // (`palette.png`, its greyscale `palette-grey.png`, and `palette@2x.png`, atlas px), beside the usual contact sheet, the
 // phone sheets and a battle of a whole Vael base and army against the Harbour.
@@ -305,7 +305,7 @@ if (FAM.paletteSheet) {
   }
   { const x0 = GAP, y0 = y; for (let j = 0; j < beam.img.h; j++) for (let i = 0; i < beam.img.w; i++) { const si = (j * beam.img.w + i) * 4, di = ((y0 + j) * c.w + x0 + i) * 4, a = beam.img.data[si + 3] / 255; for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + beam.img.data[si + k] * a; } }
   save('palette@2x.png', c); const p = half(c); save('palette.png', p); save('palette-grey.png', simulate(p, 'grey'));
-  writeFileSync(join(outDir, 'palette.json'), JSON.stringify({ palette: process.env.VAEL_PALETTE || 'pearl', seats: SEATS, rows: rows.map(r => r.map(([n, st]) => st === null ? n : `${n} @${st}`)) }, null, 1));
+  writeFileSync(join(outDir, 'palette.json'), JSON.stringify({ seats: SEATS, rows: rows.map(r => r.map(([n, st]) => st === null ? n : `${n} @${st}`)) }, null, 1));
 }
 
 // ---- 2. team share per sprite (facing 0, frame 0; pose frames too): mask pixels over the sprite's solid pixels ----

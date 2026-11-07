@@ -121,67 +121,65 @@ frame with a visible fixture on the ground (the hull down and spades out; a drop
 
 ## The Vael (sim race `vael`)
 
-Pale pearl shells on an ink core, with violet-blue "deeplight" in a few small lights. A Vael thing is a pale body with
-a dark heart: the opposite value order to the Harbour.
+Bone shells on an ink core, with a warm lantern light in a few small lights. A Vael thing is a pale body with a dark
+heart: the opposite value order to the Harbour.
 
-### The palette (2026-11-07, Opus, during the Fable limit: two variants, the pick to come)
+### The palette: Fen lantern (chosen by Stelian, 2026-11-07; Opus, during the Fable limit)
 
-Cold blind testers read the pearl Vael as StarCraft's Protoss ("white and gold armour with glowing blue-violet cores";
-the Tidewell a Nexus, the Sunpetal a Pylon, the Glint a Probe). Stelian's call: a palette change only, every Vael
-building and unit, no shape, frame, cell, team-mask or seat-colour change, the Harbour untouched. Every colour of the
-Vael's own materials now lives in `vael-palette.js` (`VAEL_PALETTES`), read by `makeVaelMats`, the families'
-materials in `vael-units.js` and `vael-buildings.js`, the Lens's `beam` (`tools/art/effects2.js`) and the buildings'
-glow (`src/client/look.js VAEL_GLOW`). Pick one with `VAEL_PALETTE=pearl|verdigris|lantern` for the Node drivers
-(`tools/art/render3d.mjs` passes it to the page as `?vael=`) and `VITE_VAEL_PALETTE` for the build's glows; `pearl`,
-today's look, stays the default (and renders byte for byte as before) until Stelian picks, then the pick becomes the
-default and the others go. The pack: `VAEL_PALETTE=<name> node tools/art/review.mjs <dir> --family=vael-palette`
-(`palette.png` and `palette-grey.png`: every Vael kind in seats 0, 1, 2 and 6 at a phone's size, with the bud, the
-rubble and the beam).
+Cold blind testers read the old pearl Vael as StarCraft's Protoss ("white and gold armour with glowing blue-violet
+cores"; the Tidewell a Nexus, the Sunpetal a Pylon, the Glint a Probe). Stelian's call: a palette change only, every
+Vael building and unit, no shape, frame, cell, team-mask or seat-colour change, the Harbour untouched. Two variants
+were drawn, verdigris (weathered copper with a sage patina and a teal-blue light) and Fen lantern; Stelian picked Fen
+lantern ("looks great"), and the code holds that one palette. Every colour of the Vael's own materials lives in
+`vael-palette.js` (`VP`), read by `makeVaelMats`, the families' materials in `vael-units.js` and `vael-buildings.js`,
+and the Lens's `beam` (`tools/art/effects2.js`); the buildings' glow (`src/client/look.js VAEL_GLOW`) and the client's
+Vael accents (render.js: the warp-in ghost and its ring, the research bar, the Blink and Overcharge casts) are its
+peach-orange too. The pack: `node tools/art/review.mjs <dir> --family=vael-palette` (`palette.png` and
+`palette-grey.png`: every Vael kind in seats 0, 1, 2 and 6 at a phone's size, with the bud, the rubble and the beam).
 
-Rules for both: no violet anywhere in the Vael's own materials (the team glaze's map is a neutral grey copy of the
-pearl's, so the mask carries no hue) and no gold trim; the ink stays near-black, tinted to the palette; the Tender's
-light stays apart from the weapons' (a mender, not a weapon); neither shell nor light may pass for a seat colour.
+Rules: no violet anywhere in the Vael's own materials (the team glaze's map, `glazeTex`, is the shell's marks in
+neutral greys, so the mask carries no hue) and no gold trim; the ink stays near-black, horn-tinted; the Tender's light
+stays apart from the weapons' (a mender, not a weapon); neither shell nor light may pass for a seat colour.
 
-| part | Verdigris | Fen lantern |
-|------|-----------|-------------|
-| idea | weathered copper: a dusty sage verdigris crust on the exposed plates, the bare copper russet underneath, in the plinths' sides and through worn spots and seams | bone: warm off-white, aged to ivory in mottles, dark umber seams, horn-brown undersides |
-| `shell` / `shellLight` / `ring` | 0x6c968a / 0x7ea89c / 0x8ab2a6, rough 0.62, clearcoat 0.2, sheen 0x94b8ae | 0xcdc3ad / 0xdcd4c2 / 0xd4cab4, rough 0.6, clearcoat 0.18, sheen 0xf0e2c8 |
-| `shellDark` / `shellDeep` | copper 0x6e4a36 / 0x4a3226, metal 0.5 / 0.45 | horn 0x98866a / 0x665642 |
-| texture marks | copper mottles rgb(196,124,86) at 0.16-0.32, seams rgba(58,34,22), copper inlay | ivory mottles rgb(196,168,120) at 0.10-0.22, seams rgba(40,26,14) 2.2 wide, umber inlay |
-| `ink` / `inkSeam` | 0x0a1113 / 0x0f181a (green-black) | 0x17110c / 0x1d150e (horn-black) |
-| the light (`deeplight`, heart, halos) | deep teal-blue, leaning blue: emissive 0x1e9ad8 x 1.9, heart 0xcff0ff, halos 0x2a9ad8 / 0x2088c8 / 0x1a74b0 | lantern peach-orange: emissive 0xff8c4c x 1.5 (hue about 22: round 1's 0xff9c48 merged with seat 0's gold glaze in the Tidewell), a cream heart 0xffe8d0, dim halos 0xf08a54 / 0xd8743e / 0xb85e30 (a lantern, not a fire) |
-| pools, glass, basin, bud, mouth | navy-teal: pool 0x081620 (emissive 0x0e3048), petal glass 0x0e2a3e, the Cradle's basin 0x123a5c, its bud 0x2a6688 | smoked amber: pool 0x16100c (emissive 0x2e180a, near-black: the light stays in the lights), petal glass 0x2c1a0c, basin 0x3c2812 (emissive 0x4a2608), bud 0x8a6e4e |
-| the Tender's light | candle-white: emissive 0xe8d8b8, pale glass petals 0xcfc6b2 (no aqua: it sat on the verdigris and seat 2) | pale sea-glass: emissive 0x7ad8c8, glass 0x5a9a90 (paler than seat 2's teal) |
-| beam / building glow | sheath rgb(40,150,220), heart rgb(205,238,255) / 0x48b0e8 | sheath rgb(255,140,80), heart rgb(255,236,210) / 0xffa070 |
+| part | Fen lantern |
+|------|-------------|
+| idea | bone: warm off-white, aged to ivory in mottles, dark umber seams, horn-brown undersides; the lights a lantern's |
+| `shell` / `shellLight` / `ring` | 0xcdc3ad / 0xdcd4c2 / 0xd4cab4, rough 0.6, clearcoat 0.18, sheen 0xf0e2c8 |
+| `shellDark` / `shellDeep` | horn 0x98866a / 0x665642 |
+| texture marks (`pearl`, the shell's map) | base #f0ece2, ivory mottles rgb(196,168,120) at 0.10-0.22, seams rgba(40,26,14) 2.2 wide, umber inlay |
+| `ink` / `inkSeam` / `inkMatte` | 0x17110c / 0x1d150e / 0x140f0a (horn-black) |
+| the light (`deeplight`, heart, halos) | peach-orange: emissive 0xff8c4c x 1.5 (hue about 22: a first 0xff9c48 merged with seat 0's gold glaze in the Tidewell), a cream heart 0xffe8d0, `deepWhite` 0xfff4ea, dim halos 0xf08a54 / 0xd8743e / 0xb85e30 (a lantern, not a fire) |
+| pools, glass, basin, bud, mouth | smoked amber: pool 0x16100c (emissive 0x2e180a, near-black: the light stays in the lights), dark glass 0x1c140c, petal glass 0x2c1a0c (sheen 0xe0b080), the Cradle's basin 0x3c2812 (emissive 0x4a2608), its bud 0x8a6e4e, the Anemone's mouth 0x20140a |
+| the Tender's light | pale sea-glass: emissive 0x7ad8c8, glass petals 0x5a9a90 (cool against the lantern, paler than seat 2's teal) |
+| beam / building glow | sheath rgb(255,140,80), heart rgb(255,236,210) / 0xffa070 |
 
-The seat checks (seats 0, 1, 2, 6, colour and grey): the verdigris was first a saturated green-teal (0x4a8c7a) that
-merged with seat 2's teal glaze (#0e9478): hence the dusty sage, chroma about 0.25, a step paler than seat 2, so the
-team band reads by its saturation; its copper is a dark russet (0x6e4a36), not an orange, so it never stands as a gold
-rim beside seat 0. In grey the sage sits a step below the pearl, so the team band's ink seams carry more of the
-separation in seats 1 and 2. The lantern's amber is a small light with a cream heart, never a painted surface, so it
-does not read as seat 0's gold paint; its bone is a touch less yellow than first drawn (0xcdc1a8) for the same reason.
+The seat checks (seats 0, 1, 2, 6, colour and grey): the light is a small lamp with a cream heart, never a painted
+surface, so it does not read as seat 0's gold paint; the bone is a touch less yellow than first drawn (0xcdc1a8) for
+the same reason. In seat 0 the bone with the gold glaze still reads warm overall: that is the seat's colour, not the
+palette's.
 
 ### Materials (`vael.js makeVaelMats`)
 
 | key                    | what                            | three.js                                                                                  |
 |------------------------|---------------------------------|-------------------------------------------------------------------------------------------|
-| `shell`, `shellLight`, `shellDark`, `shellDeep` | pearl ceramic: body, top plates, undersides, crevices | Physical 0xcbc2b1 / 0xdad2c2 / 0xa39a8b / 0x7e766c, map `pearl`, clearcoat 0.5 |
-| `ring`                 | polished pearl rims             | Physical 0xd6cfc0, clearcoat 0.8, metal 0.2                                                |
-| `ink`                  | **the ink core**: black glass bellies, discs, drums | Physical 0x0f0d16, metal 0.45, rough 0.14, clearcoat 1                   |
-| `inkSeam`              | ink edges round team glaze      | Standard 0x15121c, rough 0.5                                                               |
-| `glaze`, `glazePlain`  | **team glaze**                  | Physical team colour, clearcoat 0.9, iridescence 0.3; `team()`                             |
-| `deeplight`            | a small light (r 1.2-1.6 on a unit, in an ink socket on the Glint's crown) | Standard 0x2a3290, emissive 0x7080ff x 1.9  |
-| `deepCore`             | its white heart                 | Standard 0xc8d0ff, emissive 0xdde2ff x 1.1                                                 |
-| `deepHalo1..3`         | its falloff                     | Basic 0x6a7cf0 / 0x5a68e0 / 0x4c58c8, additive, opacity 0.18 / 0.09 / 0.045                |
-| `pool`, `poolDeep`     | a pool of deeplight             | Standard 0x0c1024 emissive 0x1a2260 x 0.3; 0x06081a emissive 0x121848 x 0.2 (dim, navy-ink, pearl ripple rings) |
+| `shell`, `shellLight`, `shellDark`, `shellDeep` | bone: body, top plates, undersides (horn), crevices | Physical 0xcdc3ad / 0xdcd4c2 / 0x98866a / 0x665642, map `pearl` (the bone marks), clearcoat 0.18 (0.3 / 0.1 below) |
+| `ring`                 | polished bone rims              | Physical 0xd4cab4, clearcoat 0.8, metal 0.2                                                |
+| `ink`                  | **the ink core**: black glass bellies, discs, drums | Physical 0x17110c, metal 0.45, rough 0.14, clearcoat 1                   |
+| `inkSeam`              | ink edges round team glaze      | Standard 0x1d150e, rough 0.5                                                               |
+| `glaze`, `glazePlain`  | **team glaze**                  | Physical team colour, map the grey `glazeTex`, clearcoat 0.9, iridescence 0.3; `team()`    |
+| `deeplight`            | a small light (r 1.2-1.6 on a unit, in an ink socket on the Glint's crown) | Standard 0x5a2408, emissive 0xff8c4c x 1.5  |
+| `deepCore`             | its cream heart                 | Standard 0xffe2c8, emissive 0xffe8d0 x 1.1                                                 |
+| `deepHalo1..3`         | its falloff                     | Basic 0xf08a54 / 0xd8743e / 0xb85e30, additive, opacity 0.18 / 0.09 / 0.045                |
+| `pool`, `poolDeep`     | a pool of the light             | Standard 0x16100c emissive 0x2e180a x 0.3; 0x0c0805 emissive 0x1e1008 x 0.2 (dim, horn-ink, bone ripple rings) |
 
-Palette: pearl 0xd8cfbf, pearl in shade 0x9a9284, ink 0x0c0a12, deeplight 0x7080ff (its heart 0xdde2ff), pool
-0x161c48, team glaze = the seat colour with a sheen.
+Palette: bone 0xdcd4c2 lit, bone in shade 0x98866a, ink 0x17110c, the light 0xff8c4c (its heart 0xffe8d0), team glaze
+= the seat colour with a sheen.
 
 ### Value rules
 
-A Vael unit is pale (0.8-0.9) with an ink core (0.05) showing beneath or inside. Deeplight stays small and blue-violet,
-value about 0.5, so it never outshines the pearl or the salt. The pool is a dim surface (0.15), not a lamp.
+A Vael unit is pale (0.8-0.9) with an ink core (0.05) showing beneath or inside. Deeplight (the lantern light) stays small,
+value about 0.5, so it never outshines the bone or the salt. ("Pearl" in the tables below names the shell
+materials, bone since the Fen lantern palette; their colours are in "The palette" above.) The pool is a dim surface (0.15), not a lamp.
 
 ### Team colour
 
@@ -247,7 +245,7 @@ craft and a barge with a big coil as a Conch: hence the shapes below.
 | kind (key)             | signature shape, from above          | size (sim r)           | team glaze                                         | the light          |
 |------------------------|--------------------------------------|------------------------|----------------------------------------------------|--------------------|
 | Needle (`scythe`)      | a sickle, point first, all pale (the brief's "slim blade" read as a boat's hull; an ink spine made it the Undertow): a pearl blade curved on an arc (R 13, 110 degrees), 4.8 wide at the heel drawn to a keen point, a lighter ridge along the outer edge, a hairline of ink along the inner one, a pearl keel beneath | line (10), hovers at 6 | a band across the blade's heel and the handle trailing from it, both between ink seams | in the eye of the needle, a pearl loop at the handle's end |
-| Tender (`halo`)        | a round flower, 23 across: six broad round petals (`roundPetal`: narrow at the root, a round lobe at the tip) cupped up, notched between their lobes, each pearl one with a lighter face and a short vein; its heart a cup of five small aqua-glass petals (`aquaGlass`) inside an ink ring. Never pointed petals (step 2, round 3: six narrow pointed petals read as a star, a sparkle, the Glint) and never a disc (petals that touched read as the Lens) | support (9), hovers at 7 | every other petal (three, each inside an ink seam: two opposite ones made a bar through the heart at 1x) and a band round the ink calyx beneath | the one aqua light (r 2.4, `aqua` 0x12b898 emissive x 1.0, a small aqua-white heart, two close aqua halos; in `vael-units.js`: x 1.25 of 0x18d8b4 with wide halos clipped to white), never violet: a mender, not a weapon |
+| Tender (`halo`)        | a round flower, 23 across: six broad round petals (`roundPetal`: narrow at the root, a round lobe at the tip) cupped up, notched between their lobes, each pearl one with a lighter face and a short vein; its heart a cup of five small aqua-glass petals (`aquaGlass`) inside an ink ring. Never pointed petals (step 2, round 3: six narrow pointed petals read as a star, a sparkle, the Glint) and never a disc (petals that touched read as the Lens) | support (9), hovers at 7 | every other petal (three, each inside an ink seam: two opposite ones made a bar through the heart at 1x) and a band round the ink calyx beneath | the one aqua light (r 2.4, `aqua` 0x12b898 emissive x 1.0, a small aqua-white heart, two close aqua halos; in `vael-units.js`: x 1.25 of 0x18d8b4 with wide halos clipped to white), never the weapons' lantern colour: a mender, not a weapon (Fen lantern: a paler sea-glass, emissive 0x7ad8c8) |
 | Conch (`monolith`)     | a spiral: a pearl shell of two and a half whorls, apex up, on an ink disc with a pearl rim; the mouth an ink aperture facing the bow (the muzzle) | heavy (15), hovers at 3 | a ridge coiling along the whorls' shoulder between two ink-seam coils, and the mouth's lip | deep in the mouth |
 | Undertow (`umbra`)     | the one ink-dark Vael: a low leaf blade with a swept leading edge, matte black glass (`inkMatte`) on a thin pearl plate (`ring`, 0.6), so the rim is a line from above and the edge-on blade is ink (a thick plate read as a pale spindle, the Needle) | line (10) | the hilt on both faces and a slim grip round it, between ink seams; lurking, a team dot on the pommel | at the pommel (r 1.2 gliding, 0.7 lurking); gliding, a thin line of deeplight down the leading edge |
 | Petrel (`shrike`)      | a gull: two pearl wings curved only at the root (the leading edge bowed forward, the trailing edge hollowed) and straight-swept outside it, on a pearl body 13 long riding above them with a head forward, ink beneath (a straight chevron read as a Harbour Kite; a crescent all along read as the Needle's sickle) | flyer (11), flies at 20, its shadow well offset | both wingtips behind a full ink seam across the wing, and a cap on the pod's back | at the tail |
@@ -371,13 +369,13 @@ never only on the signature. Each roof is its own shape from above, and none is 
 (the Tidewell's three arcs read as a lifebuoy in some seats): team glaze here is a skirt round a drum, a sleeve, a
 cap, a bar or one band, each between `inkSeam` edges. The camera (55 degrees, from the south) shows a face whose
 normal points up or south; a plate leaning towards the camera shows only its edge, since its back faces down: so
-the Sunpetal's petals splay a radian past vertical. Nothing is flat black: faces are violet glass with a sweep,
+the Sunpetal's petals splay a radian past vertical. Nothing is flat black: faces are dark smoked-amber glass with a sweep,
 mouths and pools carry a sheen or a light. Helpers in the file: `plinth`, `skirt` (a glaze band round a drum
 between seams), `hoop` (a flat glaze ring between seams), `upright` (an outline stood up in a group), `tentacle`
 (capsule segments along a curve, some sleeved), `ribbon` (a flat band along a helix, the Gyre's rail). The family's
-materials: `darkGlass` (the Glasshouse's panes), `petalGlass` (deep violet glass with a sheen, the Sunpetal's
-faces), `mouth` (dark violet lit from within, the Anemone's),
-`violetWater` (the Cradle's basin, deep violet, never black), `bud` (violet under a pearl sheen, the Cradle's bud).
+materials: `darkGlass` (the Glasshouse's panes), `petalGlass` (deep smoked-amber glass with a sheen, the Sunpetal's
+faces), `mouth` (dark horn lit from within, the Anemone's),
+`violetWater` (the Cradle's basin, dark amber, never black; the key kept its old name), `bud` (horn under a pale sheen, the Cradle's bud).
 
 Round 1's blind test swapped the Sunpetal and the Anemone (pointed petals read as the aggressive one, seven straight
 lit tentacles as a flower), the Cradle (a raised lid read as a deck and a mast) and the Gyre (a widening coil read as
@@ -385,23 +383,23 @@ a hoop over a post), and saw three "dark discs in pale rims" (Tidewell, Siphon, 
 Round 2 swapped the Cradle and the Darkwater (tall curling arms over a pool read as an egg hatching, a dark pool
 with a pale pod as dark water with a moon), read the Siphon's funnel head as a turret or a propeller and the
 Sunpetal's wedge-shaped bars as a paw pad: hence round 3's Darkwater as the flat ink pool with thin arms leaning
-out, the Cradle's violet basin with a big bud and ribs splaying from a flat hinge, the Siphon's plain lit head, and
+out, the Cradle's basin (violet then) with a big bud and ribs splaying from a flat hinge, the Siphon's plain lit head, and
 the Sunpetal's pentagonal hub ring.
 
 | kind (key)            | signature shape, from above                                                                 | team glaze                                                                 | the light(s)                             |
 |-----------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|------------------------------------------|
-| Sunpetal (`spire`, 2x2) | a flower: five broad rounded pearl petals (27 long, 21 wide, round tips) spaced evenly round an ink core, each splayed 1.0 rad past vertical so its inner face shows from above: violet glass (`petalGlass`) in a pearl rim; one petal north | a bar of even width across each petal's face just above the hub; a pentagonal hub ring (a five-sided torus, a corner to each petal) on the core's top; a skirt round the ink core | one, on the pistil at the heart (r 1.9) |
+| Sunpetal (`spire`, 2x2) | a flower: five broad rounded pearl petals (27 long, 21 wide, round tips) spaced evenly round an ink core, each splayed 1.0 rad past vertical so its inner face shows from above: smoked-amber glass (`petalGlass`) in a pearl rim; one petal north | a bar of even width across each petal's face just above the hub; a pentagonal hub ring (a five-sided torus, a corner to each petal) on the core's top; a skirt round the ink core | one, on the pistil at the heart (r 1.9) |
 | Siphon (`siphon`, 2x2, on a mine shaft, drawing the last damp brine from the salt beds; the shaft's round 4, Opus, during the Fable limit) | something grown that has settled on the shaft's north rim and drinks from it: an irregular, asymmetric cluster of eight soft pearl lobes of different sizes (r 3.4 to 9.5, squashed to 0.7, more of them east) heaped over the collar's north beam and corners, a dark ink opening low on its south face, and out of it three thick soft feeding tubes (r 1.9 to 2.7) drooping over the beam and down into the black, pale over the rim, pearl in shade going down, then ink. No plinth or pad: the shaft's own sprite (drawn under every building) is its ground, so the black mouth stays largely open and the collar and dug earth show round it. No dome, lid, spiral or groove, nothing upright or pointed, nothing waving up. Round 1's upright straw read as the Lookout's gun or StarCraft's missile turret; round 2's whorl (a pearl dome with a spiral groove) as the Gyre and its small framed mouth as a door; round 3's clam over the hole as "a domed cap built on the shaft frame", the Excavator, 4 testers of 4 | ragged part-bands low on each lobe's flank inside ink seams (never a spot on a crown: toadstools), a sleeve at each tube's root between seams | one, in the ink opening (r 1.1) |
-| Cradle (`kiln`, 3x3)  | a scallop with something growing in it: a fan-shaped basin of deep violet water (an arc of 237 degrees, r 30, closed to the north by a flat hinge bar 34 wide), nine pearl ribs splaying from the hinge across the floor to a pearl rim wall with ridges and a knob on each; one big bud standing in the water (r 8, 21 tall: violet under a pearl sheen, a pearl crown, a faint glow) | the hinge bar, a hoop along the rim wall's crest, a band round the wall's foot, caps on the straight edges, the bud's collar | one, at the bud's foot (r 1.5) |
+| Cradle (`kiln`, 3x3)  | a scallop with something growing in it: a fan-shaped basin of dark amber water (an arc of 237 degrees, r 30, closed to the north by a flat hinge bar 34 wide), nine pearl ribs splaying from the hinge across the floor to a pearl rim wall with ridges and a knob on each; one big bud standing in the water (r 8, 21 tall: horn under a pale sheen, a pearl crown, a faint glow) | the hinge bar, a hoop along the rim wall's crest, a band round the wall's foot, caps on the straight edges, the bud's collar | one, at the bud's foot (r 1.5) |
 | Glasshouse (`loom`, 2x2) | a dome of dark glass in pearl ribs (eight meridians and one hoop) on an ink drum, a pearl crown; three buttresses | a band round the dome's foot, a skirt round the drum, the three buttresses (glaze blocks under pearl caps) | one, on the crown (r 1.2) |
-| Anemone (`ward`, 2x2) | an anemone that stings: five soft pearl tentacles (`tentacle`: six capsule segments, 2.6 tapering to 1.3) curling out, up and in from a pearl oral disc on a fat ink column, low (tips at y 42, so the shadows stay short), each ending in a blue-violet tip (`deeplight` with halos, no white heart); the mouth dark violet (`mouth`) with a faint pearl ring | a tall collar round the column, a hoop on the foot, the disc's rim, a sleeve on each tentacle's second and third segments | five violet tips (r 2) |
+| Anemone (`ward`, 2x2) | an anemone that stings: five soft pearl tentacles (`tentacle`: six capsule segments, 2.6 tapering to 1.3) curling out, up and in from a pearl oral disc on a fat ink column, low (tips at y 42, so the shadows stay short), each ending in a lantern tip (`deeplight` with halos, no white heart); the mouth dark horn (`mouth`) with a faint pearl ring | a tall collar round the column, a hoop on the foot, the disc's rim, a sleeve on each tentacle's second and third segments | five lantern tips (r 2) |
 | Gyre (`zenith`, 3x3)  | a cone of coil: a flat pearl rail (`ribbon`, 9.5 tapering to 4.5 wide) winding two turns up and inward from a wide base turn (r 38) to a tight top turn (r 10, `lin`), both ends to the south, round a short ink core; open to the sky, its top end under a light | a stripe along the rail's outer edge (an ink seam inside it, the rail's edge outside), a skirt round the base drum | one, at the rail's top end (r 1.7) |
 | Darkwater (`eclipse`, 2x2) | the dark pool: a flat, wide, still pool of ink (`poolDeep`, r 23.4, the darkest thing in it, a thin rim of pearl in shade) with four thin low pearl arms (r 2.2 tapering to 1.7, to y 23.5) rising at the rim on the diagonals and leaning outward, the pool open between them; nothing enclosed | a sleeve on each arm and its root block, a band round the basin | one, sunk at the centre, dim (r 1.2) |
 
 Shapes against each other: the Sunpetal's petals are broad, rounded and five, the Anemone's tentacles thin, curling
-and violet-tipped; the Glasshouse is a convex ribbed dome, the Darkwater a flat ink pool with thin arms leaning out, the Tidewell a
+and lantern-tipped; the Glasshouse is a convex ribbed dome, the Darkwater a flat ink pool with thin arms leaning out, the Tidewell a
 broad pearl ring on a tall drum with pylons leaning out; the Siphon is the one heap of soft lobes on a square black
-hole's rim, its tubes drooping down into it (the Anemone's tentacles curl up); the Cradle the one violet fan with a bud; the Gyre the one coil. No turning head on the Anemone: `bldg_ward` is one sprite, as before.
+hole's rim, its tubes drooping down into it (the Anemone's tentacles curl up); the Cradle the one dark-amber fan with a bud; the Gyre the one coil. No turning head on the Anemone: `bldg_ward` is one sprite, as before.
 
 Cells (`main.js`, unchanged): spire 82, siphon 50, kiln 42, loom 42, ward 50, zenith 72, eclipse 58. Team shares
 (round 3; the Siphon in the shaft's round 4): Tidewell 0.226, Sunpetal 0.193, Siphon 0.205, Cradle 0.180, Glasshouse 0.179, Anemone 0.205, Gyre 0.234, Darkwater 0.173. The pack: `node tools/art/review.mjs <dir> --family=vbld`.
@@ -618,7 +616,7 @@ by its radius.
 
 **The projectiles** (`effects2.js`): `harpoon` (36x10, its tip at the anchor: a dark iron shaft with a lit edge, a
 brass barbed head, the pale line paying out behind with a sag) and `beam` (40x8: a lance of deeplight, a white heart in
-a violet-blue sheath fading to the tail). `bolt`, `shell` and `missile` are as they were. The renderer picks a
+a peach-orange sheath, the Vael's lantern light, fading to the tail). `bolt`, `shell` and `missile` are as they were. The renderer picks a
 shot's art by its shooter: `PROJ_FIELDS` carries `by`, the shooter's unit kind (fixed when fired; -1 for a building's),
 and look.js `SHOT_LOOK` names the kinds with their own sprite (the Harpooner's `harpoon`, the Lens's `beam`); the rest
 draw their projectile kind's.

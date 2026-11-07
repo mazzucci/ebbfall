@@ -31,8 +31,8 @@ function seamMarks(g, n, { seam, groove, inlay, light, seamW = 1.8 }) {
   g.strokeStyle = inlay; g.lineWidth = 0.9; for (let i = 0; i < 5; i++) { const [x, y, r, a, l] = arcs[i]; g.beginPath(); g.arc(x, y, r * 0.86, a + 0.14, a + l * 0.66); g.stroke(); }   // light inlaid in the channel
   g.strokeStyle = seam; g.lineWidth = 1.4; for (let i = 0; i < 8; i++) { const x = rnd() * n, y = rnd() * n, a = (rnd() * 4 | 0) * Math.PI / 4 + 0.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * (20 + rnd() * 60), y + Math.sin(a) * (20 + rnd() * 60)); g.stroke(); }
 }
-/** The shell's colour map in the palette's colours (vael-palette.js): a faint grain, a mottling (pearly on the pearl,
- *  bare copper on the verdigris, aged ivory on the bone) and the seams. */
+/** The shell's colour map in the palette's colours (vael-palette.js): a faint grain, a mottling of aged ivory and the
+ *  dark seams. */
 const shellTex = (T) => canvasTex(256, (g, n) => {
   const [g0, gk, gb] = T.grain, [[mr, mg, mb], ma, mk, mn] = T.mottle;
   g.fillStyle = T.base; g.fillRect(0, 0, n, n);
@@ -41,9 +41,8 @@ const shellTex = (T) => canvasTex(256, (g, n) => {
   seamMarks(g, n, T);
 }, { repeat: 2 });
 const pearl = shellTex(VP.tex);
-/** The team glaze's map: the pearl's on the pearl palette; elsewhere the same marks in neutral greys, so the team mask
- *  carries no hue of the shell's (the seat's colour alone tints it). */
-const glazeMap = VP.glazeTex ? shellTex(VP.glazeTex) : pearl;
+/** The team glaze's map: the same marks in neutral greys, so the team mask carries no hue of the shell's. */
+const glazeMap = shellTex(VP.glazeTex);
 const pearlBump = canvasTex(256, (g, n) => {
   g.fillStyle = '#808080'; g.fillRect(0, 0, n, n);
   seamMarks(g, n, { seam: '#3c3c3c', groove: '#505050', inlay: '#6a6a6a', light: '#a8a8a8' });
@@ -59,8 +58,8 @@ export function makeVaelMats(tc = NEUTRAL) {
   const halo = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide });
   const [dl, dc, [h1, h2, h3]] = [VP.deeplight, VP.deepCore, VP.deepHalo];
   return {
-    // the shell (the palette's, vael-palette.js): pearl ceramic, weathered copper or bone
-    shell: ceramic(VP.shell),                                                                   // the body (pearl: reads 0xd8cfbf after the sheen)
+    // the shell (vael-palette.js): bone, a warm off-white aged to ivory, horn-brown beneath
+    shell: ceramic(VP.shell),                                                                   // the body
     shellLight: ceramic(VP.shellLight, { bumpScale: 0.8 }),                                     // top plates
     shellDark: ceramic(VP.shellDark, { roughness: 0.58, clearcoat: 0.3, ...VP.shellDarkExtra }), // undersides, recesses
     shellDeep: ceramic(VP.shellDeep, { roughness: 0.7, clearcoat: 0.1, ...VP.shellDeepExtra }),  // crevices and channels
@@ -89,7 +88,8 @@ export function makeVaelMats(tc = NEUTRAL) {
     // than the Umbra's near-black so the two never merge
     eclipsed: std({ color: 0x1a0a2a, emissive: 0x2e0f48, emissiveIntensity: 0.32, metalness: 0, roughness: 1 }),
     padHalo: halo(0x7a62e0, 0.1),
-    // The new look (STYLE.md): pearl shells on an ink core, "deeplight" (violet-blue, small) for the few lights.
+    // The new look (STYLE.md): bone shells on an ink core, "deeplight" (the lantern light, small) for the few lights.
+    // (gem, ether, core, halo, mend, pad, umbral, eclipsed above: the first models' materials, no longer in the atlas)
     ink: phys({ color: VP.ink, metalness: 0.45, roughness: 0.14, clearcoat: 1, clearcoatRoughness: 0.06 }),            // the ink core: black glass
     inkSeam: std({ color: VP.inkSeam, metalness: 0.3, roughness: 0.5 }),                                                    // ink edges round team glaze
     deeplight: std({ color: dl[0], emissive: dl[1], emissiveIntensity: dl[2], roughness: 0.2 }),                       // a small light

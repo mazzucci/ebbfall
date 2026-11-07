@@ -52,14 +52,14 @@ function harpoon() {
     return [0, 0, 0, 0];
   });
 }
-/** The Lens's beam (`beam`, 40x8, +x, its head at the anchor): a lance of deeplight, a white heart in a sheath of the
- *  palette's light (violet-blue on the pearl), fading to the tail. For the coder to wire by the shooter's kind (look.js). */
+/** The Lens's beam (`beam`, 40x8, +x, its head at the anchor): a lance of deeplight, a cream heart in a sheath of the
+ *  Vael's lantern light (tools/render3d/vael-palette.js), fading to the tail. For the coder to wire by the shooter's kind (look.js). */
 function beam() {
   return image(40, 8, (x, y) => {
     const t = Math.min(1, x / 30), dy = Math.abs(y + 0.5 - 4), core = clamp01(1 - dy / 1.1) * t, sheath = clamp01(1 - dy / 3.2) * t * 0.7;
     if (core <= 0 && sheath <= 0) return [0, 0, 0, 0];
     const k = Math.max(core, sheath);
-    const { sheath: s, heart: h } = VP.beam; // (the Vael's palette, tools/render3d/vael-palette.js)
+    const { sheath: s, heart: h } = VP.beam;
     return [Math.round(lerp(s[0], h[0], core)), Math.round(lerp(s[1], h[1], core)), Math.round(lerp(s[2], h[2], core)), Math.round(k * 255)];
   });
 }

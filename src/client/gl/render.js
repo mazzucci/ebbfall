@@ -286,17 +286,17 @@ class UnitObj {
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y;
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
-    // Abilities: a boost glows (Stim warm, Overcharge violet); a deployed tank shows it in its pose (UNIT_POSE).
+    // Abilities: a boost glows (Stim warm, Overcharge the Vael's lantern peach); a deployed tank shows it in its pose (UNIT_POSE).
     let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
-    // Warping in at a power field (the Vael): a violet ghost, more solid as it lands, inside a pulsing ring, like a site.
+    // Warping in at a power field (the Vael): a ghost in their lantern light (tools/render3d/vael-palette.js), more solid as it lands, inside a pulsing ring, like a site.
     const warp = u.warp > 0 ? u.warp / UNIT_WARP : 0;
     // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
     const cloak = u.cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
-    if (warp) tint = u.flash > 0 ? 0xffffff : 0xcbb6ff;
+    if (warp) tint = u.flash > 0 ? 0xffffff : 0xffd6b8;
     paintAs(this.body, this.paint, this.seat, tint, warp ? 0.2 + 0.65 * (1 - warp) : cloak);
     if (warp) {
       const rx = this.size * 1.1, ry = this.size * 0.6, pulse = 0.55 + 0.35 * Math.sin(t * 6);
-      bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0x9b7bff, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.85 * pulse });
+      bars.ellipse(u.x, u.y + 4, rx, ry).fill({ color: 0xff9a5c, alpha: 0.12 * pulse }).stroke({ width: 2, color: 0xffa070, alpha: 0.85 * pulse });
     }
     // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
     if (u.slowed > 0) {
@@ -369,17 +369,17 @@ class BldgObj {
     const sm = this.look.smoke; // chimneys
     if (live && sm && b.done && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
-  /** A warp-in site (the Vael): no foundation, its bud (in the scaffold's sprite) once planted; the whole building fades in as a violet ghost, more solid as
+  /** A warp-in site (the Vael): no foundation, its bud (in the scaffold's sprite) once planted; the whole building fades in as a lantern-lit ghost, more solid as
    *  it grows, inside a pulsing warp ring once planted (a site still waiting for its Lumen is a fainter ghost, no
    *  ring). Seen through fog, only the remembered ghost. */
   warpIn(b, t, live) {
     setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
-    paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xcbb6ff, (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
+    paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xffd6b8, (b.planted ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
     if (b.planted) this.scaffold.alpha = 1 - 0.75 * b.progress; // (the bud opens as the shell inside it grows)
     if (!live || !b.planted) return;
     const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = 0.55 + 0.35 * Math.sin(t * 4);
-    bars.ellipse(b.x, cy, rx, ry).fill({ color: 0x9b7bff, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xb48cff, alpha: 0.8 * pulse });
-    bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xe2d6ff, alpha: 0.5 * pulse });
+    bars.ellipse(b.x, cy, rx, ry).fill({ color: 0xff9a5c, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xffa070, alpha: 0.8 * pulse });
+    bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xffe6d0, alpha: 0.5 * pulse });
   }
   /** Shown or not (update, after this, decides the parts of a shown one). Visibility is only ever set to what it should
    *  be, never on and off again in one frame: each change rebuilds the layer's draw list. */
@@ -449,8 +449,8 @@ export function boom(x, y, r, race) {
   if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
-const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xdcc8ff };
-const CAST_TINT = { stim: 0xff8070, deploy: 0xf5c542, blink: 0xb48cff, overcharge: 0xc8a0ff };
+const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xffe0b8 }; // (the Vael's in their lantern peach, never violet)
+const CAST_TINT = { stim: 0xff8070, deploy: 0xf5c542, blink: 0xffa070, overcharge: 0xffb888 };
 /** An ability used: a flash on the caster in its colour (a Blink also leaves a puff where it lands). */
 export function castFx(x, y, ability) {
   const tint = CAST_TINT[ability] ?? 0xffffff;
@@ -548,7 +548,7 @@ export function render(selList, place, power = false) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
       if (!b.done) { progressBar(bx, by, bw, b.progress, 0xf5a524); if (!b.planted && !G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now); } // (a planted seed grows by itself)
       else if (b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
-      if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xb48cff, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xb48cff, alpha: 0.7 }); } // research: taller, outlined
+      if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xffa070, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xffa070, alpha: 0.7 }); } // research: taller, outlined
     }
   });
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {

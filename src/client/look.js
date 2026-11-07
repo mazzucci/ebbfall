@@ -19,9 +19,8 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 /** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
-/** The Vael buildings' glow, by the art's palette (tools/render3d/vael-palette.js; a build with VITE_VAEL_PALETTE set to
- *  the palette the atlas was made with): violet on the pearl, teal-blue on the verdigris, amber on the bone. */
-const VAEL_GLOW = { pearl: [0xb48cff, 0xa78bfa], verdigris: [0x48b0e8, 0x40a4e0], lantern: [0xffa070, 0xff9862] }[import.meta.env?.VITE_VAEL_PALETTE] ?? [0xb48cff, 0xa78bfa];
+/** The Vael buildings' glow: their lantern light (tools/render3d/vael-palette.js, Fen lantern). */
+const VAEL_GLOW = [0xffa070, 0xff9862];
 
 /** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a turret head sprite that
  * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). */

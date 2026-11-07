@@ -73,9 +73,9 @@ fn an_unfinished_pump_pays_nothing_and_a_seep_is_never_mined() {
     assert!(!w.start_gather(h[0], vent), "a seep is not mined");
     assert!(
         w.events.iter().any(
-            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Pump"))
+            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Excavator"))
         ),
-        "the player is told the Pump pays by itself"
+        "the player is told the Excavator digs by itself"
     );
     w.damage(site, 1e6, None);
     w.make_building(BldgKind::Extractor, PLAYER, vx, vy, true);
@@ -166,7 +166,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
     }
     assert_eq!(queued, 5, "queue holds five");
     let [used, cap] = w.sup[PLAYER as usize];
-    assert_eq!((used, cap), (9, 10));
+    assert_eq!((used, cap), (9, 20), "the Lighthouse's 20 population");
     w.cancel_queue(core_id, 4);
     w.cancel_queue(core_id, 3);
     let res_before = w.res[PLAYER as usize][0];
@@ -174,7 +174,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
     assert_eq!(w.res[PLAYER as usize][0], res_before + 50, "cancel refunds");
     let h = harvesters(&w, PLAYER);
     build(&mut w, BldgKind::Depot, h[0], 90);
-    assert_eq!(w.sup[PLAYER as usize][1], 18);
+    assert_eq!(w.sup[PLAYER as usize][1], 28);
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn the_supply_cap_grows_with_the_map() {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();
         assert_eq!(w.supply_limit(), cap, "{n}x{n}");
-        // Supply buildings round the headquarters (Windmasts or Sunpetals), one past what reaches the cap.
+        // Supply buildings round the headquarters (Cottages or Sunpetals), one past what reaches the cap.
         let each = f.supply.def().supply;
         let hq = f.hq.def().supply;
         let need = ((cap - hq) as f64 / each as f64).ceil() as i32;
@@ -195,7 +195,7 @@ fn the_supply_cap_grows_with_the_map() {
         }
         w.recalc_supply(PLAYER);
         assert_eq!(w.sup[PLAYER as usize][1], cap, "{n}x{n}: capped at {cap}");
-        // Filled to the cap: blocked, and told the limit (another energy building would not help).
+        // Filled to the cap: blocked, and told the limit (another population building would not help).
         w.sup[PLAYER as usize][0] = cap;
         let hq_id = w
             .bldgs
@@ -206,7 +206,7 @@ fn the_supply_cap_grows_with_the_map() {
         assert_eq!(
             w.queue_unit(hq_id, f.worker),
             Err(format!(
-                "Energy at its limit ({cap}): no more until some fall"
+                "Population at its limit ({cap}): no more until some fall"
             )),
             "{n}x{n}"
         );
@@ -227,24 +227,32 @@ fn a_full_core_reports_supply_blocked() {
         .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
         .unwrap()
         .id;
-    for _ in 0..6 {
-        let _ = w.queue_unit(core_id, UnitKind::Harvester);
+    // (19 of the Lighthouse's 20 population used: four workers and fifteen more)
+    let (x, y) = (
+        w.bldg(core_id).unwrap().x,
+        w.bldg(core_id).unwrap().y + 80.0,
+    );
+    for _ in 0..15 {
+        w.make_unit(UnitKind::Harvester, PLAYER, x, y);
     }
-    run(&mut w, 70); // trains five: 9 of 10 supply used
+    w.recalc_supply(PLAYER);
+    assert_eq!(w.sup[PLAYER as usize], [19, 20]);
     w.queue_unit(core_id, UnitKind::Harvester)
-        .expect("the tenth fits");
+        .expect("the twentieth fits");
     assert_eq!(
         w.queue_unit(core_id, UnitKind::Harvester),
-        Err("Out of energy. Build a Windmast.".to_string())
+        Err("Population full. Build a Cottage.".to_string())
     );
 }
 
 #[test]
 fn builders_go_back_to_the_salt() {
-    // The builder of a Pump, as of anything else, goes back to the salt it was mining (nobody works a seep).
+    // The builder of an Excavator, as of anything else, goes back to the salt it was mining (nobody works a shaft).
     let mut w = rich(5);
     run(&mut w, 3);
     let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Barracks);
+    w.make_building(BldgKind::Barracks, PLAYER, tx, ty, true); // (an Excavator needs the Crew Hall)
     build(&mut w, BldgKind::Extractor, h[0], 90);
     run(&mut w, 1);
     assert!(
@@ -463,11 +471,12 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
     let home: Vec<usize> = (0..w.map.nodes.len())
         .filter(|&i| w.map.nodes[i].field == near)
         .collect();
-    assert!(home.len() >= 5, "a whole arc: {}", home.len());
+    assert!(home.len() >= 5, "a whole field: {}", home.len());
     for (k, &i) in home.iter().enumerate() {
         w.map.nodes[i].amount =
             (FIELD_LOW + 200) / home.len() as i32 + if k % 2 == 0 { 40 } else { -30 };
     }
+    let ids: Vec<Id> = home.iter().map(|&i| w.map.nodes[i].id).collect();
     let (mut toasts, mut pings) = (0, 0);
     for _ in 0..30 * 120 {
         w.step();
@@ -479,7 +488,12 @@ fn a_shard_field_running_low_is_announced_once_with_a_ping() {
             }
         }
     }
-    let left: i32 = home.iter().map(|&i| w.map.nodes[i].amount).sum();
+    // (by id: a crystal mined out is gone from the list, and the indices after it move)
+    let left: i32 = ids
+        .iter()
+        .filter_map(|&id| w.map.node(id))
+        .map(|n| n.amount)
+        .sum();
     assert!(left < FIELD_LOW, "mined through the mark: {left}");
     assert_eq!(toasts, 1, "announced once for the field");
     assert!(pings >= 1, "with a ping");
@@ -689,4 +703,61 @@ fn either_half_mines_its_field_alike() {
         }
     }
     assert!(checked >= 6, "enough mirrored starts checked ({checked})");
+}
+
+#[test]
+fn every_shaft_is_on_the_map_from_the_start_and_an_excavator_needs_the_crew_hall() {
+    // Every mine shaft starts explored for every seat (not seen: the fog still hides who holds it), so a person
+    // places an Excavator on a far shaft in the first seconds without scouting it, once the Crew Hall stands; without
+    // the Crew Hall it is refused. Both peoples.
+    for (mut w, ext, rax) in [
+        (rich(9), BldgKind::Extractor, BldgKind::Barracks),
+        (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
+    ] {
+        run(&mut w, 1);
+        for s in 0..2usize {
+            for n in w.map.nodes.iter().filter(|n| n.ether) {
+                assert_eq!(
+                    w.explored[s][w.map.idx(n.tx, n.ty)],
+                    1,
+                    "{ext:?}: seat {s} has the shaft at {},{} on its map",
+                    n.tx,
+                    n.ty
+                );
+            }
+        }
+        let (cx, cy) = core(&w, PLAYER);
+        // (the farthest shaft from the player's Core: out past the enemy's base, unseen)
+        let far = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .max_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
+            .map(|n| (n.tx, n.ty))
+            .unwrap();
+        assert_eq!(
+            w.vis[PLAYER as usize][w.map.idx(far.0, far.1)],
+            0,
+            "{ext:?}: the far shaft is not in sight"
+        );
+        let h = harvesters(&w, PLAYER)[0];
+        assert!(
+            w.place_building(PLAYER, ext, far.0, far.1, Some(h))
+                .is_err(),
+            "{ext:?}: refused before the barracks"
+        );
+        w.make_building(rax, PLAYER, cx - 5, cy, true);
+        let b = w
+            .place_building(PLAYER, ext, far.0, far.1, Some(h))
+            .unwrap_or_else(|e| panic!("{ext:?}: {e}"));
+        assert_eq!(
+            w.bldg(b)
+                .and_then(|b| b.vent)
+                .and_then(|v| w.map.node(v))
+                .map(|n| (n.tx, n.ty)),
+            Some(far),
+            "{ext:?}: on the far shaft"
+        );
+    }
 }

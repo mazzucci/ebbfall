@@ -76,7 +76,7 @@ const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extracto
 // (drawn over the base, turning). Cells taller than the old models' where the new ones rise higher (the Windmast's mast
 // 32 -> 42, the Lookout's nest and pennant 14 -> 36, its gun 30 -> 62: a north-facing muzzle stands about 74 above the
 // anchor), so nothing touches a cell's top; the anchor stays the footprint's centre, so the head still seats on the base.
-Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.pump, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
+Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.excavator, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
 const TURRET_HEAD = HB.lookoutGun, TURRET_HEAD_H = 62;
 /**
  * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
@@ -131,7 +131,7 @@ window.render = async function (filter = '') {
   }
   // The ground and the scenery (ground.js, scenery2.js; STYLE.md "The ground and the scenery"): construction and
   // wrecks for both peoples (the Harbour's timber foundation, scaffold and rubble in seat 0's gold; the Vael's bud and
-  // pearl rubble, `bud_n` and `rubble_vael_n`, which render.js draws by people), the salt field, the brine seep (four frames)
+  // pearl rubble, `bud_n` and `rubble_vael_n`, which render.js draws by people), the salt field, the mine shaft (four frames)
   // and the scenery props under the names the client places (scenery.js).
   const neutral = makeMats(GOLD), vaelNeutral = makeVaelMats();
   for (const n of [2, 3, 4]) {
@@ -142,7 +142,7 @@ window.render = async function (filter = '') {
     push(`rubble_vael_${n}`, Gd.rubbleVael(n, vaelNeutral), bldgCell(n, 10));
   }
   for (let st = 0; st < 4; st++) push(`shard_${st}`, Gd.saltField(st), unitCell(21, 24));
-  for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.brineSeep(f), unitCell(30, 8));
+  for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.mineShaft(f, neutral), unitCell(30, 8));
   for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
   return { sprites: out, tints: fitTints() };
 };

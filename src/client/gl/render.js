@@ -4,6 +4,7 @@
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, FACTIONS, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, UNIT_WARP, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
+import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from '../look.js';
 import { drag } from '../input.js';
@@ -175,7 +176,7 @@ let doodadCheck = 0, doodadBldgs = -1; // wall-clock time of the last check, bui
 let footprints = new Uint8Array(0);
 function hideCoveredDoodads() {
   if (footprints.length !== MW * MH) footprints = new Uint8Array(MW * MH); else footprints.fill(0);
-  for (const b of G.bldgs) for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) footprints[idx(b.tx + x, b.ty + y)] = 1;
+  for (const b of shownBldgs()) for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) footprints[idx(b.tx + x, b.ty + y)] = 1; // (what this side may see: memory.js)
   for (const d of doodads) if (d.ground) {
     let covered = false;
     for (let dy = -1; dy <= 1 && !covered; dy++) for (let dx = -1; dx <= 1; dx++) if (footprints[idx(d.tx + dx, d.ty + dy)]) { covered = true; break; }
@@ -502,16 +503,17 @@ export function render(selList, place, power = false) {
   const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
   const explored = G.explored;
   cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH);
-  if (now - doodadCheck > 0.25 || now < doodadCheck || G.bldgs.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = G.bldgs.length; hideCoveredDoodads(); }
+  noteBuildings(); // (what this side has seen of enemy buildings: in the fog, their last-seen state, never the live one)
+  const shownB = shownBldgs();
+  if (now - doodadCheck > 0.25 || now < doodadCheck || shownB.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = shownB.length; hideCoveredDoodads(); }
   bars.clear(); lines.clear(); flag.visible = false;
   drawTargets(selList, now);
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
-  syncPool(bldgObjs, G.bldgs, b => new BldgObj(b), (o, b) => {
-    const seen = b.team === G.me || visibleEnt(b);
-    let v = inView(b.x, b.y, b.r + 90);
-    if (v && !seen) { v = false; for (let y = 0; y < b.h && !v; y++) for (let x = 0; x < b.w; x++) if (explored[idx(b.tx + x, b.ty + y)]) { v = true; break; } }
+  syncPool(bldgObjs, shownB, b => new BldgObj(b), (o, b) => {
+    const seen = !b.ghost && (b.team === G.me || visibleEnt(b)); // (a remembered one: drawn as last seen)
+    const v = inView(b.x, b.y, b.r + 90);
     o.show(v);
     if (!v) return;
     o.update(b, t, dt, seen);
@@ -653,8 +655,7 @@ function minimapBase(c, S, T) {
   // an ally's buildings framed in white (a team game: whose colour is on our side, its base and army in our sight).
   const many = G.factions.length > 2, col = many ? seatCss() : null;
   c.beginPath(); // (the allies' frames: one path, stroked once)
-  for (const b of G.bldgs) {
-    if (b.team !== G.me && !G.explored[idx(b.tx, b.ty)]) continue;
+  for (const b of shownBldgs()) { // (an enemy's in the fog: as last seen, memory.js)
     const x = b.tx * TILE * S, y = b.ty * TILE * T, w = Math.max(2, b.w * TILE * S), h = Math.max(2, b.h * TILE * T);
     c.fillStyle = many ? col[colorOf(b.team)] : b.team === G.me ? ALLY : FOE; c.fillRect(x, y, w, h);
     if (b.team === G.me || enemies(G.me, b.team)) continue;

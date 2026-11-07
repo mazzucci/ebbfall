@@ -130,13 +130,14 @@ impl World {
         }
         let s = self.sup[team as usize];
         if s[0] + d.supply > s[1] {
-            // (at the map's limit another energy building adds nothing: say so rather than send the player to build one)
+            // (at the map's limit another population building adds nothing: say so rather than send the player to build
+            // one)
             let limit = self.supply_limit();
             return Err(if s[1] >= limit {
-                format!("Energy at its limit ({limit}): no more until some fall")
+                format!("Population at its limit ({limit}): no more until some fall")
             } else {
                 format!(
-                    "Out of energy. Build a {}.",
+                    "Population full. Build a {}.",
                     self.factions[team as usize].supply.def().label()
                 )
             });
@@ -318,7 +319,8 @@ impl World {
         self.set_task(uid, Task::Hold);
     }
 
-    /// Returns whether the order took effect (refused for non-harvesters, and on a seep: its Pump pays by itself).
+    /// Returns whether the order took effect (refused for non-harvesters, and on a mine shaft: its Excavator digs by
+    /// itself).
     pub fn start_gather(&mut self, uid: Id, node: Id) -> bool {
         let u = self.u(uid);
         if !u.kind.def().worker {
@@ -327,10 +329,14 @@ impl World {
         let team = u.team;
         // A node that is gone was a depleted field; the gather update retargets from there.
         if self.map.node(node).is_some_and(|n| n.ether) {
-            let pump = self.factions[team as usize].ether.def().name;
+            // (each race's own word: the Harbour's Excavator digs, the Vael's Siphon draws)
+            let kind = self.factions[team as usize].ether;
+            let name = kind.def().name;
+            let a = ["a", "an"][name.starts_with(['A', 'E', 'I', 'O', 'U']) as usize];
+            let verb = ["digs", "draws"][(kind == BldgKind::Siphon) as usize];
             self.toast(
                 team,
-                format!("A seep is not mined: a {pump} on it pays salt by itself"),
+                format!("Workers cannot mine a shaft: {a} {name} on it {verb} salt by itself"),
                 true,
             );
             return false;

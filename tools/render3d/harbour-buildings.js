@@ -1,8 +1,8 @@
 // Harbour buildings (STYLE.md, "Harbour buildings"): the seven after the Lighthouse (harbour.js, step 0, the
 // reference). Dark tarred hulls, timber and iron under pale canvas, on a slate quay; team canvas between ink seams on
 // at least a sixth of what the camera sees, never a flat shape on the ground. Each has a roof silhouette of its own from
-// above: the Windmast's dark mast through three square sails framed in tar, the Pump's pump jack (an A-frame, a
-// nodding beam, a small horse-head over a pool of brine, team counterweights), the Crew Hall's long dark gable with a
+// above: the Windmast's dark mast through three square sails framed in tar, the Excavator's mine head (a team winch
+// wheel on a short timber tower over the shaft's black mouth, a rope down into it), the Crew Hall's long dark gable with a
 // shade along its wall over a drill yard with a flag, the Workshop's dark iron slope with a pale vent beside a short
 // pale derrick, the Slipway's sharp-bowed open hull on a slip into water, the Lookout's tripod tower with a crow's
 // nest (the gun turns on it, a sprite apart), the Loft's launch deck with Kites parked on it beside a hangar tent. Big roofs are weathered cloth that sags
@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { lathe, torus } from './harbour.js';
+import { shaftCollar } from './ground.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
@@ -55,12 +56,12 @@ function wornHem(parent, p, q, r, mat) {
   for (let k = 0; k < n; k++) pole(parent, lerp3(p, q, k / n), lerp3(p, q, (k + 1) / n), r * W[k % W.length], mat, 6);
 }
 
-/** The family's own materials, made once per material set: the seep's brine (dark, no light: salt carries none), a salt
- *  pan's crust, a hull's inside, two-sided canvas for sails and dodgers seen from both faces, the Workshop's sparks. */
+/** The family's own materials, made once per material set: dark water (the Slipway's; no light), a salt
+ *  pan's crust (the Slipway's foam), a hull's inside, two-sided canvas for sails and dodgers seen from both faces, the Workshop's sparks. */
 function bldgMats(M) {
   if (M.brine) return M;
   const std = (o) => new THREE.MeshStandardMaterial(o);
-  M.brine = std({ color: 0x3a4a50, roughness: 0.12, metalness: 0.35 });                                        // the well's brine: grey-green with a wet sheen, no light (a band above the ground, not a blot)
+  M.brine = std({ color: 0x3a4a50, roughness: 0.12, metalness: 0.35 });                                        // dark water: grey-green with a wet sheen, no light (a band above the ground, not a blot)
   M.saltPan = std({ color: 0xd8d4c6, roughness: 0.9, metalness: 0, flatShading: true });                        // the pan's salt crust, pale by itself
   M.tarIn = std({ color: 0x3a3632, map: M.tar.map, roughness: 0.7, metalness: 0.2, side: THREE.BackSide });    // a hull's inside, seen through its open top
   M.canvas2 = std({ color: 0xd4ccb6, map: M.canvas.map, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
@@ -182,83 +183,77 @@ export function windmast(M) {
 
 /** A vertical profile: a `plate` outline given as [x, up] points, standing in the xy plane, `t` thick about z 0. */
 const profile = (pts, t, bevel = 0.3) => memo(`pf${JSON.stringify(pts)},${t},${bevel}`, () => { const g = plate(pts, t, bevel).clone(); g.rotateX(-Math.PI / 2); g.translate(0, 0, t / 2); return g; });
-/** Points round an arc about (cx, cy), radius r, from angle a0 to a1 (radians), n steps. */
-const arc = (cx, cy, r, a0, a1, n = 12) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; });
-/** An irregular blob's outline round (0, 0), radius r, its wobble fixed. */
-const blob = (r, ph = 0) => Array.from({ length: 28 }, (_, i) => { const a = i / 28 * Math.PI * 2, k = 1 + 0.1 * Math.sin(3 * a + ph) + 0.06 * Math.sin(5 * a + 2 * ph); return [Math.cos(a) * r * k, Math.sin(a) * r * k * 0.85]; });
-
-/** Pump (extractor, 2x2): round 3's pump jack, the nodding donkey, along x on an iron skid, cleared at 1x. A tarred
- *  A-frame (the samson post, two A's astride) carries a timber walking beam on its saddle, nodding: tilted 0.42, its east
- *  end down over the well, its west end up. At the east end a small horse-head (r 8, timber cheeks in an iron face) hangs
- *  the bridle and the rod straight down into the wellhead; at the west end the pitman arms come up from two cranks on
- *  the gearbox, each carrying a heavy counterweight painted team behind an ink rim. The well: an iron casing standing in
- *  a spreading pool of brine (wet, a sheen, no light) on a pale salt crust, a flow line north to a salt pan. An engine
- *  house north-west under a team tarp, a team windbreak behind the pan. No sacks, crates or casks. (Round 2's pale level
- *  beam read as a telescope; round 4's big pale horse-head as a dial or a wheel.) */
-export function pump(M) {
+/** Excavator (extractor, 2x2): a small mine head standing straight on the shaft (no quay or pad of its own: round 3's
+ *  "ring on a pad" read as a turret mount or a landing pad, and as StarCraft's refinery): the shaft's own boxed collar
+ *  (ground.js `shaftCollar`, the free shaft's, so the two line up) and dark mouth, the dug earth round it. A timber
+ *  headframe, four legs from the collar's corners leaning in, tied once round, two back-stays down to the west; on its
+ *  top the winch wheel (the sheave: a team-painted rim between ink rings, its spokes and hub lit timber so the wheel
+ *  reads as a lit disc), facing the camera; the pale rope over the wheel and straight down into the dark, and back down
+ *  into a small tarred winch house west of the collar under a lean-to of team canvas; a tub on short rails south of
+ *  the collar, team sides, a load of rock salt. From above: a wheel on a short frame over a dark square in timber. No
+ *  horse-head, beam, pool or bucket (round 4 of the buildings: a hanging load read as a well-sweep). */
+export function excavator(M) {
   bldgMats(M);
-  const g = grp();
-  add(g, plate(oct(30), 4, 1.2), M.flagstone, 0, 0, 0);
-  posts(g, M, [[-27, 24], [-12, 27], [27, 24]]);
-  // the well, east: a pool of brine on a salt crust, the casing standing in it
-  const WX = 16.5, WZ = 0;
-  add(g, plate(blob(12.5), 0.9, 0.3), M.saltPan, WX - 1, 4, WZ + 4);                                             // the crust
-  add(g, plate(blob(10.6, 0.9), 1.1, 0.3), M.brine, WX - 1, 4.1, WZ + 4.4);                                    // the brine, spreading south
-  add(g, torus(3.4, 0.35, 20), M.saltPan, WX, 5.3, WZ, Math.PI / 2, 0, 0);                                         // a ripple of salt round the casing
-  add(g, cyl(2, 2, 5, 12), M.ironDark, WX, 7, WZ);                                                              // the casing, down into the well
-  for (const y of [5.6, 9.4]) add(g, cyl(2.8, 2.8, 0.9, 12), M.ironDark, WX, y, WZ);                             // its flanges
-  add(g, cyl(1.5, 1.8, 2.4, 10), M.ironDark, WX, 11, WZ);                                                       // the stuffing box
-  add(g, cyl(1.1, 1.1, 5, 8), M.ironDark, WX, 7.6, WZ - 3, Math.PI / 2, 0, 0);                                   // the tee
-  pole(g, [WX, 7.6, WZ - 5.4], [WX - 1, 6.2, -14], 1, M.ironDark);                                              // the flow line, north to the salt pan
-  // the skid and the samson post
-  add(g, rbox(34, 2, 7, 0.4), M.ironDark, -5, 5, 0);
-  const PV = [-1, 31, 0];
-  for (const sz of [-1, 1]) {
-    for (const x of [-9, 7]) pole(g, [x, 5.5, sz * 4.2], [PV[0], PV[1] - 1.5, sz * 2.6], 1.5, M.tar);
-    pole(g, [-6.4, 14, sz * 3.7], [4.4, 14, sz * 3.7], 0.7, M.timber);                                              // a tie across each A
+  const g = grp(), Y0 = 0.7, S = [0, Y0, -1], YC = Y0 + 6.8;                                                    // the dug earth's top; the shaft's mouth; the collar's top
+  shaftCollar(g, M, S[0], S[1], S[2], 24);                                                                      // the shaft's own collar, as the free shaft's
+  // the headframe: four timber legs from the collar's corners leaning in to a cap under the wheel's axle, tied once
+  const R = 11, W = [S[0] - 3, 46, S[2]];                                                                       // the wheel: radius, centre (its east side over the mouth)
+  const foot = (sx, sz) => [S[0] + sx * 14.5, YC, S[2] + sz * 14.5], head = (sx, sz) => [W[0] + sx * 3, W[1] - 2.2, W[2] + sz * 3.6];
+  const legs = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  for (const [sx, sz] of legs) pole(g, foot(sx, sz), head(sx, sz), 1.35, M.timber, 6);
+  for (const [a, b] of [[[-1, -1], [1, -1]], [[-1, 1], [1, 1]], [[-1, -1], [-1, 1]], [[1, -1], [1, 1]]]) {
+    pole(g, lerp3(foot(...a), head(...a), 0.6), lerp3(foot(...b), head(...b), 0.6), 0.8, M.timber, 6);          // the ties, round the tower
   }
-  add(g, rbox(4, 3, 7, 0.4), M.ironDark, PV[0], PV[1] - 1, PV[2]);                                               // the saddle bearing
-  // the walking beam, nodding: east end down over the well
-  const TILT = -0.42, beam = grp(); beam.position.set(...PV); beam.rotation.z = TILT; g.add(beam);
-  add(beam, rbox(30, 4.2, 3.2, 0.5), M.timber, -2, 2.1, 0);                                                     // the beam, timber: a mid value, not cream
-  for (const x of [-14, -8, 4]) add(beam, rbox(1, 4.6, 3.6, 0.2), M.ironDark, x, 2.1, 0);                         // iron straps
-  add(beam, rbox(4, 4.9, 3.9, 0.3), M.ironDark, 0, 2.1, 0);                                                     // the centre bearing's strap
-  // the horse-head: a small quadrant whose face is an arc, timber cheeks inside an iron face (round 4's big pale one read as a dial)
-  const HC = [12, -4], HR = 8;
-  add(beam, profile([[9.6, 4.2], ...arc(HC[0], HC[1], HR, 0.86, -Math.PI / 2, 16), [9.6, -4 - HR]], 3.4), M.ironDark, 0, 0, 0);
-  add(beam, profile([[10, 3.7], ...arc(HC[0], HC[1], HR - 1.1, 0.84, -Math.PI / 2, 16), [10, -4 - HR + 1.1]], 4.2), M.timber, 0, 0, 0);
-  // the bridle: from the arc's foremost point straight down to the carrier bar, the rod on into the stuffing box
-  const c = Math.cos(TILT), sn = Math.sin(TILT), HX = PV[0] + HC[0] * c - HC[1] * sn + HR, HY = PV[1] + HC[0] * sn + HC[1] * c;
-  for (const dz of [-1.3, 1.3]) pole(g, [HX, HY, dz], [HX, 16.5, dz], 0.3, M.ironDark).userData.noShadow = true;
-  add(g, rbox(2, 1.2, 4, 0.3), M.ironDark, HX, 16, 0);                                                          // the carrier bar
-  pole(g, [HX, 16, 0], [WX, 12, WZ], 0.55, M.ironDark).userData.noShadow = true;                                 // the polished rod, down into the well
-  // the tail: the equaliser across the beam's west end, pitman arms down to the cranks, counterweights painted team
-  const TX = PV[0] - 16 * c, TY = PV[1] - 16 * sn, SH = [-16, 16.5];                                               // the beam's tail; the crank shaft
-  add(g, rbox(2.4, 2, 11, 0.4), M.ironDark, TX, TY, 0);
-  add(g, rbox(9, 11, 7, 0.6), M.ironDark, -16, 10.5, 0);                                                         // the gearbox
-  add(g, cyl(1.4, 1.4, 15, 10), M.ironDark, SH[0], SH[1], 0, Math.PI / 2, 0, 0);                                 // the crank shaft
-  const PIN = [SH[0] + 2.4, SH[1] + 5];
-  for (const sz of [-1, 1]) {
-    const z = sz * 6.6, cw = grp(); cw.position.set(SH[0], SH[1], z); g.add(cw);
-    add(cw, profile([[-1.4, -1.4], [PIN[0] - SH[0] + 1, PIN[1] - SH[1] - 0.6], [PIN[0] - SH[0] + 0.2, PIN[1] - SH[1] + 1.2], [-1.6, 1.2]], 1.6), M.ironDark, 0, 0, 0); // the crank arm
-    add(cw, profile([...arc(0, 0, 12.6, 3.4, 5.0, 14), ...arc(0, 0, 2.6, 5.0, 3.4, 6)], 1.8, 0.2), M.inkLine, 0, 0, 0); // the counterweight's ink rim
-    add(cw, profile([...arc(0, 0, 12, 3.45, 4.95, 14), ...arc(0, 0, 3.2, 4.95, 3.45, 6)], 2.6, 0.4), M.paintCanvas, 0, 0, 0);   // the counterweight, team paint
-    pole(g, [PIN[0], PIN[1], z], [TX + 0.2, TY, sz * 5.2], 0.9, M.ironDark);                                     // the pitman arm
-  }
-  // the engine house, north-west: tarred, a team tarp roof, its exhaust
-  const EX = -15, EZ = -15;
-  add(g, rbox(18, 10, 13, 0.8), M.tar, EX, 9, EZ);
-  add(g, rbox(18.6, 1.4, 13.6, 0.3), M.ironDark, EX, 4.7, EZ);
-  tarp(g, M, 25, 19, EX, 15.6, EZ, 0.18, 0);
-  for (const x of [-7, 0, 7]) add(g, rbox(0.6, 1.4, 19.2, 0.2), M.rope, EX + x, 16.3, EZ, 0.18);
-  add(g, rbox(4, 6.5, 1, 0.3), M.oilskin, EX + 4, 8, EZ + 6.8);                                                 // its door
-  add(g, cyl(1.1, 1.1, 8, 8), M.ironDark, EX - 6, 20, EZ - 3); add(g, cyl(1.8, 1.1, 1.3, 8), M.ironDark, EX - 6, 24.5, EZ - 3);
-  pole(g, [EX + 9, 9, EZ + 4], [-16, 9.5, -3.5], 0.9, M.ironDark);                                               // the drive shaft to the gearbox
-  // the salt pan north-east, the flow line running into it
-  add(g, rbox(15, 2, 11, 0.4), M.slate, 14, 5, -17);
-  add(g, rbox(13, 0.8, 9, 0.3), M.saltPan, 14, 6.2, -17);
-  for (const x of [-4.5, 9, 22.5]) add(g, cyl(0.8, 0.8, 19, 8), M.timber, x, 13.5, -25.5);                          // a windbreak behind it: team canvas on posts
-  add(g, rbox(27, 14, 0.6, 0.2), M.paintCanvas2, 9, 13.5, -25.2); for (const y of [6.3, 20.7]) add(g, rbox(27.4, 0.5, 0.9, 0.1), M.inkLine2, 9, y, -25.2);
+  for (const sz of [-1, 1]) add(g, rbox(9, 2, 2.2, 0.4), M.timber, W[0], W[1] - 1.6, W[2] + sz * 3.6);          // the cap beams
+  for (const sz of [-1, 1]) add(g, rbox(3, 2.6, 2.6, 0.4), M.ironDark, W[0], W[1] - 0.2, W[2] + sz * 3.6);     // the axle's bearings
+  // the back-stays, down to the west towards the winch
+  for (const sz of [-1, 1]) pole(g, [W[0] - 1.5, W[1] - 2, W[2] + sz * 3.6], [-27, Y0 + 0.5, S[2] - 2 + sz * 6], 1.3, M.timber, 6);
+  // the wheel (the sheave): lit timber spokes and hub, a team rim between ink rings, facing south to the camera
+  const spoke = M.spokeTimber ??= new THREE.MeshStandardMaterial({ color: 0xa89c88, map: M.timber.map, roughness: 0.75, metalness: 0 }); // lit timber, a mid grey: the wheel reads as a lit disc (round 3's judge)
+  const wheel = grp(); wheel.position.set(...W); g.add(wheel);
+  add(wheel, cyl(1.8, 1.8, 8.4, 10), M.ironDark, 0, 0, 0, Math.PI / 2, 0, 0);                                   // the axle
+  add(wheel, cyl(2.6, 2.6, 2.6, 12), spoke, 0, 0, 0, Math.PI / 2, 0, 0);                                        // the hub
+  add(wheel, sph(0.7, 8, 6), M.brass, 0, 0, 1.6);                                                               // its cap (a tip)
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.26; pole(wheel, [Math.cos(a) * 2, Math.sin(a) * 2, 0], [Math.cos(a) * (R - 1.4), Math.sin(a) * (R - 1.4), 0], 0.8, spoke, 6); }
+  add(wheel, torus(R, 1.6, 44), M.paint, 0, 0, 0);                                                             // the rim, team
+  add(wheel, torus(R - 1.7, 0.45, 44), M.inkLine, 0, 0, 0);                                                    // its ink rings
+  for (const dz of [-1.4, 1.4]) add(wheel, torus(R + 0.4, 0.45, 44), M.inkLine, 0, 0, dz);
+  // the winch house, west of the collar (its drum inside): tarred, under a lean-to of weathered team canvas
+  const EX = -25, EZ = 18, HX = 7.6, HZ = 10.5;
+  // the rope: from the winch house up to the wheel's top, over it, and straight down into the mouth
+  const D = [-21, 12.5, EZ - 9];                                                                                // where the rope enters the house (its north wall)
+  const dx = D[0] - W[0], dy = D[1] - W[1], d = Math.hypot(dx, dy), al = Math.atan2(dy, dx), be = Math.acos(R / d);
+  const ta = al - be, T = [W[0] + Math.cos(ta) * (R + 1.2), W[1] + Math.sin(ta) * (R + 1.2)];                  // where the rope leaves the wheel (the upper tangent)
+  add(wheel, torus(R + 1.2, 0.6, 30, (ta % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)), M.rope, 0, 0, 0);       // over the wheel's top
+  const ropeShade = M.ropeShade ??= new THREE.MeshStandardMaterial({ color: 0x6e6250, bumpMap: M.rope.bumpMap, bumpScale: 1.2, roughness: 0.95, metalness: 0 }); // rope in shade: the wheel is the only pale form up top
+  pole(g, [T[0], T[1], W[2]], D, 0.45, ropeShade, 6).userData.noShadow = true;
+  add(g, rbox(2.6, 2.6, 1.2, 0.4), M.ironDark, D[0], D[1], D[2] + 0.2);                                         // the fairlead it runs in by
+  pole(g, [W[0] + R + 1.2, W[1], W[2]], [W[0] + R + 1.2, Y0 - 3, W[2]], 0.5, ropeShade, 6).userData.noShadow = true; // down into the dark
+  add(g, rbox(13, 10, 18, 0.8), M.tar, EX, Y0 + 5, EZ);
+  add(g, rbox(13.6, 1.4, 18.6, 0.3), M.ironDark, EX, Y0 + 0.7, EZ);
+  { // the lean-to slopes down to the west, so its canvas catches the north-west light; the south gable a step darker,
+    // one shadow crease where it sags between the rafters (round 4 polish: a flat painted box at 1x)
+    const yW = Y0 + 10.4, yE = Y0 + 17, xW = EX - HX, xE = EX + HX, zN = EZ - HZ, zS = EZ + HZ;
+    add(g, sagQuad([xW, yW, zS], [xW, yW, zN], [xE, yE, zN], [xE, yE, zS], 1, 1.5, 0.4), M.paintWorn, 0, 0, 0);
+    const shade = M.paintShade ??= Object.assign(M.paintWorn.clone(), { userData: { team: 1 } }); if (!shade.userData.dim) { shade.color.multiplyScalar(0.72); shade.userData.dim = 1; }
+    const crease = M.paintCrease ??= Object.assign(M.paintWorn.clone(), { userData: { team: 1 } }); if (!crease.userData.dim) { crease.color.multiplyScalar(0.5); crease.userData.dim = 1; }
+    add(g, profile([[xW - EX, yW - Y0 - 0.2], [xE - EX, yE - Y0 - 0.2], [xE - EX, 9.6], [xW - EX, 9.6]], 0.8, 0.2), shade, EX, Y0, zS + 0.2); // the south gable, a step darker
+    for (let k = 0; k < 4; k++) { const u0 = k / 4, u1 = (k + 1) / 4, sag = (u) => 1.1 * Math.sin(Math.PI * Math.min(1, u * 1.15)) ** 0.7; // the crease down the middle of the sag
+      pole(g, [xW + (xE - xW) * u0, yW + (yE - yW) * u0 + 0.2 - sag(u0) * 0.95, EZ], [xW + (xE - xW) * u1, yW + (yE - yW) * u1 + 0.2 - sag(u1) * 0.95, EZ], 0.32, crease, 6); }
+    wornHem(g, [xW, yW - 0.1, zS + 0.2], [xE, yE - 0.1, zS + 0.2], 0.7, M.inkLine); wornHem(g, [xW, yW - 0.1, zN - 0.2], [xE, yE - 0.1, zN - 0.2], 0.7, M.inkLine);
+    wornHem(g, [xW - 0.2, yW - 0.1, zS], [xW - 0.2, yW - 0.1, zN], 0.85, M.inkLine); wornHem(g, [xE, yE + 0.1, zS], [xE, yE + 0.1, zN], 0.7, M.inkLine); }
+  add(g, rbox(5, 7, 1, 0.3), M.oilskin, EX + 2, Y0 + 3.5, EZ + 9.3);                                            // its door
+  // the tub on short rails south of the collar: team sides between ink hems, rock salt heaped in it
+  const TX = 5, RZ0 = S[2] + 17.5, RZ1 = 30;
+  for (let z = RZ0 + 1; z < RZ1; z += 3.4) add(g, rbox(8, 0.8, 1.4, 0.2), M.timber, TX, Y0 + 0.4, z);              // sleepers
+  for (const sx of [-1, 1]) add(g, rbox(0.7, 0.8, RZ1 - RZ0, 0.1), M.ironDark, TX + sx * 2.6, Y0 + 1, (RZ0 + RZ1) / 2); // rails
+  const C = [TX, Y0 + 2.4, 24];
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(1.5, 1.5, 0.8, 10), M.ironDark, C[0] + sx * 3.3, C[1], C[2] + sz * 2.8, 0, 0, Math.PI / 2);
+  add(g, rbox(9, 6, 10, 0.6), M.paintCanvas, C[0], C[1] + 3.6, C[2]);                                           // the tub, team
+  for (const y of [0.5, 6.7]) add(g, rbox(9.5, 0.6, 10.5, 0.2), M.inkLine, C[0], C[1] + y, C[2]);              // its hems
+  const salt = M.rockSalt ??= new THREE.MeshStandardMaterial({ color: 0x55524d, roughness: 0.9, metalness: 0, flatShading: true }); // grey rock salt, lit, no glow
+  add(g, new THREE.DodecahedronGeometry(4.2, 1), salt, C[0], C[1] + 6, C[2] + 0.3, 0.3, 0.5, 0.1).scale.set(1, 0.5, 1.05); // the load: one lit mound, heaped over the rim
+  for (const sx of [-1, 1]) add(g, rbox(0.8, 6.4, 0.5, 0.15), M.ironDark, C[0] + sx * 2.6, C[1] + 3.6, C[2] + 5.15);  // two iron straps on its south side
   return g;
 }
 

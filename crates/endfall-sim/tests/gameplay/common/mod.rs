@@ -76,6 +76,7 @@ pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
     );
 }
 
+/// The open shaft nearest the player's Core (top-left tile).
 pub fn player_vent(w: &World) -> (i32, i32) {
     let (cx, cy) = core(w, PLAYER);
     let n = w

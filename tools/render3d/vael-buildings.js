@@ -3,7 +3,7 @@
 // the Cradle (kiln), the Glasshouse (loom), the Anemone (ward), the Gyre (zenith) and the Darkwater (eclipse); the
 // Tidewell (conflux) stays in vael2.js and is the reference. Same conventions: game units (1 tile = 32), y up, +z
 // south (towards the camera); a building's anchor is its footprint's centre. Each building owns a roof from above:
-// a five-petal flower open to the sky, a bent straw over a basin, a half-open shell, a ribbed dome, a star of
+// a five-petal flower open to the sky, a cluster of soft lobes drinking from a shaft, a half-open shell, a ribbed dome, a star of
 // tentacles with lit tips, a widening spiral ribbon, a dark pool in a crown of arms; the Tidewell is a ring with
 // pylons. No ring of alternating glaze bands anywhere (the Tidewell's read as a lifebuoy): team glaze is one band,
 // a sleeve, a cap or a patch, each between ink seams.
@@ -23,7 +23,6 @@ function fam(M) {
   const A = {
     darkGlass: new THREE.MeshPhysicalMaterial({ color: 0x16142c, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
     petalGlass: new THREE.MeshPhysicalMaterial({ color: 0x1c1840, emissive: 0x0e0c22, emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: 0x8c80d8 }), // the Sunpetal's faces: deep violet glass with a light sweep, never flat black
-    brine: new THREE.MeshStandardMaterial({ color: 0x26403e, emissive: 0x0a1a18, emissiveIntensity: 0.5, metalness: 0.25, roughness: 0.45 }), // the Siphon's seep: murky grey-teal
     violetWater: new THREE.MeshStandardMaterial({ color: 0x3a2e74, emissive: 0x241a58, emissiveIntensity: 0.55, metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep violet, never black
     bud: new THREE.MeshPhysicalMaterial({ color: 0x6a5aa8, emissive: 0x2c2060, emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: 0xe8e0ff }), // the Cradle's bud: violet under a pearl sheen
     mouth: new THREE.MeshStandardMaterial({ color: 0x1a1830, emissive: 0x201c48, emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark violet, lit from within
@@ -147,34 +146,51 @@ export function sunpetal(M) {
   return g;
 }
 
-/** Siphon (economy, on a brine seep, 2x2): a thick pearl straw bent over a small round seep of murky grey-teal
- *  brine, no rings on it, in a wide team collar: the straw rises from the seep, ribbed where it bends, and leans
- *  east to a pearl mouth open to the sky; a team sleeve on its lower half and a team band round the basin, each
- *  between ink seams; the one deeplight where the straw drinks. From above: a small murky pool in a broad team
- *  collar with a thick pale tube bent across it; nothing else has a tube. */
+/** Siphon (economy, on a mine shaft, 2x2): something grown that has settled on the shaft's north rim and drinks from
+ *  it: an irregular cluster of soft pearl lobes of different sizes heaped over the collar's north beam and its corners
+ *  (more of it to the east), team glaze in ragged part-bands low on every lobe inside ink seams, a dark ink opening low on its south
+ *  face; out of that opening three thick soft feeding tubes droop over the beam and down into the black, darkening as
+ *  they go, and the one deeplight glows in the opening. No plinth: the shaft's own sprite (drawn under every building)
+ *  is its ground, so the black mouth stays largely open and the collar and dug earth show round it. Asymmetric and
+ *  low: no dome, no lid, no spiral, nothing upright or pointed, nothing waving up (round 1: an upright straw read as a
+ *  gun turret; round 2: a whorl's spiral as the Gyre; round 3: a clam over the hole as a lid built on the frame, the
+ *  Excavator). */
 export function siphon(M) {
-  const g = grp(), A = fam(M);
-  plinth(g, M, 27, 0.25);
-  add(g, cyl(19, 22, 7, 40), M.ink, 0, 4.5, 0);                                                // the basin
-  skirt(g, M, 22.4, 4.4, 4, 40);                                                               // the team band round it
-  add(g, cyl(15, 15, 0.6, 40), A.brine, 0, 8, 0);                                              // the seep: murky brine, still
-  hoop(g, M, 17, 4, 8.4);                                                                      // the wide team collar round it
-  deeplight(g, M, 1.1, 0, 9, 5.5);                                                             // a small light where the straw drinks, south of it
-  // the straw: up from the seep, a ribbed bend, then leaning east to a pearl mouth
-  const s = grp(); s.position.set(-3, 7, 0); g.add(s);
-  add(s, cyl(4.4, 4.9, 14, 18), M.shell, 0, 7, 0);                                             // the lower straw, thick
-  add(s, cyl(5, 5.3, 7, 18), M.glaze, 0, 9, 0);                                                // its team sleeve
-  add(s, cyl(5.2, 5.5, 0.7, 18), M.inkSeam, 0, 12.9, 0); add(s, cyl(5.4, 5.7, 0.7, 18), M.inkSeam, 0, 5.1, 0);
-  for (let k = 0; k < 4; k++) add(s, torus(4.5, 0.8, Math.PI * 2, 20), M.shellDark, k * k * 0.6, 15 + k * 2.5, 0, Math.PI / 2, 0, -k * 0.17); // the ribbed bend, slight
-  const up = grp(); up.position.set(3.6, 23.4, 0); up.rotation.z = -0.7; s.add(up);             // the upper straw, leaning east
-  add(up, cyl(4.1, 4.4, 20, 18), M.shell, 0, 10, 0);
-  add(up, rbox(1.6, 18, 1, 0.3), M.shellLight, -3.7, 10, 2);                                    // a lit ridge along it
-  add(up, sph(4.8, 16, 12), M.ring, 0, 20.6, 0).scale.set(1, 0.85, 1);                         // the mouth: a plain rounded pearl head
-  add(up, sph(1.9, 10, 8), M.inkSeam, 0, 24.2, 0); const hx = s.position.x + up.position.x + Math.sin(0.7) * 25, hy = s.position.y + up.position.y + Math.cos(0.7) * 25; deeplight(g, M, 1.3, hx, hy, 0); // the one blue-violet light at the head
-  for (const a of [Math.PI / 2 + 0.75, Math.PI / 2 - 0.75, -Math.PI / 2]) {                    // three pearl stakes pin the basin, team-capped
-    const x = Math.cos(a) * 22, z = Math.sin(a) * 22;
-    add(g, sph(3.2, 12, 10), M.shellLight, x, 9, z).scale.set(1, 1.3, 1);
-    add(g, cyl(2.3, 2.3, 1.8, 12), M.glaze, x, 12.2, z); add(g, cyl(2.5, 2.5, 0.5, 12), M.inkSeam, x, 11.2, z);
+  const g = grp(), sq = 0.7;                                                                     // (the lobes squashed: soft, settled)
+  const LOBES = [[6, 7, -21, 9.5, M.shell, [0.2, 2.0]], [-6, 6, -22.5, 7, M.shellLight, [1.0, 2.1]], [15, 5.2, -15, 6.2, M.shell, [0.5, 1.9]], [-14, 4.4, -16, 4.6, M.shellDark, [1.2, 1.8]],
+    [1, 11.2, -24.5, 4.6, M.shellLight, [0.4, 2.0]], [21, 3.6, -23, 4.2, M.shellDark, [0.6, 1.7]], [-17, 3, -24, 3.4, M.shell, [0.9, 1.6]], [11, 12.2, -20, 3.6, M.shellLight, [0.3, 1.8]]];
+  // a point on a lobe (the ellipsoid as SphereGeometry draws it: phi round, theta down from the crown)
+  const on = (x, y, z, r, phi, th, k = 1.02) => new THREE.Vector3(x - Math.cos(phi) * Math.sin(th) * r * k, y + Math.cos(th) * r * k * sq, z + Math.sin(phi) * Math.sin(th) * r * k * 1.05);
+  for (const [x, y, z, r, mat, band] of LOBES) {
+    add(g, sph(r, 28, 18), mat, x, y, z).scale.set(1, sq, 1.05);
+    if (!band) continue;                                                                       // a team patch low on the lobe: a ragged part-band round its flank, inside ink seams (round 4: crown spots read as toadstools)
+    const [p0, pl] = band, T0 = 0.9, T1 = 1.7, rag = (u) => 0.1 * Math.sin(u * 7 + p0 * 3) + 0.06 * Math.sin(u * 13 + p0);   // its edges wander
+    const pos = [], idx = [], NU = 24, NV = 4;
+    for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) { const u = i / NU, ph = p0 + pl * u, t0 = T0 + rag(u), t1 = T1 - rag(u + 0.5) * 0.7, th = t0 + (t1 - t0) * j / NV, q = on(x, y, z, r, ph, th, 1.015); pos.push(q.x, q.y, q.z); }
+    for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const a = i * (NV + 1) + j; idx.push(a, a + 1, a + NV + 1, a + 1, a + NV + 2, a + NV + 1); }
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); bg.setIndex(idx); bg.computeVertexNormals();
+    { const n = bg.attributes.normal, c = new THREE.Vector3(x, y, z), p = new THREE.Vector3(pos[0], pos[1], pos[2]); if (new THREE.Vector3(n.getX(0), n.getY(0), n.getZ(0)).dot(p.sub(c)) < 0) { const ix = bg.getIndex(); for (let k = 0; k < ix.count; k += 3) { const t = ix.getX(k); ix.setX(k, ix.getX(k + 1)); ix.setX(k + 1, t); } bg.computeVertexNormals(); } }
+    add(g, boxUV(bg), M.glaze, 0, 0, 0);
+    for (const edge of [0, 1]) {                                                               // its ink seams, along the ragged edges
+      const pts = []; for (let i = 0; i <= NU; i++) { const u = i / NU; pts.push(on(x, y, z, r, p0 + pl * u, edge ? T1 - rag(u + 0.5) * 0.7 : T0 + rag(u), 1.03)); }
+      add(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.4, 5), M.inkSeam, 0, 0, 0);
+    }
+  }
+  add(g, sph(4.2, 20, 14), M.ink, 4, 6.2, -14.6).scale.set(1.5, 0.7, 0.6);                     // the dark opening the tubes come out of
+  deeplight(g, M, 1.1, 3.5, 7.4, -13.4);                                                        // the one light, in it
+  // the feeding tubes: soft, thick, drooping over the beam and down into the black, darker as they go down
+  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
+  const TUBES = [[2.3, [[-1, 6.5, -15.5], [-2.6, 9.6, -13], [-3.6, 7.6, -9.6], [-4.2, 1.5, -7.6], [-4.6, -6, -6.6], [-4.8, -14, -6.2]]],
+    [2.7, [[5.5, 7, -15], [6.2, 10, -12.2], [5.6, 7, -8.4], [4.6, 0.5, -6], [4, -7, -4.8], [3.8, -15, -4.3]]],
+    [1.9, [[13.5, 5.8, -10.5], [11.6, 9.4, -8.2], [9.2, 6.4, -6], [8.2, -0.5, -4.2], [7.8, -8, -3.4], [7.7, -15, -3]]]];
+  for (const [r, pts] of TUBES) {
+    const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+    const part = (u0, u1, rr) => { const q = []; for (let k = 0; k <= 16; k++) q.push(c.getPoint(u0 + (u1 - u0) * k / 16)); return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 24, rr, 10); };
+    add(g, part(0, 0.5, r), M.shell, 0, 0, 0);                                                   // over the rim, pale
+    add(g, part(0.06, 0.36, r * 1.08), M.glaze, 0, 0, 0);                                         // a team sleeve at its root, between ink seams
+    for (const u of [0.05, 0.37]) add(g, part(u - 0.012, u + 0.012, r * 1.14), M.inkSeam, 0, 0, 0);
+    add(g, part(0.46, 0.6, r * 0.95), deep, 0, 0, 0);                                            // going down, in shade
+    add(g, part(0.58, 1, r * 0.9), dark, 0, 0, 0);                                               // lost in the dark
   }
   return g;
 }

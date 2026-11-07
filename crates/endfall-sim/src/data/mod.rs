@@ -27,8 +27,8 @@ pub const PLAYER: u8 = 0;
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
-/// The most supply (energy) a seat can have, by the map's width in tiles (Roster v2): 60 on 64x64, 70 on 96x96, 80 on
-/// 128x128. Bigger maps run longer, hold more fields, and room for an AI's home reserve beside its wave.
+/// The most supply (population) a seat can have, by the map's width in tiles (Roster v2): 60 on 64x64, 70 on 96x96,
+/// 80 on 128x128. Bigger maps run longer, hold more fields, and room for an AI's home reserve beside its wave.
 pub fn supply_limit(map_w: i32) -> i32 {
     if map_w <= 64 {
         60

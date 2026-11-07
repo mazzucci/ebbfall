@@ -10,6 +10,7 @@ import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from 
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, shadeLayers } from './ground.js';
+import { saltClumps, crustImage, crystalVariant } from './crust.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -109,8 +110,8 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // buildings and units each keep their own, so one layer's churn does not rebuild the others'.
 const world = new Container({ isRenderGroup: true });
 const L = {};
-const GROUPS = new Set(['terrain', 'scenery', 'decals', 'nodes', 'bldgs', 'units', 'air']);
-for (const k of ['terrain', 'scenery', 'shade', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+const GROUPS = new Set(['terrain', 'scenery', 'crust', 'decals', 'nodes', 'bldgs', 'units', 'air']);
+for (const k of ['terrain', 'scenery', 'shade', 'crust', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.units.sortableChildren = true; L.bldgs.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
@@ -225,6 +226,8 @@ export function renderTerrain() {
   const wetCss = { shallow: '#467c80', deep: '#1d3658' }; // (the seabed warm and dark, the reef a pale grey, the sea teal and blue: as the ground looks)
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? '#6b665a' : wetCss[g] || `hsl(36,10%,${14 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
+  L.crust.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
+  crusts = saltClumps(map.nodes.filter(n => n.type === 'shard')).map(c => ({ c, s: null }));
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
 }
@@ -384,16 +387,36 @@ class BldgObj {
   destroy() { for (const s of [this.found, this.body, this.paint, this.scaffold, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
 }
 
+// ---- the salt outcrops' crust (gl/crust.js): one pale bed under each clump of salt nodes ----
+let crusts = []; // { c: a clump, s: its sprite once made }
+/** A clump's crust is made the first time any of its nodes is explored (a few ms, once: never every frame) and then
+ *  stays, a worked bed, as its crystals are mined out; under the unexplored it is never made, so it shows nothing the
+ *  crystals would not. Shown only near the view. */
+function updateCrusts(explored, inView) {
+  for (const k of crusts) {
+    if (!k.s) {
+      if (!k.c.nodes.some(n => explored[idx(n.tx, n.ty)])) continue;
+      const im = crustImage(k.c), cv = document.createElement('canvas'); cv.width = im.w; cv.height = im.h;
+      cv.getContext('2d').putImageData(new ImageData(im.data, im.w, im.h), 0, 0);
+      const t = Texture.from(cv); t.source.scaleMode = 'linear';
+      k.s = new Sprite(t); k.s.position.set(im.x, im.y); k.s.scale.set(1 / im.k); L.crust.addChild(k.s);
+      k.cx = im.x + im.w / im.k / 2; k.cy = im.y + im.h / im.k / 2; k.m = Math.max(im.w, im.h) / im.k / 2;
+    }
+    const v = inView(k.cx, k.cy, k.m); if (k.s.visible !== v) k.s.visible = v;
+  }
+}
+
 class NodeObj {
   constructor(n) {
     this.ether = n.type === 'ether';
     this.s = new Sprite(); this.s.position.set(n.x, n.y); L.nodes.addChild(this.s);
+    this.v = this.ether ? 0 : crystalVariant(n.tx, n.ty); // (salt: one of the crystals' variants, fixed by its tile)
     // (no light: the brine seep is dark liquid and salt carries none, tools/render3d/STYLE.md; the old ether's violet
     // glow made the seep read as the Vael's)
   }
   update(n, t) {
     if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; }
-    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(`shard_${k}`)); }
+    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(this.v ? `shard_${k}_${this.v}` : `shard_${k}`)); }
   }
   show(v) { this.s.visible = v; }
   destroy() { this.s.destroy(); }
@@ -510,6 +533,7 @@ export function render(selList, place, power = false) {
   drawTargets(selList, now);
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
+  updateCrusts(explored, inView);
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
   syncPool(bldgObjs, shownB, b => new BldgObj(b), (o, b) => {
     const seen = !b.ghost && (b.team === G.me || visibleEnt(b)); // (a remembered one: drawn as last seen)

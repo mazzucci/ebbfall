@@ -26,9 +26,11 @@ below). The renderer picks them through
 variant's own (veins, marks) fades out at the tile's edge. The rock plateaus are dead reef (step 1): a bleached lip, a
 pitted grey-brown top, a dark layered face on every edge.
 
-The salt field (`shard_0..3`): salt crystal clusters on a pale crust apron ("The salt works" below). Salt is pale but
-under the units' highlights (it peaks near 198 sRGB) and carries no light. The four stages differ by shape: standing
-clusters, fewer and lower clusters, a flat broken crust, a bare dark pit with a pale rim.
+The salt (`shard_0..3` and their variants `shard_k_1..3`, over the client's crust, `src/client/gl/crust.js`): each clump
+of salt nodes is one outcrop, a single pale bed of salt crust with crystal clusters of mixed sizes standing on it ("The
+salt works" below). Salt is pale but the crust under the units' paint and the crystals' lit tops no brighter than
+before (they peak near 230 sRGB, a few facets); it carries no light. The four stages differ by shape: standing
+clusters, fewer and lower clusters, flat broken slabs, a small dark pit with a pale rim.
 
 ## The Harbour (sim race `humans`)
 
@@ -495,20 +497,39 @@ small bleached nub, at hashed places clear of the edge, no window. The plateau's
 **The salt works**. Stelian's call on the live game (2026-11-06): step 2's salt heaps on a cracked salt pan had "too
 much detail and green"; the salt is back to #231's crystals, nudged whiter so they read as salt crystals.
 
-*The crystals* (`ground.js saltField`, `shard_0..3`, `unitCell(21, 24)`, `GMATS`; round 4 polish of the shaft, Opus, during
-the Fable limit: `salt` 0x96928a with emissive 0x423e36 and `saltWet` 0x8a8780 / 0x34312b, brighter and whiter, as the
-old values below read as grey rubble at game size, and a dark `footing` 0x23211e under each cluster so it stands off
-the ground; shapes, layouts and stages unchanged): a field, not a clump (round 3's
-read as rubble or rock heaps). Clusters of halite cubes, stacked and tilted, flat shaded: `salt` 0x76716a with a faint
-warm `emissive` 0x332e27 (halite's translucency: it lifts the faces in shade, which the scene's blue sky and rim light
-turned slate-blue, to a pale grey-white; a small glow, no light cast), `saltWet` 0x716d66 (emissive 0x25221d) on the
-wet faces; white on the lit tops, pale grey on the shaded sides, never green or teal, peaking at 198 sRGB, under the
-units' highlights (step 0's 0xe4e0d4 and round 2's 0xc2bdae both peaked at white). Under stages 0-2 a wide flat apron
-of pale grey-white crust (`apron` 0x4d4c49, radius 17 with an uneven edge, `patch`), bigger than the crystals, so a
-field reads as a pale patch at 1x. 0: nine tall clusters on a darker crust heart (`crust` 0x46433d), a spill of loose
-cubes; 1: four lower clusters, the crust dug through to the slate in places; 2: no standing crystals, slabs of crust
-and salt over wet slate on the apron; 3: a bare dark pit of wet slate with a film of brine (`brine` 0x1a2226) and an
-uneven, broken pale rim, two cubes left. Nothing is drawn under a field but the seabed.
+*The outcrop* (round 5, Opus, during the Fable limit). The look-alike test on real base shots still named StarCraft:
+seven separate patches, each the same sprite on its own shadow, set apart in an arc by the main building, "the visual
+signature of a StarCraft mineral field" (the judge; two testers: "an arc or crescent of crystals"). Since PR #241 a
+base's crystals lie in one clump to a flank of its Core; this round merges each clump into one outcrop:
+
+- *The crust* (`src/client/gl/crust.js`, drawn by `gl/render.js` in its own layer `crust`, under the crystals, over the
+  seabed and its shade). The client's, as the nodes' places are the map's: `saltClumps` links nodes within 3.2 tiles
+  into clumps (a shortest spanning tree), `crustImage` draws one clump's bed: the union of soft blobs round its nodes
+  (spread 0.42 tile), bridges along the tree's links and a broad blob at the clump's middle, so it is always one mass
+  (a ring of crystals never leaves ground in its middle; any pocket left is filled), its outline wobbled by a noise fixed
+  to the map. It is lit as a heightfield the way `scene.js` lights the sprites: a low rim rising to a gentle dome (some 4
+  units), a grain of small ridges, the sun from the north-west and the cool rim from the south-east, so its north-west
+  edge catches the light and its south-east falls into shade; halite's warm pale grey mottled pale and dim
+  (`PALE` [0.545, 0.535, 0.505], `DIM` [0.46, 0.45, 0.425]: about sRGB 100-120, more than twice the ground, well under
+  the units' paint, 171 in grey for seat 0's gold), damper towards its edge; the sprites' finish (the contrast curve,
+  5-bit banding) and ink on its outline. Round it one shared footing: a contact shadow all round and the bed's shape
+  cast 2.5 px south-east at the shadow's 0.5. One image per clump at a texel a world px (soft: a phone's memory), made
+  the first time any of its nodes is explored and kept (a worked bed stays as the crystals go); never under the
+  unexplored, so it shows nothing the crystals would not.
+- *The crystals* (`ground.js saltField(stage, v)`, `shard_k` for variant 0 and `shard_k_v` for 1-3, `unitCell(28, 26)`,
+  `GMATS`; `salt` 0x96928a with emissive 0x423e36 and `saltWet` 0x8a8780 / 0x34312b, as round 4's polish): no apron of
+  their own, only a narrow dark footing at each cluster's foot and the cast shadows. Four variants (`SALT_VARIANTS`),
+  each its own clusters, seed and turn about the vertical (the shapes turn, never the light; no mirrored sprites):
+  0 one tall heap among eight (the portrait's), 1 a spread of medium clusters, 2 a low bed of small cubes, 3 two tall
+  leaning columns and a few small ones; clusters 1.7 times round 4's girth, 1.25 its height, spread 1.4 times wider, so
+  a node's crystals reach towards its neighbours'. `gl/crust.js crystalVariant` picks one per node from its tile, so a
+  clump mixes big and small. The stages keep their meaning: 0 the variant's clusters of halite cubes, stacked and
+  tilted, a few loose cubes; 1 its larger half, lower, wet slate dug through in two places; 2 no standing crystals,
+  slabs of salt and crust over a patch of wet slate; 3 a small dark pit of wet slate (radius 10) with a film of brine
+  (`brine` 0x1a2226) and a broken pale rim, two cubes left: on the crust it reads as a worked hole in the bed.
+- The minimap keeps a pale dot per node.
+
+The old apron (`apron` 0x4d4c49, radius 17) and the per-node slate chips are gone: the crust is the bed.
 
 The salt's icon (the top bar's `.dot.shard` in `src/style.css`, 12x10; `icons.js` `gather`; the menu's shore in
 `index.html`) is a cluster of three pointed crystals, the middle one tallest and the two beside it leaning out, white
@@ -579,7 +600,8 @@ shallows `#467c80` (a notch up), deep `#1d3658`.
 
 The grey check (round 4; the base shot adds a worker standing between two salt fields, its body's grey against the
 ground's round it): the pack prints the median and 90th percentile, in the units sheet in grey, of the bare
-ground, the kelp, each resource, the shaft's mouth, collar and spoil, the salt field's apron, the reef top, the tide pool and the
+ground, the kelp, each resource, the shaft's mouth, collar and spoil, the salt field's ring (since round 5 of the salt the crust is the client's and
+`review-ground.mjs` draws neither it nor the variants: judge the salt on the real game's base shot), the reef top, the tide pool and the
 units; the order to keep is units first, then the full salt, the kelp always under the ground, and the shaft's mouth
 the darkest of all.
 

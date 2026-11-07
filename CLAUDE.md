@@ -151,6 +151,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap; the
                       HUD's portraits cut from the atlas (`portrait`)
+  gl/crust.js         the salt outcrops' shared crust, pure: salt nodes in clumps (`saltClumps`), one lit bed under
+                      each (`crustImage`, an image render.js makes the first time a clump is explored), and which of the
+                      crystals' variants a node draws (`crystalVariant`: `shard_k`, `shard_k_1..3`) (test/crust.test.js)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, FIRST GAME, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
@@ -251,7 +254,8 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
-test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat
+test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat;
+                      every stage and variant of the salt's crystals
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
@@ -283,6 +287,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       seat 2 (the start arranges the sides)
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an extractor on a far shaft unseen until a
                       unit looks, remembered after it walks away and after it dies out of sight, own and allied ones live
+test/crust.test.js    the salt's crust (src/client/gl/crust.js): clumps, one mass without holes and its footing, the same
+                      image every time, each tile's crystal variant
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P

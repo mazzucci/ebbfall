@@ -44,3 +44,7 @@ test('the frames the client draws for each people\'s construction, rubble and it
   for (const n of [2, 3, 4]) for (const k of ['foundation', 'scaffold', 'rubble', 'bud', 'rubble_vael']) assert.ok(frames[`${k}_${n}`], `${k}_${n}`);
   for (const k of ['harpoon', 'beam']) assert.ok(frames[k], k);
 });
+
+test('the salt\'s crystals: four stages, each in every variant the renderer picks per tile (gl/crust.js crystalVariant)', () => {
+  for (let k = 0; k < 4; k++) for (let v = 0; v < 4; v++) { const n = v ? `shard_${k}_${v}` : `shard_${k}`; assert.ok(frames[n], n); }
+});

@@ -59,7 +59,7 @@ const tiles = {}; const groundTile = (v, paint) => (tiles[`${v}|${paint?.name ??
 function ground(c, y0, h, seed = 0, paint = null) {
   const ox = (seed * 37) % 64, oy = (seed * 53) % 64;
   for (let ty = -1; (ty - 1) * 64 < h; ty++) for (let tx = -1; (tx - 1) * 64 < c.w; tx++) {
-    const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(paint ? (r > 0.9 ? 8 + ((r * 1000) | 0) % 12 : ((r * 100) | 0) % 8) : r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5, paint); // (the new rows spread all eight bases evenly, one tile in ten a mark, a dirt patch when repainted)
+    const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(paint ? (r > 0.94 ? [11, 13, 16, 18][((r * 1000) | 0) % 4] : ((r * 100) | 0) % 8) : r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5, paint); // (the new rows spread all eight bases evenly; one tile in sixteen one of the four largest marks, a soft dirt patch when repainted)
     for (let y = 0; y < 64; y++) { const py = ty * 64 + y - oy; if (py < 0 || py >= h) continue; for (let x = 0; x < 64; x++) { const px = tx * 64 + x - ox; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4), ((py + y0) * c.w + px) * 4); } }
   }
 }
@@ -72,13 +72,13 @@ function repaint(t, { dark, light, dirt }) {
   const sorted = lum.filter(v => v >= 38).sort((a, b) => a - b), lo = sorted[Math.floor(sorted.length * 0.03)], hi = sorted[Math.floor(sorted.length * 0.97)];
   for (let i = 0, k = 0; i < t.data.length; i += 4, k++) {
     const u = 0.4 + (Math.max(0, Math.min(1, (lum[k] - lo) / (hi - lo))) - 0.4) * 0.5;
-    const d = dirt ? Math.max(0, Math.min(1, (40 - lum[k]) / 10)) : 0;
+    const d = dirt ? 0.7 * Math.max(0, Math.min(1, (46 - lum[k]) / 18)) : 0;                   // (soft: a patch, not a splat)
     for (let ch = 0; ch < 3; ch++) o.data[i + ch] = Math.round((dark[ch] + (light[ch] - dark[ch]) * u) * (1 - d) + (dirt ? dirt[ch] : 0) * d);
     o.data[i + 3] = 255;
   }
   return o;
 }
-const GRASS = { name: 'grass', dark: [52, 74, 38], light: [118, 144, 74], dirt: [104, 86, 58] };
+const GRASS = { name: 'grass', dark: [52, 74, 38], light: [118, 144, 74], dirt: [96, 90, 58] };
 function half(c) {
   const o = canvas(c.w >> 1, c.h >> 1);
   for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) for (let k = 0; k < 4; k++) { const i = (2 * y * c.w + 2 * x) * 4 + k; o.data[(y * o.w + x) * 4 + k] = Math.round((c.data[i] + c.data[i + 4] + c.data[i + c.w * 4] + c.data[i + c.w * 4 + 4]) / 4); }
@@ -118,9 +118,16 @@ function label(c, text, x, y, k = 3) {
 // ---- team shares (review.mjs's measure: facing 0, frame 0) ----
 const shares = {};
 const share = (name) => { const s = get(name), m = masks.get(name); let solid = 0, team = 0; for (let i = 3; i < s.img.data.length; i += 4) { if (s.img.data[i] === 255) solid++; if (m.data[i] >= 128) team++; } return shares[name] = +(team / solid).toFixed(3); };
-console.log('team colour share of the solid pixels (facing 0; the floor is 1/6 = 0.167):');
-for (const name of [...KG.map(k => `kg_${k}_0_0`), 'bldg_kg_castle', ...EX.map(k => `ex_${k}_0_0`), 'bldg_ex_hall']) { const sh = share(name); console.log(`  ${name.padEnd(18)} ${sh.toFixed(3)}${sh < 1 / 6 ? '  BELOW THE FLOOR' : ''}`); }
+console.log('team colour share of the solid pixels (facing 0; the floor is 1/6 = 0.167 for units, 0.12 for buildings: the PM, Nov 9):');
+for (const name of [...KG.map(k => `kg_${k}_0_0`), 'bldg_kg_castle', ...EX.map(k => `ex_${k}_0_0`), 'bldg_ex_hall']) { const sh = share(name), floor = name.startsWith('bldg_') ? 0.12 : 1 / 6; console.log(`  ${name.padEnd(18)} ${sh.toFixed(3)}${sh < floor ? '  BELOW THE FLOOR' : ''}`); }
 writeFileSync(join(outDir, 'shares.json'), JSON.stringify(shares, null, 1));
+// each unit's size at zoom 1.0 (facing 0): the box of its opaque pixels without the ground shadow, in CSS px (atlas px / 2)
+console.log('unit sizes at zoom 1.0 (facing 0; CSS px, width x height, the shadow left out):');
+for (const name of [...KG.map(k => `kg_${k}_0_0`), ...EX.map(k => `ex_${k}_0_0`)]) {
+  const { w, h, data } = get(name).img; let x0 = w, x1 = -1, y0 = h, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (data[i + 3] === 255 && !(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+  console.log(`  ${name.padEnd(18)} ${((x1 - x0 + 1) / 2).toFixed(0)} x ${((y1 - y0 + 1) / 2).toFixed(0)}`);
+}
 
 // ---- the scenes ----
 const W = 1688, H = 780;

@@ -4,7 +4,7 @@
 // hems, so in greyscale it keeps the Harbour's order against the Expedition's pale panels. Tall and spiky (towers,
 // cones, lances, pennants), matte, no lights. Three palettes, same shapes (`makeKingdomMats(tc, v)`): A sandstone and
 // clay tiles with bright steel, B granite and slate with blackened iron, C a timber keep with thatch. Stelian's list
-// (2026-11-10, the roster locked): the Villager (tunic, pickaxe, a load), the Spearman (a long spear, a shield), the Knight (horse, lance, banner),
+// (2026-11-10, the roster locked): the Villager (tunic, pickaxe, a load), the Guard (a long spear, a shield), the Knight (horse, lance, banner),
 // the Castle (keep, towers, battlements, a banner). Same conventions as models.js: game units, units face +x, y up,
 // +z south.
 import * as THREE from 'three';
@@ -77,7 +77,7 @@ export const earthTex = tex(256, (g, n) => {
 /** A: warm sandstone, clay tiles, oak, bright steel, undyed linen. B: slate-grey stone (round 2: black granite read as an evil castle), slate, blackened iron, grey wool.
  *  C: a timber keep (oak planks on a stone plinth), thatch, bright steel, brown wool. */
 export const KINGDOM_PALETTES = {
-  A: { name: 'sandstone and clay', wall: 0xb09468, wallTex: 'ashlar', roof: 0xa05238, roofTex: 'tile', timber: 0x7a5536, steel: 0xb8bcc2, steelMetal: 0.92, steelRough: 0.3, mail: 0x6e7278, tunic: 0xc4b898, wicker: 0xc8aa70, hose: 0x5a3e2a, leather: 0x4a3222, plinth: 0x8a7a62, horse: 0x6a4428, earth: 0x806c50 },
+  A: { name: 'sandstone and clay', wall: 0xb09468, wallTex: 'ashlar', roof: 0x9c7a56, roofTex: 'tile', timber: 0x7a5536, steel: 0xb8bcc2, steelMetal: 0.92, steelRough: 0.3, mail: 0x6e7278, tunic: 0xc4b898, wicker: 0xc8aa70, hose: 0x5a3e2a, leather: 0x4a3222, plinth: 0x8a7a62, horse: 0x6a4428, earth: 0x806c50 },
   B: { name: 'slate grey and slate', wall: 0x80828a, wallTex: 'ashlar', roof: 0x4e545c, roofTex: 'slate', timber: 0x50402c, steel: 0x7c8086, steelMetal: 0.85, steelRough: 0.42, mail: 0x565a60, tunic: 0x8c887e, wicker: 0xa89060, hose: 0x34302e, leather: 0x2e2622, plinth: 0x62646a, horse: 0x42342c, earth: 0x6e6858 },
   C: { name: 'timber and thatch', wall: 0x8e6a44, wallTex: 'plank', roof: 0x8c7c56, roofTex: 'thatch', timber: 0x5a4028, steel: 0xb8bcc2, steelMetal: 0.92, steelRough: 0.3, mail: 0x6e7278, tunic: 0x8a6a48, wicker: 0xb89a60, hose: 0x3a2c22, leather: 0x3a2818, plinth: 0x6a6a64, horse: 0x8a5a30, earth: 0x7a6a4c },
 };
@@ -165,57 +165,49 @@ export function figure(M, f, { tunic = M.tunic, hose = M.hose, skirt = 4.0 } = {
   return Object.assign(g, { body: b });
 }
 
-/** Villager (worker, sim r 9, scale 0.95): the one that carries: a tall wicker dosser on the back heaped with gold
- *  coins, two team straps over the shoulders, an undyed hood with a short team cape over a plain tunic, a team tabard down
- *  the front, a long pickaxe over the right shoulder (a steel head, point ahead, well above the hood), the body leant
- *  forward under the load. From the game's camera: a round pale basket with a yellow top beside a small team head, a
- *  pick's head sticking up behind. Frames 0-1 the walk. */
+/** Villager (worker, sim r 9, scale 0.95): the one that carries: a big pale sack of coins slung high on the back,
+ *  wider than the shoulders, its mouth open with gold coins heaped in it (the one pale mass, seen from above behind a
+ *  dark bare head: round 3's judge read a hood and a pick over the shoulder as a Guard without a helmet), two team
+ *  straps over the shoulders, team hose, a team cape at the shoulders, a plain tunic; a short pick held low in the
+ *  right hand, its bright head near the ground ahead. From the camera: a dark small head, a fat pale sack behind it,
+ *  a short bright bar low ahead; in grey, no steel disc and no long bar. Frames 0-1 the walk. */
 export function villager(M, f) {
-  const g = figure(M, f, { hose: M.cloth }), b = g.body; b.rotation.z = -0.12;                   // (team hose: the worker's team is on legs, cape, sleeves and straps, less than the Spearman's surcoat)
-  // the hood: undyed linen over the head (round 2: a team hood made it the Marine's twin at 1x), a short team cape to
-  // the shoulders between ink hems
-  add(b, sph(2.6, 16, 12), M.tunic, 0.1, 13.7, 0).scale.set(0.95, 1.0, 1.0);
-  add(b, cyl(2.7, 2.7, 0.4, 14), M.inkLine, 0.1, 12.95, 0);                                   // the hem between hood and cape
-  add(b, cyl(2.6, 3.7, 2.4, 14), M.cloth, 0.1, 11.9, 0);                                      // the cape, team
-  add(b, cyl(3.8, 3.9, 0.4, 14), M.inkLine, 0.1, 10.7, 0);                                    // its hem
-  add(b, sph(1.45, 12, 10), M.skin, 1.5, 13.3, 0).scale.set(0.8, 0.9, 0.9);                   // the face in the hood's opening
-  add(b, torus(1.5, 0.25, 14), M.inkLine, 1.9, 13.3, 0, 0, Math.PI / 2, 0);                   // the opening's ink edge
-  // the tabard down the front, team between ink hems
-  add(b, rbox(0.6, 5.2, 4.0, 0.2), M.cloth, 2.6, 9.4, 0);
-  add(b, rbox(0.7, 0.4, 4.3, 0.1), M.inkLine, 2.65, 12.1, 0); add(b, rbox(0.7, 0.4, 4.3, 0.1), M.inkLine, 2.65, 6.7, 0);
-  // the dosser: a tall wicker basket on the back, its rim bound in oak, heaped with coins; two team straps over the shoulders
-  const bk = grp(); bk.position.set(-4.2, 11.6, 0); bk.rotation.z = 0.18; b.add(bk);
-  add(bk, cyl(3.6, 2.7, 8.0, 14), M.wicker, 0, 0, 0);
-  add(bk, torus(3.6, 0.4, 16), M.oak, 0, 4.0, 0, Math.PI / 2, 0, 0);                          // the rim
-  add(bk, torus(3.1, 0.3, 16), M.oak, 0, 0.4, 0, Math.PI / 2, 0, 0);                          // a hoop
-  add(bk, sph(3.3, 14, 10), M.gold, 0, 4.2, 0).scale.set(1, 0.45, 1);                         // the coins heaped over the rim
-  for (const [x, z] of [[1.4, 1.2], [-1.0, -1.6], [0.4, -0.2]]) add(bk, cyl(0.9, 0.9, 0.3, 10), M.gold, x, 5.6, z, (x - z) * 0.2, x, 0.2);
-  for (const z of [-2.0, 2.0]) {                                                             // the straps
-    add(b, rbox(4.6, 0.9, 1.5, 0.2), M.cloth, -0.2, 13.0, z, 0, 0, -0.1);
-    add(b, rbox(4.8, 1.0, 1.8, 0.1), M.inkLine, -0.2, 12.75, z, 0, 0, -0.1);
+  const g = figure(M, f, { hose: M.cloth }), b = g.body; b.rotation.z = -0.16;
+  add(b, sph(2.1, 14, 10), M.horseDark, 0.3, 13.6, 0).scale.set(1, 0.9, 1);                      // the head: dark hair, bare
+  add(b, sph(1.5, 12, 10), M.skin, 1.6, 13.2, 0).scale.set(0.8, 0.9, 0.9);                       // the face
+  add(b, cyl(2.5, 3.6, 2.0, 14), M.cloth, 0.1, 12.0, 0);                                        // the cape at the shoulders, team
+  add(b, cyl(3.7, 3.8, 0.4, 14), M.inkLine, 0.1, 11.0, 0); add(b, cyl(2.6, 2.6, 0.35, 14), M.inkLine, 0.1, 13.0, 0); // its hems
+  // the sack: fat, pale, slung high across the back over both shoulders, its open mouth heaped with coins
+  const sk = grp(); sk.position.set(-3.4, 13.6, 0); sk.rotation.y = -0.35; b.add(sk);
+  add(sk, sph(3.6, 18, 12), M.canvas, 0, 0, 0).scale.set(1, 0.95, 1.6);                          // the sack's body
+  add(sk, sph(2.4, 12, 10), M.canvas, -0.6, 2.0, -1.4).scale.set(1, 0.8, 1.2);                  // a lump in it
+  add(sk, cyl(2.4, 2.0, 1.2, 14), M.canvasDark, 0.2, 2.6, 2.6, 0.5, 0, 0);                       // the mouth, tied, its inside in shade
+  add(sk, sph(2.0, 12, 8), M.gold, 0.3, 3.1, 2.7).scale.set(1, 0.5, 1);                          // the coins heaped in the mouth
+  for (const [x, z] of [[0.8, 2.2], [-0.6, 3.4], [0.2, 1.6]]) add(sk, cyl(0.7, 0.7, 0.3, 10), M.gold, x, 4.0, z, 0.3, x, 0.2);
+  for (const z of [-2.0, 2.0]) {                                                                 // the straps over the shoulders
+    add(b, rbox(4.8, 0.9, 1.5, 0.2), M.cloth, -0.2, 13.0, z, 0, 0, -0.1);
+    add(b, rbox(5.0, 1.0, 1.8, 0.1), M.inkLine, -0.2, 12.75, z, 0, 0, -0.1);
     add(b, rbox(0.9, 4.0, 1.5, 0.2), M.cloth, 2.5, 10.8, z); add(b, rbox(1.0, 4.2, 1.8, 0.1), M.inkLine, 2.35, 10.8, z);
   }
-  // the left hand up on a strap; the right hand holds the pickaxe over the shoulder: a long oak haft angled up and
-  // back, the steel head above and behind the hood with its point ahead
-  limb(b, [0.6, 11, -3.6], [2.6, 11.6, -2.6], 1.15, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 11.6, -2.5); // team sleeves, the kingdom's family trait
-  limb(b, [0.6, 11, 3.6], [2.4, 10.6, 3.8], 1.15, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.7, 10.4, 3.8);
-  add(b, cyl(3.9, 4.15, 1.4, 12), M.cloth, 0, 6.3, 0); add(b, cyl(4.0, 4.0, 0.35, 12), M.inkLine, 0, 7.1, 0); add(b, cyl(4.25, 4.25, 0.35, 12), M.inkLine, 0, 5.55, 0); // a team hem band on the skirt
-  const pk = grp(); pk.position.set(2.6, 10.4, 3.9); pk.rotation.z = 0.5; b.add(pk);          // the haft leans back over the shoulder, its head high behind the hood
-  add(pk, cyl(0.45, 0.55, 13, 8), M.oak, 0, 5.8, 0);
-  add(pk, rbox(9.4, 2.0, 2.0, 0.4), M.steel, 0, 12.4, 0, 0, 0, 0);                            // the head, big and bright, across the haft
-  add(pk, cone(1.0, 3.4, 8), M.steel, 6.3, 12.4, 0, 0, 0, -Math.PI / 2);                      // its point, ahead
-  add(pk, rbox(2.4, 2.8, 1.6, 0.3), M.steel, -5.6, 12.4, 0);                                  // its flat end
+  // the left hand up on a strap; the right arm down, the pick held low and ahead, its bright head near the ground
+  limb(b, [0.6, 11, -3.6], [2.6, 11.6, -2.6], 1.15, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 11.6, -2.5);
+  limb(b, [0.6, 11, 3.6], [2.6, 7.0, 3.9], 1.15, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.8, 6.6, 3.9);
+  const pk = grp(); pk.position.set(2.8, 6.4, 4.0); pk.rotation.z = -1.25; b.add(pk);             // the haft, down and ahead
+  add(pk, cyl(0.42, 0.5, 7.5, 8), M.oak, 0, 3.0, 0);
+  add(pk, rbox(7.0, 1.6, 1.6, 0.3), M.steel, 0, 6.6, 0);                                        // the head, bright, across the haft
+  add(pk, cone(0.8, 2.6, 8), M.steel, 4.6, 6.6, 0, 0, 0, -Math.PI / 2);                         // its point, down ahead
+  add(pk, rbox(1.8, 2.2, 1.3, 0.3), M.steel, -4.2, 6.6, 0);                                     // its flat end
   g.scale.setScalar(0.95);
   return g;
 }
 
-/** Spearman (line infantry, sim r 10-11, scale 1.08): a spearman under a steel kettle hat (the pale disc from above,
+/** Guard (line infantry, sim r 10-11, scale 1.08; "Spearman" until the names were final): a spearman under a steel kettle hat (the pale disc from above,
  *  a dark line under its brim, no cloth on it), a team surcoat over mail between ink hems, mail sleeves, a round team
  *  shield with an ink rim and a steel boss on the left arm, its face turned up and to the camera, and the signature:
  *  a long spear in the right hand angled up ahead, an oak shaft with a bright steel leaf head, reaching well past the
  *  body at both ends. From the camera: a pale disc, a team disc beside it, a long thin bar angled up. Frames 0-1 the
  *  march. */
-export function spearman(M, f) {
+export function guard(M, f) {
   const g = figure(M, f, { tunic: M.cloth, skirt: 4.2 }), b = g.body;
   add(b, cyl(4.3, 4.4, 0.45, 12), M.inkLine, 0, 5.65, 0);                                     // the surcoat's hem
   add(b, rbox(5.3, 0.4, 6.9, 0.1), M.inkLine, 0, 13.1, 0);                                    // its collar's edge
@@ -231,7 +223,7 @@ export function spearman(M, f) {
   add(sh, cyl(3.4, 3.4, 0.5, 24), M.cloth, 0, 0.3, 0);                                        // the team face
   add(sh, torus(3.65, 0.38, 24), M.inkLine, 0, 0.35, 0, Math.PI / 2, 0, 0);                   // the ink rim
   add(sh, sph(1.0, 10, 8), M.steel, 0, 0.5, 0);                                               // the boss
-  limb(b, [0.6, 11, -3.6], [1.2, 9.8, -4.0], 1.2, M.cloth);                                    // team sleeves (the family trait; the Spearman keeps more team than the Villager)
+  limb(b, [0.6, 11, -3.6], [1.2, 9.8, -4.0], 1.2, M.cloth);                                    // team sleeves (the family trait; the Guard keeps more team than the Villager)
   // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule
   const sp = grp(); sp.position.set(0.8, 10.0, 3.4); sp.rotation.z = 0.7; b.add(sp);
   add(sp, cyl(0.45, 0.45, 26, 8), M.oak, 5.0, 0, 0, 0, 0, Math.PI / 2);
@@ -338,7 +330,7 @@ export function castle(M) {
   }
   { const cp = grp(); cp.position.set(KX, KH + 4, KZ); g.add(cp);                                 // a team canopy over the keep's roof terrace, on four poles
     for (const x of [-11, 11]) for (const z of [-11, 11]) add(cp, cyl(0.4, 0.5, 9, 6), M.oak, x, 4.5, z);
-    add(cp, rbox(26, 0.6, 26, 0.2), M.cloth, 0, 9.3, 0, 0.05, 0, 0.04); add(cp, rbox(26.6, 0.4, 26.6, 0.1), M.inkLine, 0, 8.9, 0, 0.05, 0, 0.04); }
+    add(cp, rbox(30, 0.6, 30, 0.2), M.cloth, 0, 9.3, 0, 0.05, 0, 0.04); add(cp, rbox(30.6, 0.4, 30.6, 0.1), M.inkLine, 0, 8.9, 0, 0.05, 0, 0.04); }
   add(g, cyl(7.0, 7.6, KH + 16, 18), M.wall, KX, (KH + 16) / 2 + 3, KZ);                         // the central tower
   add(g, cyl(7.8, 7.8, 1.2, 18), M.plinth, KX, KH + 19.6, KZ);
   add(g, cone(8.2, 11, 18), M.roof, KX, KH + 25.5, KZ);
@@ -346,6 +338,7 @@ export function castle(M) {
   for (const x of [-11.5, 0, 11.5]) hanging(g, M, KX + x, KH - 1, KZ + KW / 2 + 0.5, 11, 34, -Math.PI / 2); // the three tall hangings down the south face: the keep's anchor
   for (const [x, y] of [[-14, 30], [14, 30], [-14, 18], [14, 18]]) add(g, rbox(1.6, 5, 0.8, 0.2), M.inkLine, KX + x, y, KZ + KW / 2 + 0.3); // arrow slits
   add(g, rbox(7, 10, 1.2, 0.4), M.oak, KX, 8, KZ + KW / 2 + 0.6);                                 // the keep's door
+  add(g, rbox(12, 0.6, 7, 0.2), M.cloth, KX, 14.5, KZ + KW / 2 + 4, 0.25); add(g, rbox(12.4, 0.4, 7.4, 0.1), M.inkLine, KX, 14.1, KZ + KW / 2 + 4, 0.25); for (const x of [-5, 5]) add(g, cyl(0.4, 0.5, 12, 6), M.oak, KX + x, 8, KZ + KW / 2 + 7); // a team porch canopy over it
   for (const y of [5, 10]) add(g, rbox(7.4, 0.5, 0.4, 0.1), M.ironDark, KX, y, KZ + KW / 2 + 1.3);
   // the great hall against the east wall: stone under a steep gable roof along z, a chimney
   const HX = 36, HZ = -12, HW = 22, HL = 44, HH = 14;
@@ -355,7 +348,7 @@ export function castle(M) {
   add(g, rbox(1.6, 1.6, HL + 5, 0.4), M.oak, HX, HH + 15.2, HZ);                                 // the ridge beam
   add(g, rbox(4, 10, 4, 0.4), M.wallDark, HX + 6, HH + 14, HZ - 12); add(g, rbox(4.6, 1, 4.6, 0.2), M.plinth, HX + 6, HH + 19.4, HZ - 12); // the chimney
   for (const x of [-7, 7]) add(g, rbox(3, 5, 0.8, 0.3), M.inkLine, HX + x, 9, HZ + HL / 2 + 0.3);           // windows on the south gable's wall
-  hanging(g, M, HX + 2, HH + 11, HZ + HL / 2 + 0.6, 12, 9, -Math.PI / 2);                                    // a hanging on the hall's south gable
+  hanging(g, M, HX + 2, HH + 12, HZ + HL / 2 + 0.6, 16, 11, -Math.PI / 2);                                   // a hanging on the hall's south gable
   add(g, rbox(6, 9, 1.0, 0.4), M.oak, HX - 6, 6.5, HZ + HL / 2 + 0.6);                           // the hall's door
   // the gatehouse on the south wall: two round towers under cones flanking the gate, a team banner over the arch,
   // shields hung on the towers, banners down the wall either side
@@ -364,7 +357,7 @@ export function castle(M) {
     add(g, cyl(5.6, 6.2, 26, 16), M.wall, x, 15, GZ); add(g, cyl(6.4, 6.4, 1.2, 16), M.plinth, x, 28.4, GZ);
     roundCrenels(g, M.wall, x, GZ, 5.6, 29.2, 8);
     add(g, cone(6.0, 9, 16), M.roof, x, 34, GZ); add(g, sph(0.7, 8, 6), M.steel, x, 38.8, GZ);
-    hanging(g, M, x, 26.5, GZ + 6.4, 7, 12, -Math.PI / 2);                                         // a team cloth down each gate tower's face
+    hanging(g, M, x, 26.5, GZ + 6.4, 8.5, 14, -Math.PI / 2);                                       // a team cloth down each gate tower's face
     add(g, cyl(2.8, 2.8, 0.5, 18), M.cloth, x, 9, GZ + 6.6, Math.PI / 2, 0, 0);                    // a shield under it
     add(g, torus(2.8, 0.35, 18), M.inkLine, x, 9, GZ + 6.65); add(g, sph(0.7, 8, 6), M.steel, x, 9, GZ + 7.0);
   }
@@ -373,13 +366,13 @@ export function castle(M) {
   for (const y of [4.5, 7.5, 10.5]) add(g, rbox(6.4, 0.5, 0.4, 0.1), M.ironDark, 0, y, GZ + T / 2 + 1.9);  // its iron bands
   add(g, rbox(8, 7, 0.6, 0.15), M.cloth, 0, 17.5, GZ + T / 2 + 1.3);                             // the banner over the arch
   add(g, rbox(8.4, 0.5, 0.7, 0.05), M.inkLine, 0, 21.2, GZ + T / 2 + 1.3); add(g, rbox(8.4, 0.5, 0.7, 0.05), M.inkLine, 0, 13.8, GZ + T / 2 + 1.3);
-  for (const x of [-31, 31]) hanging(g, M, x, 15.5, GZ + T / 2 + 0.6, 30, 12, -Math.PI / 2);        // festival cloths draped down the south wall's face either side of the gate: the gate's anchor
+  for (const x of [-32, 32]) hanging(g, M, x, 15.5, GZ + T / 2 + 0.6, 32, 13, -Math.PI / 2);        // festival cloths draped down the south wall's face either side of the gate: the gate's anchor
   // the yard: a round pavilion and a long marquee in team cloth with pale stripes, a well, a cart of coin sacks,
   // barrels, a hay stack, a rack of spears
   const pav = grp(); pav.position.set(-30, 2, 26); g.add(pav);                                  // the one tent: a plain round pavilion in team cloth
   add(pav, cyl(11.5, 12, 7, 24), M.cloth, 0, 5.5, 0);
   add(pav, cyl(12.2, 12.2, 0.5, 24), M.inkLine, 0, 9.1, 0); add(pav, cyl(12.2, 12.2, 0.5, 24), M.inkLine, 0, 2.2, 0);
-  add(pav, cone(13, 11, 24), M.cloth, 0, 14.5, 0);
+  add(pav, cone(13, 11, 24), M.clothPale, 0, 14.5, 0); add(pav, torus(12.6, 0.35, 24), M.inkLine, 0, 9.2, 0, Math.PI / 2, 0, 0); // a pale canvas cone over the team drum (round 3: a team cone made it a gold silo)
   add(pav, cyl(0.4, 0.4, 5, 6), M.oak, 0, 21, 0); add(pav, plate([[0, -1.6], [5, -0.4], [5, 0.4], [0, 1.6]], 0.3, 0.1), M.cloth, 0.3, 22.8, 0, Math.PI / 2, 0, 0);
   for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(g, rbox(3, 2.6, 3, 0.3), M.oak, 22 + Math.cos(a) * 9, 3.3, 30 + Math.sin(a) * 6, 0, -a, 0); } // a ring of crates where the marquee stood
   add(g, cyl(0.6, 0.6, 6, 8), M.oak, 22, 5, 30); add(g, cyl(5, 5, 1, 12), M.wallDark, 22, 2.5, 30); // a mounting block

@@ -4,7 +4,7 @@
 //          Glint, Needle, Lens, Tidewell, a salt field between
 //   rows 1-3  the re-theme's options A, B, C (retheme.js: the kingdom's palette against the Expedition's finish, paired
 //          by letter) at the lower camera (--elev, 40 by default), on a repainted, lighter ground (`repaint`): Villager,
-//          Spearman, Knight, Castle against Traveller, Buggy, Marine, Data centre, a gold deposit between
+//          Guard, Knight, Castle against Bot, Buggy, Marine, Data centre, a gold deposit between
 // Writes compare.png (2x), compare-1x.png (CSS px), compare-grey.png (2x, greyscale), models/<name>.png and
 // models/<name>@2x.png (each new model alone at phone size in seats 0, 1 and 6 with its team share), shares.json, and
 // prints the team shares (review.mjs's measure: mask px over solid px at facing 0) and each row's ground value.
@@ -22,8 +22,9 @@ mkdirSync(join(outDir, 'models'), { recursive: true });
 
 // ---- what to render ----
 const TODAY = '^harvester_(0|1|15)_[01]$|^trooper_(0|1|15)_[01]$|^vanguard_1_0$|^lumen_(8|9)_0$|^scythe_(7|8|9)_[01]$|^prism_(8|9)_0$|^bldg_(core|conflux)$|^shard_[01]$';
-const KG = ['villager', 'spearman', 'knight'], EX = ['traveller', 'buggy', 'marine'];
-const RT = `^kg[${ROWS.join('')}]_(${KG.join('|')})_(0|1|15|2|8)_[01]$|^ex[${ROWS.join('')}]_(${EX.join('|')})_(8|9|7|10|0)_[01]$|^bldg_(kg|ex)[${ROWS.join('')}]_(castle|hall)$|^rt_coins$`;
+const KG = ['villager', 'guard', 'knight'], EX = ['bot', 'buggy', 'marine'];
+const EXV = 'A'; // the one Expedition look in every row (round 3: three finishes read as one Expedition three times)
+const RT = `^kg[${ROWS.join('')}]_(${KG.join('|')})_(0|1|15|2|8)_[01]$|^ex${EXV}_(${EX.join('|')})_(8|9|7|10|0)_[01]$|^bldg_kg[${ROWS.join('')}]_castle$|^bldg_ex${EXV}_hall$|^rt_coins$`;
 const t0 = Date.now();
 const today = SKIP_TODAY ? Object.assign([], { tints: null }) : await render3d(TODAY);
 const fresh = await render3d(RT, { elev: ELEV });
@@ -36,13 +37,16 @@ const tintOf = (seat) => { const c = TINTS[seat]; return [c >> 16 & 255, c >> 8 
 
 // ---- a canvas and the painters (as review.mjs) ----
 const canvas = (w, h) => ({ w, h, data: new Uint8ClampedArray(w * h * 4) });
+let SHADOW = 1; // (the new rows firm up the sprites' contact shadows: round 3's judge saw units sinking into the earth)
 function draw(c, s, x, y, seat = null, alpha = 1) {
   const { w, h, data } = s.img, ox = Math.round(x - s.anchor.x * w), oy = Math.round(y - s.anchor.y * h);
   const m = seat === null ? null : masks.get(s.name), tint = seat === null ? null : tintOf(seat);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const px = ox + i, py = oy + j; if (px < 0 || py < 0 || px >= c.w || py >= c.h) continue;
     const si = (j * w + i) * 4, di = (py * c.w + px) * 4;
-    let a = data[si + 3] / 255 * alpha; if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + data[si + k] * a;
+    let a = data[si + 3] / 255 * alpha;
+    if (SHADOW !== 1 && data[si + 3] === 150 && !data[si] && !data[si + 1] && !data[si + 2]) a = Math.min(1, a * SHADOW); // (the finish's shadow: black at 150)
+    if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + data[si + k] * a;
     if (m) { a = m.data[si + 3] / 255 * alpha; if (a) for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + m.data[si + k] * tint[k] * a; }
     c.data[di + 3] = 255;
   }
@@ -54,28 +58,32 @@ const tiles = {}; const groundTile = (v, paint) => (tiles[`${v}|${paint?.name ??
 function ground(c, y0, h, seed = 0, paint = null) {
   const ox = (seed * 37) % 64, oy = (seed * 53) % 64;
   for (let ty = -1; (ty - 1) * 64 < h; ty++) for (let tx = -1; (tx - 1) * 64 < c.w; tx++) {
-    const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(paint ? ((r * 100) | 0) % 8 : r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5, paint); // (the new rows spread all eight bases evenly: one base over most tiles showed its repeat without the game's shade layer)
+    const r = (((tx + 3) * 7919 + (ty + 3) * 104729 + seed * 15485863) % 97) / 97, t = groundTile(paint ? (r > 0.9 ? 8 + ((r * 1000) | 0) % 12 : ((r * 100) | 0) % 8) : r < 0.82 ? 0 : 1 + ((r * 100) | 0) % 5, paint); // (the new rows spread all eight bases evenly, one tile in ten a mark, a dirt patch when repainted)
     for (let y = 0; y < 64; y++) { const py = ty * 64 + y - oy; if (py < 0 || py >= h) continue; for (let x = 0; x < 64; x++) { const px = tx * 64 + x - ox; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4), ((py + y0) * c.w + px) * 4); } }
   }
 }
 /** The seabed tile repainted for a countryside: its values spread between a palette's dark and light (the tile's
  *  own grain, ripples and veins kept), so the mean lands about 0.3 (the review: lift to 0.25-0.35, one hue shift,
  *  no black blotches: base tiles only, no kelp marks). */
-function repaint(t, { dark, light }) {
+function repaint(t, { dark, light, dirt }) {
   const o = { w: t.w, h: t.h, data: new Uint8ClampedArray(t.data.length) }, lum = [];
   for (let i = 0; i < t.data.length; i += 4) lum.push(0.3 * t.data[i] + 0.59 * t.data[i + 1] + 0.11 * t.data[i + 2]);
-  const sorted = [...lum].sort((a, b) => a - b), lo = sorted[Math.floor(sorted.length * 0.03)], hi = sorted[Math.floor(sorted.length * 0.97)];
+  const base = lum.filter(v => v >= 38), sorted = base.sort((a, b) => a - b), lo = sorted[Math.floor(sorted.length * 0.03)], hi = sorted[Math.floor(sorted.length * 0.97)]; // (the kelp's darks, under 38, are the dirt, not the range)
   for (let i = 0, k = 0; i < t.data.length; i += 4, k++) {
     const u = 0.4 + (Math.max(0, Math.min(1, (lum[k] - lo) / (hi - lo))) - 0.4) * 0.5;       // (the contrast halved: at full stretch the veins' net read as a crackle over everything)
-    for (let ch = 0; ch < 3; ch++) o.data[i + ch] = Math.round(dark[ch] + (light[ch] - dark[ch]) * u);
+    const d = dirt ? Math.max(0, Math.min(1, (40 - lum[k]) / 10)) : 0;                        // a kelp mark becomes a patch of bare dirt
+    for (let ch = 0; ch < 3; ch++) o.data[i + ch] = Math.round((dark[ch] + (light[ch] - dark[ch]) * u) * (1 - d) + (dirt ? dirt[ch] : 0) * d);
     o.data[i + 3] = 255;
   }
   return o;
 }
 const GROUNDS = {
-  A: { name: 'earth', dark: [62, 50, 36], light: [130, 112, 82] },        // trodden earth, warm
-  B: { name: 'dry grass', dark: [66, 60, 38], light: [134, 122, 80] },    // dry grass, tan with a little olive
-  C: { name: 'pale scrub', dark: [70, 60, 44], light: [138, 124, 92] },   // sandy scrub, a touch paler
+  // Stelian (round 3): grass, a mid value, a few dirt patches, the same under all three kingdom palettes; green and
+  // lighter than the units' mid-darks (oak, horse, iron at about 0.25) so the dark bodies and hard shadows stand off
+  // it by value, the pale tops by their ink
+  A: { name: 'grass', dark: [52, 74, 38], light: [118, 144, 74], dirt: [104, 86, 58] },
+  B: { name: 'grass', dark: [52, 74, 38], light: [118, 144, 74], dirt: [104, 86, 58] },
+  C: { name: 'grass', dark: [52, 74, 38], light: [118, 144, 74], dirt: [104, 86, 58] },
 };
 function half(c) {
   const o = canvas(c.w >> 1, c.h >> 1);
@@ -106,7 +114,7 @@ function label(c, text, x, y, k = 3) {
 const shares = {};
 const share = (name) => { const s = get(name), m = masks.get(name); let solid = 0, team = 0; for (let i = 3; i < s.img.data.length; i += 4) { if (s.img.data[i] === 255) solid++; if (m.data[i] >= 128) team++; } return shares[name] = +(team / solid).toFixed(3); };
 console.log('team colour share of the solid pixels (facing 0; the floor is 1/6 = 0.167):');
-for (const v of ROWS) for (const name of [...KG.map(k => `kg${v}_${k}_0_0`), `bldg_kg${v}_castle`, ...EX.map(k => `ex${v}_${k}_0_0`), `bldg_ex${v}_hall`]) { const sh = share(name); console.log(`  ${name.padEnd(20)} ${sh.toFixed(3)}${sh < 1 / 6 ? '  BELOW THE FLOOR' : ''}`); }
+for (const name of [...ROWS.flatMap(v => [...KG.map(k => `kg${v}_${k}_0_0`), `bldg_kg${v}_castle`]), ...EX.map(k => `ex${EXV}_${k}_0_0`), `bldg_ex${EXV}_hall`]) { const sh = share(name); console.log(`  ${name.padEnd(20)} ${sh.toFixed(3)}${sh < 1 / 6 ? '  BELOW THE FLOOR' : ''}`); }
 writeFileSync(join(outDir, 'shares.json'), JSON.stringify(shares, null, 1));
 
 // ---- the rows ----
@@ -117,18 +125,18 @@ if (!SKIP_TODAY) rows.push({ text: `ROW 0  TODAY: HARBOUR V VAEL, 55° CAMERA, T
   ['lumen_8_0', 1120, 330, 1], ['lumen_9_0', 1080, 380, 1], ['scythe_8_0', 1040, 450, 1], ['scythe_7_1', 1000, 500, 1], ['scythe_9_0', 1060, 560, 1], ['prism_8_0', 1010, 620, 1], ['prism_9_0', 1100, 640, 1],
 ] });
 const KINGDOM = { A: 'sandstone, clay tiles, bright steel', B: 'slate grey, slate, blackened iron', C: 'timber, thatch, bright steel' };
-const EXPED = { A: 'limewash, pale canvas, off-white kit', B: 'olive canvas, dark timber, olive kit', C: 'black iron, timber, black kit' };
-for (const v of ROWS) rows.push({ text: `ROW ${v}  KINGDOM: ${KINGDOM[v]}  V  EXPEDITION: ${EXPED[v]}  (${ELEV}°, ${GROUNDS[v].name})`, paint: GROUNDS[v], seed: 2 + ROWS.indexOf(v), list: [
-  [`bldg_kg${v}_castle`, 330, 440, 0], ['rt_coins', 844, 430], [`bldg_ex${v}_hall`, 1360, 440, 1],
-  [`kg${v}_villager_1_0`, 560, 330, 0], [`kg${v}_villager_0_1`, 600, 380, 0], [`kg${v}_spearman_0_0`, 640, 450, 0], [`kg${v}_spearman_1_1`, 690, 500, 0], [`kg${v}_spearman_15_0`, 620, 560, 0], [`kg${v}_knight_0_0`, 700, 630, 0], [`kg${v}_knight_2_1`, 560, 680, 0],
-  [`ex${v}_traveller_8_0`, 1120, 330, 1], [`ex${v}_traveller_9_1`, 1080, 380, 1], [`ex${v}_buggy_8_0`, 1040, 450, 1], [`ex${v}_buggy_7_1`, 990, 510, 1], [`ex${v}_buggy_9_0`, 1070, 570, 1], [`ex${v}_marine_8_0`, 1010, 620, 1], [`ex${v}_marine_9_1`, 1100, 650, 1], [`ex${v}_marine_10_0`, 1150, 590, 1],
+const EXPED = '(one look): stone, timber, off-white kit';
+for (const v of ROWS) rows.push({ text: `ROW ${v}  KINGDOM: ${KINGDOM[v]}  V  EXPEDITION ${EXPED}  (${ELEV}°, ${GROUNDS[v].name})`, paint: GROUNDS[v], seed: 2 + ROWS.indexOf(v), shadow: 1.45, list: [
+  [`bldg_kg${v}_castle`, 330, 440, 0], ['rt_coins', 844, 430], [`bldg_ex${EXV}_hall`, 1360, 440, 1],
+  [`kg${v}_villager_1_0`, 560, 330, 0], [`kg${v}_villager_0_1`, 600, 380, 0], [`kg${v}_guard_0_0`, 640, 450, 0], [`kg${v}_guard_1_1`, 690, 500, 0], [`kg${v}_guard_15_0`, 620, 560, 0], [`kg${v}_knight_0_0`, 700, 630, 0], [`kg${v}_knight_2_1`, 560, 680, 0],
+  [`ex${EXV}_bot_8_0`, 1120, 330, 1], [`ex${EXV}_bot_9_1`, 1080, 380, 1], [`ex${EXV}_buggy_8_0`, 1040, 450, 1], [`ex${EXV}_buggy_7_1`, 990, 510, 1], [`ex${EXV}_buggy_9_0`, 1070, 570, 1], [`ex${EXV}_marine_8_0`, 1010, 620, 1], [`ex${EXV}_marine_9_1`, 1100, 650, 1], [`ex${EXV}_marine_10_0`, 1150, 590, 1],
 ] });
 const big = canvas(W, H * rows.length);
 rows.forEach((row, n) => {
   ground(big, n * H, H, row.seed, row.paint);
   const gv = meanValue(big, n * H, H);
   const sub = canvas(W, H); sub.data.set(big.data.subarray(n * H * W * 4, (n + 1) * H * W * 4));
-  place(sub, row.list);
+  SHADOW = row.shadow ?? 1; place(sub, row.list); SHADOW = 1;
   label(sub, `${row.text}  GROUND ${gv.toFixed(2)}`, 12, 12, 2);
   big.data.set(sub.data, n * H * W * 4);
   console.log(`row ${n}: ground mean value ${gv.toFixed(3)}`);
@@ -139,10 +147,11 @@ writeFileSync(join(outDir, 'compare-grey.png'), encodePNG(grey(big)));
 
 // ---- each new model alone at phone size, seats 0, 1 and 6, its share in the label ----
 const B = 192;
-for (const v of ROWS) for (const [side, kinds, bld] of [['kg', KG, 'castle'], ['ex', EX, 'hall']]) for (const kind of [...kinds, bld]) {
+for (const [side, v, kinds, bld] of [...ROWS.map(v => ['kg', v, KG, 'castle']), ['ex', EXV, EX, 'hall']]) for (const kind of [...kinds, bld]) {
   const isB = kind === bld, name = isB ? `bldg_${side}${v}_${bld}` : `${side}${v}_${kind}_0_0`, P = isB ? 520 : B;
-  const c = canvas(P * 3, P + 30); ground(c, 0, P + 30, 7 + kind.length, GROUNDS[v]);
+  const c = canvas(P * 3, P + 30); ground(c, 0, P + 30, 7 + kind.length, GROUNDS[v]); SHADOW = 1.45;
   [0, 1, 6].forEach((seat, k) => draw(c, get(name), P * k + P / 2, P / 2 + (isB ? P * 0.12 : P * 0.1), seat));
+  SHADOW = 1;
   label(c, `${name}  SEATS 0 1 6  TEAM ${shares[name].toFixed(3)}`, 6, P + 6, 2);
   writeFileSync(join(outDir, 'models', `${name}@2x.png`), encodePNG(c)); writeFileSync(join(outDir, 'models', `${name}.png`), encodePNG(half(c)));
 }

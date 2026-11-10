@@ -8,14 +8,14 @@
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, spearman, knight, castle } from './kingdom.js';
-import { makeExpeditionMats, utilityBot, robotDog, marine, dataCentre, coins } from './expedition.js';
+import { makeExpeditionMats, traveller, buggy, marine, dataCentre, coins } from './expedition.js';
 
 export const RT_ELEV = 40;
 export const VARIANTS = ['A', 'B', 'C'];
 /** The units: kind -> builder, sim-ish cell radius and height (the cell holds every facing and frame). */
 export const RT_UNITS = {
   kg: { villager: { build: villager, r: 13, h: 24 }, spearman: { build: spearman, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 } },
-  ex: { bot: { build: utilityBot, r: 15, h: 12 }, dog: { build: robotDog, r: 12, h: 10 }, marine: { build: marine, r: 18, h: 20 } },
+  ex: { traveller: { build: traveller, r: 13, h: 18 }, buggy: { build: buggy, r: 16, h: 14 }, marine: { build: marine, r: 15, h: 20 } },
 };
 export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: dataCentre, n: 4, h: 46 } } };
 const MATS = { kg: makeKingdomMats, ex: makeExpeditionMats };

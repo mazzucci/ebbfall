@@ -4,7 +4,7 @@
 //          Glint, Needle, Lens, Tidewell, a salt field between
 //   rows 1-3  the re-theme's options A, B, C (retheme.js: the kingdom's palette against the Expedition's finish, paired
 //          by letter) at the lower camera (--elev, 40 by default), on a repainted, lighter ground (`repaint`): Villager,
-//          Spearman, Knight, Castle against Utility bot, Robot dog, Marine, Data centre, a gold deposit between
+//          Spearman, Knight, Castle against Traveller, Buggy, Marine, Data centre, a gold deposit between
 // Writes compare.png (2x), compare-1x.png (CSS px), compare-grey.png (2x, greyscale), models/<name>.png and
 // models/<name>@2x.png (each new model alone at phone size in seats 0, 1 and 6 with its team share), shares.json, and
 // prints the team shares (review.mjs's measure: mask px over solid px at facing 0) and each row's ground value.
@@ -22,7 +22,7 @@ mkdirSync(join(outDir, 'models'), { recursive: true });
 
 // ---- what to render ----
 const TODAY = '^harvester_(0|1|15)_[01]$|^trooper_(0|1|15)_[01]$|^vanguard_1_0$|^lumen_(8|9)_0$|^scythe_(7|8|9)_[01]$|^prism_(8|9)_0$|^bldg_(core|conflux)$|^shard_[01]$';
-const KG = ['villager', 'spearman', 'knight'], EX = ['bot', 'dog', 'marine'];
+const KG = ['villager', 'spearman', 'knight'], EX = ['traveller', 'buggy', 'marine'];
 const RT = `^kg[${ROWS.join('')}]_(${KG.join('|')})_(0|1|15|2|8)_[01]$|^ex[${ROWS.join('')}]_(${EX.join('|')})_(8|9|7|10|0)_[01]$|^bldg_(kg|ex)[${ROWS.join('')}]_(castle|hall)$|^rt_coins$`;
 const t0 = Date.now();
 const today = SKIP_TODAY ? Object.assign([], { tints: null }) : await render3d(TODAY);
@@ -116,13 +116,12 @@ if (!SKIP_TODAY) rows.push({ text: `ROW 0  TODAY: HARBOUR V VAEL, 55° CAMERA, T
   ['harvester_1_0', 560, 330, 0], ['harvester_0_1', 600, 380, 0], ['trooper_0_0', 640, 450, 0], ['trooper_1_1', 680, 500, 0], ['trooper_15_0', 620, 560, 0], ['vanguard_1_0', 700, 620, 0],
   ['lumen_8_0', 1120, 330, 1], ['lumen_9_0', 1080, 380, 1], ['scythe_8_0', 1040, 450, 1], ['scythe_7_1', 1000, 500, 1], ['scythe_9_0', 1060, 560, 1], ['prism_8_0', 1010, 620, 1], ['prism_9_0', 1100, 640, 1],
 ] });
-const KINGDOM = { A: 'sandstone, clay tiles, bright steel', B: 'granite, slate, blackened iron', C: 'timber, thatch, bright steel' };
-
-const EXPED = { A: 'off-white composite; limewash, canvas', B: 'olive panels; pale planks, canvas', C: 'aluminium, black; fieldstone, planks' };
+const KINGDOM = { A: 'sandstone, clay tiles, bright steel', B: 'slate grey, slate, blackened iron', C: 'timber, thatch, bright steel' };
+const EXPED = { A: 'limewash, pale canvas, off-white kit', B: 'olive canvas, dark timber, olive kit', C: 'black iron, timber, black kit' };
 for (const v of ROWS) rows.push({ text: `ROW ${v}  KINGDOM: ${KINGDOM[v]}  V  EXPEDITION: ${EXPED[v]}  (${ELEV}°, ${GROUNDS[v].name})`, paint: GROUNDS[v], seed: 2 + ROWS.indexOf(v), list: [
   [`bldg_kg${v}_castle`, 330, 440, 0], ['rt_coins', 844, 430], [`bldg_ex${v}_hall`, 1360, 440, 1],
   [`kg${v}_villager_1_0`, 560, 330, 0], [`kg${v}_villager_0_1`, 600, 380, 0], [`kg${v}_spearman_0_0`, 640, 450, 0], [`kg${v}_spearman_1_1`, 690, 500, 0], [`kg${v}_spearman_15_0`, 620, 560, 0], [`kg${v}_knight_0_0`, 700, 630, 0], [`kg${v}_knight_2_1`, 560, 680, 0],
-  [`ex${v}_bot_8_0`, 1120, 330, 1], [`ex${v}_bot_9_1`, 1080, 380, 1], [`ex${v}_dog_8_0`, 1040, 450, 1], [`ex${v}_dog_7_1`, 1000, 500, 1], [`ex${v}_dog_9_0`, 1060, 560, 1], [`ex${v}_marine_8_0`, 1010, 620, 1], [`ex${v}_marine_9_1`, 1100, 650, 1], [`ex${v}_marine_10_0`, 1150, 590, 1],
+  [`ex${v}_traveller_8_0`, 1120, 330, 1], [`ex${v}_traveller_9_1`, 1080, 380, 1], [`ex${v}_buggy_8_0`, 1040, 450, 1], [`ex${v}_buggy_7_1`, 990, 510, 1], [`ex${v}_buggy_9_0`, 1070, 570, 1], [`ex${v}_marine_8_0`, 1010, 620, 1], [`ex${v}_marine_9_1`, 1100, 650, 1], [`ex${v}_marine_10_0`, 1150, 590, 1],
 ] });
 const big = canvas(W, H * rows.length);
 rows.forEach((row, n) => {

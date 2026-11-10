@@ -164,27 +164,6 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(E.G.units.every(u => !u.dead));
 });
 
-test('a harvester whose last node is a mine shaft goes idle instead of getting stuck', { skip }, () => {
-  // Reproduces the review finding: resume after building, with last_node = a mine shaft (never mined).
-  for (const S of [E]) {
-    S.resetGame(7, 1);
-    S.setResources(E.PLAYER, 1000, 0);
-    const G = S.G, core = G.bldgs.find(b => b.team === S.PLAYER), vent = S.map.nodes.find(n => n.type === 'ether');
-    const h = G.units.find(u => u.team === S.PLAYER);
-    S.startGather(h, vent); // refused (a shaft is not mined), last node unchanged
-    let placed = false;
-    for (let r = 3; r < 9 && !placed; r++) for (let a = 0; a < 12 && !placed; a++) {
-      const tx = Math.round(core.tx + 2 + Math.cos(a / 12 * 6.28) * r - 1), ty = Math.round(core.ty + 2 + Math.sin(a / 12 * 6.28) * r - 1);
-      if (S.canPlace('depot', tx, ty, S.PLAYER)) placed = !S.placeBuilding(S.PLAYER, 'depot', tx, ty, h);
-    }
-    assert.ok(placed);
-    let toasts = 0;
-    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Excavator/.test(e.msg)) toasts++; G.events.length = 0; }
-    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} Excavator toasts`);
-    assert.notEqual(G.units.find(u => u.id === h.id).task.t, 'build');
-  }
-});
-
 test('out-of-range teams are rejected without poisoning the game', { skip }, () => {
   E.resetGame(3, 1);
   assert.equal(E.canAfford(2, [0, 0]), false);
@@ -214,33 +193,34 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
-test('an Excavator knows its mine shaft and digs salt by itself; harvesters ordered to the shaft are refused', { skip }, () => {
+test('a Market, built in the base once the Crew Hall stands, earns salt by itself; one per Castle', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
-  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the nearest, out in the open
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
-  // (the Excavator needs the Crew Hall; the shaft, out in the open, is on the map from the start)
-  let rax = null;
-  for (let r = 4; r < 12 && !rax; r++) for (let a = 0; a < 16 && !rax; a++) {
-    const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
-    if (E.canPlace('barracks', tx, ty, E.PLAYER)) { assert.equal(E.placeBuilding(E.PLAYER, 'barracks', tx, ty, hs[1]), null); rax = { tx, ty }; }
-  }
-  assert.ok(rax, 'room for a Crew Hall');
-  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null, 'refused before the Crew Hall stands');
+  assert.equal(E.map.nodes.filter(n => n.type === 'ether').length, 0, 'no mine shaft on the map');
+  const spot = (type) => {
+    for (let r = 4; r < 12; r++) for (let a = 0; a < 16; a++) {
+      const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
+      if (E.canPlace(type, tx, ty, E.PLAYER)) return { tx, ty };
+    }
+    return null;
+  };
+  const r = spot('barracks');
+  assert.equal(E.placeBuilding(E.PLAYER, 'barracks', r.tx, r.ty, hs[1]), null);
+  const m = spot('extractor');
+  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null, 'refused before the Crew Hall stands');
   runSeconds(60);
-  assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
+  assert.equal(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null);
+  const m2 = spot('extractor');
+  assert.match(E.placeBuilding(E.PLAYER, 'extractor', m2.tx, m2.ty, hs[2]), /One Excavator per Lighthouse/);
+  runSeconds(40); // (25 s of construction)
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
-  assert.equal(ext.vent, vent);
-  runSeconds(60); // walk over, then 25 s of construction
-  assert.ok(ext.done, 'Excavator built');
+  assert.ok(ext.done, 'the Market built');
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
   assert.equal(E.G.res[E.PLAYER][0], 10, 'ten salt in 20 s, nobody mining');
-  for (const h of hs) E.startGather(h, ext.vent);
-  assert.ok(hs.every(h => h.task.t !== 'gather'), 'nobody works the shaft');
-  assert.equal(E.G.res[E.PLAYER][1], 0, 'no ether');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {

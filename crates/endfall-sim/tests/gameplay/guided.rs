@@ -165,15 +165,11 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                     step += 1;
                     step_at = t;
                     if step == 4 {
-                        w.guided_hold(false); // (the army and the Excavator ready: the guide lets them come)
+                        w.guided_hold(false); // (the army and the Market ready: the guide lets them come)
                         released = Some(t);
                     }
                 } else if !reading && !placed(&w, kind) {
-                    let (tx, ty) = if kind.def().on_vent {
-                        w.guided_shaft(PLAYER).unwrap()
-                    } else {
-                        spot(&w, kind)
-                    };
+                    let (tx, ty) = spot(&w, kind);
                     if let Some(h) = builder() {
                         let _ = w.apply(
                             PLAYER,

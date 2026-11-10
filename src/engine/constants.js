@@ -46,18 +46,18 @@ const UNIT_TEXT = {
 const BLDG_TEXT = {
   core: { hot: 'L', desc: 'Trains Riggers. Salt drop-off. +20 population.' },
   depot: { hot: 'W', desc: '+8 population.' },
-  // (on a mine shaft: each race's own verb, `verb` and `doing`, for the panel and the guide)
-  extractor: { hot: 'X', verb: 'digs', doing: 'Digging', desc: 'Built on a mine shaft: digs salt by itself, half a salt a second, with no workers.' },
+  // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
+  extractor: { hot: 'X', verb: 'earns', doing: 'Earning', desc: 'Built in your base: earns salt by itself, half a salt a second, with no workers. One per Lighthouse.' },
   barracks: { hot: 'C', desc: 'Trains Pickets and Harpooners.' },
   forge: { hot: 'K', desc: 'Researches Weapons, Plating, Sandbags and All Hands; unlocks Knights and the Slipway\'s machines.' },
   factory: { hot: 'S', desc: 'Builds the machines, Windjammers and Anchor Guns (both need a Workshop), and the Spyglass.' },
   turret: { hot: 'O', desc: 'Static defence against ground and air.' },
-  airfield: { hot: 'F', desc: 'Trains Riders, and Knights (they need a Workshop). Researches Tailwind.' },
+  airfield: { hot: 'F', desc: 'Trains Riders, and Knights (they need a Workshop). Researches Tailwind.' }, // ("Requires Excavator." added from the tables)
   // the Expedition
   conflux: { hot: 'T', desc: 'Trains Glints. Salt drop-off. +20 population.' },
   spire: { hot: 'S', desc: '+8 population.' },
   // (still on a mine shaft until the economy PR, which frees it of the shaft and its salt)
-  siphon: { hot: 'I', verb: 'draws', doing: 'Drawing', desc: 'Recruits Lenses, and Bruisers (they need a Glasshouse). Stands on a mine shaft and draws salt by itself, half a salt a second.' },
+  siphon: { hot: 'I', desc: 'Recruits Lenses, and Bruisers (they need a Glasshouse). Build as many as you like, anywhere.' },
   kiln: { hot: 'C', desc: 'Builds Needles, Conchs and Petrels (Conchs need a Glasshouse).' },
   loom: { hot: 'G', desc: 'Researches Weapons, Plating and Spindrift; unlocks Conchs and Bruisers.' },
   ward: { hot: 'A', desc: 'Sentinel against ground and air.' },

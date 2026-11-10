@@ -20,7 +20,7 @@ pub const VAEL: Faction = Faction {
         BldgKind::Eclipse,
     ],
     supply: BldgKind::Spire,
-    ether: BldgKind::Siphon,
+    market: None,
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     ai: AiScript {
@@ -91,19 +91,19 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Sellsword: the Expedition's main ranged infantry, ground and air (the Lens's numbers, without its Surge,
-/// cheaper and quicker to hire: two Recruiting posts on the shafts are its only barracks until the economy PR).
+/// The Sellsword: the Expedition's main ranged infantry, ground and air (the Lens's numbers, without its Surge, a
+/// little quicker to hire).
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Lens",
-    cost: [100, 0],
+    cost: [110, 0],
     supply: 2,
     hp: 90.0,
     armor: 1.0,
     speed: 85.0,
     sight: 9.0,
     r: 11.0,
-    build: 24.0,
+    build: 27.0,
     bio: true,
     weapon: Some(Weapon {
         range: 5.5,
@@ -256,8 +256,8 @@ pub(super) const SPIRE: BldgDef = BldgDef {
     sight: 6.0,
     ..BLDG
 };
-/// The Recruiting post: Sellswords, and Bruisers once a Lab stands; the Expedition's barracks. Until the economy PR it
-/// still stands on a shaft and pumps salt as the Kingdom's Excavator does (priced as a barracks).
+/// The Recruiting post: Sellswords, and Bruisers once a Lab stands; the Expedition's barracks, built anywhere and as
+/// many as it likes. It pays nothing.
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Siphon",
@@ -265,7 +265,6 @@ pub(super) const SIPHON: BldgDef = BldgDef {
     hp: 600.0,
     build: 40.0,
     sight: 7.0,
-    on_vent: true,
     trains: &[UnitKind::Prism, UnitKind::Bruiser],
     ..BLDG
 };

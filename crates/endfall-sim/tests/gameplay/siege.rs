@@ -364,3 +364,28 @@ fn a_harpooned_trebuchet_waits_where_it_is() {
         "then anchors"
     );
 }
+
+#[test]
+fn a_trebuchet_on_its_tracks_does_not_answer_a_shooter_inside_its_blind_ring() {
+    // Shot at from inside its ring (a Knight beside it), a Trebuchet on its way (attack-moving, packed up) does not take
+    // an attack it could never carry out: it goes on. A Knight that strikes it from past its ring is answered.
+    let mut w = tech_arena(5);
+    let tank = w.make_unit(UnitKind::SiegeTank, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    w.attack_move(tank, 50.0 * TILE, 30.0 * TILE);
+    let near = w.make_unit(UnitKind::Knight, ENEMY, 31.0 * TILE, 30.0 * TILE);
+    w.hold_unit(near);
+    w.damage(tank, 1.0, Some(near));
+    assert!(
+        matches!(w.unit(tank).unwrap().task, Task::AMove { .. }),
+        "inside its ring: no answer, it goes on: {:?}",
+        w.unit(tank).unwrap().task
+    );
+    let far = w.make_unit(UnitKind::Knight, ENEMY, 36.0 * TILE, 30.0 * TILE);
+    w.hold_unit(far);
+    w.damage(tank, 1.0, Some(far));
+    assert!(
+        matches!(w.unit(tank).unwrap().task, Task::Attack { target, .. } if target == far),
+        "past its ring: answered: {:?}",
+        w.unit(tank).unwrap().task
+    );
+}

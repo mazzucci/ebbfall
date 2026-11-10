@@ -14,8 +14,6 @@ impl World {
             anti_air,
             expand,
             dry,
-            cx,
-            cy,
             ..
         } = brain.clone();
         // Research: an economy tech (Rapid Construction) first, once its opening factories stand; its techs
@@ -28,15 +26,12 @@ impl World {
         // army first)
         let script = &self.factions[e as usize].ai;
         let (rax, tech_from) = (script.rax, script.tech_from);
-        let schedule = self.rax_schedule(t);
-        let on_schedule =
-            self.ai_count(&my_b, false, rax) >= self.rax_target(&my_b, schedule, cx, cy);
+        let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
         let techs = d.abilities && t > d.research_from.min(tech_from) && on_schedule;
         // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research
         // at all: it pays back over the whole game.
-        let economy = d.research_from < NEVER
-            && on_schedule
-            && self.ai_count(&my_b, true, rax) >= self.rax_target(&my_b, d.rax, cx, cy);
+        let economy =
+            d.research_from < NEVER && on_schedule && self.ai_count(&my_b, true, rax) >= d.rax;
         let levels_due = t > d.research_from;
         let threatened = intruder.is_some() || (enemy_air > 0 && anti_air < enemy_air * 2);
         let mut saving = false;

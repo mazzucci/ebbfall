@@ -43,24 +43,6 @@ impl World {
         self.guided |= on;
     }
 
-    /// The open shaft (vent) nearest seat `s`'s start in a straight line (ties by id), its top-left tile: the one the
-    /// guided first game's extractor step leads to (src/client/tutorial.js picks the same).
-    pub fn guided_shaft(&self, s: u8) -> Option<(i32, i32)> {
-        let (bx, by) = *self.map.bases.get(s as usize)?;
-        let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
-        self.map
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .min_by(|a, b| {
-                let d = |n: &crate::map::Node| {
-                    jsmath::hypot(n.tx as f64 + 1.0 - cx, n.ty as f64 + 1.0 - cy)
-                };
-                d(a).partial_cmp(&d(b)).unwrap().then(a.id.cmp(&b.id))
-            })
-            .map(|n| (n.tx, n.ty))
-    }
-
     /// Whether the waves are held at game time `t` (s).
     pub(crate) fn waves_held(&self, t: f64) -> bool {
         self.hold_waves && t < HOLD_WAVES_MAX
@@ -166,7 +148,7 @@ impl World {
                 continue;
             }
             let razing = matches!(u.task, Task::Attack { target, .. }
-                if self.bldg(target).is_some_and(|b| b.vent.is_some()));
+                if self.bldg(target).is_some_and(|b| b.kind.def().pays));
             let prey = self
                 .units
                 .iter()
@@ -188,8 +170,9 @@ impl World {
         self.ai_mut().raiders = keep;
     }
 
-    /// The enemy extractor nearest (ux, uy) that this seat has seen and that raider `r` can hit, standing on a shaft
-    /// out in the open: more than 12 tiles from every enemy headquarters (a raid, not an attack on a base).
+    /// The enemy Market nearest (ux, uy) that this seat has seen and that raider `r` can hit, standing out in the open:
+    /// more than 12 tiles from every enemy headquarters (a raid, not an attack on a base; Markets go up in bases, so
+    /// rarely).
     fn remote_extractor(&self, r: Id, ux: f64, uy: f64) -> Option<Id> {
         let cores: Vec<(f64, f64)> = self
             .bldgs
@@ -202,7 +185,7 @@ impl World {
             .iter()
             .filter_map(|k| self.bldg(k.0))
             .filter(|b| {
-                b.vent.is_some()
+                b.kind.def().pays
                     && self.hostile(b.team)
                     && self.can_hit(r, b.id)
                     && !self.spared(self.ai_turn, b) // (the guided game's: never a target)
@@ -1511,34 +1494,34 @@ mod tests {
     }
 
     #[test]
-    fn raiders_with_no_worker_in_sight_go_for_a_known_extractor_on_an_open_shaft() {
-        // The player's Pump out on its far shaft, known to the AI; its raiders see no worker: they attack the Pump.
-        // A Pump by the player's Core is no raid's target, and a worker in sight comes first.
+    fn raiders_with_no_worker_in_sight_go_for_a_known_market_out_in_the_open() {
+        // The player's Market out past its base (Markets go up in bases, but one may stand anywhere), known to the
+        // AI; its raiders see no worker: they attack the Market. A worker in sight comes first.
         let mut w = World::new(17, 1);
         let (bx, by) = w.map.bases[PLAYER as usize];
         let core = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
-        let far = w
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .max_by(|a, b| {
-                let d = |n: &crate::map::Node| (n.x - core.0).hypot(n.y - core.1);
-                // (the player's far shaft: its own, nearer it than the AI's start)
-                let own = |n: &crate::map::Node| {
-                    let (ox, oy) = w.map.bases[ENEMY as usize];
-                    let o = ((ox as f64 + 2.0) * TILE, (oy as f64 + 2.0) * TILE);
-                    d(n) < (n.x - o.0).hypot(n.y - o.1)
-                };
-                (own(a), -d(a)).partial_cmp(&(own(b), -d(b))).unwrap()
+        let far = (14..20)
+            .flat_map(|r| (0..32).map(move |a| (r, a)))
+            .map(|(r, a)| {
+                let ang = a as f64 / 32.0 * std::f64::consts::TAU;
+                (
+                    (bx as f64 + 2.0 + ang.cos() * r as f64) as i32,
+                    (by as f64 + 2.0 + ang.sin() * r as f64) as i32,
+                )
             })
-            .map(|n| (n.tx, n.ty))
-            .unwrap();
+            .find(|&(tx, ty)| {
+                w.can_place(BldgKind::Extractor, tx, ty, PLAYER) || {
+                    let (x, y) = (tx, ty);
+                    w.map.in_map(x + 1, y + 1)
+                        && (0..2).all(|dy| (0..2).all(|dx| !w.map.blocked(x + dx, y + dy)))
+                }
+            })
+            .expect("open ground out past the base");
         let pump = w.make_building(BldgKind::Extractor, PLAYER, far.0, far.1, true);
         let p = w.bldg(pump).unwrap().clone();
         assert!(
             (p.x - core.0).hypot(p.y - core.1) > 12.0 * TILE,
-            "the Pump stands out in the open"
+            "the Market stands out in the open"
         );
         w.ai_turn = ENEMY;
         let raiders: Vec<Id> = (0..2)

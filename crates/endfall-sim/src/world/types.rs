@@ -204,7 +204,6 @@ pub struct Bldg {
     pub cd: f64,
     pub flash: f64,
     pub r: f64,
-    pub vent: Option<Id>,
     pub aim: f64,
     /// Upgrade being researched here and its progress (0..1).
     pub research: Option<(Upgrade, f64)>,

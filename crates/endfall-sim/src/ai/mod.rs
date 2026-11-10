@@ -85,13 +85,7 @@ pub(crate) struct Ai {
     pub staging: Option<(f64, f64, f64)>,
     /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
     pub check: Option<crate::world::LaunchCheck>,
-    /// The shafts (vents) by walking distance from its main: the main's tile it was measured from, and (steps, node
-    /// id) nearest first (`World::free_shaft`).
-    pub shafts: Option<((i32, i32), ShaftWalk)>,
 }
-
-/// Shafts by walking distance: (steps, node id), nearest first.
-pub(crate) type ShaftWalk = Vec<(u32, Id)>;
 
 impl World {
     /// Switch the opponents off (tests of the player's own abilities should not race the AI's attacks). The seats
@@ -193,7 +187,6 @@ impl World {
             ready_since: None,
             staging: None,
             check: None,
-            shafts: None,
             sweep: 0,
             sweep_since: 0.0,
         }
@@ -392,7 +385,7 @@ pub(crate) struct Brain {
     cy: f64,
     rally: Pt,
     building: Vec<BldgKind>,
-    /// Its finished Pumps.
+    /// Its finished Markets.
     pumps: usize,
     cores: Vec<Id>,
     want: Option<BldgKind>,

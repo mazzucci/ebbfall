@@ -107,12 +107,12 @@ impl World {
         best.map(|(_, _, id)| id)
     }
 
-    /// The guided first game (`guided_hold`): the opponent's units (`team`) leave a person's extractors on the open
-    /// shafts alone while that person still has a headquarters, so the guide's Pump, out past the base, outlives the
-    /// wave that walks by it (and a game down to its Pump still ends).
+    /// The guided first game (`guided_hold`): the opponent's units (`team`) leave a person's Markets alone while that
+    /// person still has a headquarters, so the guide's Market outlives the wave that walks by it (and a game down to
+    /// its Market still ends).
     pub(crate) fn spared(&self, team: u8, b: &Bldg) -> bool {
         self.guided
-            && b.vent.is_some()
+            && b.kind.def().pays
             && self.is_ai(team)
             && !self.is_ai(b.team)
             && self
@@ -267,8 +267,10 @@ impl World {
             } => self.threat_tier(cur, me_air) > self.threat_tier(by, me_air),
             _ => false,
         };
+        // (a siege gun never answers a shooter inside its blind ring: it could never fire at it)
+        let blind = self.inside_ring(i, by);
         let u = &mut self.units[i];
-        let answers = !u.kind.def().worker && u.kind.def().damage_vs(by_air) > 0.0;
+        let answers = !u.kind.def().worker && u.kind.def().damage_vs(by_air) > 0.0 && !blind;
         match u.task {
             Task::Idle | Task::AMove { .. } if answers => {
                 // Idle: come back to this spot afterwards (and the leash applies).
@@ -287,8 +289,13 @@ impl World {
         }
         for a in self.nearby(ux, uy, 180.0) {
             if let Some(j) = self.ui(a) {
+                let blind = self.inside_ring(j, by);
                 let o = &mut self.units[j];
-                if o.team != team || o.kind.def().worker || o.kind.def().damage_vs(by_air) <= 0.0 {
+                if o.team != team
+                    || o.kind.def().worker
+                    || o.kind.def().damage_vs(by_air) <= 0.0
+                    || blind
+                {
                     continue;
                 }
                 if o.task == Task::Idle {
@@ -303,6 +310,17 @@ impl World {
                 }
             }
         }
+    }
+
+    /// Whether `target` stands inside unit `i`'s blind ring (a siege gun's `min_range`, edge distance), where it can
+    /// never fire.
+    fn inside_ring(&self, i: usize, target: Id) -> bool {
+        let u = &self.units[i];
+        let min = u.kind.def().weapon.map_or(0.0, |w| w.min_range);
+        min > 0.0
+            && self
+                .geo(target)
+                .is_some_and(|g| g.edge_dist(u.x, u.y) < min * TILE)
     }
 
     /// Where a kill by `by` (a unit or a turret) is counted in `lost_to`; None once it is gone.

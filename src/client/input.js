@@ -104,15 +104,9 @@ function ghostAt(ev) {
   const p = canvasPos(ev), w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); return true;
 }
 
-/** Top-left tile for placing `type` with the cursor at (wx, wy); an Excavator snaps onto a nearby free shaft. */
+/** Top-left tile for placing `type` with the cursor at (wx, wy). */
 function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
-  if (d.onVent) {
-    let best = null, bd = 72;
-    const taken = new Set(shownBldgs().map(b => b.vent).filter(Boolean)); // (as this side sees them: memory.js)
-    for (const n of map.nodes) if (n.type === 'ether' && !taken.has(n)) { const dd = dist(n, { x: wx, y: wy }); if (dd < bd) { bd = dd; best = n; } }
-    if (best) return { tx: best.tx, ty: best.ty };
-  }
   return { tx: Math.round(wx / TILE - d.w / 2), ty: Math.round(wy / TILE - d.h / 2) };
 }
 

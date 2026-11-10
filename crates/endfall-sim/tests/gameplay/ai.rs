@@ -733,7 +733,7 @@ fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
     let pumps: Vec<Id> = w
         .bldgs
         .iter()
-        .filter(|b| b.team == ENEMY && b.vent.is_some())
+        .filter(|b| b.team == ENEMY && b.kind.def().pays)
         .map(|b| b.id)
         .collect();
     for p in pumps {
@@ -878,66 +878,10 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
     }
 }
 
-/// The open shafts on `seat`'s side of a two-start map: nearer its start than the other's.
-fn own_shafts(w: &World, seat: u8) -> Vec<Id> {
-    let start = |s: u8| {
-        let (x, y) = w.map.bases[s as usize];
-        (x as f64 + 2.0, y as f64 + 2.0)
-    };
-    let d = |n: &endfall_sim::map::Node, (x, y): (f64, f64)| {
-        (n.tx as f64 + 1.0 - x).hypot(n.ty as f64 + 1.0 - y)
-    };
-    w.map
-        .nodes
-        .iter()
-        .filter(|n| n.ether && d(n, start(seat)) < d(n, start(1 - seat)))
-        .map(|n| n.id)
-        .collect()
-}
-
-#[test]
-fn the_ai_builds_on_when_the_player_takes_its_shafts_and_never_builds_on_anothers() {
-    // Every shaft on the AI's side gets a player Pump (unkillable): none left for it. Its build order goes on, and
-    // it never puts an extractor on a shaft another seat's building stands on, nor on the player's side.
-    let mut w = World::new(33, 1);
-    let c = w
-        .bldgs
-        .iter_mut()
-        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
-        .unwrap();
-    c.hp = 1e9;
-    c.maxhp = 1e9;
-    let taken = own_shafts(&w, ENEMY);
-    assert_eq!(taken.len(), 2, "two shafts on its side");
-    for &v in &taken {
-        let (tx, ty) = {
-            let n = w.map.node(v).unwrap();
-            (n.tx, n.ty)
-        };
-        let b = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
-        let b = w.bldgs.iter_mut().find(|x| x.id == b).unwrap();
-        b.hp = 1e9;
-        b.maxhp = 1e9;
-    }
-    run(&mut w, 720);
-    let rax = w
-        .bldgs
-        .iter()
-        .filter(|b| b.team == ENEMY && b.kind == BldgKind::Barracks)
-        .count();
-    assert!(rax >= 2, "the build order goes on: {rax} Barracks");
-    assert!(
-        !w.bldgs
-            .iter()
-            .any(|b| b.team == ENEMY && b.kind.def().on_vent),
-        "no extractor of its own: its side's shafts are the player's, the player's side is not its"
-    );
-}
-
 #[test]
 fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
     // Every level, its Bots tied up at their sites as the Kingdom's are (PRD: builders who stay): its Bunkhouse and its
-    // Recruiting posts (on the shafts, until the economy PR) come before any Factory (an idle player falls first).
+    // Recruiting posts come before any Factory (an idle player falls first).
     for diff in 0..DIFF.len() {
         for seed in [3u32, 4242] {
             let mut w = World::with_setup(seed, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
@@ -1006,18 +950,19 @@ fn two_vael_ais_finish_a_game_at_every_level() {
 }
 
 #[test]
-fn each_ai_plants_its_first_pump_before_its_tech() {
-    // A Pump pays from the moment it stands: both AIs plant their first once they have seven workers, before their
-    // tech building, within two minutes.
+fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle() {
+    // A Market pays from the moment it stands: the Kingdom's AI raises its first once it has seven workers, before its
+    // tech building, within two minutes; its Stables (which need it) after; one Market a Castle, never more, and a lost
+    // one is raised again.
     for seed in [3, 21] {
-        for f in [&HUMANS, &VAEL] {
+        for f in [&HUMANS] {
             let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, f]);
             let s = &f.ai;
             let mut first = [None; 2];
             for t in 0..30 * 200 {
                 w.step();
                 w.events.clear();
-                for (i, k) in [f.ether, s.tech].into_iter().enumerate() {
+                for (i, k) in [f.market.unwrap(), s.tech].into_iter().enumerate() {
                     if first[i].is_none() && w.bldgs.iter().any(|b| b.team == ENEMY && b.kind == k)
                     {
                         first[i] = Some(t);
@@ -1032,11 +977,58 @@ fn each_ai_plants_its_first_pump_before_its_tech() {
             );
             assert!(
                 pump < 30 * 120,
-                "seed {seed} {}: the Pump within 2:00 ({pump})",
+                "seed {seed} {}: the Market within 2:00 ({pump})",
                 f.key
             );
         }
     }
+    // Hard, money to spare against an idle player, ten minutes: one Market a Castle at every moment, the Stables
+    // (whose requirement it is); the Market destroyed at 5:00 is raised again.
+    let mut w = World::with_setup(5, 2, MapKind::Standard, false, [&HUMANS, &HUMANS]);
+    for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        (b.hp, b.maxhp) = (1e9, 1e9);
+    }
+    let (mut razed, mut again) = (false, false);
+    while w.time < 600.0 {
+        w.res[ENEMY as usize] = [2000, 0];
+        w.step();
+        w.events.clear();
+        let mine = |k: BldgKind| {
+            w.bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == k)
+                .count()
+        };
+        let castles = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
+            .count();
+        assert!(
+            mine(BldgKind::Extractor) <= castles,
+            "one Market a Castle: {} for {castles}",
+            mine(BldgKind::Extractor)
+        );
+        if !razed && w.time > 300.0 {
+            let m = w
+                .bldgs
+                .iter()
+                .find(|b| b.team == ENEMY && b.kind == BldgKind::Extractor && b.done)
+                .map(|b| b.id)
+                .expect("a Market by 5:00");
+            w.damage(m, 1e9, None);
+            razed = true;
+        } else if razed {
+            again |= mine(BldgKind::Extractor) > 0;
+        }
+    }
+    assert!(again, "a lost Market raised again");
+    assert!(
+        w.bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.kind == BldgKind::Airfield),
+        "its Stables, once a Market stands"
+    );
 }
 
 #[test]
@@ -1064,11 +1056,8 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
                 .iter()
                 .filter(|b| b.team == seat && (b.kind == s.rax || Some(b.kind) == s.heavy))
                 .count();
-            // (the Expedition's main factory, its Recruiting post, stands on a shaft until the economy PR: one on each
-            // of the two shafts on its side, whatever room its main has)
-            let want = if s.rax.def().on_vent { 2 } else { 3 };
             assert!(
-                n >= want,
+                n >= 3,
                 "seed {seed} {kind:?} seat {seat}: {n} factories by 6 minutes"
             );
         }
@@ -1413,15 +1402,8 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         assert_eq!(count(&w, f_ai.hq), 2, "{name}: its natural");
         assert!(harvesters(&w, ENEMY).len() >= 10, "{name}: crewed");
         let schedule = DIFF[0].rax + 2; // (one more after 5 and after 9 minutes)
-        // (the Expedition's Recruiting posts stand on shafts until the economy PR: one on each of the two on its side,
-        // never beyond; the economy PR's posts go anywhere)
-        let want = if f_ai.ai.rax.def().on_vent {
-            2
-        } else {
-            schedule + 1
-        };
         assert!(
-            factories(&w) >= want,
+            factories(&w) > schedule,
             "{name}: a factory beyond its schedule: {}",
             factories(&w)
         );
@@ -1733,145 +1715,6 @@ fn brutal_trains_its_workers_before_its_buildings() {
     }
     // The other levels build as before.
     assert!(DIFF[..3].iter().all(|d| !d.workers_first));
-}
-
-#[test]
-fn the_ai_takes_the_two_open_shafts_on_its_side_nearest_first() {
-    // No base has a vent of its own: two open shafts lie out past every main. The AI plants an extractor on each by
-    // 4:30 (Medium), the nearer one (by its workers' walk) first, and nobody works them (it pays by itself). Easy
-    // keeps to one until its natural is due (`Diff::vents_from`).
-    let rig_of = |w: &World, seat: u8, v: Id| {
-        w.map
-            .node(v)
-            .and_then(|n| n.extractor)
-            .and_then(|x| w.bldg(x))
-            .is_some_and(|b| b.team == seat && b.done)
-    };
-    // Steps from beside its Core to beside a shaft, over free ground.
-    let walk = |w: &World, seat: u8, v: Id| -> u32 {
-        let (bx, by) = w.map.bases[seat as usize];
-        let from = w.map.nearest_free(bx + 1, by + 4, 6).unwrap();
-        let mut d = vec![u32::MAX; w.map.rock.len()];
-        let mut todo = std::collections::VecDeque::from([from]);
-        d[w.map.idx(from.0, from.1)] = 0;
-        while let Some((x, y)) = todo.pop_front() {
-            let here = d[w.map.idx(x, y)];
-            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
-                if !w.map.blocked(nx, ny) && d[w.map.idx(nx, ny)] == u32::MAX {
-                    d[w.map.idx(nx, ny)] = here + 1;
-                    todo.push_back((nx, ny));
-                }
-            }
-        }
-        let n = w.map.node(v).unwrap();
-        (-1..=2)
-            .flat_map(|dy| (-1..=2).map(move |dx| (n.tx + dx, n.ty + dy)))
-            .filter(|&(x, y)| w.map.in_map(x, y))
-            .map(|(x, y)| d[w.map.idx(x, y)])
-            .min()
-            .unwrap()
-    };
-    for (seed, kind, races) in [
-        (3, MapKind::Standard, [&HUMANS, &VAEL]),
-        (7, MapKind::Labyrinth, [&VAEL, &HUMANS]),
-        (11, MapKind::Barren, [&HUMANS, &HUMANS]),
-        (5, MapKind::OpenPlains, [&VAEL, &VAEL]),
-    ] {
-        let mut w = World::with_setup(seed, 1, kind, false, races);
-        w.set_ai_seats([true, true]);
-        w.hold_waves = true; // (its economy, not a fight)
-        let mut own = [own_shafts(&w, 0), own_shafts(&w, 1)];
-        for seat in 0..2u8 {
-            own[seat as usize].sort_by_key(|&v| (walk(&w, seat, v), v));
-        }
-        let mut first: [Option<Id>; 2] = [None, None];
-        for _ in 0..30 * 270 {
-            w.step();
-            w.events.clear();
-            for seat in 0..2u8 {
-                if first[seat as usize].is_none() {
-                    first[seat as usize] = w
-                        .bldgs
-                        .iter()
-                        .find(|b| b.team == seat && b.kind.def().on_vent)
-                        .and_then(|b| b.vent);
-                }
-            }
-        }
-        for seat in 0..2u8 {
-            let ctx = format!("seed {seed} {kind:?} seat {seat}");
-            let own = &own[seat as usize];
-            assert_eq!(own.len(), 2, "{ctx}: two shafts on its side");
-            assert_eq!(
-                first[seat as usize],
-                Some(own[0]),
-                "{ctx}: the nearer shaft first"
-            );
-            for &v in own {
-                assert!(
-                    rig_of(&w, seat, v),
-                    "{ctx}: an extractor on shaft {v} by 4:30"
-                );
-            }
-            assert!(
-                w.units.iter().all(|u| u.team != seat
-                    || !matches!(u.task, Task::Gather { node, .. } if own.contains(&node))),
-                "{ctx}: nobody works them"
-            );
-        }
-    }
-    // Easy: one until its natural is due.
-    let mut w = World::with_setup(3, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
-    w.set_ai_seats([true, true]);
-    w.hold_waves = true;
-    run(&mut w, 300);
-    for seat in 0..2u8 {
-        let rigs = own_shafts(&w, seat)
-            .iter()
-            .filter(|&&v| rig_of(&w, seat, v))
-            .count();
-        assert_eq!(rigs, 1, "Easy seat {seat}: one extractor at 5:00");
-    }
-}
-
-#[test]
-fn the_ai_rebuilds_a_lost_extractor() {
-    // Its first extractor, out on its shaft, is destroyed: it raises another there (the nearest free shaft again),
-    // on the same terms as the first, within a minute and a half.
-    for races in [[&HUMANS, &HUMANS], [&VAEL, &VAEL]] {
-        let mut w = World::with_setup(3, 1, MapKind::Standard, false, races);
-        w.set_ai_seats([true, true]);
-        w.hold_waves = true;
-        let mut lost = None;
-        for _ in 0..30 * 300 {
-            w.step();
-            w.events.clear();
-            if let Some(b) = w
-                .bldgs
-                .iter()
-                .find(|b| b.team == ENEMY && b.done && b.kind.def().on_vent)
-            {
-                lost = Some((b.id, b.vent.unwrap()));
-                break;
-            }
-        }
-        let (id, vent) = lost.expect("an extractor by 5:00");
-        w.damage(id, 1e9, None);
-        assert!(w.bldg(id).is_none(), "destroyed");
-        let mut again = false;
-        for _ in 0..30 * 90 {
-            w.step();
-            w.events.clear();
-            if w.map.node(vent).and_then(|n| n.extractor).is_some_and(|x| {
-                w.bldg(x)
-                    .is_some_and(|b| b.team == ENEMY && b.kind.def().on_vent)
-            }) {
-                again = true;
-                break;
-            }
-        }
-        assert!(again, "{}: an extractor on its shaft again", races[0].name);
-    }
 }
 
 #[test]

@@ -58,7 +58,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
   shallows round it. Starts by people: a seat whose builders are Amph starts in its start's basin (`Map::basins`;
   nobody since the re-theme), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
-  a cove or a basin: each start's two open shafts lie on land, where both peoples build. A Shore
+  a cove or a basin (no shaft either, since the re-theme's economy). A Shore
   with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
   Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
   tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
@@ -69,15 +69,15 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 ## Tests that guard gameplay
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `random_play`, ...): every building can be built and every unit
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `random_play`, ...): the Market (one a
+  Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Trebuchet's deploy,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
-  every 16 ticks on a tick of its own; the AI taking the open shafts on its side nearest first and rebuilding a lost
-  extractor), maps of 2, 4 and 8 starts that are walkable and alike for every start (no vent by any main or
-  expansion, two open shafts per start alike for every start, reachable and buildable by both peoples, each base's
+  every 16 ticks on a tick of its own; the Kingdom's AI raising its Market early, one a Castle, and a lost one again), maps of 2, 4 and 8 starts that are walkable and alike for every start (no vent by any main or
+  expansion, each base's
   crystals and salt as before in a clump, not an arc), group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
   amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
@@ -134,11 +134,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's salt in an
-                      uneven clump to one flank of its Core, `add_clump`; no base has a vent: two open mine shafts per
-                      start out in the open, 16 to 20 and 24 to 36 tiles from its Core (14 to 22 and 21 to 40 where a
-                      tight layout leaves those no room), 10 tiles or more from every crystal of every field,
-                      `place_shafts`, and an ether storm's centre vent (its centre holds no field; the other kinds' a
-                      field or nothing); every shaft starts explored for every seat, `World::explore_shafts`),
+                      uneven clump to one flank of its Core, `add_clump`; no map has a mine shaft since the re-theme's
+                      economy: the generator still lays them, so the ground they shaped stays, and takes them up at the
+                      end, `take_up_shafts`; the Kingdom's Market is built in its base, one a Castle),
                       occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map

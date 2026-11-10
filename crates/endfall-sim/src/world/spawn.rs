@@ -3,17 +3,13 @@
 use super::*;
 
 impl World {
-    /// A building is gone (destroyed or cancelled): its tiles are free again, and a refinery's vent is a bare
-    /// vent once more (marked by its node id, negated, in the grid).
+    /// A building is gone (destroyed or cancelled): its tiles are free again.
     pub(crate) fn clear_footprint(&mut self, b: &Bldg) {
         for y in 0..b.h {
             for x in 0..b.w {
                 let i = self.map.idx(b.tx + x, b.ty + y);
-                self.map.occ[i] = b.vent.map_or(0, |v| -(v as i32));
+                self.map.occ[i] = 0;
             }
-        }
-        if let Some(n) = b.vent.and_then(|v| self.map.node_mut(v)) {
-            n.extractor = None;
         }
         self.terrain_changed();
     }
@@ -78,7 +74,7 @@ impl World {
         let d = kind.def();
         let id = self.next_id;
         self.next_id += 1;
-        let mut b = Bldg {
+        let b = Bldg {
             id,
             kind,
             team,
@@ -101,7 +97,6 @@ impl World {
             cd: 0.0,
             flash: 0.0,
             r: d.w.max(d.h) as f64 * TILE / 2.0,
-            vent: None,
             aim: 0.0,
             research: None,
             repair_debt: [0.0, 0.0],
@@ -110,13 +105,6 @@ impl World {
         for y in 0..d.h {
             for x in 0..d.w {
                 let i = self.map.idx(tx + x, ty + y);
-                if self.map.occ[i] < 0 && d.on_vent {
-                    let nid = (-self.map.occ[i]) as Id;
-                    if let Some(nd) = self.map.node_mut(nid) {
-                        nd.extractor = Some(id);
-                        b.vent = Some(nid);
-                    }
-                }
                 self.map.occ[i] = id as i32;
             }
         }

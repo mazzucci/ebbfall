@@ -300,7 +300,10 @@ def_struct! {
         sight: f64 = "sight",
         trains: &'static [UnitKind] = "trains",
         dropoff: bool = "dropoff",
-        on_vent: bool = "onVent",
+        /// Pays its owner salt by itself, with no workers (`PUMP_RATE` a second): the Kingdom's Market.
+        pays: bool = "pays",
+        /// At most one a finished headquarters of its side (the Market: a new Castle at an expansion allows another).
+        per_hq: bool = "perHq",
         req: Option<BldgKind> = "req",
         /// A turret's weapon; None = no defence.
         weapon: Option<Weapon> = "weapon",
@@ -315,9 +318,10 @@ pub struct Faction {
     pub worker: UnitKind,
     pub build_basic: &'static [BldgKind],
     pub build_advanced: &'static [BldgKind],
-    /// Its supply building and its refinery (built on an ether vent): the roles its messages and its AI name.
+    /// Its supply building, and its income building if it has one (the Kingdom's Market; the Expedition has none): the
+    /// roles its messages and its AI name.
     pub supply: BldgKind,
-    pub ether: BldgKind,
+    pub market: Option<BldgKind>,
     /// The sound of its shots, by projectile: [bolt, shell, missile, melee] (recipe names in src/client/audio.js).
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings.
@@ -449,7 +453,8 @@ const BLDG: BldgDef = BldgDef {
     sight: 5.0,
     trains: &[],
     dropoff: false,
-    on_vent: false,
+    pays: false,
+    per_hq: false,
     req: None,
     hq: false,
     researches: &[],

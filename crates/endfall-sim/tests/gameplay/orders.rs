@@ -173,16 +173,17 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 
 #[test]
 fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge() {
-    // The Kingdom: the Barracks (Guards, Archers), then the Stables (Riders; Knights once the Forge stands) and the
-    // Workshop (the Balloon; Ballistas and Trebuchets once the Forge stands). No building trains a healer.
+    // The Kingdom: the Barracks (Guards, Archers), then the Stables (they need a Market; Riders; Knights once the Forge
+    // stands) and the Workshop (the Balloon; Ballistas and Trebuchets once the Forge stands). No building trains a
+    // healer.
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
     for k in [BldgKind::Airfield, BldgKind::Factory] {
         let (tx, ty) = spot(&w, k);
         assert_eq!(
             w.place_building(PLAYER, k, tx, ty, Some(h[1])),
-            Err("Requires Crew Hall".into()),
-            "cavalry and machines are branches off the Barracks: {k:?}"
+            Err(format!("Requires {}", k.def().req.unwrap().def().name)),
+            "cavalry (off the Market) and machines (off the Barracks): {k:?}"
         );
     }
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
@@ -192,6 +193,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         "no healer in the build"
     );
     let fac = build(&mut w, BldgKind::Factory, h[3], 120);
+    build(&mut w, BldgKind::Extractor, h[2], 120); // (the Stables need a Market)
     let stables = build(&mut w, BldgKind::Airfield, h[1], 120);
     for (at, k) in [
         (fac, UnitKind::Bastion),
@@ -514,36 +516,12 @@ fn a_side_builds_only_its_own_race() {
 
 #[test]
 fn messages_name_each_races_own_buildings() {
-    let toasts = |w: &mut World| -> Vec<String> {
-        w.events
-            .drain(..)
-            .filter_map(|e| match e {
-                endfall_sim::world::Event::Toast {
-                    msg, team: PLAYER, ..
-                } => Some(msg),
-                _ => None,
-            })
-            .collect()
-    };
-    // (each race's refinery by its own name: the Harbour's Excavator, the Vael's Siphon; its research hall: the Workshop,
-    // the Glasshouse)
-    for (w, rig, hall) in [
-        (
-            &mut rich(5),
-            "Workers cannot mine a shaft: an Excavator on it digs salt by itself",
-            "Workshop",
-        ),
-        (
-            &mut rich_vael(5),
-            "Workers cannot mine a shaft: a Siphon on it draws salt by itself",
-            "Glasshouse",
-        ),
+    // (each race's research hall by its own name: the Workshop, the Glasshouse)
+    for (w, hall) in [
+        (&mut rich(5), "Workshop"),
+        (&mut rich_vael(5), "Glasshouse"),
     ] {
         w.events.clear();
-        let worker = harvesters(w, PLAYER)[0];
-        let vent = w.map.nodes.iter().find(|n| n.ether).unwrap().id;
-        assert!(!w.start_gather(worker, vent), "a seep is not mined");
-        assert_eq!(toasts(w), vec![rig.to_string()]);
         let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
         let err = w.start_research(hq, Upgrade::Weapons).unwrap_err();
         assert_eq!(err, format!("Research happens at a finished {hall}"));

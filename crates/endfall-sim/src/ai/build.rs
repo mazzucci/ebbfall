@@ -20,82 +20,6 @@ const ROOM_FAR: f64 = 26.0;
 const POCKET_ROOM: f64 = 16.0;
 
 impl World {
-    /// The free open shaft (a vent with no extractor) this seat takes next: the nearest by walking distance from its
-    /// main at (cx, cy) (tiles) on its own side of the map (nearer its own start than any other seat's still in, an
-    /// ally's too; a free start's shafts are anyone's), its
-    /// top-left tile. The walk is measured once per main (`Ai::shafts`: the ground does not move) by a flood over the
-    /// ground its workers stand on.
-    pub(crate) fn free_shaft(&mut self, cx: f64, cy: f64) -> Option<(i32, i32)> {
-        let from = (cx as i32, cy as i32);
-        if self.ai().shafts.as_ref().is_none_or(|(at, _)| *at != from) {
-            let order = self.shafts_by_walk(cx, cy);
-            self.ai_mut().shafts = Some((from, order));
-        }
-        let e = self.seat();
-        let start = |s: usize| {
-            let (x, y) = self.map.bases[s];
-            (x as f64 + 2.0, y as f64 + 2.0)
-        };
-        let own = start(e as usize);
-        // (every other seat still in, its allies too: an ally's near shaft is the ally's to take)
-        let foes: Vec<(f64, f64)> = (0..self.seats() as u8)
-            .filter(|&s| s != e && !self.out[s as usize])
-            .map(|s| start(s as usize))
-            .collect();
-        let (_, order) = self.ai().shafts.as_ref()?;
-        order.iter().find_map(|&(_, id)| {
-            let n = self.map.node(id)?;
-            let (vx, vy) = (n.tx as f64 + 1.0, n.ty as f64 + 1.0);
-            let d = |(x, y): (f64, f64)| jsmath::hypot(vx - x, vy - y);
-            (n.extractor.is_none() && foes.iter().all(|&f| d(own) < d(f))).then_some((n.tx, n.ty))
-        })
-    }
-
-    /// Every vent its workers can walk to from (cx, cy) (tiles), by steps (4-neighbour, over the ground they stand on,
-    /// buildings in the way), nearest first, ties by id.
-    fn shafts_by_walk(&self, cx: f64, cy: f64) -> Vec<(u32, Id)> {
-        let Some(start) = self.map.nearest_passable_to(
-            self.worker_foot(),
-            cx as i32,
-            cy as i32,
-            6,
-            (cx * TILE, cy * TILE),
-        ) else {
-            return Vec::new();
-        };
-        let foot = self.worker_foot();
-        let m = &self.map;
-        let mut steps = vec![u32::MAX; m.rock.len()];
-        let mut todo = std::collections::VecDeque::from([start]);
-        steps[m.idx(start.0, start.1)] = 0;
-        while let Some((x, y)) = todo.pop_front() {
-            let here = steps[m.idx(x, y)];
-            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
-                if m.in_map(nx, ny) && steps[m.idx(nx, ny)] == u32::MAX && m.passable(foot, nx, ny)
-                {
-                    steps[m.idx(nx, ny)] = here + 1;
-                    todo.push_back((nx, ny));
-                }
-            }
-        }
-        let mut order: Vec<(u32, Id)> = m
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .filter_map(|n| {
-                // (the nearest tile round the 2x2 a worker stands on)
-                let near = (-1..=2)
-                    .flat_map(|dy| (-1..=2).map(move |dx| (n.tx + dx, n.ty + dy)))
-                    .filter(|&(x, y)| m.in_map(x, y))
-                    .map(|(x, y)| steps[m.idx(x, y)])
-                    .min()?;
-                (near != u32::MAX).then_some((near, n.id))
-            })
-            .collect();
-        order.sort();
-        order
-    }
-
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
         self.find_spot_within(kind, cx, cy, 3.5, ROOM, &|_, _, _| true)
     }
@@ -111,9 +35,6 @@ impl World {
         ok: &dyn Fn(&World, i32, i32) -> bool,
     ) -> Option<(i32, i32)> {
         let d = kind.def();
-        if d.on_vent {
-            return self.free_shaft(cx, cy);
-        }
         let a0 = self.rnd() * PI * 2.0;
         let mut r = from;
         while r < room {
@@ -353,18 +274,6 @@ impl World {
         self.level().rax + (t > 300.0) as usize + (t > 540.0) as usize
     }
 
-    /// `n` main factories, or as many as it can have: a main factory on a shaft (the Expedition's Recruiting post,
-    /// until the economy PR frees it of its site) only while a shaft on its side is free, so with none free the ones
-    /// it has (sites counted) are all it gets.
-    pub(crate) fn rax_target(&mut self, my_b: &[Id], n: usize, cx: f64, cy: f64) -> usize {
-        let rax = self.factions[self.seat() as usize].ai.rax;
-        if !rax.def().on_vent || self.free_shaft(cx, cy).is_some() {
-            n
-        } else {
-            n.min(self.ai_count(my_b, false, rax))
-        }
-    }
-
     /// How many factories of `e`'s count against that schedule: its main factories, and its vehicle bay (a side with
     /// one makes its specialists there, not at a Garrison: the same production as one more Garrison).
     fn factories(&self, e: u8, my_b: &[Id]) -> usize {
@@ -459,26 +368,22 @@ impl World {
             ..
         } = brain.clone();
         let d = self.level();
-        // A free shaft to take (wanting an extractor without one would stall the build).
-        let shaft = self.free_shaft(cx, cy);
         let [used, cap] = self.sup[e as usize];
         let f = self.factions[e as usize];
         let s = &f.ai;
-        // An extractor on every shaft it can (PRD: the conversion, rule 1), one site at a time, the nearest free one
-        // on its side first (`free_shaft`): the first once it has seven workers, the rest from the level's
-        // `vents_from`; a lost one is built again on the same terms.
-        // (Not in the guided first game: its opponent's income stays in its base, which the guide's last step
-        // attacks; an extractor out on a shaft kept paying for fighters after the base fell. `guided_hold`)
-        // (Only once its requirement stands, the barracks: wanted before then it would hold the rest of the build
-        // order, the barracks too, behind a building it cannot place.)
-        let pump_due = !building.contains(&f.ether)
-            && harv.len() >= 7
-            && (pumps == 0 || t > d.vents_from)
-            && !self.guided
-            && self.has_req(e, f.ether);
-        // (a main factory on a shaft, the Expedition's Recruiting post until the economy PR: only while one is free;
-        // `rax_short`)
-        let rax_room = !s.rax.def().on_vent || shaft.is_some();
+        // Its Market (a side with one, the Kingdom), one a finished Castle (`World::hq_room`), one site at a time: the
+        // first once it has seven workers, the next (at an expansion) from the level's `vents_from`; a lost one is
+        // built again on the same terms. (Not in the guided first game: its opponent's income stays as the guide was
+        // tuned with. Only once its requirement stands, the barracks: wanted before then it would hold the rest of the
+        // build order, the barracks too, behind a building it cannot place.)
+        let market = f.market.filter(|&m| {
+            !building.contains(&m)
+                && harv.len() >= 7
+                && (pumps == 0 || t > d.vents_from)
+                && !self.guided
+                && self.has_req(e, m)
+                && self.hq_room(e, m)
+        });
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
@@ -489,14 +394,14 @@ impl World {
             && supply_rising < d.supply_at_once
         {
             Some(f.supply)
-        } else if pump_due && shaft.is_some() {
-            Some(f.ether)
-        } else if self.factories(e, &my_b) < rax_schedule && rax_room {
+        } else if let Some(m) = market {
+            Some(m)
+        } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
-        } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule).filter(|_| rax_room) {
+        } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
             Some(k)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && pumps > 0
+            && (pumps > 0 || f.market.is_none())
             && self.ai_count(&my_b, false, s.tech) == 0
             && t > 150.0
         {
@@ -523,6 +428,8 @@ impl World {
             && t > d.air_at - s.air_lead
             // (its raiders must be in its level's mix: it would otherwise stand there training nothing)
             && self.level_allows(s.raider)
+            // (and its requirement standing: the Kingdom's Stables need its Market)
+            && self.has_req(e, s.air)
         {
             Some(s.air)
         } else {
@@ -560,7 +467,7 @@ impl World {
                 });
                 // (Not a building on a shaft, which needs its shaft.)
                 match self.find_spot(w, fx, fy) {
-                    None if !w.def().on_vent => {
+                    None => {
                         second
                             .and_then(|(ex, ey)| self.find_spot(w, ex, ey))
                             .or_else(|| {

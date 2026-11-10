@@ -99,7 +99,7 @@ impl World {
             return; // (it rises only while a builder works on it: `update_build`)
         }
         let d = b.kind.def();
-        if d.on_vent && self.bldg(bid).is_some_and(|b| b.vent.is_some()) {
+        if d.pays {
             self.pump(bid, dt);
         }
         let b = self.bm(bid).unwrap();

@@ -319,33 +319,8 @@ impl World {
         for team in 0..self.seats() as u8 {
             self.deal_start(team);
         }
-        self.explore_shafts();
         self.init_ai();
         self.update_fog();
-    }
-
-    /// Every mine shaft (vent) and the ground round it starts explored for every seat: the contested income is on
-    /// everyone's map, and an extractor can be placed on any shaft without scouting it first (the PM, 2026-11-06).
-    /// Explored, not seen: the fog still hides who holds one.
-    fn explore_shafts(&mut self) {
-        let shafts: Vec<(i32, i32)> = self
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .map(|n| (n.tx, n.ty))
-            .collect();
-        for layer in &mut self.explored {
-            for &(tx, ty) in &shafts {
-                for y in ty - 1..=ty + 2 {
-                    for x in tx - 1..=tx + 2 {
-                        if self.map.in_map(x, y) {
-                            layer[self.map.idx(x, y)] = 1;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /// The path search's scratch and the spatial hash, sized to the map (once per game, never per tick).

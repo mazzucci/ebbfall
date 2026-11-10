@@ -359,9 +359,9 @@ fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
 }
 
 #[test]
-fn a_persons_new_siphon_keeps_its_builder_until_it_stands_then_sends_it_back_to_work() {
-    // Rule 3: a person's new extractor, either people's, has its builder on it until it stands (it needs no worker
-    // after: it pays by itself), and the builder then goes back to the salt, as from any building.
+fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_sends_it_back_to_work() {
+    // Rule 3: a person's new Market (or Recruiting post) has its builder on it until it stands (it needs no worker
+    // after), and the builder then goes back to the salt, as from any building.
     for (mut w, ext, rax) in [
         (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
         (rich(9), BldgKind::Extractor, BldgKind::Barracks),
@@ -369,7 +369,7 @@ fn a_persons_new_siphon_keeps_its_builder_until_it_stands_then_sends_it_back_to_
         let (cx, cy) = core(&w, PLAYER);
         w.make_building(rax, PLAYER, cx - 5, cy, true);
         let h = harvesters(&w, PLAYER)[0];
-        let (vx, vy) = player_vent(&w);
+        let (vx, vy) = spot(&w, ext);
         let b = w
             .place_building(PLAYER, ext, vx, vy, Some(h))
             .unwrap_or_else(|e| panic!("{ext:?}: {e}"));
@@ -391,9 +391,10 @@ fn a_persons_new_siphon_keeps_its_builder_until_it_stands_then_sends_it_back_to_
             "{ext:?}: its builder back on the salt: {:?}",
             w.unit(h).unwrap().task
         );
-        assert!(
+        assert_eq!(
             w.bldg(b).unwrap().pumped > 0.0,
-            "{ext:?}: and it draws by itself"
+            ext.def().pays,
+            "{ext:?}: the Market earns by itself, the Recruiting post nothing"
         );
     }
 }

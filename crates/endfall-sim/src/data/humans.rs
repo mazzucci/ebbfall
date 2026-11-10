@@ -21,7 +21,7 @@ pub const HUMANS: Faction = Faction {
         BldgKind::Extractor,
     ],
     supply: BldgKind::Depot,
-    ether: BldgKind::Extractor,
+    market: Some(BldgKind::Extractor),
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
     ai: AiScript {
@@ -264,16 +264,17 @@ pub(super) const DEPOT: BldgDef = BldgDef {
     build: 22.0,
     ..BLDG
 };
+/// The Market: pays salt by itself, built in the base (no shaft since the re-theme's economy), one per Castle.
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
     name: "Excavator",
     short: "Excavator",
     cost: [75, 0],
-    // (PRD: the conversion: 200 HP, no weapon; two Striders kill one in ten seconds)
     hp: 200.0,
     build: 25.0,
-    on_vent: true,
-    // (its people's barracks first: workers on the crystals, then soldiers, then a shaft out in the open)
+    pays: true,
+    per_hq: true,
+    // (its people's barracks first: workers on the crystals, then soldiers, then the Market)
     req: Some(BldgKind::Barracks),
     ..BLDG
 };
@@ -351,7 +352,7 @@ pub(super) const AIRFIELD: BldgDef = BldgDef {
     build: 50.0,
     sight: 8.0,
     trains: &[UnitKind::Rider, UnitKind::Knight],
-    req: Some(BldgKind::Barracks), // (the cavalry is a branch of its own, beside the Forge)
+    req: Some(BldgKind::Extractor), // (the cavalry needs a Market: a branch of its own, beside the Forge)
     researches: &[Upgrade::Afterburners],
     ..BLDG
 };

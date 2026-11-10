@@ -1,135 +1,112 @@
-//! Economy: mining salt, fields running dry, Pumps on seeps, supply.
+//! Economy: mining salt, fields running dry, the Market, the Recruiting post, supply.
 
 use super::common::*;
 
 #[test]
-fn a_finished_pump_pays_salt_with_no_workers() {
-    // PRD: the conversion, rule 1. A Pump on a seep pays its owner half a salt a second, a whole salt every 2 s,
-    // with nobody on it; it counts as mined. Both peoples' Pumps.
-    for (mut w, kind) in [
-        (rich(9), BldgKind::Extractor),
-        (rich_vael(9), BldgKind::Siphon),
-    ] {
-        for h in harvesters(&w, PLAYER) {
-            w.stop_unit(h); // (nobody mines: what comes in is the Pump's)
-        }
-        let (vx, vy) = player_vent(&w);
-        let pump = w.make_building(kind, PLAYER, vx, vy, true);
-        assert!(
-            w.bldg(pump).unwrap().vent.is_some(),
-            "{kind:?} stands on the seep"
-        );
-        w.res[PLAYER as usize] = [0, 0];
-        let mined = w.ledger[PLAYER as usize].mined[0];
-        run(&mut w, 1);
-        assert_eq!(
-            w.res[PLAYER as usize][0], 0,
-            "{kind:?}: nothing in the first second"
-        );
-        run(&mut w, 1);
-        assert_eq!(w.res[PLAYER as usize][0], 1, "{kind:?}: one salt after 2 s");
-        run(&mut w, 58);
-        assert_eq!(
-            w.res[PLAYER as usize],
-            [30, 0],
-            "{kind:?}: 30 salt a minute, no ether"
-        );
-        assert_eq!(
-            w.ledger[PLAYER as usize].mined[0] - mined,
-            30,
-            "{kind:?}: counted as mined"
-        );
-        assert!(
-            w.units.iter().all(|u| u.team != PLAYER || u.carry == 0),
-            "{kind:?}: nobody carried any of it"
-        );
-        // Gone, it pays nothing.
-        w.damage(pump, 1e6, None);
-        assert!(w.bldg(pump).is_none(), "{kind:?}: destroyed");
-        let have = w.res[PLAYER as usize][0];
-        run(&mut w, 10);
-        assert_eq!(
-            w.res[PLAYER as usize][0], have,
-            "{kind:?}: no Pump, no salt"
-        );
-    }
-}
-
-#[test]
-fn an_unfinished_pump_pays_nothing_and_a_seep_is_never_mined() {
+fn a_finished_market_pays_salt_with_no_workers_and_a_recruiting_post_nothing() {
+    // The Kingdom's Market, built in its base, pays its owner half a salt a second, a whole salt every 2 s, with nobody
+    // on it; it counts as mined. A site pays nothing, and the Expedition's Recruiting post never pays.
     let mut w = rich(9);
-    let h = harvesters(&w, PLAYER);
-    for &u in &h {
-        w.stop_unit(u);
+    for h in harvesters(&w, PLAYER) {
+        w.stop_unit(h); // (nobody mines: what comes in is the Market's)
     }
-    let (vx, vy) = player_vent(&w);
-    let site = w.make_building(BldgKind::Extractor, PLAYER, vx, vy, false);
-    let vent = w.bldg(site).unwrap().vent.expect("on the seep");
+    let (tx, ty) = spot(&w, BldgKind::Extractor);
+    let site = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, false);
     w.res[PLAYER as usize] = [0, 0];
     run(&mut w, 10);
     assert_eq!(w.res[PLAYER as usize][0], 0, "a site pays nothing");
-    // A worker sent to the seep is refused, with or without its Pump, and tells why.
-    w.events.clear();
-    assert!(!w.start_gather(h[0], vent), "a seep is not mined");
-    assert!(
-        w.events.iter().any(
-            |e| matches!(e, endfall_sim::world::Event::Toast { msg, .. } if msg.contains("Excavator"))
-        ),
-        "the player is told the Excavator digs by itself"
-    );
     w.damage(site, 1e6, None);
-    w.make_building(BldgKind::Extractor, PLAYER, vx, vy, true);
-    assert!(!w.start_gather(h[0], vent), "nor with its Pump finished");
-    // A full game's workers never carry from a seep: two Medium AIs for five minutes.
-    let mut w = World::with_size(3, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
-    assert!(w.set_ai_seats([true, true]));
-    for _ in 0..5 * 60 * TPS {
-        w.step();
-        for u in &w.units {
-            if let Task::Gather { node, .. } = u.task {
-                assert!(
-                    w.map.node(node).is_none_or(|n| !n.ether),
-                    "unit {} of seat {} works a seep",
-                    u.id,
-                    u.team
-                );
-            }
+    let market = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
+    let mined = w.ledger[PLAYER as usize].mined[0];
+    run(&mut w, 1);
+    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first second");
+    run(&mut w, 1);
+    assert_eq!(w.res[PLAYER as usize][0], 1, "one salt after 2 s");
+    run(&mut w, 58);
+    assert_eq!(w.res[PLAYER as usize], [30, 0], "30 salt a minute");
+    assert_eq!(
+        w.ledger[PLAYER as usize].mined[0] - mined,
+        30,
+        "counted as mined"
+    );
+    assert!(
+        w.units.iter().all(|u| u.team != PLAYER || u.carry == 0),
+        "nobody carried any of it"
+    );
+    w.damage(market, 1e6, None);
+    let have = w.res[PLAYER as usize][0];
+    run(&mut w, 10);
+    assert_eq!(w.res[PLAYER as usize][0], have, "no Market, no salt");
+    // The Recruiting post: nothing, ever.
+    let mut w = rich_vael(9);
+    for h in harvesters(&w, PLAYER) {
+        w.stop_unit(h);
+    }
+    let (tx, ty) = spot(&w, BldgKind::Siphon);
+    w.make_building(BldgKind::Siphon, PLAYER, tx, ty, true);
+    w.res[PLAYER as usize] = [0, 0];
+    run(&mut w, 30);
+    assert_eq!(
+        w.res[PLAYER as usize][0], 0,
+        "a Recruiting post pays nothing"
+    );
+    assert!(!BldgKind::Siphon.def().pays && BldgKind::Extractor.def().pays);
+}
+
+#[test]
+fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
+    // The Market needs the Barracks and stands in the base, no shaft: one a finished Castle, sites counted (a second is
+    // refused; a Castle at an expansion allows another). The Expedition's Recruiting post needs nothing and goes up
+    // anywhere, as many as it likes. No map has a shaft.
+    let mut w = rich(9);
+    let h = harvesters(&w, PLAYER);
+    let (tx, ty) = spot(&w, BldgKind::Extractor);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Extractor, tx, ty, Some(h[0])),
+        Err("Requires Crew Hall".into())
+    );
+    let (cx, cy) = core(&w, PLAYER);
+    w.make_building(BldgKind::Barracks, PLAYER, cx - 5, cy, true);
+    w.place_building(PLAYER, BldgKind::Extractor, tx, ty, Some(h[0]))
+        .unwrap();
+    let (tx2, ty2) = spot(&w, BldgKind::Extractor);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Extractor, tx2, ty2, Some(h[1])),
+        Err("One Excavator per Lighthouse".into()),
+        "a site counts"
+    );
+    let far = w.make_building(BldgKind::Core, PLAYER, 30, 30, false);
+    assert!(
+        !w.hq_room(PLAYER, BldgKind::Extractor),
+        "a Castle still rising allows none"
+    );
+    w.bldgs.iter_mut().find(|b| b.id == far).unwrap().done = true;
+    assert!(
+        w.place_building(PLAYER, BldgKind::Extractor, tx2, ty2, Some(h[1]))
+            .is_ok(),
+        "a second Castle, a second Market"
+    );
+    let mut w = rich_vael(9);
+    let l = harvesters(&w, PLAYER);
+    for i in 0..4 {
+        let (tx, ty) = spot(&w, BldgKind::Siphon);
+        w.place_building(PLAYER, BldgKind::Siphon, tx, ty, Some(l[i % l.len()]))
+            .unwrap_or_else(|e| panic!("post {i}: {e}"));
+    }
+    for seed in [1u32, 7, 4242] {
+        for kind in [MapKind::Standard, MapKind::EtherStorm, MapKind::Shore] {
+            let w = World::with_setup(seed, 1, kind, false, [&HUMANS, &VAEL]);
+            assert!(
+                w.map.nodes.iter().all(|n| !n.ether),
+                "seed {seed} {kind:?}: no shaft"
+            );
         }
     }
-    assert!(
-        (0..2).all(|s| w.pumps(s) >= 1),
-        "both AIs planted Pumps: {} and {}",
-        w.pumps(0),
-        w.pumps(1)
-    );
-    assert_eq!(w.res[0][1] + w.res[1][1], 0, "no ether anywhere");
 }
 
 #[test]
-fn a_rally_on_a_seep_is_a_plain_point() {
-    // New workers mine where their building's rally names a salt field; a seep is never mined, so a rally on one is
-    // a point to walk to (from the Game API or the network: the client never sends one).
-    let mut w = rich(9);
-    let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
-    let seep = w.map.nodes.iter().find(|n| n.ether).unwrap().id;
-    let field = w.map.nodes.iter().find(|n| !n.ether).unwrap().id;
-    w.set_rally(hq, 100.0, 200.0, Some(seep));
-    assert_eq!(
-        w.bldg(hq).unwrap().rally.unwrap().node,
-        None,
-        "a seep: a plain point"
-    );
-    w.set_rally(hq, 100.0, 200.0, Some(field));
-    assert_eq!(
-        w.bldg(hq).unwrap().rally.unwrap().node,
-        Some(field),
-        "a salt field: mined"
-    );
-}
-
-#[test]
-fn an_ai_pump_pays_at_its_levels_income() {
-    // Brutal gathers 1.3 times as fast; its Pumps pay 1.3 times as much too (39 salt a minute, not 30).
+fn an_ai_market_pays_at_its_levels_income() {
+    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (39 salt a minute, not 30).
     let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
     assert!(w.set_ai_seats([false, true]));
     w.disable_ai();
@@ -137,14 +114,8 @@ fn an_ai_pump_pays_at_its_levels_income() {
         w.stop_unit(h);
     }
     let (cx, cy) = core(&w, ENEMY);
-    let n = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| n.ether)
-        .min_by_key(|n| (n.tx - cx).abs() + (n.ty - cy).abs())
-        .unwrap();
-    let (vx, vy) = (n.tx, n.ty);
+    let (vx, vy) = (cx - 4, cy - 4);
+    assert!(w.can_place(BldgKind::Extractor, vx, vy, ENEMY));
     w.make_building(BldgKind::Extractor, ENEMY, vx, vy, true);
     w.res[ENEMY as usize] = [0, 0];
     run(&mut w, 60);
@@ -703,65 +674,4 @@ fn either_half_mines_its_field_alike() {
         }
     }
     assert!(checked >= 6, "enough mirrored starts checked ({checked})");
-}
-
-#[test]
-fn every_shaft_is_on_the_map_from_the_start_and_an_excavator_needs_the_crew_hall() {
-    // Every mine shaft starts explored for every seat (not seen: the fog still hides who holds it), so a person
-    // places a building on a far shaft in the first seconds without scouting it: the Kingdom's Excavator once the
-    // Barracks stands (without it, refused), the Expedition's Recruiting post (still on a shaft until the economy PR)
-    // at once, as it is the Expedition's barracks and needs nothing.
-    for (mut w, ext, rax) in [
-        (rich(9), BldgKind::Extractor, Some(BldgKind::Barracks)),
-        (rich_vael(9), BldgKind::Siphon, None),
-    ] {
-        run(&mut w, 1);
-        for s in 0..2usize {
-            for n in w.map.nodes.iter().filter(|n| n.ether) {
-                assert_eq!(
-                    w.explored[s][w.map.idx(n.tx, n.ty)],
-                    1,
-                    "{ext:?}: seat {s} has the shaft at {},{} on its map",
-                    n.tx,
-                    n.ty
-                );
-            }
-        }
-        let (cx, cy) = core(&w, PLAYER);
-        // (the farthest shaft from the player's Core: out past the enemy's base, unseen)
-        let far = w
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .max_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
-            .map(|n| (n.tx, n.ty))
-            .unwrap();
-        assert_eq!(
-            w.vis[PLAYER as usize][w.map.idx(far.0, far.1)],
-            0,
-            "{ext:?}: the far shaft is not in sight"
-        );
-        let h = harvesters(&w, PLAYER)[0];
-        assert_eq!(ext.def().req, rax, "{ext:?}'s requirement");
-        if let Some(rax) = rax {
-            assert!(
-                w.place_building(PLAYER, ext, far.0, far.1, Some(h))
-                    .is_err(),
-                "{ext:?}: refused before the barracks"
-            );
-            w.make_building(rax, PLAYER, cx - 5, cy, true);
-        }
-        let b = w
-            .place_building(PLAYER, ext, far.0, far.1, Some(h))
-            .unwrap_or_else(|e| panic!("{ext:?}: {e}"));
-        assert_eq!(
-            w.bldg(b)
-                .and_then(|b| b.vent)
-                .and_then(|v| w.map.node(v))
-                .map(|n| (n.tx, n.ty)),
-            Some(far),
-            "{ext:?}: on the far shaft"
-        );
-    }
 }

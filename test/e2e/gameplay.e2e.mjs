@@ -18,11 +18,7 @@ const storedRecord = (page) => page.evaluate(() => { try { return JSON.parse(loc
  *  Vael: `{ hq: 'conflux', worker: 'lumen' }`.) */
 async function buildAndFinish(d, hotkey, type, harvesterIndex = 0, { hq = 'core', worker = 'harvester' } = {}) {
   let s = await d.state();
-  const core = myBldg(s, hq)[0];
-  // (a building on a shaft, the Expedition's Recruiting post until the economy PR: the nearest open shaft)
-  const onShaft = await d.eval((t) => !!endfall.engine.BUILDINGS[t].onVent, type);
-  const shaft = () => s.nodes.filter(n => n.type === 'ether' && !s.bldgs.some(b => b.tx === n.tx && b.ty === n.ty)).sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-  const spot = onShaft ? shaft() : await d.findSpot(type, { tx: core.tx + 1, ty: core.ty + 1 });
+  const core = myBldg(s, hq)[0], spot = await d.findSpot(type, { tx: core.tx + 1, ty: core.ty + 1 });
   assert.ok(spot, `room for a ${type}`);
   const h = mine(s, worker)[harvesterIndex];
   await d.buildWithUI(hotkey, type, spot.tx, spot.ty, h.id);
@@ -53,6 +49,7 @@ test('every finished production building offers its unit, and pressing it trains
     const rax = await buildAndFinish(d, 'c', 'barracks', 0);
     const forge = await buildAndFinish(d, 'k', 'forge', 1);
     await buildAndFinish(d, 'o', 'turret', 2);
+    await buildAndFinish(d, 'x', 'extractor', 3); // (the Stables need a Market)
     const airfield = await buildAndFinish(d, 'f', 'airfield', 3);
     const factory = await buildAndFinish(d, 's', 'factory', 0);
     // (the Kingdom's lists: Barracks, Workshop, Stables; display names are the sim's until the words PR)
@@ -75,6 +72,7 @@ test('knights appear once a forge stands, and a balloon floats straight across t
   try {
     await d.grant(5000, 5000);
     await buildAndFinish(d, 'c', 'barracks', 0);
+    await buildAndFinish(d, 'x', 'extractor', 1); // (the Stables need a Market)
     const airfield = await buildAndFinish(d, 'f', 'airfield', 1);
     await d.clickEntity(airfield.id);
     const card = await d.card();
@@ -167,29 +165,21 @@ test('training shows progress and the queue in the panel', async () => {
   } finally { await d.close(); }
 });
 
-test('an Excavator placed on a mine shaft digs salt by itself; workers sent to it stay off it', async () => {
+test('a Market built in the base earns salt by itself; one per Castle', async () => {
   const d = await newGame(DESKTOP);
   try {
     await d.grant(1000, 0);
-    // (the Excavator needs the Crew Hall; the shaft, out in the open, is on the map from the start)
+    // (the Market needs the Barracks; it goes up in the base, no shaft)
     await buildAndFinish(d, 'c', 'barracks', 3);
-    let s = await d.state();
-    const core = coreOf(s);
-    const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-    const h = mine(s, 'harvester');
-    // Click a little off the shaft: placement snaps onto it.
-    await d.clickEntity(h[0].id); await d.key('b'); await d.key('x');
-    const [x, y] = await d.screen(vent.x + 14, vent.y + 10); await d.page.mouse.move(x, y); await d.page.mouse.click(x, y);
-    s = await d.state();
-    const ext = myBldg(s, 'extractor')[0];
-    assert.ok(ext, `Excavator placed (${(await d.toasts()).join(' | ')})`);
-    await until(d, async () => (await d.state()).bldgs.find(b => b.id === ext.id)?.done, { seconds: 90, what: 'the Excavator' });
+    const ext = await buildAndFinish(d, 'x', 'extractor', 0);
     await d.clickEntity(ext.id);
-    assert.match(await d.hudText('#selSub', /Digging/), /Digging salt/, 'the panel says it digs');
-    // A right-click on it with workers selected: they are not sent to work it (a shaft is not mined).
-    for (const u of h.slice(1, 4)) { await d.clickEntity(u.id); await d.rightClickWorld(ext.x, ext.y); }
-    assert.equal(await d.eval(() => endfall.G.units.filter(u => u.task.t === 'gather' && u.task.node?.type === 'ether').length), 0, 'nobody works the shaft');
-    assert.equal((await d.state()).res[1], 0, 'no ether');
+    assert.match(await d.hudText('#selSub', /Earning/), /Earning salt/, 'the panel says it earns');
+    // A second one: refused while one Castle stands.
+    const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[1];
+    const spot = await d.findSpot('extractor', { tx: core.tx + 1, ty: core.ty + 1 });
+    await d.buildWithUI('x', 'extractor', spot.tx, spot.ty, h.id);
+    await d.page.locator('#msg .toast', { hasText: /One Excavator per Lighthouse/ }).waitFor({ timeout: 5000 });
+    assert.equal(myBldg(await d.state(), 'extractor').length, 1, 'still one');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -514,12 +504,7 @@ test('a resource field can be selected to see what is left (desktop click, phone
       assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (salt )?left`), 'shows what is left');
       assert.equal((await d.card()).length, 0, 'nothing to command on a field');
       assert.match(await d.hudText('#selName', /Salt field/), /Salt field/);
-      // Mine shafts too (the nearest, out in the open: on the map from the start).
-      const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-      await d.clickWorld(vent.x, vent.y);
-      assert.deepEqual((await d.selection()).map(e => e.kind), ['node'], 'the shaft is selected');
-      assert.match(await d.hudText('#selName', /Mine shaft/), /Mine shaft/);
-      assert.match(await d.hudText('#selSub', /salt/), /digs salt by itself/);
+      assert.equal(s.nodes.filter(n => n.type === 'ether').length, 0, 'no mine shaft on the map');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -971,7 +956,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
 // research shows with its own bar, and nothing in the console moves when the research starts or ends; a queued unit is
 // still cancelled with a tap. All four screens.
 const SMALL_PHONE = { ...PHONE, viewport: { width: 667, height: 375 } }, UPRIGHT = { ...PHONE, viewport: { width: 412, height: 915 } };
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['c', 'barracks'], ['f', 'airfield']], unit: 'Rider', tech: 'Tailwind', name: 'Tailwind', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['c', 'barracks'], ['x', 'extractor'], ['f', 'airfield']], unit: 'Rider', tech: 'Tailwind', name: 'Tailwind', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
   test(`a factory's research shows beside its queue, and nothing in the console moves as it starts and ends (${race})`, async () => {
     for (const device of R.devices) {
       const d = await newGame(device, 1, 4242, { ai: false, race });
@@ -1035,7 +1020,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
 // capital unit's (the most figures): whole, on one line or two, inside the console.
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['w', 'depot'], ['c', 'barracks'], ['f', 'airfield']], unit: 'Rider', tech: 'Tailwind', capital: 'knight' }],
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['w', 'depot'], ['c', 'barracks'], ['x', 'extractor'], ['f', 'airfield']], unit: 'Rider', tech: 'Tailwind', capital: 'knight' }],
   ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['i', 'siphon'], ['c', 'kiln']], unit: 'Petrel', tech: null, capital: 'bruiser' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
@@ -1717,18 +1702,8 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     // Step 3: the army (spawned: the training is another test's), out of the way mid-map.
     await d.eval(() => { const c = 32 * 32; for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', c, c); });
     await d.hudText('#tut', /4\/7/);
-    assert.match(await d.page.locator('#tut').textContent(), /Build an Excavator on the mine shaft marked on the map: it digs salt by itself/, 'then an Excavator (it needs the Crew Hall)');
-    // The guide leads to the open shaft nearest the Core: shown (explored), and the camera there once.
-    const shaft = await d.eval(() => {
-      const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), d = (n) => Math.hypot(n.x - me.x, n.y - me.y);
-      const n = endfall.map.nodes.filter(n => n.type === 'ether').sort((a, b) => d(a) - d(b) || a.id - b.id)[0];
-      const c = endfall.cam, v = endfall.view;
-      return { far: d(n) / 32, explored: endfall.G.explored[n.ty * endfall.engine.MW + n.tx] === 1, off: Math.hypot(c.x + v.w / c.zoom / 2 - n.x, c.y + v.h / c.zoom / 2 - n.y) / 32 };
-    });
-    assert.ok(shaft.far > 12, `the shaft lies out past the base (${shaft.far.toFixed(1)} tiles)`);
-    assert.ok(shaft.explored, 'the guide\'s shaft is shown from the start');
-    assert.ok(shaft.off < 3, `the camera went to it (${shaft.off.toFixed(1)} tiles off)`);
-    // The opponent waits: by 5:30, with the Excavator not built, none of its fighters has crossed to our half.
+    assert.match(await d.page.locator('#tut').textContent(), /Build an Excavator in your base: it earns salt by itself/, 'then a Market (it needs the Crew Hall)');
+    // The opponent waits: by 5:30, with the Market not built, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
     assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');
     assert.deepEqual(d.errors, []);
@@ -1744,7 +1719,7 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     await d.grant(3000, 0);
     let s = await d.state();
     const core = coreOf(s);
-    // The scene up to the step: two workers spawned, the Crew Hall through the UI, the army spawned, the Excavator
+    // The scene up to the step: two workers spawned, the Crew Hall through the UI, the army spawned, the Market
     // through the UI.
     await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'harvester', x, y); endfall.engine.debugSpawn(0, 'harvester', x, y); }, [core.x, core.y + 80]);
     await d.skip(1);
@@ -1754,11 +1729,7 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     // The guide's army, spawned out of the way (mid-map: it must not meet the enemy below), makes the step.
     await d.eval(() => { const c = 32 * 32; for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', c, c); });
     await step(4);
-    s = await d.state();
-    const vent = s.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-    await d.clickEntity(mine(s, 'harvester')[1].id); await d.key('b'); await d.key('x');
-    const [vx, vy] = await d.screen(vent.x, vent.y); await d.page.mouse.move(vx, vy); await d.page.mouse.click(vx, vy);
-    assert.ok(await d.skipUntil(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'extractor' && b.done), null, { seconds: 120 }), 'the Excavator');
+    await buildAndFinish(d, 'x', 'extractor', 1);
     await step(5);
     assert.match(await d.page.locator('#tut').textContent(), /hold your base.*5\/7/);
     // Three enemy Pickets at the base (within 12 tiles of a building of ours) but beyond what they or we would pick a
@@ -2716,7 +2687,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
   try {
     await d.grant(4000, 3000);
     await buildAndFinish(d, 's', 'spire', 0, V);
-    const post = await buildAndFinish(d, 'i', 'siphon', 1, V); // (on a shaft until the economy PR)
+    const post = await buildAndFinish(d, 'i', 'siphon', 1, V);
     await d.clickEntity(post.id);
     await d.readyCard('Lens');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Lens 0', 'Rally 2', 'Cancel 5'], 'the Recruiting post before a Lab: the Bruiser\'s slot empty, Rally and Cancel in place');

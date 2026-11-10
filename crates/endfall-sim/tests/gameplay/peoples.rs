@@ -49,6 +49,10 @@ fn each_building_trains_its_peoples_list() {
         assert_eq!(b.def().req, Some(Siphon), "{b:?}");
     }
     assert_eq!(Eclipse.def().req, Some(Loom));
+    // The Kingdom's Stables need its Market (one a Castle, built in the base), which needs the Barracks.
+    assert_eq!(Airfield.def().req, Some(Extractor));
+    assert_eq!(Extractor.def().req, Some(Barracks));
+    assert!(Extractor.def().pays && Extractor.def().per_hq && !Siphon.def().pays);
     for f in FACTIONS {
         let other = FACTIONS.iter().find(|o| o.key != f.key).unwrap();
         for &b in f.build_basic.iter().chain(f.build_advanced) {

@@ -144,16 +144,18 @@ function bunk(g, M, x, z) {
   for (const dx of [-1.2, 1.2]) limb(b, [dx, 0.4, 6.9], [dx, 10.4, 6.9], 0.4, M.oak); for (let y = 2; y < 10; y += 2) limb(b, [-1.2, y, 6.9], [1.2, y, 6.9], 0.35, M.oak); // the ladder at the foot
 }
 /** A washing line from `a` to `b` (a sagging rope) with clothes pegged along it, each hung facing along the line: shirts (a
- *  body and two sleeves) and trousers (a waist and two legs) in fatigues grey, tan and white, and two team hi-vis vests. */
+ *  body and two sleeves), trousers (a waist and two legs), a towel and a folded blanket, in fatigues grey, camouflage, tan and
+ *  white: plain clothes, nothing team (the third blind test read two team vests on the line as armour on racks). */
 function laundry(g, M, a, b) {
   const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 1.0, (a[2] + b[2]) / 2];
   limb(g, a, m, 0.3, M.rope); limb(g, m, b, 0.3, M.rope);
   const ry = -Math.atan2(b[2] - a[2], b[0] - a[0]);
-  [['shirt', M.uniform], ['trousers', M.hose], ['vest', M.vest], ['shirt', M.paper], ['vest', M.vest]].forEach(([kind, mat], k) => {
+  [['shirt', M.uniform], ['trousers', M.hose], ['towel', M.paper], ['shirt', M.camo], ['blanket', M.canvasLocal]].forEach(([kind, mat], k) => {
     const t = 0.14 + k * 0.18, p = grp(); p.position.set(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - 4 * t * (1 - t), a[2] + (b[2] - a[2]) * t); p.rotation.y = ry; g.add(p);
     if (kind === 'shirt') { add(p, rbox(4.0, 4.6, 0.5, 0.3), mat, 0, -2.5, 0); for (const sx of [-2.6, 2.6]) add(p, rbox(1.4, 2.2, 0.5, 0.3), mat, sx, -1.4, 0); }
     else if (kind === 'trousers') { add(p, rbox(4.0, 1.4, 0.5, 0.2), mat, 0, -0.8, 0); for (const sx of [-1.1, 1.1]) add(p, rbox(1.7, 5.0, 0.5, 0.3), mat, sx, -4.0, 0); }
-    else { add(p, rbox(4.2, 5.2, 0.6, 0.4), mat, 0, -2.8, 0); add(p, rbox(3.6, 0.6, 0.65, 0.05), M.hivis, 0, -2.6, 0); for (const y of [-0.3, -5.3]) add(p, rbox(4.4, 0.4, 0.65, 0.05), M.inkLine, 0, y, 0); }
+    else if (kind === 'towel') add(p, rbox(3.6, 5.6, 0.5, 0.2), mat, 0, -3.0, 0);
+    else add(p, rbox(6.0, 4.4, 0.6, 0.3), mat, 0, -2.4, 0);                                                                                 // a blanket folded over the line
     for (const sx of [-1.4, 1.4]) add(p, rbox(0.6, 1.2, 0.7, 0.1), M.oak, sx, 0.2, 0);                                                     // pegs
   });
 }
@@ -195,7 +197,7 @@ export function bunkhouse(M) {
   limb(g, [TK, 7.6, TZ + 3.3], [TK - 1.5, 4.4, TZ + 10], 0.45, M.steel); add(g, rbox(1.4, 1.2, 1.4, 0.2), M.steel, TK - 1.5, 4.4, TZ + 10.4);
   // the beds, in the open before the house: two bunks end-on to the camera, pale pillows at the head, team blankets, ladders
   bunk(g, M, X - 17, SZ + 10); bunk(g, M, X - 1, SZ + 10.5);
-  // the washing line from the house's south-east corner to a pole: shirts and trousers in fatigues grey, tan and white, two team vests
+  // the washing line from the house's south-east corner to a pole: plain clothes, a towel and a blanket, no team colour
   const PX = X + 9, PZ = SZ + 16;
   add(g, cyl(0.8, 0.9, 12, 8), M.oak, PX, 7.6, PZ);
   laundry(g, M, [X + W / 2 - 0.5, H + 1.4, SZ + 0.4], [PX, 13.4, PZ]);

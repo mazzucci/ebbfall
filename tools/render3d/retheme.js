@@ -8,6 +8,9 @@
 // degrees (RT_ELEV by default), lower than the game's 55 so the cells are taller (`liftAt`). Units are drawn
 // UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can be distinguished"; visual only, the
 // footprint and radius unchanged); buildings stay their footprint's.
+// The buildings family adds `bldg_kg_<kind>` and `bldg_ex_<kind>` for the rest of both rosters and
+// `kg_towerhead_<dir>` / `ex_radiohead_<dir>` for the two turning heads (RT_HEADS); the ground family the gold, the
+// scenery and each people's construction and rubble.
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
@@ -15,6 +18,8 @@ import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js'
 import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
+import * as KB from './kingdom-buildings.js';
+import * as EB from './expedition-buildings.js';
 
 export const RT_ELEV = 40;
 export const UNIT_SCALE = 1.4;
@@ -33,6 +38,19 @@ export const RT_UNITS = {
   },
 };
 export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: dataCentre, n: 4, h: 50 } } };
+// ---- the buildings family (kingdom-buildings.js, expedition-buildings.js; the slot each takes is in the brief) ----
+Object.assign(RT_BUILDINGS.kg, {
+  cottage: { build: KB.cottage, n: 2, h: 34 }, market: { build: KB.market, n: 2, h: 36 }, barracks: { build: KB.barracks, n: 3, h: 48 },
+  blacksmith: { build: KB.blacksmith, n: 2, h: 40 }, workshop: { build: KB.workshop, n: 3, h: 56 }, tower: { build: KB.watchtower, n: 2, h: 82 },
+  stables: { build: KB.stables, n: 3, h: 30 },
+});
+Object.assign(RT_BUILDINGS.ex, {
+  bunkhouse: { build: EB.bunkhouse, n: 2, h: 46 }, post: { build: EB.recruitingPost, n: 2, h: 34 }, factory: { build: EB.factory, n: 3, h: 44 },
+  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.radioTower, n: 2, h: 62 }, portal: { build: EB.portal, n: 2, h: 46 },
+});
+/** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
+ *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. */
+export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 } } };
 const MATS = { kg: (tc) => makeKingdomMats(tc, 'B'), ex: makeExpeditionMats };
 const FACINGS = 16;
 
@@ -62,6 +80,11 @@ export function* rethemeSprites(want, elevDeg = RT_ELEV) {
     for (const [kind, b] of Object.entries(RT_BUILDINGS[side])) {
       const name = `bldg_${side}_${kind}`; if (!want(name)) continue;
       yield [name, b.build(mats()), bldgCell(b.n, b.h, lift), o, true];
+    }
+    for (const [kind, b] of Object.entries(RT_HEADS[side])) for (let dir = 0; dir < FACINGS; dir++) {
+      const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;
+      const obj = b.build(mats()); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
+      yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
     }
   }
   if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL)), unitCell(30, 12, lift), o, false];

@@ -84,7 +84,7 @@ pages.forEach((p, n) => {
   pageFiles.push(`atlas-${n}.json`);
 });
 const seq = (prefix, n) => Array.from({ length: n }, (_, f) => `${prefix}${f}`);
-const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), trail: seq('trail_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4), heal: seq('heal_', 3) };
+const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), trail: seq('trail_', 4), flag: seq('flag_', 4), heal: seq('heal_', 3) };
 for (const s of sprites) if (s.anim) (animations[s.anim] ||= [])[s.frame] = s.name; // units: <unit>_<dir> (base frames)
 writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2, tints: models.tints, unitTops }, null, 1));
 console.log(`${sprites.length} sprites on ${pages.length} page(s)`);

@@ -8,9 +8,7 @@
   "atlas-5.json",
   "atlas-6.json",
   "atlas-7.json",
-  "atlas-8.json",
-  "atlas-9.json",
-  "atlas-10.json"
+  "atlas-8.json"
  ],
  "animations": {
   "boom_big": [
@@ -59,12 +57,6 @@
    "flag_1",
    "flag_2",
    "flag_3"
-  ],
-  "vent": [
-   "vent_0",
-   "vent_1",
-   "vent_2",
-   "vent_3"
   ],
   "heal": [
    "heal_0",
@@ -983,165 +975,69 @@
    "knight_15_0",
    "knight_15_1"
   ],
-  "veteran_0": [
-   "veteran_0_0",
-   "veteran_0_1"
+  "bruiser_0": [
+   "bruiser_0_0",
+   "bruiser_0_1"
   ],
-  "veteran_1": [
-   "veteran_1_0",
-   "veteran_1_1"
+  "bruiser_1": [
+   "bruiser_1_0",
+   "bruiser_1_1"
   ],
-  "veteran_2": [
-   "veteran_2_0",
-   "veteran_2_1"
+  "bruiser_2": [
+   "bruiser_2_0",
+   "bruiser_2_1"
   ],
-  "veteran_3": [
-   "veteran_3_0",
-   "veteran_3_1"
+  "bruiser_3": [
+   "bruiser_3_0",
+   "bruiser_3_1"
   ],
-  "veteran_4": [
-   "veteran_4_0",
-   "veteran_4_1"
+  "bruiser_4": [
+   "bruiser_4_0",
+   "bruiser_4_1"
   ],
-  "veteran_5": [
-   "veteran_5_0",
-   "veteran_5_1"
+  "bruiser_5": [
+   "bruiser_5_0",
+   "bruiser_5_1"
   ],
-  "veteran_6": [
-   "veteran_6_0",
-   "veteran_6_1"
+  "bruiser_6": [
+   "bruiser_6_0",
+   "bruiser_6_1"
   ],
-  "veteran_7": [
-   "veteran_7_0",
-   "veteran_7_1"
+  "bruiser_7": [
+   "bruiser_7_0",
+   "bruiser_7_1"
   ],
-  "veteran_8": [
-   "veteran_8_0",
-   "veteran_8_1"
+  "bruiser_8": [
+   "bruiser_8_0",
+   "bruiser_8_1"
   ],
-  "veteran_9": [
-   "veteran_9_0",
-   "veteran_9_1"
+  "bruiser_9": [
+   "bruiser_9_0",
+   "bruiser_9_1"
   ],
-  "veteran_10": [
-   "veteran_10_0",
-   "veteran_10_1"
+  "bruiser_10": [
+   "bruiser_10_0",
+   "bruiser_10_1"
   ],
-  "veteran_11": [
-   "veteran_11_0",
-   "veteran_11_1"
+  "bruiser_11": [
+   "bruiser_11_0",
+   "bruiser_11_1"
   ],
-  "veteran_12": [
-   "veteran_12_0",
-   "veteran_12_1"
+  "bruiser_12": [
+   "bruiser_12_0",
+   "bruiser_12_1"
   ],
-  "veteran_13": [
-   "veteran_13_0",
-   "veteran_13_1"
+  "bruiser_13": [
+   "bruiser_13_0",
+   "bruiser_13_1"
   ],
-  "veteran_14": [
-   "veteran_14_0",
-   "veteran_14_1"
+  "bruiser_14": [
+   "bruiser_14_0",
+   "bruiser_14_1"
   ],
-  "veteran_15": [
-   "veteran_15_0",
-   "veteran_15_1"
-  ],
-  "vanguard_0": [
-   "vanguard_0_0",
-   "vanguard_0_1",
-   "vanguard_0_2",
-   "vanguard_0_3"
-  ],
-  "vanguard_1": [
-   "vanguard_1_0",
-   "vanguard_1_1",
-   "vanguard_1_2",
-   "vanguard_1_3"
-  ],
-  "vanguard_2": [
-   "vanguard_2_0",
-   "vanguard_2_1",
-   "vanguard_2_2",
-   "vanguard_2_3"
-  ],
-  "vanguard_3": [
-   "vanguard_3_0",
-   "vanguard_3_1",
-   "vanguard_3_2",
-   "vanguard_3_3"
-  ],
-  "vanguard_4": [
-   "vanguard_4_0",
-   "vanguard_4_1",
-   "vanguard_4_2",
-   "vanguard_4_3"
-  ],
-  "vanguard_5": [
-   "vanguard_5_0",
-   "vanguard_5_1",
-   "vanguard_5_2",
-   "vanguard_5_3"
-  ],
-  "vanguard_6": [
-   "vanguard_6_0",
-   "vanguard_6_1",
-   "vanguard_6_2",
-   "vanguard_6_3"
-  ],
-  "vanguard_7": [
-   "vanguard_7_0",
-   "vanguard_7_1",
-   "vanguard_7_2",
-   "vanguard_7_3"
-  ],
-  "vanguard_8": [
-   "vanguard_8_0",
-   "vanguard_8_1",
-   "vanguard_8_2",
-   "vanguard_8_3"
-  ],
-  "vanguard_9": [
-   "vanguard_9_0",
-   "vanguard_9_1",
-   "vanguard_9_2",
-   "vanguard_9_3"
-  ],
-  "vanguard_10": [
-   "vanguard_10_0",
-   "vanguard_10_1",
-   "vanguard_10_2",
-   "vanguard_10_3"
-  ],
-  "vanguard_11": [
-   "vanguard_11_0",
-   "vanguard_11_1",
-   "vanguard_11_2",
-   "vanguard_11_3"
-  ],
-  "vanguard_12": [
-   "vanguard_12_0",
-   "vanguard_12_1",
-   "vanguard_12_2",
-   "vanguard_12_3"
-  ],
-  "vanguard_13": [
-   "vanguard_13_0",
-   "vanguard_13_1",
-   "vanguard_13_2",
-   "vanguard_13_3"
-  ],
-  "vanguard_14": [
-   "vanguard_14_0",
-   "vanguard_14_1",
-   "vanguard_14_2",
-   "vanguard_14_3"
-  ],
-  "vanguard_15": [
-   "vanguard_15_0",
-   "vanguard_15_1",
-   "vanguard_15_2",
-   "vanguard_15_3"
+  "bruiser_15": [
+   "bruiser_15_0",
+   "bruiser_15_1"
   ],
   "medic_0": [
    "medic_0_0",
@@ -1207,118 +1103,6 @@
    "medic_15_0",
    "medic_15_1"
   ],
-  "raider_0": [
-   "raider_0_0"
-  ],
-  "raider_1": [
-   "raider_1_0"
-  ],
-  "raider_2": [
-   "raider_2_0"
-  ],
-  "raider_3": [
-   "raider_3_0"
-  ],
-  "raider_4": [
-   "raider_4_0"
-  ],
-  "raider_5": [
-   "raider_5_0"
-  ],
-  "raider_6": [
-   "raider_6_0"
-  ],
-  "raider_7": [
-   "raider_7_0"
-  ],
-  "raider_8": [
-   "raider_8_0"
-  ],
-  "raider_9": [
-   "raider_9_0"
-  ],
-  "raider_10": [
-   "raider_10_0"
-  ],
-  "raider_11": [
-   "raider_11_0"
-  ],
-  "raider_12": [
-   "raider_12_0"
-  ],
-  "raider_13": [
-   "raider_13_0"
-  ],
-  "raider_14": [
-   "raider_14_0"
-  ],
-  "raider_15": [
-   "raider_15_0"
-  ],
-  "interceptor_0": [
-   "interceptor_0_0",
-   "interceptor_0_1"
-  ],
-  "interceptor_1": [
-   "interceptor_1_0",
-   "interceptor_1_1"
-  ],
-  "interceptor_2": [
-   "interceptor_2_0",
-   "interceptor_2_1"
-  ],
-  "interceptor_3": [
-   "interceptor_3_0",
-   "interceptor_3_1"
-  ],
-  "interceptor_4": [
-   "interceptor_4_0",
-   "interceptor_4_1"
-  ],
-  "interceptor_5": [
-   "interceptor_5_0",
-   "interceptor_5_1"
-  ],
-  "interceptor_6": [
-   "interceptor_6_0",
-   "interceptor_6_1"
-  ],
-  "interceptor_7": [
-   "interceptor_7_0",
-   "interceptor_7_1"
-  ],
-  "interceptor_8": [
-   "interceptor_8_0",
-   "interceptor_8_1"
-  ],
-  "interceptor_9": [
-   "interceptor_9_0",
-   "interceptor_9_1"
-  ],
-  "interceptor_10": [
-   "interceptor_10_0",
-   "interceptor_10_1"
-  ],
-  "interceptor_11": [
-   "interceptor_11_0",
-   "interceptor_11_1"
-  ],
-  "interceptor_12": [
-   "interceptor_12_0",
-   "interceptor_12_1"
-  ],
-  "interceptor_13": [
-   "interceptor_13_0",
-   "interceptor_13_1"
-  ],
-  "interceptor_14": [
-   "interceptor_14_0",
-   "interceptor_14_1"
-  ],
-  "interceptor_15": [
-   "interceptor_15_0",
-   "interceptor_15_1"
-  ],
   "halo_0": [
    "halo_0_0",
    "halo_0_1"
@@ -1382,102 +1166,6 @@
   "halo_15": [
    "halo_15_0",
    "halo_15_1"
-  ],
-  "sovereign_0": [
-   "sovereign_0_0",
-   "sovereign_0_1",
-   "sovereign_0_2",
-   "sovereign_0_3"
-  ],
-  "sovereign_1": [
-   "sovereign_1_0",
-   "sovereign_1_1",
-   "sovereign_1_2",
-   "sovereign_1_3"
-  ],
-  "sovereign_2": [
-   "sovereign_2_0",
-   "sovereign_2_1",
-   "sovereign_2_2",
-   "sovereign_2_3"
-  ],
-  "sovereign_3": [
-   "sovereign_3_0",
-   "sovereign_3_1",
-   "sovereign_3_2",
-   "sovereign_3_3"
-  ],
-  "sovereign_4": [
-   "sovereign_4_0",
-   "sovereign_4_1",
-   "sovereign_4_2",
-   "sovereign_4_3"
-  ],
-  "sovereign_5": [
-   "sovereign_5_0",
-   "sovereign_5_1",
-   "sovereign_5_2",
-   "sovereign_5_3"
-  ],
-  "sovereign_6": [
-   "sovereign_6_0",
-   "sovereign_6_1",
-   "sovereign_6_2",
-   "sovereign_6_3"
-  ],
-  "sovereign_7": [
-   "sovereign_7_0",
-   "sovereign_7_1",
-   "sovereign_7_2",
-   "sovereign_7_3"
-  ],
-  "sovereign_8": [
-   "sovereign_8_0",
-   "sovereign_8_1",
-   "sovereign_8_2",
-   "sovereign_8_3"
-  ],
-  "sovereign_9": [
-   "sovereign_9_0",
-   "sovereign_9_1",
-   "sovereign_9_2",
-   "sovereign_9_3"
-  ],
-  "sovereign_10": [
-   "sovereign_10_0",
-   "sovereign_10_1",
-   "sovereign_10_2",
-   "sovereign_10_3"
-  ],
-  "sovereign_11": [
-   "sovereign_11_0",
-   "sovereign_11_1",
-   "sovereign_11_2",
-   "sovereign_11_3"
-  ],
-  "sovereign_12": [
-   "sovereign_12_0",
-   "sovereign_12_1",
-   "sovereign_12_2",
-   "sovereign_12_3"
-  ],
-  "sovereign_13": [
-   "sovereign_13_0",
-   "sovereign_13_1",
-   "sovereign_13_2",
-   "sovereign_13_3"
-  ],
-  "sovereign_14": [
-   "sovereign_14_0",
-   "sovereign_14_1",
-   "sovereign_14_2",
-   "sovereign_14_3"
-  ],
-  "sovereign_15": [
-   "sovereign_15_0",
-   "sovereign_15_1",
-   "sovereign_15_2",
-   "sovereign_15_3"
   ]
  },
  "facings": 16,
@@ -1507,12 +1195,8 @@
   "shrike": 45.5,
   "rider": 43,
   "knight": 48,
-  "veteran": 37,
-  "vanguard": 38,
+  "bruiser": 37,
   "medic": 37,
-  "raider": 41,
-  "interceptor": 35,
-  "halo": 31.5,
-  "sovereign": 36.5
+  "halo": 31.5
  }
 }

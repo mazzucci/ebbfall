@@ -114,14 +114,13 @@ export function* rethemeSprites(want, opts = {}) {
 
 // ---- the atlas (PR 1 of the re-theme): the new models under today's sprite names, in the approved look ----
 // The approved look is the polish on, at the game's camera (40 degrees) and sun (420): scene.js's defaults, so only
-// `polish` is passed. Today's sim kinds take the new models by role; the kinds the next roster retires (medic,
-// vanguard, raider, interceptor, halo, sovereign, zenith) keep their old models (main.js), and the three new models no
-// kind takes yet (Rider, Knight, Veteran) go in under their own names, ready for the roster.
+// `polish` is passed. The sim's kinds take the new models by role (the roster's Rider and Knight their own, the
+// Bruiser the Veteran); the two healers the sim keeps but trains nowhere (medic, halo) keep their old models (main.js).
 /** Unit kind -> [people, model] (RT_UNITS). */
 export const ATLAS_UNITS = {
   harvester: ['kg', 'villager'], trooper: ['kg', 'guard'], lancer: ['kg', 'archer'], siegeTank: ['kg', 'trebuchet'], bastion: ['kg', 'ballista'], observer: ['kg', 'balloon'],
   lumen: ['ex', 'bot'], scythe: ['ex', 'buggy'], prism: ['ex', 'mercenary'], umbra: ['ex', 'marine'], monolith: ['ex', 'rover'], shrike: ['ex', 'drone'],
-  rider: ['kg', 'rider'], knight: ['kg', 'knight'], veteran: ['ex', 'veteran'], // (no kind yet: the roster's)
+  rider: ['kg', 'rider'], knight: ['kg', 'knight'], bruiser: ['ex', 'veteran'],
 };
 /** Building type -> [people, model] (RT_BUILDINGS); each footprint is its type's (n tiles). */
 export const ATLAS_BUILDINGS = {

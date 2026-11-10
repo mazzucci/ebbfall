@@ -12,6 +12,7 @@ import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 import { makeMats } from './materials.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
+import { polishMats } from './polish.js';
 
 // ---------------- textures (light bases: the material colour darkens them) ----------------
 export function tex(size, draw, { repeat = 1, srgb = true } = {}) {
@@ -83,7 +84,7 @@ export const KINGDOM_PALETTES = {
 const ROOF_TEX = { tile: tileTex, slate: slateTex, thatch: thatchTex };
 /** The kingdom's materials for a palette `v`, over the Harbour's set (its team canvas, ink, rope, brass and timber
  *  grain are reused: `paintCanvas` is the team cloth, `inkLine` the hem either side of it). */
-export function makeKingdomMats(tc, v = 'B') {
+export function makeKingdomMats(tc, v = 'B', polish = false) {
   const P = KINGDOM_PALETTES[v], M = makeMats(tc), std = (o) => new THREE.MeshStandardMaterial(o);
   M.wall = P.wallTex === 'plank' ? std({ color: P.wall, map: plankTex, bumpMap: plankBump, bumpScale: 1.2, roughness: 0.85 }) : std({ color: P.wall, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.4, roughness: 0.9 });
   M.wallDark = M.wall.clone(); M.wallDark.color.multiplyScalar(0.72);
@@ -107,7 +108,8 @@ export function makeKingdomMats(tc, v = 'B') {
   M.yard = std({ color: 0x6a6c70, map: M.flagstone.map, bumpMap: M.flagstone.bumpMap, bumpScale: 1, roughness: 0.9 }); // the yard: grey flagstones
   M.cloth = M.paintCanvas;                                                                                       // the team cloth, between `inkLine` hems
   M.clothPale = std({ color: 0xd8d0ba, map: M.canvas.map, roughness: 0.9 });                                       // the pavilion's pale stripes
-  return M;
+  M.quoin = std({ color: 0x9c9ea6, roughness: 0.9 });                                                             // dressed corner stones, a step lighter than the ashlar (the polish's quoins)
+  return polish ? polishMats(M, 'kg') : M;                                                                        // (polish.js: texture on the flat materials and `M.polish` for the models' secondary detail)
 }
 
 // ---------------- helpers ----------------
@@ -127,6 +129,17 @@ export function crenels(g, M, x0, z0, x1, z1, y, step = 5.2, w = 2.6, t = 2.2) {
 /** Merlons round a round tower's top. */
 export function roundCrenels(g, M, x, z, r, y, n = 10) {
   for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2; add(g, rbox(2.2, 2.2, 1.8, 0.3), M, x + Math.cos(a) * r, y + 1.1, z + Math.sin(a) * r, 0, -a, 0); }
+}
+/** The polish's quoins: dressed stones up a corner at (x, z) from y0 to y1, long and short faces alternating. */
+export function quoins(g, M, x, z, y0, y1, step = 3.0, a = 2.6, b = 1.5, t = 1.2) {
+  for (let y = y0, k = 0; y < y1; y += step, k++) add(g, rbox(k % 2 ? a : b, step * 0.8, k % 2 ? b : a, 0.15), M.quoin, x, y + step * 0.4, z);
+}
+/** The polish's door furniture: hinge knuckles at the ends of a door's iron bands and a ring handle; the door is `w`
+ *  wide at (x, y, z) facing +z (`ry` turns the group), its bands at the heights `bands`. */
+export function doorIron(g, M, x, y, z, w, bands, ry = 0) {
+  const p = grp(); p.position.set(x, y, z); p.rotation.y = ry; g.add(p);
+  for (const by of bands) for (const sx of [-1, 1]) add(p, cyl(0.45, 0.45, 1.3, 6), M.ironDark, sx * (w / 2 - 0.3), by, 0.5);
+  add(p, torus(0.7, 0.16), M.steel, w * 0.25, (bands[0] + bands[bands.length - 1]) / 2, 0.6);
 }
 /** A hanging team cloth on a wall face: the cloth between two ink hems, hung from a pole with knobs. The group's -x
  *  side is against the wall; `ry` turns it to the face. */
@@ -204,6 +217,13 @@ export function villager(M, f) {
   add(pk, rbox(7.0, 1.6, 1.6, 0.3), M.steel, 0, 6.6, 0);                                        // the head, bright, across the haft
   add(pk, cone(0.8, 2.6, 8), M.steel, 4.6, 6.6, 0, 0, 0, -Math.PI / 2);                         // its point, down ahead
   add(pk, rbox(1.8, 2.2, 1.3, 0.3), M.steel, -4.2, 6.6, 0);                                     // its flat end
+  if (M.polish) { // secondary detail: a buckle, a hip pouch, ink cuffs at the wrists, a leather grip on the haft, a second weave band on the basket
+    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
+    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 7.2, -3.7);
+    add(b, sph(1.25, 8, 6), M.inkLine, 2.45, 11.6, -2.6); add(b, sph(1.25, 8, 6), M.inkLine, 2.6, 7.2, 3.9);
+    add(pk, cyl(0.98, 0.98, 2.0, 8), M.leather, 0, 1.0, 0);
+    add(sk, torus(2.8, 0.3), M.oak, 0, -1.6, 0, Math.PI / 2, 0, 0);
+  }
   g.scale.setScalar(0.95);
   return g;
 }
@@ -239,6 +259,12 @@ export function guard(M, f) {
   add(sp, cone(1.5, 5.4, 8), M.steel, 21.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5);   // the leaf head
   add(sp, cyl(1.0, 0.9, 1.4, 8), M.steel, -8.4, 0, 0, 0, 0, Math.PI / 2);                     // the butt's ferrule
   limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5);
+  if (M.polish) { // secondary detail: a buckle, a sword in a scabbard at the left hip, leather bindings on the spear, iron studs round the shield's rim
+    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
+    add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.6, 5.6, -3.4, 0.3, 0, 0.55); add(b, rbox(2.2, 0.45, 0.5, 0.1), M.steel, -0.3, 8.9, -3.5); add(b, sph(0.5, 8, 6), M.steel, 0.2, 9.4, -3.5);
+    add(sp, cyl(1.05, 1.05, 2.2, 8), M.leather, 15.6, 0, 0, 0, 0, Math.PI / 2); add(sp, cyl(1.05, 1.05, 2.6, 8), M.leather, 3.8, 0, 0, 0, 0, Math.PI / 2);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(sh, sph(0.45, 6, 5), M.ironDark, Math.cos(a) * 3.75, 0.62, Math.sin(a) * 3.75); }
+  }
   g.scale.setScalar(1.08);
   return g;
 }
@@ -295,6 +321,16 @@ export function knight(M, f) {
   const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -0.42 + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
   add(ln, rbox(0.4, 0.4, 5.4, 0.05), M.inkLine, 20.6, 0.4, 0.2);                             // its ink edge at the staff
   limb(r, [0, 6, 3], [2.0, 4.8, 3.6], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, 2.2, 4.8, 3.7);
+  if (M.polish) { // secondary detail: the bridle and reins, a breast strap and girth, saddle pommel and cantle, stirrups, the helm's cross, bands on the lance
+    add(h, torus(1.9, 0.28), M.leather, 13.9, 17.0, 0, 0, Math.PI / 2, -0.35);                   // the noseband
+    for (const z of [-1.4, 1.4]) { limb(h, [12.2, 18.8, z], [13.5, 16.5, z * 1.1], 0.26, M.leather); limb(h, [14.4, 16.7, z], [2.2, 19.0, z * 2.6], 0.3, M.leather); } // the headstall, the reins back to the hands
+    for (const z of [-3.9, 3.9]) limb(h, [3.5, 13.4, z], [7.7, 10.8, 0], 0.4, M.leather);        // the breast strap
+    add(h, rbox(2.0, 7.2, 8.0, 0.2), M.leather, 0.5, 9.4, 0);                                     // the girth
+    add(h, rbox(1.2, 2.2, 5.0, 0.4), M.leather, -2.9, 15.3, 0); add(h, rbox(1.0, 1.4, 3.0, 0.3), M.leather, 3.9, 15.2, 0); // cantle and pommel
+    for (const side of [-1, 1]) add(r, torus(0.95, 0.22), M.steel, 2.8, -4.0, side * 4.9);       // stirrups
+    add(r, rbox(1.0, 2.6, 0.5, 0.1), M.inkLine, 2.8, 9.9, 0); add(r, rbox(1.0, 0.45, 2.4, 0.1), M.inkLine, 2.8, 9.7, 0); // the helm's cross
+    for (const x of [-0.8, 4.2]) add(ln, cyl(1.3, 1.3, 0.8, 8), M.ironDark, x, 0, 0, 0, 0, Math.PI / 2);
+  }
   return g;
 }
 
@@ -388,5 +424,22 @@ export function castle(M) {
   for (const [x, z] of [[-44, 8], [-39, 12], [-41.5, 15]]) { add(g, cyl(2.4, 2.6, 5, 12), M.oak, x, 5.5, z); for (const y of [4.2, 7]) add(g, torus(2.65, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
   for (let k = 0; k < 6; k++) add(g, cyl(0.5, 0.5, 17, 6), M.oak, 14 + k * 2.1, 11.5, -40 - (k % 2), 0.1, 0, (k % 2 ? 1 : -1) * 0.1);
   for (let k = 0; k < 6; k++) add(g, cone(0.8, 2.6, 6), M.steel, 14 + k * 2.1, 20.8, -40 - (k % 2));
+  if (M.polish) { // secondary detail: quoins at the hall's, gate's and bare wall corners, a string course and sills on the keep, corbel flares under the
+    // towers' tops, buttresses on the hall, hinges and ring handles on the doors, a portcullis in the gate, finials on the hall's ridge
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, HX + sx * HW / 2, HZ + sz * HL / 2, 3, HH + 1.5);
+    for (const sx of [-1, 1]) quoins(g, M, GX + sx * 4.5, GZ + 4.0, 3, 21, 3.0, 2.2, 1.3);
+    quoins(g, M, -R, -R, 2.5, 15); quoins(g, M, R, R, 2.5, 15);
+    add(g, rbox(KW + 1.2, 1.2, KW + 1.2, 0.2), M.plinth, KX, 32, KZ);
+    for (const [x, y] of [[-10, 46], [10, 46], [0, 30]]) { add(g, rbox(2.6, 0.7, 1.0, 0.1), M.plinth, KX + x, y - 2.9, KZ + KW / 2 + 0.4); add(g, rbox(2.8, 0.7, 1.0, 0.1), M.plinth, KX + x, y + 2.9, KZ + KW / 2 + 0.4); }
+    add(g, cyl(9.8, 9.0, 1.6, 20), M.plinth, TX, TH + 2.2, TZ);
+    for (const [dx, dz] of [[1, -1], [-1, 1]]) add(g, cyl(8.6, 7.8, 1.4, 16), M.plinth, dx * (R - 1), 27.2, dz * (R - 1));
+    for (const x of [GX - 10, GX + 10]) add(g, cyl(6.6, 5.9, 1.2, 16), M.plinth, x, 27.3, GZ);
+    for (const x of [-9.5, 9.5]) { add(g, rbox(2.6, 11, 2.4, 0.3), M.wall, HX + x, 7.5, HZ + HL / 2 + 1.0); add(g, rbox(2.8, 1.0, 2.8, 0.2), M.plinth, HX + x, 13.3, HZ + HL / 2 + 1.0); }
+    for (const z of [-18, 0, 18]) for (const sx of [-1, 1]) { add(g, rbox(2.4, 11, 2.6, 0.3), M.wall, HX + sx * (HW / 2 + 1.0), 7.5, HZ + z); add(g, rbox(2.8, 1.0, 2.8, 0.2), M.plinth, HX + sx * (HW / 2 + 1.0), 13.3, HZ + z); }
+    doorIron(g, M, KX, 0, KZ + KW / 2 + 1.0, 6, [5, 9.5]); doorIron(g, M, HX, 0, HZ + HL / 2 + 1.0, 6, [4, 8.5]); doorIron(g, M, GX, 0, GZ + T / 2 + 1.7, 6, [4.5, 7.5, 10.5]);
+    for (const x of [-2.1, -0.7, 0.7, 2.1]) add(g, rbox(0.45, 9.6, 0.45, 0.1), M.ironDark, GX + x, 6.8, GZ + T / 2 + 2.2);
+    for (const y of [3.5, 6.5, 9.5]) add(g, rbox(6.4, 0.45, 0.45, 0.1), M.ironDark, GX, y, GZ + T / 2 + 2.2);
+    for (const sz of [-1, 1]) add(g, sph(0.9, 8, 6), M.steel, HX, HH + 15.6, HZ + sz * (HL / 2 + 2.6));
+  }
   return g;
 }

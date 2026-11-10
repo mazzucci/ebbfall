@@ -146,8 +146,8 @@ window.render = async function (filter = '', opts = {}) {
   for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.mineShaft(f, neutral), unitCell(30, 8));
   for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
   // The re-theme's comparison models (retheme.js), only when a filter asks for them by name, at their own camera
-  // (`opts.elev`): generate.mjs renders with no filter, so the atlas never sees them.
-  if (filter) for (const [name, obj, cell, o, isTeam] of rethemeSprites(want, opts.elev)) (isTeam ? pushTeam : push)(name, obj, cell, o);
+  // (`opts.elev`), sun (`opts.sun`) and finish (`opts.polish`): generate.mjs renders with no filter, so the atlas never sees them.
+  if (filter) for (const [name, obj, cell, o, isTeam] of rethemeSprites(want, opts)) (isTeam ? pushTeam : push)(name, obj, cell, o);
   return { sprites: out, tints: fitTints() };
 };
 window.ready = true;

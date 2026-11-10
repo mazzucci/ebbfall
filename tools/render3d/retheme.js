@@ -51,7 +51,7 @@ Object.assign(RT_BUILDINGS.ex, {
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. */
 export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 } } };
-const MATS = { kg: (tc) => makeKingdomMats(tc, 'B'), ex: makeExpeditionMats };
+const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
 
 /** Cells as main.js lays them out, with the lift of this camera. */
@@ -64,11 +64,16 @@ function bldgCell(n, h, lift) {
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 
-/** Yields [name, object, cell, shootOpts, isTeam] for every re-theme sprite `want(name)` asks for. */
-export function* rethemeSprites(want, elevDeg = RT_ELEV) {
-  const elev = (elevDeg ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
+/** Yields [name, object, cell, shootOpts, isTeam] for every re-theme sprite `want(name)` asks for. `opts` are the
+ *  render's (render3d.mjs): `elev` the camera's elevation in degrees (RT_ELEV), `sun` the sun's height (scene.js), and
+ *  `polish` the polished finish and materials (polish.js: true, or an object of finish settings). */
+export function* rethemeSprites(want, opts = {}) {
+  if (typeof opts === 'number') opts = { elev: opts };
+  const elev = (opts.elev ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
+  if (opts.sun) o.sun = opts.sun;
+  if (opts.polish) o.polish = opts.polish;
   for (const side of ['kg', 'ex']) {
-    let M = null; const mats = () => M ??= MATS[side](NEUTRAL);
+    let M = null; const mats = () => M ??= MATS[side](NEUTRAL, !!opts.polish);
     for (const [kind, m] of Object.entries(RT_UNITS[side])) {
       const cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
       for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
@@ -87,7 +92,7 @@ export function* rethemeSprites(want, elevDeg = RT_ELEV) {
       yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
     }
   }
-  if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL)), unitCell(30, 12, lift), o, false];
+  if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL, !!opts.polish)), unitCell(30, 12, lift), o, false];
   // The ground family (country.js): the gold outcrop `rt_gold_<stage>_<v>` (the game's shard_k / shard_k_v), the
   // scenery `rt_doodad_<name>` (the game's doodad_<name>), and each people's construction and rubble
   // `rt_<kg|ex>_<foundation|scaffold|rubble>_<n>` (the game's foundation_n, scaffold_n, rubble_n, picked by people;
@@ -97,6 +102,6 @@ export function* rethemeSprites(want, elevDeg = RT_ELEV) {
   for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of ['foundation', 'scaffold', 'rubble']) {
     const name = `rt_${side}_${kind}_${n}`; if (!want(name)) continue;
     const h = kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8;
-    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL)), bldgCell(n, h, lift), { ...o, shadow: kind !== 'scaffold' }, true];
+    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), bldgCell(n, h, lift), { ...o, shadow: kind !== 'scaffold' }, true];
   }
 }

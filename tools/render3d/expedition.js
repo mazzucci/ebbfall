@@ -16,6 +16,7 @@ import { makeMats, team } from './materials.js';
 import { torus } from './harbour.js';
 import { cone } from './vael.js';
 import { tex, ashlarTex, ashlarBump, plankTex, plankBump, earthTex, gable, oct } from './kingdom.js';
+import { polishMats } from './polish.js';
 
 let seed = 71; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 /** Composite shell: a pale panel with faint seams, a few fasteners, dust streaks and scuffs; patched here and there. */
@@ -83,7 +84,7 @@ export const EXPEDITION_LOOK = { name: 'charcoal kit', panel: 0x62665f, panelDar
 export const EXPEDITION_PALETTES = { A: EXPEDITION_LOOK };
 /** The Expedition's materials, over the Harbour's set (its timber, rope, ink and canvas weave are reused). `paint` is
  *  the team: paint on a panel, matte, between `inkLine` trim. */
-export function makeExpeditionMats(tc) {
+export function makeExpeditionMats(tc, polish = false) {
   const P = EXPEDITION_LOOK, M = makeMats(tc), std = (o) => new THREE.MeshStandardMaterial(o);
   M.panel = std({ color: P.panel, map: shellTex, metalness: P.metal, roughness: P.rough });                        // the shells, weathered
   M.panelDark = std({ color: P.panelDark, map: shellTex, metalness: P.metal, roughness: P.rough + 0.1 });          // undersides, patches, housings
@@ -128,7 +129,7 @@ export function makeExpeditionMats(tc) {
   M.hose = std({ color: 0x5e5648, roughness: 0.9 });                                                                 // a local's rough trousers (the Mercenary, the Veteran)
   M.leather = std({ color: 0x2e2622, roughness: 0.6, metalness: 0.1 });                                              // a local's boots and belts
   M.rotor = std({ color: 0x2a2c30, metalness: 0.4, roughness: 0.5, transparent: true, opacity: 0.55 });              // a spinning rotor's disc
-  return M;
+  return polish ? polishMats(M, 'ex') : M;                                                                         // (polish.js: texture on the flat materials and `M.polish` for the models' secondary detail)
 }
 
 /** A small cool LED with a soft halo. */
@@ -180,6 +181,13 @@ export function utilityBot(M, f) {
   add(arm, sph(1.0, 10, 8), M.joint, 2.4, 2.4 - bob, 0);
   limb(arm, [2.4, 2.4 - bob, 0], [5.8, -0.6, 0], 0.75, M.steel);
   add(arm, rbox(2.6, 1.6, 4.0, 0.3), M.paleSteel, 6.6, -1.2, 0, 0, 0, -0.5);                    // the scoop, pale
+  if (M.polish) { // secondary detail: bolt rings on the hubs, a vent grille on the stern, a cable from the arm's turret into the shell, the tray's handles, a sensor dome
+    for (const [x, z] of [[-5.2, -6.3], [5.2, -6.3], [-5.2, 6.3], [5.2, 6.3]]) add(b, torus(0.75, 0.15), M.joint, x, 2.0, z + Math.sign(z) * 1.0);
+    for (const z of [-3.2, 0, 3.2]) add(b, rbox(0.4, 0.7, 2.6, 0.1), M.inkLine, -7.6, 2.9, z);
+    limb(b, [5.0, 4.3, -2.2], [2.6, 4.1, -5.2], 0.3, M.cable);
+    for (const x of [-5.6, 5.6]) add(tr, rbox(0.6, 0.6, 2.6, 0.2), M.joint, x, 1.2, 0);
+    add(b, sph(0.8, 8, 6), M.joint, 6.6, 4.5, -4.2);
+  }
   return g;
 }
 
@@ -298,6 +306,14 @@ export function buggy(M, f) {
   add(b, cyl(0.6, 0.6, 7, 6), M.joint, -9.6, 6, 3.6);                                            // the whip antenna, drawn thick
   add(b, rbox(1.2, 1.6, 10.4, 0.3), M.paint, -11.4, 1.0, 0); add(b, rbox(1.3, 0.3, 10.6, 0.1), M.inkLine, -11.4, 1.9, 0); add(b, rbox(1.3, 0.3, 10.6, 0.1), M.inkLine, -11.4, 0.1, 0); // the rear bumper, team between trims
   add(b, cyl(2.8, 2.8, 1.6, 16), M.tyrePale, -12.6, 3.6, 0, 0, 0, Math.PI / 2); add(b, cyl(1.4, 1.4, 1.8, 10), M.paleSteel, -12.6, 3.6, 0, 0, 0, Math.PI / 2);
+  if (M.polish) { // secondary detail: bolt rings on the hubs, door seams through the stripes, headrests, stays from the cage to the battery pack, a grille on the pack, a tow hook
+    for (const [x, z] of [[-7.0, -6.6], [7.0, -6.6], [-7.0, 6.6], [7.0, 6.6]]) add(b, torus(1.6, 0.22), M.joint, x, -0.6, z + Math.sign(z) * 1.75);
+    for (const z of [-5.35, 5.35]) for (const x of [-5.5, 3.0]) add(b, rbox(0.3, 2.1, 0.2, 0.05), M.inkLine, x, 1.4, z);
+    for (const z of [-1.9, 1.9]) add(b, rbox(1.2, 1.4, 2.2, 0.4), M.panelDark, -3.2, 6.1, z);
+    for (const z of [-3.2, 3.2]) limb(b, [-4.6, 6.6, z], [-7.8, 3.6, z * 1.1], 0.4, M.steel);
+    for (const z of [-1.6, 0, 1.6]) add(b, rbox(3.6, 0.2, 0.5, 0.05), M.inkLine, -7.6, 3.55, z);
+    add(b, rbox(1.2, 0.8, 1.0, 0.3), M.steel, -12.2, 0.9, -3.0);
+  }
   return g;
 }
 
@@ -347,6 +363,13 @@ export function marine(M, f) {
   add(gun, cyl(0.65, 0.65, 3.6, 8), M.gun, 9.4, 0.15, 0, 0, 0, Math.PI / 2);                     // the barrel
   limb(b, [0.6, 11.4, 3.6], [2.4, 9.4, 1.6], 1.1, M.camo); add(b, sph(0.85, 8, 6), M.armour, 2.6, 9.2, 1.4);  // the trigger hand, gloved
   limb(b, [0.6, 11.4, -3.6], [5.8, 9.8, -1.2], 1.1, M.camo); add(b, sph(0.85, 8, 6), M.armour, 6.2, 9.8, -1.0); // the fore hand on the handguard
+  if (M.polish) { // secondary detail: the pack's shoulder straps down the chest, elbow pads, a canteen and a drop pouch, a band round the helmet
+    for (const z of [-1.8, 1.8]) add(b, rbox(0.8, 3.2, 1.0, 0.3), M.armour, 3.05, 11.8, z, 0, 0, -0.25);
+    add(b, sph(1.2, 8, 6), M.armour, 3.7, 10.4, -2.2); add(b, sph(1.15, 8, 6), M.armour, 1.5, 10.4, 2.7); // (the fore arm's pad past the armband, which it must not cover)
+    add(b, cyl(0.9, 0.9, 1.9, 8), M.armour, -1.8, 6.8, 3.5); add(b, cyl(0.4, 0.4, 0.4, 6), M.joint, -1.8, 7.95, 3.5);
+    add(g, rbox(1.3, 2.0, 1.4, 0.3), M.armour, st * 0.25 + 0.8, 5.0, 3.1);
+    add(b, torus(2.72, 0.2), M.joint, 0.1, 14.3, 0, Math.PI / 2, 0, 0);
+  }
   g.scale.setScalar(1.08);
   return g;
 }
@@ -432,6 +455,17 @@ export function dataCentre(M) {
   for (const [x, z] of [[HX - 38, SZ + 4], [HX - 33, SZ]]) { add(g, cyl(2.4, 2.6, 5, 12), M.oakPale, x, 4.5, z); for (const y of [3.2, 6]) add(g, torus(2.65, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
   add(g, rbox(12, 3.6, 6, 0.4), M.stone, HX + 28, 3.8, SZ + 22); add(g, rbox(10.4, 0.6, 4.6, 0.2), M.glass, HX + 28, 5.5, SZ + 22); // a trough
   for (const [x, z, ry2] of [[HX + 9, SZ + 9, 0.6], [HX - 9, SZ + 14, -2.4]]) { const t = traveller(M, 0); t.position.set(x, 2.2, z); t.rotation.y = ry2; t.scale.setScalar(0.9); g.add(t); }
+  if (M.polish) { // secondary detail: a stone lintel and door hinges, window sills and glazing bars, a gutter and down pipe, braces in the gable, steel guard rings
+    // round the fans, cables from the tray up each rack and rack handles, a cable drum by the deck
+    add(g, rbox(8.6, 1.4, 1.6, 0.2), M.stone, HX, 10.8, SZ + 1.5);
+    for (const y of [3.5, 8]) for (const sx of [-1, 1]) add(g, cyl(0.45, 0.45, 1.3, 6), M.ironDark, HX + sx * 3.3, y, SZ + 2.2);
+    for (const x of [-16, 16]) { add(g, rbox(3.4, 0.6, 1.4, 0.1), M.stone, HX + x, 4.5, SZ + 1.6); add(g, rbox(0.3, 3.0, 0.3, 0.05), M.joint, HX + x, 6.5, SZ + 2.0); add(g, rbox(2.4, 0.3, 0.3, 0.05), M.joint, HX + x, 6.5, SZ + 2.0); }
+    add(g, cyl(0.55, 0.55, HW + 2.4, 8), M.steel, HX, HH + 2.2, SZ + 2.0, 0, 0, Math.PI / 2); limb(g, [HX + HW / 2 + 0.6, HH + 2.2, SZ + 2.0], [HX + HW / 2 + 0.6, 3.5, SZ + 2.0], 0.5, M.steel);
+    for (const sx of [-1, 1]) limb(g, [HX + sx * 9, HH + 3.3, SZ + 1.1], [HX + sx * 0.6, HH + 3 + RH - 0.6, SZ + 1.1], 0.5, M.oak);
+    for (let k = 0; k < 3; k++) add(g, torus(6.6, 0.35, Math.PI * 2, 24), M.steel, HX - 13.5 + k * 13.5, HH - 8, SZ + 3.4);
+    for (let k = 0; k < 4; k++) { const x = DX - 10.5 + k * 7; limb(g, [x, 6.4, DZ - 4.6], [x, 13.4, DZ - 3.0], 0.35, M.cable); add(g, rbox(0.4, 1.6, 0.3, 0.1), M.paleSteel, x + 0.6, 8.4, DZ + 3.5); }
+    add(g, cyl(2.6, 2.6, 2.2, 12), M.oakPale, DX + 17, 5.4, DZ + 3, 0, 0, Math.PI / 2); add(g, cyl(1.7, 1.7, 2.5, 10), M.cable, DX + 17, 5.4, DZ + 3, 0, 0, Math.PI / 2);
+  }
   return g;
 }
 

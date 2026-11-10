@@ -4,6 +4,7 @@
 // south faces, like the pre-rendered sprites of late-90s RTS games.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { finishPolish } from './polish.js';
 
 export const ELEV = 55 * Math.PI / 180;
 export const S = 2;          // output pixels per game unit (art is drawn at twice the game's resolution)
@@ -27,7 +28,10 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.22;
 
 const sun = new THREE.DirectionalLight(0xfff0d8, 4.6);
-sun.position.set(-120, 300, -90); // from the north-west, high
+/** The sun: from the north-west, SUN_UP high over SUN_OUT of ground. The atlas keeps 300 (63 degrees); a shot's `sun`
+ *  sets another height (the re-theme's renders use 420, the build's new sun: shorter shadows at the 40-degree camera). */
+const SUN_UP = 300, SUN_OUT = [-120, -90];
+sun.position.set(SUN_OUT[0], SUN_UP, SUN_OUT[1]);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.3; sun.shadow.radius = 1;
@@ -50,8 +54,11 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  * The ground point (gx, gz) lands at pixel (ax, ay). Shadow on the ground included unless `shadow` is false.
  * `mask`: also return its team mask (`{ img, mask }`), the same size and framing (see teamMask).
  * `elev`: the camera's elevation for this shot (radians; ELEV, the game's, by default: only the re-theme's trial renders set it).
+ * `sun`: the sun's height over SUN_OUT (SUN_UP by default; the re-theme's renders pass 420).
+ * `polish`: the re-theme's polished finish (polish.js: a depth pass, ambient occlusion, lit edges, a soft contact
+ * shadow, lighter ink, finer banding) instead of `finish`; off by default, so the atlas never changes.
  */
-export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV }) {
+export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, polish = false }) {
   scene.add(obj);
   obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon)
   catcher.visible = shadow;
@@ -61,13 +68,13 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(elev));
   camera.lookAt(gx, 0, gz);
   camera.updateProjectionMatrix();
-  sun.target.position.set(gx, 0, gz); sun.position.set(gx - 120, 300, gz - 90);
+  sun.target.position.set(gx, 0, gz); sun.position.set(gx + SUN_OUT[0], sunUp, gz + SUN_OUT[1]);
   const r = Math.max(w, h) / S;
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();
   renderer.setSize(w * SS, h * SS, false);
   const img = grab(w, h);
-  finish(img);
+  if (polish) finishPolish(img, depthPass(obj, w, h), polish); else finish(img);
   const m = mask ? teamMask(obj, img) : null;
   scene.remove(obj);
   return mask ? { img, mask: m } : img;
@@ -79,6 +86,30 @@ function grab(w, h) {
   octx.clearRect(0, 0, w, h); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
   octx.drawImage(renderer.domElement, 0, 0, w, h);
   return octx.getImageData(0, 0, w, h);
+}
+
+// ---- the polished finish's depth pass (polish.js): the scene again in packed depth, read back raw ----
+const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+let depthRT = null;
+/** The view depth of every output pixel, in camera units (the camera's near 1 to far 4000; ortho, so linear), as a
+ *  Float32Array w x h; transparent halos are left out (they would read as solid balls), the catcher stays (its depth
+ *  is the ground's, which the contact shadow needs). */
+function depthPass(obj, w, h) {
+  const hidden = [];
+  obj.traverse(o => { if (o.isMesh && o.visible && o.material.transparent) { hidden.push(o); o.visible = false; } });
+  if (!depthRT || depthRT.width !== w || depthRT.height !== h) { depthRT?.dispose(); depthRT = new THREE.WebGLRenderTarget(w, h); }
+  const saved = [scene.overrideMaterial, renderer.toneMapping, renderer.shadowMap.enabled, catcher.visible];
+  scene.overrideMaterial = depthMat; renderer.toneMapping = THREE.NoToneMapping; renderer.shadowMap.enabled = false; catcher.visible = true;
+  renderer.setRenderTarget(depthRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
+  const px = new Uint8Array(w * h * 4); renderer.readRenderTargetPixels(depthRT, 0, 0, w, h, px);
+  [scene.overrideMaterial, renderer.toneMapping, renderer.shadowMap.enabled, catcher.visible] = saved;
+  for (const o of hidden) o.visible = true;
+  const z = new Float32Array(w * h), near = camera.near, far = camera.far;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { // (the target reads bottom-up)
+    const i = ((h - 1 - y) * w + x) * 4, d = (px[i] / 255) * (255 / 256) + (px[i + 1] / 255) * (255 / 256 / 256) + (px[i + 2] / 255) * (255 / 256 / 65536) + (px[i + 3] / 255) / 16777216;
+    z[y * w + x] = px[i + 3] || px[i] ? near + d * (far - near) : Infinity; // (nothing drawn: the sky)
+  }
+  return z;
 }
 
 const flat = new Map(); // unlit stand-ins for the mask pass, by weight and side

@@ -48,7 +48,7 @@ Object.assign(RT_BUILDINGS.kg, {
 });
 Object.assign(RT_BUILDINGS.ex, {
   // Swapped (Stelian, 2026-11-11, after four blind checks read each as the other's role): the windowed booth is the
-  // population building ("Quarters"), the big khaki tent the Recruiting post.
+  // population building (the "Cabin"), the big khaki tent the Recruiting post.
   bunkhouse: { build: EB.recruitingPost, n: 2, h: 34 }, post: { build: EB.bunkhouse, n: 2, h: 46 }, factory: { build: EB.factory, n: 3, h: 44 },
   lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.radioTower, n: 2, h: 62 }, portal: { build: EB.portal, n: 2, h: 46 },
 });

@@ -29,7 +29,7 @@ function fam(M) {
   const A = {
     horseLight: std({ color: 0x8a6e4e, roughness: 0.75 }),                                      // the Rider's horse: a bay, lighter than the Knight's dark hide
     patched: std({ color: 0xcfc8b4, map: patchTex, roughness: 0.92 }),                            // the Balloon's envelope: patched pale canvas
-    rope: M.rope, bolt: std({ color: 0x8a8e94, metalness: 0.7, roughness: 0.45 }),                 // a ballista bolt's shaft
+    rope: M.rope,
   };
   FAM.set(M, A); return A;
 }
@@ -75,9 +75,9 @@ export function archer(M, f) {
   for (const [x, z] of [[0.4, 0.3], [-0.4, -0.4], [0.1, 0.6]]) { add(qv, cyl(0.3, 0.3, 5.0, 6), M.oak, x, 4.6, z); add(qv, rbox(1.3, 1.6, 0.4, 0.1), M.cloth, x, 6.8, z); add(qv, rbox(0.4, 1.6, 1.3, 0.1), M.cloth, x, 6.8, z); }
   // the bow: tall, held up ahead in the left hand, its arc bulging ahead (+x), the string drawn to the cheek
   const BR = 7.2, GX = 4.6, GY = 11.0, GZ = -0.6, bw = grp(); bw.position.set(GX - BR, GY, GZ); b.add(bw);
-  add(bw, torus(BR, 0.7, 28, 2.3), M.oak, 0, 0, 0, 0, 0, -1.15);                                // the stave: an arc of 2.3 rad centred on +x (drawn twice its thickness)
-  for (const s of [-1, 1]) add(bw, sph(0.75, 8, 6), M.steel, BR * Math.cos(1.15), s * BR * Math.sin(1.15), 0); // steel nocks at the tips
-  add(bw, cyl(0.95, 0.95, 2.6, 8), M.leather, BR, 0, 0);                                        // the grip
+  add(bw, torus(BR, 1.05, 28, 2.3), M.timberPale, 0, 0, 0, 0, 0, -1.15);                        // the stave: an arc of 2.3 rad centred on +x, light timber, drawn three times its thickness (the judge: a hair-thin dark arc on a dark coat)
+  for (const s of [-1, 1]) add(bw, sph(1.0, 8, 6), M.steel, BR * Math.cos(1.15), s * BR * Math.sin(1.15), 0); // steel nocks at the tips
+  add(bw, cyl(1.25, 1.25, 2.6, 8), M.leather, BR, 0, 0);                                        // the grip
   const tip = (s) => [BR * Math.cos(1.15), s * BR * Math.sin(1.15), 0], hand = [BR - 4.2, 0.6, 1.2];
   limb(bw, tip(1), hand, 0.3, M.rope); limb(bw, hand, tip(-1), 0.3, M.rope);                     // the string, drawn back (drawn thick)
   add(bw, cyl(0.3, 0.3, 11.0, 6), M.oak, BR - 1.0, 0.3, 0.6, 0, 0, Math.PI / 2);                  // the arrow on the string
@@ -157,7 +157,7 @@ export function ballista(M, f) {
   add(g, cyl(2.0, 2.6, 3.4, 10), M.oak, -0.5, 5.0, 0);                                        // the pedestal
   add(g, cyl(1.2, 1.2, 1.6, 10), M.steel, -0.5, 6.9, 0);                                        // the swivel
   const st = grp(); st.position.set(-0.5, 7.4, 0); st.rotation.z = 0.28; g.add(st);              // the stock, angled up ahead
-  add(st, rbox(19, 1.8, 2.2, 0.3), M.oak, 2.0, 0.6, 0);
+  add(st, rbox(19, 1.8, 2.2, 0.3), M.timberPale, 2.0, 0.6, 0);                                  // the stock in light timber, so the long crossbow line reads at 1x (the judge)
   add(st, rbox(19.2, 0.5, 0.8, 0.1), M.ironDark, 2.0, 1.55, 0);                                 // its slot's iron lips
   add(st, rbox(3.2, 3.0, 3.6, 0.3), M.oak, 9.6, 1.4, 0);                                        // the head frame
   for (const s of [-1, 1]) {                                                                    // the bow arms, swept back from the head, the skeins wrapped in team cloth
@@ -166,7 +166,7 @@ export function ballista(M, f) {
     add(st, sph(0.7, 8, 6), M.steel, 6.4, 2.0, s * 10.5);                                        // steel tips
   }
   limb(st, [6.4, 2.0, -10.5], [-3.0, 1.8, 0], 0.4, A.rope); limb(st, [-3.0, 1.8, 0], [6.4, 2.0, 10.5], 0.4, A.rope); // the string, drawn back to the nut
-  add(st, cyl(0.55, 0.55, 15, 8), A.bolt, 3.8, 2.1, 0, 0, 0, Math.PI / 2);                       // the bolt, long, along the stock (drawn thick)
+  add(st, cyl(0.7, 0.7, 15, 8), M.timberPale, 3.8, 2.3, 0, 0, 0, Math.PI / 2);                   // the bolt, long, along the stock, light timber (drawn thick)
   add(st, cone(0.9, 2.6, 8), M.steel, 12.6, 2.1, 0, 0, 0, -Math.PI / 2);                         // its head
   add(st, rbox(2.6, 1.8, 0.35, 0.05), M.cloth, -2.6, 2.1, 0); add(st, rbox(2.6, 0.35, 1.8, 0.05), M.cloth, -2.6, 2.1, 0); // the team fletching
   add(st, rbox(2.8, 0.3, 0.5, 0.05), M.inkLine, -2.6, 3.05, 0); add(st, rbox(2.8, 0.3, 0.5, 0.05), M.inkLine, -2.6, 1.15, 0);
@@ -205,11 +205,11 @@ export function trebuchet(M, f) {
   if (st === 2) for (const s of [-1, 1]) { limb(g, [s * 7, 2.4, 0], [s * 14, 0.4, 0], 0.6, M.oak); add(g, rbox(1.2, 2.4, 1.2, 0.2), M.ironDark, s * 14, 1.0, 0); } // braces staked out when set up
   // the arm: pivoted at the apex, the long end (20) back and down, the short end (6) ahead with the counterweight
   const arm = grp(); arm.position.set(0, H, 0); arm.rotation.z = ang; g.add(arm);
-  add(arm, rbox(26, 2.2, 2.2, 0.4), M.timber, -7, 0, 0);                                        // the beam, from -20 to +6, in lighter timber than the frame's dark oak so the arm parts from it
-  add(arm, rbox(5, 3.0, 3.0, 0.4), M.timber, -1, 0, 0);                                         // thick at the pivot
+  add(arm, rbox(26, 2.4, 2.4, 0.4), M.timberPale, -7, 0, 0);                                    // the beam, from -20 to +6, in light timber against the frame's dark oak so the tall bar shows (the judge: set up, it read as a tent cart)
+  add(arm, rbox(5, 3.2, 3.2, 0.4), M.timberPale, -1, 0, 0);                                     // thick at the pivot
   for (const x of [-19.6, 5.4]) add(arm, cyl(0.9, 0.9, 2.4, 8), M.ironDark, x, 0, 0, Math.PI / 2, 0, 0); // iron pins at the ends
   const cw = grp(); cw.position.set(5.6, 0, 0); cw.rotation.z = -ang; arm.add(cw);               // the counterweight hangs plumb from the short end
-  add(cw, rbox(5.6, 5.6, 5.6, 0.4), M.oak, 0, -4.4, 0);                                         // the box
+  add(cw, rbox(5.6, 5.6, 5.6, 0.4), M.timberPale, 0, -4.4, 0);                                  // the box, light timber
   add(cw, rbox(5.9, 3.4, 5.9, 0.2), M.cloth, 0, -3.2, 0); add(cw, rbox(6.1, 0.4, 6.1, 0.05), M.inkLine, 0, -1.3, 0); add(cw, rbox(6.1, 0.4, 6.1, 0.05), M.inkLine, 0, -5.1, 0); // a team cloth cover round it between ink hems
   add(cw, rbox(6.0, 0.6, 6.0, 0.1), M.ironDark, 0, -6.9, 0);                                      // an iron band at its foot
   // the sling: two ropes from the long end to a team pouch; tucked up when travelling, laid out ahead when set up

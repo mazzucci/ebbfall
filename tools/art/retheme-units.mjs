@@ -35,7 +35,7 @@ const nm = (side, kind, dir, f) => `${side}_${kind}_${dir}_${frameOf(kind) ?? f}
 
 // ---- team shares and sizes (facing 0, frame 0; the Trebuchet set up too) ----
 const shares = {}, sizes = {};
-const CHECK = [...KG.map(k => nm('kg', k, 0, 0)), 'kg_trebuchet_0_3', ...EX.map(k => nm('ex', k, 0, 0))];
+const CHECK = [...KG.map(k => nm('kg', k, 0, 0)), 'kg_trebuchet_0_3', ...EX.map(k => nm('ex', k, 0, 0)), ...[7, 8, 9].flatMap(d => [`ex_marine_${d}_0`, `ex_veteran_${d}_0`])]; // (the judge, round 2: the Marine's and the Veteran's shares at the Expedition's usual facings too)
 console.log('team colour share of the solid pixels (facing 0; the floor is 0.12, floors not targets):');
 for (const name of CHECK) { const sh = shares[name] = measure(name); const [w, h] = sizes[name] = sizeOf(name); console.log(`  ${name.padEnd(20)} ${sh.toFixed(3)}${sh < 0.12 ? '  BELOW THE FLOOR' : ''}   ${w.toFixed(0)} x ${h.toFixed(0)} CSS px at zoom 1.0`); }
 writeFileSync(join(outDir, 'shares.json'), JSON.stringify({ shares, sizes }, null, 1));

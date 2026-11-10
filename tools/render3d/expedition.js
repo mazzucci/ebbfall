@@ -100,7 +100,7 @@ export function makeExpeditionMats(tc) {
   M.gunTan = std({ color: 0xa8acb0, roughness: 0.6, metalness: 0.3 });                                              // a rifle's furniture: the Marine's pale mark
   M.skin = std({ color: 0xc89a74, roughness: 0.8 });
   M.boot = std({ color: 0x1e1a18, roughness: 0.8 });
-  M.camo = std({ color: 0xa8aca6, map: camoTex, roughness: 0.9 });                                                   // the Marine's urban camouflage: grey-charcoal blotches (Stelian: camouflage, slimmer)
+  M.camo = std({ color: 0x9a9e98, map: camoTex, roughness: 0.9 });                                                   // the Marine's urban camouflage: grey-charcoal blotches (Stelian: camouflage, slimmer)
   M.tyrePale = std({ color: 0x8e908a, map: M.rubber.map, roughness: 0.9, metalness: 0.05 });                          // the Buggy's big pale wheels (the units family: the Buggy must part from the Bot in a crowd)
   M.brightSteel = std({ color: 0xc8ccd0, metalness: 0.6, roughness: 0.35 });                                           // the Buggy's bull bar: its brightest element
   M.hose = std({ color: 0x5e5648, roughness: 0.9 });                                                                 // a local's rough trousers (the Mercenary, the Veteran)
@@ -292,8 +292,8 @@ export function marine(M, f) {
   for (const side of [-1, 1]) {                                                                 // the Guard's stance and build
     const z = side * 2.1, s = st * side;
     add(g, rbox(3.4, 1.5, 2.2, 0.6), M.boot, s + 0.5, 0.75, z);
-    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, M.camo);
-    limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.05, M.camo);
+    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, M.uniform);                             // the legs in charcoal fatigues (pale camo legs under a dark top inverted the rule: the judge)
+    limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.05, M.uniform);
     add(g, sph(1.0, 8, 6), M.armour, s * 0.6, 3.6, z * 1.05).scale.set(1.1, 1, 0.9);             // knee pads, charcoal
   }
   const b = grp(); g.add(b);
@@ -303,14 +303,15 @@ export function marine(M, f) {
   for (const z of [-1.2, 1.2]) add(b, rbox(1.2, 1.5, 1.3, 0.3), M.armour, 3.0, 9.6, z);          // two magazine pouches on the chest
   add(b, rbox(5.0, 0.8, 6.6, 0.3), M.leather, 0, 7.4, 0);                                       // the belt
   add(b, rbox(2.6, 4.8, 4.8, 0.7), M.camo, -3.4, 10.6, 0);                                      // a small pack, camouflage
+  add(b, rbox(2.8, 1.8, 5.0, 0.2), M.paint, -3.4, 12.3, 0); add(b, rbox(3.0, 0.25, 5.2, 0.05), M.inkLine, -3.4, 11.35, 0); add(b, rbox(3.0, 0.25, 5.2, 0.05), M.inkLine, -3.4, 13.25, 0); // one team strip across the pack's top (the judge: packs are allowed; one strip is not a team back)
   add(b, rbox(1.2, 2.0, 1.0, 0.3), M.joint, -4.4, 9.4, -2.0); add(b, cyl(0.6, 0.6, 7, 6), M.joint, -4.4, 13.8, -2.0); // a radio and its antenna, drawn thick
   add(b, rbox(4.2, 2.4, 4.0, 0.6), M.paint, 0.3, 13.6, 3.7); add(b, rbox(4.4, 0.3, 4.2, 0.1), M.inkLine, 0.3, 12.35, 3.7); add(b, rbox(4.4, 0.3, 4.2, 0.1), M.inkLine, 0.3, 14.85, 3.7); // the one team shoulder pad, a big pauldron between ink lines
   add(b, cyl(1.7, 1.7, 3.0, 10), M.paint, 1.0, 10.2, -3.9, 0.3, 0, 0.4); for (const dy of [-1.6, 1.6]) add(b, cyl(1.75, 1.75, 0.3, 10), M.inkLine, 1.0 - dy * 0.39, 10.2 + dy * 0.92, -3.9 - dy * 0.28, 0.3, 0, 0.4); // the one team armband, wide, between ink rings
   add(b, sph(1.7, 12, 10), M.skin, 0.9, 13.3, 0).scale.set(0.8, 0.95, 0.9);                    // the face
   add(b, sph(2.7, 16, 12), M.armour, 0.1, 14.2, 0).scale.set(1, 0.85, 1);                      // the helmet, dark, rounded
   add(b, cyl(2.8, 2.8, 0.4, 16), M.inkLine, 0.1, 13.1, 0);                                     // its rim line
-  add(b, rbox(2.2, 1.3, 4.4, 0.4), M.joint, 1.6, 15.0, 0);                                     // the goggles, pushed up on the helmet
-  add(b, rbox(1.0, 0.9, 4.0, 0.2), M.led, 2.4, 15.1, 0);                                       // their lenses: the one white LED, so the head parts from the body
+  add(b, rbox(2.4, 1.6, 4.8, 0.4), M.joint, 1.7, 15.1, 0);                                     // the goggles, pushed up on the helmet
+  add(b, rbox(1.2, 1.3, 4.6, 0.2), M.led, 2.6, 15.2, 0); add(b, sph(2.6, 8, 6), M.ledHalo, 2.8, 15.2, 0).scale.set(0.5, 0.5, 1); // their lenses: the one white LED, big enough for 1x, with a halo
   add(b, rbox(0.4, 0.8, 5.6, 0.1), M.joint, 0.2, 15.1, 0);                                      // their strap
   // the rifle: slim and dark, held level across the body ahead of the chest (the barrel drawn twice its thickness)
   const gun = grp(); gun.position.set(3.4, 9.6, 0); gun.rotation.set(0, 0.3, 0.04); b.add(gun);

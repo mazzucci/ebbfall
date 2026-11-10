@@ -88,8 +88,8 @@ export function veteran(M, f) {
   add(b, rbox(1.2, 5.4, 3.6, 0.2), M.paint, -5.8, 10.6, 0); add(b, rbox(1.3, 0.3, 3.8, 0.05), M.inkLine, -5.8, 13.4, 0); add(b, rbox(1.3, 0.3, 3.8, 0.05), M.inkLine, -5.8, 7.8, 0); // a team strip down the pack
   add(b, rbox(3.2, 1.4, 6.2, 0.2), M.paint, -4.2, 13.6, 0); add(b, rbox(3.4, 0.25, 6.4, 0.05), M.inkLine, -4.2, 12.85, 0); add(b, rbox(3.4, 0.25, 6.4, 0.05), M.inkLine, -4.2, 14.35, 0); // and a team band round the pack's top, seen from above
   for (const z of [-4.6, 4.6]) {                                                                 // steel pauldrons over team pads on the upper arms
-    add(b, sph(2.8, 12, 10), M.paleSteel, 0.3, 13.4, z * 0.92).scale.set(1, 0.7, 1);              // (pale steel: the heavy's pale mark, big)
-    add(b, cyl(2.9, 2.9, 0.3, 14), M.inkLine, 0.3, 12.4, z * 0.92);
+    add(b, sph(2.6, 12, 10), M.panelDark, 0.3, 13.3, z * 0.92).scale.set(1, 0.7, 1);              // (dark, matte: pale pauldrons beside the helmet read as a kettle hat, and polished steel caught the sky; the shield's frame is the pale mark)
+    add(b, cyl(2.7, 2.7, 0.3, 14), M.inkLine, 0.3, 12.4, z * 0.92);
     band(b, M, 2.1, 3.2, 0.6, 10.2, z, 0.3 * Math.sign(z), 0, 0.3);
   }
   add(b, sph(1.9, 12, 10), M.skin, 1.0, 14.4, 0).scale.set(0.8, 0.95, 0.9);                     // the face
@@ -97,13 +97,12 @@ export function veteran(M, f) {
   add(b, cyl(3.1, 3.1, 0.4, 16), M.inkLine, 0.2, 14.1, 0);                                      // its rim
   add(b, rbox(1.0, 1.0, 4.6, 0.2), M.led, 2.6, 14.5, 0);                                        // the visor LED, white
   // the riot shield on the left arm: a tall dark glass plate in a pale steel frame with a team band across its top
-  const sh = grp(); sh.position.set(2.0, 9.0, -5.8); sh.rotation.set(0, 0.25, 0); b.add(sh);
+  const sh = grp(); sh.position.set(2.0, 9.4, -5.8); sh.rotation.set(0, 0.25, 0.7); b.add(sh);   // (leaned back 0.7 rad so its face shows from the camera at every facing: upright it was a sliver edge-on)
   add(sh, rbox(1.0, 11, 7.6, 0.4), M.panel, 0, 1.0, 0);                                           // (charcoal composite over a dark glass slit: smoked glass read as a black slab)
   add(sh, rbox(1.1, 2.2, 6.2, 0.2), M.glass, 0.05, 0.4, 0);                                       // the view slit
   add(sh, rbox(1.2, 11.4, 0.7, 0.1), M.paleSteel, 0, 1.0, -3.8); add(sh, rbox(1.2, 11.4, 0.7, 0.1), M.paleSteel, 0, 1.0, 3.8); // the frame's pale uprights
   add(sh, rbox(1.2, 0.7, 8.0, 0.1), M.paleSteel, 0, 6.6, 0); add(sh, rbox(1.2, 0.7, 8.0, 0.1), M.paleSteel, 0, -4.4, 0);
-  add(sh, rbox(1.3, 3.2, 7.0, 0.1), M.paint, 0.1, 3.4, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, 5.15, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, 1.65, 0); // the team band, wide
-  add(sh, rbox(1.3, 2.4, 7.0, 0.1), M.paint, 0.1, -2.6, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, -1.3, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, -3.9, 0); // and a second, low
+  for (const y of [3.7, -1.7]) { add(sh, rbox(1.3, 3.4, 7.0, 0.1), M.paint, 0.1, y, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, y + 1.8, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, y - 1.8, 0); } // two wide team bands over more than half the face, between ink lines (the Guard's shield)
   add(sh, rbox(1.4, 3.0, 3.0, 0.3), M.joint, -0.8, 0.5, 0);                                      // the grip block behind
   limb(b, [0.6, 11.8, -4.4], [1.2, 9.6, -5.4], 1.35, M.canvasLocal);                             // the shield arm
   // the heavy gun across the body, in the right hand, resting on the shield's edge

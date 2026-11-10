@@ -46,7 +46,9 @@ Object.assign(RT_BUILDINGS.kg, {
   stables: { build: KB.stables, n: 3, h: 30 },
 });
 Object.assign(RT_BUILDINGS.ex, {
-  bunkhouse: { build: EB.bunkhouse, n: 2, h: 46 }, post: { build: EB.recruitingPost, n: 2, h: 34 }, factory: { build: EB.factory, n: 3, h: 44 },
+  // Swapped (Stelian, 2026-11-11, after four blind checks read each as the other's role): the windowed booth is the
+  // population building (the "Cabin"), the big khaki tent the Recruiting post.
+  bunkhouse: { build: EB.recruitingPost, n: 2, h: 34 }, post: { build: EB.bunkhouse, n: 2, h: 46 }, factory: { build: EB.factory, n: 3, h: 44 },
   lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.radioTower, n: 2, h: 62 }, portal: { build: EB.portal, n: 2, h: 46 },
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's

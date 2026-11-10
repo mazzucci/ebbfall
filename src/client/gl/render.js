@@ -6,7 +6,7 @@ import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, T
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf, artOf } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, shadeLayers } from './ground.js';
@@ -88,7 +88,7 @@ export function artIcon(name, size = 28, zoom = 1, tint = null) {
 /** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. In `team`'s
  * colours: this client's own seat unless told otherwise. */
 export function portrait(kind, type, size = 26, team = G.me) {
-  const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
+  const url = kind === 'unit' ? artIcon(`${artOf(type)}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
     : kind === 'node' ? artIcon(type === 'ether' ? 'vent_0' : 'shard_0', size, 1.2) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
@@ -264,7 +264,8 @@ class UnitObj {
   constructor(u) {
     const layer = u.d.air ? L.air : L.units;
     this.air = !!u.d.air;
-    this.frames = (sheet.animations[`${u.type}_0`] || [0]).length;
+    this.art = artOf(u.type); // (its frames' key: a new kind's stand-in until its own art lands, look.js UNIT_ART)
+    this.frames = (sheet.animations[`${this.art}_0`] || [0]).length;
     this.node = new Container(); this.node.scale.set(UNIT_SCALE); layer.addChild(this.node); // (body, paint and flash sort as one)
     this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
@@ -276,21 +277,18 @@ class UnitObj {
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
-    if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
+    if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[this.art] ?? (this.air ? 14 : 8)); // rotors always spin
     // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
-    const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
-    const f = pose && u.swap > 0 ? pose.swap : pose && (u.mode || (u.cloaked && u.d.lurk)) ? pose.on : Math.floor(this.walk) % frames; // (a lurker lying hidden shows its `on` pose: the Undertow flat)
+    const pose = UNIT_POSE[this.art], frames = pose ? pose.walk : this.frames;
+    const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
-    const name = `${u.type}_${dir}_${f}`, tx = tex(name);
+    const name = `${this.art}_${dir}_${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
-    const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
+    const glide = UNIT_FPS[this.art] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y;
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
-    // Abilities: a boost glows (Stim warm, Overcharge the Vael's lantern peach); a deployed tank shows it in its pose (UNIT_POSE).
-    let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
-    // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
-    const cloak = u.cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
-    paintAs(this.body, this.paint, this.seat, tint, cloak);
+    // (a toggle shows in its pose, UNIT_POSE: a deployed Trebuchet, a braced Guard)
+    paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
     // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
     if (u.slowed > 0) {
       const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4);
@@ -443,13 +441,11 @@ export function boom(x, y, r, race) {
   if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
-const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xffe0b8 }; // (the Vael's in their lantern peach, never violet)
-const CAST_TINT = { stim: 0xff8070, deploy: 0xf5c542, blink: 0xffa070, overcharge: 0xffb888 };
-/** An ability used: a flash on the caster in its colour (a Blink also leaves a puff where it lands). */
+const CAST_TINT = { deploy: 0xf5c542 };
+/** An ability used: a flash on the caster in its colour. */
 export function castFx(x, y, ability) {
   const tint = CAST_TINT[ability] ?? 0xffffff;
   addEffect('flash', x, y - 6, { life: 0.35, tint, light: tint, lightScale: 0.4 });
-  if (ability === 'blink') addEffect('puff', x, y, { tint });
 }
 /** A Medic's heal (green) or a Halo's mend (the pale aqua of the Halo's own light, not the violet of crystals and
  *  weapons) landing on its patient. */
@@ -626,8 +622,8 @@ function dashed(x0, y0, x1, y1) {
   lines.stroke({ width: 1.5, color: 0xf5a524, alpha: 0.6 });
 }
 
-/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque: a cloaked
- *  unit shimmers) and its seat's tint. */
+/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque) and its
+ *  seat's tint. */
 export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
 const pings = [];

@@ -41,7 +41,7 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
   const d = JSON.parse(sim.dataJson());
   assert.deepEqual(Object.keys(C.UNITS), Object.keys(d.units), 'units in the sim\'s order (the snapshot sends kind indices)');
   assert.deepEqual(Object.keys(C.BUILDINGS), Object.keys(d.buildings), 'buildings in the sim\'s order');
-  assert.deepEqual(C.UNITS.vanguard.cost, d.units.vanguard.cost, 'pkg/data.js is current (rebuild with npm run build:wasm)');
+  assert.deepEqual(C.UNITS.knight.cost, d.units.knight.cost, 'pkg/data.js is current (rebuild with npm run build:wasm)');
   for (const [k, u] of [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)]) {
     assert.ok(u.name && /^[A-Z]$/.test(u.hot) && u.desc, `${k} has a name, a hotkey and a description`);
   }
@@ -272,17 +272,18 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found. A retired one (Cloaking Field: no building researches it) keeps only its place.
+  // its own; each ability's tech is found. Hardshell (shields, data since the re-theme: no building researches it) keeps
+  // only its place.
   const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
-  assert.ok(researched('entrenching') && !researched('cloakingField'));
+  assert.ok(researched('entrenching') && !researched('shields'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
-  // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
-  // fires at all: no tech). (Stim and Cloak are retired: no unit has them, but the kinds keep their places.)
-  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null], ['beach', null]]);
+  // The Guard's Brace waits for Sandbags; the Trebuchet's Deploy is how it fires at all: no tech. (The re-theme removed
+  // the others: the boosts, the hop, the cloaks.)
+  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['entrench', 'entrenching'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
   assert.ok(n >= 2);
@@ -361,7 +362,7 @@ function view() {
   return JSON.stringify({
     tick: G.tick, time: G.time, over: G.over, winner: G.winner, out: G.out, res: G.res, sup: G.sup, stats: G.stats, upgrades: G.upgrades,
     vis: Array.from(G.vis), explored: Array.from(G.explored), occ: Array.from(map.occ),
-    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
+    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, mode: u.mode, swap: u.swap, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
     bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, vent: id(b.vent), dead: b.dead })),
     nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners, extractor: id(n.extractor) })),
     projs: G.projs,

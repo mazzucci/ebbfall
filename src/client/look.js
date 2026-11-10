@@ -37,7 +37,15 @@ export const BLDG_LOOK = {
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
-export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, siegeTank: 230, interceptor: 380, raider: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 180, sovereign: 160 };
+export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, siegeTank: 230, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 300, rider: 640, knight: 260, bruiser: 280 };
+
+/** Stand-in art: the atlas frames a unit kind is drawn with when they are not its own key's. The re-theme's new kinds
+ *  borrow a retired kind's sprite (still in the atlas) until their own art lands.
+ *  TODO(retheme PR 1 merge): branch retheme-pr1 renders `rider`, `knight` and `bruiser` into the atlas; drop these
+ *  three entries (and `artOf`'s callers keep working) when the two branches meet. */
+export const UNIT_ART = { rider: 'interceptor', knight: 'vanguard', bruiser: 'halo' };
+/** The key of the atlas frames unit kind `type` is drawn with (`<art>_<facing>_<frame>`). */
+export const artOf = (type) => UNIT_ART[type] ?? type;
 
 /** A shooter whose shot has its own sprite (tools/art/effects2.js; pointing +x, its head at the anchor), not its
  *  projectile kind's: the Harpooner's harpoon, the Lens's beam. */
@@ -53,9 +61,8 @@ export const UNIT_FPS = { shrike: 0, sovereign: 4, raider: 0, observer: 0, basti
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Siege Tank: two tread
  *  frames, half deployed, deployed (tools/render3d/models.js, Notion: Ebbfall art). The Picket (trooper): two strides,
- *  going to ground, dug in behind its sandbags (tools/render3d/harbour.js). The Undertow (umbra): two frames gliding on
- *  its edge, then frame 2 lying flat as it lurks (tools/render3d/vael-units.js): its `on` is for the snapshot's
- *  `cloaked`, not a toggle (gl/render.js picks `on` while a lurker is cloaked: it has no `mode`). The Breakwater
- *  (vanguard): two strides, settling (the hull coming down), beached with its spades out (tools/render3d/harbour-machines.js,
- *  the Anchor Gun's anchored frames there too). */
+ *  going to ground, braced behind its sandbags (tools/render3d/harbour.js). The Undertow (umbra): two frames gliding on
+ *  its edge (its frame 2, lying flat, was the lurk's: nothing lurks since the re-theme). The Breakwater (vanguard, the
+ *  Knight's stand-in art, `UNIT_ART`): two strides, settling, beached (tools/render3d/harbour-machines.js, the Anchor
+ *  Gun's anchored frames there too). Keyed by art (`artOf`). */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 }, trooper: { walk: 2, swap: 2, on: 3 }, umbra: { walk: 2, swap: 2, on: 2 }, vanguard: { walk: 2, swap: 2, on: 3 } };

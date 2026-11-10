@@ -93,7 +93,7 @@ for (const race of ['humans', 'vael']) {
       }
       assert.equal(new Set(shown.map(i => i.key)).size, shown.length, `${what}: no key twice (${shown.map(i => i.label + ' ' + i.key).join(', ')})`);
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
-      // A building's card and a Build page keep two rows (the Kiln's four units, Rally and Cancel; the Zenith's three),
+      // A building's card and a Build page keep two rows (the Workshop's three units, Rally and Cancel),
       // and their letters (CLASSIC) are each one button's.
       if (/, techs \d+, |, Build(: Advanced)?$/.test(what)) {
         assert.ok(Math.max(...shown.map(i => i.slot)) <= 5, `${what}: two rows at most (${shown.map(i => i.label + ' ' + i.slot).join(', ')})`);
@@ -102,9 +102,8 @@ for (const race of ['humans', 'vael']) {
       }
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
-      // No automatic ability (the Anchor Gun's Drop Anchor) has a button; the retired Stim is gone.
+      // No automatic ability (the Trebuchet's Drop Anchor) has a button.
       assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);
-      assert.ok(!items.some(i => i.id === 'a_stim' || i.id === 'r_cloakingField'), `${what}: no Stim, no Cloaking Field`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
       if (attack) { assert.equal(attack.key, 'A', `${what}: classic Attack`); assert.equal(wasd.find(i => i.id === 'attack').key, GRID[attack.slot]); }
@@ -113,7 +112,7 @@ for (const race of ['humans', 'vael']) {
   });
 }
 
-test('the Siege Tank deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
+test('the Trebuchet deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);
   const ids = [0, 1].map(i => E.debugSpawn(E.G.me, 'siegeTank', hq.x + 90 + i * 40, hq.y + 90));
@@ -130,33 +129,24 @@ test('the Siege Tank deploys by itself: no Deploy on its card, an order to deplo
 
 test('what is not open yet is hidden in place: its slot stays empty, nothing else moves, its key does nothing', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
-  const hq = E.G.bldgs.find(b => b.team === E.G.me);
   const lumen = E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
-  // The Build list: the basic page is all there from the start; no Advanced before a Kiln stands.
+  // The Build list: the basic page is all there from the start; no Advanced before the Recruiting post stands.
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
-  assert.deepEqual(slots(), ['b_kiln@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Cradle first; no Advanced yet');
-  assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_siphon'), 'nor the advanced page\'s keys (the Siphon\'s too: it needs the Cradle)');
-  // A unit's abilities: one waiting for its tech is left out, the others keep their places.
-  // (Roster v2: Surface is the Conch's (`monolith`), Surge the Lens's (`prism`), researched)
-  const scythe = E.debugSpawn(E.G.me, 'prism', hq.x + 90, hq.y + 90), mono = E.debugSpawn(E.G.me, 'monolith', hq.x + 120, hq.y + 90);
+  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Recruiting post first; no Advanced yet');
+  assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
+  // A unit's ability waiting for its tech is left out, and its card keeps its shape (Deselect stays put): the Guard's
+  // Brace waits for Sandbags.
+  E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
+  const core = E.G.bldgs.find(b => b.team === E.G.me);
+  const guard = E.debugSpawn(E.G.me, 'trooper', core.x + 120, core.y + 90);
   const unit = (id) => E.G.units.find(u => u.id === id);
-  ui.sel = [unit(scythe), unit(mono)]; ui.mode = null;
-  const before = slots();
-  assert.ok(before.includes('a_blink@2') && !before.some(s => s.startsWith('a_overcharge')), `Blink in place, Overcharge hidden: ${before}`);
-  E.debugResearch(E.G.me, 'overchargeCore', 1);
-  ui.sel = [unit(scythe), unit(mono)];
-  const after = slots();
-  assert.ok(after.includes('a_blink@2') && after.includes('a_overcharge@3'), `researched, Overcharge in its own place: ${after}`);
-  // A Lens alone: its card keeps its shape whether Surge is researched or not (Deselect stays put).
-  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
-  const m2 = E.debugSpawn(E.G.me, 'prism', hq.x + 120, hq.y + 90);
-  ui.sel = [unit(m2)];
+  ui.sel = [unit(guard)]; ui.mode = null;
   const plain = slots();
-  assert.ok(!plain.some(s => s.startsWith('a_overcharge')) && plain.includes('deselect@5'), `before: Overcharge hidden, Deselect in its place: ${plain}`);
-  E.debugResearch(E.G.me, 'overchargeCore', 1);
-  ui.sel = [unit(m2)];
+  assert.ok(!plain.some(s => s.startsWith('a_entrench')) && plain.includes('deselect@5'), `before: Brace hidden, Deselect in its place: ${plain}`);
+  E.debugResearch(E.G.me, 'entrenching', 1);
+  ui.sel = [unit(guard)];
   const lit = slots();
-  assert.ok(lit.includes('a_overcharge@2') && lit.includes('deselect@5'), `after: Overcharge in its slot, Deselect where it was: ${lit}`);
+  assert.ok(lit.includes('a_entrench@2') && lit.includes('deselect@5'), `after: Brace in its slot, Deselect where it was: ${lit}`);
   ui.sel = []; ui.mode = null;
 });

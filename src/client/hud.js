@@ -33,7 +33,7 @@ export function updateHud() {
   $('rShard').textContent = s; $('rSupply').textContent = su + '/' + sc;
   $('resSup').classList.toggle('low', su >= sc);
   watchSites();
-  ui.sel = ui.sel.filter(x => !x.dead && (x.kind === 'node' || x.team === G.me || !enemies(G.me, x.team) || x.ghost || visibleEnt(x))); // (an enemy that slips out of sight or detection is let go; a remembered building, picked in the fog, stays; a field stays)
+  ui.sel = ui.sel.filter(x => !x.dead && (x.kind === 'node' || x.team === G.me || !enemies(G.me, x.team) || x.ghost || visibleEnt(x))); // (an enemy that slips out of sight is let go; a remembered building, picked in the fog, stays; a field stays)
   renderSelection();
   buildCard();
 }

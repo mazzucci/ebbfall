@@ -1,5 +1,6 @@
 // The long-press preview's stat chips (src/client/stats.js) for every kind in the sim's tables: two rows of the same
-// shape for every unit (Health, Shields for the Vael only, Armour; damage, what it hits, tags), a dimmed "—" for the
+// shape for every unit (Health, Shields for a shielded race only (none since the re-theme), Armour; damage, what it
+// hits, tags), a dimmed "—" for the
 // unarmed, both guns of a siege unit, one row for a building, and markup with a label on every chip.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,7 +8,9 @@ import { UNITS, BUILDINGS, FACTIONS, kindsOf } from '../src/engine/constants.js'
 import { statRows, statsHtml } from '../src/client/stats.js';
 
 const vael = kindsOf(FACTIONS.vael), humans = kindsOf(FACTIONS.humans);
-const TAGS = ['Splash', 'Slows', 'Heals', 'Flying', 'Cloaked', 'Lurks', 'Detector'];
+const TAGS = ['Splash', 'Slows', 'Heals', 'Flying'];
+/** Kinds whose people has shields on any of its kinds (none since the re-theme). */
+const shielded = (k) => [vael, humans].some(ks => ks.has(k) && [...ks].some(j => (UNITS[j] || BUILDINGS[j]).shields > 0));
 const armed = (d) => !d.worker && !!(d.weapon?.dmg || d.weapon?.dmgAir || d.light?.dmg || d.light?.dmgAir);
 
 test('every unit gets the same two rows: toughness, then attack', () => {
@@ -15,11 +18,11 @@ test('every unit gets the same two rows: toughness, then attack', () => {
     const rows = statRows(k);
     assert.equal(rows.length, 2, `${k}: two rows`);
     const [tough, attack] = rows;
-    assert.deepEqual(tough.map(c => c.k), vael.has(k) ? ['hp', 'shields', 'armor'] : ['hp', 'armor'], `${k}: Health, Shields for the Vael only, Armour`);
+    assert.deepEqual(tough.map(c => c.k), shielded(k) ? ['hp', 'shields', 'armor'] : ['hp', 'armor'], `${k}: Health, Shields for a shielded people only, Armour`);
     assert.equal(tough[0].text, String(d.hp), `${k}: its health`);
     assert.equal(tough.at(-1).text, String(d.armor), `${k}: its armour`);
     assert.equal(tough.at(-1).dim, !d.armor, `${k}: no armour is dimmed, not gone`);
-    if (vael.has(k)) assert.equal(tough[1].text, String(d.shields), `${k}: its shields`);
+    if (shielded(k)) assert.equal(tough[1].text, String(d.shields), `${k}: its shields`);
     assert.equal(attack[0].k, 'dmg', `${k}: damage first`);
     const rest = attack.slice(armed(d) ? 2 : 1);
     if (armed(d)) assert.equal(attack[1].k, 'targets', `${k}: what it hits second`);
@@ -27,9 +30,6 @@ test('every unit gets the same two rows: toughness, then attack', () => {
     const tags = rest.map(c => c.text);
     assert.deepEqual(tags, TAGS.filter(t => tags.includes(t)), `${k}: tags in one order`);
     assert.equal(tags.includes('Flying'), !!d.air, `${k}: Flying when it flies`);
-    assert.equal(tags.includes('Detector'), d.detect > 0, `${k}: Detector when it detects`);
-    assert.equal(tags.includes('Cloaked'), !!d.cloaked, `${k}: Cloaked when always cloaked`);
-    assert.equal(tags.includes('Lurks'), !!d.lurk, `${k}: Lurks when it hides lying still`);
     assert.equal(tags.includes('Slows'), [d.weapon, d.light].some(w => w?.slow > 0), `${k}: Slows when its shot slows`);
     assert.equal(tags.includes('Heals'), d.heal > 0, `${k}: Heals when it heals or mends`);
     for (const c of [...tough, ...attack]) {
@@ -47,7 +47,7 @@ test('an unarmed unit shows a dimmed "—" and its tags (workers too)', () => {
     assert.deepEqual([dmg.text, dmg.dim], ['—', true], `${k}: a dimmed dash`);
     assert.ok(rest.every(c => c.k === 'tag'), `${k}: no target slot, only tags`);
   }
-  assert.deepEqual(statRows('halo')[1].map(c => c.text), ['—', 'Heals', 'Detector']);
+  assert.deepEqual(statRows('halo')[1].map(c => c.text), ['—', 'Heals']);
 });
 
 test('what a unit hits, and damage that differs on the ground and in the air', () => {
@@ -62,9 +62,9 @@ test('what a unit hits, and damage that differs on the ground and in the air', (
   assert.equal(statRows(same)[1][0].text, String(UNITS[same].weapon.dmg), `${same}: one figure for both`);
 });
 
-test('the Anchor Gun shows its one gun, which fires only anchored', () => {
+test('the Trebuchet shows its one gun, which fires only set up', () => {
   const d = UNITS.siegeTank;
-  assert.ok(d.weapon.siege && !d.light, 'a siege gun and no light gun (Roster v2)');
+  assert.ok(d.weapon.siege && !d.light, 'a siege gun and no light gun');
   const [dmg, targets, ...tags] = statRows('siegeTank')[1];
   assert.equal(dmg.text, `${d.weapon.dmg} deployed`);
   assert.equal(targets.ico, 'ground');
@@ -75,7 +75,7 @@ test('a building gets the toughness row only', () => {
   for (const [k, d] of Object.entries(BUILDINGS)) {
     const rows = statRows(k);
     assert.equal(rows.length, 1, k);
-    assert.deepEqual(rows[0].map(c => c.k), vael.has(k) ? ['hp', 'shields', 'armor'] : ['hp', 'armor'], k);
+    assert.deepEqual(rows[0].map(c => c.k), shielded(k) ? ['hp', 'shields', 'armor'] : ['hp', 'armor'], k);
     assert.equal(rows[0][0].text, String(d.hp), k);
   }
   assert.deepEqual(statRows('nothing'), []);
@@ -90,4 +90,8 @@ test('the markup: two rows, a label on every chip, an icon on every slot but the
     assert.equal((h.match(/<svg/g) || []).length, chips.reduce((n, c) => n + (c.k === 'tag' ? 0 : c.ico === 'both' ? 2 : 1), 0), `${k}: icons`);
   }
   assert.match(statsHtml('trooper'), new RegExp(`aria-label="Health ${UNITS.trooper.hp}"`));
+});
+
+test('nobody has shields since the re-theme: no Shields slot on any card', () => {
+  for (const k of [...Object.keys(UNITS), ...Object.keys(BUILDINGS)]) assert.ok(!statRows(k).flat().some(c => c.k === 'shields'), k);
 });

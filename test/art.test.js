@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { BLDG_LOOK, SEAT_COLORS } from '../src/client/look.js';
+import { BLDG_LOOK, SEAT_COLORS, artOf } from '../src/client/look.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
 for (const p of index.pages) Object.assign(frames, JSON.parse(readFileSync(new URL(p, art))).frames);
@@ -21,7 +21,8 @@ function paired(name) {
 }
 
 test('every unit facing and frame has its team mask', () => {
-  for (const kind of Object.keys(UNITS)) for (let d = 0; d < FACINGS; d++) {
+  // (by its art's key: a new kind is drawn with a stand-in until its own art lands, look.js UNIT_ART)
+  for (const kind of new Set(Object.keys(UNITS).map(artOf))) for (let d = 0; d < FACINGS; d++) {
     const seq = index.animations[`${kind}_${d}`];
     assert.ok(seq?.length >= 1, `${kind}_${d} animation`);
     seq.forEach((name, f) => { assert.equal(name, `${kind}_${d}_${f}`); paired(name); });

@@ -74,17 +74,16 @@ export const earthTex = tex(256, (g, n) => {
 }, { repeat: 2 });
 
 // ---------------- the palettes ----------------
-/** A: warm sandstone, clay tiles, oak, bright steel, undyed linen. B: slate-grey stone (round 2: black granite read as an evil castle), slate, blackened iron, grey wool.
- *  C: a timber keep (oak planks on a stone plinth), thatch, bright steel, brown wool. */
+/** The kingdom's palette: Stelian picked B, slate (2026-11-10): slate-grey ashlar, slate roofs, blackened iron, grey
+ *  wool, dark oak; the units' heads pale (linen, steel) so the side reads by its heads. (A, sandstone and clay, and
+ *  C, timber and thatch, were the comparison's other options; dropped.) */
 export const KINGDOM_PALETTES = {
-  A: { name: 'sandstone and clay', wall: 0xb09468, wallTex: 'ashlar', roof: 0x9c7a56, roofTex: 'tile', timber: 0x7a5536, steel: 0xb8bcc2, steelMetal: 0.92, steelRough: 0.3, mail: 0x6e7278, tunic: 0xc4b898, wicker: 0xc8aa70, hose: 0x5a3e2a, leather: 0x4a3222, plinth: 0x8a7a62, horse: 0x6a4428, earth: 0x806c50 },
-  B: { name: 'slate grey and slate', wall: 0x80828a, wallTex: 'ashlar', roof: 0x4e545c, roofTex: 'slate', timber: 0x50402c, steel: 0x7c8086, steelMetal: 0.85, steelRough: 0.42, mail: 0x565a60, tunic: 0x8c887e, wicker: 0xa89060, hose: 0x34302e, leather: 0x2e2622, plinth: 0x62646a, horse: 0x42342c, earth: 0x6e6858 },
-  C: { name: 'timber and thatch', wall: 0x8e6a44, wallTex: 'plank', roof: 0x8c7c56, roofTex: 'thatch', timber: 0x5a4028, steel: 0xb8bcc2, steelMetal: 0.92, steelRough: 0.3, mail: 0x6e7278, tunic: 0x8a6a48, wicker: 0xb89a60, hose: 0x3a2c22, leather: 0x3a2818, plinth: 0x6a6a64, horse: 0x8a5a30, earth: 0x7a6a4c },
+  B: { name: 'slate grey and slate', wall: 0x80828a, wallTex: 'ashlar', roof: 0x4e545c, roofTex: 'slate', timber: 0x50402c, steel: 0x9aa0a8, steelMetal: 0.85, steelRough: 0.4, mail: 0x565a60, tunic: 0x8c887e, wicker: 0xa89060, hose: 0x34302e, leather: 0x2e2622, plinth: 0x62646a, horse: 0x42342c, earth: 0x66563c },
 };
 const ROOF_TEX = { tile: tileTex, slate: slateTex, thatch: thatchTex };
 /** The kingdom's materials for a palette `v`, over the Harbour's set (its team canvas, ink, rope, brass and timber
  *  grain are reused: `paintCanvas` is the team cloth, `inkLine` the hem either side of it). */
-export function makeKingdomMats(tc, v = 'A') {
+export function makeKingdomMats(tc, v = 'B') {
   const P = KINGDOM_PALETTES[v], M = makeMats(tc), std = (o) => new THREE.MeshStandardMaterial(o);
   M.wall = P.wallTex === 'plank' ? std({ color: P.wall, map: plankTex, bumpMap: plankBump, bumpScale: 1.2, roughness: 0.85 }) : std({ color: P.wall, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.4, roughness: 0.9 });
   M.wallDark = M.wall.clone(); M.wallDark.color.multiplyScalar(0.72);
@@ -98,6 +97,7 @@ export function makeKingdomMats(tc, v = 'A') {
   M.hose = std({ color: P.hose, roughness: 0.9 });
   M.leather = std({ color: P.leather, roughness: 0.6, metalness: 0.1 });
   M.skin = std({ color: 0xc89a74, roughness: 0.8 });
+  M.linen = std({ color: 0xd8d0bc, map: M.canvas.map, roughness: 0.92 });                                          // pale linen: the Villager's coif (the kingdom's heads are pale)
   M.gold = std({ color: 0xe0b040, metalness: 0.95, roughness: 0.32 });
   M.horse = std({ color: P.horse, roughness: 0.75 });
   M.horseDark = std({ color: 0x241810, roughness: 0.85 });                                                        // mane, tail, hooves
@@ -165,25 +165,26 @@ export function figure(M, f, { tunic = M.tunic, hose = M.hose, skirt = 4.0 } = {
   return Object.assign(g, { body: b });
 }
 
-/** Villager (worker, sim r 9, scale 0.95): the one that carries: a big pale sack of coins slung high on the back,
- *  wider than the shoulders, its mouth open with gold coins heaped in it (the one pale mass, seen from above behind a
- *  dark bare head: round 3's judge read a hood and a pick over the shoulder as a Guard without a helmet), two team
+/** Villager (worker, sim r 9, scale 0.95): the one that carries: a big sack slung high on the back, wider than the
+ *  shoulders, a loud heap of gold coins out of its mouth (the slice: the load reads before the side does), the head in
+ *  a pale linen coif (a snug cap; the kingdom's heads are pale, each its own shape), two team
  *  straps over the shoulders, team hose, a team cape at the shoulders, a plain tunic; a short pick held low in the
  *  right hand, its bright head near the ground ahead. From the camera: a dark small head, a fat pale sack behind it,
  *  a short bright bar low ahead; in grey, no steel disc and no long bar. Frames 0-1 the walk. */
 export function villager(M, f) {
   const g = figure(M, f, { hose: M.cloth }), b = g.body; b.rotation.z = -0.16;
-  add(b, sph(2.1, 14, 10), M.horseDark, 0.3, 13.6, 0).scale.set(1, 0.9, 1);                      // the head: dark hair, bare
-  add(b, sph(1.5, 12, 10), M.skin, 1.6, 13.2, 0).scale.set(0.8, 0.9, 0.9);                       // the face
+  add(b, sph(2.3, 14, 10), M.linen, 0.2, 13.7, 0).scale.set(1, 0.95, 1);                          // the head in a pale linen coif: a snug cap, no brim (the Guard's is the wide steel disc)
+  add(b, cyl(2.3, 2.3, 0.3, 14), M.inkLine, 0.2, 12.6, 0);                                       // its edge
+  add(b, sph(1.5, 12, 10), M.skin, 1.7, 13.2, 0).scale.set(0.8, 0.9, 0.9);                       // the face
   add(b, cyl(2.5, 3.6, 2.0, 14), M.cloth, 0.1, 12.0, 0);                                        // the cape at the shoulders, team
   add(b, cyl(3.7, 3.8, 0.4, 14), M.inkLine, 0.1, 11.0, 0); add(b, cyl(2.6, 2.6, 0.35, 14), M.inkLine, 0.1, 13.0, 0); // its hems
   // the sack: fat, pale, slung high across the back over both shoulders, its open mouth heaped with coins
   const sk = grp(); sk.position.set(-3.4, 13.6, 0); sk.rotation.y = -0.35; b.add(sk);
-  add(sk, sph(3.6, 18, 12), M.canvas, 0, 0, 0).scale.set(1, 0.95, 1.6);                          // the sack's body
-  add(sk, sph(2.4, 12, 10), M.canvas, -0.6, 2.0, -1.4).scale.set(1, 0.8, 1.2);                  // a lump in it
-  add(sk, cyl(2.4, 2.0, 1.2, 14), M.canvasDark, 0.2, 2.6, 2.6, 0.5, 0, 0);                       // the mouth, tied, its inside in shade
-  add(sk, sph(2.0, 12, 8), M.gold, 0.3, 3.1, 2.7).scale.set(1, 0.5, 1);                          // the coins heaped in the mouth
-  for (const [x, z] of [[0.8, 2.2], [-0.6, 3.4], [0.2, 1.6]]) add(sk, cyl(0.7, 0.7, 0.3, 10), M.gold, x, 4.0, z, 0.3, x, 0.2);
+  add(sk, sph(3.8, 18, 12), M.canvasDark, 0, 0, 0).scale.set(1, 0.95, 1.6);                      // the sack's body, old canvas
+  add(sk, sph(2.4, 12, 10), M.canvasDark, -0.6, 2.0, -1.4).scale.set(1, 0.8, 1.2);              // a lump in it
+  add(sk, cyl(3.4, 2.6, 1.6, 14), M.canvas, 0.2, 2.8, 1.6, 0.4, 0, 0);                            // the mouth, rolled back
+  add(sk, sph(3.3, 14, 10), M.gold, 0.3, 3.4, 1.4).scale.set(1, 0.6, 1.1);                        // the load: a big heap of gold coins out of the mouth, the worker's loud cue
+  for (const [x, z] of [[1.4, 1.6], [-1.2, 2.6], [0.2, 0.4], [-0.8, 0.2]]) add(sk, cyl(0.9, 0.9, 0.35, 10), M.gold, x, 5.2, z, 0.3, x, 0.2);
   for (const z of [-2.0, 2.0]) {                                                                 // the straps over the shoulders
     add(b, rbox(4.8, 0.9, 1.5, 0.2), M.cloth, -0.2, 13.0, z, 0, 0, -0.1);
     add(b, rbox(5.0, 1.0, 1.8, 0.1), M.inkLine, -0.2, 12.75, z, 0, 0, -0.1);
@@ -329,8 +330,8 @@ export function castle(M) {
     roundCrenels(g, M.wall, x, z, 4.3, KH + 8.2, 7);
   }
   { const cp = grp(); cp.position.set(KX, KH + 4, KZ); g.add(cp);                                 // a team canopy over the keep's roof terrace, on four poles
-    for (const x of [-11, 11]) for (const z of [-11, 11]) add(cp, cyl(0.4, 0.5, 9, 6), M.oak, x, 4.5, z);
-    add(cp, rbox(30, 0.6, 30, 0.2), M.cloth, 0, 9.3, 0, 0.05, 0, 0.04); add(cp, rbox(30.6, 0.4, 30.6, 0.1), M.inkLine, 0, 8.9, 0, 0.05, 0, 0.04); }
+    for (const x of [-13, 13]) for (const z of [-13, 13]) add(cp, cyl(0.4, 0.5, 9, 6), M.oak, x, 4.5, z);
+    add(cp, rbox(32, 0.6, 32, 0.2), M.cloth, 0, 9.3, 0, 0.05, 0, 0.04); add(cp, rbox(32.6, 0.4, 32.6, 0.1), M.inkLine, 0, 8.9, 0, 0.05, 0, 0.04); }
   add(g, cyl(7.0, 7.6, KH + 16, 18), M.wall, KX, (KH + 16) / 2 + 3, KZ);                         // the central tower
   add(g, cyl(7.8, 7.8, 1.2, 18), M.plinth, KX, KH + 19.6, KZ);
   add(g, cone(8.2, 11, 18), M.roof, KX, KH + 25.5, KZ);
@@ -366,15 +367,15 @@ export function castle(M) {
   for (const y of [4.5, 7.5, 10.5]) add(g, rbox(6.4, 0.5, 0.4, 0.1), M.ironDark, 0, y, GZ + T / 2 + 1.9);  // its iron bands
   add(g, rbox(8, 7, 0.6, 0.15), M.cloth, 0, 17.5, GZ + T / 2 + 1.3);                             // the banner over the arch
   add(g, rbox(8.4, 0.5, 0.7, 0.05), M.inkLine, 0, 21.2, GZ + T / 2 + 1.3); add(g, rbox(8.4, 0.5, 0.7, 0.05), M.inkLine, 0, 13.8, GZ + T / 2 + 1.3);
-  for (const x of [-32, 32]) hanging(g, M, x, 15.5, GZ + T / 2 + 0.6, 32, 13, -Math.PI / 2);        // festival cloths draped down the south wall's face either side of the gate: the gate's anchor
+  for (const x of [-10, 10]) { add(g, cone(6.3, 9.4, 16), M.cloth, x, 34, GZ); add(g, torus(6.1, 0.3, 16), M.inkLine, x, 29.6, GZ, Math.PI / 2, 0, 0); } // the gate towers' cones in team cloth over the slate (the festival cloths along the base read as a row of panels; gone)
   // the yard: a round pavilion and a long marquee in team cloth with pale stripes, a well, a cart of coin sacks,
   // barrels, a hay stack, a rack of spears
-  const pav = grp(); pav.position.set(-30, 2, 26); g.add(pav);                                  // the one tent: a plain round pavilion in team cloth
-  add(pav, cyl(11.5, 12, 7, 24), M.cloth, 0, 5.5, 0);
-  add(pav, cyl(12.2, 12.2, 0.5, 24), M.inkLine, 0, 9.1, 0); add(pav, cyl(12.2, 12.2, 0.5, 24), M.inkLine, 0, 2.2, 0);
-  add(pav, cone(13, 11, 24), M.clothPale, 0, 14.5, 0); add(pav, torus(12.6, 0.35, 24), M.inkLine, 0, 9.2, 0, Math.PI / 2, 0, 0); // a pale canvas cone over the team drum (round 3: a team cone made it a gold silo)
-  add(pav, cyl(0.4, 0.4, 5, 6), M.oak, 0, 21, 0); add(pav, plate([[0, -1.6], [5, -0.4], [5, 0.4], [0, 1.6]], 0.3, 0.1), M.cloth, 0.3, 22.8, 0, Math.PI / 2, 0, 0);
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(g, rbox(3, 2.6, 3, 0.3), M.oak, 22 + Math.cos(a) * 9, 3.3, 30 + Math.sin(a) * 6, 0, -a, 0); } // a ring of crates where the marquee stood
+  { const mk = grp(); mk.position.set(-30, 2, 28); g.add(mk);                                      // a market awning in the yard: flat team cloth on poles (the round pavilion's pale cone read as an observatory)
+    for (const x of [-11, 11]) for (const z of [-8, 8]) add(mk, cyl(0.4, 0.5, 9, 6), M.oak, x, 4.5, z);
+    add(mk, rbox(24, 0.6, 18, 0.2), M.cloth, 0, 9.3, 0, 0, 0, 0.05); add(mk, rbox(24.6, 0.4, 18.6, 0.1), M.inkLine, 0, 8.9, 0, 0, 0, 0.05);
+    for (const x of [-6, 0, 6]) add(mk, rbox(2.4, 2.8, 2.4, 0.3), M.oak, x, 1.4, -3); add(mk, sph(1.8, 8, 6), M.canvasDark, 3, 1.6, 3).scale.set(1, 0.7, 1); }
+  for (const x of [-40, -26, 26, 40]) hanging(g, M, x, 15.0, -R + T + 0.6, 8, 11, Math.PI / 2);      // banners hung inside the yard from the north wall's walk, facing the camera
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(g, rbox(3, 2.6, 3, 0.3), M.oak, 22 + Math.cos(a) * 9, 3.3, 30 + Math.sin(a) * 6, 0, -a, 0); } // a ring of crates
   add(g, cyl(0.6, 0.6, 6, 8), M.oak, 22, 5, 30); add(g, cyl(5, 5, 1, 12), M.wallDark, 22, 2.5, 30); // a mounting block
   // the well: a stone ring with a timber frame and a bucket
   add(g, cyl(4.2, 4.6, 3.2, 14), M.plinth, 14, 3.6, 4); add(g, cyl(3.2, 3.2, 0.4, 14), M.oilskin, 14, 5.4, 4);

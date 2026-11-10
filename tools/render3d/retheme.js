@@ -72,6 +72,7 @@ export function* rethemeSprites(want, opts = {}) {
   const elev = (opts.elev ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
   if (opts.sun) o.sun = opts.sun;
   if (opts.polish) o.polish = opts.polish;
+  const ou = opts.polish ? { ...o, polish: { ...(typeof opts.polish === 'object' ? opts.polish : {}), unit: true } } : o; // (the units take polish.js's unit lights and banding)
   for (const side of ['kg', 'ex']) {
     let M = null; const mats = () => M ??= MATS[side](NEUTRAL, !!opts.polish);
     for (const [kind, m] of Object.entries(RT_UNITS[side])) {
@@ -79,7 +80,7 @@ export function* rethemeSprites(want, opts = {}) {
       for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
         const name = `${side}_${kind}_${dir}_${f}`; if (!want(name)) continue;
         const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
-        yield [name, obj, cell, o, true];
+        yield [name, obj, cell, ou, true];
       }
     }
     for (const [kind, b] of Object.entries(RT_BUILDINGS[side])) {

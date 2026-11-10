@@ -82,7 +82,7 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   let img;
   if (!polish) { img = grab(w, h); finish(img); }
   else { // the polished path: its lights for the colour pass (restored after), then the depth pass and polish.js's finish
-    const P = typeof polish === 'object' ? { ...POLISH, ...polish } : POLISH, L = P.lights;
+    const P = typeof polish === 'object' ? { ...POLISH, ...polish } : POLISH, L = P.unit ? P.unitLights : P.lights;
     const saved = [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity];
     sun.intensity = L.sun; hemi.intensity = L.hemi; scene.environmentIntensity = L.env; rim.intensity = L.rim; fill.intensity = L.fill;
     fill.target.position.set(gx, 0, gz); fill.position.set(gx - 200, 150, gz + 300); scene.add(fill.target);

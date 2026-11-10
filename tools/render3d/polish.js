@@ -10,11 +10,14 @@
 // brighter speculars on steel, gold and glass, and bump texture on the flat materials; (3) the models' own secondary
 // detail under `M.polish` in kingdom.js and expedition.js, only what reads at 2x (tack, bindings, quoins, buttresses,
 // fan rings, cables...). scene.js `shoot(..., { polish })` runs (1); retheme.js passes `polish` to the mats for (2)
-// and (3). `POLISH` holds every setting of (1); pass an object as `polish` to override any.
+// and (3). `POLISH` holds every setting of (1); pass an object as `polish` to override any; `{ unit: true }` in it
+// (retheme.js sets it for the units) picks the units' lights and banding.
 import * as THREE from 'three';
 
 export const POLISH = {
-  lights: { sun: 5.4, hemi: 0.12, env: 0.10, rim: 1.0, fill: 1.3 }, // the key against less fill (the atlas: 4.6, 0.28, 0.22, 1.5, no fill); `fill` from the south-west, so a thing's camera side has a lit and a dark half
+  lights: { sun: 5.2, hemi: 0.2, env: 0.16, rim: 1.0, fill: 1.4 }, // buildings: the key against less fill (the atlas: 4.6, 0.28, 0.22, 1.5, no fill); `fill` from the south-west, so a thing's camera side has a lit and a dark half (round 3 lifted hemi and env a step: the castle's shadow faces and yard went near-black)
+  unitLights: { sun: 8.0, hemi: 0.05, env: 0.07, rim: 0.8, fill: 2.4 }, // units (round 3): a far harsher key and fill against almost no ambient, so a 20-px figure's lit and shadow halves are a whole value step or two apart, and the glints burn
+  unitBand: 8,                     // units band at 5 bits (round 3): the halves step instead of grading
   ao: { radius: 10, range: 1.5, bias: 0.3, maxH: 16, strength: 1.0 }, // occlusion between parts: a step of `range` view units darkens fully, fading out by maxH
   contact: { radius: 5, squash: 0.7, hMin: 0.15, hMax: 3.5, lee: -1, alpha: 120 }, // a crisp dark ellipse (radius px, squashed to the ground's foreshortening) under every part that stands on the ground (its pixels between hMin and hMax game units up), on the sun's lee side only (dx + dy >= lee: the sun is north-west)
   rim: { gain: 0.45, bias: 1.0 },  // the lit edge: a model pixel whose up or left neighbour is farther by `bias` or is the sky
@@ -106,7 +109,8 @@ export function finishPolish(img, z, opts) {
     }
     if (edgeSky) k = Math.min(k, P.ink.edge);                                                 // the silhouette's lower and right edges: ink
     else if (edgeLit || zAt(x, y - 1) - zc > P.rim.bias || zAt(x - 1, y) - zc > P.rim.bias) k *= 1 + P.rim.gain; // its upper and left edges, and any edge raised over what is behind it: lit
-    for (let c = 0; c < 3; c++) { const v = 255 * smooth(0.03, 0.97, Math.min(255, src[i + c] * k) / 255); d[i + c] = Math.min(255, Math.round(v / P.band) * P.band + P.band / 2); }
+    const band = P.unit ? P.unitBand : P.band;
+    for (let c = 0; c < 3; c++) { const v = 255 * smooth(0.03, 0.97, Math.min(255, src[i + c] * k) / 255); d[i + c] = Math.min(255, Math.round(v / band) * band + band / 2); }
     if (a < 128) { // an anti-aliased edge over the contact shadow
       const soft = contact[p] ? C.alpha / 255 : 0, A = a / 255 + soft * (1 - a / 255);
       if (soft > 0) for (let c = 0; c < 3; c++) d[i + c] = Math.round(d[i + c] * (a / 255) / A);
@@ -251,12 +255,12 @@ export function polishMats(M, side) {
   const courses = (m, map, color) => { if (!m) return; m.map = map; if (color !== undefined) m.color.setHex(color); m.needsUpdate = true; };
   bump(M.paintCanvas, X.fold, 1.2); bump(M.cloth, X.fold, 1.2); bump(M.paintCloth, X.fold, 1.2);
   if (side === 'kg') {
-    metal(M.steel);
+    metal(M.steel, 0.18);
     M.leather.map = X.leather; M.leather.needsUpdate = true; bump(M.leather, X.scuff, 0.25);
     M.horse.map = X.hide; M.horse.needsUpdate = true; M.horseDark.map = X.hide; M.horseDark.needsUpdate = true;
     bump(M.tunic, X.fold, 1.0); bump(M.hose, X.fold, 0.8); bump(M.linen, X.fold, 0.6); bump(M.clothPale, X.fold, 1.0);
     bump(M.oak, X.grain, 0.8); bump(M.timber, X.grain, 0.8); bump(M.timberPale, X.grain, 0.8);
-    courses(M.wall, X.hiAshlar); courses(M.wallDark, X.hiAshlar); courses(M.plinth, X.hiAshlar);           // the courses drawn for 1x
+    courses(M.wall, X.hiAshlar, 0x8c8e96); courses(M.wallDark, X.hiAshlar); courses(M.plinth, X.hiAshlar); // the courses drawn for 1x; the wall a step lighter (round 3: the castle read as a black block)
     bump(M.wall, M.wall.bumpMap, 2.2); bump(M.wallDark, M.wallDark.bumpMap, 2.2); bump(M.plinth, M.plinth.bumpMap, 2.0);
     courses(M.roof, X.hiSlate, 0x545a62); bump(M.roof, X.slate, 1.6);                                     // slate half a step lighter: under the stronger key the sun-lit slates part from the fill-lit walls (a darker slate sank into them)
     bump(M.yard, M.yard.bumpMap, 1.6);

@@ -14,6 +14,7 @@ import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
+import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 
 export const RT_ELEV = 40;
 export const UNIT_SCALE = 1.4;
@@ -64,4 +65,15 @@ export function* rethemeSprites(want, elevDeg = RT_ELEV) {
     }
   }
   if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL)), unitCell(30, 12, lift), o, false];
+  // The ground family (country.js): the gold outcrop `rt_gold_<stage>_<v>` (the game's shard_k / shard_k_v), the
+  // scenery `rt_doodad_<name>` (the game's doodad_<name>), and each people's construction and rubble
+  // `rt_<kg|ex>_<foundation|scaffold|rubble>_<n>` (the game's foundation_n, scaffold_n, rubble_n, picked by people;
+  // the scaffolds without a shadow, as today's; team on their cloth and flags).
+  for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = `rt_gold_${st}_${v}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; }
+  for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `rt_doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
+  for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of ['foundation', 'scaffold', 'rubble']) {
+    const name = `rt_${side}_${kind}_${n}`; if (!want(name)) continue;
+    const h = kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8;
+    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL)), bldgCell(n, h, lift), { ...o, shadow: kind !== 'scaffold' }, true];
+  }
 }

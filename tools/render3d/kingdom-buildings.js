@@ -19,7 +19,8 @@ export function kbMats(M) {
   M.hearth = std({ color: 0x3a0500, emissive: 0xff5a18, emissiveIntensity: 2.4 });           // the Blacksmith's forge glow: the kingdom's one warm light, small
   M.water = std({ color: 0x1a2228, metalness: 0.6, roughness: 0.15 });                       // a trough's water
   M.iron = M.ironDark;
-  M.horsePale = std({ color: 0x7a5a3c, roughness: 0.75 });                                   // the stable's horses, a lighter bay so their heads read out of the dark stalls
+  M.anvil = std({ color: 0xb4b8bc, metalness: 0.35, roughness: 0.5 });                       // the Blacksmith's anvil: pale, not mirror steel (round 2: it did not read)
+  M.horsePale = std({ color: 0x66503a, roughness: 0.75 });                                   // the stable's horses, a lighter bay so their heads read out of the dark stalls
   return M;
 }
 
@@ -52,6 +53,16 @@ function horseHead(g, M, x, y, z, ry = 0) {
   add(h, rbox(2.6, 1.6, 1.8, 0.5), M.horseDark, 0, 6.0, 6.6);                                 // the muzzle
   for (const sx of [-1.2, 1.2]) add(h, cone(0.7, 2.0, 6), M.horseDark, sx, 9.6, 2.6);         // ears
   for (let k = 0; k < 4; k++) add(h, rbox(2.0, 1.4, 1.6, 0.6), M.horseDark, 0, 3.2 + k * 1.3, -2.6 + k * 1.1); // the mane
+}
+/** A horse standing (the knight's, without rider or caparison, in the lighter bay), facing +x. */
+function horse(g, M, x, z, ry = 0) {
+  const h = grp(); h.position.set(x, 0, z); h.rotation.y = ry; g.add(h);
+  add(h, rbox(16, 7.5, 6.2, 2.6), M.horsePale, -1, 10.5, 0); add(h, sph(3.4, 12, 10), M.horsePale, -8.6, 10.6, 0).scale.set(0.9, 1, 1);
+  limb(h, [5.5, 11.5, 0], [10.5, 17.5, 0], 2.2, M.horsePale); add(h, rbox(5.4, 3.2, 2.8, 1.0), M.horsePale, 13.0, 17.4, 0, 0, 0, -0.35);
+  add(h, rbox(1.6, 1.4, 2.4, 0.5), M.horseDark, 15.2, 16.4, 0); for (const sz of [-1.1, 1.1]) add(h, cone(0.6, 1.8, 6), M.horseDark, 11.4, 19.8, sz);
+  for (let k = 0; k < 5; k++) add(h, rbox(1.6, 1.4, 2.0, 0.6), M.horseDark, 6.2 + k * 1.1, 14.6 + k * 1.1, 0);
+  limb(h, [-10.5, 11.5, 0], [-13.5, 4.5, 0.6], 0.9, M.horseDark);
+  for (const [lx, side] of [[5, -1], [5, 1], [-7, -1], [-7, 1]]) { const lz = side * 2.4; limb(h, [lx, 8.5, lz], [lx, 4.4, lz], 1.3, M.horsePale); limb(h, [lx, 4.4, lz], [lx, 0.9, lz], 1.0, M.horsePale); add(h, rbox(1.8, 1.2, 1.9, 0.4), M.horseDark, lx, 0.6, lz); }
 }
 /** A hay bale. */
 const bale = (g, M, x, y, z, ry = 0) => { add(g, rbox(6, 4, 4.4, 0.8), M.straw, x, y + 2, z, 0, ry, 0); for (const d of [-1.6, 1.6]) add(g, rbox(6.2, 0.4, 0.5, 0.1), M.rope, x, y + 2, z + d, 0, ry, 0); };
@@ -167,12 +178,13 @@ export function blacksmith(M) {
   chimney(g, M, X - W / 2 + 4, 2, Z - D / 2 + 5, H + 16, 5.4);
   hanging(g, M, X - W / 2 + 4, H + 15, Z - D / 2 + 5 + 2.9, 7, 14, -Math.PI / 2);                                  // a team cloth on the stack's south face
   // the forge: a hearth of dark stone, the glow, the hood; the anvil on its block in front
-  add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 6, 5, Z - 5); add(g, rbox(8.4, 1.2, 5.6, 0.3), M.hearth, X + 6, 8.4, Z - 5); add(g, rbox(3.6, 2.6, 1.2, 0.3), M.hearth, X + 6, 9.6, Z - 1.4); // the glow: the coals, and the fire's face to the camera
-  add(g, rbox(11, 1.4, 8, 0.3), M.ironDark, X + 6, 14, Z - 5); for (const sx of [-1, 1]) add(g, rbox(0.8, 5.4, 0.8, 0.1), M.ironDark, X + 6 + sx * 5, 11.2, Z - 5 + 3.2); // the hood on two irons
-  add(g, cyl(2.4, 2.8, 4, 10), M.oak, X - 2, 4, Z + 4);
-  add(g, rbox(6.4, 2.2, 2.6, 0.5), M.steel, X - 2, 7.1, Z + 4); add(g, cone(1.0, 2.6, 8), M.steel, X + 2.4, 7.1, Z + 4, 0, 0, -Math.PI / 2); // the anvil, pale
-  add(g, cyl(0.7, 0.7, 6, 6), M.oak, X - 5, 7.8, Z + 7, 0.3, 0, 0.9); add(g, rbox(2.2, 1.4, 1.4, 0.3), M.steel, X - 7.2, 9.9, Z + 7.6); // a hammer on the anvil
-  add(g, rbox(8, 3.4, 4.4, 0.6), M.oak, X + 10, 3.7, Z + 7); add(g, rbox(7, 0.5, 3.4, 0.2), M.water, X + 10, 5.3, Z + 7);        // the quench trough
+  const FZ = Z + D / 2 + 7;                                                                                           // the forge out in the yard before the posts (round 2: under the roof the glow is hidden from a 40-degree camera, as anything deeper than its height / 0.84)
+  add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 8, 5, FZ); add(g, rbox(8.4, 1.4, 5.6, 0.3), M.hearth, X + 8, 8.6, FZ); add(g, sph(2.8, 10, 8), M.hearth, X + 8, 9.6, FZ).scale.set(1.3, 0.7, 1); // the hearth: coals and a heap of fire, open to the sky
+  add(g, cyl(1.6, 1.8, 12, 8), M.ironDark, X + 8, 11, FZ - 4.2); add(g, cyl(2.0, 2.0, 1.0, 8), M.ironDark, X + 8, 17.2, FZ - 4.2); smoke(g, M, X + 8, 17, FZ - 4.2, 3); // an iron flue behind it
+  add(g, cyl(2.8, 3.2, 4.5, 10), M.oak, X - 6, 4.2, Z + D / 2 + 6);                                                   // the anvil out in the yard before the posts, on its block
+  add(g, rbox(8.0, 2.8, 3.2, 0.6), M.anvil, X - 6, 7.8, Z + D / 2 + 6); add(g, cone(1.3, 3.2, 8), M.anvil, X - 0.6, 7.8, Z + D / 2 + 6, 0, 0, -Math.PI / 2); // pale
+  add(g, cyl(0.7, 0.7, 6, 6), M.oak, X - 9, 8.6, Z + D / 2 + 9, 0.3, 0, 0.9); add(g, rbox(2.4, 1.6, 1.6, 0.3), M.anvil, X - 11.2, 10.7, Z + D / 2 + 9.6); // a hammer on the anvil
+  add(g, rbox(8, 3.4, 4.4, 0.6), M.oak, X + 1, 3.7, Z + D / 2 + 12); add(g, rbox(7, 0.5, 3.4, 0.2), M.water, X + 1, 5.3, Z + D / 2 + 12);        // the quench trough between them
   for (const y of [6, 9]) add(g, torus(1.1, 0.35, 12, Math.PI), M.ironDark, X + W / 2 - 1, y, Z - D / 2 + 1.8);                   // horseshoes on the wall
   for (let k = 0; k < 4; k++) add(g, cyl(1.0, 1.0, 10 + k, 6), M.ironDark, X + 14 + k * 1.3, 7, Z + 14 + (k % 2), 0.2, 0, 0.1 * k - 0.1); // bar stock leaning outside
   banner(g, M, X + W / 2 + 2, H + 7, Z - 2, 12, 14, 10);
@@ -301,7 +313,8 @@ export function stables(M) {
   for (const x of [PX - 7, PX + 1, PX + 8]) { const c = grp(); c.position.set(x, 8.0, PZ + PD / 2); g.add(c); add(c, rbox(7.5, 7.6, 1.6, 0.2), M.cloth, 0, -3.5, 0); add(c, rbox(7.9, 0.5, 1.8, 0.05), M.inkLine, 0, 0.1, 0); add(c, rbox(7.9, 0.5, 1.8, 0.05), M.inkLine, 0, -7.3, 0); }
   add(g, rbox(22, 7.6, 1.6, 0.3), M.cloth, PX, 4.4, PZ - PD / 2); for (const y of [8.4, 0.6]) add(g, rbox(22.4, 0.5, 1.8, 0.05), M.inkLine, PX, y, PZ - PD / 2); // a caparison airing over the paddock's north rail // saddle cloths airing on the south rail, team
   add(g, rbox(10, 3.4, 4.4, 0.6), M.oak, PX, 3.7, PZ - 8); add(g, rbox(9, 0.5, 3.4, 0.2), M.water, PX, 5.3, PZ - 8);  // the trough
-  add(g, rbox(4, 3, 4, 0.3), M.plinth, PX - 8, 3.5, PZ + 4); add(g, rbox(4, 1.5, 2, 0.3), M.plinth, PX - 8, 3.2, PZ + 7);
+  add(g, rbox(4, 3, 4, 0.3), M.plinth, PX - 8, 3.5, PZ + 10); add(g, rbox(4, 1.5, 2, 0.3), M.plinth, PX - 8, 3.2, PZ + 13);
+  horse(g, M, PX + 1, PZ + 1, -0.5);                                                                                  // a horse standing in the paddock (round 2: the Stables and the Barracks read alike)
   for (const [x, z] of [[PX - PW / 2, PZ - PD / 2], [PX + PW / 2, PZ + PD / 2]]) banner(g, M, x, 9, z, 10, 10, 7);
   return g;
 }

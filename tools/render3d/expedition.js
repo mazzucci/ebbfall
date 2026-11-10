@@ -37,6 +37,15 @@ const daubTex = tex(128, (g, n) => {
   for (let i = 0; i < 8; i++) { const x = rnd() * n, y = rnd() * n; g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd() * 20 - 10, y + 10 + rnd() * 20); g.stroke(); }
   for (let i = 0; i < 10; i++) { g.fillStyle = `rgba(110,95,70,${0.05 + rnd() * 0.1})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 6 + rnd() * 16, 4 + rnd() * 10, rnd() * 3, 0, 7); g.fill(); }
 }, { repeat: 2 });
+/** Grey planks: upright weathered boards with dark seams, grain and a nail here and there, on a cool grey base (the
+ *  kingdom's plankTex is warm tan and overrode any grey colour: buildings round 2, "a brown farm"). */
+export const plankGreyTex = tex(128, (g, n) => {
+  g.fillStyle = '#c4c6c6'; g.fillRect(0, 0, n, n); seed = 59;
+  for (let x = 0; x < n; x += 16) { const v = 176 + rnd() * 50; g.fillStyle = `rgb(${v - 4},${v},${v + 2})`; g.fillRect(x, 0, 16, n); }
+  for (let i = 0; i < 70; i++) { const x = rnd() * n; g.strokeStyle = `rgba(50,54,58,${0.12 + rnd() * 0.3})`; g.lineWidth = 0.6 + rnd(); g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + rnd() * 4 - 2, n / 3, x + rnd() * 4 - 2, 2 * n / 3, x + rnd() * 2 - 1, n); g.stroke(); }
+  g.fillStyle = 'rgba(24,26,30,0.85)'; for (let x = 0; x < n; x += 16) g.fillRect(x, 0, 2, n);
+  g.fillStyle = 'rgba(30,30,30,0.7)'; for (let x = 8; x < n; x += 16) for (const y of [20, 100]) { g.beginPath(); g.arc(x, y + (x % 32 ? 6 : 0), 1.4, 0, 7); g.fill(); }
+}, { repeat: 2 });
 /** A rack's front: a column of dark slots with a tiny lit dot each. */
 const rackTex = tex(64, (g, n) => {
   g.fillStyle = '#3a3c40'; g.fillRect(0, 0, n, n);
@@ -76,13 +85,13 @@ export function makeExpeditionMats(tc) {
   M.cable = std({ color: 0x15161a, roughness: 0.6, metalness: 0.1 });
   M.canvasLocal = std({ color: P.canvas, map: M.canvas.map, roughness: 0.92 });                                     // the locals' canvas, dulled
   M.oak = std({ color: P.frame, map: M.timber.map, roughness: 0.85 });                                              // the hall's frame, dark oak
-  M.oakPale = std({ color: 0x7a5e40, map: M.timber.map, roughness: 0.85 });
+  M.oakPale = std({ color: 0x6e6a60, map: M.timber.map, roughness: 0.85 });                                          // crates and barrels: grey weathered timber
   M.wall = std({ color: P.wall, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.4, roughness: 0.92 });            // the castle's own slate-grey ashlar (the buildings family: the judge saw no stone)
-  M.roofDark = std({ color: 0x847f76, map: plankTex, bumpMap: plankBump, bumpScale: 1.0, roughness: 0.9 });        // the roofs: weathered grey planks, a step down from round 3's silver (the buildings family: six pale roofs read alike and were the brightest planes)
+  M.roofDark = std({ color: 0x9a9ea2, map: plankGreyTex, bumpMap: plankBump, bumpScale: 1.0, roughness: 0.9 });        // the roofs: weathered silver-grey planks, cool (buildings round 2: the warm tan read as a brown farm; the side's timber is grey, the kingdom's brown)
   M.wallPale = std({ color: 0xaeb2b6, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.4, roughness: 0.92 });      // the pale stone gable ends that face the camera
   M.stone = std({ color: 0x6e6458, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 });         // a footing course of darker stone
   M.earth = std({ color: 0x5c5a54, map: earthTex, roughness: 1 });                                                  // trodden earth, grey-brown as the castle's (the warm brown read as dirt under no building)
-  M.deck = std({ color: 0x7a6448, map: plankTex, bumpMap: plankBump, bumpScale: 0.8, roughness: 0.9 });            // a plank floor
+  M.deck = std({ color: 0x74787c, map: plankGreyTex, bumpMap: plankBump, bumpScale: 0.8, roughness: 0.9 });            // a plank floor, grey
   M.gold = std({ color: 0xf0c850, metalness: 0.6, roughness: 0.35 });                                               // coins: a light yellow, gold is the coins' alone
   M.glint = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6 });
   M.uniform = std({ color: P.uniform, roughness: 0.9 });                                                            // fatigues
@@ -316,81 +325,86 @@ export function marine(M, f) {
   return g;
 }
 
-/** Data centre (the main building, 4x4; the slice, round 3; the buildings family's fixes): a hall running north-south
- *  so its pale stone gable faces the camera with the three big cooling fans set into it (dark grilles, pale blades, lit
- *  hubs: the hero, bigger now in a taller gable), an oak door under them and the one team banner over it; walls of the
- *  castle's own slate-grey ashlar, taller, with only the corner posts and a wall plate of dark oak lining them (the
- *  judge saw no stone under the framing), a weathered silver plank roof on a shorter hall with a louvred dormer; the
- *  east wing a lean-to of the same stone under a closed plank roof (the bare rafters read as unfinished), and the
- *  server racks out on a plank deck south of it in the open, charcoal with thin team light strips and a LED each; the
- *  company flag on the one mast with the dish, a cable tray with a team lip, cloths on the wing's south wall; a solar
- *  rack, crates, barrels, a trough; two travellers. Grey-brown trodden earth hugging the building. */
+/** Data centre (the main building, 4x4; the slice, round 3; the buildings family's fixes, rounds 1 and 2): a hall
+ *  running north-south, short and low, so its south face to the camera is a clear wall of the castle's slate-grey
+ *  ashlar in a dark oak frame under a shallow silver plank roof, with the three big cooling fans set into it (dark
+ *  grilles, pale blades, lit hubs: the hero), an oak door under them and the one team banner over it; the east wing a
+ *  low lean-to of the same stone under a closed plank roof, its south wall slate with two cloths; the server racks out
+ *  on a plank deck south of the wing in a row facing the camera, charcoal with thin team light strips and a LED each;
+ *  the company flag on the mast with the dish and a second flag on a rear mast at the hall's north end; a cable tray
+ *  with a team lip, a valance under the gable's wall plate; a solar rack, crates, barrels, a trough; two travellers.
+ *  Grey-brown trodden earth hugging the building. Round 2's judge: the roof was the whole sprite and the stone did not
+ *  show, so the hall is 46 long under a pitch of 6 with 1.5 of overhang, and the gable is slate, not pale. */
 export function dataCentre(M) {
   const g = grp();
-  const HX = -14, HZ = -4, HW = 42, HL = 64, HH = 20, RH = 12, SZ = HZ + HL / 2;                   // the hall along z; SZ its south gable
-  const WX = HX + HW / 2 + 15, WZ = HZ - 10, WW = 30, WL = 44, WH = 12;                             // the wing east of it
-  add(g, plate([[-58, -46], [50, -52], [62, -10], [58, 46], [10, 56], [-50, 50], [-60, 10]].map(([x, z]) => [x + 4, z + 2]), 2.0, 0.8), M.earth, 0, 0, 0); // trodden earth, hugging the building
-  // the hall: footing, slate-grey ashlar walls, the pale gable ends, a weathered plank roof
+  const HX = -14, HZ = 0, HW = 40, HL = 46, HH = 21, RH = 6, SZ = HZ + HL / 2;                    // the hall along z; SZ its south face
+  const WX = HX + HW / 2 + 13, WZ = HZ - 6, WW = 26, WL = 30, WH = 12;                              // the wing east of it
+  add(g, plate([[-52, -40], [46, -46], [58, -8], [54, 44], [10, 52], [-46, 46], [-56, 10]].map(([x, z]) => [x + 2, z + 2]), 2.0, 0.8), M.earth, 0, 0, 0); // trodden earth, hugging the building
+  // the hall: footing, slate walls in an oak frame, a shallow plank roof with little overhang, the ridge beam
   add(g, rbox(HW + 4, 3, HL + 4, 0.5), M.stone, HX, 3, HZ);
   add(g, rbox(HW, HH, HL, 0.6), M.wall, HX, HH / 2 + 3, HZ);
-  for (const sz of [-1, 1]) add(g, gable(HW + 0.6, RH, 2.4), M.wallPale, HX, HH + 3, HZ + sz * (HL / 2 - 1.2));  // the pale stone gables, the south one to the camera
-  add(g, rbox(HW + 1.4, HH + 0.4, 1.2, 0.2), M.wallPale, HX, HH / 2 + 3, SZ + 0.3);                                 // (the south end wall's full face, pale)
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, rbox(2.0, HH + 0.4, 2.0, 0.3), M.oak, HX + sx * (HW / 2 + 0.2), HH / 2 + 3, HZ + sz * (HL / 2 + 0.2)); // corner posts
-  add(g, rbox(HW + 2.4, 1.4, 1.4, 0.3), M.oak, HX, HH + 2.6, SZ + 1.0);                                              // the wall plate on the south face
-  add(g, rbox(HW - 2, 2.6, 0.5, 0.1), M.paintCloth, HX, HH + 0.4, SZ + 1.4); for (const y of [HH + 1.9, HH - 1.1]) add(g, rbox(HW - 1.6, 0.4, 0.6, 0.05), M.inkLine, HX, y, SZ + 1.4); // a team valance under the wall plate
+  for (const sz of [-1, 1]) add(g, gable(HW + 0.6, RH, 2.4), M.wall, HX, HH + 3, HZ + sz * (HL / 2 - 1.2));        // the gable ends, slate too
+  add(g, rbox(HW + 1.4, HH + 0.4, 1.2, 0.2), M.wall, HX, HH / 2 + 3, SZ + 0.3);                                      // (the south face, one plane of slate)
+  for (const x of [-HW / 2 - 0.2, -HW / 6, HW / 6, HW / 2 + 0.2]) add(g, rbox(2.0, HH + 0.4, 2.0, 0.3), M.oak, HX + x, HH / 2 + 3, SZ + 0.6); // oak posts on the south face
+  for (const sz of [-1, 1]) for (const sx of [-1, 1]) add(g, rbox(2.0, HH + 0.4, 2.0, 0.3), M.oak, HX + sx * (HW / 2 + 0.2), HH / 2 + 3, HZ + sz * (HL / 2 + 0.2)); // corner posts
+  add(g, rbox(HW + 2.4, 1.4, 1.4, 0.3), M.oak, HX, HH + 2.8, SZ + 1.0);                                              // the wall plate
+  add(g, rbox(HW + 1.2, 1.2, 1.2, 0.3), M.oak, HX, 10, SZ + 1.0);                                                    // a rail across the face
   add(g, rbox(1.3, RH + 0.6, 1.3, 0.3), M.oak, HX, HH + 3 + RH / 2, SZ + 1.1);                                       // the king post up the gable
-  add(g, gable(HW + 6, RH, HL + 6), M.roofDark, HX, HH + 3.4, HZ);
-  add(g, rbox(1.8, 1.8, HL + 7, 0.4), M.oak, HX, HH + 3.4 + RH + 0.6, HZ);                        // the ridge beam
-  { const d = grp(); d.position.set(HX + 11, HH + 3.4 + RH - 7, HZ + 8); g.add(d);               // the ventilation dormer on the east slope
-    add(d, rbox(10, 7, 9, 0.4), M.wallPale, 0, 3.5, 0); add(d, gable(11, 4.5, 10), M.roofDark, 0, 7, 0, 0, Math.PI / 2, 0);
-    for (let k = 0; k < 4; k++) add(d, rbox(0.8, 0.6, 7, 0.1), M.joint, 5.2, 1.8 + k * 1.3, 0, 0, 0, 0.5); }
-  // the fans in the south gable: three big round housings, dark grilles, pale blades, lit hubs; the door under the middle one, the banner over it
+  add(g, rbox(HW - 2, 2.4, 0.5, 0.1), M.paintCloth, HX, HH + 0.6, SZ + 1.4); for (const y of [HH + 1.9, HH - 0.7]) add(g, rbox(HW - 1.6, 0.4, 0.6, 0.05), M.inkLine, HX, y, SZ + 1.4); // a team valance under the wall plate
+  add(g, gable(HW + 3, RH, HL + 3), M.roofDark, HX, HH + 3.4, HZ);
+  add(g, rbox(1.8, 1.8, HL + 4, 0.4), M.oak, HX, HH + 3.4 + RH + 0.6, HZ);                        // the ridge beam
+  // the fans in the south face: three big round housings, dark grilles, pale blades, lit hubs; the door under the middle one, the banner over it
   for (let k = 0; k < 3; k++) {
-    const fan = grp(); fan.position.set(HX - 14 + k * 14, HH - 1, SZ + 1.6); fan.rotation.x = Math.PI / 2; g.add(fan);
-    add(fan, cyl(6.8, 6.8, 2.0, 24), M.joint, 0, 0.6, 0);
-    add(fan, cyl(6.1, 6.1, 0.4, 24), M.panelDark, 0, 1.5, 0);
-    for (let j = 0; j < 6; j++) add(fan, rbox(11.8, 0.25, 0.5, 0.1), M.joint, 0, 1.75, 0, 0, j * Math.PI / 6, 0);
-    for (let j = 0; j < 3; j++) add(fan, rbox(10.8, 0.4, 2.4, 0.3), M.white, 0, 1.9, 0, 0, j * Math.PI / 3 + 0.2, 0);
+    const fan = grp(); fan.position.set(HX - 13.5 + k * 13.5, HH - 4.5, SZ + 1.6); fan.rotation.x = Math.PI / 2; g.add(fan);
+    add(fan, cyl(6.4, 6.4, 2.0, 24), M.joint, 0, 0.6, 0);
+    add(fan, cyl(5.7, 5.7, 0.4, 24), M.panelDark, 0, 1.5, 0);
+    for (let j = 0; j < 6; j++) add(fan, rbox(11.0, 0.25, 0.5, 0.1), M.joint, 0, 1.75, 0, 0, j * Math.PI / 6, 0);
+    for (let j = 0; j < 3; j++) add(fan, rbox(10.2, 0.4, 2.4, 0.3), M.white, 0, 1.9, 0, 0, j * Math.PI / 3 + 0.2, 0);
     led(fan, M, 1.0, 0, 2.2, 0);
   }
-  add(g, rbox(7, 8, 1.2, 0.4), M.oak, HX, 7, SZ + 1.4); for (const y of [4.5, 9]) add(g, rbox(7.4, 0.5, 0.4, 0.1), M.ironDark, HX, y, SZ + 2.1); // the door
-  add(g, rbox(7.8, 9, 0.5, 0.1), M.inkLine, HX, 7.3, SZ + 1.2);
-  for (const x of [-18, 18]) { add(g, rbox(2.6, 3.2, 1.0, 0.2), M.glass, HX + x, 7, SZ + 1.4); add(g, rbox(3.2, 3.8, 0.5, 0.1), M.inkLine, HX + x, 7, SZ + 1.2); } // windows
-  { const p = grp(); p.position.set(HX, HH + 2.0, SZ + 2.4); g.add(p); add(p, rbox(0.6, 9, 16, 0.1), M.paintCloth, 0, -4.5, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 16.4, 0.05), M.inkLine, 0, -0.2, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 16.4, 0.05), M.inkLine, 0, -8.8, 0, 0, Math.PI / 2, 0); add(p, cyl(0.4, 0.4, 18, 8), M.oak, 0, 0.3, 0.2, 0, 0, Math.PI / 2); } // the one team banner, over the door
-  // the wing east: a lean-to of the same stone under a closed plank roof sloping down to the east, its own oak posts
+  add(g, rbox(7, 8, 1.2, 0.4), M.oak, HX, 6, SZ + 1.4); for (const y of [3.5, 8]) add(g, rbox(7.4, 0.5, 0.4, 0.1), M.ironDark, HX, y, SZ + 2.1); // the door
+  add(g, rbox(7.8, 9, 0.5, 0.1), M.inkLine, HX, 6.3, SZ + 1.2);
+  for (const x of [-16, 16]) { add(g, rbox(2.6, 3.2, 1.0, 0.2), M.glass, HX + x, 6.5, SZ + 1.4); add(g, rbox(3.2, 3.8, 0.5, 0.1), M.inkLine, HX + x, 6.5, SZ + 1.2); } // windows
+  { const p = grp(); p.position.set(HX, HH - 10.2, SZ + 2.4); g.add(p); add(p, rbox(0.6, 7, 14, 0.1), M.paintCloth, 0, -3.5, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 14.4, 0.05), M.inkLine, 0, -0.2, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 14.4, 0.05), M.inkLine, 0, -6.8, 0, 0, Math.PI / 2, 0); add(p, cyl(0.4, 0.4, 16, 8), M.oak, 0, 0.3, 0.2, 0, 0, Math.PI / 2); } // the one team banner, over the door between the fans
+  // the wing east: a low lean-to of slate under a closed plank roof sloping down to the east, two cloths on its south wall
   add(g, rbox(WW + 4, 3, WL + 4, 0.5), M.stone, WX, 3, WZ);
   add(g, rbox(WW, WH, WL, 0.6), M.wall, WX, WH / 2 + 3, WZ);
-  for (const [sx, sz] of [[1, -1], [1, 1]]) add(g, rbox(1.8, WH + 0.4, 1.8, 0.3), M.oak, WX + sx * (WW / 2 + 0.2), WH / 2 + 3, WZ + sz * (WL / 2 + 0.2));
-  { const r = add(g, rbox(WW + 5, 1.2, WL + 5, 0.2), M.roofDark, WX, WH + 3 + 3.2, WZ); r.rotation.z = 0.2; add(g, rbox(1.2, 0.5, WL + 5.4, 0.1), M.inkLine, WX + (WW + 5) / 2, WH + 3 + 3.2 - (WW + 5) / 2 * 0.2 - 0.3, WZ); }
-  for (const x of [-10, 0, 10]) { const p = grp(); p.position.set(WX + x, WH + 2.4, WZ + WL / 2 + 1.4); g.add(p); add(p, rbox(0.6, 13, 9, 0.1), M.paintCloth, 0, -6.5, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 9.4, 0.05), M.inkLine, 0, -0.2, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 9.4, 0.05), M.inkLine, 0, -12.8, 0, 0, Math.PI / 2, 0); add(p, cyl(0.4, 0.4, 10, 8), M.oak, 0, 0.3, 0.2, 0, 0, Math.PI / 2); } // company cloths hung on the wing's south wall
-  // the racks: out on a plank deck south of the wing, a row facing the camera, a cable tray behind them with a team lip
-  const DX = WX, DZ = WZ + WL / 2 + 12;
-  add(g, rbox(WW + 2, 1.2, 14, 0.2), M.deck, DX, 2.8, DZ);
+  for (const [sx, sz] of [[1, -1], [1, 1], [-0.2, 1]]) add(g, rbox(1.8, WH + 0.4, 1.8, 0.3), M.oak, WX + sx * (WW / 2 + 0.2), WH / 2 + 3, WZ + sz * (WL / 2 + 0.2));
+  add(g, rbox(WW + 1, 1.2, 1.2, 0.3), M.oak, WX, WH + 2.6, WZ + WL / 2 + 0.6);
+  { const r = add(g, rbox(WW + 3, 1.2, WL + 3, 0.2), M.roofDark, WX, WH + 3 + 2.2, WZ); r.rotation.z = 0.17; add(g, rbox(1.2, 0.5, WL + 3.4, 0.1), M.inkLine, WX + (WW + 3) / 2, WH + 3 + 2.2 - (WW + 3) / 2 * 0.17 - 0.3, WZ); }
+  for (const x of [-6, 7]) { const p = grp(); p.position.set(WX + x, WH + 2.2, WZ + WL / 2 + 1.4); g.add(p); add(p, rbox(0.6, 10, 8, 0.1), M.paintCloth, 0, -5, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 8.4, 0.05), M.inkLine, 0, -0.2, 0, 0, Math.PI / 2, 0); add(p, rbox(0.6, 0.5, 8.4, 0.05), M.inkLine, 0, -9.8, 0, 0, Math.PI / 2, 0); add(p, cyl(0.4, 0.4, 9, 8), M.oak, 0, 0.3, 0.2, 0, 0, Math.PI / 2); } // company cloths on the wing's south wall
+  // the racks: out on a plank deck south of the wing, a row facing the camera, thin team light strips; a cable tray behind them with a team lip
+  const DX = WX, DZ = WZ + WL / 2 + 11;
+  add(g, rbox(WW + 4, 1.2, 14, 0.2), M.deck, DX, 2.8, DZ);
   for (let k = 0; k < 4; k++) {
-    const x = DX - 12 + k * 8, z = DZ;
+    const x = DX - 10.5 + k * 7, z = DZ;
     add(g, rbox(6.0, 10, 6.2, 0.4), M.rackSide, x, 3.4 + 5, z);
-    add(g, rbox(5.4, 8.8, 0.6, 0.1), M.paint, x, 3.4 + 5, z + 3.1); add(g, rbox(5.8, 9.2, 0.4, 0.1), M.inkLine, x, 3.4 + 5, z + 2.9); // its south face, a team-painted door in ink trim (as the slice's round 2)
-    for (const dx of [-1.8, 1.8]) add(g, rbox(0.5, 8.4, 0.5, 0.1), M.paintLED, x + dx, 3.4 + 5, z + 3.4);               // thin team light strips
+    add(g, rbox(5.4, 8.8, 0.6, 0.1), M.panelDark, x, 3.4 + 5, z + 3.1);                                               // its south face, the door
+    for (const dx of [-1.8, 1.8]) add(g, rbox(0.6, 8.4, 0.5, 0.1), M.paintLED, x + dx, 3.4 + 5, z + 3.45);              // thin team light strips
     led(g, M, 0.3, x, 3.4 + 8.6, z + 3.6);
   }
-  add(g, rbox(WW + 2, 1.2, 1.6, 0.3), M.joint, DX, 5.4, DZ - 5.2); add(g, rbox(WW + 2, 0.4, 1.9, 0.1), M.paint, DX, 6.2, DZ - 5.2); add(g, rbox(WW + 2.4, 0.2, 2.1, 0.05), M.inkLine, DX, 6.5, DZ - 5.2); // the tray, its lip team
+  add(g, rbox(WW + 4, 1.2, 1.6, 0.3), M.joint, DX, 5.4, DZ - 5.2); add(g, rbox(WW + 4, 0.4, 1.9, 0.1), M.paint, DX, 6.2, DZ - 5.2); add(g, rbox(WW + 4.4, 0.2, 2.1, 0.05), M.inkLine, DX, 6.5, DZ - 5.2); // the tray, its lip team
   limb(g, [DX - 14, 5.4, DZ - 5.2], [HX + HW / 2 + 0.5, 9, SZ - 6], 0.45, M.cable);
-  // the mast with the dish and the company flag (the one flag), the solar rack, stores, two travellers
-  const MX = WX + 10, MZ = DZ + 12;
+  // the masts: the dish and the company flag south-east, a second flag on the rear mast at the hall's north end
+  const MX = WX + 8, MZ = DZ + 12;
   add(g, cyl(0.8, 1.2, 44, 8), M.oak, MX, 24, MZ); add(g, rbox(1.4, 1.4, 1.4, 0.3), M.joint, MX, 46.5, MZ);
   add(g, cyl(3.6, 3.6, 0.5, 16), M.steel, MX + 1.6, 42, MZ + 1.0, 0.9, 0, -0.5); add(g, cyl(0.3, 0.3, 3, 6), M.joint, MX + 2.4, 42.6, MZ + 1.8, 0.9, 0, -0.5);
   add(g, plate([[0, 0], [26, 0], [26, 18], [13, 15], [0, 18]], 0.4, 0.1), M.paintCloth, MX + 0.5, 27, MZ, Math.PI / 2, 0, 0); // the company flag
   add(g, rbox(26.4, 0.4, 0.5, 0.05), M.inkLine, MX + 13.7, 27, MZ + 0.1); add(g, rbox(0.4, 0.4, 18.2, 0.05), M.inkLine, MX + 0.5, 27, MZ + 9.1);
   led(g, M, 0.6, MX, 47.6, MZ);
-  limb(g, [HX + 10, HH + 3.4 + RH + 1.2, HZ + 10], [MX, 45, MZ], 0.35, M.cable);
+  limb(g, [HX + 8, HH + 3.4 + RH + 1.2, HZ + 6], [MX, 45, MZ], 0.35, M.cable);
+  const RX = HX - 10, RZ = HZ - HL / 2 - 5;
+  add(g, cyl(0.8, 1.1, 50, 8), M.oak, RX, 27, RZ); add(g, rbox(1.4, 1.4, 1.4, 0.3), M.joint, RX, 52.5, RZ);
+  add(g, plate([[0, 0], [24, 0], [24, 16], [12, 13.5], [0, 16]], 0.4, 0.1), M.paintCloth, RX + 0.5, 34, RZ, Math.PI / 2, 0, 0); // the rear flag, above the roof
+  add(g, rbox(24.4, 0.4, 0.5, 0.05), M.inkLine, RX + 12.7, 34, RZ + 0.1); add(g, rbox(0.4, 0.4, 16.2, 0.05), M.inkLine, RX + 0.5, 34, RZ + 8.1);
   const sr = grp(); sr.position.set(HX - 30, 2, SZ + 8); g.add(sr);                              // the solar rack west of the door: dark glass on an oak frame
   for (const z of [-5, 5]) for (const x of [-9, 9]) add(sr, cyl(0.6, 0.7, z < 0 ? 8 : 4, 6), M.oak, x, z < 0 ? 4 : 2, z);
   add(sr, rbox(24, 0.8, 12, 0.2), M.glass, 0, 6.2, 0, 0.42, 0, 0); add(sr, rbox(24.4, 0.4, 12.4, 0.1), M.joint, 0, 5.8, 0, 0.42, 0, 0);
   for (const x of [-4, 4]) add(sr, rbox(0.5, 0.9, 12.2, 0.1), M.steel, x, 6.3, 0, 0.42, 0, 0);
-  for (let k = 0; k < 4; k++) add(g, rbox(4.6, 4.2, 4.6, 0.4), M.oakPale, HX - 38 + (k % 2) * 5.2, 4.3 + Math.floor(k / 2) * 4.2, SZ - 12 + (k % 2) * 1.5); // crates
-  for (const [x, z] of [[HX - 40, SZ + 2], [HX - 35, SZ - 2]]) { add(g, cyl(2.4, 2.6, 5, 12), M.oakPale, x, 4.5, z); for (const y of [3.2, 6]) add(g, torus(2.65, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
-  add(g, rbox(12, 3.6, 6, 0.4), M.stone, HX + 30, 3.8, SZ + 22); add(g, rbox(10.4, 0.6, 4.6, 0.2), M.glass, HX + 30, 5.5, SZ + 22); // a trough
-  for (const [x, z, ry2] of [[HX + 10, SZ + 9, 0.6], [HX - 10, SZ + 14, -2.4]]) { const t = traveller(M, 0); t.position.set(x, 2.2, z); t.rotation.y = ry2; t.scale.setScalar(0.9); g.add(t); }
+  for (let k = 0; k < 4; k++) add(g, rbox(4.6, 4.2, 4.6, 0.4), M.oakPale, HX - 36 + (k % 2) * 5.2, 4.3 + Math.floor(k / 2) * 4.2, SZ - 10 + (k % 2) * 1.5); // crates
+  for (const [x, z] of [[HX - 38, SZ + 4], [HX - 33, SZ]]) { add(g, cyl(2.4, 2.6, 5, 12), M.oakPale, x, 4.5, z); for (const y of [3.2, 6]) add(g, torus(2.65, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
+  add(g, rbox(12, 3.6, 6, 0.4), M.stone, HX + 28, 3.8, SZ + 22); add(g, rbox(10.4, 0.6, 4.6, 0.2), M.glass, HX + 28, 5.5, SZ + 22); // a trough
+  for (const [x, z, ry2] of [[HX + 9, SZ + 9, 0.6], [HX - 9, SZ + 14, -2.4]]) { const t = traveller(M, 0); t.position.set(x, 2.2, z); t.rotation.y = ry2; t.scale.setScalar(0.9); g.add(t); }
   return g;
 }
 

@@ -5,9 +5,20 @@
 // neutral white LEDs, one pale mark per unit, team on stripes, pads, packs, bumpers and rotor guards between ink
 // trims, never a body slab; the Mercenary's hi-vis vest is the team colour itself (the PM). Same conventions as
 // models.js: game units, units face +x, y up, +z south.
+import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { torus } from './harbour.js';
 import { figure } from './kingdom.js';
+
+// ---- the family's own materials over the Expedition's set ----
+const FAM = new WeakMap();
+function fam(M) {
+  if (FAM.has(M)) return FAM.get(M);
+  const A = {
+    reflect: new THREE.MeshStandardMaterial({ color: 0xe4e6e0, metalness: 0.55, roughness: 0.2, envMapIntensity: 2.0 }), // the Mercenary's reflective tape: pale and glossy, so it catches the key and reads as hi-vis (expedition.js's `hivis` is dull in daylight)
+  };
+  FAM.set(M, A); return A;
+}
 
 /** A small cool LED with a soft halo (as expedition.js). */
 function led(parent, M, r, x, y, z) {
@@ -20,48 +31,62 @@ function band(g, M, r, h, x, y, z, rx = 0, ry = 0, rz = 0) {
   add(p, cyl(r + 0.05, r + 0.05, 0.35, 12), M.inkLine, 0, h / 2, 0); add(p, cyl(r + 0.05, r + 0.05, 0.35, 12), M.inkLine, 0, -h / 2, 0);
   return p;
 }
-/** A slim modern rifle along local +x: a dark receiver, stock, magazine and grip, the barrel drawn twice its thickness. */
-function rifle(parent, M, x, y, z, ry = 0, { len = 14, heavy = false } = {}) {
+/** A slim modern rifle along local +x: a dark receiver, stock, magazine and grip, the barrel drawn twice its thickness;
+ *  `scope` puts a scope tube with a glass lens on the receiver in place of the sight and lengthens the magazine (the
+ *  Mercenary's, after the blind test read it as a long gun on a medieval soldier). */
+function rifle(parent, M, x, y, z, ry = 0, { len = 14, heavy = false, scope = false } = {}) {
   const gun = grp(); gun.position.set(x, y, z); gun.rotation.set(0, ry, 0.04); parent.add(gun);
   const k = heavy ? 1.35 : 1;
   add(gun, rbox(3.6 * k, 1.6 * k, 1.3 * k, 0.4), M.gun, -3.2 * k, 0, 0);                        // the stock
   add(gun, rbox(4.0 * k, 1.9 * k, 1.5 * k, 0.4), M.gun, 0.3 * k, 0, 0);                         // the receiver
   if (heavy) add(gun, cyl(1.9, 1.9, 1.6, 14), M.joint, 0.6, -1.6, 0, 0, 0, Math.PI / 2);          // a drum magazine
+  else if (scope) add(gun, rbox(1.2, 3.2, 1.1, 0.3), M.gun, 0.4, -2.3, 0, 0, 0, 0.22);           // a long curved magazine
   else add(gun, rbox(1.1, 2.4, 1.0, 0.3), M.gun, 0.3, -1.9, 0);                                 // the magazine
   add(gun, rbox(1.0, 1.4, 1.0, 0.2), M.gun, -1.2 * k, -1.3 * k, 0);                             // the grip
-  add(gun, rbox(1.4, 0.8, 0.9, 0.2), M.joint, 0.4, 1.3 * k, 0);                                 // the sight
+  if (scope) { add(gun, rbox(0.9, 0.8, 0.9, 0.1), M.joint, 0.4, 1.3, 0); add(gun, cyl(0.75, 0.75, 3.4, 10), M.joint, 0.6, 2.1, 0, 0, 0, Math.PI / 2); add(gun, cyl(0.8, 0.8, 0.4, 10), M.glass, 2.4, 2.1, 0, 0, 0, Math.PI / 2); } // the scope: a mount, a tube over the receiver, a glass lens ahead
+  else add(gun, rbox(1.4, 0.8, 0.9, 0.2), M.joint, 0.4, 1.3 * k, 0);                            // the sight
   const hl = len - 9 * k;
   add(gun, rbox(hl, 1.5 * k, 1.4 * k, 0.4), M.gun, 2.3 * k + hl / 2, 0, 0);                      // the handguard
   add(gun, cyl(0.65 * k, 0.65 * k, 3.6, 8), M.gun, 2.3 * k + hl + 1.6, 0.15, 0, 0, 0, Math.PI / 2); // the barrel
   return gun;
 }
 
-/** Mercenary (ranged line, a hired local, sim r 10-11, scale 1.06): a local in rough clothes (a dulled canvas tunic,
- *  dark trousers, leather boots) wearing the company's hi-vis vest, which is the team colour itself between ink hems
- *  with two pale reflective bands (the PM: so it never reads as the gold seat or a neutral hi-vis), a slim modern
- *  rifle held level across the body, a dark peaked cap (Expedition heads are dark; the Villager's pale coif parts
- *  from it in grey), a satchel on the hip. From the camera: a dark small head over a team vest with two pale lines and
- *  a short dark level bar; no helmet, no goggles, no camouflage: not the Marine. Frames 0-1 the step. */
+/** Mercenary (ranged line, a hired local, sim r 10-11, scale 1.06; "Sellsword" in the words PR): a local in rough
+ *  clothes (dark trousers and leather boots, canvas shirt sleeves) under the company's kit, which must be the read
+ *  (the whole-set blind test: all four testers saw "a soldier in a medieval tunic with a long gun", the kingdom's):
+ *  a big hi-vis vest, the team colour itself between ink hems, with bright reflective tape that catches the light
+ *  (two bands round the body, a strip over each shoulder, a strip down the front and back on each side: the vest's
+ *  pattern), a headset (a band over the cap to ear cups) and a radio on the belt with its antenna, and a modern rifle
+ *  held level across the body, dark, with a scope and a long magazine. A dark peaked cap (Expedition heads are dark;
+ *  the Villager's pale coif parts from it in grey), a satchel on the hip; no tunic skirt under the vest (the trousers
+ *  run up to it). From the camera: a dark small head over a big team vest barred with pale glossy lines and a dark
+ *  level bar with a scope; no helmet, no goggles, no camouflage: not the Marine. Frames 0-1 the step. */
 export function mercenary(M, f) {
-  const g = figure({ ...M, tunic: M.canvasLocal, hose: M.hose }, f, { skirt: 3.8 }), b = g.body;
-  add(b, rbox(5.8, 5.0, 7.6, 0.5), M.paintCloth, 0.2, 10.6, 0);                                  // the hi-vis vest: the team itself, big
-  add(b, rbox(6.0, 0.35, 7.8, 0.1), M.inkLine, 0.2, 13.15, 0); add(b, rbox(6.0, 0.35, 7.8, 0.1), M.inkLine, 0.2, 8.05, 0); // its hems
-  for (const y of [9.3, 11.3]) add(b, rbox(6.0, 0.5, 7.8, 0.1), M.hivis, 0.2, y, 0);              // two thin reflective bands round it, pale grey
-  for (const z of [-2.4, 2.4]) { add(b, rbox(5.4, 1.2, 1.6, 0.2), M.paintCloth, 0.2, 13.4, z); add(b, rbox(5.6, 0.3, 1.8, 0.05), M.inkLine, 0.2, 14.05, z); } // its team shoulders over the coat
-  add(b, rbox(5.2, 0.8, 6.8, 0.3), M.leather, 0, 7.7, 0);                                        // the belt
-  add(b, rbox(2.2, 2.6, 3.2, 0.5), M.canvasLocal, -2.4, 7.2, 3.6);                                // a satchel on the hip
+  const A = fam(M), g = figure({ ...M, tunic: M.hose, hose: M.hose }, f, { skirt: 3.3 }), b = g.body; // (the figure's tunic in the trousers' dark cloth, straight: under the vest nothing reads as a tunic's skirt)
+  add(b, rbox(6.2, 5.6, 8.0, 0.5), M.paintCloth, 0.2, 10.5, 0);                                  // the hi-vis vest: the team itself, big
+  add(b, rbox(6.4, 0.35, 8.2, 0.1), M.inkLine, 0.2, 13.35, 0); add(b, rbox(6.4, 0.35, 8.2, 0.1), M.inkLine, 0.2, 7.65, 0); // its hems
+  for (const y of [9.0, 11.5]) add(b, rbox(6.5, 0.8, 8.3, 0.1), A.reflect, 0.2, y, 0);           // two reflective bands round it, pale and glossy
+  for (const z of [-2.5, 2.5]) {
+    add(b, rbox(5.6, 1.4, 1.8, 0.2), M.paintCloth, 0.2, 13.5, z); add(b, rbox(5.8, 0.3, 2.0, 0.05), M.inkLine, 0.2, 14.25, z); // its team shoulders over the shirt
+    add(b, rbox(5.9, 1.4, 0.7, 0.1), A.reflect, 0.2, 13.55, z);                                  // a reflective strip over each shoulder
+    add(b, rbox(6.5, 5.3, 0.7, 0.1), A.reflect, 0.2, 10.5, z);                                   // and down the front and back, through the bands: the vest's pattern
+  }
+  add(b, rbox(5.2, 0.8, 6.8, 0.3), M.leather, 0, 7.3, 0);                                        // the belt
+  add(b, rbox(2.2, 2.6, 3.2, 0.5), M.canvasLocal, -2.4, 7.0, 3.6);                                // a satchel on the hip
+  add(b, rbox(1.3, 2.0, 1.1, 0.3), M.joint, -3.6, 7.6, -1.6); add(b, cyl(0.5, 0.5, 6.5, 6), M.joint, -3.6, 11.6, -1.6); // the radio on the belt's back and its antenna (drawn thick)
   add(b, sph(1.7, 12, 10), M.skin, 0.9, 13.3, 0).scale.set(0.8, 0.95, 0.9);                     // the face
   add(b, sph(2.4, 14, 10), M.armour, 0.1, 14.3, 0).scale.set(1, 0.7, 1);                        // the cap, dark
   add(b, cyl(2.5, 2.5, 0.35, 14), M.inkLine, 0.1, 13.5, 0);                                     // its band
   add(b, rbox(2.6, 0.4, 3.4, 0.15), M.armour, 2.4, 13.8, 0, 0, 0, -0.2);                        // its peak
-  const gun = rifle(b, M, 3.6, 8.8, 0, 0.3);                                                     // the rifle, level across the body, held low so the vest shows
-  limb(b, [0.6, 11.4, 3.6], [2.6, 8.6, 1.6], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 2.8, 8.4, 1.4);  // the trigger hand
-  limb(b, [0.6, 11.4, -3.6], [6.0, 9.0, -1.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 6.4, 9.0, -1.0); // the fore hand
-  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, the satchel's strap across the vest, a pouch on the other hip, ink cuffs at the wrists, a sling under the rifle
-    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 7.7, 0);
-    add(b, rbox(6.2, 0.9, 8.0, 0.1), M.leather, 0.2, 10.9, 0.4, -0.6, 0, 0);                        // (a diagonal across the vest's front and back, shoulder to the satchel's hip)
-    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 7.0, -3.6);
-    add(b, sph(1.2, 8, 6), M.inkLine, 2.3, 9.02, 1.9); add(b, sph(1.2, 8, 6), M.inkLine, 5.35, 9.29, -1.49);
+  add(b, torus(2.55, 0.3, 16, Math.PI), M.joint, 0.1, 13.6, 0, 0, Math.PI / 2, 0);              // the headset: a band over the cap
+  for (const z of [-2.5, 2.5]) add(b, sph(0.8, 8, 6), M.joint, 0.1, 13.5, z);                     // to an ear cup each side
+  const gun = rifle(b, M, 3.8, 9.3, 0, 0.3, { len: 16, scope: true });                           // the rifle, level across the body over the vest's lower band: dark, a scope on top, a long magazine under
+  limb(b, [0.6, 11.4, 3.6], [2.8, 9.0, 1.6], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 3.0, 8.9, 1.4);  // the trigger hand
+  limb(b, [0.6, 11.4, -3.6], [6.4, 9.5, -1.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 6.8, 9.5, -1.0); // the fore hand
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, a pouch on the other hip, ink cuffs at the wrists, a sling under the rifle (the satchel's diagonal strap across the vest went with the blind test's fix: nothing crosses the vest)
+    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 7.3, 0);
+    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 6.8, -3.6);
+    add(b, sph(1.2, 8, 6), M.inkLine, 2.47, 9.36, 1.9); add(b, sph(1.2, 8, 6), M.inkLine, 5.7, 9.73, -1.49);
     limb(gun, [-4.6, -0.7, 0.2], [-0.8, -3.4, 0.4], 0.32, M.leather); limb(gun, [-0.8, -3.4, 0.4], [5.0, -0.6, 0.2], 0.32, M.leather);
   }
   g.scale.setScalar(1.06);

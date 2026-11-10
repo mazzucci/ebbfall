@@ -16,7 +16,8 @@ export function kbMats(M) {
   M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull grey-brown straw (the Cottage's roof only; never orange beside the coins' gold)
   M.straw = std({ color: 0x9c8658, roughness: 0.95 });                                       // hay and straw: tan, never the coins' yellow
   M.smoke = std({ color: 0x8a8a86, roughness: 1 });                                          // chimney smoke, grey puffs
-  M.hearth = std({ color: 0x3a0500, emissive: 0xff5a18, emissiveIntensity: 2.4 });           // the Blacksmith's forge glow: the kingdom's one warm light, small
+  M.hearth = std({ color: 0x2a0804, emissive: 0xe8300c, emissiveIntensity: 1.3 });           // the Blacksmith's ember: red-orange, small (round 3: a yellow glow read as the Market's gold)
+  M.coals = std({ color: 0x1c1816, roughness: 1 });                                            // dark coals round it
   M.water = std({ color: 0x1a2228, metalness: 0.6, roughness: 0.15 });                       // a trough's water
   M.iron = M.ironDark;
   M.anvil = std({ color: 0xb4b8bc, metalness: 0.35, roughness: 0.5 });                       // the Blacksmith's anvil: pale, not mirror steel (round 2: it did not read)
@@ -179,7 +180,7 @@ export function blacksmith(M) {
   hanging(g, M, X - W / 2 + 4, H + 15, Z - D / 2 + 5 + 2.9, 7, 14, -Math.PI / 2);                                  // a team cloth on the stack's south face
   // the forge: a hearth of dark stone, the glow, the hood; the anvil on its block in front
   const FZ = Z + D / 2 + 7;                                                                                           // the forge out in the yard before the posts (round 2: under the roof the glow is hidden from a 40-degree camera, as anything deeper than its height / 0.84)
-  add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 8, 5, FZ); add(g, rbox(8.4, 1.4, 5.6, 0.3), M.hearth, X + 8, 8.6, FZ); add(g, sph(2.8, 10, 8), M.hearth, X + 8, 9.6, FZ).scale.set(1.3, 0.7, 1); // the hearth: coals and a heap of fire, open to the sky
+  add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 8, 5, FZ); add(g, rbox(8.4, 1.4, 5.6, 0.3), M.coals, X + 8, 8.6, FZ); add(g, sph(2.6, 10, 8), M.coals, X + 8, 9.4, FZ).scale.set(1.3, 0.6, 1); add(g, sph(1.5, 10, 8), M.hearth, X + 8.4, 10.3, FZ + 0.4); // the hearth: dark coals heaped, a small red-orange ember on top, open to the sky
   add(g, cyl(1.6, 1.8, 12, 8), M.ironDark, X + 8, 11, FZ - 4.2); add(g, cyl(2.0, 2.0, 1.0, 8), M.ironDark, X + 8, 17.2, FZ - 4.2); smoke(g, M, X + 8, 17, FZ - 4.2, 3); // an iron flue behind it
   add(g, cyl(2.8, 3.2, 4.5, 10), M.oak, X - 6, 4.2, Z + D / 2 + 6);                                                   // the anvil out in the yard before the posts, on its block
   add(g, rbox(8.0, 2.8, 3.2, 0.6), M.anvil, X - 6, 7.8, Z + D / 2 + 6); add(g, cone(1.3, 3.2, 8), M.anvil, X - 0.6, 7.8, Z + D / 2 + 6, 0, 0, -Math.PI / 2); // pale

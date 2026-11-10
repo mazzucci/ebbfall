@@ -140,7 +140,7 @@ export function recruitingPost(M) {
   add(g, rbox(W - 4, 4, 2.4, 0.3), M.planks, X, 5, Z + D / 2 - 2); add(g, rbox(W - 3.6, 0.8, 3, 0.2), M.oak, X, 7.3, Z + D / 2 - 2);  // the counter
   add(g, rbox(W - 5, 3.4, 0.5, 0.1), M.paintCloth, X, 5.0, Z + D / 2 - 0.5); for (const y of [6.8, 3.2]) add(g, rbox(W - 4.6, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 - 0.5); // a team cloth draped down the counter's front
   add(g, rbox(W + 8, 2.0, 0.5, 0.1), M.paintCloth, X, H - 0.2, Z + 10.6); for (const y of [H + 0.9, H - 1.3]) add(g, rbox(W + 8.4, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + 10.6); // a narrow team valance along the canvas's eave
-  flag(g, M, X + W / 2 + 3, H + 7, Z - 2, 12, 12, 8);                                                                                                      // a second flag on the ridge pole's east post
+  flag(g, M, X + W / 2 + 3, H + 7, Z - 2, 24, 12, 8);                                                                                                      // a second flag on the ridge pole's east post, lifted clear of the board (round 4)
   add(g, rbox(3.4, 0.4, 2.2, 0.1), M.glass, X + 6, 7.9, Z + D / 2 - 2, 0, 0, 0); add(g, rbox(3.0, 0.25, 1.8, 0.1), M.visor, X + 6, 8.1, Z + D / 2 - 2);        // a tablet on the counter
   for (let k = 0; k < 4; k++) {                                                                                                       // hi-vis vests hung on a rail at the back: team cloth with pale bands
     const x = X - 10 + k * 5.2; add(g, rbox(4.6, 6.4, 1.2, 0.5), M.vest, x, 10.4, Z - D / 2 + 2.4); add(g, rbox(4.8, 0.4, 1.3, 0.05), M.inkLine, x, 13.6, Z - D / 2 + 2.4); add(g, rbox(4.8, 0.4, 1.3, 0.05), M.inkLine, x, 7.2, Z - D / 2 + 2.4);
@@ -315,9 +315,9 @@ export function radioTurret(M) {
 /** Portal (Marine; 2x2): where the people from the future arrive. Not a ring, a gate or magic, and (round 3) not a
  *  hoist: one cue, a **lit arrival platform people step off**. A raised octagonal platform of stone and boards (r 22,
  *  5 high) with a pale steel edge, a wide pale steel ramp (18 across, 20 long, treads, rails) down to the camera with a
- *  row of white landing LEDs along each rail; two Marines at the game's unit scale (1.4) stepping off down the ramp
- *  towards the camera; the imported core standing on a stone pedestal at the platform's north edge, a dark machined
- *  cylinder with white LED rings; over the platform a light timber gantry (two posts and a beam, no load hanging)
+ *  row of white landing LEDs along each rail; two charcoal figures with no team colour at 0.8 of unit scale walking down the ramp
+ *  towards the camera (part of the building, not units); the imported core standing on a stone pedestal at the platform's north edge, a squared dark
+ *  cabinet in a steel frame with a glass front and white light bars (a device, not a figure); over the platform a light timber gantry (two posts and a beam, no load hanging)
  *  carrying two floodlight bars that light the pad; cables from the core to the lights and to batteries and a solar
  *  rack beside; a team banner hung from each gantry post, two flags. From the camera: a wide pale ramp with two
  *  figures on it leading up to a lit grey platform with a dark drum behind, white dots down both sides. */
@@ -340,21 +340,25 @@ export function portal(M) {
     for (let k = 0; k < 5; k++) { const t = 0.1 + k * 0.2; led(g, M, 0.55, x, (PY + 1.2) * (1 - t) + 1.2, RZ0 + RL * t); }                                   // landing lights
   }
   // two Marines stepping off, at the game's unit scale, facing the camera
-  for (const [dx, t, f] of [[-4.6, 0.22, 0], [4.8, 0.7, 1]]) { const m = marine(M, f); m.position.set(PX + dx, (PY + 1.2) * (1 - t) + 0.9, RZ0 + RL * t); m.rotation.y = -Math.PI / 2 - 0.08 * Math.sign(dx); m.scale.multiplyScalar(1.4); g.add(m); }
+  const N = { ...M, paint: M.armour, paintCloth: M.armour };                                                                                                   // the arrivals' materials: no team (round 4: team pads at unit scale read as real units)
+  for (const [dx, t, f] of [[-4.6, 0.22, 0], [4.8, 0.7, 1]]) { const m = marine(N, f); m.position.set(PX + dx, (PY + 1.2) * (1 - t) + 0.9, RZ0 + RL * t); m.rotation.y = -Math.PI / 2 - 0.08 * Math.sign(dx); m.scale.multiplyScalar(1.12); g.add(m); } // two charcoal figures walking down (frames 0 and 1), 0.8 of unit scale: part of the building
   // the core on its pedestal at the north edge: a dark machined cylinder with LED rings, ribs, a lit crown
   const CX = PX, CZ = PZ - R + 7, CY = PY + 1.2;
   add(g, rbox(13, 3, 10, 0.4), M.stone, CX, CY + 1.5, CZ);
-  add(g, cyl(5.0, 5.4, 12, 16), M.core, CX, CY + 9, CZ); add(g, cyl(5.6, 5.6, 1.2, 16), M.joint, CX, CY + 3.4, CZ); add(g, cyl(5.6, 5.6, 1.2, 16), M.joint, CX, CY + 15.2, CZ);
-  for (const y of [CY + 6, CY + 9.5, CY + 13]) { add(g, torus(5.3, 0.45, 32), M.led, CX, y, CZ, Math.PI / 2, 0, 0); add(g, torus(5.3, 1.1, 32), M.ledHalo, CX, y, CZ, Math.PI / 2, 0, 0); }
-  for (let k = 0; k < 6; k++) add(g, rbox(1.4, 11, 1.4, 0.2), M.panelDark, CX + Math.cos(k * Math.PI / 3) * 5.4, CY + 9, CZ + Math.sin(k * Math.PI / 3) * 5.4);
-  led(g, M, 1.0, CX, CY + 16.4, CZ);
+  add(g, rbox(12, 12, 9, 0.6), M.core, CX, CY + 9, CZ);                                                                                      // the core: a squared cabinet in a steel frame (round 4: the drum read as a third helmeted figure)
+  for (const [dx, dz] of [[-6.2, -4.7], [6.2, -4.7], [-6.2, 4.7], [6.2, 4.7]]) add(g, rbox(1.4, 13.2, 1.4, 0.2), M.steel, CX + dx, CY + 9, CZ + dz);
+  for (const y of [CY + 3.0, CY + 15.2]) add(g, rbox(13.4, 1.2, 10.4, 0.2), M.steel, CX, y, CZ);
+  add(g, rbox(9, 8, 0.8, 0.2), M.glass, CX, CY + 9.5, CZ + 4.8); add(g, rbox(9.6, 8.6, 0.4, 0.1), M.inkLine, CX, CY + 9.5, CZ + 4.6);          // a dark glass front
+  for (const dx of [-3.6, 0, 3.6]) add(g, rbox(0.8, 7, 0.5, 0.1), M.led, CX + dx, CY + 9.5, CZ + 5.3);                                           // three white light bars on it
+  add(g, sph(6.5, 10, 8), M.ledHalo, CX, CY + 9.5, CZ + 5.4);
+  for (const dx of [-3, 3]) { add(g, cyl(1.6, 1.6, 2.4, 10), M.joint, CX + dx, CY + 16.4, CZ - 1); led(g, M, 0.6, CX + dx, CY + 17.8, CZ - 1); }  // two vents with lights on top
   // the gantry: two oak posts west and east of the platform, a beam over it, two floodlight bars shining down, banners on the posts
   const GH = 30;
   for (const sx of [-1, 1]) { const x = PX + sx * (R + 3); add(g, cyl(1.3, 1.5, GH, 8), M.oak, x, GH / 2, PZ); limb(g, [x, 6, PZ + 8], [x, 16, PZ], 0.8, M.oak); limb(g, [x, 6, PZ - 8], [x, 16, PZ], 0.8, M.oak); add(g, rbox(2.2, 2.2, 2.2, 0.3), M.joint, x, GH + 0.8, PZ); }
   add(g, rbox(2 * (R + 3) + 2, 1.6, 1.6, 0.3), M.oak, PX, GH + 0.4, PZ);
   for (const dx of [-10, 10]) { add(g, rbox(7, 1.4, 2.4, 0.3), M.joint, PX + dx, GH - 1.2, PZ + 1.6); for (const k of [-2, 0, 2]) led(g, M, 0.6, PX + dx + k, GH - 2.1, PZ + 2.2); } // the floodlight bars
-  for (const sx of [-1, 1]) cloth(g, M, PX + sx * (R + 3), GH - 3, PZ + 1.6, 7, 12);                                     // a team banner hung on each post
-  for (const sx of [-1, 1]) flag(g, M, PX + sx * (R + 3), GH, PZ - 1, 9, 12, 9);
+  for (const sx of [-1, 1]) cloth(g, M, PX + sx * (R + 3), GH - 3, PZ + 1.6, 10, 17);                                    // a team banner hung on each post (bigger: the figures carry no team now)
+  for (const sx of [-1, 1]) flag(g, M, PX + sx * (R + 3), GH, PZ - 1, 10, 16, 11);
   // cables, batteries and a solar rack east, a bench
   cable(g, M, [CX + 5, CY + 14, CZ], [PX + R + 3, GH - 2, PZ - 1], 0.45);
   const BX = PX + R + 8, BZ = PZ + 10;

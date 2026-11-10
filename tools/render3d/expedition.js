@@ -181,9 +181,8 @@ export function utilityBot(M, f) {
   add(arm, sph(1.0, 10, 8), M.joint, 2.4, 2.4 - bob, 0);
   limb(arm, [2.4, 2.4 - bob, 0], [5.8, -0.6, 0], 0.75, M.steel);
   add(arm, rbox(2.6, 1.6, 4.0, 0.3), M.paleSteel, 6.6, -1.2, 0, 0, 0, -0.5);                    // the scoop, pale
-  if (M.polish) { // secondary detail: bolt rings on the hubs, a vent grille on the stern, a cable from the arm's turret into the shell, the tray's handles, a sensor dome
+  if (M.polish) { // secondary detail: bolt rings on the hubs, a cable from the arm's turret into the shell, the tray's handles, a sensor dome (round 2 dropped the stern's vent slots)
     for (const [x, z] of [[-5.2, -6.3], [5.2, -6.3], [-5.2, 6.3], [5.2, 6.3]]) add(b, torus(0.75, 0.15), M.joint, x, 2.0, z + Math.sign(z) * 1.0);
-    for (const z of [-3.2, 0, 3.2]) add(b, rbox(0.4, 0.7, 2.6, 0.1), M.inkLine, -7.6, 2.9, z);
     limb(b, [5.0, 4.3, -2.2], [2.6, 4.1, -5.2], 0.3, M.cable);
     for (const x of [-5.6, 5.6]) add(tr, rbox(0.6, 0.6, 2.6, 0.2), M.joint, x, 1.2, 0);
     add(b, sph(0.8, 8, 6), M.joint, 6.6, 4.5, -4.2);
@@ -306,12 +305,10 @@ export function buggy(M, f) {
   add(b, cyl(0.6, 0.6, 7, 6), M.joint, -9.6, 6, 3.6);                                            // the whip antenna, drawn thick
   add(b, rbox(1.2, 1.6, 10.4, 0.3), M.paint, -11.4, 1.0, 0); add(b, rbox(1.3, 0.3, 10.6, 0.1), M.inkLine, -11.4, 1.9, 0); add(b, rbox(1.3, 0.3, 10.6, 0.1), M.inkLine, -11.4, 0.1, 0); // the rear bumper, team between trims
   add(b, cyl(2.8, 2.8, 1.6, 16), M.tyrePale, -12.6, 3.6, 0, 0, 0, Math.PI / 2); add(b, cyl(1.4, 1.4, 1.8, 10), M.paleSteel, -12.6, 3.6, 0, 0, 0, Math.PI / 2);
-  if (M.polish) { // secondary detail: bolt rings on the hubs, door seams through the stripes, headrests, stays from the cage to the battery pack, a grille on the pack, a tow hook
+  if (M.polish) { // secondary detail: bolt rings on the hubs, headrests, stays from the cage to the battery pack, a tow hook (round 2 dropped the door seams and the pack's grille)
     for (const [x, z] of [[-7.0, -6.6], [7.0, -6.6], [-7.0, 6.6], [7.0, 6.6]]) add(b, torus(1.6, 0.22), M.joint, x, -0.6, z + Math.sign(z) * 1.75);
-    for (const z of [-5.35, 5.35]) for (const x of [-5.5, 3.0]) add(b, rbox(0.3, 2.1, 0.2, 0.05), M.inkLine, x, 1.4, z);
     for (const z of [-1.9, 1.9]) add(b, rbox(1.2, 1.4, 2.2, 0.4), M.panelDark, -3.2, 6.1, z);
     for (const z of [-3.2, 3.2]) limb(b, [-4.6, 6.6, z], [-7.8, 3.6, z * 1.1], 0.4, M.steel);
-    for (const z of [-1.6, 0, 1.6]) add(b, rbox(3.6, 0.2, 0.5, 0.05), M.inkLine, -7.6, 3.55, z);
     add(b, rbox(1.2, 0.8, 1.0, 0.3), M.steel, -12.2, 0.9, -3.0);
   }
   return g;
@@ -388,7 +385,7 @@ export function dataCentre(M) {
   const g = grp();
   const HX = -14, HZ = 0, HW = 40, HL = 40, HH = 26, RH = 4, SZ = HZ + HL / 2;                    // the hall along z; SZ its south face
   const WX = HX + HW / 2 + 13, WZ = HZ - 4, WW = 26, WL = 28, WH = 14;                              // the wing east of it
-  add(g, plate([[-52, -40], [46, -46], [58, -8], [54, 44], [10, 52], [-46, 46], [-56, 10]].map(([x, z]) => [x + 2, z + 2]), 2.0, 0.8), M.earth, 0, 0, 0); // trodden earth, hugging the building
+  add(g, plate([[-52, -40], [46, -46], [58, -8], [54, 44], [10, 52], [-46, 46], [-56, 10]].map(([x, z]) => [x + 2, z + 2]), 2.0, 0.8), M.earth, 0, 0, 0).userData.ground = true; // trodden earth, hugging the building (`ground`: the polish's contact shadow treats it as the ground)
   // the hall: footing, slate walls in an oak frame, a shallow plank roof with little overhang, the ridge beam
   add(g, rbox(HW + 4, 3, HL + 4, 0.5), M.stone, HX, 3, HZ);
   add(g, rbox(HW, HH, HL, 0.6), M.wall, HX, HH / 2 + 3, HZ);
@@ -458,12 +455,11 @@ export function dataCentre(M) {
   if (M.polish) { // secondary detail: a stone lintel and door hinges, window sills and glazing bars, a gutter and down pipe, braces in the gable, steel guard rings
     // round the fans, cables from the tray up each rack and rack handles, a cable drum by the deck
     add(g, rbox(8.6, 1.4, 1.6, 0.2), M.stone, HX, 10.8, SZ + 1.5);
-    for (const y of [3.5, 8]) for (const sx of [-1, 1]) add(g, cyl(0.45, 0.45, 1.3, 6), M.ironDark, HX + sx * 3.3, y, SZ + 2.2);
-    for (const x of [-16, 16]) { add(g, rbox(3.4, 0.6, 1.4, 0.1), M.stone, HX + x, 4.5, SZ + 1.6); add(g, rbox(0.3, 3.0, 0.3, 0.05), M.joint, HX + x, 6.5, SZ + 2.0); add(g, rbox(2.4, 0.3, 0.3, 0.05), M.joint, HX + x, 6.5, SZ + 2.0); }
+    for (const x of [-16, 16]) add(g, rbox(3.4, 0.6, 1.4, 0.1), M.stone, HX + x, 4.5, SZ + 1.6);
     add(g, cyl(0.55, 0.55, HW + 2.4, 8), M.steel, HX, HH + 2.2, SZ + 2.0, 0, 0, Math.PI / 2); limb(g, [HX + HW / 2 + 0.6, HH + 2.2, SZ + 2.0], [HX + HW / 2 + 0.6, 3.5, SZ + 2.0], 0.5, M.steel);
     for (const sx of [-1, 1]) limb(g, [HX + sx * 9, HH + 3.3, SZ + 1.1], [HX + sx * 0.6, HH + 3 + RH - 0.6, SZ + 1.1], 0.5, M.oak);
     for (let k = 0; k < 3; k++) add(g, torus(6.6, 0.35, Math.PI * 2, 24), M.steel, HX - 13.5 + k * 13.5, HH - 8, SZ + 3.4);
-    for (let k = 0; k < 4; k++) { const x = DX - 10.5 + k * 7; limb(g, [x, 6.4, DZ - 4.6], [x, 13.4, DZ - 3.0], 0.35, M.cable); add(g, rbox(0.4, 1.6, 0.3, 0.1), M.paleSteel, x + 0.6, 8.4, DZ + 3.5); }
+    for (let k = 0; k < 4; k++) { const x = DX - 10.5 + k * 7; limb(g, [x, 6.4, DZ - 4.6], [x, 13.4, DZ - 3.0], 0.35, M.cable); }
     add(g, cyl(2.6, 2.6, 2.2, 12), M.oakPale, DX + 17, 5.4, DZ + 3, 0, 0, Math.PI / 2); add(g, cyl(1.7, 1.7, 2.5, 10), M.cable, DX + 17, 5.4, DZ + 3, 0, 0, Math.PI / 2);
   }
   return g;

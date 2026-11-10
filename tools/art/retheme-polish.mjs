@@ -52,7 +52,7 @@ function scene(P, text) {
 }
 const big = canvas(W, H * 2);
 big.data.set(scene(B, `BEFORE: THE SLICE, PLAIN FINISH, SUN ${SUN}, ${ELEV}°`).data, 0);
-big.data.set(scene(A, `AFTER: POLISH (AO, CONTACT SHADOW, LIT EDGES, LIGHTER INK, TEXTURE, DETAIL)`).data, H * W * 4);
+big.data.set(scene(A, `AFTER: POLISH R2 (KEY V FILL, CONTACT ELLIPSE, COURSES, GLINTS, AO, LIGHTER INK)`).data, H * W * 4);
 writeFileSync(join(outDir, 'before-after.png'), encodePNG(big));
 writeFileSync(join(outDir, 'before-after-1x.png'), encodePNG(half(big)));
 writeFileSync(join(outDir, 'before-after-grey.png'), encodePNG(grey(big)));

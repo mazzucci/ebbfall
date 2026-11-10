@@ -4,7 +4,7 @@
 // south faces, like the pre-rendered sprites of late-90s RTS games.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { finishPolish } from './polish.js';
+import { finishPolish, POLISH } from './polish.js';
 
 export const ELEV = 55 * Math.PI / 180;
 export const S = 2;          // output pixels per game unit (art is drawn at twice the game's resolution)
@@ -36,10 +36,16 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.3; sun.shadow.radius = 1;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(0xa9c3ee, 0x2a241c, 0.28));
+const hemi = new THREE.HemisphereLight(0xa9c3ee, 0x2a241c, 0.28);
+scene.add(hemi);
 const rim = new THREE.DirectionalLight(0x9fc4ff, 1.5);
 rim.position.set(160, 90, 140); // from the south-east: separates edges from the ground
 scene.add(rim);
+// The polished finish's lighting (polish.js POLISH.lights): a stronger key against less fill, a fill from the south-west
+// so the camera's side of a thing has a lit and a dark half; off (intensity 0) on the atlas's path.
+const fill = new THREE.DirectionalLight(0xfff4e4, 0);
+fill.position.set(-200, 150, 300);
+scene.add(fill);
 
 const catcher = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.ShadowMaterial({ opacity: 0.65 }));
 catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true;
@@ -73,8 +79,17 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();
   renderer.setSize(w * SS, h * SS, false);
-  const img = grab(w, h);
-  if (polish) finishPolish(img, depthPass(obj, w, h), polish); else finish(img);
+  let img;
+  if (!polish) { img = grab(w, h); finish(img); }
+  else { // the polished path: its lights for the colour pass (restored after), then the depth pass and polish.js's finish
+    const P = typeof polish === 'object' ? { ...POLISH, ...polish } : POLISH, L = P.lights;
+    const saved = [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity];
+    sun.intensity = L.sun; hemi.intensity = L.hemi; scene.environmentIntensity = L.env; rim.intensity = L.rim; fill.intensity = L.fill;
+    fill.target.position.set(gx, 0, gz); fill.position.set(gx - 200, 150, gz + 300); scene.add(fill.target);
+    img = grab(w, h);
+    [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity] = saved;
+    finishPolish(img, depthPass(obj, w, h), { ...P, sinElev: Math.sin(elev) });
+  }
   const m = mask ? teamMask(obj, img) : null;
   scene.remove(obj);
   return mask ? { img, mask: m } : img;
@@ -96,7 +111,7 @@ let depthRT = null;
  *  is the ground's, which the contact shadow needs). */
 function depthPass(obj, w, h) {
   const hidden = [];
-  obj.traverse(o => { if (o.isMesh && o.visible && o.material.transparent) { hidden.push(o); o.visible = false; } });
+  obj.traverse(o => { if (o.isMesh && o.visible && (o.material.transparent || o.userData.ground)) { hidden.push(o); o.visible = false; } }); // (`ground`: a building's earth plate, read as the ground itself, so no contact shadow rings it)
   if (!depthRT || depthRT.width !== w || depthRT.height !== h) { depthRT?.dispose(); depthRT = new THREE.WebGLRenderTarget(w, h); }
   const saved = [scene.overrideMaterial, renderer.toneMapping, renderer.shadowMap.enabled, catcher.visible];
   scene.overrideMaterial = depthMat; renderer.toneMapping = THREE.NoToneMapping; renderer.shadowMap.enabled = false; catcher.visible = true;

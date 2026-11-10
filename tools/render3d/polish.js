@@ -1,22 +1,24 @@
 // The re-theme's polish (a style test on the slice's eight pieces, 2026-11-10; Stelian: "more polished, more detail,
 // less like drawings"). Three layers, every one an option the atlas never sees: (1) `finishPolish`, the finish with a
-// depth pass behind it: ambient occlusion in creases and where parts meet, a soft contact shadow on the ground round
-// each piece (the hard cast shadow kept, its edge feathered a pixel), a lit rim on the edges that face the sun
-// (up-left on screen), ink only where a nearer part ends against a farther one and lighter on the silhouette, 6-bit
-// banding (the 5-bit steps showed on the AO's gradients); (2) `polishMats`, material texture on the flat materials
-// (brushed and scuffed steel, leather grain, hide, cloth folds, plank grain, slate and shingle courses, panel seams)
-// as bump maps mostly, so the colours and values the style sheet fixes do not move; (3) the models' own secondary
-// detail, added under `M.polish` in kingdom.js and expedition.js (buckles, straps, bindings, quoins, lintels, cable
-// runs...), only at a scale that survives 1x. scene.js `shoot(..., { polish })` runs (1); retheme.js passes `polish`
-// to the mats for (2) and (3). `POLISH` holds every setting of (1); pass an object as `polish` to override any.
+// depth pass behind it and its own lights (round 2: a stronger key against less fill, so every piece has a lit and a
+// dark side at 1x): ambient occlusion in creases and where parts meet, a crisp dark contact ellipse under whatever
+// stands on the ground, on the sun's lee side only (round 1's soft all-round shadow ringed the buildings like a
+// sticker's glow; a building's earth plate is marked `userData.ground` and counts as ground), the hard cast shadow
+// kept crisp, a lit rim on the edges that face the sun (up-left on screen), ink only where a nearer part ends against
+// a farther one and lighter on the silhouette, 6-bit banding; (2) `polishMats`, high-contrast course textures on
+// stone, slate, shingle and board (so the courses survive 1x), roofs pushed apart from walls by value, tighter and
+// brighter speculars on steel, gold and glass, and bump texture on the flat materials; (3) the models' own secondary
+// detail under `M.polish` in kingdom.js and expedition.js, only what reads at 2x (tack, bindings, quoins, buttresses,
+// fan rings, cables...). scene.js `shoot(..., { polish })` runs (1); retheme.js passes `polish` to the mats for (2)
+// and (3). `POLISH` holds every setting of (1); pass an object as `polish` to override any.
 import * as THREE from 'three';
 
 export const POLISH = {
+  lights: { sun: 5.4, hemi: 0.12, env: 0.10, rim: 1.0, fill: 1.3 }, // the key against less fill (the atlas: 4.6, 0.28, 0.22, 1.5, no fill); `fill` from the south-west, so a thing's camera side has a lit and a dark half
   ao: { radius: 10, range: 1.5, bias: 0.3, maxH: 16, strength: 1.0 }, // occlusion between parts: a step of `range` view units darkens fully, fading out by maxH
-  contact: { radius: 16, range: 2, bias: 0.3, maxH: 12, strength: 1.0 }, // the soft shadow on the ground round each piece
+  contact: { radius: 5, squash: 0.7, hMin: 0.15, hMax: 3.5, lee: -1, alpha: 120 }, // a crisp dark ellipse (radius px, squashed to the ground's foreshortening) under every part that stands on the ground (its pixels between hMin and hMax game units up), on the sun's lee side only (dx + dy >= lee: the sun is north-west)
   rim: { gain: 0.45, bias: 1.0 },  // the lit edge: a model pixel whose up or left neighbour is farther by `bias` or is the sky
   ink: { edge: 0.68, step: 0.82, stepBias: 1.2, lum: 0.95 }, // silhouette ink (0.45 in the plain finish), ink behind a nearer part, and the plain finish's luminance ink (0.8), nearly off
-  feather: 110,                    // the hard shadow's outermost pixel's alpha (150 inside)
   band: 4,                         // the banding step: 6 bits (the plain finish's 8 is 5 bits)
   blur: true,                      // a 3x3 blur on the occlusion before it is applied
 };
@@ -55,30 +57,41 @@ function occlusion(z, w, h, x, y, D, { range, bias, maxH }) {
  * gets the hard shadow (feathered) plus a soft contact shadow where parts stand or meet it.
  */
 export function finishPolish(img, z, opts) {
-  const P = opts && typeof opts === 'object' ? { ...POLISH, ...opts } : POLISH;
+  const P = opts && typeof opts === 'object' ? { ...POLISH, ...opts } : POLISH, sinE = P.sinElev ?? Math.sin(40 * Math.PI / 180);
   const { width: w, height: h, data: d } = img, src = new Uint8ClampedArray(d), N = w * h;
   const lum = (i) => 0.3 * src[i] + 0.59 * src[i + 1] + 0.11 * src[i + 2];
   const model = new Uint8Array(N), shadow = new Uint8Array(N);
   for (let p = 0; p < N; p++) { const i = p * 4; if (!src[i + 3]) continue; if (isShadow(src, i)) shadow[p] = 1; else if (src[i + 3] >= 40) model[p] = 1; }
-  // occlusion fields: the model's, and the ground's contact shadow
-  const DA = disc(P.ao.radius), DC = disc(P.contact.radius);
-  let ao = new Float32Array(N), ct = new Float32Array(N);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const p = y * w + x;
-    if (model[p]) ao[p] = occlusion(z, w, h, x, y, DA, P.ao);
-    else if (z[p] !== Infinity) ct[p] = occlusion(z, w, h, x, y, DC, P.contact);
-  }
+  // the model's occlusion field
+  const DA = disc(P.ao.radius);
+  let ao = new Float32Array(N);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const p = y * w + x; if (model[p]) ao[p] = occlusion(z, w, h, x, y, DA, P.ao); }
   if (P.blur) ao = blur3(ao, w, h, model);
+  // the contact shadow: the ground plane's depth is linear in y (fitted on the ground pixels), so every model pixel has a
+  // height over the ground under it ((zg - z) sin elev); pixels of parts that stand on the ground stamp a crisp dark
+  // ellipse round themselves on the sun's lee side
+  let sy = 0, sz = 0, syy = 0, syz = 0, n = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const p = y * w + x; if (model[p] || z[p] === Infinity) continue; sy += y; sz += z[p]; syy += y * y; syz += y * z[p]; n++; }
+  const b = n > 1 ? (n * syz - sy * sz) / Math.max(1e-9, n * syy - sy * sy) : 0, a = n ? (sz - b * sy) / n : 0;
+  const contact = new Uint8Array(N), C = P.contact, R = C.radius, RY = Math.max(1, Math.round(R * C.squash));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = y * w + x; if (!model[p] || z[p] === Infinity) continue;
+    const hp = (a + b * y - z[p]) * sinE; if (hp <= C.hMin || hp >= C.hMax) continue;
+    for (let dy = -RY; dy <= RY; dy++) for (let dx = -R; dx <= R; dx++) {
+      if ((dx * dx) / (R * R) + (dy * dy) / (RY * RY) > 1 || dx + dy < C.lee) continue;
+      const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const q = ny * w + nx; if (!model[q]) contact[q] = 1;
+    }
+  }
   const zAt = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? Infinity : z[y * w + x];
   const mAt = (x, y) => x >= 0 && y >= 0 && x < w && y < h && model[y * w + x];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const p = y * w + x, i = p * 4, a = src[i + 3];
-    if (!model[p]) { // the ground: the hard shadow (feathered at its edge) over the soft contact shadow
-      const soft = Math.min(0.75, P.contact.strength * ct[p]);
-      let alpha = 0;
-      if (shadow[p] && a >= 64) { const edge = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].some(([nx, ny]) => { const q = ny * w + nx; return nx < 0 || ny < 0 || nx >= w || ny >= h || (!model[q] && !shadow[q]); }); alpha = edge ? P.feather : 150; }
+    if (!model[p]) { // the ground: the hard shadow, crisp, over the contact ellipse
+      const soft = contact[p] ? C.alpha / 255 : 0;
+      let alpha = shadow[p] && a >= 64 ? 150 : 0;
       alpha = Math.max(alpha, Math.round(soft * 255));
-      if (a && a < 40 && !shadow[p]) { // an anti-aliased edge of the model over the soft shadow
+      if (a && a < 40 && !shadow[p]) { // an anti-aliased edge of the model over the contact shadow
         const A = a / 255 + soft * (1 - a / 255); if (A > 0) for (let c = 0; c < 3; c++) d[i + c] = Math.round(src[i + c] * (a / 255) / A); d[i + 3] = Math.round(A * 255); continue;
       }
       d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = alpha; continue;
@@ -95,7 +108,7 @@ export function finishPolish(img, z, opts) {
     else if (edgeLit || zAt(x, y - 1) - zc > P.rim.bias || zAt(x - 1, y) - zc > P.rim.bias) k *= 1 + P.rim.gain; // its upper and left edges, and any edge raised over what is behind it: lit
     for (let c = 0; c < 3; c++) { const v = 255 * smooth(0.03, 0.97, Math.min(255, src[i + c] * k) / 255); d[i + c] = Math.min(255, Math.round(v / P.band) * P.band + P.band / 2); }
     if (a < 128) { // an anti-aliased edge over the contact shadow
-      const soft = Math.min(0.75, P.contact.strength * (ct[p] || 0)), A = a / 255 + soft * (1 - a / 255);
+      const soft = contact[p] ? C.alpha / 255 : 0, A = a / 255 + soft * (1 - a / 255);
       if (soft > 0) for (let c = 0; c < 3; c++) d[i + c] = Math.round(d[i + c] * (a / 255) / A);
       d[i + 3] = Math.round(A * 255);
     } else d[i + 3] = 255;
@@ -183,6 +196,40 @@ export function polishTextures() {
       for (const p of [0, 96, 160]) { g.beginPath(); g.moveTo(p + 0.5, 0); g.lineTo(p + 0.5, n); g.stroke(); } for (const p of [0, 64, 192]) { g.beginPath(); g.moveTo(0, p + 0.5); g.lineTo(n, p + 0.5); g.stroke(); }
       g.fillStyle = '#c8c8c8'; for (const [x, y] of [[8, 8], [88, 8], [168, 8], [8, 56], [88, 56], [8, 184], [168, 184], [248, 120]]) { g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill(); }
     }, { srgb: false, repeat: 2 }),
+    /** Round 2's course textures, drawn for 1x: the same patterns as kingdom.js ashlarTex / slateTex and
+     *  expedition.js shingleTex / boardTex with a wider tone spread between the pieces and mortar, seams and lower
+     *  edges twice as dark and wide, each piece's lit upper edge brighter. */
+    hiAshlar: canvasTex(256, (g, n) => {
+      g.fillStyle = '#d6d0c4'; g.fillRect(0, 0, n, n); seed = 17;
+      for (let y = 0; y < n; y += 32) { const o = (y / 32) % 2 ? 24 : 0; for (let x = -48; x < n; x += 48) { const v = 176 + rnd() * 76; g.fillStyle = `rgb(${v},${v - 4},${v - 12})`; g.fillRect(x + o, y, 48, 32); } }
+      for (let i = 0; i < 2600; i++) { const v = 160 + rnd() * 90; g.fillStyle = `rgba(${v},${v - 3},${v - 10},0.3)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 3, 1 + rnd() * 2); }
+      g.strokeStyle = 'rgba(34,30,28,0.95)'; g.lineWidth = 3.5;
+      for (let y = 0; y < n; y += 32) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(n, y + 0.5); g.stroke(); const o = (y / 32) % 2 ? 24 : 0; for (let x = o; x < n + 48; x += 48) { g.beginPath(); g.moveTo(x + 0.5, y); g.lineTo(x + 0.5, y + 32); g.stroke(); } }
+      g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1.5;
+      for (let y = 0; y < n; y += 32) { g.beginPath(); g.moveTo(0, y + 3); g.lineTo(n, y + 3); g.stroke(); }
+      for (let i = 0; i < 24; i++) { g.fillStyle = `rgba(70,60,50,${0.08 + rnd() * 0.14})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 3 + rnd() * 12, 2 + rnd() * 6, rnd() * 3, 0, 7); g.fill(); }
+    }, { repeat: 2 }),
+    hiSlate: canvasTex(128, (g, n) => {
+      g.fillStyle = '#c8ccd2'; g.fillRect(0, 0, n, n); seed = 37;
+      for (let y = 0; y < n; y += 16) { const o = (y / 16) % 2 ? 12 : 0; for (let x = -24; x < n; x += 24) { const v = 150 + rnd() * 90; g.fillStyle = `rgb(${v - 6},${v - 2},${v + 4})`; g.fillRect(x + o, y, 24, 16); g.fillStyle = 'rgba(14,16,20,0.92)'; g.fillRect(x + o, y + 13, 24, 3); g.fillRect(x + o, y, 1.8, 16); g.fillStyle = 'rgba(255,255,255,0.32)'; g.fillRect(x + o + 1.8, y + 1, 22, 1.5); } }
+    }, { repeat: 3 }),
+    hiShingle: canvasTex(128, (g, n) => {
+      g.fillStyle = '#aeaaa2'; g.fillRect(0, 0, n, n); seed = 73;
+      for (let y = 0; y < n; y += 12) { const o = (y / 12) % 2 ? 8 : 0; for (let x = -16; x < n + 16; x += 16) { const v = 120 + rnd() * 90; g.fillStyle = `rgb(${v + 4},${v},${v - 6})`; g.fillRect(x + o, y, 16, 12); g.fillStyle = 'rgba(18,16,14,0.95)'; g.fillRect(x + o, y + 9.5, 16, 2.5); g.fillRect(x + o, y, 1.8, 12); g.fillStyle = 'rgba(255,255,255,0.3)'; g.fillRect(x + o + 1.8, y + 0.5, 14, 1.5); } }
+      for (let i = 0; i < 20; i++) { g.fillStyle = `rgba(60,56,50,${0.06 + rnd() * 0.12})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 4 + rnd() * 10, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); }
+    }, { repeat: 3 }),
+    hiBoard: canvasTex(128, (g, n) => { // (boardTex's draw sequence, with darker, wider seams and a brighter lit edge)
+      g.fillStyle = '#b4aea2'; g.fillRect(0, 0, n, n); seed = 67;
+      for (let y = 0; y < n;) {
+        const h = Math.min(n - y, 9 + rnd() * 9), v = 130 + rnd() * 80; g.fillStyle = `rgb(${v + 6},${v},${v - 8})`; g.fillRect(0, y, n, h);
+        for (let k = 0; k < 6; k++) { g.strokeStyle = `rgba(60,56,50,${0.12 + rnd() * 0.25})`; g.lineWidth = 0.6 + rnd(); g.beginPath(); const y0 = y + 1 + rnd() * (h - 2); g.moveTo(0, y0); g.bezierCurveTo(n / 3, y0 + rnd() * 3 - 1.5, 2 * n / 3, y0 + rnd() * 3 - 1.5, n, y0 + rnd() - 0.5); g.stroke(); }
+        if (rnd() < 0.75) { const x = rnd() * n; g.fillStyle = 'rgba(20,18,16,0.95)'; g.fillRect(x, y, 3, h); g.fillStyle = 'rgba(255,255,255,0.3)'; g.fillRect(x + 3, y, 1.5, h); }
+        if (rnd() < 0.3) { g.fillStyle = 'rgba(50,44,38,0.6)'; g.beginPath(); g.ellipse(rnd() * n, y + h / 2, 1.6 + rnd() * 1.2, 1 + rnd(), 0, 0, 7); g.fill(); }
+        g.fillStyle = 'rgba(16,14,12,0.96)'; g.fillRect(0, y + h - 3.2, n, 3.2);
+        g.fillStyle = 'rgba(255,255,255,0.34)'; g.fillRect(0, y, n, 1.5);
+        y += h;
+      }
+    }, { repeat: 2 }),
     /** Boards: a bump map of the weathered boards' seams (horizontal, uneven rows). */
     board: canvasTex(128, (g, n) => {
       bumpBase(g, n); seed = 67; g.fillStyle = '#383838';
@@ -200,7 +247,8 @@ export function polishTextures() {
  *  and marks it `polish` so the models add their secondary detail. `side` is 'kg' or 'ex'. */
 export function polishMats(M, side) {
   const X = polishTextures(), bump = (m, map, scale) => { if (!m) return; m.bumpMap = map; m.bumpScale = scale; m.needsUpdate = true; };
-  const metal = (m) => { if (!m) return; m.map = X.brushed; m.bumpMap = X.scuff; m.bumpScale = 0.6; m.roughness = Math.min(0.5, m.roughness + 0.05); m.envMapIntensity = 1.8; m.needsUpdate = true; }; // (brighter glints: the room light is 0.22 on everything else)
+  const metal = (m, rough = 0.22) => { if (!m) return; m.map = X.brushed; m.bumpMap = X.scuff; m.bumpScale = 0.5; m.roughness = rough; m.envMapIntensity = 2.4; m.needsUpdate = true; }; // (a tight bright glint under the key light; the room light is 0.10 on everything else)
+  const courses = (m, map, color) => { if (!m) return; m.map = map; if (color !== undefined) m.color.setHex(color); m.needsUpdate = true; };
   bump(M.paintCanvas, X.fold, 1.2); bump(M.cloth, X.fold, 1.2); bump(M.paintCloth, X.fold, 1.2);
   if (side === 'kg') {
     metal(M.steel);
@@ -208,21 +256,26 @@ export function polishMats(M, side) {
     M.horse.map = X.hide; M.horse.needsUpdate = true; M.horseDark.map = X.hide; M.horseDark.needsUpdate = true;
     bump(M.tunic, X.fold, 1.0); bump(M.hose, X.fold, 0.8); bump(M.linen, X.fold, 0.6); bump(M.clothPale, X.fold, 1.0);
     bump(M.oak, X.grain, 0.8); bump(M.timber, X.grain, 0.8); bump(M.timberPale, X.grain, 0.8);
+    courses(M.wall, X.hiAshlar); courses(M.wallDark, X.hiAshlar); courses(M.plinth, X.hiAshlar);           // the courses drawn for 1x
     bump(M.wall, M.wall.bumpMap, 2.2); bump(M.wallDark, M.wallDark.bumpMap, 2.2); bump(M.plinth, M.plinth.bumpMap, 2.0);
-    bump(M.roof, X.slate, 1.6); bump(M.yard, M.yard.bumpMap, 1.6);
+    courses(M.roof, X.hiSlate, 0x545a62); bump(M.roof, X.slate, 1.6);                                     // slate half a step lighter: under the stronger key the sun-lit slates part from the fill-lit walls (a darker slate sank into them)
+    bump(M.yard, M.yard.bumpMap, 1.6);
     bump(M.mail, X.scuff, 0.3); bump(M.wicker, X.fold, 0.4);
-    M.gold.roughness = 0.3; M.gold.bumpMap = X.scuff; M.gold.bumpScale = 0.2; M.gold.envMapIntensity = 1.6; M.gold.needsUpdate = true;
+    M.gold.roughness = 0.25; M.gold.bumpMap = X.scuff; M.gold.bumpScale = 0.2; M.gold.envMapIntensity = 2.0; M.gold.needsUpdate = true;
   } else {
     bump(M.panel, X.shell, 1.4); bump(M.panelDark, X.shell, 1.4); bump(M.paint, X.shell, 1.0);
     bump(M.trim, X.scuff, 0.3); bump(M.joint, X.scuff, 0.25);
-    metal(M.steel); metal(M.paleSteel); metal(M.brightSteel);
+    metal(M.steel, 0.25); metal(M.paleSteel, 0.25); metal(M.brightSteel, 0.2);
+    M.glass.envMapIntensity = 2.5; M.glass.needsUpdate = true; M.visor.envMapIntensity = 2.0; M.visor.needsUpdate = true;
     bump(M.uniform, X.fold, 0.9); bump(M.camo, X.fold, 0.8); bump(M.armour, X.scuff, 0.6); bump(M.gun, X.scuff, 0.5); bump(M.hose, X.fold, 0.45);
     M.leather.map = X.leather; M.leather.needsUpdate = true;
+    courses(M.wall, X.hiAshlar); courses(M.wallPale, X.hiAshlar); courses(M.stone, X.hiAshlar);
     bump(M.wall, M.wall.bumpMap, 2.2); bump(M.wallPale, M.wallPale.bumpMap, 2.4); bump(M.stone, M.stone.bumpMap, 1.8);
-    bump(M.roofDark, X.shingle, 1.6); bump(M.deck, X.board, 1.4);
+    courses(M.roofDark, X.hiShingle, 0xaaaca8); bump(M.roofDark, X.shingle, 1.6);                         // shingles a step lighter: pale roofs over mid walls, further apart
+    courses(M.deck, X.hiBoard); bump(M.deck, X.board, 1.4);
     bump(M.oak, X.grain, 0.8); bump(M.oakPale, X.grain, 0.8); bump(M.timber, X.grain, 0.8);
     bump(M.canvasLocal, X.fold, 0.6);
-    M.gold.roughness = 0.3; M.gold.bumpMap = X.scuff; M.gold.bumpScale = 0.2; M.gold.envMapIntensity = 1.6; M.gold.needsUpdate = true;
+    M.gold.roughness = 0.25; M.gold.bumpMap = X.scuff; M.gold.bumpScale = 0.2; M.gold.envMapIntensity = 2.0; M.gold.needsUpdate = true;
   }
   M.polish = true;
   return M;

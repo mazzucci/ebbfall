@@ -9,6 +9,8 @@ export const ELEV = 55 * Math.PI / 180;
 export const S = 2;          // output pixels per game unit (art is drawn at twice the game's resolution)
 const SS = 2;                // supersampling factor before downscaling
 export const LIFT = Math.cos(ELEV) / Math.sin(ELEV); // screen px of rise per unit of height (per game unit)
+/** The lift at another elevation (radians): what a shot with `elev` set shows of a unit of height (the re-theme's trials). */
+export const liftAt = (elev) => Math.cos(elev) / Math.sin(elev);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
@@ -47,15 +49,16 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  * Render `obj` (already in the scene graph or not) into a w x h px RGBA image.
  * The ground point (gx, gz) lands at pixel (ax, ay). Shadow on the ground included unless `shadow` is false.
  * `mask`: also return its team mask (`{ img, mask }`), the same size and framing (see teamMask).
+ * `elev`: the camera's elevation for this shot (radians; ELEV, the game's, by default: only the re-theme's trial renders set it).
  */
-export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false }) {
+export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV }) {
   scene.add(obj);
   obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon)
   catcher.visible = shadow;
   // Frustum in ground units around the anchor: left/right are plain, up/down are scaled by sin(ELEV).
-  const L = ax / S, R = (w - ax) / S, U = ay / S, D = (h - ay) / S, sn = Math.sin(ELEV);
+  const L = ax / S, R = (w - ax) / S, U = ay / S, D = (h - ay) / S, sn = Math.sin(elev);
   camera.left = -L; camera.right = R; camera.top = U * sn; camera.bottom = -D * sn;
-  camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(ELEV));
+  camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(elev));
   camera.lookAt(gx, 0, gz);
   camera.updateProjectionMatrix();
   sun.target.position.set(gx, 0, gz); sun.position.set(gx - 120, 300, gz - 90);

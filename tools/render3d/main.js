@@ -15,6 +15,7 @@ import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, gyre, darkwat
 import * as HB from './harbour-buildings.js';
 import * as Gd from './ground.js';
 import { SCENERY } from './scenery2.js';
+import { rethemeSprites } from './retheme.js';
 
 // The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
@@ -104,7 +105,7 @@ function fitTints() {
   return mo.map(v => v.reduce((t, x, ch) => t << 8 | Math.min(255, Math.round(255 * x / mm[ch])), 0));
 }
 
-window.render = async function (filter = '') {
+window.render = async function (filter = '', opts = {}) {
   const out = [];
   const want = (name) => !filter || new RegExp(filter).test(name);
   const anchor = (cell) => ({ x: cell.ax / cell.w, y: cell.ay / cell.h });
@@ -144,6 +145,9 @@ window.render = async function (filter = '') {
   for (let st = 0; st < 4; st++) for (let v = 0; v < Gd.SALT_VARIANT_COUNT; v++) push(v ? `shard_${st}_${v}` : `shard_${st}`, Gd.saltField(st, v), unitCell(28, 26)); // (variant 0 keeps the plain name: the portrait's)
   for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.mineShaft(f, neutral), unitCell(30, 8));
   for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
+  // The re-theme's comparison models (retheme.js), only when a filter asks for them by name, at their own camera
+  // (`opts.elev`): generate.mjs renders with no filter, so the atlas never sees them.
+  if (filter) for (const [name, obj, cell, o, isTeam] of rethemeSprites(want, opts.elev)) (isTeam ? pushTeam : push)(name, obj, cell, o);
   return { sprites: out, tints: fitTints() };
 };
 window.ready = true;

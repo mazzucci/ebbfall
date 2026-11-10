@@ -2,15 +2,18 @@
 // The renderer and the sound engine read this table instead of naming kinds, so a new race adds rows here.
 
 /** Seat colours, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
- *  white with a team mask the renderer tints, Notion: Ebbfall art), and the minimap's dots with more than two seats. Seats 0
- *  and 1 keep the two-player gold and magenta; then teal, lilac, green, blue, violet, red: apart from each other (also
- *  with red-green colour blindness, as far as eight allow: there lightness parts gold from green and red), from the
- *  dark ground, the selection marks and the resources' teal and violet, and from both peoples' bodies (the step-2 judge,
- *  2026-11-06: seat 6 was white, lost on the Harbour's canvas and the Vael's pearl, so it is violet now (a deep one: a paler violet sat on the Vael's deeplight); seat 1's
- *  magenta is a little lighter, so it stays apart from the Vael's ink and the seabed under protanopia; seat 2's teal is
- *  darker, as the light one turned pale beige under protanopia, lost on pearl and canvas). Shared with the
- *  art tools (tools/render3d). */
-export const SEAT_COLORS = [0xd98a1f, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x388ef1, 0x7a3cff, 0xe5553a];
+ *  white with a team mask the renderer tints, Notion: Ebbfall art), the menus' swatches and the minimap's dots. Seat 0
+ *  royal blue (gold is the resource's colour now, so no seat is gold, amber or yellow), then magenta, teal, lilac,
+ *  green, aqua, plum, red. Apart from each other in normal vision and under protanopia and deuteranopia (Machado et al.
+ *  2009 at full severity, CIEDE2000, the re-theme's pick of 2026-11-10: every pair at least 19.7 apart in normal vision,
+ *  14.1 under protanopia, 10.6 under deuteranopia, where gold, magenta, blue and violet had come down to 5.4), from the
+ *  dark ground, the selection marks and both peoples' bodies (the step-2 judge, 2026-11-06: no white, lost on canvas and
+ *  bone; seat 2's teal dark, as a light one turned pale beige under protanopia). Seat 6 was a violet that read as seat
+ *  0's blue to the red-green colour-blind; seat 5 a second blue. Shared with the art tools (tools/render3d). */
+export const SEAT_COLORS = [0x2f63d6, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x61ded1, 0x943886, 0xe5553a];
+/** Units are rendered this much larger than their size in the sim (tools/render3d/main.js), so they read at the
+ *  re-theme's lower camera (buildings keep their footprints). The renderer's hit test and selection rings scale by it. */
+export const UNIT_ART_SCALE = 1.4;
 /** Each game seat's spot on the menus' board (seats.js): a player keeps its spot's colour in the game, whatever seat
  *  its side gives it. Set when a game starts (single player's `startSetup`, a room's `setup.spots`); none: a seat's
  *  own number. */

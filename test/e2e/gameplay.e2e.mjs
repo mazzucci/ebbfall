@@ -443,10 +443,52 @@ test('phone: All Hands researched at the Workshop, then buildings go up faster',
   } finally { await d.close(); }
 });
 
-test('a game starts fully zoomed out over the base', async () => {
+test('a game starts over the base: fully zoomed out with a mouse, at 1 on a phone', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      assert.equal(d.startZoom, d.touch ? 1 : await d.eval(() => endfall.zoomMin), d.touch ? 'phone' : 'desktop');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('a click or a tap on a unit\'s body, well above its feet, selects it (desktop and phone)', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const core = coreOf(await d.state());
+      const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 200, core.y + 40]);
+      const u = (await d.state()).units.find(u => u.id === id);
+      const { top, r } = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return { top: endfall.unitTop(u.type), r: u.r }; }, id);
+      // Three quarters of the way up its art: past the old circle round its feet (its radius at 1.2, and a finger's reach).
+      const up = top * 0.75;
+      assert.ok(up > r * 1.2 + 16, `the point is on its body, not its feet: ${up} px up, radius ${r}`);
+      await d.clickWorld(u.x, u.y - up);
+      assert.deepEqual((await d.selection()).map(e => e.id), [id], `${d.touch ? 'phone' : 'desktop'}: the trooper selected`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('a unit north of a tall building is drawn behind it, our own as a silhouette through it; one south of it in front', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
-    assert.equal(d.startZoom, await d.eval(() => endfall.zoomMin));
+    const core = coreOf(await d.state()), T = 32;
+    // Just north of the Lighthouse (its tower rises over them at the 40-degree camera), and just south of it.
+    const [behind, foe, front] = await d.eval(([c, T]) => [
+      endfall.engine.debugSpawn(0, 'trooper', c.x + 0.5 * T, c.ty * T - 6), endfall.engine.debugSpawn(1, 'trooper', c.x - 0.5 * T, c.ty * T - 6),
+      endfall.engine.debugSpawn(0, 'trooper', c.x, (c.ty + c.h) * T + 8)], [core, T]);
+    const s = await d.state(), at = (id) => s.units.find(u => u.id === id);
+    assert.ok(at(behind).y < core.ty * T + core.h * T && at(front).y >= (core.ty + core.h) * T, `placed north and south: ${at(behind).y}, ${at(front).y}`);
+    await d.centerOn(core.x, core.y); await d.skip(0.1);
+    const order = await d.eval(() => endfall.drawOrder()), of = (id) => order.find(o => o.id === id);
+    const b = of(core.id), u = of(behind), e = of(foe), f = of(front);
+    assert.ok(b && u && e && f && b.shown && u.shown && f.shown, `all drawn: ${JSON.stringify([b, u, e, f])}`);
+    assert.ok(u.i < b.i && e.i < b.i, `the units north are drawn before (under) the Lighthouse: ${u.i}, ${e.i} < ${b.i}`);
+    assert.ok(f.i > b.i, `the unit south is drawn after (over) it: ${f.i} > ${b.i}`);
+    assert.equal(u.silhouette, true, 'our own unit behind it shows its silhouette');
+    assert.equal(f.silhouette, false, 'the one in front shows none');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

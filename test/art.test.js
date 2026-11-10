@@ -33,6 +33,13 @@ test('every building and turret head has its team mask', () => {
   for (const head of new Set(Object.values(BLDG_LOOK).map(l => l.head).filter(Boolean))) for (let d = 0; d < FACINGS; d++) paired(`${head}_${d}`);
 });
 
+test('every unit kind has its drawn height (atlas.json unitTops: the hit test and health bars go by it), taller than its radius', () => {
+  for (const [kind, d] of Object.entries(UNITS)) {
+    const top = index.unitTops?.[kind];
+    assert.ok(Number.isFinite(top) && top > d.r && top < 120, `${kind}: drawn ${top} game px above its feet, radius ${d.r}`);
+  }
+});
+
 test('one frame per kind, not one per seat, and a mask tint for every seat', () => {
   const perSeat = Object.keys(frames).filter(n => /^(bldg_[a-z]+|turret_head)_\d+$/.test(n) && !frames[`${n}_m`] || /^[a-z]+_\d+_\d+_\d+$/.test(n));
   assert.deepEqual(perSeat, [], 'no frames named by seat');

@@ -1,7 +1,7 @@
 // Renders every 3D sprite and hands the RGBA images to the Node driver (tools/art/generate.mjs) via window.render().
 import { shoot, S, LIFT } from './scene.js';
 import { makeMats, GOLD } from './materials.js';
-import { SEAT_COLORS } from '../../src/client/look.js';
+import { SEAT_COLORS, UNIT_ART_SCALE } from '../../src/client/look.js';
 import { UNIT_MODELS } from './models.js';
 import * as B from './buildings.js';
 import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
@@ -116,10 +116,11 @@ window.render = async function (filter = '') {
     const { img, mask } = shoot(obj, { ...cell, ...opts, mask: true });
     sprite(name, img, cell, extra); sprite(`${name}_m`, mask, cell, { trim: true });
   };
+  // Units are drawn UNIT_ART_SCALE times their model's size (look.js), the cell with them; buildings keep their footprints.
   for (const [kind, m, mats] of UNITS_ALL) {
-    const M = mats(), cell = unitCell(m.r, m.h);
+    const K = UNIT_ART_SCALE, M = mats(), cell = unitCell(m.r * K, m.h * K);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < m.frames; f++) {
-      const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
+      const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(K);
       pushTeam(`${kind}_${dir}_${f}`, obj, cell, {}, { anim: `${kind}_${dir}`, frame: f });
     }
   }

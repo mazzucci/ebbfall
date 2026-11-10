@@ -28,9 +28,12 @@ function selectOrDouble(hit, add, at = performance.now()) {
   lastPick = { id: hit.id, t: at, dbl: false };
   select([hit], add);
 }
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, UNIT_SCALE, AIR_LIFT } from './gl/render.js';
-/** Where a unit appears on screen (flyers are drawn above the ground point they occupy). */
-const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius } from './gl/render.js';
+/** Where a unit is drawn, as a circle round its body: centred half its drawn height above its feet (a flyer's art,
+ *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
+const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
+/** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */
+const fromBody = (u, p) => { const c = body(u); return dist(c, p) - c.r; };
 
 export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
 /** Camera glide after a one-finger flick, in world px per second; a touch stops it. */
@@ -60,7 +63,7 @@ const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 
 function pick(wx, wy) {
   const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = fromBody(u, p); if (d <= reach && d < bd) { bd = d; best = u; } }
   if (best) return best;
   for (const b of shownBldgs()) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
   return nodeAt(wx, wy);
@@ -82,7 +85,7 @@ function select(list, add) {
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE, s = shown(u); return u.team === G.me && s.x >= a.x - r && s.x <= b.x + r && s.y >= a.y - r && s.y <= b.y + r; });
+  const us = G.units.filter(u => { const s = body(u); return u.team === G.me && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
   // An army box near the base takes the army, not the workers mining beside it (a box of workers only takes them).
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
@@ -200,7 +203,7 @@ function touchTap(wx, wy, at) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); let hit = pick(wx, wy);
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
-  if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
+  if (prev && (!hit || hit.kind === 'node') && fromBody(prev, { x: wx, y: wy }) <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
   // (Not a shaft: the worker there is likely building its Excavator, and a tap should still pick it.)
   const node = field(hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy));

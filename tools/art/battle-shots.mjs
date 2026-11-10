@@ -101,8 +101,8 @@ const raiseBase = (page) => page.evaluate(() => {
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, left: todo.map(k => `${k} (${why[k]})`), built: mine.map(b => b.type) };
 });
 
-/** Hold the page's clock (no frame, no tick until `frame`), and draw `ms` of frames. */
-const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 2000);
+/** Hold the page's clock (no frame, no tick until `frame`; far enough ahead that a loaded machine reaches it before the hold), and draw `ms` of frames. */
+const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 15000);
 const frame = (page, ms = 60) => page.clock.runFor(ms);
 
 async function shoot(name, scene, device, label) {

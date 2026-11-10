@@ -154,8 +154,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom, dual-grid terrain, sprites, effects, lights, fog, minimap; the
-                      HUD's portraits cut from the atlas (`portrait`)
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop zoomed out), dual-grid terrain,
+                      sprites (buildings and walking units in one layer sorted by ground y; this side's units behind a
+                      building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
+                      each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
+                      atlas (`portrait`)
   gl/crust.js         the salt outcrops' shared crust, pure: salt nodes in clumps (`saltClumps`), one lit bed under
                       each (`crustImage`, an image render.js makes the first time a clump is explored), and which of the
                       crystals' variants a node draws (`crystalVariant`: `shard_k`, `shard_k_1..3`) (test/crust.test.js)
@@ -226,8 +229,10 @@ src/client/           everything that touches the browser
                       everyone (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
   look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
-                      and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour)
-  input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands
+                      and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
+                      `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
+  input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
+                      on a circle round its drawn body (half its drawn height above its feet)
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
@@ -259,7 +264,8 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
-test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat;
+test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
+                      a drawn height per unit kind;
                       every stage and variant of the salt's crystals
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`

@@ -2,11 +2,11 @@
 // with their shadows baked in, painted terrain and effects, all at 2x resolution). Exports the camera, view,
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
-import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource } from 'pixi.js';
+import { Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, colorOf } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, UNIT_ART_SCALE, colorOf } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, shadeLayers } from './ground.js';
@@ -18,13 +18,14 @@ export const view = { w: 800, h: 500, dpr: 1 };
 /** Camera: top-left corner in world px, and zoom (screen px per world px). */
 export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.75 : innerWidth >= 1100 ? 2 : 1.5 };
 export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
-export const ALLY = '#f5a524', ALLY2 = '#ffd27a', FOE = '#e2457a', FOE2 = '#ff8bb0';
+/** The zoom a game starts at: a phone (a coarse pointer) at 1, its world px one CSS px, where the units read; with a
+ *  mouse all the way out, over as much of the map as a desktop's window holds. */
+export const startZoom = () => matchMedia('(pointer: coarse)').matches ? 1 : ZOOM_MIN;
+export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 const MM_SALT = '#e6e0d3', MM_BRINE = '#a24a2c'; // (the minimap: a salt field, a brine seep)
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
-/** Flyers are drawn this many world px above the ground point they occupy (their art hovers). */
-export const AIR_LIFT = 12;
 const hexn = (s) => parseInt(s.slice(1), 16);
 
 TextureSource.defaultOptions.scaleMode = 'linear';
@@ -49,6 +50,12 @@ await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's colour
  *  (atlas.json `tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
 export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
+/** How far (world px) a unit of `type` is drawn above its ground point: its art's height (atlas.json `unitTops`, measured
+ *  by tools/art/generate.mjs) at the renderer's UNIT_SCALE; a flyer's includes the height it flies at. The hit test, the
+ *  health bars and the silhouettes behind buildings go by it. */
+export const unitTop = (type) => (index.unitTops?.[type] ?? (UNITS[type]?.r ?? 10) * 2.4) * UNIT_SCALE;
+/** A unit's drawn radius (world px): its sim radius at the renderer's scale and the art's (look.js UNIT_ART_SCALE). */
+export const unitRadius = (u) => u.r * UNIT_SCALE * UNIT_ART_SCALE;
 /** A seat's paint in this game: its spot's (look.js `colorOf`: a player keeps its board spot's colour). */
 export const seatTint = (team) => spotTint(colorOf(team));
 /** Two tints at once (a seat's paint under an effect's tint): channel by channel product. */
@@ -107,15 +114,33 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // Render groups (PixiJS 8): the camera moves the world as one transform, so panning or a shake does not recompute every
 // sprite's. A group's draw list is built again whenever anything in it shows, hides, comes, goes or changes depth (a
 // moving unit does, every frame): the terrain (some 16k tile sprites on 128x128), the scenery, decals, resources,
-// buildings and units each keep their own, so one layer's churn does not rebuild the others'.
+// the field's buildings and units and the flyers each keep their own, so one layer's churn does not rebuild the others'.
+// Buildings and walking units share one layer (`ents`) sorted by where they stand (their ground y): a building hides
+// what stands north of it, as the 40-degree camera shows its walls rising over them. Construction sites' foundations
+// lie flat under everything (`found`); flyers stay above (`air`); `xray` draws this side's own units hidden behind a
+// building as faint silhouettes over it.
 const world = new Container({ isRenderGroup: true });
 const L = {};
-const GROUPS = new Set(['terrain', 'scenery', 'crust', 'decals', 'nodes', 'bldgs', 'units', 'air']);
-for (const k of ['terrain', 'scenery', 'shade', 'crust', 'decals', 'nodes', 'sel', 'shadows', 'bldgs', 'units', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
-L.units.sortableChildren = true; L.bldgs.sortableChildren = true; L.air.sortableChildren = true;
+const GROUPS = new Set(['terrain', 'scenery', 'crust', 'decals', 'nodes', 'found', 'ents', 'air']);
+for (const k of ['terrain', 'scenery', 'shade', 'crust', 'decals', 'nodes', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
 app.stage.addChild(world, screen);
+// The silhouettes: each own unit behind a building drawn again in one flat colour (a colour matrix: any pixel to our
+// seat's colour a third of the way to white, `xrayColor`, its alpha kept), faint, and only where a building covers it:
+// the layer is masked by an image of the buildings in front of those units, drawn each frame into a texture the size
+// of the view (`occTex`). Nothing of it is drawn while none of our units is behind a building.
+const XRAY_ALPHA = 0.5;
+const flat = new ColorMatrixFilter();
+function xrayColor(c) {
+  const ch = (k) => ((c >> k & 255) + (255 - (c >> k & 255)) / 3) / 255; // (a third of the way to white: it reads on dark stone and pale canvas alike)
+  flat.matrix = [0, 0, 0, 0, ch(16), 0, 0, 0, 0, ch(8), 0, 0, 0, 0, ch(0), 0, 0, 0, 1, 0];
+}
+L.xray.filters = [flat]; L.xray.alpha = XRAY_ALPHA; L.xray.visible = false;
+const occl = new Container(), occTex = RenderTexture.create({ width: 800, height: 500, resolution: app.renderer.resolution });
+const occMask = new Sprite(occTex); screen.addChild(occMask); L.xray.mask = occMask;
+const occPool = []; // (sprites in `occl`, reused frame to frame)
 const bars = new Graphics(); L.overlay.addChild(bars);
 const lines = new Graphics(); L.overlay.addChild(lines);
 const box = new Graphics(); screen.addChild(box);
@@ -128,7 +153,7 @@ export function resize() {
   const r = cv.parentElement.getBoundingClientRect(), mid = toWorld(view.w / 2, view.h / 2); // (the point in the middle stays there)
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
-  app.renderer.resize(view.w, view.h); centerOn(mid.x, mid.y);
+  app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution); centerOn(mid.x, mid.y);
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
 /** Where the HUD floats over the map the camera may scroll that far past the edges (the panels are taller with a
@@ -154,6 +179,7 @@ export function zoomAt(factor, sx, sy) {
 // A pixel per tile: the minimap's ground and the fog, at the map's size (sizeGrids); the shade layers are made per map.
 const thumb = document.createElement('canvas');
 const fog = new Sprite(); fog.scale.set(TILE); L.fog.addChild(fog);
+const FOG_DARK = [5, 7, 11, 255], FOG_SEEN = [18, 22, 34, 115], FOG_CLEAR = [18, 22, 34, 0]; // (RGBA per tile: never explored, explored, in sight)
 let fogCv, fogCtx, fogImg, fogTex, gridW = 0, gridH = 0;
 /** Make the per-tile canvases and textures for a map of MW x MH (again only when a game's map has another size). */
 function sizeGrids() {
@@ -164,7 +190,7 @@ function sizeGrids() {
   thumb.width = MW; thumb.height = MH;
   const old = [fogTex];
   fogCv = canvas(); fogCtx = fogCv.getContext('2d'); fogImg = fogCtx.createImageData(MW, MH); fogTex = texture(fogCv); fog.texture = fogTex;
-  for (let i = 0; i < MW * MH; i++) fogImg.data.set([5, 7, 11, 255], i * 4); // (the fog's colour; updateFogImage sets alpha)
+  for (let i = 0; i < MW * MH; i++) fogImg.data.set(FOG_DARK, i * 4); // (updateFogImage sets each tile's)
   for (const t of old) t?.destroy(true);
 }
 sizeGrids();
@@ -190,6 +216,7 @@ export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
   sizeGrids(); fogTick = -1; mmAt = -Infinity; // (a new map, or a replay from its first tick: fog and minimap at once)
+  xrayColor(SEAT_COLORS[colorOf(G.me) % SEAT_COLORS.length]); // (this side's own colour, for its silhouettes)
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
   const wetCell = (i, j) => [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].some(([x, y]) => !rock(x, y) && ground(x, y) !== 'land');
@@ -262,14 +289,16 @@ function selCorners(x, y, w, h, color) {
 
 class UnitObj {
   constructor(u) {
-    const layer = u.d.air ? L.air : L.units;
-    this.air = !!u.d.air;
+    const layer = u.d.air ? L.air : L.ents;
+    this.air = !!u.d.air; this.type = u.type; this.r = unitRadius(u); this.top = unitTop(u.type); // (its drawn size: the silhouettes' test)
     this.frames = (sheet.animations[`${u.type}_0`] || [0]).length;
     this.node = new Container(); this.node.scale.set(UNIT_SCALE); layer.addChild(this.node); // (body, paint and flash sort as one)
     this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own colour)
-    this.size = u.r > 12 ? 26 : 18;
+    // (an own walker: its silhouette, shown while a building hides it)
+    if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE); this.xr.visible = false; L.xray.addChild(this.xr); }
+    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the ring and the rope round the feet: as large as the art)
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0xeee6d2, 0.14, 0.5); // (the salt a worker carries: pale, faint)
     this.px = u.x; this.py = u.y; this.walk = 0;
@@ -284,7 +313,10 @@ class UnitObj {
     const name = `${u.type}_${dir}_${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
-    this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y;
+    // (sorted by its feet among the buildings, which sit half a px north of their bottom row: one standing on that line is
+    // in front; units on one line apart by id)
+    this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y + (u.id % 997) * 1e-5;
+    if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // Abilities: a boost glows (Stim warm, Overcharge the Vael's lantern peach); a deployed tank shows it in its pose (UNIT_POSE).
     let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
@@ -293,16 +325,16 @@ class UnitObj {
     paintAs(this.body, this.paint, this.seat, tint, cloak);
     // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
     if (u.slowed > 0) {
-      const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4);
+      const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4) * UNIT_ART_SCALE;
       bars.ellipse(u.x, y, rx, ry).stroke({ width: 2.5, color: 0x3b2a1a, alpha: 0.55 * a }).ellipse(u.x, y, rx, ry).stroke({ width: 1.2, color: 0xe2c992, alpha: 0.9 * a });
     }
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
-    if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 5, u.y - Math.sin(u.face) * 5 - 8); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
+    if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
-  show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; } }
-  destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); } // (a Graphics frees its context only when destroyed without options)
+  show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; if (this.xr) this.xr.visible = false; } }
+  destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); this.xr?.destroy(); } // (a Graphics frees its context only when destroyed without options)
 }
 
 const STAGES = 8, stageTex = {};
@@ -321,21 +353,23 @@ function stage(name, k) {
 class BldgObj {
   constructor(b) {
     const n = b.w;
-    this.found = new Sprite(); setTex(this.found, tex(`foundation_${n}`)); L.bldgs.addChild(this.found);
-    [this.body, this.paint] = teamSprite(L.bldgs); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
+    this.found = new Sprite(); setTex(this.found, tex(`foundation_${n}`)); L.found.addChild(this.found);
+    [this.body, this.paint] = teamSprite(L.ents); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
     // (a Vael site grows in a bud, `bud_n`, in place of the scaffold; the foundation is the Harbour's)
     this.bud = G.factions[b.team] === 'vael';
-    this.scaffold = new Sprite(); setTex(this.scaffold, tex(`${this.bud ? 'bud' : 'scaffold'}_${n}`)); L.bldgs.addChild(this.scaffold);
+    this.scaffold = new Sprite(); setTex(this.scaffold, tex(`${this.bud ? 'bud' : 'scaffold'}_${n}`)); L.ents.addChild(this.scaffold);
     this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
     this.look = BLDG_LOOK[b.type] || {};
-    if (this.look.head) [this.head, this.headPaint] = teamSprite(L.bldgs);
+    if (this.look.head) [this.head, this.headPaint] = teamSprite(L.ents);
     const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
     this.smokeT = 0; this.type = b.type;
     for (const s of [this.found, this.body, this.paint, this.scaffold]) s.position.set(b.x, b.y);
-    // (sorted by the bottom row; buildings in one row apart by id, each one's paint and head just over its own body)
-    const z = (b.ty + b.h) * TILE, e = (b.id % 97) * 0.005; this.found.zIndex = z - 2; this.body.zIndex = z + e; this.paint.zIndex = z + e + 0.001; this.scaffold.zIndex = z + 1;
-    if (this.head) { this.head.zIndex = z + e + 0.002; this.headPaint.zIndex = z + e + 0.003; }
+    // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
+    // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
+    const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z; this.bottom = (b.ty + b.h) * TILE;
+    this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004;
+    if (this.head) { this.head.zIndex = z + 0.0006; this.headPaint.zIndex = z + 0.0008; }
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
@@ -424,12 +458,14 @@ function syncPool(pool, list, make, upd) {
 
 // ---- effects ----
 const effects = [];
-/** Spawn a one-shot animated effect; anim names come from atlas.json (boom_big, boom_small, puff, flash, spark). */
+/** Spawn a one-shot animated effect; anim names come from atlas.json (boom_big, boom_small, puff, flash, spark).
+ *  `fade`: its opacity at the start, falling to nothing over its life (a trail's puffs overlap into one soft streak). */
 export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;
   const s = new Sprite(frames[0]); s.anchor.set(0.5); s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
+  if (o.fade) s.alpha = o.fade;
   L.fx.addChild(s);
-  const e = { s, frames, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0 };
+  const e = { s, frames, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
   if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
   effects.push(e);
 }
@@ -463,6 +499,7 @@ function updateEffects(dt) {
     if (e.t >= e.life) { e.s.destroy(); if (e.l) e.l.destroy(); effects.splice(i, 1); continue; }
     const k = Math.min(e.frames.length - 1, Math.floor(e.t / e.life * e.frames.length));
     e.s.texture = e.frames[k]; e.s.x += e.vx * dt; e.s.y += e.vy * dt; e.vx *= 0.92; e.vy *= 0.97;
+    if (e.fade) e.s.alpha = e.fade * (1 - e.t / e.life);
     if (e.l) { e.l.alpha = 0.8 * (1 - e.t / e.life); e.l.position.copyFrom(e.s.position); }
   }
   for (let i = decals.length - 1; i >= 0; i--) {
@@ -478,12 +515,14 @@ const projPool = [], partPool = [];
 function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible = true; return pool[i]; }
 
 let fogTick = -1;
-/** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. */
+/** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. In sight
+ *  clear; explored but out of sight a blue-grey veil (RGB 18, 22, 34 at 0.45), the ground and what stands on it still
+ *  read; never explored near-black. */
 function updateFogImage() {
   if (G.tick === fogTick) return;
   fogTick = G.tick;
   const d = fogImg.data, vis = G.vis, ex = G.explored;
-  for (let i = 0; i < MW * MH; i++) d[i * 4 + 3] = vis[i] ? 0 : ex[i] ? 140 : 255;
+  for (let i = 0; i < MW * MH; i++) d.set(vis[i] ? FOG_CLEAR : ex[i] ? FOG_SEEN : FOG_DARK, i * 4);
   fogCtx.putImageData(fogImg, 0, 0); fogTex.source.update();
 }
 
@@ -507,6 +546,39 @@ function pauseMark(x, y, t) {
   bars.rect(x - 4, y - 5, 3, 10).fill({ color: 0xffb545, alpha: a }); bars.rect(x + 1, y - 5, 3, 10).fill({ color: 0xffb545, alpha: a });
 }
 
+/** A sprite's drawn rectangle in world px: [x0, y0, x1, y1]. */
+const rectOf = (s) => { const t = s.texture, x0 = s.x - s.anchor.x * t.width * s.scale.x, y0 = s.y - s.anchor.y * t.height * s.scale.y; return [x0, y0, x0 + t.width * s.scale.x, y0 + t.height * s.scale.y]; };
+const overlap = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+// The occluders' image keeps only their solid pixels, white (red, the channel the mask reads): a baked shadow (black, about
+// 0.6 opaque) and soft edges come out black, so a unit beside a building, in its shadow, gets no silhouette.
+const solid = new ColorMatrixFilter();
+solid.matrix = [0, 0, 0, 4, -3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0];
+occl.filters = [solid];
+/** Our own walkers that a building on screen stands in front of (it sorts after them and its art covers theirs) get their
+ *  silhouette; those buildings are drawn into the mask's texture. Off (nothing drawn, no texture pass) when there are none. */
+function xray(bldgs) {
+  const rects = bldgs.filter(o => o.body.visible).map(o => ({ o, r: rectOf(o.body), h: o.head?.visible ? rectOf(o.head) : null }));
+  const hiding = new Set();
+  for (const u of unitObjs.values()) {
+    if (!u.xr) continue;
+    let hid = false;
+    if (u.node.visible && rects.length) {
+      const x = u.node.x, y = u.node.y, R = u.r, top = u.top, ur = [x - R, y - top, x + R, y];
+      for (const b of rects) if (b.o.z > u.node.zIndex && (overlap(ur, b.r) || (b.h && overlap(ur, b.h)))) { hid = true; hiding.add(b); }
+    }
+    if (u.xr.visible !== hid) u.xr.visible = hid;
+  }
+  L.xray.visible = hiding.size > 0;
+  if (!hiding.size) return;
+  let k = 0;
+  const put = (src) => { const s = occPool[k] ||= occl.addChild(new Sprite()); k++; s.visible = true; s.texture = src.texture; s.anchor.copyFrom(src.anchor); s.position.copyFrom(src.position); };
+  for (const b of hiding) { put(b.o.body); if (b.h) put(b.o.head); }
+  for (let i = k; i < occPool.length; i++) occPool[i].visible = false;
+  occl.scale.set(cam.zoom); occl.position.copyFrom(world.position);
+  occMask.width = view.w; occMask.height = view.h;
+  app.renderer.render({ container: occl, target: occTex, clear: true });
+}
+
 let lastT = 0;
 /** sel: the client's current selection; place: pending building placement or null. */
 export function render(selList, place) {
@@ -528,12 +600,13 @@ export function render(selList, place) {
 
   updateCrusts(explored, inView);
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
+  const onScreen = [];
   syncPool(bldgObjs, shownB, b => new BldgObj(b), (o, b) => {
     const seen = !b.ghost && (b.team === G.me || visibleEnt(b)); // (a remembered one: drawn as last seen)
     const v = inView(b.x, b.y, b.r + 90);
     o.show(v);
     if (!v) return;
-    o.update(b, t, dt, seen);
+    o.update(b, t, dt, seen); onScreen.push(o);
     if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, enemies(G.me, b.team) ? SEL_FOE : SEL);
     if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp, b.sh, b.maxsh);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
@@ -547,8 +620,9 @@ export function render(selList, place) {
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
-    if (sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - r - 12 - (u.d.air ? AIR_LIFT : 0), r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); }
+    if (sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
   });
+  xray(onScreen);
 
   let pi = 0;
   for (const p of G.projs) {
@@ -556,7 +630,7 @@ export function render(selList, place) {
     const s = pooled(projPool, pi++, () => { const s = new Sprite(); s.anchor.set(0.5); L.projs.addChild(s); s.l = light(0xffd27a, 0.25, 0.7); return s; });
     const own = SHOT_LOOK[p.by]; // (a shooter whose shot is its own sprite: its head at the anchor, no trail)
     s.texture = tex(own ?? p.type); s.anchor.set(own ? 1 : p.type === 'shell' ? 0.5 : p.type === 'missile' ? 0.9 : 1, 0.5);
-    if (!own && p.type === 'missile' && Math.random() < dt * 25) addEffect('puff', p.x, p.y, { life: 0.5, scale: 0.45 });
+    if (!own && p.type === 'missile' && Math.random() < dt * 40) addEffect('puff', p.x, p.y, { life: 0.6, scale: 0.45, fade: 0.55 }); // (a soft trail)
     s.position.set(p.x, p.y); s.rotation = Math.atan2(p.ay - p.y, p.ax - p.x); s.l.visible = true; s.l.position.set(p.x, p.y); s.l.scale.set(p.type === 'shell' ? 0.4 : 0.25);
   }
   for (let i = pi; i < projPool.length; i++) { projPool[i].visible = false; projPool[i].l.visible = false; }
@@ -630,6 +704,11 @@ function dashed(x0, y0, x1, y1) {
  *  unit shimmers) and its seat's tint. */
 export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
+/** Tests: the field's draw order (`ents`, sorted as drawn): each unit and building with its place in the layer (higher:
+ *  drawn later, over), and whether a unit shows its silhouette through a building. */
+export const drawOrder = () => [...[...unitObjs].filter(([, o]) => o.node.parent === L.ents).map(([id, o]) => ({ id, kind: 'unit', i: L.ents.getChildIndex(o.node), shown: o.node.visible, silhouette: !!o.xr?.visible && L.xray.visible })),
+  ...[...bldgObjs].map(([id, o]) => ({ id, kind: 'bldg', i: L.ents.getChildIndex(o.body), shown: o.body.visible }))];
+
 const pings = [];
 /** Flash a spot on the minimap (attack alerts). */
 export function ping(x, y) { pings.push({ x, y, t: performance.now() }); }
@@ -665,18 +744,18 @@ function minimapBase(c, S, T) {
     if (n.type === 'shard') { c.fillStyle = MM_SALT; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
     else { c.fillStyle = MM_SALT; c.fillRect(x - 2.5, y - 2.5, 5, 5); c.fillStyle = MM_BRINE; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
   }
-  // Two seats: ours and theirs (amber, workers paler; rose). More: every seat in its colour, ours too, as on the field;
-  // an ally's buildings framed in white (a team game: whose colour is on our side, its base and army in our sight).
-  const many = G.factions.length > 2, col = many ? seatCss() : null;
+  // Every seat in its colour, ours too, as on the field (with two seats as well: ours is no longer the amber of seat 0's
+  // old gold); an ally's buildings framed in white (a team game: whose colour is on our side, its base and army in our sight).
+  const col = seatCss();
   c.beginPath(); // (the allies' frames: one path, stroked once)
   for (const b of shownBldgs()) { // (an enemy's in the fog: as last seen, memory.js)
     const x = b.tx * TILE * S, y = b.ty * TILE * T, w = Math.max(2, b.w * TILE * S), h = Math.max(2, b.h * TILE * T);
-    c.fillStyle = many ? col[colorOf(b.team)] : b.team === G.me ? ALLY : FOE; c.fillRect(x, y, w, h);
+    c.fillStyle = col[colorOf(b.team)]; c.fillRect(x, y, w, h);
     if (b.team === G.me || enemies(G.me, b.team)) continue;
     const x0 = Math.floor(x), y0 = Math.floor(y); // (the frame on whole pixels: crisp)
     c.rect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = many ? col[colorOf(u.team)] : u.team === G.me ? (u.d.worker ? ALLY2 : ALLY) : FOE; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
+  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
 }

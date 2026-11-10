@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-export const ELEV = 55 * Math.PI / 180;
+export const ELEV = 40 * Math.PI / 180; // (55 until the re-theme: the lower camera shows more of a unit's side)
 export const S = 2;          // output pixels per game unit (art is drawn at twice the game's resolution)
 const SS = 2;                // supersampling factor before downscaling
 export const LIFT = Math.cos(ELEV) / Math.sin(ELEV); // screen px of rise per unit of height (per game unit)
@@ -25,7 +25,11 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.22;
 
 const sun = new THREE.DirectionalLight(0xfff0d8, 4.6);
-sun.position.set(-120, 300, -90); // from the north-west, high
+/** The sun: from the north-west, SUN_UP high over SUN_OUT of ground (about 70 degrees). Its shadow on the ground is
+ *  SUN_OUT / SUN_UP (0.36) of a thing's height long, so at the 40-degree camera (a height drawn 1.19 times itself) a
+ *  unit's shadow stays well under its drawn height; at 300 (63 degrees) it was half. */
+const SUN_UP = 420, SUN_OUT = [-120, -90];
+sun.position.set(SUN_OUT[0], SUN_UP, SUN_OUT[1]);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.3; sun.shadow.radius = 1;
@@ -58,7 +62,7 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(ELEV));
   camera.lookAt(gx, 0, gz);
   camera.updateProjectionMatrix();
-  sun.target.position.set(gx, 0, gz); sun.position.set(gx - 120, 300, gz - 90);
+  sun.target.position.set(gx, 0, gz); sun.position.set(gx + SUN_OUT[0], SUN_UP, gz + SUN_OUT[1]);
   const r = Math.max(w, h) / S;
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();

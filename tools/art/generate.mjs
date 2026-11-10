@@ -11,6 +11,17 @@ import { render3d } from './render3d.mjs';
 const FACINGS = 16;
 const models = await render3d(), sprites = [...terrainSprites(), ...effectSprites(), ...models];
 
+// Each unit kind's drawn height: how far its art rises above its ground point, in game px at the sprite's own scale
+// (before the renderer's UNIT_SCALE), the median over its facings and frames. The model's solid pixels only (alpha 255;
+// the cast shadow is translucent, and falls south-east, below the top). The client's hit test and health bars read it.
+const rises = {};
+for (const s of models) if (s.anim) {
+  const { w, h, data } = s.img, ay = s.anchor.y * h; let top = h;
+  for (let y = 0; y < h && top === h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] === 255) { top = y; break; }
+  (rises[s.anim.replace(/_\d+$/, '')] ||= []).push(Math.max(0, ay - top) / 2); // (atlas px are half a game px)
+}
+const unitTops = Object.fromEntries(Object.entries(rises).map(([k, v]) => { v.sort((a, b) => a - b); return [k, Math.round(v[v.length >> 1] * 2) / 2]; }));
+
 // Team masks (`<name>_m`) are mostly transparent: cut to their content. The frame keeps the full size and its offset
 // (sourceSize, spriteSourceSize), so it lines up with its base frame pixel for pixel.
 for (const s of sprites) if (s.trim) {
@@ -67,5 +78,5 @@ pages.forEach((p, n) => {
 const seq = (prefix, n) => Array.from({ length: n }, (_, f) => `${prefix}${f}`);
 const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4), heal: seq('heal_', 3) };
 for (const s of sprites) if (s.anim) (animations[s.anim] ||= [])[s.frame] = s.name; // units: <unit>_<dir> (base frames)
-writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2, tints: models.tints }, null, 1));
+writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2, tints: models.tints, unitTops }, null, 1));
 console.log(`${sprites.length} sprites on ${pages.length} page(s)`);

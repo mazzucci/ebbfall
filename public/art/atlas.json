@@ -4,7 +4,11 @@
   "atlas-1.json",
   "atlas-2.json",
   "atlas-3.json",
-  "atlas-4.json"
+  "atlas-4.json",
+  "atlas-5.json",
+  "atlas-6.json",
+  "atlas-7.json",
+  "atlas-8.json"
  ],
  "animations": {
   "boom_big": [
@@ -1295,13 +1299,33 @@
  "facings": 16,
  "scale": 2,
  "tints": [
-  15771692,
-  15809133,
-  2272124,
-  14922991,
-  11333490,
-  4630515,
-  9384950,
-  16014900
- ]
+  2776543,
+  15611754,
+  2205305,
+  14659565,
+  10939758,
+  9892071,
+  10889605,
+  15882802
+ ],
+ "unitTops": {
+  "harvester": 33,
+  "trooper": 37,
+  "vanguard": 43,
+  "lancer": 48,
+  "medic": 38,
+  "raider": 47.5,
+  "observer": 54,
+  "bastion": 88.5,
+  "siegeTank": 43.5,
+  "interceptor": 40,
+  "lumen": 23,
+  "scythe": 26,
+  "prism": 29,
+  "monolith": 38.5,
+  "shrike": 53,
+  "halo": 34.5,
+  "umbra": 17.5,
+  "sovereign": 46.5
+ }
 }

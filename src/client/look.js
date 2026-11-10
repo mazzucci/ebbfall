@@ -38,7 +38,7 @@ export const BLDG_LOOK = {
   turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
   // the Expedition: its white LEDs
   conflux: { glow: [LED, 1.1, 0.28, 0, false, -14] },                                // (the Data centre's three lit fans in its south face)
-  spire: { glow: [LED, 0.5, 0.45, 5, false, -12], smoke: [[13, -17]] },             // (the Bunkhouse's lantern over the door; the smoke of its stovepipe)
+  siphon: { glow: [LED, 0.5, 0.45, -3, false, 14] },                                // (the Recruiting post's tent: the lantern on its pole at the door; the population building, a timber booth, has no light)
   kiln: { glow: [LED, 0.7, 0.4, 18, false, -4] },                                    // (the Factory's work lamp over the bay)
   loom: { glow: [LED, 1.0, 0.3, 5, false, -4] },                                     // (the Lab's lit glass front)
   ward: { head: 'ward_head', glow: [LED, 0.35, 0.5, 70, false, 0] },                 // (the Radio tower's turret turns; the LED on its mast top)

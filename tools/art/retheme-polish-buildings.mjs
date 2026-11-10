@@ -56,7 +56,7 @@ writeFileSync(join(outDir, 'shares.json'), JSON.stringify(shares, null, 1));
 // ---- the phone scenes, before over after: seat 0's kingdom on the left against seat 1's Expedition on the right ----
 const W = 1688, H = 780;
 const SCENES = [
-  { text: 'COTTAGE, MARKET, BARRACKS, BLACKSMITH  /  BUNKHOUSE, RECRUITING POST, FACTORY', list: [
+  { text: 'COTTAGE, MARKET, BARRACKS, BLACKSMITH  /  TENT, RECRUITING POST, FACTORY', list: [
     ['bldg_kg_cottage', 150, 300, 0], ['bldg_kg_market', 380, 290, 0], ['bldg_kg_barracks', 270, 600, 0], ['bldg_kg_blacksmith', 580, 560, 0],
     ['kg_villager_1_0', 560, 330, 0], ['kg_guard_0_0', 640, 400, 0], ['kg_guard_15_0', 690, 470, 0], ['kg_knight_0_0', 760, 300, 0],
     ['bldg_ex_bunkhouse', 1480, 280, 1], ['bldg_ex_post', 1200, 260, 1], ['bldg_ex_factory', 1340, 600, 1],

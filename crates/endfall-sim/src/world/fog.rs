@@ -22,33 +22,11 @@ impl World {
                     explored[i] = 1;
                 });
             }
-            // Detection: where this team's detectors (finished ones) reveal cloaked units.
-            self.det[team].fill(0);
-            let mut detectors: Vec<(f64, f64, f64)> = Vec::new();
-            for u in self
-                .units
-                .iter()
-                .filter(|u| u.team as usize == team && u.kind.def().detect > 0.0)
-            {
-                detectors.push((u.x, u.y, u.kind.def().detect));
-            }
-            for b in self
-                .bldgs
-                .iter()
-                .filter(|b| b.team as usize == team && b.done && b.kind.def().detect > 0.0)
-            {
-                detectors.push((b.x, b.y, b.kind.def().detect));
-            }
-            for (x, y, s) in detectors {
-                let det = &mut self.det[team];
-                disc(size, x, y, s, |i| det[i] = 1);
-            }
         }
         self.share_vision();
     }
 
-    /// Allies share vision: each seat sees, has explored and detects what any seat of its team does (an ally's
-    /// detector reveals a cloaked enemy to the whole team). Vision comes from what stands on the map: a seat that is
+    /// Allies share vision: each seat sees and has explored what any seat of its team does. Vision comes from what stands on the map: a seat that is
     /// out still lends the sight of what it left (inert, but there) until that is destroyed, and sees what its team
     /// sees. The team's first seat gathers the team's layers, then every other seat of the team takes a copy: in place,
     /// in seat order, nothing allocated. With every seat its own team (a duel, a free for all) nothing changes.
@@ -58,7 +36,7 @@ impl World {
         for gather in [true, false] {
             for s in 1..n {
                 let Some(f) = first(self, s) else { continue };
-                for layers in [&mut self.vis, &mut self.explored, &mut self.det] {
+                for layers in [&mut self.vis, &mut self.explored] {
                     let (lo, hi) = layers.split_at_mut(s);
                     if gather {
                         lo[f].iter_mut().zip(&hi[0]).for_each(|(a, b)| *a |= b);
@@ -68,32 +46,6 @@ impl World {
                 }
             }
         }
-    }
-
-    /// Whether unit `u` is cloaked: always (`cloaked`), a lurker (the Undertow) once it has lain still for `LURK_S`,
-    /// or once its side has researched its cloak (the Petrel's Seaglass: permanent, no button, owner 2026-11-03).
-    pub fn is_cloaked(&self, u: &Unit) -> bool {
-        u.kind.def().cloaked
-            || (u.kind.def().lurk && u.still >= LURK_S)
-            || u.kind.def().abilities.iter().any(|&k| {
-                matches!(k.def().effect, AbilityEffect::Cloak) && self.ability_unlocked(u.team, k)
-            })
-    }
-
-    /// Whether `team` detects the tile under world point (x, y).
-    pub fn detects(&self, team: u8, x: f64, y: f64) -> bool {
-        let (tx, ty) = self.map.tile_of(x, y);
-        self.det[team as usize][self.map.idx(tx, ty)] != 0
-    }
-
-    /// Whether unit `u` is hidden from `team`: cloaked, an enemy's, and outside its detection.
-    pub fn cloaked_from(&self, team: u8, u: &Unit) -> bool {
-        self.enemies(team, u.team) && self.is_cloaked(u) && !self.detects(team, u.x, u.y)
-    }
-
-    /// Whether `id` (unit or building) is hidden from `team` by cloak (buildings never are).
-    pub fn hidden_from(&self, team: u8, id: Id) -> bool {
-        self.unit(id).is_some_and(|u| self.cloaked_from(team, u))
     }
 
     /// The seats that see unit or building `id` of seat `team` (its own, and whoever has it in sight), bit `t` for seat
@@ -112,7 +64,7 @@ impl World {
                 return true;
             }
             let (tx, ty) = self.map.tile_of(u.x, u.y);
-            return vis[self.map.idx(tx, ty)] != 0 && !self.cloaked_from(team, u);
+            return vis[self.map.idx(tx, ty)] != 0;
         }
         if let Some(b) = self.bldg(id) {
             if b.team == team {

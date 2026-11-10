@@ -81,7 +81,7 @@ fn a_research_building_does_not_train() {
     let mut w = rich(1);
     let forge = w.make_building(BldgKind::Forge, PLAYER, 20, 40, true);
     assert!(
-        w.queue_unit(forge, UnitKind::Vanguard).is_err(),
+        w.queue_unit(forge, UnitKind::Knight).is_err(),
         "the Forge researches, it does not train"
     );
 }
@@ -136,9 +136,9 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
         w.step();
     }
     assert_eq!(
-        w.queue_unit(rax, UnitKind::Vanguard),
+        w.queue_unit(rax, UnitKind::SiegeTank),
         Err("Crew Hall cannot train that".into()),
-        "vehicles come from the Factory"
+        "siege comes from the Workshop"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
     let depot = build(&mut w, BldgKind::Depot, h[1], 90);
@@ -172,121 +172,118 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 }
 
 #[test]
-fn medics_and_vehicles_need_a_forge_and_an_airfield_or_a_factory_a_garrison() {
+fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge() {
+    // The Kingdom: the Barracks (Guards, Archers), then the Stables (they need a Market; Riders; Knights once the Forge
+    // stands) and the Workshop (the Balloon; Ballistas and Trebuchets once the Forge stands). No building trains a
+    // healer.
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
     for k in [BldgKind::Airfield, BldgKind::Factory] {
         let (tx, ty) = spot(&w, k);
         assert_eq!(
             w.place_building(PLAYER, k, tx, ty, Some(h[1])),
-            Err("Requires Crew Hall".into()),
-            "air and vehicles are branches off the first factory: {k:?}"
+            Err(format!("Requires {}", k.def().req.unwrap().def().name)),
+            "cavalry (off the Market) and machines (off the Barracks): {k:?}"
         );
     }
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
     assert_eq!(
         w.queue_unit(rax, UnitKind::Medic),
-        Err("Requires Workshop".into())
+        Err("Crew Hall cannot train that".into()),
+        "no healer in the build"
     );
-    // The Factory (no Foundry needed to build it) trains Vanguards and Siege Tanks, both once a Foundry stands.
     let fac = build(&mut w, BldgKind::Factory, h[3], 120);
-    for k in [UnitKind::Vanguard, UnitKind::SiegeTank] {
+    build(&mut w, BldgKind::Extractor, h[2], 120); // (the Stables need a Market)
+    let stables = build(&mut w, BldgKind::Airfield, h[1], 120);
+    for (at, k) in [
+        (fac, UnitKind::Bastion),
+        (fac, UnitKind::SiegeTank),
+        (stables, UnitKind::Knight),
+    ] {
         assert_eq!(
-            w.queue_unit(fac, k),
+            w.queue_unit(at, k),
             Err("Requires Workshop".into()),
             "{k:?}"
         );
         assert_eq!(
             w.queue_unit(rax, k),
             Err("Crew Hall cannot train that".into()),
-            "{k:?}: not at the Garrison"
+            "{k:?}: not at the Barracks"
         );
     }
-    let (tx, ty) = spot(&w, BldgKind::Airfield);
+    build(&mut w, BldgKind::Depot, h[0], 60); // (room for them all)
     assert!(
-        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1]))
-            .is_ok(),
-        "no Foundry needed for an Airfield"
+        w.queue_unit(fac, UnitKind::Observer).is_ok(),
+        "no Forge for a Balloon"
+    );
+    assert!(
+        w.queue_unit(stables, UnitKind::Rider).is_ok(),
+        "nor for a Rider"
     );
     build(&mut w, BldgKind::Forge, h[2], 120);
-    assert!(w.queue_unit(rax, UnitKind::Medic).is_ok());
-    build(&mut w, BldgKind::Depot, h[0], 60); // (room for both)
-    assert!(w.queue_unit(fac, UnitKind::Vanguard).is_ok());
-    assert!(w.queue_unit(fac, UnitKind::SiegeTank).is_ok());
+    for (at, k) in [
+        (fac, UnitKind::Bastion),
+        (fac, UnitKind::SiegeTank),
+        (stables, UnitKind::Knight),
+    ] {
+        assert!(w.queue_unit(at, k).is_ok(), "{k:?} once the Forge stands");
+    }
 }
 
 #[test]
-fn the_eclipse_follows_the_loom_unlocks_the_umbra_at_the_zenith_and_weaves_the_shrike_techs() {
-    // The Vael tech tree: Kiln, then the Loom (Weapons, Shields, Overcharge Core) and the Zenith (the advanced hover
-    // units: Shrike, Umbra, Sovereign; it researches nothing), then the Eclipse after the Loom (Veil Weave and
-    // Slipstream, moved there, and the Umbra's requirement). The Umbra stays a ground unit: only flyers are `air`.
-    // (Their names since Roster v2: the Cradle, the Glasshouse, the Gyre and the Darkwater.)
+fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
+    // The Expedition: the Recruiting post (Sellswords; Bruisers once a Lab stands) needs nothing, the Factory (Buggies,
+    // Drones; Rovers once a Lab stands), the Lab and the tower need it, the Portal (Marines) the Lab. The Recruiting
+    // post still stands on a shaft until the economy PR.
     let mut w = rich_vael(11);
-    flatten(&mut w, 12..52, 12..52);
-    for tx in [20, 26, 32] {
-        w.make_building(BldgKind::Spire, PLAYER, tx, 26, true); // (supply)
+    let l = harvesters(&w, PLAYER);
+    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
+        assert!(!w.has_req(PLAYER, k), "{k:?} waits for the Recruiting post");
     }
-    let kiln = w.make_building(BldgKind::Kiln, PLAYER, 20, 30, true);
-    let zenith = w.make_building(BldgKind::Zenith, PLAYER, 24, 30, true);
-    w.step();
-    assert_eq!(
-        BldgKind::Kiln.def().trains,
-        &[
-            UnitKind::Scythe,
-            UnitKind::Prism,
-            UnitKind::Monolith,
-            UnitKind::Halo
-        ]
+    assert!(
+        w.has_req(PLAYER, BldgKind::Siphon),
+        "the Recruiting post needs nothing"
     );
-    assert_eq!(
-        BldgKind::Zenith.def().trains,
-        &[UnitKind::Shrike, UnitKind::Umbra, UnitKind::Sovereign]
-    );
-    assert!(BldgKind::Zenith.def().researches.is_empty());
-    assert_eq!(BldgKind::Eclipse.def().req, Some(BldgKind::Loom));
-    assert_eq!(UnitKind::Umbra.def().req, Some(BldgKind::Eclipse));
-    assert!(!UnitKind::Umbra.def().air, "a ground unit");
-    assert!(VAEL.builds(BldgKind::Eclipse) && !HUMANS.builds(BldgKind::Eclipse));
-    assert_eq!(
-        w.queue_unit(kiln, UnitKind::Umbra),
-        Err("Cradle cannot train that".into())
-    );
-    assert_eq!(
-        w.queue_unit(zenith, UnitKind::Umbra),
-        Err("Requires Darkwater".into())
-    );
-    let (tx, ty) = (32, 30);
+    let post = build(&mut w, BldgKind::Siphon, l[0], 150);
+    build(&mut w, BldgKind::Spire, l[3], 90); // (room for them all)
+    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
+        assert!(w.has_req(PLAYER, k), "{k:?} once it stands");
+    }
     assert!(
         !w.has_req(PLAYER, BldgKind::Eclipse),
-        "the Eclipse waits for the Loom"
+        "the Portal waits for the Lab"
     );
-    let loom = w.make_building(BldgKind::Loom, PLAYER, 28, 30, true);
-    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     assert_eq!(
-        w.queue_unit(zenith, UnitKind::Umbra),
-        Err("Requires Darkwater".into()),
-        "the Loom alone unlocks no Umbra"
+        w.queue_unit(post, UnitKind::Bruiser),
+        Err("Requires Glasshouse".into()),
+        "the Bruiser waits for a Lab"
     );
-    let eclipse = w.make_building(BldgKind::Eclipse, PLAYER, tx, ty, true);
-    w.step();
-    // The research moved: refused at the Loom and the Zenith, taken at the Eclipse.
-    for (at, up) in [(loom, Upgrade::VeilWeave), (zenith, Upgrade::Slipstream)] {
-        assert_eq!(
-            w.start_research(at, up),
-            Err("Research happens at a finished Darkwater".into()),
-            "{up:?}"
-        );
-    }
-    assert!(w.start_research(loom, Upgrade::OverchargeCore).is_ok());
-    assert!(w.start_research(eclipse, Upgrade::VeilWeave).is_ok());
     assert!(
-        w.start_research(eclipse, Upgrade::Slipstream).is_err(),
-        "one at a time"
+        w.queue_unit(post, UnitKind::Prism).is_ok(),
+        "a Sellsword at once"
     );
-    assert!(w.queue_unit(zenith, UnitKind::Umbra).is_ok());
-    let before = count(&w, PLAYER, UnitKind::Umbra);
-    run(&mut w, 40);
-    assert_eq!(count(&w, PLAYER, UnitKind::Umbra), before + 1, "trained");
+    let kiln = build(&mut w, BldgKind::Kiln, l[1], 150);
+    for k in [UnitKind::Scythe, UnitKind::Shrike] {
+        assert!(w.queue_unit(kiln, k).is_ok(), "{k:?}");
+    }
+    assert_eq!(
+        w.queue_unit(kiln, UnitKind::Monolith),
+        Err("Requires Glasshouse".into())
+    );
+    assert_eq!(
+        w.queue_unit(kiln, UnitKind::Halo),
+        Err("Cradle cannot train that".into()),
+        "no healer in the build"
+    );
+    build(&mut w, BldgKind::Loom, l[2], 150);
+    assert!(
+        w.queue_unit(post, UnitKind::Bruiser).is_ok(),
+        "once the Lab stands"
+    );
+    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
+    let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
+    assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
+    assert!(!UnitKind::Umbra.def().air, "the Marine is a ground unit");
 }
 
 #[test]
@@ -340,12 +337,12 @@ fn research_rules_and_refunds() {
     w.bldgs.iter_mut().find(|b| b.id == f).unwrap().hp = 200.0;
     let hp = w.bldg(f).unwrap().hp;
     let foe = w.make_unit(
-        UnitKind::Vanguard,
+        UnitKind::Knight,
         ENEMY,
         20.0 * TILE + 48.0,
         40.0 * TILE + 140.0,
     );
-    w.units.iter_mut().find(|u| u.id == foe).unwrap().hp = 1e9; // a very determined vanguard
+    w.units.iter_mut().find(|u| u.id == foe).unwrap().hp = 1e9; // a very determined Knight
     w.units.iter_mut().find(|u| u.id == foe).unwrap().maxhp = 1e9;
     w.attack_ent(foe, f);
     for _ in 0..120 * TPS {
@@ -356,7 +353,7 @@ fn research_rules_and_refunds() {
     }
     let _ = hp;
     assert!(w.bldg(f).is_none(), "the forge fell");
-    w.units.retain(|u| u.id != foe); // and the vanguard goes home before it finds the other forge
+    w.units.retain(|u| u.id != foe); // and the Knight goes home before it finds the other forge
     assert_eq!(
         w.res[PLAYER as usize],
         [5000, 5000],
@@ -491,11 +488,12 @@ fn every_faction_is_consistent_with_its_tables() {
     }
     let workers = UNIT_KINDS.iter().filter(|k| k.def().worker).count();
     assert_eq!(workers, FACTIONS.len(), "one worker kind per faction");
-    // Every unit is trained somewhere on one side.
+    // Every unit is trained somewhere on one side, but the healers (in the tables, trained nowhere).
     for u in UNIT_KINDS {
-        assert!(
+        assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().trains.contains(&u)),
-            "{u:?} is trained somewhere"
+            u.def().heal == 0.0,
+            "{u:?} is trained somewhere, or a healer nowhere"
         );
     }
 }
@@ -518,36 +516,12 @@ fn a_side_builds_only_its_own_race() {
 
 #[test]
 fn messages_name_each_races_own_buildings() {
-    let toasts = |w: &mut World| -> Vec<String> {
-        w.events
-            .drain(..)
-            .filter_map(|e| match e {
-                endfall_sim::world::Event::Toast {
-                    msg, team: PLAYER, ..
-                } => Some(msg),
-                _ => None,
-            })
-            .collect()
-    };
-    // (each race's refinery by its own name: the Harbour's Excavator, the Vael's Siphon; its research hall: the Workshop,
-    // the Glasshouse)
-    for (w, rig, hall) in [
-        (
-            &mut rich(5),
-            "Workers cannot mine a shaft: an Excavator on it digs salt by itself",
-            "Workshop",
-        ),
-        (
-            &mut rich_vael(5),
-            "Workers cannot mine a shaft: a Siphon on it draws salt by itself",
-            "Glasshouse",
-        ),
+    // (each race's research hall by its own name: the Workshop, the Glasshouse)
+    for (w, hall) in [
+        (&mut rich(5), "Workshop"),
+        (&mut rich_vael(5), "Glasshouse"),
     ] {
         w.events.clear();
-        let worker = harvesters(w, PLAYER)[0];
-        let vent = w.map.nodes.iter().find(|n| n.ether).unwrap().id;
-        assert!(!w.start_gather(worker, vent), "a seep is not mined");
-        assert_eq!(toasts(w), vec![rig.to_string()]);
         let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
         let err = w.start_research(hq, Upgrade::Weapons).unwrap_err();
         assert_eq!(err, format!("Research happens at a finished {hall}"));
@@ -579,14 +553,14 @@ fn a_group_attack_move_marches_at_the_slowest_pace_with_healers_behind() {
     let mut w = flat_arena(31);
     let (y0, x0) = (900.0, 600.0);
     let t = w.make_unit(UnitKind::Trooper, PLAYER, x0, y0);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, x0, y0 + 40.0);
+    let v = w.make_unit(UnitKind::SiegeTank, PLAYER, x0, y0 + 40.0);
     let m = w.make_unit(UnitKind::Medic, PLAYER, x0, y0 - 40.0);
     w.attack_move_group(&[t, v, m], x0 + 1000.0, y0);
     run(&mut w, 6);
     assert!(x(&w, v) > x0 + 300.0, "the group moved: {}", x(&w, v));
     assert!(
         (x(&w, t) - x(&w, v)).abs() < 24.0,
-        "the Trooper keeps pace with the Vanguard: {} vs {}",
+        "the Guard keeps pace with the Trebuchet: {} vs {}",
         x(&w, t),
         x(&w, v)
     );
@@ -624,7 +598,7 @@ fn a_group_keeps_its_pace_after_a_skirmish_on_the_way() {
     let x = |w: &World, id| w.unit(id).unwrap().x;
     let (x0, y0) = (500.0, 900.0);
     let t = w.make_unit(UnitKind::Trooper, PLAYER, x0, y0);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, x0, y0 + 40.0);
+    let v = w.make_unit(UnitKind::Bruiser, PLAYER, x0, y0 + 40.0);
     w.make_unit(UnitKind::Trooper, ENEMY, x0 + 500.0, y0);
     w.attack_move_group(&[t, v], x0 + 1100.0, y0);
     run(&mut w, 17);
@@ -671,7 +645,8 @@ fn a_unit_finds_its_way_around_a_building_put_up_across_its_route() {
     // for ever (an AI's wave once stood at its own new Core for the rest of a game).
     for amove in [false, true] {
         let mut w = flat_arena(5);
-        let u = w.make_unit(UnitKind::Trooper, PLAYER, 15.0 * TILE, 30.0 * TILE);
+        // (an unarmed walker: an idle Guard at the goal would go for the enemy base it sees from there)
+        let u = w.make_unit(UnitKind::Medic, PLAYER, 15.0 * TILE, 30.0 * TILE);
         let goal = (45.0 * TILE, 30.0 * TILE);
         if amove {
             w.attack_move(u, goal.0, goal.1);

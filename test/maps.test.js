@@ -58,7 +58,7 @@ test('an online setup plays its map at the map\'s size, the room\'s seed for a r
 test('the Shore map: a named map and a random one at 64x64 with their line; random maps of the other kinds never draw it', () => {
   const shore = MAPS.map((m, i) => [m, i]).filter(([m]) => m.kind === 6);
   assert.deepEqual(shore.map(([m]) => [m.name, m.size, !!m.random]), [['Tidewater Reef', 64, false], ['Random Shore', 64, true]]);
-  for (const [m, i] of shore) assert.match(mapNoteOf(i), /^Map: .* \(up to 2\)\. A shore and a reef: the Harbour holds the cove, the Vael the shallows\.$/, m.name);
+  for (const [m, i] of shore) assert.match(mapNoteOf(i), /^Map: .* \(up to 2\)\. A shore and a reef: each side holds a cove, the reef in the shallows between\.$/, m.name);
   assert.equal(mapNoteOf(0), 'Map: Ashen Basin (up to 2)', 'a map without a line');
   // A random room keeps the old kinds for every seed (Shore is not among them), a random Shore stays a Shore.
   const random64 = MAPS.findIndex(m => m.random && m.size === 64), randomShore = MAPS.findIndex(m => m.random && m.kind === 6);

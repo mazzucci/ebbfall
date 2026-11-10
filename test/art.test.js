@@ -29,6 +29,14 @@ test('every unit facing and frame has its team mask', () => {
   }
 });
 
+test('the atlas holds no unit or building the sim no longer has (the retired kinds\' art is dropped)', () => {
+  const units = Object.keys(index.animations).filter(a => /^[a-zA-Z]+_\d+$/.test(a) && frames[`${a}_0`] && frames[`${a}_0_m`]).map(a => a.replace(/_\d+$/, ''));
+  assert.deepEqual([...new Set(units)].filter(k => !UNITS[k]), [], 'unit art without a kind');
+  const bldgs = Object.keys(frames).filter(n => /^bldg_[a-zA-Z]+$/.test(n)).map(n => n.slice(5));
+  assert.deepEqual(bldgs.filter(t => !BUILDINGS[t]), [], 'building art without a type');
+  assert.deepEqual(Object.keys(frames).filter(n => /^vent_/.test(n)), [], 'no mine shaft');
+});
+
 test('every building and turret head has its team mask', () => {
   for (const type of Object.keys(BUILDINGS)) paired(`bldg_${type}`);
   for (const head of new Set(Object.values(BLDG_LOOK).map(l => l.head).filter(Boolean))) for (let d = 0; d < FACINGS; d++) paired(`${head}_${d}`);

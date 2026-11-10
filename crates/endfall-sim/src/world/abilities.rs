@@ -1,5 +1,5 @@
-//! Unit abilities: casting (one tap, for a whole selection), their effects on a unit's live stats, the per-tick
-//! countdowns, and `auto_cast`, the rules the scripted opponent (and the balance duels) use them by.
+//! Unit abilities (toggles since the re-theme: the Guard's Brace, the Trebuchet's Deploy): casting (one tap, for a
+//! whole selection), their effects on a unit's live stats and the per-tick countdowns.
 
 use super::*;
 
@@ -24,9 +24,6 @@ impl World {
             let up = Upgrade::unlocking(ability).unwrap();
             return Err(format!("Research {} first", up.def().name));
         }
-        if matches!(ability.def().effect, AbilityEffect::Cloak) {
-            return Err(format!("{}: always on once researched", ability.def().name));
-        }
         if u.ab_cd[slot] > 0.0 {
             return Err(format!("{} is not ready", ability.def().name));
         }
@@ -40,22 +37,6 @@ impl World {
         if u.slowed > 0.0 {
             return Err("Harpooned: no abilities while slowed".into());
         }
-        // Not again while more than half of it is left (a thumb that taps twice must not pay twice). (With today's
-        // numbers only Stim reaches this: the others' cooldowns outlast them.)
-        let secs = match ability.def().effect {
-            AbilityEffect::Boost { secs, .. } => secs,
-            _ => 0.0,
-        };
-        if u.boost
-            .is_some_and(|(k, end)| k == ability && end - self.time > secs / 2.0)
-        {
-            return Err(format!("{} is already on", ability.def().name));
-        }
-        if let AbilityEffect::Boost { hp, .. } = ability.def().effect
-            && u.hp <= hp
-        {
-            return Err("Too hurt".into());
-        }
         Ok(())
     }
 
@@ -64,28 +45,16 @@ impl World {
         self.can_cast(uid, ability)?;
         let slot = self.ability_slot(uid, ability).unwrap();
         let d = ability.def();
-        let now = self.time;
         self.um(uid).ab_cd[slot] = d.cooldown;
-        match d.effect {
-            AbilityEffect::Boost { secs, hp, .. } => {
-                let u = self.um(uid);
-                u.hp -= hp;
-                u.boost = Some((ability, now + secs));
-            }
-            AbilityEffect::Settle { .. } => {
-                let settling = self.u(uid).mode.is_none();
-                if settling {
-                    // Settles in where it stands and holds: it fires at what comes into its reach.
-                    self.release_mine(uid);
-                    self.set_task(uid, Task::Hold);
-                } else {
-                    self.set_task(uid, Task::Idle);
-                }
-                self.set_toggle(uid, ability, settling);
-            }
-            AbilityEffect::Blink { dist } => self.blink(uid, dist * TILE),
-            AbilityEffect::Cloak => {} // (never cast: can_cast refuses it)
+        let settling = self.u(uid).mode.is_none();
+        if settling {
+            // Settles in where it stands and holds: it fires at what comes into its reach.
+            self.release_mine(uid);
+            self.set_task(uid, Task::Hold);
+        } else {
+            self.set_task(uid, Task::Idle);
         }
+        self.set_toggle(uid, ability, settling);
         let (x, y, team) = {
             let u = self.u(uid);
             (u.x, u.y, u.team)
@@ -103,11 +72,10 @@ impl World {
     /// Turns `uid`'s toggle `ability` on or off, whatever it is doing (its task stays): `swap` seconds of settling in
     /// or packing up start.
     pub(crate) fn set_toggle(&mut self, uid: Id, ability: AbilityKind, on: bool) {
-        if let AbilityEffect::Settle { swap, .. } = ability.def().effect {
-            let u = self.um(uid);
-            u.mode = on.then_some(ability);
-            u.swap = swap;
-        }
+        let AbilityEffect::Settle { swap, .. } = ability.def().effect;
+        let u = self.um(uid);
+        u.mode = on.then_some(ability);
+        u.swap = swap;
     }
 
     /// A siege gun sets up by itself on reaching its target (an attack, an attack-move or an idle unit's own pick):
@@ -155,61 +123,15 @@ impl World {
         }
     }
 
-    /// A hop of up to `max` px towards the unit's target (or the way it faces), onto the nearest open tile there.
-    fn blink(&mut self, uid: Id, max: f64) {
-        let (ux, uy, face, target) = {
-            let u = self.u(uid);
-            let t = match u.task {
-                Task::Attack { target, .. } => self.geo(target).map(|g| g.center()),
-                _ => None,
-            };
-            (u.x, u.y, u.face, t)
-        };
-        let (dx, dy) = match target {
-            // Up to the target, not through it: stop a body's width short.
-            Some((tx, ty)) => {
-                let d = dist(ux, uy, tx, ty);
-                let go = (d - 24.0).clamp(0.0, max);
-                if d > 0.0 {
-                    ((tx - ux) / d * go, (ty - uy) / d * go)
-                } else {
-                    (0.0, 0.0)
-                }
-            }
-            None => (jsmath::cos(face) * max, jsmath::sin(face) * max),
-        };
-        let (gx, gy) = (self.map.clamp_x(ux + dx), self.map.clamp_y(uy + dy));
-        let tile = self.map.tile_of(gx, gy);
-        let foot = self.foot(self.u(uid).kind);
-        let Some((fx, fy)) = self
-            .map
-            .nearest_passable_to(foot, tile.0, tile.1, 3, (gx, gy))
-        else {
-            return; // nowhere to land: stays put (the cooldown is spent)
-        };
-        let (nx, ny) = if (fx, fy) == tile {
-            (gx, gy)
-        } else {
-            ((fx as f64 + 0.5) * TILE, (fy as f64 + 0.5) * TILE)
-        };
-        let u = self.um(uid);
-        u.x = nx;
-        u.y = ny;
-        u.path = None;
-        u.repath = 0.0;
-    }
-
-    /// Cooldowns and settling run down, boosts end.
+    /// Cooldowns and settling run down.
     pub(crate) fn tick_abilities(&mut self, dt: f64) {
-        let now = self.time;
         for u in &mut self.units {
             for c in &mut u.ab_cd {
                 *c = (*c - dt).max(0.0);
             }
-            u.swap = (u.swap - dt).max(0.0);
-            if u.boost.is_some_and(|(_, end)| now >= end) {
-                u.boost = None;
-            }
+            // (a whole number of seconds counted down by DT leaves a rounding crumb: none of it is a tick)
+            let left = u.swap - dt;
+            u.swap = if left > 1e-9 { left } else { 0.0 };
         }
     }
 
@@ -217,30 +139,20 @@ impl World {
     pub(crate) fn pack_up_to_move(&mut self, uid: Id) {
         let u = self.um(uid);
         if let Some(k) = u.mode {
-            if let AbilityEffect::Settle { swap, .. } = k.def().effect {
-                u.swap = swap;
-            }
+            let AbilityEffect::Settle { swap, .. } = k.def().effect;
+            u.swap = swap;
             u.mode = None;
         }
     }
 
-    /// How a boost changes a stat: `pick` takes the boost's (fire, speed) multipliers.
-    fn boost_mul(&self, uid: Id, pick: fn(f64, f64) -> f64) -> f64 {
-        match self.unit(uid).and_then(|u| u.boost) {
-            Some((k, _)) => match k.def().effect {
-                AbilityEffect::Boost { fire, speed, .. } => pick(fire, speed),
-                _ => 1.0,
-            },
-            None => 1.0,
-        }
-    }
-    /// Walking speed multiplier: 0 while deployed or settling, the boost's while boosted.
+    /// Walking speed multiplier: 0 while deployed or settling.
     pub(crate) fn speed_mul(&self, uid: Id) -> f64 {
         let u = self.u(uid);
         if u.mode.is_some() || u.swap > 0.0 {
-            return 0.0;
+            0.0
+        } else {
+            1.0
         }
-        self.boost_mul(uid, |_, s| s)
     }
 
     /// A unit's own top speed (px/s): its kind's, with its team's speed tech for it. The march pace of a group and
@@ -259,10 +171,6 @@ impl World {
     pub fn ability_unlocked(&self, team: u8, ability: AbilityKind) -> bool {
         Upgrade::unlocking(ability).is_none_or(|up| self.upgrades[team as usize][up.index()] > 0)
     }
-    /// Fire-rate multiplier (a building has none).
-    pub(crate) fn fire_mul(&self, uid: Id) -> f64 {
-        self.boost_mul(uid, |f, _| f)
-    }
     /// Extra reach in tiles (its toggle's, while on), or None while settling in or packing up (no firing then), and for a siege
     /// gun on its tracks with no light gun.
     pub(crate) fn reach_add(&self, uid: Id) -> Option<f64> {
@@ -272,77 +180,7 @@ impl World {
         }
         Some(match u.mode.map(|k| k.def().effect) {
             Some(AbilityEffect::Settle { range, .. }) => range,
-            _ => 0.0,
+            None => 0.0,
         })
-    }
-
-    /// The scripted opponent's (and the duels') use of abilities for `team`'s units, in unit order: Stim and
-    /// Overcharge once in a fight at reach, Blink to close on a target out of reach, a cloak once engaged (a siege gun
-    /// sets up and packs up by itself, `update_idle`). Sees only what `team` sees.
-    pub fn auto_cast(&mut self, team: u8) {
-        self.auto_cast_for(team, true);
-    }
-
-    /// `auto_cast`, only if `skills` (a level that uses abilities).
-    pub(crate) fn auto_cast_for(&mut self, team: u8, skills: bool) {
-        let ids: Vec<Id> = self
-            .units
-            .iter()
-            .filter(|u| skills && u.team == team && !u.kind.def().abilities.is_empty())
-            .filter(|u| !u.kind.siege())
-            .map(|u| u.id)
-            .collect();
-        for uid in ids {
-            let Some(u) = self.unit(uid) else { continue };
-            let (ux, uy, task, hp, maxhp, boost) = (u.x, u.y, u.task, u.hp, u.maxhp, u.boost);
-            let d = u.kind.def();
-            let reach = d.weapon.map_or(0.0, |w| w.range) * TILE;
-            let target_d = match task {
-                Task::Attack { target, .. } => self.geo(target).map(|g| g.edge_dist(ux, uy)),
-                _ => None,
-            };
-            // What this side sees around it: how many armed enemy units are within 8 tiles (edge distance; a real
-            // fight, not a worker or a building).
-            let mut armed = 0;
-            for o in self.nearby(ux, uy, 12.0 * TILE) {
-                if !self.team_of(o).is_some_and(|t| self.enemies(team, t)) || !self.seen_by(team, o)
-                {
-                    continue;
-                }
-                let Some(g) = self.geo(o) else { continue };
-                if g.edge_dist(ux, uy) < 8.0 * TILE
-                    && self.unit(o).is_some_and(|u| u.kind.def().threat())
-                {
-                    armed += 1;
-                }
-            }
-            let fight = armed >= 3;
-            for &ab in d.abilities {
-                if self.can_cast(uid, ab).is_err() {
-                    continue;
-                }
-                let go = match ab.def().effect {
-                    // (not again while one is still running: a Medic's heals would be soaked into a permanent boost)
-                    AbilityEffect::Boost { hp: cost, .. } => {
-                        fight
-                            && boost.is_none()
-                            && target_d.is_some_and(|t| t <= reach + TILE)
-                            && hp - cost > maxhp * 0.6
-                    }
-                    AbilityEffect::Blink { dist } => {
-                        fight
-                            // (a little out of its reach, close enough that the hop lands it within reach)
-                            && target_d.is_some_and(|t| t > reach + 2.0 * TILE && t < reach + dist * TILE)
-                    }
-                    // (a cloak is permanent once researched: nothing to cast)
-                    AbilityEffect::Cloak => false,
-                    // (a toggle is a siege gun's: it deploys on reaching its target and packs up above)
-                    AbilityEffect::Settle { .. } => false,
-                };
-                if go {
-                    let _ = self.cast(uid, ab);
-                }
-            }
-        }
     }
 }

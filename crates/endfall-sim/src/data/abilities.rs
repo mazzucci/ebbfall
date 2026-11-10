@@ -1,26 +1,15 @@
-//! Unit abilities. Each is one tap on the command card (a self-cast or a toggle), so they work with a thumb: no
-//! targeting. A unit kind lists its abilities in `UnitDef::abilities`; the rules are in world/abilities.rs.
+//! Unit abilities. Each is one tap on the command card (a toggle), so they work with a thumb: no targeting. A unit
+//! kind lists its abilities in `UnitDef::abilities`; the rules are in world/abilities.rs. Since the re-theme two are
+//! left: the Guard's Brace and the Trebuchet's Deploy (the boosts, the hop and the cloaks went with their units).
 
 use super::*;
 
 /// What an ability does.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AbilityEffect {
-    /// For `secs`: fire `fire` times as fast and move `speed` times as fast; costs `hp` of the caster's hull.
-    Boost {
-        secs: f64,
-        fire: f64,
-        speed: f64,
-        hp: f64,
-    },
     /// A toggle: settled in (deployed), +`range` tiles of reach, +`armor` armour and no moving; `swap` seconds to
     /// settle in or pack up, without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
     Settle { range: f64, swap: f64, armor: f64 },
-    /// A hop of up to `dist` tiles towards the target (or the way the unit faces), onto open ground.
-    Blink { dist: f64 },
-    /// Always cloaked once researched (as an Observer is: seen and targeted only where the other side detects); never
-    /// cast.
-    Cloak,
 }
 
 def_struct! {
@@ -41,32 +30,18 @@ def_struct! {
 /// How many abilities a unit kind may list (the size of its per-unit cooldowns).
 pub const ABILITY_SLOTS: usize = 2;
 
-/// Retired with Roster v2 (the Marine's): no unit lists it; it keeps its place in the kinds (snapshot indices).
-const STIM: AbilityDef = AbilityDef {
-    key: "stim",
-    name: "Stim",
-    toggle: false,
-    auto: false,
-    cooldown: 1.0,
-    effect: AbilityEffect::Boost {
-        secs: 10.0,
-        fire: 1.5,
-        speed: 1.25,
-        hp: 10.0,
-    },
-};
-/// Dig In, the Picket's (Roster v2; retired from the Vanguard on 2026-10-31): Red Alert's sandbags, +2 range and no
-/// moving, a button on and off, researched with Sandbags (`Upgrade::Entrenching`).
+/// Brace, the Guard's (the re-theme's; Dig In before it, which gave reach): the spears set, +4 armour and no moving, a
+/// button on and off, researched with Sandbags (`Upgrade::Entrenching`). Quick to set and to lift.
 const ENTRENCH: AbilityDef = AbilityDef {
     key: "entrench",
-    name: "Dig In",
+    name: "Brace",
     toggle: true,
     auto: false,
     cooldown: 0.0,
     effect: AbilityEffect::Settle {
-        range: 2.0,
-        swap: 2.0,
-        armor: 0.0,
+        range: 0.0,
+        swap: 1.0,
+        armor: 4.0,
     },
 };
 /// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up. The
@@ -84,71 +59,12 @@ const DEPLOY: AbilityDef = AbilityDef {
         armor: 0.0,
     },
 };
-/// The Breakwater's (Roster v2): it beaches itself where it fights, as the Anchor Gun anchors (by itself, packing up
-/// when sent to move), quicker to set up, and beached it is a wall: +4 armour (6 in all) and its splash gun; on the
-/// move only its light gun.
-const BEACH: AbilityDef = AbilityDef {
-    key: "beach",
-    name: "Beach",
-    toggle: true,
-    auto: true,
-    cooldown: 0.0,
-    effect: AbilityEffect::Settle {
-        range: 0.0,
-        swap: 2.0,
-        armor: 4.0,
-    },
-};
-const BLINK: AbilityDef = AbilityDef {
-    key: "blink",
-    name: "Surface",
-    toggle: false,
-    auto: false,
-    cooldown: 30.0,
-    effect: AbilityEffect::Blink { dist: 4.0 },
-};
-const OVERCHARGE: AbilityDef = AbilityDef {
-    key: "overcharge",
-    name: "Surge",
-    toggle: false,
-    auto: false,
-    cooldown: 30.0,
-    effect: AbilityEffect::Boost {
-        secs: 6.0,
-        fire: 2.0,
-        speed: 1.0,
-        hp: 0.0,
-    },
-};
-
-/// Once researched the unit is always cloaked (`World::is_cloaked`), with no button: an automatic ability that is
-/// never cast. As Cloak it was the Raider's, retired with Roster v2 (the Kite is never hidden); as Seaglass (`VEIL`),
-/// the Petrel's.
-const CLOAK: AbilityDef = AbilityDef {
-    key: "cloak",
-    name: "Cloak",
-    toggle: false,
-    auto: true,
-    cooldown: 0.0,
-    effect: AbilityEffect::Cloak,
-};
-const VEIL: AbilityDef = AbilityDef {
-    key: "veil",
-    name: "Seaglass",
-    toggle: false,
-    ..CLOAK
-};
 
 kinds! {
-    /// Abilities. The order is the index the snapshot sends: append only.
+    /// Abilities. The order is the index the snapshot and the wire send (the re-theme removed Stim, Surface, Surge,
+    /// Cloak, Seaglass and Beach).
     AbilityKind: AbilityDef, ABILITIES {
-        Stim => STIM,
-        Entrench => ENTRENCH, // (retired)
-        Blink => BLINK,
-        Overcharge => OVERCHARGE,
-        Cloak => CLOAK,
-        Veil => VEIL,
+        Entrench => ENTRENCH,
         Deploy => DEPLOY,
-        Beach => BEACH,
     }
 }

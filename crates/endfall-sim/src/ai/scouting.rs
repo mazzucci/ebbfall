@@ -18,9 +18,9 @@ impl World {
         self.explored[self.seat() as usize][self.map.idx(tx, ty)] != 0
     }
 
-    /// Whether this AI sees enemy unit `u` (in sight, and detected if cloaked).
+    /// Whether this AI sees enemy unit `u` (in sight).
     pub(crate) fn ai_sees_unit(&self, u: &crate::world::Unit) -> bool {
-        self.ai_sees(u.x, u.y) && !self.cloaked_from(self.seat(), u)
+        self.ai_sees(u.x, u.y)
     }
 
     /// Remember enemy buildings when they come into view, forget them when their spot is seen empty, and note

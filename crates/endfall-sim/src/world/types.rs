@@ -139,8 +139,6 @@ pub struct Unit {
     pub healed_at: u32,
     /// Ability cooldowns left (s), by slot in the kind's `abilities` order.
     pub ab_cd: [f64; ABILITY_SLOTS],
-    /// A timed boost (Stim, Overcharge) and the game time it ends.
-    pub boost: Option<(AbilityKind, f64)>,
     /// The toggle that is on (Deploy), and the seconds left settling in or packing up (no moving or firing then).
     pub mode: Option<AbilityKind>,
     pub swap: f64,
@@ -148,9 +146,6 @@ pub struct Unit {
     pub stun: f64,
     /// Seconds left harpooned (`Weapon::slow`): it moves at `SLOW_SPEED` and casts nothing.
     pub slowed: f64,
-    /// A lurker's (`UnitDef::lurk`) seconds without walking or striking, up to `LURK_S` (hidden from then on); 0 for
-    /// any other kind.
-    pub still: f64,
     /// A group's marching pace (px/s): set by a group order to its slowest member's speed, so the group arrives
     /// together; it only caps a unit on the move (not in a fight), and any new order clears it.
     pub pace: Option<f64>,
@@ -209,7 +204,6 @@ pub struct Bldg {
     pub cd: f64,
     pub flash: f64,
     pub r: f64,
-    pub vent: Option<Id>,
     pub aim: f64,
     /// Upgrade being researched here and its progress (0..1).
     pub research: Option<(Upgrade, f64)>,
@@ -263,9 +257,6 @@ pub enum Event {
         x: f64,
         y: f64,
         building: bool,
-        /// The unseen alert: by something this team cannot see (a cloaked raider where it detects nothing), told at
-        /// most once every 30 s; other hits by it meanwhile are ordinary alerts.
-        unseen: bool,
     },
     /// A Medic healing: from (x, y) to the patient at (tx, ty).
     Heal {
@@ -275,8 +266,7 @@ pub enum Event {
         ty: f64,
         /// A Halo mending shields (a Medic healing otherwise).
         mend: bool,
-        /// The seats that see both the healer and its patient, bit `t` for seat `t` (as `Fire::seen`): a cloaked
-        /// patient's mend is not shown where it is not detected.
+        /// The seats that see both the healer and its patient, bit `t` for seat `t` (as `Fire::seen`).
         seen: u8,
     },
     Sfx {

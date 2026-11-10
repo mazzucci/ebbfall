@@ -1,7 +1,7 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
 // ⚠ chip), the whole-army (Q) and idle-factory (,) keys, the idle-harvester key, double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save). The pause card is pause.js.
-import { G, UNITS, BUILDINGS, TILE, visibleEnt, enemies } from '../engine/index.js';
+import { G, UNITS, TILE, visibleEnt, enemies } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 import { updateHud, myFaction } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
@@ -21,21 +21,10 @@ export function onAttacked(e) {
   // The last three places attacked (a new spot more than 8 tiles from the others), newest first: the chip cycles them.
   alerts.list = [alerts.last, ...alerts.list.filter(a => Math.hypot(a.x - e.x, a.y - e.y) > 8 * TILE)].slice(0, 3); alerts.at = 0;
   ping(e.x, e.y);
-  // By something unseen: said even on screen (losses and no one to shoot), with what finds it. A fight you are
-  // looking at otherwise needs no siren; the ping and the ⚠ chip still mark it.
+  // A fight you are looking at needs no siren; the ping and the ⚠ chip still mark it.
   const onScreen = e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
-  if (e.unseen) { toast(`Unseen attacker: ${detectors()} detect`, true, true); sfx('alert'); say('attack', 0.6); }
-  else if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); say('attack', 0.6); } // (after the siren)
+  if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); say('attack', 0.6); } // (after the siren)
   updateTools();
-}
-/** This side's detectors, as a phrase ("Turrets and Observers"): the buildings it raises that detect, and the units its
- *  buildings train that do. */
-function detectors() {
-  const f = myFaction(), bl = [...f.buildBasic, ...f.buildAdvanced];
-  const names = [...bl.filter(k => BUILDINGS[k].detect > 0).map(k => BUILDINGS[k].name),
-    ...[...new Set(bl.concat(f.hq).flatMap(k => BUILDINGS[k].trains || []))].filter(k => UNITS[k].detect > 0 && !UNITS[k].capital).map(k => UNITS[k].name)]; // (not a capital unit: a late giant is no answer to name)
-  const p = names.map(plural);
-  return p.length > 1 ? p.slice(0, -1).join(', ') + ' and ' + p[p.length - 1] : p[0] || 'Detectors';
 }
 /** Look at the latest attack; again, the one before (up to three), then round again. */
 export function jumpToAlert() {

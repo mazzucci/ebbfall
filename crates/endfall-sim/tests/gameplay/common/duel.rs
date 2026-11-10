@@ -60,13 +60,10 @@ pub fn flatten(w: &mut World, xs: std::ops::Range<i32>, ys: std::ops::Range<i32>
 pub type Micro = fn(&mut World, &[Id], &[Id]);
 /// No micro: the armies just fight.
 pub fn no_micro(_: &mut World, _: &[Id], _: &[Id]) {}
-/// Every one-level tech on both sides, and each side uses its abilities as the AI does (`World::auto_cast`): a
-/// cloaking raider cloaks once engaged with something that can hit it.
-pub fn tech_micro(w: &mut World, mine: &[Id], _: &[Id]) {
+/// Every one-level tech on both sides (the abilities left, Brace and Deploy, are toggles nobody casts in a duel: the
+/// Trebuchet deploys by itself).
+pub fn tech_micro(w: &mut World, _: &[Id], _: &[Id]) {
     all_techs(w);
-    if let Some(team) = mine.iter().find_map(|&id| w.unit(id)).map(|u| u.team) {
-        w.auto_cast(team);
-    }
 }
 
 pub fn duel_once(
@@ -233,7 +230,7 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (us
     let ws: Vec<Id> = (0..raiders)
         .map(|k| {
             w.make_unit(
-                UnitKind::Raider,
+                UnitKind::Rider,
                 ENEMY,
                 nx + 500.0,
                 ny - 300.0 + k as f64 * 25.0,

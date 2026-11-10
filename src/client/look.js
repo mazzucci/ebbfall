@@ -46,7 +46,7 @@ export const BLDG_LOOK = {
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
-export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, vanguard: 260, siegeTank: 230, interceptor: 380, raider: 880, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 180, sovereign: 160 };
+export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, siegeTank: 230, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 300, rider: 640, knight: 260, bruiser: 280 };
 
 /** The shots (tools/art/effects3.js): each projectile's sprite by its shooter's kind (`SHOT_LOOK`), else by its people
  *  and projectile kind (`PEOPLE_SHOT`); a building's shot (no shooter kind: the Watchtower's, the Radio tower's) by its
@@ -63,15 +63,12 @@ export const SHOT_TRAIL = { rocket: 'trail' };
 export const SHOT_LIT = new Set(['tracer', 'tower_shot', 'rocket']);
 
 /** Animation frames per second by unit type (default: 14 for flyers with frames to cycle; 8 for walkers while they
- *  move). 0 holds the first frame. The Balloon (observer) has one frame, and the Ballista (bastion, a flyer in today's
- *  rules) holds its first: a cart whose wheels would turn standing still. The Drone (shrike) spins its blades at the
- *  flyers' 14/s. The retiring kinds keep theirs: the Kite (raider) glides, the Argonaut's (sovereign) four hover
- *  frames run at 4/s. */
-export const UNIT_FPS = { sovereign: 4, raider: 0, observer: 0, bastion: 0 };
+ *  move). 0 holds the first frame: the Balloon (observer) has one. The Drone (shrike) spins its blades at the flyers'
+ *  14/s; the Ballista (bastion), on the ground, turns its wheels only on the move, as every walker. */
+export const UNIT_FPS = { observer: 0 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Trebuchet (siegeTank): two
- *  frames rolling, half set, set up (tools/render3d/kingdom-units.js). The Breakwater (vanguard, retiring): two strides,
- *  settling, beached with its spades out (tools/render3d/harbour-machines.js). The Guard (trooper) and the Marine
- *  (umbra) have no such pose: a dug-in Guard stands, a lurking Marine shimmers (gl/render.js). */
-export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 }, vanguard: { walk: 2, swap: 2, on: 3 } };
+ *  frames rolling, half set, set up (tools/render3d/kingdom-units.js). The Guard (trooper) has no such pose: braced, it
+ *  stands. */
+export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };

@@ -32,7 +32,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             );
         }
         assert!(u.swap >= 0.0, "{ctx}: unit {} swap {}", u.id, u.swap);
-        for k in u.mode.iter().chain(u.boost.iter().map(|(k, _)| k)) {
+        for k in u.mode.iter() {
             assert!(
                 abilities.contains(k),
                 "{ctx}: unit {} has {k:?} its kind lacks",
@@ -152,7 +152,6 @@ pub fn check_invariants(w: &World, ctx: &str) {
         w.explored.len(),
     ];
     let lens2 = [
-        w.det.len(),
         w.stats.len(),
         w.upgrades.len(),
         w.army_log.len(),

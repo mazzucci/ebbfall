@@ -1,13 +1,14 @@
 // The long-press preview's stat chips (card.js `showDetail`), and only there: two fixed rows, the same for every unit.
-// Row 1, toughness: Health, Shields (every kind of a race that has shields), Armour (shown at 0 too, dimmed).
-// Row 2, attack: damage per hit, what it can hit (ground, air or both), then tags (Splash, Heals, Flying, Cloaked,
-// Detector); an unarmed unit (workers too, as in the selection console) shows a dimmed "—" in the damage slot.
+// Row 1, toughness: Health, Shields (every kind of a race that has shields: none since the re-theme), Armour (shown
+// at 0 too, dimmed). Row 2, attack: damage per hit, what it can hit (ground, air or both), then tags (Splash, Slows,
+// Heals, Flying); an unarmed unit (workers too, as in the selection console) shows a dimmed "—" in the damage slot.
 // Base stats only, read from the sim's tables (src/engine/constants.js): no upgrades, range, rate or speed.
 // A building's card has row 1 only.
 import { UNITS, BUILDINGS, FACTIONS, kindsOf } from '../engine/constants.js';
 import { icon } from './icons.js';
 
-/** The kinds of every race with shields on any of its own kinds (the Vael): their cards keep a Shields slot. */
+/** The kinds of every race with shields on any of its own kinds: their cards keep a Shields slot (none since the
+ *  re-theme: the shield rules stay in the sim, as data). */
 const SHIELDED = new Set(Object.values(FACTIONS).map(kindsOf).filter(ks => [...ks].some(k => (UNITS[k] || BUILDINGS[k]).shields > 0)).flatMap(ks => [...ks]));
 
 const num = (n) => String(+n.toFixed(1));
@@ -44,8 +45,8 @@ export function statRows(k) {
     const [ico, label] = ground && air ? ['both', 'Hits ground and air'] : air ? ['air', 'Hits air'] : ['ground', 'Hits ground'];
     attack.push(chip('targets', '', label, ico));
   } else attack.push(chip('dmg', '—', 'No weapon', 'dmg', true));
-  const tags = [[gs.some(([g]) => g.splash > 0), 'Splash'], [gs.some(([g]) => g.slow > 0), 'Slows'], [d.heal > 0, 'Heals'], [d.air, 'Flying'], [d.cloaked, 'Cloaked'], [d.lurk, 'Lurks'], [d.detect > 0, 'Detector']];
-  const says = { Heals: d.mend ? 'Heals: mends shields' : 'Heals infantry', Slows: 'Slows what it hits', Lurks: 'Hidden while it lies still' };
+  const tags = [[gs.some(([g]) => g.splash > 0), 'Splash'], [gs.some(([g]) => g.slow > 0), 'Slows'], [d.heal > 0, 'Heals'], [d.air, 'Flying']];
+  const says = { Heals: d.mend ? 'Heals: mends shields' : 'Heals infantry', Slows: 'Slows what it hits' };
   for (const [on, name] of tags) if (on) attack.push(chip('tag', name, says[name] || name, null));
   return [tough, attack];
 }

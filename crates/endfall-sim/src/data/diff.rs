@@ -71,12 +71,12 @@ pub struct Diff {
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
-    /// The most advanced units it trains (`UnitKind::ai_tier`; Roster v2): 0 its line units and their anti-air
-    /// (Easy), 1 its heavies, healers, anti-air vehicles and the Petrel too (Medium), 2 everything (Hard and up).
+    /// The most advanced units it trains (`UnitKind::ai_tier`): 0 its line units, their anti-air and the scout (Easy),
+    /// 1 its raiders, siege, anti-air vehicles, Marines and Drones too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
     /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
-    /// plays differently, matched by kind (Brutal: the Humans' Anchor Guns sooner and more of them, against the Vael's
-    /// Lenses). A kind of the other race leaves that race's mix as it is.
+    /// plays differently, matched by kind (Brutal: the Kingdom's Trebuchets sooner and more of them). A kind of the
+    /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
 }
 
@@ -93,20 +93,20 @@ impl Diff {
 
 impl super::UnitKind {
     /// How advanced a unit is for the AI's per-level mix (`Diff::mix_tier`): 0 the workers, line units, their
-    /// anti-air and the scout; 2 the Undertow, the Kite and the capitals; 1 the rest.
+    /// anti-air and the scout; 2 the top tier (the Knight, the Bruiser); 1 the rest.
     pub fn ai_tier(self) -> u8 {
         use super::UnitKind::*;
         match self {
-            Harvester | Lumen | Trooper | Lancer | Scythe | Prism | Observer => 0,
-            Umbra | Raider | Bastion | Sovereign => 2,
+            Harvester | Lumen | Trooper | Lancer | Prism | Observer => 0,
+            Knight | Bruiser => 2,
             _ => 1,
         }
     }
 }
 
 pub const DIFF: [Diff; 4] = [
-    // Easy: a slow, plain script. Few workers, one factory to start; no research, flyers, abilities or adapting. Its
-    // second factory, from 3:35, is its vehicle bay (where its Vanguards come from). It takes its natural after 9:00
+    // Easy: a slow, plain script. Few workers, one factory to start; no research, raiders, abilities or adapting. It
+    // fields its line units and their anti-air only. It takes its natural after 9:00
     // (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still meets a
     // growing army later. One vent until then: a second's crew of workers would only pile up shards it has no factory
     // to spend on.

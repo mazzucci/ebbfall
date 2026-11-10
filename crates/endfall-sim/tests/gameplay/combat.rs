@@ -37,10 +37,10 @@ fn flyers_cross_cliffs_in_a_straight_line() {
         y as f64 * TILE + 16.0,
         (x + 13) as f64 * TILE + 16.0,
     );
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, sx, sy);
+    let raider = w.make_unit(UnitKind::Shrike, PLAYER, sx, sy);
     w.move_to(raider, tx, sy);
     let mut over_rock = false;
-    let secs = (tx - sx) / UnitKind::Raider.def().speed + 1.0;
+    let secs = (tx - sx) / UnitKind::Shrike.def().speed + 1.0;
     for _ in 0..(secs * TPS as f64) as u32 {
         w.step();
         let u = w.unit(raider).unwrap();
@@ -57,13 +57,21 @@ fn flyers_cross_cliffs_in_a_straight_line() {
 
 #[test]
 fn ground_only_weapons_cannot_touch_flyers() {
-    // A Vanguard's shells, an Umbra's blade (melee: the Vael's cloaked blade is useless against air) and, since Roster
-    // v2, the Picket's rifle (the Harpooner is the Crew Hall's anti-air).
-    for kind in [UnitKind::Vanguard, UnitKind::Umbra, UnitKind::Trooper] {
+    // The spears and lances (the Guard, the Rider, the Knight), the Buggy's light gun, the Bruiser's heavy gun and the
+    // Rover's rockets: the Archer and the Ballista are the Kingdom's anti-air, the Sellsword, the Marine and the Drone
+    // the Expedition's.
+    for kind in [
+        UnitKind::Trooper,
+        UnitKind::Rider,
+        UnitKind::Knight,
+        UnitKind::Scythe,
+        UnitKind::Bruiser,
+        UnitKind::Monolith,
+    ] {
         let mut w = arena(7);
         let van = w.make_unit(kind, PLAYER, 600.0, 900.0);
-        set_hp(&mut w, van, 1e6); // (it outlives the Raider's fire: what it does back is watched)
-        let raider = w.make_unit(UnitKind::Raider, ENEMY, 680.0, 900.0);
+        set_hp(&mut w, van, 1e6); // (it outlives the Drone's fire: what it does back is watched)
+        let raider = w.make_unit(UnitKind::Shrike, ENEMY, 680.0, 900.0);
         assert!(!w.can_hit(van, raider), "{kind:?} cannot hit a flyer");
         w.attack_ent(van, raider);
         assert_eq!(
@@ -71,12 +79,12 @@ fn ground_only_weapons_cannot_touch_flyers() {
             Task::Idle,
             "{kind:?}: an order to hit a flyer is refused"
         );
-        w.hold_unit(raider); // the raider just hovers; it would shoot the vanguard if attacked? no: it is on hold and in range
+        w.hold_unit(raider); // (the Drone just hovers, on hold, shooting what is in its reach)
         run(&mut w, 8);
         let v = w.unit(van).unwrap();
         assert!(
             !matches!(v.task, Task::Attack { .. }),
-            "{kind:?} neither auto-targets nor retaliates against the raider"
+            "{kind:?} neither auto-targets nor retaliates against the Drone"
         );
         assert!(
             w.unit(raider).is_some_and(|u| u.hp == u.maxhp),
@@ -86,35 +94,34 @@ fn ground_only_weapons_cannot_touch_flyers() {
 }
 
 #[test]
-fn an_interceptor_cannot_touch_the_ground() {
-    // Missiles at flyers only: no ground unit nor building can be hit, ordered or not, and none ever is.
+fn a_ballista_hits_flyers_hard_and_the_ground_too() {
+    // The Kingdom's anti-air (the Netter's place) has a ground attack: its bolts hit a Guard, softer than a Drone.
+    let d = UnitKind::Bastion.def();
+    let wp = d.weapon.unwrap();
+    assert!(!d.air && d.mv == Move::Walk, "a ground vehicle");
+    assert!(wp.dmg > 0.0 && wp.dmg_air > 2.0 * wp.dmg);
     let mut w = arena(7);
-    let icp = w.make_unit(UnitKind::Interceptor, PLAYER, 600.0, 900.0);
-    let trooper = w.make_unit(UnitKind::Trooper, ENEMY, 680.0, 900.0);
+    let b = w.make_unit(UnitKind::Bastion, PLAYER, 600.0, 900.0);
+    let guard = w.make_unit(UnitKind::Trooper, ENEMY, 700.0, 900.0);
     let depot = w.make_building(BldgKind::Depot, ENEMY, 21, 26, true);
-    for target in [trooper, depot] {
-        assert!(!w.can_hit(icp, target), "it cannot hit the ground");
-        w.attack_ent(icp, target);
-        assert_eq!(
-            w.unit(icp).unwrap().task,
-            Task::Idle,
-            "an order to hit the ground is refused"
-        );
-    }
-    w.hold_unit(trooper); // (the Trooper does not shoot back: its hp is what is watched)
-    w.attack_move(icp, 21.0 * TILE, 27.0 * TILE); // (and an attack-move past both finds nothing to shoot)
-    run(&mut w, 10);
     assert!(
-        !matches!(w.unit(icp).unwrap().task, Task::Attack { .. }),
-        "it never picks a ground target"
+        w.can_hit(b, guard) && w.can_hit(b, depot),
+        "it can hit the ground"
     );
-    assert!(w.unit(trooper).is_some_and(|u| u.hp == u.maxhp));
-    assert!(w.bldg(depot).is_some_and(|b| b.hp == b.maxhp));
+    w.hold_unit(guard);
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Bastion, PLAYER, UnitKind::Trooper),
+        wp.dmg - UnitKind::Trooper.def().armor
+    );
+    assert_eq!(
+        first_hit(&mut w, UnitKind::Bastion, PLAYER, UnitKind::Shrike),
+        wp.dmg_air
+    );
 }
 
 #[test]
 fn anti_air_units_and_turrets_shoot_flyers_down() {
-    for shooter in ["lancer", "interceptor", "turret"] {
+    for shooter in ["lancer", "bastion", "prism", "umbra", "turret"] {
         let mut w = arena(9);
         match shooter {
             "turret" => {
@@ -129,26 +136,28 @@ fn anti_air_units_and_turrets_shoot_flyers_down() {
                 );
             }
         }
-        // The raider hovers just outside its own reach; anything that can hit the air should bring it down.
-        let raider = w.make_unit(UnitKind::Raider, ENEMY, 21.0 * TILE + 170.0, 31.0 * TILE);
+        // The Drone hovers just outside its own reach; anything that can hit the air should bring it down.
+        let raider = w.make_unit(UnitKind::Shrike, ENEMY, 21.0 * TILE + 170.0, 31.0 * TILE);
         w.hold_unit(raider);
         run(&mut w, 40);
-        assert!(w.unit(raider).is_none(), "{shooter} shot the raider down");
+        assert!(w.unit(raider).is_none(), "{shooter} shot the Drone down");
     }
 }
 
 #[test]
-fn two_lancers_beat_a_raider_up_close() {
-    // (two Lancers cost about what one Raider does)
+fn three_archers_beat_a_drone_up_close() {
+    // (three Archers cost a little more than one Drone does)
     let mut w = arena(10);
     let lancer = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 900.0);
     let other = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 930.0);
-    let raider = w.make_unit(UnitKind::Raider, ENEMY, 660.0, 900.0);
+    let third = w.make_unit(UnitKind::Lancer, PLAYER, 600.0, 870.0);
+    let raider = w.make_unit(UnitKind::Shrike, ENEMY, 660.0, 900.0);
     w.attack_ent(raider, lancer);
     w.attack_ent(other, raider);
+    w.attack_ent(third, raider);
     run(&mut w, 20);
     assert!(
-        w.unit(raider).is_none() && (w.unit(lancer).is_some() || w.unit(other).is_some()),
+        w.unit(raider).is_none() && [lancer, other, third].iter().any(|&a| w.unit(a).is_some()),
         "anti-air wins its duel"
     );
 }
@@ -158,18 +167,18 @@ fn medics_heal_infantry_but_not_machines() {
     let mut w = arena(11);
     let medic = w.make_unit(UnitKind::Medic, PLAYER, 600.0, 900.0);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 630.0, 900.0);
-    let van = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 940.0);
+    let van = w.make_unit(UnitKind::SiegeTank, PLAYER, 600.0, 940.0);
     for (id, hp) in [(trooper, 10.0), (van, 50.0)] {
         w.units.iter_mut().find(|u| u.id == id).unwrap().hp = hp;
     }
     let _ = medic;
-    run(&mut w, 10);
+    run(&mut w, 12);
     assert_eq!(
         w.unit(trooper).unwrap().hp,
         w.unit(trooper).unwrap().maxhp,
         "trooper healed to full"
     );
-    assert_eq!(w.unit(van).unwrap().hp, 50.0, "vanguards are machines");
+    assert_eq!(w.unit(van).unwrap().hp, 50.0, "Trebuchets are machines");
 }
 
 #[test]
@@ -189,7 +198,7 @@ fn medics_walk_to_hurt_infantry_they_can_see() {
 #[test]
 fn walkers_and_flyers_pass_under_and_over_each_other() {
     let mut w = flat_arena(14);
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, 700.0, 900.0);
+    let raider = w.make_unit(UnitKind::Shrike, PLAYER, 700.0, 900.0);
     w.hold_unit(raider);
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
     w.move_to(trooper, 800.0, 900.0);
@@ -203,9 +212,9 @@ fn walkers_and_flyers_pass_under_and_over_each_other() {
 fn the_player_hears_about_attacks_once_per_fight() {
     use endfall_sim::world::Event;
     let mut w = arena(16);
-    let mine = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    let mine = w.make_unit(UnitKind::Knight, PLAYER, 600.0, 900.0);
     w.hold_unit(mine);
-    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 700.0, 900.0);
+    let foe = w.make_unit(UnitKind::Lancer, ENEMY, 700.0, 900.0);
     w.attack_ent(foe, mine);
     let mut alerts = 0;
     for _ in 0..8 * TPS {
@@ -248,9 +257,9 @@ fn two_simultaneous_fights_alert_once_each() {
     use endfall_sim::world::Event;
     let mut w = arena(18);
     for (x, y) in [(500.0, 900.0), (1600.0, 400.0)] {
-        let mine = w.make_unit(UnitKind::Vanguard, PLAYER, x, y);
+        let mine = w.make_unit(UnitKind::Knight, PLAYER, x, y);
         w.hold_unit(mine);
-        let foe = w.make_unit(UnitKind::Trooper, ENEMY, x + 80.0, y);
+        let foe = w.make_unit(UnitKind::Lancer, ENEMY, x + 80.0, y);
         w.attack_ent(foe, mine);
     }
     let mut alerts = [0, 0];
@@ -270,30 +279,29 @@ fn two_simultaneous_fights_alert_once_each() {
 fn weapons_upgrades_add_each_units_bonus() {
     let (mut w, f) = forge_arena(30);
     assert_eq!(
-        first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Vanguard),
-        7.0 - 2.0
+        first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Knight),
+        7.0 - 3.0
     );
     research_level(&mut w, f, Upgrade::Weapons);
     assert_eq!(
-        first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Vanguard),
-        7.0 + 1.0 - 2.0,
-        "Trooper +1"
+        first_hit(&mut w, UnitKind::Trooper, PLAYER, UnitKind::Knight),
+        7.0 + 1.0 - 3.0,
+        "Guard +1"
     );
-    // (by the time a Breakwater has walked into its reach, the held one it goes for has beached: armour 2 + 4)
     assert_eq!(
-        first_hit(&mut w, UnitKind::Vanguard, PLAYER, UnitKind::Vanguard),
-        20.0 + 3.0 - 6.0,
-        "Vanguard +3"
+        first_hit(&mut w, UnitKind::Knight, PLAYER, UnitKind::Knight),
+        26.0 + 3.0 - 3.0,
+        "Knight +3"
     );
 }
 
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        // (but a retired one: Cloaking Field keeps its index, and nothing researches it)
+        // (but Hardshell: shields are data since the re-theme, and nothing researches it)
         assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
-            u != Upgrade::CloakingField,
+            u != Upgrade::Shields,
             "{u:?} is researched at some building"
         );
         assert_eq!(Upgrade::parse(u.def().key), Some(u));
@@ -320,12 +328,12 @@ fn armor_upgrades_soak_one_more_point_per_level() {
     research_level(&mut w, f, Upgrade::Armor);
     assert_eq!(
         first_hit(&mut w, UnitKind::Trooper, ENEMY, UnitKind::Trooper),
-        7.0 - 2.0,
-        "two armor levels"
+        7.0 - 1.0 - 2.0,
+        "two armor levels on the Guard's own 1"
     );
     research_level(&mut w, f, Upgrade::Armor);
     assert_eq!(
-        first_hit(&mut w, UnitKind::Harvester, ENEMY, UnitKind::Vanguard),
+        first_hit(&mut w, UnitKind::Harvester, ENEMY, UnitKind::Knight),
         1.0,
         "every hit does at least 1"
     );
@@ -335,17 +343,22 @@ fn armor_upgrades_soak_one_more_point_per_level() {
 fn every_weapon_reports_its_shots_for_the_sound() {
     use endfall_sim::world::Event;
     for (shooter, target, weapon) in [
-        (UnitKind::Trooper, UnitKind::Trooper, "bolt"),
-        (UnitKind::Vanguard, UnitKind::Trooper, "shell"),
-        (UnitKind::Lancer, UnitKind::Raider, "missile"),
+        (UnitKind::Trooper, UnitKind::Trooper, "melee"),
+        (UnitKind::Lancer, UnitKind::Shrike, "missile"),
         (UnitKind::Harvester, UnitKind::Trooper, "melee"),
-        // The Vael sound like glass and ceramic.
+        // The Expedition sound like glass and ceramic (its sounds are the Vael's until the words PR).
         (UnitKind::Prism, UnitKind::Trooper, "lance"),
-        (UnitKind::Monolith, UnitKind::Trooper, "slam"),
-        (UnitKind::Scythe, UnitKind::Trooper, "blade"),
+        (UnitKind::Scythe, UnitKind::Trooper, "lance"),
+        (UnitKind::Lumen, UnitKind::Trooper, "blade"),
     ] {
         let mut w = arena(16);
-        if shooter.def().mv == Move::Amph {
+        if VAEL
+            .build_basic
+            .iter()
+            .chain(VAEL.build_advanced)
+            .chain([&VAEL.hq])
+            .any(|b| b.def().trains.contains(&shooter))
+        {
             w.factions = vec![&VAEL, &HUMANS];
         }
         let me = w.make_unit(shooter, PLAYER, 600.0, 900.0);
@@ -388,11 +401,13 @@ fn a_shell_splashes_walking_neighbours_only() {
             .map(|(&u, s)| s - hp(w, u))
             .collect()
     };
-    let dmg = UnitKind::Vanguard.def().damage_vs(false);
-    // (flat ground: the Breakwater's 2 tiles of reach would take it round the rock between them)
+    // (the Rover's rockets: 0.5 of the hit within 44 px)
+    let wp = UnitKind::Monolith.def().weapon.unwrap();
+    let dmg = wp.dmg;
     let mut w = flat_arena(16);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    let v = w.make_unit(UnitKind::Monolith, PLAYER, 600.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
+    set_hp(&mut w, target, 500.0); // (it outlives the first rocket: the whole hit shows)
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 925.0); // 25 px from the target
     let far = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 960.0); // 60 px: out of the splash
     let friend = w.make_unit(UnitKind::Medic, PLAYER, 760.0, 880.0);
@@ -403,14 +418,15 @@ fn a_shell_splashes_walking_neighbours_only() {
     let lost = first_shell(&mut w, &[target, near, far, friend]);
     assert_eq!(
         lost,
-        vec![dmg, dmg * SHELL_SPLASH, 0.0, 0.0],
+        vec![dmg, dmg * wp.splash, 0.0, 0.0],
         "target, walking neighbour (splash), beyond the radius, own side"
     );
     // A flyer over the target is not splashed.
     let mut w = flat_arena(16);
-    let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 900.0);
+    let v = w.make_unit(UnitKind::Monolith, PLAYER, 600.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
-    let flyer = w.make_unit(UnitKind::Raider, ENEMY, 752.0, 905.0);
+    set_hp(&mut w, target, 500.0);
+    let flyer = w.make_unit(UnitKind::Observer, ENEMY, 752.0, 905.0);
     w.hold_unit(target);
     w.hold_unit(flyer);
     w.attack_ent(v, target);
@@ -429,13 +445,13 @@ fn two_medics_do_not_make_a_trooper_immortal() {
     }
     w.hold_unit(t);
     for k in 0..3 {
-        let f = w.make_unit(UnitKind::Trooper, ENEMY, 700.0, 880.0 + k as f64 * 20.0);
+        let f = w.make_unit(UnitKind::Lancer, ENEMY, 700.0, 880.0 + k as f64 * 20.0);
         w.attack_ent(f, t);
     }
     run(&mut w, 15);
     assert!(
         w.unit(t).is_none(),
-        "three Troopers focusing one Trooper out-shoot two Medics"
+        "three Archers focusing one Guard out-shoot two Medics"
     );
 }
 
@@ -543,23 +559,23 @@ fn a_unit_busy_with_a_building_turns_on_a_newcomer_that_shoots_it() {
 
 #[test]
 fn flyers_do_not_fear_what_cannot_reach_them() {
-    // A Vanguard cannot shoot up, nor can a Picket since Roster v2; a Lancer can: a Raider on attack-move goes for the
-    // Lancer even when farther.
+    // A Knight cannot strike up, nor can a Guard; an Archer can: a Drone on attack-move goes for the Archer even when
+    // farther.
     let mut w = flat_arena(16);
-    let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 30.0 * TILE, 32.0 * TILE);
+    let vanguard = w.make_unit(UnitKind::Knight, ENEMY, 30.0 * TILE, 32.0 * TILE);
     let picket = w.make_unit(UnitKind::Trooper, ENEMY, 29.0 * TILE, 33.0 * TILE);
     let lancer = w.make_unit(UnitKind::Lancer, ENEMY, 25.0 * TILE, 32.0 * TILE);
     for u in [vanguard, picket, lancer] {
         w.hold_unit(u);
     }
-    let raider = w.make_unit(UnitKind::Raider, PLAYER, 31.0 * TILE, 32.0 * TILE);
+    let raider = w.make_unit(UnitKind::Shrike, PLAYER, 31.0 * TILE, 32.0 * TILE);
     w.attack_move(raider, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
     assert_eq!(target_of(&w, raider), Some(lancer));
-    // And the Vanguard, which shoots ground, treats the Raider as a plain unit but the Lancer as a threat.
+    // And the Knight, which strikes the ground, treats the Drone as a threat as it does the Archer.
     assert_eq!(w.threat_tier(lancer, false), 0);
-    assert_eq!(w.threat_tier(raider, false), 0, "a Raider shoots ground");
-    for (u, name) in [(vanguard, "a Vanguard"), (picket, "a Picket")] {
+    assert_eq!(w.threat_tier(raider, false), 0, "a Drone shoots ground");
+    for (u, name) in [(vanguard, "a Knight"), (picket, "a Guard")] {
         assert_eq!(w.threat_tier(u, true), 1, "{name} cannot reach a flyer");
     }
 }
@@ -595,7 +611,7 @@ fn harvesters_are_not_threats_and_unarmed_units_do_not_pull_units_off_buildings(
 fn a_chased_target_out_of_sight_is_let_go_and_the_attack_move_resumes() {
     let mut w = flat_arena(16);
     let me = w.make_unit(UnitKind::Lancer, PLAYER, 20.0 * TILE, 32.0 * TILE);
-    let obs = w.make_unit(UnitKind::Raider, ENEMY, 25.0 * TILE, 32.0 * TILE); // (a flyer that will not chase)
+    let obs = w.make_unit(UnitKind::Observer, ENEMY, 25.0 * TILE, 32.0 * TILE); // (a flyer that will not chase)
     w.hold_unit(obs);
     w.attack_move(me, 40.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
@@ -642,7 +658,7 @@ fn units_answer_a_shooter_and_then_carry_on_with_their_attack_move() {
     w.attack_move(me, 36.0 * TILE, 32.0 * TILE);
     run(&mut w, 1);
     assert_eq!(target_of(&w, me), Some(depot));
-    let foe = w.make_unit(UnitKind::Vanguard, ENEMY, 19.0 * TILE, 32.0 * TILE);
+    let foe = w.make_unit(UnitKind::Knight, ENEMY, 19.0 * TILE, 32.0 * TILE);
     w.hold_unit(foe);
     w.damage(me, 1.0, Some(foe));
     assert_eq!(target_of(&w, me), Some(foe), "turns on the shooter");
@@ -650,11 +666,11 @@ fn units_answer_a_shooter_and_then_carry_on_with_their_attack_move() {
 
 #[test]
 fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
-    // (Lancers: the Picket has no shot at a flyer since Roster v2)
+    // (Archers: the Guard has no strike at a flyer)
     let mut w = flat_arena(16);
     let me = w.make_unit(UnitKind::Lancer, PLAYER, 30.0 * TILE, 32.0 * TILE);
     let mate = w.make_unit(UnitKind::Lancer, PLAYER, 31.0 * TILE, 32.0 * TILE);
-    let raider = w.make_unit(UnitKind::Raider, ENEMY, 30.0 * TILE, 38.0 * TILE);
+    let raider = w.make_unit(UnitKind::Shrike, ENEMY, 30.0 * TILE, 38.0 * TILE);
     w.hold_unit(raider);
     run(&mut w, 1);
     w.damage(me, 1.0, Some(raider));
@@ -664,7 +680,7 @@ fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
         Some(raider),
         "the idle neighbour joins in"
     );
-    // The Raider leaves for good: both let it go and walk back to where they stood.
+    // The Drone leaves for good: both let it go and walk back to where they stood.
     let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
     o.hp = 1e6;
     o.maxhp = 1e6;
@@ -687,19 +703,20 @@ fn shields_research_soaks_damage_on_shields_only() {
     let mut w = flat_arena(17);
     w.factions = vec![&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    give_shields(&mut w, s, TEST_SHIELDS);
     w.hold_unit(s);
     w.upgrades[PLAYER as usize][Upgrade::Shields.index()] = 2;
     let d = UnitKind::Scythe.def();
     w.damage(s, 7.0, None);
     assert_eq!(
         w.unit(s).unwrap().sh,
-        d.shields - 5.0,
+        TEST_SHIELDS - 5.0,
         "two levels soak 2 of a 7-damage hit on shields"
     );
     w.damage(s, 2.0, None);
     assert_eq!(
         w.unit(s).unwrap().sh,
-        d.shields - 6.0,
+        TEST_SHIELDS - 6.0,
         "at least 1 always lands"
     );
     let left = w.unit(s).unwrap().sh;
@@ -717,8 +734,10 @@ fn shields_research_soaks_damage_on_shields_only() {
         "with the shields down, only hull armor"
     );
     assert!(
-        BldgKind::Loom.def().researches.contains(&Upgrade::Shields),
-        "researched at the Loom"
+        BLDG_KINDS
+            .iter()
+            .all(|b| !b.def().researches.contains(&Upgrade::Shields)),
+        "data since the re-theme: researched nowhere"
     );
 }
 
@@ -736,9 +755,12 @@ fn a_tender_mends_nacre_first_then_hull_and_never_past_full() {
     for u in [tender, a, b, far] {
         w.hold_unit(u);
     }
+    for u in [a, b, far] {
+        give_shields(&mut w, u, TEST_SHIELDS);
+    }
     let d = UnitKind::Scythe.def();
     for u in [a, b, far] {
-        w.damage(u, d.shields + 20.0, None); // nacre gone, some hull lost
+        w.damage(u, TEST_SHIELDS + 20.0, None); // nacre gone, some hull lost
     }
     let hull = w.unit(a).unwrap().hp;
     assert!(hull < d.hp);
@@ -767,11 +789,11 @@ fn a_tender_mends_nacre_first_then_hull_and_never_past_full() {
     assert!(sa2 + sb2 > sa + sb, "mending outpaces 1-damage hits");
     // Nacre nearly full: the rest of a second's mend goes to the hull.
     w.units.iter_mut().find(|u| u.id == b).unwrap().hp = d.hp; // (one patient)
-    w.units.iter_mut().find(|u| u.id == b).unwrap().sh = d.shields;
-    w.units.iter_mut().find(|u| u.id == a).unwrap().sh = d.shields - 2.0;
+    w.units.iter_mut().find(|u| u.id == b).unwrap().sh = TEST_SHIELDS;
+    w.units.iter_mut().find(|u| u.id == a).unwrap().sh = TEST_SHIELDS - 2.0;
     run(&mut w, 1);
     let u = w.unit(a).unwrap();
-    assert_eq!(u.sh, d.shields, "the nacre topped up");
+    assert_eq!(u.sh, TEST_SHIELDS, "the nacre topped up");
     assert!(
         (u.hp - (hull + mend - 2.0)).abs() < 0.5,
         "then the hull: {} from {hull}",
@@ -787,7 +809,7 @@ fn a_tender_mends_nacre_first_then_hull_and_never_past_full() {
 
 #[test]
 fn a_tender_mends_a_hull_only_ally_and_two_tenders_do_not_double_up() {
-    // The Lens has no nacre (Roster v2): the Tender mends its hull, up to full and no further. Two Tenders by one
+    // The Sellsword has no nacre: the Tender mends its hull, up to full and no further. Two Tenders by one
     // patient tend it one at a time (as two Medics do); a Human ally is tended too.
     let mut w = flat_arena(18);
     w.factions = vec![&VAEL, &HUMANS];
@@ -841,10 +863,11 @@ fn a_tender_mends_a_hull_only_ally_and_two_tenders_do_not_double_up() {
 }
 
 #[test]
-fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
+fn shields_take_hits_first_and_come_back_out_of_combat() {
     let mut w = flat_arena(16);
     w.factions = vec![&VAEL, &HUMANS];
     let s = w.make_unit(UnitKind::Scythe, PLAYER, 30.0 * TILE, 30.0 * TILE);
+    give_shields(&mut w, s, TEST_SHIELDS);
     w.hold_unit(s);
     let d = UnitKind::Scythe.def();
     // A hit smaller than the shields: all on the shields, at full value (armor does not apply to them).
@@ -852,7 +875,7 @@ fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     let u = w.unit(s).unwrap();
     assert_eq!(
         (u.hp, u.sh),
-        (d.hp, d.shields - 25.0),
+        (d.hp, TEST_SHIELDS - 25.0),
         "shields first, armor ignored"
     );
     // A hit bigger than what is left: the rest goes to the hull, minus armor.
@@ -861,7 +884,7 @@ fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     assert_eq!(u.sh, 0.0);
     assert_eq!(
         u.hp,
-        d.hp - (50.0 - (d.shields - 25.0) - d.armor),
+        d.hp - (50.0 - (TEST_SHIELDS - 25.0) - d.armor),
         "the rest, minus armor, on the hull"
     );
     let hull = u.hp;
@@ -872,22 +895,26 @@ fn vael_shields_take_hits_first_and_come_back_out_of_combat() {
     assert!(w.unit(s).unwrap().sh > 0.0, "regenerating after the delay");
     run(&mut w, 20);
     let u = w.unit(s).unwrap();
-    assert_eq!(u.sh, d.shields, "full again in about 6 + shields/3 s");
+    assert_eq!(u.sh, TEST_SHIELDS, "full again in about 6 + shields/3 s");
     assert_eq!(u.hp, hull, "the hull never heals by itself");
-    // Humans have no shields: a hit is as it always was.
+    // Without shields (every unit's since the re-theme): a hit is as it always was.
     let t = w.make_unit(UnitKind::Trooper, ENEMY, 36.0 * TILE, 30.0 * TILE);
     w.hold_unit(t);
     w.damage(t, 10.0, None);
-    assert_eq!(w.unit(t).unwrap().hp, UnitKind::Trooper.def().hp - 10.0);
+    let d = UnitKind::Trooper.def();
+    assert_eq!(w.unit(t).unwrap().hp, d.hp - (10.0 - d.armor));
     assert_eq!(w.unit(t).unwrap().maxsh, 0.0);
 }
 
 #[test]
-fn vael_buildings_have_no_nacre_and_lumens_do_not_repair() {
-    // Roster v2 folded the Vael buildings' shields into their hulls: nothing to regenerate, and a Glint still cannot
-    // repair, so a damaged Vael building stays damaged.
-    for k in VAEL.build_basic.iter().chain(VAEL.build_advanced) {
-        assert_eq!(k.def().shields, 0.0, "{k:?} has no nacre");
+fn nothing_has_shields_and_bots_do_not_repair() {
+    // No shields since the re-theme (the mechanism stays, as data): no unit or building has any, and a Bot still
+    // cannot repair, so a damaged Expedition building stays damaged.
+    for k in BLDG_KINDS {
+        assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
+    }
+    for k in UNIT_KINDS {
+        assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
     }
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
@@ -919,7 +946,7 @@ fn a_monolith_splashes_with_its_own_numbers() {
     w.factions = vec![&VAEL, &HUMANS];
     let d = UnitKind::Monolith.def();
     let wp = d.weapon.unwrap();
-    assert_eq!((wp.splash, wp.splash_r), (0.5, 40.0));
+    assert_eq!((wp.splash, wp.splash_r), (0.5, 44.0));
     let m = w.make_unit(UnitKind::Monolith, PLAYER, 560.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 930.0); // 30 px: in its splash
@@ -1004,9 +1031,9 @@ fn the_army_log_samples_both_sides_every_ten_seconds() {
     run(&mut w, 25);
     assert_eq!(w.army_log[0], vec![50, 50], "two samples of one Trooper");
     assert_eq!(w.army_log[1], vec![0, 0]);
-    w.make_unit(UnitKind::Vanguard, ENEMY, 1600.0, 300.0);
+    w.make_unit(UnitKind::Knight, ENEMY, 1600.0, 300.0);
     run(&mut w, 10);
-    assert_eq!(w.army_log[1].last(), Some(&150), "a Breakwater: 150 salt");
+    assert_eq!(w.army_log[1].last(), Some(&225), "a Knight: 225 salt");
 }
 
 #[test]
@@ -1068,12 +1095,12 @@ fn the_end_screen_learns_what_killed_each_side() {
 #[test]
 fn a_kill_by_a_shell_whose_shooter_died_still_counts() {
     let mut w = flat_arena(17);
-    let vanguard = w.make_unit(UnitKind::Vanguard, ENEMY, 26.0 * TILE, 30.0 * TILE);
-    // (an unarmed Medic: the only shell in the air is the Vanguard's)
+    let vanguard = w.make_unit(UnitKind::Monolith, ENEMY, 26.0 * TILE, 30.0 * TILE);
+    // (an unarmed Medic: the only rocket in the air is the Rover's)
     let t = w.make_unit(UnitKind::Medic, PLAYER, 30.0 * TILE, 30.0 * TILE);
     w.hold_unit(t);
     w.attack_ent(vanguard, t);
-    // Until its first shell is in the air, then the Vanguard dies; the Medic is one hit from death.
+    // Until its first rocket is in the air, then the Rover dies; the Medic is one hit from death.
     for _ in 0..30 * 5 {
         w.step();
         if !w.projs.is_empty() {
@@ -1087,8 +1114,8 @@ fn a_kill_by_a_shell_whose_shooter_died_still_counts() {
     run(&mut w, 3);
     assert!(w.unit(t).is_none(), "the shell killed it");
     assert_eq!(
-        w.lost_to[PLAYER as usize][UnitKind::Vanguard.index()],
+        w.lost_to[PLAYER as usize][UnitKind::Monolith.index()],
         1,
-        "counted under the Vanguard"
+        "counted under the Rover"
     );
 }

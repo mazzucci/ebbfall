@@ -28,8 +28,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 - Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`
   everywhere on the kinds without water) and the world one water level (`World::water`: 0, not hashed, unless the
   tide is on). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
-  its kind's class (`UnitDef::mv`, `Move`): Walk (the Humans' ground units: land and shallows), Amph (the Vael's:
-  anywhere), Fly (flyers, exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
+  its kind's class (`UnitDef::mv`, `Move`): Walk (every ground unit of both peoples since the re-theme: land and
+  shallows), Amph (anywhere: no kind has it since the re-theme; the class and its rules stay, as data), Fly (flyers,
+  exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
   level: `World::foot(kind)`, `Map::passable`, `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay
   class-free (map generation, buildings, flyers). The contact rules: a Walk unit in the shallows moves at `WADE_SPEED`
   (0.7, in `live_speed`); nothing fires from deep water (`fire` refuses, an attacker in deep water closes in until it
@@ -48,16 +49,16 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   `TIDE_WARN_S` before the flood each seat with walkers on ground it will cover is warned (a toast, the alert sound, a
   ping) and, its switch on (`SetRetreat`, a command; `World::no_retreat`, a bit per seat; on by default), its idle
   walkers and its idle or mining workers there walk to ground that stays dry; units under any other order keep it.
-  Amphibians are never swept. With the tide, building goes by the level that matters (`builds_on`: a Walk builder on
+  Amphibians (none since the re-theme) are never swept. With the tide, building goes by the level that matters (`builds_on`: a Walk builder on
   land at high water, an Amph builder on what is at most shallow at low water), and no building fires from deep water
   either. The tide enters the hash only when on (level, cycle, switches; a stunned unit's stun), so every game
   without it hashes as before; `golden_hashes_pin_the_shore_with_the_tide` pins one with it.
 - The Shore map (`MapKind::Shore`, appended; 64x64, two starts): each start's share holds a cove on land (a pocket in
   a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
   across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
-  shallows round it. Starts by people: a seat whose builders are Amph (the Vael) starts in its start's basin
-  (`Map::basins`), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
-  a cove or a basin: each start's two open shafts lie on land, where both peoples build. A Shore
+  shallows round it. Starts by people: a seat whose builders are Amph starts in its start's basin (`Map::basins`;
+  nobody since the re-theme), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
+  a cove or a basin (no shaft either, since the re-theme's economy). A Shore
   with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
   Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
   tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
@@ -68,13 +69,15 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 ## Tests that guard gameplay
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `random_play`): every building can be built and every unit trained, requirements,
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `random_play`, ...): the Market (one a
+  Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
+  trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
+  Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Trebuchet's deploy,
   construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
-  every 16 ticks on a tick of its own; the AI taking the open shafts on its side nearest first and rebuilding a lost
-  extractor), maps of 2, 4 and 8 starts that are walkable and alike for every start (no vent by any main or
-  expansion, two open shafts per start alike for every start, reachable and buildable by both peoples, each base's
+  every 16 ticks on a tick of its own; the Kingdom's AI raising its Market early, one a Castle, and a lost one again), maps of 2, 4 and 8 starts that are walkable and alike for every start (no vent by any main or
+  expansion, each base's
   crystals and salt as before in a clump, not an arc), group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
   amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
@@ -124,17 +127,16 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
-                      of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction),
+                      of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
+                      Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
                       upgrades.rs, diff.rs (AI tuning per difficulty), tide.rs (the tide's cycle, levels, warning and
                       sweep), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's salt in an
-                      uneven clump to one flank of its Core, `add_clump`; no base has a vent: two open mine shafts per
-                      start out in the open, 16 to 20 and 24 to 36 tiles from its Core (14 to 22 and 21 to 40 where a
-                      tight layout leaves those no room), 10 tiles or more from every crystal of every field,
-                      `place_shafts`, and an ether storm's centre vent (its centre holds no field; the other kinds' a
-                      field or nothing); every shaft starts explored for every seat, `World::explore_shafts`),
+                      uneven clump to one flank of its Core, `add_clump`; no map has a mine shaft since the re-theme's
+                      economy: the generator still lays them, so the ground they shaped stays, and takes them up at the
+                      end, `take_up_shafts`; the Kingdom's Market is built in its base, one a Castle),
                       occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
@@ -226,7 +228,8 @@ src/client/           everything that touches the browser
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
-                      Shields for a shielded race, Armour; damage, ground/air, tags), base stats only (test/stats.test.js)
+                      Shields for a shielded race (none since the re-theme), Armour; damage, ground/air, tags), base
+                      stats only (test/stats.test.js)
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
@@ -386,8 +389,9 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
                       props, construction and rubble (country.js), and the polished finish they render in (polish.js,
                       scene.js `shoot`'s `polish`) at the game's 40-degree camera and 420 sun. The older models
-                      (models.js, buildings.js, harbour*.js, vael*.js) stay only for the kinds the next roster retires
-                      (medic, vanguard, raider, interceptor, halo, sovereign, zenith) and the mine shaft (ground.js)
+                      (models.js, buildings.js, harbour*.js, vael*.js) stay only for the two healers the sim keeps but
+                      trains nowhere (medic, halo) and fitTints' reference sprites; the retired kinds are not drawn
+                      (main.js `RETIRED`)
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
                       light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures

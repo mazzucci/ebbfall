@@ -92,11 +92,11 @@ export function artIcon(name, size = 28, zoom = 1, tint = null) {
   iconCache.set(key, url);
   return url;
 }
-/** An <img> portrait of a unit type, building type or resource field ('node': 'shard' / 'ether'), or ''. In `team`'s
+/** An <img> portrait of a unit type, building type or salt field ('node'), or ''. In `team`'s
  * colours: this client's own seat unless told otherwise. */
 export function portrait(kind, type, size = 26, team = G.me) {
   const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
-    : kind === 'node' ? artIcon(type === 'ether' ? 'vent_0' : 'shard_0', size, 1.2) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
+    : kind === 'node' ? artIcon('shard_0', size, 1.2) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;
@@ -314,7 +314,7 @@ class UnitObj {
     if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
     // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
     const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
-    const f = pose && u.swap > 0 ? pose.swap : pose && (u.mode || (u.cloaked && u.d.lurk)) ? pose.on : Math.floor(this.walk) % frames; // (a lurker lying hidden shows its `on` pose: the Undertow flat)
+    const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     const name = `${u.type}_${dir}_${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
@@ -324,11 +324,8 @@ class UnitObj {
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y + (u.id % 997) * 1e-5;
     if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
-    // Abilities: a boost glows (Stim warm, Overcharge the Vael's lantern peach); a deployed tank shows it in its pose (UNIT_POSE).
-    let tint = u.boost ? (Math.sin(t * 10) > 0 ? BOOST_TINT[u.boost] ?? 0xffffff : 0xffffff) : 0xffffff;
-    // Cloaked (ours, or theirs where we detect it): a faint shimmer of itself.
-    const cloak = u.cloaked ? 0.38 + 0.08 * Math.sin(t * 5 + u.id) : 1;
-    paintAs(this.body, this.paint, this.seat, tint, cloak);
+    // (a toggle shows in its pose, UNIT_POSE: a deployed Trebuchet, a braced Guard)
+    paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
     // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
     if (u.slowed > 0) {
       const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4) * UNIT_ART_SCALE;
@@ -447,15 +444,11 @@ function updateCrusts(explored, inView) {
 
 class NodeObj {
   constructor(n) {
-    this.ether = n.type === 'ether';
     this.s = new Sprite(); this.s.position.set(n.x, n.y); L.nodes.addChild(this.s);
-    this.v = this.ether ? 0 : crystalVariant(n.tx, n.ty); // (salt: one of the crystals' variants, fixed by its tile)
-    // (no light: the brine seep is dark liquid and salt carries none, tools/render3d/STYLE.md; the old ether's violet
-    // glow made the seep read as the Vael's)
+    this.v = crystalVariant(n.tx, n.ty); // (one of the crystals' variants, fixed by its tile; salt carries no light)
   }
-  update(n, t) {
-    if (this.ether) { const dry = n.amount <= 0; setTex(this.s, tex(`vent_${Math.floor(t * (dry ? 2 : 6)) % 4}`)); this.s.alpha = dry ? 0.6 : 1; }
-    else { const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(this.v ? `shard_${k}_${this.v}` : `shard_${k}`)); }
+  update(n) {
+    const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(this.v ? `shard_${k}_${this.v}` : `shard_${k}`));
   }
   show(v) { this.s.visible = v; }
   destroy() { this.s.destroy(); }
@@ -490,13 +483,11 @@ export function boom(x, y, r, race) {
   if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
 /** A Medic heals: a green sparkle on the patient and a faint light. */
-const BOOST_TINT = { stim: 0xffc4b4, overcharge: 0xffe0b8 }; // (the Vael's in their lantern peach, never violet)
-const CAST_TINT = { stim: 0xff8070, deploy: 0xf5c542, blink: 0xffa070, overcharge: 0xffb888 };
-/** An ability used: a flash on the caster in its colour (a Blink also leaves a puff where it lands). */
+const CAST_TINT = { deploy: 0xf5c542 };
+/** An ability used: a flash on the caster in its colour. */
 export function castFx(x, y, ability) {
   const tint = CAST_TINT[ability] ?? 0xffffff;
   addEffect('flash', x, y - 6, { life: 0.35, tint, light: tint, lightScale: 0.4 });
-  if (ability === 'blink') addEffect('puff', x, y, { tint });
 }
 /** A Medic's heal (green) or a Halo's mend (the pale aqua of the Halo's own light, not the violet of crystals and
  *  weapons) landing on its patient. */
@@ -713,8 +704,8 @@ function dashed(x0, y0, x1, y1) {
   lines.stroke({ width: 1.5, color: 0xf5a524, alpha: 0.6 });
 }
 
-/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque: a cloaked
- *  unit shimmers) and its seat's tint. */
+/** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque) and its
+ *  seat's tint. */
 export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
 /** Tests: the field's draw order (`ents`, sorted as drawn): each unit and building with its place in the layer (higher:

@@ -424,9 +424,15 @@ fn six_and_eight_ais_play_on_eight_starts() {
                         .iter()
                         .filter(|b| b.team == s && (b.tx - bx).abs().max((b.ty - by).abs()) < 16)
                         .count();
+                    let all: Vec<(&str, i32)> = w
+                        .bldgs
+                        .iter()
+                        .filter(|b| b.team == s)
+                        .map(|b| (b.kind.def().key, (b.tx - bx).abs().max((b.ty - by).abs())))
+                        .collect();
                     assert!(
                         near >= 5,
-                        "{seats} seats seed {seed}: seat {s} built up ({near})"
+                        "{seats} seats seed {seed}: seat {s} built up ({near}): {all:?}"
                     );
                 }
             }

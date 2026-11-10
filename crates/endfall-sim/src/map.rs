@@ -994,6 +994,7 @@ impl Map {
             want,
             "seed {seed} {kind:?} {mw}x{mh}: every start has its two open shafts"
         );
+        m.take_up_shafts();
         m.expansions = sites
             .iter()
             .flat_map(|&p| (0..k).map(move |g| sym.point(g, p)))
@@ -1297,6 +1298,7 @@ impl Map {
             4,
             "seed {seed}: every Shore start has its two open shafts"
         );
+        m.take_up_shafts();
         m
     }
 
@@ -1498,6 +1500,22 @@ impl Map {
                 let v = sym.block(g, v, 2);
                 self.add_vent(next_id, v.0, v.1);
             }
+        }
+    }
+
+    /// No map has a shaft since the re-theme's economy (the Kingdom's Market is built in its base): the vents laid
+    /// down are taken up again at the end, so the ground they shaped (the generator clears rock round them, and a
+    /// layout without room for them is drawn again) stays as every map had it, the centre's vent included.
+    fn take_up_shafts(&mut self) {
+        let gone: Vec<i32> = self
+            .nodes
+            .iter()
+            .filter(|n| n.ether)
+            .map(|n| -(n.id as i32))
+            .collect();
+        self.nodes.retain(|n| !n.ether);
+        for o in self.occ.iter_mut().filter(|o| gone.contains(o)) {
+            *o = 0;
         }
     }
 

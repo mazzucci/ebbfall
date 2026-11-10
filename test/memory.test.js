@@ -1,5 +1,5 @@
-// What this side remembers of enemy buildings (src/client/memory.js): every mine shaft is explored from the start, so
-// the client must never draw, map or let one pick an enemy building it does not see; in the fog only the last-seen
+// What this side remembers of enemy buildings (src/client/memory.js): the client must never draw, map or let one pick an
+// enemy building it does not see; in the fog only the last-seen
 // state. The field (gl/render.js), the minimap and picking (input.js) all draw from `shownBldgs`. On the WASM sim in
 // Node; skipped when src/engine/pkg/ has not been built (as engine.test.js).
 import { test } from 'node:test';
@@ -21,17 +21,18 @@ if (built) {
 /** Step the game `s` seconds, the client noting what it sees every frame (as the renderer does). */
 const run = (s) => { for (let i = 0; i < s * 30; i++) { E.step(); M.noteBuildings(); } };
 
-test('an enemy Excavator on a far shaft: not shown until seen, then its last-seen ghost, even after it falls out of sight, until its ground is seen again', { skip }, () => {
-  // Three seats on 96x96, each its own: seat 1 the AI (it takes a shaft), seat 2 idle, we are seat 0.
+test('an enemy Market: not shown until seen, then its last-seen ghost, even after it falls out of sight, until its ground is seen again', { skip }, () => {
+  // Three seats on 96x96, each its own: seat 1 the AI (it raises a Market, then stops: the scene holds still), seat 2
+  // idle, we are seat 0.
   E.resetGameSeats(31, 1, 0, 0, ['humans', 'humans', 'humans'], [], [false, true, false], 0, 96);
   M.resetMemory();
   const shown = (id) => M.shownBldgs().find(b => b.id === id);
   let ext = null;
   for (let t = 0; t < 400 && !ext; t++) { run(1); ext = E.G.bldgs.find(b => b.team === 1 && b.type === 'extractor'); }
-  assert.ok(ext, 'the AI placed an Excavator');
+  assert.ok(ext, 'the AI placed a Market');
+  E.disableAi();
   const at = E.idx(ext.tx, ext.ty);
-  assert.equal(E.G.explored[at], 1, 'its shaft is on our map (explored)');
-  assert.equal(E.G.vis[at], 0, 'but not in sight');
+  assert.equal(E.G.vis[at], 0, 'not in sight');
   run(1);
   assert.equal(shown(ext.id), undefined, 'not drawn, mapped or picked: never seen');
   // One of ours looks: the live building.
@@ -45,8 +46,8 @@ test('an enemy Excavator on a far shaft: not shown until seen, then its last-see
   assert.equal(E.G.vis[at], 0, 'out of sight again');
   const g = shown(ext.id);
   assert.ok(g && g.ghost && g.type === 'extractor' && g.team === 1 && g.tx === ext.tx, 'its ghost, as last seen');
-  // Destroyed out of sight (seat 2's Pickets, which give us no sight): the ghost stays.
-  const killers = [0, 1, 2, 3, 4, 5].map(i => E.debugSpawn(2, 'trooper', ext.x + 40, ext.y + 20 * (i - 2)));
+  // Destroyed out of sight (seat 2's Archers, which give us no sight): the ghost stays.
+  const killers = [0, 1, 2, 3, 4, 5, 6, 7].map(i => E.debugSpawn(2, 'lancer', ext.x + 40, ext.y + 20 * (i - 3)));
   for (let t = 0; t < 60 && E.G.bldgs.some(b => b.id === ext.id); t++) run(1);
   assert.ok(!E.G.bldgs.some(b => b.id === ext.id), 'seat 2 destroyed it');
   assert.equal(E.G.vis[at], 0, 'unseen by us');

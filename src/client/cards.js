@@ -25,14 +25,13 @@ function canUse(u, k) {
 }
 /** The selection's abilities, one button each (in table order), each in the place it has with all of them unlocked
  *  (`pos`): one still waiting for its tech is left out (its slot stays empty, its key does nothing), so players find
- *  it once researched. Greyed while none of its units can use it; a timed one (Stim) is lit while any of them is
- *  under it. No countdowns: a button comes back when it is ready. An automatic ability (Deploy, a researched cloak)
- *  has no button. */
+ *  it once researched. Greyed while none of its units can use it. No countdowns: a button comes back when it is
+ *  ready. An automatic ability (Deploy) has no button. */
 function abilityItems(units) {
   return Object.keys(ABILITIES).filter(k => !ABILITIES[k].auto && units.some(u => (UNITS[u.type].abilities || []).includes(k))).map((k, pos) => {
     const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k)), tech = unlockOf(k);
     if (tech && !G.upgrades[G.me][tech]) return null; // (waiting for its tech: hidden)
-    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, pos, dis: !have.some(u => canUse(u, k)), active: have.some(u => u.boost === k), tip: a.desc };
+    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, pos, dis: !have.some(u => canUse(u, k)), tip: a.desc };
   }).filter(Boolean);
 }
 

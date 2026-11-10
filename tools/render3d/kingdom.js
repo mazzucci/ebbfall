@@ -98,7 +98,8 @@ export function makeKingdomMats(tc, v = 'B') {
   M.leather = std({ color: P.leather, roughness: 0.6, metalness: 0.1 });
   M.skin = std({ color: 0xc89a74, roughness: 0.8 });
   M.linen = std({ color: 0xd8d0bc, map: M.canvas.map, roughness: 0.92 });                                          // pale linen: the Villager's coif (the kingdom's heads are pale)
-  M.gold = std({ color: 0xe0b040, metalness: 0.95, roughness: 0.32 });
+  M.gold = std({ color: 0xf0c850, metalness: 0.6, roughness: 0.35 });                                               // coins: a light yellow (seat 0 is blue now; gold is the coins' alone)
+  M.glint = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6 });                                    // a white glint on a heap
   M.horse = std({ color: P.horse, roughness: 0.75 });
   M.horseDark = std({ color: 0x241810, roughness: 0.85 });                                                        // mane, tail, hooves
   M.earth = std({ color: P.earth, map: earthTex, roughness: 1 });                                                 // trodden earth under the castle
@@ -185,6 +186,8 @@ export function villager(M, f) {
   add(sk, sph(2.4, 12, 10), M.canvasDark, -0.6, 2.0, -1.4).scale.set(1, 0.8, 1.2);              // a lump in it
   add(sk, cyl(3.4, 2.6, 1.6, 14), M.canvas, 0.2, 2.8, 1.6, 0.4, 0, 0);                            // the mouth, rolled back
   add(sk, sph(3.3, 14, 10), M.gold, -0.6, 3.0, 1.4).scale.set(1, 0.55, 1.1);                      // the load: a big heap of gold coins out of the mouth, behind the shoulder, the worker's loud cue
+  add(sk, torus(3.2, 0.3, 18), M.inkLine, -0.6, 3.1, 1.4, Math.PI / 2, 0, 0).scale.set(1, 1.1, 1);  // a dark rim round it
+  add(sk, sph(0.5, 8, 6), M.glint, 0.2, 4.6, 1.0); add(sk, sph(0.35, 8, 6), M.glint, -1.6, 4.4, 2.2); // white glints
   for (const [x, z] of [[0.6, 1.6], [-2.0, 2.6], [-0.6, 0.4], [-1.6, 0.2]]) add(sk, cyl(0.9, 0.9, 0.35, 10), M.gold, x, 4.7, z, 0.3, x, 0.2);
   for (const z of [-2.0, 2.0]) {                                                                 // the straps over the shoulders
     add(b, rbox(4.8, 0.9, 1.5, 0.2), M.cloth, -0.2, 13.0, z, 0, 0, -0.1);
@@ -210,9 +213,9 @@ export function villager(M, f) {
  *  body at both ends. From the camera: a pale disc, a team disc beside it, a long thin bar angled up. Frames 0-1 the
  *  march. */
 export function guard(M, f) {
-  const g = figure(M, f, { tunic: M.cloth, skirt: 4.2 }), b = g.body;
-  add(b, cyl(4.3, 4.4, 0.45, 12), M.inkLine, 0, 5.65, 0);                                     // the surcoat's hem
-  add(b, rbox(5.3, 0.4, 6.9, 0.1), M.inkLine, 0, 13.1, 0);                                    // its collar's edge
+  const g = figure(M, f, { tunic: M.tunic, skirt: 4.2 }), b = g.body;                          // (an undyed surcoat: the PM's rule, no torso slab; the team is sleeves, hem, shield)
+  add(b, cyl(4.1, 4.4, 1.6, 12), M.cloth, 0, 6.2, 0); add(b, cyl(4.2, 4.2, 0.4, 12), M.inkLine, 0, 7.1, 0); add(b, cyl(4.45, 4.45, 0.45, 12), M.inkLine, 0, 5.4, 0); // a team hem band on the skirt
+  add(b, rbox(5.3, 0.4, 6.9, 0.1), M.inkLine, 0, 13.1, 0);                                    // the collar's edge
   add(b, sph(2.2, 14, 10), M.mail, 0.3, 13.4, 0);                                             // the mail coif
   add(b, sph(1.4, 12, 10), M.skin, 1.6, 13.1, 0).scale.set(0.8, 0.9, 0.9);                    // the face
   const hat = grp(); hat.position.set(0.3, 14.9, 0); b.add(hat);                              // the kettle hat
@@ -221,9 +224,10 @@ export function guard(M, f) {
   add(hat, torus(3.05, 0.22, 20), M.inkLine, 0, 0.75, 0, Math.PI / 2, 0, 0);                  // a dark seam at the crown's foot
   // the shield on the left arm, its face tilted up and towards the camera (south)
   const sh = grp(); sh.position.set(1.0, 10.2, -4.4); sh.rotation.set(-Math.PI / 2 + 0.9, 0.3, 0.1); b.add(sh);
-  add(sh, cyl(3.9, 3.9, 0.7, 24), M.oak, 0, 0, 0);                                            // the board
-  add(sh, cyl(3.4, 3.4, 0.5, 24), M.cloth, 0, 0.3, 0);                                        // the team face
-  add(sh, torus(3.65, 0.38, 24), M.inkLine, 0, 0.35, 0, Math.PI / 2, 0, 0);                   // the ink rim
+  add(sh, cyl(4.6, 4.6, 0.7, 24), M.oak, 0, 0, 0);                                            // the board, big
+  add(sh, cyl(4.1, 4.1, 0.5, 24), M.cloth, 0, 0.3, 0);                                        // the team face
+  add(sh, torus(4.35, 0.4, 24), M.inkLine, 0, 0.35, 0, Math.PI / 2, 0, 0);                    // the ink rim
+  add(b, rbox(2.8, 5.0, 4.6, 0.6), M.cloth, -3.9, 10.4, 0); add(b, rbox(3.0, 0.4, 4.8, 0.1), M.inkLine, -3.9, 13.0, 0); add(b, rbox(3.0, 0.4, 4.8, 0.1), M.inkLine, -3.9, 7.8, 0); // a team pack on the back
   add(sh, sph(1.0, 10, 8), M.steel, 0, 0.5, 0);                                               // the boss
   limb(b, [0.6, 11, -3.6], [1.2, 9.8, -4.0], 1.2, M.cloth);                                    // team sleeves (the family trait; the Guard keeps more team than the Villager)
   // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule
@@ -261,20 +265,21 @@ export function knight(M, f) {
     add(h, rbox(1.8, 1.2, 1.9, 0.4), M.horseDark, x + s * 1.3, 0.6, z);                        // a hoof
   }
   // the caparison: team cloth over the body down the flanks, an ink hem at its foot, a leather saddle over it
-  add(h, rbox(16.6, 6.4, 7.4, 1.4), M.cloth, -1, 9.2, 0);
-  add(h, rbox(16.9, 0.5, 7.7, 0.1), M.inkLine, -1, 6.1, 0);
+  add(h, rbox(16.6, 6.4, 7.4, 1.4), M.tunic, -1, 9.2, 0);                                      // the caparison, undyed wool (no body slab)
+  add(h, rbox(16.8, 2.0, 7.6, 0.3), M.cloth, -1, 7.1, 0);                                      // its team border band
+  add(h, rbox(16.9, 0.5, 7.7, 0.1), M.inkLine, -1, 8.2, 0); add(h, rbox(16.9, 0.5, 7.7, 0.1), M.inkLine, -1, 6.0, 0);
   add(h, rbox(7.5, 1.8, 7.8, 0.6), M.leather, 0.5, 14.1, 0);                                  // the saddle
   add(h, rbox(7.8, 0.4, 8.0, 0.1), M.inkLine, 0.5, 13.3, 0);                                  // its ink edge over the cloth
   // the rider: legs down the flanks, a team surcoat over mail, a steel great helm with a team plume
   const r = grp(); r.position.set(0.5, 14.8, 0); g.add(r);
   for (const side of [-1, 1]) { limb(r, [0.5, 2, side * 3.2], [1.8, -3.6, side * 4.6], 1.1, M.mail); add(r, rbox(2.6, 1.2, 1.6, 0.4), M.leather, 2.8, -4.0, side * 4.7); }
-  add(r, rbox(4.8, 6.0, 6.0, 1.4), M.cloth, 0, 4.4, 0);                                       // the surcoat
-  add(r, rbox(5.0, 0.4, 6.3, 0.1), M.inkLine, 0, 1.6, 0); add(r, rbox(5.0, 0.4, 6.3, 0.1), M.inkLine, 0, 7.2, 0);
-  add(r, cyl(2.3, 2.3, 3.6, 14), M.steel, 0.2, 9.4, 0);                                       // the great helm
+  add(r, rbox(4.8, 6.0, 6.0, 1.4), M.tunic, 0, 4.4, 0);                                       // the surcoat, undyed
+  for (const z of [-2.4, 2.4]) { add(r, rbox(5.0, 1.6, 1.4, 0.3), M.cloth, 0, 7.4, z); add(r, rbox(5.2, 0.3, 1.6, 0.1), M.inkLine, 0, 8.3, z); add(r, rbox(5.2, 0.3, 1.6, 0.1), M.inkLine, 0, 6.5, z); } // team shoulder pads
+  add(r, cyl(2.8, 2.8, 4.2, 14), M.steel, 0.2, 9.6, 0);                                       // the great helm, big and pale: the rider's head reads
   add(r, cyl(2.4, 2.4, 0.4, 14), M.inkLine, 0.2, 8.5, 0);                                     // its dark seam at the chin
   add(r, rbox(2.2, 0.5, 2.0, 0.1), M.inkLine, 1.6, 9.6, 0);                                   // the eye slit
-  add(r, sph(1.3, 10, 8), M.steel, 0.2, 11.5, 0);                                              // the helm's crown: a pale steel dot on the rider
-  add(r, cone(1.0, 3.6, 8), M.cloth, -1.8, 12.0, 0, 0, 0, 1.1);                                // the plume, flying back, below it
+  add(r, sph(1.6, 10, 8), M.steel, 0.2, 11.9, 0);                                              // the helm's crown
+  add(r, cone(1.0, 4.0, 8), M.cloth, -2.0, 12.0, 0, 0, 0, 1.1);                                // the team plume, flying back
   // the shield on the left side, its face out and a little up
   const sh = grp(); sh.position.set(0.8, 4.0, -4.3); sh.rotation.set(-Math.PI / 2 + 1.25, 0, 0); r.add(sh);
   add(sh, cyl(3.6, 3.6, 0.6, 20), M.oak, 0, 0, 0); add(sh, cyl(3.1, 3.1, 0.4, 20), M.cloth, 0, 0.3, 0);
@@ -285,108 +290,99 @@ export function knight(M, f) {
   add(ln, cyl(0.95, 1.2, 24, 8), M.oak, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; drawn twice its thickness)
   add(ln, cyl(1.6, 1.0, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
   add(ln, cone(1.1, 3.6, 8), M.steel, 20.0, 0, 0, 0, 0, -Math.PI / 2);                        // the point
-  const pn = add(ln, plate([[0, -2.0], [8, -0.6], [8, 0.6], [0, 2.0]], 0.35, 0.08), M.cloth, 18.2, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -0.42 + 0.1; // the pennon, hung level so it faces the camera
-  add(ln, rbox(0.4, 0.4, 4.2, 0.05), M.inkLine, 18.2, 0.4, 0.2);                             // its ink edge at the staff
+  const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -0.42 + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
+  add(ln, rbox(0.4, 0.4, 5.4, 0.05), M.inkLine, 20.6, 0.4, 0.2);                             // its ink edge at the staff
   limb(r, [0, 6, 3], [2.0, 4.8, 3.6], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, 2.2, 4.8, 3.7);
   return g;
 }
 
-/** Castle (the main building, 4x4): the iconic shape Stelian asked for, the kingdom's own by palette, proportions and
- *  materials: a square stone keep at the back with four battlemented corner turrets and a tall central tower under
- *  the one big cone, flying the great banner; a crenellated curtain wall round the yard with round battlemented
- *  corner towers (flat tops: round 2's judge counted five cones and saw Disney); a gatehouse of two cone-roofed
- *  towers on the south wall; a great hall against the east wall. Three cones in all. Team anchors (the judge's ask):
- *  the keep's south face, hung with three tall team cloths and a canopy over its roof terrace, and the gate, with a
- *  banner over the arch, cloths down both gate towers' faces, shields, and festival cloths draped along the south
- *  wall either side. One tent only, a plain round pavilion, no stripes; a cart of coin sacks under a team cover; a
- *  well, barrels, hay, a spear rack. On trodden earth, a worn path south from the gate, inside the Lighthouse's
- *  footprint. */
+/** Castle (the main building, 4x4; the slice, round 3): towers and battlements as Stelian asked, off the
+ *  Age-of-Empires square-fort template by proportion and plan: a tall narrow keep at the north-west with one great
+ *  round tower rising from its south-east corner under the one big cone (team cloth) flying the great banner; a
+ *  curtain wall round the yard with a round tower at two corners only (north-east, south-west), flat battlemented
+ *  tops; the gatehouse off-centre on the south wall, two cone-roofed towers (team cloth); a great hall along the
+ *  east wall; a grey flagstone yard with a cart, crates, a well; grey-brown trodden earth and a path. Slate and dark
+ *  iron throughout; team only on the three cones, the flags and narrow banners (the great banner, the towers'
+ *  banners and pennants, four narrow banners down the keep's face, banners on the yard's north wall, the gate's
+ *  banner and shields): no cloth slabs, no tents, awnings or canopies. */
 export function castle(M) {
   const g = grp(), R = 56, T = 6;
   add(g, plate(oct(62), 2.2, 0.8), M.earth, 0, 0, 0);                                           // trodden earth, grey-brown
   add(g, plate(sq(R - T + 0.5), 0.8, 0.3), M.yard, 0, 2.2, 0);                                   // the yard, grey flagstones
-  add(g, plate([[-6, 50], [6, 50], [7, 63], [-7, 63]], 0.6, 0.2), M.path, 0, 2.0, 0);           // the worn path out of the gate
-  add(g, plate([[-7, 2], [7, 4], [8, 50], [-8, 50]], 0.5, 0.2), M.path, 0, 2.0, 0);             // and across the yard
+  const GX = 16, GZ = R - T / 2;                                                                 // the gate, off-centre to the east
+  add(g, plate([[GX - 6, 50], [GX + 6, 50], [GX + 7, 63], [GX - 7, 63]], 0.6, 0.2), M.path, 0, 2.0, 0); // the worn path out of the gate
+  add(g, plate([[GX - 7, 2], [GX + 7, 4], [GX + 8, 50], [GX - 8, 50]], 0.5, 0.2), M.path, 0, 3.1, 0); // and across the yard
   // the curtain wall: a ring of ashlar with a walk and merlons
   add(g, ringPlate(sq(R + 1.5), sq(R - T - 1.5), 2.6), M.plinth, 0, 1.5, 0);
   add(g, ringPlate(sq(R), sq(R - T), 13), M.wall, 0, 2, 0);
-  add(g, ringPlate(sq(R + 0.6), sq(R - T - 0.6), 1.2), M.plinth, 0, 15, 0);                     // the walk's coping
+  add(g, ringPlate(sq(R + 0.6), sq(R - T - 0.6), 1.2), M.plinth, 0, 15, 0);
   for (const [x0, z0, x1, z1] of [[-R, -R, R, -R], [R, -R, R, R], [R, R, -R, R], [-R, R, -R, -R]]) crenels(g, M.wall, x0 * 0.985, z0 * 0.985, x1 * 0.985, z1 * 0.985, 16.2);
-  // the wall's corner towers: round, a little taller than the wall, battlemented flat tops (no cones), a pennant on the south pair
-  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+  // two corner towers only (north-east, south-west), round, battlemented flat tops, a banner on each
+  for (const [dx, dz] of [[1, -1], [-1, 1]]) {
     const x = dx * (R - 1), z = dz * (R - 1);
-    add(g, cyl(7.2, 7.8, 22, 16), M.wall, x, 13, z); add(g, cyl(8.0, 8.0, 1.2, 16), M.plinth, x, 24.4, z);
-    add(g, cyl(6.6, 6.6, 0.6, 16), M.wallDark, x, 25.0, z);                                         // the tower's floor inside the parapet
-    roundCrenels(g, M.wall, x, z, 7.2, 25.2);
-    if (dz > 0) pennant(g, M, x, 25.6, z, 10, 8); else banner(g, M, x, 25.6, z, 12, 10, 7);          // pennants on the south pair, square banners on the north pair
+    add(g, cyl(7.6, 8.2, 26, 16), M.wall, x, 15, z); add(g, cyl(8.4, 8.4, 1.2, 16), M.plinth, x, 28.4, z);
+    add(g, cyl(7.0, 7.0, 0.6, 16), M.wallDark, x, 29.0, z);
+    roundCrenels(g, M.wall, x, z, 7.6, 29.2);
+    banner(g, M, x, 29.6, z, 14, 14, 9);
   }
-  // the keep at the back: a square tower with four corner turrets under cones and a tall central tower flying the
-  // great banner; three team hangings down its south face; arrow slits; the door
-  const KX = -10, KZ = -18, KW = 34, KH = 42;
+  // the keep at the north-west: tall and narrow, a square tower of slate with a parapet, four narrow team banners
+  // down its south face between ink hems, arrow slits, an oak door; its great round tower at the south-east
+  // corner, taller still, under the one big cone in team cloth, the great banner on top
+  const KX = -22, KZ = -22, KW = 26, KH = 58;
   add(g, rbox(KW + 4, 4, KW + 4, 0.6), M.plinth, KX, 3, KZ);
   add(g, rbox(KW, KH, KW, 0.8), M.wall, KX, KH / 2 + 3, KZ);
-  add(g, rbox(KW + 1.5, 1.5, KW + 1.5, 0.3), M.plinth, KX, KH + 3.5, KZ);                       // the parapet's string course
-  for (const [x0, z0, x1, z1] of [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]]) crenels(g, M.wall, KX + x0 * (KW / 2 - 5.5), KZ + z0 * (KW / 2 - 1), KX + x1 * (KW / 2 - 5.5), KZ + z1 * (KW / 2 - 1), KH + 4.2, 5, 2.4, 2);
-  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {                                // the corner turrets, battlemented
-    const x = KX + dx * KW / 2, z = KZ + dz * KW / 2;
-    add(g, cyl(4.4, 4.8, KH + 6, 14), M.wallDark, x, KH / 2 + 4, z); add(g, cyl(5.0, 5.0, 1.0, 14), M.plinth, x, KH + 7.5, z);
-    roundCrenels(g, M.wall, x, z, 4.3, KH + 8.2, 7);
-  }
-  add(g, cyl(7.0, 7.6, KH + 16, 18), M.wall, KX, (KH + 16) / 2 + 3, KZ);                         // the central tower
-  add(g, cyl(7.8, 7.8, 1.2, 18), M.plinth, KX, KH + 19.6, KZ);
-  add(g, cone(8.2, 11, 18), M.cloth, KX, KH + 25.5, KZ); add(g, torus(8.0, 0.35, 18), M.inkLine, KX, KH + 20.3, KZ, Math.PI / 2, 0, 0); // the central tower's cone in team cloth: the roof carries the team with the banners
-  banner(g, M, KX, KH + 30, KZ, 14, 14, 9);                                                     // the great banner, over everything
-  for (const x of [-11.5, 0, 11.5]) hanging(g, M, KX + x, KH - 1, KZ + KW / 2 + 0.5, 11.2, 38, -Math.PI / 2); // the three tall banners down the south face: the keep's anchor
-  for (const [x, y] of [[-14, 30], [14, 30], [-14, 18], [14, 18]]) add(g, rbox(1.6, 5, 0.8, 0.2), M.inkLine, KX + x, y, KZ + KW / 2 + 0.3); // arrow slits
-  add(g, rbox(7, 10, 1.2, 0.4), M.oak, KX, 8, KZ + KW / 2 + 0.6);                                 // the keep's door
-  for (const y of [5, 10]) add(g, rbox(7.4, 0.5, 0.4, 0.1), M.ironDark, KX, y, KZ + KW / 2 + 1.3);
-  // the great hall against the east wall: stone under a steep gable roof along z, a chimney
-  const HX = 36, HZ = -12, HW = 22, HL = 44, HH = 14;
+  add(g, rbox(KW + 1.5, 1.5, KW + 1.5, 0.3), M.plinth, KX, KH + 3.5, KZ);
+  for (const [x0, z0, x1, z1] of [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]]) crenels(g, M.wall, KX + x0 * (KW / 2 - 1), KZ + z0 * (KW / 2 - 1), KX + x1 * (KW / 2 - 1), KZ + z1 * (KW / 2 - 1), KH + 4.2, 4.6, 2.2, 2);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1]]) { const x = KX + dx * KW / 2, z = KZ + dz * KW / 2; add(g, cyl(3.2, 3.6, KH + 7, 12), M.wallDark, x, KH / 2 + 4.5, z); roundCrenels(g, M.wall, x, z, 3.1, KH + 8.2, 6); } // three small bartizans
+  for (const x of [-9, -3, 3, 9]) hanging(g, M, KX + x, KH - 2, KZ + KW / 2 + 0.5, 5.0, 40, -Math.PI / 2); // four narrow banners down the south face
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1]]) pennant(g, M, KX + dx * KW / 2, KH + 8.4, KZ + dz * KW / 2, 9, 8); // pennants on the bartizans
+  for (const [x, y] of [[-10, 46], [10, 46], [0, 30]]) add(g, rbox(1.6, 5, 0.8, 0.2), M.inkLine, KX + x, y, KZ + KW / 2 + 0.3); // arrow slits
+  add(g, rbox(6, 9, 1.2, 0.4), M.oak, KX, 7.5, KZ + KW / 2 + 0.6); for (const y of [5, 9.5]) add(g, rbox(6.4, 0.5, 0.4, 0.1), M.ironDark, KX, y, KZ + KW / 2 + 1.3); // the door
+  const TX = KX + KW / 2 + 2, TZ = KZ + KW / 2 + 2, TH = 76;                                     // the great tower
+  add(g, cyl(8.4, 9.2, TH, 20), M.wall, TX, TH / 2 + 3, TZ);
+  for (const y of [24, 48]) add(g, cyl(9.2, 9.2, 1.2, 20), M.plinth, TX, y, TZ);                 // string courses
+  add(g, cyl(9.4, 9.4, 1.4, 20), M.plinth, TX, TH + 3.6, TZ);
+  add(g, cone(10, 15, 20), M.cloth, TX, TH + 11.5, TZ); add(g, torus(9.8, 0.4, 20), M.inkLine, TX, TH + 4.3, TZ, Math.PI / 2, 0, 0); // the one big cone, team cloth over an ink hem
+  banner(g, M, TX, TH + 19, TZ, 16, 18, 12);                                                    // the great banner, over everything
+  for (const [a, y] of [[0.3, 36], [-0.4, 58], [0.9, 50]]) add(g, rbox(1.4, 5, 0.8, 0.2), M.inkLine, TX + Math.cos(a + Math.PI / 2) * 9.0, y, TZ + Math.sin(a + Math.PI / 2) * 9.0, 0, -a - Math.PI / 2, 0); // slits on the south side
+  // the great hall along the east wall: slate walls under a slate gable along z, a chimney; windows and a door south
+  const HX = 36, HZ = -4, HW = 22, HL = 56, HH = 14;
   add(g, rbox(HW + 3, 3, HL + 3, 0.5), M.plinth, HX, 2.5, HZ);
   add(g, rbox(HW, HH, HL, 0.6), M.wall, HX, HH / 2 + 2, HZ);
   add(g, gable(HW + 4, 13, HL + 4), M.roof, HX, HH + 2, HZ);
-  add(g, rbox(1.6, 1.6, HL + 5, 0.4), M.oak, HX, HH + 15.2, HZ);                                 // the ridge beam
-  add(g, rbox(4, 10, 4, 0.4), M.wallDark, HX + 6, HH + 14, HZ - 12); add(g, rbox(4.6, 1, 4.6, 0.2), M.plinth, HX + 6, HH + 19.4, HZ - 12); // the chimney
-  for (const x of [-7, 7]) add(g, rbox(3, 5, 0.8, 0.3), M.inkLine, HX + x, 9, HZ + HL / 2 + 0.3);           // windows on the south gable's wall
-  hanging(g, M, HX + 2, HH + 12, HZ + HL / 2 + 0.6, 16, 11, -Math.PI / 2);                                   // a hanging on the hall's south gable
-  add(g, rbox(6, 9, 1.0, 0.4), M.oak, HX - 6, 6.5, HZ + HL / 2 + 0.6);                           // the hall's door
-  // the gatehouse on the south wall: two round towers under cones flanking the gate, a team banner over the arch,
-  // shields hung on the towers, banners down the wall either side
-  const GZ = R - T / 2;
-  for (const x of [-10, 10]) {
+  add(g, rbox(1.6, 1.6, HL + 5, 0.4), M.oak, HX, HH + 15.2, HZ);
+  add(g, rbox(4, 10, 4, 0.4), M.wallDark, HX + 6, HH + 14, HZ - 16); add(g, rbox(4.6, 1, 4.6, 0.2), M.plinth, HX + 6, HH + 19.4, HZ - 16);
+  for (const x of [-7, 7]) add(g, rbox(3, 5, 0.8, 0.3), M.inkLine, HX + x, 9, HZ + HL / 2 + 0.3);
+  add(g, rbox(6, 9, 1.0, 0.4), M.oak, HX, 6.5, HZ + HL / 2 + 0.6);
+  hanging(g, M, HX, HH + 12, HZ + HL / 2 + 0.6, 8, 11, -Math.PI / 2);                            // a banner on the gable
+  banner(g, M, HX, HH + 15.8, HZ - 20, 10, 9, 6);                                                 // a flag on the hall's ridge
+  // the gatehouse, off-centre on the south wall: two round towers under team-cloth cones, the gate between, a team
+  // banner over the arch, shields on the towers
+  for (const x of [GX - 10, GX + 10]) {
     add(g, cyl(5.6, 6.2, 26, 16), M.wall, x, 15, GZ); add(g, cyl(6.4, 6.4, 1.2, 16), M.plinth, x, 28.4, GZ);
-    roundCrenels(g, M.wall, x, GZ, 5.6, 29.2, 8);
-    add(g, cone(6.0, 9, 16), M.roof, x, 34, GZ); add(g, sph(0.7, 8, 6), M.steel, x, 38.8, GZ);
-    hanging(g, M, x, 26.5, GZ + 6.4, 8.5, 14, -Math.PI / 2);                                       // a team cloth down each gate tower's face
-    add(g, cyl(2.8, 2.8, 0.5, 18), M.cloth, x, 9, GZ + 6.6, Math.PI / 2, 0, 0);                    // a shield under it
-    add(g, torus(2.8, 0.35, 18), M.inkLine, x, 9, GZ + 6.65); add(g, sph(0.7, 8, 6), M.steel, x, 9, GZ + 7.0);
+    add(g, cone(6.3, 9.4, 16), M.cloth, x, 33.6, GZ); add(g, torus(6.1, 0.3, 16), M.inkLine, x, 29.2, GZ, Math.PI / 2, 0, 0); add(g, sph(0.8, 8, 6), M.steel, x, 38.6, GZ);
+    add(g, cyl(2.8, 2.8, 0.5, 18), M.cloth, x, 11, GZ + 6.6, Math.PI / 2, 0, 0);                  // a shield
+    add(g, torus(2.8, 0.35, 18), M.inkLine, x, 11, GZ + 6.65); add(g, sph(0.7, 8, 6), M.steel, x, 11, GZ + 7.0);
   }
-  add(g, rbox(9, 20, T + 2, 0.5), M.wall, 0, 12, GZ);                                            // the gate's block
-  add(g, rbox(6, 9, 1.2, 0.4), M.oak, 0, 6.5, GZ + T / 2 + 1.2);                                 // the gate, oak
-  for (const y of [4.5, 7.5, 10.5]) add(g, rbox(6.4, 0.5, 0.4, 0.1), M.ironDark, 0, y, GZ + T / 2 + 1.9);  // its iron bands
-  add(g, rbox(8.6, 9, 0.6, 0.15), M.cloth, 0, 17.0, GZ + T / 2 + 1.3);                           // the banner over the arch
-  add(g, rbox(9.0, 0.5, 0.7, 0.05), M.inkLine, 0, 21.7, GZ + T / 2 + 1.3); add(g, rbox(9.0, 0.5, 0.7, 0.05), M.inkLine, 0, 12.3, GZ + T / 2 + 1.3);
-  for (const x of [-10, 10]) { add(g, cone(6.3, 9.4, 16), M.cloth, x, 34, GZ); add(g, torus(6.1, 0.3, 16), M.inkLine, x, 29.6, GZ, Math.PI / 2, 0, 0); } // the gate towers' cones in team cloth over the slate (the festival cloths along the base read as a row of panels; gone)
-  // the yard: a round pavilion and a long marquee in team cloth with pale stripes, a well, a cart of coin sacks,
-  // barrels, a hay stack, a rack of spears
-  for (const x of [-6, 0, 6]) add(g, rbox(2.4, 2.8, 2.4, 0.3), M.oak, -30 + x, 4.4, 25); add(g, sph(1.8, 8, 6), M.canvasDark, -27, 4.6, 31).scale.set(1, 0.7, 1); // crates and a sack where the market stood (no tents or awnings: the slice's judge)
-  for (const x of [-42, -30, 26, 38]) hanging(g, M, x, 15.0, -R + T + 0.6, 10, 12, Math.PI / 2);      // banners hung inside the yard from the north wall's walk, facing the camera
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(g, rbox(3, 2.6, 3, 0.3), M.oak, 22 + Math.cos(a) * 9, 3.3, 30 + Math.sin(a) * 6, 0, -a, 0); } // a ring of crates
-  add(g, cyl(0.6, 0.6, 6, 8), M.oak, 22, 5, 30); add(g, cyl(5, 5, 1, 12), M.wallDark, 22, 2.5, 30); // a mounting block
-  // the well: a stone ring with a timber frame and a bucket
-  add(g, cyl(4.2, 4.6, 3.2, 14), M.plinth, 14, 3.6, 4); add(g, cyl(3.2, 3.2, 0.4, 14), M.oilskin, 14, 5.4, 4);
-  for (const z of [-3, 3]) add(g, cyl(0.5, 0.5, 9, 6), M.oak, 14, 9.5, 4 + z); add(g, gable(9, 3, 4), M.roof, 14, 14, 4);
-  add(g, cyl(0.5, 0.5, 6.5, 6), M.oak, 14, 12.5, 4, Math.PI / 2, 0, 0); add(g, cyl(1.1, 0.9, 1.8, 10), M.ironDark, 14, 8.8, 4);
-  // the cart: an oak cart on two wheels, coin sacks under a team cover, its shafts resting on the ground
-  const ct = grp(); ct.position.set(-36, 2, 0); ct.rotation.y = 0.5; g.add(ct);
+  add(g, rbox(9, 20, T + 2, 0.5), M.wall, GX, 12, GZ);
+  add(g, rbox(6, 9, 1.2, 0.4), M.oak, GX, 6.5, GZ + T / 2 + 1.2);
+  for (const y of [4.5, 7.5, 10.5]) add(g, rbox(6.4, 0.5, 0.4, 0.1), M.ironDark, GX, y, GZ + T / 2 + 1.9);
+  add(g, rbox(8.6, 9, 0.6, 0.15), M.cloth, GX, 17.0, GZ + T / 2 + 1.3);                           // the banner over the arch
+  add(g, rbox(9.0, 0.5, 0.7, 0.05), M.inkLine, GX, 21.7, GZ + T / 2 + 1.3); add(g, rbox(9.0, 0.5, 0.7, 0.05), M.inkLine, GX, 12.3, GZ + T / 2 + 1.3);
+  pennant(g, M, -R + 1, 16.2, R - 1, 10, 8); pennant(g, M, R - 1, 16.2, R - 1, 10, 8);             // pennants at the wall's south corners
+  // the yard: banners on the north wall's inner face, a cart, crates, a well, barrels, a spear rack
+  for (const x of [-6, 8, 22, 36]) hanging(g, M, x, 15.0, -R + T + 0.6, 10, 12, Math.PI / 2);
+  for (const x of [-40, -24, 34, 46]) banner(g, M, x, 16.2, R - 3, 10, 9, 6);                     // flags on the south wall's walk, facing the camera
+  const ct = grp(); ct.position.set(-30, 3, 26); ct.rotation.y = 0.5; g.add(ct);
   add(ct, rbox(13, 3.2, 8, 0.4), M.oak, 0, 4.4, 0);
   for (const z of [-4.5, 4.5]) { add(ct, cyl(3.4, 3.4, 0.9, 16), M.oak, 0, 3.4, z, Math.PI / 2, 0, 0); add(ct, torus(3.4, 0.35, 16), M.ironDark, 0, 3.4, z); }
-  for (const x of [-3.5, 0, 3.5]) add(ct, sph(2.2, 10, 8), M.canvas, x, 7.2, (x / 3.5) * 1.4).scale.set(1, 0.8, 1); // the sacks
-  add(ct, rbox(12.6, 0.8, 7.8, 0.4), M.canvasDark, 0, 8.4, 0); add(ct, rbox(13, 0.4, 8.2, 0.1), M.inkLine, 0, 7.9, 0); // the cover over them, old canvas
-  for (const z of [-2.8, 2.8]) add(ct, cyl(0.5, 0.5, 10, 6), M.oak, 10, 2.2, z, 0, 0, -1.2);                          // the shafts down
-  for (const [x, z] of [[-42, 38], [-37, 42], [-39.5, 45]]) { add(g, cyl(2.4, 2.6, 5, 12), M.oak, x, 4.5, z); for (const y of [3.2, 6]) add(g, torus(2.65, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); } // barrels
-  add(g, cone(6.5, 8, 12), M.roof, 40, 6.5, 32).scale.set(1, 1, 0.9); add(g, cyl(5.8, 6.2, 1.6, 12), M.oak, 40, 2.8, 32); // the hay
-  for (let k = 0; k < 6; k++) add(g, cyl(0.3, 0.3, 17, 6), M.oak, -44 + k * 2.1, 10.5, -40 - (k % 2), 0.1, 0, (k % 2 ? 1 : -1) * 0.1); // spears in a rack
-  for (let k = 0; k < 6; k++) add(g, cone(0.6, 2.4, 6), M.steel, -44 + k * 2.1, 19.8, -40 - (k % 2));
+  for (const x of [-3.5, 0, 3.5]) add(ct, sph(2.2, 10, 8), M.canvasDark, x, 7.2, (x / 3.5) * 1.4).scale.set(1, 0.8, 1);
+  for (const z of [-2.8, 2.8]) add(ct, cyl(0.5, 0.5, 10, 6), M.oak, 10, 2.2, z, 0, 0, -1.2);
+  for (const [x, z] of [[-12, 36], [-6, 40], [-9, 44], [-2, 36]]) add(g, rbox(3, 2.8, 3, 0.3), M.oak, x, 4.4, z);
+  add(g, cyl(4.2, 4.6, 3.2, 14), M.plinth, 6, 3.6, 24); add(g, cyl(3.2, 3.2, 0.4, 14), M.oilskin, 6, 5.4, 24);
+  for (const z of [-3, 3]) add(g, cyl(0.5, 0.5, 9, 6), M.oak, 6, 9.5, 24 + z); add(g, gable(9, 3, 4), M.roof, 6, 14, 24);
+  for (const [x, z] of [[-44, 8], [-39, 12], [-41.5, 15]]) { add(g, cyl(2.4, 2.6, 5, 12), M.oak, x, 5.5, z); for (const y of [4.2, 7]) add(g, torus(2.65, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
+  for (let k = 0; k < 6; k++) add(g, cyl(0.5, 0.5, 17, 6), M.oak, 14 + k * 2.1, 11.5, -40 - (k % 2), 0.1, 0, (k % 2 ? 1 : -1) * 0.1);
+  for (let k = 0; k < 6; k++) add(g, cone(0.8, 2.6, 6), M.steel, 14 + k * 2.1, 20.8, -40 - (k % 2));
   return g;
 }

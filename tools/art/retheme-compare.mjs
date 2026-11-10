@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { encodePNG } from './png.js';
 import { tile } from './terrain2.js';
 import { render3d } from './render3d.mjs';
+import { SEAT_COLORS } from '../../src/client/look.js';
 
 const argv = process.argv.slice(2), opt = (k, d) => argv.find(a => a.startsWith(`--${k}=`))?.slice(k.length + 3) ?? d;
 const outDir = argv.find(a => !a.startsWith('--')) ?? 'target/art-review/retheme';
@@ -31,7 +32,12 @@ const t0 = Date.now();
 const today = SKIP_TODAY ? Object.assign([], { tints: null }) : await render3d(TODAY);
 const fresh = await render3d(RT, { elev: ELEV });
 console.log(`rendered ${today.length + fresh.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
-const TINTS = fresh.tints;
+const TINTS = [...fresh.tints];
+// Seat 0 leaves gold for royal blue (the PM, slice round 3): the picture's own override, nothing in src/. The mask tint is
+// seat 5's fitted tint (the other blue) scaled channel by channel to the new colour.
+const SEAT0 = 0x2f63d6, ch = (c, k) => c >> (16 - 8 * k) & 255;
+TINTS[0] = [0, 1, 2].reduce((t, k) => t << 8 | Math.min(255, Math.round(ch(fresh.tints[5], k) * ch(SEAT0, k) / Math.max(1, ch(SEAT_COLORS[5], k)))), 0);
+console.log(`seat 0 drawn as #${SEAT0.toString(16)} (tint #${TINTS[0].toString(16)}; the game's gold stays in src/)`);
 const byName = new Map([...today, ...fresh].map(s => [s.name, s]));
 const masks = new Map([...today, ...fresh].filter(s => s.trim).map(s => [s.name.slice(0, -2), s.img]));
 const get = (name) => { const s = byName.get(name); if (!s) throw new Error(`${name} was not rendered (filter?)`); return s; };
@@ -99,6 +105,12 @@ function resample(c, k) {
 function crop(c, x0, y0, w, h) { const o = canvas(w, h); for (let y = 0; y < h; y++) o.data.set(c.data.subarray(((y0 + y) * c.w + x0) * 4, ((y0 + y) * c.w + x0 + w) * 4), y * w * 4); return o; }
 const toLin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
 const toSrgb = (v) => { v = Math.max(0, Math.min(1, v)); return Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055)); };
+const MACHADO = { protan: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]], deutan: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]] };
+function simulate(c, mode) {
+  const o = canvas(c.w, c.h), Mx = MACHADO[mode];
+  for (let i = 0; i < c.data.length; i += 4) { const r = toLin(c.data[i]), g = toLin(c.data[i + 1]), b = toLin(c.data[i + 2]); o.data.set([toSrgb(Mx[0][0] * r + Mx[0][1] * g + Mx[0][2] * b), toSrgb(Mx[1][0] * r + Mx[1][1] * g + Mx[1][2] * b), toSrgb(Mx[2][0] * r + Mx[2][1] * g + Mx[2][2] * b), 255], i); }
+  return o;
+}
 function grey(c) {
   const o = canvas(c.w, c.h);
   for (let i = 0; i < c.data.length; i += 4) { const y = toSrgb(0.2126 * toLin(c.data[i]) + 0.7152 * toLin(c.data[i + 1]) + 0.0722 * toLin(c.data[i + 2])); o.data.set([y, y, y, 255], i); }
@@ -118,8 +130,8 @@ function label(c, text, x, y, k = 3) {
 // ---- team shares (review.mjs's measure: facing 0, frame 0) ----
 const shares = {};
 const share = (name) => { const s = get(name), m = masks.get(name); let solid = 0, team = 0; for (let i = 3; i < s.img.data.length; i += 4) { if (s.img.data[i] === 255) solid++; if (m.data[i] >= 128) team++; } return shares[name] = +(team / solid).toFixed(3); };
-console.log('team colour share of the solid pixels (facing 0; the floor is 1/6 = 0.167 for units, 0.12 for buildings: the PM, Nov 9):');
-for (const name of [...KG.map(k => `kg_${k}_0_0`), 'bldg_kg_castle', ...EX.map(k => `ex_${k}_0_0`), 'bldg_ex_hall']) { const sh = share(name), floor = name.startsWith('bldg_') ? 0.12 : 1 / 6; console.log(`  ${name.padEnd(18)} ${sh.toFixed(3)}${sh < floor ? '  BELOW THE FLOOR' : ''}`); }
+console.log('team colour share of the solid pixels (facing 0; the floor is 0.12 for units and buildings: the PM, slice round 3; floors, not targets):');
+for (const name of [...KG.map(k => `kg_${k}_0_0`), 'bldg_kg_castle', ...EX.map(k => `ex_${k}_0_0`), 'bldg_ex_hall']) { const sh = share(name); console.log(`  ${name.padEnd(18)} ${sh.toFixed(3)}${sh < 0.12 ? '  BELOW THE FLOOR' : ''}`); }
 writeFileSync(join(outDir, 'shares.json'), JSON.stringify(shares, null, 1));
 // each unit's size at zoom 1.0 (facing 0): the box of its opaque pixels without the ground shadow, in CSS px (atlas px / 2)
 console.log('unit sizes at zoom 1.0 (facing 0; CSS px, width x height, the shadow left out):');
@@ -179,6 +191,7 @@ for (const [side, kinds, bld] of [['kg', KG, 'castle'], ['ex', EX, 'hall']]) for
   [0, 1, 6].forEach((seat, k) => draw(c, get(name), P * k + P / 2, P / 2 + (isB ? P * 0.12 : P * 0.1), seat));
   SHADOW = 1;
   label(c, `${name}  SEATS 0 1 6  TEAM ${shares[name].toFixed(3)}`, 6, P + 6, 2);
-  writeFileSync(join(outDir, 'models', `${name}@2x.png`), encodePNG(c)); writeFileSync(join(outDir, 'models', `${name}.png`), encodePNG(half(c)));
+  writeFileSync(join(outDir, 'models', `${name}@2x.png`), encodePNG(c)); const h1 = half(c); writeFileSync(join(outDir, 'models', `${name}.png`), encodePNG(h1));
+  for (const mode of ['protan', 'deutan']) writeFileSync(join(outDir, 'models', `${name}-${mode}.png`), encodePNG(simulate(h1, mode))); // (seats 0 blue, 1 magenta, 6 violet under the two colour blindnesses)
 }
 console.log('slice picture ->', outDir);

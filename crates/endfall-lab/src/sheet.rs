@@ -364,21 +364,17 @@ mod tests {
     #[test]
     fn every_unit_of_both_races_is_on_the_sheet() {
         let rows = rows();
-        for k in UNIT_KINDS {
+        // (every unit a building trains: the healers stay in the tables, trained nowhere, and off the sheet)
+        for k in UNIT_KINDS.into_iter().filter(|k| k.trainable()) {
             assert!(rows.iter().any(|r| r.kind == k), "{} missing", k.def().name);
         }
-        // (the Anchor Gun has one gun since Roster v2, anchored: one row, its plain name; the Breakwater two, beached
-        // and on the move)
+        // (the Trebuchet has one gun, set up: one row, its plain name)
         assert!(
             rows.iter()
                 .any(|r| r.name == "Anchor Gun" && r.weapon.is_some())
         );
-        assert!(
-            rows.iter().any(|r| r.name == "Breakwater (deployed)")
-                && rows.iter().any(|r| r.name == "Breakwater (mobile)")
-        );
         let (md, csv) = sheet(1.5, Some(2.0), "test");
-        for k in UNIT_KINDS {
+        for k in UNIT_KINDS.into_iter().filter(|k| k.trainable()) {
             assert!(
                 md.contains(k.def().name) && csv.contains(k.def().name),
                 "{}",

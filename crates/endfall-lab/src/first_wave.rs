@@ -113,7 +113,9 @@ mod tests {
 
     #[test]
     fn a_first_wave_is_recorded_once_with_its_value_and_result() {
-        // Medium against Medium, the first waves at 2:00 and 3:00: both launch within ten minutes.
+        // Medium against Medium (the Expedition's mirror), the first waves at 2:00 and 2:10: both launch within ten
+        // minutes (a minute apart, or a seat that waits to look at the foe's army first, the first wave can end the game
+        // before the other goes).
         let early = |t: f64| {
             Some(Diff {
                 first: t,
@@ -122,13 +124,13 @@ mod tests {
         };
         let p = play_seats(
             MapKind::Standard,
-            0,
+            3,
             2,
-            [early(120.0), early(180.0)],
+            [early(120.0), early(130.0)],
             10,
             false,
         );
-        for (s, at) in [(0, 120.0), (1, 180.0)] {
+        for (s, at) in [(0, 120.0), (1, 130.0)] {
             let f = p.first_wave[s].unwrap_or_else(|| panic!("seat {s} sent a wave"));
             assert!(
                 f.at as f64 / 30.0 > at,

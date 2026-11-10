@@ -473,7 +473,7 @@ impl World {
     /// A Medic heals the most hurt friendly infantry within 2.5 tiles that no other healer tended this tick (so two
     /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
     /// allies it can see. A Tender (`mend`) does the same for any ally, within 3 tiles: its nacre (shields) first,
-    /// then its hull (Roster v2: the Lens and the Undertow have no nacre).
+    /// then its hull (nobody has nacre since the re-theme: shields are data).
     pub(crate) fn medic(&mut self, uid: Id, dt: f64) {
         let (mx, my, team, heal, mend, sight, idle) = {
             let u = self.u(uid);
@@ -621,8 +621,8 @@ impl World {
     }
     /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
     /// with nothing to fight on its tracks (the Anchor Gun: no light gun) deploys where it stops (no order does it): it
-    /// packs up again only when it has to move. One with a light gun (the Breakwater) settles only where it fights, or
-    /// where it is told to hold.
+    /// packs up again only when it has to move. One with a light gun (none since the re-theme) settles only where it
+    /// fights, or where it is told to hold.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
         let sets_up_idle = c.siege.is_some() && (c.range <= 0.0 || hold);
         if sets_up_idle && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 && self.deploy(uid)
@@ -922,7 +922,7 @@ impl World {
     }
 }
 
-/// The armour a unit's toggle adds while it is settled in (the Breakwater beached); none while settling or packing up.
+/// The armour a unit's toggle adds while it is settled in (a braced Guard); none while settling or packing up.
 pub(crate) fn settled_armor(u: &Unit) -> f64 {
     match u.mode.filter(|_| u.swap <= 0.0).map(|k| k.def().effect) {
         Some(AbilityEffect::Settle { armor, .. }) => armor,

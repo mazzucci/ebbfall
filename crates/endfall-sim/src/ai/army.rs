@@ -348,7 +348,7 @@ impl World {
         } else {
             seen_air
         };
-        // Its answer to them so far, in `anti_air` units (an Interceptor is worth two Lancers).
+        // Its answer to them so far, in `anti_air` units (a Ballista is worth two Archers).
         let script = &self.factions[e as usize].ai;
         let anti_air = self
             .units
@@ -816,8 +816,8 @@ impl World {
             .copied()
             .filter(|a| {
                 let d = self.u(*a).kind.def();
-                // (walking fighters that can hit the ground: not a raider's kind, a flyer, a capital giant or an
-                // Interceptor)
+                // (walking fighters that can hit the ground: not a raider's kind, a flyer, a capital giant or one
+                // armed against flyers only)
                 !guards.contains(a)
                     && !out.contains(a)
                     && d.armed()
@@ -1202,7 +1202,7 @@ mod tests {
             "Troopers, the cheapest"
         );
         let wave = w.ai().attackers.clone().unwrap();
-        assert!(wave.contains(&tank), "the Vanguard goes");
+        assert!(wave.contains(&tank), "the Knight goes");
         assert!(
             reserve.iter().all(|a| !wave.contains(a)),
             "the reserve stays out of it"

@@ -1,7 +1,7 @@
 // The re-theme's slice picture (Stelian's look, then four blind testers; 2026-11-10): node tools/art/retheme-compare.mjs <outdir> [--elev=40] [--skip-today]
 // Rows, each a landscape phone at 2x (1688x780), seat 0 (left) against seat 1:
-//   row 0  today's art at the game's 55-degree camera on the seabed: Rigger, Picket, Breakwater, Lighthouse against
-//          Glint, Needle, Lens, Tidewell, a salt field between (world px 1:1 at the default zoom)
+//   row 0  the game's atlas kinds (since the re-theme's PR 1: its art) on the seabed: Villager, Guard, Knight, Castle against
+//          Bot, Buggy, Mercenary, Data centre, a gold outcrop between (world px 1:1 at the default zoom)
 //   row 1  the slice (retheme.js: the kingdom on palette B, the Expedition's one look) at the lower camera (--elev, 40
 //          by default) on grass, the units drawn 1.4x: Villager, Guard, Knight, Castle against Bot, Buggy, Marine,
 //          Data centre, a gold outcrop between
@@ -24,7 +24,7 @@ const ELEV = +opt('elev', 40), SKIP_TODAY = argv.includes('--skip-today');
 mkdirSync(join(outDir, 'models'), { recursive: true });
 
 // ---- what to render ----
-const TODAY = '^harvester_(0|1|15)_[01]$|^trooper_(0|1|15)_[01]$|^vanguard_1_0$|^lumen_(8|9)_0$|^scythe_(7|8|9)_[01]$|^prism_(8|9)_0$|^bldg_(core|conflux)$|^shard_[01]$';
+const TODAY = '^harvester_(0|1|15)_[01]$|^trooper_(0|1|15)_[01]$|^knight_1_0$|^lumen_(8|9)_0$|^scythe_(7|8|9)_[01]$|^prism_(8|9)_0$|^bldg_(core|conflux)$|^shard_[01]$';
 const KG = ['villager', 'guard', 'knight'], EX = ['bot', 'buggy', 'marine'];
 const RT = `^kg_(${KG.join('|')})_(0|1|15|2|14)_[01]$|^ex_(${EX.join("|")})_(8|9|7|10|6|0)_[01]$|^bldg_(kg_castle|ex_hall)$|^rt_coins$`;
 const t0 = Date.now();
@@ -51,7 +51,7 @@ for (const name of [...KG.map(k => `kg_${k}_0_0`), ...EX.map(k => `ex_${k}_0_0`)
 const W = 1688, H = 780;
 const TODAY_LIST = [
   ['bldg_core', 330, 440, 0], ['shard_0', 844, 400], ['shard_1', 900, 470], ['bldg_conflux', 1360, 440, 1],
-  ['harvester_1_0', 560, 330, 0], ['harvester_0_1', 600, 380, 0], ['trooper_0_0', 640, 450, 0], ['trooper_1_1', 680, 500, 0], ['trooper_15_0', 620, 560, 0], ['vanguard_1_0', 700, 620, 0],
+  ['harvester_1_0', 560, 330, 0], ['harvester_0_1', 600, 380, 0], ['trooper_0_0', 640, 450, 0], ['trooper_1_1', 680, 500, 0], ['trooper_15_0', 620, 560, 0], ['knight_1_0', 700, 620, 0],
   ['lumen_8_0', 1120, 330, 1], ['lumen_9_0', 1080, 380, 1], ['scythe_8_0', 1040, 450, 1], ['scythe_7_1', 1000, 500, 1], ['scythe_9_0', 1060, 560, 1], ['prism_8_0', 1010, 620, 1], ['prism_9_0', 1100, 640, 1],
 ];
 const SLICE_LIST = [

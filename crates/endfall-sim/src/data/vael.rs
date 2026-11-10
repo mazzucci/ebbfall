@@ -91,18 +91,19 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Sellsword: the Expedition's main ranged infantry, ground and air (the Lens's numbers, without its Surge).
+/// The Sellsword: the Expedition's main ranged infantry, ground and air (the Lens's numbers, without its Surge,
+/// cheaper and quicker to hire: two Recruiting posts on the shafts are its only barracks until the economy PR).
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Lens",
-    cost: [110, 0],
+    cost: [100, 0],
     supply: 2,
     hp: 90.0,
     armor: 1.0,
     speed: 85.0,
     sight: 9.0,
     r: 11.0,
-    build: 30.0,
+    build: 24.0,
     bio: true,
     weapon: Some(Weapon {
         range: 5.5,

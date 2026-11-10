@@ -90,7 +90,9 @@ test('knights appear once a forge stands, and a balloon floats straight across t
     await d.pressCard('Spyglass');
     const raider = await until(d, async () => mine(await d.state(), 'observer')[0], { seconds: 40, what: 'a balloon' });
     // Float it to the far side of the map: a flyer goes straight, so it covers ~1300 px in under 20 s at its slow pace.
-    await d.clickEntity(raider.id);
+    // (it may still be by the Workshop: a click there can take the building, so until it is the selection)
+    for (let i = 0; i < 8 && !(await d.selection()).some(e => e.id === raider.id); i++) { await d.skip(1); await d.clickEntity(raider.id); }
+    assert.ok((await d.selection()).some(e => e.id === raider.id), 'the balloon selected');
     // Straight across the map (through the centre, wherever the bases are), over whatever rock lies between.
     const W = await d.eval(() => endfall.engine.WW), H = await d.eval(() => endfall.engine.WH);
     const dx = W / 2 - raider.x, dy = H / 2 - raider.y, len = Math.hypot(dx, dy) || 1; // 1300 px towards (and past) the centre

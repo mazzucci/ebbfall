@@ -15,13 +15,17 @@ const FACINGS = 16;
 const KEEP_FX = /^(light|flag_\d|heal_\d|sel_)/;
 const models = await render3d(), sprites = [...terrainSprites(), ...effectSprites().filter(s => KEEP_FX.test(s.name)), ...atlasEffects(), ...models];
 
-// Each unit kind's drawn height: how far its art rises above its ground point, in game px at the sprite's own scale
+// Each unit kind's drawn height: how far its body rises above its ground point, in game px at the sprite's own scale
 // (before the renderer's UNIT_SCALE), the median over its facings and frames. The model's solid pixels only (alpha 255;
-// the cast shadow is translucent, and falls south-east, below the top). The client's hit test and health bars read it.
-const rises = {};
+// the cast shadow is translucent, and falls south-east, below the top), and only rows at least BODY of the widest row's
+// width: a spear, a flag or an antenna above the body is not the body (the Guard's spear stood twice its height, and its
+// hit circle reached over the Barracks' middle). The client's hit test and health bars read it.
+const BODY = 0.35, rises = {};
 for (const s of models) if (s.anim) {
-  const { w, h, data } = s.img, ay = s.anchor.y * h; let top = h;
-  for (let y = 0; y < h && top === h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] === 255) { top = y; break; }
+  const { w, h, data } = s.img, ay = s.anchor.y * h, row = new Uint16Array(h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] === 255) row[y]++;
+  const most = Math.max(...row); let top = h;
+  for (let y = 0; y < h; y++) if (row[y] && row[y] >= BODY * most) { top = y; break; }
   (rises[s.anim.replace(/_\d+$/, '')] ||= []).push(Math.max(0, ay - top) / 2); // (atlas px are half a game px)
 }
 const unitTops = Object.fromEntries(Object.entries(rises).map(([k, v]) => { v.sort((a, b) => a - b); return [k, Math.round(v[v.length >> 1] * 2) / 2]; }));

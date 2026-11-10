@@ -10,10 +10,13 @@ import { torus } from './harbour.js';
 import { cone } from './vael.js';
 import { oct } from './kingdom.js';
 import { led, marine, boardTex } from './expedition.js';
-import { earth } from './kingdom-buildings.js';
+import { earth, brace } from './kingdom-buildings.js';
+import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
-/** The family's few extra materials, added to an Expedition set once. */
+/** The family's few extra materials, added to an Expedition set once; with `M.polish` (polish.js `polishMats` marks
+ *  the set) they take the recipe too: the board walls and the notice board on the 1x course texture (`hiBoard`, as the
+ *  slice's deck), folds in the tent canvas, tight glints on the ramp, the core's frame and the mast's wire. */
 export function ebMats(M) {
   if (M.planks) return M;
   M.planks = std({ color: 0x929088, map: boardTex, roughness: 0.95, metalness: 0 });                                    // weathered board walls: a warm grey, matte, horizontal boards (round 3: even vertical ribs read as corrugated steel)
@@ -25,7 +28,22 @@ export function ebMats(M) {
   M.core = std({ color: 0x3a3e44, metalness: 0.7, roughness: 0.3 });                                            // the Portal's imported core, dark machined metal
   M.ramp = std({ color: 0xb8bcc0, metalness: 0.5, roughness: 0.45 });                                            // the Portal's pale steel ramp and platform edge
   M.canvasGrey = std({ color: 0x8e908a, map: M.canvas.map, roughness: 0.94 });                                     // grey canvas: the Recruiting post's tent (round 3: the tan one was the side's one warm roof)
+  if (M.polish) {
+    const X = polishTextures(), set = (m, o) => { Object.assign(m, o); m.needsUpdate = true; };
+    set(M.planks, { map: X.hiBoard, bumpMap: X.board, bumpScale: 1.4 });                                       // the boards' seams drawn for 1x (the walls keep their mid grey under the lighter shingles: the slice's split)
+    set(M.board, { map: X.hiBoard, bumpMap: X.board, bumpScale: 1.0 });
+    set(M.canvasGrey, { bumpMap: X.fold, bumpScale: 0.6 });
+    set(M.ramp, { roughness: 0.28, envMapIntensity: 2.4, bumpMap: X.scuff, bumpScale: 0.4 });                   // one bright line along the ramp's treads under the key
+    set(M.core, { roughness: 0.25, envMapIntensity: 2.4, bumpMap: X.scuff, bumpScale: 0.3 });
+    set(M.wire, { roughness: 0.3, envMapIntensity: 2.4 });
+  }
   return M;
+}
+/** A steel gutter along an eave from (x0, y, z) `L` long (along x) with a down pipe at its `end` (-1 west, 1 east):
+ *  a lit line under the key at 2x, as the slice's hall took. */
+function gutter(g, M, x, y, z, L, end, yFoot = 3.4) {
+  add(g, cyl(0.55, 0.55, L, 8), M.steel, x, y, z, 0, 0, Math.PI / 2);
+  limb(g, [x + end * L / 2, y, z], [x + end * L / 2, yFoot, z], 0.5, M.steel);
 }
 
 /** A short oak post. */
@@ -115,6 +133,11 @@ export function bunkhouse(M) {
   cloth(g, M, X + W / 2 + 0.6, H + 1.0, Z + 2, 8, 9);
   cloth(g, M, X - PW / 2 + 8, H + 0.2, PZ + 1.9, 11, 8);                                                                        // a team windbreak hung between the porch's west posts                                                                         // a cloth hung on the east gable's end post
   for (const [x, z] of [[-26, 18], [-22, 23]]) { add(g, cyl(2.2, 2.4, 5, 12), M.oakPale, x, 4.5, z); for (const y of [3.2, 6]) add(g, torus(2.45, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
+  if (M.polish) { // secondary detail: a steel gutter along the porch's eave with a down pipe at its west end, knee braces from the porch posts to its roof, oak sills under the windows
+    gutter(g, M, X, H + 2.4, PZ + 3.1, PW + 2, -1, 3.4);                                                                   // (over the valance's top hem, not across the valance: round 1's cost 0.027 of the share)
+    for (const x of [-PW / 2 + 1, -PW / 4, 0, PW / 4, PW / 2 - 1]) { if (x > -PW / 2 + 1) brace(g, M, X + x, H - 2.6, PZ + 1.5, -3.8, 2.8); if (x < PW / 2 - 1) brace(g, M, X + x, H - 2.6, PZ + 1.5, 3.8, 2.8); }
+    for (const x of [-22, 2, 12, 22]) add(g, rbox(4.6, 0.6, 1.2, 0.1), M.oak, X + x, 5.5, Z + D / 2 + 0.7);
+  }
   return g;
 }
 
@@ -163,6 +186,13 @@ export function recruitingPost(M) {
   limb(g, [X - 14, 5.5, LZ + 6], [X - 4, 4.6, LZ + 6], 0.3, M.rope); limb(g, [X - 4, 5.5, LZ + 6], [X + 6, 4.6, LZ + 6], 0.3, M.rope);
   flag(g, M, X - W / 2 - 2, 2, Z - D / 2 + 2, 26, 18, 12);
   for (let k = 0; k < 3; k++) add(g, rbox(4.2, 3.8, 4.2, 0.4), M.oakPale, X + W / 2 + 10 + (k % 2) * 4.6, 4 + Math.floor(k / 2) * 3.8, Z + 16 + (k % 2) * 1.2);
+  if (M.polish) { // secondary detail: knee braces from the ridge posts to the pole, a stone step before the deck, stakes at the guy ropes' ends, brackets on the vest rail, a clipboard on the counter
+    for (const sx of [-1, 1]) brace(g, M, X + sx * (W / 2 + 3), H + 3.6, Z - 2, -sx * 4, 3.0, 0.55);
+    add(g, rbox(9, 1.0, 2.8, 0.2), M.stone, X - 2, 2.6, Z + D / 2 + 2.4);
+    for (const sx of [-1, 1]) for (const dz of [-14, 10]) add(g, cyl(0.6, 0.75, 3, 6), M.oak, X + sx * (W / 2 + 9), 1.6, Z + dz + Math.sign(dz) * 4, 0.15 * Math.sign(dz), 0, -0.15 * sx);
+    for (const sx of [-1, 1]) add(g, rbox(0.9, 1.8, 1.2, 0.1), M.joint, X - 2 + sx * (W - 6) / 2, 12.9, Z - D / 2 + 2.4);
+    add(g, rbox(2.6, 0.35, 2.0, 0.05), M.paper, X - 4, 7.9, Z + D / 2 - 2.4, 0, 0.25, 0);
+  }
   return g;
 }
 
@@ -204,7 +234,7 @@ export function factory(M) {
   { const c = grp(); c.position.set(AX + 16, 0, AZ + 4); c.rotation.y = -0.2; g.add(c);                                                 // the chassis on two trestles
     for (const dx of [-7, 7]) { for (const sx of [-1, 1]) limb(c, [dx + sx * 3, 0.5, 4], [dx, 6, 0], 0.7, M.oak); limb(c, [dx, 6, 0], [dx, 6, 0.1], 0.1, M.oak); }
     add(c, rbox(20, 1.6, 8, 0.6), M.trim, 0, 7.2, 0); for (const dz of [-2.4, 2.4]) add(c, rbox(16, 0.8, 1.0, 0.2), M.steel, 0, 8.2, dz);
-    for (const [dx, dz] of [[-6, -5.4], [6, -5.4]]) { add(c, cyl(3.4, 3.4, 2.6, 16), M.tyre, dx, 7.2, dz, Math.PI / 2, 0, 0); add(c, cyl(1.7, 1.7, 2.7, 10), M.paleSteel, dx, 7.2, dz, Math.PI / 2, 0, 0); } }
+    for (const [dx, dz] of [[-6, -5.4], [6, -5.4]]) { add(c, cyl(3.4, 3.4, 2.6, 16), M.tyre, dx, 7.2, dz, Math.PI / 2, 0, 0); add(c, cyl(1.7, 1.7, 2.7, 10), M.paleSteel, dx, 7.2, dz, Math.PI / 2, 0, 0); if (M.polish) add(c, torus(1.1, 0.2, 12), M.joint, dx, 7.2, dz - 1.45); } } // (polish: the Buggy's bolt rings on the hubs)
   // the 3D printer under an open lean-to east of the door: a tall frame, a dark glass front, a lit bed, a spool
   const PX = X + 30, PZ = Z + D / 2 + 14;
   for (const [dx, dz] of [[-8, -6], [8, -6], [-8, 7], [8, 7]]) post(g, M, PX + dx, PZ + dz, dz < 0 ? 22 : 18, 0.9);
@@ -220,6 +250,12 @@ export function factory(M) {
   for (const [x, z] of [[X - 34, Z + D / 2 + 26], [X - 29, Z + D / 2 + 30]]) { add(g, cyl(2.4, 2.6, 5, 12), M.panelDark, x, 4.5, z); add(g, torus(2.6, 0.25, 12), M.inkLine, x, 6, z, Math.PI / 2, 0, 0); }
   for (let k = 0; k < 4; k++) add(g, rbox(4.4, 4, 4.4, 0.4), M.oakPale, X + W / 2 - 8 + (k % 2) * 4.8, 4 + Math.floor(k / 2) * 4, Z - 2 + (k % 2) * 1.2 + D / 2 + 4);
   add(g, rbox(11, 0.8, 7, 0.3), M.paintCloth, X + W / 2 - 5.6, 10.3, Z + D / 2 + 2.6); add(g, rbox(11.4, 0.3, 7.4, 0.05), M.inkLine, X + W / 2 - 5.6, 9.9, Z + D / 2 + 2.6); // a team tarp over the parts crates
+  if (M.polish) { // secondary detail: a gutter along the south eave with a down pipe at the west end, knee braces at the outer frame posts, steel rollers on the door's rail, a cable up the robot arm, bolt rings on the chassis' hubs (above)
+    gutter(g, M, X, H + 1.6, Z + D / 2 + 3.3, W + 5, -1, 3.5);
+    for (const x of [-24, 24]) { brace(g, M, X + x, H - 2.6, Z + D / 2 + 0.3, -4, 3.4); brace(g, M, X + x, H - 2.6, Z + D / 2 + 0.3, 4, 3.4); }
+    for (const sx of [-1, 1]) for (const dx of [-5, 5]) add(g, rbox(1.6, 1.3, 1.5, 0.3), M.steel, X + 2 + sx * 20.5 + dx, H + 0.3, Z + D / 2 + 1.8);
+    cable(g, M, [AX + 3.6, 6.4, AZ + 3.4], [AX - 2.2, 20.4, AZ + 1.6], 0.4);
+  }
   return g;
 }
 
@@ -255,6 +291,14 @@ export function lab(M) {
   cloth(g, M, X + W / 2 + 0.6, H + 1.4, Z - 6, 8, 12);
   cable(g, M, [X + W / 2 - 3, RY + 12, Z - D / 2 + 2], [X + W / 2 + 4, 4, Z + 4]);
   add(g, rbox(10, 3.6, 4, 0.3), M.oak, X + 6, 3.8, Z + D / 2 + 7); add(g, rbox(11, 0.7, 5, 0.3), M.paintCloth, X + 6, 5.9, Z + D / 2 + 7); add(g, rbox(11.4, 0.3, 5.4, 0.05), M.inkLine, X + 6, 5.5, Z + D / 2 + 7); add(g, rbox(2.4, 2.4, 2.4, 0.3), M.panelDark, X + 3, 6.8, Z + D / 2 + 7); add(g, cyl(1.2, 1.2, 2.4, 10), M.glass, X + 8, 6.8, Z + D / 2 + 7); // a bench outside with gear
+  if (M.polish) { // secondary detail: a steel ladder up the east wall to the roof, a down pipe at the south-west corner, steel bands on the dish's mast, a steel coping on the parapet's south edge
+    const LX = X + W / 2 + 1.3, LZ = Z + 8;
+    for (const dz of [-1.5, 1.5]) limb(g, [LX, 3.2, LZ + dz], [LX, H + 5.2, LZ + dz], 0.4, M.steel);
+    for (let y = 5; y < H + 5; y += 2.6) limb(g, [LX, y, LZ - 1.5], [LX, y, LZ + 1.5], 0.35, M.steel);
+    limb(g, [X - W / 2 - 1.0, H + 1.6, Z + D / 2 + 1.0], [X - W / 2 - 1.0, 3.4, Z + D / 2 + 1.0], 0.5, M.steel);
+    for (const y of [RY + 2, RY + 9]) add(g, torus(1.1, 0.25, 10), M.steel, X + W / 2 - 3, y, Z - D / 2 + 2, Math.PI / 2, 0, 0);
+    add(g, rbox(W + 3.4, 0.6, 1.0, 0.1), M.steel, X, H + 3.1, Z - 1 + D / 2 + 1.4);
+  }
   return g;
 }
 
@@ -295,6 +339,12 @@ export function radioTower(M) {
     add(w, plate([[0, -1.4], [4, -0.4], [4, 0.4], [0, 1.4]], 0.3, 0.05), M.paleSteel, -1, 0, 0, Math.PI / 2, 0, 0); }                            // the wind rotor and its tail
   flag(g, M, leg(1) + 0.4, MAST_H, -leg(1), 10, 14, 10);
   cable(g, M, [leg(1), MAST_H, leg(1)], [13, 5, 12]); add(g, rbox(6, 3.6, 4.4, 0.5), M.panelDark, 13, 3.8, 12); led(g, M, 0.4, 13, 6.0, 14.2);     // the battery box
+  if (M.polish) { // secondary detail: bolt plates where the braces meet the legs, turnbuckles on the guys, a steel hub ring on the rotor, a steel cap on the battery box's cable gland
+    for (let k = 0; k <= 5; k++) { const t = k / 5, y = 3 + (MAST_H - 3) * t, r = leg(t); for (const [sx, sz] of legs) add(g, rbox(1.5, 1.5, 1.5, 0.3), M.joint, sx * r, y, sz * r); }
+    for (const a of [0.6, 2.2, 3.9, 5.5]) { const r = leg(0.75), A = [Math.cos(a) * r * 0.9, 3 + (MAST_H - 3) * 0.75, Math.sin(a) * r * 0.9], B = [Math.cos(a) * 22, 1.5, Math.sin(a) * 20], at = (t) => A.map((v, i) => v + (B[i] - v) * t); limb(g, at(0.74), at(0.84), 0.6, M.steel); }
+    add(g, torus(1.3, 0.22, 12), M.steel, -3.2 + Math.cos(-0.4) * 0.6, MAST_H + 9, -2 - Math.sin(-0.4) * 0.6, 0, -0.4 + Math.PI / 2, 0);
+    add(g, cyl(0.8, 0.8, 1.0, 8), M.steel, 13, 5.9, 12);
+  }
   return g;
 }
 /** The Radio tower's turret (the turning head, 16 facings): a small pod on a yoke on the platform: a charcoal housing
@@ -308,6 +358,10 @@ export function radioTurret(M) {
   for (const sz of [-1, 1]) { add(pod, rbox(4.6, 2.2, 0.6, 0.2), M.paint, -0.4, 0, sz * 3.0); add(pod, rbox(4.9, 0.3, 0.7, 0.05), M.inkLine, -0.4, 1.3, sz * 3.0); add(pod, rbox(4.9, 0.3, 0.7, 0.05), M.inkLine, -0.4, -1.3, sz * 3.0); }
   for (const dz of [-1.3, 1.3]) add(pod, cyl(0.9, 0.9, 9, 8), M.steel, 6.5, 0.4, dz, 0, 0, Math.PI / 2);
   add(pod, rbox(2.2, 1.6, 2.2, 0.3), M.joint, 1.5, 2.6, 0); led(pod, M, 0.6, 2.7, 2.6, 0);
+  if (M.polish) { // secondary detail: a bolt ring on the yoke, a cable from the pod down to the deck
+    add(g, torus(2.2, 0.25, 14), M.joint, 0, Y + 2.65, 0, Math.PI / 2, 0, 0);
+    limb(g, [-2.4, Y + 4.4, 1.8], [-3.6, Y + 0.4, 2.8], 0.35, M.cable);
+  }
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return g;
 }
@@ -366,5 +420,11 @@ export function portal(M) {
   for (let k = 0; k < 2; k++) add(g, rbox(5, 4.4, 4, 0.5), M.panelDark, BX + k * 5.6 - 2.8, 4.2, BZ + k * 0.6); led(g, M, 0.4, BX - 2.8, 6.6, BZ + 2.2);
   solar(g, M, BX + 1, BZ + 12, 12, 9, 4); cable(g, M, [BX + 1, 7.5, BZ + 8], [BX, 6, BZ + 2]);
   add(g, rbox(8, 1.0, 2.6, 0.2), M.oak, PX - R - 6, 4.4, PZ + 14); for (const dx of [-3, 3]) add(g, rbox(1.2, 2.2, 2.2, 0.2), M.oak, PX - R - 6 + dx, 3.4, PZ + 14);
+  if (M.polish) { // secondary detail: steel knobs on the ramp's rail posts (a glint each), bolts on the core's frame, a kick plate at the ramp's foot, a cable drum by the batteries
+    for (const sx of [-1, 1]) for (const t of [0.05, 0.5, 0.95]) add(g, sph(0.75, 8, 6), M.steel, PX + sx * (RW / 2 + 0.3), (PY + 1.2) * (1 - t) + 4.7, RZ0 + RL * t);
+    for (const dx of [-6.2, 6.2]) for (const y of [CY + 3.0, CY + 15.2]) add(g, sph(0.6, 8, 6), M.steel, CX + dx, y, CZ + 5.3);
+    add(g, rbox(RW + 0.8, 1.0, 1.8, 0.2), M.ramp, PX, 1.3, RZ0 + RL + 0.6);
+    add(g, cyl(2.4, 2.4, 2.0, 12), M.oakPale, BX - 7, 3.2, BZ + 5, 0, 0, Math.PI / 2); add(g, cyl(1.6, 1.6, 2.3, 10), M.cable, BX - 7, 3.2, BZ + 5, 0, 0, Math.PI / 2);
+  }
   return g;
 }

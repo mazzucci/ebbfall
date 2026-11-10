@@ -1394,16 +1394,22 @@ test('phone: with a worker selected, a tap on a field where another worker stand
     const nodeId = await d.eval((id) => endfall.G.units.find(u => u.id === id).task.node.id, minerId);
     const node = s.nodes.find(n => n.id === nodeId);
     // A worker sent off to the other side, so it is not mining that field already.
-    const h = s.units.find(u => u.team === 0 && u.type === 'harvester' && u.id !== miner.id);
-    await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, node.x - 260, node.y]); // (set-up)
+    const h = s.units.filter(u => u.team === 0 && u.type === 'harvester' && u.id !== miner.id).sort((a, b) => Math.hypot(b.x - node.x, b.y - node.y) - Math.hypot(a.x - node.x, a.y - node.y))[0]; // (the farthest: its body well out of the tap's reach)
+    const hk = Math.hypot(h.x - node.x, h.y - node.y) || 1; // (sent straight away from the field, never past it)
+    await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, h.x + (h.x - node.x) / hk * 200, h.y + (h.y - node.y) / hk * 200]); // (set-up)
+    // (on its way, clear of the others: a tap on one of a clump of workers may pick any of them, the bodies overlap)
+    assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return endfall.G.units.every(v => v === u || Math.hypot(v.x - u.x, v.y - u.y) > 48); }, h.id, { seconds: 8, step: 0.1 }), 'the worker clear of the others');
     await d.clickEntity(h.id);
     assert.deepEqual((await d.selection()).map(e => e.id), [h.id]);
-    // Tap inside the field's edge, beside the miner (close enough that a plain pick would take the miner): the field
-    // wins.
-    const m = (await d.state()).units.find(u => u.id === miner.id), k = Math.hypot(m.x - node.x, m.y - node.y);
-    await d.clickWorld(node.x + (m.x - node.x) / k * node.r, node.y + (m.y - node.y) / k * node.r);
+    // Tap inside the field's edge (a field is picked within 6 px of its radius), towards the miner's body (drawn half its
+    // height above its feet), close enough that a plain pick would take the miner: the field wins.
+    const m = (await d.state()).units.find(u => u.id === miner.id), my = m.y - await d.eval(() => endfall.unitTop('harvester')) / 2;
+    const k = Math.hypot(m.x - node.x, my - node.y), tap = [node.x + (m.x - node.x) / k * (node.r + 5), node.y + (my - node.y) / k * (node.r + 5)];
+    const reach = await d.eval(([x, y, mx, my]) => Math.hypot(x - mx, y - my) - Math.max(endfall.engine.UNITS.harvester.r * 1.2 * 1.4, endfall.unitTop('harvester') / 2) - Math.max(16, 28 / endfall.cam.zoom), [...tap, m.x, my]);
+    assert.ok(reach <= 0, `the tap is within a finger's reach of the miner's body (${reach.toFixed(1)} px)`);
+    await d.clickWorld(...tap);
     s = await d.state();
-    assert.equal(s.units.find(u => u.id === h.id).task, 'gather', 'the selected worker goes to gather');
+    assert.equal(s.units.find(u => u.id === h.id).task, 'gather', `the selected worker goes to gather (the tap ${tap.map(Math.round)}, the field ${[node.x, node.y]}: ${JSON.stringify(s.units.filter(u => Math.hypot(u.x - tap[0], u.y - tap[1]) < 90).map(u => [u.id, Math.round(u.x), Math.round(u.y), u.task]))}, h ${h.id})`);
     assert.ok(!(await d.selection()).some(e => e.id === miner.id), 'the miner was not selected instead');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

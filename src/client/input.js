@@ -56,14 +56,21 @@ export const input = { enabled: () => true };
 
 function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
 
-/** What is under (wx, wy): the nearest unit within reach (generous for fingers), else a building, else a node. */
 /** How far (world px) from a unit a tap still picks it: a fingertip is about 28 screen px, whatever the zoom (enough
  * for a unit on the move). */
 const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 6;
+/** What is under (wx, wy): a unit whose body is there (of several, the one whose body's middle is nearest, for its
+ *  size: overlapping units are each picked by a tap on their own middle), else the unit whose body is nearest within
+ *  reach (generous for fingers), else a building, else a node. */
 function pick(wx, wy) {
   const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = fromBody(u, p); if (d <= reach && d < bd) { bd = d; best = u; } }
+  for (const u of G.units) {
+    if (u.team !== G.me && !visibleEnt(u)) continue;
+    const c = body(u), d = dist(c, p) - c.r; if (d > reach) continue;
+    const k = d <= 0 ? dist(c, p) / c.r - 2 : d; // (on its body: -2 at its middle to -1 at its edge; off it: px beyond)
+    if (k < bd) { bd = k; best = u; }
+  }
   if (best) return best;
   for (const b of shownBldgs()) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
   return nodeAt(wx, wy);

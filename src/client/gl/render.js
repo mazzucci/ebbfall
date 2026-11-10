@@ -367,7 +367,7 @@ class BldgObj {
     for (const s of [this.found, this.body, this.paint, this.scaffold]) s.position.set(b.x, b.y);
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
-    const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z; this.bottom = (b.ty + b.h) * TILE;
+    const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z;
     this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004;
     if (this.head) { this.head.zIndex = z + 0.0006; this.headPaint.zIndex = z + 0.0008; }
   }

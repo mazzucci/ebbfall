@@ -232,9 +232,12 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       // then click right away.
       const canvas = await page.locator('#game').boundingBox();
       if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+      // (a unit on its body's middle, half its drawn height above its feet, where a player taps it; a building on its
+      // footprint's centre)
       const p = await ev((id) => {
-        const e = endfall.G.units.find(u => u.id === id) || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
-        endfall.centerOn(e.x, e.y); const c = endfall.cam; return { x: (e.x - c.x) * c.zoom, y: (e.y - c.y) * c.zoom };
+        const u = endfall.G.units.find(u => u.id === id), e = u || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
+        const y = u ? u.y - endfall.unitTop(u.type) / 2 : e.y;
+        endfall.centerOn(e.x, y); const c = endfall.cam; return { x: (e.x - c.x) * c.zoom, y: (y - c.y) * c.zoom };
       }, id);
       if (!p) throw new Error('no entity ' + id);
       const [x, y] = [canvas.x + p.x, canvas.y + p.y];

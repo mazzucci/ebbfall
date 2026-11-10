@@ -670,10 +670,7 @@ impl World {
                 mix(jsmath::to_i32(u.sh * 16.0));
             }
             // Ability state, once there is any (a unit that never cast hashes as before).
-            if u.mode.is_some()
-                || u.swap > 0.0
-                || u.ab_cd.iter().any(|&c| c > 0.0)
-            {
+            if u.mode.is_some() || u.swap > 0.0 || u.ab_cd.iter().any(|&c| c > 0.0) {
                 for &c in &u.ab_cd {
                     mix(jsmath::to_i32(c * 16.0));
                 }

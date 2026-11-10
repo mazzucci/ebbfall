@@ -348,13 +348,13 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.grant(5000, 5000);
     const rax = await buildAndFinish(d, 'c', 'barracks', 0);
     const forge = await buildAndFinish(d, 'k', 'forge', 1);
-    // The Crew Hall trains the infantry, Menders once the Workshop stands (vehicles come from the Slipway); the Workshop
+    // The Barracks trains the infantry (the machines come from the Slipway, the cavalry from the Stables); the Forge
     // only researches.
     await d.clickEntity(rax.id);
-    await d.pressCard('Mender');
+    await d.pressCard('Harpooner');
     let slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Picket', 'Harpooner', 'Mender', 'Rally', '', 'Cancel'], 'the Crew Hall card');
-    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the Mender
+    assert.deepEqual(slots, ['Picket', 'Harpooner', 'Rally', '', '', 'Cancel'], 'the Barracks card');
+    await d.page.locator('#cmd > :nth-child(6)').click(); // cancel the Archer
     assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 0);
     await d.clickEntity(forge.id);
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && c.enabled), 'Weapons I offered');
@@ -379,8 +379,8 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'Picket damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 2, 'a few figures: ground, armor (a Picket hits no flyers)');
-    // A Picket's Dig In waits for Sandbags, researched at the Workshop.
-    assert.ok(!(await d.card()).some(c => c.label === 'Dig In'), 'no Dig In before Sandbags');
+    // A Guard's Brace waits for Sandbags, researched at the Forge.
+    assert.ok(!(await d.card()).some(c => c.label === 'Brace'), 'no Brace before Sandbags');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
     await d.pressCard('Sandbags');
@@ -388,7 +388,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(forge.id);
     assert.ok(!(await d.card()).some(c => c.label === 'Sandbags'), 'a finished tech leaves the card');
     await d.clickEntity(id);
-    assert.ok((await d.card()).some(c => c.label === 'Dig In' && c.enabled), 'Dig In once researched');
+    assert.ok((await d.card()).some(c => c.label === 'Brace' && c.enabled), 'Brace once researched');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1027,8 +1027,8 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
   });
 }
 
-// The console fits every phone, fluidly: a Loft with a full queue and a research (a Gyre: its queue alone, as it
-// researches nothing), at every landscape
+// The console fits every phone, fluidly: the Stables with a full queue and a research (the Expedition's Factory: its
+// queue alone, as it researches nothing), at every landscape
 // width from 640 to 900 (360 and 390 high) and upright from 360 to 430 wide: the name and the health figure whole,
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
@@ -1243,10 +1243,10 @@ test('the menu offers the Vael: their base, workers and Build list', async () =>
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
     await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Sunpetal'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.deepEqual(labels, ['Cradle', 'Sunpetal', 'Tidewell', 'Back'], 'the Vael Build list (Advanced, the Siphon with it, once a Cradle stands)');
+    assert.deepEqual(labels, ['Siphon', 'Sunpetal', 'Tidewell', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
     await page.evaluate(() => { endfall.ui.mode = null; });
     await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Sunpetal'), null, { timeout: 10000 });
-    assert.ok(await page.locator('#shBar').isVisible(), 'a Glint shows its shields over its hull');
+    assert.ok(!(await page.locator('#shBar').isVisible()), 'a Bot has no shields to show (none since the re-theme)');
     const card = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
     assert.ok(!card.includes('Repair'), `the Vael do not repair: ${card}`);
     assert.deepEqual(errors, []);
@@ -1537,10 +1537,8 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     await d.buildWithUI('c', 'barracks', spot.tx, spot.ty, h.id);
     const rax = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'barracks'));
     await until(d, async () => (await rax())?.done, { seconds: 90, what: 'the Crew Hall' });
-    await d.grant(1000, 500);
-    await buildAndFinish(d, 'k', 'forge', 1); // (the Mender is on the card once a Workshop stands)
     await d.clickEntity((await rax()).id);
-    await d.readyCard('Mender');
+    await d.readyCard('Picket');
     const cdp = await d.page.context().newCDPSession(d.page);
     const info = d.page.locator('#cmdInfo');
     // Held on a unit's button: its card, and its stat chips by row (each chip's label and its offset in the card).
@@ -1556,25 +1554,28 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
       return { text: await info.textContent(), ...card };
     };
     const release = async () => { await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await info.waitFor({ state: 'hidden', timeout: 5000 }); };
-    const T = await d.eval(() => endfall.engine.UNITS.trooper), M = await d.eval(() => endfall.engine.UNITS.medic);
+    const T = await d.eval(() => endfall.engine.UNITS.trooper), M = await d.eval(() => endfall.engine.UNITS.observer);
     const trooper = await hold('Picket');
     assert.match(trooper.text, /^Picket\s*50/, 'its name and cost first');
-    assert.match(trooper.text, /Line infantry, cheap and steady\./, 'and what it does');
-    assert.match(trooper.text, /Best with Harpooners\. Beaten by Conchs\./, 'its partner and its killer, one line (Roster v2)');
+    assert.match(trooper.text, /Spear infantry, cheap and steady\./, 'and what it does');
+    assert.match(trooper.text, /Best with Harpooners\. Beaten by Conchs\./, 'its partner and its killer, one line');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Picket' }).getAttribute('title'), /against|Health|Damage/i, 'nor counters or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
-    assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armour ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Picket shoots the ground only)
+    assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armour ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
     assert.ok(trooper.rows.every(r => r.one), 'each row on one line');
     assert.ok(trooper.box[0] >= 0 && trooper.box[1] >= 0 && trooper.box[2] <= trooper.vw && trooper.box[3] <= trooper.vh, `the card fits the screen: ${trooper.box}`);
     await release();
-    // An unarmed unit (the Mender): a dash, then its tags,
-    // every slot where the Picket's is.
-    const medic = await hold('Mender');
-    assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.text)), [[String(M.hp), String(M.armor)], ['—', 'Heals']]);
+    // An unarmed unit (the Balloon, at the Workshop): a dash, then its tags, every slot where the Guard's is.
+    await d.grant(1000, 500);
+    const factory = await buildAndFinish(d, 's', 'factory', 1);
+    await d.clickEntity(factory.id);
+    await d.readyCard('Spyglass');
+    const medic = await hold('Spyglass');
+    assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.text)), [[String(M.hp), String(M.armor)], ['—', 'Flying']]);
     assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.x)), trooper.rows.map(r => r.chips.map(c => c.x)), 'the same positions as the Picket\'s');
     await release();
-    assert.equal(await d.eval(() => endfall.G.bldgs.find(b => b.team === 0 && b.type === 'barracks').queue.length), 0, 'the long-presses trained nothing');
+    assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'the long-presses trained nothing');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2606,7 +2607,7 @@ async function pickControls(d, scheme) {
 async function selectedTrooper(d) {
   const core = coreOf(await d.state());
   const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 120, core.y + 70]);
-  await d.eval(() => endfall.engine.debugResearch(0, 'entrenching')); // (Sandbags: its Dig In on the card)
+  await d.eval(() => endfall.engine.debugResearch(0, 'entrenching')); // (Sandbags: its Brace on the card)
   await d.skip(0.1);
   await d.clickEntity(id);
   assert.deepEqual((await d.selection()).map(e => e.id), [id], 'the Picket is selected');
@@ -2619,7 +2620,7 @@ test('desktop, CLASSIC controls (the default): with a unit selected A arms attac
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await selectedTrooper(d);
-    assert.deepEqual((await cardKeys(d)).map(([, k, l]) => `${l} ${k}`), ['Attack A', 'Hold H', 'Dig In D', 'Deselect Esc'], 'each button its own letter');
+    assert.deepEqual((await cardKeys(d)).map(([, k, l]) => `${l} ${k}`), ['Attack A', 'Hold H', 'Brace D', 'Deselect Esc'], 'each button its own letter');
     await d.key('a');
     assert.equal(await d.eval(() => endfall.ui.mode), 'attack', 'A arms attack-move');
     await d.key('Escape');
@@ -2663,7 +2664,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     // A unit selected and on the move: W A S D move the map, nothing else (A arms no attack, S stops nothing).
     const id = await selectedTrooper(d);
     const shown = await cardKeys(d);
-    assert.deepEqual(shown.map(([, k, l]) => `${l} ${k}`), ['Attack E', 'Hold R', 'Dig In T', 'Deselect H'], 'each button its slot\'s key');
+    assert.deepEqual(shown.map(([, k, l]) => `${l} ${k}`), ['Attack E', 'Hold R', 'Brace T', 'Deselect H'], 'each button its slot\'s key');
     for (const [slot, k] of shown) assert.equal(k, GRID[slot]);
     const W = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
     await d.rightClickWorld(W[0] / 2, W[1] / 2); // (the camera is centred there too)

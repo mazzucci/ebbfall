@@ -31,7 +31,7 @@ const UNIT_TEXT = {
   observer: { hot: 'S', desc: 'Unarmed flying scout. Slow, sees far, floats over cliffs.' },
   siegeTank: { hot: 'A', desc: 'Siege engine. Sets up by itself where it stops and hurls from afar with heavy splash, but not up close; it cannot fire on the move.' },
   bastion: { hot: 'B', desc: 'Bolt thrower on wheels: the answer to flyers, and its bolts reach the ground too, lighter.' },
-  rider: { hot: 'T', desc: 'Fast light cavalry. Raids workers. Faster once Tailwind is researched.' },
+  rider: { hot: 'E', desc: 'Fast light cavalry. Raids workers. Faster once Tailwind is researched.' },
   knight: { hot: 'N', desc: 'Heavy cavalry in plate: tough, and hits hard up close.' },
   // the Expedition (`vael`)
   lumen: { hot: 'G', desc: 'Mines salt. Builds structures, staying with each until it stands.' },
@@ -68,16 +68,14 @@ const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor
   afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
-/** Each fighting unit's partner (what it fights best beside) and killer (what beats it), from Roster v2's
- *  compositions: one line in its train button's details (`pairLine`). Workers have none. Every killer is held by a
+/** Each fighting unit's partner (what it fights best beside) and killer (what beats it), from cost-equal
+ *  duels (the re-theme's first numbers): one line in its train button's details (`pairLine`). Workers have none. Every killer is held by a
  *  cost-equal duel (crates/endfall-sim/tests/gameplay/balance.rs `every_units_killer_on_its_card_beats_it`). */
 export const PAIRS = {
-  trooper: ['lancer', 'monolith'], lancer: ['trooper', 'scythe'], medic: ['trooper', 'scythe'],
-  vanguard: ['siegeTank', 'monolith'], siegeTank: ['vanguard', 'shrike'], interceptor: ['bastion', 'scythe'],
-  raider: ['interceptor', 'prism'], observer: ['siegeTank', 'shrike'], bastion: ['interceptor', 'shrike'],
-  scythe: ['halo', 'vanguard'], prism: ['monolith', 'siegeTank'], halo: ['scythe', 'trooper'],
-  monolith: ['prism', 'raider'], umbra: ['shrike', 'trooper'], shrike: ['umbra', 'interceptor'],
-  sovereign: ['prism', 'raider'],
+  trooper: ['lancer', 'monolith'], lancer: ['trooper', 'scythe'], siegeTank: ['knight', 'shrike'], bastion: ['trooper', 'prism'],
+  rider: ['knight', 'umbra'], knight: ['siegeTank', 'shrike'], observer: ['siegeTank', 'shrike'],
+  prism: ['monolith', 'knight'], scythe: ['prism', 'trooper'], umbra: ['prism', 'knight'], bruiser: ['prism', 'knight'],
+  monolith: ['prism', 'siegeTank'], shrike: ['umbra', 'bastion'],
 };
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
 export const UNITS = merge(D.units, UNIT_TEXT);

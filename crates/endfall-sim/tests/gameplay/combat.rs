@@ -104,7 +104,10 @@ fn a_ballista_hits_flyers_hard_and_the_ground_too() {
     let b = w.make_unit(UnitKind::Bastion, PLAYER, 600.0, 900.0);
     let guard = w.make_unit(UnitKind::Trooper, ENEMY, 700.0, 900.0);
     let depot = w.make_building(BldgKind::Depot, ENEMY, 21, 26, true);
-    assert!(w.can_hit(b, guard) && w.can_hit(b, depot), "it can hit the ground");
+    assert!(
+        w.can_hit(b, guard) && w.can_hit(b, depot),
+        "it can hit the ground"
+    );
     w.hold_unit(guard);
     assert_eq!(
         first_hit(&mut w, UnitKind::Bastion, PLAYER, UnitKind::Trooper),
@@ -154,8 +157,7 @@ fn three_archers_beat_a_drone_up_close() {
     w.attack_ent(third, raider);
     run(&mut w, 20);
     assert!(
-        w.unit(raider).is_none()
-            && [lancer, other, third].iter().any(|&a| w.unit(a).is_some()),
+        w.unit(raider).is_none() && [lancer, other, third].iter().any(|&a| w.unit(a).is_some()),
         "anti-air wins its duel"
     );
 }
@@ -350,7 +352,13 @@ fn every_weapon_reports_its_shots_for_the_sound() {
         (UnitKind::Lumen, UnitKind::Trooper, "blade"),
     ] {
         let mut w = arena(16);
-        if VAEL.build_basic.iter().chain(VAEL.build_advanced).chain([&VAEL.hq]).any(|b| b.def().trains.contains(&shooter)) {
+        if VAEL
+            .build_basic
+            .iter()
+            .chain(VAEL.build_advanced)
+            .chain([&VAEL.hq])
+            .any(|b| b.def().trains.contains(&shooter))
+        {
             w.factions = vec![&VAEL, &HUMANS];
         }
         let me = w.make_unit(shooter, PLAYER, 600.0, 900.0);

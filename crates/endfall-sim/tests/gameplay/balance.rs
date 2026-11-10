@@ -17,7 +17,7 @@ fn balance_matrix() {
         ("grd+knight", &[Trooper, Trooper, Knight]),
         ("arch+grd", &[Lancer, Trooper]),
     ];
-    for budget in [1100.0, 2200.0] {
+    for budget in [2200.0, 4400.0] {
         println!("budget {budget}");
         for (na, a) in armies {
             let row: Vec<String> = armies
@@ -306,11 +306,41 @@ fn retheme_cross_matrix() {
 #[test]
 fn the_retheme_counters_hold_in_cost_equal_fights() {
     // The re-theme's counters, with every tech on both sides, at two budgets. Thresholds sit inside the values measured
-    // by retheme_cross_matrix and anti_air_matrix.
+    // by retheme_cross_matrix and anti_air_matrix (the first numbers, 2026-11-10; the lab tunes them after the tower
+    // range).
     use UnitKind::*;
     for budget in [2200.0, 4400.0] {
         let d = |a: &[UnitKind], b: &[UnitKind]| duel_with(a, b, budget, tech_micro);
-        let checks: [(&str, f64, f64); COUNTER_CHECKS] = counter_checks(&d);
+        let checks: [(&str, f64, f64); 12] = [
+            (
+                "Guards beat Sellswords up close",
+                d(&[Trooper], &[Prism]),
+                0.1,
+            ),
+            ("Guards beat Buggies", d(&[Trooper], &[Scythe]), 0.1),
+            ("Knights ride down Sellswords", d(&[Knight], &[Prism]), 0.2),
+            ("Knights beat Bruisers", d(&[Knight], &[Bruiser]), 0.2),
+            (
+                "the Rover's splash beats a clump of Guards",
+                -d(&[Trooper], &[Monolith]),
+                0.3,
+            ),
+            (
+                "Trebuchets behind a Knight hold the Rover",
+                d(&[SiegeTank, Knight], &[Monolith]),
+                0.2,
+            ),
+            ("Marines outrange Archers", -d(&[Lancer], &[Umbra]), 0.2),
+            ("Buggies beat Archers", -d(&[Lancer], &[Scythe]), 0.2),
+            ("Archers answer Drones", d(&[Lancer], &[Shrike]), 0.3),
+            ("Ballistas answer Drones", d(&[Bastion], &[Shrike]), 0.3),
+            ("Sellswords answer Drones", d(&[Prism], &[Shrike]), 0.3),
+            (
+                "Archers are weak against the ground",
+                -d(&[Lancer], &[Trooper]),
+                0.2,
+            ),
+        ];
         for (claim, got, floor) in checks {
             assert!(
                 got > floor,
@@ -320,20 +350,26 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
     }
 }
 
-const COUNTER_CHECKS: usize = 0;
-
-/// The claims `the_retheme_counters_hold_in_cost_equal_fights` checks: (claim, score, floor).
-fn counter_checks(_d: &dyn Fn(&[UnitKind], &[UnitKind]) -> f64) -> [(&'static str, f64, f64); COUNTER_CHECKS] {
-    []
-}
-
 #[test]
 fn every_units_killer_on_its_card_beats_it() {
     // Each fighting unit's train button names what beats it (src/engine/constants.js PAIRS, "Beaten by ..."): the
     // card must not lie. Cost-equal, every tech. Unarmed units (the Balloon, the healers) lose to anything and are
     // left out.
     use UnitKind::*;
-    let killers: [(UnitKind, UnitKind); KILLERS] = KILLER_PAIRS;
+    let killers: [(UnitKind, UnitKind); 12] = [
+        (Trooper, Monolith),
+        (Lancer, Scythe),
+        (SiegeTank, Shrike),
+        (Bastion, Prism),
+        (Rider, Umbra),
+        (Knight, Shrike),
+        (Prism, Knight),
+        (Scythe, Trooper),
+        (Umbra, Knight),
+        (Bruiser, Knight),
+        (Monolith, SiegeTank),
+        (Shrike, Bastion),
+    ];
     for budget in [2200.0, 4400.0] {
         for (unit, killer) in killers {
             let s = duel_with(&[killer], &[unit], budget, tech_micro);
@@ -346,9 +382,6 @@ fn every_units_killer_on_its_card_beats_it() {
         }
     }
 }
-
-const KILLERS: usize = 0;
-const KILLER_PAIRS: [(UnitKind, UnitKind); KILLERS] = [];
 
 #[test]
 #[ignore]

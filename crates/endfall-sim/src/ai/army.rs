@@ -32,7 +32,6 @@ fn army_worth(k: UnitKind) -> f64 {
     k.def().cost[0] as f64
 }
 
-
 impl World {
     /// The guided first game: its hold on the opponent's waves, set by `guided_hold` (the client's `holdWaves`): no
     /// wave while on (until `HOLD_WAVES_MAX` s at most), and meanwhile the opponent's army stops growing at
@@ -422,10 +421,14 @@ impl World {
             return army;
         };
         let looking = self.ai().looking.map(|(id, _)| id);
-        let (scouts, rest): (Vec<Id>, Vec<Id>) = army.into_iter().partition(|&a| self.u(a).kind == kind);
+        let (scouts, rest): (Vec<Id>, Vec<Id>) =
+            army.into_iter().partition(|&a| self.u(a).kind == kind);
         for s in scouts {
             let u = self.u(s);
-            if Some(s) != looking && u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
+            if Some(s) != looking
+                && u.task == Task::Idle
+                && dist(u.x, u.y, rally.x, rally.y) > 160.0
+            {
                 self.move_to(s, rally.x, rally.y);
             }
         }

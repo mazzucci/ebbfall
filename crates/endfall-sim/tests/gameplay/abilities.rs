@@ -34,10 +34,7 @@ fn a_selection_casts_together_and_only_its_own_units() {
     );
     let dug = |w: &World, u: Id| w.unit(u).unwrap().mode.is_some();
     assert!(dug(&w, mine[0]) && dug(&w, mine[1]));
-    assert!(
-        dug(&w, mine[2]),
-        "the busy one stays as it was (bracing)"
-    );
+    assert!(dug(&w, mine[2]), "the busy one stays as it was (bracing)");
     assert!(!dug(&w, theirs), "another seat's unit is never cast for");
     // Nobody able: the first reason comes back for the player.
     let only_medic = Command::Cast {
@@ -85,7 +82,10 @@ fn the_ai_uses_abilities_in_its_fights() {
         }
     }
     assert!(cast.contains(&"deploy"), "a Trebuchet anchored: {cast:?}");
-    assert!(!cast.contains(&"entrench"), "the AI braces nothing: {cast:?}");
+    assert!(
+        !cast.contains(&"entrench"),
+        "the AI braces nothing: {cast:?}"
+    );
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
     w.cast(g, AbilityKind::Entrench).unwrap();
     assert_eq!(w.unit(g).unwrap().task, Task::Hold, "braced, it holds");
     run(&mut w, 1);
-    assert!(w.unit(g).unwrap().swap < 1e-9, "set in a second");
+    assert_eq!(w.unit(g).unwrap().swap, 0.0, "set in a second");
     assert_eq!(hit(&mut w), blow - armour - 4.0, "braced: 4 more armour");
     // It strikes what comes into its reach.
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 30.0 * TILE + 22.0, 30.0 * TILE);
@@ -362,5 +362,9 @@ fn a_harpoon_slows_what_it_hits_for_three_seconds_flyers_too_and_no_ability_mean
     assert!(why.contains("Harpooned"), "{why}");
     assert!(w.cast(guard, AbilityKind::Entrench).is_err());
     run(&mut w, 3);
-    assert_eq!(w.can_cast(guard, AbilityKind::Entrench), Ok(()), "free again");
+    assert_eq!(
+        w.can_cast(guard, AbilityKind::Entrench),
+        Ok(()),
+        "free again"
+    );
 }

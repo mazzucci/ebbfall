@@ -403,12 +403,12 @@ test('a projectile names its shooter\'s kind (the client draws the Harpooner\'s 
   const { SHOT_LOOK } = await import('../src/client/look.js');
   E.resetGameSeats(32, 1, 0, 0, ['humans', 'vael'], [], [false, false], 0, 64);
   const x = 32 * C.TILE + 16, y = 32 * C.TILE + 16;
-  const shooters = ['lancer', 'prism', 'trooper'].map((k, i) => [k, E.debugSpawn(i === 1 ? 1 : 0, k, x + i * 120, y)]);
+  const shooters = ['lancer', 'prism', 'bastion'].map((k, i) => [k, E.debugSpawn(i === 1 ? 1 : 0, k, x + i * 120, y)]);
   for (const [k, id] of shooters) E.debugSpawn(k === 'prism' ? 0 : 1, 'trooper', E.G.units.find(u => u.id === id).x + 60, y);
   const seen = new Set();
   for (let i = 0; i < 90 && seen.size < 3; i++) { E.step(); for (const p of E.G.projs) seen.add(p.by); }
   for (const [k] of shooters) assert.ok(seen.has(k), `a ${k}'s shot names it`);
-  assert.equal(SHOT_LOOK.lancer, 'harpoon'); assert.equal(SHOT_LOOK.prism, 'beam'); assert.equal(SHOT_LOOK.trooper, undefined);
+  assert.equal(SHOT_LOOK.lancer, 'harpoon'); assert.equal(SHOT_LOOK.prism, 'beam'); assert.equal(SHOT_LOOK.bastion, undefined);
   E.resetGame(4, 0);
 });
 

@@ -493,10 +493,7 @@ impl World {
             Some(f.ether)
         } else if self.factories(e, &my_b) < rax_schedule && rax_room {
             Some(s.rax)
-        } else if let Some(k) = self
-            .extra_rax(e, &my_b, rax_schedule)
-            .filter(|_| rax_room)
-        {
+        } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule).filter(|_| rax_room) {
             Some(k)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && pumps > 0

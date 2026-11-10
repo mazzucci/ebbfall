@@ -198,7 +198,11 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         (fac, UnitKind::SiegeTank),
         (stables, UnitKind::Knight),
     ] {
-        assert_eq!(w.queue_unit(at, k), Err("Requires Workshop".into()), "{k:?}");
+        assert_eq!(
+            w.queue_unit(at, k),
+            Err("Requires Workshop".into()),
+            "{k:?}"
+        );
         assert_eq!(
             w.queue_unit(rax, k),
             Err("Crew Hall cannot train that".into()),
@@ -206,8 +210,14 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         );
     }
     build(&mut w, BldgKind::Depot, h[0], 60); // (room for them all)
-    assert!(w.queue_unit(fac, UnitKind::Observer).is_ok(), "no Forge for a Balloon");
-    assert!(w.queue_unit(stables, UnitKind::Rider).is_ok(), "nor for a Rider");
+    assert!(
+        w.queue_unit(fac, UnitKind::Observer).is_ok(),
+        "no Forge for a Balloon"
+    );
+    assert!(
+        w.queue_unit(stables, UnitKind::Rider).is_ok(),
+        "nor for a Rider"
+    );
     build(&mut w, BldgKind::Forge, h[2], 120);
     for (at, k) in [
         (fac, UnitKind::Bastion),
@@ -228,19 +238,28 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
         assert!(!w.has_req(PLAYER, k), "{k:?} waits for the Recruiting post");
     }
-    assert!(w.has_req(PLAYER, BldgKind::Siphon), "the Recruiting post needs nothing");
+    assert!(
+        w.has_req(PLAYER, BldgKind::Siphon),
+        "the Recruiting post needs nothing"
+    );
     let post = build(&mut w, BldgKind::Siphon, l[0], 150);
     build(&mut w, BldgKind::Spire, l[3], 90); // (room for them all)
     for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
         assert!(w.has_req(PLAYER, k), "{k:?} once it stands");
     }
-    assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "the Portal waits for the Lab");
+    assert!(
+        !w.has_req(PLAYER, BldgKind::Eclipse),
+        "the Portal waits for the Lab"
+    );
     assert_eq!(
         w.queue_unit(post, UnitKind::Bruiser),
         Err("Requires Glasshouse".into()),
         "the Bruiser waits for a Lab"
     );
-    assert!(w.queue_unit(post, UnitKind::Prism).is_ok(), "a Sellsword at once");
+    assert!(
+        w.queue_unit(post, UnitKind::Prism).is_ok(),
+        "a Sellsword at once"
+    );
     let kiln = build(&mut w, BldgKind::Kiln, l[1], 150);
     for k in [UnitKind::Scythe, UnitKind::Shrike] {
         assert!(w.queue_unit(kiln, k).is_ok(), "{k:?}");
@@ -255,7 +274,10 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         "no healer in the build"
     );
     build(&mut w, BldgKind::Loom, l[2], 150);
-    assert!(w.queue_unit(post, UnitKind::Bruiser).is_ok(), "once the Lab stands");
+    assert!(
+        w.queue_unit(post, UnitKind::Bruiser).is_ok(),
+        "once the Lab stands"
+    );
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
@@ -553,14 +575,14 @@ fn a_group_attack_move_marches_at_the_slowest_pace_with_healers_behind() {
     let mut w = flat_arena(31);
     let (y0, x0) = (900.0, 600.0);
     let t = w.make_unit(UnitKind::Trooper, PLAYER, x0, y0);
-    let v = w.make_unit(UnitKind::Bruiser, PLAYER, x0, y0 + 40.0);
+    let v = w.make_unit(UnitKind::SiegeTank, PLAYER, x0, y0 + 40.0);
     let m = w.make_unit(UnitKind::Medic, PLAYER, x0, y0 - 40.0);
     w.attack_move_group(&[t, v, m], x0 + 1000.0, y0);
     run(&mut w, 6);
     assert!(x(&w, v) > x0 + 300.0, "the group moved: {}", x(&w, v));
     assert!(
         (x(&w, t) - x(&w, v)).abs() < 24.0,
-        "the Trooper keeps pace with the Vanguard: {} vs {}",
+        "the Guard keeps pace with the Trebuchet: {} vs {}",
         x(&w, t),
         x(&w, v)
     );
@@ -645,7 +667,8 @@ fn a_unit_finds_its_way_around_a_building_put_up_across_its_route() {
     // for ever (an AI's wave once stood at its own new Core for the rest of a game).
     for amove in [false, true] {
         let mut w = flat_arena(5);
-        let u = w.make_unit(UnitKind::Trooper, PLAYER, 15.0 * TILE, 30.0 * TILE);
+        // (an unarmed walker: an idle Guard at the goal would go for the enemy base it sees from there)
+        let u = w.make_unit(UnitKind::Medic, PLAYER, 15.0 * TILE, 30.0 * TILE);
         let goal = (45.0 * TILE, 30.0 * TILE);
         if amove {
             w.attack_move(u, goal.0, goal.1);

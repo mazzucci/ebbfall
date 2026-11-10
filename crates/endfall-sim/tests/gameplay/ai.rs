@@ -46,6 +46,52 @@ fn the_ai_plays_either_seat() {
 }
 
 #[test]
+fn every_level_plays_the_new_rosters_to_the_end() {
+    // The re-theme's rosters at every level: the Kingdom against the Expedition and each in a mirror, two AIs, a game
+    // that ends within 40 minutes, both seats having fought (and fielded more than their line units on a level whose
+    // mix allows it).
+    for diff in 0..DIFF.len() {
+        for (k, races) in [[&HUMANS, &VAEL], [&HUMANS, &HUMANS], [&VAEL, &VAEL]]
+            .into_iter()
+            .enumerate()
+        {
+            let seed = 40 + 3 * diff as u32 + k as u32;
+            let mut w = World::with_setup(seed, diff, MapKind::Standard, false, races);
+            w.set_ai_seats([true, true]);
+            let mut hits = [0, 0];
+            let mut tier = [0u8; 2]; // the most advanced unit each seat fielded
+            while !w.over && w.time < 40.0 * 60.0 {
+                w.step();
+                for e in w.events.drain(..) {
+                    if let endfall_sim::world::Event::Attacked { team, .. } = e {
+                        hits[team as usize] += 1;
+                    }
+                }
+                for u in &w.units {
+                    tier[u.team as usize] = tier[u.team as usize].max(u.kind.ai_tier());
+                }
+            }
+            let what = format!("level {diff}, {} v {}", races[0].key, races[1].key);
+            assert!(
+                w.over,
+                "{what}: someone wins within 40 min (t={:.0})",
+                w.time
+            );
+            assert!(
+                hits[0] > 0 && hits[1] > 0,
+                "{what}: both seats fought: {hits:?}"
+            );
+            if diff >= 1 {
+                assert!(
+                    tier.iter().any(|&t| t >= 1),
+                    "{what}: past its line units: {tier:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn two_ais_play_each_other_to_the_end() {
     for (seed, races) in [
         (5u32, [&HUMANS, &HUMANS]),
@@ -185,7 +231,34 @@ fn the_ai_answers_flyers_with_ballistas_once_its_workshop_can() {
     }
 }
 
-/// The Harpooners `e` has and has queued (the anti-air answer adds them; the mix trains one per two Pickets anyway).
+/// Runs `w` for `secs` and returns what `e` trained meanwhile, (Archers, Guards): those it had at any time (shot
+/// down too) and has queued at the end. Its Barracks is busy either way: an anti-air answer shows in the share of
+/// Archers.
+fn trained_over(w: &mut World, e: u8, secs: u32) -> (usize, usize) {
+    let kinds = [UnitKind::Lancer, UnitKind::Trooper];
+    let mut seen: Vec<Id> = w
+        .units
+        .iter()
+        .filter(|u| u.team == e)
+        .map(|u| u.id)
+        .collect();
+    let mut n = [0, 0];
+    for _ in 0..secs * TPS {
+        w.step();
+        w.events.clear();
+        for u in w.units.iter().filter(|u| u.team == e) {
+            if !seen.contains(&u.id) {
+                seen.push(u.id);
+                if let Some(k) = kinds.iter().position(|&k| k == u.kind) {
+                    n[k] += 1;
+                }
+            }
+        }
+    }
+    (n[0], n[1])
+}
+
+/// The Archers `e` has and has queued (the anti-air answer adds them; the mix trains one per Guard anyway).
 fn harpooners(w: &World, e: u8) -> usize {
     count(w, e, UnitKind::Lancer)
         + w.bldgs
@@ -198,16 +271,14 @@ fn harpooners(w: &World, e: u8) -> usize {
 
 #[test]
 fn the_ai_only_reacts_to_flyers_it_has_seen() {
-    // Against a control game (the same seed, no flyer): a raider the AI has not seen adds no Harpooners; once seen, it
-    // does (the anti-air answer, on top of the mix's one per two Pickets).
-    // (from 2:00, soon after its Crew Hall stands: by 2:30 its mix holds enough Harpooners to cover three flyers'
-    // answer, since the Excavator waits for the Crew Hall and the Lighthouse holds 20 population)
+    // Against a control game (the same seed, no flyer): a Drone the AI has not seen adds no Archers; once seen, it does
+    // (the anti-air answer, on top of the mix's one per Guard).
     let mut control = World::new(31, 0);
     let mut w = World::new(31, 0);
     run(&mut control, 120);
     run(&mut w, 120);
-    // Three raiders hiding in the top-left corner, far from anything the AI has looked at (three: its answer is two
-    // anti-air per flyer seen, more than the mix's Harpooners cover).
+    // Three Drones hiding in the top-left corner, far from anything the AI has looked at (three: its answer is two
+    // anti-air per flyer seen, more than the mix's Archers cover).
     let raiders: Vec<Id> = (0..3)
         .map(|k| w.make_unit(UnitKind::Shrike, PLAYER, 40.0 + k as f64 * 24.0, 40.0))
         .collect();
@@ -233,13 +304,15 @@ fn the_ai_only_reacts_to_flyers_it_has_seen() {
         );
         w.hold_unit(r);
     }
-    // (Easy's one Crew Hall trains them one at a time behind its queue: a minute for the answer to show)
-    run(&mut control, 60);
-    run(&mut w, 60);
-    let (has, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
+    // (Easy's one Barracks trains them one at a time behind its queue: a minute and a half for the answer to show;
+    // the Drones shoot some of them down: what it trained counts)
+    let (has, base) = (
+        trained_over(&mut w, ENEMY, 90),
+        trained_over(&mut control, ENEMY, 90),
+    );
     assert!(
-        has > base + 1,
-        "Harpooners once it has seen the flyer: {has} against {base} without it"
+        has.0 * base.1 > base.0 * has.1,
+        "Archers rather than Guards once it has seen the flyer: (Archers, Guards) {has:?} against {base:?} without it"
     );
 }
 
@@ -787,20 +860,20 @@ fn the_ai_is_not_alarmed_by_a_scout_but_answers_a_gunship() {
                 "the AI sees the scouts"
             );
         }
-        run(&mut w, 80);
-        // (against a control game: the same seed and set-up, no flyer; the mix trains Harpooners anyway)
+        let have = trained_over(&mut w, ENEMY, 80);
+        // (against a control game: the same seed and set-up, no flyer; the mix trains Archers anyway)
         let mut control = World::new(31, 0);
         run(&mut control, 150);
         if kind == UnitKind::Observer {
             control.make_building(BldgKind::Turret, ENEMY, cx - 5, cy + 7, true);
             control.step();
         }
-        run(&mut control, 80);
-        let (have, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
-        let trained = have > base + 1;
+        let base = trained_over(&mut control, ENEMY, 80);
+        // (a larger share of Archers among what it trained)
+        let trained = have.0 * base.1 > base.0 * have.1;
         assert_eq!(
             trained, lancers,
-            "{kind:?}: an anti-air answer = {trained} ({have} Harpooners, {base} without it)"
+            "{kind:?}: an anti-air answer = {trained} ((Archers, Guards) {have:?}, {base:?} without it)"
         );
     }
 }
@@ -902,7 +975,7 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
 fn two_vael_ais_finish_a_game_at_every_level() {
     // PRD: builders who stay. With every Bot staying at its site, neither Expedition AI stalls at any level: both raise
     // their Recruiting post and (on a level with raiders) their Factory, and one of them wins.
-    for diff in 0..DIFF.len() {
+    for (diff, level) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
         w.set_ai_seats([true, true]);
         let kinds = [BldgKind::Siphon, BldgKind::Kiln];
@@ -923,7 +996,7 @@ fn two_vael_ais_finish_a_game_at_every_level() {
             "diff {diff}: someone wins within 40 min (t={:.0})",
             w.time
         );
-        let factory = DIFF[diff].air_at < NEVER;
+        let factory = level.air_at < NEVER;
         assert_eq!(
             stood,
             [[true, factory]; 2],
@@ -991,8 +1064,11 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
                 .iter()
                 .filter(|b| b.team == seat && (b.kind == s.rax || Some(b.kind) == s.heavy))
                 .count();
+            // (the Expedition's main factory, its Recruiting post, stands on a shaft until the economy PR: one on each
+            // of the two shafts on its side, whatever room its main has)
+            let want = if s.rax.def().on_vent { 2 } else { 3 };
             assert!(
-                n >= 3,
+                n >= want,
                 "seed {seed} {kind:?} seat {seat}: {n} factories by 6 minutes"
             );
         }
@@ -1337,8 +1413,15 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         assert_eq!(count(&w, f_ai.hq), 2, "{name}: its natural");
         assert!(harvesters(&w, ENEMY).len() >= 10, "{name}: crewed");
         let schedule = DIFF[0].rax + 2; // (one more after 5 and after 9 minutes)
+        // (the Expedition's Recruiting posts stand on shafts until the economy PR: one on each of the two on its side,
+        // never beyond; the economy PR's posts go anywhere)
+        let want = if f_ai.ai.rax.def().on_vent {
+            2
+        } else {
+            schedule + 1
+        };
         assert!(
-            factories(&w) > schedule,
+            factories(&w) >= want,
             "{name}: a factory beyond its schedule: {}",
             factories(&w)
         );

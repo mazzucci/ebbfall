@@ -86,7 +86,10 @@ fn nothing_is_ever_hidden() {
     );
     // Nothing detects either: no unit or building has a detection radius any more (the field is gone from the data).
     let json = endfall_sim::data::data_json();
-    assert!(!json.contains("detect") && !json.contains("cloak"), "{json}");
+    assert!(
+        !json.contains("detect") && !json.contains("cloak"),
+        "{json}"
+    );
 }
 
 #[test]

@@ -129,7 +129,9 @@ impl World {
             for c in &mut u.ab_cd {
                 *c = (*c - dt).max(0.0);
             }
-            u.swap = (u.swap - dt).max(0.0);
+            // (a whole number of seconds counted down by DT leaves a rounding crumb: none of it is a tick)
+            let left = u.swap - dt;
+            u.swap = if left > 1e-9 { left } else { 0.0 };
         }
     }
 
@@ -146,7 +148,11 @@ impl World {
     /// Walking speed multiplier: 0 while deployed or settling.
     pub(crate) fn speed_mul(&self, uid: Id) -> f64 {
         let u = self.u(uid);
-        if u.mode.is_some() || u.swap > 0.0 { 0.0 } else { 1.0 }
+        if u.mode.is_some() || u.swap > 0.0 {
+            0.0
+        } else {
+            1.0
+        }
     }
 
     /// A unit's own top speed (px/s): its kind's, with its team's speed tech for it. The march pace of a group and

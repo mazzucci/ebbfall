@@ -201,7 +201,7 @@ pub(super) const RIDER: UnitDef = UnitDef {
     name: "Rider",
     cost: [100, 0],
     supply: 2,
-    hp: 100.0,
+    hp: 90.0,
     speed: 140.0,
     sight: 9.0,
     r: 12.0,

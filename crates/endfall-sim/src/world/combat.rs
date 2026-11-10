@@ -734,10 +734,7 @@ impl World {
         c: Live,
         dt: f64,
     ) {
-        let Some(t) = self
-            .geo(target)
-            .filter(|_| self.team_of(target).is_some())
-        else {
+        let Some(t) = self.geo(target).filter(|_| self.team_of(target).is_some()) else {
             // A deployed siege gun takes the next target in its reach before packing up for the march.
             if let Some(reach) = c.siege.filter(|_| self.u(uid).mode.is_some()) {
                 let (ux, uy, flier) = (self.u(uid).x, self.u(uid).y, c.kind.def().air);

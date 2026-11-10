@@ -11,6 +11,7 @@ import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
 import { tex, figure, pennant } from './kingdom.js';
+import { polishTextures } from './polish.js';
 
 let seed = 211; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 /** Patched balloon cloth: pale canvas panels with seams, a few darker patches sewn on (the patches neutral). */
@@ -31,6 +32,11 @@ function fam(M) {
     patched: std({ color: 0xcfc8b4, map: patchTex, roughness: 0.92 }),                            // the Balloon's envelope: patched pale canvas
     rope: M.rope,
   };
+  if (M.polish) { // the polish pass (polish.js polishMats does the kingdom's set; these are the family's own): hide on the bay, folds on the patched canvas
+    const X = polishTextures();
+    A.horseLight.map = X.hide; A.horseLight.needsUpdate = true;
+    A.patched.bumpMap = X.fold; A.patched.bumpScale = 0.8; A.patched.needsUpdate = true;
+  }
   FAM.set(M, A); return A;
 }
 
@@ -84,6 +90,13 @@ export function archer(M, f) {
   add(bw, cone(0.5, 1.6, 6), M.steel, BR + 5.2, 0.3, 0.6, 0, 0, -Math.PI / 2);                   // its head
   limb(b, [0.6, 11.2, -3.4], [GX - 0.6, GY, GZ], 1.15, M.cloth); add(b, sph(0.85, 8, 6), M.skin, GX - 0.4, GY, GZ);  // the bow arm, a team sleeve
   limb(b, [0.6, 11.2, 3.4], [GX - 4.2, 11.6, 0.8], 1.15, M.cloth); add(b, sph(0.85, 8, 6), M.skin, GX - 4.4, 11.6, 0.6); // the drawing arm, back to the cheek
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, a leather bracer on the bow arm, ink cuffs at the wrists, leather bindings on the stave's limbs, a steel ring at the quiver's foot
+    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
+    limb(b, [2.47, 11.09, -1.86], [3.39, 11.04, -1.1], 1.3, M.leather);                           // the bracer on the bow arm's forearm
+    add(b, sph(1.25, 8, 6), M.inkLine, 3.66, 11.02, -0.88); add(b, sph(1.25, 8, 6), M.inkLine, 0.42, 11.55, 1.11);
+    for (const s of [-1, 1]) add(bw, cyl(1.3, 1.3, 1.6, 8), M.leather, BR * Math.cos(0.8), s * BR * Math.sin(0.8), 0, 0, 0, s * 0.8); // bindings where the limbs meet the grip's riser
+    add(qv, cyl(1.3, 1.3, 0.8, 10), M.steel, 0, -2.2, 0);
+  }
   g.scale.setScalar(1.04);
   return g;
 }
@@ -140,6 +153,16 @@ export function rider(M, f) {
   limb(r, [0, 6, 2.8], [1.6, 4.6, 3.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 1.6, 4.4, 3.3); // the spear arm, a team sleeve
   limb(r, [0, 6, -2.8], [3.0, 5.0, -1.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 3.2, 5.0, -1.0); // the rein hand
   limb(h, [3.4, 15.6, -1.0], [12.6, 17.6, -0.6], 0.3, M.leather);                                 // the rein
+  if (M.polish) { // secondary detail (the polish pass): the bridle (a noseband and headstall) and the second rein, a girth over the flaps, a crupper to the rump, a belt buckle, ink cuffs, leather bindings on the spear
+    add(h, torus(1.5, 0.26), M.leather, 12.9, 17.7, 0, 0, Math.PI / 2, -0.45);                      // the noseband
+    for (const z of [-1.2, 1.2]) limb(h, [10.6, 19.3, z], [12.6, 17.7, z], 0.3, M.leather);          // the headstall, from behind the ears
+    limb(h, [3.4, 15.6, -1.0], [12.6, 17.6, 0.8], 0.3, M.leather);                                   // the second rein, to the same hand
+    add(h, rbox(1.2, 5.8, 5.9, 0.2), M.leather, 0.3, 11.3, 0);                                       // the girth, over the flaps
+    limb(h, [-2.2, 14.8, 0], [-7.0, 14.3, 0], 0.3, M.leather);                                       // the crupper
+    add(r, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.3, 1.8, 0);
+    add(r, sph(1.1, 8, 6), M.inkLine, 1.36, 4.81, 3.14); add(r, sph(1.1, 8, 6), M.inkLine, 2.55, 5.15, -1.44);
+    add(sp, cyl(0.95, 0.95, 2.0, 8), M.leather, 0, 8.4, 0); add(sp, cyl(0.95, 0.95, 2.4, 8), M.leather, 0, 1.8, 0);
+  }
   return g;
 }
 
@@ -178,6 +201,13 @@ export function ballista(M, f) {
   add(c, cyl(2.2, 2.8, 5.4, 10), M.tunic, 0, 2.7, 0); add(c, sph(1.6, 12, 10), M.linen, 0.6, 6.6, 0); add(c, sph(1.0, 10, 8), M.skin, 1.6, 6.4, 0).scale.set(0.8, 0.9, 0.9);
   limb(c, [0.6, 5.0, -1.6], [2.8, 4.6, -0.8], 0.8, M.cloth); limb(c, [0.6, 5.0, 1.6], [2.8, 4.6, 0.8], 0.8, M.cloth);
   pennant(g, M, -7.5, 3.4, 3.8, 9, 7);                                                          // a pennant at the rear corner
+  if (M.polish) { // secondary detail (the polish pass): hub rings on the wheels, iron bands round the stock, iron brackets at the carriage's corners, a steel ratchet wheel on the winch, leather bindings at the bow arms' roots
+    for (const [x, z] of [[-5.5, -5.6], [5.5, -5.6], [-5.5, 5.6], [5.5, 5.6]]) add(g, torus(0.75, 0.15), M.ironDark, x, 2.4, z + Math.sign(z) * 0.9);
+    for (const x of [-4.0, 6.5]) add(st, rbox(0.8, 2.3, 2.5, 0.1), M.ironDark, x, 0.7, 0);
+    for (const [x, z] of [[-5.5, -3.8], [5.5, -3.8], [-5.5, 3.8], [5.5, 3.8]]) add(g, rbox(2.2, 1.9, 2.2, 0.1), M.ironDark, x, 2.6, z);
+    add(st, cyl(1.6, 1.6, 0.4, 12), M.steel, -6.2, 1.2, -2.15, Math.PI / 2, 0, 0);
+    for (const s of [-1, 1]) limb(st, [9.12, 1.66, s * 4.3], [8.54, 1.73, s * 5.61], 0.95, M.leather);
+  }
   return g;
 }
 
@@ -228,6 +258,14 @@ export function trebuchet(M, f) {
   add(c, cyl(2.2, 2.8, 5.4, 10), M.tunic, 0, 2.7, 0); add(c, sph(1.6, 12, 10), M.linen, 0.5, 6.6, 0); add(c, sph(1.0, 10, 8), M.skin, 1.5, 6.4, 0).scale.set(0.8, 0.9, 0.9);
   add(g, cyl(0.9, 0.9, 7.0, 10), M.oak, 9.6, 5.2, -1.6, Math.PI / 2, 0, 0);                        // the windlass
   for (const [x, z] of [[-8, 2], [-6, -3], [-3, 4]]) add(g, sph(1.3, 10, 8), M.plinth, x, 4.4, z);  // stones stacked on the base
+  if (M.polish) { // secondary detail (the polish pass): hub rings on the wheels, iron bands round the arm, corner irons on the counterweight box, iron straps where the legs meet the base and plates over the bearings, rope wound on the windlass
+    for (const [x, z] of [[-8.5, -6.2], [8.5, -6.2], [-8.5, 6.2], [8.5, 6.2]]) add(g, torus(0.75, 0.15), M.ironDark, x, 2.6, z + Math.sign(z) * 0.9);
+    for (const x of [-15, -9, 3.6]) add(arm, rbox(0.9, 2.8, 2.8, 0.1), M.ironDark, x, 0, 0);
+    for (const [x, z] of [[-2.85, -2.85], [2.85, -2.85], [-2.85, 2.85], [2.85, 2.85]]) add(cw, rbox(0.9, 1.7, 0.9, 0.1), M.ironDark, x, -6.0, z);
+    for (const [x, z] of [[-6.5, -3.8], [6.5, -3.8], [-6.5, 3.8], [6.5, 3.8]]) add(g, rbox(2.0, 1.4, 1.6, 0.1), M.ironDark, x, 3.4, z);
+    for (const z of [-3.8, 3.8]) add(g, rbox(2.4, 0.5, 1.4, 0.1), M.ironDark, 0, H + 1.1, z);
+    for (const z of [-3.6, -3.0, -2.4]) add(g, torus(1.15, 0.3, 10), A.rope, 9.6, 5.2, z);
+  }
   return g;
 }
 
@@ -258,5 +296,17 @@ export function balloon(M) {
   add(b, cyl(0.9, 0.9, 3.4, 8), M.leather, 2.4, BY + 4.6, 0.6, 0, 0, -1.1);                       // a spyglass, raised
   for (const z of [-3.0, 3.0]) add(b, sph(0.9, 8, 6), M.canvasDark, -2.4, BY - 0.6, z).scale.set(1, 1.3, 1); // sandbags hung outside
   pennant(b, M, -2.4, BY + 1.9, -2.4, 7, 6);                                                      // a team pennant on the basket's corner
+  if (M.polish) { // secondary detail (the polish pass): the net (a third hoop and four meridian ropes down the envelope to the load ring), oak posts at the basket's corners and an oak band at its foot, rope rings on the sandbags
+    add(b, torus(R * 0.97, 0.3, 32), A.rope, 0, -1.6, 0, Math.PI / 2, 0, 0);
+    const rAt = (y) => R * Math.sqrt(Math.max(0, 1 - (y / 1.12 / R) ** 2)) + 0.15;              // the envelope's radius at a height, a hair proud
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2 + 0.95, ys = [7.0, 4.6, 1.6, -1.6, -4.6, -7.0], P = ys.map(y => [rAt(y) * Math.cos(a), y, rAt(y) * Math.sin(a)]);
+      P.push([1.8 * Math.cos(a), -R * 1.12 - 2.4, 1.8 * Math.sin(a)]);                           // down to the load ring
+      for (let i = 0; i + 1 < P.length; i++) limb(b, P[i], P[i + 1], 0.35, A.rope);
+    }
+    for (const [x, z] of [[-2.6, -2.6], [2.6, -2.6], [-2.6, 2.6], [2.6, 2.6]]) add(b, rbox(0.7, 3.8, 0.7, 0.1), M.oak, x, BY, z);
+    add(b, rbox(5.5, 0.5, 5.5, 0.1), M.oak, 0, BY - 1.6, 0);
+    for (const z of [-3.0, 3.0]) add(b, torus(0.65, 0.2, 10), A.rope, -2.4, BY - 0.2, z, Math.PI / 2, 0, 0);
+  }
   return g;
 }

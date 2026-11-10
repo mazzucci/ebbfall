@@ -54,9 +54,16 @@ export function mercenary(M, f) {
   add(b, sph(2.4, 14, 10), M.armour, 0.1, 14.3, 0).scale.set(1, 0.7, 1);                        // the cap, dark
   add(b, cyl(2.5, 2.5, 0.35, 14), M.inkLine, 0.1, 13.5, 0);                                     // its band
   add(b, rbox(2.6, 0.4, 3.4, 0.15), M.armour, 2.4, 13.8, 0, 0, 0, -0.2);                        // its peak
-  rifle(b, M, 3.6, 8.8, 0, 0.3);                                                                 // the rifle, level across the body, held low so the vest shows
+  const gun = rifle(b, M, 3.6, 8.8, 0, 0.3);                                                     // the rifle, level across the body, held low so the vest shows
   limb(b, [0.6, 11.4, 3.6], [2.6, 8.6, 1.6], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 2.8, 8.4, 1.4);  // the trigger hand
   limb(b, [0.6, 11.4, -3.6], [6.0, 9.0, -1.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 6.4, 9.0, -1.0); // the fore hand
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, the satchel's strap across the vest, a pouch on the other hip, ink cuffs at the wrists, a sling under the rifle
+    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 7.7, 0);
+    add(b, rbox(6.2, 0.9, 8.0, 0.1), M.leather, 0.2, 10.9, 0.4, -0.6, 0, 0);                        // (a diagonal across the vest's front and back, shoulder to the satchel's hip)
+    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 7.0, -3.6);
+    add(b, sph(1.2, 8, 6), M.inkLine, 2.3, 9.02, 1.9); add(b, sph(1.2, 8, 6), M.inkLine, 5.35, 9.29, -1.49);
+    limb(gun, [-4.6, -0.7, 0.2], [-0.8, -3.4, 0.4], 0.32, M.leather); limb(gun, [-0.8, -3.4, 0.4], [5.0, -0.6, 0.2], 0.32, M.leather);
+  }
   g.scale.setScalar(1.06);
   return g;
 }
@@ -106,8 +113,15 @@ export function veteran(M, f) {
   add(sh, rbox(1.4, 3.0, 3.0, 0.3), M.joint, -0.8, 0.5, 0);                                      // the grip block behind
   limb(b, [0.6, 11.8, -4.4], [1.2, 9.6, -5.4], 1.35, M.canvasLocal);                             // the shield arm
   // the heavy gun across the body, in the right hand, resting on the shield's edge
-  rifle(b, M, 3.8, 9.8, 0.2, 0.35, { len: 17, heavy: true });
+  const gun = rifle(b, M, 3.8, 9.8, 0.2, 0.35, { len: 17, heavy: true });
   limb(b, [0.6, 11.8, 4.4], [2.8, 9.6, 2.4], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 3.0, 9.4, 2.2);
+  if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, a team band round the gun's drum between ink rings (the units notes' second team piece on the gun side, where facing 0 shows no shield; no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)
+    for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), M.joint, 3.5, 10.9, z, 0, 0, -0.2);  // (joint, darker than the charcoal carrier, as the Marine's armour straps are darker than its camo)
+    add(b, rbox(1.4, 1.2, 0.6, 0.1), M.steel, 3.3, 7.4, 0);
+    for (const z of [-2.6, 2.6]) add(b, rbox(1.0, 0.6, 2.4, 0.1), M.leather, 0.6, 13.85, z);
+    for (const [y, z] of [[6.6, -3.8], [6.6, 3.8], [-4.4, -3.8], [-4.4, 3.8]]) add(sh, sph(0.55, 8, 6), M.steel, 0.65, y, z);
+    add(gun, torus(1.9, 0.4, 16), M.paint, 0.6, -1.6, 0, 0, Math.PI / 2, 0); for (const dx of [-0.55, 0.55]) add(gun, torus(1.95, 0.2, 16), M.inkLine, 0.6 + dx, -1.6, 0, 0, Math.PI / 2, 0);
+  }
   g.scale.setScalar(1.2);
   return g;
 }
@@ -151,6 +165,12 @@ export function rover(M, f) {
   add(b, rbox(5.0, 2.4, 8.0, 0.5), M.panelDark, -9.5, 3.2, 0);                                   // the battery pack at the stern
   add(b, torus(1.6, 0.5, 14), M.rope, -9.5, 4.8, 3.0, Math.PI / 2, 0, 0);                        // a rope coil on it
   add(b, cyl(0.5, 0.55, 9, 6), M.joint, -11.0, 7.0, -4.4);                                       // a whip antenna
+  if (M.polish) { // secondary detail (the polish pass): bolt rings on the hubs (the Buggy's), two team cargo straps over the rocket tubes between ink edges (the company's straps; they keep the share at the floor, which the rings' pixels would have taken it under), a cable from the battery pack up to the rack, a tow hook at the bow
+    for (const [x, z] of [[-7.5, -7.0], [7.5, -7.0], [-7.5, 7.0], [7.5, 7.0]]) add(b, torus(1.55, 0.22), M.joint, x, -0.6, z + Math.sign(z) * 1.6);
+    for (const x of [-2.6, 3.5]) { add(rk, rbox(1.4, 0.5, 11.0, 0.1), M.inkLine, x, 5.85, 0); add(rk, rbox(0.9, 0.6, 11.0, 0.1), M.paintCloth, x, 5.95, 0); }
+    limb(b, [-7.6, 4.5, 2.4], [-5.6, 5.4, 3.0], 0.3, M.cable);
+    add(b, rbox(1.2, 0.8, 1.0, 0.3), M.steel, 13.9, 0.4, -3.0);
+  }
   return g;
 }
 
@@ -179,5 +199,13 @@ export function drone(M, f) {
     add(b, torus(3.0, 0.15, 24), M.inkLine, x, 1.35, z, Math.PI / 2, 0, 0);                        // and an inner ink ring
   }
   add(b, cyl(0.5, 0.5, 3.0, 6), M.joint, -2.2, 2.0, 0);                                           // an antenna (drawn thick)
+  if (M.polish) { // secondary detail (the polish pass): a battery pack strapped on the hatch, three struts from each motor out to its guard ring, a dark hub cap over each rotor
+    add(b, rbox(2.6, 0.9, 2.2, 0.3), M.panelDark, -1.0, 1.7, 0); add(b, rbox(0.7, 1.0, 2.5, 0.1), M.joint, -1.0, 1.75, 0);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const x = sx * 4.6, z = sz * 4.6, t0 = Math.atan2(sz, sx);
+      for (const d of [0, 2.1, -2.1]) limb(b, [x, 0.9, z], [x + 3.3 * Math.cos(t0 + d), 1.2, z + 3.3 * Math.sin(t0 + d)], 0.4, M.joint);
+      add(b, sph(0.55, 8, 6), M.joint, x, 1.55, z);
+    }
+  }
   return g;
 }

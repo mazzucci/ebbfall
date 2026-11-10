@@ -30,12 +30,14 @@ function fam(M) {
   const A = {
     horseLight: std({ color: 0x8a6e4e, roughness: 0.75 }),                                      // the Rider's horse: a bay, lighter than the Knight's dark hide
     patched: std({ color: 0xcfc8b4, map: patchTex, roughness: 0.92 }),                            // the Balloon's envelope: patched pale canvas
+    patchedGrey: std({ color: 0xb4b0a4, map: patchTex, roughness: 0.92 }),                        // ... a greyer, more weathered panel
+    canvasOld: std({ color: 0xa08a68, map: patchTex, roughness: 0.92 }),                          // ... an old tan panel (the patchwork's darker tone; the re-test read clean stripes as modern)
     rope: M.rope,
   };
   if (M.polish) { // the polish pass (polish.js polishMats does the kingdom's set; these are the family's own): hide on the bay, folds on the patched canvas
     const X = polishTextures();
     A.horseLight.map = X.hide; A.horseLight.needsUpdate = true;
-    A.patched.bumpMap = X.fold; A.patched.bumpScale = 0.8; A.patched.needsUpdate = true;
+    for (const m of [A.patched, A.patchedGrey, A.canvasOld]) { m.bumpMap = X.fold; m.bumpScale = 0.8; m.needsUpdate = true; }
   }
   FAM.set(M, A); return A;
 }
@@ -269,44 +271,67 @@ export function trebuchet(M, f) {
   return g;
 }
 
-/** Balloon (the kingdom's one flyer, unarmed and slow, long sight; sim r 14, flies at 30): a patched cloth balloon
- *  (pale canvas panels, neutral darker patches, three team gores between ink seams), a rope net and a neck of old
- *  canvas, a wicker basket hung on four ropes with a lookout in a pale coif and a team pennant, two sandbags. Flies
+/** Balloon (the kingdom's one flyer, unarmed and slow, long sight; sim r 14, flies at 30): a medieval patchwork
+ *  balloon (the re-test after the polish read a clean striped ball as the Expedition's, 3 of 4): the envelope is
+ *  eight cloth panels of uneven widths and tones (pale patched canvas, a greyer one, old tan, two of them the team's)
+ *  between ink seams, two of them split by a seam into two tones, so no stripe repeats; a rope net always (three
+ *  hoops and eight meridians down to the load ring), a neck of old canvas, a round wicker basket with an oak rim hung
+ *  on four ropes, a lookout in a pale linen hood, two big heraldic team banners hanging from the rim between ink rims
+ *  (one to the south, one to the east, so one faces the camera at every facing), a team pennant, two sandbags. Flies
  *  high, its shadow a round blot well off to the south-east (the sun from the north-west), like today's flyers. From
- *  the camera: a big pale ball with team stripes over a small basket, far above its shadow; nothing on the kingdom's
- *  ground is round and pale. One frame: a drifter (look.js UNIT_FPS 0). */
+ *  the camera: a big pale patched ball under a net, a wicker basket with a team banner hanging under it, far above
+ *  its shadow; nothing on the kingdom's ground is round and pale. One frame: a drifter (look.js UNIT_FPS 0). */
 export function balloon(M) {
   const A = fam(M), g = grp(), FY = 30, b = grp(); b.position.y = FY; g.add(b);
-  const R = 8.2, env = add(b, sph(R, 24, 18), A.patched, 0, 0, 0); env.scale.set(1, 1.12, 1);     // the envelope
-  for (let k = 0; k < 3; k++) {                                                                   // three team gores between ink seams
-    const a = k * Math.PI * 2 / 3 + 0.4, d = 0.62;
-    add(b, new THREE.SphereGeometry(R + 0.05, 8, 16, a - d / 2, d, 0.35, 2.3), M.cloth, 0, 0, 0).scale.set(1, 1.12, 1);
-    for (const e of [a - d / 2 - 0.07, a + d / 2]) add(b, new THREE.SphereGeometry(R + 0.07, 2, 16, e, 0.07, 0.35, 2.3), M.inkLine, 0, 0, 0).scale.set(1, 1.12, 1);
+  const R = 8.2, SY = 1.12, env = add(b, sph(R, 24, 18), A.patched, 0, 0, 0); env.scale.set(1, SY, 1); // the envelope
+  const gore = (mat, a, d, t0 = 0.3, t1 = 2.55, r = R + 0.05) => add(b, new THREE.SphereGeometry(r, 8, 16, a, d, t0, t1 - t0), mat, 0, 0, 0).scale.set(1, SY, 1);
+  const seam = (a, t0 = 0.3, t1 = 2.55) => gore(M.inkLine, a - 0.035, 0.07, t0, t1, R + 0.08);
+  // the patchwork: panels of uneven width round the ball (they sum to the circle), a seam between each pair; two are
+  // split at a latitude into two tones; two are the team's (uneven too)
+  const PANELS = [[0.9, A.patched], [0.55, M.cloth], [0.7, A.canvasOld], [1.1, A.patched, 1.45, A.patchedGrey], [0.75, M.cloth], [0.6, A.patchedGrey], [0.85, A.patched, 1.1, A.canvasOld], [0.83, A.patched]];
+  let a = 0.25;
+  for (const [d, mat, split, mat2] of PANELS) {
+    if (split) { gore(mat, a, d, 0.3, split); gore(mat2, a, d, split, 2.55); gore(M.inkLine, a, d, split - 0.03, split + 0.03, R + 0.08); } // (the horizontal seam of a split panel)
+    else gore(mat, a, d);
+    seam(a); a += d;
   }
-  add(b, torus(R * 0.98, 0.25, 32), A.rope, 0, 1.6, 0, Math.PI / 2, 0, 0); add(b, torus(R * 0.82, 0.25, 32), A.rope, 0, -4.6, 0, Math.PI / 2, 0, 0); // the net's hoops
-  add(b, sph(1.6, 10, 8), M.oak, 0, R * 1.12 + 0.6, 0);                                           // the crown's valve cap
-  add(b, cyl(2.6, 1.6, 3.2, 12), M.canvasDark, 0, -R * 1.12 - 0.8, 0);                            // the neck of old canvas
-  add(b, torus(1.7, 0.4, 14), M.oak, 0, -R * 1.12 - 2.4, 0, Math.PI / 2, 0, 0);                   // the load ring
-  const BY = -17.6;                                                                                // the basket, hung well under
-  for (const [x, z] of [[-2.2, -2.2], [2.2, -2.2], [-2.2, 2.2], [2.2, 2.2]]) limb(b, [x * 0.5, -R * 1.12 - 2.4, z * 0.5], [x, BY + 1.6, z], 0.3, A.rope);
-  add(b, rbox(5.2, 3.6, 5.2, 0.8), M.wicker, 0, BY, 0);                                           // the basket
-  add(b, rbox(5.6, 0.7, 5.6, 0.2), M.oak, 0, BY + 1.9, 0);                                        // its rim
-  add(b, rbox(5.5, 0.9, 5.5, 0.1), M.cloth, 0, BY + 0.6, 0); add(b, rbox(5.6, 0.25, 5.6, 0.05), M.inkLine, 0, BY + 1.15, 0); add(b, rbox(5.6, 0.25, 5.6, 0.05), M.inkLine, 0, BY + 0.05, 0); // a team band round it between ink lines
-  add(b, cyl(1.5, 1.8, 2.0, 10), M.tunic, 0.4, BY + 2.6, 0); add(b, sph(1.5, 12, 10), M.linen, 0.5, BY + 4.4, 0); add(b, sph(0.95, 10, 8), M.skin, 1.5, BY + 4.2, 0).scale.set(0.8, 0.9, 0.9); // the lookout, a pale coif
+  // the net: three rope hoops and eight meridians, from near the crown down the envelope and on to the load ring
+  const rAt = (y) => R * Math.sqrt(Math.max(0, 1 - (y / SY / R) ** 2)) + 0.15;                   // the envelope's radius at a height, a hair proud
+  for (const [y, k] of [[1.6, 0.98], [-1.6, 0.97], [-4.6, 0.83]]) add(b, torus(R * k, 0.28, 32), A.rope, 0, y, 0, Math.PI / 2, 0, 0);
+  for (let k = 0; k < 8; k++) {
+    const m = k * Math.PI / 4 + 0.6, ys = [7.0, 4.6, 1.6, -1.6, -4.6, -7.0], P = ys.map(y => [rAt(y) * Math.cos(m), y, rAt(y) * Math.sin(m)]);
+    P.push([1.8 * Math.cos(m), -R * SY - 2.4, 1.8 * Math.sin(m)]);
+    for (let i = 0; i + 1 < P.length; i++) limb(b, P[i], P[i + 1], 0.32, A.rope);
+  }
+  add(b, sph(1.6, 10, 8), M.oak, 0, R * SY + 0.6, 0);                                             // the crown's valve cap
+  add(b, cyl(2.6, 1.6, 3.2, 12), M.canvasDark, 0, -R * SY - 0.8, 0);                              // the neck of old canvas
+  add(b, torus(1.7, 0.4, 14), M.oak, 0, -R * SY - 2.4, 0, Math.PI / 2, 0, 0);                     // the load ring
+  const BY = -17.6, BR = 3.0;                                                                       // the basket, hung well under: round wicker
+  for (let k = 0; k < 4; k++) { const m = k * Math.PI / 2 + Math.PI / 4; limb(b, [1.1 * Math.cos(m), -R * SY - 2.4, 1.1 * Math.sin(m)], [(BR - 0.3) * Math.cos(m), BY + 1.6, (BR - 0.3) * Math.sin(m)], 0.3, A.rope); }
+  add(b, cyl(BR, BR - 0.5, 3.8, 14), M.wicker, 0, BY, 0);                                           // the basket
+  add(b, torus(BR, 0.4, 18), M.oak, 0, BY + 1.9, 0, Math.PI / 2, 0, 0);                              // its oak rim
+  add(b, cyl(BR + 0.1, BR + 0.02, 0.9, 14), M.cloth, 0, BY + 0.6, 0); add(b, cyl(BR + 0.15, BR + 0.15, 0.25, 14), M.inkLine, 0, BY + 1.15, 0); add(b, cyl(BR + 0.1, BR + 0.1, 0.25, 14), M.inkLine, 0, BY + 0.05, 0); // a team band round it between ink lines
+  for (let k = 0; k < 4; k++) { const m = k * Math.PI / 2 + Math.PI / 4; add(b, cyl(0.35, 0.35, 3.9, 6), M.oak, BR * Math.cos(m), BY, BR * Math.sin(m)); } // oak stakes up the weave
+  // the lookout in a pale linen hood (the Archer's: a cowl, the hood, its point hanging back), a spyglass raised
+  add(b, cyl(1.5, 1.8, 2.0, 10), M.tunic, 0.4, BY + 2.6, 0);
+  add(b, cyl(2.1, 1.6, 1.4, 10), M.linen, 0.3, BY + 3.4, 0); add(b, cyl(2.15, 2.15, 0.25, 10), M.inkLine, 0.3, BY + 2.75, 0); // the cowl over the shoulders, its hem
+  add(b, sph(1.5, 12, 10), M.linen, 0.5, BY + 4.4, 0).scale.set(1, 1.05, 1); add(b, cone(0.9, 2.6, 8), M.linen, -1.2, BY + 4.7, 0, 0, 0, 1.45); // the hood and its point, hanging back
+  add(b, sph(0.95, 10, 8), M.skin, 1.5, BY + 4.2, 0).scale.set(0.8, 0.9, 0.9);                     // the face in its opening
   add(b, cyl(0.9, 0.9, 3.4, 8), M.leather, 2.4, BY + 4.6, 0.6, 0, 0, -1.1);                       // a spyglass, raised
-  for (const z of [-3.0, 3.0]) add(b, sph(0.9, 8, 6), M.canvasDark, -2.4, BY - 0.6, z).scale.set(1, 1.3, 1); // sandbags hung outside
-  pennant(b, M, -2.4, BY + 1.9, -2.4, 7, 6);                                                      // a team pennant on the basket's corner
-  if (M.polish) { // secondary detail (the polish pass): the net (a third hoop and four meridian ropes down the envelope to the load ring), oak posts at the basket's corners and an oak band at its foot, rope rings on the sandbags
-    add(b, torus(R * 0.97, 0.3, 32), A.rope, 0, -1.6, 0, Math.PI / 2, 0, 0);
-    const rAt = (y) => R * Math.sqrt(Math.max(0, 1 - (y / 1.12 / R) ** 2)) + 0.15;              // the envelope's radius at a height, a hair proud
-    for (let k = 0; k < 4; k++) {
-      const a = k * Math.PI / 2 + 0.95, ys = [7.0, 4.6, 1.6, -1.6, -4.6, -7.0], P = ys.map(y => [rAt(y) * Math.cos(a), y, rAt(y) * Math.sin(a)]);
-      P.push([1.8 * Math.cos(a), -R * 1.12 - 2.4, 1.8 * Math.sin(a)]);                           // down to the load ring
-      for (let i = 0; i + 1 < P.length; i++) limb(b, P[i], P[i + 1], 0.35, A.rope);
-    }
-    for (const [x, z] of [[-2.6, -2.6], [2.6, -2.6], [-2.6, 2.6], [2.6, 2.6]]) add(b, rbox(0.7, 3.8, 0.7, 0.1), M.oak, x, BY, z);
-    add(b, rbox(5.5, 0.5, 5.5, 0.1), M.oak, 0, BY - 1.6, 0);
-    for (const z of [-3.0, 3.0]) add(b, torus(0.65, 0.2, 10), A.rope, -2.4, BY - 0.2, z, Math.PI / 2, 0, 0);
+  // two heraldic banners hanging from the rim, team cloth with an ink rim behind, on an oak rod: south and east
+  const SHAPE = [[-3.2, 0], [3.2, 0], [3.2, 7.4], [0, 10.6], [-3.2, 7.4]], RIM = [[-3.5, -0.25], [3.5, -0.25], [3.5, 7.55], [0, 11.05], [-3.5, 7.55]];
+  for (const ry of [0, -Math.PI / 2]) {
+    const bn = grp(); bn.rotation.y = ry; b.add(bn);
+    add(bn, cyl(0.35, 0.35, 7.6, 6), M.oak, 0, BY + 2.1, BR + 0.3, 0, 0, Math.PI / 2);             // the rod on the rim
+    add(bn, plate(RIM, 0.2, 0.05), M.inkLine, 0, BY + 1.95, BR + 0.05);                            // the ink rim
+    add(bn, plate(SHAPE, 0.3, 0.06), M.cloth, 0, BY + 1.95, BR + 0.2);                             // the banner, hanging (the plate's second coordinate runs down)
+  }
+  for (const z of [-3.2, 3.2]) add(b, sph(0.9, 8, 6), M.canvasDark, -2.4, BY - 0.6, z * 0.95).scale.set(1, 1.3, 1); // sandbags hung outside
+  pennant(b, M, -2.1, BY + 1.9, -2.1, 7, 6);                                                      // a team pennant on the rim
+  if (M.polish) { // secondary detail (the polish pass): an oak band at the basket's foot, rope rings on the sandbags, oak knobs on the stakes
+    add(b, torus(BR - 0.45, 0.3, 18), M.oak, 0, BY - 1.7, 0, Math.PI / 2, 0, 0);
+    for (const z of [-3.2, 3.2]) add(b, torus(0.65, 0.2, 10), A.rope, -2.4, BY - 0.2, z * 0.95, Math.PI / 2, 0, 0);
+    for (let k = 0; k < 4; k++) { const m = k * Math.PI / 2 + Math.PI / 4; add(b, sph(0.5, 8, 6), M.oak, BR * Math.cos(m), BY + 2.1, BR * Math.sin(m)); }
   }
   return g;
 }

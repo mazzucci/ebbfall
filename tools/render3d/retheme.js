@@ -18,6 +18,7 @@ import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js'
 import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
+import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import * as KB from './kingdom-buildings.js';
 import * as EB from './expedition-buildings.js';
 
@@ -72,6 +73,7 @@ export function* rethemeSprites(want, opts = {}) {
   const elev = (opts.elev ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
   if (opts.sun) o.sun = opts.sun;
   if (opts.polish) o.polish = opts.polish;
+  countryPolish(!!opts.polish); // (country.js: the gold's and the scenery's materials, plain or polished)
   const ou = opts.polish ? { ...o, polish: { ...(typeof opts.polish === 'object' ? opts.polish : {}), unit: true } } : o; // (the units take polish.js's unit lights and banding)
   for (const side of ['kg', 'ex']) {
     let M = null; const mats = () => M ??= MATS[side](NEUTRAL, !!opts.polish);

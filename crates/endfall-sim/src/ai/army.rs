@@ -12,8 +12,6 @@ const CONTACT_NEAR: f64 = 8.0 * TILE;
 /// For this long (s) after its wave ends, the foe's units at its buildings are chasers, not the foe coming
 /// (`passive_foe`).
 const CHASE_S: f64 = 90.0;
-/// An enemy detector within this many px of an enemy fighter goes with the enemy's army.
-const DETECTOR_WITH_ARMY: f64 = 8.0 * TILE;
 
 /// The longest the guided first game holds the opponent's waves back (s).
 pub const HOLD_WAVES_MAX: f64 = 360.0;
@@ -34,11 +32,6 @@ fn army_worth(k: UnitKind) -> f64 {
     k.def().cost[0] as f64
 }
 
-/// A flying detector that escorts the waves (an unarmed flyer that detects: the Observer).
-fn escorts(k: UnitKind) -> bool {
-    let d = k.def();
-    d.air && d.detect > 0.0 && !d.armed()
-}
 
 impl World {
     /// The guided first game: its hold on the opponent's waves, set by `guided_hold` (the client's `holdWaves`): no
@@ -364,23 +357,6 @@ impl World {
             .filter(|u| u.team == e)
             .map(|u| script.answer_weight(u.kind))
             .sum();
-
-        // An enemy field detector (a unit that detects, not a tower at home) seen beside enemy fighters: its army
-        // carries detection, so its cloaked fighters would be found (`cloak_ratio`).
-        if !self.ai().detector_seen
-            && self.units.iter().any(|d| {
-                self.hostile(d.team)
-                    && d.kind.def().detect > 0.0
-                    && self.ai_sees_unit(d)
-                    && self.units.iter().any(|f| {
-                        self.hostile(f.team)
-                            && f.kind.def().threat()
-                            && dist(f.x, f.y, d.x, d.y) < DETECTOR_WITH_ARMY
-                    })
-            })
-        {
-            self.ai_mut().detector_seen = true;
-        }
         brain.intruder = intruder;
         brain.raid = raid;
         brain.enemy_air = enemy_air;
@@ -413,6 +389,8 @@ impl World {
         }
         let raiders = self.ai().raiders.clone();
         let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
+        // Its scout (the Balloon) stays out of them too: it looks at the foe before a wave (`strong_enough`).
+        let army = self.tend_scout_unit(army, rally);
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
         let army = self.tend_guards(army);
         // The home reserve stays out of them as well.
@@ -424,9 +402,6 @@ impl World {
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
             self.ai_steer_wave(&army, &attackers, t, rally, goal);
-            if self.ai().attacking {
-                self.escort_wave(&army, &attackers);
-            }
         } else {
             // At home: stragglers back to the rally point.
             for &a in &army {
@@ -440,26 +415,21 @@ impl World {
         }
     }
 
-    /// A flying detector (an Observer) keeps over its wave rather than racing ahead of it: to the middle of the
-    /// wave's main prong (a walking one, the Halo, keeps with it as a healer does).
-    fn escort_wave(&mut self, army: &[Id], attackers: &[Id]) {
-        let escort = |w: &World, id: Id| w.unit(id).is_some_and(|u| escorts(u.kind));
-        let prong = self.ai().prong.clone();
-        let (mut sx, mut sy, mut n) = (0.0, 0.0, 0.0);
-        for &a in attackers.iter().filter(|a| !prong.contains(a)) {
-            if let Some(u) = self.unit(a).filter(|_| !escort(self, a)) {
-                (sx, sy, n) = (sx + u.x, sy + u.y, n + 1.0);
+    /// The side's scout units (`AiScript::scout`: the Balloon) are kept out of the army: one out looking stays on its
+    /// errand (`strong_enough`), the others come back to the rally when idle away from it. Returns the rest.
+    fn tend_scout_unit(&mut self, army: Vec<Id>, rally: Pt) -> Vec<Id> {
+        let Some(kind) = self.factions[self.seat() as usize].ai.scout else {
+            return army;
+        };
+        let looking = self.ai().looking.map(|(id, _)| id);
+        let (scouts, rest): (Vec<Id>, Vec<Id>) = army.into_iter().partition(|&a| self.u(a).kind == kind);
+        for s in scouts {
+            let u = self.u(s);
+            if Some(s) != looking && u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
+                self.move_to(s, rally.x, rally.y);
             }
         }
-        if n == 0.0 {
-            return;
-        }
-        let (cx, cy) = (sx / n, sy / n);
-        for &a in army {
-            if escort(self, a) && dist(self.u(a).x, self.u(a).y, cx, cy) > 2.0 * TILE {
-                self.move_to(a, cx, cy);
-            }
-        }
+        rest
     }
 
     /// Defense: anything near our buildings gets jumped by the army at home (idle, walking, or attack-moving near
@@ -557,8 +527,6 @@ impl World {
             let (sp, sq) = (self.u(p).kind.def().speed, self.u(q).kind.def().speed);
             sq.partial_cmp(&sp).unwrap().then(p.cmp(&q))
         });
-        // (a flying detector goes with the main prong, whatever its speed: last in the order)
-        order.sort_by_key(|&a| escorts(self.u(a).kind));
         let split = if second.is_some() && army.len() >= 6 {
             army.len() / 3
         } else {
@@ -636,6 +604,14 @@ impl World {
                 Some((_, at)) if t - at < d.look_for => {}
                 Some(_) => {} // (it looked long enough: go by the estimate)
                 None => {
+                    // (its scout if it has one, the Balloon, else its cheapest armed walker)
+                    let seat = self.seat();
+                    let scout = self.factions[seat as usize].ai.scout.and_then(|k| {
+                        self.units
+                            .iter()
+                            .find(|u| u.team == seat && u.kind == k)
+                            .map(|u| u.id)
+                    });
                     let cheapest = army
                         .iter()
                         .copied()
@@ -645,7 +621,7 @@ impl World {
                                 .total_cmp(&army_worth(self.u(q).kind))
                                 .then(p.cmp(&q))
                         });
-                    if let Some(a) = cheapest {
+                    if let Some(a) = scout.or(cheapest) {
                         let (gx, gy) = self.attack_target();
                         self.move_to(a, gx, gy);
                         self.ai_mut().looking = Some((a, t));
@@ -885,8 +861,8 @@ impl World {
             .copied()
             .filter(|a| attackers.contains(a))
             .collect();
-        // (a unit armed only against flyers, an Interceptor, cannot take a base: it neither keeps a wave out nor counts
-        // as what is left of it)
+        // (a unit armed only against flyers could not take a base: it neither keeps a wave out nor counts as what is
+        // left of it; no kind is, since the re-theme)
         let air_only = |w: &World, a: Id| {
             let k = w.u(a).kind;
             k.def().armed() && !Self::hits_of(k).0
@@ -1201,15 +1177,15 @@ mod tests {
     #[test]
     fn against_a_passive_foe_a_home_reserve_of_its_cheapest_fighters_stays_at_the_rally() {
         // Medium's reserve, a quarter of its army's worth, against a foe that has not come at it: of ten Troopers
-        // (and a Vanguard, pricier), three Troopers stay home as the wave goes; the Vanguard goes with the wave.
+        // (and a Knight, pricier), three Troopers stay home as the wave goes; the Knight goes with the wave.
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
         let (hx, hy) = (b.rally.x, b.rally.y);
-        let tank = w.make_unit(UnitKind::Vanguard, 1, hx + 60.0, hy + 140.0);
+        let tank = w.make_unit(UnitKind::Knight, 1, hx + 60.0, hy + 140.0);
         b.army.push(tank);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "the wave goes");
         let reserve = w.ai().reserve.clone();
-        let total = 10.0 * trooper() + super::army_worth(UnitKind::Vanguard);
+        let total = 10.0 * trooper() + super::army_worth(UnitKind::Knight);
         let held: f64 = reserve
             .iter()
             .map(|&a| super::army_worth(w.u(a).kind))
@@ -1421,67 +1397,6 @@ mod tests {
     }
 
     #[test]
-    fn a_wave_left_with_only_interceptors_comes_home() {
-        // Three Troopers and three Interceptors out: with the Troopers alive it stays out; once only the Interceptors
-        // (which cannot hit the ground) are left, it is beaten and comes home, though half of it lives.
-        for troopers_fall in [false, true] {
-            let mut w = World::new(17, 1);
-            w.ai_turn = 1;
-            let (bx, by) = w.map.bases[1];
-            let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
-            let wave: Vec<Id> = (0..6)
-                .map(|i| {
-                    let k = if i < 3 {
-                        UnitKind::Trooper
-                    } else {
-                        UnitKind::Interceptor
-                    };
-                    w.make_unit(k, 1, 1000.0 + i as f64 * 30.0, 1000.0)
-                })
-                .collect();
-            if troopers_fall {
-                w.units
-                    .retain(|u| u.kind != UnitKind::Trooper || u.team != 1);
-            }
-            w.update_fog();
-            let ai = w.ai_mut();
-            ai.attacking = true;
-            ai.attackers = Some(wave.clone());
-            ai.wave_size = 6;
-            ai.last_wave = 0.0;
-            let alive: Vec<Id> = wave
-                .iter()
-                .copied()
-                .filter(|&a| w.unit(a).is_some())
-                .collect();
-            let my_b = w
-                .bldgs
-                .iter()
-                .filter(|b| b.team == 1)
-                .map(|b| b.id)
-                .collect();
-            let mut b = Brain {
-                e: 1,
-                t: 100.0,
-                my_b,
-                army: alive.clone(),
-                rally: Pt { x: hx, y: hy },
-                ..Brain::default()
-            };
-            w.ai_watch(&mut b);
-            w.ai_army(&mut b);
-            assert_eq!(!w.ai().attacking, troopers_fall, "home: {troopers_fall}");
-            if troopers_fall {
-                assert!(
-                    alive
-                        .iter()
-                        .all(|&a| matches!(w.u(a).task, Task::Move { .. }))
-                );
-            }
-        }
-    }
-
-    #[test]
     fn a_wave_goes_for_the_foe_before_another_enemy() {
         // Four seats round a 96x96 map: seat 1's foe is its partner, seat 0. It knows seat 3's headquarters (across
         // the map) first and a Garrison of seat 0's: the Garrison is the goal; with only seat 3's known, seat 0's
@@ -1624,7 +1539,7 @@ mod tests {
         );
         w.ai_turn = ENEMY;
         let raiders: Vec<Id> = (0..2)
-            .map(|i| w.make_unit(UnitKind::Raider, ENEMY, p.x + 200.0, p.y + 30.0 * i as f64))
+            .map(|i| w.make_unit(UnitKind::Rider, ENEMY, p.x + 200.0, p.y + 30.0 * i as f64))
             .collect();
         w.update_fog();
         w.ai_mut().known = vec![(pump, p.x, p.y, false, PLAYER)];
@@ -1686,56 +1601,6 @@ mod tests {
     }
 
     #[test]
-    fn an_observer_keeps_over_the_main_prong_of_a_split_wave() {
-        // Hard: a big wave sends its fastest third at a known expansion. The Observer, the fastest of all, goes with
-        // the rest to the goal, and keeps over them (not between the prongs).
-        let mut w = World::new(17, 2);
-        w.ai_turn = ENEMY;
-        let core = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == PLAYER && b.kind.def().hq)
-            .unwrap()
-            .clone();
-        let exp = w.make_building(BldgKind::Core, PLAYER, 30, 30, true);
-        let e = w.bldg(exp).unwrap().clone();
-        w.ai_mut().known = vec![(core.id, core.x, core.y, true, 0), (exp, e.x, e.y, true, 0)];
-        w.ai_mut().wave = 3;
-        let b = w.map.bases[ENEMY as usize];
-        let (x0, y0) = ((b.0 as f64 + 6.0) * 32.0, (b.1 as f64 + 6.0) * 32.0);
-        let mut army: Vec<Id> = (0..9)
-            .map(|i| w.make_unit(UnitKind::Trooper, ENEMY, x0 + i as f64 * 20.0, y0))
-            .collect();
-        let obs = w.make_unit(UnitKind::Observer, ENEMY, x0, y0 + 40.0);
-        army.push(obs);
-        w.ai_launch_wave(&army, 1000.0, (core.x, core.y));
-        let prong = w.ai().prong.clone();
-        assert_eq!(prong.len(), army.len() / 3, "a third split off");
-        assert!(!prong.contains(&obs), "not the Observer");
-        // Move the second prong far off: the escort follows the main prong's middle.
-        for &p in &prong {
-            let u = w.units.iter_mut().find(|u| u.id == p).unwrap();
-            (u.x, u.y) = (e.x, e.y);
-        }
-        w.escort_wave(&army, &army);
-        let main: Vec<(f64, f64)> = army
-            .iter()
-            .filter(|a| !prong.contains(a) && **a != obs)
-            .map(|&a| (w.u(a).x, w.u(a).y))
-            .collect();
-        let n = main.len() as f64;
-        let (cx, cy) = (
-            main.iter().map(|p| p.0).sum::<f64>() / n,
-            main.iter().map(|p| p.1).sum::<f64>() / n,
-        );
-        assert!(
-            matches!(w.u(obs).task, Task::Move { x, y } if (x - cx).abs() < 1.0 && (y - cy).abs() < 1.0),
-            "to the main prong's middle: {:?}",
-            w.u(obs).task
-        );
-    }
-
-    #[test]
     fn three_units_stay_home_at_its_expansion() {
         let mut w = World::new(17, 1);
         w.ai_turn = ENEMY;
@@ -1756,19 +1621,19 @@ mod tests {
                 )
             })
             .collect();
-        // A Raider right by the expansion is still not a guard (it raids).
+        // A Rider right by the expansion is still not a guard (it raids).
         let (exx, exy) = (
             (ex as f64 + 2.0) * 32.0,
             (ey.clamp(4, 56) as f64 + 2.0) * 32.0,
         );
-        let raider = w.make_unit(UnitKind::Raider, ENEMY, exx + 40.0, exy);
+        let raider = w.make_unit(UnitKind::Rider, ENEMY, exx + 40.0, exy);
         army.push(raider);
         let rest = w.tend_guards(army.clone());
         assert_eq!(rest.len(), 4);
         assert_eq!(w.ai().guards.len(), 3);
         assert!(
             !w.ai().guards.contains(&raider) && rest.contains(&raider),
-            "not the Raider"
+            "not the Rider"
         );
         // Kept, not re-picked, on the next turn.
         let again = w.tend_guards(army.clone());

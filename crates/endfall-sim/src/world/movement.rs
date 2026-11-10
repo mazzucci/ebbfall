@@ -296,17 +296,14 @@ impl World {
                 if o == id {
                     continue;
                 }
-                let (ox, oy, or, ohold, oair, unseen, miners) = {
+                let (ox, oy, or, ohold, oair, miners) = {
                     let o = self.hashed(o).unwrap();
                     let me = &self.units[i];
-                    let unseen = o.team != me.team
-                        && (self.cloaked_from(me.team, o) || self.cloaked_from(o.team, me));
                     let miners = o.team == me.team && gathering(o) && gathering(me);
-                    (o.x, o.y, o.r, firm(o), o.kind.def().air, unseen, miners)
+                    (o.x, o.y, o.r, firm(o), o.kind.def().air, miners)
                 };
-                if air != oair || unseen || miners {
-                    // flyers and walkers do not bump into each other, nor anything into what it cannot see, nor two
-                    // workers of a side on their round
+                if air != oair || miners {
+                    // flyers and walkers do not bump into each other, nor two workers of a side on their round
                     continue;
                 }
                 let u = &mut self.units[i];

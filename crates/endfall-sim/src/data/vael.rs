@@ -1,61 +1,61 @@
-//! The Vael: shields, amphibious units, and their builders (the design is on the design-mockups branch).
+//! The Expedition (sim race `vael`; the Vael before the re-theme): the Data centre, Bots that build, Sellswords and
+//! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Marines from the Portal. No shields
+//! (the mechanism stays, as data) and every ground unit walks. Display names stay the old ones until the words PR.
 
 use super::*;
 
-/// The Vael: hovering ceramic constructs of living ether.
 pub const VAEL: Faction = Faction {
     key: "vael",
     name: "Vael",
     hq: BldgKind::Conflux,
     worker: UnitKind::Lumen,
-    // The basic page holds what can be built from the start (the Conflux too), the Kiln first; the advanced page what
-    // needs the Kiln (the Ward and the Siphon too), so it appears once the Kiln stands (owner, 2026-11-03; the Siphon
-    // moved there with its requirement, the PM, 2026-11-06).
-    build_basic: &[BldgKind::Kiln, BldgKind::Spire, BldgKind::Conflux],
+    // The basic page holds what can be built from the start (the Conflux too), the Recruiting post first (the
+    // Expedition's barracks); the advanced page what needs it, so it appears once the Recruiting post stands. (The
+    // Recruiting post still stands on a shaft and pumps until the economy PR frees it of both.)
+    build_basic: &[BldgKind::Siphon, BldgKind::Spire, BldgKind::Conflux],
     build_advanced: &[
+        BldgKind::Kiln,
         BldgKind::Loom,
-        BldgKind::Zenith,
         BldgKind::Ward,
         BldgKind::Eclipse,
-        BldgKind::Siphon,
     ],
     supply: BldgKind::Spire,
     ether: BldgKind::Siphon,
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     ai: AiScript {
-        rax: BldgKind::Kiln,
+        rax: BldgKind::Siphon,
         tech: BldgKind::Loom,
         tech2: Some(BldgKind::Eclipse),
         tower: BldgKind::Ward,
-        air: BldgKind::Zenith,
+        air: BldgKind::Kiln,
         heavy: None,
-        basic: UnitKind::Scythe,
+        basic: UnitKind::Prism,
         anti_air: UnitKind::Prism,
         heavy_anti_air: None,
+        // (a Bruiser per five Sellswords once the Lab stands; a Rover per three and a Drone per four from the Factory,
+        // between its Buggies; a Marine per four from the Portal from 5:00)
         mix: &[
-            (UnitKind::Prism, 1, 0.0),
+            (UnitKind::Bruiser, 5, 0.0),
             (UnitKind::Monolith, 3, 0.0),
-            (UnitKind::Halo, 6, 0.0),
-            // (an Umbra per six Scythes from 5:00, from its Zenith once its Eclipse stands, until it has seen an enemy
-            // detector with the enemy army: `World::cloak_ratio`)
-            (UnitKind::Umbra, 6, 300.0),
+            (UnitKind::Shrike, 4, 0.0),
+            (UnitKind::Umbra, 4, 300.0),
         ],
-        raider: UnitKind::Shrike,
+        raider: UnitKind::Scythe,
+        scout: None,
         wave_scale: 0.6,
         tech_from: 300.0,
-        // (its Zenith half a minute sooner: from 7:30 it saves for the Sovereign, so Shrikes came only where it stood
-        // well before that, in 6-28% of AI games)
+        // (its Factory half a minute sooner: its Rovers and Drones come from there)
         air_lead: 30.0,
     },
 };
 
+/// The Bot: the Expedition's worker.
 pub(super) const LUMEN: UnitDef = UnitDef {
     key: "lumen",
     name: "Glint",
     cost: [50, 0],
-    hp: 20.0,
-    shields: 20.0,
+    hp: 40.0,
     speed: 100.0,
     sight: 7.0,
     r: 9.0,
@@ -67,32 +67,31 @@ pub(super) const LUMEN: UnitDef = UnitDef {
         melee: true,
         ..W
     }),
-    mv: Move::Amph,
     ..UNIT
 };
+/// The Buggy: a fast raider vehicle with a light gun (the Expedition's raider, as the Rider is the Kingdom's).
 pub(super) const SCYTHE: UnitDef = UnitDef {
     key: "scythe",
     name: "Needle",
     cost: [100, 0],
     supply: 2,
-    hp: 70.0,
-    shields: 40.0,
+    hp: 100.0,
     armor: 1.0,
-    speed: 88.0,
-    sight: 8.0,
-    r: 10.0,
-    build: 22.0,
+    speed: 135.0,
+    sight: 9.0,
+    r: 12.0,
+    build: 24.0,
     weapon: Some(Weapon {
-        range: 0.9,
-        dmg: 11.0,
-        cd: 0.9,
-        melee: true,
-        up_dmg: 2.0,
+        range: 3.0,
+        dmg: 8.0,
+        cd: 0.7,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 1.0,
         ..W
     }),
-    mv: Move::Amph,
     ..UNIT
 };
+/// The Sellsword: the Expedition's main ranged infantry, ground and air (the Lens's numbers, without its Surge).
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Lens",
@@ -104,6 +103,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
     sight: 9.0,
     r: 11.0,
     build: 30.0,
+    bio: true,
     weapon: Some(Weapon {
         range: 5.5,
         dmg: 14.0,
@@ -113,10 +113,9 @@ pub(super) const PRISM: UnitDef = UnitDef {
         up_dmg: 1.0,
         ..W
     }),
-    mv: Move::Amph,
-    abilities: &[AbilityKind::Overcharge],
     ..UNIT
 };
+/// A healer: in the tables (the mend rules keep their tests), trained nowhere since the re-theme.
 pub(super) const HALO: UnitDef = UnitDef {
     key: "halo",
     name: "Tender",
@@ -128,101 +127,65 @@ pub(super) const HALO: UnitDef = UnitDef {
     heal: 6.0,
     mend: true,
     req: Some(BldgKind::Loom),
-    detect: 5.0, // (the Vael's detector in the field: its army's eyes)
-    mv: Move::Amph,
     ..UNIT
 };
-/// The Umbra (the Undertow): a blade that lurks (Roster v2): once it has neither walked nor struck for `LURK_S` it is
-/// hidden, seen and struck only where the other side detects; it shows the moment it moves or strikes. It lies in wait
-/// by an Excavator or on a path; detected, it is a costly blade.
-/// Trained at the Zenith (an advanced hover unit, as the Sovereign is) once an Eclipse stands; a ground unit all the
-/// same.
+/// The Marine: the Expedition's elite ranged soldier, from the Portal; never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Undertow",
-    cost: [175, 0],
+    cost: [125, 0],
     supply: 2,
-    hp: 90.0,
+    hp: 110.0,
     armor: 1.0,
-    speed: 95.0,
-    sight: 8.0,
+    speed: 90.0,
+    sight: 9.0,
     r: 10.0,
-    build: 30.0,
-    req: Some(BldgKind::Eclipse),
-    lurk: true,
+    build: 28.0,
+    bio: true,
     weapon: Some(Weapon {
-        range: 0.9,
-        dmg: 32.0,
+        range: 6.0,
+        dmg: 18.0,
+        dmg_air: 12.0,
         cd: 1.2,
-        melee: true,
-        up_dmg: 3.0,
-        ..W
-    }),
-    mv: Move::Amph,
-    ..UNIT
-};
-/// The Vael capital barge: a great shell gliding low, whose beam splashes the ground from far off; it cannot hit flyers.
-pub(super) const SOVEREIGN: UnitDef = UnitDef {
-    key: "sovereign",
-    name: "Argonaut",
-    cost: [500, 0],
-    supply: 6,
-    hp: 300.0,
-    shields: 200.0,
-    armor: 2.0,
-    speed: 52.0,
-    sight: 10.0,
-    r: 18.0,
-    build: 60.0,
-    capital: true,
-    weapon: Some(Weapon {
-        range: 9.0,
-        dmg: 48.0,
-        cd: 1.6,
         proj: Some(ProjKind::Bolt),
-        up_dmg: 4.0,
-        splash: 0.5,
-        splash_r: 48.0,
+        up_dmg: 2.0,
         ..W
     }),
-    mv: Move::Amph,
-    detect: 7.0,
     ..UNIT
 };
+/// The Rover: rocket artillery (the Conch's place, its shields counted into its hull); it fires on the move,
+/// splashes, and outranges the towers.
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Conch",
     cost: [250, 0],
     supply: 4,
-    hp: 180.0,
-    shields: 120.0,
-    armor: 2.0,
-    speed: 55.0,
+    hp: 240.0,
+    armor: 1.0,
+    speed: 58.0,
     sight: 9.0,
     r: 15.0,
     build: 40.0,
     req: Some(BldgKind::Loom),
     weapon: Some(Weapon {
-        range: 7.0,
-        dmg: 52.0,
-        cd: 2.2,
-        proj: Some(ProjKind::Shell),
+        range: 8.0,
+        dmg: 50.0,
+        cd: 2.4,
+        proj: Some(ProjKind::Missile),
         up_dmg: 4.0,
         splash: 0.5,
-        splash_r: 40.0,
+        splash_r: 44.0,
         ..W
     }),
-    abilities: &[AbilityKind::Blink],
-    mv: Move::Amph,
     ..UNIT
 };
+/// The Drone: a fast low flyer that hits the ground and the air (the Petrel's numbers, its shields in its hull).
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
     name: "Petrel",
     cost: [175, 0],
     supply: 2,
-    hp: 80.0,
-    shields: 40.0,
+    hp: 120.0,
     speed: 165.0,
     sight: 9.0,
     r: 11.0,
@@ -232,13 +195,37 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     weapon: Some(Weapon {
         range: 3.5,
         dmg: 12.0,
-        dmg_air: 8.0,
+        dmg_air: 10.0,
         cd: 0.7,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,
         ..W
     }),
-    abilities: &[AbilityKind::Veil],
+    ..UNIT
+};
+/// The Bruiser: a hired local with a riot shield and a heavy gun, the Expedition's top tier (the Recruiting post's,
+/// once a Lab stands).
+pub(super) const BRUISER: UnitDef = UnitDef {
+    key: "bruiser",
+    name: "Bruiser",
+    cost: [225, 0],
+    supply: 4,
+    hp: 300.0,
+    armor: 3.0,
+    speed: 75.0,
+    sight: 9.0,
+    r: 13.0,
+    build: 40.0,
+    req: Some(BldgKind::Loom),
+    bio: true,
+    weapon: Some(Weapon {
+        range: 4.0,
+        dmg: 22.0,
+        cd: 1.0,
+        proj: Some(ProjKind::Bolt),
+        up_dmg: 3.0,
+        ..W
+    }),
     ..UNIT
 };
 
@@ -268,17 +255,20 @@ pub(super) const SPIRE: BldgDef = BldgDef {
     sight: 6.0,
     ..BLDG
 };
+/// The Recruiting post: Sellswords, and Bruisers once a Lab stands; the Expedition's barracks. Until the economy PR it
+/// still stands on a shaft and pumps salt as the Kingdom's Excavator does (priced as a barracks).
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Siphon",
-    cost: [75, 0],
-    hp: 200.0, // (as the Humans' Excavator: no shields)
-    build: 25.0,
+    cost: [150, 0],
+    hp: 600.0,
+    build: 40.0,
+    sight: 7.0,
     on_vent: true,
-    // (its people's barracks first: workers on the crystals, then soldiers, then a shaft out in the open)
-    req: Some(BldgKind::Kiln),
+    trains: &[UnitKind::Prism, UnitKind::Bruiser],
     ..BLDG
 };
+/// The Factory: Buggies, Rovers (once a Lab stands) and Drones.
 pub(super) const KILN: BldgDef = BldgDef {
     key: "kiln",
     name: "Cradle",
@@ -288,12 +278,8 @@ pub(super) const KILN: BldgDef = BldgDef {
     hp: 800.0,
     build: 45.0,
     sight: 7.0,
-    trains: &[
-        UnitKind::Scythe,
-        UnitKind::Prism,
-        UnitKind::Monolith,
-        UnitKind::Halo,
-    ],
+    trains: &[UnitKind::Scythe, UnitKind::Monolith, UnitKind::Shrike],
+    req: Some(BldgKind::Siphon),
     ..BLDG
 };
 pub(super) const LOOM: BldgDef = BldgDef {
@@ -303,8 +289,8 @@ pub(super) const LOOM: BldgDef = BldgDef {
     hp: 800.0,
     build: 45.0,
     sight: 7.0,
-    req: Some(BldgKind::Kiln),
-    researches: &[Upgrade::Weapons, Upgrade::Shields, Upgrade::OverchargeCore],
+    req: Some(BldgKind::Siphon),
+    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Slipstream],
     ..BLDG
 };
 pub(super) const WARD: BldgDef = BldgDef {
@@ -314,7 +300,7 @@ pub(super) const WARD: BldgDef = BldgDef {
     hp: 320.0,
     build: 25.0,
     sight: 9.0,
-    req: Some(BldgKind::Kiln),
+    req: Some(BldgKind::Siphon),
     weapon: Some(Weapon {
         range: 7.0,
         dmg: 20.0,
@@ -324,25 +310,9 @@ pub(super) const WARD: BldgDef = BldgDef {
         up_dmg: 2.0,
         ..W
     }),
-    detect: 7.0, // (reveals cloaked units within its range)
     ..BLDG
 };
-pub(super) const ZENITH: BldgDef = BldgDef {
-    key: "zenith",
-    name: "Gyre",
-    cost: [175, 0],
-    w: 3,
-    h: 3,
-    hp: 800.0,
-    build: 55.0,
-    sight: 8.0,
-    // (the advanced hover units: the flyer, the cloaked blade (once an Eclipse stands) and the capital barge)
-    trains: &[UnitKind::Shrike, UnitKind::Umbra, UnitKind::Sovereign],
-    req: Some(BldgKind::Kiln), // (air is a branch of its own, beside the ground tech)
-    ..BLDG
-};
-/// The Eclipse (shadow tech, after the Loom): where light is hidden. The Lumen is the Vael's light, the Umbra its
-/// shadow; the Eclipse unlocks the Umbra (trained at the Zenith) and weaves the flyers' shadow techs.
+/// The Portal (after the Lab): Marines.
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Darkwater",
@@ -351,6 +321,6 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Loom),
-    researches: &[Upgrade::VeilWeave, Upgrade::Slipstream],
+    trains: &[UnitKind::Umbra],
     ..BLDG
 };

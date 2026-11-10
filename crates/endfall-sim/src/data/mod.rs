@@ -43,11 +43,10 @@ pub fn supply_limit(map_w: i32) -> i32 {
 pub const WADE_SPEED: f64 = 0.7;
 /// The share of its speed a harpooned unit keeps while slowed (`Weapon::slow`; flyers too).
 pub const SLOW_SPEED: f64 = 0.5;
-/// Seconds a lurker (`UnitDef::lurk`) must lie still, neither walking nor striking, before it is hidden.
-pub const LURK_S: f64 = 2.0;
 
 /// How a unit gets about: on foot over land and shallows (Walk), anywhere water or land (Amph), or in the air (Fly).
-/// Rock and buildings block Walk and Amph alike (src/map.rs `passable`).
+/// Rock and buildings block Walk and Amph alike (src/map.rs `passable`). No kind is Amph since the re-theme (every
+/// ground unit of both peoples walks); the class stays, as data.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Move {
     Walk,
@@ -62,8 +61,8 @@ pub enum ProjKind {
     Missile,
 }
 
-/// Declares a kind enum, the list of every kind (in index order: the index the snapshot sends, so append only)
-/// and its table of definitions, from one list.
+/// Declares a kind enum, the list of every kind (in index order: the index the snapshot and the wire send) and its
+/// table of definitions, from one list.
 macro_rules! kinds {
     ($(#[$m:meta])* $Kind:ident: $Def:ty, $ALL:ident { $($V:ident => $D:expr),* $(,)? }) => {
         $(#[$m])*
@@ -90,14 +89,15 @@ macro_rules! kinds {
 }
 
 kinds! {
-    /// Unit kinds (the Humans', then the Vael's). The order is the index the snapshot sends: append only.
+    /// Unit kinds (the Kingdom's, sim race `humans`, then the Expedition's, `vael`). The order is the index the snapshot
+    /// and the wire send, within one build (the client's tables come from the same build, and a room seats one build):
+    /// the re-theme removed the retired kinds (the Breakwater, the Kite, the Netter, the Argonaut) rather than keep them
+    /// untrainable. New kinds go at the end.
     UnitKind: UnitDef, UNIT_KINDS {
         Harvester => humans::HARVESTER,
         Trooper => humans::TROOPER,
-        Vanguard => humans::VANGUARD,
         Lancer => humans::LANCER,
         Medic => humans::MEDIC,
-        Raider => humans::RAIDER,
         Observer => humans::OBSERVER,
         Lumen => vael::LUMEN,
         Scythe => vael::SCYTHE,
@@ -106,15 +106,16 @@ kinds! {
         Shrike => vael::SHRIKE,
         Halo => vael::HALO,
         Bastion => humans::BASTION,
-        Sovereign => vael::SOVEREIGN,
         SiegeTank => humans::SIEGE_TANK,
         Umbra => vael::UMBRA,
-        Interceptor => humans::INTERCEPTOR,
+        Rider => humans::RIDER,
+        Knight => humans::KNIGHT,
+        Bruiser => vael::BRUISER,
     }
 }
 
 kinds! {
-    /// Building kinds (the Humans', then the Vael's). Same rule: append only.
+    /// Building kinds (the Kingdom's, then the Expedition's). Same rule (the Gyre, the Vael's hangar, removed).
     BldgKind: BldgDef, BLDG_KINDS {
         Core => humans::CORE,
         Depot => humans::DEPOT,
@@ -129,7 +130,6 @@ kinds! {
         Kiln => vael::KILN,
         Loom => vael::LOOM,
         Ward => vael::WARD,
-        Zenith => vael::ZENITH,
         Factory => humans::FACTORY,
         Eclipse => vael::ECLIPSE,
     }
@@ -225,10 +225,15 @@ impl UnitKind {
     pub fn siege(self) -> bool {
         self.def().weapon.is_some_and(|w| w.siege) && self.toggle().is_some()
     }
-    /// Armed and hidden by nature (the Undertow, which lurks; not an unarmed scout): a fighter that wins where it is
-    /// not detected.
-    pub fn cloaked_fighter(self) -> bool {
-        (self.def().cloaked || self.def().lurk) && self.def().armed()
+    /// Whether some building of either people trains it (the healers stay in the tables, trained nowhere: the heal
+    /// rules keep their tests, and a healer can come back as data).
+    pub fn trainable(self) -> bool {
+        FACTIONS.iter().any(|f| {
+            f.build_basic
+                .iter()
+                .chain(f.build_advanced)
+                .any(|b| b.def().trains.contains(&self))
+        })
     }
 }
 
@@ -251,8 +256,7 @@ def_struct! {
         build: f64 = "build",
         /// Flies: moves in straight lines over terrain and buildings, only collides with other flyers.
         air: bool = "air",
-        /// How it gets about (`Move`): Walk for the Humans' ground units, Amph for the Vael's, Fly for flyers (exactly
-        /// the `air` ones).
+        /// How it gets about (`Move`): Walk for every ground unit, Fly for flyers (exactly the `air` ones).
         mv: Move = "move",
         /// Living infantry (Medics heal these).
         bio: bool = "bio",
@@ -268,14 +272,9 @@ def_struct! {
         light: Option<Weapon> = "light",
         /// Its abilities (at most ABILITY_SLOTS), in card order.
         abilities: &'static [AbilityKind] = "abilities",
-        /// A capital unit: one of a side's late, expensive giants (announced when the other side first sees one).
+        /// A capital unit: one of a side's late, expensive giants (announced when the other side first sees one; none
+        /// since the re-theme, as data).
         capital: bool = "capital",
-        /// Always cloaked: the other side can neither see nor target it except where it detects (`detect`).
-        cloaked: bool = "cloaked",
-        /// Lurk (the Undertow): cloaked as `cloaked` is, but only once it has neither walked nor struck for `LURK_S`.
-        lurk: bool = "lurk",
-        /// Radius (tiles) in which it reveals the other side's cloaked units; 0 = none.
-        detect: f64 = "detect",
     }
 }
 
@@ -305,8 +304,6 @@ def_struct! {
         req: Option<BldgKind> = "req",
         /// A turret's weapon; None = no defence.
         weapon: Option<Weapon> = "weapon",
-        /// Radius (tiles) in which it reveals the other side's cloaked units when finished; 0 = none.
-        detect: f64 = "detect",
     }
 }
 
@@ -323,7 +320,7 @@ pub struct Faction {
     pub ether: BldgKind,
     /// The sound of its shots, by projectile: [bolt, shell, missile, melee] (recipe names in src/client/audio.js).
     pub sounds: [&'static str; 4],
-    /// Its workers repair damaged buildings (the Vael regenerate shields instead).
+    /// Its workers repair damaged buildings.
     pub repairs: bool,
     /// How the scripted opponent plays this side.
     pub ai: AiScript,
@@ -334,8 +331,8 @@ pub struct Faction {
 pub struct AiScript {
     pub rax: BldgKind,
     pub tech: BldgKind,
-    /// A second tech building after `tech`, if the side has one (the Vael's Eclipse): raised when a mixed-in unit
-    /// it unlocks is due (on a level that fields it) or one of its techs would serve (`World::tech2_due`).
+    /// A second tech building after `tech`, if the side has one (the Expedition's Portal): raised when a mixed-in unit
+    /// it trains or unlocks is due (on a level that fields it) or one of its techs would serve (`World::tech2_due`).
     pub tech2: Option<BldgKind>,
     pub tower: BldgKind,
     pub air: BldgKind,
@@ -346,19 +343,24 @@ pub struct AiScript {
     pub basic: UnitKind,
     /// The answer to enemy flyers (two per flyer seen).
     pub anti_air: UnitKind,
-    /// The vehicle bay's answer to enemy flyers, if any (the Interceptor), worth two of `anti_air`: once it can train
+    /// The vehicle bay's answer to enemy flyers, if any (the Ballista), worth two of `anti_air`: once it can train
     /// one, the bay fills the answer and the main factory brings only half of it (cheap early anti-air, then the
-    /// faster, tougher mid-game answer in place of some of it).
+    /// tougher mid-game answer in place of some of it).
     pub heavy_anti_air: Option<UnitKind>,
     /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands, and not before
     /// `.2` seconds of game time: a late specialist).
     pub mix: &'static [(UnitKind, usize, f64)],
-    /// The air factory's raider (raids workers; at most six).
+    /// The fast raider (raids workers; at most six), trained at the `air` factory (the Rider at the Stables, the Buggy
+    /// at the Expedition's Factory).
     pub raider: UnitKind,
+    /// Its scout, if it has one (the Kingdom's Balloon): one is trained, kept out of the waves, and goes to look at the
+    /// foe's army before a wave (`Diff::look_for`).
+    pub scout: Option<UnitKind>,
     /// Wave sizes scale by this (fewer, stronger units: 0.6).
     pub wave_scale: f64,
     /// Seconds before it starts its techs (sooner only on a level that researches sooner; none does today). A
-    /// knob per side: the Humans at 3:30 (their Workshop brings the Mender and the Slipway's Breakwaters), the Vael at 5:00.
+    /// knob per side: the Kingdom at 3:30 (its Forge brings the Workshop's Trebuchets and the Knights), the Expedition at
+    /// 5:00.
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).
     pub air_lead: f64,
@@ -381,16 +383,6 @@ impl Faction {
     /// Whether this side can build `kind` (everything on its Build list, the headquarters included).
     pub fn builds(&self, kind: BldgKind) -> bool {
         self.build_basic.contains(&kind) || self.build_advanced.contains(&kind)
-    }
-    /// The unit its buildings train that detects cloaked units (the Humans' Observer, the Vael's Halo), if any: the
-    /// detector its AI takes along with its army once something unseen has hit it.
-    pub fn field_detector(&self) -> Option<UnitKind> {
-        self.build_basic
-            .iter()
-            .chain(self.build_advanced)
-            .flat_map(|b| b.def().trains)
-            .copied()
-            .find(|k| k.def().detect > 0.0)
     }
     /// Index in FACTIONS (what the client is sent).
     pub fn index(&self) -> usize {
@@ -424,9 +416,6 @@ const UNIT: UnitDef = UnitDef {
     light: None,
     abilities: &[],
     capital: false,
-    cloaked: false,
-    lurk: false,
-    detect: 0.0,
 };
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
@@ -445,10 +434,6 @@ pub const SPREAD_RANGE: f64 = 7.0;
 pub const SHIELD_DELAY: f64 = 6.0;
 pub const SHIELD_REGEN_UNIT: f64 = 3.0;
 pub const SHIELD_REGEN_BLDG: f64 = 2.0;
-
-/// A Vanguard shell also hits walking units of the target's side within this many px, for this share of its damage.
-pub const SHELL_SPLASH_R: f64 = 40.0;
-pub const SHELL_SPLASH: f64 = 0.6;
 
 const BLDG: BldgDef = BldgDef {
     key: "",
@@ -470,7 +455,6 @@ const BLDG: BldgDef = BldgDef {
     researches: &[],
     shields: 0.0,
     weapon: None,
-    detect: 0.0,
 };
 impl UnitDef {
     /// Damage this unit deals to a target that is (or is not) flying; 0 when it cannot attack it.

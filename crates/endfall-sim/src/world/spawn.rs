@@ -65,12 +65,10 @@ impl World {
             heal_fx: 0.0,
             healed_at: u32::MAX,
             ab_cd: [0.0; ABILITY_SLOTS],
-            boost: None,
             mode: None,
             swap: 0.0,
             stun: 0.0,
             slowed: 0.0,
-            still: 0.0,
             pace: None,
         });
         id

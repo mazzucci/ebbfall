@@ -60,7 +60,7 @@ impl World {
     /// flies or not (`flier`): nearer than `range` px (edge distance). A siege gun (`siege`: its blind ring, px) also
     /// takes nothing nearer than its ring and only what `team` sees (its sight and its allies': it outranges its own
     /// sight, so it needs a spotter); other shooters reach about as far as they see and take what is in reach, as
-    /// a tile-centre sight test fails at its edge (a Sovereign). Priority first (see
+    /// a tile-centre sight test fails at its edge. Priority first (see
     /// `threat_tier`: whatever can hurt the shooter, then other units, then plain buildings), then distance.
     #[allow(clippy::too_many_arguments)]
     pub fn find_target(
@@ -85,11 +85,7 @@ impl World {
         };
         for u in &self.units {
             let air = u.kind.def().air;
-            if !self.enemies(team, u.team)
-                || (air && !hits.1)
-                || (!air && !hits.0)
-                || self.cloaked_from(team, u)
-            {
+            if !self.enemies(team, u.team) || (air && !hits.1) || (!air && !hits.0) {
                 continue;
             }
             consider(unit_tier(u.kind, flier), dist(u.x, u.y, x, y) - u.r, u.id);
@@ -143,12 +139,6 @@ impl World {
         if self.unit(target).is_none() && self.bldg(target).is_none() {
             return false;
         }
-        if self
-            .team_of(shooter)
-            .is_some_and(|t| self.hidden_from(t, target))
-        {
-            return false; // (cloaked and not detected)
-        }
         if let Some(u) = self.unit(shooter) {
             u.kind.def().damage_vs(air) > 0.0
         } else {
@@ -184,10 +174,9 @@ impl World {
     /// Tell a player when something of theirs comes under attack: once per fight. A hit is quiet if any alert of
     /// theirs in the last ALERT_GAP seconds was within ALERT_DIST px (so several simultaneous fights each alert once), except
     /// that the first hit on a building gets through after alerts about units only.
-    pub(crate) fn alert_attacked(&mut self, target: Id, unseen: bool) {
+    pub(crate) fn alert_attacked(&mut self, target: Id) {
         const ALERT_GAP: f64 = 12.0;
         const ALERT_DIST: f64 = 480.0;
-        const UNSEEN_GAP: f64 = 30.0; // (the news that it takes a detector, not every hit)
         let Some((x, y, team, building)) = self
             .unit(target)
             .map(|u| (u.x, u.y, u.team, false))
@@ -196,18 +185,6 @@ impl World {
             return;
         };
         let now = self.time;
-        if unseen && now - self.unseen_alert[team as usize] >= UNSEEN_GAP {
-            self.unseen_alert[team as usize] = now;
-            self.alerts.push((team, now, x, y, building));
-            self.emit(Event::Attacked {
-                team,
-                x,
-                y,
-                building,
-                unseen,
-            });
-            return;
-        }
         self.alerts.retain(|a| now - a.1 < ALERT_GAP);
         let quiet = self.alerts.iter().any(|&(at, _, ax, ay, ab)| {
             at == team && dist(x, y, ax, ay) < ALERT_DIST && (ab || !building)
@@ -221,7 +198,6 @@ impl World {
             x,
             y,
             building,
-            unseen: false,
         });
     }
 
@@ -237,25 +213,7 @@ impl World {
         if let (Some(b), Some(t)) = (by, self.team_of(target))
             && self.team_of(b) != Some(t)
         {
-            self.alert_attacked(target, self.hidden_from(t, b));
-        }
-        // Hit by something it cannot see: an AI side takes a detector along with its army from now on (anywhere), and
-        // at home (by one of its buildings) remembers where, for a tower. (No tower out in the field, in the enemy's
-        // base.)
-        if let (Some(b), Some(t)) = (by, self.team_of(target))
-            && self.hidden_from(t, b)
-            && self.ai[t as usize].is_some()
-        {
-            let home = self.geo(target).map(|g| g.center()).filter(|at| {
-                self.bldgs
-                    .iter()
-                    .any(|o| o.team == t && dist(o.x, o.y, at.0, at.1) < 12.0 * TILE)
-            });
-            let ai = self.ai[t as usize].as_mut().unwrap();
-            ai.unseen_hit = true;
-            if home.is_some() {
-                ai.cloak_hit = home;
-            }
+            self.alert_attacked(target);
         }
         if let Some(i) = self.ui(target) {
             let team = self.units[i].team;
@@ -299,9 +257,6 @@ impl World {
     fn answer_fire(&mut self, i: usize, by: Id) {
         let u = &self.units[i];
         let (ux, uy, team) = (u.x, u.y, u.team);
-        if self.hidden_from(team, by) {
-            return; // shot at by something it cannot see
-        }
         let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
         let me_air = self.units[i].kind.def().air;
         // Busy with a target it picked up itself that matters less than the one shooting it: answer.
@@ -466,7 +421,7 @@ impl World {
         let Some((w, x, y, team)) = self.weapon_of(shooter) else {
             return; // unarmed (or gone)
         };
-        let cd = self.live_cd(shooter, w.cd);
+        let cd = w.cd;
         let (dmg, proj, up, splash) = (w.damage_vs(air), w.proj, w.up_dmg, (w.splash, w.splash_r));
         if dmg <= 0.0 {
             return; // this weapon cannot hit that target
@@ -512,11 +467,6 @@ impl World {
                 self.damage(target, dmg, Some(shooter));
                 self.harpoon(target, w.slow);
             }
-        }
-        // A lurker that strikes shows itself, once the blow has landed: its first strike comes out of hiding (an
-        // unseen hit, as the alert and the AI's detector call have it), the next ones are seen.
-        if let Some(i) = self.ui(shooter) {
-            self.units[i].still = 0.0;
         }
     }
 
@@ -587,7 +537,7 @@ impl World {
             u.heal_fx -= dt;
             if u.heal_fx <= 0.0 {
                 u.heal_fx = 0.4;
-                // (shown only to the seats that see both ends: a mend must not give away a cloaked patient)
+                // (shown only to the seats that see both ends)
                 let seen = self.seen_mask(team, uid) & self.seen_mask(team, pid);
                 self.emit(Event::Heal {
                     x: mx,
@@ -786,7 +736,7 @@ impl World {
     ) {
         let Some(t) = self
             .geo(target)
-            .filter(|_| self.team_of(target).is_some() && !self.hidden_from(c.team, target))
+            .filter(|_| self.team_of(target).is_some())
         else {
             // A deployed siege gun takes the next target in its reach before packing up for the march.
             if let Some(reach) = c.siege.filter(|_| self.u(uid).mode.is_some()) {

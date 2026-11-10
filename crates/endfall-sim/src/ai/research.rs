@@ -14,6 +14,8 @@ impl World {
             anti_air,
             expand,
             dry,
+            cx,
+            cy,
             ..
         } = brain.clone();
         // Research: an economy tech (Rapid Construction) first, once its opening factories stand; its techs
@@ -25,13 +27,16 @@ impl World {
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
         // army first)
         let script = &self.factions[e as usize].ai;
-        let rax = script.rax;
-        let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
-        let techs = d.abilities && t > d.research_from.min(script.tech_from) && on_schedule;
+        let (rax, tech_from) = (script.rax, script.tech_from);
+        let schedule = self.rax_schedule(t);
+        let on_schedule =
+            self.ai_count(&my_b, false, rax) >= self.rax_target(&my_b, schedule, cx, cy);
+        let techs = d.abilities && t > d.research_from.min(tech_from) && on_schedule;
         // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research
         // at all: it pays back over the whole game.
-        let economy =
-            d.research_from < NEVER && on_schedule && self.ai_count(&my_b, true, rax) >= d.rax;
+        let economy = d.research_from < NEVER
+            && on_schedule
+            && self.ai_count(&my_b, true, rax) >= self.rax_target(&my_b, d.rax, cx, cy);
         let levels_due = t > d.research_from;
         let threatened = intruder.is_some() || (enemy_air > 0 && anti_air < enemy_air * 2);
         let mut saving = false;
@@ -105,15 +110,12 @@ impl World {
     }
 
     /// Whether a tech would serve this side now: an ability's only once a building of its own that trains a unit
-    /// with that ability stands (no Cloaking Field before an Airfield), a unit's speed only once one that trains
-    /// that unit stands (no Slipstream at an Eclipse before a Zenith); anything else always.
+    /// with that ability stands, a unit's speed only once one that trains that unit stands (no Spindrift at the Lab
+    /// before a Factory); anything else always.
     pub(crate) fn tech_of_use(&self, e: u8, my_b: &[Id], up: Upgrade) -> bool {
         let serves: &dyn Fn(UnitKind) -> bool = match up.def().effect {
-            // (not a dig-in: the AI never digs a unit in, its siege guns anchor by their own rule)
-            Effect::Unlock(ab) if matches!(ab.def().effect, AbilityEffect::Settle { .. }) => {
-                return false;
-            }
-            Effect::Unlock(ab) => &move |k: UnitKind| k.def().abilities.contains(&ab),
+            // (not a toggle: the AI never braces a unit, its siege guns anchor by their own rule)
+            Effect::Unlock(_) => return false,
             Effect::Speed(unit) => &move |k: UnitKind| k == unit,
             _ => return true,
         };

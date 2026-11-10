@@ -159,6 +159,15 @@ pub fn first_hit(w: &mut World, shooter: UnitKind, shooter_team: u8, target: Uni
     panic!("no hit");
 }
 
+/// Shields for unit `id` (none has any since the re-theme: the shield rules stay, as data, and their tests set them).
+pub fn give_shields(w: &mut World, id: Id, sh: f64) {
+    let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
+    (u.sh, u.maxsh) = (sh, sh);
+}
+
+/// The shields the shield tests give a unit (`give_shields`): the Needle's before the re-theme.
+pub const TEST_SHIELDS: f64 = 40.0;
+
 mod duel;
 mod invariants;
 mod random;

@@ -406,6 +406,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (cx, cy) = core(&w, PLAYER);
+    build(&mut w, BldgKind::Siphon, l[0], 150); // (the Factory's requirement, the Recruiting post)
     // The first free 3x3 at least 9 tiles from the Tidewell: no field anywhere near it.
     let (tx, ty) = (9..14)
         .flat_map(|r| (0..24).map(move |a| (r, a)))

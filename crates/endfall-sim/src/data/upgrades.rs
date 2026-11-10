@@ -1,22 +1,19 @@
-//! Team-wide upgrades: the three-level Weapons/Armor/Shields, and one-level techs (a heavy unit's ability, a faster
-//! flyer, faster construction) that make each race's tech a set of choices the other side must scout. A line unit's
-//! ability (Stim, Blink) needs none: it is there from the first fight.
+//! Team-wide upgrades: the three-level Weapons/Armor/Shields, and one-level techs (an ability, a faster raider or
+//! flyer, faster construction) that make each people's tech a set of choices the other side must scout. Shields are
+//! data since the re-theme (nobody has any, and nobody researches Hardshell); the shield rules keep their tests.
 
 use super::{AbilityKind, UnitKind};
 
 /// Team-wide upgrades, researched at a building that lists them (`BldgDef::researches`).
-/// The order is the index the snapshot sends; append only.
+/// The order is the index the snapshot and the wire send.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching, // (Sandbags: unlocks the Picket's Dig In)
+    Entrenching, // (Sandbags: unlocks the Guard's Brace)
     Afterburners,
-    OverchargeCore,
     Slipstream,
-    CloakingField,
-    VeilWeave,
     RapidConstruction,
 }
 
@@ -93,7 +90,7 @@ const TECH: UpgradeDef = UpgradeDef {
     time: [60.0; 3],
     levels: 1,
 };
-/// Sandbags: unlocks the Picket's Dig In (Roster v2 revived it, retired on 2026-10-31 with the Vanguard's dig-in).
+/// Sandbags: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
     name: "Sandbags",
@@ -107,16 +104,7 @@ const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
     name: "Tailwind",
     short: "",
-    effect: Effect::Speed(UnitKind::Raider),
-    ..TECH
-};
-const OVERCHARGE_CORE: UpgradeDef = UpgradeDef {
-    key: "overchargeCore",
-    name: "Surge Chamber",
-    short: "Surge Ch.",
-    effect: Effect::Unlock(AbilityKind::Overcharge),
-    cost: [[150, 0]; 3],
-    time: [80.0; 3],
+    effect: Effect::Speed(UnitKind::Rider),
     ..TECH
 };
 const SLIPSTREAM: UpgradeDef = UpgradeDef {
@@ -126,23 +114,6 @@ const SLIPSTREAM: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
-/// Retired with the Kite's cloak (Roster v2): no building researches it; it keeps its index.
-const CLOAKING_FIELD: UpgradeDef = UpgradeDef {
-    key: "cloakingField",
-    name: "Cloaking Field",
-    short: "Cloak Field",
-    effect: Effect::Unlock(AbilityKind::Cloak),
-    cost: [[150, 0]; 3],
-    time: [80.0; 3],
-    ..TECH
-};
-const VEIL_WEAVE: UpgradeDef = UpgradeDef {
-    key: "veilWeave",
-    name: "Seaglass",
-    short: "",
-    effect: Effect::Unlock(AbilityKind::Veil),
-    ..CLOAKING_FIELD
-};
 const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     key: "rapidConstruction",
     name: "All Hands",
@@ -152,16 +123,13 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
 };
 
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 10] = [
+pub const UPGRADES: [Upgrade; 7] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
     Upgrade::Entrenching,
     Upgrade::Afterburners,
-    Upgrade::OverchargeCore,
     Upgrade::Slipstream,
-    Upgrade::CloakingField,
-    Upgrade::VeilWeave,
     Upgrade::RapidConstruction,
 ];
 
@@ -173,10 +141,7 @@ impl Upgrade {
             Upgrade::Shields => &SHIELDS,
             Upgrade::Entrenching => &ENTRENCHING,
             Upgrade::Afterburners => &AFTERBURNERS,
-            Upgrade::OverchargeCore => &OVERCHARGE_CORE,
             Upgrade::Slipstream => &SLIPSTREAM,
-            Upgrade::CloakingField => &CLOAKING_FIELD,
-            Upgrade::VeilWeave => &VEIL_WEAVE,
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
         }
     }

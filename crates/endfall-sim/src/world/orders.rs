@@ -525,13 +525,13 @@ mod tests {
     fn a_fight_lifts_the_marching_pace() {
         let mut w = World::new(5, 1);
         let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
-        let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 940.0);
+        let v = w.make_unit(UnitKind::SiegeTank, PLAYER, 600.0, 940.0);
         w.attack_move_group(&[t, v], 1200.0, 900.0);
-        assert_eq!(w.live_speed(t), 68.0, "on the march: the Vanguard's pace");
+        assert_eq!(w.live_speed(t), 62.0, "on the march: the Trebuchet's pace");
         w.um(t).task = Task::Attack {
             target: v,
             back: None,
         };
-        assert_eq!(w.live_speed(t), 92.0, "in a fight: its own speed");
+        assert_eq!(w.live_speed(t), 90.0, "in a fight: its own speed");
     }
 }

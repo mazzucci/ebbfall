@@ -179,7 +179,7 @@ fn scenes(seed: u32) -> Vec<(&'static str, f64, f64)> {
 
     // 7. Ranged units ordered onto one tough target that the front ranks hide from the back ones.
     let mut w = flat_arena(seed);
-    let tank = w.make_unit(UnitKind::Vanguard, ENEMY, px(38.0), px(30.0));
+    let tank = w.make_unit(UnitKind::Knight, ENEMY, px(38.0), px(30.0));
     set_hp(&mut w, tank, 1e9);
     w.hold_unit(tank);
     let ids = troopers(&mut w, PLAYER, px(24.0), px(30.0), 20, 4, 28.0);

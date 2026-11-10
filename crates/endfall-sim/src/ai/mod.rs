@@ -1,5 +1,5 @@
 //! The scripted opponent. Runs twice a second (every `AI_TURN` ticks, each brain on a tick of its own): assigns
-//! workers, follows a build order, keeps supply ahead, expands, defends its base, raids with Raiders and attacks in
+//! workers, follows a build order, keeps supply ahead, expands, defends its base, raids with its raiders and attacks in
 //! growing waves. It plays under fog of war: it scouts, remembers the player buildings it has seen and sweeps the map
 //! when it knows of none. Draws only from the world RNG.
 
@@ -50,7 +50,7 @@ pub(crate) struct Ai {
     /// The early scout (a harvester), and whether it has been sent.
     pub scout: Option<Id>,
     pub scouted: bool,
-    /// The raiders (the race's raider kind: Raiders, Shrikes) out raiding the player's harvesters.
+    /// The raiders (the race's raider kind: Riders, Buggies) out raiding the player's harvesters.
     pub raiders: Vec<Id>,
     /// With no player building known: which point of the sweep (the player's start, then the shard fields
     /// nearest it) the army heads for next.
@@ -66,16 +66,8 @@ pub(crate) struct Ai {
     pub guards: Vec<Id>,
     /// Its home reserve (`Diff::reserve`): fighters kept out of the waves.
     pub reserve: Vec<Id>,
-    /// Where something it could not see last hit it (a cloaked raider): a detector goes there.
-    pub cloak_hit: Option<(f64, f64)>,
-    /// Something it could not see has hit it (anywhere): from then on one detector of its own (its side's
-    /// `Faction::field_detector`) goes with its army.
-    pub unseen_hit: bool,
     /// The second prong of the wave out (its fastest third, sent at a known expansion), if it split.
     pub prong: Vec<Id>,
-    /// It has seen an enemy field detector (a unit that detects: an Observer, a Halo) with an enemy army: its
-    /// always-cloaked fighters (the Umbra) would be found there, so its mix brings no more of them.
-    pub detector_seen: bool,
     /// The most enemy army (armed units, workers left out) seen at once lately, by value (`army_worth`), when, and
     /// its own army's value then (a stale sighting grows by what its own army has grown since): what a wave must
     /// beat (`Diff::wave_margin`).
@@ -192,10 +184,7 @@ impl World {
             heavy_seen: (0, 0.0),
             guards: Vec::new(),
             reserve: Vec::new(),
-            cloak_hit: None,
-            unseen_hit: false,
             prong: Vec::new(),
-            detector_seen: false,
             army_seen: (0.0, 0.0, 0.0),
             looking: None,
             attacked_at: 0.0,
@@ -377,15 +366,7 @@ impl World {
         self.ai_research(&mut b);
         self.ai_produce(&mut b);
         self.ai_army(&mut b);
-        self.ai_abilities(&mut b);
         self.recalc_supply(e);
-    }
-
-    /// Abilities: kept as the last phase, after the army moved, so using them never reorders the draws before it
-    /// (the rules are `World::auto_cast`, shared with the balance duels), on a level that uses them. (A siege gun
-    /// sets up and packs up by itself on every level, as a player's does.)
-    fn ai_abilities(&mut self, _brain: &mut Brain) {
-        self.auto_cast_for(self.seat(), self.level().abilities);
     }
 
     /// How many of our buildings of kind `k` (only finished ones if `done`).
@@ -422,7 +403,7 @@ pub(crate) struct Brain {
     /// Armed enemies at our buildings, counted only with more than one enemy still in (0 otherwise).
     raid: usize,
     enemy_air: usize,
-    /// Its answer to enemy flyers so far (`AiScript::answer_weight`: Lancers, Interceptors worth two).
+    /// Its answer to enemy flyers so far (`AiScript::answer_weight`: Archers, Ballistas worth two).
     anti_air: usize,
     saving: bool,
 }

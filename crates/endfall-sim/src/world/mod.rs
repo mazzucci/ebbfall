@@ -76,10 +76,6 @@ pub struct World {
     /// difference shows in what the AI does, which is.
     pub explored: Vec<Vec<u8>>,
     pub vis: Vec<Vec<u8>>,
-    /// Tiles where each seat reveals its enemies' cloaked units, by its detectors and its allies' (from `update_fog`,
-    /// like `vis`). Rebuilt at the end of each step, so the next step's units act on it (a detector lost this tick
-    /// still counts once); derived from the world, so not hashed.
-    pub det: Vec<Vec<u8>>,
     pub over: bool,
     /// The team that won (-1: none yet). With every seat its own team, the winning seat.
     pub winner: i32,
@@ -119,8 +115,6 @@ pub struct World {
     pub upgrades: Vec<[u8; UPGRADES.len()]>,
     /// Recent "under attack" alerts (team, time, x, y, was a building), for throttling.
     alerts: Vec<(u8, f64, f64, f64, bool)>,
-    /// When each team was last told that something it cannot see is attacking (not hashed: presentation).
-    unseen_alert: Vec<f64>,
     pub events: Vec<Event>,
     pub map: Map,
     /// Each seat's scripted opponent, if it has one (indexed by team).
@@ -228,7 +222,6 @@ impl World {
             sup: Vec::new(),
             explored: Vec::new(),
             vis: Vec::new(),
-            det: Vec::new(),
             over: false,
             winner: -1,
             conceded: -1,
@@ -245,7 +238,6 @@ impl World {
             hit_by: None,
             upgrades: Vec::new(),
             alerts: Vec::new(),
-            unseen_alert: Vec::new(),
             events: Vec::new(),
             map: Map::empty(map_size),
             ai: Vec::new(),
@@ -552,14 +544,6 @@ impl World {
             _ => own,
         }
     }
-    /// The seconds between shots of `shooter`'s weapon (a unit or a building), whose base is `base`.
-    pub(crate) fn live_cd(&self, shooter: Id, base: f64) -> f64 {
-        if self.unit(shooter).is_some() {
-            base / self.fire_mul(shooter)
-        } else {
-            base
-        }
-    }
 
     /// One unit's tick: its weapon and flash cool down, a healer heals, then its task runs.
     pub(crate) fn update_unit(&mut self, uid: Id, dt: f64) {
@@ -577,15 +561,6 @@ impl World {
         }
         let c = self.live(uid);
         let task = self.u(uid).task;
-        // A lurker lies still another tick (walking or striking during its task starts the count again).
-        let lurk = c.kind.def().lurk;
-        let at = {
-            let u = self.um(uid);
-            if lurk {
-                u.still = (u.still + dt).min(LURK_S);
-            }
-            (u.x, u.y)
-        };
         if c.kind.def().heal > 0.0 {
             self.medic(uid, dt);
         }
@@ -609,12 +584,6 @@ impl World {
             Task::Gather { node, phase, timer } => self.update_gather(uid, node, phase, timer, dt),
             Task::Repair { b } => self.update_repair(uid, b, c.r, c.team, dt),
             Task::Build { b } => self.update_build(uid, b, c.r, c.team, dt),
-        }
-        if lurk
-            && let Some(i) = self.ui(uid)
-            && (self.units[i].x, self.units[i].y) != at
-        {
-            self.units[i].still = 0.0;
         }
     }
 
@@ -701,17 +670,13 @@ impl World {
                 mix(jsmath::to_i32(u.sh * 16.0));
             }
             // Ability state, once there is any (a unit that never cast hashes as before).
-            if u.boost.is_some()
-                || u.mode.is_some()
+            if u.mode.is_some()
                 || u.swap > 0.0
                 || u.ab_cd.iter().any(|&c| c > 0.0)
             {
                 for &c in &u.ab_cd {
                     mix(jsmath::to_i32(c * 16.0));
                 }
-                mix(u.boost.map_or(0, |(k, end)| {
-                    k.index() as i32 + 1 + jsmath::to_i32(end * 16.0) * 8
-                }));
                 mix(u.mode.map_or(0, |k| k.index() as i32 + 1));
                 mix(jsmath::to_i32(u.swap * 16.0));
             }
@@ -720,9 +685,6 @@ impl World {
             }
             if u.slowed > 0.0 {
                 mix(jsmath::to_i32(u.slowed * 16.0) + 2); // (harpooned)
-            }
-            if u.kind.def().lurk {
-                mix(jsmath::to_i32(u.still * 16.0) + 3); // (a lurker's time lying still)
             }
             if let Some(p) = u.pace {
                 mix(jsmath::to_i32(p * 16.0));

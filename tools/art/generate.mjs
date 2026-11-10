@@ -1,15 +1,19 @@
 // Generates Endfall's sprite sheets: public/art/atlas-<n>.png + .json pages (PixiJS spritesheet format, scale 2:
 // art is drawn at twice the game's resolution) and public/art/atlas.json, an index with the pages, animations and
 // facings. Units, buildings and resources are 3D models rendered in headless Chromium (tools/render3d); terrain and
-// effects are painted in Node. Usage: node tools/art/generate.mjs
+// effects are painted in Node (terrain3.js, effects3.js; effects2.js for the few the re-theme left). Usage: node tools/art/generate.mjs
 import { mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { encodePNG } from './png.js';
-import { terrainSprites } from './terrain2.js';
+import { terrainSprites } from './terrain3.js';
 import { effectSprites } from './effects2.js';
+import { atlasEffects } from './effects3.js';
 import { render3d } from './render3d.mjs';
 
 const FACINGS = 16;
-const models = await render3d(), sprites = [...terrainSprites(), ...effectSprites(), ...models];
+// The re-theme's effects (effects3.js) replace the old explosions, smoke, flashes and shots; the old set keeps the light
+// blob, the rally flag, the heal sparkle and the selection rings.
+const KEEP_FX = /^(light|flag_\d|heal_\d|sel_)/;
+const models = await render3d(), sprites = [...terrainSprites(), ...effectSprites().filter(s => KEEP_FX.test(s.name)), ...atlasEffects(), ...models];
 
 // Each unit kind's drawn height: how far its art rises above its ground point, in game px at the sprite's own scale
 // (before the renderer's UNIT_SCALE), the median over its facings and frames. The model's solid pixels only (alpha 255;
@@ -76,7 +80,7 @@ pages.forEach((p, n) => {
   pageFiles.push(`atlas-${n}.json`);
 });
 const seq = (prefix, n) => Array.from({ length: n }, (_, f) => `${prefix}${f}`);
-const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4), heal: seq('heal_', 3) };
+const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), trail: seq('trail_', 4), flag: seq('flag_', 4), vent: seq('vent_', 4), heal: seq('heal_', 3) };
 for (const s of sprites) if (s.anim) (animations[s.anim] ||= [])[s.frame] = s.name; // units: <unit>_<dir> (base frames)
 writeFileSync(new URL('atlas.json', root), JSON.stringify({ pages: pageFiles, animations, facings: FACINGS, scale: 2, tints: models.tints, unitTops }, null, 1));
 console.log(`${sprites.length} sprites on ${pages.length} page(s)`);

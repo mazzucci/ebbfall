@@ -14,10 +14,11 @@ import { kite, spyglass, windjammer } from './harbour-air.js';
 import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, gyre, darkwater } from './vael-buildings.js';
 import * as HB from './harbour-buildings.js';
 import * as Gd from './ground.js';
-import { SCENERY } from './scenery2.js';
-import { rethemeSprites } from './retheme.js';
+import { rethemeSprites, atlasSprites, ATLAS_UNITS, ATLAS_BUILDINGS } from './retheme.js';
 
-// The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
+// The re-theme (retheme.js ATLAS_UNITS, ATLAS_BUILDINGS) replaces the models below for every kind it maps; the rest of
+// this file's models stay only for the kinds the next roster retires, and for fitTints' reference sprites.
+// The step-2 look (STYLE.md), kind by kind as it was made: these entries replaced the older models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
 Object.assign(UNIT_MODELS, {
   harvester: { build: rigger, frames: 2, r: 12, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 },
@@ -78,7 +79,6 @@ const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extracto
 // 32 -> 42, the Lookout's nest and pennant 14 -> 36, its gun 30 -> 62: a north-facing muzzle stands about 74 above the
 // anchor), so nothing touches a cell's top; the anchor stays the footprint's centre, so the head still seats on the base.
 Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.excavator, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
-const TURRET_HEAD = HB.lookoutGun, TURRET_HEAD_H = 62;
 /**
  * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
  * colour (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
@@ -117,37 +117,25 @@ window.render = async function (filter = '', opts = {}) {
     const { img, mask } = shoot(obj, { ...cell, ...opts, mask: true });
     sprite(name, img, cell, extra); sprite(`${name}_m`, mask, cell, { trim: true });
   };
-  // Units are drawn UNIT_ART_SCALE times their model's size (look.js), the cell with them; buildings keep their footprints.
+  // The re-theme's models under today's names (retheme.js atlasSprites: the units, buildings, turning heads,
+  // construction and rubble, the gold and the scenery), polished at the game's camera and sun.
+  for (const [name, obj, cell, o, isTeam, extra] of atlasSprites(want)) isTeam ? pushTeam(name, obj, cell, o, extra) : push(name, obj, cell, o);
+  // The kinds the next roster retires keep their old models until it lands (ATLAS_UNITS / ATLAS_BUILDINGS have no row
+  // for them). Units are drawn UNIT_ART_SCALE times their model's size (look.js), the cell with them.
   for (const [kind, m, mats] of UNITS_ALL) {
+    if (ATLAS_UNITS[kind]) continue;
     const K = UNIT_ART_SCALE, M = mats(), cell = unitCell(m.r * K, m.h * K);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < m.frames; f++) {
       const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(K);
       pushTeam(`${kind}_${dir}_${f}`, obj, cell, {}, { anim: `${kind}_${dir}`, frame: f });
     }
   }
-  for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
-  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
-  for (let dir = 0; dir < FACINGS; dir++) {
-    const head = TURRET_HEAD(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
-    pushTeam(`turret_head_${dir}`, head, bldgCell(2, TURRET_HEAD_H), { shadow: false }); // drawn above the base, which has its own shadow
-  }
-  // The ground and the scenery (ground.js, scenery2.js; STYLE.md "The ground and the scenery"): construction and
-  // wrecks for both peoples (the Harbour's timber foundation, scaffold and rubble in seat 0's gold; the Vael's bud and
-  // pearl rubble, `bud_n` and `rubble_vael_n`, which render.js draws by people), the salt field, the mine shaft (four frames)
-  // and the scenery props under the names the client places (scenery.js).
-  const neutral = makeMats(GOLD), vaelNeutral = makeVaelMats();
-  for (const n of [2, 3, 4]) {
-    push(`foundation_${n}`, Gd.foundation(n, neutral), bldgCell(n, 5));
-    push(`scaffold_${n}`, Gd.scaffold(n, neutral), bldgCell(n, 10 + n * 6), { shadow: false });
-    push(`rubble_${n}`, Gd.rubble(n, neutral), bldgCell(n, 10));
-    push(`bud_${n}`, Gd.bud(n, vaelNeutral), bldgCell(n, 8 + n * 7));
-    push(`rubble_vael_${n}`, Gd.rubbleVael(n, vaelNeutral), bldgCell(n, 10));
-  }
-  for (let st = 0; st < 4; st++) for (let v = 0; v < Gd.SALT_VARIANT_COUNT; v++) push(v ? `shard_${st}_${v}` : `shard_${st}`, Gd.saltField(st, v), unitCell(28, 26)); // (variant 0 keeps the plain name: the portrait's)
-  for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.mineShaft(f, neutral), unitCell(30, 8));
-  for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
-  // The re-theme's comparison models (retheme.js), only when a filter asks for them by name, at their own camera
-  // (`opts.elev`), sun (`opts.sun`) and finish (`opts.polish`): generate.mjs renders with no filter, so the atlas never sees them.
+  for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) if (!ATLAS_BUILDINGS[type]) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
+  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) if (!ATLAS_BUILDINGS[type]) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
+  // The mine shaft (ground.js; four frames): the brine seep, not re-themed yet.
+  for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.mineShaft(f, makeMats(GOLD)), unitCell(30, 8));
+  // The re-theme's models under their own names (retheme.js rethemeSprites), only when a filter asks for them by name,
+  // at their own camera (`opts.elev`), sun (`opts.sun`) and finish (`opts.polish`): the review pictures' path.
   if (filter) for (const [name, obj, cell, o, isTeam] of rethemeSprites(want, opts)) (isTeam ? pushTeam : push)(name, obj, cell, o);
   return { sprites: out, tints: fitTints() };
 };

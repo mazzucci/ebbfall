@@ -1,16 +1,14 @@
 // The re-theme's models (the kingdom, kingdom.js and kingdom-units.js; the Expedition, expedition.js and
-// expedition-units.js), rendered only when a filter asks for them by name (main.js calls `rethemeSprites` with the
-// filter's `want`), never into the atlas: tools/art/retheme-compare.mjs (the slice) and tools/art/retheme-units.mjs
-// (the units family) build Stelian's pictures from them. Names: `kg_<kind>_<dir>_<frame>` and `ex_<kind>_<dir>_<frame>`
-// for the units (16 facings, two frames unless `frames` says otherwise: the Trebuchet's four poses, the Balloon's
-// one), `bldg_kg_castle` and `bldg_ex_hall` for the main buildings, `rt_coins` for the gold deposit (not team). The
-// kingdom is palette B (slate) and the Expedition its one dark-kit look (Stelian, 2026-11-10). The camera: `elev`
-// degrees (RT_ELEV by default), lower than the game's 55 so the cells are taller (`liftAt`). Units are drawn
-// UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can be distinguished"; visual only, the
-// footprint and radius unchanged); buildings stay their footprint's.
-// The buildings family adds `bldg_kg_<kind>` and `bldg_ex_<kind>` for the rest of both rosters and
-// `kg_towerhead_<dir>` / `ex_radiohead_<dir>` for the two turning heads (RT_HEADS); the ground family the gold, the
-// scenery and each people's construction and rubble.
+// expedition-units.js; the countryside, country.js). Two ways out: `atlasSprites` (below) renders them into the atlas
+// under today's sprite names (main.js, for tools/art/generate.mjs), and `rethemeSprites` renders them by filter under
+// their own names for the review pictures (tools/art/retheme-*.mjs). Those names: `kg_<kind>_<dir>_<frame>` and
+// `ex_<kind>_<dir>_<frame>` for the units (16 facings, two frames unless `frames` says otherwise: the Trebuchet's four
+// poses, the Balloon's one), `bldg_kg_<kind>` and `bldg_ex_<kind>` for the buildings, `kg_towerhead_<dir>` /
+// `ex_radiohead_<dir>` for the two turning heads (RT_HEADS), `rt_coins` for the gold deposit (not team), and the
+// ground family's `rt_*` (the gold, the scenery, each people's construction and rubble). The kingdom is palette B
+// (slate) and the Expedition its one dark-kit look (Stelian, 2026-11-10). The camera: `elev` degrees (RT_ELEV, the
+// game's 40, by default). Units are drawn UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can
+// be distinguished"; visual only, the footprint and radius unchanged); buildings stay their footprint's.
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
@@ -20,11 +18,12 @@ import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import { POLISH } from './polish.js';
+import { UNIT_ART_SCALE } from '../../src/client/look.js';
 import * as KB from './kingdom-buildings.js';
 import * as EB from './expedition-buildings.js';
 
 export const RT_ELEV = 40;
-export const UNIT_SCALE = 1.4;
+export const UNIT_SCALE = UNIT_ART_SCALE; // (look.js: the game draws its units this much larger than the sim's size)
 /** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render) and its
  *  frames (2 by default: the walk). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
@@ -109,4 +108,61 @@ export function* rethemeSprites(want, opts = {}) {
     const so = kind === 'scaffold' ? { ...o, shadow: false, ...(o.polish ? { polish: { ...(typeof o.polish === 'object' ? o.polish : {}), contact: { ...POLISH.contact, alpha: 0 } } } : {}) } : o; // (a scaffold casts no shadow, and under the polish no contact ellipse either: the judge saw dots at the poles' feet over the rising building)
     yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), bldgCell(n, h, lift), so, true];
   }
+}
+
+// ---- the atlas (PR 1 of the re-theme): the new models under today's sprite names, in the approved look ----
+// The approved look is the polish on, at the game's camera (40 degrees) and sun (420): scene.js's defaults, so only
+// `polish` is passed. Today's sim kinds take the new models by role; the kinds the next roster retires (medic,
+// vanguard, raider, interceptor, halo, sovereign, zenith) keep their old models (main.js), and the three new models no
+// kind takes yet (Rider, Knight, Veteran) go in under their own names, ready for the roster.
+/** Unit kind -> [people, model] (RT_UNITS). */
+export const ATLAS_UNITS = {
+  harvester: ['kg', 'villager'], trooper: ['kg', 'guard'], lancer: ['kg', 'archer'], siegeTank: ['kg', 'trebuchet'], bastion: ['kg', 'ballista'], observer: ['kg', 'balloon'],
+  lumen: ['ex', 'bot'], scythe: ['ex', 'buggy'], prism: ['ex', 'mercenary'], umbra: ['ex', 'marine'], monolith: ['ex', 'rover'], shrike: ['ex', 'drone'],
+  rider: ['kg', 'rider'], knight: ['kg', 'knight'], veteran: ['ex', 'veteran'], // (no kind yet: the roster's)
+};
+/** Building type -> [people, model] (RT_BUILDINGS); each footprint is its type's (n tiles). */
+export const ATLAS_BUILDINGS = {
+  core: ['kg', 'castle'], depot: ['kg', 'cottage'], extractor: ['kg', 'market'], barracks: ['kg', 'barracks'], forge: ['kg', 'blacksmith'],
+  factory: ['kg', 'workshop'], turret: ['kg', 'tower'], airfield: ['kg', 'stables'],
+  conflux: ['ex', 'hall'], spire: ['ex', 'bunkhouse'], siphon: ['ex', 'post'], kiln: ['ex', 'factory'], loom: ['ex', 'lab'], ward: ['ex', 'radio'], eclipse: ['ex', 'portal'],
+};
+/** Turning heads (look.js BLDG_LOOK `head`, `<name>_<dir>`) -> [people, model] (RT_HEADS). */
+export const ATLAS_HEADS = { turret_head: ['kg', 'towerhead'], ward_head: ['ex', 'radiohead'] };
+/** Construction and rubble, by the names the client picks by people (gl/render.js): the kingdom's foundation, scaffold
+ *  and rubble, the Expedition's scaffold (the client's `bud`) and rubble (`rubble_vael`). The scaffolds carry team on
+ *  their cloth and flags; the foundations and rubble none. */
+const ATLAS_SITES = { foundation: ['kg', 'foundation'], scaffold: ['kg', 'scaffold'], rubble: ['kg', 'rubble'], bud: ['ex', 'scaffold'], rubble_vael: ['ex', 'rubble'] };
+const siteH = (side, kind, n) => (kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8);
+
+/** Yields [name, object, cell, shootOpts, isTeam, extra] for every atlas sprite the re-theme draws (`extra`: a unit
+ *  frame's `anim` and `frame`). `want(name)` filters, as main.js's. */
+export function* atlasSprites(want = () => true) {
+  const lift = liftAt(RT_ELEV * Math.PI / 180), o = { polish: true }, ou = { polish: { unit: true } };
+  countryPolish(true);
+  const M = {}, mats = (side) => (M[side] ??= MATS[side](NEUTRAL, true));
+  for (const [kind, [side, model]] of Object.entries(ATLAS_UNITS)) {
+    const m = RT_UNITS[side][model], cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
+    for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
+      const name = `${kind}_${dir}_${f}`; if (!want(name)) continue;
+      const obj = m.build(mats(side), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+      yield [name, obj, cell, ou, true, { anim: `${kind}_${dir}`, frame: f }];
+    }
+  }
+  for (const [type, [side, model]] of Object.entries(ATLAS_BUILDINGS)) {
+    const b = RT_BUILDINGS[side][model], name = `bldg_${type}`;
+    if (want(name)) yield [name, b.build(mats(side)), bldgCell(b.n, b.h, lift), o, true];
+  }
+  for (const [head, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
+    const b = RT_HEADS[side][model], name = `${head}_${dir}`; if (!want(name)) continue;
+    const obj = b.build(mats(side)); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
+    yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true]; // (drawn over its base, which has the shadow)
+  }
+  for (const [prefix, [side, kind]] of Object.entries(ATLAS_SITES)) for (const n of [2, 3, 4]) {
+    const name = `${prefix}_${n}`; if (!want(name)) continue;
+    const scaffold = kind === 'scaffold', so = scaffold ? { shadow: false, polish: { contact: { ...POLISH.contact, alpha: 0 } } } : o; // (a scaffold casts no shadow and has no contact ellipse: it stands round the rising building)
+    yield [name, RT_SITES[side][kind](n, mats(side)), bldgCell(n, siteH(side, kind, n), lift), so, scaffold];
+  }
+  for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = v ? `shard_${st}_${v}` : `shard_${st}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; } // (variant 0 keeps the plain name: the portrait's)
+  for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
 }

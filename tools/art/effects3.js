@@ -1,9 +1,9 @@
 // The re-theme's effects (the ground family, 2026-11-10), painted at 2x in the sprites' own finish: hard edges (no
 // soft alpha), 5-bit banding, ink along the silhouette, the light from the north-west. Projectiles at their real game
-// size, pointing +x with their tip at the anchor as the renderer rotates them; animations in frames. Not in the
-// atlas: tools/art/retheme-ground.mjs draws them; the build step maps them onto the game's names (bolt, shell,
-// missile, boom_big_f, boom_small_f, puff_f, flash_f, spark_f) and gives the kinds their own sprites by the shooter
-// (look.js SHOT_LOOK) as the harpoon and the beam have.
+// size, pointing +x with their tip at the anchor as the renderer rotates them; animations in frames. `effectSprites`
+// names them `rt_*` for tools/art/retheme-ground.mjs; `atlasEffects` gives generate.mjs the same under the game's
+// names (the shots by name, picked by shooter or people in look.js SHOT_LOOK / PEOPLE_SHOT; boom_big_f, boom_small_f,
+// puff_f, flash_f, spark_f, trail_f; worn_n, the decal under a building).
 import { image, hash2, vnoise } from './raster.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -218,5 +218,16 @@ export function effectSprites() {
   for (let f = 0; f < 4; f++) out.push({ name: `rt_spark_${f}`, img: finishFx(spark(f)), anchor: c });
   for (const n of [2, 3, 4]) out.push({ name: `rt_worn_${n}`, img: wornDirt(n), anchor: c });
   void fx;
+  return out;
+}
+
+/** The atlas's effects (generate.mjs): effectSprites under the names the renderer asks for. The muzzle flash is left
+ *  out: nothing draws one yet. */
+const ATLAS_NAMES = [[/^rt_arrow$/, 'arrow'], [/^rt_bolt$/, 'ballista_bolt'], [/^rt_stone$/, 'stone'], [/^rt_tracer$/, 'tracer'], [/^rt_dart$/, 'dart'],
+  [/^rt_tower_shot$/, 'tower_shot'], [/^rt_rocket$/, 'rocket'], [/^rt_hit_/, 'flash_'], [/^rt_puff_/, 'puff_'], [/^rt_trail_/, 'trail_'],
+  [/^rt_boom_small_/, 'boom_small_'], [/^rt_boom_/, 'boom_big_'], [/^rt_spark_/, 'spark_'], [/^rt_worn_/, 'worn_']];
+export function atlasEffects() {
+  const out = [];
+  for (const s of effectSprites()) { const hit = ATLAS_NAMES.find(([re]) => re.test(s.name)); if (hit) out.push({ ...s, name: s.name.replace(hit[0], hit[1]) }); }
   return out;
 }

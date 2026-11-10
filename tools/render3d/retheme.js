@@ -19,6 +19,7 @@ import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
+import { POLISH } from './polish.js';
 import * as KB from './kingdom-buildings.js';
 import * as EB from './expedition-buildings.js';
 
@@ -105,6 +106,7 @@ export function* rethemeSprites(want, opts = {}) {
   for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of ['foundation', 'scaffold', 'rubble']) {
     const name = `rt_${side}_${kind}_${n}`; if (!want(name)) continue;
     const h = kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8;
-    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), bldgCell(n, h, lift), { ...o, shadow: kind !== 'scaffold' }, true];
+    const so = kind === 'scaffold' ? { ...o, shadow: false, ...(o.polish ? { polish: { ...(typeof o.polish === 'object' ? o.polish : {}), contact: { ...POLISH.contact, alpha: 0 } } } : {}) } : o; // (a scaffold casts no shadow, and under the polish no contact ellipse either: the judge saw dots at the poles' feet over the rising building)
+    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), bldgCell(n, h, lift), so, true];
   }
 }

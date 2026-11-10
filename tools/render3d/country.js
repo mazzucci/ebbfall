@@ -44,8 +44,18 @@ export const CMATS = {
   mortar: std({ color: 0xb0aca0, roughness: 1 }),
   clothDull: std({ color: 0x4a4740, roughness: 0.95 }),                                            // a dead building's cloth, greyed
   iron: std({ color: 0x3a3c40, metalness: 0.6, roughness: 0.5 }),                                   // a cart's tyres, pegs (defined always, used by the polish)
-  soot: std({ color: 0x26231f, roughness: 1 }),                                                     // the scorched ground under rubble (the polish)
+  soot: std({ color: 0x2e2a26, roughness: 1 }),                                                     // the scorched ground under rubble (the polish)
 };
+/** The polish's scorched ground under a heap of rubble: a cluster of small lobed patches of soot with its own random
+ *  draws (the heap's layout stays), overlapping into one broken, ragged patch about `R` across (the judge on the first
+ *  pass: one wobbly patch read as a hard-edged mud puddle). Marked ground. */
+function sootPatch(g, C, R, seed) {
+  let t = seed; const r2 = () => ((t = (t * 16807) % 2147483647) / 2147483647);
+  for (let k = 0; k < 7; k++) {
+    const a = r2() * 6.3, d = k ? (0.2 + r2() * 0.4) * R : 0, rr = (k ? 0.2 + r2() * 0.18 : 0.42) * R;
+    ground(add(g, patch(wob(rr, 1.8, r2() * 6), 0.8, 0.25 + k * 0.01), C.soot, Math.cos(a) * d, 0, Math.sin(a) * d * 0.8));
+  }
+}
 let POLISHED = null;
 /** The polished copy of CMATS (the slice's recipe, polish.js: the same textures and the same numbers): gold at the
  *  coins' tight bright glint (roughness 0.25, env x2, a scuff bump), scuffs on the rock, grain on bark and timber, the
@@ -56,7 +66,7 @@ function polishCountryMats() {
   for (const k of ['gold', 'goldDark']) { P[k].roughness = 0.25; P[k].envMapIntensity = 2.0; bump(P[k], X.scuff, 0.2); }
   for (const k of ['rock', 'rockDark', 'rockPale', 'pebble']) bump(P[k], X.scuff, 0.7);
   bump(P.bark, X.grain, 0.8); bump(P.barkLight, X.grain, 0.6); bump(P.timberFresh, X.grain, 0.8); bump(P.timberGrey, X.grain, 0.8);
-  P.timberFresh.color.setHex(0x6c563a); P.timberGrey.color.setHex(0x70665a); // the scaffolds' poles darker under the polish (fresh timber two steps, grey one): thin poles are all lit edge under its key, fill and rim gain, and the plain colours went to a luminance of 200 (cream) and 149; the kingdom's pale heads must stay the lightest things
+  for (const [k, c] of [['timberFresh', 0x5e4a30], ['timberGrey', 0x5e564a]]) { P[k].color.setHex(c); P[k].roughness = 1; P[k].metalness = 0; P[k].envMapIntensity = 0; } // the scaffolds' and sills' timber three steps darker and matte (no specular, no environment) under the polish: thin poles are all lit edge under its key, fill and rim gain, and the plain timber went to a luminance of 200 (cream), then read as glossy copper and chromed pipe (the judge); matte wood, like the hall's timber
   for (const k of ['fieldstone', 'fieldstoneDark']) { P[k].map = X.hiAshlar; bump(P[k], ashlarBump, 2.0); }
   P.water.roughness = 0.15; P.water.envMapIntensity = 2.5; P.water.needsUpdate = true;
   P.polish = true;
@@ -319,7 +329,7 @@ export function scaffoldKg(n, K) {
 export function rubbleKg(n, K) {
   const g = grp(), W = n * 32 - 8, C = cm(K.polish); s = 91 + n;
   const sp = () => (rnd() + rnd() - 1) * W * 0.46;                                                                        // heaped towards the middle (round 1's even spread read as confetti)
-  if (K.polish) ground(add(g, patch(wob(W * 0.3, 1.2, 0.9 + n), 0.8, 0.3), C.soot, 0, 0, 0));                           // secondary detail: the scorched ground under the heap (ground: the contact shadow does not ring it)
+  if (K.polish) sootPatch(g, C, W * 0.44, 977 + n);                                                                      // secondary detail: the scorched ground under the heap (ground: the contact shadow does not ring it)
   add(g, rbox(8 + n * 2, 4 + n, 3.4, 0.3), K.wall, -W * 0.22, 2 + n / 2, -W * 0.2, 0, 0.3, 0);                            // the stub of wall still standing
   add(g, rbox(2.6, 2.4, 3.4, 0.3), K.wall, -W * 0.22 - 3, 4.5 + n, -W * 0.2 + 1, 0, 0.3, 0);
   add(g, rbox(5 + n, 2.6, 3.4, 0.3), K.wall, W * 0.2, 1.3, W * 0.15, 0, -0.5, 0);                                         // a length of fallen wall
@@ -375,7 +385,7 @@ export function rubbleEx(n, E) {
   const g = grp(), W = n * 32 - 8, C = cm(E.polish); s = 191 + n;
   const sp = () => (rnd() + rnd() - 1) * W * 0.46;                                                                        // heaped towards the middle
   if (E.polish) { // secondary detail: the scorched ground under the heap (ground), a twisted strip of pale steel
-    ground(add(g, patch(wob(W * 0.3, 1.2, 1.7 + n), 0.8, 0.3), C.soot, 0, 0, 0));
+    sootPatch(g, C, W * 0.44, 1777 + n);
     add(g, rbox(7 + n, 0.5, 0.7, 0.1), E.paleSteel, W * 0.12, 1.6, -W * 0.1, 0.3, 0.8, 0.5);
   }
   for (let k = 0; k < n * n * 2 + 2; k++) { const L = 7 + rnd() * (6 + n * 2); add(g, rbox(L, 1, 2.8 + rnd(), 0.2), k % 3 ? E.deck : E.oak, sp(), 0.6 + rnd() * 2, sp(), (rnd() - 0.5) * 0.6, rnd() * 3, (rnd() - 0.5) * 0.4); }

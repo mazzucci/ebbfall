@@ -11,15 +11,20 @@ import { gable, oct, tex, thatchTex, crenels, roundCrenels, hanging, pennant, ba
 import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
-/** The polish's thatch, drawn for 1x as polish.js's `hiSlate` is: the same combed straw with the lap bands twice as
- *  dark and wide and a brighter lit edge on each course, so the Cottage's roof keeps its courses at phone size (the one
- *  roof without a course texture in polish.js; made here, in the family's file). */
+/** The polish's thatch, drawn for 1x as polish.js's `hiShingle` is: courses of staggered straw bundles, each its own
+ *  tone, a dark wide lap band and a lit edge on each course, the straw combed along the slope. The Cottage's gable
+ *  takes boxUV's (x, z) on its slopes, so the texture's x runs up the slope and its y along the ridge: the courses are
+ *  drawn as columns (constant x) so they run along the ridge, and the bundles stagger along it. (The judge on the
+ *  first pass: bands drawn as rows ran up the slope as vertical stripes, corrugated board. The one roof without a
+ *  course texture in polish.js; made here, in the family's file.) */
 let hiThatch = null;
 const hiThatchTex = () => hiThatch ??= tex(128, (g, n) => {
   let seed = 43; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  g.fillStyle = '#ccc4ac'; g.fillRect(0, 0, n, n);                                                                                   // (a cooler base than thatchTex's: under the polish's stronger key and south-west fill the warm base went orange at 1x, rounds 1 and 2)
-  for (let i = 0; i < 900; i++) { const v = 130 + rnd() * 120, x = rnd() * n, y = rnd() * n; g.strokeStyle = `rgba(${v},${v - 14},${v - 40},0.55)`; g.lineWidth = 0.8 + rnd(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - 0.5) * 2, y + 6 + rnd() * 12); g.stroke(); }
-  for (let y = 40; y < n + 40; y += 40) { g.fillStyle = 'rgba(40,30,16,0.7)'; g.fillRect(0, y - 7, n, 7); g.fillStyle = 'rgba(236,232,220,0.3)'; g.fillRect(0, y, n, 2.5); }
+  g.fillStyle = '#c4c0ac'; g.fillRect(0, 0, n, n);                                                                                   // (a cool base: under the polish's stronger key and south-west fill a warm base went orange at 1x, rounds 1 and 2)
+  const C = 32, B = 24;                                                                                                                // a course 32 wide (up the slope), its bundles 24 long along the ridge, staggered half a bundle every course
+  for (let x = 0; x < n; x += C) { const o = (x / C) % 2 ? B / 2 : 0; for (let y = -B; y < n + B; y += B) { const v = 140 + rnd() * 90; g.fillStyle = `rgb(${v + 4},${v},${v - 24})`; g.fillRect(x, y + o, C, B); g.fillStyle = 'rgba(60,50,30,0.45)'; g.fillRect(x, y + o + B - 1.5, C, 1.5); } }   // the bundles, a faint seam between them
+  for (let i = 0; i < 700; i++) { const v = 120 + rnd() * 120, x = rnd() * n, y = rnd() * n; g.strokeStyle = `rgba(${v},${v - 10},${v - 36},0.5)`; g.lineWidth = 0.8 + rnd(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + 6 + rnd() * 12, y + (rnd() - 0.5) * 2); g.stroke(); }                                  // the straw, combed along the slope
+  for (let x = 0; x < n; x += C) { g.fillStyle = 'rgba(36,30,18,0.78)'; g.fillRect(x + C - 6, 0, 6, n); g.fillStyle = 'rgba(236,232,220,0.3)'; g.fillRect(x, 0, 2.5, n); }                           // each course's dark lap and lit edge
 }, { repeat: 3 });
 /** The family's few extra materials, added to a kingdom set once; with `M.polish` (polish.js `polishMats` marks the
  *  set) they take the recipe too: the thatch's courses redrawn for 1x, the horses' hide, glints on the anvil and the
@@ -37,7 +42,7 @@ export function kbMats(M) {
   M.horsePale = std({ color: 0x66503a, roughness: 0.75 });                                   // the stable's horses, a lighter bay so their heads read out of the dark stalls
   if (M.polish) {
     const X = polishTextures();
-    M.thatch.map = hiThatchTex(); M.thatch.color.setHex(0x665e48); M.thatch.needsUpdate = true;   // the courses drawn for 1x; the colour a shade cooler and darker than the plain 0x6e6448, so the roof stays a dull grey-brown under the polish's key (round 1 tried lighter: orange at 1x beside the coins' gold)
+    M.thatch.map = hiThatchTex(); M.thatch.color.setHex(0x5e5a48); M.thatch.needsUpdate = true;   // the courses drawn for 1x; the colour a step cooler than the plain 0x6e6448 (the judge: 0x665e48 was the one warm hue on the kingdom base), a dull grey straw under the polish's key, never orange beside the coins' gold
     M.straw.bumpMap = X.fold; M.straw.bumpScale = 0.5; M.straw.needsUpdate = true;
     M.horsePale.map = X.hide; M.horsePale.needsUpdate = true;
     M.anvil.roughness = 0.3; M.anvil.envMapIntensity = 2.0; M.anvil.bumpMap = X.scuff; M.anvil.bumpScale = 0.3; M.anvil.needsUpdate = true; // one glint on the anvil's face under the key

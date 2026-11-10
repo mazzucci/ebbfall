@@ -10,7 +10,7 @@ import { torus } from './harbour.js';
 import { cone } from './vael.js';
 import { oct } from './kingdom.js';
 import { led, traveller, boardTex } from './expedition.js';
-import { earth, brace } from './kingdom-buildings.js';
+import { earth, brace, smoke } from './kingdom-buildings.js';
 import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
@@ -31,6 +31,9 @@ export function ebMats(M) {
   M.litGlass = std({ color: 0x7a96a4, emissive: 0x4e6a78, emissiveIntensity: 0.9, metalness: 0.3, roughness: 0.2 }); // the Lab's glass front, lit from inside (the blind test: dark glass made it a troop building)
   M.screen = std({ color: 0xe4f0f4, emissive: 0xd4e8f0, emissiveIntensity: 2.2 });                                  // a glowing screen or bench top, cool white (never orange: seat 0 is gold)
   M.tank = std({ color: 0xa8acb0, metalness: 0.7, roughness: 0.4 });                                                // the Bunkhouse's water tank, pale steel
+  M.wool = std({ color: 0x6e6a5c, map: M.canvas.map, roughness: 0.95 });                                           // the bunks' blankets, grey-khaki wool (the two-tester check: team blankets end-on read as a queue of figures at 1x)
+  M.bedroll = std({ color: 0xbcb4a2, map: M.canvas.map, roughness: 0.95 });                                        // a big pale bedroll
+  M.smoke = M.smoke ?? std({ color: 0x8a8a86, roughness: 1 });                                                     // the stovepipe's smoke
   M.tentCanvas = std({ color: 0x747670, map: M.canvas.map, roughness: 0.94 });                                     // the tent's canvas, a step darker than canvasGrey: under the polish's key a mid grey went near-white on the slopes
   if (M.polish) {
     const X = polishTextures(), set = (m, o) => { Object.assign(m, o); m.needsUpdate = true; };
@@ -131,14 +134,14 @@ function cot(g, M, x, z, ry = 0) {
 }
 
 /** A two-tier bunk bed, its length along z (end-on to the camera): oak posts and frames, a mattress each with a pale
- *  pillow at the head (north) and a team blanket down to the foot, a ladder at the foot. The ground's top is 1.6. */
+ *  pillow at the head (north) and a grey-khaki wool blanket down to the foot, a ladder at the foot. The ground's top is 1.6. */
 function bunk(g, M, x, z) {
   const b = grp(); b.position.set(x, 1.6, z); g.add(b);
   for (const [dx, dz] of [[-3.2, -6.2], [3.2, -6.2], [-3.2, 6.2], [3.2, 6.2]]) add(b, rbox(0.9, 11.5, 0.9, 0.2), M.oak, dx, 5.75, dz);
   for (const y of [2.6, 7.8]) {
     add(b, rbox(6.8, 0.8, 12.8, 0.2), M.oak, 0, y, 0);
     add(b, rbox(6.0, 1.4, 11.8, 0.4), M.canvasLocal, 0, y + 1.0, 0);                                                                     // the mattress
-    add(b, rbox(5.6, 1.1, 8.6, 0.4), M.blanket, 0, y + 1.7, 1.6); for (const dz of [-2.7, 5.9]) add(b, rbox(5.8, 0.3, 0.6, 0.05), M.inkLine, 0, y + 2.05, dz); // the team blanket, hems at head and foot
+    add(b, rbox(5.6, 1.1, 8.6, 0.4), M.wool, 0, y + 1.7, 1.6); for (const dz of [-2.7, 5.9]) add(b, rbox(5.8, 0.3, 0.6, 0.05), M.inkLine, 0, y + 2.05, dz); // the wool blanket, hems at head and foot
     add(b, rbox(4.6, 1.3, 2.8, 0.5), M.paper, 0, y + 2.2, -4.3);                                                                          // the pillow, pale
   }
   for (const dx of [-1.2, 1.2]) limb(b, [dx, 0.4, 6.9], [dx, 10.4, 6.9], 0.4, M.oak); for (let y = 2; y < 10; y += 2) limb(b, [-1.2, y, 6.9], [1.2, y, 6.9], 0.35, M.oak); // the ladder at the foot
@@ -171,44 +174,48 @@ function seated(g, M, x, y, z, ry, top, cap) {
   add(f, sph(1.6, 12, 10), M.skin, 0.3, 6.2, 0); add(f, sph(1.75, 12, 8), cap, 0.1, 6.7, 0).scale.set(1, 0.6, 1);
 }
 
-/** Bunkhouse (population, 2x2): where the crew sleeps. A long timber bunkhouse of weathered boards in a dark oak frame on a
- *  stone footing under a low shingle roof, a wide solar array on its south slope, a lantern (white LED) hung from the eave
- *  over the door with its cable down to a battery box, a pale steel water tank on an oak frame at the east end; before it,
- *  in the open, two bunk beds end-on to the camera (two tiers each, pale pillows at the head, team blankets, a ladder at
- *  the foot) and a washing line of clothes from the house's corner to a pole; two flags, a cloth on the west gable, boots
- *  by the door, barrels. No deck, counter, valance or awning (the re-test: a row of cots on a boardwalk under a valance
- *  read as a hiring post or a saloon). From the camera: a grey roof with a dark glass slab, a white light, two bunks with
- *  team blankets and pale pillows, washing on a line, a pale tank. */
+/** Bunkhouse (population, 2x2): where the crew sleeps. A cabin: a long timber bunkhouse of weathered boards in a dark oak
+ *  frame on a stone footing under a pitched shingle roof (steep enough to read as a roof), a row of small lit windows along
+ *  the south face, a stovepipe with a wisp of smoke, a solar panel on the south slope, a lantern (white LED) hung from the
+ *  eave over the door with its cable to a battery box, a pale steel water tank on an oak frame before the west end;
+ *  beside the door, in the open, one bunk bed end-on to the camera (two tiers, pale pillows, grey wool blankets, a ladder
+ *  at the foot) and one big pale bedroll roped up; a washing line of plain clothes from the south-east corner to a pole;
+ *  team on two flags and a band along the eave's fascia, a cloth on the west gable. (The two-tester check: a flat dark roof
+ *  over two bunks with team blankets read as a low building with figures lined up before it.) From the camera: a pitched
+ *  grey roof with smoke and a dark glass panel, a row of lit windows, a white light, a bunk and a pale roll by the door. */
 export function bunkhouse(M) {
   ebMats(M); const g = grp();
   earth(g, M, [[-31, -24], [26, -30], [31, -2], [27, 28], [-22, 30], [-31, 6]]);
-  const X = -2, Z = -8, W = 58, D = 20, H = 8, SZ = Z + D / 2;                                                                       // long and low; SZ its south face
-  hut(g, M, X, Z, W, D, H, 4.5);
-  // the modern parts on the camera side: the solar array, the lantern over the door, its cable to a battery box, the tank
-  add(g, rbox(28, 0.8, 9, 0.2), M.glass, X + 6, H + 4.4, Z + 5.6, 0.38, 0, 0); add(g, rbox(28.4, 0.4, 9.4, 0.1), M.joint, X + 6, H + 4.1, Z + 5.6, 0.38, 0, 0); for (const dx of [-9.4, 0, 9.4]) add(g, rbox(0.5, 0.9, 9.2, 0.1), M.steel, X + 6 + dx, H + 4.5, Z + 5.6, 0.38, 0, 0);
+  const X = -2, Z = -8, W = 58, D = 20, H = 10, R = 9, SZ = Z + D / 2;                                                                // walls 10, the roof 9 high: a cabin's pitch; SZ its south face
+  hut(g, M, X, Z, W, D, H, R);
+  for (const x of [-24, -16, 2, 10, 18]) { add(g, rbox(4.8, 3.4, 0.6, 0.1), M.screen, X + x, 7.4, SZ + 0.6); add(g, rbox(5.4, 4.0, 0.4, 0.1), M.oak, X + x, 7.4, SZ + 0.3); } // a row of small lit windows (big enough to show at 2x under the eave)
   add(g, rbox(5, 7, 1.0, 0.3), M.oak, X - 10, 5.5, SZ + 0.6); add(g, rbox(5.6, 7.6, 0.5, 0.1), M.inkLine, X - 10, 5.5, SZ + 0.4);        // the door
-  for (const x of [-22, 2, 12, 22]) { add(g, rbox(3.6, 2.6, 0.6, 0.1), M.glass, X + x, 7.2, SZ + 0.5); add(g, rbox(4.2, 3.2, 0.4, 0.1), M.oak, X + x, 7.2, SZ + 0.3); } // a row of small windows
+  add(g, rbox(W + 5, 2.0, 0.6, 0.1), M.paintCloth, X, H + 0.9, SZ + 3.5); for (const y of [H + 2.0, H - 0.2]) add(g, rbox(W + 5.4, 0.3, 0.7, 0.05), M.inkLine, X, y, SZ + 3.5); // a team band along the eave's fascia
+  add(g, rbox(12, 0.8, 8, 0.2), M.glass, X + 17, H + 2 + R - 9 * 5.5 / 13 + 0.7, Z + 5.5, 0.6, 0, 0); add(g, rbox(12.4, 0.4, 8.4, 0.1), M.joint, X + 17, H + 2 + R - 9 * 5.5 / 13 + 0.4, Z + 5.5, 0.6, 0, 0); // a solar panel on the south slope's east end (the roof shows its shingles round it)
+  add(g, cyl(0.9, 0.9, 7, 8), M.steel, X - 20, H + 2 + R - 9 * 2 / 13 + 3, Z + 2); add(g, cyl(1.3, 1.3, 0.6, 8), M.joint, X - 20, H + 2 + R - 9 * 2 / 13 + 6.6, Z + 2); smoke(g, M, X - 20, H + 2 + R - 9 * 2 / 13 + 6.8, Z + 2, 3); // the stovepipe and its wisp
   add(g, rbox(3.0, 1.8, 2.4, 0.3), M.joint, X - 10, H + 0.2, SZ + 3.6); led(g, M, 1.1, X - 10, H - 1.1, SZ + 4.0);                        // the lantern, hung from the eave over the door
-  cable(g, M, [X - 4, H + 5.6, Z + 10.2], [X - 10, H + 1.0, SZ + 3.6]); cable(g, M, [X - 10, H + 1.0, SZ + 3.6], [X - 27, 5.0, SZ + 6]);
-  add(g, rbox(4.6, 3.6, 3.6, 0.4), M.panelDark, X - 27, 3.4, SZ + 6.5); led(g, M, 0.4, X - 27, 5.6, SZ + 8.3);                             // the battery box
-  const TK = X + W / 2 + 3.4, TZ = Z + 4;                                                                                            // the water tank on an oak frame at the east end (inside the footprint), a pipe and a tap
-  for (const [dx, dz] of [[-2.2, -2.2], [2.2, -2.2], [-2.2, 2.2], [2.2, 2.2]]) post(g, M, TK + dx, TZ + dz, 7, 0.7);
-  add(g, cyl(3.3, 3.3, 7, 14), M.tank, TK, 10.5, TZ); for (const y of [7.3, 13.7]) add(g, cyl(3.45, 3.45, 0.5, 14), M.joint, TK, y, TZ); add(g, cyl(1.2, 1.2, 0.8, 8), M.joint, TK, 14.3, TZ);
-  limb(g, [TK, 7.6, TZ + 3.3], [TK - 1.5, 4.4, TZ + 10], 0.45, M.steel); add(g, rbox(1.4, 1.2, 1.4, 0.2), M.steel, TK - 1.5, 4.4, TZ + 10.4);
-  // the beds, in the open before the house: two bunks end-on to the camera, pale pillows at the head, team blankets, ladders
-  bunk(g, M, X - 17, SZ + 10); bunk(g, M, X - 1, SZ + 10.5);
+  cable(g, M, [X + 17, H + 2 + R - 9 * 5.5 / 13 + 1.2, Z + 9], [X - 10, H + 1.0, SZ + 3.6]); cable(g, M, [X - 10, H + 1.0, SZ + 3.6], [X - 14.5, 5.0, SZ + 4.5]);
+  add(g, rbox(4.0, 3.4, 3.2, 0.4), M.panelDark, X - 14.5, 3.3, SZ + 4.8); led(g, M, 0.4, X - 14.5, 5.4, SZ + 6.4);                         // the battery box by the door
+  // beside the door: a bunk west of it, end-on, and a big pale bedroll roped up east of it
+  bunk(g, M, X - 19.5, SZ + 9);
+  add(g, cyl(2.8, 2.8, 11, 12), M.bedroll, X - 1, 4.4, SZ + 9, Math.PI / 2, 0, 0); for (const dz of [-3.2, 3.2]) add(g, torus(2.85, 0.3, 14), M.rope, X - 1, 4.4, SZ + 9 + dz);
+  // the water tank on an oak frame before the west end, a pipe and a tap
+  const TK = X - W / 2 + 2.5, TZ = SZ + 6.5;
+  for (const [dx, dz] of [[-2.0, -2.0], [2.0, -2.0], [-2.0, 2.0], [2.0, 2.0]]) post(g, M, TK + dx, TZ + dz, 6, 0.7);
+  add(g, cyl(3.0, 3.0, 7, 14), M.tank, TK, 9.5, TZ); for (const y of [6.3, 12.7]) add(g, cyl(3.15, 3.15, 0.5, 14), M.joint, TK, y, TZ); add(g, cyl(1.2, 1.2, 0.8, 8), M.joint, TK, 13.3, TZ);
+  limb(g, [TK, 6.6, TZ + 3.0], [TK + 1, 4.2, TZ + 8], 0.45, M.steel); add(g, rbox(1.4, 1.2, 1.4, 0.2), M.steel, TK + 1, 4.2, TZ + 8.4);
   // the washing line from the house's south-east corner to a pole: plain clothes, a towel and a blanket, no team colour
   const PX = X + 9, PZ = SZ + 16;
   add(g, cyl(0.8, 0.9, 12, 8), M.oak, PX, 7.6, PZ);
   laundry(g, M, [X + W / 2 - 0.5, H + 1.4, SZ + 0.4], [PX, 13.4, PZ]);
   for (const [x, z] of [[X - 7.5, SZ + 3.2], [X - 5.2, SZ + 2.9]]) add(g, rbox(1.6, 1.2, 3, 0.4), M.boot, x, 2.2, z);                  // boots by the door
-  flag(g, M, X + W / 2 + 1, H + 2, Z - 2, 18, 22, 14);
-  flag(g, M, X - W / 2 + 2, H + 6.5, Z, 14, 16, 11);                                                                                  // a second flag on the ridge's west end
-  cloth(g, M, X - W / 2 - 0.6, H + 1.0, Z + 2, 8, 9);                                                                                 // a cloth hung on the west gable's end post
+  flag(g, M, X + W / 2 + 1, H + 2, Z - 2, 20, 24, 16);
+  flag(g, M, X - W / 2 + 2, H + 2 + R, Z, 14, 18, 12);                                                                                 // a second flag on the ridge's west end
+  cloth(g, M, X - W / 2 - 0.6, H + 1.0, Z + 2, 8, 9);                                                                                  // a cloth hung on the west gable's end post
   for (const [x, z] of [[X + 20, SZ + 6], [X + 24, SZ + 10]]) { add(g, cyl(2.2, 2.4, 5, 12), M.oakPale, x, 4.1, z); for (const y of [2.8, 5.6]) add(g, torus(2.45, 0.25, 12), M.ironDark, x, y, z, Math.PI / 2, 0, 0); }
-  if (M.polish) { // secondary detail: a steel gutter along the eave with a down pipe at the east end by the tank, oak sills under the windows
+  if (M.polish) { // secondary detail: a steel gutter along the eave with a down pipe at the east end, oak sills under the windows
     gutter(g, M, X, H + 2.5, SZ + 3.6, W + 5, 1, 3.4);
-    for (const x of [-22, 2, 12, 22]) add(g, rbox(4.6, 0.6, 1.2, 0.1), M.oak, X + x, 5.5, SZ + 0.7);
+    for (const x of [-24, -16, 2, 10, 18]) add(g, rbox(5.8, 0.6, 1.2, 0.1), M.oak, X + x, 5.3, SZ + 0.8);
   }
   return g;
 }
@@ -223,25 +230,25 @@ export function bunkhouse(M) {
 export function recruitingPost(M) {
   ebMats(M); const g = grp();
   earth(g, M, [[-30, -20], [20, -30], [31, 2], [22, 28], [-24, 31], [-31, 8]]);
-  const X = -2, Z = -8, L = 34, Wd = 24, R = 14, F = Z + Wd / 2;                                                                    // F: the tent's south foot
+  const X = -2, Z = -8, L = 42, Wd = 30, R = 17, F = Z + Wd / 2;                                                                    // bigger than a hut (the two-tester check read the small tent with a sign as a house)                                                                    // F: the tent's south foot
   tent(g, M, X, Z, L, Wd, R);
   cloth(g, M, X + L / 2 + 2.6, R + 1.8, Z + 0.6, 7, 10);                                                                             // a team banner hung from the ridge pole's east end
   flag(g, M, X - L / 2 - 2.6, 1.6, Z - 2, 28, 18, 12);                                                                               // the tall flag at the west end
   flag(g, M, X + L / 2 + 2.6, 1.6, Z - Wd / 2 - 3, 20, 14, 10);                                                                       // a second at the north-east
   // the notice board, big and up front at the south-west: pale planks facing the camera on two posts, papers pinned, a header, a hood
-  const BX = X - 18, BZ = F + 12;
-  for (const dx of [-9.5, 9.5]) post(g, M, BX + dx, BZ, 19, 1.0);
-  add(g, rbox(20, 13, 1.4, 0.2), M.board, BX, 10.5, BZ);
-  for (const [dx, y, w, h] of [[-6.5, 13, 4.2, 4.4], [-0.5, 14, 4.8, 3.4], [5.5, 12.6, 3.8, 4.2], [-3.5, 7.5, 5.2, 2.8], [3.5, 6.8, 3.2, 3.2], [7.5, 8.2, 2.4, 2.4]]) add(g, rbox(w, h, 0.5, 0.05), M.paper, BX + dx, y, BZ + 0.9);
-  add(g, rbox(18, 2.8, 0.4, 0.05), M.paper, BX, 18.6, BZ + 0.95); add(g, rbox(18.2, 0.3, 0.45, 0.02), M.inkLine, BX, 20.1, BZ + 1.0);
-  { const r = add(g, rbox(22, 0.8, 5.5, 0.2), M.roofDark, BX, 20.8, BZ - 1.3); r.rotation.x = 0.3; }
+  const BX = X - 19, BZ = F + 10;
+  for (const dx of [-11, 11]) post(g, M, BX + dx, BZ, 21, 1.0);
+  add(g, rbox(23, 15, 1.4, 0.2), M.board, BX, 11.5, BZ);
+  for (const [dx, y, w, h] of [[-7.5, 14.5, 5.0, 5.0], [-0.5, 15.5, 5.4, 3.8], [6.5, 14, 4.6, 4.8], [-4, 8.2, 6.0, 3.2], [3.5, 7.4, 3.8, 3.6], [8.5, 8.8, 2.8, 2.8]]) add(g, rbox(w, h, 0.5, 0.05), M.paper, BX + dx, y, BZ + 0.9);
+  add(g, rbox(21, 3.0, 0.4, 0.05), M.paper, BX, 20.8, BZ + 0.95); add(g, rbox(21.2, 0.3, 0.45, 0.02), M.inkLine, BX, 22.4, BZ + 1.0);
+  { const r = add(g, rbox(25, 0.8, 5.5, 0.2), M.roofDark, BX, 23.0, BZ - 1.3); r.rotation.x = 0.3; }
   // the vest rack, big and up front at the south-east: a steel rail on two posts, five hi-vis vests in the team colour facing the camera
-  const VX = X + 18, VZ = F + 12;
-  for (const dx of [-12, 12]) post(g, M, VX + dx, VZ, 15, 1.0); add(g, cyl(0.5, 0.5, 26, 6), M.steel, VX, 14.6, VZ, 0, 0, Math.PI / 2);
-  for (let k = 0; k < 5; k++) { const x = VX - 10 + k * 5; add(g, rbox(4.4, 7.4, 1.2, 0.5), M.vest, x, 10.4, VZ); for (const y of [14.1, 6.7]) add(g, rbox(4.6, 0.4, 1.3, 0.05), M.inkLine, x, y, VZ); add(g, rbox(3.6, 0.7, 1.3, 0.05), M.hivis, x, 10.0, VZ); add(g, cyl(0.5, 0.5, 1.2, 6), M.steel, x, 14.3, VZ); }
+  const VX = X + 19, VZ = F + 10;
+  for (const dx of [-13, 13]) post(g, M, VX + dx, VZ, 17, 1.0); add(g, cyl(0.5, 0.5, 28, 6), M.steel, VX, 16.6, VZ, 0, 0, Math.PI / 2);
+  for (let k = 0; k < 5; k++) { const x = VX - 10.8 + k * 5.4; add(g, rbox(4.8, 8.6, 1.2, 0.5), M.vest, x, 11.8, VZ); for (const y of [16.1, 7.5]) add(g, rbox(5.0, 0.4, 1.3, 0.05), M.inkLine, x, y, VZ); add(g, rbox(4.0, 0.8, 1.3, 0.05), M.hivis, x, 11.4, VZ); add(g, cyl(0.5, 0.5, 1.2, 6), M.steel, x, 16.3, VZ); }
   // the table before the entrance: oak under a team cloth, a tablet and a form; the recruiter seated behind it (fatigues, a dark cap)
   // and one local seated before it (tan tunic): small seated props at the table, no team colour
-  const TX = X + 2, TZ = F + 6.5;
+  const TX = X - 2, TZ = F + 5.5;
   add(g, rbox(11, 1.0, 6, 0.2), M.oak, TX, 6.0, TZ); for (const [dx, dz] of [[-4.5, -2.2], [4.5, -2.2], [-4.5, 2.2], [4.5, 2.2]]) add(g, rbox(1.1, 4.4, 1.1, 0.2), M.oak, TX + dx, 3.6, TZ + dz);
   add(g, rbox(11.4, 0.6, 6.4, 0.2), M.paintCloth, TX, 6.7, TZ); add(g, rbox(11.8, 0.3, 6.8, 0.05), M.inkLine, TX, 6.45, TZ);
   add(g, rbox(3.4, 0.4, 2.4, 0.1), M.glass, TX + 2.5, 7.2, TZ + 0.5); add(g, rbox(3.0, 0.25, 2.0, 0.1), M.visor, TX + 2.5, 7.4, TZ + 0.5);
@@ -249,8 +256,8 @@ export function recruitingPost(M) {
   for (const [dz, ry, top, cap] of [[-5.6, -Math.PI / 2, M.uniform, M.armour], [5.6, Math.PI / 2, M.canvasLocal, M.hose]]) { stool(g, M, TX, TZ + dz); seated(g, M, TX, 4.9, TZ + dz, ry, top, cap); }
   for (let k = 0; k < 3; k++) add(g, rbox(4.2, 3.8, 4.2, 0.4), M.oakPale, X + L / 2 + 6 + (k % 2) * 4.6, 3.6 + Math.floor(k / 2) * 3.8, Z + 6 + (k % 2) * 1.2); // crates
   if (M.polish) { // secondary detail: brackets on the vest rail, iron bands on the board's posts, a clipboard on the table
-    for (const sx of [-1, 1]) add(g, rbox(0.9, 1.8, 1.2, 0.1), M.joint, VX + sx * 12, 14.2, VZ);
-    for (const dx of [-9.5, 9.5]) for (const y of [5, 16]) add(g, torus(1.1, 0.2, 10), M.joint, BX + dx, y, BZ, Math.PI / 2, 0, 0);
+    for (const sx of [-1, 1]) add(g, rbox(0.9, 1.8, 1.2, 0.1), M.joint, VX + sx * 13, 16.2, VZ);
+    for (const dx of [-11, 11]) for (const y of [5, 18]) add(g, torus(1.1, 0.2, 10), M.joint, BX + dx, y, BZ, Math.PI / 2, 0, 0);
     add(g, rbox(2.4, 0.35, 1.8, 0.05), M.paper, TX + 0.2, 7.2, TZ - 1.6, 0, -0.2, 0);
   }
   return g;

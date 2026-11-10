@@ -12,7 +12,7 @@ use endfall_sim::world::{Command, Event};
 /// Flats: height -2, land at low water and deep at high.
 const FLATS: std::ops::Range<i32> = 30..34;
 
-/// A flat arena with the tide on (Humans in seat 0, the Vael in seat 1), nobody's AI and no units, everything explored,
+/// A flat arena with the tide on (the Kingdom in seat 0, the Expedition in seat 1), nobody's AI and no units, everything explored,
 /// and a band of flats across x 30..34.
 fn tidal(seed: u32) -> World {
     let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
@@ -223,9 +223,13 @@ fn the_warning_sends_idle_walkers_and_workers_ashore_and_leaves_the_rest() {
     assert_eq!(
         toasts(0),
         1,
-        "the Humans, with walkers on the flats, warned once"
+        "the Kingdom, with walkers on the flats, warned once"
     );
-    assert_eq!(toasts(1), 0, "the Vael, amphibious, not");
+    assert_eq!(
+        toasts(1),
+        1,
+        "the Expedition too: its Bot walks (no amphibians since the re-theme)"
+    );
     assert!(ev.iter().any(|e| matches!(
         e,
         Event::Sfx {
@@ -251,11 +255,12 @@ fn the_warning_sends_idle_walkers_and_workers_ashore_and_leaves_the_rest() {
         h.maxhp
     );
     let v = w.unit(wader).unwrap();
-    assert_eq!((v.hp, v.stun), (v.maxhp, 0.0), "an amphibian swims");
-    assert!(
-        FLATS.contains(&w.map.tile_of(v.x, v.y).0),
-        "and stays where it was"
+    assert_eq!(
+        (v.hp, v.stun),
+        (v.maxhp, 0.0),
+        "the Bot, idle, went ashore too: never swept"
     );
+    assert_ne!(ground_of(&w, wader), Ground::Deep);
 }
 
 #[test]
@@ -354,7 +359,10 @@ fn with_its_switch_the_flood_destroys_the_walkers_it_catches() {
     let _ = w.apply(0, &Command::Hold { unit: held });
     step_until(&mut w, 30 * 200, &mut ev, |w| w.water == WATER_HIGH);
     assert!(w.unit(held).is_none(), "the flood took it");
-    assert!(w.unit(wader).is_some(), "not the amphibian");
+    assert!(
+        w.unit(wader).is_some(),
+        "not the idle Bot: it went ashore at the warning"
+    );
 }
 
 #[test]
@@ -374,25 +382,22 @@ fn with_the_tide_each_people_builds_where_its_tide_allows() {
     set(17, -5);
     for water in [WATER_LOW, -1, WATER_HIGH] {
         w.water = water; // (whatever the level now: the tide's extremes decide)
-        assert!(w.builds_on(0, 14, 41), "Humans on land that stays dry");
-        assert!(!w.builds_on(0, 15, 41), "not on what high water covers");
-        assert!(!w.builds_on(0, 16, 41));
-        assert!(
-            w.builds_on(1, 14, 41) && w.builds_on(1, 15, 41),
-            "the Vael on land"
-        );
-        assert!(
-            w.builds_on(1, 16, 41),
-            "and on what is shallow at low water"
-        );
-        assert!(!w.builds_on(1, 17, 41), "never on what is deep even then");
+        // (every builder walks since the re-theme: both peoples by the same rule)
+        for team in [0, 1] {
+            assert!(
+                w.builds_on(team, 14, 41),
+                "seat {team} on land that stays dry"
+            );
+            assert!(!w.builds_on(team, 15, 41), "not on what high water covers");
+            assert!(!w.builds_on(team, 16, 41) && !w.builds_on(team, 17, 41));
+        }
     }
 }
 
 #[test]
 fn a_building_under_high_water_does_not_fire() {
-    // A Human Turret on the flats (built there by hand: the tide's rules would not let a Human build there) and a Vael
-    // worker on land beside them: the Turret fires at low water, not under high water.
+    // A Kingdom Turret on the flats (built there by hand: the tide's rules would not let anyone build there) and an
+    // Expedition worker on land beside them: the Turret fires at low water, not under high water.
     let mut w = tidal(8);
     let mut ev = vec![];
     step_until(&mut w, 30 * 200, &mut ev, |w| phase(w) == 2);

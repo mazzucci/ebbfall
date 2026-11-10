@@ -140,8 +140,13 @@ fn nothing_inside_its_blind_ring_can_be_hit() {
     assert!(shells(&mut w, tank, 10) >= 2, "outside it");
     // On its tracks, sent at a target inside the ring, it does not set up for nothing, and with no gun on its tracks
     // it gives the target up at once.
-    let (mut w, tank, foe) = tank_scene(1.5);
-    set_hp(&mut w, tank, 1e6); // (the Knight reaches it)
+    // (an unarmed target: a held Knight beside it would strike it, and a unit struck answers whatever its reach)
+    let (mut w, tank, knight) = tank_scene(40.0);
+    w.units.retain(|u| u.id != knight);
+    let foe = w.make_unit(UnitKind::Medic, ENEMY, 31.5 * TILE, 30.0 * TILE);
+    set_hp(&mut w, foe, 1e6);
+    w.hold_unit(foe);
+    w.update_fog();
     w.attack_ent(tank, foe);
     w.step();
     assert!(

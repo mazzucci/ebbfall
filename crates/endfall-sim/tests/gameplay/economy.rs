@@ -588,8 +588,8 @@ fn a_worker_does_not_go_back_while_a_raider_sits_on_its_field_and_a_fresh_order_
         let n = w.map.node(field).unwrap();
         (n.x, n.y)
     };
-    // A raider parks by the field (it cannot die, and holds there).
-    let raider = w.make_unit(UnitKind::Trooper, ENEMY, nx + 3.0 * TILE, ny);
+    // A raider parks by the field (it cannot die, and holds there): an Archer, whose shot reaches the miners.
+    let raider = w.make_unit(UnitKind::Lancer, ENEMY, nx + 3.0 * TILE, ny);
     w.hold_unit(raider);
     {
         let r = w.units.iter_mut().find(|u| u.id == raider).unwrap();
@@ -708,11 +708,12 @@ fn either_half_mines_its_field_alike() {
 #[test]
 fn every_shaft_is_on_the_map_from_the_start_and_an_excavator_needs_the_crew_hall() {
     // Every mine shaft starts explored for every seat (not seen: the fog still hides who holds it), so a person
-    // places an Excavator on a far shaft in the first seconds without scouting it, once the Crew Hall stands; without
-    // the Crew Hall it is refused. Both peoples.
+    // places a building on a far shaft in the first seconds without scouting it: the Kingdom's Excavator once the
+    // Barracks stands (without it, refused), the Expedition's Recruiting post (still on a shaft until the economy PR)
+    // at once, as it is the Expedition's barracks and needs nothing.
     for (mut w, ext, rax) in [
-        (rich(9), BldgKind::Extractor, BldgKind::Barracks),
-        (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
+        (rich(9), BldgKind::Extractor, Some(BldgKind::Barracks)),
+        (rich_vael(9), BldgKind::Siphon, None),
     ] {
         run(&mut w, 1);
         for s in 0..2usize {
@@ -742,12 +743,15 @@ fn every_shaft_is_on_the_map_from_the_start_and_an_excavator_needs_the_crew_hall
             "{ext:?}: the far shaft is not in sight"
         );
         let h = harvesters(&w, PLAYER)[0];
-        assert!(
-            w.place_building(PLAYER, ext, far.0, far.1, Some(h))
-                .is_err(),
-            "{ext:?}: refused before the barracks"
-        );
-        w.make_building(rax, PLAYER, cx - 5, cy, true);
+        assert_eq!(ext.def().req, rax, "{ext:?}'s requirement");
+        if let Some(rax) = rax {
+            assert!(
+                w.place_building(PLAYER, ext, far.0, far.1, Some(h))
+                    .is_err(),
+                "{ext:?}: refused before the barracks"
+            );
+            w.make_building(rax, PLAYER, cx - 5, cy, true);
+        }
         let b = w
             .place_building(PLAYER, ext, far.0, far.1, Some(h))
             .unwrap_or_else(|e| panic!("{ext:?}: {e}"));

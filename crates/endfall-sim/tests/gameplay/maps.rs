@@ -457,7 +457,7 @@ fn the_far_side_of_a_large_map_is_in_play() {
             w.unit(foe).is_none_or(|u| u.hp < u.maxhp),
             "seed {seed}: the foe there is shot"
         );
-        run(&mut w, 120);
+        run(&mut w, 130); // (at a Guard's 90 px/s)
         let u = w.unit(walker).unwrap();
         let d = ((u.x - gx).powi(2) + (u.y - gy).powi(2)).sqrt() / TILE;
         assert!(

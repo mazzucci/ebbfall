@@ -1,6 +1,7 @@
 //! Water (the Shore map's model, stage "the Shore map"): heights against one water level make land, shallows and
-//! deep water; units get about by class (Walk: land and shallows; Amph: anywhere; Fly: the air); Walk units wade
-//! at `WADE_SPEED`; nothing fires from deep water; each people builds only on its own ground. On every map without
+//! deep water; units get about by class (Walk: land and shallows; Fly: the air; Amph, anywhere, stays in the sim but no
+//! kind has it since the re-theme); walkers wade at `WADE_SPEED`; nothing fires from deep water; both peoples build on
+//! land only. On every map without
 //! water every tile is land, so none of it changes anything there (the goldens pin that); these scenes are a flat
 //! arena with water drawn in by hand.
 
@@ -8,7 +9,7 @@ use crate::common::*;
 use endfall_sim::data::{Move, WADE_SPEED};
 use endfall_sim::map::{Foot, Ground};
 
-/// A flat arena (Humans in seat 0, the Vael in seat 1) with nobody's AI, everything explored, and water drawn in:
+/// A flat arena (the Kingdom in seat 0, the Expedition in seat 1) with nobody's AI, everything explored, and water drawn in:
 /// a band of deep water across x 30..34 (heights -3), a ford of shallows through it at y 29..31 (height 0), and a
 /// strip of shallows at x 20..22 (height 0).
 fn waters() -> World {
@@ -42,23 +43,10 @@ fn ground_of(w: &World, id: Id) -> Ground {
 
 #[test]
 fn every_unit_has_its_class() {
-    // Flyers fly; the Humans' ground units walk; the Vael's are amphibious (the Sovereign too).
+    // Flyers fly; every ground unit of both peoples walks (no amphibians since the re-theme).
     for k in UNIT_KINDS {
         let d = k.def();
-        let vael = VAEL.worker == k
-            || VAEL
-                .build_basic
-                .iter()
-                .chain(VAEL.build_advanced)
-                .chain([&VAEL.hq])
-                .any(|b| b.def().trains.contains(&k));
-        let want = if d.air {
-            Move::Fly
-        } else if vael {
-            Move::Amph
-        } else {
-            Move::Walk
-        };
+        let want = if d.air { Move::Fly } else { Move::Walk };
         assert_eq!(d.mv, want, "{}", d.name);
     }
 }
@@ -93,9 +81,9 @@ fn heights_make_land_shallows_and_deep_water() {
 }
 
 #[test]
-fn a_walker_never_enters_deep_water_and_an_amphibian_crosses_it() {
-    // Sent across the band: the Trooper takes the ford, the Scythe goes straight through; and a Trooper sent into the
-    // deep water stops on the shore instead.
+fn a_walker_never_enters_deep_water_and_takes_the_ford() {
+    // Sent across the band: the Guard and the Buggy (the Expedition's: it walks too) both take the ford; and a Guard
+    // sent into the deep water stops on the shore instead.
     let mut w = waters();
     let trooper = w.make_unit(UnitKind::Trooper, PLAYER, px(25.0), px(40.0));
     let scythe = w.make_unit(UnitKind::Scythe, PLAYER, px(25.0), px(44.0)); // (one side: nobody fights)
@@ -103,27 +91,30 @@ fn a_walker_never_enters_deep_water_and_an_amphibian_crosses_it() {
     w.move_to(trooper, px(40.0), px(40.0));
     w.move_to(scythe, px(40.0), px(44.0));
     w.move_to(wader, px(32.0), px(20.0)); // (deep water)
-    let (mut forded, mut swam) = (false, false);
+    let mut forded = [false; 2];
+    let on_ford = |w: &World, id: Id| {
+        let u = w.unit(id).unwrap();
+        let (tx, ty) = w.map.tile_of(u.x, u.y);
+        (29..31).contains(&ty) && (30..34).contains(&tx)
+    };
     for _ in 0..40 * TPS {
         w.step();
         w.events.clear();
-        for id in [trooper, wader] {
-            assert_ne!(ground_of(&w, id), Ground::Deep, "a Trooper in deep water");
+        for id in [trooper, wader, scythe] {
+            assert_ne!(ground_of(&w, id), Ground::Deep, "a walker in deep water");
         }
-        let t = w.unit(trooper).unwrap();
-        forded |= (29..31).contains(&w.map.tile_of(t.x, t.y).1)
-            && (30..34).contains(&w.map.tile_of(t.x, t.y).0);
-        swam |= ground_of(&w, scythe) == Ground::Deep;
+        forded[0] |= on_ford(&w, trooper);
+        forded[1] |= on_ford(&w, scythe);
     }
     let (t, s) = (w.unit(trooper).unwrap(), w.unit(scythe).unwrap());
     assert!(
-        forded && (t.x - px(40.0)).abs() < 20.0 && (t.y - px(40.0)).abs() < 20.0,
-        "the Trooper got there by the ford: {:?}",
+        forded[0] && (t.x - px(40.0)).abs() < 20.0 && (t.y - px(40.0)).abs() < 20.0,
+        "the Guard got there by the ford: {:?}",
         (t.x, t.y)
     );
     assert!(
-        swam && (s.x - px(40.0)).abs() < 20.0,
-        "the Scythe swam across: {:?}",
+        forded[1] && (s.x - px(40.0)).abs() < 20.0 && (s.y - px(44.0)).abs() < 20.0,
+        "so did the Buggy: {:?}",
         (s.x, s.y)
     );
     let wd = w.unit(wader).unwrap();
@@ -142,13 +133,18 @@ fn a_walker_never_enters_deep_water_and_an_amphibian_crosses_it() {
             water: 0
         }
     );
-    assert!(!w.map.passable(foot, 31, 25) && w.map.passable(w.foot(UnitKind::Scythe), 31, 25));
+    assert_eq!(
+        w.foot(UnitKind::Scythe),
+        foot,
+        "the Expedition's ground units walk too"
+    );
+    assert!(!w.map.passable(foot, 31, 25) && w.map.passable(foot, 31, 29));
 }
 
 #[test]
 fn walkers_wade_slower_in_the_shallows() {
-    // Over two seconds each: a Trooper on land, a Trooper in the shallows (the strip at x 20..22, walking along it),
-    // a Lumen in the shallows at its full speed.
+    // Over two seconds each: a Guard on land, a Guard in the shallows (the strip at x 20..22, walking along it), and a
+    // Bot in the shallows, which wades as well (it walks since the re-theme).
     let mut w = waters();
     let on_land = w.make_unit(UnitKind::Trooper, PLAYER, px(25.0), px(14.0));
     let wading = w.make_unit(UnitKind::Trooper, PLAYER, px(21.0), px(14.0));
@@ -170,7 +166,7 @@ fn walkers_wade_slower_in_the_shallows() {
             Ground::Shallow,
             "it stays in the strip"
         );
-        assert_eq!(ground_of(&w, lumen), Ground::Shallow, "so does the Lumen");
+        assert_eq!(ground_of(&w, lumen), Ground::Shallow, "so does the Bot");
     }
     let gone: Vec<f64> = [on_land, wading, lumen]
         .iter()
@@ -187,8 +183,8 @@ fn walkers_wade_slower_in_the_shallows() {
         "in the shallows, {WADE_SPEED} of it: {gone:?}"
     );
     assert!(
-        (gone[2] / speed(UnitKind::Lumen) - 1.0).abs() < 0.05,
-        "a Lumen keeps its speed: {gone:?}"
+        (gone[2] / speed(UnitKind::Lumen) - WADE_SPEED).abs() < 0.05,
+        "a Bot wades as slowly: {gone:?}"
     );
 }
 
@@ -228,36 +224,32 @@ fn nothing_fires_from_deep_water() {
 }
 
 #[test]
-fn each_people_builds_on_its_own_ground() {
-    // The Humans on land only; the Vael on land and shallows; nobody in deep water.
+fn both_peoples_build_on_land_only() {
+    // Every builder walks since the re-theme: both peoples build on land, never in the shallows or deep water.
     let w = waters();
     let (land, shallows, deep) = ((24, 40), (20, 40), (31, 40));
-    for (team, kind, want) in [
-        (PLAYER, BldgKind::Depot, [true, false, false]),
-        (ENEMY, BldgKind::Spire, [true, true, false]),
-    ] {
+    for (team, kind) in [(PLAYER, BldgKind::Depot), (ENEMY, BldgKind::Spire)] {
         let got = [land, shallows, deep].map(|(x, y)| w.builds_on(team, x, y));
-        assert_eq!(got, want, "{kind:?}'s side: land, shallows, deep");
+        assert_eq!(
+            got,
+            [true, false, false],
+            "{kind:?}'s side: land, shallows, deep"
+        );
     }
-    // Whole footprints (2x2): a Depot on the shallows strip refused, on land beside it fine; a Spire on the strip
-    // fine, in the deep water refused; one half over the deep water refused too.
+    // Whole footprints (2x2): on the shallows strip refused, on land beside it fine; in the deep water refused, and
+    // one half over it too.
     assert_eq!((BldgKind::Depot.def().w, BldgKind::Spire.def().w), (2, 2));
-    assert!(
-        !w.can_place(BldgKind::Depot, 20, 40, PLAYER)
-            && w.can_place(BldgKind::Depot, 24, 40, PLAYER)
-    );
-    assert!(
-        w.can_place(BldgKind::Spire, 20, 44, ENEMY),
-        "a Spire in the shallows"
-    );
-    assert!(
-        !w.can_place(BldgKind::Spire, 31, 44, ENEMY),
-        "nobody builds in deep water"
-    );
-    assert!(
-        !w.can_place(BldgKind::Spire, 29, 44, ENEMY),
-        "half in the deep water"
-    );
+    for (team, kind) in [(PLAYER, BldgKind::Depot), (ENEMY, BldgKind::Spire)] {
+        assert!(
+            !w.can_place(kind, 20, 40, team) && w.can_place(kind, 24, 40, team),
+            "{kind:?}: not in the shallows, on land"
+        );
+        assert!(
+            !w.can_place(kind, 31, 44, team),
+            "{kind:?}: not in deep water"
+        );
+        assert!(!w.can_place(kind, 29, 44, team), "{kind:?}: not half in it");
+    }
 }
 
 #[test]
@@ -290,32 +282,4 @@ fn fired_on_in_deep_water_it_does_not_fire_back_from_there() {
         }
     }
     assert!(answered, "the Prism came out and answered");
-}
-
-#[test]
-fn enemies_crossing_deep_water_pass_each_other() {
-    // Two enemy Prisms attack-moving along the deep band, head on: neither can fire there, so neither turns on the
-    // other mid-sea (they would only circle, shoved apart); both arrive at the far end.
-    let mut w = waters();
-    let (x, y0, y1) = (px(31.5), px(16.0), px(26.0));
-    let a = w.make_unit(UnitKind::Prism, PLAYER, x, y0);
-    let b = w.make_unit(UnitKind::Prism, ENEMY, x + 8.0, y1);
-    w.attack_move(a, x, y1);
-    w.attack_move(b, x + 8.0, y0);
-    for _ in 0..12 * TPS {
-        w.step();
-        w.events.clear();
-    }
-    let (pa, pb) = (w.unit(a).unwrap(), w.unit(b).unwrap());
-    assert!(
-        (pa.y - y1).abs() < 24.0 && (pb.y - y0).abs() < 24.0,
-        "both crossed: {:?} {:?}",
-        (pa.x, pa.y),
-        (pb.x, pb.y)
-    );
-    assert_eq!(
-        (pa.hp, pb.hp),
-        (UnitKind::Prism.def().hp, UnitKind::Prism.def().hp),
-        "no shot either way"
-    );
 }

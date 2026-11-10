@@ -422,11 +422,23 @@ fn six_and_eight_ais_play_on_eight_starts() {
                     let near = w
                         .bldgs
                         .iter()
-                        .filter(|b| b.team == s && (b.tx - bx).abs().max((b.ty - by).abs()) < 16)
+                        // (by its start, or on a shaft of its side: the Expedition's Recruiting posts stand on
+                        // the open shafts, 16 to 36 tiles out, until the economy PR)
+                        .filter(|b| {
+                            b.team == s
+                                && ((b.tx - bx).abs().max((b.ty - by).abs()) < 16
+                                    || b.vent.is_some())
+                        })
                         .count();
+                    let all: Vec<(&str, i32)> = w
+                        .bldgs
+                        .iter()
+                        .filter(|b| b.team == s)
+                        .map(|b| (b.kind.def().key, (b.tx - bx).abs().max((b.ty - by).abs())))
+                        .collect();
                     assert!(
                         near >= 5,
-                        "{seats} seats seed {seed}: seat {s} built up ({near})"
+                        "{seats} seats seed {seed}: seat {s} built up ({near}): {all:?}"
                     );
                 }
             }

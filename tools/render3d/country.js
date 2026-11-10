@@ -327,8 +327,12 @@ export function rubbleEx(n, E) {
   const g = grp(), W = n * 32 - 8; s = 191 + n;
   const sp = () => (rnd() + rnd() - 1) * W * 0.46;                                                                        // heaped towards the middle
   for (let k = 0; k < n * n * 2 + 2; k++) { const L = 7 + rnd() * (6 + n * 2); add(g, rbox(L, 1, 2.8 + rnd(), 0.2), k % 3 ? E.deck : E.oak, sp(), 0.6 + rnd() * 2, sp(), (rnd() - 0.5) * 0.6, rnd() * 3, (rnd() - 0.5) * 0.4); }
-  for (let k = 0; k < n; k++) add(g, rbox(8 + rnd() * 4, 0.8, 6 + rnd() * 3, 0.3), k % 2 ? E.panelDark : E.panel, sp() * 0.8, 1.8 + rnd(), sp() * 0.8, (rnd() - 0.5) * 0.9, rnd() * 3, (rnd() - 0.5) * 0.7);   // bent panels
-  for (let k = 0; k < n + 1; k++) add(g, torus(2.5 + rnd() * 2, 0.35, Math.PI * (0.9 + rnd() * 0.8), 20), E.cable, sp() * 0.8, 0.6, sp() * 0.8, Math.PI / 2 - (rnd() - 0.5) * 0.5, rnd() * 3, 0);
+  for (let k = 0; k < n; k++) {                                                                                           // bent panels: two halves hinged at an angle, a pale edge strip, so a panel reads as a panel and not a plank
+    const p = grp(); p.position.set(sp() * 0.8, 2.2 + rnd(), sp() * 0.8); p.rotation.set((rnd() - 0.5) * 0.5, rnd() * 3, (rnd() - 0.5) * 0.3); g.add(p);
+    add(p, rbox(6 + rnd() * 2, 0.7, 7 + rnd() * 3, 0.25), E.panelDark, -3, 0, 0, 0, 0, 0.55); add(p, rbox(6 + rnd() * 2, 0.7, 7 + rnd() * 3, 0.25), E.panel, 3, 0, 0, 0, 0, -0.35);
+    add(p, rbox(0.6, 0.8, 7.5, 0.1), E.paleSteel, -5.6, 1.6, 0, 0, 0, 0.55);
+  }
+  for (let k = 0; k < n + 1; k++) add(g, torus(2.8 + rnd() * 2, 0.5, Math.PI * (0.9 + rnd() * 0.8), 20), E.cable, sp() * 0.8, 0.8, sp() * 0.8, Math.PI / 2 - (rnd() - 0.5) * 0.5, rnd() * 3, 0);   // cable, thick enough to read as a loop
   const d = grp(); d.position.set(sp() * 0.5, 3.5, sp() * 0.5); d.rotation.set(Math.PI / 2, 0, rnd()); g.add(d); for (const y of [-2.2, 2.2]) add(d, cyl(3.6, 3.6, 0.6, 14), E.oakPale, 0, y, 0); add(d, cyl(3, 3, 4, 14), E.cable, 0, 0, 0);
   add(g, rbox(5, 4, 2.6, 0.3), E.panelDark, sp() * 0.6, 1.5, sp() * 0.6, 0.3, rnd() * 3, 0.5);                            // the crate's halves
   for (let k = 0; k < n + 2; k++) add(g, rbox(5 + rnd() * 3, 2.4, 3.2, 0.3), E.stone, sp(), 1.2, sp(), 0, rnd() * 3, (rnd() - 0.5) * 0.4);

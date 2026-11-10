@@ -164,7 +164,7 @@ function propsRow(c) {
 
 // ---- row 4: the effects strip ----
 const PROJ = ['rt_arrow', 'rt_bolt', 'rt_stone', 'rt_tracer', 'rt_dart', 'rt_tower_shot', 'rt_rocket'];
-const ANIMS = [['rt_hit', 3], ['rt_muzzle', 3], ['rt_puff', 4], ['rt_spark', 4], ['rt_boom_small', 6]];
+const ANIMS = [['rt_hit', 3], ['rt_muzzle', 3], ['rt_puff', 4], ['rt_trail', 4], ['rt_spark', 4], ['rt_boom_small', 6]];
 function scale4(c, s, x, y) { const { w, h, data } = s.img; for (let j = 0; j < h * 4; j++) for (let i = 0; i < w * 4; i++) { const si = ((j >> 2) * w + (i >> 2)) * 4, a = data[si + 3] / 255; if (!a) continue; const px = x + i, py = y + j; if (px < 0 || py < 0 || px >= c.w || py >= c.h) continue; const di = (py * c.w + px) * 4; for (let k = 0; k < 3; k++) c.data[di + k] = c.data[di + k] * (1 - a) + data[si + k] * a; } }
 function effectsRow(c) {
   patch(c, { tw: 27, th: 13, seed: 23 });
@@ -175,7 +175,7 @@ function effectsRow(c) {
   PROJ.forEach((p, k) => { const s = get(p); scale4(c, s, 40 + k * 230, 470); });
   for (const [a, f, k] of [['rt_hit', 0, 0], ['rt_muzzle', 0, 1], ['rt_puff', 1, 2]]) scale4(c, get(`${a}_${f}`), 40 + (7 + k) * 230 - 1000, 620);
   label(c, 'PROJECTILES AT PHONE SIZE: ARROW, BALLISTA BOLT, TREBUCHET STONE, RIFLE TRACER, DRONE DART, RADIO TOWER SHOT, ROCKET', 12, 90, 2);
-  label(c, 'HIT FLASH, MUZZLE FLASH, SMOKE, SPARKS, A UNIT\'S EXPLOSION; BELOW: A BUILDING\'S EXPLOSION, 8 FRAMES', 12, 190, 2);
+  label(c, 'HIT FLASH, MUZZLE FLASH, SMOKE, THE ROCKET\'S TRAIL, SPARKS, A UNIT\'S EXPLOSION; BELOW: A BUILDING\'S EXPLOSION, 8 FRAMES', 12, 190, 2);
   label(c, 'THE SAME AT 4X', 12, 440, 2);
 }
 
@@ -195,7 +195,9 @@ function fightRow(c) {
     ['rt_tracer', 1090, 392, 560, 380, 0.4], ['rt_tracer', 1140, 472, 600, 470, 0.7], ['rt_tracer', 1070, 562, 540, 560, 0.2], ['rt_tracer', 1180, 622, 650, 620, 0.55]];
   for (const [n, x0, y0, x1, y1, t] of shots) { const [x, y] = at(x0, y0, x1, y1, t); list.push(it(n, x, y, { layer: 2, rot: ang(x0, y0, x1, y1) })); }
   const [rx, ry] = at(1240, 505, 450, 475, 0.45); list.push(it('rt_rocket', rx, ry, { layer: 2, rot: ang(1240, 505, 450, 475) }));
-  for (let k = 0; k < 4; k++) { const [px, py] = at(1240, 505, 450, 475, 0.45 - (k + 1) * 0.06); list.push(it(`rt_puff_${Math.min(3, k)}`, px, py - k * 2, { layer: 2 })); }
+  // the trail: a puff every 14 world px behind the rocket (the renderer's spawn rate at the rocket's speed), each older
+  // one a later frame and fainter (the renderer fades a puff over its life), so they overlap into one soft trail
+  for (let k = 0; k < 9; k++) { const [px, py] = at(1240, 505, 450, 475, 0.45 - (k + 1) * 0.035); list.push(it(`rt_trail_${Math.min(3, Math.floor(k / 2.3))}`, px, py - k * 1.5, { layer: 2, alpha: 1 - k * 0.1 })); }
   place(c, list);
   label(c, 'A FIGHT: ARROWS, A BOLT AND A STONE AGAINST TRACERS AND A ROCKET WITH ITS SMOKE; A HIT, A MUZZLE FLASH, A BUILDING\'S AND A UNIT\'S EXPLOSION', 12, 740, 2);
 }

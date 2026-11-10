@@ -24,7 +24,9 @@ const sd = (a, b = 0) => Math.floor(hash2(Math.floor(hash2(a, b, 991) * 1e9), a 
 const G_DARK = [54, 76, 40], G_MID = [78, 102, 52], G_LIGHT = [106, 130, 66], G_DRY = [120, 126, 72];
 const DIRT = [120, 110, 84], DIRT_DARK = [92, 84, 64], PEBBLE = [138, 134, 124];
 // Hill: grey rock, a lit top (value about 0.45: over the grass, under the units' pale tops), a dark layered face.
-const ROCK_TOP = [122, 120, 112], ROCK_TOP2 = [98, 96, 90], ROCK_LIP = [156, 154, 144], ROCK_FACE = [44, 42, 40], ROCK_FACE2 = [86, 82, 76], CRACK = [62, 60, 56], MOSS = [74, 92, 50];
+const ROCK_TOP = [136, 134, 126], ROCK_TOP2 = [84, 82, 76], ROCK_LIP = [162, 160, 150], ROCK_FACE = [34, 32, 30], ROCK_FACE2 = [76, 72, 66], CRACK = [56, 54, 50], MOSS = [88, 112, 56];
+// the hill's boulders: lumps standing on the slabs, lit on their north-west, dark on their south-east, a dark seam round each
+const BOULDER_LIT = [152, 150, 140], BOULDER = [114, 112, 104], BOULDER_DARK = [66, 64, 60];
 // Forest: canopy in three greens darker than the grass, a dark underside where it meets the grass, trunks at its foot.
 const CAN_DARK = [30, 46, 26], CAN_MID = [50, 72, 36], CAN_LIT = [78, 104, 50], CAN_GLINT = [112, 134, 66], UNDER = [28, 32, 22], TRUNK = [70, 54, 36];
 
@@ -71,63 +73,92 @@ function rockness(m, x, y) {
 export const VARIANTS = (m) => (m === 15 ? 6 : 3);
 export const kindOf = (m, v) => (v < VARIANTS(m) ? 'hill' : 'forest');
 
-const FACE = 18; // the hill's south face in px (some 9 game units at the game's camera)
+const FACE = 22; // the hill's south face in px (some 10 game units: tall to the south, as the reef's, and dark; round 2's judge saw a flat plateau with a thin outline)
 const SIDE = 5;  // its north face's height, the west and east faces' width one less
 /** A hill's own marks for a variant: a few cracks and moss tufts at hashed places clear of the edge. */
-const hillMarks = (v) => Array.from({ length: 4 + (v % 3) }, (_, k) => ({ x: 8 + hash2(k, 0, sd(v, 131)) * 48, y: 8 + hash2(k, 0, sd(v, 137)) * 48, a: hash2(k, 0, sd(v, 141)) * Math.PI, len: 4 + hash2(k, 0, sd(v, 143)) * 7, moss: k % 2 === 1, seed: sd(v, 150 + k) }));
+const hillMarks = (v) => Array.from({ length: 5 + (v % 3) }, (_, k) => ({ x: 8 + hash2(k, 0, sd(v, 131)) * 48, y: 8 + hash2(k, 0, sd(v, 137)) * 48, a: hash2(k, 0, sd(v, 141)) * Math.PI, len: 4 + hash2(k, 0, sd(v, 143)) * 7, moss: k % 3 !== 2, seed: sd(v, 150 + k) }));
 
 /** The forest's crowns: a lattice of C px cells, periodic over the tile, each cell one crown whose place and size are
  *  shared at the tile's edge (so canopies seam) and the variant's own inside (so no two tiles repeat). */
 const C = 16, NC = T / C;
-function crown(ci, cj, vs) {
-  const wi = ((ci % NC) + NC) % NC, wj = ((cj % NC) + NC) % NC, h = (q, s) => hash2(wi, wj, q + s);
+function crown(ci, cj, vs, salt = 0) {
+  const wi = ((ci % NC) + NC) % NC, wj = ((cj % NC) + NC) % NC, h = (q, s) => hash2(wi, wj, q + s + salt);
   const sx = (ci + 0.5) * C + (h(1, 0) - 0.5) * C * 0.9, sy = (cj + 0.5) * C + (h(2, 0) - 0.5) * C * 0.9;
   const w = smooth((Math.min(sx, T - sx, sy, T - sy) - 20) / 6);                               // 0 for any crown that can reach the tile's edge (r up to 19): shared, so canopies seam; 1 in the middle: the variant's own
   const x = lerp(sx, (ci + 0.5) * C + (h(1, vs) - 0.5) * C * 0.9, w), y = lerp(sy, (cj + 0.5) * C + (h(2, vs) - 0.5) * C * 0.9, w);
-  return { x, y, r: C * (0.7 + lerp(h(3, 0), h(3, vs), w) * 0.5), top: lerp(h(4, 0), h(4, vs), w) };
+  return { x, y, r: C * (0.7 + lerp(h(3, 0), h(3, vs), w) * 0.5), top: lerp(h(4, 0), h(4, vs), w), on: h(5, 0) };
 }
 
 export function tile(m, variant = 0) {
   const kind = kindOf(m, variant), v = kind === 'hill' ? variant : variant - VARIANTS(m), vs = sd(v + 7, 211 + m * 0);
+  // rockness clamps its corner weights at the tile's edge and its noise is periodic, so asked beyond the tile it continues
+  // the edge's value: the faces and the shadows run on across a tile's edge instead of stopping at it (the reef's did stop,
+  // so a face showed only where the contour ran through a tile's middle)
   const isRock = (x, y) => m === 15 || (m !== 0 && rockness(m, x, y) > 0.5);
-  const reach = (x, y, dx, dy, n) => { for (let d = 1; d <= n; d++) { const px = x + dx * d, py = y + dy * d; if (px < 0 || py < 0 || px >= T || py >= T) return 0; if (!isRock(px, py)) return d; } return 0; };
+  const reach = (x, y, dx, dy, n) => { for (let d = 1; d <= n; d++) if (!isRock(x + dx * d, y + dy * d)) return d; return 0; };
+  const toRock = (x, y, dx, dy, n) => { for (let d = 1; d <= n; d++) if (isRock(x + dx * d, y + dy * d)) return d; return 0; };   // px to the first rock in a direction (0: none within n)
   const marks = hillMarks(v);
   return image(T, T, (x, y) => {
     let c;
     if (!isRock(x, y)) {
       c = grass(x, y, m === 0 ? variant : 0);
-      if (m) { // the hill's or the trees' shadow south and east, a dark foot on the other sides
-        const S = kind === 'forest' ? 9 : 7, k = kind === 'forest' ? 0.6 : 0.62;
+      if (m && kind === 'hill') {
+        // the hill's south face hangs below the plateau's edge on screen and covers the ground south of it (the camera is
+        // south, 40 degrees up): so the face is painted on the open side of the contour, where it always gets its full
+        // height (the reef painted it on the rock side, where an inside tile cut it short); dark over its whole height,
+        // the lip at its top, the beds' seams across it; the contact shadow on the grass beyond its foot
+        const up = toRock(x, y, 0, -1, FACE + 6);
+        if (up && up <= FACE) {
+          const t = 1 - up / FACE, wob = vnoise(x, y, 8, 71, 8) * 5, layer = (Math.sin((y + wob) * 1.25) + 1) / 2, seam = layer > 0.88 ? 1 : 0;
+          c = mix(ROCK_FACE, ROCK_FACE2, (layer * 0.4 + seam * 0.6) * 0.55).map(q => q * (0.72 + 0.22 * t) * (0.94 + hash2(x, y, 77, T) * 0.1));
+          if (up === 1) c = mix(c, ROCK_LIP, 0.7); else if (up === 2) c = mix(c, ROCK_LIP, 0.25);
+          return [Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), 255];
+        }
+        let sh = up ? 0.5 - (up - FACE) * 0.08 : 0;
+        for (let d = 1; d <= 3; d++) if (isRock(x - d, y)) { sh = Math.max(sh, 0.3 - d * 0.08); break; }
+        for (let d = 1; d <= 2; d++) if (isRock(x, y + d) || isRock(x + d, y)) { sh = Math.max(sh, 0.3 - d * 0.12); break; }
+        c = c.map(q => q * (1 - sh));
+      } else if (m) { // the trees' shadow south and east, a dark foot on the other sides
+        const S = 9, k = 0.6;
         let sh = 0;
-        for (let d = 1; d <= S; d++) if (y - d >= 0 && isRock(x, y - d)) { sh = Math.max(sh, k - d * (k / (S + 1))); break; }
-        for (let d = 1; d <= 3; d++) if (x - d >= 0 && isRock(x - d, y)) { sh = Math.max(sh, 0.3 - d * 0.08); break; }
-        for (let d = 1; d <= 2; d++) if ((y + d < T && isRock(x, y + d)) || (x + d < T && isRock(x + d, y))) { sh = Math.max(sh, 0.3 - d * 0.12); break; }
+        for (let d = 1; d <= S; d++) if (isRock(x, y - d)) { sh = Math.max(sh, k - d * (k / (S + 1))); break; }
+        for (let d = 1; d <= 3; d++) if (isRock(x - d, y)) { sh = Math.max(sh, 0.3 - d * 0.08); break; }
+        for (let d = 1; d <= 2; d++) if (isRock(x, y + d) || isRock(x + d, y)) { sh = Math.max(sh, 0.3 - d * 0.12); break; }
         c = c.map(q => q * (1 - sh));
       }
     } else if (kind === 'hill') {
-      const below = reach(x, y, 0, 1, FACE), above = reach(x, y, 0, -1, SIDE + 2), left = reach(x, y, -1, 0, SIDE + 1), right = reach(x, y, 1, 0, SIDE + 1);
-      const layered = (t) => { // the rock's beds: dark at the foot, lighter towards the lip, thin pale seams
-        const wob = vnoise(x, y, 8, 71, 8) * 5, layer = (Math.sin((y + wob) * 1.25) + 1) / 2, seam = layer > 0.86 ? 1 : 0;
-        return mix(ROCK_FACE, ROCK_FACE2, (layer * 0.5 + seam * 0.5) * (0.3 + 0.7 * t)).map(q => q * (0.55 + 0.55 * t) * (0.94 + hash2(x, y, 77, T) * 0.1));
+      const below = reach(x, y, 0, 1, 2), above = reach(x, y, 0, -1, SIDE + 2), left = reach(x, y, -1, 0, SIDE + 1), right = reach(x, y, 1, 0, SIDE + 1);
+      const layered = (t) => { // the short north, west and east faces: the rock's beds in shade, thin pale seams
+        const wob = vnoise(x, y, 8, 71, 8) * 5, layer = (Math.sin((y + wob) * 1.25) + 1) / 2, seam = layer > 0.88 ? 1 : 0;
+        return mix(ROCK_FACE, ROCK_FACE2, (layer * 0.4 + seam * 0.6) * 0.55).map(q => q * (0.72 + 0.2 * t) * (0.94 + hash2(x, y, 77, T) * 0.1));
       };
-      if (below) {
-        c = layered(below / FACE);
-        if (below >= FACE - 1) c = mix(c, ROCK_LIP, 0.75); else if (below === FACE - 2) c = mix(c, ROCK_LIP, 0.3);
-      } else if ((above && above <= SIDE) || (left && left < SIDE) || (right && right < SIDE)) {
+      if ((above && above <= SIDE) || (left && left < SIDE) || (right && right < SIDE)) {
         const t = Math.min(above && above <= SIDE ? above / SIDE : 1, left && left < SIDE ? left / SIDE : 1, right && right < SIDE ? right / SIDE : 1);
         c = layered(t * 0.8);
       } else {
         // the top: grey rock in broad slabs, periodic and shared by the variants; the lip over each face
         const n = vnoise(x, y, 32, 61, 2) * 0.45 + vnoise(x, y, 8, 63, 8) * 0.35 + vnoise(x, y, 4, 65, 16) * 0.2;
-        c = mix(ROCK_TOP2, ROCK_TOP, n).map(q => q * (0.94 + hash2(x, y, 67, T) * 0.1));
+        c = mix(ROCK_TOP2, ROCK_TOP, n).map(q => q * (0.92 + hash2(x, y, 67, T) * 0.14));
         const slab = vnoise(x, y, 16, 69, 4), slabN = vnoise(x + 1, y + 1, 16, 69, 4);
-        c = c.map(q => q * (1 + (slab - slabN) * 1.6));                                        // the slabs' relief, lit from the north-west (no drawn cracks: they read as worms)
-        if (above === SIDE + 1) c = mix(c, ROCK_LIP, 0.8); else if (above === SIDE + 2) c = mix(c, ROCK_LIP, 0.35);
-        if (left === SIDE) c = mix(c, ROCK_LIP, 0.5); else if (left === SIDE + 1) c = mix(c, ROCK_LIP, 0.2);
+        c = c.map(q => q * (1 + (slab - slabN) * 2.6));                                        // the slabs' relief, lit from the north-west (no drawn cracks: they read as worms)
+        if (Math.abs(slab - 0.5) < 0.012) c = mix(c, CRACK, 0.5);                              // a thin joint between slabs
+        // boulders: on the crowns' lattice (its own salt), about half the cells, each lit on its north-west and dark on its
+        // south-east with a dark seam at its foot; shared at the tile's edge, the variant's own inside, as the forest's
+        const gx = Math.floor(x / C), gy = Math.floor(y / C);
+        let bd = 9, bk = null;
+        for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const k = crown(gx + i, gy + j, vs, 700); if (k.on < 0.6) continue; const d = Math.hypot(x + 0.5 - k.x, y + 0.5 - k.y) / (k.r * (0.3 + 0.55 * k.top)); if (d < bd) { bd = d; bk = k; } }   // (two cells in five, sizes from a stone to a slab: an even field of one size read as cobbles)
+        if (bk && bd < 1) {
+          const dx = (x + 0.5 - bk.x) / bk.r, dy = (y + 0.5 - bk.y) / bk.r, lit = clamp01(0.6 - (dx + dy) * 1.1 - bd * 0.2) + (hash2(x, y, 87, T) - 0.5) * 0.1;
+          c = bd > 0.86 ? BOULDER_DARK.map(q => q * 0.8) : lit > 0.55 ? BOULDER_LIT : lit > 0.28 ? BOULDER : BOULDER_DARK;
+        }
+        const broken = vnoise(x, y, 4, 91, 16) > 0.32;                                        // the lit lip, broken here and there
+        if (above === SIDE + 1 && broken) c = mix(c, ROCK_LIP, 0.8); else if (above === SIDE + 2 && broken) c = mix(c, ROCK_LIP, 0.35);
+        if (left === SIDE && broken) c = mix(c, ROCK_LIP, 0.5); else if (left === SIDE + 1) c = mix(c, ROCK_LIP, 0.2);
         if (right === SIDE) c = mix(c, ROCK_LIP, 0.22);
+        if (below === 1) c = mix(c, ROCK_LIP, 0.55); else if (below === 2) c = mix(c, ROCK_LIP, 0.2);               // the lit edge over the south face
         for (const p of marks) { // a crack (one short straight dark line) or a moss tuft
           const dx = x + 0.5 - p.x, dy = y + 0.5 - p.y, ca = Math.cos(p.a), sa = Math.sin(p.a), along = dx * ca + dy * sa, across = -dx * sa + dy * ca;
-          if (p.moss) { const d = Math.hypot(along / 1.6, across) + (hash2(x, y, p.seed, T) - 0.5) * 0.8; if (d < 3) c = mix(c, MOSS, 0.75 - d * 0.15); continue; }
+          if (p.moss) { const d = Math.hypot(along / 1.5, across) + (hash2(x, y, p.seed, T) - 0.5) * 0.9; if (d < 3.4) c = mix(c, d < 1.6 ? MOSS : MOSS.map(q => q * 0.8), 0.85 - d * 0.12); continue; }   // a tuft of grass in a crack, darker at its edge
           if (Math.abs(along) < p.len * 0.7 && Math.abs(across) < 0.6) c = mix(c, CRACK, 0.5);
         }
       }

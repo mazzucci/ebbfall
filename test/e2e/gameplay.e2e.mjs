@@ -544,7 +544,7 @@ test('control groups: Ctrl+number saves the selection, the number recalls it, a 
   } finally { await d.close(); }
 });
 
-test('the Shore map: chosen from the list, its line said; a Human starts in its cove, the Vael AI in its reef basin, water drawn', { engines: true }, async () => {
+test('the Shore map: chosen from the list, its line said; each people starts in its cove (every ground unit walks since the re-theme), water drawn', { engines: true }, async () => {
   const ctx = await browserContext(DESKTOP);
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -556,7 +556,7 @@ test('the Shore map: chosen from the list, its line said; a Human starts in its 
     const shore = await page.$$eval('#mapSel option', os => os.findIndex(o => o.textContent.startsWith('Tidewater Reef')));
     assert.ok(shore >= 0, 'the Shore map in the list');
     await page.locator('#mapSel').selectOption(String(shore));
-    await page.waitForFunction(() => /A shore and a reef: the Harbour holds the cove, the Vael the shallows\./.test(document.getElementById('soloNote').textContent));
+    await page.waitForFunction(() => /A shore and a reef: each side holds a cove, the reef in the shallows between\./.test(document.getElementById('soloNote').textContent));
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const got = await page.evaluate(() => {
@@ -565,7 +565,7 @@ test('the Shore map: chosen from the list, its line said; a Human starts in its 
       const at = (b) => engine.ground(b.tx + 1, b.ty + 1);
       return { kind: G.mapKind, me: at(hq(0)), foe: at(hq(1)), deep: Array.from(map.height).filter(h => h <= -2).length };
     });
-    assert.deepEqual([got.kind, got.me, got.foe], [6, 'land', 'shallow'], 'the Shore map, each people on its own ground');
+    assert.deepEqual([got.kind, got.me, got.foe], [6, 'land', 'land'], 'the Shore map, both peoples on land');
     assert.ok(got.deep > 50, `deep water on the map: ${got.deep} tiles`);
     await page.evaluate(() => endfall.skip(20));
     assert.deepEqual(errors, []);

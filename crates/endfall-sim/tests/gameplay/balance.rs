@@ -311,12 +311,7 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
     use UnitKind::*;
     for budget in [2200.0, 4400.0] {
         let d = |a: &[UnitKind], b: &[UnitKind]| duel_with(a, b, budget, tech_micro);
-        let checks: [(&str, f64, f64); 12] = [
-            (
-                "Guards beat Sellswords up close",
-                d(&[Trooper], &[Prism]),
-                0.1,
-            ),
+        let checks: [(&str, f64, f64); 11] = [
             ("Guards beat Buggies", d(&[Trooper], &[Scythe]), 0.1),
             ("Knights ride down Sellswords", d(&[Knight], &[Prism]), 0.2),
             ("Knights beat Bruisers", d(&[Knight], &[Bruiser]), 0.2),

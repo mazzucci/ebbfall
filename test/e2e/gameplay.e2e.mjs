@@ -1453,10 +1453,10 @@ test('the end screen counts the result on the menu, and Rematch replays the same
     await d.eval(() => localStorage.removeItem('endfall.record'));
     const setup = () => d.eval(() => { const c = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return JSON.stringify([endfall.G.seed, endfall.G.factions, c.tx, c.ty]); });
     const before = await setup();
-    // A few Pickets, then a short game: the enemy's Core nearly down, and our Pickets beside it.
+    // A few Pickets, then a short game: the enemy's Core nearly down, and our Archers beside it.
     await d.skip(25);
     const s = await d.state(), foeCore = s.bldgs.find(b => b.team !== 0 && b.type === 'core');
-    await d.eval(([id, x, y]) => { endfall.engine.debugSetHp(id, 5); for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'trooper', x + i * 20, y + 90); }, [foeCore.id, foeCore.x, foeCore.y]);
+    await d.eval(([id, x, y]) => { endfall.engine.debugSetHp(id, 5); for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'lancer', x + i * 20, y + 90); }, [foeCore.id, foeCore.x, foeCore.y]);
     await until(d, async () => (await d.state()).over, { seconds: 60, step: 1, what: 'the game to end' });
     await d.page.locator('#end').waitFor({ state: 'visible' });
     assert.equal(await d.page.locator('#result').textContent(), 'VICTORY');
@@ -2775,11 +2775,15 @@ test('desktop: the Workshop trains a Ballista once a Forge stands (B, or its slo
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(), ['bastion', 'bastion'], `${key} trains another`);
     await until(d, async () => mine(await d.state(), 'bastion').length > 0, { seconds: 60, step: 0.5, what: 'the Ballista' });
-    // An enemy Drone: it comes down. An enemy Picket beside it: it is hit too (its ground attack).
-    const u = mine(await d.state(), 'bastion')[0];
-    const [drone, trooper] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(1, 'shrike', x + 120, y), endfall.engine.debugSpawn(1, 'trooper', x, y + 150)], [u.x, u.y]);
-    await d.eval((id) => endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id)), drone);
+    // An enemy Drone held in its reach and out of the Drone's own: it comes down. Then an enemy Picket, held in its
+    // reach: it is hit too (its ground attack). (Each put where the Ballista stands then, held as well.)
+    const near = (k, dx, dy) => d.eval(([k, dx, dy]) => {
+      const b = endfall.G.units.find(o => o.team === 0 && o.type === 'bastion'); endfall.engine.holdUnit(b);
+      const id = endfall.engine.debugSpawn(1, k, b.x + dx, b.y + dy); endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id)); return id;
+    }, [k, dx, dy]);
+    const drone = await near('shrike', 190, 0);
     await until(d, async () => !(await d.state()).units.some(o => o.id === drone), { seconds: 20, step: 0.5, what: 'the Drone shot down' });
+    const trooper = await near('trooper', 0, 160);
     await until(d, () => d.eval((id) => { const o = endfall.G.units.find(u => u.id === id); return !o || o.hp < o.maxhp; }, trooper), { seconds: 20, step: 0.5, what: 'the Picket hit' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

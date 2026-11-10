@@ -122,13 +122,13 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       await page.keyboard.press('Backspace'); await page.locator('#leave').waitFor();
       await cornerOn(o, 'the leave card', '#leave', '#leave .card');
       await press('#btnStay'); await topBarOn(o, 'kept playing');
-      // The end card (a short game: the enemy's Core nearly down, our Pickets beside it).
+      // The end card (a short game: the enemy's Core nearly down, our Archers beside it).
       await page.evaluate(() => {
         const c = endfall.G.bldgs.find(b => b.team !== endfall.G.me && b.d.hq); endfall.engine.debugSetHp(c.id, 5);
-        for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'trooper', c.x + i * 20, c.y + 90);
+        for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'lancer', c.x + i * 20, c.y + 90);
       });
       for (let i = 0; i < 30 && !(await page.evaluate(() => endfall.G.over)); i++) await page.evaluate(() => endfall.skip(2));
-      const why = await page.evaluate(() => JSON.stringify({ over: endfall.G.over, t: endfall.G.time, core: endfall.G.bldgs.filter(b => b.d.hq).map(b => [b.team, b.hp, b.x, b.y]), tr: endfall.G.units.filter(u => u.type === 'trooper').map(u => [u.team, u.x, u.y, u.task.t]) }));
+      const why = await page.evaluate(() => JSON.stringify({ over: endfall.G.over, t: endfall.G.time, core: endfall.G.bldgs.filter(b => b.d.hq).map(b => [b.team, b.hp, b.x, b.y]), tr: endfall.G.units.filter(u => u.type === 'lancer').map(u => [u.team, u.x, u.y, u.task.t]) }));
       await page.locator('#end').waitFor({ state: 'visible', timeout: 10000 }).catch(() => assert.fail(`the end card: ${why}`));
       await cornerOn(o, 'the end card', '#end', '#end .card');
       // Sound from the corner: one setting with the top bar's, remembered.

@@ -1180,7 +1180,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     await d.pressCard('Build');
     await d.readyCard('Advanced'); // (once the Crew Hall stands)
     await d.pressCard('Advanced');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Workshop', 'Loft', 'Lookout', 'Slipway', 'Excavator', 'Back'], 'the advanced page (the Excavator: it needs the Crew Hall)');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Workshop', 'Lookout', 'Slipway', 'Excavator', 'Back'], 'the advanced page (the Excavator: it needs the Crew Hall; no Loft before an Excavator stands)');
     await d.pressCard('Back');
     assert.ok((await d.card()).some(c => c.label === 'Cottage'), 'back to the basic page');
     await d.pressCard('Back');

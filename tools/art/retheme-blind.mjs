@@ -21,7 +21,7 @@ import { canvas, seatTints, makePainters, repaint, GRASS, half } from './retheme
 
 const argv = process.argv.slice(2), opt = (k, d) => argv.find(a => a.startsWith(`--${k}=`))?.slice(k.length + 3) ?? d;
 const outDir = argv.find(a => !a.startsWith('--')) ?? 'target/art-review/blind';
-const ELEV = +opt('elev', 40), SEED = 20261110;
+const ELEV = +opt('elev', 40), SUN = +opt('sun', 420), POLISH = !argv.includes('--plain'), SEED = 20261110; // the approved look: the build's sun and the polish (Stelian, 2026-11-11); --plain for the unpolished finish
 
 // ---- the roster: [kind, display name, role] ----
 const UNITS = {
@@ -47,7 +47,7 @@ const MARINES = [['ex_marine_8_0', 1], ['ex_marine_9_0', 1], ['ex_marine_7_0', 1
 const kinds = (side) => UNITS[side].map(u => u[0]).join('|');
 const FILTER = `^kg_(${kinds('kg')})_(0|2)_0$|^ex_(${kinds('ex')})_(0|2)_0$|^ex_marine_(7|8|9)_0$|^bldg_(kg|ex)_|^kg_towerhead_2$|^ex_radiohead_2$`;
 const t0 = Date.now();
-const fresh = await render3d(FILTER, { elev: ELEV });
+const fresh = await render3d(FILTER, POLISH ? { elev: ELEV, sun: SUN, polish: true } : { elev: ELEV, sun: SUN });
 console.log(`rendered ${fresh.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const { get, has, draw, setShadow } = makePainters(fresh, seatTints(fresh.tints));
 setShadow(1.45);                                                                                // the grass rows' firmer contact shadow, as the families' pictures draw it

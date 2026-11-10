@@ -159,9 +159,13 @@ src/client/           everything that touches the browser
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`)
-  gl/crust.js         the salt outcrops' shared crust, pure: salt nodes in clumps (`saltClumps`), one lit bed under
-                      each (`crustImage`, an image render.js makes the first time a clump is explored), and which of the
-                      crystals' variants a node draws (`crystalVariant`: `shard_k`, `shard_k_1..3`) (test/crust.test.js)
+  gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
+                      kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
+                      `rockTile`), and the shade layers (the land's shade, the water's tints and light) (test/ground.test.js)
+  gl/crust.js         the gold outcrops' shared bed, pure: nodes in clumps (`saltClumps`), one bed of trodden earth under
+                      each, soft and never opaque (`crustImage`, an image render.js makes the first time a clump is
+                      explored), and which of the outcrop's variants a node draws (`crystalVariant`: `shard_k`,
+                      `shard_k_1..3`) (test/crust.test.js)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, FIRST GAME, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
@@ -228,7 +232,8 @@ src/client/           everything that touches the browser
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
                       everyone (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
-  look.js             per-kind presentation the sim does not know: building art parts, unit voices, the seat colours
+  look.js             per-kind presentation the sim does not know: building lights, smoke and turning heads, each shot's
+                      sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
@@ -265,8 +270,10 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
-                      a drawn height per unit kind;
-                      every stage and variant of the salt's crystals
+                      a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
+                      tiles in both rock kinds, every stage and variant of the gold outcrop
+test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
+                      map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
@@ -298,8 +305,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       seat 2 (the start arranges the sides)
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an extractor on a far shaft unseen until a
                       unit looks, remembered after it walks away and after it dies out of sight, own and allied ones live
-test/crust.test.js    the salt's crust (src/client/gl/crust.js): clumps, one mass without holes and its footing, the same
-                      image every time, each tile's crystal variant
+test/crust.test.js    the gold's bed (src/client/gl/crust.js): clumps, one mass of earth without holes, never opaque, soft at
+                      its edge, the same image every time, each tile's outcrop variant
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P
@@ -373,10 +380,18 @@ public/               copied as is into dist/: the icons, the manifest, art/; og
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
-tools/render3d/       3D models (models.js, buildings.js, vael.js for the second race), materials, camera/lights and the
-                      sprite finish, run in headless Chromium (three.js); vael-palette.js, every colour of the Vael's
-                      own materials (Fen lantern)
-tools/art/            generator driver, terrain and effect painters, packer, PNG encoder; see Notion: Ebbfall art
+tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js). The
+                      re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
+                      its models, `atlasSprites` renders them under today's names): the kingdom (kingdom.js,
+                      kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
+                      props, construction and rubble (country.js), and the polished finish they render in (polish.js,
+                      scene.js `shoot`'s `polish`) at the game's 40-degree camera and 420 sun. The older models
+                      (models.js, buildings.js, harbour*.js, vael*.js) stay only for the kinds the next roster retires
+                      (medic, vanguard, raider, interceptor, halo, sovereign, zenith) and the mine shaft (ground.js)
+tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
+                      effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
+                      light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures
+                      (retheme-*.mjs, battle-shots.mjs); see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 ```
 

@@ -1,27 +1,65 @@
 // The ground's layers, pure (no DOM, no PixiJS): gl/render.js draws them and tools/art/review-ground.mjs renders the
-// same for the art's review. Which seabed tile a cell of the dual grid draws, and the shade layers over the terrain
-// and the scenery: a multiply (the land's large-scale shade, the wet line along a shore, the water's tints) and, on a
-// map with water, an add (the water's own light, which lifts the shallows over the land so the shore and the deep
-// channel's edge read in grey too). tools/render3d/STYLE.md "The ground and the scenery".
+// same for the art's review. Which countryside tile a cell of the dual grid draws (tools/art/terrain3.js), which kind
+// each rock region is (a forest or a rocky hill), and the shade layers over the terrain and the scenery: a multiply
+// (the land's large-scale shade, the wet line along a shore, the water's tints) and, on a map with water, an add (the
+// water's own light, which lifts the shallows over the land so the shore and the deep channel's edge read in grey too).
 
-/** The seabed's tiles (tools/art/terrain2.js): `ground_0..7` the calm bases, each showing its own faint salt veins,
- *  `ground_8..19` a kelp patch each, from a scrap to near a tile across, every one its own turn and mirror. */
+/** The grass tiles (tools/art/terrain3.js): `ground_0..7` the plain bases, `ground_8..19` a soft patch each (eight of
+ *  trodden dirt, four of dry grass), from a third of a tile to near a tile across, every one its own turn and mirror. */
 export const GROUND_BASES = 8, GROUND_MARKS = 12;
-/** The tile the ground cell (i, j) of a map seeded `seed` draws for its draw `r` in [0, 1). Kelp lies in clusters with
- *  bare ground between (a low noise over the map sets the chance of a mark, 0 over about half of it, up to 0.4), and
- *  never in the water (`wet`: any of the cell's four tiles shallow or deep): there it read as fish or swimmers. */
+/** The most of a map's cells that show a patch, where its cluster noise is highest (the re-theme's ground: a swarm of
+ *  dirt patches read as a mud field; the seabed's kelp went up to 0.4). */
+export const MARK_MAX = 0.14;
+/** The tile the ground cell (i, j) of a map seeded `seed` draws for its draw `r` in [0, 1). Patches lie in clusters
+ *  with plain grass between (a low noise over the map sets the chance of a mark, 0 over about half of it, up to
+ *  MARK_MAX), and never in the water (`wet`: any of the cell's four tiles shallow or deep). */
 export function groundTile(r, i, j, seed, wet) {
-  const p = wet ? 0 : Math.min(0.4, Math.max(0, (noise(i / 4.5 + seed * 0.37, j / 4.5 - seed * 0.11) - 0.5) * 1.3));
+  const p = wet ? 0 : Math.min(MARK_MAX, Math.max(0, (noise(i / 4.5 + seed * 0.37, j / 4.5 - seed * 0.11) - 0.5) * 1.3 * (MARK_MAX / 0.4)));
   if (r < p) return GROUND_BASES + Math.min(GROUND_MARKS - 1, Math.floor(r / p * GROUND_MARKS));
   return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
 }
 
-/** The reef's tiles: `rock_<mask>_<v>`, three variants of each edge and six of the plateau's inside (mask 15), whose
- *  pits would otherwise come back often enough to count. */
-export const rockTile = (m, r) => `rock_${m}_${Math.floor(r * (m === 15 ? 6 : 3))}`;
+/** The rock's tiles: `rock_<mask>_<v>`, per corner mask n variants of a rocky hill (v 0..n-1) then n of a forest
+ *  (v n..2n-1); n is 3 for an edge and 6 for the inside (mask 15), whose marks would otherwise come back often enough
+ *  to count (tools/art/terrain3.js VARIANTS). `kind` is the cell's region's ('hill' or 'forest', rockKinds). */
+export const rockTile = (m, r, kind = 'hill') => { const n = m === 15 ? 6 : 3; return `rock_${m}_${(kind === 'forest' ? n : 0) + Math.floor(r * n)}`; };
+
+/**
+ * Each rock region's kind, chosen once per region: `{ kindAt(x, y) }` for the rock tiles of a map w x h tiles
+ * (`rock(x, y)`, in the map), 'forest' or 'hill'. A region is a set of rock tiles joined through their sides or
+ * corners (so the rock corners of one dual-grid cell are always one region); its kind is a hash of the map's seed and
+ * the region's first tile in reading order: the same on every client and every time, whatever else is on the map.
+ * Off the map (the rock the dual grid sees past the edge) a tile takes the kind of the map tile beside it when that is
+ * rock, else the border's own kind (from the seed too). Client-only: the sim never sees it.
+ */
+export function rockKinds(w, h, rock, seed) {
+  const region = new Int32Array(w * h).fill(-1), kinds = [], stack = [];
+  const pick = (k) => (hash(k * 7919 + 13, (seed | 0) * 31 + 7) < 0.5 ? 'forest' : 'hill');
+  for (let y0 = 0; y0 < h; y0++) for (let x0 = 0; x0 < w; x0++) {
+    if (region[y0 * w + x0] >= 0 || !rock(x0, y0)) continue;
+    const id = kinds.length; kinds.push(pick(y0 * w + x0));
+    region[y0 * w + x0] = id; stack.push(y0 * w + x0);
+    while (stack.length) {
+      const i = stack.pop(), x = i % w, y = (i - x) / w;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy, j = ny * w + nx;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || region[j] >= 0 || !rock(nx, ny)) continue;
+        region[j] = id; stack.push(j);
+      }
+    }
+  }
+  const border = pick(-1);
+  return {
+    kindAt(x, y) {
+      const cx = Math.max(0, Math.min(w - 1, x)), cy = Math.max(0, Math.min(h - 1, y)), id = region[cy * w + cx];
+      if (cx === x && cy === y) return id >= 0 ? kinds[id] : null;
+      return id >= 0 ? kinds[id] : border;
+    },
+  };
+}
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
-/** Smooth value noise over tile coordinates (cells of one tile), for the shore line's wobble and the kelp's clusters. */
+/** Smooth value noise over tile coordinates (cells of one tile), for the shore line's wobble and the patches' clusters. */
 function hash(x, y) { let h = (x * 374761393 + y * 668265263 + 977) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
 function noise(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi, s = (t) => t * t * (3 - 2 * t);
@@ -29,7 +67,7 @@ function noise(x, y) {
   return a + (b - a) * s(u) + (c - a) * s(v) + (a - b - c + d) * s(u) * s(v);
 }
 
-// The multiply: the land between 0.78 and 1 by the map's shade (the seabed tiles are dark already); the shallows a
+// The multiply: the land between 0.78 and 1 by the map's shade; the shallows a
 // clear teal and deep water a blue. The add: the water's light, more in the shallows than in the deep.
 const SHALLOW = [150, 230, 222], DEEP = [66, 118, 198], SHALLOW_ADD = [14, 34, 31], DEEP_ADD = [2, 8, 22];
 /** The wet line: on the land side of the waterline, a band some 9 px wide darkened to WET_DARK at the water; on the

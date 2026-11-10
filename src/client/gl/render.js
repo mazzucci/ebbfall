@@ -6,10 +6,10 @@ import { Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle,
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, SHOT_LOOK, UNIT_ART_SCALE, colorOf } from '../look.js';
+import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
-import { groundTile, rockTile, shadeLayers } from './ground.js';
+import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
 import { saltClumps, crustImage, crystalVariant } from './crust.js';
 
 export const cv = document.getElementById('game');
@@ -23,7 +23,7 @@ export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const startZoom = () => matchMedia('(pointer: coarse)').matches ? 1 : ZOOM_MIN;
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
-const MM_SALT = '#e6e0d3', MM_BRINE = '#a24a2c'; // (the minimap: a salt field, a brine seep)
+const MM_SALT = '#e8c04a', MM_BRINE = '#a24a2c'; // (the minimap: a gold field, gold as on the field; a brine seep)
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
 const hexn = (s) => parseInt(s.slice(1), 16);
@@ -113,7 +113,8 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // ---- scene ----
 // Render groups (PixiJS 8): the camera moves the world as one transform, so panning or a shake does not recompute every
 // sprite's. A group's draw list is built again whenever anything in it shows, hides, comes, goes or changes depth (a
-// moving unit does, every frame): the terrain (some 16k tile sprites on 128x128), the scenery, decals, resources,
+// moving unit does, every frame): the terrain (some 16k tile sprites on 128x128), the scenery, the worn dirt under the
+// buildings, decals, resources,
 // the field's buildings and units and the flyers each keep their own, so one layer's churn does not rebuild the others'.
 // Buildings and walking units share one layer (`ents`) sorted by where they stand (their ground y): a building hides
 // what stands north of it, as the 40-degree camera shows its walls rising over them. Construction sites' foundations
@@ -121,8 +122,8 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // building as faint silhouettes over it.
 const world = new Container({ isRenderGroup: true });
 const L = {};
-const GROUPS = new Set(['terrain', 'scenery', 'crust', 'decals', 'nodes', 'found', 'ents', 'air']);
-for (const k of ['terrain', 'scenery', 'shade', 'crust', 'decals', 'nodes', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+const GROUPS = new Set(['terrain', 'scenery', 'crust', 'worn', 'decals', 'nodes', 'found', 'ents', 'air']);
+for (const k of ['terrain', 'scenery', 'shade', 'crust', 'worn', 'decals', 'nodes', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
@@ -220,13 +221,17 @@ export function renderTerrain() {
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
   const wetCell = (i, j) => [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].some(([x, y]) => !rock(x, y) && ground(x, y) !== 'land');
+  // Each rock region a forest or a rocky hill, picked once per region (gl/ground.js rockKinds): a cell takes the kind
+  // of its first rock corner, all of one region.
+  const kinds = rockKinds(MW, MH, (x, y) => map.rock[idx(x, y)] !== 0, G.seed);
+  const cellKind = (i, j) => { for (const [x, y] of [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]]) if (rock(x, y)) return kinds.kindAt(x, y); return 'hill'; };
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its centre, offset half a tile.
   // Tiles go into 8x8-cell chunks so only the chunks on screen are drawn (no baking: it would cost a 4096² texture).
   chunks.length = 0;
   for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
     const m = rock(i, j) | rock(i + 1, j) << 1 | rock(i, j + 1) << 2 | rock(i + 1, j + 1) << 3;
     const r = rnd();
-    const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}` : rockTile(m, r);
+    const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}` : rockTile(m, r, cellKind(i, j));
     const ci = (j + 1) >> 3, cj = (i + 1) >> 3, key = ci * 64 + cj;
     let c = chunks[key]; if (!c) { c = chunks[key] = new Container(); c.cx = cj * 8 * TILE; c.cy = ci * 8 * TILE; L.terrain.addChild(c); }
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
@@ -250,12 +255,13 @@ export function renderTerrain() {
   }
   // Minimap background.
   const th = thumb.getContext('2d');
-  const wetCss = { shallow: '#467c80', deep: '#1d3658' }; // (the seabed warm and dark, the reef a pale grey, the sea teal and blue: as the ground looks)
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? '#6b665a' : wetCss[g] || `hsl(36,10%,${14 + map.shade[idx(x, y)] * 9}%)`; th.fillRect(x, y, 1, 1); }
+  const wetCss = { shallow: '#467c80', deep: '#1d3658' }, rockCss = { forest: '#2a3f22', hill: '#77756c' }; // (the grass green, a forest darker, a hill grey, the sea teal and blue: as the ground looks)
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? rockCss[kinds.kindAt(x, y)] : wetCss[g] || `hsl(92,24%,${17 + map.shade[idx(x, y)] * 8}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   L.crust.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
   crusts = saltClumps(map.nodes.filter(n => n.type === 'shard')).map(c => ({ c, s: null }));
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
+  L.worn.removeChildren().forEach(c => c.destroy()); // (the buildings' own, gone with them above)
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
 }
 
@@ -353,28 +359,33 @@ function stage(name, k) {
 class BldgObj {
   constructor(b) {
     const n = b.w;
+    // (worn dirt under it, from its site to its ruin: trodden earth over the footprint and a little beyond, the grass
+    // showing through, no paths)
+    this.worn = new Sprite(); setTex(this.worn, tex(`worn_${n}`)); L.worn.addChild(this.worn);
     this.found = new Sprite(); setTex(this.found, tex(`foundation_${n}`)); L.found.addChild(this.found);
     [this.body, this.paint] = teamSprite(L.ents); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
-    // (a Vael site grows in a bud, `bud_n`, in place of the scaffold; the foundation is the Harbour's)
+    // (a Vael site grows in a bud, `bud_n`: the Expedition's scaffold with its hoist, in place of the kingdom's; the
+    // foundation is the kingdom's; a scaffold's cloth and flags in the seat's colour)
     this.bud = G.factions[b.team] === 'vael';
-    this.scaffold = new Sprite(); setTex(this.scaffold, tex(`${this.bud ? 'bud' : 'scaffold'}_${n}`)); L.ents.addChild(this.scaffold);
+    [this.scaffold, this.scaffoldPaint] = teamSprite(L.ents); const sn = `${this.bud ? 'bud' : 'scaffold'}_${n}`;
+    setTex(this.scaffold, tex(sn)); setTex(this.scaffoldPaint, tex(sn + '_m')); paintAs(this.scaffold, this.scaffoldPaint, this.seat);
     this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
     this.look = BLDG_LOOK[b.type] || {};
     if (this.look.head) [this.head, this.headPaint] = teamSprite(L.ents);
     const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
     this.smokeT = 0; this.type = b.type;
-    for (const s of [this.found, this.body, this.paint, this.scaffold]) s.position.set(b.x, b.y);
+    for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint]) s.position.set(b.x, b.y);
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
     const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z;
-    this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004;
+    this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004; this.scaffoldPaint.zIndex = z + 0.0005;
     if (this.head) { this.head.zIndex = z + 0.0006; this.headPaint.zIndex = z + 0.0008; }
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
     const name = this.name, grow = !b.done && this.bud;
-    this.found.visible = !b.done && !grow; this.scaffold.visible = !b.done && (!grow || b.progress > 0); // (a Vael site: its bud once its Glint has begun, no foundation)
+    this.found.visible = !b.done && !grow; this.scaffold.visible = this.scaffoldPaint.visible = !b.done && (!grow || b.progress > 0); // (a Vael site: its bud once its Glint has begun, no foundation)
     if (b.done) { setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; }
     else { // the bottom k/8 of the art, its bottom edge where the full sprite's would be
       const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k)); setTex(this.paint, stage(name + '_m', k));
@@ -403,7 +414,7 @@ class BldgObj {
     const begun = b.progress > 0;
     setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
     paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xffd6b8, (begun ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
-    if (begun) this.scaffold.alpha = 1 - 0.75 * b.progress; // (the bud opens as the shell inside it grows)
+    if (begun) this.scaffold.alpha = this.scaffoldPaint.alpha = 1 - 0.75 * b.progress; // (the bud opens as the shell inside it grows)
     if (!live || !G.units.some(u => u.task.t === 'build' && u.task.b === b)) return; // (the ring only while a Glint works)
     const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = 0.55 + 0.35 * Math.sin(t * 4);
     bars.ellipse(b.x, cy, rx, ry).fill({ color: 0xff9a5c, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xffa070, alpha: 0.8 * pulse });
@@ -411,11 +422,11 @@ class BldgObj {
   }
   /** Shown or not (update, after this, decides the parts of a shown one). Visibility is only ever set to what it should
    *  be, never on and off again in one frame: each change rebuilds the layer's draw list. */
-  show(v) { this.body.visible = this.paint.visible = v; if (!v) { this.found.visible = this.scaffold.visible = false; if (this.head) this.head.visible = this.headPaint.visible = false; if (this.glow) this.glow.visible = false; } }
-  destroy() { for (const s of [this.found, this.body, this.paint, this.scaffold, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
+  show(v) { this.body.visible = this.paint.visible = v; if (this.worn.visible !== v) this.worn.visible = v; if (!v) { this.found.visible = this.scaffold.visible = this.scaffoldPaint.visible = false; if (this.head) this.head.visible = this.headPaint.visible = false; if (this.glow) this.glow.visible = false; } }
+  destroy() { for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
 }
 
-// ---- the salt outcrops' crust (gl/crust.js): one pale bed under each clump of salt nodes ----
+// ---- the gold outcrops' bed (gl/crust.js): one bed of trodden earth under each clump of gold nodes ----
 let crusts = []; // { c: a clump, s: its sprite once made }
 /** A clump's crust is made the first time any of its nodes is explored (a few ms, once: never every frame) and then
  *  stays, a worked bed, as its crystals are mined out; under the unexplored it is never made, so it shows nothing the
@@ -628,10 +639,12 @@ export function render(selList, place) {
   for (const p of G.projs) {
     if (p.team !== G.me && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
     const s = pooled(projPool, pi++, () => { const s = new Sprite(); s.anchor.set(0.5); L.projs.addChild(s); s.l = light(0xffd27a, 0.25, 0.7); return s; });
-    const own = SHOT_LOOK[p.by]; // (a shooter whose shot is its own sprite: its head at the anchor, no trail)
-    s.texture = tex(own ?? p.type); s.anchor.set(own ? 1 : p.type === 'shell' ? 0.5 : p.type === 'missile' ? 0.9 : 1, 0.5);
-    if (!own && p.type === 'missile' && Math.random() < dt * 40) addEffect('puff', p.x, p.y, { life: 0.6, scale: 0.45, fade: 0.55 }); // (a soft trail)
-    s.position.set(p.x, p.y); s.rotation = Math.atan2(p.ay - p.y, p.ax - p.x); s.l.visible = true; s.l.position.set(p.x, p.y); s.l.scale.set(p.type === 'shell' ? 0.4 : 0.25);
+    const art = shotArt(p.by, p.type, G.factions[p.team]); // (by its shooter's kind, else its people's: look.js)
+    setTex(s, tex(art)); // (the shot's anchor is its tip, a stone's its middle)
+    const trail = SHOT_TRAIL[art];
+    if (trail && Math.random() < dt * 40) addEffect(trail, p.x, p.y, { life: 0.6, fade: 1 }); // (a rocket's smoke: puffs that overlap and fade)
+    s.position.set(p.x, p.y); s.rotation = Math.atan2(p.ay - p.y, p.ax - p.x);
+    s.l.visible = SHOT_LIT.has(art); s.l.position.set(p.x, p.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; not an arrow or a stone)
   }
   for (let i = pi; i < projPool.length; i++) { projPool[i].visible = false; projPool[i].l.visible = false; }
 
@@ -738,7 +751,7 @@ function renderMinimap() {
 }
 function minimapBase(c, S, T) {
   c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
-  // Salt fields pale salt; a brine seep red-brown in a rim of white terraces (as on the field): neither is any seat's colour.
+  // Gold fields gold; a brine seep red-brown in a gold rim: neither is any seat's colour.
   for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) {
     const x = n.x * S, y = n.y * T;
     if (n.type === 'shard') { c.fillStyle = MM_SALT; c.fillRect(x - 1.5, y - 1.5, 3, 3); }

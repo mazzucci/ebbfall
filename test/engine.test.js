@@ -398,7 +398,7 @@ test('advance() then one read of G is the same as step() after step(): the same 
   E.resetGame(4, 0); // (back to a duel's map for the tests after)
 });
 
-test('a projectile names its shooter\'s kind (the client draws the Harpooner\'s and the Lens\'s their own way)', { skip }, async () => {
+test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Mercenary\'s tracer)', { skip }, async () => {
   const { SHOT_LOOK } = await import('../src/client/look.js');
   E.resetGameSeats(32, 1, 0, 0, ['humans', 'vael'], [], [false, false], 0, 64);
   const x = 32 * C.TILE + 16, y = 32 * C.TILE + 16;
@@ -407,7 +407,7 @@ test('a projectile names its shooter\'s kind (the client draws the Harpooner\'s 
   const seen = new Set();
   for (let i = 0; i < 90 && seen.size < 3; i++) { E.step(); for (const p of E.G.projs) seen.add(p.by); }
   for (const [k] of shooters) assert.ok(seen.has(k), `a ${k}'s shot names it`);
-  assert.equal(SHOT_LOOK.lancer, 'harpoon'); assert.equal(SHOT_LOOK.prism, 'beam'); assert.equal(SHOT_LOOK.trooper, undefined);
+  assert.equal(SHOT_LOOK.lancer, 'arrow'); assert.equal(SHOT_LOOK.prism, 'tracer'); assert.equal(SHOT_LOOK.trooper, undefined);
   E.resetGame(4, 0);
 });
 

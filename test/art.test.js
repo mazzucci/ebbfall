@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { BLDG_LOOK, SEAT_COLORS } from '../src/client/look.js';
+import { BLDG_LOOK, SEAT_COLORS, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL } from '../src/client/look.js';
+import { GROUND_BASES, GROUND_MARKS, rockTile } from '../src/client/gl/ground.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
 for (const p of index.pages) Object.assign(frames, JSON.parse(readFileSync(new URL(p, art))).frames);
@@ -47,11 +48,20 @@ test('one frame per kind, not one per seat, and a mask tint for every seat', () 
   for (const t of index.tints) assert.ok(Number.isInteger(t) && t >= 0 && t <= 0xffffff);
 });
 
-test('the frames the client draws for each people\'s construction, rubble and its own shots are in the atlas', () => {
-  for (const n of [2, 3, 4]) for (const k of ['foundation', 'scaffold', 'rubble', 'bud', 'rubble_vael']) assert.ok(frames[`${k}_${n}`], `${k}_${n}`);
-  for (const k of ['harpoon', 'beam']) assert.ok(frames[k], k);
+test('the frames the client draws for each people\'s construction, rubble, worn dirt and shots are in the atlas', () => {
+  for (const n of [2, 3, 4]) for (const k of ['foundation', 'scaffold', 'rubble', 'bud', 'rubble_vael', 'worn']) assert.ok(frames[`${k}_${n}`], `${k}_${n}`);
+  for (const n of [2, 3, 4]) for (const k of ['scaffold', 'bud']) paired(`${k}_${n}`); // (a scaffold's cloth and flags in the seat's colour)
+  const shots = new Set([...Object.values(SHOT_LOOK), ...Object.values(PEOPLE_SHOT).flatMap(Object.values), ...Object.values(TOWER_SHOT)]);
+  for (const k of shots) assert.ok(frames[k], `the shot ${k}`);
+  for (const k of Object.values(SHOT_TRAIL)) assert.ok(index.animations[k]?.every(n => frames[n]), `the trail ${k}`);
+  for (const k of ['boom_big', 'boom_small', 'puff', 'flash', 'spark']) assert.ok(index.animations[k]?.length && index.animations[k].every(n => frames[n]), `the animation ${k}`);
 });
 
-test('the salt\'s crystals: four stages, each in every variant the renderer picks per tile (gl/crust.js crystalVariant)', () => {
+test('the ground: every grass tile, and every rock mask in its hill and forest variants (gl/ground.js rockTile)', () => {
+  for (let v = 0; v < GROUND_BASES + GROUND_MARKS; v++) assert.ok(frames[`ground_${v}`], `ground_${v}`);
+  for (let m = 1; m < 16; m++) for (const kind of ['hill', 'forest']) for (const r of [0, 0.5, 0.999]) { const n = rockTile(m, r, kind); assert.ok(frames[n], n); }
+});
+
+test('the gold outcrop: four stages, each in every variant the renderer picks per tile (gl/crust.js crystalVariant)', () => {
   for (let k = 0; k < 4; k++) for (let v = 0; v < 4; v++) { const n = v ? `shard_${k}_${v}` : `shard_${k}`; assert.ok(frames[n], n); }
 });

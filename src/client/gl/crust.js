@@ -1,22 +1,18 @@
-// The salt outcrops' shared crust, pure (no DOM, no PixiJS): gl/render.js draws it under the crystals, and the art's
-// review can draw the same. A clump of salt nodes (the sim lays a field's crystals in a clump, a tile or so apart)
-// stands on one pale bed of salt crust: the union of soft blobs round its nodes, bridged along the shortest links
-// between them so it is always one mass, its outline wobbled by a noise fixed to the map; lit as a low dome from the
-// north-west like the sprites (tools/render3d/scene.js), with its shadow side to the south-east, a dark footing round
-// it, ink on its outline and the sprites' finish (the contrast curve, 5-bit banding). tools/render3d/STYLE.md "The
-// salt works".
+// The gold outcrops' bed, pure (no DOM, no PixiJS): gl/render.js draws it under the gold, and the art's review can draw
+// the same. A clump of gold nodes (the sim lays a field's lumps in a clump, a tile or so apart; the sim still calls
+// them salt, `shard`) stands on one bed of bare trodden earth: the union of soft blobs round its nodes, bridged along
+// the shortest links between them so it is always one mass, its outline wobbled by a noise fixed to the map; soft at
+// its edge and never opaque, so the grass shows through (the re-theme's ground family: a pale salt crust read as a
+// plinth under the gold).
 
 const TILE = 32;
 /** Texels per world px of a crust's image (the atlas is 2; the crust is soft, so less costs a phone less memory). */
 export const CRUST_K = 1;
-/** How far (tiles) two salt nodes may lie apart and still share a crust. */
+/** How far (tiles) two nodes may lie apart and still share a bed. */
 const LINK = 3.2;
 /** The blobs: a node's spread (tiles), a link's half-width spread and weight, the threshold of the outline. */
-const SIGMA = 0.42, BRIDGE = 0.4, BRIDGE_W = 0.7, EDGE = 0.3;
-/** The bed's value under its crystals (the look-alike judge: the bed was the largest pale shape on screen, a step down
- *  lets the white crystals and the pale workers read on it). */
-const BED_VALUE = 0.8;
-/** How far past its outermost node a crust's image reaches (tiles): the blob, the wobble and the footing. */
+const SIGMA = 0.42, BRIDGE = 0.4, BRIDGE_W = 0.7, EDGE = 0.18;
+/** How far past its outermost node a bed's image reaches (tiles): the blob and the wobble. */
 const MARGIN = 1.5;
 
 function hash(x, y, s = 0) { let h = (x * 374761393 + y * 668265263 + s * 2246822519 + 977) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
@@ -30,7 +26,7 @@ function noise(x, y, s = 0) {
 }
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-/** Which of the crystals' variants (tools/render3d/ground.js `SALT_VARIANTS`: `shard_k`, `shard_k_1..3`) the node on
+/** Which of the outcrop's variants (tools/render3d/country.js `GOLD_VARIANTS`: `shard_k`, `shard_k_1..3`) the node on
  *  tile (tx, ty) draws: fixed by its tile, so every side and every frame agrees. */
 export const crystalVariant = (tx, ty, n = 4) => Math.floor(hash(tx, ty, 7) * n);
 
@@ -54,7 +50,7 @@ export function saltClumps(nodes) {
   return [...by.values()].map(({ nodes, links }) => ({ nodes, links }));
 }
 
-/** No ground inside a crust: the field raised, softly, over any pocket below its outline that the outside does not
+/** No grass inside a bed: the field raised, softly, over any pocket below its outline that the outside does not
  *  reach (a clump laid round an empty middle, or a dip in the wobble), so the bed is one mass without holes. */
 function fillHoles(F, w, h) {
   const out = new Uint8Array(w * h), stack = [];
@@ -73,17 +69,15 @@ function fillHoles(F, w, h) {
   for (let i = 0; i < w * h; i++) if (m[i] > 0) F[i] = Math.max(F[i] + 0.4 * Math.min(1, m[i] * 3), out[i] ? F[i] : 0.05);
 }
 
-/** The crust's base colour (linear 0-1, before light): halite's warm pale grey, a little dimmer than the crystals'. */
-const PALE = [0.545, 0.535, 0.505], DIM = [0.46, 0.45, 0.425];
-/** The light, as tools/render3d/scene.js: the sun from the north-west, high; a cool rim from the south-east. Vectors
- *  (x east, y up, z south), towards the light. */
-const SUN = [-0.358, 0.894, -0.268], RIM = [0.693, 0.39, 0.606], RIM_TINT = [0.8, 0.9, 1.05];
-/** The sprites' finish on a 0-1 channel (scene.js `finish`): the contrast curve, then 5-bit banding; as a table. */
-const CURVE = new Uint8Array(1024).map((_, i) => Math.min(255, Math.round(255 * smooth(0.03, 0.97, i / 1023) / 8) * 8 + 4));
+/** The earth: a dusty brown in two tones mottled together, and the most of it that covers the grass (the edge less, a
+ *  noise taking a little more or less): tools/art/retheme-ground.mjs's `earthBed`, as approved. */
+const EARTH = [112, 100, 76], EARTH_DIM = [94, 86, 64], EARTH_ALPHA = 0.55;
+/** How soft its edge is: texels from nothing at the outline to the full alpha inside it. */
+const SOFT = 12;
 
 /**
- * A clump's crust as an RGBA image: `{ x, y, w, h, k, data }`, its top-left corner at world px (x, y), w x h texels of
- * 1/k world px. Opaque crust inside its outline; outside it, the footing and the crust's shadow as black at an alpha.
+ * A clump's bed as an RGBA image: `{ x, y, w, h, k, data }`, its top-left corner at world px (x, y), w x h texels of
+ * 1/k world px. Earth at an alpha under EARTH_ALPHA (straight alpha), fading out over SOFT texels inside its outline.
  */
 export function crustImage(clump, k = CRUST_K) {
   const ns = clump.nodes.map(n => [n.tx + 0.5, n.ty + 0.5]);
@@ -116,38 +110,16 @@ export function crustImage(clump, k = CRUST_K) {
     F[j * w + i] = f + (noise((x + wx) / TILE * 4.5, (y + wy) / TILE * 4.5, 13) - 0.5) * 0.07;
   }
   fillHoles(F, w, h);
-  // The height (game units, as the sprites'): a low rim rising from the outline to a gentle dome, small bumps on top.
-  const H = new Float32Array(w * h);
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-    const s = F[j * w + i]; if (s <= 0) continue;
-    const u = (x + (i + 0.5) / k) / TILE, v = (y + (j + 0.5) / k) / TILE;
-    const r = 1 - Math.abs(2 * noise(u * 9, v * 9, 17) - 1), q = 1 - Math.abs(2 * noise(u * 17 + 5, v * 17, 29) - 1);  // ridges: the crust's grain, small crystals grown into it
-    H[j * w + i] = 1.6 * smooth(0, 0.05, s) + 2.2 * smooth(0.04, 0.7, s) + (0.9 * r * r * r + 0.35 * q * q * q) * smooth(0.02, 0.12, s);
-  }
-  const at = (a, i, j) => a[Math.max(0, Math.min(h - 1, j)) * w + Math.max(0, Math.min(w - 1, i))];
+  const at = (i, j) => F[Math.max(0, Math.min(h - 1, j)) * w + Math.max(0, Math.min(w - 1, i))];
   const data = new Uint8ClampedArray(w * h * 4);
-  const sx = Math.round(2.5 * k), sy = Math.round(2.5 * k);      // the shadow side: the crust's shape cast 2.5 px south-east
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-    const o = (j * w + i) * 4, s = F[j * w + i];
-    const gx = at(F, i + 1, j) - at(F, i - 1, j), gy = at(F, i, j + 1) - at(F, i, j - 1), d = s / Math.max(1e-4, 0.5 * Math.sqrt(gx * gx + gy * gy)); // (d: texels inside the outline)
-    const cov = Math.max(0, Math.min(1, d + 0.5));
-    // Outside: a contact footing all round, and the crust's shadow to the south-east.
-    const sh = at(F, i - sx, j - sy), out = cov < 1 ? Math.max(0.25 * smooth(-0.05, 0, s), sh > 0 ? 0.5 : 0.5 * smooth(-0.04, 0, sh)) : 0;
-    if (cov <= 0) { if (out > 0.02) data[o + 3] = Math.round(out * 255); continue; }
+    const o = (j * w + i) * 4, s = F[j * w + i]; if (s <= 0) continue;
+    const gx = at(i + 1, j) - at(i - 1, j), gy = at(i, j + 1) - at(i, j - 1), d = s / Math.max(1e-4, 0.5 * Math.sqrt(gx * gx + gy * gy)); // (d: texels inside the outline)
     const u = (x + (i + 0.5) / k) / TILE, v = (y + (j + 0.5) / k) / TILE;
-    const hx = (at(H, i + 1, j) - at(H, i - 1, j)) * k / 2, hy = (at(H, i, j + 1) - at(H, i, j - 1)) * k / 2;
-    const len = Math.sqrt(hx * hx + 1 + hy * hy), nx = -hx / len, ny = 1 / len, nz = -hy / len;
-    const ds = Math.max(0, nx * SUN[0] + ny * SUN[1] + nz * SUN[2]), dr = Math.max(0, nx * RIM[0] + ny * RIM[1] + nz * RIM[2]);
-    const lit = 0.32 + 0.6 * ds / SUN[1], rim = 0.1 * dr / RIM[1];
-    const m = smooth(0.3, 0.7, noise(u * 2.3, v * 2.3, 19) * 0.7 + noise(u * 7, v * 7, 23) * 0.3);   // pale and dim salt, mottled
-    const damp = 0.8 + 0.2 * smooth(0.5, 5, d);                                                      // damper, darker at its edge
-    const ink = 0.55 + 0.45 * smooth(0.5, 1.5, d);                                                   // the finish's ink on the outline
-    const alpha = cov + out * (1 - cov);
-    for (let c = 0; c < 3; c++) {
-      const base = (DIM[c] + (PALE[c] - DIM[c]) * m) * damp * BED_VALUE;
-      data[o + c] = Math.round(CURVE[Math.min(1023, Math.round((base * lit + rim * RIM_TINT[c] * base) * 1023))] * ink * cov / alpha);
-    }
-    data[o + 3] = Math.round(alpha * 255);
+    const a = smooth(0, SOFT * k, d) * (1 + (noise(u * 4.5, v * 4.5, 31) - 0.5) * 0.9) * EARTH_ALPHA;   // (soft at the edge, trodden more in places)
+    const m = noise(u * 6, v * 6, 25);
+    for (let c = 0; c < 3; c++) data[o + c] = Math.round(EARTH_DIM[c] + (EARTH[c] - EARTH_DIM[c]) * m);
+    data[o + 3] = Math.max(1, Math.round(a * 255));
   }
   return { x, y, w, h, k, data };
 }

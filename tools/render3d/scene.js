@@ -4,11 +4,14 @@
 // south faces, like the pre-rendered sprites of late-90s RTS games.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { finishPolish, POLISH } from './polish.js';
 
 export const ELEV = 40 * Math.PI / 180; // (55 until the re-theme: the lower camera shows more of a unit's side)
 export const S = 2;          // output pixels per game unit (art is drawn at twice the game's resolution)
 const SS = 2;                // supersampling factor before downscaling
 export const LIFT = Math.cos(ELEV) / Math.sin(ELEV); // screen px of rise per unit of height (per game unit)
+/** The lift at another elevation (radians): what a shot with `elev` set shows of a unit of height (the re-theme's trials). */
+export const liftAt = (elev) => Math.cos(elev) / Math.sin(elev);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
@@ -27,17 +30,23 @@ scene.environmentIntensity = 0.22;
 const sun = new THREE.DirectionalLight(0xfff0d8, 4.6);
 /** The sun: from the north-west, SUN_UP high over SUN_OUT of ground (about 70 degrees). Its shadow on the ground is
  *  SUN_OUT / SUN_UP (0.36) of a thing's height long, so at the 40-degree camera (a height drawn 1.19 times itself) a
- *  unit's shadow stays well under its drawn height; at 300 (63 degrees) it was half. */
+ *  unit's shadow stays well under its drawn height; at 300 (63 degrees) it was half. A shot's `sun` sets another height. */
 const SUN_UP = 420, SUN_OUT = [-120, -90];
 sun.position.set(SUN_OUT[0], SUN_UP, SUN_OUT[1]);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.3; sun.shadow.radius = 1;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(0xa9c3ee, 0x2a241c, 0.28));
+const hemi = new THREE.HemisphereLight(0xa9c3ee, 0x2a241c, 0.28);
+scene.add(hemi);
 const rim = new THREE.DirectionalLight(0x9fc4ff, 1.5);
 rim.position.set(160, 90, 140); // from the south-east: separates edges from the ground
 scene.add(rim);
+// The polished finish's lighting (polish.js POLISH.lights): a stronger key against less fill, a fill from the south-west
+// so the camera's side of a thing has a lit and a dark half; off (intensity 0) on the atlas's path.
+const fill = new THREE.DirectionalLight(0xfff4e4, 0);
+fill.position.set(-200, 150, 300);
+scene.add(fill);
 
 const catcher = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.ShadowMaterial({ opacity: 0.65 }));
 catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true;
@@ -51,24 +60,37 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  * Render `obj` (already in the scene graph or not) into a w x h px RGBA image.
  * The ground point (gx, gz) lands at pixel (ax, ay). Shadow on the ground included unless `shadow` is false.
  * `mask`: also return its team mask (`{ img, mask }`), the same size and framing (see teamMask).
+ * `elev`: the camera's elevation for this shot (radians; ELEV, the game's 40 degrees, by default).
+ * `sun`: the sun's height over SUN_OUT (SUN_UP, 420, by default).
+ * `polish`: the re-theme's polished finish (polish.js: a depth pass, ambient occlusion, lit edges, a soft contact
+ * shadow, lighter ink, finer banding) instead of `finish`; the atlas's re-themed models pass it, the old ones do not.
  */
-export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false }) {
+export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, polish = false }) {
   scene.add(obj);
   obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon)
   catcher.visible = shadow;
   // Frustum in ground units around the anchor: left/right are plain, up/down are scaled by sin(ELEV).
-  const L = ax / S, R = (w - ax) / S, U = ay / S, D = (h - ay) / S, sn = Math.sin(ELEV);
+  const L = ax / S, R = (w - ax) / S, U = ay / S, D = (h - ay) / S, sn = Math.sin(elev);
   camera.left = -L; camera.right = R; camera.top = U * sn; camera.bottom = -D * sn;
-  camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(ELEV));
+  camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(elev));
   camera.lookAt(gx, 0, gz);
   camera.updateProjectionMatrix();
-  sun.target.position.set(gx, 0, gz); sun.position.set(gx + SUN_OUT[0], SUN_UP, gz + SUN_OUT[1]);
+  sun.target.position.set(gx, 0, gz); sun.position.set(gx + SUN_OUT[0], sunUp, gz + SUN_OUT[1]);
   const r = Math.max(w, h) / S;
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();
   renderer.setSize(w * SS, h * SS, false);
-  const img = grab(w, h);
-  finish(img);
+  let img;
+  if (!polish) { img = grab(w, h); finish(img); }
+  else { // the polished path: its lights for the colour pass (restored after), then the depth pass and polish.js's finish
+    const P = typeof polish === 'object' ? { ...POLISH, ...polish } : POLISH, L = P.unit ? P.unitLights : P.lights;
+    const saved = [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity];
+    sun.intensity = L.sun; hemi.intensity = L.hemi; scene.environmentIntensity = L.env; rim.intensity = L.rim; fill.intensity = L.fill;
+    fill.target.position.set(gx, 0, gz); fill.position.set(gx - 200, 150, gz + 300); scene.add(fill.target);
+    img = grab(w, h);
+    [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity] = saved;
+    finishPolish(img, depthPass(obj, w, h), { ...P, sinElev: Math.sin(elev) });
+  }
   const m = mask ? teamMask(obj, img) : null;
   scene.remove(obj);
   return mask ? { img, mask: m } : img;
@@ -80,6 +102,30 @@ function grab(w, h) {
   octx.clearRect(0, 0, w, h); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
   octx.drawImage(renderer.domElement, 0, 0, w, h);
   return octx.getImageData(0, 0, w, h);
+}
+
+// ---- the polished finish's depth pass (polish.js): the scene again in packed depth, read back raw ----
+const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+let depthRT = null;
+/** The view depth of every output pixel, in camera units (the camera's near 1 to far 4000; ortho, so linear), as a
+ *  Float32Array w x h; transparent halos are left out (they would read as solid balls), the catcher stays (its depth
+ *  is the ground's, which the contact shadow needs). */
+function depthPass(obj, w, h) {
+  const hidden = [];
+  obj.traverse(o => { if (o.isMesh && o.visible && (o.material.transparent || o.userData.ground)) { hidden.push(o); o.visible = false; } }); // (`ground`: a building's earth plate, read as the ground itself, so no contact shadow rings it)
+  if (!depthRT || depthRT.width !== w || depthRT.height !== h) { depthRT?.dispose(); depthRT = new THREE.WebGLRenderTarget(w, h); }
+  const saved = [scene.overrideMaterial, renderer.toneMapping, renderer.shadowMap.enabled, catcher.visible];
+  scene.overrideMaterial = depthMat; renderer.toneMapping = THREE.NoToneMapping; renderer.shadowMap.enabled = false; catcher.visible = true;
+  renderer.setRenderTarget(depthRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
+  const px = new Uint8Array(w * h * 4); renderer.readRenderTargetPixels(depthRT, 0, 0, w, h, px);
+  [scene.overrideMaterial, renderer.toneMapping, renderer.shadowMap.enabled, catcher.visible] = saved;
+  for (const o of hidden) o.visible = true;
+  const z = new Float32Array(w * h), near = camera.near, far = camera.far;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { // (the target reads bottom-up)
+    const i = ((h - 1 - y) * w + x) * 4, d = (px[i] / 255) * (255 / 256) + (px[i + 1] / 255) * (255 / 256 / 256) + (px[i + 2] / 255) * (255 / 256 / 65536) + (px[i + 3] / 255) / 16777216;
+    z[y * w + x] = px[i + 3] || px[i] ? near + d * (far - near) : Infinity; // (nothing drawn: the sky)
+  }
+  return z;
 }
 
 const flat = new Map(); // unlit stand-ins for the mask pass, by weight and side

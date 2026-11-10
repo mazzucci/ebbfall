@@ -8,12 +8,14 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { torus, cone } from './vael.js';
 import { ashlarTex, ashlarBump, earthTex } from './kingdom.js';
+import { polishTextures } from './polish.js';
 
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
 const std = (o) => new THREE.MeshStandardMaterial(o);
 const lump = (r) => new THREE.DodecahedronGeometry(r, 0);
 /** The countryside's own materials: grey rock, the gold (the coins' light yellow, white glints, a darker shade in the
- *  veins' shadow), earth, leaves and bark, fieldstone, a puddle, flowers. Nothing team, nothing lit but the glints. */
+ *  veins' shadow), earth, leaves and bark, fieldstone, a puddle, flowers. Nothing team, nothing lit but the glints.
+ *  `countryPolish(true)` swaps in the polished copy (`polishCountryMats`); the plain set is never changed. */
 export const CMATS = {
   rock: std({ color: 0x6e6c66, roughness: 0.9, metalness: 0.02, flatShading: true }),                 // (round 1: 0x86847e lit near white and read as salt beside the gold)
   rockDark: std({ color: 0x4a4844, roughness: 0.95, metalness: 0.02, flatShading: true }),
@@ -41,10 +43,35 @@ export const CMATS = {
   timberGrey: std({ color: 0x8c7e68, roughness: 0.85 }),                                           // the Expedition's scaffold: weathered timber the locals brought (round 1's Harbour timber went near black)
   mortar: std({ color: 0xb0aca0, roughness: 1 }),
   clothDull: std({ color: 0x4a4740, roughness: 0.95 }),                                            // a dead building's cloth, greyed
+  iron: std({ color: 0x3a3c40, metalness: 0.6, roughness: 0.5 }),                                   // a cart's tyres, pegs (defined always, used by the polish)
+  soot: std({ color: 0x26231f, roughness: 1 }),                                                     // the scorched ground under rubble (the polish)
 };
-const CM = CMATS;
+let POLISHED = null;
+/** The polished copy of CMATS (the slice's recipe, polish.js: the same textures and the same numbers): gold at the
+ *  coins' tight bright glint (roughness 0.25, env x2, a scuff bump), scuffs on the rock, grain on bark and timber, the
+ *  fieldstone's courses redrawn for 1x (`hiAshlar`, as the walls), a glint on the puddle. Colours do not move. */
+function polishCountryMats() {
+  const X = polishTextures(), P = {}, bump = (m, map, k) => { m.bumpMap = map; m.bumpScale = k; m.needsUpdate = true; };
+  for (const [k, m] of Object.entries(CMATS)) P[k] = m.clone();
+  for (const k of ['gold', 'goldDark']) { P[k].roughness = 0.25; P[k].envMapIntensity = 2.0; bump(P[k], X.scuff, 0.2); }
+  for (const k of ['rock', 'rockDark', 'rockPale', 'pebble']) bump(P[k], X.scuff, 0.7);
+  bump(P.bark, X.grain, 0.8); bump(P.barkLight, X.grain, 0.6); bump(P.timberFresh, X.grain, 0.8); bump(P.timberGrey, X.grain, 0.8);
+  P.timberFresh.color.setHex(0x6c563a); P.timberGrey.color.setHex(0x70665a); // the scaffolds' poles darker under the polish (fresh timber two steps, grey one): thin poles are all lit edge under its key, fill and rim gain, and the plain colours went to a luminance of 200 (cream) and 149; the kingdom's pale heads must stay the lightest things
+  for (const k of ['fieldstone', 'fieldstoneDark']) { P[k].map = X.hiAshlar; bump(P[k], ashlarBump, 2.0); }
+  P.water.roughness = 0.15; P.water.envMapIntensity = 2.5; P.water.needsUpdate = true;
+  P.polish = true;
+  return P;
+}
+const cm = (on) => (on ? (POLISHED ??= polishCountryMats()) : CMATS);
+let CM = CMATS;
+/** Picks the plain or the polished country materials for the gold and the scenery (retheme.js calls it with the
+ *  render's `polish`); the sites follow their people's set (`K.polish` / `E.polish`). */
+export function countryPolish(on) { CM = cm(!!on); }
 /** A flat uneven patch (ground.js's): an outline of radius R wobbling by `amp`, squashed to `sq`, `h` thick. */
 const wob = (R, amp, ph) => (a) => R * (1 + amp * (0.13 * Math.sin(3 * a + ph) + 0.08 * Math.sin(5 * a + ph * 1.7) + 0.05 * Math.sin(9 * a + ph * 2.3)));
+/** Marks a mesh as the ground itself (an earth plate, a hollow, a puddle): the polish's contact shadow (scene.js
+ *  `depthPass`) leaves it out of the depth, so nothing rings it and what stands on it still casts its ellipse. */
+const ground = (m) => { m.userData.ground = true; return m; };
 function patch(edge, sq, h) {
   const sh = new THREE.Shape();
   for (let k = 0; k <= 60; k++) { const a = k / 60 * Math.PI * 2, r = edge(a), x = Math.cos(a) * r, z = Math.sin(a) * r * sq; k ? sh.lineTo(x, -z) : sh.moveTo(x, -z); }
@@ -96,10 +123,10 @@ export function goldField(stage, v = 0) {
     const big = [...V.cl].sort((a, b) => b[3] - a[3]), keep = stage ? big.slice(0, Math.ceil(big.length / 2)) : V.cl, k = stage ? 0.78 : 1;
     keep.forEach(([x, z, r, h]) => { const c = goldLump(r * k * 1.25, h * k * 1.3, stage ? 0.6 : 1); c.position.set(x * 1.35, 0, z * 1.35); c.rotation.y = rnd() * 3; body.add(c); });
     loose(stage ? 3 : 5, 32);
-    if (stage) for (let j = 0; j < 2; j++) add(body, patch(wob(4 + rnd() * 1.5, 1.3, rnd() * 6), 0.8, 0.4), CM.earthDark, 8 - j * 15 + rnd() * 3, 0.05, 6 - j * 11);   // dug hollows
+    if (stage) for (let j = 0; j < 2; j++) ground(add(body, patch(wob(4 + rnd() * 1.5, 1.3, rnd() * 6), 0.8, 0.4), CM.earthDark, 8 - j * 15 + rnd() * 3, 0.05, 6 - j * 11));   // dug hollows
   } else if (stage === 2) {
-    add(body, patch(wob(11, 1.2, 1.1 + v), 0.8, 0.35), CM.earth, 0, 0.05, 0);                                          // dug earth where the lumps stood
-    add(body, patch(wob(5, 1.5, 2 + v), 0.8, 0.3), CM.earthDark, 2, 0.4, -1);
+    ground(add(body, patch(wob(11, 1.2, 1.1 + v), 0.8, 0.35), CM.earth, 0, 0.05, 0));                                  // dug earth where the lumps stood
+    ground(add(body, patch(wob(5, 1.5, 2 + v), 0.8, 0.3), CM.earthDark, 2, 0.4, -1));
     const n = 6 + (v % 2) * 2;
     for (let k = 0; k < n; k++) {                                                                                      // broken slabs of rock, a little tilted
       const a = k / n * Math.PI * 2 + rnd() * 0.4, d = k < 2 ? 2 + rnd() * 2 : 6 + rnd() * 4, w = 3.5 + rnd() * 2.5;
@@ -108,8 +135,8 @@ export function goldField(stage, v = 0) {
     for (let k = 0; k < 3; k++) { const a = rnd() * 6.3, d = 2 + rnd() * 6, nr = 1 + rnd() * 0.6; add(body, lump(nr), CM.gold, Math.cos(a) * d, nr * 0.5, Math.sin(a) * d * 0.8, rnd(), rnd(), rnd()); add(body, sph(nr * 0.3, 6, 4), CM.glint, Math.cos(a) * d - nr * 0.3, nr * 1.05, Math.sin(a) * d * 0.8 - nr * 0.3); }
   } else {
     const pit = wob(10, 1.2, 0.7 + v * 1.3);
-    add(body, patch(pit, 0.8, 0.3), CM.earthDark, 0, 0, 0);
-    add(body, patch(wob(6, 1.6, 2.1 + v), 0.75, 0.2), CM.pit, 1, 0.3, 0.5);                                            // the pit's dark bottom
+    ground(add(body, patch(pit, 0.8, 0.3), CM.earthDark, 0, 0, 0));
+    ground(add(body, patch(wob(6, 1.6, 2.1 + v), 0.75, 0.2), CM.pit, 1, 0.3, 0.5));                                    // the pit's dark bottom
     for (let k = 0; k < 11; k++) {                                                                                     // the rim: broken rock, a gap here and there
       if (k % 5 === (v + 3) % 5) continue;
       const a = k / 11 * Math.PI * 2 + (rnd() - 0.5) * 0.25, w = 2.5 + rnd() * 2.5, r = pit(a) - 0.5;
@@ -159,7 +186,10 @@ export function ruinWall(v) {
  *  ground; v 1 tipped on its side, a wheel off and leaning on it. */
 export function cart(v) {
   const g = grp(); s = 503 + v * 37;
-  const wheel = (p, x, y, z, rx, rz) => { const w = grp(); w.position.set(x, y, z); w.rotation.set(rx, 0, rz); p.add(w); add(w, torus(5.2, 0.8, Math.PI * 2, 20), CM.bark, 0, 0, 0, 0, Math.PI / 2, 0); add(w, cyl(1.2, 1.2, 1.6, 8), CM.barkLight, 0, 0, 0, 0, 0, Math.PI / 2); for (let k = 0; k < 6; k++) add(w, rbox(0.7, 9.6, 0.7, 0.2), CM.barkLight, 0, 0, 0, k / 6 * Math.PI, 0, 0); };
+  const wheel = (p, x, y, z, rx, rz) => {
+    const w = grp(); w.position.set(x, y, z); w.rotation.set(rx, 0, rz); p.add(w); add(w, torus(5.2, 0.8, Math.PI * 2, 20), CM.bark, 0, 0, 0, 0, Math.PI / 2, 0); add(w, cyl(1.2, 1.2, 1.6, 8), CM.barkLight, 0, 0, 0, 0, 0, Math.PI / 2); for (let k = 0; k < 6; k++) add(w, rbox(0.7, 9.6, 0.7, 0.2), CM.barkLight, 0, 0, 0, k / 6 * Math.PI, 0, 0);
+    if (CM.polish) { add(w, torus(5.9, 0.42, Math.PI * 2, 24), CM.iron, 0, 0, 0, 0, Math.PI / 2, 0); add(w, cyl(0.55, 0.55, 2.4, 8), CM.iron, 0, 0, 0, 0, 0, Math.PI / 2); } // secondary detail: an iron tyre round the rim and a hub pin
+  };
   const body = grp(); g.add(body);
   if (!v) { body.position.y = 5.8; body.rotation.y = 0.5; }
   else { body.position.set(0, 4.5, 0); body.rotation.set(1.25, 0.3, 0); }
@@ -188,8 +218,8 @@ export function puddle(v) {
   const g = grp(); s = 431 + v * 31;
   const lobes = [[0, 0, 8, 5], [6, 2, 5, 3.6], [-6, -1.5, 4.5, 3.2], [2, -3, 3.6, 2.6]];
   const outline = (grow, y) => { const sh = new THREE.Shape(); for (let k = 0; k <= 64; k++) { const a = k / 64 * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a); let best = 0; for (const [x, z, rx, rz] of lobes) for (let t = 0; t < 16; t += 0.2) if (((dx * t - x) / (rx + grow)) ** 2 + ((dz * t - z) / (rz + grow)) ** 2 <= 1) best = Math.max(best, t); k ? sh.lineTo(dx * best, -dz * best) : sh.moveTo(dx * best, -dz * best); } const geo = new THREE.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2); geo.translate(0, y, 0); return geo; };
-  add(g, outline(1.6, 0.25), CM.mud, 0, 0, 0);
-  add(g, outline(0, 0.4), CM.water, 0, 0, 0);
+  ground(add(g, outline(1.6, 0.25), CM.mud, 0, 0, 0));
+  ground(add(g, outline(0, 0.4), CM.water, 0, 0, 0));
   for (let k = 0; k < 2; k++) { const [x, z, rx, rz] = lobes[k], a = rnd() * 6.3; add(g, lump(1.3 + rnd()), CM.pebble, x + Math.cos(a) * rx, 0.5, z + Math.sin(a) * rz, rnd(), rnd(), 0).scale.y = 0.55; }
   return g;
 }
@@ -225,15 +255,23 @@ function stringLine(g, h, peg, rope) {
   for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(0.55, 0.7, 5, 8), peg, x * (h - 4), 2.5, z * (h - 4));
   for (const [x, z, rot] of [[0, -(h - 4), 0], [0, h - 4, 0], [-(h - 4), 0, Math.PI / 2], [h - 4, 0, Math.PI / 2]]) add(g, rbox((h - 4) * 2, 0.25, 0.25, 0.1), rope, x, 4.6, z, 0, rot, 0);
 }
-/** Scaffold poles round a site: `n` bays a side, lashed with rope at the top ledger, two ledgers, rope braces. */
-function poles(g, n, W, H, timber, rope) {
+/** Scaffold poles round a site: `n` bays a side, lashed with rope at the top ledger, two ledgers, rope braces. With
+ *  `polish`, the lashings at the middle ledger too and a ladder leaning on the south face (the polish's secondary
+ *  detail: at 2x a scaffold with a ladder is a scaffold). */
+function poles(g, n, W, H, timber, rope, polish = false) {
   const h = W / 2, ps = [];
   for (let x = -h; x <= h + 0.1; x += W / Math.max(2, n)) for (const z of [-h, h]) ps.push([x, z], [z, x]);
-  for (const [x, z] of ps) { add(g, cyl(0.9, 1.1, H + 2, 8), timber, x, (H + 2) / 2, z, (rnd() - 0.5) * 0.04, 0, (rnd() - 0.5) * 0.04); add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H - 0.6, z, Math.PI / 2); }
+  for (const [x, z] of ps) { add(g, cyl(0.9, 1.1, H + 2, 8), timber, x, (H + 2) / 2, z, (rnd() - 0.5) * 0.04, 0, (rnd() - 0.5) * 0.04); add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H - 0.6, z, Math.PI / 2); if (polish) add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H * 0.5 + 0.9, z, Math.PI / 2); }
   for (const y of [H * 0.5, H]) for (const [x, z, rot] of [[0, -h, 0], [0, h, 0], [-h, 0, Math.PI / 2], [h, 0, Math.PI / 2]]) add(g, rbox(W + 2, 1.2, 1.2, 0.4), timber, x, y, z, 0, rot, 0);
   for (const x of [-h, h]) limb(g, [x, 1, -h], [x, H * 0.95, h], 0.3, rope);
   for (const z of [-h, h]) limb(g, [-h, 1, z], [h, H * 0.95, z], 0.3, rope);
+  if (polish) ladder(g, h * 0.45, h + 4.5, h + 0.6, H + 1.5, timber);
   return h;
+}
+/** A ladder from the ground at (x, z0) leaning to the top ledger at (x, z1, y1): two rails and a rung every 3 units. */
+function ladder(g, x, z0, z1, y1, timber) {
+  for (const dx of [-1.3, 1.3]) limb(g, [x + dx, 0.2, z0], [x + dx, y1, z1], 0.4, timber);
+  const n = Math.floor(y1 / 3); for (let k = 1; k <= n; k++) { const t = k / (n + 0.5); add(g, rbox(3.0, 0.5, 0.5, 0.15), timber, x, y1 * t, z0 + (z1 - z0) * t); }
 }
 /** A team cloth hung from the top ledger on the north side, facing the camera (round 1's on the east side was
  *  edge-on from the south and gave no share), `len` long along x, `h` tall, between two ink hems. */
@@ -252,22 +290,26 @@ function pennant(g, M, x, y, z) {
  *  at the corners and the first course of ashlar laid along the south side, a string line, a pile of cut blocks, a
  *  mortar tub and a stack of planks. `K`: makeKingdomMats. */
 export function foundationKg(n, K) {
-  const g = grp(), W = n * 32 - 6, h = W / 2; s = 71 + n;
-  for (const [x, z, rot] of [[0, -h, 0], [0, h, 0], [-h, 0, Math.PI / 2], [h, 0, Math.PI / 2]]) add(g, rbox(W, 2.2, 2.6, 0.5), CM.timberFresh, x, 1.1, z, 0, rot, 0);
+  const g = grp(), W = n * 32 - 6, h = W / 2, C = cm(K.polish); s = 71 + n;
+  for (const [x, z, rot] of [[0, -h, 0], [0, h, 0], [-h, 0, Math.PI / 2], [h, 0, Math.PI / 2]]) add(g, rbox(W, 2.2, 2.6, 0.5), C.timberFresh, x, 1.1, z, 0, rot, 0);
   for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, rbox(5, 3, 5, 0.3), K.plinth, x * h, 1.5, z * h);
   for (let k = 0; k < n * 2 + 1; k++) add(g, rbox(5, 2.4, 3.2, 0.3), K.wall, -h + 6 + k * 5.6, 3.4, h, 0, 0, 0);          // the first course, south
-  stringLine(g, h, CM.timberFresh, K.rope);
+  stringLine(g, h, C.timberFresh, K.rope);
   for (let k = 0; k < 2 + n; k++) add(g, rbox(5, 2.6, 4, 0.3), k % 2 ? K.wall : K.wallDark, h - 7 + (k % 2) * 3 - 1.5, 1.3 + Math.floor(k / 2) * 2.7, -h + 7 + (k % 2) * 1.5, 0, (rnd() - 0.5) * 0.3, 0);   // cut blocks piled
-  add(g, cyl(3, 2.6, 3, 10), K.oak, -h + 8, 1.5, -h + 7); add(g, cyl(2.6, 2.6, 0.4, 10), CM.mortar, -h + 8, 3.1, -h + 7);   // the mortar tub
-  for (let k = 0; k < 3; k++) add(g, rbox(12, 1, 3, 0.3), CM.timberFresh, 0, 0.5 + k * 1.1, h - 7 + k * 0.3, 0, (k - 1) * 0.05, 0);
+  add(g, cyl(3, 2.6, 3, 10), K.oak, -h + 8, 1.5, -h + 7); add(g, cyl(2.6, 2.6, 0.4, 10), C.mortar, -h + 8, 3.1, -h + 7);   // the mortar tub
+  for (let k = 0; k < 3; k++) add(g, rbox(12, 1, 3, 0.3), C.timberFresh, 0, 0.5 + k * 1.1, h - 7 + k * 0.3, 0, (k - 1) * 0.05, 0);
+  if (K.polish) { // secondary detail: the second course begun at the west end (three blocks, staggered), iron pegs through the sills at the corners
+    for (let k = 0; k < 3; k++) add(g, rbox(5, 2.4, 3.2, 0.3), k % 2 ? K.wallDark : K.wall, -h + 8.8 + k * 5.6, 5.8, h, 0, 0, 0);
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(0.5, 0.5, 4.4, 8), C.iron, x * (h - 4.6), 2.2, z * h);
+  }
   return g;
 }
 /** The kingdom's scaffold (`rt_kg_scaffold_n`): fresh timber poles lashed with rope, two ledgers, rope braces, a plank
  *  walk on the top ledger north and east, a team cloth hung on the east side and a team pennant. No shadow. */
 export function scaffoldKg(n, K) {
-  const g = grp(), W = n * 32 - 8, H = 10 + n * 6; s = 81 + n;
-  const h = poles(g, n, W, H, CM.timberFresh, K.rope);
-  add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), CM.timberFresh, 0, H + 0.9, -h + 1.2); add(g, rbox(3.6, 0.6, W * 0.55, 0.1), CM.timberFresh, h - 1.2, H + 0.9, 0);   // the plank walk
+  const g = grp(), W = n * 32 - 8, H = 10 + n * 6, C = cm(K.polish); s = 81 + n;
+  const h = poles(g, n, W, H, C.timberFresh, K.rope, !!K.polish);                                                        // (polish: the middle lashings and a ladder on the south face)
+  add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), C.timberFresh, 0, H + 0.9, -h + 1.2); add(g, rbox(3.6, 0.6, W * 0.55, 0.1), C.timberFresh, h - 1.2, H + 0.9, 0);   // the plank walk
   hungCloth(g, K, -W * 0.08, H * 0.7, -h + 0.9, W * 0.4, H * 0.34);                                                      // (round 2: a hanging, not a billboard; 0.62 x 0.42 gave 0.30)
   pennant(g, K, -h, H + 2.1, -h); pennant(g, K, h - 5.2, H + 2.1, -h);
   return g;
@@ -275,8 +317,9 @@ export function scaffoldKg(n, K) {
 /** The kingdom's rubble (`rt_kg_rubble_n`): tumbled ashlar, broken oak beams, slates thrown down, a stub of wall still
  *  standing, a bent iron band and a greyed scrap of cloth: the wreck of a stone-and-timber building. */
 export function rubbleKg(n, K) {
-  const g = grp(), W = n * 32 - 8; s = 91 + n;
+  const g = grp(), W = n * 32 - 8, C = cm(K.polish); s = 91 + n;
   const sp = () => (rnd() + rnd() - 1) * W * 0.46;                                                                        // heaped towards the middle (round 1's even spread read as confetti)
+  if (K.polish) ground(add(g, patch(wob(W * 0.3, 1.2, 0.9 + n), 0.8, 0.3), C.soot, 0, 0, 0));                           // secondary detail: the scorched ground under the heap (ground: the contact shadow does not ring it)
   add(g, rbox(8 + n * 2, 4 + n, 3.4, 0.3), K.wall, -W * 0.22, 2 + n / 2, -W * 0.2, 0, 0.3, 0);                            // the stub of wall still standing
   add(g, rbox(2.6, 2.4, 3.4, 0.3), K.wall, -W * 0.22 - 3, 4.5 + n, -W * 0.2 + 1, 0, 0.3, 0);
   add(g, rbox(5 + n, 2.6, 3.4, 0.3), K.wall, W * 0.2, 1.3, W * 0.15, 0, -0.5, 0);                                         // a length of fallen wall
@@ -284,7 +327,7 @@ export function rubbleKg(n, K) {
   for (let k = 0; k < n + 2; k++) { const L = 8 + rnd() * (6 + n * 2); add(g, rbox(L, 1.8, 2, 0.3), K.oak, sp(), 1.5 + rnd() * 2.5, sp(), (rnd() - 0.5) * 0.6, rnd() * 3, (rnd() - 0.5) * 0.5); }
   for (let k = 0; k < n + 2; k++) add(g, rbox(6 + rnd() * 3, 0.6, 5 + rnd() * 2, 0.2), K.roof, sp(), 0.5 + rnd() * 2, sp(), (rnd() - 0.5) * 0.5, rnd() * 3, (rnd() - 0.5) * 0.5);
   add(g, torus(3, 0.4, Math.PI * 1.3, 20), K.ironDark, sp() * 0.6, 1.2, sp() * 0.6, Math.PI / 2 - 0.3, rnd() * 3, 0);
-  for (let k = 0; k < n - 1; k++) add(g, rbox(7 + rnd() * 4, 0.5, 5 + rnd() * 3, 0.3), CM.clothDull, sp() * 0.7, 0.4, sp() * 0.7, 0.08, rnd() * 3, -0.06);
+  for (let k = 0; k < n - 1; k++) add(g, rbox(7 + rnd() * 4, 0.5, 5 + rnd() * 3, 0.3), C.clothDull, sp() * 0.7, 0.4, sp() * 0.7, 0.08, rnd() * 3, -0.06);
   return g;
 }
 /** The Expedition's foundation (`rt_ex_foundation_n`): a stone footing laid round the site, planks laid as a floor
@@ -299,19 +342,24 @@ export function foundationEx(n, E) {
   drum(h - 7, h - 7, true); drum(-h + 7, h - 8, false);
   add(g, rbox(6, 5, 6, 0.4), E.panelDark, h - 7, 2.5, -h + 8, 0, 0.3, 0); add(g, rbox(6.2, 0.8, 0.8, 0.1), E.paleSteel, h - 7, 3.6, -h + 8, 0, 0.3, 0);   // the crate, a pale strap
   add(g, torus(2.6, 0.7, Math.PI * 2, 16), E.cable, 0, 0.7, h - 6, Math.PI / 2);
+  if (E.polish) { // secondary detail: a surveyor's tripod by the south-west corner (steel legs, a dark instrument box), steel rims on the upright drum
+    const [tx, tz] = [-h + 9, h - 2]; for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 + 0.5; limb(g, [tx, 9.5, tz], [tx + Math.cos(a) * 3.2, 0.2, tz + Math.sin(a) * 3.2], 0.45, E.paleSteel); }
+    add(g, rbox(2.4, 1.8, 2.4, 0.3), E.panelDark, tx, 10.4, tz, 0, 0.4, 0);
+    for (const y of [0.5, 4.7]) add(g, torus(4.25, 0.3, Math.PI * 2, 20), E.paleSteel, h - 7, y, h - 7, Math.PI / 2);
+  }
   return g;
 }
 /** The Expedition's scaffold (`rt_ex_scaffold_n`): timber poles lashed with rope, two ledgers, a plank walk, and a
  *  hoist at one corner: a tall mast with a jib, a steel pulley, a cable down to a crate on the hook; a team flag on
  *  the mast, a team cloth hung on the east side. No shadow. */
 export function scaffoldEx(n, E) {
-  const g = grp(), W = n * 32 - 8, H = 10 + n * 6; s = 181 + n;
-  const h = poles(g, n, W, H, CM.timberGrey, E.rope);
+  const g = grp(), W = n * 32 - 8, H = 10 + n * 6, C = cm(E.polish); s = 181 + n;
+  const h = poles(g, n, W, H, C.timberGrey, E.rope, !!E.polish);                                                         // (polish: the middle lashings and a ladder on the south face)
   add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), E.deck, 0, H + 0.9, -h + 1.2);
   const MX = -h + 2, MZ = h - 2, MH = H + 12;
-  add(g, cyl(1.1, 1.3, MH, 8), CM.timberGrey, MX, MH / 2, MZ);                                                            // the mast
-  limb(g, [MX, MH - 3, MZ], [MX + 11, MH + 2, MZ - 4], 0.9, CM.timberGrey);                                              // the jib
-  limb(g, [MX, MH - 10, MZ], [MX + 8, MH + 0.7, MZ - 2.9], 0.5, CM.timberGrey);                                          // its strut
+  add(g, cyl(1.1, 1.3, MH, 8), C.timberGrey, MX, MH / 2, MZ);                                                             // the mast
+  limb(g, [MX, MH - 3, MZ], [MX + 11, MH + 2, MZ - 4], 0.9, C.timberGrey);                                               // the jib
+  limb(g, [MX, MH - 10, MZ], [MX + 8, MH + 0.7, MZ - 2.9], 0.5, C.timberGrey);                                           // its strut
   add(g, cyl(1.1, 1.1, 0.8, 10), E.steel, MX + 11, MH + 2.2, MZ - 4, Math.PI / 2, 0, 0);                                  // the pulley
   limb(g, [MX + 11, MH + 1.5, MZ - 4], [MX + 11.3, H * 0.55 + 3, MZ - 4.2], 0.28, E.cable);                               // the cable
   add(g, torus(0.8, 0.25, Math.PI * 1.5, 10), E.steel, MX + 11.3, H * 0.55 + 2.4, MZ - 4.2, 0, 0, Math.PI);
@@ -324,8 +372,12 @@ export function scaffoldEx(n, E) {
 /** The Expedition's rubble (`rt_ex_rubble_n`): broken planks, a bent panel or two, loops of cable, a drum on its side,
  *  a split crate and the footing's stones: the wreck of a plank-and-stone building with its kit. */
 export function rubbleEx(n, E) {
-  const g = grp(), W = n * 32 - 8; s = 191 + n;
+  const g = grp(), W = n * 32 - 8, C = cm(E.polish); s = 191 + n;
   const sp = () => (rnd() + rnd() - 1) * W * 0.46;                                                                        // heaped towards the middle
+  if (E.polish) { // secondary detail: the scorched ground under the heap (ground), a twisted strip of pale steel
+    ground(add(g, patch(wob(W * 0.3, 1.2, 1.7 + n), 0.8, 0.3), C.soot, 0, 0, 0));
+    add(g, rbox(7 + n, 0.5, 0.7, 0.1), E.paleSteel, W * 0.12, 1.6, -W * 0.1, 0.3, 0.8, 0.5);
+  }
   for (let k = 0; k < n * n * 2 + 2; k++) { const L = 7 + rnd() * (6 + n * 2); add(g, rbox(L, 1, 2.8 + rnd(), 0.2), k % 3 ? E.deck : E.oak, sp(), 0.6 + rnd() * 2, sp(), (rnd() - 0.5) * 0.6, rnd() * 3, (rnd() - 0.5) * 0.4); }
   for (let k = 0; k < n; k++) {                                                                                           // bent panels: two halves hinged at an angle, a pale edge strip, so a panel reads as a panel and not a plank
     const p = grp(); p.position.set(sp() * 0.8, 2.2 + rnd(), sp() * 0.8); p.rotation.set((rnd() - 0.5) * 0.5, rnd() * 3, (rnd() - 0.5) * 0.3); g.add(p);

@@ -115,6 +115,7 @@ const EXPEDITION_BASE = [
 function base(name, list, seed) {
   const b = canvas(BW, BH); ground(b, 0, BH, seed); A.place(b, list);
   const z100 = crop(b, (BW - W) / 2, (BH - H) / 2, W, H), z075 = resample(b, 0.75);
+  if (name === 'expedition') writeFileSync(join(outDir, 'bunkhouse-check.png'), encodePNG(half(z100)));                     // (the Bunkhouse in its base at zoom 1.0 and 1x, no label: for cold testers)
   label(z100, `${name.toUpperCase()} BASE AFTER THE POLISH, ZOOM 1.0  GROUND ${meanValue(z100, 0, H).toFixed(2)}`, 12, 12, 2); label(z075, `${name.toUpperCase()} BASE AFTER THE POLISH, ZOOM 0.75`, 12, 12, 2);
   writeFileSync(join(outDir, `base-${name}.png`), encodePNG(z100)); writeFileSync(join(outDir, `base-${name}-1x.png`), encodePNG(half(z100)));
   writeFileSync(join(outDir, `base-${name}-075.png`), encodePNG(z075)); writeFileSync(join(outDir, `base-${name}-075-1x.png`), encodePNG(half(z075)));

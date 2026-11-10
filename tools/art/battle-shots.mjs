@@ -7,12 +7,14 @@
 // so the frame shot is the frame the game drew mid-fight. Your army is box-selected (a tap on a phone) through the UI,
 // so the HUD shows a selection. Each scene at desktop size (1280x720) and a phone's landscape (844x390 at 2x):
 //   <scene>-desktop.png, <scene>-phone.png
-//   mixed      Harbour against Vael, a mixed army each, at a salt field, held on a harpoon and a beam in flight
+//   mixed      the kingdom (the Harbour seat) against the Expedition (the Vael seat), a mixed army each of the kinds the
+//              re-theme draws anew, at a gold field, held on an arrow and a tracer in flight
 //   harbour    a Harbour mirror (seats 0 and 1)
 //   vael       a Vael mirror
 //   base-harbour, base-vael   a base with every building of its people
 //   air        flyers of both peoples (Kite, Spyglass, Windjammer; Petrel, Argonaut) with Harpooners and Lenses, held
 //              on a frame with a harpoon and a beam in flight where one comes
+//   shore      the mixed fight on the Shore map (Tidewater Reef, chosen in the menu's map list), zoomed out to 0.75
 // It prints, per shot, what was in flight (the projectiles by shooter) and the units on screen.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -23,10 +25,11 @@ const [outArg, ...only] = process.argv.slice(2);
 const outDir = outArg ?? fileURLToPath(new URL('../../target/art-review/step2/battle/', import.meta.url));
 mkdirSync(outDir, { recursive: true });
 
-const H_ARMY = { trooper: 5, lancer: 3, medic: 2, vanguard: 1, siegeTank: 1, interceptor: 2 };
-const V_ARMY = { scythe: 5, prism: 3, halo: 2, monolith: 1, umbra: 1, lumen: 1 };
+const H_ARMY = { trooper: 5, lancer: 4, siegeTank: 1, harvester: 1, observer: 1 };
+const V_ARMY = { scythe: 3, prism: 4, umbra: 2, monolith: 1, lumen: 1, shrike: 2 };
 const SCENES = {
   mixed: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], shots: ['lancer', 'prism'] },
+  shore: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], map: 'Tidewater Reef', zoom: 0.75 },
   harbour: { races: ['humans', 'humans'], armies: [H_ARMY, { trooper: 5, lancer: 3, medic: 1, vanguard: 2, siegeTank: 1, interceptor: 1 }] },
   vael: { races: ['vael', 'vael'], armies: [V_ARMY, { scythe: 4, prism: 4, halo: 1, monolith: 2, umbra: 1 }] },
   'base-harbour': { races: ['humans', 'vael'], base: true },
@@ -35,7 +38,7 @@ const SCENES = {
 };
 
 /** A single-player game through the menu: your race and the AI's on the board, START; the AI then switched off. */
-async function newGame(device, races) {
+async function newGame(device, races, mapName) {
   const ctx = await browserContext(device), page = await ctx.newPage(), touch = !!device.hasTouch, errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install(); // (runs with real time until held: `freeze`)
@@ -46,6 +49,7 @@ async function newGame(device, races) {
   const b = board(page);
   if (races[0] !== 'humans') await b.race(0, races[0]);
   await b.race(1, races[1]);
+  if (mapName) { const i = await page.$$eval('#mapSel option', (os, n) => os.findIndex(o => o.textContent.startsWith(n)), mapName); await page.locator('#mapSel').selectOption(String(i)); }
   await press('#btnStart');
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   await page.evaluate(() => endfall.engine.disableAi());
@@ -106,12 +110,12 @@ const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date
 const frame = (page, ms = 60) => page.clock.runFor(ms);
 
 async function shoot(name, scene, device, label) {
-  const g = await newGame(device, scene.races), { page } = g, file = join(outDir, `${name}-${label}.png`);
+  const g = await newGame(device, scene.races, scene.map), { page } = g, file = join(outDir, `${name}-${label}.png`);
   try {
     let at, note = '';
     if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; }
     else at = await fight(page, scene.armies);
-    await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.base ? 0.75 : 1]);
+    await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);
     await frame(page, 100);
     if (at.box) { // your army selected through the UI: a box drag, or a tap on one unit
       const canvas = await page.locator('#game').boundingBox(), c = await page.evaluate(() => ({ x: endfall.cam.x, y: endfall.cam.y, z: endfall.cam.zoom }));

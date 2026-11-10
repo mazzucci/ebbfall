@@ -294,7 +294,8 @@ export function marine(M, f) {
     add(g, rbox(3.4, 1.5, 2.2, 0.6), M.boot, s + 0.5, 0.75, z);
     limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, M.uniform);                             // the legs in charcoal fatigues (pale camo legs under a dark top inverted the rule: the judge)
     limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.05, M.uniform);
-    add(g, sph(1.0, 8, 6), M.armour, s * 0.6, 3.6, z * 1.05).scale.set(1.1, 1, 0.9);             // knee pads, charcoal
+    add(g, sph(1.65, 8, 6), M.paint, s * 0.6 + 0.3, 3.7, z * 1.05).scale.set(1.2, 1, 0.95);      // team knee pads, bulky as tactical ones are (the PM: the floor is reached with the pack, pads and armband)
+    add(g, torus(1.35, 0.28, 10), M.inkLine, s * 0.6 + 0.3, 3.7, z * 1.05 + side * 1.1);           // their ink rims
   }
   const b = grp(); g.add(b);
   add(b, rbox(4.8, 6.0, 6.4, 1.5), M.camo, 0, 10.3, 0);                                        // the torso, camouflage fatigues

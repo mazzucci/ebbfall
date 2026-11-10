@@ -1,22 +1,35 @@
-// The re-theme's slice (the kingdom, kingdom.js; the Expedition, expedition.js), rendered only when a filter asks
-// for them by name (main.js calls `rethemeSprites` with the filter's `want`), never into the atlas:
-// tools/art/retheme-compare.mjs builds Stelian's pictures from them. Names: `kg_<kind>_<dir>_<frame>` and
-// `ex_<kind>_<dir>_<frame>` for the units (16 facings, two frames), `bldg_kg_castle` and `bldg_ex_hall` for the main
-// buildings, `rt_coins` for the gold deposit (not team). The kingdom is palette B (slate) and the Expedition its one
-// dark-kit look (Stelian, 2026-11-10). The camera: `elev` degrees (RT_ELEV by default), lower than the game's 55 so
-// the cells are taller (`liftAt`). Units are drawn UNIT_SCALE larger than their sim size (Stelian: "a bit larger so
-// they can be distinguished"; visual only, the footprint and radius unchanged); buildings stay their footprint's.
+// The re-theme's models (the kingdom, kingdom.js and kingdom-units.js; the Expedition, expedition.js and
+// expedition-units.js), rendered only when a filter asks for them by name (main.js calls `rethemeSprites` with the
+// filter's `want`), never into the atlas: tools/art/retheme-compare.mjs (the slice) and tools/art/retheme-units.mjs
+// (the units family) build Stelian's pictures from them. Names: `kg_<kind>_<dir>_<frame>` and `ex_<kind>_<dir>_<frame>`
+// for the units (16 facings, two frames unless `frames` says otherwise: the Trebuchet's four poses, the Balloon's
+// one), `bldg_kg_castle` and `bldg_ex_hall` for the main buildings, `rt_coins` for the gold deposit (not team). The
+// kingdom is palette B (slate) and the Expedition its one dark-kit look (Stelian, 2026-11-10). The camera: `elev`
+// degrees (RT_ELEV by default), lower than the game's 55 so the cells are taller (`liftAt`). Units are drawn
+// UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can be distinguished"; visual only, the
+// footprint and radius unchanged); buildings stay their footprint's.
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
+import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from './expedition.js';
+import { mercenary, veteran, rover, drone } from './expedition-units.js';
 
 export const RT_ELEV = 40;
 export const UNIT_SCALE = 1.4;
-/** The units: kind -> builder and the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render). */
+/** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render) and its
+ *  frames (2 by default: the walk). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
-  kg: { villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 } },
-  ex: { bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 14 }, marine: { build: marine, r: 15, h: 20 } },
+  kg: {
+    villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 },
+    archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32 },
+    ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 24, h: 30, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
+  },
+  ex: {
+    bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
+    mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
+    rover: { build: rover, r: 20, h: 20 }, drone: { build: drone, r: 16, h: 24 },
+  },
 };
 export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: dataCentre, n: 4, h: 50 } } };
 const MATS = { kg: (tc) => makeKingdomMats(tc, 'B'), ex: makeExpeditionMats };
@@ -32,14 +45,14 @@ function bldgCell(n, h, lift) {
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 
-/** Yields [name, object, cell, shootOpts, isTeam] for every slice sprite `want(name)` asks for. */
+/** Yields [name, object, cell, shootOpts, isTeam] for every re-theme sprite `want(name)` asks for. */
 export function* rethemeSprites(want, elevDeg = RT_ELEV) {
   const elev = (elevDeg ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
   for (const side of ['kg', 'ex']) {
     let M = null; const mats = () => M ??= MATS[side](NEUTRAL);
     for (const [kind, m] of Object.entries(RT_UNITS[side])) {
       const cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
-      for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < 2; f++) {
+      for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
         const name = `${side}_${kind}_${dir}_${f}`; if (!want(name)) continue;
         const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
         yield [name, obj, cell, o, true];

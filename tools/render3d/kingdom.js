@@ -130,19 +130,19 @@ function roundCrenels(g, M, x, z, r, y, n = 10) {
 }
 /** A hanging team cloth on a wall face: the cloth between two ink hems, hung from a pole with knobs. The group's -x
  *  side is against the wall; `ry` turns it to the face. */
-function hanging(g, M, x, y, z, w, h, ry = 0) {
+export function hanging(g, M, x, y, z, w, h, ry = 0) {
   const p = grp(); p.position.set(x, y, z); p.rotation.y = ry; g.add(p);
   add(p, rbox(0.5, h, w, 0.1), M.cloth, 0, -h / 2, 0);
   add(p, rbox(0.6, 0.5, w + 0.3, 0.05), M.inkLine, 0, -0.2, 0); add(p, rbox(0.6, 0.5, w + 0.3, 0.05), M.inkLine, 0, -h + 0.2, 0);
   add(p, cyl(0.4, 0.4, w + 2, 8), M.oak, 0.2, 0.3, 0, Math.PI / 2, 0, 0);
 }
 /** A pennant on a staff: a team triangle, a plate turned to face the camera. */
-function pennant(g, M, x, y, z, h = 14, L = 9) {
+export function pennant(g, M, x, y, z, h = 14, L = 9) {
   add(g, cyl(0.7, 0.8, h, 6), M.oak, x, y + h / 2, z); add(g, sph(0.9, 8, 6), M.steel, x, y + h + 0.3, z);
   add(g, plate([[0, -2.2], [L, -0.5], [L, 0.5], [0, 2.2]], 0.4, 0.1), M.cloth, x + 0.3, y + h - 0.6, z, Math.PI / 2, 0, 0);
 }
 /** A square banner flying from a staff: team cloth between ink hems, a plate facing the camera. */
-function banner(g, M, x, y, z, h, w, d) {
+export function banner(g, M, x, y, z, h, w, d) {
   add(g, cyl(0.8, 0.9, h, 6), M.oak, x, y + h / 2, z); add(g, sph(1.0, 8, 6), M.steel, x, y + h + 0.4, z);
   add(g, plate([[0, 0], [w, 0], [w, d], [w * 0.5, d - 1.5], [0, d]], 0.4, 0.1), M.cloth, x + 0.4, y + h - 0.8, z, Math.PI / 2, 0, 0);
   add(g, rbox(w + 0.4, 0.4, 0.5, 0.05), M.inkLine, x + 0.4 + w / 2, y + h - 0.8, z + 0.1);
@@ -167,12 +167,13 @@ export function figure(M, f, { tunic = M.tunic, hose = M.hose, skirt = 4.0 } = {
   return Object.assign(g, { body: b });
 }
 
-/** Villager (worker, sim r 9, scale 0.95): the one that carries: a big sack slung high on the back, wider than the
- *  shoulders, a loud heap of gold coins out of its mouth (the slice: the load reads before the side does), the head in
- *  a pale linen coif (a snug cap; the kingdom's heads are pale, each its own shape), two team
- *  straps over the shoulders, team hose, a team cape at the shoulders, a plain tunic; a short pick held low in the
- *  right hand, its bright head near the ground ahead. From the camera: a dark small head, a fat pale sack behind it,
- *  a short bright bar low ahead; in grey, no steel disc and no long bar. Frames 0-1 the walk. */
+/** Villager (worker, sim r 9, scale 0.95): the one that carries: a wicker basket slung low on the back at the hip,
+ *  below the shoulders, heaped with gold coins (the units family: the slice's heap at the shoulders read as a hard hat
+ *  over the head; now the pale coif stands clear above it), the head in a pale linen coif (a snug cap; the kingdom's
+ *  heads are pale, each its own shape), two team straps over the shoulders down to the basket, team hose, a team cape
+ *  at the shoulders, a plain tunic; a short pick held low in the right hand, its bright head near the ground ahead.
+ *  From the camera: a pale small dome, a gold heap low behind and below it, a short bright bar low ahead; in grey, no
+ *  steel disc and no long bar. Frames 0-1 the walk. */
 export function villager(M, f) {
   const g = figure(M, f, { hose: M.cloth }), b = g.body; b.rotation.z = -0.16;
   add(b, sph(2.3, 14, 10), M.linen, 0.2, 13.7, 0).scale.set(1, 0.95, 1);                          // the head in a pale linen coif: a snug cap, no brim (the Guard's is the wide steel disc)
@@ -180,19 +181,20 @@ export function villager(M, f) {
   add(b, sph(1.5, 12, 10), M.skin, 1.7, 13.2, 0).scale.set(0.8, 0.9, 0.9);                       // the face
   add(b, cyl(2.5, 3.6, 2.0, 14), M.cloth, 0.1, 12.0, 0);                                        // the cape at the shoulders, team
   add(b, cyl(3.7, 3.8, 0.4, 14), M.inkLine, 0.1, 11.0, 0); add(b, cyl(2.6, 2.6, 0.35, 14), M.inkLine, 0.1, 13.0, 0); // its hems
-  // the sack: fat, pale, slung high across the back over both shoulders, its open mouth heaped with coins
-  const sk = grp(); sk.position.set(-4.4, 10.6, 0); sk.rotation.y = -0.35; b.add(sk);           // (the sack sits at the shoulders, behind: the slice's judge read the heap over the head as a gold-headed man)
-  add(sk, sph(3.8, 18, 12), M.canvasDark, 0, 0, 0).scale.set(1, 0.95, 1.6);                      // the sack's body, old canvas
-  add(sk, sph(2.4, 12, 10), M.canvasDark, -0.6, 2.0, -1.4).scale.set(1, 0.8, 1.2);              // a lump in it
-  add(sk, cyl(3.4, 2.6, 1.6, 14), M.canvas, 0.2, 2.8, 1.6, 0.4, 0, 0);                            // the mouth, rolled back
-  add(sk, sph(3.3, 14, 10), M.gold, -0.6, 3.0, 1.4).scale.set(1, 0.55, 1.1);                      // the load: a big heap of gold coins out of the mouth, behind the shoulder, the worker's loud cue
-  add(sk, torus(3.2, 0.3, 18), M.inkLine, -0.6, 3.1, 1.4, Math.PI / 2, 0, 0).scale.set(1, 1.1, 1);  // a dark rim round it
-  add(sk, sph(0.5, 8, 6), M.glint, 0.2, 4.6, 1.0); add(sk, sph(0.35, 8, 6), M.glint, -1.6, 4.4, 2.2); // white glints
-  for (const [x, z] of [[0.6, 1.6], [-2.0, 2.6], [-0.6, 0.4], [-1.6, 0.2]]) add(sk, cyl(0.9, 0.9, 0.35, 10), M.gold, x, 4.7, z, 0.3, x, 0.2);
-  for (const z of [-2.0, 2.0]) {                                                                 // the straps over the shoulders
+  // the basket: wicker, slung low on the back at the hip (its top under the shoulders), heaped with gold coins
+  const sk = grp(); sk.position.set(-4.4, 6.6, 0.4); sk.rotation.set(0, -0.3, 0.2); b.add(sk);    // (below the head: the slice's judge read a heap at the shoulders as a gold-headed man)
+  add(sk, cyl(3.4, 2.6, 5.2, 12), M.wicker, 0, 0, 0);                                             // the basket's body
+  add(sk, torus(3.4, 0.45, 16), M.oak, 0, 2.6, 0, Math.PI / 2, 0, 0);                             // its oak rim
+  add(sk, cyl(3.5, 3.5, 0.4, 16), M.inkLine, 0, 1.9, 0);                                          // a dark line under the rim
+  add(sk, sph(3.1, 14, 10), M.gold, 0, 2.9, 0).scale.set(1, 0.55, 1);                             // the load: a heap of gold coins out of the basket's mouth, the worker's loud cue
+  add(sk, torus(3.0, 0.3, 18), M.inkLine, 0, 2.9, 0, Math.PI / 2, 0, 0).scale.set(1, 1.1, 1);      // a dark rim round it
+  add(sk, sph(0.5, 8, 6), M.glint, 0.6, 4.4, -0.6); add(sk, sph(0.35, 8, 6), M.glint, -1.2, 4.2, 1.2); // white glints
+  for (const [x, z] of [[0.9, 1.4], [-1.6, 1.0], [-0.2, -1.6], [1.4, -0.8]]) add(sk, cyl(0.9, 0.9, 0.35, 10), M.gold, x, 4.5, z, 0.3, x, 0.2);
+  for (const z of [-2.0, 2.0]) {                                                                 // the straps over the shoulders, down to the basket
     add(b, rbox(4.8, 0.9, 1.5, 0.2), M.cloth, -0.2, 13.0, z, 0, 0, -0.1);
     add(b, rbox(5.0, 1.0, 1.8, 0.1), M.inkLine, -0.2, 12.75, z, 0, 0, -0.1);
     add(b, rbox(0.9, 4.0, 1.5, 0.2), M.cloth, 2.5, 10.8, z); add(b, rbox(1.0, 4.2, 1.8, 0.1), M.inkLine, 2.35, 10.8, z);
+    add(b, rbox(0.9, 4.6, 1.5, 0.2), M.cloth, -2.7, 10.2, z, 0, 0, -0.25); add(b, rbox(1.0, 4.8, 1.8, 0.1), M.inkLine, -2.85, 10.2, z, 0, 0, -0.25);
   }
   // the left hand up on a strap; the right arm down, the pick held low and ahead, its bright head near the ground
   limb(b, [0.6, 11, -3.6], [2.6, 11.6, -2.6], 1.15, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 11.6, -2.5);

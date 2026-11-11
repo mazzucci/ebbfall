@@ -176,7 +176,7 @@ fn the_supply_cap_grows_with_the_map() {
             .id;
         // (the Expedition's Power)
         let told = if f.power {
-            format!("Power at its limit ({cap}): no more machines until some fall")
+            "Power at maximum.".to_string()
         } else {
             format!("Population at its limit ({cap}): no more until some fall")
         };

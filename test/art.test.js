@@ -72,12 +72,12 @@ test('the heads: a turret aims, a rotor spins on the clock, a dish pans to and f
   for (const k of ['spire', 'uplink', 'eclipse', 'ward']) assert.ok(BLDG_LOOK[k].head, `${k} has its head`);
 });
 
-test('the Portal opens only during a transfer: dim while idle, open as a unit nears its end and steps out, then closed again', () => {
+test('the Portal brightens each time a unit comes through: settled while idle, bright as a unit nears its end and steps out, then settled again', () => {
   const st = {}, b = (queue, prog) => ({ done: true, queue, prog });
   assert.equal(portalOpen(st, b([], 0), 0), 0, 'idle: closed');
   assert.equal(portalOpen(st, b(['umbra'], 0.5), 1), 0, 'training, far from done: still closed');
   assert.ok(portalOpen(st, b(['umbra'], 0.95), 2) > 0.5, 'near the end: opening');
-  assert.equal(portalOpen(st, b([], 0), 3), 1, 'the Marine steps out: open');
+  assert.equal(portalOpen(st, b([], 0), 3), 1, 'the Android steps out: open');
   assert.equal(portalOpen(st, b([], 0), 3 + PORTAL.hold / 2), 1, 'held open a moment');
   const mid = portalOpen(st, b([], 0), 3 + PORTAL.hold + PORTAL.fade / 2);
   assert.ok(mid > 0 && mid < 1, `fading (${mid})`);

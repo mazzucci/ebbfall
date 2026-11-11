@@ -247,7 +247,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
     // The Expedition: the Recruiting post (Sellswords; Bruisers once a Lab stands) needs nothing, the Factory (Buggies,
-    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Marines) an Uplink, which needs
+    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Androids) an Uplink, which needs
     // the satellite, launched at the Data center once the Lab stands.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
@@ -307,7 +307,7 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
-    assert!(!UnitKind::Umbra.def().air, "the Marine is a ground unit");
+    assert!(!UnitKind::Umbra.def().air, "the Android is a ground unit");
 }
 
 #[test]

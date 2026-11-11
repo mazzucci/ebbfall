@@ -232,6 +232,12 @@ impl Game {
         self.me
     }
 
+    /// The map's limit on a seat's places, every pool together and each pool's cap (the client's refusal tips).
+    #[wasm_bindgen(js_name = supplyLimit)]
+    pub fn supply_limit(&self) -> i32 {
+        self.w.supply_limit()
+    }
+
     /// Advance the world by one fixed tick (in a replay, after the orders logged for this tick; in lockstep, after the
     /// orders scheduled for it, and only if it may run: see `canStep`).
     pub fn step(&mut self) {

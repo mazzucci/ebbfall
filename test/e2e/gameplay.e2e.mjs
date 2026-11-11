@@ -1610,7 +1610,7 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
 });
 
 
-test('as the Expedition: the top bar shows Power and hired places (and Portal places), whole, on a desktop, a small phone and upright phones', async () => {
+test('as the Expedition: the top bar shows gold as coins and Power, whole, on a desktop, a small phone and upright phones; hired places are on the Recruiting post', async () => {
   const NARROW = { ...PHONE, viewport: { width: 360, height: 780 } };
   for (const dev of [DESKTOP, SMALL_PHONE, UPRIGHT, NARROW]) {
     const d = await newGame(dev, 0, 4242, { ai: false, race: 'vael' });
@@ -1618,30 +1618,22 @@ test('as the Expedition: the top bar shows Power and hired places (and Portal pl
       await d.page.waitForFunction(() => document.getElementById('lSupply').textContent === 'POWER', null, { timeout: 5000 });
       const s = await d.state();
       assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'Power: used over made');
-      assert.ok(await d.page.locator('#resHired').isVisible(), 'hired places shown');
-      assert.match(await d.page.locator('#rHired').textContent(), /^\d+\/\d+$/);
-      assert.ok(await d.page.locator('#resPortal').isHidden(), 'no Portal yet: no Portal places');
-      // With the Portal's figure too (shown here as a Portal would show it; only the layout is checked): every
-      // figure whole, none cut or over the buttons.
-      // (set and measured in one go: the HUD writes its own figures back on its next tick)
+      assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Power');
+      assert.equal(await d.page.locator('#top .res').count(), 2, 'gold and Power only: no hired or Portal places on top');
+      assert.ok(await d.eval(() => getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'gold shown with its coins');
+      // Every figure and button whole and on the screen, with wide figures (set and measured in one go: the HUD
+      // writes its own back on its next tick).
       const boxes = await d.eval(() => {
-        document.getElementById('resPortal').hidden = false; document.getElementById('rPortal').textContent = '8/8'; document.getElementById('rHired').textContent = '18/18'; document.getElementById('rSupply').textContent = '76/80'; document.getElementById('rShard').textContent = '1250';
+        document.getElementById('rShard').textContent = '12500'; document.getElementById('rSupply').textContent = '76/80';
         return [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && !e.classList.contains('spacer')).map(e => { const r = e.getBoundingClientRect(); return { id: e.id, l: r.left, r: r.right, cut: [...e.querySelectorAll('*')].some(c => c.scrollWidth > c.clientWidth + 1 && getComputedStyle(c).display !== 'inline') }; });
       });
       const bar = await d.eval(() => { const r = document.getElementById('top').getBoundingClientRect(); return [Math.max(0, r.left), Math.min(innerWidth, r.right)]; }); // (and on the screen)
-      assert.deepEqual(boxes.slice(0, 4).map(b => b.id), ['resShard', 'resSup', 'resHired', 'resPortal']);
+      assert.deepEqual(boxes.map(b => b.id).filter(id => id.startsWith('res')), ['resShard', 'resSup']);
+      assert.ok(boxes.some(b => b.id === 'btnPause'), 'Pause shown');
       for (const [i, b] of boxes.entries()) {
-        assert.ok(b.l >= bar[0] && b.r <= bar[1], `${b.id} inside the bar (${JSON.stringify(b)} in ${bar})`);
+        assert.ok(b.l >= bar[0] && b.r <= bar[1], `${b.id} inside the bar on screen (${JSON.stringify(b)} in ${bar})`);
         assert.ok(!b.cut, `${b.id}: nothing cut`);
         if (i) assert.ok(b.l >= boxes[i - 1].r, `${b.id} clear of ${boxes[i - 1].id}`);
-      }
-      assert.ok(boxes.some(b => b.id === 'btnPause'), 'Pause shown');
-      // The words where there is room; on an upright phone none of them, alike, each figure named by its title.
-      const words = await d.eval(() => ['resSup', 'resHired', 'resPortal'].map(id => { const l = document.querySelector(`#${id} .lbl`); return l.offsetParent !== null && l.getBoundingClientRect().width > 10 ? l.textContent : ''; }));
-      if (dev.viewport.width > 440) assert.deepEqual(words, ['POWER', 'HIRED', 'PORTAL'], 'the words shown');
-      else {
-        assert.deepEqual(words, ['', '', ''], 'an upright phone: no words, all alike');
-        assert.deepEqual(await d.eval(() => ['resShard', 'resSup', 'resHired', 'resPortal'].map(id => document.getElementById(id).title)), ['Gold', 'Power', 'Hired places', 'Portal places']);
       }
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
@@ -1661,7 +1653,7 @@ test('as the Expedition: a Bot refused at the Power cap says so, a Wind turbine 
     assert.ok(await d.page.locator('#resSup.low').isVisible(), 'Power at its cap: the figure warns');
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
-    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough Power\. Build a Wind turbine\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; Power ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough Power: build a Wind turbine\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; Power ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, [], 'refused: nothing queued');
     // The refusal shows whole on this small phone.
     const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /Power/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
@@ -1678,7 +1670,10 @@ test('as the Expedition: a Bot refused at the Power cap says so, a Wind turbine 
     await d.pressCard('Build');
     await d.readyCard('Advanced');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Recruiting 0', 'Turbine 1', 'Data center 2', 'Advanced 3', 'Back 5'], 'Advanced packed into slot 3');
-    await d.hudText('#rHired', /^0\/6$/);
+    // The hired places, on the Recruiting post's panel (not the top bar).
+    const post = myBldg(await d.state(), 'siphon')[0];
+    await d.clickEntity(post.id);
+    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Hired 0 / 6', null, { timeout: 5000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2605,10 +2600,10 @@ test('phone: picking a building shows no ghost until the finger is down; lifted 
   } finally { await d.close(); }
 });
 
-test('an enemy Marine is seen and picked however long it stands still (nothing hides since the re-theme)', async () => {
+test('an enemy Android is seen and picked however long it stands still (nothing hides since the re-theme)', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
-    // (set-up: an enemy Marine out on the field, held, and our Balloon watching it from out of its reach)
+    // (set-up: an enemy Android out on the field, held, and our Balloon watching it from out of its reach)
     const at = await d.eval(() => { const b = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq); const dx = b.x < 1000 ? 1 : -1; return { x: b.x + dx * 640, y: b.y, dx }; });
     const marine = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]);
     const spy = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [at.x - at.dx * 300, at.y]);
@@ -3022,7 +3017,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
-test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their buttons, the satellite launched opens the Uplink, the Uplink the Portal, which trains Marines', async () => {
+test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their buttons, the satellite launched opens the Uplink, the Uplink the Portal, which trains Androids', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
@@ -3062,10 +3057,10 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await buildAndFinish(d, 'u', 'uplink', 0, V);
     const portal = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
     await d.clickEntity(portal.id);
-    await d.readyCard('Marine');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Marine 0', 'Rally 1', 'Cancel 5'], 'the Portal: Marines');
+    await d.readyCard('Android');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Android 0', 'Rally 1', 'Cancel 5'], 'the Portal: Androids');
     await d.key('u');
-    assert.deepEqual(await queue(portal), ['umbra'], `U trains a Marine (toasts: ${(await d.toasts()).join(' | ')})`);
+    assert.deepEqual(await queue(portal), ['umbra'], `U trains an Android (toasts: ${(await d.toasts()).join(' | ')})`);
     await until(d, async () => mine(await d.state(), 'bruiser').length > 0, { seconds: 60, step: 0.5, what: 'the Bruiser' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

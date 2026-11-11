@@ -381,7 +381,7 @@ test('advance() then one read of G is the same as step() after step(): the same 
   E.resetGame(4, 0); // (back to a duel's map for the tests after)
 });
 
-test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Marine\'s tracer)', { skip }, async () => {
+test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Android\'s tracer)', { skip }, async () => {
   const { SHOT_LOOK } = await import('../src/client/look.js');
   E.resetGameSeats(32, 1, 0, 0, ['humans', 'vael'], [], [false, false], 0, 64);
   const x = 32 * C.TILE + 16, y = 32 * C.TILE + 16;

@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, supplyLimit } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -33,6 +33,19 @@ function abilityItems(units) {
     if (tech && !G.upgrades[G.me][tech]) return null; // (waiting for its tech: hidden)
     return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), tip: a.desc };
   }).filter(Boolean).map((it, pos) => ({ ...it, pos }));
+}
+
+/** Why the sim would refuse unit `t` for want of places now (its words, crates/endfall-sim/src/world/orders.rs
+ *  `pool_full`), or '' when there is room: the button's tooltip says it before the tap does. */
+export function placesTip(t) {
+  const d = UNITS[t], f = myFaction(), limit = supplyLimit();
+  const [used, cap] = (d.pool === 'hired' ? G.hired : d.pool === 'portal' ? G.portal : G.sup)[G.me] || [0, 0];
+  if (used + (d.supply || 0) <= cap) return '';
+  const max = cap >= limit;
+  if (d.pool === 'hired') return max ? 'Hired at maximum.' : 'No free places: build another Recruiting post.';
+  if (d.pool === 'portal') return max ? 'Portal places at maximum.' : 'No free Portal places: build another Portal.';
+  if (f.power) return max ? 'Power at maximum.' : `Not enough Power: build a ${BUILDINGS[f.supply].name}.`;
+  return '';
 }
 
 /** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on. */
@@ -100,7 +113,7 @@ export function cardItems() {
     const unitDepth = (t) => (UNITS[t].req ? 1 + depth(UNITS[t].req) : 0);
     const shown = trains.map((t, i) => [t, i, unitDepth(t)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([t]) => t)
       .filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
-    shown.forEach(t => { const d = UNITS[t]; next({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc }); }); // (the hover title and the long-press)
+    shown.forEach(t => { const d = UNITS[t], why = placesTip(t); next({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc + (why ? ' ' + why : '') }); }); // (the hover title and the long-press; a refusal for want of places said there too)
     // Rally after the units (a factory trains four at most, so its card keeps two rows with the queue's Cancel in slot 5)
     if (trains.length) next({ id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {

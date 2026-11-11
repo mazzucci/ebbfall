@@ -58,7 +58,7 @@ fn flyers_cross_cliffs_in_a_straight_line() {
 #[test]
 fn ground_only_weapons_cannot_touch_flyers() {
     // The spears and lances (the Guard, the Rider, the Knight), the Buggy's light gun, the Bruiser's heavy gun and the
-    // Rover's rockets: the Archer and the Ballista are the Kingdom's anti-air, the Sellsword, the Marine and the Drone
+    // Rover's rockets: the Archer and the Ballista are the Kingdom's anti-air, the Sellsword, the Android and the Drone
     // the Expedition's.
     for kind in [
         UnitKind::Trooper,

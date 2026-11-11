@@ -1,7 +1,7 @@
 # Ebbfall
 
-A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. We went back six
-centuries and, naturally, the first thing we built was a data center. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
+A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. Naturally, we
+went back six centuries to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
 peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
 all or in teams of any shape, or friends over the Internet with AIs in the empty seats), fourteen maps of three sizes
@@ -42,7 +42,7 @@ Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at 
 Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
 Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
 machines that run on Power from the Data center and wind turbines, and faster near the Data center or an Uplink; the
-Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks trains Marines (elite soldiers),
+Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks trains Androids (elite soldiers),
 four to a Portal. Sentry masts hit ground and air. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

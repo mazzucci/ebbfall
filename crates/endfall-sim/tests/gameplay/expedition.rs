@@ -1,6 +1,6 @@
 //! The Expedition rework (PRD: power, hired guns, the satellite): no population. Its machines use Power (the Data center
 //! +20, a wind turbine +8); its hired guns (the Sellsword, the Bruiser, the Medic) take hired places, six a Recruiting
-//! post, one count for the side; its Marines take Portal places, four a Portal. Launch satellite (at the Data center,
+//! post, one count for the side; its Androids take Portal places, four a Portal. Launch satellite (at the Data center,
 //! once a Lab stands) is told to every seat and unlocks the Uplink, which unlocks the Portal. The hired guns fight in
 //! melee. The range's speed bonus and the Drone's leash: radio.rs.
 
@@ -111,7 +111,7 @@ fn a_bot_is_refused_at_the_power_cap_and_trained_once_a_turbine_stands() {
     let dc = hq(&w, PLAYER);
     assert_eq!(
         w.queue_unit(dc, UnitKind::Lumen),
-        Err("Not enough Power. Build a Wind turbine.".to_string())
+        Err("Not enough Power: build a Wind turbine.".to_string())
     );
     // Hired places and Power are apart: a full Power pool does not stop a Sellsword.
     let post = set_down(&mut w, BldgKind::Siphon);
@@ -143,7 +143,7 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
     assert_eq!(w.sup(PLAYER), power, "no Power for people");
     assert_eq!(
         w.queue_unit(a, UnitKind::Bruiser),
-        Err("No free places for hire. Build a Recruiting post.".to_string())
+        Err("No free places: build another Recruiting post.".to_string())
     );
     // A death frees a place, whichever post hired it.
     w.damage(hired[0], 1e9, None);
@@ -223,7 +223,7 @@ fn each_portal_holds_four_marines() {
     assert_eq!(w.sup(PLAYER), power, "nor Power");
     assert_eq!(
         w.queue_unit(p, UnitKind::Umbra),
-        Err("No free Portal places. Build a Portal.".to_string())
+        Err("No free Portal places: build another Portal.".to_string())
     );
     let q = set_down(&mut w, BldgKind::Eclipse);
     assert_eq!(w.pool(PLAYER, Pool::Portal), [4, 8]);

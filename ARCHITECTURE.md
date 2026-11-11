@@ -210,7 +210,7 @@ src/client/           everything that touches the browser
                       chevron over a machine of ours moving in range, by exact distance as the sim; `rangeShown` for
                       the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
-                      swirl, open only during a transfer (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`);
+                      swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`);
                       the satellite's rocket rising from its Data center (`launchFx`, `launchesShown` for the tests:
                       main.js draws it only for our side or a Data center in sight);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
@@ -273,7 +273,8 @@ src/client/           everything that touches the browser
                       challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
                       cancelled sheet says nothing
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
-  hud.js              top bar and selection panel
+  hud.js              top bar (gold as coins, the Kingdom's population or the Expedition's Power) and selection panel (a
+                      Recruiting post's hired places, a Portal's Portal places)
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
@@ -290,7 +291,7 @@ src/client/           everything that touches the browser
   look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on
                       the turned models; puffs only while the building trains or researches, `chimneyActive`) and
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
-                      swirl only while it opens for a unit stepping out, `portalOpen`, reusable for a one-shot drop),
+                      swirl brightening each time a unit comes through, then settling, `portalOpen`),
                       a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`), each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
@@ -334,7 +335,7 @@ test/art.test.js      the atlas against the game: every unit, building and turre
                       a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
                       tiles in both rock kinds, every stage and variant of the gold outcrop (the link preview's), the
                       gold mine's three stages, neutral; and look.js's presentation: a selected building's oval, the
-                      heads' frames (aimed, spun, panned), the Portal open only during a transfer
+                      heads' frames (aimed, spun, panned), the Portal brightening as a unit comes through
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists

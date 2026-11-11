@@ -45,13 +45,13 @@ export const BLDG_LOOK = {
   ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
   spire: { head: 'spire_head', spin: 10 },                                           // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn)
   uplink: { head: 'uplink_head', pan: [3, 9] },                                      // (the Uplink's dish pans 3 facings either way)
-  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 8, false, 0] }, // (its cyan light, too, only while open)                          // (the Portal's dust spiral: a whole turn in 4 s, only while open: `portalOpen`)
+  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 8, false, 0] }, // (its cyan light, only as a unit comes through)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
 };
-/** The Portal opens only during a transfer (the PM, R2): idle, a dim, quiet black disc; as a unit's training nears its
- *  end the cyan dust swirls up and brightens, holds while it steps out, then fades back. Returns how open it is, 0 to
- *  1, and keeps its own clock in `st` (one object per Portal, the renderer's): `b` is the client's mirror of the
- *  building (its queue and `prog`, the front unit's progress), `now` the renderer's clock in seconds. A unit gone from
- *  the queue has stepped out. Reusable for a one-shot drop: set `st.outAt = now` to play the hold and the fade. */
+/** The Portal's swirl brightens each time a unit comes through, then settles (Stelian, R2); it stays multi-use and
+ *  keeps training. Returns how bright it is above its settled state, 0 to 1, and keeps its own clock in `st` (one object
+ *  per Portal, the renderer's): it rises as a unit's training nears its end, holds while the unit steps out, then fades.
+ *  `b` is the client's mirror of the building (its queue and `prog`, the front unit's progress), `now` the renderer's
+ *  clock in seconds. A unit gone from the queue has stepped out; setting `st.outAt = now` plays the hold and the fade. */
 export const PORTAL = { rise: 0.2, hold: 0.5, fade: 1.2 };
 export function portalOpen(st, b, now) {
   const n = b.done ? b.queue.length : 0;

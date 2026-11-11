@@ -43,7 +43,7 @@ pub fn supply_limit(map_w: i32) -> i32 {
 /// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
 /// per seat (`World::pools`): the Kingdom's population and the Expedition's Power (`Supply`, the same pool under two
 /// names: every Kingdom unit, and the Expedition's machines), the Expedition's hired places (`Hired`: its Sellswords,
-/// Bruisers and Medics, from its Recruiting posts) and its Portal places (`Portal`: its Marines, from its Portals).
+/// Bruisers and Medics, from its Recruiting posts) and its Portal places (`Portal`: its Androids, from its Portals).
 /// Each pool is capped by its own buildings, and all of them together at the map's `supply_limit` (one army limit:
 /// `World::army_used`, `queue_unit`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

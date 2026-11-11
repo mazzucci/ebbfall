@@ -283,6 +283,8 @@ function selArcs(rx, ry, color) {
   }
   return g;
 }
+/** The Portal's swirl at rest: this faint (look.js portalOpen brightens it to full as a unit comes through). */
+const PORTAL_SETTLED = 0.35;
 const selG = new Graphics(); L.sel.addChild(selG); // (a selected building's oval, under the buildings: cleared every frame)
 /** A selected building: a flat oval on the ground under it, sized to its footprint (look.js `selOval`). */
 function selOval(b, color) {
@@ -390,19 +392,19 @@ class BldgObj {
     if (grow) this.growIn(b, t, live);
     if (this.head) {
       // A turret's head only while seen live (it aims); a rotor or a dish stays on its remembered base, still. The
-      // rotors turn on the renderer's clock (cosmetic), each from its own phase. The Portal's swirl shows only while it
-      // is open (look.js portalOpen), turning as it opens; idle, its disc is dimmed.
+      // rotors turn on the renderer's clock (cosmetic), each from its own phase. The Portal's swirl turns slowly, settled
+      // and faint, and brightens and speeds up each time a unit comes through (look.js portalOpen), then settles again.
       const turns = this.look.spin || this.look.pan, now = performance.now() / 1000;
-      let open = 1;
+      let open = 0, shown = 1;
       if (this.look.portal) {
         open = live ? portalOpen(this.portal ||= {}, b, now) : 0;
-        this.spinT = (this.spinT || 0) + dt * open; // (the swirl winds up and down with it)
-        const k = 0.72 + 0.28 * open, c = Math.round(255 * k); paintAs(this.body, this.paint, this.seat, (c << 16) | (c << 8) | c, this.body.alpha);
+        this.spinT = (this.spinT || 0) + dt * (0.3 + 0.7 * open); // (the swirl winds up with it)
+        shown = PORTAL_SETTLED + (1 - PORTAL_SETTLED) * open;
       }
-      this.head.visible = this.headPaint.visible = b.done && (live || !!turns) && open > 0.02;
+      this.head.visible = this.headPaint.visible = b.done && (live || !!turns);
       const dir = turns && !live ? 0 : this.look.portal ? Math.floor(this.spinT * this.look.spin) % 16 : headFrame(this.look, b.aim, now, (b.id % 13) * 0.37), hn = `${this.look.head}_${dir}`;
       setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(b.x, b.y); this.headPaint.position.set(b.x, b.y);
-      paintAs(this.head, this.headPaint, this.seat, 0xffffff, this.body.alpha * open);
+      paintAs(this.head, this.headPaint, this.seat, 0xffffff, this.body.alpha * shown);
       this.openNow = open;
     }
     if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); if (this.look.portal) this.glow.alpha = (this.openNow || 0) * g[2]; }

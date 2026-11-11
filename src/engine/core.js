@@ -253,6 +253,8 @@ export const setResources = (team, shards, ether) => touch(game.setResources(tea
 export const canPlace = (type, tx, ty, team) => game.canPlace(type, tx, ty, team);
 export const hasReq = (team, type) => game.hasReq(team, type);
 export const canAfford = (team, cost) => game.canAfford(team, cost[0], cost[1]);
+/** The map's limit on a seat's places (every pool together, and each pool's cap). */
+export const supplyLimit = () => game.supplyLimit();
 
 /** Whether `shooter` (a unit or building object) has a weapon that can hit `target`. */
 export function canHit(shooter, target) {

@@ -8,9 +8,9 @@ when you add, move or remove a file.
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
 and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
-over four `e2e` jobs; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
+over eight `e2e` jobs, summed up by `e2e: all`; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
 which hold neither a merge nor a deploy (`arm` since 2026-11-04, `engines` since 2026-11-07) and are read by hand: the
-ruleset requires build, rust and e2e (1) to (4), and `relay` and `deploy` wait on the same) on every pull request, and publishes
+ruleset requires build, rust and e2e (1) to (4), to become build, rust and `e2e: all`, and `relay` and `deploy` wait on the same) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
 Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled

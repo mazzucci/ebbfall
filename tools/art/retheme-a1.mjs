@@ -11,7 +11,8 @@
 //     uplink.png: the Uplink beside the Sentry gun, the Lab (its small dish) and the Data center, both
 //     seats; uplink-pan.png: the dish (the head) at five pan angles; sentry.png: the Sentry gun (the `radio` slot's
 //     new model, its barrel the head) beside the Kingdom's Watchtower and a turbine; lab.png: today's Lab and the dome;
-//     portal.png: today's Portal and the energy gate (its light the head); base-100 / base-075: the Expedition base
+//     portal.png: today's Portal and the three options (the wide gate, the gate with its tube, the oval ring; their
+//     swirls the heads); base-100 / base-075 (and base-tube-*, base-ring-*, one per Portal option): the Expedition base
 //     (tools/art/retheme-bases.mjs's layout) with the server hall, the turbines in the Cabins' places, an Uplink, the
 //     Sentry guns, the dome and the gate; the printed table: angle, fit, spill, team share, cyan share, clipping
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -38,10 +39,10 @@ async function rendered(key, filter, opts) {
   return out;
 }
 
-const SIZES = { kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
+const SIZES = { kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_gatetube: 2, ex_ring: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
 /** The turning heads over their bases, [name, the frames the pictures use]: the turrets at facings, the rotors and the
  *  gate's light at phases, the Uplink's dish at a few pan angles about its frame-0 turn. */
-const HEADS = { kg_tower: ['kg_towerhead', [0, 5, 11]], ex_radio: ['ex_radiohead', [0, 5, 11]], ex_turbine: ['ex_turbinehead', [0, 5, 11]], ex_windfarm: ['ex_windfarmhead', [0, 5, 11]], ex_uplink: ['ex_uplinkhead', [0, 14, 2]], ex_gate: ['ex_gatehead', [0, 5, 11]] };
+const HEADS = { kg_tower: ['kg_towerhead', [0, 5, 11]], ex_radio: ['ex_radiohead', [0, 5, 11]], ex_turbine: ['ex_turbinehead', [0, 5, 11]], ex_windfarm: ['ex_windfarmhead', [0, 5, 11]], ex_uplink: ['ex_uplinkhead', [0, 14, 2]], ex_gate: ['ex_gatehead', [0, 5, 11]], ex_gatetube: ['ex_gatetubehead', [0, 5, 11]], ex_ring: ['ex_ringhead', [0, 5, 11]] };
 const PAN = [12, 14, 0, 2, 4]; // the Uplink's pan sheet: -90, -45, 0, +45, +90 degrees about the column
 
 // ---- the ground: the game's grass tiles ----
@@ -111,11 +112,11 @@ if (mode === 'check') {
 // ---- the pictures ----
 const UNITS = '(ex_bot|ex_marine)_(0|2|4|6|8|10|12|14)_0';
 const t0 = Date.now();
-const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|factory|lab|labdome|portal|gate)$|bldg_kg_tower$|(ex_(radiohead|turbinehead|windfarmhead|gatehead)|kg_towerhead)_(0|5|11)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
+const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|factory|lab|labdome|portal|gate|gatetube|ring)$|bldg_kg_tower$|(ex_(radiohead|turbinehead|windfarmhead|gatehead|gatetubehead|ringhead)|kg_towerhead)_(0|5|11)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
 console.log(`rendered ${art.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const P = makePainters(art, seatTints(art.tints));
 console.log('building      angle   fit   spill W / E / S   team    cyan   size at 1x');
-for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_radio', 'ex_labdome', 'ex_gate', 'ex_bunkhouse', 'ex_lab', 'ex_portal', 'kg_tower']) {
+for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_radio', 'ex_labdome', 'ex_gate', 'ex_gatetube', 'ex_ring', 'ex_bunkhouse', 'ex_lab', 'ex_portal', 'kg_tower']) {
   const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }, sz = P.sizeOf(`bldg_${k}`);
   console.log(`  ${k.padEnd(12)} ${String(turn.yaw).padStart(4)}   ${turn.scale.toFixed(2)}  ${fmtSpill(spill(s, SIZES[k])).padEnd(18)} ${String(P.share(`bldg_${k}`)).padEnd(6)}  ${(cyan(s) * 100).toFixed(1).padStart(4)}%  ${sz[0]} x ${sz[1]}${clipped(s) ? '  CLIPPED' : ''}`);
   if (HEADS[k]) for (const d of (k === 'ex_uplink' ? PAN : HEADS[k][1])) { const h = `${HEADS[k][0]}_${d}`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} team ${P.share(h)}  ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
@@ -137,27 +138,27 @@ sheet('uplink', [['ex_uplink', 'THE UPLINK'], ['ex_radio', 'SENTRY GUN'], ['ex_l
 sheet('uplink-pan', PAN.map(d => ['ex_uplink', `PAN ${((d + 8) % 16 - 8) * -22.5}`, d]), 'THE UPLINK: THE DISH PANNED ABOUT ITS COLUMN (THE HEAD AT FIVE FRAMES). SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
 sheet('sentry', [['ex_radio', 'SENTRY GUN'], ['kg_tower', 'WATCHTOWER'], ['ex_turbine', 'ONE TURBINE']], 'THE SENTRY GUN BESIDE THE WATCHTOWER AND A TURBINE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 sheet('lab', [['ex_lab', "TODAY'S LAB"], ['ex_labdome', 'THE DOME'], ['ex_datahall', 'DATA CENTER']], 'THE LAB: TODAY AND THE DOME, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
-sheet('portal', [['ex_portal', "TODAY'S PORTAL"], ['ex_gate', 'THE ENERGY GATE'], ['ex_datahall', 'DATA CENTER']], 'THE PORTAL: TODAY AND THE ENERGY GATE, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('portal', [['ex_portal', "TODAY'S PORTAL"], ['ex_gate', '1 THE WIDE GATE'], ['ex_gatetube', '2 GATE AND TUBE'], ['ex_ring', '3 THE OVAL RING'], ['ex_datahall', 'DATA CENTER']], 'THE PORTAL: TODAY AND THE THREE OPTIONS (THE SWIRL AT THREE PHASES), THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 
 // ---- the base: tools/art/retheme-bases.mjs's Expedition layout, the turbines in the Cabins' places, an Uplink ----
 const EX_UNITS = [['ex_bot_0_0', 15.2, 9.4], ['ex_bot_2_0', 18.6, 8.2], ['ex_bot_8_0', 19.8, 10.1], ['ex_bot_12_0', 20.4, 7.3], ['ex_marine_4_0', 15.5, 5.8], ['ex_marine_4_0', 16.4, 5.9], ['ex_marine_4_0', 17.3, 6.0], ['ex_marine_0_0', 9.5, 12.6]];
 const GOLD = [21.5, 9.2], PANEL = [25, 17];
-function layout(power) {
+function layout(power, portal) {
   return [['ex_datahall', 10, 7], [power, 5, 2], [power, 8, 2], [power, 5, 5], [power, 8, 5], ['ex_post', 12, 3], ['ex_post', 15, 3],
-    ['ex_factory', 16, 7], ['ex_labdome', 16, 11], ['ex_gate', 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], [power, 1, 7]];
+    ['ex_factory', 16, 7], ['ex_labdome', 16, 11], [portal, 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], [power, 1, 7]];
 }
-function base(seat, power) {
+function base(seat, power, portal) {
   const c = cv(PANEL[0] * T, PANEL[1] * T); grass(c, seat + 11);
   const items = [];
-  layout(power).forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, id)] }); });
+  layout(power, portal).forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, id)] }); });
   for (const [name, tx, ty] of EX_UNITS) items.push({ y: ty * T, draw: [(cc) => P.draw(cc, P.get(name), tx * T, ty * T, seat)] });
   items.push({ y: GOLD[1] * T, draw: [(cc) => P.draw(cc, P.get('rt_gold_0_0'), GOLD[0] * T, GOLD[1] * T)] });
   for (const it of items.sort((a, b) => a.y - b.y)) for (const d of it.draw) d(c);
   return c;
 }
-{
-  const c = base(1, 'ex_turbine'), z = resample(c, 0.75), cap = 'EXPEDITION BASE: THE SERVER HALL, TURBINES, THE UPLINK, SENTRY GUNS, THE LAB DOME, THE ENERGY GATE';
-  label(c, cap, 6, 6, 2); save('base-100', c, false);
-  label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save('base-075', z, false);
+for (const [name, portal, what] of [['base', 'ex_gate', 'THE WIDE GATE'], ['base-tube', 'ex_gatetube', 'THE GATE AND TUBE'], ['base-ring', 'ex_ring', 'THE OVAL RING']]) {
+  const c = base(1, 'ex_turbine', portal), z = resample(c, 0.75), cap = `EXPEDITION BASE: THE SERVER HALL, TURBINES, THE UPLINK, SENTRY GUNS, THE LAB DOME, ${what}`;
+  label(c, cap, 6, 6, 2); save(`${name}-100`, c, false);
+  label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);
 }
 console.log('pictures ->', outDir);

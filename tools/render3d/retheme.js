@@ -63,7 +63,7 @@ Object.assign(RT_BUILDINGS.ex, {
   // option, three small turbines on one pad, kept for the pictures) and the Uplink (3x3, the sim key `uplink`).
   turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 44 },
   // Round 3 (Stelian): the Lab's dome under `labdome` and the Portal's energy gate under `gate` (`lab` and `portal` stay today's, for the pictures).
-  labdome: { build: EB.labDome, n: 2, h: 40 }, gate: { build: EB.energyGate, n: 2, h: 48 },
+  labdome: { build: EB.labDome, n: 2, h: 40 }, gate: { build: EB.energyGate, n: 2, h: 60 }, gatetube: { build: EB.energyGateTube, n: 2, h: 60 }, ring: { build: EB.acceleratorRing, n: 2, h: 20 }, // (round 4's three Portal options)
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
@@ -74,7 +74,7 @@ Object.assign(RT_BUILDINGS.ex, {
 export const RT_HEADS = {
   kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
   ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 36 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true },
-    uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 48, spin: 1 } }, // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
+    uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, gatetubehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, ringhead: { build: EB.ringSwirl, n: 2, h: 20, spin: 1 } }, // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
 };
 /** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
 function head(b, mats, dir) {
@@ -98,7 +98,7 @@ const FACINGS = 16;
  *  building (look.js BLDG_LOOK) are measured on the turned model. */
 export const BLDG_YAW = {
   kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: 20, gate: 0 }, // (the gate square: its light is a head) // (the Uplink's dish is turned in the model: round on the ground, so square)
+  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: 20, gate: 0, gatetube: 0, ring: 0 }, // (the gate square: its light is a head) // (the Uplink's dish is turned in the model: round on the ground, so square)
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;

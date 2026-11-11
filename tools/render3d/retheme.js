@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
-import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js';
+import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
@@ -37,12 +37,13 @@ export const RT_UNITS = {
   kg: {
     villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 },
     archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32 },
-    ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 24, h: 30, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
+    ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 27, h: 44, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
+    cannon: { build: cannon, r: 22, h: 24, frames: 4 }, // (the Cannon takes the siegeTank slot in R2; the Trebuchet stays for the record)
   },
   ex: {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
-    rover: { build: rover, r: 20, h: 20 }, drone: { build: drone, r: 16, h: 24 },
+    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
   },
 };
 /** The two main buildings; `hall` is the Data center (expedition-buildings.js `dataBlock`, Stelian's pick of the two
@@ -53,6 +54,7 @@ Object.assign(RT_BUILDINGS.kg, {
   cottage: { build: KB.cottage, n: 2, h: 34 }, market: { build: KB.market, n: 2, h: 36 }, barracks: { build: KB.barracks, n: 3, h: 48 },
   blacksmith: { build: KB.blacksmith, n: 2, h: 40 }, workshop: { build: KB.workshop, n: 3, h: 56 }, tower: { build: KB.watchtower, n: 2, h: 82 },
   stables: { build: KB.stables, n: 3, h: 30 },
+  cottagehip: { build: KB.cottageHip, n: 2, h: 40 }, cottageround: { build: KB.cottageRound, n: 2, h: 40 }, // (the last art round's two Cottage options for Stelian's pick: a square house with a hip roof, a round hut with a cone roof)
 });
 Object.assign(RT_BUILDINGS.ex, {
   // Swapped (Stelian, 2026-11-11, after four blind checks read each as the other's role): the windowed booth is the
@@ -107,7 +109,7 @@ export const BLDG_YAW = {
   // The consistency pass (Stelian, 2026-11-11): one angle, -20, for every building of both peoples that is not round or
   // turning; the round towers and the turbine, Sentry gun and Uplink (their heads turn on their own) stay square. The
   // arrival platform is square too, its plate turned 20 degrees in the model so its head (the transport) turns with it.
-  kg: { castle: -20, cottage: -20, market: -20, barracks: -20, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
+  kg: { castle: -20, cottage: -20, market: -20, barracks: -20, blacksmith: -20, workshop: -20, tower: 0, stables: -20, cottagehip: -20, cottageround: 0 },
   ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */

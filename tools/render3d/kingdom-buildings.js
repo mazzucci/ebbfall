@@ -387,3 +387,41 @@ export function market(M) {
   }
   return g;
 }
+
+// ---- the Cottage, two options (the last art round: the wide one read as a single wall segment): (a) a square house
+// with a hip roof and a chimney, two walls showing at -20; (b) a round thatched hut with a cone roof. Team on the
+// flag and a thin eave strip. ----
+export function cottageHip(M) {
+  kbMats(M); const g = grp();
+  earth(g, M, [[-30, -22], [22, -30], [31, 2], [24, 30], [-24, 28], [-31, 4]]);
+  const X = -2, Z = -2, W = 30, D = 30, H = 13, R = 16;
+  add(g, rbox(W + 2.4, 2.6, D + 2.4, 0.4), M.plinth, X, 1.8, Z);
+  add(g, rbox(W, H, D, 0.5), M.wall, X, H / 2 + 2, Z);
+  for (const [sx, sz] of [[-1, 1], [1, 1], [1, -1]]) add(g, rbox(1.2, H + 0.2, 1.2, 0.2), M.oak, X + sx * (W / 2 - 0.4), H / 2 + 2, Z + sz * (D / 2 - 0.4)); // oak corner posts
+  add(g, rbox(W + 0.6, 1.3, D + 0.6, 0.2), M.oak, X, H + 1.6, Z);                                                   // the wall plate
+  add(g, cone((W + 7) / 2 * Math.SQRT2, R, 4), M.thatch, X, H + 2 + R / 2, Z, 0, Math.PI / 4, 0);                   // the hip roof: a thatched pyramid over all four walls
+  add(g, rbox(W + 7.4, 0.6, D + 7.4, 0.1), M.inkLine, X, H + 1.9, Z);                                                // the dark eave line
+  chimney(g, M, X + W / 2 - 4, 2, Z - 6, H + 10, 4.6);
+  door(g, M, X - 4, 2.2, Z + D / 2 + 0.6, 5.5, 8.5); window_(g, M, X + 8, 8.5, Z + D / 2 + 0.6);
+  window_(g, M, X + W / 2 + 0.6, 8.5, Z - 4, 3, 4, Math.PI / 2);                                                     // a window on the east wall too: two walls show at -20
+  banner(g, M, X, H + 2 + R - 1, Z, 14, 14, 10);                                                                     // the team flag at the peak
+  add(g, rbox(W + 7.4, 1.4, 0.5, 0.1), M.cloth, X, H + 0.9, Z + D / 2 + 3.9); for (const y of [H + 1.7, H + 0.1]) add(g, rbox(W + 7.8, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 3.9); // a thin team strip along the south eave
+  if (M.polish) { for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, X + sx * W / 2, Z + sz * D / 2, 3, H + 1.2, 2.8, 2.4, 1.4); add(g, rbox(7.6, 1.2, 1.4, 0.2), M.plinth, X - 4, 11.4, Z + D / 2 + 0.7); }
+  return g;
+}
+export function cottageRound(M) {
+  kbMats(M); const g = grp();
+  earth(g, M, [[-29, -21], [21, -29], [30, 2], [22, 29], [-22, 27], [-30, 4]]);
+  const RW = 16, H = 12, RR = 21, RH = 17;
+  add(g, cyl(RW + 1.4, RW + 1.8, 2.6, 24), M.plinth, 0, 1.3, 0);
+  add(g, cyl(RW, RW, H, 24), M.wall, 0, H / 2 + 2, 0);
+  add(g, torus(RW + 0.3, 0.7, 24), M.oak, 0, H + 1.8, 0, Math.PI / 2, 0, 0);                                        // the wall plate ring
+  add(g, cone(RR, RH, 24), M.thatch, 0, H + 2 + RH / 2, 0);                                                          // the cone roof of thatch
+  add(g, torus(RR + 0.2, 0.4, 24), M.inkLine, 0, H + 2.0, 0, Math.PI / 2, 0, 0);                                      // the dark eave line
+  add(g, cyl(1.2, 1.4, 4, 8), M.wallDark, 0, H + 2 + RH + 1.5, 0); add(g, sph(1.0, 8, 6), M.plinth, 0, H + 2 + RH + 3.6, 0); // a finial post at the peak
+  chimney(g, M, 11, 2, -8, H + 12, 4.0);                                                                             // a chimney through the roof's north-east
+  door(g, M, 0, 2.2, RW - 0.4, 5.5, 8.5); window_(g, M, RW - 0.4, 8.5, 5, 3, 4, Math.PI / 2 * 0); window_(g, M, -RW + 0.4, 8.5, 5, 3, 4, Math.PI);
+  banner(g, M, 3, H + 2 + RH + 2, -3, 12, 14, 10);                                                                   // the team flag beside the peak
+  add(g, cyl(RR + 0.5, RR + 0.5, 1.4, 24), M.cloth, 0, H + 1.2, 0); for (const y of [H + 2.0, H + 0.4]) add(g, cyl(RR + 0.7, RR + 0.7, 0.4, 24), M.inkLine, 0, y, 0); // a thin team band round the eave between ink rings
+  return g;
+}

@@ -177,7 +177,7 @@ export function veteran(M, f) {
 export function rover(M, f) {
   const g = grp(), b = grp(); b.position.y = 5.0; g.add(b);
   add(b, rbox(24, 2.4, 11, 0.9), M.trim, 0, 0, 0);                                              // the chassis tub
-  add(b, rbox(23.2, 1.2, 10.4, 0.5), M.panel, 0, 1.6, 0);                                       // the body panel, charcoal
+  add(b, rbox(23.2, 1.2, 10.4, 0.5), M.panelLight, 0, 1.6, 0);                                  // the body panel, light grey (the last round: lighter paint)
   for (const z of [-5.5, 5.5]) { add(b, rbox(20, 2.4, 0.6, 0.1), M.paint, 0, 1.2, z); add(b, rbox(20.2, 0.25, 0.65, 0.05), M.inkLine, 0, 2.5, z); add(b, rbox(20.2, 0.25, 0.65, 0.05), M.inkLine, 0, -0.1, z); } // the team stripe along each side
   for (const [x, z] of [[-7.5, -7.0], [7.5, -7.0], [-7.5, 7.0], [7.5, 7.0]]) {                   // the wheels: big and pale
     add(b, cyl(4.4, 4.4, 3.0, 20), M.tyrePale, x, -0.6, z, Math.PI / 2, 0, 0);
@@ -204,7 +204,7 @@ export function rover(M, f) {
   for (const z of [-5.6, 5.6]) add(rk, rbox(10.0, 1.0, 1.0, 0.3), M.paleSteel, 0, 5.6, z);        // and pale steel rails
   for (const z of [-5.5, 5.5]) { add(b, rbox(18, 0.5, 1.2, 0.1), M.paint, -1, 2.4, z * 0.86); add(b, rbox(18.2, 0.2, 1.4, 0.05), M.inkLine, -1, 2.6, z * 0.86); } // team stripes along the body's top edges (the Buggy's)
   for (const [x, z] of [[-9.0, -3.4], [-9.0, 3.4], [-2.0, -3.4], [-2.0, 3.4]]) limb(b, [x, 2.2, z], [x + 1.6, 6.4, z], 0.5, M.steel); // steel struts holding the rack
-  add(b, rbox(5.0, 2.4, 8.0, 0.5), M.panelDark, -9.5, 3.2, 0);                                   // the battery pack at the stern
+  add(b, rbox(5.0, 2.4, 8.0, 0.5), M.panelDark, -9.5, 3.2, 0); add(b, rbox(5.2, 0.8, 8.2, 0.2), M.paint, -9.5, 4.5, 0); add(b, rbox(5.4, 0.2, 8.4, 0.05), M.inkLine, -9.5, 4.95, 0); // the battery pack at the stern, a team cover on it
   add(b, torus(1.6, 0.5, 14), M.rope, -9.5, 4.8, 3.0, Math.PI / 2, 0, 0);                        // a rope coil on it
   add(b, cyl(0.5, 0.55, 9, 6), M.joint, -11.0, 7.0, -4.4);                                       // a whip antenna
   if (M.polish) { // secondary detail (the polish pass): bolt rings on the hubs (the Buggy's), two team cargo straps over the rocket tubes between ink edges (the company's straps; they keep the share at the floor, which the rings' pixels would have taken it under), a cable from the battery pack up to the rack, a tow hook at the bow
@@ -213,6 +213,7 @@ export function rover(M, f) {
     limb(b, [-7.6, 4.5, 2.4], [-5.6, 5.4, 3.0], 0.3, M.cable);
     add(b, rbox(1.2, 0.8, 1.0, 0.3), M.steel, 13.9, 0.4, -3.0);
   }
+  g.scale.setScalar(1.4);                                                                        // (the last art round: 1.4x, so the rocket truck clearly outsizes the Buggy)
   return g;
 }
 

@@ -40,7 +40,7 @@ async function rendered(key, filter, opts) {
   return out;
 }
 
-const SIZES = { ex_vortex: 2, ex_warehouse: 3, ex_platform: 2, ex_posttent: 2, ex_posttavern: 2, ex_posthouse: 2, ex_hangar: 3, kg_castle: 4, kg_cottage: 2, kg_market: 2, kg_barracks: 3, kg_blacksmith: 2, kg_workshop: 3, kg_stables: 3, ex_pad: 2, kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_gatetube: 2, ex_ring: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
+const SIZES = { kg_cottagehip: 2, kg_cottageround: 2, ex_vortex: 2, ex_warehouse: 3, ex_platform: 2, ex_posttent: 2, ex_posttavern: 2, ex_posthouse: 2, ex_hangar: 3, kg_castle: 4, kg_cottage: 2, kg_market: 2, kg_barracks: 3, kg_blacksmith: 2, kg_workshop: 3, kg_stables: 3, ex_pad: 2, kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_gatetube: 2, ex_ring: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
 /** The turning heads over their bases, [name, the frames the pictures use]: the turrets at facings, the rotors and the
  *  gate's light at phases, the Uplink's dish at a few pan angles about its frame-0 turn. */
 const HEADS = { kg_tower: ['kg_towerhead', [0, 5, 11]], ex_radio: ['ex_radiohead', [0, 5, 11]], ex_turbine: ['ex_turbinehead', [0, 5, 11]], ex_windfarm: ['ex_windfarmhead', [0, 5, 11]], ex_uplink: ['ex_uplinkhead', [0, 14, 2]], ex_gate: ['ex_gatehead', [0, 5, 11]], ex_gatetube: ['ex_gatetubehead', [0, 5, 11]], ex_ring: ['ex_ringhead', [0, 5, 11]], ex_pad: ['ex_padhead', [0]], ex_platform: ['ex_platformhead', [0]], ex_vortex: ['ex_vortexhead', [0, 5, 11]] }; // (the pads' ships landed unless a sheet asks for a lift frame)
@@ -116,10 +116,10 @@ if (mode === 'check') {
 
 // ---- the units review (pictures and data only): every unit of both peoples as it will ship, the sizes of everything ----
 if (mode === 'units') {
-  const KG_U = [['harvester', 'kg', 'villager', 'VILLAGER'], ['trooper', 'kg', 'guard', 'GUARD'], ['lancer', 'kg', 'archer', 'ARCHER'], ['medic', 'kg', null, 'HEALER (OLD MODEL)'], ['observer', 'kg', 'balloon', 'BALLOON'], ['siegeTank', 'kg', 'trebuchet', 'TREBUCHET'], ['bastion', 'kg', 'ballista', 'BALLISTA'], ['rider', 'kg', 'rider', 'RIDER'], ['knight', 'kg', 'knight', 'KNIGHT']];
+  const KG_U = [['harvester', 'kg', 'villager', 'VILLAGER'], ['trooper', 'kg', 'guard', 'GUARD'], ['lancer', 'kg', 'archer', 'ARCHER'], ['medic', 'kg', null, 'HEALER (OLD MODEL)'], ['observer', 'kg', 'balloon', 'BALLOON'], ['siegeTank', 'kg', 'cannon', 'CANNON'], ['bastion', 'kg', 'ballista', 'BALLISTA'], ['rider', 'kg', 'rider', 'RIDER'], ['knight', 'kg', 'knight', 'KNIGHT']];
   const EX_U = [['lumen', 'ex', 'bot', 'BOT'], ['scythe', 'ex', 'buggy', 'BUGGY'], ['prism', 'ex', 'mercenary', 'SELLSWORD'], ['bruiser', 'ex', 'veteran', 'BRUISER'], ['halo', 'ex', null, 'MEDIC (OLD MODEL)'], ['monolith', 'ex', 'rover', 'ROVER'], ['shrike', 'ex', 'drone', 'DRONE'], ['umbra', 'ex', 'marine', 'MARINE']];
   const ALL = [...KG_U, ...EX_U], DIRS = [0, 4, 8, 12];
-  const U = await rendered('units', `^(kg_(villager|guard|archer|rider|knight|ballista|trebuchet|balloon)|ex_(bot|buggy|mercenary|veteran|rover|drone|marine))_(${DIRS.join('|')})_0$`, { polish: true });
+  const U = await rendered('units', `^((kg_(villager|guard|archer|rider|knight|ballista|cannon|balloon)|ex_(bot|buggy|mercenary|veteran|rover|drone|marine))_(${DIRS.join('|')})_0|kg_cannon_(0|4)_3)$`, { polish: true });
   const B = await rendered('final', FINAL_FILTER, { polish: true });
   const PU = makePainters(U, seatTints(U.tints)), PB = makePainters(B, seatTints(B.tints)), old = atlasAt('HEAD'), Q = makePainters(old, seatTints(old.tints));
   /** The sprite and painter of a unit at facing `d`: the re-theme's render, or the old atlas for the two healers. */
@@ -138,6 +138,14 @@ if (mode === 'units') {
     }));
     label(c, 'EVERY UNIT AS IT WILL SHIP: THE KINGDOM, THEN THE EXPEDITION, EACH FACING THE CAMERA AND EAST. SEAT 0 ABOVE, SEAT 1 BELOW. 1X', 4, 4, 2);
     save('units', c);
+  }
+  // the changed units beside what they must part from: both seats, facing the camera and east
+  {
+    const cols = [['ex_bot', 'BOT'], ['ex_buggy', 'BUGGY'], ['ex_rover', 'ROVER 1.4X'], ['kg_cannon', 'CANNON'], ['kg_cannon', 'CANNON, RECOIL', 3], ['ex_radio', 'SENTRY GUN'], ['ex_marine', 'MARINE'], ['ex_mercenary', 'SELLSWORD'], ['kg_villager', 'VILLAGER']];
+    const cw = 5 * T, rh = 6 * T, c = cv(cw * cols.length, rh * 2); grass(c, 7);
+    [0, 1].forEach(seat => cols.forEach(([k, txt, f = 0], i) => { const y = Math.round(seat * rh + rh - 1.3 * T); if (k === 'ex_radio') { drawBldg(PB, c, k, i * cw + cw / 2, y - T, seat, 0); } else { PU.draw(c, PU.get(`${k}_4_${f}`), i * cw + cw * 0.34, y, seat); PU.draw(c, PU.get(`${k}_0_${f}`), i * cw + cw * 0.72, y, seat); } label(c, txt, i * cw + 4, seat * rh + rh - 22, 2); }));
+    label(c, 'THE CHANGED UNITS (LIGHTER PAINT, MORE TEAM; THE ROVER 1.4X; THE CANNON, TRAVELLING AND IN RECOIL, BESIDE THE SENTRY GUN; THE MARINE IN TAN) WITH THE SELLSWORD AND THE VILLAGER. SEAT 0 ABOVE, SEAT 1 BELOW', 4, 4, 2);
+    save('units-changed', c);
   }
   // the crowd: the Kingdom (seat 0) facing east meets the Expedition (seat 1) facing west, at about the sim's spacing
   {
@@ -170,8 +178,8 @@ if (mode === 'units') {
   }
   // the units table: team share, brightness, size, the maker's notes
   const NOTES = {
-    harvester: 'ok: a bundle on the back', trooper: 'ok: a shield and spear', lancer: 'a bow: slim; near the Villager in build at 0.75', medic: 'the old Harbour Mender (pale coat, satchel): not in the re-theme look', observer: 'ok: the one balloon', siegeTank: 'ok: the one long arm', bastion: 'ok, low and wide; near the Buggy in footprint', rider: 'ok: a horse', knight: 'ok: a horse with armor; near the Rider at 0.75',
-    lumen: 'ok: a low box with arms', scythe: 'ok: wheels and a bull bar', prism: 'a sword and vest; near the Marine in size and build at 0.75', bruiser: 'ok: the big shield', halo: 'the old Vael Tender (a flower): not in the re-theme look', monolith: 'ok: a big low machine', shrike: 'ok: the one flyer with a shadow apart', umbra: 'a rifle and camo; near the Sellsword at 0.75',
+    harvester: 'ok: a bundle on the back', trooper: 'ok: a shield and spear', lancer: 'a bow: slim; near the Villager in build at 0.75', medic: 'the old Harbour Mender (pale coat, satchel): not in the re-theme look', observer: 'ok: the one balloon', siegeTank: 'the Cannon: a bronze barrel on a brown carriage, two big wheels; wood and bronze against the Sentry gun\'s grey and orange', bastion: 'ok, low and wide; near the Buggy in footprint', rider: 'ok: a horse', knight: 'ok: a horse with armor; near the Rider at 0.75',
+    lumen: 'ok: a low box with arms', scythe: 'ok: wheels and a bull bar', prism: 'a sword and vest', bruiser: 'ok: the big shield', halo: 'the old Vael Tender (a flower): not in the re-theme look', monolith: 'ok: a big low machine', shrike: 'ok: the one flyer with a shadow apart', umbra: 'tan camo, helmet, rifle across; parts from the Sellsword by the pale tan and the level rifle',
   };
   const rows = sizes.filter(r => r.what === 'unit').map(r => ({ ...r, note: NOTES[r.kind] ?? '' }));
   writeFileSync(join(outDir, 'units.json'), JSON.stringify(rows, null, 1));
@@ -215,6 +223,7 @@ sheet('post', [['ex_post', "TODAY'S POST"], ['ex_posttavern', 'THE TAVERN HALL']
 sheet('factory', [['ex_factory', "TODAY'S FACTORY"], ['ex_hangar', 'THE HANGAR (REJECTED)'], ['ex_warehouse', 'THE WAREHOUSE'], ['ex_datahall', 'DATA CENTER']], 'THE FACTORY: TODAY, THE HANGAR AND THE WAREHOUSE (THE COG FLAT ON ITS ROOF), THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
 sheet('portal', [['ex_portal', "TODAY'S PORTAL"], ['ex_vortex', 'THE VORTEX, FRAME 0', 0], ['ex_vortex', 'FRAME 4', 4], ['ex_vortex', 'FRAME 8', 8], ['ex_vortex', 'FRAME 12', 12], ['ex_datahall', 'DATA CENTER']], 'THE PORTAL AS A BLACK-HOLE VORTEX: TODAY, THE SPIRAL AT FOUR OF ITS 16 SPIN FRAMES, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 sheet('portal-rejected', [['ex_gate', 'THE WIDE GATE'], ['ex_gatetube', 'GATE AND TUBE'], ['ex_ring', 'THE OVAL RING'], ['ex_pad', 'THE HELIPAD', 0], ['ex_platform', 'THE PLATFORM', 0]], 'THE PORTAL: THE REJECTED OPTIONS, FOR THE RECORD');
+sheet('cottage', [['kg_cottage', 'THE WIDE ONE'], ['kg_cottagehip', 'A: SQUARE, HIP ROOF'], ['kg_cottageround', 'B: ROUND HUT, CONE ROOF'], ['kg_barracks', 'BARRACKS']], 'THE COTTAGE: THE WIDE ONE AND THE TWO OPTIONS, THE BARRACKS FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 sheet('datahall', [['ex_hall', 'THE BLOCK'], ['ex_datahall', 'THE SERVER HALL, LIGHTER'], ['kg_castle', 'CASTLE']], 'THE DATA CENTER: THE SERVER HALL WITH ITS DARK FACES A STEP LIGHTER, THE CASTLE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
 // the Kingdom pass: today (the committed atlas) beside the new render, both seats, a row per building
 {
@@ -236,8 +245,8 @@ const EX_UNITS = [['ex_bot_0_0', 15.2, 9.4], ['ex_bot_2_0', 18.6, 8.2], ['ex_bot
 const KG_UNITS = [['kg_villager_0_0', 15.2, 9.4], ['kg_villager_2_0', 18.6, 8.2], ['kg_villager_8_0', 19.8, 10.1], ['kg_villager_12_0', 20.4, 7.3], ['kg_guard_4_0', 15.5, 5.8], ['kg_guard_4_0', 16.4, 5.9], ['kg_archer_4_0', 17.3, 6.0], ['kg_guard_0_0', 9.5, 12.6]];
 const EXPEDITION = [['ex_datahall', 10, 7], ['ex_turbine', 5, 2], ['ex_turbine', 8, 2], ['ex_turbine', 5, 5], ['ex_turbine', 8, 5], ['ex_posttavern', 12, 3], ['ex_posttavern', 15, 3],
   ['ex_warehouse', 16, 7], ['ex_labdome', 16, 11], ['ex_vortex', 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], ['ex_turbine', 1, 7]];
-const KINGDOM = [['kg_castle', 10, 7], ['kg_cottage', 5, 2], ['kg_cottage', 8, 2], ['kg_cottage', 5, 5], ['kg_cottage', 8, 5], ['kg_blacksmith', 12, 3], ['kg_barracks', 15, 2],
-  ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottage', 12, 12]];
+const KINGDOM = [['kg_castle', 10, 7], ['kg_cottagehip', 5, 2], ['kg_cottagehip', 8, 2], ['kg_cottagehip', 5, 5], ['kg_cottagehip', 8, 5], ['kg_blacksmith', 12, 3], ['kg_barracks', 15, 2],
+  ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottageround', 12, 12]]; // (the Cottage slots: option A, hip roof; one of option B, the round hut, at the south)
 const GOLD = [21.5, 9.2], PANEL = [25, 17];
 function base(seat, list, units) {
   const c = cv(PANEL[0] * T, PANEL[1] * T); grass(c, seat + 11);
@@ -248,7 +257,7 @@ function base(seat, list, units) {
   for (const it of items.sort((a, b) => a.y - b.y)) for (const d of it.draw) d(c);
   return c;
 }
-for (const [name, seat, list, units, cap] of [['base', 1, EXPEDITION, EX_UNITS, 'EXPEDITION BASE: THE SERVER HALL, TURBINES, TAVERN HALLS, THE WAREHOUSE, THE LAB DOME, THE VORTEX, SENTRY GUNS, THE UPLINK'], ['kingdom-base', 0, KINGDOM, KG_UNITS, 'KINGDOM BASE: EVERY BUILDING AT -20 AFTER THE PASS']]) {
+for (const [name, seat, list, units, cap] of [['base', 1, EXPEDITION, EX_UNITS, 'EXPEDITION BASE: THE SERVER HALL, TURBINES, TAVERN HALLS, THE WAREHOUSE, THE LAB DOME, THE VORTEX, SENTRY GUNS, THE UPLINK'], ['kingdom-base', 0, KINGDOM, KG_UNITS, 'KINGDOM BASE AFTER THE PASS (COTTAGES: OPTION A, AND ONE ROUND HUT SOUTH)']]) {
   const c = base(seat, list, units), z = resample(c, 0.75);
   label(c, cap, 6, 6, 2); save(`${name}-100`, c, false);
   label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);

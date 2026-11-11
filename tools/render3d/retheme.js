@@ -16,7 +16,7 @@ import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js';
-import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from './expedition.js';
+import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
@@ -45,7 +45,9 @@ export const RT_UNITS = {
     rover: { build: rover, r: 20, h: 20 }, drone: { build: drone, r: 16, h: 24 },
   },
 };
-export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: dataCentre, n: 4, h: 50 } } };
+/** The two main buildings; `hall` is the Data center (expedition-buildings.js `serverHall`, Stelian's pick of the two
+ *  options drawn on 2026-11-11; `dataBlock` the other, kept under `datablock` for the record and the pictures). */
+export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: EB.serverHall, n: 4, h: 66 }, datablock: { build: EB.dataBlock, n: 4, h: 88 } } };
 // ---- the buildings family (kingdom-buildings.js, expedition-buildings.js; the slot each takes is in the brief) ----
 Object.assign(RT_BUILDINGS.kg, {
   cottage: { build: KB.cottage, n: 2, h: 34 }, market: { build: KB.market, n: 2, h: 36 }, barracks: { build: KB.barracks, n: 3, h: 48 },
@@ -71,13 +73,14 @@ const FACINGS = 16;
  *  Blacksmith -20 (the open front, the hearth and the anvil), the Workshop -20 (the siege frame's triangle beside the
  *  balloon), the Stables -20 (the pen and the horse before the long stable), the Cabin -20 (its window grid and panel),
  *  the Recruiting post -10 (the tent's open front), the Factory -10 (the arm before the bay), the Lab +20 (the lit
- *  glass front and the dish), the Portal -20 (the ramp down from the round platform). Square: the round towers (their
- *  heads turn on their own) and the Data center until its redraw. A turned building is fitted to its footprint
+ *  glass front and the dish), the Portal -20 (the ramp down from the round platform), the Data center -10 (its redraw
+ *  of 2026-11-11: the server hall's open bay of racks, its west end, and the chip on its roof; a 0.99 fit). Square:
+ *  the round towers (their heads turn on their own). A turned building is fitted to its footprint
  *  (`fitTurned`): the footprint, hit area and rules never change, and the client's smoke and glow points for a turned
  *  building (look.js BLDG_LOOK) are measured on the turned model. */
 export const BLDG_YAW = {
   kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: 0, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20 },
+  ex: { hall: -10, datablock: -20, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;

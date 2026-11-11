@@ -33,7 +33,6 @@ export function kbMats(M) {
   if (M.thatch) return M;
   M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull grey-brown straw (the Cottage's roof only; never orange beside the coins' gold)
   M.straw = std({ color: 0x9c8658, roughness: 0.95 });                                       // hay and straw: tan, never the coins' yellow
-  M.smoke = std({ color: 0x8a8a86, roughness: 1 });                                          // chimney smoke, grey puffs
   M.hearth = std({ color: 0x2a0804, emissive: 0xe8300c, emissiveIntensity: 1.3 });           // the Blacksmith's ember: red-orange, small (round 3: a yellow glow read as the Market's gold)
   M.coals = std({ color: 0x1c1816, roughness: 1 });                                            // dark coals round it
   M.water = std({ color: 0x1a2228, metalness: 0.6, roughness: 0.15 });                       // a trough's water
@@ -63,9 +62,6 @@ export function earth(g, M, pts, k = 0.7, dz = 4) {
   add(g, plate(pts.map(([x, z]) => [cx + (x - cx) * k, cz + (z - cz) * k + dz]), 1.6, 0.8), M.earth, 0, 0, 0).userData.ground = true;
 }
 /** Smoke out of a stack: puffs rising and swelling, drifting north-east (away from the camera, so nothing is hidden). */
-export function smoke(g, M, x, y, z, n = 4) {
-  for (let k = 0; k < n; k++) add(g, sph(1.0 + k * 0.5, 10, 8), M.smoke, x + k * 1.4, y + 2 + k * 2.8, z - k * 1.2).scale.set(1, 0.8, 1);
-}
 /** An oak door with two iron bands, on a face at (x, y, z) looking +z (`ry` turns it). */
 function door(g, M, x, y, z, w = 6, h = 9, ry = 0) {
   const d = grp(); d.position.set(x, y, z); d.rotation.y = ry; g.add(d);
@@ -111,17 +107,19 @@ function shield(g, M, x, y, z, r = 3.0, ry = 0) {
   add(s, cyl(r + 0.3, r + 0.3, 0.6, 18), M.oak, 0, 0, 0, Math.PI / 2, 0, 0); add(s, cyl(r, r, 0.5, 18), M.cloth, 0, 0, 0.3, Math.PI / 2, 0, 0);
   add(s, torus(r, 0.35, 18), M.inkLine, 0, 0, 0.5); add(s, sph(0.7, 8, 6), M.steel, 0, 0, 0.7);
 }
-/** A stone chimney stack with a cap and smoke. */
+/** A stone chimney stack with a cap (no baked smoke since 2026-11-11: the client puffs from the cap while the building
+ *  works, look.js BLDG_LOOK `smoke`; its points are measured on the cap's top, y0 + h + 1.5). */
 function chimney(g, M, x, y0, z, h, w = 4.6) {
   add(g, rbox(w, h, w, 0.3), M.wallDark, x, y0 + h / 2, z); add(g, rbox(w + 1.2, 1.2, w + 1.2, 0.2), M.plinth, x, y0 + h + 0.4, z);
-  add(g, rbox(w - 1.4, 0.8, w - 1.4, 0.1), M.inkLine, x, y0 + h + 1.1, z); smoke(g, M, x, y0 + h + 1, z);
+  add(g, rbox(w - 1.4, 0.8, w - 1.4, 0.1), M.inkLine, x, y0 + h + 1.1, z);
 }
 
 /** Cottage (population, 2x2): a small house of slate-grey ashlar under a deep thatched roof (the kingdom's one thatch:
- *  this is where people live), a stone chimney with smoke at its east gable, an oak door and shuttered windows on the
- *  south face, a woodpile under the eave; team on a washing line of cloths strung from the house to a post in the
- *  garden, a banner by the door and a pennant on the ridge. From the camera: a brown rounded roof with smoke over a grey
- *  wall, a row of small team squares beside it. */
+ *  this is where people live), a stone chimney at its east gable (no smoke, baked or live: nobody works here), an oak
+ *  door and shuttered windows on the south face; team on a washing line of cloths strung from the house to a post in
+ *  the garden, a banner by the door and a pennant on the ridge. From the camera: a brown rounded roof over a grey wall,
+ *  a row of small team squares beside it. (Until 2026-11-11 a woodpile stood under the west eave: at 1x it was a brown
+ *  strip sliced by the eave line, and read as the sprite cut off at its left edge.) */
 export function cottage(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-30, -22], [22, -29], [31, 4], [24, 30], [-24, 27], [-31, 2]]);
@@ -136,7 +134,6 @@ export function cottage(M) {
   chimney(g, M, X + W / 2 - 3, 2, Z - 2, H + 18, 4.6);
   door(g, M, X - 2, 2.2, Z + D / 2 + 0.6, 5.5, 8.5);
   window_(g, M, X + 9, 9, Z + D / 2 + 0.6); window_(g, M, X - 10.5, 9.5, Z + D / 2 + 0.6, 2.6, 3.2);
-  for (let k = 0; k < 7; k++) add(g, cyl(1.1, 1.1, 5, 8), M.oak, X - W / 2 - 2.2, 3.2 + Math.floor(k / 4) * 2.1, Z - 6 + (k % 4) * 2.4 + (k > 3 ? 1.2 : 0), Math.PI / 2, 0, 0); // the woodpile
   hanging(g, M, X + 7.5, H + 1.2, Z + D / 2 + 1.0, 9, 13, -Math.PI / 2);                                             // a banner by the door
   banner(g, M, X - W / 2 - 1, H + 15.5, Z, 10, 12, 9);                                                              // a banner at the ridge's west end
   // the washing line: team cloths between ink hems hung from the house's east gable to a post
@@ -203,7 +200,7 @@ export function barracks(M) {
 }
 
 /** Blacksmith (upgrades, 2x2): a stone smithy open to the south on oak posts, its slate lean-to roof sloping down to the
- *  back, a square stone stack with smoke at its west end; under the roof the forge, a hearth of dark stone glowing
+ *  back, a square stone stack at its west end; under the roof the forge, a hearth of dark stone glowing
  *  orange-red (the kingdom's one warm light, small) under a hood, the anvil on an oak block in front, a quench trough
  *  of dark water, hammers and tongs on the post, horseshoes on the wall; a team cloth hung on the stack and a team
  *  banner on the gable. From the camera: a grey roof, a dark open front with a small orange glow and a pale anvil. */
@@ -224,7 +221,7 @@ export function blacksmith(M) {
   // the forge: a hearth of dark stone, the glow, the hood; the anvil on its block in front
   const FZ = Z + D / 2 + 7;                                                                                           // the forge out in the yard before the posts (round 2: under the roof the glow is hidden from a 40-degree camera, as anything deeper than its height / 0.84)
   add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 8, 5, FZ); add(g, rbox(8.4, 1.4, 5.6, 0.3), M.coals, X + 8, 8.6, FZ); add(g, sph(2.6, 10, 8), M.coals, X + 8, 9.4, FZ).scale.set(1.3, 0.6, 1); add(g, sph(1.5, 10, 8), M.hearth, X + 8.4, 10.3, FZ + 0.4); // the hearth: dark coals heaped, a small red-orange ember on top, open to the sky
-  add(g, cyl(1.6, 1.8, 12, 8), M.ironDark, X + 8, 11, FZ - 4.2); add(g, cyl(2.0, 2.0, 1.0, 8), M.ironDark, X + 8, 17.2, FZ - 4.2); smoke(g, M, X + 8, 17, FZ - 4.2, 3); // an iron flue behind it
+  add(g, cyl(1.6, 1.8, 12, 8), M.ironDark, X + 8, 11, FZ - 4.2); add(g, cyl(2.0, 2.0, 1.0, 8), M.ironDark, X + 8, 17.2, FZ - 4.2); // an iron flue behind it (its smoke the client's, while the smith works)
   add(g, cyl(2.8, 3.2, 4.5, 10), M.oak, X - 6, 4.2, Z + D / 2 + 6);                                                   // the anvil out in the yard before the posts, on its block
   add(g, rbox(8.0, 2.8, 3.2, 0.6), M.anvil, X - 6, 7.8, Z + D / 2 + 6); add(g, cone(1.3, 3.2, 8), M.anvil, X - 0.6, 7.8, Z + D / 2 + 6, 0, 0, -Math.PI / 2); // pale
   add(g, cyl(0.7, 0.7, 6, 6), M.oak, X - 9, 8.6, Z + D / 2 + 9, 0.3, 0, 0.9); add(g, rbox(2.4, 1.6, 1.6, 0.3), M.anvil, X - 11.2, 10.7, Z + D / 2 + 9.6); // a hammer on the anvil

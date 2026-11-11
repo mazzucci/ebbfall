@@ -26,23 +26,25 @@ export const colorOf = (seat) => spotOf[seat] ?? seat;
 const LED = 0xe6f0ff;
 
 /** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a turret head sprite that
- * turns to aim), `smoke` (points in px from the footprint's top-left corner that puff while the building works). Each
- * measured on its model (tools/render3d/kingdom-buildings.js, expedition-buildings.js): a point (x, y, z) of a model
- * centred on its footprint is drawn x east and y * 1.19 - z above the centre at the 40-degree camera. The smoke rises
- * from the top of the grey puffs drawn over each stack, so the live puffs carry them on. */
+ * turns to aim), `smoke` (points in px from the footprint's top-left corner: a puff rises from one of them now and then,
+ * only while the building works, `chimneyActive`: training or researching; the sprites carry no baked smoke). Each
+ * measured on its model (tools/render3d/kingdom-buildings.js, expedition-buildings.js), turned and scaled as the atlas
+ * draws it (retheme.js BLDG_YAW): a point (x, y, z) of a model centred on its footprint, turned `yaw` about the vertical
+ * and scaled k, lands at x' = k (x cos yaw + z sin yaw), z' = k (z cos yaw - x sin yaw), and is drawn x' east and
+ * k y * 1.19 - z' above the centre at the 40-degree camera. The smoke points are the chimney caps' tops. The Cottage has
+ * no smoke: nobody works there. */
 export const BLDG_LOOK = {
-  core: { smoke: [[106, 4]] },                                                       // (the Castle: the great hall's chimney; no light)
-  depot: { smoke: [[42, -28]] },                                                     // (the Cottage's chimney at its east gable)
-  barracks: { smoke: [[25, -31]] },                                                  // (the Barracks' chimney at the hall's west end)
-  forge: { glow: [0xff5a1e, 0.6, 0.45, -1, true, 6], smoke: [[21, -35], [41, 9]] }, // (the Blacksmith's ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
+  core: { smoke: [[97, 4]] },                                                        // (the Castle, +11 at 0.88: the great hall's chimney; no light)
+  barracks: { smoke: [[37, -26]] },                                                  // (the Barracks, -30: the chimney at the hall's west end)
+  forge: { glow: [0xff5a1e, 0.6, 0.45, -3, true, 1], smoke: [[22, -24], [35, 21]] }, // (the Blacksmith, -20: the ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
   turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
   // the Expedition: its white LEDs
   conflux: { glow: [LED, 1.1, 0.28, 0, false, -14] },                                // (the Data center's three lit fans in its south face)
-  siphon: { glow: [LED, 0.5, 0.45, -3, false, 14] },                                // (the Recruiting post's tent: the lantern on its pole at the door; the population building, a timber booth, has no light)
-  kiln: { glow: [LED, 0.7, 0.4, 18, false, -4] },                                    // (the Factory's work lamp over the bay)
-  loom: { glow: [LED, 1.0, 0.3, 5, false, -4] },                                     // (the Lab's lit glass front)
+  siphon: { glow: [LED, 0.5, 0.45, -5, false, 11] },                                // (the Recruiting post's tent, -10: the lantern on its pole at the door; the population building, a timber booth, has no light)
+  kiln: { glow: [LED, 0.7, 0.4, 19, false, -4] },                                    // (the Factory, -10: the work lamp over the bay)
+  loom: { glow: [LED, 1.0, 0.3, 4, false, -2] },                                     // (the Lab, +20: its lit glass front)
   ward: { head: 'ward_head', glow: [LED, 0.35, 0.5, 70, false, 0] },                 // (the Radio tower's turret turns; the LED on its mast top)
-  eclipse: { glow: [LED, 0.9, 0.35, 34, false, 0] },                                 // (the Portal's lit cabinet at the back of its platform)
+  eclipse: { glow: [LED, 0.9, 0.35, 34, false, 6] },                                 // (the Portal, -20: the lit cabinet at the back of its platform)
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
@@ -57,6 +59,10 @@ export const PEOPLE_SHOT = { humans: { bolt: 'arrow', shell: 'stone', missile: '
 export const TOWER_SHOT = { humans: 'arrow', vael: 'tower_shot' };
 /** The sprite of a shot fired by a unit of kind `by` (undefined: a building) of people `people`, its projectile kind `type`. */
 export const shotArt = (by, type, people) => SHOT_LOOK[by] ?? (by ? PEOPLE_SHOT[people]?.[type] : TOWER_SHOT[people]) ?? 'arrow';
+/** Whether a building's chimney smokes right now: it stands and works (a unit in its queue or a research under way;
+ *  `b` is the client's mirror of it, src/engine/core.js). */
+export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research));
+
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */
 export const SHOT_TRAIL = { rocket: 'trail' };
 /** The shots that carry a light of their own (a small warm glow under them): the tracers, the tower's shot, the rocket's flame. */

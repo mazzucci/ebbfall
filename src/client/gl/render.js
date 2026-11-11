@@ -261,6 +261,7 @@ export function renderTerrain() {
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   L.worn.removeChildren().forEach(c => c.destroy()); // (the buildings' own, gone with them above)
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
+  for (const r of rockets) { r.s.destroy(); r.l.destroy(); } rockets.length = 0; // (a launch still rising from the last game)
 }
 
 // ---- entity display objects, keyed by sim id ----

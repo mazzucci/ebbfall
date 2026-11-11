@@ -164,3 +164,23 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   assert.ok(lit.includes('a_entrench@2') && lit.includes('deselect@5'), `after: Brace in its slot, Deselect where it was: ${lit}`);
   ui.sel = []; ui.mode = null;
 });
+
+test('a research started moves no button: its own turns into Cancel in its place, the others keep their slots and keys', { skip }, () => {
+  for (const race of ['humans', 'vael']) {
+    E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+    const f = E.FACTIONS[race];
+    let id = 95000;
+    for (const k of [...f.buildBasic, ...f.buildAdvanced].filter(k => E.BUILDINGS[k].researches?.length)) {
+      const bldg = (o = {}) => ({ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0, ...o });
+      const card = (b) => { ui.sel = [b]; ui.mode = null; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
+      const idle = card(bldg());
+      const slotOf = (items, itemId) => items.find(i => i.id === itemId)?.slot;
+      for (const r of E.BUILDINGS[k].researches) {
+        const busy = card(bldg({ research: { type: r } }));
+        assert.equal(slotOf(busy, 'cancelr'), slotOf(idle, 'r_' + r), `${k} researching ${r}: its Cancel in its place`);
+        for (const it of idle) if (it.id !== 'r_' + r) assert.equal(slotOf(busy, it.id), it.slot, `${k} researching ${r}: ${it.label} stays in slot ${it.slot}`);
+      }
+    }
+  }
+  ui.sel = []; ui.mode = null;
+});

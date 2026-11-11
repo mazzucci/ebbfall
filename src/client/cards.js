@@ -94,22 +94,25 @@ export function cardItems() {
     if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
-    // The units it can train now, packed (one whose building is missing is left out: its key does nothing).
-    const shown = trains.filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
+    // The units it can train now, packed in the order they unlock (as the Build page: by requirement depth, the table's
+    // order breaking ties), so a newly unlocked unit comes last and moves none of the others; one whose building is
+    // missing is left out (its key does nothing).
+    const unitDepth = (t) => (UNITS[t].req ? 1 + depth(UNITS[t].req) : 0);
+    const shown = trains.map((t, i) => [t, i, unitDepth(t)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([t]) => t)
+      .filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
     shown.forEach(t => { const d = UNITS[t]; next({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc }); }); // (the hover title and the long-press)
     // Rally after the units (a factory trains four at most, so its card keeps two rows with the queue's Cancel in slot 5)
     if (trains.length) next({ id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
-      // A research building's researches packed from the first slot, finished ones left out; while it researches, its
-      // Cancel takes slot 2 and they pack round it. A factory's one tech sits after its units and Rally, and while it
-      // researches its button becomes the Cancel (the queue's Cancel keeps its own slot).
+      // The researches packed from the first free slot, finished ones left out (a factory's after its units and Rally).
+      // While one runs, its own button becomes the Cancel, in its place: nothing else moves between idle and busy, so a
+      // key or a second tap meant for another research never cancels this one.
       const busy = researching(bl);
       const cancelr = busy && { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' };
-      if (busy && !trains.length) at(2, cancelr);
       b.d.researches.forEach((k) => {
         const u = UPGRADES[k];
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
-        if (trains.length && busy?.research.type === k) { next(cancelr); return; }
+        if (busy?.research.type === k) { next(cancelr); return; }
         if (lv > u.levels) return;
         next({ id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });

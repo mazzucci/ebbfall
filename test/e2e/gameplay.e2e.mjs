@@ -360,9 +360,9 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Weapons I', 'Armor I', 'Cancel', 'Shield Drill', 'Master Builders'], 'the Blacksmith card: research and its cancel, the techs below');
+    assert.deepEqual(slots.filter(Boolean), ['Cancel', 'Armor I', 'Shield Drill', 'Master Builders'], 'the Blacksmith card: the research\'s button turned into its Cancel, in its place; the others where they were');
     const before = (await d.state()).res;
-    await d.page.locator('#cmd > :nth-child(3)').click(); // cancel the research
+    await d.page.locator('#cmd > :nth-child(1)').click(); // cancel the research
     const after = (await d.state()).res;
     assert.ok(after[0] - before[0] >= 100 && after[1] === before[1], 'cancel refunds in full (gold; no ether)');
     await d.pressCard('Weapons I');
@@ -421,7 +421,7 @@ test('phone: Master Builders researched at the Blacksmith, then buildings go up 
     await d.skip(4);
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     const busy = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(busy, ['Weapons I', 'Armor I', 'Cancel', 'Shield Drill', 'Master Builders'], 'the card keeps its shape');
+    assert.deepEqual(busy.slice(0, 4), ['Weapons I', 'Armor I', 'Shield Drill', 'Cancel'], 'the card keeps its shape: Master Builders\' button is its Cancel');
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].rapidConstruction)) === 1, { seconds: 70, what: 'Master Builders' });
     await d.clickEntity(forge.id);
@@ -1610,8 +1610,9 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
 });
 
 
-test('as the Expedition: the top bar shows Power and hired places (and Portal places), whole, on a desktop and a small phone', async () => {
-  for (const dev of [DESKTOP, SMALL_PHONE]) {
+test('as the Expedition: the top bar shows Power and hired places (and Portal places), whole, on a desktop, a small phone and upright phones', async () => {
+  const NARROW = { ...PHONE, viewport: { width: 360, height: 780 } };
+  for (const dev of [DESKTOP, SMALL_PHONE, UPRIGHT, NARROW]) {
     const d = await newGame(dev, 0, 4242, { ai: false, race: 'vael' });
     try {
       await d.page.waitForFunction(() => document.getElementById('lSupply').textContent === 'POWER', null, { timeout: 5000 });
@@ -1624,17 +1625,24 @@ test('as the Expedition: the top bar shows Power and hired places (and Portal pl
       // figure whole, none cut or over the buttons.
       // (set and measured in one go: the HUD writes its own figures back on its next tick)
       const boxes = await d.eval(() => {
-        document.getElementById('resPortal').hidden = false; document.getElementById('rPortal').textContent = '12/12'; document.getElementById('rHired').textContent = '18/18'; document.getElementById('rSupply').textContent = '120/120';
+        document.getElementById('resPortal').hidden = false; document.getElementById('rPortal').textContent = '8/8'; document.getElementById('rHired').textContent = '18/18'; document.getElementById('rSupply').textContent = '76/80'; document.getElementById('rShard').textContent = '1250';
         return [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && !e.classList.contains('spacer')).map(e => { const r = e.getBoundingClientRect(); return { id: e.id, l: r.left, r: r.right, cut: [...e.querySelectorAll('*')].some(c => c.scrollWidth > c.clientWidth + 1 && getComputedStyle(c).display !== 'inline') }; });
       });
-      const bar = await d.eval(() => { const r = document.getElementById('top').getBoundingClientRect(); return [r.left, r.right]; });
+      const bar = await d.eval(() => { const r = document.getElementById('top').getBoundingClientRect(); return [Math.max(0, r.left), Math.min(innerWidth, r.right)]; }); // (and on the screen)
       assert.deepEqual(boxes.slice(0, 4).map(b => b.id), ['resShard', 'resSup', 'resHired', 'resPortal']);
       for (const [i, b] of boxes.entries()) {
         assert.ok(b.l >= bar[0] && b.r <= bar[1], `${b.id} inside the bar (${JSON.stringify(b)} in ${bar})`);
         assert.ok(!b.cut, `${b.id}: nothing cut`);
         if (i) assert.ok(b.l >= boxes[i - 1].r, `${b.id} clear of ${boxes[i - 1].id}`);
       }
-      assert.deepEqual(await d.eval(() => ['resSup', 'resHired'].map(id => { const l = document.querySelector(`#${id} .lbl`); return l.offsetParent !== null && l.getBoundingClientRect().width > 10 ? l.textContent : ''; })), ['POWER', 'HIRED'], 'the words shown');
+      assert.ok(boxes.some(b => b.id === 'btnPause'), 'Pause shown');
+      // The words where there is room; on an upright phone none of them, alike, each figure named by its title.
+      const words = await d.eval(() => ['resSup', 'resHired', 'resPortal'].map(id => { const l = document.querySelector(`#${id} .lbl`); return l.offsetParent !== null && l.getBoundingClientRect().width > 10 ? l.textContent : ''; }));
+      if (dev.viewport.width > 440) assert.deepEqual(words, ['POWER', 'HIRED', 'PORTAL'], 'the words shown');
+      else {
+        assert.deepEqual(words, ['', '', ''], 'an upright phone: no words, all alike');
+        assert.deepEqual(await d.eval(() => ['resShard', 'resSup', 'resHired', 'resPortal'].map(id => document.getElementById(id).title)), ['Gold', 'Power', 'Hired places', 'Portal places']);
+      }
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -3077,7 +3085,7 @@ test('desktop: the Blacksmith trains a Ballista once a Forge stands (B, or its s
     await buildAndFinish(d, 'k', 'forge', 3);
     await d.clickEntity(factory.id);
     await d.readyCard('Ballista');
-    assert.deepEqual((await cardKeys(d)).map(([, , l]) => l), ['Ballista', 'Cannon', 'Balloon', 'Rally', 'Cancel'], 'the Ballista, the Cannon and the Balloon, Rally after them, the queue\'s Cancel in its place');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Balloon 0', 'Ballista 1', 'Cannon 2', 'Rally 3', 'Cancel 5'], 'the Balloon where it was, the Ballista and the Cannon after it as they unlocked, then Rally; the queue\'s Cancel in its place');
     const queue = async () => (await d.state()).bldgs.find(b => b.id === factory.id).queue;
     await d.key('b');
     assert.deepEqual(await queue(), ['bastion'], `B trains a Ballista (toasts: ${(await d.toasts()).join(' | ')})`);

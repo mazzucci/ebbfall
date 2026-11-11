@@ -42,9 +42,11 @@ function topBar() {
   const [s] = G.res[G.me], [su, sc] = G.sup[G.me], ex = !!myFaction().power;
   const [hu, hc] = G.hired[G.me] || [0, 0], [pu, pc] = G.portal[G.me] || [0, 0];
   const put = (id, v) => { const e = $(id); if (e.textContent !== v) e.textContent = v; };
+  const hide = (id, v) => { const e = $(id); if (e.hidden !== v) e.hidden = v; }; // (only on a change: not every frame)
   put('rShard', String(s)); put('rSupply', su + '/' + sc); put('lSupply', ex ? 'POWER' : 'POP');
+  if ($('resSup').title !== (ex ? 'Power' : 'Population')) $('resSup').title = ex ? 'Power' : 'Population';
   $('resSup').classList.toggle('low', su >= sc);
-  $('resHired').hidden = !ex; $('resPortal').hidden = !ex || (pc === 0 && pu === 0);
+  hide('resHired', !ex); hide('resPortal', !ex || (pc === 0 && pu === 0));
   if (ex) { put('rHired', hu + '/' + hc); put('rPortal', pu + '/' + pc); $('resHired').classList.toggle('low', hc > 0 && hu >= hc); $('resPortal').classList.toggle('low', pc > 0 && pu >= pc); }
 }
 

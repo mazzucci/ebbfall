@@ -9,6 +9,7 @@
 // (slate) and the Expedition its one dark-kit look (Stelian, 2026-11-10). The camera: `elev` degrees (RT_ELEV, the
 // game's 40, by default). Units are drawn UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can
 // be distinguished"; visual only, the footprint and radius unchanged); buildings stay their footprint's.
+import * as THREE from 'three';
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
@@ -62,14 +63,29 @@ function unitCell(r, h, lift) {
   const left = r + 2, right = r + h * 0.55 + 4, up = r + h * lift + 2, down = r + h * 0.45 + 3;
   return { w: Math.ceil((left + right) * S), h: Math.ceil((up + down) * S), ax: Math.round(left * S), ay: Math.round(up * S) };
 }
-function bldgCell(n, h, lift) {
-  const W = n * 32, left = 4, right = h * 0.5 + 6, up = h * lift + 6, down = h * 0.4 + 6;
+function bldgCell(n, h, lift, extra = 0) { // (`extra`: room on every side for a turned building's corners, the yaw review)
+  const W = n * 32, left = 4 + extra, right = h * 0.5 + 6 + extra, up = h * lift + 6 + extra, down = h * 0.4 + 6 + extra;
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
+/** A building turned `yaw` degrees about the vertical (the yaw review, tools/art/retheme-yaw.mjs) and scaled by `scale`
+ *  (a number, or 'fit': the largest scale at which the turned model's ground extent stays inside its n-tile footprint,
+ *  earth plate included). Returns the scale applied. */
+function turnBuilding(obj, n, yaw, scale) {
+  obj.rotation.y = yaw * Math.PI / 180; obj.updateMatrixWorld(true);
+  if (scale === 'fit') {
+    const b = new THREE.Box3().setFromObject(obj, true), reach = Math.max(-b.min.x, b.max.x, -b.min.z, b.max.z);
+    scale = Math.min(1, n * 16 / reach);
+  }
+  obj.scale.multiplyScalar(scale);
+  return scale;
+}
+const turnTag = (yaw, scale) => `@y${yaw}s${scale.toFixed(2)}`;
 
 /** Yields [name, object, cell, shootOpts, isTeam] for every re-theme sprite `want(name)` asks for. `opts` are the
- *  render's (render3d.mjs): `elev` the camera's elevation in degrees (RT_ELEV), `sun` the sun's height (scene.js), and
- *  `polish` the polished finish and materials (polish.js: true, or an object of finish settings). */
+ *  render's (render3d.mjs): `elev` the camera's elevation in degrees (RT_ELEV), `sun` the sun's height (scene.js),
+ *  `polish` the polished finish and materials (polish.js: true, or an object of finish settings), and `turns`, a list of
+ *  `{ yaw, scale }` (degrees; a number or 'fit', 1 by default) that renders every building turned so as well, under
+ *  `bldg_<side>_<kind>@y<yaw>s<scale>` in a cell a quarter footprint wider on every side (the yaw review). */
 export function* rethemeSprites(want, opts = {}) {
   if (typeof opts === 'number') opts = { elev: opts };
   const elev = (opts.elev ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
@@ -88,8 +104,13 @@ export function* rethemeSprites(want, opts = {}) {
       }
     }
     for (const [kind, b] of Object.entries(RT_BUILDINGS[side])) {
-      const name = `bldg_${side}_${kind}`; if (!want(name)) continue;
-      yield [name, b.build(mats()), bldgCell(b.n, b.h, lift), o, true];
+      const name = `bldg_${side}_${kind}`;
+      if (want(name)) yield [name, b.build(mats()), bldgCell(b.n, b.h, lift), o, true];
+      if (!want(name)) continue;
+      for (const { yaw, scale = 1 } of opts.turns ?? []) { // (the name carries the scale applied: a script finds a 'fit' by its `@y<yaw>s` prefix)
+        const obj = b.build(mats()), k = turnBuilding(obj, b.n, yaw, scale);
+        yield [name + turnTag(yaw, k), obj, bldgCell(b.n, b.h, lift, b.n * 8), o, true];
+      }
     }
     for (const [kind, b] of Object.entries(RT_HEADS[side])) for (let dir = 0; dir < FACINGS; dir++) {
       const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;

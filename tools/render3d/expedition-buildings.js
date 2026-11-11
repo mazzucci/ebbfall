@@ -8,12 +8,18 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { torus } from './harbour.js';
 import { cone } from './vael.js';
-import { oct, gable } from './kingdom.js';
+import { oct, gable, tex } from './kingdom.js';
 import { led, traveller, boardTex } from './expedition.js';
 import { earth, brace } from './kingdom-buildings.js';
 import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
+/** A rack panel's face: four slot rows per 16 game units (boxUV's repeat), each a dark slot with a lit top edge and a
+ *  cyan dot at its left end; drawn bold enough that a panel 14 units tall still shows rows at 1x. */
+const rackPanelTex = tex(64, (g, n) => {
+  g.fillStyle = '#4e535a'; g.fillRect(0, 0, n, n);
+  for (let y = 2; y < n; y += 16) { g.fillStyle = '#1a1c20'; g.fillRect(4, y, n - 8, 10); g.fillStyle = '#6a7078'; g.fillRect(4, y, n - 8, 1.5); g.fillStyle = '#2c3036'; g.fillRect(6, y + 3, n - 12, 5); g.fillStyle = '#30e4ff'; g.fillRect(7, y + 4, 4, 3); g.fillStyle = '#18a0b8'; g.fillRect(14, y + 5, 2, 2); }
+});
 /** The family's few extra materials, added to an Expedition set once; with `M.polish` (polish.js `polishMats` marks
  *  the set) they take the recipe too: the board walls and the notice board on the 1x course texture (`hiBoard`, as the
  *  slice's deck), folds in the tent canvas, tight glints on the ramp, the core's frame and the mast's wire. */
@@ -34,6 +40,13 @@ export function ebMats(M) {
   M.wool = std({ color: 0x6e6a5c, map: M.canvas.map, roughness: 0.95 });                                           // the bunks' blankets, grey-khaki wool (the two-tester check: team blankets end-on read as a queue of figures at 1x)
   M.bedroll = std({ color: 0xbcb4a2, map: M.canvas.map, roughness: 0.95 });                                        // a big pale bedroll
   M.armyCanvas = std({ color: 0x8c8870, map: M.canvas.map, roughness: 0.94 });                                     // the Tent's army canvas, a light dusty khaki (the olive read as golden spikes)
+  // the Data center's (2026-11-11, Stelian's brief: a server hall with a rack-light glow, the glow cyan neon, apart from seat 0's royal blue)
+  M.block = std({ color: 0x5a5e66, metalness: 0.3, roughness: 0.55 });                                              // its charcoal composite body, clean (no shell seams: the neon draws the seams; 0x3a3e44 went near-black under the finish, its faces being in the sun's shade)
+  M.rackPanel = std({ color: 0x6a7078, map: rackPanelTex, metalness: 0.4, roughness: 0.5 });                        // a rack panel: slot rows with a cyan dot each
+  M.neon = std({ color: 0x000000, emissive: 0x00d4ff, emissiveIntensity: 0.9 });                                    // the cyan neon: edges, seams, LED strips, the chip's die and traces (never team; the emissive alone, no red at all: lit cyan paint under the finish's rim and S-curve went to white)
+  M.neonCore = std({ color: 0x000000, emissive: 0x80e8ff, emissiveIntensity: 1.3 });                                // the die's hot centre, a paler cyan
+  M.neonHalo = new THREE.MeshBasicMaterial({ color: 0x18d0ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }); // the glow round the neon
+  M.chip = std({ color: 0x16181c, metalness: 0.4, roughness: 0.35 });                                               // the chip's package, dark epoxy
   if (M.polish) {
     const X = polishTextures(), set = (m, o) => { Object.assign(m, o); m.needsUpdate = true; };
     set(M.planks, { map: X.hiBoard, bumpMap: X.board, bumpScale: 1.4 });                                       // the boards' seams drawn for 1x (the walls keep their mid grey under the lighter shingles: the slice's split)
@@ -44,6 +57,8 @@ export function ebMats(M) {
     set(M.wire, { roughness: 0.3, envMapIntensity: 2.4 });
     set(M.tank, { roughness: 0.25, envMapIntensity: 2.4, bumpMap: X.scuff, bumpScale: 0.4 });
     set(M.armyCanvas, { bumpMap: X.fold, bumpScale: 0.7 });
+    set(M.block, { bumpMap: X.scuff, bumpScale: 0.25, envMapIntensity: 1.6 });
+    set(M.chip, { roughness: 0.25, envMapIntensity: 2.0 });
   }
   return M;
 }
@@ -167,7 +182,7 @@ export function bunkhouse(M) {
 }
 
 /** Recruiting post (Mercenary, Veteran; 2x2): where the locals sign on. A timber booth of the Expedition's grey boards on a
- *  stone footing: a board back wall and two short sides, oak posts carrying a high board canopy (high so the recruiter
+ *  stone footing: a board back wall and two long sides (a real hut's depth), oak posts carrying a high board canopy (high so the recruiter
  *  under it stays in the 40-degree camera's view), a plank counter across the open front with a tablet and a form, the
  *  recruiter seated behind it and one local seated before it (small seated props, no team, never units); up front, big,
  *  the notice board of pale planks facing the camera with papers pinned under a small hood, and the rack of five hi-vis
@@ -177,7 +192,7 @@ export function bunkhouse(M) {
 export function recruitingPost(M) {
   ebMats(M); const g = grp();
   earth(g, M, [[-30, -20], [20, -30], [31, 2], [22, 28], [-24, 31], [-31, 8]]);
-  const X = -2, Z = -10, W = 26, D = 12, H = 10, CZ = Z + D / 2;                                                                   // the booth; CZ its open front
+  const X = -2, Z = -12, W = 26, D = 22, H = 12, CZ = Z + D / 2;                                                                   // the booth; CZ its open front (the depth pass, 2026-11-11: 12 deep and 10 tall it read as one wall under a canopy at its angle; 22 deep and 12 tall its east wall shows)
   add(g, rbox(W + 2.6, 2.4, D + 2.6, 0.4), M.stone, X, 1.6, Z);
   add(g, rbox(W, H, 1.2, 0.3), M.planks, X, H / 2 + 2, Z - D / 2 + 0.6);                                                             // the back wall
   for (const sx of [-1, 1]) add(g, rbox(1.2, H, D - 4, 0.3), M.planks, X + sx * (W / 2 - 0.6), H / 2 + 2, Z - 2);                     // short side walls
@@ -457,5 +472,101 @@ export function portal(M) {
     add(g, rbox(RW + 0.8, 1.0, 1.8, 0.2), M.ramp, PX, 1.3, RZ0 + RL + 0.6);
     add(g, cyl(2.4, 2.4, 2.0, 12), M.oakPale, BX - 7, 3.2, BZ + 5, 0, 0, Math.PI / 2); add(g, cyl(1.6, 1.6, 2.3, 10), M.cable, BX - 7, 3.2, BZ + 5, 0, 0, Math.PI / 2);
   }
+  return g;
+}
+
+// ---- the Data center (the Expedition's main building, 4x4; the code names stay hall / conflux), 2026-11-11 ----
+// Stelian's brief: a server hall with a rack-light glow, the glow cyan neon (bright, saturated, apart from the kingdom's
+// royal blue), LED strips and rack panels; a big microchip motif on the roof, readable at 1x; team on flags and trim only;
+// nothing in front (no crates, no props); and, as an option, a clean dark block with the neon on its edges and seams,
+// rack-panel faces and the chip glowing on top, about Castle height. Both were drawn and rendered small; Stelian picked
+// the server hall (retheme.js RT_BUILDINGS.ex.hall); the block stays for the record, in tools/art/retheme-datacenter.mjs's picture.
+/** A face of rack panels on a wall `L` long and `H` tall (local x along the face, +z out of it; `ry` turns the group so
+ *  +z is the face's normal): a dark skirting band, rows of rack panels between dark mullions, a cyan LED strip over
+ *  each row with a soft halo. `rows` are [y0, h] pairs; `cols` the bay count. */
+function rackFace(g, M, x, y0, z, ry, L, rows, cols, skirt = 9) {
+  const f = grp(); f.position.set(x, y0, z); f.rotation.y = ry; g.add(f);
+  add(f, rbox(L - 1, skirt, 1.0, 0.2), M.trim, 0, skirt / 2, 0.4);                                                   // the skirting band
+  const m = 5, bw = (L - 2 * m) / cols;
+  for (const [ry0, rh] of rows) {
+    for (let k = 0; k < cols; k++) add(f, rbox(bw - 2.6, rh, 1.0, 0.25), M.rackPanel, -L / 2 + m + bw * (k + 0.5), ry0 + rh / 2, 0.5);
+    for (let k = 0; k <= cols; k++) add(f, rbox(1.4, rh + 1.2, 1.3, 0.2), M.trim, -L / 2 + m + bw * k, ry0 + rh / 2, 0.55);        // the mullions
+    add(f, rbox(L - 2 * m + 1.2, 0.8, 1.0, 0.2), M.neon, 0, ry0 + rh + 1.0, 0.6); add(f, rbox(L - 2 * m + 2.4, 2.8, 1.4, 0.4), M.neonHalo, 0, ry0 + rh + 1.0, 0.7); // the LED strip over the row, and its glow
+  }
+  return f;
+}
+/** The microchip motif, lying flat with its centre at (x, y, z): a dark square package with rows of pale steel pins out
+ *  of all four sides, a glowing cyan die in the middle with a hot centre, cyan traces from the die to each side's pins,
+ *  a soft halo over it all. `s` is the package's side. From the camera: a dark square fringed with pale teeth and a
+ *  cyan square glowing in its middle, lines running out of it. */
+function microchip(g, M, x, y, z, s) {
+  const c = grp(); c.position.set(x, y, z); g.add(c);
+  add(c, rbox(s, 2.6, s, 0.4), M.chip, 0, 1.3, 0);
+  const n = 9, step = (s - 8) / (n - 1), pin = 6.0;
+  for (let k = 0; k < n; k++) { const u = -(s - 8) / 2 + k * step; for (const sg of [-1, 1]) { add(c, rbox(2.2, 1.0, pin, 0.2), M.paleSteel, u, 0.9, sg * (s / 2 + pin / 2 - 1)); add(c, rbox(pin, 1.0, 2.2, 0.2), M.paleSteel, sg * (s / 2 + pin / 2 - 1), 0.9, u); } } // the pins, all four sides
+  const d = s * 0.42, t = (s / 2 - d / 2) - 1.0;                                                                     // the die's side; a trace's length from its edge to the package's
+  add(c, rbox(d, 1.6, d, 0.3), M.neon, 0, 3.3, 0); add(c, rbox(d * 0.4, 0.6, d * 0.4, 0.2), M.neonCore, 0, 4.3, 0);
+  for (const u of [-0.32, -0.16, 0, 0.16, 0.32].map(v => v * d)) for (const sg of [-1, 1]) { add(c, rbox(t, 0.5, 1.0, 0.1), M.neon, sg * (d / 2 + t / 2), 2.9, u); add(c, rbox(1.0, 0.5, t, 0.1), M.neon, u, 2.9, sg * (d / 2 + t / 2)); } // the traces
+  add(c, sph(d * 0.8, 10, 8), M.neonHalo, 0, 3.4, 0).scale.set(1.3, 0.3, 1.3);
+  return c;
+}
+/** A neon rail (an edge or a seam): a thin bright bar from a to b with its halo. */
+function neonRail(g, M, a, b, r = 0.55) { limb(g, a, b, r, M.neon); limb(g, a, b, r * 2.4, M.neonHalo); }
+
+/** The option not taken, the block (`dataBlock`): a clean charcoal block 100 x 94 and 64 tall on a dark stone course,
+ *  cyan neon along its vertical edges and the roof's edges, rack panels in three rows of five bays on the south and
+ *  east faces (the camera's) with a cyan LED strip over each row, a dark door with a lit lintel in the south face, a
+ *  team trim band round the top between ink lines, and the microchip lying flat over most of the roof, its die glowing;
+ *  two team flags on masts at the south corners hanging over the face. No yard, nothing in front. From the camera: a
+ *  dark block edged in cyan with glowing lines across it, a chip glowing on its lid, two flags. */
+export function dataBlock(M) {
+  ebMats(M); const g = grp();
+  earth(g, M, [[-56, -50], [50, -56], [58, -8], [54, 50], [6, 58], [-50, 54], [-59, 4]], 1, 2);
+  const W = 100, D = 94, H = 64, Y0 = 3, TOP = Y0 + H;
+  add(g, rbox(W + 6, Y0, D + 6, 0.5), M.stone, 0, Y0 / 2, 0);
+  add(g, rbox(W, H, D, 1.0), M.block, 0, Y0 + H / 2, 0);
+  const ROWS = [[10.5, 13.5], [25.5, 13.5], [40.5, 11.5]];
+  rackFace(g, M, 0, Y0, D / 2, 0, W, ROWS, 5); rackFace(g, M, W / 2, Y0, 0, Math.PI / 2, D, ROWS, 5);
+  add(g, rbox(8, 9, 1.6, 0.3), M.inkLine, 0, Y0 + 4.5, D / 2 + 0.6); add(g, rbox(9, 0.7, 1.2, 0.2), M.neon, 0, Y0 + 9.4, D / 2 + 0.9); // the door, a lit lintel
+  add(g, rbox(W + 1.0, 2.6, D + 1.0, 0.1), M.paint, 0, Y0 + 55.4, 0); for (const y of [Y0 + 53.9, Y0 + 56.9]) add(g, rbox(W + 1.2, 0.5, D + 1.2, 0.05), M.inkLine, 0, y, 0); // the team trim band, between ink lines
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) neonRail(g, M, [sx * W / 2, Y0 + 0.5, sz * D / 2], [sx * W / 2, TOP + 0.3, sz * D / 2]); // the vertical edges
+  for (const sz of [-1, 1]) neonRail(g, M, [-W / 2, TOP + 0.3, sz * D / 2], [W / 2, TOP + 0.3, sz * D / 2]); for (const sx of [-1, 1]) neonRail(g, M, [sx * W / 2, TOP + 0.3, -D / 2], [sx * W / 2, TOP + 0.3, D / 2]); // the roof's edges
+  microchip(g, M, 0, TOP, 0, 56);
+  flag(g, M, -W / 2 - 2.6, Y0, D / 2 + 2.6, 78, 28, 18); flag(g, M, W / 2 + 2.6, Y0, D / 2 + 2.6, 70, 24, 16);
+  return g;
+}
+
+/** Data center, the server hall (`serverHall`, Stelian's pick): a long low charcoal hall 108 x 62 and 30 tall under a flat
+ *  roof, its south face open across the middle (a bay 60 wide, 20 tall) on a row of six racks inside, each lit by two
+ *  cyan strips, the bay's ceiling glowing; rack panels either side of the bay, cyan LED strips along the lintel and the
+ *  eave, a team trim band on the parapet between ink lines; the microchip lying flat on the roof, its die glowing; two
+ *  team flags on masts at the north corners, above the roof. Nothing in front. From the camera: a long dark box with a
+ *  glowing opening full of racks, a chip on its roof, two flags. */
+export function serverHall(M) {
+  ebMats(M); const g = grp();
+  earth(g, M, [[-62, -42], [56, -50], [64, -4], [60, 44], [4, 52], [-54, 48], [-65, 6]], 1, 2);
+  const W = 108, D = 62, H = 30, Y0 = 3, TOP = Y0 + H, BW = 60, BH = 20, BD = 12;
+  add(g, rbox(W + 6, Y0, D + 6, 0.5), M.stone, 0, Y0 / 2, 0);
+  add(g, rbox(W, H, D - BD, 1.0), M.block, 0, Y0 + H / 2, -BD / 2);                                                  // the hall behind the bay's depth
+  for (const sx of [-1, 1]) add(g, rbox((W - BW) / 2, H, BD + 0.2, 0.6), M.block, sx * (W + BW) / 4, Y0 + H / 2, D / 2 - BD / 2); // the walls either side of the bay
+  add(g, rbox(BW + 2, H - BH, BD + 0.2, 0.4), M.block, 0, Y0 + BH + (H - BH) / 2, D / 2 - BD / 2);                      // over the bay
+  add(g, rbox(BW, 0.8, BD, 0.2), M.deck, 0, Y0 + 0.4, D / 2 - BD / 2);                                                // the bay's floor
+  add(g, rbox(BW - 2, 1.0, BD - 2, 0.3), M.neonHalo, 0, Y0 + BH - 0.8, D / 2 - BD / 2);                                // the bay's ceiling glow
+  add(g, rbox(BW, 0.8, 1.0, 0.2), M.neon, 0, Y0 + BH - 0.6, D / 2 - BD + 0.6);                                        // a strip along the back of the ceiling
+  for (let k = 0; k < 6; k++) { // the racks inside: charcoal cabinets, slotted fronts, two cyan strips and a LED each
+    const x = -25 + k * 10, z = D / 2 - BD + 4.5;
+    add(g, rbox(7.4, 17, 7, 0.4), M.rackSide, x, Y0 + 8.5, z); add(g, rbox(6.4, 15.6, 0.8, 0.2), M.rackPanel, x, Y0 + 8.6, z + 3.6);
+    for (const dx of [-2.4, 2.4]) add(g, rbox(0.7, 15, 0.6, 0.1), M.neon, x + dx, Y0 + 8.6, z + 3.9);
+    add(g, rbox(6.8, 16, 1.2, 0.3), M.neonHalo, x, Y0 + 8.6, z + 4.2);
+    led(g, M, 0.35, x, Y0 + 16.4, z + 3.9);
+  }
+  for (const sx of [-1, 1]) rackFace(g, M, sx * (W + BW) / 4, Y0, D / 2, 0, (W - BW) / 2, [[6, 10], [18, 8]], 1, 5);     // panels either side of the bay
+  add(g, rbox(BW + 4, 0.9, 1.2, 0.2), M.neon, 0, Y0 + BH + 0.8, D / 2 + 0.7); add(g, rbox(BW + 6, 3, 1.4, 0.4), M.neonHalo, 0, Y0 + BH + 0.8, D / 2 + 0.8); // the lintel strip
+  for (const sx of [-1, 1]) add(g, rbox(1.6, BH + 1, 1.6, 0.3), M.trim, sx * (BW / 2 + 0.8), Y0 + BH / 2, D / 2 + 0.4); // the bay's jambs
+  neonRail(g, M, [-W / 2, TOP + 0.3, D / 2], [W / 2, TOP + 0.3, D / 2]); for (const sx of [-1, 1]) neonRail(g, M, [sx * W / 2, TOP + 0.3, -D / 2], [sx * W / 2, TOP + 0.3, D / 2]); // the eave's edges
+  for (const sx of [-1, 1]) neonRail(g, M, [sx * W / 2, Y0 + 0.5, D / 2], [sx * W / 2, TOP + 0.3, D / 2]);              // the front corners
+  add(g, rbox(W + 1.0, 2.4, D + 1.0, 0.1), M.paint, 0, TOP + 1.6, 0); for (const y of [TOP + 0.3, TOP + 2.9]) add(g, rbox(W + 1.2, 0.5, D + 1.2, 0.05), M.inkLine, 0, y, 0); // the parapet, the team trim band
+  microchip(g, M, 0, TOP + 3.0, -3, 44);
+  flag(g, M, -W / 2 - 2.6, Y0, -D / 2 - 2.6, 56, 28, 18); flag(g, M, W / 2 + 2.6, Y0, -D / 2 - 2.6, 50, 24, 16);
   return g;
 }

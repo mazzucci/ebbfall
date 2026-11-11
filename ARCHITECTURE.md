@@ -8,9 +8,9 @@ when you add, move or remove a file.
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
 and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
-over ten `e2e` jobs, summed up by `e2e: all`; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
+over four `e2e` jobs; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
 which hold neither a merge nor a deploy (`arm` since 2026-11-04, `engines` since 2026-11-07) and are read by hand: the
-ruleset requires build, rust and e2e (1) to (4), to become build, rust and `e2e: all`, and `relay` and `deploy` wait on the same) on every pull request, and publishes
+ruleset requires build, rust and e2e (1) to (4), and `relay` and `deploy` wait on the same) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
 Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
@@ -407,8 +407,6 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
                       file of dist/ but source maps and WEB_ONLY
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
-tools/icon-review.mjs a review sheet of the icon at 16 to 512 px, the inline favicon, mock tabs and home screens, to judge it
-                      at actual size (target/icon-review/sheet.png); not committed output
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colours to stay small; output committed
 public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for
@@ -419,8 +417,9 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
                       its models, `atlasSprites` renders them under today's names; `BLDG_YAW` gives each building its
                       fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
-                      than the square model's, the round towers and the Data center square): the kingdom (kingdom.js,
-                      kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
+                      than the square model's, the round towers square): the kingdom (kingdom.js,
+                      kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js; its Data center the server hall of
+                      expedition-buildings.js, Stelian's pick of 2026-11-11, the block drawn beside it kept for the record only), the countryside's gold,
                       props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
                       render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
                       units alike, no baked chimney smoke) at the game's 40-degree camera and 420 sun. The older models
@@ -430,7 +429,9 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
                       light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures
-                      (retheme-*.mjs, battle-shots.mjs); see Notion: Ebbfall art
+                      (retheme-*.mjs, battle-shots.mjs; retheme-datacenter.mjs: the Data center's two options at their
+                      angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
+                      building); see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 ```
 

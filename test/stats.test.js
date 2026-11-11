@@ -58,8 +58,9 @@ test('what a unit hits, and damage that differs on the ground and in the air', (
   const both = Object.keys(UNITS).find(k => !UNITS[k].weapon?.siege && UNITS[k].weapon?.dmg && UNITS[k].weapon.dmgAir && UNITS[k].weapon.dmg !== UNITS[k].weapon.dmgAir);
   assert.ok(both, 'a unit with different ground and air damage');
   assert.equal(statRows(both)[1][0].text, `${UNITS[both].weapon.dmg} · ${UNITS[both].weapon.dmgAir} air`);
+  // (one figure for both, when a unit has the same: none since the hired guns went melee)
   const same = Object.keys(UNITS).find(k => UNITS[k].weapon?.dmg && UNITS[k].weapon.dmg === UNITS[k].weapon.dmgAir);
-  assert.equal(statRows(same)[1][0].text, String(UNITS[same].weapon.dmg), `${same}: one figure for both`);
+  if (same) assert.equal(statRows(same)[1][0].text, String(UNITS[same].weapon.dmg), `${same}: one figure for both`);
 });
 
 test('the Trebuchet shows its one gun, which fires only set up', () => {

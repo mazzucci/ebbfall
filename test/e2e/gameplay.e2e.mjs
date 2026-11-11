@@ -2906,7 +2906,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
-test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the Factory keeps the Rover\'s slot, the Portal trains Marines', async () => {
+test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the Factory keeps the Rover\'s slot, the satellite launched opens the Uplink, the Uplink the Portal, which trains Marines', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
@@ -2936,6 +2936,14 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(post), ['bruiser', 'bruiser'], `${key} trains another`);
     await pickControls(d, 'classic');
+    // The satellite, launched from the Data center's card (L): every seat is told; then the Uplink, then the Portal.
+    const dc = myBldg(await d.state(), 'conflux')[0];
+    await d.clickEntity(dc.id);
+    await d.readyCard('Satellite');
+    await d.key('l');
+    assert.ok(await d.skipUntil(() => endfall.G.upgrades[endfall.G.me].satellite > 0, null, { seconds: 90 }), 'the satellite launched');
+    assert.ok((await d.toasts()).some(t => /The Expedition launched a satellite\./.test(t)), `the launch told (toasts: ${(await d.toasts()).join(' | ')})`);
+    await buildAndFinish(d, 'u', 'uplink', 0, V);
     const portal = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
     await d.clickEntity(portal.id);
     await d.readyCard('Marine');

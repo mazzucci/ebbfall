@@ -59,10 +59,24 @@ Object.assign(RT_BUILDINGS.ex, {
   // population building (the "Cabin"), the big khaki tent the Recruiting post.
   bunkhouse: { build: EB.recruitingPost, n: 2, h: 34 }, post: { build: EB.bunkhouse, n: 2, h: 46 }, factory: { build: EB.factory, n: 3, h: 44 },
   lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.radioTower, n: 2, h: 62 }, portal: { build: EB.portal, n: 2, h: 46 },
+  // A1 (2026-11-11): the Wind turbine (the Power source, to replace the Cabin under `spire`; `windfarm` the other
+  // option, three small turbines on one pad, kept for the pictures) and the Uplink (3x3, the sim key `uplink`).
+  turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 56 },
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
- *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. */
-export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 } } };
+ *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
+ *  is a rotor: its 16 frames are phases of a third of a turn about its own axis (three blades repeat every third), the
+ *  builder taking the phase, and nothing turns it about the vertical; its base is square (BLDG_YAW 0), so the head
+ *  needs no fit. The turbines' rotors (expedition-buildings.js `turbineRotor`, `windFarmRotor`). */
+export const RT_HEADS = {
+  kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
+  ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true } },
+};
+/** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
+function head(b, mats, dir) {
+  if (b.spin) return b.build(mats, dir / FACINGS * Math.PI * 2 / 3);
+  const obj = b.build(mats); obj.rotation.y = -dir / FACINGS * Math.PI * 2; return obj;
+}
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
 /** The buildings turned about the vertical, in degrees, one fixed angle per type (Stelian, 2026-11-11, after the yaw
@@ -80,7 +94,7 @@ const FACINGS = 16;
  *  building (look.js BLDG_LOOK) are measured on the turned model. */
 export const BLDG_YAW = {
   kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20 },
+  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 20 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;
@@ -154,8 +168,7 @@ export function* rethemeSprites(want, opts = {}) {
     }
     for (const [kind, b] of Object.entries(RT_HEADS[side])) for (let dir = 0; dir < FACINGS; dir++) {
       const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;
-      const obj = b.build(mats()); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
-      yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
+      yield [name, head(b, mats(), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
     }
   }
   if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL, !!opts.polish)), unitCell(30, 12, lift), o, false];
@@ -217,10 +230,9 @@ export function* atlasSprites(want = () => true) {
     const [obj, cell, turn] = building(side, model, mats(side), lift);
     yield [name, obj, cell, o, true, { turn }];
   }
-  for (const [head, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
-    const b = RT_HEADS[side][model], name = `${head}_${dir}`; if (!want(name)) continue;
-    const obj = b.build(mats(side)); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
-    yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true]; // (drawn over its base, which has the shadow)
+  for (const [name0, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
+    const b = RT_HEADS[side][model], name = `${name0}_${dir}`; if (!want(name)) continue;
+    yield [name, head(b, mats(side), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true]; // (drawn over its base, which has the shadow)
   }
   for (const [prefix, [side, kind]] of Object.entries(ATLAS_SITES)) for (const n of [2, 3, 4]) {
     const name = `${prefix}_${n}`; if (!want(name)) continue;

@@ -277,7 +277,7 @@ liveTest('three seats, one the AI\'s: both clients run its game alike, and the A
   } finally { await m.done(); }
 });
 
-liveTest('two people against two AIs at different levels (Easy and Brutal): one side, every client the same game', { skip, timeout: 60000 }, async () => {
+liveTest('two people against two AIs at different levels (Easy and Hard, the sim\'s 3): one side, every client the same game', { skip, timeout: 60000 }, async () => {
   // (the host moves the friend to its side, then adds the two AIs on the other, each at its own level)
   const m = await match({}, (net) => { net.side(1, 0); net.add(1, true, 'humans', 0); net.add(1, true, 'vael', 3); net.map(5); });
   const { a, b } = m;

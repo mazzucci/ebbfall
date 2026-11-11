@@ -1,6 +1,6 @@
 // Game data as the client sees it. Every number comes from the Rust sim (crates/endfall-sim/src/data/, exported
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
-// Costs are [salt, 0] (the second slot was ether, gone with the conversion). Distances are in tiles unless named otherwise; speeds in px/s.
+// Costs are [gold, 0] (the second slot was ether, gone with the conversion). Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
 import { DIFF_NAMES, plural } from './util.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
@@ -24,49 +24,50 @@ export const TECH_BUILD = D.consts.tech_build;
  *  past its edge (`leash`, tiles). */
 export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
 
-/** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does;
+/** Hotkeys, descriptions and `what` (a short line, a verb first and about 25 characters, under the health bar on the selection console;
+ *  none for a kind players cannot get),
+ *  by kind key (the numbers and names are the sim's). A description says what the unit does;
  *  its partner and its killer are a line of their own (`PAIRS`), the counters made visible. */
 const UNIT_TEXT = {
-  // the Kingdom (sim race `humans`; display names stay the sim's until the words PR)
-  harvester: { hot: 'G', desc: 'Mines salt. Builds structures and repairs them.' },
-  trooper: { hot: 'K', desc: 'Spear infantry, cheap and steady. Fights up close, the ground only. Braces once Sandbags is researched.' },
-  lancer: { hot: 'H', desc: 'Slow-firing archer whose shot reaches ground and air and hits flyers hard. What it hits moves at half speed and uses no ability for 3 s.' },
+  // the Kingdom (sim race `humans`)
+  harvester: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds and repairs.' },
+  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Spearman, cheap and steady. Fights up close, ground only. Can Brace (no moving, more armor) after Shield Drill.' },
+  lancer: { hot: 'H', what: 'Shoots ground and air', desc: 'Shoots ground and air, hits flyers hard. What it hits slows down for 3 s.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
-  observer: { hot: 'S', desc: 'Unarmed flying scout. Slow, sees far, floats over cliffs.' },
-  siegeTank: { hot: 'A', desc: 'Siege engine. Sets up by itself where it stops and hurls from afar with heavy splash, but not up close; it cannot fire on the move.' },
-  bastion: { hot: 'B', desc: 'Bolt thrower on wheels: the answer to flyers, and its bolts reach the ground too, lighter.' },
-  rider: { hot: 'E', desc: 'Fast light cavalry. Raids workers. Faster once Tailwind is researched.' },
-  knight: { hot: 'N', desc: 'Heavy cavalry in plate: tough, and hits hard up close.' },
+  observer: { hot: 'S', what: 'Scouts far, unarmed', desc: 'Unarmed. Slow, sees far, floats over cliffs.' },
+  siegeTank: { hot: 'A', what: 'Hurls stones from afar', desc: 'Sets up where it stops and hurls stones far, with splash. Can\'t hit anything close.' },
+  bastion: { hot: 'B', what: 'Shoots down flyers', desc: 'Bolt thrower on wheels: the answer to flyers, and it hits the ground too.' },
+  rider: { hot: 'E', what: 'Raids workers, fast', desc: 'Fast light cavalry that raids workers. Faster after Horseshoes.' },
+  knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Heavy cavalry in plate: tough, hits hard up close.' },
   // the Expedition (`vael`)
-  lumen: { hot: 'G', desc: 'Mines salt. Builds structures, staying with each until it stands. A machine: slower out of range.' },
-  scythe: { hot: 'N', desc: 'Fast raider vehicle with a light gun. Raids workers. Cannot hit flyers. A machine: slower out of range.' },
-  prism: { hot: 'L', desc: 'Soldier for hire who fires at ground and air: the Expedition\'s line and its answer to flyers.' },
-  monolith: { hot: 'C', desc: 'Rocket artillery: long range, fires on the move, and its rockets splash onto nearby ground units. Cannot hit flyers. A machine: slower out of range.' },
-  shrike: { hot: 'E', desc: `Fast low flyer. Hits ground and air, raids workers. Faster once Spindrift is researched. A machine: slower out of range, and goes at most ${D.radio.leash} tiles past it.` },
-  halo: { hot: 'T', desc: 'Unarmed. Mends nearby allies, even under fire.' },
-  umbra: { hot: 'U', desc: 'Elite soldier: long reach, hits hard, ground and air.' },
-  bruiser: { hot: 'B', desc: 'A hired local with a riot shield and a heavy gun: the toughest on foot. Cannot hit flyers.' },
+  lumen: { hot: 'G', what: 'Mines gold, builds', desc: 'Mines gold. Stays at each building until it stands. A machine: slower out of radio range.' },
+  scythe: { hot: 'N', what: 'Raids workers, fast', desc: 'Fast raider with a light gun. Can\'t hit flyers. A machine: slower out of radio range.' },
+  prism: { hot: 'L', what: 'Shoots ground and air', desc: 'Hired local mercenary with a rifle. Shoots ground and air: the Expedition\'s line and its answer to flyers.' },
+  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Rocket artillery: long range, fires on the move, splashes nearby ground units. Can\'t hit flyers. A machine: slower out of radio range.' },
+  shrike: { hot: 'E', what: 'Flies fast, raids workers', desc: `Fast low flyer. Hits ground and air, raids workers. Faster after Overclock. A machine: slower out of radio range, and goes at most ${D.radio.leash} tiles past it.` },
+  halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
+  umbra: { hot: 'U', what: 'Strikes hard from range', desc: 'Elite soldier: long reach, hits hard, ground and air.' },
+  bruiser: { hot: 'B', what: 'Tanks hits, can\'t hit flyers', desc: 'Hired local mercenary with a riot shield and a heavy gun: the toughest on foot. Can\'t hit flyers.' },
 };
+// ("Needs a X." is added from the tables, so a description never names its requirement itself.)
 const BLDG_TEXT = {
-  core: { hot: 'L', desc: 'Trains Riggers. Salt drop-off. +20 population.' },
-  depot: { hot: 'W', desc: '+8 population.' },
+  core: { hot: 'L', what: 'Trains Villagers, stores gold', desc: 'Trains Villagers and stores gold. +20 population.' },
+  depot: { hot: 'W', what: 'Supplies +8 population', desc: '+8 population.' },
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
-  extractor: { hot: 'X', verb: 'earns', doing: 'Earning', desc: 'Built in your base: earns salt by itself, half a salt a second, with no workers. One per Lighthouse.' },
-  barracks: { hot: 'C', desc: 'Trains Pickets and Harpooners.' },
-  forge: { hot: 'K', desc: 'Researches Weapons, Plating, Sandbags and All Hands; unlocks Knights and the Slipway\'s machines.' },
-  factory: { hot: 'S', desc: 'Builds the machines, Windjammers and Anchor Guns (both need a Workshop), and the Spyglass.' },
-  turret: { hot: 'O', desc: 'Static defence against ground and air.' },
-  airfield: { hot: 'F', desc: 'Trains Riders, and Knights (they need a Workshop). Researches Tailwind.' }, // ("Requires Excavator." added from the tables)
+  extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle.' },
+  barracks: { hot: 'C', what: 'Trains Guards and Archers', desc: 'Trains Guards and Archers.' },
+  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor, Shield Drill and Master Builders. Unlocks Knights, Trebuchets and Ballistas.' },
+  factory: { hot: 'S', what: 'Builds siege and Balloon', desc: 'Builds Ballistas, Trebuchets and the Balloon.' },
+  turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Archers on a tower. Shoots ground and air.' },
+  airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', desc: `Trains Glints. Salt drop-off. +20 population. Gives your machines range ${D.radio.sources.conflux} tiles around it.` },
-  spire: { hot: 'S', desc: '+8 population.' },
-  // (still on a mine shaft until the economy PR, which frees it of the shaft and its salt)
-  siphon: { hot: 'I', desc: 'Recruits Lenses, and Bruisers (they need a Glasshouse). Build as many as you like, anywhere.' },
-  kiln: { hot: 'C', desc: 'Builds Needles, Conchs and Petrels (Conchs need a Glasshouse).' },
-  loom: { hot: 'G', desc: 'Researches Weapons, Plating and Spindrift; unlocks Conchs and Bruisers.' },
-  ward: { hot: 'A', desc: `Sentinel against ground and air. Gives your machines range ${D.radio.sources.ward} tiles around it.` },
-  // (its name is the sim's, vael.rs: the words here never repeat it)
-  eclipse: { hot: 'D', desc: 'Trains Undertows.' },
+  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +20 population. Radio range ${D.radio.sources.conflux} tiles.` },
+  spire: { hot: 'S', what: 'Supplies +8 population', desc: '+8 population.' },
+  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.' },
+  kiln: { hot: 'C', what: 'Builds Buggies, Rovers, Drones', desc: 'Builds Buggies, Rovers and Drones.' },
+  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Overclock. Unlocks Rovers and Bruisers.' },
+  ward: { hot: 'A', what: 'Powers machines nearby', desc: `Guns on a mast. Shoots ground and air. Radio range ${D.radio.sources.ward} tiles.` },
+  eclipse: { hot: 'D', what: 'Trains Marines', desc: 'Trains Marines.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' } };
@@ -83,17 +84,17 @@ export const PAIRS = {
 };
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
 export const UNITS = merge(D.units, UNIT_TEXT);
-/** A unit's partner and killer as one line ("Best with Harpooners. Beaten by Conchs."), or '' for a worker. */
+/** A unit's partner and killer as one line ("Best with Archers. Beaten by Rovers."), or '' for a worker. */
 export function pairLine(k) {
   const p = PAIRS[k];
   return p ? `Best with ${plural(UNITS[p[0]].name)}. Beaten by ${plural(UNITS[p[1]].name)}.` : '';
 }
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
-// "Requires X." comes from the tables, so it can never name the wrong building.
-for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) d.desc += ` Requires ${D.buildings[d.req].name}.`;
+// "Needs a X." comes from the tables, so it can never name the wrong building.
+for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) { const n = D.buildings[d.req].name; d.desc += ` Needs ${/^[AEIOU]/.test(n) ? 'an' : 'a'} ${n}.`; }
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
-/** Team-wide upgrades; per level: cost [salt, 0], seconds. */
+/** Team-wide upgrades; per level: cost [gold, 0], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
@@ -105,7 +106,7 @@ export const kindsOf = (f) => { const b = [f.hq, ...f.buildBasic, ...f.buildAdva
 export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage per level: ' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
   .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? ` (light gun +${UNITS[t].light.upDmg})` : ''}`).join(', ') + '.';
 const ABILITY_TEXT = {
-  entrench: { hot: 'D', desc: 'Brace: 4 more armour, but no moving, until you lift it (1 s each way).' },
+  entrench: { hot: 'D', desc: 'Brace: 4 more armor, but no moving, until you lift it (1 s each way).' },
   deploy: { desc: 'Sets up whenever it stops (3 s, no moving or firing meanwhile), and packs up when it has to move: it fires only set up.' },
 };
 /** Unit abilities, with their hotkeys and descriptions: one tap each on the card, but for an automatic one (`auto`:

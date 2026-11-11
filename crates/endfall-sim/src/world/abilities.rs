@@ -35,7 +35,7 @@ impl World {
             });
         }
         if u.slowed > 0.0 {
-            return Err("Harpooned: no abilities while slowed".into());
+            return Err("Slowed: no abilities until it wears off".into());
         }
         Ok(())
     }

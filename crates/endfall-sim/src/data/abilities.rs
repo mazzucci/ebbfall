@@ -49,7 +49,7 @@ const ENTRENCH: AbilityDef = AbilityDef {
 /// nothing is left in reach or it is sent to move), never on an order.
 const DEPLOY: AbilityDef = AbilityDef {
     key: "deploy",
-    name: "Drop Anchor",
+    name: "Set Up",
     toggle: true,
     auto: true,
     cooldown: 0.0,

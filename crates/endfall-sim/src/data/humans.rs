@@ -1,12 +1,12 @@
 //! The Kingdom (sim race `humans`; the Harbour before the re-theme): the Castle, villagers that build and repair,
 //! Guards and Archers from the Barracks, Riders and Knights from the Stables, Ballistas, Trebuchets and the Balloon from
-//! the Workshop, and Towers. Display names stay the old ones until the words PR (keys never change).
+//! the Workshop, and Towers. Keys never change; the names are display strings only.
 
 use super::*;
 
 pub const HUMANS: Faction = Faction {
     key: "humans",
-    name: "Harbour",
+    name: "Kingdom",
     hq: BldgKind::Core,
     worker: UnitKind::Harvester,
     // The basic page holds what can be built from the start (the Core too), the Crew Hall first; the advanced page
@@ -52,7 +52,7 @@ pub const HUMANS: Faction = Faction {
 
 pub(super) const HARVESTER: UnitDef = UnitDef {
     key: "harvester",
-    name: "Rigger",
+    name: "Villager",
     worker: true,
     cost: [50, 0],
     hp: 40.0,
@@ -72,7 +72,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
 /// takes the charge: +4 armour, no moving.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
-    name: "Picket",
+    name: "Guard",
     cost: [50, 0],
     hp: 60.0,
     armor: 1.0,
@@ -94,7 +94,7 @@ pub(super) const TROOPER: UnitDef = UnitDef {
 /// shot still slows what it hits: `Weapon::slow`).
 pub(super) const LANCER: UnitDef = UnitDef {
     key: "lancer",
-    name: "Harpooner",
+    name: "Archer",
     cost: [75, 0],
     hp: 60.0,
     speed: 88.0,
@@ -118,7 +118,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
 /// side sees. Packed up it has no weapon.
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
-    name: "Anchor Gun",
+    name: "Trebuchet",
     cost: [175, 0],
     supply: 3,
     hp: 140.0,
@@ -147,7 +147,7 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
 /// ground less.
 pub(super) const BASTION: UnitDef = UnitDef {
     key: "bastion",
-    name: "Windjammer",
+    name: "Ballista",
     cost: [125, 0],
     supply: 2,
     hp: 120.0,
@@ -171,7 +171,7 @@ pub(super) const BASTION: UnitDef = UnitDef {
 /// A healer: in the tables (the heal rules keep their tests), trained nowhere since the re-theme.
 pub(super) const MEDIC: UnitDef = UnitDef {
     key: "medic",
-    name: "Mender",
+    name: "Healer",
     cost: [50, 0],
     hp: 45.0,
     speed: 90.0,
@@ -184,7 +184,7 @@ pub(super) const MEDIC: UnitDef = UnitDef {
 /// The Balloon: an unarmed scout, slow, with a long sight; the Kingdom's only flyer. Seen and shot like any flyer.
 pub(super) const OBSERVER: UnitDef = UnitDef {
     key: "observer",
-    name: "Spyglass",
+    name: "Balloon",
     cost: [50, 0],
     hp: 60.0,
     speed: 70.0,
@@ -242,7 +242,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
 pub(super) const CORE: BldgDef = BldgDef {
     key: "core",
     hq: true,
-    name: "Lighthouse",
+    name: "Castle",
     cost: [400, 0],
     w: 4,
     h: 4,
@@ -267,8 +267,7 @@ pub(super) const DEPOT: BldgDef = BldgDef {
 /// The Market: pays salt by itself, built in the base (no shaft since the re-theme's economy), one per Castle.
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
-    name: "Excavator",
-    short: "Excavator",
+    name: "Market",
     cost: [75, 0],
     hp: 200.0,
     build: 25.0,
@@ -280,7 +279,7 @@ pub(super) const EXTRACTOR: BldgDef = BldgDef {
 };
 pub(super) const BARRACKS: BldgDef = BldgDef {
     key: "barracks",
-    name: "Crew Hall",
+    name: "Barracks",
     cost: [150, 0],
     w: 3,
     h: 3,
@@ -288,7 +287,6 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
     build: 40.0,
     sight: 7.0,
     trains: &[UnitKind::Trooper, UnitKind::Lancer],
-    short: "Crew Hall",
     ..BLDG
 };
 pub(super) const FORGE: BldgDef = BldgDef {
@@ -299,7 +297,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
         Upgrade::Entrenching,
         Upgrade::RapidConstruction,
     ],
-    name: "Workshop",
+    name: "Blacksmith",
     cost: [150, 0],
     hp: 820.0,
     build: 45.0,
@@ -311,7 +309,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
 /// The Workshop: Ballistas, Trebuchets (both need the Forge too) and the Balloon.
 pub(super) const FACTORY: BldgDef = BldgDef {
     key: "factory",
-    name: "Slipway",
+    name: "Workshop",
     cost: [125, 0],
     w: 3,
     h: 3,
@@ -324,7 +322,7 @@ pub(super) const FACTORY: BldgDef = BldgDef {
 };
 pub(super) const TURRET: BldgDef = BldgDef {
     key: "turret",
-    name: "Lookout",
+    name: "Watchtower",
     cost: [100, 0],
     hp: 320.0,
     build: 20.0,
@@ -344,7 +342,7 @@ pub(super) const TURRET: BldgDef = BldgDef {
 /// The Stables: Riders, and Knights once the Forge stands.
 pub(super) const AIRFIELD: BldgDef = BldgDef {
     key: "airfield",
-    name: "Loft",
+    name: "Stables",
     cost: [150, 0],
     w: 3,
     h: 3,

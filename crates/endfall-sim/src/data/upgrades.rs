@@ -68,14 +68,14 @@ const WEAPONS: UpgradeDef = UpgradeDef {
 };
 const ARMOR: UpgradeDef = UpgradeDef {
     key: "armor",
-    name: "Plating",
+    name: "Armor",
     effect: Effect::Armor,
     ..WEAPONS
 };
 
 const SHIELDS: UpgradeDef = UpgradeDef {
     key: "shields",
-    name: "Hardshell",
+    name: "Shields",
     effect: Effect::Shields,
     ..WEAPONS
 };
@@ -93,7 +93,7 @@ const TECH: UpgradeDef = UpgradeDef {
 /// Sandbags: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
-    name: "Sandbags",
+    name: "Shield Drill",
     short: "",
     effect: Effect::Unlock(AbilityKind::Entrench),
     cost: [[125, 0]; 3],
@@ -102,21 +102,21 @@ const ENTRENCHING: UpgradeDef = UpgradeDef {
 };
 const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
-    name: "Tailwind",
+    name: "Horseshoes",
     short: "",
     effect: Effect::Speed(UnitKind::Rider),
     ..TECH
 };
 const SLIPSTREAM: UpgradeDef = UpgradeDef {
     key: "slipstream",
-    name: "Spindrift",
+    name: "Overclock",
     effect: Effect::Speed(UnitKind::Shrike),
     ..TECH
 };
 
 const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     key: "rapidConstruction",
-    name: "All Hands",
+    name: "Master Builders",
     short: "",
     effect: Effect::BuildSpeed,
     ..TECH

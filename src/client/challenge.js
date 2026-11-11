@@ -14,7 +14,7 @@
 // version included, opens the plain menu). <kind> is one digit: a tenth map kind needs version 2.
 // Pure: no DOM, no WASM (test/challenge.test.js; the site's Worker imports it).
 import { MAPS, MAP_KINDS, RANDOM_KINDS, seatsOf, mapName } from './maps.js';
-import { DIFF_NAMES } from '../engine/util.js';
+import { DIFF_NAMES, levelOf } from '../engine/util.js';
 
 /** The link's parameter. */
 export const PARAM = 'vs';
@@ -22,7 +22,7 @@ export const PARAM = 'vs';
  *  names raceTitle gives, a test keeps equal). */
 const RACE_OF = { h: 'humans', v: 'vael' };
 const LETTER = { humans: 'h', vael: 'v' };
-const RACE_TITLE = { humans: 'Harbour', vael: 'Vael' }; // (the key stays `humans`, the code's letter `h`: old links still read)
+const RACE_TITLE = { humans: 'Kingdom', vael: 'Expedition' }; // (the key stays `humans`, the code's letter `h`: old links still read)
 /** The board's spots (seats.js SPOTS). */
 const SPOTS = 8;
 /** The longest game a challenge names: just under 100 hours. */
@@ -51,7 +51,7 @@ export function encode(c) {
   if (!Number.isInteger(c.side) || c.side < 0 || !Number.isInteger(c.secs) || c.secs < 1 || c.secs > MAX_SECS) return null;
   const parts = ['1', b36(c.map), b36(c.side % (starts * at.length)), b36(c.secs), board];
   if (m.random) {
-    // (a kind the random map draws: one of the first RANDOM_KINDS, or its own, the Random Shore's)
+    // (a kind the random map draws: one of the first RANDOM_KINDS, or its own, the Random Lake's)
     const kindOk = m.kind !== undefined ? c.kind === m.kind : Number.isInteger(c.kind) && c.kind >= 0 && c.kind < RANDOM_KINDS;
     if (!kindOk || c.kind >= MAP_KINDS.length || !Number.isInteger(c.seed) || c.seed < 0 || c.seed > 0xffffffff) return null;
     parts.push(String(c.kind), b36(c.seed));
@@ -67,7 +67,9 @@ export function decode(code) {
   const spots = [...m[4].matchAll(/x|[hv][0-7][0-3]/g)].map(([t], i) => (t === 'x' ? null : { race: RACE_OF[t[0]], team: +t[1], ...(i ? { diff: +t[2] } : {}) }));
   const c = { map: parseInt(m[1], 36), side: parseInt(m[2], 36), secs: parseInt(m[3], 36), spots: Array.from({ length: SPOTS }, (_, i) => spots[i] ?? null) };
   if (m[5] !== undefined) Object.assign(c, { kind: +m[5], seed: parseInt(m[6], 36) });
-  return encode(c) === code ? c : null;
+  if (encode(c) !== code) return null;
+  for (const r of c.spots) if (r && r.diff !== undefined) r.diff = levelOf(r.diff); // (an old Hard, 2: today's Hard, 3)
+  return c;
 }
 
 /** The challenge of a game the menu played (menu.js `menu`: `map`, `kind`, `seed`, `side`; the `board` and how
@@ -95,12 +97,12 @@ function camps(c) {
   const at = c.spots.flatMap((r, i) => (r ? [r] : [])), me = at[0];
   return { mine: at.filter(r => r.team === me.team), foes: at.filter(r => r.team !== me.team) };
 }
-/** The AIs against you by level: "Brutal" (all one level) or "up to Brutal". */
+/** The AIs against you by level: "Hard" (all one level) or "up to Hard". */
 function levels(foes) {
   const ds = foes.map(r => r.diff), top = DIFF_NAMES[Math.max(...ds)];
   return ds.every(d => d === ds[0]) ? top : `up to ${top}`;
 }
-/** "a Brutal AI" ("1 Brutal AI" when `counted`), "3 Brutal AIs", "3 AIs up to Brutal". */
+/** "a Hard AI" ("1 Hard AI" when `counted`), "3 Hard AIs", "3 AIs up to Hard". */
 function ais(foes, counted = false) {
   const l = levels(foes), n = foes.length;
   return n === 1 ? `${counted ? 1 : 'a'} ${l} AI` : l.startsWith('up to') ? `${n} AIs ${l}` : `${n} ${l} AIs`;

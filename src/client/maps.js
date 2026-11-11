@@ -7,20 +7,20 @@
 // names are here too. Pure: no DOM, no WASM (test/maps.test.js; the relay checks a room's map with it too).
 import { mulberry } from '../engine/util.js';
 
+/** The Shore map's (the Lake's) story and its line in the menus. */
+const SHORE_LINE = 'A lake: each side holds a cove, with the shallows between.';
 /** Map characters, in the sim's MapKind order, with the story the end screen tells. */
 export const MAP_KINDS = [
-  { story: 'Old mining country: balanced fields and winding passes.' }, // Standard
-  { story: 'The salt here ran ten times deeper than anywhere else.' }, // DeepFields
-  { story: 'The falling sea laid bare one more mine shaft in the middle of it all, for whoever can hold it.' }, // EtherStorm
-  { story: 'Open plains: barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
-  { story: 'A labyrinth of rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
+  { story: 'Old farm country: balanced fields and winding passes.' }, // Standard
+  { story: 'The gold here ran ten times deeper than anywhere else.' }, // DeepFields
+  { story: 'The richest ground lies in the middle, for whoever can hold it.' }, // EtherStorm (Heartland in player text)
+  { story: 'Barely any rock to hide behind, so the attacks came fast.' }, // OpenPlains
+  { story: 'Rock and narrow passes, made for holding chokepoints.' }, // Labyrinth
   { story: 'Picked nearly clean long ago: small fields, expand or starve.' }, // Barren
-  { story: 'A shore and a reef: the Harbour held the cove, the Vael came up out of the shallows.' }, // Shore
+  { story: SHORE_LINE }, // Shore (the Lake in player text)
 ];
 /** The characters a random map draws from: the first six (Shore has random maps of its own, `kind` fixed). */
 export const RANDOM_KINDS = 6;
-/** The Shore map's line in the menus. */
-const SHORE_LINE = 'A shore and a reef: each side holds a cove, the reef in the shallows between.';
 
 /** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts). */
 export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];
@@ -38,7 +38,7 @@ export const MAPS = [
   // turns of the seats: every game ends, in 7 to 21 minutes, won from different starts, the worst tick under 40 ms
   // natively; two maps with the starts in the corners, one in the middles of the sides)
   { name: 'Dust Quarter', seed: 1291, kind: 0, size: 96 },
-  { name: 'Salt Crown', seed: 2940, kind: 1, size: 96 },
+  { name: 'Gold Crown', seed: 2940, kind: 1, size: 96 },
   { name: 'Long Steppe', seed: 1582, kind: 3, size: 96 },
   { name: 'Random', random: true, size: 96 },
   // (128x128, eight starts, two by each side. Picked from ten seeds per character by eight Medium AIs free for all, then
@@ -51,8 +51,8 @@ export const MAPS = [
   { name: 'Random', random: true, size: 128 },
   // (the Shore map: two starts, 64x64; a Human seat starts in its cove, a Vael seat in its reef basin; a random Shore
   // keeps its character and draws only its seed)
-  { name: 'Tidewater Reef', seed: 1, kind: 6, size: 64, line: SHORE_LINE },
-  { name: 'Random Shore', random: true, kind: 6, size: 64, line: SHORE_LINE },
+  { name: 'Mirror Lake', seed: 1, kind: 6, size: 64, line: SHORE_LINE },
+  { name: 'Random Lake', random: true, kind: 6, size: 64, line: SHORE_LINE },
 ];
 
 /** Tiles across of the smallest size that seats `players`. */

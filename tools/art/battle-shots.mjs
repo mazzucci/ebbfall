@@ -16,7 +16,7 @@
 //   base-kingdom, base-expedition   a base with every building of its people
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
-//   shore      the mixed fight on the Shore map (Tidewater Reef, chosen in the menu's map list), zoomed out to 0.75
+//   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
 // It prints, per shot, what was in flight (the projectiles by shooter) and the units on screen.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -32,7 +32,7 @@ const V_ARMY = { scythe: 2, prism: 3, bruiser: 3, umbra: 2, monolith: 1, lumen: 
 const SCENES = {
   mixed: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], shots: ['lancer', 'prism'], skip: 1 },
   'mixed-close': { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], shots: ['lancer', 'prism'], skip: 1, zoom: 1.8 },
-  shore: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], map: 'Tidewater Reef', zoom: 0.75 },
+  shore: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], map: 'Mirror Lake', zoom: 0.75 },
   kingdom: { races: ['humans', 'humans'], armies: [H_ARMY, { trooper: 5, lancer: 3, knight: 3, rider: 2, bastion: 1, siegeTank: 1 }] },
   expedition: { races: ['vael', 'vael'], armies: [V_ARMY, { scythe: 3, prism: 4, bruiser: 3, monolith: 2, umbra: 1 }] },
   'base-kingdom': { races: ['humans', 'vael'], base: true },

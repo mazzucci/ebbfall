@@ -614,10 +614,7 @@ fn a_worker_ordered_while_inside_its_mine_comes_out_and_obeys() {
         }
         assert!(went_in, "{order}: the worker goes into its mine");
         let (cx, cy) = core(&w, PLAYER);
-        let (mx, my) = (
-            (cx as f64 + 1.5) * TILE as f64,
-            (cy as f64 + 6.5) * TILE as f64,
-        );
+        let (mx, my) = ((cx as f64 + 1.5) * TILE, (cy as f64 + 6.5) * TILE);
         let cmd = match order {
             "stop" => Command::Stop { unit: h },
             _ => Command::Move {
@@ -644,7 +641,7 @@ fn a_worker_ordered_while_inside_its_mine_comes_out_and_obeys() {
         match order {
             "stop" => assert!(matches!(u.task, Task::Idle), "{:?}", u.task),
             _ => assert!(
-                (u.x - mx).hypot(u.y - my) < 2.0 * TILE as f64,
+                (u.x - mx).hypot(u.y - my) < 2.0 * TILE,
                 "it walked to where it was sent: ({}, {})",
                 u.x,
                 u.y
